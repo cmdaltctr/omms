@@ -21,24 +21,24 @@
 
 ## 2. Pi adapter
 
-- [ ] 2.1 Add a Pi extension entry point in the existing package; do not create a monorepo.
-- [ ] 2.2 Follow current Pi package conventions for extension discovery and peer/development dependencies so a second Pi runtime is not bundled.
-- [ ] 2.3 Resolve Pi `ctx.cwd` through the same shared project-root/project-identity/tag functions used by OpenCode.
-- [ ] 2.4 Implement `before_agent_start` semantic retrieval using the current prompt and project memory.
-- [ ] 2.5 Inject bounded memory/profile context through a named Pi structured prompt section or equivalent supported pre-agent surface; do not create a fake user message or replace the full prompt unnecessarily.
-- [ ] 2.6 Implement `agent_settled` as the primary automatic-capture trigger; do not use `agent_end` as the main boundary.
-- [ ] 2.7 Build the newly settled work unit from `ctx.sessionManager` active-branch entries and exclude hidden thinking/reasoning content.
-- [ ] 2.8 Define a stable live source identity from Pi session/source entry IDs and prevent repeated settled events from recapturing the same work unit.
+- [x] 2.1 Add a Pi extension entry point in the existing package; do not create a monorepo.
+- [x] 2.2 Follow current Pi package conventions for extension discovery and peer/development dependencies so a second Pi runtime is not bundled.
+- [x] 2.3 Resolve Pi `ctx.cwd` through the same shared project-root/project-identity/tag functions used by OpenCode.
+- [x] 2.4 Implement `before_agent_start` semantic retrieval using the current prompt and project memory.
+- [x] 2.5 Inject bounded memory/profile context through a named Pi structured prompt section or equivalent supported pre-agent surface; do not create a fake user message or replace the full prompt unnecessarily.
+- [x] 2.6 Implement `agent_settled` as the primary automatic-capture trigger; do not use `agent_end` as the main boundary.
+- [x] 2.7 Build the newly settled work unit from `ctx.sessionManager` active-branch entries and exclude hidden thinking/reasoning content.
+- [x] 2.8 Define a stable live source identity from Pi session/source entry IDs and prevent repeated settled events from recapturing the same work unit.
 - [ ] 2.9 Implement the Pi extraction/profile provider bridge with `ctx.model`, `ctx.modelRegistry`, and current provider-aware model-call APIs such as `streamSimple()`; validate structured results with the shared schema.
-- [ ] 2.10 Ensure extraction/profile failure does not disable local manual memory operations.
-- [ ] 2.11 Register the Pi-native `memory` tool as a thin adapter over the shared add/search/profile/list/forget/help and applicable portability operations.
-- [ ] 2.12 Persist Pi live provenance including host, session ID, source type, source entry IDs, and timestamps where available.
-- [ ] 2.13 Handle Pi compaction conservatively: preserve capture/injection continuity without replacing native compaction summarization by default.
-- [ ] 2.14 Test overflow/automatic compaction followed by retry and `agent_settled`; verify exactly one capture for the settled work unit.
-- [ ] 2.15 Close session-scoped resources on `session_shutdown` and make cleanup idempotent across quit, reload, new, resume, and fork flows.
+- [x] 2.10 Ensure extraction/profile failure does not disable local manual memory operations.
+- [x] 2.11 Register the Pi-native `memory` tool as a thin adapter over the shared add/search/profile/list/forget/help and applicable portability operations.
+- [x] 2.12 Persist Pi live provenance including host, session ID, source type, source entry IDs, and timestamps where available.
+- [x] 2.13 Handle Pi compaction conservatively: preserve capture/injection continuity without replacing native compaction summarization by default.
+- [x] 2.14 Test overflow/automatic compaction followed by retry and `agent_settled`; verify exactly one capture for the settled work unit.
+- [x] 2.15 Close session-scoped resources on `session_shutdown` and make cleanup idempotent across quit, reload, new, resume, and fork flows.
 - [ ] 2.16 Verify Pi and OpenCode can run in separate processes against the same store without corrupting shard metadata or losing writes.
 - [ ] 2.17 Add cross-host integration tests: write in Pi/read in OpenCode and write in OpenCode/read in Pi for the same project.
-- [ ] 2.18 Document Pi installation, configuration, lifecycle mapping, model-selection behavior, and shared-store expectations.
+- [x] 2.18 Document Pi installation, configuration, lifecycle mapping, model-selection behavior, and shared-store expectations.
 
 ## 3. Pi historical-session backfill
 
