@@ -73,7 +73,8 @@ export async function generateOpenCodeAutoCaptureSummary(
         );
       }
 
-      const { detectLanguage, getLanguageName } = await import("../../services/language-detector.js");
+      const { detectLanguage, getLanguageName } =
+        await import("../../services/language-detector.js");
       const targetLang =
         CONFIG.autoCaptureLanguage === "auto" || !CONFIG.autoCaptureLanguage
           ? detectLanguage(request.userPrompt)
@@ -176,8 +177,7 @@ export async function generateOpenCodeAutoCaptureSummary(
   };
 
   const aiPrompt = buildBoundedSummaryPrompt(request.context, systemPrompt, toolSchema);
-  const captureSessionID =
-    `auto-capture-${request.prompt?.id ?? request.sessionId}-${randomUUID()}`;
+  const captureSessionID = `auto-capture-${request.prompt?.id ?? request.sessionId}-${randomUUID()}`;
 
   const result = await provider.executeToolCall(
     systemPrompt,

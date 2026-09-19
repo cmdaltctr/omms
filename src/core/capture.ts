@@ -1,9 +1,6 @@
 import { memoryClient } from "../services/client.js";
 import { getTags } from "../services/tags.js";
-import {
-  buildMarkdownContext,
-  getAutoCaptureMarkdownBudget,
-} from "./capture-context.js";
+import { buildMarkdownContext, getAutoCaptureMarkdownBudget } from "./capture-context.js";
 import type {
   CaptureConversation,
   CapturePromptContext,
@@ -19,8 +16,7 @@ export interface CaptureWorkUnit extends CaptureProvenance, CaptureConversation 
 }
 
 export type CaptureResult =
-  | { status: "captured"; memoryId: string }
-  | { status: "skipped"; type?: string };
+  { status: "captured"; memoryId: string } | { status: "skipped"; type?: string };
 
 async function getLatestProjectMemory(containerTag: string): Promise<string | null> {
   try {

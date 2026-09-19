@@ -28,7 +28,12 @@ export function extractOpenCodeConversation(
       (part: any) => part.type === "text" && typeof part.text === "string" && part.text.trim()
     );
     if (textParts.length > 0) {
-      textResponses.push(textParts.map((part: any) => part.text).join("\n").trim());
+      textResponses.push(
+        textParts
+          .map((part: any) => part.text)
+          .join("\n")
+          .trim()
+      );
     }
 
     for (const tool of message.parts.filter((part: any) => part.type === "tool")) {

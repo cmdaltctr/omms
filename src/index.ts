@@ -7,10 +7,7 @@ import { formatContextForPrompt } from "./services/context.js";
 import { getTags } from "./services/tags.js";
 import { performAutoCapture } from "./services/auto-capture.js";
 import { createOpenCodeAutoCaptureHost } from "./adapters/opencode/auto-capture-host.js";
-import {
-  executeMemoryOperation,
-  type MemoryOperationArgs,
-} from "./core/memory-operations.js";
+import { executeMemoryOperation, type MemoryOperationArgs } from "./core/memory-operations.js";
 import { performUserProfileLearning } from "./services/user-memory-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
 import { startWebServer, WebServer } from "./services/web-server.js";

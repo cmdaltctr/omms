@@ -46,10 +46,7 @@ export interface AutoCaptureNotification {
 export interface AutoCaptureHost extends CaptureSummaryProvider {
   readonly host: MemoryHost;
   isCaptureReady(): boolean;
-  getConversation(
-    sessionId: string,
-    promptMessageId: string
-  ): Promise<CaptureConversation | null>;
+  getConversation(sessionId: string, promptMessageId: string): Promise<CaptureConversation | null>;
   notify?(notification: AutoCaptureNotification): Promise<void> | void;
 }
 
