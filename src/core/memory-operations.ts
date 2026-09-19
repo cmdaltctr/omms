@@ -296,7 +296,7 @@ export async function executeMemoryOperation(
       }
 
       case "list-shards":
-        return await memoryClient.listShards(context.directory);
+        return { ...(await memoryClient.listShards(context.directory)) };
 
       case "migrate": {
         if (!args.fromPath && !args.fromHash) {
@@ -306,23 +306,27 @@ export async function executeMemoryOperation(
               "fromPath or fromHash required. Run memory list-shards to discover orphaned shards.",
           };
         }
-        return await memoryClient.migrateProjectPath({
-          currentDirectory: context.directory,
-          fromPath: args.fromPath,
-          fromHash: args.fromHash,
-          dryRun: args.dryRun,
-          allowLinkedSource: args.allowLinkedSource,
-        });
+        return {
+          ...(await memoryClient.migrateProjectPath({
+            currentDirectory: context.directory,
+            fromPath: args.fromPath,
+            fromHash: args.fromHash,
+            dryRun: args.dryRun,
+            allowLinkedSource: args.allowLinkedSource,
+          })),
+        };
       }
 
       case "export": {
         if (!args.outputPath) return { success: false, error: "outputPath required" };
-        return await memoryClient.exportMemories(context.directory, args.outputPath);
+        return { ...(await memoryClient.exportMemories(context.directory, args.outputPath)) };
       }
 
       case "import": {
         if (!args.inputPath) return { success: false, error: "inputPath required" };
-        return await memoryClient.importMemories(context.directory, args.inputPath, args.dryRun);
+        return {
+          ...(await memoryClient.importMemories(context.directory, args.inputPath, args.dryRun)),
+        };
       }
     }
   } catch (error) {
