@@ -7,6 +7,7 @@ import { formatContextForPrompt } from "./services/context.js";
 import { getTags } from "./services/tags.js";
 import { stripPrivateContent, isFullyPrivate } from "./services/privacy.js";
 import { performAutoCapture } from "./services/auto-capture.js";
+import { createOpenCodeAutoCaptureHost } from "./adapters/opencode/auto-capture-host.js";
 import { performUserProfileLearning } from "./services/user-memory-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
 import { startWebServer, WebServer } from "./services/web-server.js";
@@ -240,6 +241,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   initConfig(directory);
   logAutoCaptureProviderStatus();
   const tags = getTags(directory);
+  const autoCaptureHost = createOpenCodeAutoCaptureHost(ctx);
   let webServer: WebServer | null = null;
   let idleTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -427,7 +429,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       try {
         tursoConnectionManager.closeAllSync();
       } catch {
-        // ignore — module may already be torn down
+        // ignore â module may already be torn down
       }
     }
   };
@@ -943,7 +945,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         if (!sessionID) return;
 
         // Transient structured-output sessions must not re-trigger capture/learning
-        // (that self-schedules an unbounded idle → LLM → idle loop).
+        // (that self-schedules an unbounded idle â LLM â idle loop).
         if (await isInternalCaptureSession(ctx.client, sessionID)) {
           log("Skipping idle processing for internal capture session", { sessionID });
           return;
@@ -953,7 +955,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
         idleTimeout = setTimeout(async () => {
           try {
-            await performAutoCapture(ctx, sessionID, directory);
+            await performAutoCapture(autoCaptureHost, sessionID, directory);
 
             if (webServer?.isServerOwner()) {
               await performUserProfileLearning(ctx, directory);
