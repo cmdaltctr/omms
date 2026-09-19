@@ -5,18 +5,18 @@
 ## 1. Shared core extraction + OpenCode parity
 
 - [ ] 1.1 Add characterization tests for current OpenCode memory add/search/list/forget/profile, auto-capture, compaction injection, portability, cleanup, and web-backend behavior.
-- [ ] 1.2 Define host-neutral types for project identity, memory operations, capture work units, structured extraction results, notifications, and provenance.
-- [ ] 1.3 Refactor automatic capture so the extraction/persistence pipeline accepts a normalized work unit instead of OpenCode `PluginInput`.
-- [ ] 1.4 Extract provider access behind a narrow structured-extraction interface while preserving the current OpenCode provider path and configured fallback providers.
-- [ ] 1.5 Extract reusable memory-tool operations from the OpenCode tool wrapper so host adapters call the same service functions.
-- [ ] 1.6 Reuse the existing privacy, deduplication, embedding, Turso/libSQL, retrieval, project identity, user-profile, cleanup, portability, and web-backend services rather than duplicating them.
-- [ ] 1.7 Add backward-compatible host/source provenance support without invalidating existing memory rows.
-- [ ] 1.8 Preserve `~/.opencode-mem/data`, current project tag derivation, and the default `opencode` tag prefix.
-- [ ] 1.9 Keep `src/index.ts` and the current `src/v2/adapter.ts` as OpenCode compatibility surfaces while routing their reusable work through the shared core.
+- [x] 1.2 Define host-neutral types for project identity, memory operations, capture work units, structured extraction results, notifications, and provenance.
+- [x] 1.3 Refactor automatic capture so the extraction/persistence pipeline accepts a normalized work unit instead of OpenCode `PluginInput`.
+- [x] 1.4 Extract provider access behind a narrow structured-extraction interface while preserving the current OpenCode provider path and configured fallback providers.
+- [x] 1.5 Extract reusable memory-tool operations from the OpenCode tool wrapper so host adapters call the same service functions.
+- [x] 1.6 Reuse the existing privacy, deduplication, embedding, Turso/libSQL, retrieval, project identity, user-profile, cleanup, portability, and web-backend services rather than duplicating them.
+- [x] 1.7 Add backward-compatible host/source provenance support without invalidating existing memory rows.
+- [x] 1.8 Preserve `~/.opencode-mem/data`, current project tag derivation, and the default `opencode` tag prefix.
+- [x] 1.9 Keep `src/index.ts` and the current `src/v2/adapter.ts` as OpenCode compatibility surfaces while routing their reusable work through the shared core.
 - [ ] 1.10 Add a two-process storage test for concurrent initialization, same-project writes, read-after-write, close/reopen, and shard allocation/rollover where practical.
 - [ ] 1.11 If 1.10 demonstrates races, add the smallest cross-process coordination required around affected Turso/libSQL metadata or shard operations; do not add a new storage engine.
-- [ ] 1.12 Make shared runtime/web lifecycle start/stop callable without OpenCode TUI dependencies while preserving existing web owner/takeover behavior.
-- [ ] 1.13 Run existing tests plus new OpenCode parity tests, typecheck, lint, and build; fix extraction regressions before Phase 2.
+- [x] 1.12 Make shared runtime/web lifecycle start/stop callable without OpenCode TUI dependencies while preserving existing web owner/takeover behavior.
+- [x] 1.13 Run existing tests plus new OpenCode parity tests, typecheck, lint, and build; fix extraction regressions before Phase 2.
 - [ ] 1.14 Document the shared-core boundary and the compatibility guarantee for existing OpenCode data.
 
 ## 2. Pi adapter
