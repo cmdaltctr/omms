@@ -30,7 +30,7 @@ The user also has existing Pi JSONL history. A live adapter alone would start wi
 - Use `agent_settled`, not `agent_end`, as the normal automatic-capture boundary.
 - Integrate `session_before_compact` / `session_compact` without fake user turns.
 - Expose shared memory operations through Pi's extension tool/command surfaces where appropriate.
-- Resolve Pi models/credentials through `ctx.modelRegistry` and use the pinned Pi release's supported AI generation API for internal extraction/profile learning. `ctx.modelRegistry` itself is not the generation call.
+- Resolve Pi models/credentials and run internal extraction/profile learning through the pinned Pi release's public `ctx.modelRegistry` facade. In the verified Pi 0.85.1 API, `ModelRegistry` exposes `find()`, `complete()`, `stream()`, and credential helpers.
 - Reuse the existing project identity logic so the same project maps to the same store from OpenCode and Pi.
 - Clean up database/web resources on shutdown.
 
