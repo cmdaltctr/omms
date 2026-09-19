@@ -47,14 +47,14 @@
 - [ ] 3.3 Use `parseSessionEntries()` and `migrateSessionEntries()` only where useful for supported compatibility/discovery/fixtures; pin and test the supported Pi API version range.
 - [ ] 3.4 Read the Pi session header and recorded `cwd`; resolve the same shared project identity used by live Pi/OpenCode capture.
 - [ ] 3.5 Select only the session's active/current branch initially using Pi branch/context APIs; exclude abandoned branches.
-- [ ] 3.6 Reconstruct useful user → assistant/tool work units with stable source entry IDs and source timestamps.
+- [ ] 3.6 Reconstruct useful user â assistant/tool work units with stable source entry IDs and source timestamps.
 - [ ] 3.7 Strip hidden thinking/reasoning and provider-only reasoning metadata before work units reach privacy filtering or extraction.
 - [ ] 3.8 Apply the same bounded tool/text normalization as live capture.
 - [ ] 3.9 Define a deterministic import identity from Pi session/source entry identity; do not use embedding similarity as the import key.
 - [ ] 3.10 Persist provenance for history imports: host, Pi session ID, source JSONL, source entry IDs, timestamps, source type, and import identity.
 - [ ] 3.11 Add a durable import ledger with states sufficient to distinguish pending/in-progress, imported, skipped, and failed/retryable work where applicable.
 - [ ] 3.12 Make persistence crash-safe: use one transaction when memory and ledger can share it, otherwise reconcile incomplete ledger entries against exact stored import identity before reinserting.
-- [ ] 3.13 Route imported work through the same privacy → extraction → deduplication → embedding → persistence pipeline as live capture.
+- [ ] 3.13 Route imported work through the same privacy â extraction â deduplication â embedding â persistence pipeline as live capture.
 - [ ] 3.14 Record terminal handled state for deterministic extractor `skip` results where appropriate so reruns do not repeatedly spend model calls.
 - [ ] 3.15 Add dry-run that performs discovery, filtering, project mapping, candidate identity, and existing-state checks but performs no extraction call, embedding, memory write, ledger write, or source write.
 - [ ] 3.16 Support current-project and all-projects scope filters.
