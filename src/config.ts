@@ -52,6 +52,9 @@ interface OpenCodeMemConfig {
   memoryExtraParams?: Record<string, unknown>;
   opencodeProvider?: string;
   opencodeModel?: string;
+  /** Pi adapter: explicit provider/model for capture extraction. Default: inherit active Pi model. */
+  piProvider?: string;
+  piModel?: string;
   aiSessionRetentionDays?: number;
   webServerEnabled?: boolean;
   webServerPort?: number;
@@ -114,6 +117,8 @@ const DEFAULTS: Required<
     | "memoryExtraParams"
     | "opencodeProvider"
     | "opencodeModel"
+    | "piProvider"
+    | "piModel"
     | "autoCaptureLanguage"
     | "userEmailOverride"
     | "userNameOverride"
@@ -132,6 +137,8 @@ const DEFAULTS: Required<
   memoryExtraParams?: Record<string, unknown>;
   opencodeProvider?: string;
   opencodeModel?: string;
+  piProvider?: string;
+  piModel?: string;
   autoCaptureLanguage?: string;
   userEmailOverride?: string;
   userNameOverride?: string;
@@ -690,6 +697,8 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
     memoryExtraParams: fileConfig.memoryExtraParams,
     opencodeProvider: fileConfig.opencodeProvider,
     opencodeModel: fileConfig.opencodeModel,
+    piProvider: fileConfig.piProvider,
+    piModel: fileConfig.piModel,
     autoCaptureProviderStatus: getAutoCaptureProviderStatus({
       opencodeProvider: fileConfig.opencodeProvider,
       opencodeModel: fileConfig.opencodeModel,

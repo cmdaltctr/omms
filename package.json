@@ -44,7 +44,8 @@
     "ai",
     "coding-agent",
     "local",
-    "standalone"
+    "standalone",
+    "pi-package"
   ],
   "author": "opencode-mem",
   "license": "MIT",
@@ -72,7 +73,12 @@
     "onnxruntime-node": "1.20.1",
     "bun-types": "1.3.14"
   },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
   "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.85.1",
     "@eslint/js": "^10.0.1",
     "@types/bun": "^1.4.0",
     "eslint": "^10.10.0",
@@ -91,6 +97,11 @@
       "chat.message",
       "chat.params",
       "event"
+    ]
+  },
+  "pi": {
+    "extensions": [
+      "./dist/adapters/pi/extension.js"
     ]
   },
   "files": [
