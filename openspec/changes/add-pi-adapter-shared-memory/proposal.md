@@ -26,7 +26,7 @@ The user also has existing Pi JSONL history. A live adapter alone would start wi
 ### Pi coding-agent adapter
 
 - Add a Pi extension entry point.
-- Use `before_agent_start` for prompt-aware semantic retrieval and bounded memory/profile injection.
+- Use `before_agent_start` for prompt-aware semantic retrieval and bounded memory/profile injection, preferably through Pi's structured prompt-section surface rather than a fake user turn or wholesale prompt replacement.
 - Use `agent_settled`, not `agent_end`, as the normal automatic-capture boundary.
 - Integrate `session_before_compact` / `session_compact` without fake user turns.
 - Expose shared memory operations through Pi's extension tool/command surfaces where appropriate.
@@ -41,7 +41,7 @@ New memories support provenance such as host, host session ID, source type, sour
 ### Pi historical-session backfill
 
 - Discover Pi sessions under `~/.pi/agent/sessions/**/*.jsonl` by default.
-- Prefer Pi's supported public session APIs, especially `SessionManager.open()`. Use `parseSessionEntries()` / `migrateSessionEntries()` only when they are public exports in the pinned Pi version. Do not copy Pi's JSONL grammar or import private source paths.
+- Prefer Pi's current exported session APIs, including `SessionManager.open()`, `parseSessionEntries()`, and `migrateSessionEntries()`. Pin/test the supported Pi release rather than copying Pi's JSONL grammar or importing private source paths.
 - Read recorded session ID and `cwd`, then resolve the same project identity used by live capture.
 - Prefer the active/current branch initially.
 - Reconstruct useful user -> assistant/tool work units while excluding hidden reasoning/thinking, system-only state, and binary/image payloads from memory text.

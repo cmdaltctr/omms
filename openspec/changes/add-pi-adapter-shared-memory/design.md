@@ -79,7 +79,7 @@ Adapters collect host-native state. The shared pipeline applies context budgetin
 
 ### D4 — Pi retrieval uses `before_agent_start`
 
-Use the incoming prompt for semantic project retrieval and existing user-profile context. Bound results by configured thresholds/count/budget. Inject through Pi's supported pre-agent/system-context surface. Do not dump the whole store.
+Use the incoming prompt for semantic project retrieval and existing user-profile context. Bound results by configured thresholds/count/budget. Prefer Pi's structured pre-agent prompt section (`systemPromptOptions.sections`) or an equivalent supported surface. Do not add a fake user turn, replace the whole prompt unnecessarily, or dump the whole store.
 
 ### D5 — Pi automatic capture uses `agent_settled`
 
@@ -87,7 +87,7 @@ Use the incoming prompt for semantic project retrieval and existing user-profile
 
 ### D6 — Pi model integration uses the registry plus supported Pi AI APIs
 
-`ctx.modelRegistry` resolves models/credentials; it is not itself a text-generation method. Resolve the active/inherited or explicitly configured model through the registry, then use the pinned Pi release's supported AI completion/streaming API for structured extraction/profile learning.
+`ctx.modelRegistry` resolves models and credentials. Current Pi also exposes provider-aware model calls such as `modelRegistry.streamSimple()`. Resolve the active/inherited or explicitly configured model through Pi context/registry APIs, then use the supported provider-aware call for structured extraction/profile learning and validate the returned payload with the shared schema.
 
 Provider modes should support inherit/current Pi model, explicit Pi provider/model, and existing direct provider configuration as fallback. Automatic extraction failure must not disable manual memory operations.
 
@@ -108,7 +108,7 @@ For each candidate:
 6. exclude hidden thinking/reasoning, system-only state, images/binary payloads, and extension-only state from memory text;
 7. normalize into the same shared capture input.
 
-Prefer `SessionManager.open()`. Use `parseSessionEntries()` / `migrateSessionEntries()` only if they are public exports in the pinned version. Never import private source paths.
+Prefer `SessionManager.open()`. Current Pi publicly re-exports `parseSessionEntries()` and `migrateSessionEntries()` as well; use them only where they improve supported compatibility/discovery/fixtures, and pin/test the supported Pi release. Never import private source paths.
 
 ### D9 — Import idempotency uses deterministic source identity
 
@@ -147,7 +147,7 @@ Use Pi's `session_before_compact` / `session_compact` surfaces to preserve memor
 
 - Pi provider/capture failure must not corrupt or block the Pi session.
 - History import never deletes or edits source sessions.
-- Import writes use the existing shard write-lock path.
+- Import writes use the shared persistence path; the current in-process shard write queue is not proof of cross-process safety.
 - Privacy filtering occurs before content is sent to an extraction provider.
 - Tool inputs remain bounded by existing truncation policy.
 - Hidden reasoning is never normalized into imported memory text.
@@ -155,13 +155,10 @@ Use Pi's `session_before_compact` / `session_compact` surfaces to preserve memor
 
 ## Questions to Resolve Before Implementation
 
-1. **Pi dependency policy:** pin the exact current Pi package/version and public import paths.
-2. **Pi internal generation API:** select the supported completion/streaming call used after model/credential resolution through `ctx.modelRegistry`.
-3. **Importer session API:** confirm which parser/migration helpers are public exports; prefer `SessionManager.open()` if lower-level helpers are internal/test-only.
-4. **Cross-process write safety:** verify existing libSQL/Turso locking under simultaneous OpenCode and Pi processes; otherwise define retry/single-writer behavior without changing storage identity.
-5. **Provenance persistence shape:** decide whether existing metadata JSON is sufficient or an additive schema change is needed.
-6. **Import ledger placement:** prefer a small additive table in the same local store unless concurrency/migration constraints argue for a separate local ledger.
-7. **Pi tool parity:** map OpenCode operations to Pi tools/commands by semantics, not by forcing identical host UI.
+1. **Importer UX surface:** choose the primary operator surface for backfill (Pi command, package CLI, memory-tool mode, or a thin combination over one importer service).
+2. **Cross-process write coordination:** two-process tests must determine whether libSQL transactions are sufficient or a narrow file/advisory lock is required around metadata/shard operations.
+3. **Provenance and ledger placement:** confirm whether existing metadata JSON plus a global metadata-table ledger gives the cleanest transaction/recovery boundary, or whether project-local ledger state is preferable.
+4. **Pi model-selection policy:** decide whether extraction defaults to the active `ctx.model`, a dedicated configured memory model, or active-model-first with an explicit override.
 
 ## Rollout
 

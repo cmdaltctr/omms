@@ -1,67 +1,68 @@
-# Tasks: add-pi-adapter-shared-memory
+# Tasks: Add Pi Adapter with Shared Memory
 
-## 1. Phase 1 — Shared core extraction + OpenCode parity
+> Implement in three phases. Do not start a later phase until the previous phase has parity/compatibility tests passing.
 
-- [ ] 1.1 Add host-neutral types for conversation snapshots, capture provenance, provider access, notifications, and project context.
-- [ ] 1.2 Refactor auto-capture so the shared pipeline no longer accepts OpenCode `PluginInput`.
-- [ ] 1.3 Move OpenCode message/session collection and TUI notifications into the OpenCode adapter boundary.
-- [ ] 1.4 Wrap the existing OpenCode structured-output/provider path behind the shared extraction-provider interface.
-- [ ] 1.5 Extract reusable memory operations from the OpenCode-specific tool wrapper.
-- [ ] 1.6 Preserve current Turso/libSQL shard format, storage path, project tags, vector behavior, and migration compatibility.
-- [ ] 1.7 Add provenance to new memories without requiring existing rows to be rewritten.
-- [ ] 1.8 Add dependency-boundary tests proving shared core/services import neither OpenCode nor Pi SDK types.
-- [ ] 1.9 Add OpenCode parity tests for retrieval/injection, manual memory operations, auto-capture, profiles, compaction, web/API startup, and cleanup.
-- [ ] 1.10 Add a compatibility fixture that opens a pre-change memory data directory and verifies existing memories remain readable/searchable.
+## 1. Shared core extraction + OpenCode parity
 
-## 2. Phase 2 — Pi adapter
+- [ ] 1.1 Add characterization tests for current OpenCode memory add/search/list/forget/profile, auto-capture, compaction injection, portability, cleanup, and web-backend behavior.
+- [ ] 1.2 Define host-neutral types for project identity, memory operations, capture work units, structured extraction results, notifications, and provenance.
+- [ ] 1.3 Refactor automatic capture so the extraction/persistence pipeline accepts a normalized work unit instead of OpenCode `PluginInput`.
+- [ ] 1.4 Extract provider access behind a narrow structured-extraction interface while preserving the current OpenCode provider path and configured fallback providers.
+- [ ] 1.5 Extract reusable memory-tool operations from the OpenCode tool wrapper so host adapters call the same service functions.
+- [ ] 1.6 Reuse the existing privacy, deduplication, embedding, Turso/libSQL, retrieval, project identity, user-profile, cleanup, portability, and web-backend services rather than duplicating them.
+- [ ] 1.7 Add backward-compatible host/source provenance support without invalidating existing memory rows.
+- [ ] 1.8 Preserve `~/.opencode-mem/data`, current project tag derivation, and the default `opencode` tag prefix.
+- [ ] 1.9 Keep `src/index.ts` and the current `src/v2/adapter.ts` as OpenCode compatibility surfaces while routing their reusable work through the shared core.
+- [ ] 1.10 Add a two-process storage test for concurrent initialization, same-project writes, read-after-write, close/reopen, and shard allocation/rollover where practical.
+- [ ] 1.11 If 1.10 demonstrates races, add the smallest cross-process coordination required around affected Turso/libSQL metadata or shard operations; do not add a new storage engine.
+- [ ] 1.12 Make shared runtime/web lifecycle start/stop callable without OpenCode TUI dependencies while preserving existing web owner/takeover behavior.
+- [ ] 1.13 Run existing tests plus new OpenCode parity tests, typecheck, lint, and build; fix extraction regressions before Phase 2.
+- [ ] 1.14 Document the shared-core boundary and the compatibility guarantee for existing OpenCode data.
 
-- [ ] 2.1 Pin and document the current Pi coding-agent package/version and public extension/session APIs; do not assume a stale package scope.
-- [ ] 2.2 Add the Pi extension entry point without converting the repository into a monorepo.
-- [ ] 2.3 Resolve Pi project context through the existing shared project identity/tag logic.
-- [ ] 2.4 Implement `before_agent_start` semantic retrieval using the incoming prompt.
-- [ ] 2.5 Inject bounded project memory plus user-profile context through Pi's supported pre-agent context surface.
-- [ ] 2.6 Implement `agent_settled` live capture from the current Pi branch; do not use `agent_end` as the primary auto-capture boundary.
-- [ ] 2.7 Implement a Pi structured-memory provider that resolves model/credentials through `ctx.modelRegistry` and calls the pinned release's supported Pi AI generation API.
-- [ ] 2.8 Support active/inherit and explicit Pi model modes, retaining the existing direct provider path as fallback.
-- [ ] 2.9 Register Pi memory search/add/list/profile/forget behavior through tools/commands where semantically appropriate.
-- [ ] 2.10 Persist Pi host/session/entry/timestamp provenance.
-- [ ] 2.11 Integrate `session_before_compact` / `session_compact` without fake user turns.
-- [ ] 2.12 Add `session_shutdown` cleanup for database and web/backend resources.
-- [ ] 2.13 Keep Pi notifications/UI adapter-local.
-- [ ] 2.14 Verify simultaneous OpenCode/Pi access to the same local store and define retry/single-writer behavior if current locking is insufficient.
-- [ ] 2.15 Add E2E: OpenCode-created memory is retrievable from Pi.
-- [ ] 2.16 Add E2E: Pi-created memory is retrievable from OpenCode.
+## 2. Pi adapter
 
-## 3. Phase 3 — Pi historical-session backfill
+- [ ] 2.1 Add a Pi extension entry point in the existing package; do not create a monorepo.
+- [ ] 2.2 Follow current Pi package conventions for extension discovery and peer/development dependencies so a second Pi runtime is not bundled.
+- [ ] 2.3 Resolve Pi `ctx.cwd` through the same shared project-root/project-identity/tag functions used by OpenCode.
+- [ ] 2.4 Implement `before_agent_start` semantic retrieval using the current prompt and project memory.
+- [ ] 2.5 Inject bounded memory/profile context through a named Pi structured prompt section or equivalent supported pre-agent surface; do not create a fake user message or replace the full prompt unnecessarily.
+- [ ] 2.6 Implement `agent_settled` as the primary automatic-capture trigger; do not use `agent_end` as the main boundary.
+- [ ] 2.7 Build the newly settled work unit from `ctx.sessionManager` active-branch entries and exclude hidden thinking/reasoning content.
+- [ ] 2.8 Define a stable live source identity from Pi session/source entry IDs and prevent repeated settled events from recapturing the same work unit.
+- [ ] 2.9 Implement the Pi extraction/profile provider bridge with `ctx.model`, `ctx.modelRegistry`, and current provider-aware model-call APIs such as `streamSimple()`; validate structured results with the shared schema.
+- [ ] 2.10 Ensure extraction/profile failure does not disable local manual memory operations.
+- [ ] 2.11 Register the Pi-native `memory` tool as a thin adapter over the shared add/search/profile/list/forget/help and applicable portability operations.
+- [ ] 2.12 Persist Pi live provenance including host, session ID, source type, source entry IDs, and timestamps where available.
+- [ ] 2.13 Handle Pi compaction conservatively: preserve capture/injection continuity without replacing native compaction summarization by default.
+- [ ] 2.14 Test overflow/automatic compaction followed by retry and `agent_settled`; verify exactly one capture for the settled work unit.
+- [ ] 2.15 Close session-scoped resources on `session_shutdown` and make cleanup idempotent across quit, reload, new, resume, and fork flows.
+- [ ] 2.16 Verify Pi and OpenCode can run in separate processes against the same store without corrupting shard metadata or losing writes.
+- [ ] 2.17 Add cross-host integration tests: write in Pi/read in OpenCode and write in OpenCode/read in Pi for the same project.
+- [ ] 2.18 Document Pi installation, configuration, lifecycle mapping, model-selection behavior, and shared-store expectations.
 
-- [ ] 3.1 Add configurable Pi session root, default `~/.pi/agent/sessions`.
-- [ ] 3.2 Discover JSONL session files recursively without modifying them.
-- [ ] 3.3 Reuse Pi's supported public session APIs. Prefer `SessionManager.open()`; use `parseSessionEntries()` / `migrateSessionEntries()` only if public in the pinned version. Never import Pi private source paths or implement an independent JSONL grammar.
-- [ ] 3.4 Read session ID and recorded `cwd`; resolve the same project identity as live capture.
-- [ ] 3.5 Resolve the active/current branch and construct historical user/assistant/tool work units.
-- [ ] 3.6 Exclude system-only state, hidden reasoning/thinking, image/binary payloads, and extension-only state from memory text.
-- [ ] 3.7 Generate a stable deterministic import key from Pi session and source entry IDs.
-- [ ] 3.8 Add a durable import ledger with imported/skipped/failed/reconciled states.
-- [ ] 3.9 Reconcile the crash window where memory exists but ledger completion did not commit.
-- [ ] 3.10 Send history through the same privacy, extraction/classification, deduplication, embedding, and persistence pipeline as live capture.
-- [ ] 3.11 Add `history-import` provenance: source file, session ID, entry IDs, timestamps, and import key.
-- [ ] 3.12 Implement `--dry-run` with zero extraction-model, embedding, vector, memory, source-session, or ledger writes.
-- [ ] 3.13 Add current-project, all-projects, session-ID, date-range, and maximum-session filters.
-- [ ] 3.14 Add explicit force/reprocess behavior; never silently reprocess successful keys.
-- [ ] 3.15 Add fixtures covering supported legacy/current Pi session versions through Pi's own migration path.
-- [ ] 3.16 Test branching sessions; default import uses the active/current branch only.
-- [ ] 3.17 Test malformed/truncated JSONL isolation.
-- [ ] 3.18 Test idempotency by running the same import twice.
-- [ ] 3.19 Hash source Pi files before/after import and assert byte-for-byte integrity.
-- [ ] 3.20 Add E2E: an imported Pi decision is retrievable from both Pi and OpenCode.
+## 3. Pi historical-session backfill
 
-## 4. Documentation and verification
-
-- [ ] 4.1 Document core-versus-adapter architecture and lifecycle mapping.
-- [ ] 4.2 Document shared storage semantics and cross-host provenance.
-- [ ] 4.3 Document Pi installation, pinned dependency, and provider configuration.
-- [ ] 4.4 Document Pi-history dry-run, filters, retry/reprocess, and recovery behavior.
-- [ ] 4.5 Document that history import is opt-in and source JSONL is immutable.
-- [ ] 4.6 Run the existing and new test suites.
-- [ ] 4.7 Run typecheck/build for OpenCode and Pi entry points.
-- [ ] 4.8 Run `openspec validate --all --strict`.
+- [ ] 3.1 Implement explicit Pi-session discovery under Pi's configured/default session root without modifying source files.
+- [ ] 3.2 Load known sessions with Pi's exported session model, preferring `SessionManager.open()` and public entry/header types over a custom JSONL parser.
+- [ ] 3.3 Use `parseSessionEntries()` and `migrateSessionEntries()` only where useful for supported compatibility/discovery/fixtures; pin and test the supported Pi API version range.
+- [ ] 3.4 Read the Pi session header and recorded `cwd`; resolve the same shared project identity used by live Pi/OpenCode capture.
+- [ ] 3.5 Select only the session's active/current branch initially using Pi branch/context APIs; exclude abandoned branches.
+- [ ] 3.6 Reconstruct useful user → assistant/tool work units with stable source entry IDs and source timestamps.
+- [ ] 3.7 Strip hidden thinking/reasoning and provider-only reasoning metadata before work units reach privacy filtering or extraction.
+- [ ] 3.8 Apply the same bounded tool/text normalization as live capture.
+- [ ] 3.9 Define a deterministic import identity from Pi session/source entry identity; do not use embedding similarity as the import key.
+- [ ] 3.10 Persist provenance for history imports: host, Pi session ID, source JSONL, source entry IDs, timestamps, source type, and import identity.
+- [ ] 3.11 Add a durable import ledger with states sufficient to distinguish pending/in-progress, imported, skipped, and failed/retryable work where applicable.
+- [ ] 3.12 Make persistence crash-safe: use one transaction when memory and ledger can share it, otherwise reconcile incomplete ledger entries against exact stored import identity before reinserting.
+- [ ] 3.13 Route imported work through the same privacy → extraction → deduplication → embedding → persistence pipeline as live capture.
+- [ ] 3.14 Record terminal handled state for deterministic extractor `skip` results where appropriate so reruns do not repeatedly spend model calls.
+- [ ] 3.15 Add dry-run that performs discovery, filtering, project mapping, candidate identity, and existing-state checks but performs no extraction call, embedding, memory write, ledger write, or source write.
+- [ ] 3.16 Support current-project and all-projects scope filters.
+- [ ] 3.17 Support exact session and inclusive date-range filters with documented timestamp semantics.
+- [ ] 3.18 Ensure filtering happens before expensive extraction and embedding work.
+- [ ] 3.19 Add fixtures for current and supported legacy Pi session versions, compaction, forks/branches, malformed entries, tool calls/results, and hidden thinking.
+- [ ] 3.20 Add idempotency tests for first import, second import, partial failure, memory-inserted/ledger-incomplete crash recovery, and skipped units.
+- [ ] 3.21 Add a read-only safety test that hashes source JSONL files before and after dry-run, successful import, failed import, and rerun.
+- [ ] 3.22 Add end-to-end backfill tests showing an imported Pi memory is retrievable from both Pi and OpenCode for the mapped project.
+- [ ] 3.23 Document importer usage, filters, provenance, dry-run guarantees, recovery behavior, and how to inspect import status.
+- [ ] 3.24 Run the full repository test/check/build suite and `openspec validate --all --strict`.
