@@ -53,12 +53,12 @@ function matchesSelectorList(selectors, current) {
 
 function collectRuntimeClosure(lockfile) {
   const packages = lockfile.packages ?? {};
-  const root = packages[getLockPathForPackage("opencode-mem")];
+  const root = packages[getLockPathForPackage("omms")];
   if (!root) {
-    throw new Error("Installed opencode-mem package not found in package-lock.json");
+    throw new Error("Installed omms package not found in package-lock.json");
   }
 
-  const queue = ["opencode-mem"];
+  const queue = ["omms"];
   const seen = new Set();
 
   while (queue.length > 0) {
@@ -176,7 +176,7 @@ function formatError(error) {
 }
 
 const lockfile = readJson(lockfilePath);
-const opencodeMemPkgPath = join(projectRoot, "node_modules", "opencode-mem", "package.json");
+const opencodeMemPkgPath = join(projectRoot, "node_modules", "omms", "package.json");
 const rootPkg = existsSync(opencodeMemPkgPath)
   ? readJson(opencodeMemPkgPath)
   : readJson(join(projectRoot, "package.json"));
@@ -204,9 +204,7 @@ for (const entry of collectRuntimeClosure(lockfile)) {
 }
 
 if (candidates.length === 0) {
-  failures.push(
-    "No native dependency candidates were discovered in the opencode-mem runtime closure."
-  );
+  failures.push("No native dependency candidates were discovered in the omms runtime closure.");
 }
 
 for (const candidate of candidates) {

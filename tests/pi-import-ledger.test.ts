@@ -5,9 +5,17 @@ import { join } from "node:path";
 
 const tempDirs: string[] = [];
 
-afterEach(() => {
+// The ledger holds a pooled libSQL connection to <storage>/import-ledger.db.
+// Windows keeps the file locked until the handle closes, so release it before
+// the temp dir is removed and retry the removal while libsql drops native
+// handles (same pattern as the shard manager's file swaps).
+afterEach(async () => {
+  const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
+  const { withSqliteFileLockRetry } =
+    await import("../src/services/turso/sqlite-handle-release.js");
   for (const dir of tempDirs.splice(0)) {
-    rmSync(dir, { recursive: true, force: true });
+    await tursoConnectionManager.closeConnection(join(dir, "import-ledger.db")).catch(() => {});
+    await withSqliteFileLockRetry(() => rmSync(dir, { recursive: true, force: true }));
   }
 });
 
