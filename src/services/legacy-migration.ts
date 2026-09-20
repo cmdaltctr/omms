@@ -82,6 +82,8 @@ interface BackupManifestEntry {
   sha256: string;
 }
 
+export type { BackupManifestEntry };
+
 export function legacyMigrationPaths(home: string = homedir()): LegacyMigrationPaths {
   const legacyDir = join(home, LEGACY_DIR_NAME);
   const ommsDir = join(home, OMMS_DIR_NAME);
@@ -135,12 +137,12 @@ function sha256File(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
 
-interface TreeWalk {
+export interface TreeWalk {
   files: string[];
   dirs: string[];
 }
 
-function walkTree(root: string): TreeWalk {
+export function walkTree(root: string): TreeWalk {
   const files: string[] = [];
   const dirs: string[] = [];
   const visit = (dir: string, rel: string) => {
@@ -165,6 +167,8 @@ function timestampSlug(date = new Date()): string {
     .replace(/[-:]/g, "")
     .replace(/\.\d{3}Z$/, "Z");
 }
+
+export { timestampSlug };
 
 function isProcessAlive(pid: number): boolean {
   try {
@@ -216,6 +220,31 @@ function writeMarker(paths: LegacyMigrationPaths, marker: LegacyMigrationMarker)
 }
 
 /**
+ * Copy the listed files from `sourceRoot` into `destRoot` (mirroring their
+ * relative paths), producing a checksum manifest, then verify every copied
+ * file by re-reading it and comparing size and sha256. Throws on any failure.
+ * The caller is responsible for creating any missing parent directories and
+ * for holding any locks that keep the source quiescent during the copy.
+ */
+export function copyFilesWithVerification(
+  sourceRoot: string,
+  destRoot: string,
+  relPaths: string[]
+): BackupManifestEntry[] {
+  const manifest: BackupManifestEntry[] = [];
+  for (const rel of relPaths) {
+    const sourcePath = join(sourceRoot, rel);
+    const destPath = join(destRoot, rel);
+    const size = statSync(sourcePath).size;
+    copyFileSync(sourcePath, destPath);
+    const sha256 = sha256File(destPath);
+    manifest.push({ path: rel, size, sha256 });
+  }
+  verifyManifest(destRoot, manifest);
+  return manifest;
+}
+
+/**
  * Copy every file under `sourceRoot` into `destRoot` (mirroring structure),
  * producing a checksum manifest, then verify every copied file by re-reading
  * it and comparing size and sha256. Throws on any failure.
@@ -226,17 +255,7 @@ function copyTreeWithVerification(sourceRoot: string, destRoot: string): BackupM
   for (const rel of dirs) {
     mkdirSync(join(destRoot, rel), { recursive: true });
   }
-  const manifest: BackupManifestEntry[] = [];
-  for (const rel of files) {
-    const sourcePath = join(sourceRoot, rel);
-    const destPath = join(destRoot, rel);
-    const size = statSync(sourcePath).size;
-    copyFileSync(sourcePath, destPath);
-    const sha256 = sha256File(destPath);
-    manifest.push({ path: rel, size, sha256 });
-  }
-  verifyManifest(destRoot, manifest);
-  return manifest;
+  return copyFilesWithVerification(sourceRoot, destRoot, files);
 }
 
 function verifyManifest(root: string, manifest: BackupManifestEntry[]): void {

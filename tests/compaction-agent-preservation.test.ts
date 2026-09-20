@@ -127,6 +127,7 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
   },
   initConfig: () => {},
   initConfigWithLegacyMigration: () => {},
+  getExplicitContainerTagPrefix: () => undefined,
   isConfigured: () => true,
 }));
 

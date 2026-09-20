@@ -79,9 +79,10 @@ Phase 1 preserved, and later phases must preserve:
    migration from `~/.opencode-mem/data` (see
    [omms-migration.md](omms-migration.md)): the legacy directory is backed up
    and copied, never modified, and storage keeps resolving to the legacy
-   layout until the migration succeeds. The container tag prefix stays
-   `opencode_project_<hash>` as the historical on-disk format name. The same
-   project directory resolves to the same shard set from either host.
+   layout until the migration succeeds. The container tag prefix moved from
+   the historical `opencode_project_<hash>` to `omms_project_<hash>` via a
+   one-time verified rewrite of stored rows (same backup-first pattern). The
+   same project directory resolves to the same shard set from either host.
 2. Memories written before provenance fields existed remain valid and
    searchable. Provenance (`host`, `hostSessionId`, `sourceType`,
    `sourceEntryIds`, `sourceTimestamp`, `sourceFile`, `importId`) is optional

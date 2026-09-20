@@ -3,14 +3,14 @@
 omms is the fork's package identity (upstream owns `opencode-mem` on npm).
 From version 3.0.0 the identity is fully separated:
 
-| What                 | Legacy (opencode-mem)                   | omms                        |
-| -------------------- | --------------------------------------- | --------------------------- |
-| Package              | `opencode-mem`                          | `omms`                      |
-| Default store        | `~/.opencode-mem/data`                  | `~/.omms/data`              |
-| Primary config       | `~/.config/opencode/opencode-mem.jsonc` | `~/.config/omms/omms.jsonc` |
-| Plugin id            | `opencode-mem`                          | `omms`                      |
-| Log file             | `~/.opencode-mem/opencode-mem.log`      | `~/.omms/omms.log`          |
-| Container tag prefix | `opencode_project_<hash>`               | unchanged (see below)       |
+| What                 | Legacy (opencode-mem)                   | omms                                                      |
+| -------------------- | --------------------------------------- | --------------------------------------------------------- |
+| Package              | `opencode-mem`                          | `omms`                                                    |
+| Default store        | `~/.opencode-mem/data`                  | `~/.omms/data`                                            |
+| Primary config       | `~/.config/opencode/opencode-mem.jsonc` | `~/.config/omms/omms.jsonc`                               |
+| Plugin id            | `opencode-mem`                          | `omms`                                                    |
+| Log file             | `~/.opencode-mem/opencode-mem.log`      | `~/.omms/omms.log`                                        |
+| Container tag prefix | `opencode_project_<hash>`               | `omms_project_<hash>` (migrated automatically, see below) |
 
 ## What happens automatically
 
@@ -105,11 +105,68 @@ Project-level config files keep their existing names and locations
 
 ## Container tag prefix
 
-Memory rows keep the `opencode_project_<hash>` and `opencode_user` container
-tag prefix. It is the historical on-disk format name: rewriting every memory
-row across all shards for a cosmetic rename is unjustified risk, so the
-migration does not touch it. The prefix stays configurable via
-`containerTagPrefix` if you ever need a different one.
+Memory rows written by older versions carry the `opencode_project_<hash>`
+and `opencode_user_<hash>` container tag prefix. From the release that
+includes the tag prefix migration, new memories carry `omms_` instead, and
+stored rows are migrated automatically on the first start.
+
+### What happens automatically
+
+On the first start after upgrading, before any memory read or write is
+served:
+
+1. **Backup.** A timestamped, checksum-verified copy of the ENTIRE store
+   directory is created at `~/.omms/backups/tag-prefix-<timestamp>/`, beside
+   the directory-migration backups, with a `manifest.json` recording every
+   file's size and SHA-256. The backup is verified before anything is
+   rewritten. It is never deleted or modified. If it cannot be created or
+   verified, nothing is rewritten and the start aborts with an error.
+2. **Rewrite.** Every memory row's `container_tag` is rewritten from
+   `opencode_<scope>_<hash>` to `omms_<scope>_<hash>` across all project and
+   user shards. Each shard is rewritten by one SQL UPDATE inside that shard's
+   write transaction, under the existing cross-process write lock, so a
+   concurrent host can never interleave with the rewrite.
+3. **Verification.** Per shard: the row count is unchanged, the memory id set
+   is unchanged, the number of rewritten rows equals the number of `opencode_`
+   rows seen before, and zero `opencode_` rows remain. Any mismatch rolls
+   that shard's transaction back and aborts the start. Vectors, metadata, and
+   every other column are untouched.
+4. **Marker.** Completion is recorded in a `tag_prefix_migration` table in
+   the store's `metadata.db`; per-shard progress is recorded in each shard's
+   `shard_metadata` table. Later starts see the marker and do nothing.
+
+The migration is idempotent and resumable. An interrupted run resumes on the
+remaining shards only. A crash between the last shard rewrite and the marker
+write completes on the next start without rewriting anything.
+
+Close OpenCode and Pi while the first start after upgrade runs the migration,
+for the same reason as the directory migration above.
+
+### Rollback
+
+Restore the verified backup over the store directory, then optionally set
+`containerTagPrefix` to `opencode` so tags match the restored rows:
+
+```bash
+rsync -a ~/.omms/backups/tag-prefix-<timestamp>/ ~/.omms/data/
+```
+
+```jsonc
+{
+  // ~/.config/omms/omms.jsonc — only while running on a restored pre-migration store
+  "containerTagPrefix": "opencode",
+}
+```
+
+### Config warning
+
+If your config explicitly sets `containerTagPrefix: "opencode"`, omms warns
+once at startup after the migration: stored rows carry `omms_`, so the
+override matches no rows. Remove the override. The setting itself still
+works for custom prefixes.
+
+Operators can disable the automatic gate with `OMMS_SKIP_TAG_PREFIX_MIGRATION=1`.
+The test suite uses this; do not set it during normal use.
 
 ## Log files
 
