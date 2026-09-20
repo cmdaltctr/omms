@@ -1,11 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  unlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { CONFIG, getExplicitContainerTagPrefix } from "../config.js";
 import { log } from "./logger.js";
@@ -15,6 +8,12 @@ import {
   walkTree,
   type BackupManifestEntry,
 } from "./legacy-migration.js";
+import {
+  countOpencodePrefixedRows,
+  enumerateShardTargets,
+  FROM_PREFIX_WITH_SEP,
+  type ShardTarget,
+} from "./tag-prefix-scan.js";
 import { withCrossProcessWriteLock } from "./turso/cross-process-write-lock.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { tursoShardManager } from "./turso/shard-manager.js";
@@ -48,7 +47,6 @@ import type { InArgs, ResultSet, Transaction } from "@libsql/client";
 
 const FROM_PREFIX = "opencode";
 const TO_PREFIX = "omms";
-const FROM_PREFIX_WITH_SEP = "opencode_";
 const TO_PREFIX_WITH_SEP = "omms_";
 const METADATA_DB_NAME = "metadata.db";
 const MANIFEST_FILE = "manifest.json";
@@ -59,11 +57,10 @@ const BACKUP_SLUG_PREFIX = "tag-prefix-";
 const GATE_LOCK_TIMEOUT_MS = 10 * 60 * 1000;
 const GATE_LOCK_POLL_MS = 50;
 
-/** Matches the shard file naming used by tursoShardManager.getShardPath. */
-const SHARD_FILENAME_RE = /^(user|project)_([a-f0-9]{16})_shard_(\d+)\.db$/;
-
 export const TAG_PREFIX_MIGRATION_LOCK_FILE = ".tag-prefix-migration.lock";
 export const SHARD_MARKER_KEY = "tag_prefix_migration";
+
+export { countOpencodePrefixedRows } from "./tag-prefix-scan.js";
 
 export interface TagPrefixShardOutcome {
   dbPath: string;
@@ -93,13 +90,6 @@ export interface TagPrefixMigrationCompletion {
   backupPath: string | null;
   shardsRewritten: number;
   rowsRewritten: number;
-}
-
-interface ShardTarget {
-  dbPath: string;
-  scope: "user" | "project";
-  scopeHash: string;
-  shardIndex: number;
 }
 
 interface GateLockState {
@@ -253,96 +243,6 @@ async function writeCompletionMarker(
       new Date().toISOString(),
     ]
   );
-}
-
-function listShardDirFiles(storePath: string, scopeDir: "users" | "projects"): string[] {
-  const dir = join(storePath, scopeDir);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((file) => file.endsWith(".db") && !file.includes(".bak") && !file.includes(".tmp"))
-    .map((file) => join(dir, file));
-}
-
-/**
- * Enumerate every shard file to migrate: the metadata.db registry first (the
- * authoritative set), then any on-disk shard file in users/ or projects/ not
- * present in the registry (orphans still need rewriting). Deduplicated by
- * resolved path, ordered deterministically.
- */
-async function enumerateShardTargets(storePath: string): Promise<ShardTarget[]> {
-  const byPath = new Map<string, ShardTarget>();
-
-  for (const scope of ["user", "project"] as const) {
-    for (const shard of await tursoShardManager.getAllShards(scope, "")) {
-      byPath.set(shard.dbPath, {
-        dbPath: shard.dbPath,
-        scope,
-        scopeHash: shard.scopeHash,
-        shardIndex: shard.shardIndex,
-      });
-    }
-  }
-
-  for (const scopeDir of ["users", "projects"] as const) {
-    for (const dbPath of listShardDirFiles(storePath, scopeDir)) {
-      const match = SHARD_FILENAME_RE.exec(basename(dbPath));
-      if (!match) continue;
-      const resolved = dbPath;
-      if (byPath.has(resolved)) continue;
-      byPath.set(resolved, {
-        dbPath,
-        scope: match[1] as "user" | "project",
-        scopeHash: match[2]!,
-        shardIndex: Number(match[3]),
-      });
-    }
-  }
-
-  return [...byPath.values()].sort((a, b) => a.dbPath.localeCompare(b.dbPath));
-}
-
-async function countPrefixedInConnection(
-  db: TursoDb,
-  prefixWithSep: string
-): Promise<number | null> {
-  try {
-    const row = await db.get<{ count: number }>(
-      `SELECT COUNT(*) as count FROM memories WHERE container_tag LIKE ? ESCAPE '\\'`,
-      [`${prefixWithSep.slice(0, -1)}\\_%`]
-    );
-    return Number(row?.count ?? 0);
-  } catch {
-    // Files without a memories table (or unreadable ones) contribute nothing.
-    return null;
-  }
-}
-
-/**
- * Read-only helper: total rows still carrying the `opencode_` prefix across
- * every shard file in the store. Also fails loudly when a non-shard .db file
- * in users/ or projects/ still carries opencode_ rows: such a file cannot be
- * locked per scope, and silently skipping it would leave a mixed-prefix
- * namespace (design D2 forbids that).
- */
-export async function countOpencodePrefixedRows(storePath: string): Promise<number> {
-  let total = 0;
-  for (const scopeDir of ["users", "projects"] as const) {
-    for (const dbPath of listShardDirFiles(storePath, scopeDir)) {
-      const db = await tursoConnectionManager.getConnection(dbPath);
-      const count = await countPrefixedInConnection(db, FROM_PREFIX_WITH_SEP);
-      if (count === null) continue;
-      const matchesNaming = SHARD_FILENAME_RE.test(basename(dbPath));
-      if (!matchesNaming && count > 0) {
-        throw new Error(
-          `Shard file ${dbPath} does not match the shard filename pattern ` +
-            `(scope_hash_shard_N.db) and still carries ${count} opencode_ row(s). ` +
-            `Rename or inspect the file manually, then rerun the migration.`
-        );
-      }
-      total += count;
-    }
-  }
-  return total;
 }
 
 async function countLike(tx: Transaction, prefixWithSep: string): Promise<number> {
