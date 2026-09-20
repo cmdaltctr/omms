@@ -28,6 +28,7 @@ const MAX_TOOL_INPUT_LENGTH = 100;
 export interface PiConversationWindow extends CaptureConversation {
   userEntryId: string;
   userPrompt: string;
+  userTimestamp?: number;
 }
 
 function entryText(content: string | PiContentBlock[] | undefined): string {
@@ -63,25 +64,16 @@ function boundToolInput(input: string): string {
 }
 
 /**
- * Build the capture window for the most recent user prompt on the active
- * branch: only that prompt's assistant/tool work, stopping at the next user
- * message. Hidden thinking blocks are never included. Tool inputs are bounded
- * by the same truncation policy as the OpenCode adapter.
+ * Build the capture window for the user entry at `userIndex`: only that
+ * prompt's assistant/tool work, stopping at the next user message. Hidden
+ * thinking blocks are never included. Tool inputs are bounded by the same
+ * truncation policy as the OpenCode adapter.
  *
- * Returns null when the branch has no user prompt or the prompt has no
- * assistant/tool response window yet.
+ * Returns null when the prompt is empty or has no assistant/tool response
+ * window yet.
  */
-export function extractPiConversation(entries: PiSessionEntry[]): PiConversationWindow | null {
-  let lastUserIndex = -1;
-  for (let i = entries.length - 1; i >= 0; i--) {
-    if (isUserEntry(entries[i]!)) {
-      lastUserIndex = i;
-      break;
-    }
-  }
-  if (lastUserIndex === -1) return null;
-
-  const userEntry = entries[lastUserIndex]!;
+function buildWindow(entries: PiSessionEntry[], userIndex: number): PiConversationWindow | null {
+  const userEntry = entries[userIndex]!;
   const userPrompt = entryText(userEntry.message?.content);
   if (!userPrompt) return null;
 
@@ -90,7 +82,7 @@ export function extractPiConversation(entries: PiSessionEntry[]): PiConversation
   const sourceEntryIds: string[] = [];
   let sourceTimestamp: number | undefined;
 
-  for (const entry of entries.slice(lastUserIndex + 1)) {
+  for (const entry of entries.slice(userIndex + 1)) {
     if (isUserEntry(entry)) break;
     if (!isAssistantEntry(entry)) continue;
 
@@ -124,6 +116,8 @@ export function extractPiConversation(entries: PiSessionEntry[]): PiConversation
 
   if (textResponses.length === 0 && toolCalls.length === 0) return null;
 
+  const userTimestampMs = Date.parse(userEntry.timestamp);
+
   return {
     userEntryId: userEntry.id,
     userPrompt,
@@ -131,5 +125,33 @@ export function extractPiConversation(entries: PiSessionEntry[]): PiConversation
     toolCalls,
     sourceEntryIds,
     ...(sourceTimestamp !== undefined ? { sourceTimestamp } : {}),
+    ...(Number.isNaN(userTimestampMs) ? {} : { userTimestamp: userTimestampMs }),
   };
+}
+
+/**
+ * All capture windows on the branch, oldest first: one per user prompt that
+ * produced assistant or tool work. Used by live capture (last window) and by
+ * the historical importer (all windows).
+ */
+export function extractPiConversationWindows(entries: PiSessionEntry[]): PiConversationWindow[] {
+  const windows: PiConversationWindow[] = [];
+  for (let i = 0; i < entries.length; i++) {
+    if (!isUserEntry(entries[i]!)) continue;
+    const window = buildWindow(entries, i);
+    if (window) windows.push(window);
+  }
+  return windows;
+}
+
+/**
+ * The capture window of the most recent user prompt on the branch. Returns
+ * null when the branch has no user prompt with a response window.
+ */
+export function extractPiConversation(entries: PiSessionEntry[]): PiConversationWindow | null {
+  for (let i = entries.length - 1; i >= 0; i--) {
+    if (!isUserEntry(entries[i]!)) continue;
+    return buildWindow(entries, i);
+  }
+  return null;
 }

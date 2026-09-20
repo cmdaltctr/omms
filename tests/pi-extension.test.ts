@@ -34,6 +34,7 @@ import { mock } from "bun:test";
 const closeCalls = [];
 const toolCalls = [];
 const registeredTools = [];
+const registeredCommands = [];
 const handlers = {};
 let searchQueries = [];
 
@@ -150,6 +151,9 @@ const pi = {
   registerTool: (definition) => {
     registeredTools.push(definition);
   },
+  registerCommand: (name, options) => {
+    registeredCommands.push({ name, options });
+  },
 };
 
 opencodeMemPiExtension(pi);
@@ -158,7 +162,7 @@ let captured;
 
 ${code}
 
-console.log("RESULT:" + JSON.stringify({ registeredTools, toolCalls, closeCalls, searchQueries, profileCreates, profileUpdates, captured: typeof captured !== "undefined" ? captured : null }));
+console.log("RESULT:" + JSON.stringify({ registeredTools, registeredCommands, toolCalls, closeCalls, searchQueries, profileCreates, profileUpdates, captured: typeof captured !== "undefined" ? captured : null }));
 `;
 
   writeFileSync(scriptPath, script);
@@ -172,6 +176,14 @@ console.log("RESULT:" + JSON.stringify({ registeredTools, toolCalls, closeCalls,
 }
 
 describe("Pi extension entry point", () => {
+  it("registers the history import command alongside the memory tool", async () => {
+    const output = runScenario(`
+captured = registeredCommands.map((c) => c.name);
+`);
+
+    expect(output.captured).toEqual(["memory-import-pi-history"]);
+  });
+
   it("registers the memory tool over shared operations with host=pi context", async () => {
     const output = runScenario(`
 captured = registeredTools[0].name;

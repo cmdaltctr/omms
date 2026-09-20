@@ -10,6 +10,43 @@ import { detectLanguage, getLanguageName } from "../../services/language-detecto
 import { log } from "../../services/logger.js";
 
 /**
+ * Structural view of a Pi ExtensionContext's model surfaces, so the resolver
+ * stays testable without importing Pi runtime types.
+ */
+export interface PiModelContext {
+  modelRegistry: any;
+  model: any;
+}
+
+/**
+ * Active-model-first resolution: the explicit `piProvider`/`piModel`
+ * configuration when both are set, otherwise the active `ctx.model`.
+ */
+export function resolveModelFromContext(ctx: PiModelContext): PiModelHandle | null {
+  const registry = ctx?.modelRegistry;
+  if (!registry) return null;
+
+  let model: any = null;
+  if (CONFIG.piProvider && CONFIG.piModel) {
+    model = registry.find(CONFIG.piProvider, CONFIG.piModel) ?? null;
+  }
+  if (!model) model = ctx?.model ?? null;
+  if (!model) return null;
+
+  return {
+    provider: typeof model.provider === "string" ? model.provider : "unknown",
+    modelId:
+      typeof model.id === "string"
+        ? model.id
+        : typeof model.modelId === "string"
+          ? model.modelId
+          : "unknown",
+    complete: (context: Parameters<typeof registry.complete>[1]) =>
+      registry.complete(model, context),
+  };
+}
+
+/**
  * Structural view of the pieces we use from Pi's ModelRegistry/Model so the
  * bridge stays testable without importing Pi runtime types.
  */

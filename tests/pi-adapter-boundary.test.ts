@@ -34,4 +34,23 @@ describe("Pi adapter boundary", () => {
       }
     }
   });
+
+  it("keeps the importer and Pi runtime out of the OpenCode entry points", () => {
+    const openCodeEntryPaths = ["src/index.ts", "src/v2/adapter.ts", "src/v2/plugin.ts"];
+    for (const relative of openCodeEntryPaths) {
+      const source = readFileSync(join(import.meta.dir, "..", relative), "utf8");
+      expect(source).not.toContain("importer/");
+      expect(source).not.toContain("@earendil-works");
+    }
+
+    for (const dir of ["src/core", "src/services", "src/types"]) {
+      const entries = readdirSync(join(import.meta.dir, "..", dir), {
+        recursive: true,
+      }) as string[];
+      for (const entry of entries.filter((name) => name.endsWith(".ts"))) {
+        const source = readFileSync(join(import.meta.dir, "..", dir, entry), "utf8");
+        expect(source).not.toContain("importer/");
+      }
+    }
+  });
 });

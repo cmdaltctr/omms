@@ -7,7 +7,9 @@ import { log } from "../../services/logger.js";
 import { memoryClient } from "../../services/client.js";
 import { capturePiSettledWorkUnit, createPiCaptureState } from "./capture.js";
 import type { PiSessionEntry } from "./conversation.js";
-import { createPiCaptureProvider, type PiModelHandle } from "./provider.js";
+import { createPiCaptureProvider } from "./provider.js";
+import { resolveModelFromContext } from "./provider.js";
+import { registerPiHistoryImportCommand } from "./import-command.js";
 import { performPiProfileLearning } from "./profile.js";
 import { buildPiRetrievalSection } from "./retrieval.js";
 
@@ -68,6 +70,9 @@ function lastSettledUserPrompt(entries: PiSessionEntry[]): string | null {
 export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
   let captureState = createPiCaptureState();
   let promptsSinceProfileAnalysis: string[] = [];
+  // Latest session context, refreshed on session_start and consumed by the
+  // import command (command contexts do not expose the model registry).
+  let latestCtx: ExtensionContext | null = null;
 
   const notify =
     (ctx: ExtensionContext) =>
@@ -82,32 +87,11 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
       ctx.ui.notify(`${notification.title}: ${notification.message}`, level);
     };
 
-  const resolveModel = (ctx: ExtensionContext): PiModelHandle | null => {
-    const registry = ctx.modelRegistry as any;
-    if (!registry) return null;
-
-    let model: any = null;
-    if (CONFIG.piProvider && CONFIG.piModel) {
-      model = registry.find(CONFIG.piProvider, CONFIG.piModel) ?? null;
-    }
-    if (!model) model = ctx.model ?? null;
-    if (!model) return null;
-
-    return {
-      provider: typeof model.provider === "string" ? model.provider : "unknown",
-      modelId:
-        typeof model.id === "string"
-          ? model.id
-          : typeof model.modelId === "string"
-            ? model.modelId
-            : "unknown",
-      complete: (context: Parameters<typeof registry.complete>[1]) =>
-        registry.complete(model, context),
-    };
-  };
+  const resolveModel = (ctx: ExtensionContext) => resolveModelFromContext(ctx);
 
   pi.on("session_start", async (_event, ctx) => {
     try {
+      latestCtx = ctx;
       initConfig(ctx.cwd);
       captureState = createPiCaptureState();
 
@@ -196,6 +180,7 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
   });
 
   pi.on("session_shutdown", async () => {
+    latestCtx = null;
     captureState = createPiCaptureState();
     promptsSinceProfileAnalysis = [];
     (globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] = false;
@@ -241,4 +226,6 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
       };
     },
   });
+
+  registerPiHistoryImportCommand(pi, () => latestCtx);
 }
