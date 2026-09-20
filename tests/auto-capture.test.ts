@@ -171,21 +171,33 @@ mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
 }));
 
 const { performAutoCapture } = await import(${JSON.stringify(autoCaptureUrl)});
+const conversations = {
+  "msg-1": {
+    textResponses: ["First response"],
+    toolCalls: [],
+    sourceEntryIds: ["assistant-1"],
+  },
+  "msg-2": {
+    textResponses: ["Second response"],
+    toolCalls: [],
+    sourceEntryIds: ["assistant-2"],
+  },
+};
+
 await performAutoCapture(
   {
-    client: {
-      session: {
-        messages: async () => ({
-          data: [
-            { info: { id: "msg-1", role: "user" }, parts: [{ type: "text", text: "First request" }] },
-            { info: { id: "assistant-1", role: "assistant" }, parts: [{ type: "text", text: "First response" }] },
-            { info: { id: "msg-2", role: "user" }, parts: [{ type: "text", text: "Second request" }] },
-            { info: { id: "assistant-2", role: "assistant" }, parts: [{ type: "text", text: "Second response" }] },
-          ],
-        }),
-      },
-      tui: { showToast: async () => ({}) },
+    host: "opencode",
+    isCaptureReady: () => true,
+    getConversation: async (_sessionId, promptMessageId) => conversations[promptMessageId] ?? null,
+    summarize: async ({ context }) => {
+      summaryPrompts.push(context);
+      return {
+        summary: context.includes("First request") ? "summary-first" : "summary-second",
+        type: "discussion",
+        tags: [],
+      };
     },
+    notify: async () => {},
   },
   "session-1",
   "/workspace"
@@ -196,6 +208,9 @@ console.log(
     addPromptIds: addCalls.map((call) => call.metadata.promptId),
     summaries: addCalls.map((call) => call.content),
     summaryPrompts,
+    hosts: addCalls.map((call) => call.metadata.host),
+    sourceTypes: addCalls.map((call) => call.metadata.sourceType),
+    hostSessionIds: addCalls.map((call) => call.metadata.hostSessionId),
   })
 );
 `;
@@ -299,16 +314,20 @@ mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
 const { performAutoCapture } = await import(${JSON.stringify(autoCaptureUrl)});
 await performAutoCapture(
   {
-    client: {
-      session: {
-        messages: async () => ({
-          data: [
-            { info: { id: "msg-error", role: "user" }, parts: [{ type: "text", text: "Implement the requested change" }] },
-            { info: { id: "assistant-error", role: "assistant" }, parts: [{ type: "text", text: "Implemented it" }] },
-          ],
-        }),
-      },
-      tui: { showToast: async (toast) => { toasts.push(toast); return {}; } },
+    host: "opencode",
+    isCaptureReady: () => true,
+    getConversation: async () => ({
+      textResponses: ["Implemented it"],
+      toolCalls: [],
+      sourceEntryIds: ["assistant-error"],
+    }),
+    summarize: async () => {
+      throw new Error(
+        "opencode-mem: opencode reported APIError: Thinking mode does not support this tool_choice"
+      );
+    },
+    notify: async (notification) => {
+      toasts.push({ body: notification });
     },
   },
   "session-error",
@@ -346,6 +365,9 @@ describe("auto-capture idle processing", () => {
     expect(result.parsed?.summaryPrompts[0]).toContain("First response");
     expect(result.parsed?.summaryPrompts[0]).not.toContain("Second response");
     expect(result.parsed?.summaryPrompts[1]).toContain("Second response");
+    expect(result.parsed?.hosts).toEqual(["opencode", "opencode"]);
+    expect(result.parsed?.sourceTypes).toEqual(["live-capture", "live-capture"]);
+    expect(result.parsed?.hostSessionIds).toEqual(["session-1", "session-1"]);
   });
 
   it("preserves the opencode provider error when no manual fallback is configured", () => {

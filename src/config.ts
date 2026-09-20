@@ -4,16 +4,29 @@ import { homedir } from "node:os";
 import { stripJsoncComments } from "./services/jsonc.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
 import { isPlaceholderApiKey } from "./services/ai/api-key-placeholder.js";
+import {
+  resolveDefaultStoragePath,
+  runLegacyStoreMigration,
+  legacyMigrationPaths,
+} from "./services/legacy-migration.js";
 
-const CONFIG_DIR = join(homedir(), ".config", "opencode");
-const DATA_DIR = join(homedir(), ".opencode-mem");
+const OMMS_CONFIG_DIR = join(homedir(), ".config", "omms");
+const DATA_DIR = join(homedir(), ".omms");
+const LEGACY_CONFIG_FILES = [
+  join(homedir(), ".config", "opencode", "opencode-mem.jsonc"),
+  join(homedir(), ".config", "opencode", "opencode-mem.json"),
+];
+// Dual-read: the omms config wins; the legacy opencode-mem config is read
+// only when no omms config file exists (decision D13 rule 6). The legacy
+// file is never written.
 const CONFIG_FILES = [
-  join(CONFIG_DIR, "opencode-mem.jsonc"),
-  join(CONFIG_DIR, "opencode-mem.json"),
+  join(OMMS_CONFIG_DIR, "omms.jsonc"),
+  join(OMMS_CONFIG_DIR, "omms.json"),
+  ...LEGACY_CONFIG_FILES,
 ];
 
-if (!existsSync(CONFIG_DIR)) {
-  mkdirSync(CONFIG_DIR, { recursive: true });
+if (!existsSync(OMMS_CONFIG_DIR)) {
+  mkdirSync(OMMS_CONFIG_DIR, { recursive: true });
 }
 
 if (!existsSync(DATA_DIR)) {
@@ -52,6 +65,9 @@ interface OpenCodeMemConfig {
   memoryExtraParams?: Record<string, unknown>;
   opencodeProvider?: string;
   opencodeModel?: string;
+  /** Pi adapter: explicit provider/model for capture extraction. Default: inherit active Pi model. */
+  piProvider?: string;
+  piModel?: string;
   aiSessionRetentionDays?: number;
   webServerEnabled?: boolean;
   webServerPort?: number;
@@ -114,6 +130,8 @@ const DEFAULTS: Required<
     | "memoryExtraParams"
     | "opencodeProvider"
     | "opencodeModel"
+    | "piProvider"
+    | "piModel"
     | "autoCaptureLanguage"
     | "userEmailOverride"
     | "userNameOverride"
@@ -132,6 +150,8 @@ const DEFAULTS: Required<
   memoryExtraParams?: Record<string, unknown>;
   opencodeProvider?: string;
   opencodeModel?: string;
+  piProvider?: string;
+  piModel?: string;
   autoCaptureLanguage?: string;
   userEmailOverride?: string;
   userNameOverride?: string;
@@ -142,6 +162,8 @@ const DEFAULTS: Required<
     defaultScope?: "project" | "all-projects";
   };
 } = {
+  // Default store: ~/.omms/data (see resolveDefaultStoragePath for the
+  // legacy-layout fallback while a legacy store exists unmigrated).
   storagePath: join(DATA_DIR, "data"),
   embeddingModel: "Xenova/nomic-embed-text-v1",
   embeddingDimensions: 768,
@@ -253,11 +275,13 @@ function assertProjectRemoteProviderConfigIsSafe(projectConfig: OpenCodeMemConfi
 
 const CONFIG_TEMPLATE = `{
   // ============================================
-  // OpenCode Memory Plugin Configuration
+  // omms (Opinionated Modular Memory System) Configuration
   // ============================================
   
-  // Storage location for vector database
-  "storagePath": "~/.opencode-mem/data",
+  // Storage location for the vector database. Leave unset to use the
+  // default ~/.omms/data (a legacy ~/.opencode-mem/data store is migrated
+  // there automatically on first start; see docs/omms-migration.md).
+  // "storagePath": "~/.omms/data",
 
   "userEmailOverride": "",
   "userNameOverride": "",
@@ -307,7 +331,7 @@ const CONFIG_TEMPLATE = `{
   // "webServerAuthUsername": "",
 
   // Required when webServerHost is not loopback. Protects /api/* with Bearer / X-Opencode-Mem-Token.
-  // "webServerApiToken": "env://OPENCODE_MEM_WEB_TOKEN",
+  // "webServerApiToken": "env://OMMS_WEB_TOKEN",
   
   // ============================================
   // Database Settings
@@ -561,16 +585,24 @@ const CONFIG_TEMPLATE = `{
 `;
 
 function ensureConfigExists(): void {
-  const configPath = join(CONFIG_DIR, "opencode-mem.jsonc");
+  const configPath = join(OMMS_CONFIG_DIR, "omms.jsonc");
+  const hasOmmsConfig = CONFIG_FILES.slice(0, 2).some((path) => existsSync(path));
+  const hasLegacyConfig = LEGACY_CONFIG_FILES.some((path) => existsSync(path));
 
-  if (!existsSync(configPath)) {
-    try {
-      writeFileSync(configPath, CONFIG_TEMPLATE, "utf-8");
-      console.log(`\n✓ Created config template: ${configPath}`);
-      console.log("  Edit this file to customize opencode-mem settings.\n");
-    } catch {
-      // ignore if the template cannot be written
-    }
+  // The template is created only when NO config exists at all. When a legacy
+  // opencode-mem config is present, dual-read keeps using it and no omms
+  // config file is written (writing one would permanently shadow the legacy
+  // fallback on the next start).
+  if (hasOmmsConfig || hasLegacyConfig) {
+    return;
+  }
+
+  try {
+    writeFileSync(configPath, CONFIG_TEMPLATE, "utf-8");
+    console.log(`\n✓ Created config template: ${configPath}`);
+    console.log("  Edit this file to customise omms settings.\n");
+  } catch {
+    // ignore if the template cannot be written
   }
 }
 
@@ -657,7 +689,9 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
   }
 
   return {
-    storagePath: expandPath(fileConfig.storagePath ?? DEFAULTS.storagePath),
+    storagePath: fileConfig.storagePath
+      ? expandPath(fileConfig.storagePath)
+      : resolveDefaultStoragePath(),
     userEmailOverride: fileConfig.userEmailOverride,
     userNameOverride: fileConfig.userNameOverride,
     embeddingModel: fileConfig.embeddingModel ?? DEFAULTS.embeddingModel,
@@ -690,6 +724,8 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
     memoryExtraParams: fileConfig.memoryExtraParams,
     opencodeProvider: fileConfig.opencodeProvider,
     opencodeModel: fileConfig.opencodeModel,
+    piProvider: fileConfig.piProvider,
+    piModel: fileConfig.piModel,
     autoCaptureProviderStatus: getAutoCaptureProviderStatus({
       opencodeProvider: fileConfig.opencodeProvider,
       opencodeModel: fileConfig.opencodeModel,
@@ -782,6 +818,7 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
 }
 
 const _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
+let lastFileConfig: OpenCodeMemConfig = _globalFileConfig;
 export let CONFIG = buildConfig(_globalFileConfig);
 
 type RuntimeConfig = ReturnType<typeof buildConfig>;
@@ -861,7 +898,39 @@ export function initConfig(directory: string): void {
   delete projectOverrides.autoCleanupEnabled;
   delete projectOverrides.autoCleanupRetentionDays;
   const merged: OpenCodeMemConfig = { ...globalConfig, ...projectOverrides };
+  lastFileConfig = merged;
   CONFIG = buildConfig(merged);
+}
+
+/**
+ * Rebuild CONFIG from the last loaded file config. Used after the legacy
+ * migration runs so the storage default can flip from the legacy layout to
+ * ~/.omms/data when the migration marker says it succeeded.
+ */
+function refreshStorageResolution(): void {
+  CONFIG = buildConfig(lastFileConfig);
+}
+
+/**
+ * initConfig plus the one-time legacy store migration (decision D13).
+ *
+ * The migration only applies while the resolved store sits on a DEFAULT
+ * layout (legacy ~/.opencode-mem/data or omms ~/.omms/data). The legacy
+ * config template pinned "storagePath": "~/.opencode-mem/data" explicitly,
+ * so key-presence cannot be the skip signal; a genuinely custom store path
+ * (the user pointing storage elsewhere) skips migration entirely.
+ * OMMS_SKIP_LEGACY_MIGRATION=1 (set by the test preload) disables the
+ * automatic run without affecting resolution.
+ */
+export function initConfigWithLegacyMigration(directory: string): void {
+  initConfig(directory);
+  const { legacyDataDir, ommsDataDir } = legacyMigrationPaths();
+  const usesDefaultLayout =
+    CONFIG.storagePath === legacyDataDir || CONFIG.storagePath === ommsDataDir;
+  if (usesDefaultLayout && process.env.OMMS_SKIP_LEGACY_MIGRATION !== "1") {
+    runLegacyStoreMigration();
+    refreshStorageResolution();
+  }
 }
 
 export function isConfigured(): boolean {

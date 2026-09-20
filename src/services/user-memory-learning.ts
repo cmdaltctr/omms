@@ -431,49 +431,12 @@ CRITICAL: Only output observations grounded in the RECENT PROMPTS above. Write d
   return truncate(base);
 }
 
-/** Upper bound for LLM-inferred preference confidence (0–1 scale). */
-export const USER_PROFILE_LLM_CONFIDENCE_MAX = 1;
+import {
+  createUserProfileAnalysisSchema,
+  USER_PROFILE_LLM_CONFIDENCE_MAX,
+} from "../core/extraction.js";
 
-/** Shared analysis schema for OpenCode structured output and external tool calls. */
-export function createUserProfileAnalysisSchema(z: typeof import("zod").z) {
-  return z.object({
-    preferences: z.array(
-      z.object({
-        category: z.string(),
-        description: z.string(),
-        confidence: z.number().min(0).max(USER_PROFILE_LLM_CONFIDENCE_MAX),
-        evidence: z.array(z.string()),
-      })
-    ),
-    patterns: z.array(
-      z.object({
-        category: z.string(),
-        description: z.string(),
-      })
-    ),
-    workflows: z.array(
-      z.object({
-        description: z.string(),
-        steps: z.array(z.string()),
-      })
-    ),
-    validations: z
-      .array(
-        z.object({
-          index: z.number(),
-          verdict: z.enum([
-            "confirmed",
-            "contradicted",
-            "no_evidence",
-            "inaccurate",
-            "oversimplified",
-          ]),
-          reason: z.string(),
-        })
-      )
-      .optional(),
-  });
-}
+export { createUserProfileAnalysisSchema, USER_PROFILE_LLM_CONFIDENCE_MAX };
 
 export function createUserProfileToolSchema(existingProfile: boolean) {
   return {

@@ -5,8 +5,9 @@ import { tool } from "@opencode-ai/plugin";
 import { memoryClient } from "./services/client.js";
 import { formatContextForPrompt } from "./services/context.js";
 import { getTags } from "./services/tags.js";
-import { stripPrivateContent, isFullyPrivate } from "./services/privacy.js";
 import { performAutoCapture } from "./services/auto-capture.js";
+import { createOpenCodeAutoCaptureHost } from "./adapters/opencode/auto-capture-host.js";
+import { executeMemoryOperation, type MemoryOperationArgs } from "./core/memory-operations.js";
 import { performUserProfileLearning } from "./services/user-memory-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
 import { startWebServer, WebServer } from "./services/web-server.js";
@@ -14,11 +15,9 @@ import { ensureTursoReady } from "./services/turso/ready.js";
 import { tursoConnectionManager } from "./services/turso/connection-manager.js";
 import { WebAuth } from "./services/web-auth.js";
 
-import { isConfigured, CONFIG, initConfig } from "./config.js";
+import { isConfigured, CONFIG, initConfigWithLegacyMigration } from "./config.js";
 import { log } from "./services/logger.js";
-import type { MemoryType } from "./types/index.js";
 import { getLanguageName } from "./services/language-detector.js";
-import type { MemoryScope } from "./services/client.js";
 import { getHostClientConfig } from "./services/ai/opencode-host-config.js";
 import { loadOpencodeProvider } from "./services/ai/opencode-provider-loader.js";
 import {
@@ -237,9 +236,10 @@ function logAutoCaptureProviderStatus(): void {
 
 export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   const { directory } = ctx;
-  initConfig(directory);
+  initConfigWithLegacyMigration(directory);
   logAutoCaptureProviderStatus();
   const tags = getTags(directory);
+  const autoCaptureHost = createOpenCodeAutoCaptureHost(ctx);
   let webServer: WebServer | null = null;
   let idleTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -427,7 +427,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
       try {
         tursoConnectionManager.closeAllSync();
       } catch {
-        // ignore — module may already be torn down
+        // ignore Ã¢ÂÂ module may already be torn down
       }
     }
   };
@@ -608,333 +608,16 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
           dryRun: tool.schema.boolean().optional(),
           allowLinkedSource: tool.schema.boolean().optional(),
         },
-        async execute(args: {
-          mode?:
-            | "add"
-            | "search"
-            | "profile"
-            | "list"
-            | "forget"
-            | "help"
-            | "migrate"
-            | "list-shards"
-            | "export"
-            | "import";
-          content?: string;
-          query?: string;
-          tags?: string;
-          type?: MemoryType;
-          memoryId?: string;
-          limit?: number;
-          scope?: MemoryScope;
-          fromPath?: string;
-          fromHash?: string;
-          outputPath?: string;
-          inputPath?: string;
-          dryRun?: boolean;
-          allowLinkedSource?: boolean;
-        }) {
-          if (!isConfigured()) {
-            return JSON.stringify({
-              success: false,
-              error: "Memory system not configured properly.",
-            });
-          }
-
-          const mode = args.mode || "help";
-          const needsEmbedding = !["help", "list-shards", "migrate", "export"].includes(mode);
-
-          if (needsEmbedding) {
-            const embeddingInitError = memoryClient.getEmbeddingInitError?.();
-            if (embeddingInitError) {
-              return JSON.stringify({ success: false, error: embeddingInitError });
-            }
-          }
-
-          try {
-            if (needsEmbedding) {
-              await memoryClient.warmup();
-            } else if (mode !== "help") {
-              await memoryClient.ensureStorageReady();
-            }
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            return JSON.stringify({
-              success: false,
-              error: `Memory system failed to initialize: ${message}`,
-            });
-          }
-
-          const langName = getLanguageName(CONFIG.autoCaptureLanguage || "en");
-
-          try {
-            switch (mode) {
-              case "help":
-                return JSON.stringify({
-                  success: true,
-                  message: "Memory System Usage Guide",
-                  commands: [
-                    {
-                      command: "add",
-                      description: `Store new memory (MATCH USER LANGUAGE: ${langName})`,
-                      args: ["content", "type?", "tags?"],
-                    },
-                    {
-                      command: "search",
-                      description: `Search memories via keywords (MATCH USER LANGUAGE: ${langName})`,
-                      args: ["query"],
-                    },
-                    {
-                      command: "profile",
-                      description:
-                        "View user profile or save an explicit preference (provide content to write)",
-                      args: ["content?"],
-                    },
-                    { command: "list", description: "List recent memories", args: ["limit?"] },
-                    { command: "forget", description: "Remove memory", args: ["memoryId"] },
-                    {
-                      command: "list-shards",
-                      description: "List project memory shards and orphaned path associations",
-                      args: [],
-                    },
-                    {
-                      command: "migrate",
-                      description:
-                        "Reassociate orphaned project shards after a directory move (target must be empty)",
-                      args: ["fromPath?", "fromHash?", "dryRun?", "allowLinkedSource?"],
-                    },
-                    {
-                      command: "export",
-                      description: "Export current project memories to a portable JSON file",
-                      args: ["outputPath"],
-                    },
-                    {
-                      command: "import",
-                      description:
-                        "Import memories from a portable JSON file (re-embeds; aborts on duplicate ids)",
-                      args: ["inputPath", "dryRun?"],
-                    },
-                  ],
-                  tagGuidance: "Use technical keywords for search. Tags rank highest.",
-                });
-
-              case "add": {
-                if (!args.content)
-                  return JSON.stringify({ success: false, error: "content required" });
-                const sanitizedContent = stripPrivateContent(args.content);
-                if (isFullyPrivate(args.content))
-                  return JSON.stringify({ success: false, error: "Private content blocked" });
-                const tagInfo = tags.project;
-                const parsedTags = args.tags
-                  ? args.tags.split(",").map((t) => t.trim().toLowerCase())
-                  : undefined;
-                const result = await memoryClient.addMemory(sanitizedContent, tagInfo.tag, {
-                  type: args.type,
-                  tags: parsedTags,
-                  displayName: tagInfo.displayName,
-                  userName: tagInfo.userName,
-                  userEmail: tagInfo.userEmail,
-                  projectPath: tagInfo.projectPath,
-                  projectName: tagInfo.projectName,
-                  gitRepoUrl: tagInfo.gitRepoUrl,
-                });
-                return JSON.stringify({
-                  success: result.success,
-                  message: result.success ? `Memory added` : result.error,
-                  id: result.success ? result.id : undefined,
-                  tags: parsedTags,
-                });
-              }
-
-              case "search": {
-                if (!args.query) return JSON.stringify({ success: false, error: "query required" });
-                const searchRes = await memoryClient.searchMemories(
-                  args.query,
-                  tags.project.tag,
-                  args.scope ?? CONFIG.memory.defaultScope
-                );
-                if (!searchRes.success)
-                  return JSON.stringify({ success: false, error: searchRes.error });
-                return formatSearchResults(args.query, searchRes, args.limit);
-              }
-
-              case "profile": {
-                if (args.query) {
-                  return JSON.stringify({
-                    success: false,
-                    error:
-                      "query is not valid for profile mode. Use content to write a preference or omit all args to read.",
-                  });
-                }
-
-                const { userProfileManager } =
-                  await import("./services/user-profile/user-profile-manager.js");
-
-                const userId = tags.user.userEmail || "unknown";
-
-                // --- WRITE: explicit preference ---
-                if (args.content !== undefined) {
-                  const trimmed = args.content.trim();
-                  if (!trimmed) {
-                    return JSON.stringify({ success: false, error: "content must not be blank" });
-                  }
-
-                  if (!tags.user.userEmail) {
-                    return JSON.stringify({
-                      success: false,
-                      error:
-                        "Cannot save profile preference because no user email could be resolved. Configure userEmailOverride or git user.email.",
-                    });
-                  }
-
-                  const sanitizedContent = stripPrivateContent(trimmed);
-                  const hasNonPrivateContent =
-                    sanitizedContent.replace(/\[REDACTED\]/g, "").trim().length > 0;
-
-                  if (isFullyPrivate(trimmed) || !hasNonPrivateContent) {
-                    return JSON.stringify({ success: false, error: "Private content blocked" });
-                  }
-
-                  const newPreference = {
-                    category: "explicit",
-                    description: sanitizedContent,
-                    confidence: 1.0,
-                    frequency: 1,
-                    evidence: ["manual-write"],
-                    lastSeen: Date.now(),
-                  };
-
-                  const existingProfile = await userProfileManager.getActiveProfile(userId);
-
-                  if (existingProfile) {
-                    const existingData = JSON.parse(existingProfile.profileData);
-                    const mergedData = await userProfileManager.mergeProfileData(
-                      existingData,
-                      {
-                        preferences: [newPreference],
-                      },
-                      undefined,
-                      existingProfile.id
-                    );
-                    await userProfileManager.updateProfile(
-                      existingProfile.id,
-                      mergedData,
-                      0,
-                      `Explicit preference added: ${sanitizedContent.slice(0, 80)}`
-                    );
-                    return JSON.stringify({
-                      success: true,
-                      message: "Preference saved to profile",
-                    });
-                  } else {
-                    await userProfileManager.createProfile(
-                      userId,
-                      tags.user.displayName || userId,
-                      tags.user.userName || userId,
-                      tags.user.userEmail || userId,
-                      { preferences: [newPreference], patterns: [], workflows: [] },
-                      0
-                    );
-                    return JSON.stringify({
-                      success: true,
-                      message: "Profile created with preference",
-                    });
-                  }
-                }
-
-                // --- READ: no content provided ---
-                const profile = await userProfileManager.getActiveProfile(userId);
-                if (!profile) return JSON.stringify({ success: true, profile: null });
-                const pData = JSON.parse(profile.profileData);
-                return JSON.stringify({
-                  success: true,
-                  profile: {
-                    ...pData,
-                    version: profile.version,
-                    lastAnalyzed: profile.lastAnalyzedAt,
-                  },
-                });
-              }
-
-              case "list": {
-                const listRes = await memoryClient.listMemories(
-                  tags.project.tag,
-                  args.limit || 20,
-                  args.scope ?? CONFIG.memory.defaultScope
-                );
-                if (!listRes.success)
-                  return JSON.stringify({ success: false, error: listRes.error });
-                return JSON.stringify({
-                  success: true,
-                  count: listRes.memories?.length,
-                  memories: listRes.memories?.map((m: any) => ({
-                    id: m.id,
-                    content: m.summary,
-                    createdAt: m.createdAt,
-                  })),
-                });
-              }
-
-              case "forget": {
-                if (!args.memoryId)
-                  return JSON.stringify({ success: false, error: "memoryId required" });
-                const delRes = await memoryClient.deleteMemory(args.memoryId);
-                return JSON.stringify({ success: delRes.success, message: `Memory removed` });
-              }
-
-              case "list-shards": {
-                const listShardsRes = await memoryClient.listShards(directory);
-                return JSON.stringify(listShardsRes);
-              }
-
-              case "migrate": {
-                if (!args.fromPath && !args.fromHash) {
-                  return JSON.stringify({
-                    success: false,
-                    error:
-                      "fromPath or fromHash required. Run memory list-shards to discover orphaned shards.",
-                  });
-                }
-                const migrateRes = await memoryClient.migrateProjectPath({
-                  currentDirectory: directory,
-                  fromPath: args.fromPath,
-                  fromHash: args.fromHash,
-                  dryRun: args.dryRun,
-                  allowLinkedSource: args.allowLinkedSource,
-                });
-                return JSON.stringify(migrateRes);
-              }
-
-              case "export": {
-                if (!args.outputPath) {
-                  return JSON.stringify({ success: false, error: "outputPath required" });
-                }
-                const exportRes = await memoryClient.exportMemories(directory, args.outputPath);
-                return JSON.stringify(exportRes);
-              }
-
-              case "import": {
-                if (!args.inputPath) {
-                  return JSON.stringify({ success: false, error: "inputPath required" });
-                }
-                const importRes = await memoryClient.importMemories(
-                  directory,
-                  args.inputPath,
-                  args.dryRun
-                );
-                return JSON.stringify(importRes);
-              }
-
-              default:
-                return JSON.stringify({ success: false, error: `Unknown mode: ${mode}` });
-            }
-          } catch (error) {
-            return JSON.stringify({ success: false, error: String(error) });
-          }
+        async execute(args: MemoryOperationArgs) {
+          const result = await executeMemoryOperation(args, {
+            directory,
+            tags,
+            host: "opencode",
+          });
+          return JSON.stringify(result);
         },
       }),
     },
-
     event: async (input: { event: { type: string; properties?: any } }) => {
       const event = input.event;
       if (event.type === "session.idle") {
@@ -943,7 +626,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         if (!sessionID) return;
 
         // Transient structured-output sessions must not re-trigger capture/learning
-        // (that self-schedules an unbounded idle → LLM → idle loop).
+        // (that self-schedules an unbounded idle Ã¢ÂÂ LLM Ã¢ÂÂ idle loop).
         if (await isInternalCaptureSession(ctx.client, sessionID)) {
           log("Skipping idle processing for internal capture session", { sessionID });
           return;
@@ -953,7 +636,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
 
         idleTimeout = setTimeout(async () => {
           try {
-            await performAutoCapture(ctx, sessionID, directory);
+            await performAutoCapture(autoCaptureHost, sessionID, directory);
 
             if (webServer?.isServerOwner()) {
               await performUserProfileLearning(ctx, directory);
@@ -1040,20 +723,6 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
     },
   };
 };
-
-function formatSearchResults(query: string, results: any, limit?: number): string {
-  const memoryResults = results.results || [];
-  return JSON.stringify({
-    success: true,
-    query,
-    count: memoryResults.length,
-    results: memoryResults.slice(0, limit || 10).map((r: any) => ({
-      id: r.id,
-      content: r.memory || r.chunk,
-      similarity: Math.round(r.similarity * 100),
-    })),
-  });
-}
 
 const EMBEDDED_TAGS_FOOTER_RE = /\n*Tags: ([^\n]*)\s*$/;
 

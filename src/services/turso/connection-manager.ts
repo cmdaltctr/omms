@@ -54,9 +54,23 @@ export class TursoConnectionManager {
         mkdirSync(dir, { recursive: true });
       }
 
-      const client: Client = this.clientFactory({ url: toFileUrl(dbPath) });
+      // One pooled handle per client: the pragmas below are per-connection,
+      // so a larger pool would mint unconfigured handles that fail with
+      // SQLITE_BUSY under cross-process contention. Writes are serialised
+      // per scope anyway (withScopeWriteLock); WAL keeps cross-process
+      // readers concurrent.
+      const client: Client = this.clientFactory({ url: toFileUrl(dbPath), concurrency: 1 });
       try {
         const db = new TursoDb(client);
+        // Cross-process safety: busy_timeout makes this connection queue
+        // instead of failing with SQLITE_BUSY when another process holds the
+        // write lock, and one pooled handle per client guarantees the pragma
+        // covers every handle the client will ever use. Writers are fully
+        // serialised across processes by the per-scope cross-process write
+        // lock (see cross-process-write-lock.ts); the default rollback
+        // journal is kept because file-level migration copies rely on the
+        // main database file being current after every commit.
+        await db.execute("PRAGMA busy_timeout = 5000");
         await db.execute("PRAGMA foreign_keys = ON");
         this.connections.set(dbPath, db);
         return db;

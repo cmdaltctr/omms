@@ -1,10 +1,19 @@
 export type MemoryType = string;
+export type MemoryHost = "opencode" | "pi";
+export type MemorySourceType = "live-capture" | "history-import";
 
 export interface MemoryMetadata {
   type?: MemoryType;
   source?: "manual" | "auto-capture" | "import" | "api";
   tool?: string;
   sessionID?: string;
+  host?: MemoryHost;
+  hostSessionId?: string;
+  sourceType?: MemorySourceType;
+  sourceEntryIds?: string[];
+  sourceTimestamp?: number;
+  sourceFile?: string;
+  importId?: string;
   reasoning?: string;
   captureTimestamp?: number;
   promptId?: string;
