@@ -75,9 +75,13 @@ on the main database file being current after every commit.
 
 Phase 1 preserved, and later phases must preserve:
 
-1. Default storage stays `~/.opencode-mem/data`; the container tag prefix
-   stays `opencode_project_<hash>`. The same project directory resolves to
-   the same shard set from either host.
+1. The default store is `~/.omms/data`, established by a one-time verified
+   migration from `~/.opencode-mem/data` (see
+   [omms-migration.md](omms-migration.md)): the legacy directory is backed up
+   and copied, never modified, and storage keeps resolving to the legacy
+   layout until the migration succeeds. The container tag prefix stays
+   `opencode_project_<hash>` as the historical on-disk format name. The same
+   project directory resolves to the same shard set from either host.
 2. Memories written before provenance fields existed remain valid and
    searchable. Provenance (`host`, `hostSessionId`, `sourceType`,
    `sourceEntryIds`, `sourceTimestamp`, `sourceFile`, `importId`) is optional

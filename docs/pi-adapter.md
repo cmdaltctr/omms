@@ -1,6 +1,6 @@
 # Pi Adapter
 
-`opencode-mem` ships a Pi coding-agent extension that runs the same shared
+`omms` ships a Pi coding-agent extension that runs the same shared
 memory engine as the OpenCode plugin. Both hosts read and write one store per
 project, so memories captured in OpenCode are retrievable from Pi and vice
 versa.
@@ -14,7 +14,7 @@ when upgrading the Pi dependency.
 From npm (published package):
 
 ```bash
-pi install npm:opencode-mem
+pi install npm:omms
 ```
 
 From a local checkout (development):
@@ -40,12 +40,16 @@ Pi runtime provides them and no second runtime is bundled.
 
 The extension reads the same configuration files as the OpenCode plugin:
 
-1. `~/.config/opencode/opencode-mem.jsonc` (global)
+1. `~/.config/omms/omms.jsonc` (global; the legacy
+   `~/.config/opencode/opencode-mem.jsonc` is still read while the omms file
+   does not exist)
 2. `<project>/.opencode/opencode-mem.jsonc` (project overrides)
 
 Storage, embedding, privacy, deduplication, scopes, and thresholds are shared.
-`storagePath` defaults to `~/.opencode-mem/data`, so both hosts use the same
-store for the same project unless you override it.
+`storagePath` defaults to `~/.omms/data` — a legacy `~/.opencode-mem/data`
+store is migrated there automatically on first start with a verified backup
+first (see [omms-migration.md](omms-migration.md)) — so both hosts use the
+same store for the same project unless you override it.
 
 Pi-specific options:
 
@@ -67,7 +71,7 @@ own the web server port as before.
 
 ## Lifecycle mapping
 
-| Pi event             | opencode-mem behaviour                                                                                                                                                         |
+| Pi event             | omms behaviour                                                                                                                                                                 |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `session_start`      | Load shared config for `ctx.cwd`, warm storage and embeddings in the background                                                                                                |
 | `before_agent_start` | Semantic retrieval: search project memory with the incoming prompt, inject results as a delimited `<opencode-mem-retrieval>` system-prompt section (never a fake user message) |

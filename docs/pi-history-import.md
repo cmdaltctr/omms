@@ -100,7 +100,7 @@ The ledger lives at `<storagePath>/import-ledger.db`. Status counts per run
 appear in the command summary. For per-key inspection:
 
 ```bash
-sqlite3 ~/.opencode-mem/data/import-ledger.db \
+sqlite3 ~/.omms/data/import-ledger.db \
   "SELECT status, COUNT(*) FROM import_ledger GROUP BY status"
 ```
 
@@ -112,10 +112,11 @@ machine:
 1. Copy the whole data directory:
 
 ```bash
-rsync -a ~/.opencode-mem/data/ newmachine:~/.opencode-mem/data/
+rsync -a ~/.omms/data/ newmachine:~/.omms/data/
 ```
 
-2. Copy the config: `~/.config/opencode/opencode-mem.jsonc`.
+2. Copy the config: `~/.config/omms/omms.jsonc` (on machines still on the
+   legacy layout, `~/.config/opencode/opencode-mem.jsonc`).
 3. Install the embedding runtime on the new machine and keep the model
    identical (for example `ollama pull qwen3-embedding:0.6b`). Stored vectors
    only match queries from the same embedding model.

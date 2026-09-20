@@ -1,14 +1,16 @@
-# OpenCode Memory
+# omms — Opinionated Modular Memory System
 
-[![npm version](https://img.shields.io/npm/v/opencode-mem.svg)](https://www.npmjs.com/package/opencode-mem)
-[![npm downloads](https://img.shields.io/npm/dm/opencode-mem.svg)](https://www.npmjs.com/package/opencode-mem)
-[![license](https://img.shields.io/npm/l/opencode-mem.svg)](https://www.npmjs.com/package/opencode-mem)
+[![npm version](https://img.shields.io/npm/v/omms.svg)](https://www.npmjs.com/package/omms)
+[![npm downloads](https://img.shields.io/npm/dm/omms.svg)](https://www.npmjs.com/package/omms)
+[![license](https://img.shields.io/npm/l/omms.svg)](https://www.npmjs.com/package/omms)
 
 > **Fork notice.** This is [`cmdaltctr/opencode-mem`](https://github.com/cmdaltctr/opencode-mem), a fork of
-> [`tickernelz/opencode-mem`](https://github.com/tickernelz/opencode-mem). The fork adds first-class
-> integration with the [Pi coding agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent):
-> the memory engine now runs as a shared, host-neutral core behind a native Pi extension, so OpenCode
-> and Pi read and write one memory store per project. All existing OpenCode behaviour, storage, and
+> [`tickernelz/opencode-mem`](https://github.com/tickernelz/opencode-mem), published as **`omms`**, the Opinionated
+> Modular Memory System for coding agents. The fork adds first-class integration with the
+> [Pi coding agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent): the memory engine now runs as a
+> shared, host-neutral core behind a native Pi extension, so OpenCode and Pi read and write one memory store per
+> project. Existing OpenCode memory data migrates automatically and safely on first start; see
+> [docs/omms-migration.md](docs/omms-migration.md). All existing OpenCode behaviour, storage compatibility, and
 > configuration are preserved. See [docs/shared-core.md](docs/shared-core.md) for the boundary,
 > [docs/pi-adapter.md](docs/pi-adapter.md) for Pi installation and lifecycle details, and
 > [docs/pi-history-import.md](docs/pi-history-import.md) to import existing Pi session history.
@@ -52,7 +54,7 @@ This plugin uses embedded Turso/libSQL with native vector indexes (`F32_BLOB`, `
 
 ### Upgrading from legacy SQLite shards
 
-On first startup after upgrading, opencode-mem automatically migrates existing memory shard databases to native Turso/libSQL vector format:
+On first startup after upgrading, omms automatically migrates existing memory shard databases to native Turso/libSQL vector format:
 
 - Each shard is backed up as `<shard>.db.legacy.bak` before rewrite
 - Progress is tracked per shard in `<shard>.db.turso-migrate.json`
@@ -70,7 +72,7 @@ For OpenCode v2, add the package to the native `plugins` list:
 
 ```jsonc
 {
-  "plugins": ["opencode-mem"],
+  "plugins": ["npm:omms"],
 }
 ```
 
@@ -79,13 +81,26 @@ For OpenCode v1, add the default entrypoint to your configuration at
 
 ```jsonc
 {
-  "plugin": ["opencode-mem"],
+  "plugin": ["npm:omms"],
 }
 ```
 
 **Windows:** use `%USERPROFILE%\.config\opencode\opencode.json` (for example `C:\Users\<you>\.config\opencode\opencode.json`). This plugin does **not** read `%APPDATA%` or `%LOCALAPPDATA%` for its OpenCode plugin entry — put the file under `.config\opencode` in your user profile, then restart OpenCode. If the plugin does not appear, confirm that path and restart again.
 
 The plugin downloads automatically on next startup.
+
+For the Pi coding agent, install the same package as an extension:
+
+```bash
+pi install npm:omms
+```
+
+See [docs/pi-adapter.md](docs/pi-adapter.md) for Pi lifecycle details and
+[docs/pi-history-import.md](docs/pi-history-import.md) to backfill existing Pi sessions.
+
+Upgrading from an existing `opencode-mem` install? The store migrates to
+`~/.omms/data` automatically on first start, with a verified backup first —
+see [docs/omms-migration.md](docs/omms-migration.md).
 
 ## How to use day-to-day
 
@@ -152,15 +167,15 @@ Dimension migrations generate every new embedding first, import them into a temp
 
 ## Configuration Essentials
 
-Configure at `~/.config/opencode/opencode-mem.jsonc`:
+Configure at `~/.config/omms/omms.jsonc`. While that file does not exist, omms still reads the legacy `~/.config/opencode/opencode-mem.jsonc` (it is never written), so existing installs keep working before you migrate settings:
 
-**Windows:** `%USERPROFILE%\.config\opencode\opencode-mem.jsonc` (same `.config\opencode` directory as above — not AppData). Default storage resolves to `%USERPROFILE%\.opencode-mem\data` (the `~` form in the example below expands to your user home on Windows as well).
+**Windows:** `%USERPROFILE%\.config\omms\omms.jsonc` (not AppData). Default storage resolves to `%USERPROFILE%\.omms\data` (the `~` form in the example below expands to your user home on Windows as well). A legacy `~/.opencode-mem/data` store migrates to the new path automatically on first start.
 
-The plugin creates a full commented template at this path on first startup. This trimmed example shows the most common settings:
+The plugin creates a full commented template at this path on first startup (only when no config exists at all). This trimmed example shows the most common settings:
 
 ```jsonc
 {
-  "storagePath": "~/.opencode-mem/data",
+  "storagePath": "~/.omms/data",
   "userEmailOverride": "user@example.com",
   "userNameOverride": "John Doe",
   "embeddingModel": "Xenova/nomic-embed-text-v1",
@@ -179,7 +194,7 @@ The plugin creates a full commented template at this path on first startup. This
   "webServerPort": 4747,
   // Required when webServerHost is not 127.0.0.1/localhost:
   // "webServerHost": "0.0.0.0",
-  // "webServerApiToken": "env://OPENCODE_MEM_WEB_TOKEN",
+  // "webServerApiToken": "env://OMMS_WEB_TOKEN",
 
   "autoCaptureEnabled": true,
   "autoCaptureLanguage": "auto",
@@ -217,9 +232,9 @@ The plugin creates a full commented template at this path on first startup. This
 
 ### Choosing / configuring embeddings
 
-Embeddings power similarity search for memories and the user profile. Configure them in the same file (`~/.config/opencode/opencode-mem.jsonc`). There is **no MLX backend** — local embeddings use `@huggingface/transformers` with ONNX, not Apple MLX.
+Embeddings power similarity search for memories and the user profile. Configure them in the same file (`~/.config/omms/omms.jsonc`). There is **no MLX backend** — local embeddings use `@huggingface/transformers` with ONNX, not Apple MLX.
 
-**Local (default):** set only `embeddingModel`. On first use the model is downloaded from Hugging Face and cached under `{storagePath}/.cache` (default `~/.opencode-mem/data/.cache`).
+**Local (default):** set only `embeddingModel`. On first use the model is downloaded from Hugging Face and cached under `{storagePath}/.cache` (default `~/.omms/data/.cache`).
 
 **Remote (OpenAI-compatible):** set both `embeddingApiUrl` and `embeddingApiKey`. The plugin then calls `{embeddingApiUrl}/embeddings` with a Bearer token. `embeddingApiKey` accepts the same secret formats as `memoryApiKey` (`literal`, `env://…`, `file://…`).
 
@@ -252,7 +267,7 @@ Example — remote OpenAI embeddings:
 
 Changing `embeddingModel` (or dimensions) can trigger re-embedding of stored memories on next startup. Prefer picking a model once and sticking with it for a given data directory.
 
-**Intel Mac (`darwin/x64`):** `onnxruntime-node@1.21.0` through `1.23.2` can crash OpenCode's embedded Bun `1.3.14` during process exit after successful local embeddings (`Ort::Env` teardown / SIGILL). The fix shipped in `1.24.1`, but fixed releases still lack an x64 native binding. `opencode-mem` therefore pins `onnxruntime-node@1.20.1` and loads transformers through a CJS resolve shim so OpenCode nested installs keep that binding. Transformers is resolved to an absolute path before that shim is installed so OpenCode's Bun `--compile` host does not fail with `Cannot find module '@huggingface/transformers' from ''`. After upgrading, clear OpenCode's nested plugin cache (`~/.cache/opencode/packages/opencode-mem@*`) and reinstall, or use a remote endpoint via `embeddingApiUrl` + `embeddingApiKey` (example above). This pin stays until onnxruntime publishes a post-teardown-fix darwin/x64 build.
+**Intel Mac (`darwin/x64`):** `onnxruntime-node@1.21.0` through `1.23.2` can crash OpenCode's embedded Bun `1.3.14` during process exit after successful local embeddings (`Ort::Env` teardown / SIGILL). The fix shipped in `1.24.1`, but fixed releases still lack an x64 native binding. `omms` therefore pins `onnxruntime-node@1.20.1` and loads transformers through a CJS resolve shim so OpenCode nested installs keep that binding. Transformers is resolved to an absolute path before that shim is installed so OpenCode's Bun `--compile` host does not fail with `Cannot find module '@huggingface/transformers' from ''`. After upgrading, clear OpenCode's nested plugin cache (`~/.cache/opencode/packages/omms@*`, or `opencode-mem@*` on pre-migration installs) and reinstall, or use a remote endpoint via `embeddingApiUrl` + `embeddingApiKey` (example above). This pin stays until onnxruntime publishes a post-teardown-fix darwin/x64 build.
 
 ### Memory Scope
 
@@ -315,7 +330,7 @@ The marker is looked up by walking up from the working directory that every
 code path already passes in (the plugin's working directory, the web API's
 `process.cwd()`), so identity is **directory-driven and process-independent**.
 It does not rely on environment variables or a global config value, which
-would be unreliable here: opencode-mem runs across multiple opencode processes
+would be unreliable here: omms runs across multiple opencode processes
 that share a single web server, and only some of those processes carry a
 given env var. With the marker, the project root is always derived from where
 the session actually runs.
@@ -327,10 +342,10 @@ identity).
 
 ### Moving or Recovering Project Memories
 
-opencode-mem keys project shards by a hash of the project identity. Moving a
+omms keys project shards by a hash of the project identity. Moving a
 repository (OS migration, path reorganization, switching from a Windows mount
 to a native path) can therefore orphan the old shard under
-`~/.opencode-mem/data/projects/` while a new empty shard is created for the
+`~/.omms/data/projects/` while a new empty shard is created for the
 new path.
 
 These are OpenCode `memory` tool calls with JSON arguments, not commands to
@@ -446,22 +461,22 @@ Troubleshooting:
 - If auto-capture reports that a provider is not connected, confirm the provider name with `opencode providers list` and configure that provider in opencode first.
 - If a proxy or custom provider returns plain text instead of structured/tool output, choose another model/provider or use one of the manual provider modes above.
 - For models that reject `temperature`, add `"memoryTemperature": false` when using manual API configuration.
-- **Intel Mac (darwin/x64) local embedding:** if embedding init fails or OpenCode exits with SIGILL after local memory use, clear `~/.cache/opencode/packages/opencode-mem@*` after upgrading so the nested install picks up the pinned `onnxruntime-node@1.20.1`, or switch to a remote embedding endpoint via `embeddingApiUrl` + `embeddingApiKey`. See [Choosing / configuring embeddings](#choosing-configuring-embeddings). MLX is not supported.
+- **Intel Mac (darwin/x64) local embedding:** if embedding init fails or OpenCode exits with SIGILL after local memory use, clear `~/.cache/opencode/packages/omms@*` (or `opencode-mem@*` on pre-migration installs) after upgrading so the nested install picks up the pinned `onnxruntime-node@1.20.1`, or switch to a remote embedding endpoint via `embeddingApiUrl` + `embeddingApiKey`. See [Choosing / configuring embeddings](#choosing-configuring-embeddings). MLX is not supported.
 
 ## Public Subpath Exports
 
-In addition to the main plugin entry, `opencode-mem` exposes one stable subpath
+In addition to the main plugin entry, `omms` exposes one stable subpath
 that other opencode plugins can import directly. This avoids having to
 reverse-engineer container-tag conventions when writing third-party tools that
 read or write into the same memory store.
 
-### `opencode-mem/tags`
+### `omms/tags`
 
-Canonical container-tag helpers. The same functions opencode-mem itself uses
+Canonical container-tag helpers. The same functions omms itself uses
 to scope auto-captured memories.
 
 ```ts
-import { getProjectTagInfo, getUserTagInfo, getTags } from "opencode-mem/tags";
+import { getProjectTagInfo, getUserTagInfo, getTags } from "omms/tags";
 
 // Canonical project tag derived from cwd (git remote URL if present, else
 // the project root path). Format: `opencode_project_<sha16>`.
@@ -498,8 +513,9 @@ This project is actively seeking contributions to become the definitive memory p
 
 MIT License - see LICENSE file
 
-- **Repository**: https://github.com/tickernelz/opencode-mem
-- **Issues**: https://github.com/tickernelz/opencode-mem/issues
+- **Repository**: https://github.com/cmdaltctr/opencode-mem (fork)
+- **Upstream**: https://github.com/tickernelz/opencode-mem
+- **Issues**: https://github.com/cmdaltctr/opencode-mem/issues
 - **OpenCode Platform**: https://opencode.ai
 
 Inspired by [opencode-supermemory](https://github.com/supermemoryai/opencode-supermemory)
