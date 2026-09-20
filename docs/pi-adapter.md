@@ -115,9 +115,10 @@ go through the same shard allocation and write-lock path as OpenCode, and the
 same project directory resolves to the same project tag from either host
 (`opencode_project_<hash>`).
 
-## Limitations (Phase 2 scope)
+## Limitations
 
 - Pi profile learning applies analysed batches directly. The decay,
   validation-task, and conflict-retry machinery of the OpenCode idle path is
   not ported.
-- Historical Pi session import is Phase 3.
+- Historical session import is explicit and current-project by default; see
+  [pi-history-import.md](pi-history-import.md).

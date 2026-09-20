@@ -9,9 +9,9 @@
 > integration with the [Pi coding agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent):
 > the memory engine now runs as a shared, host-neutral core behind a native Pi extension, so OpenCode
 > and Pi read and write one memory store per project. All existing OpenCode behaviour, storage, and
-> configuration are preserved. See [docs/shared-core.md](docs/shared-core.md) for the boundary and
-> [docs/pi-adapter.md](docs/pi-adapter.md) for Pi installation and lifecycle details. Historical Pi
-> session backfill is planned (Phase 3).
+> configuration are preserved. See [docs/shared-core.md](docs/shared-core.md) for the boundary,
+> [docs/pi-adapter.md](docs/pi-adapter.md) for Pi installation and lifecycle details, and
+> [docs/pi-history-import.md](docs/pi-history-import.md) to import existing Pi session history.
 
 ![OpenCode Memory Banner](.github/banner.png)
 
