@@ -74,6 +74,7 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
     memory: { defaultScope },
   },
   initConfig: () => {},
+  initConfigWithLegacyMigration: () => {},
   isConfigured: () => true,
 }));
 

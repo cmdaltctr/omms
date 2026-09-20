@@ -52,6 +52,7 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
   },
   isConfigured: () => true,
   initConfig: () => {},
+  initConfigWithLegacyMigration: () => {},
 }));
 
 mock.module(${JSON.stringify(clientUrl)}, () => ({

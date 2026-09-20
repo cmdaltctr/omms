@@ -126,6 +126,7 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
     autoCaptureEnabled: false,
   },
   initConfig: () => {},
+  initConfigWithLegacyMigration: () => {},
   isConfigured: () => true,
 }));
 
