@@ -12,7 +12,12 @@ import { homedir } from "os";
 import { join } from "path";
 
 function getLogFilePath(): string {
-  return process.env.OPENCODE_MEM_LOG_FILE || join(homedir(), ".opencode-mem", "opencode-mem.log");
+  return (
+    process.env.OMMS_LOG_FILE ||
+    // Legacy override, still honoured from the opencode-mem days.
+    process.env.OPENCODE_MEM_LOG_FILE ||
+    join(homedir(), ".omms", "omms.log")
+  );
 }
 
 function getLogDirPath(): string {
@@ -62,7 +67,7 @@ function rotateLog() {
 
     if (!needRotate) return;
 
-    const archiveName = join(logDir, `opencode-mem-${getArchiveDate(stats)}.log`);
+    const archiveName = join(logDir, `omms-${getArchiveDate(stats)}.log`);
     if (!existsSync(archiveName)) {
       renameSync(logFile, archiveName);
     } else {
@@ -88,7 +93,7 @@ function cleanupOldLogs() {
     if (!existsSync(logDir)) return;
     const files = readdirSync(logDir);
     for (const file of files) {
-      const match = file.match(/^opencode-mem-(\d{4}-\d{2}-\d{2})\.log$/);
+      const match = file.match(/^omms-(\d{4}-\d{2}-\d{2})\.log$/);
       if (!match) continue;
       const dateStr = match[1]!;
       const [y, m, d] = dateStr.split("-").map(Number) as [number, number, number];

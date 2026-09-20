@@ -5,7 +5,7 @@ import { registerV2Adapter } from "./adapter.js";
 import { createLegacyClient } from "./legacy-client.js";
 
 const OpenCodeMemPluginV2: Plugin = {
-  id: "opencode-mem",
+  id: "omms",
   async setup(ctx) {
     const legacyClient = createLegacyClient(ctx);
     const legacy = (await OpenCodeMemPlugin({
