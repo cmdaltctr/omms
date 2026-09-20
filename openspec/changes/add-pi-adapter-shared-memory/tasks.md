@@ -4,7 +4,7 @@
 
 ## 1. Shared core extraction + OpenCode parity
 
-- [ ] 1.1 Add characterization tests for current OpenCode memory add/search/list/forget/profile, auto-capture, compaction injection, portability, cleanup, and web-backend behavior.
+- [x] 1.1 Add characterization tests for current OpenCode memory add/search/list/forget/profile, auto-capture, compaction injection, portability, cleanup, and web-backend behavior.
 - [x] 1.2 Define host-neutral types for project identity, memory operations, capture work units, structured extraction results, notifications, and provenance.
 - [x] 1.3 Refactor automatic capture so the extraction/persistence pipeline accepts a normalized work unit instead of OpenCode `PluginInput`.
 - [x] 1.4 Extract provider access behind a narrow structured-extraction interface while preserving the current OpenCode provider path and configured fallback providers.
@@ -13,11 +13,11 @@
 - [x] 1.7 Add backward-compatible host/source provenance support without invalidating existing memory rows.
 - [x] 1.8 Preserve `~/.opencode-mem/data`, current project tag derivation, and the default `opencode` tag prefix.
 - [x] 1.9 Keep `src/index.ts` and the current `src/v2/adapter.ts` as OpenCode compatibility surfaces while routing their reusable work through the shared core.
-- [ ] 1.10 Add a two-process storage test for concurrent initialization, same-project writes, read-after-write, close/reopen, and shard allocation/rollover where practical.
-- [ ] 1.11 If 1.10 demonstrates races, add the smallest cross-process coordination required around affected Turso/libSQL metadata or shard operations; do not add a new storage engine.
+- [x] 1.10 Add a two-process storage test for concurrent initialization, same-project writes, read-after-write, close/reopen, and shard allocation/rollover where practical.
+- [x] 1.11 If 1.10 demonstrates races, add the smallest cross-process coordination required around affected Turso/libSQL metadata or shard operations; do not add a new storage engine.
 - [x] 1.12 Make shared runtime/web lifecycle start/stop callable without OpenCode TUI dependencies while preserving existing web owner/takeover behavior.
 - [x] 1.13 Run existing tests plus new OpenCode parity tests, typecheck, lint, and build; fix extraction regressions before Phase 2.
-- [ ] 1.14 Document the shared-core boundary and the compatibility guarantee for existing OpenCode data.
+- [x] 1.14 Document the shared-core boundary and the compatibility guarantee for existing OpenCode data.
 
 ## 2. Pi adapter
 
@@ -29,15 +29,15 @@
 - [x] 2.6 Implement `agent_settled` as the primary automatic-capture trigger; do not use `agent_end` as the main boundary.
 - [x] 2.7 Build the newly settled work unit from `ctx.sessionManager` active-branch entries and exclude hidden thinking/reasoning content.
 - [x] 2.8 Define a stable live source identity from Pi session/source entry IDs and prevent repeated settled events from recapturing the same work unit.
-- [ ] 2.9 Implement the Pi extraction/profile provider bridge with `ctx.model`, `ctx.modelRegistry`, and current provider-aware model-call APIs such as `streamSimple()`; validate structured results with the shared schema.
+- [x] 2.9 Implement the Pi extraction/profile provider bridge with `ctx.model`, `ctx.modelRegistry`, and current provider-aware model-call APIs such as `streamSimple()`; validate structured results with the shared schema.
 - [x] 2.10 Ensure extraction/profile failure does not disable local manual memory operations.
 - [x] 2.11 Register the Pi-native `memory` tool as a thin adapter over the shared add/search/profile/list/forget/help and applicable portability operations.
 - [x] 2.12 Persist Pi live provenance including host, session ID, source type, source entry IDs, and timestamps where available.
 - [x] 2.13 Handle Pi compaction conservatively: preserve capture/injection continuity without replacing native compaction summarization by default.
 - [x] 2.14 Test overflow/automatic compaction followed by retry and `agent_settled`; verify exactly one capture for the settled work unit.
 - [x] 2.15 Close session-scoped resources on `session_shutdown` and make cleanup idempotent across quit, reload, new, resume, and fork flows.
-- [ ] 2.16 Verify Pi and OpenCode can run in separate processes against the same store without corrupting shard metadata or losing writes.
-- [ ] 2.17 Add cross-host integration tests: write in Pi/read in OpenCode and write in OpenCode/read in Pi for the same project.
+- [x] 2.16 Verify Pi and OpenCode can run in separate processes against the same store without corrupting shard metadata or losing writes.
+- [x] 2.17 Add cross-host integration tests: write in Pi/read in OpenCode and write in OpenCode/read in Pi for the same project.
 - [x] 2.18 Document Pi installation, configuration, lifecycle mapping, model-selection behavior, and shared-store expectations.
 
 ## 3. Pi historical-session backfill
