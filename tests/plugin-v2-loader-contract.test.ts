@@ -26,7 +26,7 @@ describe("OpenCode v2 plugin-loader contract", () => {
 
   it("exposes V1 and V2 from the installable package entrypoint", async () => {
     const mod = await import(new URL("../dist/plugin.js", import.meta.url).href);
-    expect(mod.default.id).toBe("opencode-mem");
+    expect(mod.default.id).toBe("omms");
     expect(typeof mod.default.server).toBe("function");
     expect(typeof mod.default.setup).toBe("function");
   });

@@ -1,7 +1,7 @@
 {
-  "name": "opencode-mem",
-  "version": "2.26.0",
-  "description": "OpenCode plugin that gives coding agents persistent memory using local Turso/libSQL vector search",
+  "name": "omms",
+  "version": "3.0.0",
+  "description": "Opinionated modular memory system for coding agents (OpenCode + Pi)",
   "type": "module",
   "main": "dist/plugin.js",
   "types": "dist/plugin.d.ts",
@@ -37,8 +37,9 @@
     "prepare": "husky"
   },
   "keywords": [
+    "omms",
     "opencode",
-    "plugin",
+    "pi",
     "memory",
     "vector-database",
     "ai",
@@ -47,7 +48,7 @@
     "standalone",
     "pi-package"
   ],
-  "author": "opencode-mem",
+  "author": "omms",
   "license": "MIT",
   "repository": {
     "type": "git",
