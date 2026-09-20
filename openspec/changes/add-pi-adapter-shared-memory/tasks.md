@@ -80,4 +80,4 @@
 - [x] 4.7 Keep the `opencode_` container tag prefix as the on-disk format (no memory row is rewritten); document it as the historical format name, still configurable via `containerTagPrefix`.
 - [x] 4.8 Add migration tests against temp stores: legacy layout migrates with matching checksums, marker, and untouched original; idempotent rerun; backup failure aborts with nothing migrated; corrupted source file aborts; dual-read precedence; fresh install starts at the new paths with no migration artefacts.
 - [x] 4.9 Document the migration, backup, and rollback procedure in `docs/omms-migration.md` and link it from the README fork notice.
-- [ ] 4.10 Run the full repository test/check/build suite and `openspec validate --all --strict`.
+- [x] 4.10 Run the full repository test/check/build suite and `openspec validate --all --strict`.
