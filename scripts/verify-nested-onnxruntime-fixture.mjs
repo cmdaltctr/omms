@@ -208,7 +208,7 @@ async function main() {
 
     log(`packing from ${repoRoot}`);
     run("npm", ["pack", "--pack-destination", packDir], repoRoot);
-    const tarball = run("bash", ["-lc", `ls "${packDir}"/opencode-mem-*.tgz | head -1`]).trim();
+    const tarball = run("bash", ["-lc", `ls "${packDir}"/*.tgz | head -1`]).trim();
     if (!tarball) fail("npm pack produced no tarball");
 
     // OpenCode installs plugins as a tiny consumer package that depends on the
@@ -221,7 +221,7 @@ async function main() {
           name: "opencode-mem-nested-fixture",
           private: true,
           dependencies: {
-            "opencode-mem": `file:${tarball}`,
+            omms: `file:${tarball}`,
           },
         },
         null,
@@ -232,7 +232,7 @@ async function main() {
     run("npm", ["install", "--ignore-scripts"], fixtureDir);
   }
 
-  const pluginRoot = join(fixtureDir, "node_modules", "opencode-mem");
+  const pluginRoot = join(fixtureDir, "node_modules", "omms");
   if (!existsSync(pluginRoot)) fail(`plugin not installed at ${pluginRoot}`);
 
   const searchRoots = [pluginRoot, fixtureDir];
