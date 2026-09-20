@@ -172,7 +172,10 @@ const DEFAULTS: Required<
   maxMemories: 10,
   maxProfileItems: 5,
   injectProfile: true,
-  containerTagPrefix: "opencode",
+  // omms since the tag prefix migration: new memories carry the fork's
+  // identity end to end, and the startup gate (tag-prefix-migration.ts)
+  // rewrites any remaining opencode_ rows before the first write is served.
+  containerTagPrefix: "omms",
   autoCaptureEnabled: true,
   autoCaptureMaxIterations: 5,
   autoCaptureIterationTimeout: 30000,
@@ -935,4 +938,13 @@ export function initConfigWithLegacyMigration(directory: string): void {
 
 export function isConfigured(): boolean {
   return true;
+}
+
+/**
+ * The containerTagPrefix explicitly set in the merged config files, or
+ * undefined when only the default applies. The tag prefix migration warns
+ * when this is "opencode" after migration (the override matches no rows).
+ */
+export function getExplicitContainerTagPrefix(): string | undefined {
+  return lastFileConfig.containerTagPrefix;
 }
