@@ -26,5 +26,5 @@
 
 ## 4. Documentation and gates
 
-- [ ] 4.1 Extend `docs/omms-migration.md` with the tag prefix migration: invariants, backup, resume, rollback by restore, and the config-override warning.
-- [ ] 4.2 Run the full repository test/check/build suite and `openspec validate --all --strict`.
+- [x] 4.1 Extend `docs/omms-migration.md` with the tag prefix migration: invariants, backup, resume, rollback by restore, and the config-override warning. (docs/omms-migration.md "Container tag prefix" section rewritten; README.md, docs/pi-adapter.md, docs/shared-core.md prefix references updated; commit 871c49a)
+- [x] 4.2 Run the full repository test/check/build suite and `openspec validate --all --strict`. (typecheck PASS, lint PASS, format:check PASS, build PASS, bun test 588 tests 0 fail 4 Windows-only skips, openspec validate --all --strict 2/2 PASS; rehearsal against a copy of the real store: 19 shards, 1626 rows rewritten, all invariants PASS, marker written, idempotent rerun, backup verified untouched)
