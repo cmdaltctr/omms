@@ -4,6 +4,15 @@
 [![npm downloads](https://img.shields.io/npm/dm/opencode-mem.svg)](https://www.npmjs.com/package/opencode-mem)
 [![license](https://img.shields.io/npm/l/opencode-mem.svg)](https://www.npmjs.com/package/opencode-mem)
 
+> **Fork notice.** This is [`cmdaltctr/opencode-mem`](https://github.com/cmdaltctr/opencode-mem), a fork of
+> [`tickernelz/opencode-mem`](https://github.com/tickernelz/opencode-mem). The fork adds first-class
+> integration with the [Pi coding agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent):
+> the memory engine now runs as a shared, host-neutral core behind a native Pi extension, so OpenCode
+> and Pi read and write one memory store per project. All existing OpenCode behaviour, storage, and
+> configuration are preserved. See [docs/shared-core.md](docs/shared-core.md) for the boundary and
+> [docs/pi-adapter.md](docs/pi-adapter.md) for Pi installation and lifecycle details. Historical Pi
+> session backfill is planned (Phase 3).
+
 ![OpenCode Memory Banner](.github/banner.png)
 
 A persistent memory system for AI coding agents that enables long-term context retention across sessions using local vector database technology.
