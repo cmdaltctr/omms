@@ -8,6 +8,7 @@ import { memoryClient } from "../../services/client.js";
 import { capturePiSettledWorkUnit, createPiCaptureState } from "./capture.js";
 import type { PiSessionEntry } from "./conversation.js";
 import { createPiCaptureProvider, type PiModelHandle } from "./provider.js";
+import { performPiProfileLearning } from "./profile.js";
 import { buildPiRetrievalSection } from "./retrieval.js";
 
 const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("opencode-mem.plugin.warmedup");
@@ -29,6 +30,25 @@ function toSessionEntries(branch: unknown): PiSessionEntry[] {
   return Array.isArray(branch) ? (branch as PiSessionEntry[]) : [];
 }
 
+function lastSettledUserPrompt(entries: PiSessionEntry[]): string | null {
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const entry = entries[i]!;
+    if (entry.type !== "message" || entry.message?.role !== "user") continue;
+    const content = entry.message.content;
+    if (typeof content === "string" && content.trim()) return content;
+    if (Array.isArray(content)) {
+      const text = content
+        .filter((block) => block.type === "text" && typeof block.text === "string")
+        .map((block) => block.text)
+        .join("\n")
+        .trim();
+      if (text) return text;
+    }
+    return null;
+  }
+  return null;
+}
+
 /**
  * Pi extension entry point for the shared opencode-mem engine.
  *
@@ -47,6 +67,7 @@ function toSessionEntries(branch: unknown): PiSessionEntry[] {
  */
 export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
   let captureState = createPiCaptureState();
+  let promptsSinceProfileAnalysis: string[] = [];
 
   const notify =
     (ctx: ExtensionContext) =>
@@ -150,6 +171,25 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
         },
         notify: notify(ctx),
       });
+
+      const settledPrompt = lastSettledUserPrompt(entries);
+      if (
+        settledPrompt &&
+        CONFIG.userProfileAnalysisInterval > 0 &&
+        !memoryClient.getEmbeddingInitError?.()
+      ) {
+        promptsSinceProfileAnalysis.push(settledPrompt);
+        if (promptsSinceProfileAnalysis.length >= CONFIG.userProfileAnalysisInterval) {
+          const batch = promptsSinceProfileAnalysis;
+          promptsSinceProfileAnalysis = [];
+          await performPiProfileLearning({
+            directory: ctx.cwd,
+            prompts: batch,
+            resolveModel: () => resolveModel(ctx),
+            notify: notify(ctx),
+          });
+        }
+      }
     } catch (error) {
       log("Pi agent_settled error", { error: String(error) });
     }
@@ -157,6 +197,7 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
 
   pi.on("session_shutdown", async () => {
     captureState = createPiCaptureState();
+    promptsSinceProfileAnalysis = [];
     (globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] = false;
     try {
       await memoryClient.close();

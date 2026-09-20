@@ -18,6 +18,10 @@ const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
 const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
 const languageUrl = new URL("../src/services/language-detector.js", import.meta.url).href;
 const contextServiceUrl = new URL("../src/services/context.js", import.meta.url).href;
+const profileManagerUrl = new URL(
+  "../src/services/user-profile/user-profile-manager.js",
+  import.meta.url
+).href;
 
 function runScenario(code: string): any {
   const dir = mkdtempSync(join(tmpdir(), "opencode-mem-pi-extension-"));
@@ -39,9 +43,11 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
     autoCaptureLanguage: "en",
     chatMessage: { enabled: true, excludeCurrentSession: true },
     showAutoCaptureToasts: false,
+    showUserProfileToasts: false,
     showErrorToasts: false,
     memory: { defaultScope: "project" },
     injectProfile: false,
+    userProfileAnalysisInterval: 1,
   },
   isConfigured: () => true,
   initConfig: () => {},
@@ -99,6 +105,26 @@ mock.module(${JSON.stringify(contextServiceUrl)}, () => ({
     memories.results.length > 0 ? "<memory_context>injected</memory_context>" : "",
 }));
 
+const profileCreates = [];
+const profileUpdates = [];
+mock.module(${JSON.stringify(profileManagerUrl)}, () => ({
+  userProfileManager: {
+    getActiveProfile: async () => null,
+    createProfile: async (userId, displayName, userName, userEmail, data, count) => {
+      profileCreates.push({ userId, displayName, data, count });
+      return "profile_new";
+    },
+    mergeProfileData: async (existing, incoming) => ({
+      ...existing,
+      preferences: [...(existing.preferences ?? []), ...(incoming.preferences ?? [])],
+    }),
+    updateProfile: async (profileId, data, additional, note) => {
+      profileUpdates.push({ profileId, data, additional, note });
+      return true;
+    },
+  },
+}));
+
 const { default: opencodeMemPiExtension } = await import(${JSON.stringify(extensionUrl)});
 
 function makeCtx(overrides = {}) {
@@ -132,7 +158,7 @@ let captured;
 
 ${code}
 
-console.log("RESULT:" + JSON.stringify({ registeredTools, toolCalls, closeCalls, searchQueries, captured: typeof captured !== "undefined" ? captured : null }));
+console.log("RESULT:" + JSON.stringify({ registeredTools, toolCalls, closeCalls, searchQueries, profileCreates, profileUpdates, captured: typeof captured !== "undefined" ? captured : null }));
 `;
 
   writeFileSync(scriptPath, script);
@@ -199,6 +225,41 @@ captured = closeCalls.length;
     expect(output.captured).toBeGreaterThan(0);
     expect(output.closeCalls.length).toBe(3);
     expect(output.closeCalls.length).toBe(output.captured);
+  });
+
+  it("runs profile learning at the configured interval after settled prompts", async () => {
+    const output = runScenario(`
+const validProfile = JSON.stringify({
+  preferences: [{ category: "style", description: "prefers Bun", confidence: 0.8, evidence: ["p1"] }],
+  patterns: [],
+  workflows: [],
+});
+const ctx = makeCtx({
+  model: { provider: "test", id: "model-x" },
+  modelRegistry: {
+    find: () => null,
+    complete: async () => ({
+      content: [{ type: "text", text: validProfile }],
+      stopReason: "stop",
+    }),
+  },
+  sessionManager: {
+    getSessionId: () => "pi-session-1",
+    getBranch: () => [
+      { type: "message", id: "u-1", parentId: null, timestamp: "2026-01-01T10:00:00.000Z", message: { role: "user", content: "please use bun for installs" } },
+    ],
+  },
+});
+await handlers["agent_settled"]({}, ctx);
+captured = profileCreates.length;
+`);
+
+    // userProfileAnalysisInterval is 1 in this scenario's mocked CONFIG
+    expect(output.captured).toBe(1);
+    expect(output.profileCreates.length).toBe(1);
+    expect(output.profileCreates[0].userId).toBe("test@example.com");
+    expect(output.profileCreates[0].count).toBe(1);
+    expect(output.profileCreates[0].data.preferences[0].description).toBe("prefers Bun");
   });
 
   it("skips settled capture when auto-capture is disabled", async () => {
