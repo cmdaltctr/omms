@@ -5,6 +5,7 @@ import { assertSafeScopeHash } from "../memory-scope.js";
 import { tursoConnectionManager } from "./connection-manager.js";
 import { log } from "../logger.js";
 import { assertNoTursoMigrationInProgress } from "./operation-lock.js";
+import { withCrossProcessWriteLock } from "./cross-process-write-lock.js";
 import { withSqliteFileLockRetry } from "./sqlite-handle-release.js";
 import type { ShardInfo } from "./types.js";
 import type { TursoDb } from "./turso-db.js";
@@ -53,7 +54,12 @@ export class TursoShardManager {
 
     await previous.catch(() => undefined);
     try {
-      return await fn();
+      // In-process queue first, then the cross-process advisory lock: every
+      // writer takes them in the same order, and the file lock arbitrates
+      // between processes (OpenCode + Pi, or any two writers) so that shard
+      // allocation, vector-count sync, and the insert itself run as one
+      // critical section per scope.
+      return await withCrossProcessWriteLock(scope, scopeHash, fn);
     } finally {
       release();
       if (this.writeLocks.get(key) === next) {
