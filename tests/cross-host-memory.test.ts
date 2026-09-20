@@ -175,7 +175,7 @@ scenario = { capture, search, stored: stored ? { metadata: stored.metadata } : n
     expect(scenario.search.success).toBe(true);
     expect(scenario.search.results.some((r: any) => r.id === scenario.capture.memoryId)).toBe(true);
     // Same project namespace, Pi provenance preserved.
-    expect(scenario.tagsTag).toMatch(/^opencode_project_/);
+    expect(scenario.tagsTag).toMatch(/^omms_project_/);
     expect(scenario.stored.metadata.host).toBe("pi");
     expect(scenario.stored.metadata.sourceType).toBe("live-capture");
     expect(scenario.stored.metadata.hostSessionId).toBe("pi-session-1");
@@ -237,7 +237,7 @@ const ocMemory = list.memories.find((m) => m.id === ocCapture.memoryId);
 // Namespace proof straight from the shard rows.
 const { tursoShardManager } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/turso/shard-manager.js")).href)});
 const { tursoConnectionManager } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/turso/connection-manager.js")).href)});
-const shards = await tursoShardManager.getAllShards("project", tags.project.tag.replace(/^opencode_project_/, ""));
+const shards = await tursoShardManager.getAllShards("project", tags.project.tag.replace(/^omms_project_/, ""));
 const db = await tursoConnectionManager.getConnection(shards[0].dbPath);
 const piRow = await db.get("SELECT container_tag FROM memories WHERE id = ?", [piCapture.memoryId]);
 const ocRow = await db.get("SELECT container_tag FROM memories WHERE id = ?", [ocCapture.memoryId]);
@@ -253,7 +253,7 @@ scenario = {
 
     expect(scenario.pi.host).toBe("pi");
     expect(scenario.oc.host).toBe("opencode");
-    expect(scenario.piTag).toMatch(/^opencode_project_/);
+    expect(scenario.piTag).toMatch(/^omms_project_/);
     expect(scenario.sameTag).toBe(true);
   });
 

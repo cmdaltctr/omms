@@ -208,7 +208,7 @@ scenario = {
     expect(out.report.unitsTotal).toBe(3);
     expect(out.report.unitsWouldImport).toBe(3);
     expect(out.report.projects.length).toBe(1);
-    expect(out.report.projects[0].tag).toMatch(/^opencode_project_/);
+    expect(out.report.projects[0].tag).toMatch(/^omms_project_/);
     expect(out.report.projects[0].sessions).toBe(2);
     expect(out.memoryCount).toBe(0);
     expect(out.ledgerExists).toBe(false);

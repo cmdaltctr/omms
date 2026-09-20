@@ -73,6 +73,7 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
   CONFIG: { autoCaptureLanguage: "en", memory: { defaultScope: "project" } },
   initConfig: () => {},
   initConfigWithLegacyMigration: () => {},
+  getExplicitContainerTagPrefix: () => undefined,
   isConfigured: () => true,
 }));
 
