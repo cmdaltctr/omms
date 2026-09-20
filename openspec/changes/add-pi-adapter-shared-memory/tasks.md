@@ -52,7 +52,7 @@
 - [ ] 3.8 Apply the same bounded tool/text normalization as live capture.
 - [ ] 3.9 Define a deterministic import identity from Pi session/source entry identity; do not use embedding similarity as the import key.
 - [ ] 3.10 Persist provenance for history imports: host, Pi session ID, source JSONL, source entry IDs, timestamps, source type, and import identity.
-- [ ] 3.11 Add a durable import ledger with states sufficient to distinguish pending/in-progress, imported, skipped, and failed/retryable work where applicable.
+- [ ] 3.11 Add a durable import ledger with states sufficient to distinguish pending/in-progress, imported, skipped, and failed/retryable work where applicable; keep the ledger inside `storagePath` so idempotency travels with the store on machine moves.
 - [ ] 3.12 Make persistence crash-safe: use one transaction when memory and ledger can share it, otherwise reconcile incomplete ledger entries against exact stored import identity before reinserting.
 - [ ] 3.13 Route imported work through the same privacy â extraction â deduplication â embedding â persistence pipeline as live capture.
 - [ ] 3.14 Record terminal handled state for deterministic extractor `skip` results where appropriate so reruns do not repeatedly spend model calls.
@@ -64,5 +64,7 @@
 - [ ] 3.20 Add idempotency tests for first import, second import, partial failure, memory-inserted/ledger-incomplete crash recovery, and skipped units.
 - [ ] 3.21 Add a read-only safety test that hashes source JSONL files before and after dry-run, successful import, failed import, and rerun.
 - [ ] 3.22 Add end-to-end backfill tests showing an imported Pi memory is retrievable from both Pi and OpenCode for the mapped project.
-- [ ] 3.23 Document importer usage, filters, provenance, dry-run guarantees, recovery behavior, and how to inspect import status.
+- [ ] 3.23 Document importer usage, filters, provenance, dry-run guarantees, recovery behavior, and how to inspect import status; include the machine-move procedure (copy the data directory plus config, remap project paths with `memory migrate` when the absolute path changes, and keep the embedding model identical).
 - [ ] 3.24 Run the full repository test/check/build suite and `openspec validate --all --strict`.
+- [ ] 3.25 Expose the importer as a Pi command in the extension (dry-run, filters, and mapping as arguments, with progress reporting) running over the shared importer service; extraction inherits the active Pi model or the `piProvider`/`piModel` override. A headless bin CLI stays deferred until a direct-provider use case exists.
+- [ ] 3.26 Skip sessions whose recorded `cwd` no longer resolves (deleted worktrees, removed directories), report them in dry-run output, and support explicit `--map <oldPath>=<newPath>` remapping so their work units import into the mapped project namespace, matching what live capture would have resolved.

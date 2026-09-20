@@ -156,9 +156,13 @@ Use Pi's `session_before_compact` / `session_compact` surfaces to preserve memor
 ## Questions to Resolve Before Implementation
 
 1. **Importer UX surface:** choose the primary operator surface for backfill (Pi command, package CLI, memory-tool mode, or a thin combination over one importer service).
+   *Resolved (2026-09-20):* a Pi command over one shared importer service. The command runs inside live Pi, so extraction inherits the active model through `ctx.modelRegistry` with no separate API credentials; a headless bin CLI wrapping the same service stays deferred until a direct-provider use case exists. Recorded as task 3.25.
 2. **Cross-process write coordination:** two-process tests must determine whether libSQL transactions are sufficient or a narrow file/advisory lock is required around metadata/shard operations.
+   *Resolved (Phase 1/2 work):* the two-process storage test demonstrated real races (per-connection pragma gaps and vector-count drift under concurrent rollover). Fixes shipped: `busy_timeout` plus one pooled handle per client, and a per-scope cross-process advisory write lock nested inside `withScopeWriteLock`.
 3. **Provenance and ledger placement:** confirm whether existing metadata JSON plus a global metadata-table ledger gives the cleanest transaction/recovery boundary, or whether project-local ledger state is preferable.
+   *Resolved (2026-09-20):* a dedicated SQLite ledger file inside `storagePath` (`import-ledger.db`). Memory rows carry the deterministic `importId` in their metadata JSON for reconciliation; the ledger itself lives in the store so idempotency travels with the data on machine moves.
 4. **Pi model-selection policy:** decide whether extraction defaults to the active `ctx.model`, a dedicated configured memory model, or active-model-first with an explicit override.
+   *Resolved (Phase 2):* active-model-first. The Pi provider bridge uses `ctx.model` unless the optional `piProvider`/`piModel` configuration names a specific model; manual memory operations never depend on the provider.
 
 ## Rollout
 
