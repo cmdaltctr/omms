@@ -117,6 +117,7 @@ same project directory resolves to the same project tag from either host
 
 ## Limitations (Phase 2 scope)
 
-- User-profile learning runs on OpenCode only; the Pi provider bridge covers
-  capture extraction.
+- Pi profile learning applies analysed batches directly. The decay,
+  validation-task, and conflict-retry machinery of the OpenCode idle path is
+  not ported.
 - Historical Pi session import is Phase 3.
