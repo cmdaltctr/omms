@@ -117,7 +117,8 @@ hosts.
 OpenCode and Pi can run in separate processes against the same store. Writes
 go through the same shard allocation and write-lock path as OpenCode, and the
 same project directory resolves to the same project tag from either host
-(`opencode_project_<hash>`).
+(`omms_project_<hash>`; rows written by older versions under `opencode_` are
+migrated automatically on first start).
 
 ## Limitations
 

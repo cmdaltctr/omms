@@ -479,11 +479,12 @@ to scope auto-captured memories.
 import { getProjectTagInfo, getUserTagInfo, getTags } from "omms/tags";
 
 // Canonical project tag derived from cwd (git remote URL if present, else
-// the project root path). Format: `opencode_project_<sha16>`.
+// the project root path). Format: `omms_project_<sha16>`; rows written by
+// older versions are migrated automatically on first start.
 const projectTag = getProjectTagInfo(process.cwd()).tag;
 
 // Canonical user tag derived from `git config user.email`.
-// Format: `opencode_user_<sha16>`.
+// Format: `omms_user_<sha16>`.
 const userTag = getUserTagInfo().tag;
 
 // Both at once.
