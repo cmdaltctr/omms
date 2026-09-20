@@ -72,9 +72,9 @@
 ## 4. omms identity and legacy migration
 
 - [ ] 4.1 Rename the package to `omms` (version 3.0.0, description, keywords, author) and retitle README plus docs to Opinionated Modular Memory System with `npm:omms` install instructions for both hosts.
-- [ ] 4.2 Make `~/.omms/data` the default store and `~/.config/omms/omms.jsonc` the primary config, with dual-read fallback to the legacy `~/.config/opencode/opencode-mem.jsonc` only when the new file does not exist; the legacy config is never written.
-- [ ] 4.3 Implement the one-time migration module: before any copy, create a timestamped backup of the entire `~/.opencode-mem` directory with a checksum manifest; then copy (never move) the store to `~/.omms/data`, verify every file against its source checksum, and write a marker recording source, destination, backup path, file count, and timestamp; reruns with the marker present are no-ops.
-- [ ] 4.4 Abort the migration whenever the backup or any per-file verification fails; the system keeps resolving storage against the legacy layout and the legacy directory stays untouched.
+- [x] 4.2 Make `~/.omms/data` the default store and `~/.config/omms/omms.jsonc` the primary config, with dual-read fallback to the legacy `~/.config/opencode/opencode-mem.jsonc` only when the new file does not exist; the legacy config is never written.
+- [x] 4.3 Implement the one-time migration module: before any copy, create a timestamped backup of the entire `~/.opencode-mem` directory with a checksum manifest; then copy (never move) the store to `~/.omms/data`, verify every file against its source checksum, and write a marker recording source, destination, backup path, file count, and timestamp; reruns with the marker present are no-ops.
+- [x] 4.4 Abort the migration whenever the backup or any per-file verification fails; the system keeps resolving storage against the legacy layout and the legacy directory stays untouched.
 - [ ] 4.5 Never delete or modify the legacy directory; document rollback as pointing `storagePath` at the original or restoring the backup.
 - [ ] 4.6 Move runtime identity to omms: plugin id `omms` in the v1/v2 entries (update loader-contract tests), default log file `~/.omms/omms.log` with `OMMS_LOG_FILE` override (`OPENCODE_MEM_LOG_FILE` still honoured as legacy), and omms-prefixed log archives.
 - [ ] 4.7 Keep the `opencode_` container tag prefix as the on-disk format (no memory row is rewritten); document it as the historical format name, still configurable via `containerTagPrefix`.

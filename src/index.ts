@@ -15,7 +15,7 @@ import { ensureTursoReady } from "./services/turso/ready.js";
 import { tursoConnectionManager } from "./services/turso/connection-manager.js";
 import { WebAuth } from "./services/web-auth.js";
 
-import { isConfigured, CONFIG, initConfig } from "./config.js";
+import { isConfigured, CONFIG, initConfigWithLegacyMigration } from "./config.js";
 import { log } from "./services/logger.js";
 import { getLanguageName } from "./services/language-detector.js";
 import { getHostClientConfig } from "./services/ai/opencode-host-config.js";
@@ -236,7 +236,7 @@ function logAutoCaptureProviderStatus(): void {
 
 export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   const { directory } = ctx;
-  initConfig(directory);
+  initConfigWithLegacyMigration(directory);
   logAutoCaptureProviderStatus();
   const tags = getTags(directory);
   const autoCaptureHost = createOpenCodeAutoCaptureHost(ctx);

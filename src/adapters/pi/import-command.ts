@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { initConfig, isConfigured } from "../../config.js";
+import { initConfigWithLegacyMigration, isConfigured } from "../../config.js";
 import { log } from "../../services/logger.js";
 import { memoryClient } from "../../services/client.js";
 import {
@@ -207,7 +207,7 @@ export function registerPiHistoryImportCommand(
       }
 
       // Import against the current session's project and configuration.
-      initConfig(ctx.cwd);
+      initConfigWithLegacyMigration(ctx.cwd);
       if (typeof commandCtx.waitForIdle === "function") {
         await commandCtx.waitForIdle();
       }

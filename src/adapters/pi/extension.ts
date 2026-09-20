@@ -1,6 +1,6 @@
 import { Type } from "typebox";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { CONFIG, initConfig, isConfigured } from "../../config.js";
+import { CONFIG, initConfigWithLegacyMigration, isConfigured } from "../../config.js";
 import { executeMemoryOperation } from "../../core/memory-operations.js";
 import { getLanguageName } from "../../services/language-detector.js";
 import { log } from "../../services/logger.js";
@@ -92,7 +92,7 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
   pi.on("session_start", async (_event, ctx) => {
     try {
       latestCtx = ctx;
-      initConfig(ctx.cwd);
+      initConfigWithLegacyMigration(ctx.cwd);
       captureState = createPiCaptureState();
 
       const globalScope = globalThis as any;
