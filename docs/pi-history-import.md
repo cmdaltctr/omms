@@ -4,7 +4,7 @@ Import your existing Pi session history into the shared memory store. The
 import is explicit and read-only toward Pi: your session JSONL files are never
 modified, and nothing imports until you run the command.
 
-Verified against `@earendil-works/pi-coding-agent` 0.85.1.
+Verified against `@earendil-works/pi-coding-agent` 0.86.1.
 
 ## Quick start
 

@@ -210,11 +210,11 @@ Complete only when:
 11. source Pi JSONL files remain byte-for-byte unchanged.
 
 
-## Verified Pi API Baseline — 2026-09-19
+## Verified Pi API Baseline — 2026-09-20 (recheck, 0.86.1)
 
-Reference: upstream `earendil-works/pi`, coding-agent package `@earendil-works/pi-coding-agent` version `0.85.1`.
+Reference: upstream `earendil-works/pi`, coding-agent package `@earendil-works/pi-coding-agent`. Originally verified against `0.85.1` (2026-09-19); rechecked and re-pinned against `0.86.1` (2026-09-20) after a live smoke test on the 0.86.1 host.
 
-Verified public surfaces from the package root:
+Verified public surfaces from the package root (both 0.85.1 and 0.86.1):
 
 - lifecycle events: `before_agent_start`, `agent_settled`, `session_before_compact`, `session_compact`, and `session_shutdown`;
 - `agent_settled` is documented as firing only after automatic retry, compaction, and queued continuation are finished;
@@ -222,7 +222,9 @@ Verified public surfaces from the package root:
 - `ExtensionContext` exposes `cwd`, read-only `sessionManager`, `modelRegistry`, current `model`, UI, and shutdown/compaction state;
 - `ModelRegistry` exposes `find()`, `getAvailable()`, auth resolution, `stream()`, `streamSimple()`, and `complete()`;
 - `SessionManager.open(path)` reads the header cwd and opens a historical session;
-- the read-only session surface exposes `getSessionId()`, `getSessionFile()`, `getLeafId()`, `getBranch()`, `buildContextEntries()`, `getHeader()`, and `getEntries()`;
-- `parseSessionEntries()` and `migrateSessionEntries()` are root exports in 0.85.1, although their source comments describe test-oriented use.
+- the read-only session surface exposes `getSessionId()`, `getSessionFile()`, `getLeafId()`, `getBranch(fromId?)`, `buildContextEntries()`, `getHeader()`, and `getEntries()`;
+- `parseSessionEntries()` and `migrateSessionEntries()` are root exports, although their source comments describe test-oriented use.
+
+0.86.x audit against this codebase: the 0.86.0 breaking changes were checked surface by surface. The custom-provider `Context` → `TranscriptContext` change does not apply (the Pi provider bridge calls `modelRegistry.complete()`/`streamSimple()`, whose signatures are unchanged); the `ToolCall.arguments`/`ToolResultMessage` JSON-typing change compiles clean against the adapter and importer sources (`tsc --noEmit` with 0.86.1 types); `user_bash` fail-closed is unused here. `pi.on()` now returns an unsubscribe function (additive, unused). All Pi-adapter and importer tests plus the full suite pass on 0.86.1.
 
 This baseline must be rechecked when upgrading the Pi dependency.

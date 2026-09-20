@@ -5,7 +5,7 @@ memory engine as the OpenCode plugin. Both hosts read and write one store per
 project, so memories captured in OpenCode are retrievable from Pi and vice
 versa.
 
-Verified against `@earendil-works/pi-coding-agent` **0.85.1**. Re-verify the
+Verified against `@earendil-works/pi-coding-agent` **0.86.1**. Re-verify the
 lifecycle APIs in `openspec/changes/add-pi-adapter-shared-memory/design.md`
 when upgrading the Pi dependency.
 
