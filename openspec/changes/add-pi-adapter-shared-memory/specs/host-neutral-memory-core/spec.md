@@ -40,14 +40,31 @@ The shared core SHALL preserve compatibility with the current OpenCode memory da
 - **THEN** those memories SHALL remain searchable without mandatory export/re-import
 - **AND** their project scope SHALL resolve to the same logical project
 
-### Requirement: Default storage and tag identity remain stable
+### Requirement: omms storage default migrates safely from the opencode-mem layout
 
-The default shared store SHALL remain `~/.opencode-mem/data`, and the existing project tag derivation with the default `opencode` container prefix SHALL remain compatible.
+From Phase 4 the default shared store SHALL be `~/.omms/data`, established by a one-time migration from `~/.opencode-mem/data`. The existing project tag derivation with the default `opencode` container prefix SHALL remain the on-disk format; the prefix SHALL NOT be rewritten by the migration.
 
 #### Scenario: Pi and OpenCode open the same project
 - **WHEN** both adapters resolve the same project directory/repository under equivalent configuration
 - **THEN** both SHALL resolve the same project memory namespace
 - **AND** neither SHALL create a host-specific shadow namespace solely because the host differs
+
+#### Scenario: A legacy opencode-mem store exists and omms starts for the first time
+- **WHEN** `~/.omms/data` does not exist and `~/.opencode-mem/data` does
+- **THEN** the system SHALL create a timestamped, checksum-verified backup of the entire legacy directory before copying anything
+- **AND** it SHALL copy (never move) the store to `~/.omms/data`, verifying every copied file against its source
+- **AND** it SHALL write a migration marker so subsequent runs are no-ops
+- **AND** the legacy directory SHALL remain byte-for-byte unchanged
+
+#### Scenario: The backup cannot be created or a copied file fails verification
+- **WHEN** backup creation or per-file verification fails
+- **THEN** the migration SHALL abort before the new store is used
+- **AND** the system SHALL keep resolving storage against the legacy layout
+- **AND** the legacy directory SHALL remain untouched
+
+#### Scenario: A fresh install with no legacy store
+- **WHEN** neither directory exists
+- **THEN** the system SHALL start directly at `~/.omms/data` with no migration artefacts
 
 ### Requirement: OpenCode behavior remains a compatibility surface
 

@@ -56,6 +56,13 @@ New memories support provenance such as host, host session ID, source type, sour
 1. **Shared core extraction + OpenCode parity**
 2. **Pi adapter**
 3. **Pi historical-session backfill**
+4. **omms identity and legacy migration**
+
+## Phase 4: omms identity and legacy migration
+
+The fork publishes under its own identity: `omms`, the Opinionated Modular Memory System. Upstream owns the `opencode-mem` name on npm, so a distinct package name is required for npm distribution to both hosts. Identity separation is complete, not cosmetic: package name, default store (`~/.omms/data`), config (`~/.config/omms/omms.jsonc`), plugin ids, and log files all move to `omms`.
+
+Existing opencode-mem data migrates through an explicit migration module with safety as the first rule: a verified timestamped backup of the entire legacy directory is created before anything is copied; the migration copies (never moves) the store to the new location, verifies every file with checksums, and writes a migration marker; the legacy directory is never modified or deleted, and rollback is pointing `storagePath` at the original or restoring the backup. Fresh installs start directly at the new paths. The `opencode_` container tag prefix remains the on-disk format so no memory row is rewritten; it stays configurable via `containerTagPrefix`.
 
 ## Capabilities
 

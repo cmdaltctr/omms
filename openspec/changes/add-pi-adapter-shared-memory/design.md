@@ -143,6 +143,18 @@ Backfill never modifies Pi JSONL files. Any migration occurs only in memory.
 
 Use Pi's `session_before_compact` / `session_compact` surfaces to preserve memory continuity/bookkeeping without synthetic user turns. Keep current OpenCode compaction behavior intact until a later proposal justifies a generic compaction contract.
 
+### D13 — omms identity migrates with verified backups, never destructive renames
+
+The fork ships as `omms` (upstream owns `opencode-mem` on npm). Identity separation is complete: package name, default store, config path, plugin ids, and logs all become `omms`. Migration rules, in priority order:
+
+1. A timestamped backup of the entire legacy directory (`~/.opencode-mem`) is created and checksum-verified BEFORE any migration copy. Backup failure aborts the migration and the system keeps resolving to the legacy layout.
+2. Migration COPIES the store to `~/.omms/data`; it never moves, renames, or deletes the legacy directory. Rollback is pointing `storagePath` at the original or restoring the backup.
+3. Every copied file is checksum-verified against the source; any mismatch aborts and marks the migration failed (the legacy directory is still untouched).
+4. A marker file records source, destination, backup path, file count, and timestamp; reruns with the marker present are no-ops.
+5. Fresh installs (no legacy directory) start directly at the new paths.
+6. Config: `~/.config/omms/omms.jsonc` is primary; the legacy `~/.config/opencode/opencode-mem.jsonc` is read only when the new file does not exist. Dual-read never writes to the legacy file.
+7. The `opencode_` container tag prefix is retained as the on-disk format (rewriting every memory row across all shards is unjustified risk for a cosmetic gain); it remains configurable via `containerTagPrefix` and is documented as the historical format name.
+
 ## Failure and Safety Rules
 
 - Pi provider/capture failure must not corrupt or block the Pi session.
@@ -177,6 +189,10 @@ Add Pi packaging, retrieval, settled capture, Pi-native model bridge, memory too
 ### Phase 3 â Pi historical-session backfill
 
 Add discovery/session reading, active-branch work units, import ledger/reconciliation, dry-run/filters, version fixtures, and cross-host end-to-end tests.
+
+### Phase 4 — omms identity and legacy migration
+
+Rename the package to `omms` (version 3.0.0) with full identity separation: default store `~/.omms/data`, primary config `~/.config/omms/omms.jsonc` with dual-read fallback to the legacy config, plugin id `omms`, and `~/.omms/omms.log`. A one-time migration module copies the legacy store (never moves), after creating and checksum-verifying a timestamped backup of the whole legacy directory; a marker file records the migration and makes reruns no-ops; the legacy directory is never modified or deleted. The `opencode_` container tag prefix stays as the on-disk format, so no memory row is rewritten. See decision D13.
 
 ## Validation
 
