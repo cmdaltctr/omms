@@ -19,8 +19,9 @@ bun run ci:local
 ```
 
 The gate checks formatting, linting, TypeScript types, unit tests, and the
-production build. The pre-push hook runs the same command and blocks a push
-when it fails.
+production build. The pre-push hook runs only the deterministic checks
+(formatting, linting, typecheck) so pushes stay fast and reliable; run the
+full gate manually before merging.
 
 ## GitHub Actions
 

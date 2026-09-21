@@ -1,1 +1,1 @@
-bun run ci:local
+bun run check
