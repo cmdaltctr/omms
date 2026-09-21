@@ -1,44 +1,20 @@
 name: Platform Package Smoke
 
+# Run manually on Apple Silicon for package, native dependency, or release-risk
+# changes. Routine validation runs locally before each push.
 on:
-  pull_request:
-    paths:
-      - "package.json"
-      - "bun.lock"
-      - "tsconfig.json"
-      - "src/**"
-      - "scripts/native-deps-smoke.mjs"
-      - "scripts/verify-libsql-vector.mjs"
-      - "scripts/verify-nested-onnxruntime-fixture.mjs"
-      - "scripts/smoke-test.mjs"
-      - "web/**"
-      - "eslint.config.js"
-      - ".prettierrc"
-      - ".prettierignore"
-      - ".github/workflows/platform-smoke.yml"
   workflow_dispatch:
 
 jobs:
   package-smoke:
-    name: ${{ matrix.os }} / package smoke
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # Intel: macos-15-intel / macos-26-intel (darwin/x64).
-        # Apple Silicon: macos-15 / macos-26 (darwin/arm64).
-        os:
-          - ubuntu-latest
-          - windows-latest
-          - macos-15-intel
-          - macos-26-intel
-          - macos-15
-          - macos-26
-
+    name: macos-15 / package smoke
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
       - uses: actions/setup-node@v7
         with:
@@ -52,28 +28,16 @@ jobs:
         working-directory: web
         run: bun install
 
-      - name: Typecheck source
-        run: bun run typecheck
-
-      - name: Lint source
-        run: bun run lint
-
-      - name: Check formatting
-        run: bun run format:check
-
-      - name: Build package artifacts
-        run: bun run build
-
-      - name: Run test suite
-        run: bun test
+      - name: Validate source
+        run: bun run ci:local
 
       - name: Pack and install published package shape
         shell: bash
         run: |
           set -euo pipefail
 
-          pack_dir="$RUNNER_TEMP/opencode-mem-pack"
-          smoke_dir="$RUNNER_TEMP/opencode-mem-smoke"
+          pack_dir="$RUNNER_TEMP/omms-pack"
+          smoke_dir="$RUNNER_TEMP/omms-smoke"
           mkdir -p "$pack_dir" "$smoke_dir"
 
           npm pack --pack-destination "$pack_dir"
@@ -82,8 +46,6 @@ jobs:
 
           cd "$smoke_dir"
           npm init -y
-          # npm ignores overrides declared by installed dependencies, so mirror the plugin's
-          # native-runtime pin at the temporary root used by this package smoke test.
           override_version=$(node --input-type=module -e '
             import { readFileSync } from "node:fs";
             import { resolve } from "node:path";
