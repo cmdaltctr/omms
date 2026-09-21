@@ -52,7 +52,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tickernelz/opencode-mem.git"
+    "url": "git+https://github.com/cmdaltctr/omms.git"
   },
   "publishConfig": {
     "access": "public"

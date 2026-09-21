@@ -91,7 +91,7 @@ export function AppSidebar({
             onClick={(e) => onNavClick(e, ROUTES.home)}
           >
             <img
-              src="/opencode-mem-icon.png"
+              src="/omms-icon.png"
               alt=""
               width={20}
               height={20}
@@ -162,7 +162,7 @@ export function AppSidebar({
               )}
             </button>
             <a
-              href="https://github.com/tickernelz/opencode-mem"
+              href="https://github.com/cmdaltctr/omms"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center self-stretch rounded-e-lg border-s border-sidebar-border px-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
