@@ -1,4 +1,4 @@
-# omms — Opinionated Modular Memory System
+# OMMS — Opinionated Modular Memory System
 
 [![npm version](https://img.shields.io/npm/v/omms.svg)](https://www.npmjs.com/package/omms)
 [![npm downloads](https://img.shields.io/npm/dm/omms.svg)](https://www.npmjs.com/package/omms)
