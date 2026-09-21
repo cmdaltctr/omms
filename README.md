@@ -4,7 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/omms.svg)](https://www.npmjs.com/package/omms)
 [![license](https://img.shields.io/npm/l/omms.svg)](https://www.npmjs.com/package/omms)
 
-> **Fork notice.** This is [`cmdaltctr/opencode-mem`](https://github.com/cmdaltctr/opencode-mem), a fork of
+> **Fork notice.** This is [`cmdaltctr/omms`](https://github.com/cmdaltctr/omms), a fork of
 > [`tickernelz/opencode-mem`](https://github.com/tickernelz/opencode-mem), published as **`omms`**, the Opinionated
 > Modular Memory System for coding agents. The fork adds first-class integration with the
 > [Pi coding agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent): the memory engine now runs as a
@@ -66,9 +66,21 @@ If migration is interrupted, the next startup resumes from the backup automatica
 
 If a shard becomes incompatible (for example after changing `embeddingDimensions`), writes are blocked and the original database is left untouched. Use the Web UI's re-embed migration to build and verify a replacement before it is swapped into place. The previous shard remains available as `<shard>.db.pre-reembed-<pid>-<timestamp>.bak`.
 
-## Getting Started
+## Install OMMS
 
-For OpenCode v2, add the package to the native `plugins` list:
+Install OMMS in the coding agent you use. You can install it in both OpenCode
+and Pi. They share one project memory store.
+
+### OpenCode
+
+Add `npm:omms` to your OpenCode configuration. OpenCode downloads the package
+when you restart it.
+
+#### macOS
+
+Edit `~/.config/opencode/opencode.json`.
+
+For OpenCode v2, use the native `plugins` list:
 
 ```jsonc
 {
@@ -76,8 +88,7 @@ For OpenCode v2, add the package to the native `plugins` list:
 }
 ```
 
-For OpenCode v1, add the default entrypoint to your configuration at
-`~/.config/opencode/opencode.json`:
+For OpenCode v1, use the `plugin` list:
 
 ```jsonc
 {
@@ -85,22 +96,50 @@ For OpenCode v1, add the default entrypoint to your configuration at
 }
 ```
 
-**Windows:** use `%USERPROFILE%\.config\opencode\opencode.json` (for example `C:\Users\<you>\.config\opencode\opencode.json`). This plugin does **not** read `%APPDATA%` or `%LOCALAPPDATA%` for its OpenCode plugin entry — put the file under `.config\opencode` in your user profile, then restart OpenCode. If the plugin does not appear, confirm that path and restart again.
+Restart OpenCode after you save the file.
 
-The plugin downloads automatically on next startup.
+#### Windows
 
-For the Pi coding agent, install the same package as an extension:
+Edit `%USERPROFILE%\.config\opencode\opencode.json`, for example
+`C:\Users\<you>\.config\opencode\opencode.json`.
+
+For OpenCode v2, use:
+
+```jsonc
+{
+  "plugins": ["npm:omms"],
+}
+```
+
+For OpenCode v1, use:
+
+```jsonc
+{
+  "plugin": ["npm:omms"],
+}
+```
+
+Restart OpenCode after you save the file. OMMS does not read `%APPDATA%` or
+`%LOCALAPPDATA%` for this setting.
+
+### Pi coding agent
+
+Run the following command in Terminal on macOS or PowerShell on Windows:
 
 ```bash
 pi install npm:omms
 ```
 
+Restart Pi after installation. The extension reads the same configuration and
+storage path as OpenCode, so memories remain available in both agents.
+
 See [docs/pi-adapter.md](docs/pi-adapter.md) for Pi lifecycle details and
-[docs/pi-history-import.md](docs/pi-history-import.md) to backfill existing Pi sessions.
+[docs/pi-history-import.md](docs/pi-history-import.md) to import existing Pi
+session history.
 
 Upgrading from an existing `opencode-mem` install? The store migrates to
-`~/.omms/data` automatically on first start, with a verified backup first —
-see [docs/omms-migration.md](docs/omms-migration.md).
+`~/.omms/data` automatically on first start, with a verified backup first.
+See [docs/omms-migration.md](docs/omms-migration.md).
 
 ## How to use day-to-day
 
@@ -108,7 +147,7 @@ You do **not** need to ask OpenCode to “remember” things for the plugin to w
 
 ### Typical daily flow
 
-1. Enable the plugin (see [Getting Started](#getting-started)) and restart OpenCode.
+1. Enable the plugin (see [Install OMMS](#install-omms)) and restart OpenCode.
 2. Configure an AI provider for auto-capture — recommended: `opencodeProvider` + `opencodeModel` (or `"opencodeModel": "inherit"`). Details under [Auto-Capture AI Provider](#auto-capture-ai-provider).
 3. Work normally in OpenCode. When a session goes idle, auto-capture extracts memorable technical context and stores it.
 4. In later sessions, relevant memories are injected into context (see `chatMessage` / compaction settings). Browse or edit them in the web UI at `http://127.0.0.1:4747`.
@@ -514,9 +553,9 @@ This project is actively seeking contributions to become the definitive memory p
 
 MIT License - see LICENSE file
 
-- **Repository**: https://github.com/cmdaltctr/opencode-mem (fork)
+- **Repository**: https://github.com/cmdaltctr/omms (fork)
 - **Upstream**: https://github.com/tickernelz/opencode-mem
-- **Issues**: https://github.com/cmdaltctr/opencode-mem/issues
+- **Issues**: https://github.com/cmdaltctr/omms/issues
 - **OpenCode Platform**: https://opencode.ai
 
 Inspired by [opencode-supermemory](https://github.com/supermemoryai/opencode-supermemory)
