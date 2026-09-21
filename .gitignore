@@ -35,6 +35,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # local design and implementation plans
 docs/plans/
+docs/adr/
 .sisyphus
 
 openspec

@@ -34,6 +34,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "bun run format:check && bun run lint && bun run typecheck",
+    "ci:local": "bash scripts/local-ci.sh",
     "prepare": "husky"
   },
   "keywords": [
