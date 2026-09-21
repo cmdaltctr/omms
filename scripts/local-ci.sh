@@ -4,4 +4,4 @@ set -euo pipefail
 
 bun run check
 bun run build
-bun test
+bash scripts/run-tests-isolated.sh
