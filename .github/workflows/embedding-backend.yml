@@ -1,14 +1,26 @@
 name: Embedding Backend Verification
 
-# Run manually on Apple Silicon when native dependencies, Bun, Node, or the
-# embedding backend changes. Routine validation runs locally before each push.
+# Run manually when native dependencies, Bun, Node, or the embedding backend
+# changes. Covers Apple Silicon (macos-15) and Intel (macos-15-intel); the
+# Intel build is the platform the onnxruntime-node@1.20.1 pin exists for
+# (#184 / #210 / #225), so it stays exercised. Routine validation runs locally
+# before each push.
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   verify:
-    name: macos-15 / embedding backend
-    runs-on: macos-15
+    name: ${{ matrix.os }} / embedding backend
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-15
+          - macos-15-intel
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
         with:

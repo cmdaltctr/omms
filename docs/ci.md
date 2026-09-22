@@ -6,15 +6,15 @@ demand.
 
 ## Where each check runs
 
-| Check                   | Where                    | Command or trigger                          |
-| ----------------------- | ------------------------ | ------------------------------------------- |
-| Format, lint, typecheck | Local, before every push | `bun run check` via the pre-push hook       |
-| Unit tests              | Local, full gate         | `bun run ci:local`                          |
-| Build                   | Local, full gate         | `bun run ci:local`                          |
-| Format, lint, typecheck | GitHub, every PR         | Quality workflow, `ubuntu-latest`           |
-| Native embedding smoke  | GitHub, manual           | Embedding Backend workflow, `macos-15`      |
-| Package smoke           | GitHub, manual           | Platform Package Smoke workflow, `macos-15` |
-| Publish and release     | GitHub, tag push         | Release workflow, `ubuntu-latest`           |
+| Check                   | Where                    | Command or trigger                                        |
+| ----------------------- | ------------------------ | --------------------------------------------------------- |
+| Format, lint, typecheck | Local, before every push | `bun run check` via the pre-push hook                     |
+| Unit tests              | Local, full gate         | `bun run ci:local`                                        |
+| Build                   | Local, full gate         | `bun run ci:local`                                        |
+| Format, lint, typecheck | GitHub, every PR         | Quality workflow, `ubuntu-latest`                         |
+| Native embedding smoke  | GitHub, manual           | Embedding Backend workflow, `macos-15` + `macos-15-intel` |
+| Package smoke           | GitHub, manual           | Platform Package Smoke workflow, `macos-15`               |
+| Publish and release     | GitHub, tag push         | Release workflow, `ubuntu-latest`                         |
 
 ## Local toolchain
 
@@ -74,9 +74,11 @@ to `main`.
 
 ### Embedding Backend Verification (manual)
 
-Runs on `macos-15` (Apple Silicon) when dispatched. It proves the native
-ONNX runtime and prebuilt sharp binaries install without lifecycle scripts
-and produce real embeddings under Bun and Node 24.
+Runs on `macos-15` (Apple Silicon) and `macos-15-intel` when dispatched. The
+Intel job matters most: the `onnxruntime-node@1.20.1` pin exists for that
+platform (#184 / #210 / #225). The workflow proves the native ONNX runtime
+and prebuilt sharp binaries install without lifecycle scripts and produce
+real embeddings under Bun and Node 24 on both architectures.
 
 Dispatch it when you change `package.json`, `bun.lock`, the embedding
 service, the ONNX resolve shim, or Bun or Node versions:
@@ -118,13 +120,16 @@ The workflow fails if the tag and `package.json` version differ.
 
 ## Disabled coverage
 
-Routine and manual CI do not cover Windows, Linux, Intel macOS, or macOS 26.
-The platform matrices were removed to stop ordinary changes spending
-GitHub-hosted minutes across seven runner allocations.
+Routine and manual CI do not cover Windows, Linux, or macOS 26. Intel macOS
+keeps manual coverage in the Embedding Backend workflow because the
+onnxruntime-node pin targets that platform. The Windows, Linux, and macOS 26
+matrices were removed to stop ordinary changes spending GitHub-hosted minutes
+across seven runner allocations.
 
 Before any change to native dependencies (`onnxruntime-node`, sharp), Bun, or
 Node, dispatch both manual workflows and consider temporarily restoring the
 wider matrix from git history for that one run.
 
-Costs: a routine pull request spends one `ubuntu-latest` job. Each manual
+Costs: a routine pull request spends one `ubuntu-latest` job. An Embedding
+dispatch spends two macOS jobs (one per architecture). A Package Smoke
 dispatch spends one `macos-15` job. Local CI spends no GitHub minutes.

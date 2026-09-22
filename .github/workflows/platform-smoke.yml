@@ -5,6 +5,9 @@ name: Platform Package Smoke
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   package-smoke:
     name: macos-15 / package smoke
