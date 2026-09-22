@@ -32,11 +32,14 @@ function runScenario(code: string): any {
 import { mock } from "bun:test";
 
 const closeCalls = [];
+const statusCalls = [];
 const toolCalls = [];
 const registeredTools = [];
 const registeredCommands = [];
 const handlers = {};
 let searchQueries = [];
+let searchError = false;
+let warmupError = false;
 
 mock.module(${JSON.stringify(configUrl)}, () => ({
   CONFIG: {
@@ -57,9 +60,12 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
 
 mock.module(${JSON.stringify(clientUrl)}, () => ({
   memoryClient: {
-    warmup: async () => {},
+    warmup: async () => {
+      if (warmupError) throw new Error("warmup failed");
+    },
     ensureStorageReady: async () => {},
     searchMemories: async (query) => {
+      if (searchError) throw new Error("search failed");
       searchQueries.push(query);
       return {
         success: true,
@@ -134,7 +140,10 @@ function makeCtx(overrides = {}) {
     cwd: "/workspace",
     hasUI: true,
     mode: "tui",
-    ui: { notify: () => {} },
+    ui: {
+      notify: () => {},
+      setStatus: (key, value) => statusCalls.push([key, value ?? null]),
+    },
     sessionManager: {
       getSessionId: () => "pi-session-1",
       getBranch: () => [],
@@ -163,7 +172,7 @@ let captured;
 
 ${code}
 
-console.log("RESULT:" + JSON.stringify({ registeredTools, registeredCommands, toolCalls, closeCalls, searchQueries, profileCreates, profileUpdates, captured: typeof captured !== "undefined" ? captured : null }));
+console.log("RESULT:" + JSON.stringify({ registeredTools, registeredCommands, toolCalls, closeCalls, statusCalls, searchQueries, profileCreates, profileUpdates, captured: typeof captured !== "undefined" ? captured : null }));
 `;
 
   writeFileSync(scriptPath, script);
@@ -198,6 +207,50 @@ toolCalls.push(JSON.parse(result.content[0].text));
     expect(output.toolCalls[0].success).toBe(true);
   });
 
+  it("shows warming then connected when the Pi session starts", async () => {
+    const output = runScenario(`
+await handlers["session_start"]({}, makeCtx());
+await new Promise((resolve) => setTimeout(resolve, 0));
+captured = statusCalls;
+`);
+
+    expect(output.captured).toEqual([
+      ["omms", "omms:warming"],
+      ["omms", "omms:connected"],
+    ]);
+  });
+
+  it("shows recalling then connected during retrieval", async () => {
+    const output = runScenario(`
+await handlers["before_agent_start"](
+  { prompt: "how do we run the queue?", systemPrompt: "BASE PROMPT" },
+  makeCtx()
+);
+captured = statusCalls;
+`);
+
+    expect(output.captured).toEqual([
+      ["omms", "omms:recalling"],
+      ["omms", "omms:connected"],
+    ]);
+  });
+
+  it("shows an error when retrieval fails", async () => {
+    const output = runScenario(`
+searchError = true;
+await handlers["before_agent_start"](
+  { prompt: "how do we run the queue?", systemPrompt: "BASE PROMPT" },
+  makeCtx()
+);
+captured = statusCalls;
+`);
+
+    expect(output.captured).toEqual([
+      ["omms", "omms:recalling"],
+      ["omms", "omms:error"],
+    ]);
+  });
+
   it("injects retrieval as a system-prompt section, never a user message", async () => {
     const output = runScenario(`
 const before = await handlers["before_agent_start"](
@@ -225,6 +278,27 @@ captured = before;
 `);
 
     expect(output.captured).toBeNull();
+  });
+
+  it("shows capturing then connected when settled work is processed", async () => {
+    const output = runScenario(`
+await handlers["agent_settled"]({}, makeCtx());
+captured = statusCalls;
+`);
+
+    expect(output.captured).toEqual([
+      ["omms", "omms:capturing"],
+      ["omms", "omms:connected"],
+    ]);
+  });
+
+  it("clears the OMMS status during shutdown", async () => {
+    const output = runScenario(`
+await handlers["session_shutdown"]({}, makeCtx());
+captured = statusCalls;
+`);
+
+    expect(output.captured).toEqual([["omms", null]]);
   });
 
   it("cleans up idempotently across repeated shutdown events", async () => {

@@ -79,6 +79,18 @@ own the web server port as before.
 | `session_shutdown`   | Idempotent cleanup (quit, reload, new, resume, fork)                                                                                                                           |
 | `memory` tool        | Shared add/search/profile/list/forget/help plus migrate/list-shards/export/import                                                                                              |
 
+### Footer status
+
+The Pi adapter shows its current state in Pi's footer:
+
+- `omms:warming` while storage and embeddings start
+- `omms:connected` when OMMS is ready
+- `omms:recalling` while relevant memories are retrieved
+- `omms:capturing` while settled work is processed
+- `omms:error` when an OMMS operation fails
+
+The adapter clears the status when the Pi session shuts down.
+
 ### Capture boundary
 
 Capture runs only at `agent_settled`, after automatic retries, compaction, and
