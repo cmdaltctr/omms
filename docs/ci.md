@@ -71,11 +71,19 @@ The full suite is deliberately outside the pre-push hook. Run
 
 ### Quality (automatic)
 
-Runs on every pull request and on every push to `main`. Two jobs:
+Runs on every pull request and on every push to `main`. Three jobs:
 
-- `check` on `ubuntu-latest`: format, lint, typecheck.
+- `changes` on `ubuntu-latest`: lists the files the pull request changes.
+- `check` on `ubuntu-latest`: format, lint, typecheck. Always runs, because
+  Prettier also checks Markdown.
 - `test` on `macos-latest`: build, then the full suite through
-  `scripts/run-tests-isolated.sh`.
+  `scripts/run-tests-isolated.sh`. Skipped when a pull request changes only
+  Markdown files or files under `docs/`.
+
+A skipped `test` job still satisfies the required status check, so docs-only
+pull requests can merge. Do not add `paths-ignore` to this workflow: if it does
+not start, the required checks never report and the pull request stays
+blocked. If the `changes` job fails, `test` runs anyway.
 
 Quality is the baseline gate for every pull request, including those that
 skip the local hooks, such as Dependabot updates. Pull requests that touch
@@ -164,8 +172,9 @@ Costs: the repository is public, so hosted runners are free, macOS included.
 
 | Event                    | Ubuntu | Windows | macOS |
 | ------------------------ | ------ | ------- | ----- |
-| Routine pull request     | 1      | 0       | 1     |
-| Native-path pull request | 2      | 1       | 4     |
+| Routine pull request     | 2      | 0       | 1     |
+| Docs-only pull request   | 2      | 0       | 0     |
+| Native-path pull request | 3      | 1       | 4     |
 | Release or weekly smoke  | 1–2    | 1       | 4     |
 
 The practical limit is the 5-job macOS queue. Local CI spends no GitHub jobs.
