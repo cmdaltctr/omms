@@ -77,20 +77,23 @@ Runs on every pull request and on every push to `main`. Two jobs:
 - `test` on `macos-latest`: build, then the full suite through
   `scripts/run-tests-isolated.sh`.
 
-This is the only gate for pull requests that skip the local hooks, such as
-Dependabot updates.
+Quality is the baseline gate for every pull request, including those that
+skip the local hooks, such as Dependabot updates. Pull requests that touch
+native paths also run Embedding Backend Verification.
 
 ### Embedding Backend Verification (automatic on native changes, manual on demand)
 
 Runs when a pull request touches `package.json`, `bun.lock`, `bunfig.toml`,
 `.npmrc`, `src/services/embedding.ts`, `src/services/onnxruntime-resolve.ts`,
 `scripts/verify-embedding-backend.mjs`,
-`scripts/verify-nested-onnxruntime-fixture.mjs`, or this workflow file. It can
+`scripts/verify-nested-onnxruntime-fixture.mjs`,
+`scripts/fixtures/compiled-host-entry.mjs`, or this workflow file. It can
 also be dispatched at any time.
 
 onnxruntime-node and sharp ship a separate native binary for each platform, so
-the `verify` job runs on `macos-latest`, `macos-15-intel`, `windows-latest`,
-and `ubuntu-latest`. Each job installs without lifecycle scripts and produces
+the `verify` job runs on `macos-15`, `macos-15-intel`, `windows-latest`, and
+`ubuntu-latest`. `macos-15` is the supported floor; the Quality `test` job
+already covers the newest macOS. Each job installs without lifecycle scripts and produces
 real embeddings under Bun and Node 24.
 
 The `nested-intel-regression` job reproduces the OpenCode nested install on

@@ -1,11 +1,12 @@
 name: Embedding Backend Verification
 
 # Runs automatically when a pull request touches native dependencies, the
-# embedding service, or this workflow. Also runs on demand. Covers Apple
-# Silicon (macos-latest), Intel (macos-15-intel), Windows, and Linux, because
-# onnxruntime-node and sharp ship a separate native binary per platform. The
-# onnxruntime-node@1.20.1 pin stays regardless (#225: newer releases can
-# SIGILL on macOS process exit).
+# embedding service, or this workflow. Also runs on demand. Covers the macOS 15
+# floor on Apple Silicon (macos-15) and Intel (macos-15-intel), Windows, and
+# Linux, because onnxruntime-node and sharp ship a separate native binary per
+# platform. The Quality test job covers the newest macOS (macos-latest). The
+# onnxruntime-node@1.20.1 pin stays regardless (#225: newer releases can SIGILL
+# on macOS process exit).
 on:
   pull_request:
     paths:
@@ -17,6 +18,7 @@ on:
       - 'src/services/onnxruntime-resolve.ts'
       - 'scripts/verify-embedding-backend.mjs'
       - 'scripts/verify-nested-onnxruntime-fixture.mjs'
+      - 'scripts/fixtures/compiled-host-entry.mjs'
       - '.github/workflows/embedding-backend.yml'
   workflow_dispatch:
 
@@ -34,7 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - macos-latest
+          - macos-15
           - macos-15-intel
           - windows-latest
           - ubuntu-latest
