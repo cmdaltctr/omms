@@ -1,8 +1,13 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, setDefaultTimeout } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+
+// Each scenario spawns a fresh Bun process and runs several imports against a
+// real database. Windows runners take over 5 s (Bun's default) for the
+// multi-import scenarios, so the test is killed before it reports a result.
+setDefaultTimeout(30_000);
 
 const tempDirs: string[] = [];
 
