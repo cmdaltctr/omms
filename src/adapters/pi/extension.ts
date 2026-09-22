@@ -14,6 +14,9 @@ import { performPiProfileLearning } from "./profile.js";
 import { buildPiRetrievalSection } from "./retrieval.js";
 
 const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("opencode-mem.plugin.warmedup");
+const OMMS_STATUS_KEY = "omms";
+
+type OmmsStatus = "warming" | "connected" | "recalling" | "capturing" | "error";
 
 const MEMORY_TOOL_MODES = [
   "add",
@@ -73,6 +76,27 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
   // Latest session context, refreshed on session_start and consumed by the
   // import command (command contexts do not expose the model registry).
   let latestCtx: ExtensionContext | null = null;
+  let statusVersion = 0;
+
+  const startStatus = (ctx: ExtensionContext, status: OmmsStatus): number => {
+    const version = ++statusVersion;
+    if (ctx.hasUI) ctx.ui.setStatus(OMMS_STATUS_KEY, `omms:${status}`);
+    return version;
+  };
+
+  const finishStatus = (
+    ctx: ExtensionContext,
+    version: number,
+    status: "connected" | "error"
+  ): void => {
+    if (version !== statusVersion || !ctx.hasUI) return;
+    ctx.ui.setStatus(OMMS_STATUS_KEY, `omms:${status}`);
+  };
+
+  const clearStatus = (ctx: ExtensionContext): void => {
+    statusVersion++;
+    if (ctx.hasUI) ctx.ui.setStatus(OMMS_STATUS_KEY, undefined);
+  };
 
   const notify =
     (ctx: ExtensionContext) =>
@@ -90,6 +114,7 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
   const resolveModel = (ctx: ExtensionContext) => resolveModelFromContext(ctx);
 
   pi.on("session_start", async (_event, ctx) => {
+    const status = startStatus(ctx, "warming");
     try {
       latestCtx = ctx;
       initConfigWithLegacyMigration(ctx.cwd);
@@ -101,25 +126,32 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
           try {
             await memoryClient.warmup();
             globalScope[GLOBAL_PLUGIN_WARMUP_KEY] = true;
+            finishStatus(ctx, status, "connected");
           } catch (error) {
             log("Pi plugin memory warmup failed", { error: String(error) });
+            finishStatus(ctx, status, "error");
           }
         })();
+      } else {
+        finishStatus(ctx, status, "connected");
       }
     } catch (error) {
       log("Pi session_start error", { error: String(error) });
+      finishStatus(ctx, status, "error");
     }
   });
 
   pi.on("before_agent_start", async (event, ctx) => {
     if (!isConfigured() || !CONFIG.chatMessage.enabled) return;
 
+    const status = startStatus(ctx, "recalling");
     try {
       const section = await buildPiRetrievalSection(
         event.prompt,
         ctx.cwd,
         ctx.sessionManager.getSessionId()
       );
+      finishStatus(ctx, status, "connected");
       if (!section) return;
 
       return {
@@ -132,6 +164,7 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
       };
     } catch (error) {
       log("Pi before_agent_start retrieval error", { error: String(error) });
+      finishStatus(ctx, status, "error");
       return undefined;
     }
   });
@@ -139,11 +172,12 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
   pi.on("agent_settled", async (_event, ctx) => {
     if (!isConfigured()) return;
 
+    const status = startStatus(ctx, "capturing");
     try {
       const entries = toSessionEntries(ctx.sessionManager.getBranch());
       const provider = createPiCaptureProvider(() => resolveModel(ctx));
 
-      await capturePiSettledWorkUnit({
+      const captureResult = await capturePiSettledWorkUnit({
         sessionId: ctx.sessionManager.getSessionId(),
         directory: ctx.cwd,
         entries,
@@ -174,12 +208,16 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
           });
         }
       }
+
+      finishStatus(ctx, status, captureResult.status === "failed" ? "error" : "connected");
     } catch (error) {
       log("Pi agent_settled error", { error: String(error) });
+      finishStatus(ctx, status, "error");
     }
   });
 
-  pi.on("session_shutdown", async () => {
+  pi.on("session_shutdown", async (_event, ctx) => {
+    clearStatus(ctx);
     latestCtx = null;
     captureState = createPiCaptureState();
     promptsSinceProfileAnalysis = [];
