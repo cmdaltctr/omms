@@ -1,20 +1,22 @@
 # Continuous Integration
 
-OMMS validates changes locally on macOS first. GitHub Actions runs one cheap
-automatic check on pull requests and two manual verification workflows on
-demand.
+OMMS validates changes locally on macOS first. GitHub Actions runs two
+automatic checks on pull requests, one manual verification workflow on
+demand, and the release pipeline on tag push. The repository is public, so
+hosted runners cost nothing; the only limit is job concurrency.
 
 ## Where each check runs
 
-| Check                   | Where                    | Command or trigger                                        |
-| ----------------------- | ------------------------ | --------------------------------------------------------- |
-| Format, lint, typecheck | Local, before every push | `bun run check` via the pre-push hook                     |
-| Unit tests              | Local, full gate         | `bun run ci:local`                                        |
-| Build                   | Local, full gate         | `bun run ci:local`                                        |
-| Format, lint, typecheck | GitHub, every PR         | Quality workflow, `ubuntu-latest`                         |
-| Native embedding smoke  | GitHub, manual           | Embedding Backend workflow, `macos-15` + `macos-15-intel` |
-| Package smoke           | GitHub, manual           | Platform Package Smoke workflow, `macos-15`               |
-| Publish and release     | GitHub, tag push         | Release workflow, `ubuntu-latest`                         |
+| Check                   | Where                             | Command or trigger                                         |
+| ----------------------- | --------------------------------- | ---------------------------------------------------------- |
+| Format, lint, typecheck | Local, before every push          | `bun run check` via the pre-push hook                      |
+| Unit tests              | Local, full gate                  | `bun run ci:local`                                         |
+| Build                   | Local, full gate                  | `bun run ci:local`                                         |
+| Format, lint, typecheck | GitHub, every PR                  | Quality workflow, `ubuntu-latest`                          |
+| Native embedding smoke  | GitHub, PRs touching native paths | Embedding Backend workflow, `macos-latest` (Apple Silicon) |
+| Native embedding smoke  | GitHub, manual                    | Same workflow, `workflow_dispatch`                         |
+| Package smoke           | GitHub, manual                    | Platform Package Smoke workflow, `macos-latest`            |
+| Publish and release     | GitHub, tag push                  | Release workflow, `ubuntu-latest`                          |
 
 ## Local toolchain
 
@@ -72,16 +74,16 @@ Runs on every pull request only, on `ubuntu-latest`. It repeats format,
 lint, and typecheck as an independent remote check. It never runs on pushes
 to `main`.
 
-### Embedding Backend Verification (manual)
+### Embedding Backend Verification (automatic on native changes, manual on demand)
 
-Runs on `macos-15` (Apple Silicon) and `macos-15-intel` when dispatched. The
-Intel job matters most: the `onnxruntime-node@1.20.1` pin exists for that
-platform (#184 / #210 / #225). The workflow proves the native ONNX runtime
-and prebuilt sharp binaries install without lifecycle scripts and produce
-real embeddings under Bun and Node 24 on both architectures.
+Runs on `macos-latest` (newest macOS, Apple Silicon) whenever a pull request
+touches `package.json`, `bun.lock`, `src/services/embedding.ts`,
+`src/services/onnxruntime-resolve.ts`, `scripts/verify-embedding-backend.mjs`,
+or this workflow file. It can also be dispatched at any time. The workflow
+proves the native ONNX runtime and prebuilt sharp binaries install without
+lifecycle scripts and produce real embeddings under Bun and Node 24.
 
-Dispatch it when you change `package.json`, `bun.lock`, the embedding
-service, the ONNX resolve shim, or Bun or Node versions:
+Dispatch it manually for any other native or toolchain change:
 
 ```bash
 gh workflow run "Embedding Backend Verification" --ref main
@@ -89,7 +91,7 @@ gh workflow run "Embedding Backend Verification" --ref main
 
 ### Platform Package Smoke (manual)
 
-Runs on `macos-15` when dispatched. It installs dependencies, runs the full
+Runs on `macos-latest` when dispatched. It installs dependencies, runs the full
 local gate, packs the npm tarball, installs it into a scratch project, and
 runs the native dependency, libSQL vector, and package smoke scripts.
 
@@ -120,16 +122,22 @@ The workflow fails if the tag and `package.json` version differ.
 
 ## Disabled coverage
 
-Routine and manual CI do not cover Windows, Linux, or macOS 26. Intel macOS
-keeps manual coverage in the Embedding Backend workflow because the
-onnxruntime-node pin targets that platform. The Windows, Linux, and macOS 26
-matrices were removed to stop ordinary changes spending GitHub-hosted minutes
-across seven runner allocations.
+Supported platform scope is Apple Silicon macOS, version 15 and above.
+GitHub tests only `macos-latest` (the newest macOS arm64 image); the local
+gate runs on the developer machine, which is newer still. Intel macOS,
+Windows, Linux, and the exact macOS 15 floor have no coverage, by decision.
+The `onnxruntime-node@1.20.1` pin stays in place regardless: newer releases
+can SIGILL on macOS process exit (#225), and OpenCode's nested installs
+ignore package overrides (#184).
 
 Before any change to native dependencies (`onnxruntime-node`, sharp), Bun, or
-Node, dispatch both manual workflows and consider temporarily restoring the
-wider matrix from git history for that one run.
+Node, the Embedding Backend workflow fires automatically on the pull request,
+and you should dispatch the Platform Package Smoke workflow. For toolchain
+changes that touch no watched path, dispatch the Embedding Backend workflow
+as well.
 
-Costs: a routine pull request spends one `ubuntu-latest` job. An Embedding
-dispatch spends two macOS jobs (one per architecture). A Package Smoke
-dispatch spends one `macos-15` job. Local CI spends no GitHub minutes.
+Costs: the repository is public, so hosted runners are free and macOS minutes
+are not billed. A routine pull request spends one `ubuntu-latest` job; a pull
+request touching native paths adds one `macos-latest` job. A Package Smoke
+dispatch spends one `macos-latest` job. The practical limit is queue
+concurrency, not minutes. Local CI spends no GitHub jobs at all.

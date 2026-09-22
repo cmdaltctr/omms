@@ -1,7 +1,8 @@
 name: Platform Package Smoke
 
-# Run manually on Apple Silicon for package, native dependency, or release-risk
-# changes. Routine validation runs locally before each push.
+# Run manually on the newest Apple Silicon image for package, native
+# dependency, or release-risk changes. Routine validation runs locally
+# before each push.
 on:
   workflow_dispatch:
 
@@ -10,8 +11,8 @@ permissions:
 
 jobs:
   package-smoke:
-    name: macos-15 / package smoke
-    runs-on: macos-15
+    name: macos-latest / package smoke
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
         with:
