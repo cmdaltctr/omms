@@ -1,9 +1,13 @@
 name: Platform Package Smoke
 
-# Run manually on the newest Apple Silicon image for package, native
-# dependency, or release-risk changes. Routine validation runs locally
-# before each push.
+# Full install, test, and pack smoke across every platform users run on.
+# Runs before each release (called from release.yml), weekly to catch runner
+# image and upstream drift, and on demand. Kept off pull requests so the
+# macOS jobs do not queue behind the 5-job macOS concurrency limit.
 on:
+  workflow_call:
+  schedule:
+    - cron: '0 6 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -11,8 +15,20 @@ permissions:
 
 jobs:
   package-smoke:
-    name: macos-latest / package smoke
-    runs-on: macos-latest
+    name: ${{ matrix.os }} / package smoke
+    strategy:
+      fail-fast: false
+      matrix:
+        # Apple Silicon: macos-15 (floor) / macos-26 (darwin/arm64).
+        # Intel: macos-15-intel / macos-26-intel (darwin/x64).
+        os:
+          - macos-15
+          - macos-26
+          - macos-15-intel
+          - macos-26-intel
+          - windows-latest
+          - ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -26,11 +42,11 @@ jobs:
           package-manager-cache: false
 
       - name: Install source dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Install web dependencies
         working-directory: web
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Validate source
         run: bun run ci:local
