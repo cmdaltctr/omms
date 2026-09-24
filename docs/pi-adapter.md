@@ -22,13 +22,13 @@ From a local checkout (development):
 ```bash
 # build first: the Pi manifest points at compiled output
 bun install && bun run build
-pi install /absolute/path/to/opencode-mem
+pi install /absolute/path/to/omms
 ```
 
 Or try it without installing:
 
 ```bash
-pi -e /absolute/path/to/opencode-mem
+pi -e /absolute/path/to/omms
 ```
 
 Pi discovers the extension through the `pi` manifest in `package.json`
@@ -43,7 +43,8 @@ The extension reads the same configuration files as the OpenCode plugin:
 1. `~/.config/omms/omms.jsonc` (global; the legacy
    `~/.config/opencode/opencode-mem.jsonc` is still read while the omms file
    does not exist)
-2. `<project>/.opencode/opencode-mem.jsonc` (project overrides)
+2. `<project>/.opencode/omms.jsonc` (project overrides; the legacy
+   `<project>/.opencode/opencode-mem.jsonc` is still read when no `omms.jsonc` exists)
 
 Storage, embedding, privacy, deduplication, scopes, and thresholds are shared.
 `storagePath` defaults to `~/.omms/data` — a legacy `~/.opencode-mem/data`
@@ -71,13 +72,13 @@ own the web server port as before.
 
 ## Lifecycle mapping
 
-| Pi event             | omms behaviour                                                                                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `session_start`      | Load shared config for `ctx.cwd`, warm storage and embeddings in the background                                                                                                |
-| `before_agent_start` | Semantic retrieval: search project memory with the incoming prompt, inject results as a delimited `<opencode-mem-retrieval>` system-prompt section (never a fake user message) |
-| `agent_settled`      | Automatic capture of the settled work unit: the last user prompt plus its assistant/tool response window from the active branch                                                |
-| `session_shutdown`   | Idempotent cleanup (quit, reload, new, resume, fork)                                                                                                                           |
-| `memory` tool        | Shared add/search/profile/list/forget/help plus migrate/list-shards/export/import                                                                                              |
+| Pi event             | omms behaviour                                                                                                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session_start`      | Load shared config for `ctx.cwd`, warm storage and embeddings in the background                                                                                        |
+| `before_agent_start` | Semantic retrieval: search project memory with the incoming prompt, inject results as a delimited `<omms-retrieval>` system-prompt section (never a fake user message) |
+| `agent_settled`      | Automatic capture of the settled work unit: the last user prompt plus its assistant/tool response window from the active branch                                        |
+| `session_shutdown`   | Idempotent cleanup (quit, reload, new, resume, fork)                                                                                                                   |
+| `memory` tool        | Shared add/search/profile/list/forget/help plus migrate/list-shards/export/import                                                                                      |
 
 ### Footer status
 

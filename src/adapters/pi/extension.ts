@@ -11,9 +11,9 @@ import { createPiCaptureProvider } from "./provider.js";
 import { resolveModelFromContext } from "./provider.js";
 import { registerPiHistoryImportCommand } from "./import-command.js";
 import { performPiProfileLearning } from "./profile.js";
-import { buildPiRetrievalSection } from "./retrieval.js";
+import { buildRetrievalSection, wrapRetrievalSection } from "../../core/retrieval.js";
 
-const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("opencode-mem.plugin.warmedup");
+const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("omms.plugin.warmedup");
 const OMMS_STATUS_KEY = "omms";
 
 type OmmsStatus = "warming" | "connected" | "recalling" | "capturing" | "error";
@@ -55,7 +55,7 @@ function lastSettledUserPrompt(entries: PiSessionEntry[]): string | null {
 }
 
 /**
- * Pi extension entry point for the shared opencode-mem engine.
+ * Pi extension entry point for the shared omms engine.
  *
  * Lifecycle mapping:
  * - `session_start`        -> load shared config for ctx.cwd, warm storage
@@ -70,7 +70,7 @@ function lastSettledUserPrompt(entries: PiSessionEntry[]): string | null {
  * Pi types are imported type-only: the compiled extension carries no Pi
  * runtime dependency and uses the host Pi runtime provided at load time.
  */
-export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
+export default function ommsPiExtension(pi: ExtensionAPI): void {
   let captureState = createPiCaptureState();
   let promptsSinceProfileAnalysis: string[] = [];
   // Latest session context, refreshed on session_start and consumed by the
@@ -146,7 +146,7 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
 
     const status = startStatus(ctx, "recalling");
     try {
-      const section = await buildPiRetrievalSection(
+      const section = await buildRetrievalSection(
         event.prompt,
         ctx.cwd,
         ctx.sessionManager.getSessionId()
@@ -155,12 +155,7 @@ export default function opencodeMemPiExtension(pi: ExtensionAPI): void {
       if (!section) return;
 
       return {
-        systemPrompt:
-          event.systemPrompt +
-          "\n\n" +
-          "<opencode-mem-retrieval>\n" +
-          section +
-          "\n</opencode-mem-retrieval>",
+        systemPrompt: event.systemPrompt + "\n\n" + wrapRetrievalSection(section),
       };
     } catch (error) {
       log("Pi before_agent_start retrieval error", { error: String(error) });

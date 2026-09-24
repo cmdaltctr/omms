@@ -157,7 +157,7 @@ const DEFAULT_FILTERS = {
 
 // Extra harness imports for the cross-host retrieval scenario.
 const memoryOpsUrl = pathToFileURL(join(import.meta.dir, "../src/core/memory-operations.js")).href;
-const retrievalUrl = pathToFileURL(join(import.meta.dir, "../src/adapters/pi/retrieval.js")).href;
+const retrievalUrl = pathToFileURL(join(import.meta.dir, "../src/core/retrieval.js")).href;
 
 describe("Pi historical importer", () => {
   it("dry-run reports candidates and writes nothing", () => {
@@ -529,8 +529,8 @@ const opencodeSearch = await executeMemoryOperation(
 );
 
 // Pi side: before_agent_start retrieval over the same store.
-const { buildPiRetrievalSection } = await import(${JSON.stringify(retrievalUrl)});
-const piSection = await buildPiRetrievalSection("usearch vector index", projectA, "pi-live-session");
+const { buildRetrievalSection } = await import(${JSON.stringify(retrievalUrl)});
+const piSection = await buildRetrievalSection("usearch vector index", projectA, "pi-live-session");
 
 scenario = {
   imported: report.unitsImported,

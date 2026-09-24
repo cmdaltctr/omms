@@ -18,7 +18,7 @@ function sha256(input: string): string {
 }
 
 /**
- * Marker file whose presence pins a directory as the opencode-mem project root.
+ * Marker files whose presence pins a directory as the omms project root.
  *
  * A multi-repo workspace (e.g. a tree managed by Google `repo`, a monorepo,
  * or any layout where several nested git repositories should share one memory
@@ -32,7 +32,15 @@ function sha256(input: string): string {
  * identity never depends on which long-lived opencode process happens to own
  * the shared web server.
  */
-const PROJECT_MARKER = ".opencode-mem-project";
+const PROJECT_MARKERS = [
+  ".omms-project",
+  // Legacy marker from the opencode-mem days; still honoured.
+  ".opencode-mem-project",
+];
+
+function hasProjectMarker(dir: string): boolean {
+  return PROJECT_MARKERS.some((marker) => existsSync(join(dir, marker)));
+}
 
 function canonicalPath(path: string): string {
   try {
@@ -52,7 +60,7 @@ function isPathInside(root: string, candidate: string): boolean {
 function findUntrustedProjectRoot(directory: string): string {
   let current = canonicalPath(directory);
   while (true) {
-    if (existsSync(join(current, ".git")) || existsSync(join(current, PROJECT_MARKER))) {
+    if (existsSync(join(current, ".git")) || hasProjectMarker(current)) {
       return current;
     }
     const parent = dirname(current);
@@ -135,13 +143,13 @@ function runGit(args: string[], directory: string = process.cwd()): string | nul
 
 /**
  * Walk up from `directory` (inclusive) to the filesystem root looking for the
- * {@link PROJECT_MARKER}. Returns the first directory that contains it, or
+ * {@link PROJECT_MARKERS}. Returns the first directory that contains it, or
  * `null` when no marker is found so the caller can fall back to git detection.
  */
 export function findMarkerProjectRoot(directory: string): string | null {
   let dir = resolve(directory);
   while (true) {
-    if (existsSync(join(dir, PROJECT_MARKER))) {
+    if (hasProjectMarker(dir)) {
       return dir;
     }
     const parent = dirname(dir);

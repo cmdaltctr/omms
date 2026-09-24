@@ -89,7 +89,7 @@ mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
   loadOpencodeProvider: async () => ({
     generateStructuredOutput: async () => {
       throw new Error(
-        "opencode-mem: opencode reported APIError: Thinking mode does not support this tool_choice"
+        "omms: opencode reported APIError: Thinking mode does not support this tool_choice"
       );
     },
   }),

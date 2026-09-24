@@ -1,5 +1,7 @@
 /** Title used for transient structured-output sessions (capture / profile learning). */
-export const INTERNAL_CAPTURE_SESSION_TITLE = "opencode-mem capture";
+export const INTERNAL_CAPTURE_SESSION_TITLE = "omms capture";
+/** Title used by opencode-mem builds; sessions left by older versions stay internal. */
+const LEGACY_INTERNAL_CAPTURE_SESSION_TITLE = "opencode-mem capture";
 
 /** Grace period so session.idle can still match after best-effort delete. */
 const UNTRACK_GRACE_MS = 60_000;
@@ -8,7 +10,9 @@ const trackedSessionIDs = new Set<string>();
 const untrackTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 export function isInternalCaptureSessionTitle(title: string | undefined | null): boolean {
-  return title === INTERNAL_CAPTURE_SESSION_TITLE;
+  return (
+    title === INTERNAL_CAPTURE_SESSION_TITLE || title === LEGACY_INTERNAL_CAPTURE_SESSION_TITLE
+  );
 }
 
 export function trackInternalCaptureSession(sessionID: string): void {

@@ -424,7 +424,7 @@ export class WebServer {
       });
       if (!response.ok) return false;
       // Fallback spans 10 neighbor ports; any 2xx from an unrelated local
-      // service must not be mistaken for an opencode-mem owner. Require the
+      // service must not be mistaken for an omms owner. Require the
       // response to carry our API envelope.
       const body = (await response.json()) as { success?: boolean; status?: string };
       if (endpoint === "/api/health") {
@@ -797,7 +797,7 @@ export class WebServer {
         const token = getOrCreateAuthToken();
         content = content.replace(
           "</head>",
-          `<script>window.__OPENCODE_MEM_TOKEN__=${JSON.stringify(token)};</script></head>`
+          `<script>window.__OMMS_TOKEN__=${JSON.stringify(token)};</script></head>`
         );
       }
 

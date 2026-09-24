@@ -53,7 +53,7 @@ export async function generateOpenCodeAutoCaptureSummary(
       if (modelID === "inherit") {
         if (!request.prompt?.providerId || !request.prompt?.modelId) {
           throw new Error(
-            "opencode-mem: opencodeModel is 'inherit' but no session model was recorded for this prompt"
+            "omms: opencodeModel is 'inherit' but no session model was recorded for this prompt"
           );
         }
         providerID = request.prompt.providerId;
@@ -69,7 +69,7 @@ export async function generateOpenCodeAutoCaptureSummary(
       const v2Client = getV2Client();
       if (!v2Client) {
         throw new Error(
-          "opencode-mem: v2 client not initialized; cannot perform structured-output capture"
+          "omms: v2 client not initialized; cannot perform structured-output capture"
         );
       }
 

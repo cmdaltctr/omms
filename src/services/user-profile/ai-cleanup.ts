@@ -339,7 +339,7 @@ async function callViaOpencodeWithClient(
 
   const created = (await raceWithTimeout(
     v2Client.session.create({
-      title: "opencode-mem profile cleanup",
+      title: "omms profile cleanup",
       directory: process.cwd(),
     }),
     30000,

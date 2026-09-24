@@ -165,7 +165,7 @@ describe("project scope identity", () => {
   });
 });
 
-describe("project marker (.opencode-mem-project)", () => {
+describe("project marker (.omms-project)", () => {
   // Build a workspace containing several independent git repositories, like a
   // tree managed by Google `repo` or a monorepo checkout. Without a marker
   // each sub-repo is its own project; with one they all collapse onto the
@@ -175,7 +175,7 @@ describe("project marker (.opencode-mem-project)", () => {
     repoA: string;
     repoB: string;
   } {
-    const workspaceDir = mkdtempSync(join(tmpdir(), "opencode-mem-ws-"));
+    const workspaceDir = mkdtempSync(join(tmpdir(), "omms-ws-"));
     createdDirs.push(workspaceDir);
     const repoA = join(workspaceDir, "repo-a");
     const repoB = join(workspaceDir, "repo-b");
@@ -196,7 +196,7 @@ describe("project marker (.opencode-mem-project)", () => {
 
   it("collapses nested git repos onto the marker root", () => {
     const { workspaceDir, repoA, repoB } = createMultiRepoWorkspace();
-    writeFileSync(join(workspaceDir, ".opencode-mem-project"), "");
+    writeFileSync(join(workspaceDir, ".omms-project"), "");
 
     const rootTag = getProjectTagInfo(workspaceDir);
     const aTag = getProjectTagInfo(repoA);
@@ -211,7 +211,7 @@ describe("project marker (.opencode-mem-project)", () => {
 
   it("resolves deep nested paths up to the marker root", () => {
     const { workspaceDir, repoA } = createMultiRepoWorkspace();
-    writeFileSync(join(workspaceDir, ".opencode-mem-project"), "");
+    writeFileSync(join(workspaceDir, ".omms-project"), "");
     const deep = join(repoA, "src", "features", "memory");
     mkdirSync(deep, { recursive: true });
 
@@ -227,7 +227,7 @@ describe("project marker (.opencode-mem-project)", () => {
     // Give the inner repo a remote so we can assert it is intentionally ignored
     // once the workspace marker takes over identity.
     run("git remote add origin https://example.com/repo-a.git", repoA);
-    writeFileSync(join(workspaceDir, ".opencode-mem-project"), "");
+    writeFileSync(join(workspaceDir, ".omms-project"), "");
 
     const tag = getProjectTagInfo(repoA);
 
@@ -240,9 +240,24 @@ describe("project marker (.opencode-mem-project)", () => {
 
     expect(findMarkerProjectRoot(repoA)).toBeNull();
 
-    writeFileSync(join(workspaceDir, ".opencode-mem-project"), "");
+    writeFileSync(join(workspaceDir, ".omms-project"), "");
     expect(findMarkerProjectRoot(repoA)).toBe(workspaceDir);
     // A session started exactly at the marker root still resolves to itself.
     expect(findMarkerProjectRoot(workspaceDir)).toBe(workspaceDir);
+  });
+
+  it("honours the legacy .opencode-mem-project marker with the same identity", () => {
+    const legacy = createMultiRepoWorkspace();
+    writeFileSync(join(legacy.workspaceDir, ".opencode-mem-project"), "");
+    const legacyTag = getProjectTagInfo(legacy.repoA);
+
+    expect(findMarkerProjectRoot(legacy.repoA)).toBe(legacy.workspaceDir);
+    expect(legacyTag.projectPath).toBe(legacy.workspaceDir);
+    expect(legacyTag.tag).toBe(getProjectTagInfo(legacy.workspaceDir).tag);
+
+    // Swapping the legacy marker for the omms one keeps the project identity.
+    rmSync(join(legacy.workspaceDir, ".opencode-mem-project"));
+    writeFileSync(join(legacy.workspaceDir, ".omms-project"), "");
+    expect(getProjectTagInfo(legacy.repoA).tag).toBe(legacyTag.tag);
   });
 });

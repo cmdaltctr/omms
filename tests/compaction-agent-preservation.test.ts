@@ -161,8 +161,8 @@ const mockClient = {
   tui: { showToast: async () => ({}) },
 };
 
-const { OpenCodeMemPlugin } = await import(${JSON.stringify(indexUrl)});
-const plugin = await OpenCodeMemPlugin({ directory: "/workspace", client: mockClient });
+const { OmmsPlugin } = await import(${JSON.stringify(indexUrl)});
+const plugin = await OmmsPlugin({ directory: "/workspace", client: mockClient });
 await plugin.event({
   event: { type: "session.compacted", properties: { sessionID: "ses-1" } },
 });

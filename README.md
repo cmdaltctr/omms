@@ -73,8 +73,9 @@ and Pi. They share one project memory store.
 
 ### OpenCode
 
-Add `npm:omms` to your OpenCode configuration. OpenCode downloads the package
-when you restart it.
+Add `omms` to your OpenCode configuration. OpenCode downloads the package
+when you restart it. On OpenCode v2 you can instead run `opencode plugin add omms`,
+which installs the package and updates your global configuration for you.
 
 #### macOS
 
@@ -84,15 +85,15 @@ For OpenCode v2, use the native `plugins` list:
 
 ```jsonc
 {
-  "plugins": ["npm:omms"],
+  "plugins": ["omms"],
 }
 ```
 
-For OpenCode v1, use the `plugin` list:
+For OpenCode v1 (1.18.29 or later), use the `plugin` list:
 
 ```jsonc
 {
-  "plugin": ["npm:omms"],
+  "plugin": ["omms"],
 }
 ```
 
@@ -107,15 +108,15 @@ For OpenCode v2, use:
 
 ```jsonc
 {
-  "plugins": ["npm:omms"],
+  "plugins": ["omms"],
 }
 ```
 
-For OpenCode v1, use:
+For OpenCode v1 (1.18.29 or later), use:
 
 ```jsonc
 {
-  "plugin": ["npm:omms"],
+  "plugin": ["omms"],
 }
 ```
 
@@ -150,7 +151,7 @@ You do **not** need to ask OpenCode to “remember” things for the plugin to w
 1. Enable the plugin (see [Install OMMS](#install-omms)) and restart OpenCode.
 2. Configure an AI provider for auto-capture — recommended: `opencodeProvider` + `opencodeModel` (or `"opencodeModel": "inherit"`). Details under [Auto-Capture AI Provider](#auto-capture-ai-provider).
 3. Work normally in OpenCode. When a session goes idle, auto-capture extracts memorable technical context and stores it.
-4. In later sessions, relevant memories are injected into context (see `chatMessage` / compaction settings). Browse or edit them in the web UI at `http://127.0.0.1:4747`.
+4. Relevant memories are injected into context automatically. On OpenCode v2 and Pi, every prompt runs a semantic search of the project memory and adds the matches as an `<omms-retrieval>` system section (never as a chat message). On OpenCode v1, the most recent memories are injected on the first message of a session (`chatMessage.injectOn`). After compaction, the session's own memories are restored. Browse or edit memories in the web UI at `http://127.0.0.1:4747`.
 5. Use the `memory` tool when you want something stored or retrieved immediately (see [Usage Examples](#usage-examples)).
 
 ### Automatic vs manual memory
@@ -200,13 +201,13 @@ memory({ mode: "import", inputPath: "./memories.json" });
 
 Access the web interface at `http://127.0.0.1:4747` for visual memory browsing and management.
 
-**Network binding security:** Keep `webServerHost` on `127.0.0.1` unless you intentionally expose the UI. Binding to `0.0.0.0` (or any non-loopback host) requires `webServerApiToken`; all `/api/*` requests must then send `Authorization: Bearer <token>` or `X-Opencode-Mem-Token`. Open the UI with `?apiToken=<token>` so the browser stores and sends it.
+**Network binding security:** Keep `webServerHost` on `127.0.0.1` unless you intentionally expose the UI. Binding to `0.0.0.0` (or any non-loopback host) requires `webServerApiToken`; all `/api/*` requests must then send `Authorization: Bearer <token>` or `X-Omms-Token` (the legacy `X-Opencode-Mem-Token` header is still accepted). Open the UI with `?apiToken=<token>` so the browser stores and sends it.
 
 Dimension migrations generate every new embedding first, import them into a temporary indexed shard, verify the row count, and only then replace the original file. Failed migrations leave the source shard untouched.
 
 ## Configuration Essentials
 
-Configure at `~/.config/omms/omms.jsonc`. While that file does not exist, omms still reads the legacy `~/.config/opencode/opencode-mem.jsonc` (it is never written), so existing installs keep working before you migrate settings:
+Configure at `~/.config/omms/omms.jsonc`. While that file does not exist, omms still reads the legacy `~/.config/opencode/opencode-mem.jsonc` (it is never written), so existing installs keep working before you migrate settings. Per-project overrides go in `<project>/.opencode/omms.jsonc` (the legacy `.opencode/opencode-mem.jsonc` is still read when no `omms.jsonc` exists):
 
 **Windows:** `%USERPROFILE%\.config\omms\omms.jsonc` (not AppData). Default storage resolves to `%USERPROFILE%\.omms\data` (the `~` form in the example below expands to your user home on Windows as well). A legacy `~/.opencode-mem/data` store migrates to the new path automatically on first start.
 
@@ -264,7 +265,7 @@ The plugin creates a full commented template at this path on first startup (only
     "maxMemories": 3,
     "excludeCurrentSession": true,
     "maxAgeDays": undefined,
-    "injectOn": "first",
+    "injectOn": "first", // OpenCode v1 only; v2 and Pi search on every prompt
   },
 }
 ```
@@ -347,11 +348,12 @@ multi-repo workspaces — trees managed by Google [`repo`](https://gerrit.google
 monorepos, or any layout where several nested git repositories belong to one
 logical project — because each sub-repository would be siloed.
 
-Drop an empty **`.opencode-mem-project`** marker file at the workspace root:
+Drop an empty **`.omms-project`** marker file at the workspace root (the legacy
+`.opencode-mem-project` marker is still honoured and gives the same project identity):
 
 ```
 my-workspace/
-├── .opencode-mem-project   ← workspace root
+├── .omms-project           ← workspace root
 ├── kernel/                 (own git repo)
 ├── userspace/              (own git repo)
 └── tools/                  (own git repo)
@@ -362,7 +364,7 @@ root and shares one memory store, regardless of which sub-repo the working
 directory lives in:
 
 ```sh
-touch ~/my-workspace/.opencode-mem-project
+touch ~/my-workspace/.omms-project
 ```
 
 The marker is looked up by walking up from the working directory that every

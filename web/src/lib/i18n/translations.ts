@@ -1,7 +1,7 @@
 export const translations = {
   en: {
-    title: "OpenCode Memory Explorer",
-    brand: "opencode-mem",
+    title: "omms Memory Explorer",
+    brand: "omms",
     "tab-project": "PROJECT MEMORIES",
     "tab-profile": "USER PROFILE",
     "nav-menu": "Menu",
@@ -149,8 +149,8 @@ export const translations = {
     "auth-warning-text": "Cross-origin editing disabled. Set webServerAuthPassword to enable.",
   },
   zh: {
-    title: "OpenCode Memory Explorer",
-    brand: "opencode-mem",
+    title: "omms Memory Explorer",
+    brand: "omms",
     "tab-project": "项目记忆",
     "tab-profile": "用户画像",
     "nav-menu": "菜单",
@@ -297,8 +297,8 @@ export const translations = {
     "auth-warning-text": "跨源编辑已禁用. 设置 webServerAuthPassword 即可启用.",
   },
   ar: {
-    title: "مستكشف ذاكرة OpenCode",
-    brand: "opencode-mem",
+    title: "مستكشف ذاكرة omms",
+    brand: "omms",
     "tab-project": "ذكريات المشروع",
     "tab-profile": "ملف المستخدم",
     "nav-menu": "القائمة",

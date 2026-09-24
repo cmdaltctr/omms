@@ -30,19 +30,17 @@ export async function readJson<T>(res: Response, endpoint: FetchEndpoint): Promi
   const url = diagnosticUrl(endpoint.url);
   if (!res.ok) {
     throw new Error(
-      `opencode-mem: opencode ${endpoint.label} failed at ${url} (${responseStatus(res)}): ${redactedBody(text)}`
+      `omms: opencode ${endpoint.label} failed at ${url} (${responseStatus(res)}): ${redactedBody(text)}`
     );
   }
   if (!text) {
-    throw new Error(
-      `opencode-mem: opencode ${endpoint.label} at ${url} returned an empty response body`
-    );
+    throw new Error(`omms: opencode ${endpoint.label} at ${url} returned an empty response body`);
   }
   try {
     return JSON.parse(text) as T;
   } catch {
     throw new Error(
-      `opencode-mem: opencode ${endpoint.label} at ${url} returned non-JSON body: ${redactedBody(text)}`
+      `omms: opencode ${endpoint.label} at ${url} returned non-JSON body: ${redactedBody(text)}`
     );
   }
 }

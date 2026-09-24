@@ -3,14 +3,19 @@
 omms is the fork's package identity (upstream owns `opencode-mem` on npm).
 From version 3.0.0 the identity is fully separated:
 
-| What                 | Legacy (opencode-mem)                   | omms                                                      |
-| -------------------- | --------------------------------------- | --------------------------------------------------------- |
-| Package              | `opencode-mem`                          | `omms`                                                    |
-| Default store        | `~/.opencode-mem/data`                  | `~/.omms/data`                                            |
-| Primary config       | `~/.config/opencode/opencode-mem.jsonc` | `~/.config/omms/omms.jsonc`                               |
-| Plugin id            | `opencode-mem`                          | `omms`                                                    |
-| Log file             | `~/.opencode-mem/opencode-mem.log`      | `~/.omms/omms.log`                                        |
-| Container tag prefix | `opencode_project_<hash>`               | `omms_project_<hash>` (migrated automatically, see below) |
+| What                 | Legacy (opencode-mem)                    | omms                                                      |
+| -------------------- | ---------------------------------------- | --------------------------------------------------------- |
+| Package              | `opencode-mem`                           | `omms`                                                    |
+| Default store        | `~/.opencode-mem/data`                   | `~/.omms/data`                                            |
+| Primary config       | `~/.config/opencode/opencode-mem.jsonc`  | `~/.config/omms/omms.jsonc`                               |
+| Plugin id            | `opencode-mem`                           | `omms`                                                    |
+| Log file             | `~/.opencode-mem/opencode-mem.log`       | `~/.omms/omms.log`                                        |
+| Container tag prefix | `opencode_project_<hash>`                | `omms_project_<hash>` (migrated automatically, see below) |
+| Project config       | `<project>/.opencode/opencode-mem.jsonc` | `<project>/.opencode/omms.jsonc` (legacy still read)      |
+| Project marker       | `.opencode-mem-project`                  | `.omms-project` (legacy still honoured)                   |
+| API token header     | `X-Opencode-Mem-Token`                   | `X-Omms-Token` (legacy still accepted)                    |
+| Web UI token file    | `~/.opencode-mem/.auth-token`            | `~/.omms/.auth-token` (legacy token adopted once)         |
+| Retrieval section    | `<opencode-mem-retrieval>`               | `<omms-retrieval>`                                        |
 
 ## What happens automatically
 
@@ -100,8 +105,9 @@ the legacy file to `~/.config/omms/omms.jsonc` and edit it; once the omms file
 exists it takes precedence. A fresh install with no config at all gets a
 commented template at `~/.config/omms/omms.jsonc`.
 
-Project-level config files keep their existing names and locations
-(`<project>/.opencode/opencode-mem.jsonc`) for compatibility.
+Project-level overrides live in `<project>/.opencode/omms.jsonc`. The legacy
+`<project>/.opencode/opencode-mem.jsonc` is still read when no `omms.jsonc`
+exists; when both exist, `omms.jsonc` wins. Rename the file at your own pace.
 
 ## Container tag prefix
 

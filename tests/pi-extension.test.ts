@@ -133,7 +133,7 @@ mock.module(${JSON.stringify(profileManagerUrl)}, () => ({
   },
 }));
 
-const { default: opencodeMemPiExtension } = await import(${JSON.stringify(extensionUrl)});
+const { default: ommsPiExtension } = await import(${JSON.stringify(extensionUrl)});
 
 function makeCtx(overrides = {}) {
   return {
@@ -166,7 +166,7 @@ const pi = {
   },
 };
 
-opencodeMemPiExtension(pi);
+ommsPiExtension(pi);
 
 let captured;
 
@@ -261,7 +261,7 @@ captured = before;
 `);
 
     expect(output.captured.systemPrompt).toContain("BASE PROMPT");
-    expect(output.captured.systemPrompt).toContain("<opencode-mem-retrieval>");
+    expect(output.captured.systemPrompt).toContain("<omms-retrieval>");
     expect(output.captured.systemPrompt).toContain("<memory_context>injected</memory_context>");
     expect(output.captured).not.toHaveProperty("message");
     expect(output.searchQueries).toEqual(["how do we run the queue?"]);

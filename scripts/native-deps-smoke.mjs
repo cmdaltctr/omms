@@ -176,9 +176,9 @@ function formatError(error) {
 }
 
 const lockfile = readJson(lockfilePath);
-const opencodeMemPkgPath = join(projectRoot, "node_modules", "omms", "package.json");
-const rootPkg = existsSync(opencodeMemPkgPath)
-  ? readJson(opencodeMemPkgPath)
+const ommsPkgPath = join(projectRoot, "node_modules", "omms", "package.json");
+const rootPkg = existsSync(ommsPkgPath)
+  ? readJson(ommsPkgPath)
   : readJson(join(projectRoot, "package.json"));
 const candidates = [];
 const failures = [];

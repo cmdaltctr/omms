@@ -305,7 +305,7 @@ mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
     getV2Client: () => ({}),
     generateStructuredOutput: async () => {
       throw new Error(
-        "opencode-mem: opencode reported APIError: Thinking mode does not support this tool_choice"
+        "omms: opencode reported APIError: Thinking mode does not support this tool_choice"
       );
     },
   }),
@@ -323,7 +323,7 @@ await performAutoCapture(
     }),
     summarize: async () => {
       throw new Error(
-        "opencode-mem: opencode reported APIError: Thinking mode does not support this tool_choice"
+        "omms: opencode reported APIError: Thinking mode does not support this tool_choice"
       );
     },
     notify: async (notification) => {

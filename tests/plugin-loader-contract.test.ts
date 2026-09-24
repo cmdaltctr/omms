@@ -73,7 +73,7 @@ describe("OpenCode 1.3.x plugin-loader contract", () => {
     // process-global warmup as complete so server() does not load the native
     // ONNX stack in the background. Bun 1.3.14 can crash during process teardown
     // after that native addon was loaded, even though every assertion passed.
-    const warmupKey = Symbol.for("opencode-mem.plugin.warmedup");
+    const warmupKey = Symbol.for("omms.plugin.warmedup");
     const hadWarmupState = Object.prototype.hasOwnProperty.call(globalThis, warmupKey);
     const previousWarmupState = Reflect.get(globalThis, warmupKey);
     Reflect.set(globalThis, warmupKey, true);

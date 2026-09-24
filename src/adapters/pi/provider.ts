@@ -88,7 +88,7 @@ export function createPiCaptureProvider(resolveModel: () => PiModelHandle | null
     async summarize(request: CaptureSummaryRequest): Promise<CaptureSummary | null> {
       const model = resolveModel();
       if (!model) {
-        throw new Error("opencode-mem: no Pi model available for auto-capture");
+        throw new Error("omms: no Pi model available for auto-capture");
       }
 
       const targetLang =
@@ -109,7 +109,7 @@ export function createPiCaptureProvider(resolveModel: () => PiModelHandle | null
 
       if (reply.stopReason === "error") {
         throw new Error(
-          `opencode-mem: Pi extraction call failed: ${reply.errorMessage || "unknown error"}`
+          `omms: Pi extraction call failed: ${reply.errorMessage || "unknown error"}`
         );
       }
 
@@ -119,7 +119,7 @@ export function createPiCaptureProvider(resolveModel: () => PiModelHandle | null
           provider: model.provider,
           modelId: model.modelId,
         });
-        throw new Error("opencode-mem: Pi extraction returned an invalid summary payload");
+        throw new Error("omms: Pi extraction returned an invalid summary payload");
       }
       return summary;
     },
