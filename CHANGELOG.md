@@ -4,4 +4,4 @@ Release notes are written by [release-please](https://github.com/googleapis/rele
 
 ## 3.0.0
 
-First release published to npm as `omms`: a fork of [`opencode-mem`](https://github.com/tickernelz/opencode-mem) with a native OpenCode v2 plugin, a Pi extension sharing one memory store, and the memory explorer web UI.
+First release published to npm as `om-memory-system` (the product is still called omms): a fork of [`opencode-mem`](https://github.com/tickernelz/opencode-mem) with a native OpenCode v2 plugin, a Pi extension sharing one memory store, and the memory explorer web UI.

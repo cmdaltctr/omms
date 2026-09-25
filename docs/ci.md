@@ -163,7 +163,7 @@ created by release-please do not start other workflows.
 Runs when Quality succeeds for a push to `main`, once the repository variable
 `NPM_NEXT_ENABLED` is `true`. It builds that commit and publishes it as
 `X.(Y+1).0-next.<run>` under the npm `next` tag, without approval, so the
-maintainer can try it with `omms@next`. It skips release commits (those that
+maintainer can try it with `om-memory-system@next`. It skips release commits (those that
 change `.release-please-manifest.json`) and fails if `latest` moves.
 
 ## Release runbook
@@ -172,11 +172,11 @@ Versions come from commit messages. Use `feat:` (minor), `fix:` (patch),
 `deps:` (patch, used by Dependabot), and `!` or `BREAKING CHANGE:` (major).
 `refactor:`, `test:`, `ci:` and `chore:` do not trigger a release.
 
-1. Merge work into `main` as usual. Each merge also appears as `omms@next`.
+1. Merge work into `main` as usual. Each merge also appears as `om-memory-system@next`.
 2. When you want to ship, merge the open release pull request.
 3. Wait for the Release workflow: six-platform smoke, then `publish`.
 4. Approve the staged version with 2FA, in the Staged tab at
-   <https://www.npmjs.com/package/omms> or with `npm stage list omms`, then
+   <https://www.npmjs.com/package/om-memory-system> or with `npm stage list om-memory-system`, then
    `npm stage approve <stage-id>`. To try it first, run
    `npm stage download <stage-id>` and install the tarball.
 5. Users on an unpinned install are told about the update.
@@ -188,6 +188,10 @@ npm. To reject a staged version instead of approving it, run
 `npm stage reject <stage-id>`.
 
 ## First publish (one time)
+
+The npm package is `om-memory-system`: npm rejects the plain name `omms` as too similar
+to `ms` and `os`. The product, plugin id, config folder and data folder are
+still `omms`.
 
 npm only allows a trusted publisher on a package that already exists, so the
 first version is published by hand. Do these steps in order after merging the
@@ -222,11 +226,18 @@ release-publishing change.
    gh release create v3.0.0 --title v3.0.0 --notes-file CHANGELOG.md
    ```
 
-4. On npmjs.com, omms, Settings, Trusted publishing, add two GitHub Actions
-   publishers for repository `cmdaltctr/omms`. Names are case-sensitive and
-   must match exactly:
-   - workflow `release.yml`, environment `npm-publish`, **stage-only**
-   - workflow `publish-next.yml`, environment `npm-next`
+4. Add the two npm trusted publishers (npm 11.15.0 or later; each asks for
+   2FA). Names are case-sensitive and must match exactly:
+
+   ```bash
+   npm trust github om-memory-system --file release.yml --repo cmdaltctr/omms --env npm-publish --allow-stage-publish
+   npm trust github om-memory-system --file publish-next.yml --repo cmdaltctr/omms --env npm-next --allow-publish
+   npm trust list om-memory-system
+   ```
+
+   The first is **stage-only**, so releases wait for approval. The same
+   settings are under npmjs.com → om-memory-system → Settings → Trusted publishing.
+
 5. Set the repository variables `RELEASE_PLEASE_ENABLED=true` and
    `NPM_NEXT_ENABLED=true`.
 6. After the first CI release is approved and live with a provenance badge,

@@ -1,7 +1,7 @@
 name: Publish next
 
 # Publishes every main commit that passed Quality as a prerelease under the
-# npm `next` dist-tag, so the maintainer can try it (`omms@next`) before a full
+# npm `next` dist-tag, so the maintainer can try it (`om-memory-system@next`) before a full
 # release. Never moves `latest`. Switched on by the repository variable
 # NPM_NEXT_ENABLED once the npm trusted publisher exists (see docs/ci.md).
 on:
@@ -96,7 +96,7 @@ jobs:
       - name: Publish to the next tag
         if: steps.gate.outputs.skip != 'true'
         run: |
-          LATEST_BEFORE=$(npm view omms dist-tags.latest)
+          LATEST_BEFORE=$(npm view om-memory-system dist-tags.latest)
           echo "latest before: $LATEST_BEFORE"
           echo "LATEST_BEFORE=$LATEST_BEFORE" >> "$GITHUB_ENV"
           npm publish --tag next --access public
@@ -106,9 +106,9 @@ jobs:
         env:
           NEXT_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          LATEST_AFTER=$(npm view omms dist-tags.latest)
+          LATEST_AFTER=$(npm view om-memory-system dist-tags.latest)
           if [ "$LATEST_AFTER" != "$LATEST_BEFORE" ]; then
             echo "::error::latest moved from $LATEST_BEFORE to $LATEST_AFTER while publishing $NEXT_VERSION"
             exit 1
           fi
-          echo "Published omms@$NEXT_VERSION under next; latest is still $LATEST_AFTER"
+          echo "Published om-memory-system@$NEXT_VERSION under next; latest is still $LATEST_AFTER"
