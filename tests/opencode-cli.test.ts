@@ -1,6 +1,6 @@
 import { expect, it } from "bun:test";
 import { DatabaseSync } from "node:sqlite";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseImportArgs } from "../src/cli/index.js";
@@ -109,6 +109,25 @@ it("prints help and exact dry-run counts without creating a memory store", () =>
     );
     expect(badProvider.exitCode).not.toBe(0);
     expect(badProvider.stdout.toString() + badProvider.stderr.toString()).not.toContain(secret);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+it("runs the installed bin through a node_modules/.bin symlink under Node", () => {
+  const root = mkdtempSync(join(tmpdir(), "omms-cli-symlink-"));
+  try {
+    const cli = join(import.meta.dir, "../dist/cli/index.js");
+    const link = join(root, "om-memory-system");
+    symlinkSync(cli, link);
+    const env = { ...process.env, HOME: root, OMMS_SKIP_LEGACY_MIGRATION: "1" };
+    const help = Bun.spawnSync(["node", link, "import-opencode-history", "--help"], {
+      cwd: root,
+      env,
+    });
+    expect(help.exitCode).toBe(0);
+    expect(help.stdout.toString()).toContain("import-opencode-history");
+    expect(help.stdout.toString()).toContain("--api-key-env");
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

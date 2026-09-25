@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
+import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { OpencodeImportOptions } from "../importer/opencode-import.js";
@@ -165,7 +166,18 @@ export async function runCli(argv: string[]): Promise<number> {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+function isDirectRun(): boolean {
+  if (!process.argv[1]) return false;
+  try {
+    // Resolve symlinks: npm/npx expose the bin through node_modules/.bin links,
+    // so comparing the raw argv[1] against the module URL would never match.
+    return import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectRun()) {
   runCli(process.argv.slice(2)).then((exitCode) => {
     process.exitCode = exitCode;
   });
