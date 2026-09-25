@@ -7,7 +7,8 @@ export function readPreference(key: string, legacyKey: string): string | null {
     const stored = localStorage.getItem(key);
     if (stored !== null) return stored;
     const legacy = localStorage.getItem(legacyKey);
-    if (legacy !== null) localStorage.setItem(key, legacy);
+    if (legacy !== null) writePreference(key, legacy);
+    // A failed copy must not discard the preference that was just read.
     return legacy;
   } catch {
     return null;

@@ -41,10 +41,14 @@ const memoryInput = {
 /** Per-session state is bounded so long-running servers cannot grow it without limit. */
 export const MAX_TRACKED_SESSIONS = 256;
 
+/** Unadmitted prompts kept per session before the oldest is dropped. */
+const MAX_PENDING_PROMPTS = 16;
+
 /** Compaction is restored natively through the `compaction` hook, never via the V1 event path. */
 const COMPACTION_EVENT_TYPES = new Set(["session.compacted", "session.compaction.ended"]);
 
 type Retrieval = { readonly promise: Promise<string | null>; settled?: { value: string | null } };
+type PendingPrompt = { readonly messageID: string; readonly text: string };
 
 function setBounded<V>(map: Map<string, V>, key: string, value: V): void {
   map.delete(key);
@@ -74,11 +78,39 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
   const retrievals = new Map<string, Retrieval>();
   const restored = new Map<string, string>();
   const messageIDs = new Map<string, string>();
+  // The prompt hook runs before OpenCode admits a prompt, so prompts wait here
+  // until their message appears in a model request's history (the context
+  // hook), and are only then recorded for auto-capture and profile learning.
+  const pendingPrompts = new Map<string, PendingPrompt[]>();
 
   const forgetSession = (sessionID: string) => {
     retrievals.delete(sessionID);
     restored.delete(sessionID);
     messageIDs.delete(sessionID);
+    pendingPrompts.delete(sessionID);
+  };
+
+  const recordAdmittedPrompts = async (
+    sessionID: string,
+    messages: ReadonlyArray<{ readonly id?: string }>
+  ) => {
+    const pending = pendingPrompts.get(sessionID);
+    if (!pending?.length) return;
+    const admitted = new Set(messages.map((message) => message.id).filter(Boolean));
+    const remaining: PendingPrompt[] = [];
+    for (const prompt of pending) {
+      if (!admitted.has(prompt.messageID)) {
+        remaining.push(prompt);
+        continue;
+      }
+      try {
+        await memory.recordPrompt(sessionID, prompt.messageID, prompt.text);
+      } catch (error) {
+        log("v2 context: failed to record user prompt", { sessionID, error: String(error) });
+      }
+    }
+    if (remaining.length > 0) pendingPrompts.set(sessionID, remaining);
+    else pendingPrompts.delete(sessionID);
   };
 
   // Resolve a prompt's retrieval once; every model step for that prompt then
@@ -123,10 +155,12 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
 
     if (!memory.isConfigured() || memory.isInternalPrompt(sessionID, text)) return;
 
-    try {
-      await memory.recordPrompt(sessionID, event.messageID, text);
-    } catch (error) {
-      log("v2 prompt: failed to record user prompt", { sessionID, error: String(error) });
+    if (text.trim()) {
+      const pending = [
+        ...(pendingPrompts.get(sessionID) ?? []),
+        { messageID: event.messageID, text },
+      ].slice(-MAX_PENDING_PROMPTS);
+      setBounded(pendingPrompts, sessionID, pending);
     }
 
     if (!memory.isInjectionEnabled() || !text.trim()) return;
@@ -141,6 +175,9 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
 
   await ctx.session.hook("context", async (event) => {
     const sessionID = event.sessionID;
+
+    // Before chat.params, which stores the model on the recorded prompt row.
+    await recordAdmittedPrompts(sessionID, event.messages);
 
     const retrieval = retrievals.get(sessionID);
     if (retrieval) {
@@ -196,6 +233,7 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
     retrievals.clear();
     restored.clear();
     messageIDs.clear();
+    pendingPrompts.clear();
     await legacy.dispose?.();
   };
 }

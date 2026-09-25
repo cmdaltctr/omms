@@ -25,6 +25,14 @@ describe("web UI preferences", () => {
     expect(store.get("opencode-mem-lang")).toBe("zh");
   });
 
+  it("still returns the legacy value when copying it to the omms key fails", () => {
+    store.set("opencode-mem-theme", "light");
+    (globalThis as any).localStorage.setItem = () => {
+      throw new Error("quota exceeded");
+    };
+    expect(readPreference("omms-theme", "opencode-mem-theme")).toBe("light");
+  });
+
   it("returns null when neither key exists", () => {
     expect(readPreference("omms-theme", "opencode-mem-theme")).toBeNull();
   });

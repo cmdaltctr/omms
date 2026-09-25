@@ -114,14 +114,21 @@ function createHarness(
     ...options.legacy,
   };
 
-  const prompt = (sessionID: string, text: string, messageID = `msg-${text}`) =>
-    hooks.get("prompt")!({ sessionID, messageID, prompt: { text } });
+  const sentMessageIDs = new Map<string, string[]>();
 
-  const context = async (sessionID: string) => {
+  const prompt = (sessionID: string, text: string, messageID = `msg-${text}`) => {
+    sentMessageIDs.set(sessionID, [...(sentMessageIDs.get(sessionID) ?? []), messageID]);
+    return hooks.get("prompt")!({ sessionID, messageID, prompt: { text } });
+  };
+
+  // By default every prompt sent so far is admitted, i.e. present in the
+  // model request's history; pass `admitted` to simulate unadmitted prompts.
+  const context = async (sessionID: string, admitted = sentMessageIDs.get(sessionID) ?? []) => {
     const event = {
       sessionID,
       model: { providerID: "anthropic", id: "claude" },
       system: [] as SystemPart[],
+      messages: admitted.map((id) => ({ id, role: "user" })),
     };
     await hooks.get("context")!(event);
     return event.system.map((part) => part.text);
@@ -167,14 +174,31 @@ describe("OpenCode v2 plugin adapter", () => {
     await cleanup();
   });
 
-  it("records the prompt and starts one search per prompt", async () => {
+  it("starts one search per prompt and records the prompt once it is admitted", async () => {
     const h = createHarness();
     const cleanup = await h.register();
 
     await h.prompt("ses-1", "how is the queue locked?", "msg-1");
 
-    expect(h.calls.record).toEqual([["ses-1", "msg-1", "how is the queue locked?"]]);
     expect(h.calls.retrieve).toEqual([["how is the queue locked?", "ses-1"]]);
+    expect(h.calls.record).toEqual([]);
+
+    await h.context("ses-1");
+    await h.context("ses-1");
+    expect(h.calls.record).toEqual([["ses-1", "msg-1", "how is the queue locked?"]]);
+
+    await cleanup();
+  });
+
+  it("never records a prompt that is not admitted", async () => {
+    const h = createHarness();
+    const cleanup = await h.register();
+
+    await h.prompt("ses-1", "rejected by a later hook", "msg-rejected");
+    await h.prompt("ses-1", "accepted", "msg-accepted");
+    await h.context("ses-1", ["msg-accepted"]);
+
+    expect(h.calls.record).toEqual([["ses-1", "msg-accepted", "accepted"]]);
 
     await cleanup();
   });
@@ -264,8 +288,8 @@ describe("OpenCode v2 plugin adapter", () => {
     await h.prompt("ses-1", "question", "msg-1");
 
     expect(h.calls.retrieve).toEqual([]);
-    expect(h.calls.record).toEqual([["ses-1", "msg-1", "question"]]);
     expect(await h.context("ses-1")).toEqual([]);
+    expect(h.calls.record).toEqual([["ses-1", "msg-1", "question"]]);
 
     await cleanup();
   });
