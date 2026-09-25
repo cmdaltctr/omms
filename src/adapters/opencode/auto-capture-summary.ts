@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { CONFIG } from "../../config.js";
 import { buildBoundedSummaryPrompt } from "../../core/capture-context.js";
+import { parseCaptureSummary } from "../../core/extraction.js";
 import type {
   AutoCaptureNotification,
   CaptureSummary,
@@ -190,9 +191,18 @@ export async function generateOpenCodeAutoCaptureSummary(
     throw new Error(result.error || "Failed to generate summary");
   }
 
-  return {
-    summary: result.data.summary,
-    type: result.data.type,
-    tags: (result.data.tags || []).map((tag: string) => tag.toLowerCase().trim()),
-  };
+  const rawReply = JSON.stringify(result.data);
+  const summary = parseCaptureSummary(rawReply);
+  if (!summary) {
+    log("OpenCode capture: model reply was not a valid capture summary", {
+      provider: CONFIG.memoryProvider,
+      modelId: CONFIG.memoryModel,
+      reply: (CONFIG.memoryApiKey
+        ? rawReply.replaceAll(CONFIG.memoryApiKey, "[redacted]")
+        : rawReply
+      ).slice(0, 500),
+    });
+    throw new Error("omms: OpenCode extraction returned an invalid summary payload");
+  }
+  return summary;
 }

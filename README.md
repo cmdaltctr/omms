@@ -166,6 +166,16 @@ Upgrading from an existing `opencode-mem` install? The store migrates to
 `~/.omms/data` automatically on first start, with a verified backup first.
 See [docs/omms-migration.md](docs/omms-migration.md).
 
+## Import past history
+
+Start with a dry-run to check the project mapping and the number of model calls.
+Import OpenCode V1 sessions from a terminal with
+`npx om-memory-system import-opencode-history --dry-run`. See
+[OpenCode history import](docs/opencode-history-import.md) for options and recovery.
+For Pi sessions, run `/memory-import-pi-history --dry-run` inside Pi. See
+[Pi history import](docs/pi-history-import.md). Both importers can add memories
+and build your user profile from past prompts.
+
 ## How to use day-to-day
 
 You do **not** need to ask OpenCode to “remember” things for the plugin to work. With the defaults, memory builds up as you work.

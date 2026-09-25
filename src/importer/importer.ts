@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import { captureConversation } from "../core/capture.js";
-import type { CaptureSummaryProvider } from "../core/host.js";
+import type { CaptureConversation, CaptureSummaryProvider } from "../core/host.js";
+import type { ModelPort } from "../core/profile-analysis.js";
+import type { ProfileImportReport } from "./profile-import.js";
 import { memoryClient } from "../services/client.js";
 import { extractScopeFromContainerTag } from "../services/memory-scope.js";
 import { getTags } from "../services/tags.js";
@@ -14,15 +16,13 @@ import {
 import { discoverPiSessions } from "./discovery.js";
 import { PiImportLedger, importLedgerDbPath, type ImportLedgerRow } from "./ledger.js";
 import type { LoadedPiSession } from "./session-loader.js";
+import type { MemoryHost } from "../types/index.js";
 
 /**
- * Host-neutral orchestration for the Pi historical-session backfill.
+ * Historical-session import orchestration for both hosts.
  *
- * Per unit: deterministic key -> ledger state -> (reconcile | capture ->
- * terminal ledger state). Per session: load through Pi's session model,
- * resolve the recorded cwd through the shared project identity, select the
- * active branch, and rebuild the same work units live capture would have
- * produced. Source files are only ever read.
+ * The shared source pipeline handles capture and ledger reconciliation.
+ * The Pi adapter discovers sessions and selects conversation windows.
  */
 
 export interface ImportPathMap {
@@ -84,6 +84,7 @@ export interface ImportReport {
   skipReasons: Record<string, number>;
   projects: ImportProjectReport[];
   units: ImportUnitReport[];
+  profile?: ProfileImportReport;
 }
 
 export interface ImporterDeps {
@@ -91,12 +92,30 @@ export interface ImporterDeps {
   provider: CaptureSummaryProvider;
   onProgress?: (processed: number, total: number, promptPreview: string) => void;
   ledger?: PiImportLedger;
+  profile?: { model?: ModelPort; batchSize?: number };
 }
 
-export function buildImportKey(sessionId: string, window: PiConversationWindow): string | null {
+export interface ImportWindow extends CaptureConversation {
+  userEntryId: string;
+  userPrompt: string;
+  userTimestamp?: number;
+}
+
+export interface ImportSourceSession {
+  sessionId: string;
+  directory: string;
+  sourceFile: string;
+  units: ImportWindow[];
+}
+
+export function buildImportKey(
+  sessionId: string,
+  window: ImportWindow,
+  host = "pi"
+): string | null {
   const terminalEntryId = window.sourceEntryIds?.[window.sourceEntryIds.length - 1];
   if (!terminalEntryId) return null;
-  return `pi:${sessionId}:${window.userEntryId}:${terminalEntryId}`;
+  return `${host}:${sessionId}:${window.userEntryId}:${terminalEntryId}`;
 }
 
 /**
@@ -132,7 +151,10 @@ function preview(text: string): string {
   return trimmed.length > 60 ? `${trimmed.slice(0, 60)}...` : trimmed;
 }
 
-function windowWithinDateRange(window: PiConversationWindow, filters: ImportFilters): boolean {
+function windowWithinDateRange(
+  window: ImportWindow,
+  filters: Pick<ImportFilters, "since" | "until">
+): boolean {
   if (window.userTimestamp === undefined) return true;
   if (filters.since !== undefined && window.userTimestamp < filters.since) return false;
   if (filters.until !== undefined && window.userTimestamp > filters.until) return false;
@@ -152,21 +174,19 @@ async function lookupExistingMemory(
   }
 }
 
-export async function importPiHistory(
-  deps: ImporterDeps,
-  filters: ImportFilters
-): Promise<ImportReport> {
+/** Process host-labelled work units through the shared capture and ledger pipeline. */
+export async function importHistorySource(
+  source: AsyncIterable<ImportSourceSession> | Iterable<ImportSourceSession>,
+  host: MemoryHost,
+  deps: Pick<ImporterDeps, "provider" | "ledger" | "onProgress">,
+  filters: Pick<ImportFilters, "dryRun" | "force" | "since" | "until">,
+  report: ImportReport
+): Promise<void> {
   const dryRun = Boolean(filters.dryRun);
-  const pathMaps = filters.pathMaps ?? [];
   const ledger = deps.ledger ?? new PiImportLedger();
-
-  // Dry-run performs no ledger writes: only read state from an existing
-  // ledger file, and never create one.
   const ledgerFileExists = existsSync(importLedgerDbPath());
   const ledgerAccessible = !dryRun || ledgerFileExists;
-  if (ledgerAccessible) {
-    await ledger.get("__warmup__");
-  }
+  if (ledgerAccessible) await ledger.get("__warmup__");
 
   if (!dryRun) {
     const embeddingInitError = memoryClient.getEmbeddingInitError?.();
@@ -176,6 +196,131 @@ export async function importPiHistory(
       );
     }
   }
+
+  const candidates: Array<ImportSourceSession & { hash: string; window: ImportWindow }> = [];
+  for await (const session of source) {
+    const { hash } = extractScopeFromContainerTag(getTags(session.directory).project.tag);
+    for (const window of session.units) {
+      if (!windowWithinDateRange(window, filters)) continue;
+      if (!buildImportKey(session.sessionId, window, host)) continue;
+      candidates.push({ ...session, hash, window });
+    }
+  }
+  report.unitsTotal = candidates.length;
+
+  const storageAccessible = ledgerFileExists;
+  let processed = 0;
+
+  for (const candidate of candidates) {
+    const { sessionId, directory, sourceFile, hash, window } = candidate;
+    const key = buildImportKey(sessionId, window, host)!;
+    processed++;
+    deps.onProgress?.(processed, report.unitsTotal, preview(window.userPrompt));
+
+    const unit: ImportUnitReport = {
+      key,
+      sessionId: sessionId,
+      userEntryId: window.userEntryId,
+      promptPreview: preview(window.userPrompt),
+      status: "would-import",
+    };
+
+    const existing: ImportLedgerRow | null = ledgerAccessible ? await ledger.get(key) : null;
+
+    const terminalHandled =
+      existing &&
+      (existing.status === "imported" || existing.status === "skipped") &&
+      !filters.force;
+
+    if (terminalHandled) {
+      unit.status = "already-handled";
+      unit.reason = existing.status;
+      report.unitsAlreadyHandled++;
+      report.units.push(unit);
+      continue;
+    }
+
+    // Crash reconciliation: the memory landed but the ledger never committed.
+    const storedMemoryId = await lookupExistingMemory(hash, key, { storageAccessible });
+    if (storedMemoryId) {
+      if (!dryRun) {
+        await ledger.complete(key, storedMemoryId);
+      }
+      unit.status = "already-handled";
+      unit.reason = "reconciled";
+      unit.memoryId = storedMemoryId;
+      report.unitsAlreadyHandled++;
+      report.units.push(unit);
+      continue;
+    }
+
+    if (dryRun) {
+      report.unitsWouldImport++;
+      report.units.push(unit);
+      continue;
+    }
+
+    await ledger.begin({
+      key,
+      sessionId: sessionId,
+      sourceFile: sourceFile,
+      projectHash: hash,
+    });
+
+    try {
+      const result = await captureConversation(
+        {
+          host,
+          hostSessionId: sessionId,
+          sourceType: "history-import",
+          projectDirectory: directory,
+          userPrompt: window.userPrompt,
+          promptId: window.userEntryId,
+          textResponses: window.textResponses,
+          toolCalls: window.toolCalls,
+          sourceEntryIds: window.sourceEntryIds,
+          ...(window.userTimestamp !== undefined
+            ? { sourceTimestamp: window.userTimestamp }
+            : window.sourceTimestamp !== undefined
+              ? { sourceTimestamp: window.sourceTimestamp }
+              : {}),
+          sourceFile: sourceFile,
+          importId: key,
+        },
+        deps.provider
+      );
+
+      if (result.status === "skipped") {
+        await ledger.skip(key, `extractor-skip:${result.type ?? "unknown"}`);
+        unit.status = "skipped";
+        unit.reason = `extractor-skip:${result.type ?? "unknown"}`;
+        report.unitsSkipped++;
+        const reason = unit.reason!;
+        report.skipReasons[reason] = (report.skipReasons[reason] ?? 0) + 1;
+      } else {
+        await ledger.complete(key, result.memoryId);
+        unit.status = "imported";
+        unit.memoryId = result.memoryId;
+        report.unitsImported++;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await ledger.fail(key, message);
+      unit.status = "failed";
+      unit.reason = message;
+      report.unitsFailed++;
+    }
+
+    report.units.push(unit);
+  }
+}
+
+export async function importPiHistory(
+  deps: ImporterDeps,
+  filters: ImportFilters
+): Promise<ImportReport> {
+  const dryRun = Boolean(filters.dryRun);
+  const pathMaps = filters.pathMaps ?? [];
 
   const currentTag =
     filters.scope === "current-project" ? getTags(filters.currentDirectory).project.tag : null;
@@ -274,113 +419,18 @@ export async function importPiHistory(
     }
   }
 
-  report.unitsTotal = candidates.length;
-
-  const storageAccessible = ledgerFileExists;
-  let processed = 0;
-
-  for (const candidate of candidates) {
-    const { session, directory, hash, window } = candidate;
-    const key = buildImportKey(session.sessionId, window)!;
-    processed++;
-    deps.onProgress?.(processed, report.unitsTotal, preview(window.userPrompt));
-
-    const unit: ImportUnitReport = {
-      key,
+  await importHistorySource(
+    candidates.map(({ session, directory, window }) => ({
       sessionId: session.sessionId,
-      userEntryId: window.userEntryId,
-      promptPreview: preview(window.userPrompt),
-      status: "would-import",
-    };
-
-    const existing: ImportLedgerRow | null = ledgerAccessible ? await ledger.get(key) : null;
-
-    const terminalHandled =
-      existing &&
-      (existing.status === "imported" || existing.status === "skipped") &&
-      !filters.force;
-
-    if (terminalHandled) {
-      unit.status = "already-handled";
-      unit.reason = existing.status;
-      report.unitsAlreadyHandled++;
-      report.units.push(unit);
-      continue;
-    }
-
-    // Crash reconciliation: the memory landed but the ledger never committed.
-    const storedMemoryId = await lookupExistingMemory(hash, key, { storageAccessible });
-    if (storedMemoryId) {
-      if (!dryRun) {
-        await ledger.complete(key, storedMemoryId);
-      }
-      unit.status = "already-handled";
-      unit.reason = "reconciled";
-      unit.memoryId = storedMemoryId;
-      report.unitsAlreadyHandled++;
-      report.units.push(unit);
-      continue;
-    }
-
-    if (dryRun) {
-      report.unitsWouldImport++;
-      report.units.push(unit);
-      continue;
-    }
-
-    await ledger.begin({
-      key,
-      sessionId: session.sessionId,
+      directory,
       sourceFile: session.sourceFile,
-      projectHash: hash,
-    });
-
-    try {
-      const result = await captureConversation(
-        {
-          host: "pi",
-          hostSessionId: session.sessionId,
-          sourceType: "history-import",
-          projectDirectory: directory,
-          userPrompt: window.userPrompt,
-          promptId: window.userEntryId,
-          textResponses: window.textResponses,
-          toolCalls: window.toolCalls,
-          sourceEntryIds: window.sourceEntryIds,
-          ...(window.userTimestamp !== undefined
-            ? { sourceTimestamp: window.userTimestamp }
-            : window.sourceTimestamp !== undefined
-              ? { sourceTimestamp: window.sourceTimestamp }
-              : {}),
-          sourceFile: session.sourceFile,
-          importId: key,
-        },
-        deps.provider
-      );
-
-      if (result.status === "skipped") {
-        await ledger.skip(key, `extractor-skip:${result.type ?? "unknown"}`);
-        unit.status = "skipped";
-        unit.reason = `extractor-skip:${result.type ?? "unknown"}`;
-        report.unitsSkipped++;
-        const reason = unit.reason!;
-        report.skipReasons[reason] = (report.skipReasons[reason] ?? 0) + 1;
-      } else {
-        await ledger.complete(key, result.memoryId);
-        unit.status = "imported";
-        unit.memoryId = result.memoryId;
-        report.unitsImported++;
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      await ledger.fail(key, message);
-      unit.status = "failed";
-      unit.reason = message;
-      report.unitsFailed++;
-    }
-
-    report.units.push(unit);
-  }
+      units: [window],
+    })),
+    "pi",
+    deps,
+    filters,
+    report
+  );
 
   report.projects = [...projectAggregates.values()].map((aggregate) => ({
     tag: aggregate.tag,
@@ -389,6 +439,19 @@ export async function importPiHistory(
     sessions: aggregate.sessions.size,
     units: aggregate.units,
   }));
+
+  if (deps.profile) {
+    const { importProfileFromHistory } = await import("./profile-import.js");
+    report.profile = await importProfileFromHistory(
+      candidates.map(({ session, directory, window }) => ({
+        sessionId: session.sessionId,
+        directory,
+        sourceFile: session.sourceFile,
+        units: [window],
+      })),
+      { host: "pi", dryRun, model: deps.profile.model, batchSize: deps.profile.batchSize }
+    );
+  }
 
   return report;
 }

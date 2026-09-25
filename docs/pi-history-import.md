@@ -38,6 +38,9 @@ By default only sessions recorded for the current project are imported.
   --max-sessions=<n>         Limit discovery to the oldest n sessions
   --map=<oldPath>=<newPath>  Remap a recorded cwd that no longer exists
   --root=<dir>               Session root (default ~/.pi/agent/sessions)
+  --model=<provider/id>      Use a Pi model for this import without changing the active model
+  --skip-profile             Import memories without profile learning
+  --profile-batch=<n>        Prompts per profile analysis batch (default: 50)
 ```
 
 Dates accept ISO 8601 (`2026-01-01`, `2026-01-01T10:00:00Z`) or epoch
@@ -58,9 +61,18 @@ timestamp, inclusive. Paths containing spaces are not supported in `--map`.
    its assistant and tool work. Hidden thinking, images, and tool outputs are
    excluded; tool inputs are truncated.
 5. Every unit flows through the live-capture pipeline: privacy filter,
-   extraction (through your active Pi model), dedup, embedding, persistence,
-   with provenance `host=pi`, `sourceType=history-import`, session id, source
-   file, entry ids, and timestamps.
+   extraction (through your active Pi model unless `--model` is set), dedup,
+   embedding, persistence, with provenance `host=pi`, `sourceType=history-import`,
+   session id, source file, entry ids, and timestamps.
+6. Each past user prompt is recorded once for profile learning. The importer
+   analyses unprocessed prompts in batches, creating or updating your user
+   profile. `--skip-profile` omits these steps. Dry-run reports pending prompts
+   without recording or analysing them.
+
+The model override uses Pi's model registry. Select an available model with
+`--model provider/id`, for example `--model zai/your-smaller-model`. The same
+model handles memory extraction and profile analysis for this run; your active
+Pi model stays unchanged. An unknown model stops the import before processing.
 
 ## Idempotency and recovery
 
@@ -90,9 +102,9 @@ The map target must exist. Repeat `--map` for multiple paths.
 
 ## Cost
 
-One model call per work unit. Non-technical units return `skip` after a single
-call and never cost another. Run `--dry-run` first: it reports the exact unit
-count per project before any spend.
+One model call per work unit, plus one per profile batch. Non-technical units
+return `skip` after a single call. Run `--dry-run` first: it reports the unit
+count per project and pending profile prompts before any spend.
 
 ## Inspecting import status
 

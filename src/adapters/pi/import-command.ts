@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { initConfigWithLegacyMigration, isConfigured } from "../../config.js";
+import { initConfig, initConfigWithLegacyMigration, isConfigured } from "../../config.js";
 import { log } from "../../services/logger.js";
 import { memoryClient } from "../../services/client.js";
 import {
@@ -10,6 +10,7 @@ import {
 } from "../../importer/importer.js";
 import { loadPiSessionForImport } from "../../importer/session-loader.js";
 import { createPiCaptureProvider, resolveModelFromContext } from "./provider.js";
+import { adaptPiProfileModel } from "./profile.js";
 
 /**
  * Pi command surface for the historical-session importer:
@@ -27,6 +28,9 @@ export const PI_IMPORT_USAGE = `Usage: /${PI_IMPORT_COMMAND} [options]
 
 Options:
   --dry-run                    Discover, map, and report; write nothing
+  --skip-profile               Import memories without recording profile prompts
+  --profile-batch=<n>          Prompts per profile analysis batch (default 50)
+  --model <provider/id>        Use a separate Pi model for this import
   --force                      Reprocess units with terminal ledger states
   --scope=current-project      Import only sessions from this project (default)
   --scope=all-projects         Import every discovered session
@@ -45,6 +49,9 @@ in the report; use --map to import them into an existing directory.`;
 export interface ParsedImportArgs {
   dryRun: boolean;
   force: boolean;
+  skipProfile: boolean;
+  profileBatch?: number;
+  model?: string;
   scope: "current-project" | "all-projects";
   session?: string;
   since?: number;
@@ -67,13 +74,29 @@ export function parseImportArgs(raw: string): ParsedImportArgs {
   const result: ParsedImportArgs = {
     dryRun: false,
     force: false,
+    skipProfile: false,
     scope: "current-project",
     pathMaps: [],
     help: false,
     errors: [],
   };
 
-  for (const token of raw.trim().split(/\s+/).filter(Boolean)) {
+  const tokens = raw.trim().split(/\s+/).filter(Boolean);
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i]!;
+    if (token === "--model") {
+      const value = tokens[++i];
+      if (value && !value.startsWith("--")) result.model = value;
+      else {
+        result.errors.push("--model requires provider/id");
+        if (value) i--;
+      }
+      continue;
+    }
+    if (token === "--skip-profile") {
+      result.skipProfile = true;
+      continue;
+    }
     if (token === "--help" || token === "-h") {
       result.help = true;
       continue;
@@ -92,6 +115,16 @@ export function parseImportArgs(raw: string): ParsedImportArgs {
     const value = equals === -1 ? "" : token.slice(equals + 1);
 
     switch (flag) {
+      case "--model":
+        if (value) result.model = value;
+        else result.errors.push("--model requires provider/id");
+        break;
+      case "--profile-batch": {
+        const count = Number(value);
+        if (Number.isSafeInteger(count) && count > 0) result.profileBatch = count;
+        else result.errors.push("--profile-batch needs a positive integer");
+        break;
+      }
       case "--scope":
         if (value === "current-project" || value === "all-projects") {
           result.scope = value;
@@ -161,6 +194,14 @@ function formatReport(report: ImportReport): string {
       `  project ${project.tag} (${project.sessions} sessions, ${project.units} units) -> ${project.directory}`
     );
   }
+  if (report.profile) {
+    lines.push(
+      `  profile prompts: ${report.profile.promptsWouldRecord} would record, ` +
+        `${report.profile.promptsRecorded} recorded, ${report.profile.promptsAlreadyHandled} already handled; ` +
+        `${report.profile.batchesBuilt} batches, ${report.profile.remaining} remaining`
+    );
+    if (report.profile.error) lines.push(`  profile error: ${report.profile.error}`);
+  }
   if (report.loadErrors.length > 0) {
     lines.push(`  load errors: ${report.loadErrors.length}`);
   }
@@ -206,20 +247,30 @@ export function registerPiHistoryImportCommand(
         return;
       }
 
-      // Import against the current session's project and configuration.
-      initConfigWithLegacyMigration(ctx.cwd);
+      // A dry-run must not trigger the one-time storage migration.
+      if (parsed.dryRun) initConfig(ctx.cwd);
+      else initConfigWithLegacyMigration(ctx.cwd);
       if (typeof commandCtx.waitForIdle === "function") {
         await commandCtx.waitForIdle();
+      }
+      const selectedModel = resolveModelFromContext(ctx, parsed.model);
+      if ((parsed.model || !parsed.dryRun) && !selectedModel) {
+        notify(
+          `memory-import-pi-history: model not found${parsed.model ? `: ${parsed.model}` : ""}`
+        );
+        return;
       }
 
       importCommandRunning = true;
       try {
         // Best-effort warmup so failures surface as per-unit errors instead of
         // every unit failing on embedding initialisation.
-        try {
-          await memoryClient.warmup();
-        } catch (error) {
-          log("Pi import: memory warmup failed", { error: String(error) });
+        if (!parsed.dryRun) {
+          try {
+            await memoryClient.warmup();
+          } catch (error) {
+            log("Pi import: memory warmup failed", { error: String(error) });
+          }
         }
 
         const filters: ImportFilters = {
@@ -235,13 +286,21 @@ export function registerPiHistoryImportCommand(
           pathMaps: parsed.pathMaps,
         };
 
-        const provider = createPiCaptureProvider(() => resolveModelFromContext(ctx));
+        const provider = createPiCaptureProvider(() => selectedModel);
 
         let lastProgressNotify = 0;
         const report = await importPiHistory(
           {
             loadSession: loadPiSessionForImport,
             provider,
+            ...(!parsed.skipProfile
+              ? {
+                  profile: {
+                    ...(selectedModel ? { model: adaptPiProfileModel(selectedModel) } : {}),
+                    ...(parsed.profileBatch ? { batchSize: parsed.profileBatch } : {}),
+                  },
+                }
+              : {}),
             onProgress: (processed, total, promptPreview) => {
               if (processed - lastProgressNotify >= 25 || processed === total) {
                 lastProgressNotify = processed;

@@ -3,7 +3,7 @@ import { CONFIG } from "../config.js";
 import { tursoConnectionManager } from "../services/turso/connection-manager.js";
 
 /**
- * Durable ledger for the Pi historical-session import.
+ * Durable ledger for historical-session imports across hosts.
  *
  * One row per deterministic import key. Records terminal states so reruns
  * never reprocess handled work, plus in-progress states so a crash between
@@ -47,7 +47,7 @@ function rowToEntry(row: Record<string, unknown>): ImportLedgerRow {
   };
 }
 
-export class PiImportLedger {
+export class ImportLedger {
   private initPromise: Promise<void> | null = null;
 
   private async ready(): Promise<void> {
@@ -179,3 +179,6 @@ export class PiImportLedger {
     );
   }
 }
+
+/** Backwards-compatible name for existing Pi imports. */
+export { ImportLedger as PiImportLedger };

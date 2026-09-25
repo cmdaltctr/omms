@@ -21,16 +21,27 @@ export interface PiModelContext {
 /**
  * Active-model-first resolution: the explicit `piProvider`/`piModel`
  * configuration when both are set, otherwise the active `ctx.model`.
+ * A supplied import override resolves strictly through Pi's model registry.
  */
-export function resolveModelFromContext(ctx: PiModelContext): PiModelHandle | null {
+export function resolveModelFromContext(
+  ctx: PiModelContext,
+  override?: string
+): PiModelHandle | null {
   const registry = ctx?.modelRegistry;
   if (!registry) return null;
 
   let model: any = null;
-  if (CONFIG.piProvider && CONFIG.piModel) {
-    model = registry.find(CONFIG.piProvider, CONFIG.piModel) ?? null;
+  if (override !== undefined) {
+    const separator = override.indexOf("/");
+    if (separator < 1 || separator === override.length - 1) return null;
+    model = registry.find(override.slice(0, separator), override.slice(separator + 1)) ?? null;
+    if (!model) return null;
+  } else {
+    if (CONFIG.piProvider && CONFIG.piModel) {
+      model = registry.find(CONFIG.piProvider, CONFIG.piModel) ?? null;
+    }
+    if (!model) model = ctx?.model ?? null;
   }
-  if (!model) model = ctx?.model ?? null;
   if (!model) return null;
 
   return {
@@ -113,11 +124,16 @@ export function createPiCaptureProvider(resolveModel: () => PiModelHandle | null
         );
       }
 
-      const summary = parseCaptureSummary(replyText(reply));
+      const rawReply = replyText(reply);
+      const summary = parseCaptureSummary(rawReply);
       if (!summary) {
         log("Pi capture: model reply was not a valid capture summary", {
           provider: model.provider,
           modelId: model.modelId,
+          reply: (CONFIG.memoryApiKey
+            ? rawReply.replaceAll(CONFIG.memoryApiKey, "[redacted]")
+            : rawReply
+          ).slice(0, 500),
         });
         throw new Error("omms: Pi extraction returned an invalid summary payload");
       }
