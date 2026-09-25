@@ -138,6 +138,30 @@ See [docs/pi-adapter.md](docs/pi-adapter.md) for Pi lifecycle details and
 [docs/pi-history-import.md](docs/pi-history-import.md) to import existing Pi
 session history.
 
+Once OMMS is running, open the memory explorer web UI at
+`http://127.0.0.1:4747`. It ships with every release.
+
+### Update OMMS
+
+Install OMMS without a version number, as shown above, so your agent can tell
+you when a new release is out. Neither agent installs updates by itself; you
+choose when to update.
+
+| Agent       | How you hear about a new release                              | Update with                                                 |
+| ----------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
+| Pi          | Pi shows an update notice while you work                      | `pi update npm:omms` (or `pi update --extensions` for all)  |
+| OpenCode v2 | Run `opencode plugin check` to list plugins with new versions | `opencode plugin update omms` (or `opencode plugin update`) |
+
+Restart the agent after updating.
+
+To stay on one version, install it with the version number instead:
+`pi install npm:omms@3.1.0` in Pi, or `opencode plugin add omms@3.1.0` in
+OpenCode. A pinned install is never updated or flagged; install without the
+number again to go back to receiving updates.
+
+Release notes for every version are in [CHANGELOG.md](CHANGELOG.md) and on the
+[GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
+
 Upgrading from an existing `opencode-mem` install? The store migrates to
 `~/.omms/data` automatically on first start, with a verified backup first.
 See [docs/omms-migration.md](docs/omms-migration.md).

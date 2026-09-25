@@ -5,6 +5,10 @@ updates:
     directories:
       - "/"
       - "/web"
+    # Conventional prefix so release-please lists dependency updates and
+    # releases them as patches.
+    commit-message:
+      prefix: "deps"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -28,6 +32,8 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    commit-message:
+      prefix: "ci"
     schedule:
       interval: "weekly"
       day: "monday"
