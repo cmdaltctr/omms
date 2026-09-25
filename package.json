@@ -7,20 +7,24 @@
   "types": "dist/plugin.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/plugin.d.ts",
       "import": "./dist/plugin.js",
-      "types": "./dist/plugin.d.ts"
+      "default": "./dist/plugin.js"
     },
     "./server": {
+      "types": "./dist/plugin.d.ts",
       "import": "./dist/plugin.js",
-      "types": "./dist/plugin.d.ts"
+      "default": "./dist/plugin.js"
     },
     "./v2": {
+      "types": "./dist/v2/plugin.d.ts",
       "import": "./dist/v2/plugin.js",
-      "types": "./dist/v2/plugin.d.ts"
+      "default": "./dist/v2/plugin.js"
     },
     "./tags": {
+      "types": "./dist/services/tags.d.ts",
       "import": "./dist/services/tags.js",
-      "types": "./dist/services/tags.d.ts"
+      "default": "./dist/services/tags.js"
     }
   },
   "scripts": {
@@ -35,7 +39,10 @@
     "format:check": "prettier --check .",
     "check": "bun run format:check && bun run lint && bun run typecheck",
     "ci:local": "bash scripts/local-ci.sh",
-    "prepare": "husky"
+    "verify:package": "node scripts/verify-package.mjs",
+    "check:package": "bun run verify:package && publint && attw --pack --profile esm-only",
+    "prepare": "husky",
+    "prepublishOnly": "bun run verify:package"
   },
   "keywords": [
     "omms",
@@ -49,14 +56,21 @@
     "standalone",
     "pi-package"
   ],
-  "author": "omms",
+  "author": "cmdaltctr (https://github.com/cmdaltctr)",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cmdaltctr/omms.git"
   },
+  "homepage": "https://github.com/cmdaltctr/omms#readme",
+  "bugs": {
+    "url": "https://github.com/cmdaltctr/omms/issues"
+  },
   "publishConfig": {
     "access": "public"
+  },
+  "engines": {
+    "node": ">=22.14"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
@@ -79,6 +93,7 @@
     "typebox": "*"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@earendil-works/pi-coding-agent": "0.86.1",
     "@eslint/js": "^10.0.1",
     "@opencode/plugin": "^2.0.16",
@@ -90,6 +105,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
     "prettier": "^3.9.6",
+    "publint": "^0.3.24",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0"
   },

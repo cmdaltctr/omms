@@ -133,8 +133,9 @@ describe("turso vector search", () => {
   });
 
   // Seeding 200 vectors plus a real ANN search can exceed bun's default 5s test
-  // timeout on slower CI runners (observed on windows-latest), so give this
-  // integration-style check explicit headroom. The assertions are unchanged.
+  // timeout on slower CI runners (observed on windows-latest, where one run took
+  // 95 s), so give this integration-style check explicit headroom. The
+  // assertions are unchanged.
   it("returns correct tagged memories from ANN above the k threshold (result-level plan check)", async () => {
     baseDir = mkdtempSync(join(tmpdir(), "turso-vector-ann-"));
 
@@ -200,5 +201,5 @@ describe("turso vector search", () => {
     }
     // Results should be limited to the requested limit.
     expect(results.length).toBeLessThanOrEqual(10);
-  }, 60000);
+  }, 240_000);
 });

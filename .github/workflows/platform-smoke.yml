@@ -6,6 +6,12 @@ name: Platform Package Smoke
 # macOS jobs do not queue behind the 5-job macOS concurrency limit.
 on:
   workflow_call:
+    inputs:
+      ref:
+        description: Commit to test (the Release workflow passes the release commit)
+        type: string
+        required: false
+        default: ''
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
@@ -32,6 +38,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          # Empty for scheduled and manual runs, which test the triggering commit.
+          ref: ${{ inputs.ref }}
           persist-credentials: false
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2

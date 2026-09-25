@@ -12,12 +12,13 @@ limit is job concurrency: 20 jobs in total, 5 of them macOS.
 | -------------------------------------- | --------------------------------- | --------------------------------------- |
 | Format, lint, typecheck                | Local, before every push          | pre-push hook (`bun run check`)         |
 | Build, unit tests                      | Local, full gate                  | `bun run ci:local`                      |
-| Format, lint, typecheck                | GitHub, `ubuntu-latest`           | Quality workflow, every PR and `main`   |
+| Format, lint, typecheck, package shape | GitHub, `ubuntu-latest`           | Quality workflow, every PR and `main`   |
 | Build, unit tests                      | GitHub, `macos-latest`            | Quality workflow, every PR and `main`   |
 | Native embedding smoke (4 platforms)   | GitHub, PRs touching native paths | Embedding Backend workflow, or manual   |
 | Nested OpenCode fixture, Intel (#225)  | GitHub, PRs touching native paths | Embedding Backend workflow, or manual   |
 | Full gate and pack smoke (6 platforms) | GitHub                            | Before release, weekly (Monday), manual |
-| Publish and release                    | GitHub, `ubuntu-latest`           | Release workflow, tag push, after smoke |
+| Release PR, tag, stage on npm          | GitHub, `ubuntu-latest`           | Release workflow, push to `main`        |
+| `next` prerelease on npm               | GitHub, `ubuntu-latest`           | Publish next, after Quality on `main`   |
 
 ## Local toolchain
 
@@ -34,12 +35,13 @@ cached afterwards.
 
 ## Local commands
 
-| Command            | What it does                                             |
-| ------------------ | -------------------------------------------------------- |
-| `bun run check`    | Format check, lint, typecheck. Fast and deterministic.   |
-| `bun run ci:local` | `bun run check`, then build, then the full test suite.   |
-| `bun run build`    | Clean build of `dist/` and the web UI.                   |
-| `bun run test`     | Whole suite in one Bun process. Not reliable for gating. |
+| Command                 | What it does                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `bun run check`         | Format check, lint, typecheck. Fast and deterministic.                                                             |
+| `bun run ci:local`      | `bun run check`, then build, then the full test suite.                                                             |
+| `bun run build`         | Clean build of `dist/` and the web UI.                                                                             |
+| `bun run check:package` | Published-package shape: entry points and web UI present (`verify:package`), `publint`, and `attw`. Needs a build. |
+| `bun run test`          | Whole suite in one Bun process. Not reliable for gating.                                                           |
 
 `ci:local` runs tests through `scripts/run-tests-isolated.sh`. That script
 starts one Bun process per test file. The suite shares module and storage
@@ -74,8 +76,9 @@ The full suite is deliberately outside the pre-push hook. Run
 Runs on every pull request and on every push to `main`. Three jobs:
 
 - `changes` on `ubuntu-latest`: lists the files the pull request changes.
-- `check` on `ubuntu-latest`: format, lint, typecheck. Always runs, because
-  Prettier also checks Markdown.
+- `check` on `ubuntu-latest`: format, lint, typecheck, then build and
+  `bun run check:package` (entry points and web UI present, `publint`,
+  `attw`). Always runs, because Prettier also checks Markdown.
 - `test` on `macos-latest`: build, then the full suite through
   `scripts/run-tests-isolated.sh`. Skipped when a pull request changes only
   Markdown files or files under `docs/`.
@@ -135,25 +138,105 @@ gh workflow run "Platform Package Smoke" --ref main
 It stays off pull requests so its four macOS jobs do not queue behind the
 5-job macOS limit.
 
-### Release (tag push)
+### Release (push to `main`)
 
-Runs when you push a `v*` tag. It first calls Platform Package Smoke and
-stops if any platform fails. It then validates and builds on `ubuntu-latest`,
-checks that the tag matches `package.json`, publishes to npm, and creates the
-GitHub Release.
+Runs on every push to `main` once the repository variable
+`RELEASE_PLEASE_ENABLED` is `true`. Three jobs:
+
+- `release-please` keeps one release pull request open. It collects the
+  conventional commits since the last release, proposes the next SemVer
+  version, and updates `CHANGELOG.md`. It signs in as the private
+  `omms-release` GitHub App, so its pull requests run the Quality checks.
+  Merging that pull request tags `vX.Y.Z` and creates the GitHub Release.
+- `smoke` runs only for a release: it calls Platform Package Smoke on the
+  release commit.
+- `publish` runs only after `smoke` passes. It builds, verifies the package
+  contents, checks the version, and runs `npm stage publish` with no token
+  (npm trusted publishing). npm holds the version until the maintainer
+  approves it, and the job adds the approval steps to the GitHub Release.
+
+Publishing happens in this run, not on a tag-push workflow, because tags
+created by release-please do not start other workflows.
+
+### Publish next (after Quality on `main`)
+
+Runs when Quality succeeds for a push to `main`, once the repository variable
+`NPM_NEXT_ENABLED` is `true`. It builds that commit and publishes it as
+`X.(Y+1).0-next.<run>` under the npm `next` tag, without approval, so the
+maintainer can try it with `omms@next`. It skips release commits (those that
+change `.release-please-manifest.json`) and fails if `latest` moves.
 
 ## Release runbook
 
-Versioning is manual SemVer. There is no Changesets or semantic-release.
+Versions come from commit messages. Use `feat:` (minor), `fix:` (patch),
+`deps:` (patch, used by Dependabot), and `!` or `BREAKING CHANGE:` (major).
+`refactor:`, `test:`, `ci:` and `chore:` do not trigger a release.
 
-1. Choose the next version: patch, minor, or major.
-2. Set `version` in `package.json`.
-3. Run `bun run ci:local` and confirm it passes.
-4. Commit the version bump and push it.
-5. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-6. The Release workflow publishes to npm and creates the GitHub Release.
+1. Merge work into `main` as usual. Each merge also appears as `omms@next`.
+2. When you want to ship, merge the open release pull request.
+3. Wait for the Release workflow: six-platform smoke, then `publish`.
+4. Approve the staged version with 2FA, in the Staged tab at
+   <https://www.npmjs.com/package/omms> or with `npm stage list omms`, then
+   `npm stage approve <stage-id>`. To try it first, run
+   `npm stage download <stage-id>` and install the tarball.
+5. Users on an unpinned install are told about the update.
 
-The workflow fails if the tag and `package.json` version differ.
+If the smoke gate fails, nothing is staged, but the tag and GitHub Release
+already exist. Fix forward with a `fix:` commit, and release-please proposes
+the next patch. Edit the failed GitHub Release to say it was not published to
+npm. To reject a staged version instead of approving it, run
+`npm stage reject <stage-id>`.
+
+## First publish (one time)
+
+npm only allows a trusted publisher on a package that already exists, so the
+first version is published by hand. Do these steps in order after merging the
+release-publishing change.
+
+1. GitHub settings:
+   - Settings, Actions, General: allow GitHub Actions to create and approve
+     pull requests.
+   - Create the private `omms-release` GitHub App: omms icon
+     (`web/public/omms-icon.png`), no webhook, repository permissions
+     Contents and Pull requests set to read and write, "Only on this
+     account". Install it on `cmdaltctr/omms` only, generate a private key,
+     and save `RELEASE_APP_ID` and `RELEASE_APP_PRIVATE_KEY` as repository
+     secrets.
+   - Create environments `npm-publish` and `npm-next`. Limit `npm-next`
+     deployment branches to `main`.
+   - Add CODEOWNERS for `.github/` and require review on `main`.
+2. Publish `3.0.0` from a clean checkout of `main`:
+
+   ```bash
+   npm login            # with 2FA
+   bun install --frozen-lockfile && (cd web && bun install --frozen-lockfile)
+   bun run build
+   npm publish --access public
+   ```
+
+3. Tag that commit and create its GitHub Release, so release-please counts
+   later commits from it:
+
+   ```bash
+   git tag v3.0.0 && git push origin v3.0.0
+   gh release create v3.0.0 --title v3.0.0 --notes-file CHANGELOG.md
+   ```
+
+4. On npmjs.com, omms, Settings, Trusted publishing, add two GitHub Actions
+   publishers for repository `cmdaltctr/omms`. Names are case-sensitive and
+   must match exactly:
+   - workflow `release.yml`, environment `npm-publish`, **stage-only**
+   - workflow `publish-next.yml`, environment `npm-next`
+5. Set the repository variables `RELEASE_PLEASE_ENABLED=true` and
+   `NPM_NEXT_ENABLED=true`.
+6. After the first CI release is approved and live with a provenance badge,
+   lock the package: npm package settings, Publishing access, "Require
+   two-factor authentication and disallow tokens". Delete the `NPM_TOKEN`
+   repository secret.
+
+If `publish` fails with `ENEEDAUTH`, the workflow file name, environment, or
+repository on npmjs.com does not match exactly. Nothing is published; fix the
+setting and re-run the job.
 
 ## Platform scope
 
@@ -175,6 +258,7 @@ Costs: the repository is public, so hosted runners are free, macOS included.
 | Routine pull request     | 2      | 0       | 1     |
 | Docs-only pull request   | 2      | 0       | 0     |
 | Native-path pull request | 3      | 1       | 4     |
-| Release or weekly smoke  | 1–2    | 1       | 4     |
+| Push to `main`           | 4      | 0       | 1     |
+| Release or weekly smoke  | 2      | 1       | 4     |
 
 The practical limit is the 5-job macOS queue. Local CI spends no GitHub jobs.

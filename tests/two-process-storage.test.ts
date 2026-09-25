@@ -1,8 +1,13 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, setDefaultTimeout } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+
+// Each scenario spawns two Bun worker processes that write to a real store.
+// Windows runners take about 4.5-5 s per scenario, right at Bun's 5 s default,
+// so the repeated-runs scenario is killed before it reports a result.
+setDefaultTimeout(30_000);
 
 const tempDirs: string[] = [];
 

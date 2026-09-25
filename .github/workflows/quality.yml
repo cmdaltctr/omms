@@ -69,6 +69,14 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      # Published-package shape: entry points and web UI present, exports and
+      # types resolvable (publint + arethetypeswrong). Needs a build first.
+      - name: Build
+        run: bun run build
+
+      - name: Check package
+        run: bun run check:package
+
   # Build and full suite on the primary supported platform. Catches changes
   # that skip the local hooks, such as Dependabot pull requests.
   test:

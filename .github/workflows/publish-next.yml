@@ -1,0 +1,114 @@
+name: Publish next
+
+# Publishes every main commit that passed Quality as a prerelease under the
+# npm `next` dist-tag, so the maintainer can try it (`omms@next`) before a full
+# release. Never moves `latest`. Switched on by the repository variable
+# NPM_NEXT_ENABLED once the npm trusted publisher exists (see docs/ci.md).
+on:
+  workflow_run:
+    workflows: [Quality]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: publish-next-${{ github.repository }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish-next:
+    name: publish next
+    if: >-
+      vars.NPM_NEXT_ENABLED == 'true' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    # Registered on npm as a second trusted publisher; the environment only
+    # accepts deployments from main.
+    environment: npm-next
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC)
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      # A release commit updates the release-please manifest; the Release
+      # workflow publishes that version, so there is nothing to preview.
+      - name: Skip release commits
+        id: gate
+        run: |
+          if git diff --name-only HEAD^1 HEAD | grep -qx '.release-please-manifest.json'; then
+            echo "Release commit; skipping next publish."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        if: steps.gate.outputs.skip != 'true'
+
+      - uses: actions/setup-node@v7
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          node-version: '24'
+          package-manager-cache: false # never cache in release builds
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Update npm
+        if: steps.gate.outputs.skip != 'true'
+        run: npm install -g npm@^11.15.0
+
+      - name: Install source dependencies
+        if: steps.gate.outputs.skip != 'true'
+        run: bun install --frozen-lockfile
+
+      - name: Install web dependencies
+        if: steps.gate.outputs.skip != 'true'
+        working-directory: web
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        if: steps.gate.outputs.skip != 'true'
+        run: bun run build
+
+      - name: Verify package contents
+        if: steps.gate.outputs.skip != 'true'
+        run: bun run verify:package
+
+      # X.Y.Z on main becomes X.(Y+1).0-next.<run number>: sorts above the
+      # current release and below the next minor release.
+      - name: Set prerelease version
+        if: steps.gate.outputs.skip != 'true'
+        id: version
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          NEXT=$(node -p "const [ma, mi] = require('./package.json').version.split('.').map(Number); \`\${ma}.\${mi + 1}.0-next.\${process.env.RUN_NUMBER}\`")
+          npm version "$NEXT" --no-git-tag-version
+          echo "version=$NEXT" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to the next tag
+        if: steps.gate.outputs.skip != 'true'
+        run: |
+          LATEST_BEFORE=$(npm view omms dist-tags.latest)
+          echo "latest before: $LATEST_BEFORE"
+          echo "LATEST_BEFORE=$LATEST_BEFORE" >> "$GITHUB_ENV"
+          npm publish --tag next --access public
+
+      - name: Check latest is unchanged
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          NEXT_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          LATEST_AFTER=$(npm view omms dist-tags.latest)
+          if [ "$LATEST_AFTER" != "$LATEST_BEFORE" ]; then
+            echo "::error::latest moved from $LATEST_BEFORE to $LATEST_AFTER while publishing $NEXT_VERSION"
+            exit 1
+          fi
+          echo "Published omms@$NEXT_VERSION under next; latest is still $LATEST_AFTER"

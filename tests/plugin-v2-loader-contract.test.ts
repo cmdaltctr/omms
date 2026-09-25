@@ -12,8 +12,9 @@ describe("OpenCode v2 plugin-loader contract", () => {
   it("publishes the native v2 entrypoint", () => {
     const pkg = readPackageJson();
     expect(pkg.exports?.["./v2"]).toEqual({
-      import: "./dist/v2/plugin.js",
       types: "./dist/v2/plugin.d.ts",
+      import: "./dist/v2/plugin.js",
+      default: "./dist/v2/plugin.js",
     });
     expect(pkg.files).toContain("dist");
   });
