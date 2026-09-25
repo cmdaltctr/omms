@@ -246,13 +246,15 @@ describe("omms config identity", () => {
 });
 
 describe("omms project config file", () => {
-  async function projectMaxMemories(files: Record<string, number>): Promise<number> {
+  async function projectMaxMemories(files: Record<string, number | string>): Promise<number> {
     const home = mkdtempSync(join(tmpdir(), "omms-project-config-home-"));
     const project = mkdtempSync(join(tmpdir(), "omms-project-config-"));
     tempDirs.push(home, project);
     mkdirSync(join(project, ".opencode"), { recursive: true });
     for (const [name, maxMemories] of Object.entries(files)) {
-      writeFileSync(join(project, ".opencode", name), JSON.stringify({ maxMemories }));
+      const content =
+        typeof maxMemories === "string" ? maxMemories : JSON.stringify({ maxMemories });
+      writeFileSync(join(project, ".opencode", name), content);
     }
 
     const result = await runConfigScenario(
@@ -276,5 +278,13 @@ describe("omms project config file", () => {
 
   it("prefers omms.jsonc over the legacy file when both exist", async () => {
     expect(await projectMaxMemories({ "omms.jsonc": 43, "opencode-mem.jsonc": 44 })).toBe(43);
+  });
+
+  it("does not fall back to the legacy file when omms.jsonc is invalid", async () => {
+    const defaults = await projectMaxMemories({});
+    expect(await projectMaxMemories({ "omms.jsonc": "{ not json", "opencode-mem.jsonc": 45 })).toBe(
+      defaults
+    );
+    expect(defaults).not.toBe(45);
   });
 });

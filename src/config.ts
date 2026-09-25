@@ -2,6 +2,7 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { stripJsoncComments } from "./services/jsonc.js";
+import { log } from "./services/logger.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
 import { isPlaceholderApiKey } from "./services/ai/api-key-placeholder.js";
 import {
@@ -240,19 +241,25 @@ function expandPath(path: string): string {
   return path;
 }
 
+/**
+ * Load the first config file that exists, in priority order. A file that
+ * exists but cannot be read or parsed is not skipped: falling through would let
+ * a lower-priority (legacy) file silently supply settings such as storagePath.
+ */
 function loadConfigFromPaths(paths: string[]): OmmsConfig {
-  for (const path of paths) {
-    if (existsSync(path)) {
-      try {
-        const content = readFileSync(path, "utf-8");
-        const json = stripJsoncComments(content);
-        return JSON.parse(json) as OmmsConfig;
-      } catch {
-        // ignore unreadable or invalid config files
-      }
-    }
+  const path = paths.find((candidate) => existsSync(candidate));
+  if (!path) return {};
+  try {
+    const content = readFileSync(path, "utf-8");
+    const json = stripJsoncComments(content);
+    return JSON.parse(json) as OmmsConfig;
+  } catch (error) {
+    log("Config file is invalid; using defaults instead of lower-priority files", {
+      path,
+      error: String(error),
+    });
+    return {};
   }
-  return {};
 }
 
 const GLOBAL_ONLY_REMOTE_PROVIDER_FIELDS: ReadonlyArray<keyof OmmsConfig> = [
