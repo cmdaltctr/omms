@@ -1,5 +1,5 @@
 {
-  "name": "omms",
+  "name": "om-memory-system",
   "version": "3.0.0",
   "description": "Opinionated modular memory system for coding agents (OpenCode + Pi)",
   "type": "module",

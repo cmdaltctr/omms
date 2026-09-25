@@ -1,11 +1,11 @@
 # OMMS — Opinionated Modular Memory System
 
-[![npm version](https://img.shields.io/npm/v/omms.svg)](https://www.npmjs.com/package/omms)
-[![npm downloads](https://img.shields.io/npm/dm/omms.svg)](https://www.npmjs.com/package/omms)
-[![license](https://img.shields.io/npm/l/omms.svg)](https://www.npmjs.com/package/omms)
+[![npm version](https://img.shields.io/npm/v/om-memory-system.svg)](https://www.npmjs.com/package/om-memory-system)
+[![npm downloads](https://img.shields.io/npm/dm/om-memory-system.svg)](https://www.npmjs.com/package/om-memory-system)
+[![license](https://img.shields.io/npm/l/om-memory-system.svg)](https://www.npmjs.com/package/om-memory-system)
 
 > **Fork notice.** This is [`cmdaltctr/omms`](https://github.com/cmdaltctr/omms), a fork of
-> [`tickernelz/opencode-mem`](https://github.com/tickernelz/opencode-mem), published as **`omms`**, the Opinionated
+> [`tickernelz/opencode-mem`](https://github.com/tickernelz/opencode-mem), published on npm as **`om-memory-system`**, the Opinionated
 > Modular Memory System for coding agents. The fork adds first-class integration with the
 > [Pi coding agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent): the memory engine now runs as a
 > shared, host-neutral core behind a native Pi extension, so OpenCode and Pi read and write one memory store per
@@ -73,8 +73,8 @@ and Pi. They share one project memory store.
 
 ### OpenCode
 
-Add `omms` to your OpenCode configuration. OpenCode downloads the package
-when you restart it. On OpenCode v2 you can instead run `opencode plugin add omms`,
+Add `om-memory-system` (the npm name for omms) to your OpenCode configuration. OpenCode downloads the package
+when you restart it. On OpenCode v2 you can instead run `opencode plugin add om-memory-system`,
 which installs the package and updates your global configuration for you.
 
 #### macOS
@@ -85,7 +85,7 @@ For OpenCode v2, use the native `plugins` list:
 
 ```jsonc
 {
-  "plugins": ["omms"],
+  "plugins": ["om-memory-system"],
 }
 ```
 
@@ -93,7 +93,7 @@ For OpenCode v1 (1.18.29 or later), use the `plugin` list:
 
 ```jsonc
 {
-  "plugin": ["omms"],
+  "plugin": ["om-memory-system"],
 }
 ```
 
@@ -108,7 +108,7 @@ For OpenCode v2, use:
 
 ```jsonc
 {
-  "plugins": ["omms"],
+  "plugins": ["om-memory-system"],
 }
 ```
 
@@ -116,7 +116,7 @@ For OpenCode v1 (1.18.29 or later), use:
 
 ```jsonc
 {
-  "plugin": ["omms"],
+  "plugin": ["om-memory-system"],
 }
 ```
 
@@ -128,7 +128,7 @@ Restart OpenCode after you save the file. OMMS does not read `%APPDATA%` or
 Run the following command in Terminal on macOS or PowerShell on Windows:
 
 ```bash
-pi install npm:omms
+pi install npm:om-memory-system
 ```
 
 Restart Pi after installation. The extension reads the same configuration and
@@ -147,15 +147,15 @@ Install OMMS without a version number, as shown above, so your agent can tell
 you when a new release is out. Neither agent installs updates by itself; you
 choose when to update.
 
-| Agent       | How you hear about a new release                              | Update with                                                 |
-| ----------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
-| Pi          | Pi shows an update notice while you work                      | `pi update npm:omms` (or `pi update --extensions` for all)  |
-| OpenCode v2 | Run `opencode plugin check` to list plugins with new versions | `opencode plugin update omms` (or `opencode plugin update`) |
+| Agent       | How you hear about a new release                              | Update with                                                             |
+| ----------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Pi          | Pi shows an update notice while you work                      | `pi update npm:om-memory-system` (or `pi update --extensions` for all)  |
+| OpenCode v2 | Run `opencode plugin check` to list plugins with new versions | `opencode plugin update om-memory-system` (or `opencode plugin update`) |
 
 Restart the agent after updating.
 
 To stay on one version, install it with the version number instead:
-`pi install npm:omms@3.1.0` in Pi, or `opencode plugin add omms@3.1.0` in
+`pi install npm:om-memory-system@3.1.0` in Pi, or `opencode plugin add om-memory-system@3.1.0` in
 OpenCode. A pinned install is never updated or flagged; install without the
 number again to go back to receiving updates.
 
@@ -331,7 +331,7 @@ Example — remote OpenAI embeddings:
 
 Changing `embeddingModel` (or dimensions) can trigger re-embedding of stored memories on next startup. Prefer picking a model once and sticking with it for a given data directory.
 
-**Intel Mac (`darwin/x64`):** `onnxruntime-node@1.21.0` through `1.23.2` can crash OpenCode's embedded Bun `1.3.14` during process exit after successful local embeddings (`Ort::Env` teardown / SIGILL). The fix shipped in `1.24.1`, but fixed releases still lack an x64 native binding. `omms` therefore pins `onnxruntime-node@1.20.1` and loads transformers through a CJS resolve shim so OpenCode nested installs keep that binding. Transformers is resolved to an absolute path before that shim is installed so OpenCode's Bun `--compile` host does not fail with `Cannot find module '@huggingface/transformers' from ''`. After upgrading, clear OpenCode's nested plugin cache (`~/.cache/opencode/packages/omms@*`, or `opencode-mem@*` on pre-migration installs) and reinstall, or use a remote endpoint via `embeddingApiUrl` + `embeddingApiKey` (example above). This pin stays until onnxruntime publishes a post-teardown-fix darwin/x64 build.
+**Intel Mac (`darwin/x64`):** `onnxruntime-node@1.21.0` through `1.23.2` can crash OpenCode's embedded Bun `1.3.14` during process exit after successful local embeddings (`Ort::Env` teardown / SIGILL). The fix shipped in `1.24.1`, but fixed releases still lack an x64 native binding. `omms` therefore pins `onnxruntime-node@1.20.1` and loads transformers through a CJS resolve shim so OpenCode nested installs keep that binding. Transformers is resolved to an absolute path before that shim is installed so OpenCode's Bun `--compile` host does not fail with `Cannot find module '@huggingface/transformers' from ''`. After upgrading, clear OpenCode's nested plugin cache (`~/.cache/opencode/packages/om-memory-system@*`, or `opencode-mem@*` on pre-migration installs) and reinstall, or use a remote endpoint via `embeddingApiUrl` + `embeddingApiKey` (example above). This pin stays until onnxruntime publishes a post-teardown-fix darwin/x64 build.
 
 ### Memory Scope
 
@@ -526,7 +526,7 @@ Troubleshooting:
 - If auto-capture reports that a provider is not connected, confirm the provider name with `opencode providers list` and configure that provider in opencode first.
 - If a proxy or custom provider returns plain text instead of structured/tool output, choose another model/provider or use one of the manual provider modes above.
 - For models that reject `temperature`, add `"memoryTemperature": false` when using manual API configuration.
-- **Intel Mac (darwin/x64) local embedding:** if embedding init fails or OpenCode exits with SIGILL after local memory use, clear `~/.cache/opencode/packages/omms@*` (or `opencode-mem@*` on pre-migration installs) after upgrading so the nested install picks up the pinned `onnxruntime-node@1.20.1`, or switch to a remote embedding endpoint via `embeddingApiUrl` + `embeddingApiKey`. See [Choosing / configuring embeddings](#choosing-configuring-embeddings). MLX is not supported.
+- **Intel Mac (darwin/x64) local embedding:** if embedding init fails or OpenCode exits with SIGILL after local memory use, clear `~/.cache/opencode/packages/om-memory-system@*` (or `opencode-mem@*` on pre-migration installs) after upgrading so the nested install picks up the pinned `onnxruntime-node@1.20.1`, or switch to a remote embedding endpoint via `embeddingApiUrl` + `embeddingApiKey`. See [Choosing / configuring embeddings](#choosing-configuring-embeddings). MLX is not supported.
 
 ## Public Subpath Exports
 
@@ -535,13 +535,13 @@ that other opencode plugins can import directly. This avoids having to
 reverse-engineer container-tag conventions when writing third-party tools that
 read or write into the same memory store.
 
-### `omms/tags`
+### `om-memory-system/tags`
 
 Canonical container-tag helpers. The same functions omms itself uses
 to scope auto-captured memories.
 
 ```ts
-import { getProjectTagInfo, getUserTagInfo, getTags } from "omms/tags";
+import { getProjectTagInfo, getUserTagInfo, getTags } from "om-memory-system/tags";
 
 // Canonical project tag derived from cwd (git remote URL if present, else
 // the project root path). Format: `omms_project_<sha16>`; rows written by

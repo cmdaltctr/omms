@@ -12,11 +12,11 @@ const home = mkdtempSync(join(tmpdir(), "omms-smoke-home-"));
 process.env.HOME = home;
 process.env.USERPROFILE = home;
 
-const pluginModule = await import("omms");
-const tagsModule = await import("omms/tags");
+const pluginModule = await import("om-memory-system");
+const tagsModule = await import("om-memory-system/tags");
 
 assert.equal(typeof pluginModule.default, "object", "default export must be a plugin object");
-assert.equal(pluginModule.default.id, "omms", "plugin id must match package name");
+assert.equal(pluginModule.default.id, "omms", "plugin id must stay omms");
 assert.equal(typeof pluginModule.default.server, "function", "plugin server must be callable");
 
 assert.equal(typeof tagsModule.getTags, "function", "getTags export must be callable");
@@ -32,7 +32,7 @@ assert.equal(
 );
 
 // Every published version must ship the built web UI and serve it.
-const distDir = dirname(fileURLToPath(import.meta.resolve("omms")));
+const distDir = dirname(fileURLToPath(import.meta.resolve("om-memory-system")));
 const webIndex = join(distDir, "web", "index.html");
 assert.ok(existsSync(webIndex), `installed package must contain ${webIndex}`);
 assert.match(readFileSync(webIndex, "utf8"), /<title>omms Memory Explorer<\/title>/);

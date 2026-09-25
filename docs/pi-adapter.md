@@ -14,7 +14,7 @@ when upgrading the Pi dependency.
 From npm (published package):
 
 ```bash
-pi install npm:omms
+pi install npm:om-memory-system
 ```
 
 From a local checkout (development):

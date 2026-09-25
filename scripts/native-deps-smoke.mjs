@@ -3,6 +3,9 @@ import { createRequire } from "node:module";
 import { basename, join, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
+/** npm package name of the plugin (the product itself is called omms). */
+const PACKAGE_NAME = "om-memory-system";
+
 const requireFromHere = createRequire(import.meta.url);
 const projectRoot = process.cwd();
 const lockfilePath = join(projectRoot, "package-lock.json");
@@ -53,12 +56,12 @@ function matchesSelectorList(selectors, current) {
 
 function collectRuntimeClosure(lockfile) {
   const packages = lockfile.packages ?? {};
-  const root = packages[getLockPathForPackage("omms")];
+  const root = packages[getLockPathForPackage(PACKAGE_NAME)];
   if (!root) {
-    throw new Error("Installed omms package not found in package-lock.json");
+    throw new Error(`Installed ${PACKAGE_NAME} package not found in package-lock.json`);
   }
 
-  const queue = ["omms"];
+  const queue = [PACKAGE_NAME];
   const seen = new Set();
 
   while (queue.length > 0) {
@@ -176,7 +179,7 @@ function formatError(error) {
 }
 
 const lockfile = readJson(lockfilePath);
-const ommsPkgPath = join(projectRoot, "node_modules", "omms", "package.json");
+const ommsPkgPath = join(projectRoot, "node_modules", PACKAGE_NAME, "package.json");
 const rootPkg = existsSync(ommsPkgPath)
   ? readJson(ommsPkgPath)
   : readJson(join(projectRoot, "package.json"));

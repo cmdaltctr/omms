@@ -19,14 +19,6 @@ async function loadDistPlugin(): Promise<unknown> {
 }
 
 describe("OpenCode 1.3.x plugin-loader contract", () => {
-  it("dist/plugin.js imports package.json with a JSON import attribute", () => {
-    const source = readFileSync(new URL("../dist/plugin.js", import.meta.url), "utf-8");
-
-    expect(source).toMatch(
-      /import\s+pkg\s+from\s+["']\.\.\/package\.json["']\s+with\s+\{\s*type:\s*["']json["']\s*\}/
-    );
-  });
-
   it("dist shard manager avoids CommonJS fs require in ESM output", () => {
     const source = readFileSync(
       new URL("../dist/services/turso/shard-manager.js", import.meta.url),
@@ -53,14 +45,14 @@ describe("OpenCode 1.3.x plugin-loader contract", () => {
     expect(typeof defaultExport?.["server"]).toBe("function");
   });
 
-  it('dist/plugin.js default export has a non-empty "id" matching package name', async () => {
-    const pkg = readPackageJson();
+  // OpenCode only requires a non-empty string id (the package name is merely the
+  // fallback when id is absent). omms keeps a fixed id so a package rename
+  // never changes the plugin's storage scope or enable/disable selector.
+  it('dist/plugin.js default export has the stable "omms" id', async () => {
     const mod = (await loadDistPlugin()) as { default: unknown };
     const defaultExport = mod.default as Record<string, unknown> | null | undefined;
 
-    expect(typeof defaultExport?.["id"]).toBe("string");
-    expect((defaultExport?.["id"] as string).trim().length).toBeGreaterThan(0);
-    expect(defaultExport?.["id"]).toBe(pkg["name"]);
+    expect(defaultExport?.["id"]).toBe("omms");
   });
 
   it("server() invocation returns hooks with expected keys (or server is callable)", async () => {

@@ -113,7 +113,7 @@ export function formatMissingOnnxruntimeBindingError(
   const bindingPath = getOnnxruntimeBindingPath(platform, arch);
   const intelHint =
     platform === "darwin" && arch === "x64"
-      ? ` On Intel Mac (darwin/x64), onnxruntime-node@1.21.0–1.23.2 can crash Bun 1.3.14 on process exit (#225), while fixed releases still lack an x64 binding; omms pins ${PINNED_VERSION_HINT}. If this persists after updating, clear OpenCode's plugin cache (~/.cache/opencode/packages/omms@*, or opencode-mem@* on pre-migration installs) and reinstall, or configure remote embeddings via embeddingApiUrl + embeddingApiKey.`
+      ? ` On Intel Mac (darwin/x64), onnxruntime-node@1.21.0–1.23.2 can crash Bun 1.3.14 on process exit (#225), while fixed releases still lack an x64 binding; omms pins ${PINNED_VERSION_HINT}. If this persists after updating, clear OpenCode's plugin cache (~/.cache/opencode/packages/om-memory-system@*, or opencode-mem@* on pre-migration installs) and reinstall, or configure remote embeddings via embeddingApiUrl + embeddingApiKey.`
       : ` Configure remote embeddings via embeddingApiUrl + embeddingApiKey, or reinstall the plugin so onnxruntime-node@${PINNED_VERSION_HINT} is used.`;
   return `Local embedding native binding missing for ${platform}/${arch} at ${bindingPath}.${intelHint}`;
 }
@@ -152,7 +152,7 @@ export function formatOnnxruntimeInitError(
       : "";
 
   return new Error(
-    `ONNX runtime failed to load despite pinned binding being present at ${bindingPath}. Original error: ${message}.${intelHint} If this persists after updating, clear OpenCode's plugin cache (~/.cache/opencode/packages/omms@*, or opencode-mem@* on pre-migration installs) and reinstall, or configure remote embeddings via embeddingApiUrl + embeddingApiKey.`,
+    `ONNX runtime failed to load despite pinned binding being present at ${bindingPath}. Original error: ${message}.${intelHint} If this persists after updating, clear OpenCode's plugin cache (~/.cache/opencode/packages/om-memory-system@*, or opencode-mem@* on pre-migration installs) and reinstall, or configure remote embeddings via embeddingApiUrl + embeddingApiKey.`,
     { cause: error }
   );
 }

@@ -125,9 +125,9 @@ jobs:
             echo
             echo "---"
             echo
-            echo "**npm:** \`omms@$RELEASE_VERSION\` is staged and not yet installable."
-            echo "Approve it in the Staged tab at https://www.npmjs.com/package/omms (2FA),"
-            echo "or run \`npm stage list omms\`, then \`npm stage approve <stage-id>\`."
+            echo "**npm:** \`om-memory-system@$RELEASE_VERSION\` is staged and not yet installable."
+            echo "Approve it in the Staged tab at https://www.npmjs.com/package/om-memory-system (2FA),"
+            echo "or run \`npm stage list om-memory-system\`, then \`npm stage approve <stage-id>\`."
             echo "To try it first: \`npm stage download <stage-id>\` and install the tarball."
           } >> notes.md
           gh release edit "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --notes-file notes.md

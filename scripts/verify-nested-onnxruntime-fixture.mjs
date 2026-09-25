@@ -37,6 +37,9 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+/** npm package name of the plugin (the product itself is called omms). */
+const PACKAGE_NAME = "om-memory-system";
+
 const PINNED = "1.20.1";
 const NESTED_BAD = "1.24.3";
 const runtime = typeof globalThis.Bun !== "undefined" ? "bun" : "node";
@@ -221,7 +224,7 @@ async function main() {
           name: "opencode-mem-nested-fixture",
           private: true,
           dependencies: {
-            omms: `file:${tarball}`,
+            [PACKAGE_NAME]: `file:${tarball}`,
           },
         },
         null,
@@ -232,7 +235,7 @@ async function main() {
     run("npm", ["install", "--ignore-scripts"], fixtureDir);
   }
 
-  const pluginRoot = join(fixtureDir, "node_modules", "omms");
+  const pluginRoot = join(fixtureDir, "node_modules", PACKAGE_NAME);
   if (!existsSync(pluginRoot)) fail(`plugin not installed at ${pluginRoot}`);
 
   const searchRoots = [pluginRoot, fixtureDir];
