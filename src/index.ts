@@ -7,7 +7,13 @@ import { formatContextForPrompt } from "./services/context.js";
 import { getTags } from "./services/tags.js";
 import { performAutoCapture } from "./services/auto-capture.js";
 import { createOpenCodeAutoCaptureHost } from "./adapters/opencode/auto-capture-host.js";
+import {
+  isInternalPrompt,
+  isStructuredSummaryPromptMessage,
+  recordUserPrompt,
+} from "./adapters/opencode/user-prompt.js";
 import { executeMemoryOperation, type MemoryOperationArgs } from "./core/memory-operations.js";
+import { formatMemoriesForCompaction } from "./core/retrieval.js";
 import { performUserProfileLearning } from "./services/user-memory-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
 import { startWebServer, WebServer } from "./services/web-server.js";
@@ -21,7 +27,6 @@ import { getLanguageName } from "./services/language-detector.js";
 import { getHostClientConfig } from "./services/ai/opencode-host-config.js";
 import { loadOpencodeProvider } from "./services/ai/opencode-provider-loader.js";
 import {
-  isInternalStructuredSession,
   STRUCTURED_OUTPUT_AGENT,
   STRUCTURED_OUTPUT_TOOLS,
 } from "./services/ai/opencode-provider.js";
@@ -33,16 +38,7 @@ import {
 } from "./services/ai/internal-capture-sessions.js";
 
 export { INTERNAL_CAPTURE_SESSION_TITLE, isInternalCaptureSessionTitle };
-
-export function isStructuredSummaryPromptMessage(userMessage: string): boolean {
-  // This is the plugin's own structured-summary or profile-analysis request.
-  // OpenCode echoes it through chat.message like a normal user message, but
-  // capturing it would create self-referential memories / an infinite learning loop.
-  if (userMessage.includes("# User Profile Analysis")) {
-    return true;
-  }
-  return userMessage.includes("Analyze this conversation.") && userMessage.includes('type="skip"');
-}
+export { isStructuredSummaryPromptMessage };
 
 function extractSessionTitle(response: unknown): string | undefined {
   if (!response || typeof response !== "object") return undefined;
@@ -184,7 +180,7 @@ export function applyStructuredOutputAgentConfig(cfg: { agent?: Record<string, u
   cfg.agent = {
     ...cfg.agent,
     [STRUCTURED_OUTPUT_AGENT]: {
-      description: "Internal least-privilege agent for opencode-mem structured output",
+      description: "Internal least-privilege agent for omms structured output",
       mode: "subagent",
       // OpenCode reads `steps` at runtime; SDK AgentConfig also documents maxSteps.
       steps: 2,
@@ -234,7 +230,7 @@ function logAutoCaptureProviderStatus(): void {
   );
 }
 
-export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
+export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
   const { directory } = ctx;
   initConfigWithLegacyMigration(directory);
   logAutoCaptureProviderStatus();
@@ -243,7 +239,7 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
   let webServer: WebServer | null = null;
   let idleTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("opencode-mem.plugin.warmedup");
+  const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("omms.plugin.warmedup");
 
   if (!(globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] && isConfigured()) {
     // Fire-and-forget: DB ready + embedding model must not block plugin init.
@@ -464,19 +460,9 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
         const userMessage = textParts.map((p) => p.text).join("\n");
         if (!userMessage.trim()) return;
 
-        if (
-          isStructuredSummaryPromptMessage(userMessage) ||
-          isInternalStructuredSession(input.sessionID)
-        ) {
-          return;
-        }
+        if (isInternalPrompt(input.sessionID, userMessage)) return;
 
-        await userPromptManager.savePrompt(
-          input.sessionID,
-          output.message.id,
-          directory,
-          userMessage
-        );
+        await recordUserPrompt(input.sessionID, output.message.id, directory, userMessage);
 
         const messagesResponse = await ctx.client.session.messages({
           path: { id: input.sessionID },
@@ -723,54 +709,3 @@ export const OpenCodeMemPlugin: Plugin = async (ctx: PluginInput) => {
     },
   };
 };
-
-const EMBEDDED_TAGS_FOOTER_RE = /\n*Tags: ([^\n]*)\s*$/;
-
-function normalizeTagsKey(tags: string[]): string {
-  return tags
-    .map((tag) => tag.trim())
-    .filter((tag) => tag.length > 0)
-    .sort()
-    .join("\0");
-}
-
-function stripMatchingEmbeddedTagsFooter(memory: string, tags: string[]): string {
-  const match = memory.match(EMBEDDED_TAGS_FOOTER_RE);
-  if (!match) {
-    return memory;
-  }
-
-  const footerValue = match[1];
-  if (footerValue === undefined) {
-    return memory;
-  }
-
-  const embeddedTags = footerValue
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter((tag) => tag.length > 0);
-
-  if (normalizeTagsKey(embeddedTags) !== normalizeTagsKey(tags)) {
-    return memory;
-  }
-
-  return memory.replace(EMBEDDED_TAGS_FOOTER_RE, "");
-}
-
-function formatMemoriesForCompaction(memories: any[]): string {
-  let output = `## Restored Session Memory\n\n`;
-
-  memories.forEach((m, i) => {
-    const tags = Array.isArray(m.tags) ? m.tags : [];
-    const body =
-      tags.length > 0 ? stripMatchingEmbeddedTagsFooter(m.memory ?? "", tags) : (m.memory ?? "");
-
-    output += `### Memory ${i + 1}\n`;
-    output += `${body}\n\n`;
-    if (tags.length > 0) {
-      output += `Tags: ${tags.join(", ")}\n\n`;
-    }
-  });
-
-  return output;
-}

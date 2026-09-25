@@ -11,7 +11,7 @@ export async function getOpenCodeClient(): Promise<OpencodeClient> {
   const model = CONFIG.opencodeModel!;
 
   if (!provider || !model) {
-    throw new Error("opencode-mem: opencodeProvider and opencodeModel must be configured");
+    throw new Error("omms: opencodeProvider and opencodeModel must be configured");
   }
 
   if (_cachedClient && _cachedProvider === provider && _cachedModel === model) {
@@ -28,7 +28,7 @@ export async function getOpenCodeClient(): Promise<OpencodeClient> {
 
   const client = getV2Client();
   if (!client) {
-    throw new Error("opencode-mem: v2 client not initialized");
+    throw new Error("omms: v2 client not initialized");
   }
 
   _cachedClient = client;

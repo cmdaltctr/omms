@@ -1,14 +1,15 @@
 import type { Plugin } from "@opencode/plugin/promise/plugin";
-import { OpenCodeMemPlugin } from "../index.js";
+import { OmmsPlugin } from "../index.js";
 import { loadOpencodeProvider } from "../services/ai/opencode-provider-loader.js";
 import { registerV2Adapter } from "./adapter.js";
+import { createV2MemoryBridge } from "./memory-bridge.js";
 import { createLegacyClient } from "./legacy-client.js";
 
-const OpenCodeMemPluginV2: Plugin = {
+const OmmsPluginV2: Plugin = {
   id: "omms",
   async setup(ctx) {
     const legacyClient = createLegacyClient(ctx);
-    const legacy = (await OpenCodeMemPlugin({
+    const legacy = (await OmmsPlugin({
       client: legacyClient,
       directory: ctx.location.directory,
       worktree: ctx.location.project.directory,
@@ -21,8 +22,8 @@ const OpenCodeMemPluginV2: Plugin = {
     const { setV2Client } = await loadOpencodeProvider();
     setV2Client(legacyClient);
 
-    return registerV2Adapter(ctx, legacy);
+    return registerV2Adapter(ctx, legacy, createV2MemoryBridge(ctx.location.directory));
   },
 };
 
-export default OpenCodeMemPluginV2;
+export default OmmsPluginV2;

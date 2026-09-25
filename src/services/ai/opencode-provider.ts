@@ -39,7 +39,7 @@ import {
 import { createLazyV2Client, type HostTransport } from "./opencode-sdk-client.js";
 
 /** Dedicated agent registered via the plugin config hook (step-capped). */
-export const STRUCTURED_OUTPUT_AGENT = "opencode-mem-structured";
+export const STRUCTURED_OUTPUT_AGENT = "omms-structured";
 
 /** Hard ceiling for a single internal structured-output prompt. */
 export const STRUCTURED_OUTPUT_TIMEOUT_MS = 90_000;
@@ -62,7 +62,7 @@ export const STRUCTURED_OUTPUT_TOOLS: Record<string, boolean> = {
 };
 
 export const STRUCTURED_OUTPUT_METADATA = {
-  "opencode-mem": {
+  omms: {
     internal: true,
     purpose: "structured-output",
   },
@@ -194,7 +194,7 @@ export function resolveOpencodeModelRef(opts: {
   if (recent) return recent;
 
   throw new Error(
-    "opencode-mem: opencodeModel is 'inherit' but no session model was recorded and no recent OpenCode model is available"
+    "omms: opencodeModel is 'inherit' but no session model was recorded and no recent OpenCode model is available"
   );
 }
 
@@ -258,7 +258,7 @@ export async function generateStructuredOutput<T>(opts: StructuredOutputOptions<
   const baseUrl = _v2BaseUrl;
   if (!baseUrl) {
     throw new Error(
-      "opencode-mem: v2 server base URL not initialized; call createV2Client(serverUrl) first"
+      "omms: v2 server base URL not initialized; call createV2Client(serverUrl) first"
     );
   }
   const base = stripTrailingSlash(baseUrl);
@@ -283,14 +283,14 @@ export async function generateStructuredOutput<T>(opts: StructuredOutputOptions<
 
     if (info.error) {
       throw new Error(
-        `opencode-mem: opencode reported ${info.error.name}: ${formatAssistantError(info.error)}`
+        `omms: opencode reported ${info.error.name}: ${formatAssistantError(info.error)}`
       );
     }
 
     const structuredOutput = info.structured_output ?? info.structured;
     if (structuredOutput === undefined || structuredOutput === null) {
       throw new Error(
-        "opencode-mem: opencode returned no structured output (info.structured_output/info.structured were empty)"
+        "omms: opencode returned no structured output (info.structured_output/info.structured were empty)"
       );
     }
 
@@ -351,7 +351,7 @@ async function generateViaSdkClient<T>(
   const created = readSdkData<{ id?: string }>(createdResponse, "POST /session");
   if (!created.id) {
     throw new Error(
-      "opencode-mem: session.create returned no session id; cannot generate structured output"
+      "omms: session.create returned no session id; cannot generate structured output"
     );
   }
 
@@ -374,18 +374,18 @@ async function generateViaSdkClient<T>(
     );
     const data = readSdkData<MessageV2WithParts>(promptResponse, "POST /session/{id}/message");
     if (!data.info) {
-      throw new Error("opencode-mem: prompt response missing `info`");
+      throw new Error("omms: prompt response missing `info`");
     }
     if (data.info.error) {
       throw new Error(
-        `opencode-mem: opencode reported ${data.info.error.name}: ${formatAssistantError(data.info.error)}`
+        `omms: opencode reported ${data.info.error.name}: ${formatAssistantError(data.info.error)}`
       );
     }
 
     const structuredOutput = data.info.structured_output ?? data.info.structured;
     if (structuredOutput === undefined || structuredOutput === null) {
       throw new Error(
-        "opencode-mem: opencode returned no structured output (info.structured_output/info.structured were empty)"
+        "omms: opencode returned no structured output (info.structured_output/info.structured were empty)"
       );
     }
     return args.schema.parse(structuredOutput);
@@ -412,7 +412,7 @@ async function withStructuredOutputTimeout<T>(
   const timeoutMs = _structuredOutputTimeoutMs;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      reject(new Error(`opencode-mem: structured-output timed out after ${timeoutMs}ms`));
+      reject(new Error(`omms: structured-output timed out after ${timeoutMs}ms`));
     }, timeoutMs);
   });
 
@@ -439,12 +439,10 @@ function readSdkData<T>(response: unknown, label: string): T {
     const status = result.response ? ` (${responseStatus(result.response)})` : "";
     const responseUrl = result.response?.url || result.request?.url;
     const url = responseUrl ? diagnosticUrl(responseUrl) : "the authenticated client";
-    throw new Error(
-      `opencode-mem: opencode ${label} failed at ${url}${status}: <redacted response body>`
-    );
+    throw new Error(`omms: opencode ${label} failed at ${url}${status}: <redacted response body>`);
   }
   if (result?.data === undefined) {
-    throw new Error(`opencode-mem: opencode ${label} returned no response data`);
+    throw new Error(`omms: opencode ${label} returned no response data`);
   }
   return result.data;
 }
@@ -465,7 +463,7 @@ async function fetchJson<T>(endpoint: FetchEndpoint, init: RequestInit): Promise
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `opencode-mem: failed to fetch ${endpoint.label} at ${diagnosticUrl(endpoint.url)}: ${message}`,
+      `omms: failed to fetch ${endpoint.label} at ${diagnosticUrl(endpoint.url)}: ${message}`,
       { cause: error }
     );
   }
@@ -485,7 +483,7 @@ async function createSession(base: string, directory?: string): Promise<string> 
   );
   if (!body.id) {
     throw new Error(
-      "opencode-mem: session.create returned no session id; cannot generate structured output"
+      "omms: session.create returned no session id; cannot generate structured output"
     );
   }
   trackInternalCaptureSession(body.id);
@@ -551,7 +549,7 @@ async function promptSession(base: string, args: PromptSessionArgs): Promise<Ass
     }
   );
   if (!data.info) {
-    throw new Error("opencode-mem: prompt response missing `info`");
+    throw new Error("omms: prompt response missing `info`");
   }
   return data.info;
 }
@@ -573,7 +571,7 @@ async function deleteSession(base: string, sessionID: string, directory?: string
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `opencode-mem: failed to fetch DELETE /session/{id} at ${diagnosticUrl(url)}: ${message}`,
+      `omms: failed to fetch DELETE /session/{id} at ${diagnosticUrl(url)}: ${message}`,
       { cause: error }
     );
   }
@@ -581,7 +579,7 @@ async function deleteSession(base: string, sessionID: string, directory?: string
   // are swallowed at the call site.
   if (!res.ok) {
     throw new Error(
-      `opencode-mem: opencode DELETE /session/{id} failed at ${diagnosticUrl(url)} (${responseStatus(res)})`
+      `omms: opencode DELETE /session/{id} failed at ${diagnosticUrl(url)} (${responseStatus(res)})`
     );
   }
 }

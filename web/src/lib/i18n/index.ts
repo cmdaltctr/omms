@@ -6,6 +6,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { readPreference, writePreference } from "../preferences";
 import { translations, type Lang, type TranslationKey } from "./translations";
 
 const LANGS: Lang[] = ["en", "zh", "ar"];
@@ -15,9 +16,12 @@ export type TranslateFn = (
   params?: Record<string, string | number>
 ) => string;
 
+const LANG_STORAGE_KEY = "omms-lang";
+const LEGACY_LANG_STORAGE_KEY = "opencode-mem-lang";
+
 function readLang(): Lang {
   if (typeof window === "undefined") return "en";
-  const stored = localStorage.getItem("opencode-mem-lang");
+  const stored = readPreference(LANG_STORAGE_KEY, LEGACY_LANG_STORAGE_KEY);
   if (stored === "en" || stored === "zh" || stored === "ar") return stored;
   return "en";
 }
@@ -32,7 +36,7 @@ function emit() {
 function applyLang(lang: Lang) {
   currentLang = lang;
   if (typeof document !== "undefined") {
-    localStorage.setItem("opencode-mem-lang", lang);
+    writePreference(LANG_STORAGE_KEY, lang);
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
     document.documentElement.lang = lang;
   }

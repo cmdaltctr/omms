@@ -1,5 +1,15 @@
 import { describe, expect, it } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import pkg from "../package.json";
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return sourceFiles(path);
+    return entry.name.endsWith(".ts") ? [path] : [];
+  });
+}
 
 describe("published dependency constraints", () => {
   it("uses @libsql/client for Turso persistence and vector search", () => {
@@ -21,5 +31,21 @@ describe("published dependency constraints", () => {
     expect((pkg as { overrides?: Record<string, string> }).overrides?.["onnxruntime-node"]).toBe(
       "1.20.1"
     );
+  });
+
+  it("keeps the OpenCode v2 plugin API as a type-only dev dependency", () => {
+    // The v2 host provides the runtime; omms only uses @opencode/plugin types.
+    expect(pkg.dependencies).not.toHaveProperty("@opencode/plugin");
+    expect(pkg.devDependencies["@opencode/plugin"]).toMatch(/^\^?2\.0\.(1[6-9]|[2-9]\d)/);
+
+    const runtimeImports = sourceFiles(join(import.meta.dir, "../src")).flatMap((file) =>
+      readFileSync(file, "utf-8")
+        .split("\n")
+        .filter(
+          (line) => /from\s+["']@opencode\/plugin/.test(line) && !/^\s*import type\b/.test(line)
+        )
+        .map((line) => `${file}: ${line.trim()}`)
+    );
+    expect(runtimeImports).toEqual([]);
   });
 });

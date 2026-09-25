@@ -98,8 +98,8 @@ mock.module(${JSON.stringify(webServerUrl)}, () => ({
 mock.module(${JSON.stringify(loggerUrl)}, () => ({ log: () => {} }));
 mock.module(${JSON.stringify(languageUrl)}, () => ({ getLanguageName: () => "English" }));
 
-const { OpenCodeMemPlugin } = await import(${JSON.stringify(indexUrl)});
-const plugin = await OpenCodeMemPlugin({ directory: "/workspace", client: {} });
+const { OmmsPlugin } = await import(${JSON.stringify(indexUrl)});
+const plugin = await OmmsPlugin({ directory: "/workspace", client: {} });
 const memoryTool = plugin.tool?.memory;
 
 if (!memoryTool) {

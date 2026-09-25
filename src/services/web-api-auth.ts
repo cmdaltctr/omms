@@ -1,3 +1,5 @@
+import { getRequestToken } from "./auth-token.js";
+
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]", "0:0:0:0:0:0:0:1"]);
 
 export function isLoopbackHost(host: string): boolean {
@@ -11,7 +13,7 @@ export function assertWebServerNetworkAuth(
 ): void {
   if (!isLoopbackHost(host) && !apiToken && !basicAuthEnabled) {
     throw new Error(
-      `webServerHost "${host}" exposes the API on the network. Set webServerApiToken in opencode-mem.jsonc, or bind to 127.0.0.1.`
+      `webServerHost "${host}" exposes the API on the network. Set webServerApiToken in omms.jsonc, or bind to 127.0.0.1.`
     );
   }
 }
@@ -21,7 +23,7 @@ export function authorizeApiRequest(req: Request, apiToken?: string): Response |
 
   const header = req.headers.get("authorization");
   const bearer = header?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
-  const alt = req.headers.get("x-opencode-mem-token")?.trim();
+  const alt = getRequestToken(req);
   const token = bearer || alt;
 
   if (token && token === apiToken) {

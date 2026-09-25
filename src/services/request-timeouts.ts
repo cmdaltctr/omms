@@ -6,3 +6,10 @@ const HTTP_TIMEOUT_GRACE_MS = 30_000;
 export const NODE_HTTP_IDLE_TIMEOUT_MS =
   Math.max(EXTERNAL_PROFILE_CLEANUP_TIMEOUT_MS, OPENCODE_PROFILE_CLEANUP_TIMEOUT_MS) +
   HTTP_TIMEOUT_GRACE_MS;
+
+/**
+ * Upper bound an OpenCode v2 model request waits for the per-prompt memory
+ * search started in the `prompt` hook. On timeout the request proceeds
+ * without memory rather than stalling the agent.
+ */
+export const V2_RETRIEVAL_TIMEOUT_MS = 5_000;

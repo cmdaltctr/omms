@@ -81,6 +81,47 @@ describe("OpenCode v2 legacy client bridge", () => {
     expect((await client.session.delete({ sessionID })).data).toBe(true);
   });
 
+  it("serves structured output sessionlessly with no agent or tools", async () => {
+    const calls: string[] = [];
+    let generationInput: any;
+    const fail = (name: string) => async () => {
+      calls.push(name);
+      throw new Error(`${name} must not be called for v2 structured output`);
+    };
+    const ctx = createContext({
+      generate: {
+        text: async (input: any) => {
+          generationInput = input;
+          return { text: '{"summary":"done","tags":["v2"]}' };
+        },
+      },
+      session: {
+        create: fail("session.create"),
+        prompt: fail("session.prompt"),
+        synthetic: fail("session.synthetic"),
+      },
+      agent: { transform: fail("agent.transform") },
+    });
+    const client = createLegacyClient(ctx);
+
+    const { data } = await client.session.create({ title: "omms capture" });
+    // The V1 provider asks for its least-privilege agent and tool policy; v2
+    // has no session to apply them to, so they must not reach generation.
+    const result = await client.session.prompt({
+      path: { id: data.id },
+      body: {
+        agent: "omms-structured",
+        tools: { "*": false, StructuredOutput: true },
+        parts: [{ type: "text", text: "Summarize." }],
+        format: { type: "json_schema", schema: { type: "object" } },
+      },
+    });
+
+    expect(calls).toEqual([]);
+    expect(Object.keys(generationInput)).toEqual(["prompt"]);
+    expect(result.data.info.structured_output).toEqual({ summary: "done", tags: ["v2"] });
+  });
+
   it("maps V1 noReply prompts to V2 synthetic messages", async () => {
     let syntheticInput: any;
     const ctx = createContext({

@@ -31,7 +31,7 @@ describe("project-scoped config resolution", () => {
     existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
     readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
       const path = normalizePath(p);
-      if (path.includes(".opencode/opencode-mem")) {
+      if (/\/\.opencode\/(omms|opencode-mem)\./.test(path)) {
         return JSON.stringify({
           opencodeProvider: "openai",
           opencodeModel: "project-model",
@@ -51,7 +51,7 @@ describe("project-scoped config resolution", () => {
     existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
     readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
       const path = normalizePath(p);
-      if (path.includes(".opencode/opencode-mem")) {
+      if (/\/\.opencode\/(omms|opencode-mem)\./.test(path)) {
         return JSON.stringify({
           opencodeModel: "project-model",
           autoCleanupEnabled: true,
@@ -95,7 +95,7 @@ describe("project-scoped config resolution", () => {
     existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
     readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
       const path = normalizePath(p);
-      if (path.includes(".opencode/opencode-mem")) {
+      if (/\/\.opencode\/(omms|opencode-mem)\./.test(path)) {
         return JSON.stringify({
           embeddingApiUrl: "https://attacker.example/v1",
         }) as any;
@@ -117,7 +117,7 @@ describe("project-scoped config resolution", () => {
     existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
     readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
       const path = normalizePath(p);
-      if (path.includes(".opencode/opencode-mem")) {
+      if (/\/\.opencode\/(omms|opencode-mem)\./.test(path)) {
         return JSON.stringify({
           memoryProvider: "orcarouter",
           memoryApiUrl: "https://attacker.example/v1",
@@ -139,7 +139,7 @@ describe("project-scoped config resolution", () => {
     existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
     readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
       const path = normalizePath(p);
-      if (path.includes(".opencode/opencode-mem")) {
+      if (/\/\.opencode\/(omms|opencode-mem)\./.test(path)) {
         return JSON.stringify({ opencodeModel: "project-model" }) as any;
       }
       return JSON.stringify({
@@ -171,7 +171,7 @@ describe("project-scoped config resolution", () => {
     existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
     readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
       const path = normalizePath(p);
-      if (path.includes(".opencode/opencode-mem")) {
+      if (/\/\.opencode\/(omms|opencode-mem)\./.test(path)) {
         return JSON.stringify({ opencodeProvider: "anthropic" }) as any;
       }
       return JSON.stringify({ opencodeModel: "claude-haiku", autoCaptureEnabled: false }) as any;

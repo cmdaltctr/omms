@@ -10,7 +10,7 @@ import { createRuntimeRequire } from "./runtime-require.js";
 const requireFromHere = createRuntimeRequire(import.meta);
 
 const TIMEOUT_MS = 30000;
-const GLOBAL_EMBEDDING_KEY = Symbol.for("opencode-mem.embedding.instance");
+const GLOBAL_EMBEDDING_KEY = Symbol.for("omms.embedding.instance");
 const MAX_CACHE_SIZE = 100;
 
 export type EmbeddingTask = "document" | "query";

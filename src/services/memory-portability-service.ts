@@ -139,7 +139,7 @@ export class MemoryPortabilityService {
       schemaVersion: PORTABILITY_SCHEMA_VERSION,
       exportedAt: new Date().toISOString(),
       plugin: {
-        package: "opencode-mem",
+        package: "omms",
         version: getPluginVersion(),
       },
       source: {
@@ -227,7 +227,7 @@ export class MemoryPortabilityService {
       return {
         success: false,
         dryRun: Boolean(options.dryRun),
-        error: `Unsupported export schemaVersion ${(parsed as { schemaVersion: number }).schemaVersion}. Upgrade opencode-mem to import this file.`,
+        error: `Unsupported export schemaVersion ${(parsed as { schemaVersion: number }).schemaVersion}. Upgrade omms to import this file.`,
       };
     }
 

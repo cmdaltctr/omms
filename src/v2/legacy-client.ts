@@ -106,14 +106,14 @@ function toastFallback(input: any): { data: false } {
   if (message) {
     const method =
       body.variant === "error" ? "error" : body.variant === "warning" ? "warn" : "info";
-    console[method](`[opencode-mem] ${message}`);
+    console[method](`[omms] ${message}`);
   }
   return { data: false };
 }
 
 /**
  * Adapts the released OpenCode v2 plugin context to the V1 client shape used
- * by the shared opencode-mem implementation.
+ * by the shared omms implementation.
  */
 export function createLegacyClient(ctx: Context) {
   const generatedSessions = new Set<string>();

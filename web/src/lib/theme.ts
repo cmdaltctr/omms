@@ -1,12 +1,14 @@
 import { useSyncExternalStore } from "react";
+import { readPreference, writePreference } from "./preferences";
 
 export type Theme = "dark" | "light";
 
-const STORAGE_KEY = "opencode-mem-theme";
+const STORAGE_KEY = "omms-theme";
+const LEGACY_STORAGE_KEY = "opencode-mem-theme";
 
 function readTheme(): Theme {
   if (typeof window === "undefined") return "dark";
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = readPreference(STORAGE_KEY, LEGACY_STORAGE_KEY);
   if (stored === "light" || stored === "dark") return stored;
   return "dark";
 }
@@ -22,7 +24,7 @@ function applyTheme(theme: Theme) {
   currentTheme = theme;
   if (typeof document !== "undefined") {
     document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem(STORAGE_KEY, theme);
+    writePreference(STORAGE_KEY, theme);
   }
   emit();
 }

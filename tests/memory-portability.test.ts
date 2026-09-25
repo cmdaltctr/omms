@@ -87,6 +87,7 @@ describe("memory export/import portability", () => {
 
     const document = JSON.parse(readFileSync(outputPath, "utf-8"));
     expect(document.schemaVersion).toBe(1);
+    expect(document.plugin.package).toBe("omms");
     expect(document.memories).toHaveLength(1);
     expect(document.memories[0].id).toBe("mem_portable");
     expect(document.memories[0].tags).toEqual(["alpha", "beta"]);

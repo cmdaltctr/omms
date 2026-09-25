@@ -4,7 +4,7 @@ export type { ApiResult };
 
 declare global {
   interface Window {
-    __OPENCODE_MEM_TOKEN__?: string;
+    __OMMS_TOKEN__?: string;
   }
 }
 
@@ -23,7 +23,7 @@ export async function fetchAPI<T = unknown>(
       ...fetchOptions,
       headers: {
         ...(extraHeaders as Record<string, string>),
-        "x-opencode-mem-token": window.__OPENCODE_MEM_TOKEN__ || "",
+        "x-omms-token": window.__OMMS_TOKEN__ || "",
       },
       signal: controller.signal,
     });

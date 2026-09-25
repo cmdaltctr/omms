@@ -29,8 +29,8 @@ function getLogDirPath(): string {
 const MAX_LOG_SIZE = 5 * 1024 * 1024;
 const MAX_LOG_DAYS = 30;
 
-const GLOBAL_LOGGER_KEY = Symbol.for("opencode-mem.logger.initialized");
-const LAST_ROTATE_DATE_KEY = Symbol.for("opencode-mem.logger.lastRotateDate");
+const GLOBAL_LOGGER_KEY = Symbol.for("omms.logger.initialized");
+const LAST_ROTATE_DATE_KEY = Symbol.for("omms.logger.lastRotateDate");
 
 function formatTimestamp(d: Date): string {
   const pad = (n: number, w = 2) => String(n).padStart(w, "0");

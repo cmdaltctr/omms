@@ -32,11 +32,28 @@ describe("web api auth", () => {
     expect(
       authorizeApiRequest(
         new Request("http://localhost/api/stats", {
+          headers: { "X-Omms-Token": token },
+        }),
+        token
+      )
+    ).toBeNull();
+    // Legacy opencode-mem header stays accepted for existing API clients.
+    expect(
+      authorizeApiRequest(
+        new Request("http://localhost/api/stats", {
           headers: { "X-Opencode-Mem-Token": token },
         }),
         token
       )
     ).toBeNull();
+    expect(
+      authorizeApiRequest(
+        new Request("http://localhost/api/stats", {
+          headers: { "X-Omms-Token": "wrong" },
+        }),
+        token
+      )?.status
+    ).toBe(401);
     expect(authorizeApiRequest(new Request("http://localhost/api/stats"), undefined)).toBeNull();
   });
 });

@@ -2,6 +2,7 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { stripJsoncComments } from "./services/jsonc.js";
+import { log } from "./services/logger.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
 import { isPlaceholderApiKey } from "./services/ai/api-key-placeholder.js";
 import {
@@ -33,7 +34,7 @@ if (!existsSync(DATA_DIR)) {
   mkdirSync(DATA_DIR, { recursive: true });
 }
 
-interface OpenCodeMemConfig {
+interface OmmsConfig {
   storagePath?: string;
   userEmailOverride?: string;
   userNameOverride?: string;
@@ -119,7 +120,7 @@ interface OpenCodeMemConfig {
 
 const DEFAULTS: Required<
   Omit<
-    OpenCodeMemConfig,
+    OmmsConfig,
     | "embeddingApiUrl"
     | "embeddingApiKey"
     | "memoryModel"
@@ -240,22 +241,28 @@ function expandPath(path: string): string {
   return path;
 }
 
-function loadConfigFromPaths(paths: string[]): OpenCodeMemConfig {
-  for (const path of paths) {
-    if (existsSync(path)) {
-      try {
-        const content = readFileSync(path, "utf-8");
-        const json = stripJsoncComments(content);
-        return JSON.parse(json) as OpenCodeMemConfig;
-      } catch {
-        // ignore unreadable or invalid config files
-      }
-    }
+/**
+ * Load the first config file that exists, in priority order. A file that
+ * exists but cannot be read or parsed is not skipped: falling through would let
+ * a lower-priority (legacy) file silently supply settings such as storagePath.
+ */
+function loadConfigFromPaths(paths: string[]): OmmsConfig {
+  const path = paths.find((candidate) => existsSync(candidate));
+  if (!path) return {};
+  try {
+    const content = readFileSync(path, "utf-8");
+    const json = stripJsoncComments(content);
+    return JSON.parse(json) as OmmsConfig;
+  } catch (error) {
+    log("Config file is invalid; using defaults instead of lower-priority files", {
+      path,
+      error: String(error),
+    });
+    return {};
   }
-  return {};
 }
 
-const GLOBAL_ONLY_REMOTE_PROVIDER_FIELDS: ReadonlyArray<keyof OpenCodeMemConfig> = [
+const GLOBAL_ONLY_REMOTE_PROVIDER_FIELDS: ReadonlyArray<keyof OmmsConfig> = [
   "embeddingApiUrl",
   "embeddingApiKey",
   "memoryProvider",
@@ -263,7 +270,7 @@ const GLOBAL_ONLY_REMOTE_PROVIDER_FIELDS: ReadonlyArray<keyof OpenCodeMemConfig>
   "memoryApiKey",
 ];
 
-function assertProjectRemoteProviderConfigIsSafe(projectConfig: OpenCodeMemConfig): void {
+function assertProjectRemoteProviderConfigIsSafe(projectConfig: OmmsConfig): void {
   const configuredFields = GLOBAL_ONLY_REMOTE_PROVIDER_FIELDS.filter((field) =>
     Object.prototype.hasOwnProperty.call(projectConfig, field)
   );
@@ -667,7 +674,7 @@ export function normalizeAutoCleanupRetentionDays(value: number): number {
   return value;
 }
 
-function buildConfig(fileConfig: OpenCodeMemConfig) {
+function buildConfig(fileConfig: OmmsConfig) {
   const memoryApiKey = resolveSecretValue(fileConfig.memoryApiKey);
   const embeddingDimensions =
     fileConfig.embeddingDimensions ??
@@ -821,7 +828,7 @@ function buildConfig(fileConfig: OpenCodeMemConfig) {
 }
 
 const _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
-let lastFileConfig: OpenCodeMemConfig = _globalFileConfig;
+let lastFileConfig: OmmsConfig = _globalFileConfig;
 export let CONFIG = buildConfig(_globalFileConfig);
 
 type RuntimeConfig = ReturnType<typeof buildConfig>;
@@ -890,7 +897,10 @@ export function hasAutoCaptureProviderConfig(config: RuntimeConfig = CONFIG): bo
 }
 
 export function initConfig(directory: string): void {
+  // omms project overrides win; the legacy opencode-mem file is still read.
   const projectPaths = [
+    join(directory, ".opencode", "omms.jsonc"),
+    join(directory, ".opencode", "omms.json"),
     join(directory, ".opencode", "opencode-mem.jsonc"),
     join(directory, ".opencode", "opencode-mem.json"),
   ];
@@ -900,7 +910,7 @@ export function initConfig(directory: string): void {
   const projectOverrides = { ...projectConfig };
   delete projectOverrides.autoCleanupEnabled;
   delete projectOverrides.autoCleanupRetentionDays;
-  const merged: OpenCodeMemConfig = { ...globalConfig, ...projectOverrides };
+  const merged: OmmsConfig = { ...globalConfig, ...projectOverrides };
   lastFileConfig = merged;
   CONFIG = buildConfig(merged);
 }

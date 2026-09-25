@@ -179,7 +179,7 @@ describe("structured-output agent config (issue #189)", () => {
 
     expect(cfg.agent?.build).toEqual({ mode: "primary" });
     expect(cfg.agent?.[STRUCTURED_OUTPUT_AGENT]).toEqual({
-      description: "Internal least-privilege agent for opencode-mem structured output",
+      description: "Internal least-privilege agent for omms structured output",
       mode: "subagent",
       steps: 2,
       maxSteps: 2,

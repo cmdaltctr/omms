@@ -30,7 +30,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const tmpDir = ${JSON.stringify(dir)};
-const WARMUP_KEY = Symbol.for("opencode-mem.plugin.warmedup");
+const WARMUP_KEY = Symbol.for("omms.plugin.warmedup");
 mkdirSync(join(tmpDir, ".opencode"), { recursive: true });
 writeFileSync(
   join(tmpDir, ".opencode", "opencode-mem.json"),
@@ -131,8 +131,8 @@ mock.module(${JSON.stringify(clientUrl)}, async () => ({
 }));
 
 globalThis[WARMUP_KEY] = true;
-const { OpenCodeMemPlugin } = await import(${JSON.stringify(indexUrl)});
-const plugin = await OpenCodeMemPlugin({
+const { OmmsPlugin } = await import(${JSON.stringify(indexUrl)});
+const plugin = await OmmsPlugin({
   directory: tmpDir,
   worktree: tmpDir,
   project: { id: "test-project" },

@@ -1,6 +1,6 @@
 # Shared Memory Core Boundary
 
-`opencode-mem` runs one memory engine behind two host adapters: the OpenCode
+`omms` runs one memory engine behind two host adapters: the OpenCode
 plugin and the Pi coding-agent extension. This document defines the boundary,
 the dependency rules, and the compatibility guarantee for existing data.
 
@@ -89,8 +89,11 @@ Phase 1 preserved, and later phases must preserve:
    metadata and never gates retrieval.
 3. No re-embedding is required to upgrade. Schema changes must be additive
    and idempotent on open.
-4. The OpenCode plugin entry points (`src/index.ts`, `src/v2/adapter.ts`)
-   keep their existing behaviour; the v2 bridge routes through the shared
+4. The OpenCode v1 entry point (`src/index.ts`) keeps its existing behaviour.
+   The v2 entry (`src/v2/adapter.ts`) uses native v2 session hooks: per-prompt
+   retrieval through the shared `src/core/retrieval.ts` (the same code Pi
+   uses) and compaction restore through the `compaction` hook. The memory
+   tool, idle capture, and profile learning still route through the shared
    operations layer.
 
 ## Adding a new host adapter
