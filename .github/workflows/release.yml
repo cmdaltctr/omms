@@ -28,6 +28,9 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
       version: ${{ steps.release.outputs.version }}
+      # The tagged commit. It can be older than this run's push when the
+      # release is created on a later run, so build and publish exactly it.
+      sha: ${{ steps.release.outputs.sha }}
     steps:
       # A GitHub App token (not GITHUB_TOKEN) so release pull requests trigger
       # the required Quality checks and can be merged.
@@ -49,6 +52,8 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     uses: ./.github/workflows/platform-smoke.yml
+    with:
+      ref: ${{ needs.release-please.outputs.sha }}
     permissions:
       contents: read
 
@@ -66,6 +71,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ needs.release-please.outputs.sha }}
           persist-credentials: false
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
