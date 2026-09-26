@@ -7,8 +7,10 @@ import { ImportLedger, PiImportLedger } from "../src/importer/ledger.js";
 import { tursoConnectionManager } from "../src/services/turso/connection-manager.js";
 
 const storage = mkdtempSync(join(tmpdir(), "omms-import-ledger-"));
+const previousStorage = CONFIG.storagePath;
 afterEach(async () => {
   await tursoConnectionManager.closeConnection(join(storage, "import-ledger.db"));
+  CONFIG.storagePath = previousStorage;
   rmSync(storage, { recursive: true, force: true });
 });
 

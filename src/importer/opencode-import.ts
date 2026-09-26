@@ -48,11 +48,12 @@ export async function importOpencodeHistory(
     throw new Error("OpenCode history import needs a profile model");
   }
   const dbPath = options.dbPath ?? join(homedir(), ".local/share/opencode/opencode.db");
+  // Resolve the filter before opening the reader: the reader only closes once iterated.
+  const projectTag = options.project ? getTags(options.project).project.tag : null;
   const reader = readOpencodeHistory(dbPath, options);
   const unresolved = new Map<string, UnresolvedProject>();
   const sessions: OpencodeSourceSession[] = [];
   const projects = new Map<string, ImportProjectReport & { sessionIds: Set<string> }>();
-  const projectTag = options.project ? getTags(options.project).project.tag : null;
   let filtered = 0;
   for await (const session of resolveOpencodeSessions(
     reader.sessions,

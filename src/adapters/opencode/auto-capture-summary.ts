@@ -197,10 +197,8 @@ export async function generateOpenCodeAutoCaptureSummary(
     log("OpenCode capture: model reply was not a valid capture summary", {
       provider: CONFIG.memoryProvider,
       modelId: CONFIG.memoryModel,
-      reply: (CONFIG.memoryApiKey
-        ? rawReply.replaceAll(CONFIG.memoryApiKey, "[redacted]")
-        : rawReply
-      ).slice(0, 500),
+      // The reply can carry conversation content, so log only its size.
+      replyLength: rawReply.length,
     });
     throw new Error("omms: OpenCode extraction returned an invalid summary payload");
   }

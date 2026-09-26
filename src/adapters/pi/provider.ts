@@ -130,10 +130,8 @@ export function createPiCaptureProvider(resolveModel: () => PiModelHandle | null
         log("Pi capture: model reply was not a valid capture summary", {
           provider: model.provider,
           modelId: model.modelId,
-          reply: (CONFIG.memoryApiKey
-            ? rawReply.replaceAll(CONFIG.memoryApiKey, "[redacted]")
-            : rawReply
-          ).slice(0, 500),
+          // The reply can carry conversation content, so log only its size.
+          replyLength: rawReply.length,
         });
         throw new Error("omms: Pi extraction returned an invalid summary payload");
       }

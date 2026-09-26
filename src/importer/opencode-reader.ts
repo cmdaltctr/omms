@@ -1,4 +1,6 @@
-import { existsSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import type { ImportSourceSession, ImportWindow } from "./importer.js";
@@ -151,14 +153,63 @@ function buildWindows(
   return units;
 }
 
+function fileStamp(path: string): string {
+  const info = statSync(path, { bigint: true });
+  return `${info.size}:${info.mtimeNs}`;
+}
+
+/**
+ * Copy the database and its WAL into a private folder. `immutable=1` ignores
+ * the WAL, and a normal open writes to OpenCode's `-shm`, so a copy is the only
+ * way to see uncheckpointed turns while leaving every source file untouched.
+ * A copy that raced a write or checkpoint is discarded and retried.
+ */
+function snapshotWalDatabase(dbPath: string): { path: string; cleanup: () => void } {
+  const dir = mkdtempSync(join(tmpdir(), "omms-opencode-"));
+  const cleanup = () => rmSync(dir, { recursive: true, force: true });
+  const copy = join(dir, "opencode.db");
+  try {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const before = [fileStamp(dbPath), fileStamp(`${dbPath}-wal`)];
+      copyFileSync(dbPath, copy);
+      copyFileSync(`${dbPath}-wal`, `${copy}-wal`);
+      const after = [fileStamp(dbPath), fileStamp(`${dbPath}-wal`)];
+      if (before[0] === after[0] && before[1] === after[1]) return { path: copy, cleanup };
+    }
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
+  cleanup();
+  throw new Error("OpenCode database kept changing while it was copied; retry the import");
+}
+
+function openSnapshot(dbPath: string): { db: DatabaseSync; cleanup: () => void } {
+  if (!existsSync(`${dbPath}-wal`)) {
+    // No WAL: every committed page is in the main file, so read it in place.
+    const uri = `${pathToFileURL(dbPath).href}?immutable=1`;
+    return { db: new DatabaseSync(uri, { readOnly: true }), cleanup: () => {} };
+  }
+  const snapshot = snapshotWalDatabase(dbPath);
+  try {
+    return { db: new DatabaseSync(snapshot.path), cleanup: snapshot.cleanup };
+  } catch (error) {
+    snapshot.cleanup();
+    throw error;
+  }
+}
+
 /** Read V1 OpenCode history without changing its database or WAL sidecars. */
 export function readOpencodeHistory(
   dbPath: string,
   filters: OpencodeReaderFilters = {}
 ): OpencodeReader {
   if (!existsSync(dbPath)) throw new Error(`OpenCode database not found: ${dbPath}`);
-  const uri = `${pathToFileURL(dbPath).href}?immutable=1`;
-  const db = new DatabaseSync(uri, { readOnly: true });
+  const { db, cleanup } = openSnapshot(dbPath);
+  const close = () => {
+    db.close();
+    cleanup();
+  };
   try {
     validateSchema(db);
     const childSessions = Number(
@@ -197,13 +248,13 @@ export function readOpencodeHistory(
             };
           }
         } finally {
-          db.close();
+          close();
         }
       },
     };
     return { childSessions, topLevelSessions, sessions };
   } catch (error) {
-    db.close();
+    close();
     throw error;
   }
 }

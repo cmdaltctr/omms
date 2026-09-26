@@ -419,18 +419,25 @@ export async function importPiHistory(
     }
   }
 
-  await importHistorySource(
-    candidates.map(({ session, directory, window }) => ({
-      sessionId: session.sessionId,
-      directory,
-      sourceFile: session.sourceFile,
-      units: [window],
-    })),
-    "pi",
-    deps,
-    filters,
-    report
-  );
+  // One source session per Pi session, so tags resolve once rather than per window.
+  const grouped = new Map<string, ImportSourceSession>();
+  for (const { session, directory, window } of candidates) {
+    const key = `${session.sessionId}\0${session.sourceFile}`;
+    const entry = grouped.get(key);
+    if (entry) {
+      entry.units.push(window);
+    } else {
+      grouped.set(key, {
+        sessionId: session.sessionId,
+        directory,
+        sourceFile: session.sourceFile,
+        units: [window],
+      });
+    }
+  }
+  const sourceSessions = [...grouped.values()];
+
+  await importHistorySource(sourceSessions, "pi", deps, filters, report);
 
   report.projects = [...projectAggregates.values()].map((aggregate) => ({
     tag: aggregate.tag,
@@ -442,15 +449,12 @@ export async function importPiHistory(
 
   if (deps.profile) {
     const { importProfileFromHistory } = await import("./profile-import.js");
-    report.profile = await importProfileFromHistory(
-      candidates.map(({ session, directory, window }) => ({
-        sessionId: session.sessionId,
-        directory,
-        sourceFile: session.sourceFile,
-        units: [window],
-      })),
-      { host: "pi", dryRun, model: deps.profile.model, batchSize: deps.profile.batchSize }
-    );
+    report.profile = await importProfileFromHistory(sourceSessions, {
+      host: "pi",
+      dryRun,
+      model: deps.profile.model,
+      batchSize: deps.profile.batchSize,
+    });
   }
 
   return report;

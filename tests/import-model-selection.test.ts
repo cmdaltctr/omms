@@ -73,6 +73,9 @@ it("overrides the import model for both steps without changing configuration or 
       JSON.stringify({ provider: selected.provider, modelId: selected.modelId })
     ).not.toContain(secret);
     expect(() => selectImportModel({ model: "" })).toThrow("Missing memoryModel");
+    expect(() =>
+      selectImportModel({ provider: "anthropic", apiKeyEnv: "OMMS_TEST_IMPORT_KEY" })
+    ).toThrow("--api-url is required");
     expect(calls).toHaveLength(1);
   } finally {
     Object.assign(CONFIG, previous);

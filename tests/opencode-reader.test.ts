@@ -1,6 +1,7 @@
 import { expect, it } from "bun:test";
 import { DatabaseSync } from "node:sqlite";
-import { mkdtempSync, rmSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readOpencodeHistory } from "../src/importer/opencode-reader.js";
@@ -128,5 +129,44 @@ it("resolves deleted worktrees, maps, root worktrees, and groups unresolved coun
     expect(unresolved.get(missing)).toMatchObject({ sessions: 2, units: 4 });
   } finally {
     rmSync(data.directory, { recursive: true, force: true });
+  }
+});
+
+it("reads a session that exists only in the WAL and leaves the source files unchanged", async () => {
+  const { path, directory } = fixture();
+  const writer = new DatabaseSync(path);
+  try {
+    writer.exec(
+      "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0; PRAGMA wal_checkpoint(TRUNCATE);"
+    );
+    writer
+      .prepare("INSERT INTO session VALUES (?, ?, ?, ?, ?)")
+      .run("live", "p", null, directory, 40);
+    writer
+      .prepare("INSERT INTO message VALUES (?, ?, ?, ?)")
+      .run("lu", "live", 41, JSON.stringify({ role: "user" }));
+    writer
+      .prepare("INSERT INTO part VALUES (?, ?, ?, ?, ?)")
+      .run("lu-0", "lu", "live", 41, JSON.stringify({ type: "text", text: "Only in WAL" }));
+    writer
+      .prepare("INSERT INTO message VALUES (?, ?, ?, ?)")
+      .run("la", "live", 42, JSON.stringify({ role: "assistant" }));
+    const checksum = (file: string) =>
+      createHash("sha256").update(readFileSync(file)).digest("hex");
+    const sidecars = ["", "-wal", "-shm"].map((suffix) => path + suffix);
+    expect(sidecars.every((file) => existsSync(file))).toBe(true);
+    const before = sidecars.map(checksum);
+
+    const reader = readOpencodeHistory(path, { session: "live" });
+    const sessions = [];
+    for await (const session of reader.sessions) sessions.push(session);
+
+    expect(sessions.map((session) => session.units.map((unit) => unit.userPrompt))).toEqual([
+      ["Only in WAL"],
+    ]);
+    expect(sidecars.map(checksum)).toEqual(before);
+  } finally {
+    writer.close();
+    rmSync(directory, { recursive: true, force: true });
   }
 });

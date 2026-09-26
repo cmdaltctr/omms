@@ -34,6 +34,24 @@ it("parses import flags and rejects invalid limits", () => {
   );
 });
 
+it("treats a date-only --until as the end of that day", () => {
+  const dateOnly = parseImportArgs([
+    "import-opencode-history",
+    "--since",
+    "2026-03-31",
+    "--until",
+    "2026-03-31",
+  ]).options;
+  expect(dateOnly.since).toBe(Date.parse("2026-03-31T00:00:00.000Z"));
+  expect(dateOnly.until).toBe(Date.parse("2026-03-31T23:59:59.999Z"));
+  const exact = parseImportArgs([
+    "import-opencode-history",
+    "--until",
+    "2026-03-31T12:00:00Z",
+  ]).options;
+  expect(exact.until).toBe(Date.parse("2026-03-31T12:00:00Z"));
+});
+
 it("prints help and exact dry-run counts without creating a memory store", () => {
   const root = mkdtempSync(join(tmpdir(), "omms-cli-"));
   try {

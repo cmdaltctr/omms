@@ -31,7 +31,7 @@ const { generateOpenCodeAutoCaptureSummary } =
   await import("../src/adapters/opencode/auto-capture-summary.js");
 
 describe("invalid capture reply logging", () => {
-  it("limits the reply to 500 characters and removes the API key", async () => {
+  it("logs only the reply length, never its content or the API key", async () => {
     logged.length = 0;
     const provider = createPiCaptureProvider(() => ({
       provider: "test",
@@ -43,12 +43,13 @@ describe("invalid capture reply logging", () => {
     await expect(provider.summarize({ userPrompt: "hi", context: "hi" } as never)).rejects.toThrow(
       "invalid summary"
     );
-    expect(logged[0]).toMatchObject({ provider: "test", modelId: "example" });
-    expect(String(logged[0]?.reply).length).toBe(500);
+    expect(logged[0]).toMatchObject({ provider: "test", modelId: "example", replyLength: 572 });
+    expect(logged[0]).not.toHaveProperty("reply");
+    expect(JSON.stringify(logged)).not.toContain("xxxx");
     expect(JSON.stringify(logged)).not.toContain(secret);
   });
 
-  it("logs the invalid OpenCode fallback reply without leaking the key", async () => {
+  it("logs only the invalid OpenCode reply length without leaking content", async () => {
     logged.length = 0;
     await expect(
       generateOpenCodeAutoCaptureSummary({
@@ -58,7 +59,9 @@ describe("invalid capture reply logging", () => {
       } as never)
     ).rejects.toThrow("invalid summary");
     expect(logged[0]).toMatchObject({ provider: "openai-chat", modelId: "example" });
-    expect(String(logged[0]?.reply).length).toBe(500);
+    expect(logged[0]?.replyLength).toBeGreaterThan(500);
+    expect(logged[0]).not.toHaveProperty("reply");
+    expect(JSON.stringify(logged)).not.toContain("xxxx");
     expect(JSON.stringify(logged)).not.toContain(secret);
   });
 });

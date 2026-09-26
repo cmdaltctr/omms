@@ -29,6 +29,12 @@ export interface SelectedImportModel {
 /** Merge import-only model settings without changing the saved omms config. */
 export function selectImportModel(flags: ImportModelFlags): SelectedImportModel {
   const providerName = flags.provider ?? CONFIG.memoryProvider;
+  // The saved URL belongs to the saved provider; never send a request for another one there.
+  const providerOverridden =
+    flags.provider !== undefined && flags.provider !== CONFIG.memoryProvider;
+  if (providerOverridden && !flags.apiUrl && providerName !== "orcarouter") {
+    throw new Error("--api-url is required when --provider differs from memoryProvider");
+  }
   const modelId = flags.model ?? CONFIG.memoryModel;
   const apiUrl = flags.apiUrl ?? CONFIG.memoryApiUrl;
   const key = flags.apiKeyEnv

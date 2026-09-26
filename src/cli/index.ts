@@ -36,11 +36,12 @@ function positiveInt(value: string | undefined, flag: string): number | undefine
   return parsed;
 }
 
-function date(value: string | undefined, flag: string): number | undefined {
+function date(value: string | undefined, flag: string, endOfDay = false): number | undefined {
   if (!value) return undefined;
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) throw new Error(`${flag} needs a valid ISO date`);
-  return parsed;
+  // A bare YYYY-MM-DD parses to UTC midnight; an inclusive end date covers that whole day.
+  return endOfDay && /^\d{4}-\d{2}-\d{2}$/.test(value) ? parsed + 86_399_999 : parsed;
 }
 
 export function parseImportArgs(argv: string[]): {
@@ -83,7 +84,7 @@ export function parseImportArgs(argv: string[]): {
     dryRun: Boolean(values["dry-run"]),
     ...(values.db ? { dbPath: resolve(values.db) } : {}),
     ...(values.since ? { since: date(values.since, "--since") } : {}),
-    ...(values.until ? { until: date(values.until, "--until") } : {}),
+    ...(values.until ? { until: date(values.until, "--until", true) } : {}),
     ...(values.session ? { session: values.session } : {}),
     ...(values.project ? { project: resolve(values.project) } : {}),
     ...(values["max-sessions"]

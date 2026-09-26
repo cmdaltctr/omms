@@ -1,6 +1,6 @@
 # Import OpenCode history
 
-Import past OpenCode V1 conversations into OMMS memories and the user profile. The importer reads OpenCode's SQLite database without changing it. OpenCode can stay open.
+Import past OpenCode V1 conversations into OMMS memories and the user profile. The importer reads OpenCode's SQLite database without changing it. OpenCode can stay open. When the database has a write-ahead log, the importer reads a temporary copy of the database and its log, so recent turns are included, and deletes the copy when it finishes.
 
 ## Quick start
 
