@@ -122,7 +122,10 @@ import guides, and the [CLI reference](docs/cli.md).
 Pi shows a notice when a new version is out; update with
 `pi update npm:om-memory-system`. On OpenCode v2, run `opencode plugin check`
 and `opencode plugin update om-memory-system`. Restart the agent afterwards.
-Coming from `opencode-mem`? Your memories move over automatically, with a
+To stay on one version, install it with the number, for example
+`pi install npm:om-memory-system@3.1.1` or
+`opencode plugin add om-memory-system@3.1.1`; a pinned install is never
+updated. Coming from `opencode-mem`? Your memories move over automatically, with a
 backup first. See [Updating and upgrading](docs/upgrading.md) and
 [CHANGELOG.md](CHANGELOG.md).
 
