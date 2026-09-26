@@ -9,7 +9,11 @@ import {
   tokenizeImportArgs,
   type HistoryImportArgs,
 } from "../../importer/import-args.js";
-import { formatHistoryImportReport, runHistoryImport } from "../../importer/run-import.js";
+import {
+  formatHistoryImportReport,
+  summarizeHistoryImportReport,
+  runHistoryImport,
+} from "../../importer/run-import.js";
 import { createPiCaptureProvider, resolveImportModel } from "./provider.js";
 import { adaptPiProfileModel } from "./profile.js";
 
@@ -123,7 +127,7 @@ export function registerPiHistoryImportCommand(
           },
         });
 
-        log("Pi history import report", { report });
+        log("Pi history import report", summarizeHistoryImportReport(report));
         notify(
           formatHistoryImportReport(
             "pi",

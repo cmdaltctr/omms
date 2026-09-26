@@ -32,7 +32,10 @@ mock.module("../src/services/turso/ready.js", () => ({
   ensureTursoReady: async () => {},
   resetTursoReady: () => {},
 }));
-mock.module("../src/services/logger.js", () => ({ log: () => {} }));
+const logged: unknown[] = [];
+mock.module("../src/services/logger.js", () => ({
+  log: (_message: string, details?: unknown) => logged.push(details),
+}));
 
 const structuredCalls: Array<{ providerID: string; modelID: string }> = [];
 const connected = new Set(["zai", "other"]);
@@ -208,6 +211,15 @@ describe("OpenCode session import command", () => {
     expect(text).toContain("model: zai/session-model");
     expect(text).toContain("1 skipped");
     expect(structuredCalls).toEqual([{ providerID: "zai", modelID: "session-model" }]);
+  });
+
+  it("logs report counts but never prompt text", async () => {
+    const data = fixture();
+    await useStore(data.root);
+    logged.length = 0;
+    await run(`--db ${data.dbPath} --dry-run`, data.project);
+    expect(logged).toContainEqual(expect.objectContaining({ unitsWouldImport: 1 }));
+    expect(JSON.stringify(logged)).not.toContain("Fix the importer");
   });
 
   it("uses --model provider/id instead of the session model when given", async () => {

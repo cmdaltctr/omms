@@ -137,6 +137,34 @@ export function formatHistoryImportReport(
   return lines.join("\n");
 }
 
+/** Counts and identifiers for the log. Unit previews hold prompt text, so they stay out. */
+export function summarizeHistoryImportReport(report: HistoryImportReport) {
+  return {
+    dryRun: report.dryRun,
+    sessionsDiscovered: report.sessionsDiscovered,
+    sessionsLoaded: report.sessionsLoaded,
+    sessionsFilteredOut: report.sessionsFilteredOut,
+    unitsTotal: report.unitsTotal,
+    unitsImported: report.unitsImported,
+    unitsWouldImport: report.unitsWouldImport,
+    unitsSkipped: report.unitsSkipped,
+    unitsFailed: report.unitsFailed,
+    unitsAlreadyHandled: report.unitsAlreadyHandled,
+    projects: report.projects.length,
+    unresolved: (report.unresolvedProjects?.length ?? 0) + report.unresolvableSessions.length,
+    loadErrors: report.loadErrors.length,
+    profile: report.profile
+      ? {
+          promptsRecorded: report.profile.promptsRecorded,
+          promptsWouldRecord: report.profile.promptsWouldRecord,
+          batchesBuilt: report.profile.batchesBuilt,
+          remaining: report.profile.remaining,
+          failed: Boolean(report.profile.error),
+        }
+      : undefined,
+  };
+}
+
 /** A failed unit or profile step makes the whole run unsuccessful. */
 export function historyImportFailed(report: HistoryImportReport): boolean {
   return report.unitsFailed > 0 || Boolean(report.profile?.error);

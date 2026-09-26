@@ -10,6 +10,7 @@ import {
 } from "../../importer/import-args.js";
 import {
   formatHistoryImportReport,
+  summarizeHistoryImportReport,
   runHistoryImport,
   type HistoryImportModels,
 } from "../../importer/run-import.js";
@@ -161,7 +162,7 @@ export async function runOpencodeImportCommand(input: OpencodeImportCommandInput
         }
       },
     });
-    log("OpenCode history import report", { report });
+    log("OpenCode history import report", summarizeHistoryImportReport(report));
     return formatHistoryImportReport(
       "opencode",
       report,
