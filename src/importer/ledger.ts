@@ -96,6 +96,20 @@ export class ImportLedger {
     return row ? rowToEntry(row) : null;
   }
 
+  /**
+   * Read-only lookup for dry runs: never creates the table or its indexes.
+   * A ledger file without the table reads as empty.
+   */
+  async peek(key: string): Promise<ImportLedgerRow | null> {
+    const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
+    const table = await db.get(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'import_ledger'`
+    );
+    if (!table) return null;
+    const row = await db.get(`SELECT * FROM import_ledger WHERE key = ?`, [key]);
+    return row ? rowToEntry(row) : null;
+  }
+
   async countByStatus(): Promise<Record<string, number>> {
     const db = await this.db();
     const rows = await db.all(

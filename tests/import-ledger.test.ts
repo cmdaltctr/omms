@@ -28,3 +28,38 @@ it("round-trips an OpenCode key through the shared ledger", async () => {
     memoryId: "memory-1",
   });
 });
+
+it("peeks without creating the ledger schema", async () => {
+  CONFIG.storagePath = storage;
+  const path = join(storage, "import-ledger.db");
+  const db = await tursoConnectionManager.getConnection(path);
+  await db.run("CREATE TABLE unrelated (id INTEGER)");
+  const tables = async () =>
+    (await db.all("SELECT name FROM sqlite_master ORDER BY name")).map((row) => String(row.name));
+
+  expect(await new ImportLedger().peek("opencode:s:u:a#profile")).toBeNull();
+  expect(await tables()).toEqual(["unrelated"]);
+
+  const { importProfileFromHistory } = await import("../src/importer/profile-import.js");
+  const report = await importProfileFromHistory(
+    [
+      {
+        sessionId: "s",
+        directory: storage,
+        sourceFile: "opencode.db",
+        units: [
+          {
+            userEntryId: "u",
+            userPrompt: "Fix the importer",
+            textResponses: ["Done"],
+            toolCalls: [],
+            sourceEntryIds: ["a"],
+          },
+        ],
+      },
+    ],
+    { host: "opencode", dryRun: true }
+  );
+  expect(report.promptsWouldRecord).toBe(1);
+  expect(await tables()).toEqual(["unrelated"]);
+});

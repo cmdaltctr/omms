@@ -202,7 +202,8 @@ export async function importHistorySource(
   const ledger = deps.ledger ?? new PiImportLedger();
   const ledgerFileExists = existsSync(importLedgerDbPath());
   const ledgerAccessible = !dryRun || ledgerFileExists;
-  if (ledgerAccessible) await ledger.get("__warmup__");
+  // A dry run only reads the ledger (peek), so it never writes its schema.
+  if (!dryRun) await ledger.get("__warmup__");
 
   if (!dryRun) {
     const embeddingInitError = memoryClient.getEmbeddingInitError?.();
@@ -241,7 +242,11 @@ export async function importHistorySource(
       status: "would-import",
     };
 
-    const existing: ImportLedgerRow | null = ledgerAccessible ? await ledger.get(key) : null;
+    const existing: ImportLedgerRow | null = !ledgerAccessible
+      ? null
+      : dryRun
+        ? await ledger.peek(key)
+        : await ledger.get(key);
 
     const terminalHandled =
       existing &&

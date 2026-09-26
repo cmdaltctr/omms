@@ -30,7 +30,8 @@ type ProfileStore = Pick<
   typeof userProfileManager,
   "getActiveProfile" | "createProfile" | "updateProfile"
 >;
-type Ledger = Pick<ImportLedger, "get" | "begin" | "complete">;
+type Ledger = Pick<ImportLedger, "get" | "begin" | "complete"> &
+  Partial<Pick<ImportLedger, "peek">>;
 
 export interface ProfileImportOptions {
   host: MemoryHost;
@@ -81,7 +82,11 @@ export async function importProfileFromHistory(
       if (!key) continue;
       directory ??= session.directory;
       const profileKey = `${key}#profile`;
-      const existing = ledgerReadable ? await ledger.get(profileKey) : null;
+      const existing = !ledgerReadable
+        ? null
+        : options.dryRun && ledger.peek
+          ? await ledger.peek(profileKey)
+          : await ledger.get(profileKey);
       if (existing?.status === "imported") {
         report.promptsAlreadyHandled++;
         continue;
