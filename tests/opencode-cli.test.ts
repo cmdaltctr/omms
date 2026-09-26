@@ -4,6 +4,18 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseImportArgs } from "../src/cli/index.js";
+import { withSqliteFileLockRetry } from "../src/services/turso/sqlite-handle-release.js";
+import { isExhaustedWindowsLock } from "./turso-test-utils.js";
+
+/** Windows can hold a file briefly after the CLI child exits; retry, then leave the temp dir. */
+async function removeTempDir(dir: string): Promise<void> {
+  try {
+    await withSqliteFileLockRetry(() => rmSync(dir, { recursive: true, force: true }), 1);
+  } catch (error) {
+    if (!isExhaustedWindowsLock(error)) throw error;
+    console.warn(`opencode-cli.test: could not remove ${dir}`, error);
+  }
+}
 
 it("parses the shared import flags for both hosts and rejects invalid limits", () => {
   const { host, args } = parseImportArgs([
@@ -55,7 +67,7 @@ it("treats a date-only --until as the end of that day", () => {
   expect(exact.until).toBe(Date.parse("2026-03-31T12:00:00Z"));
 });
 
-it("prints help and exact dry-run counts without creating a memory store", () => {
+it("prints help and exact dry-run counts without creating a memory store", async () => {
   const root = mkdtempSync(join(tmpdir(), "omms-cli-"));
   try {
     const dbPath = join(root, "history.db");
@@ -131,7 +143,7 @@ it("prints help and exact dry-run counts without creating a memory store", () =>
     expect(badProvider.exitCode).not.toBe(0);
     expect(badProvider.stdout.toString() + badProvider.stderr.toString()).not.toContain(secret);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await removeTempDir(root);
   }
 });
 
@@ -161,11 +173,11 @@ it("previews Pi history from the CLI with the same options", async () => {
     expect(output).toContain("profile prompts: 1 pending");
     expect(existsSync(join(root, ".omms", "data"))).toBe(false);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await removeTempDir(root);
   }
 });
 
-it("runs the installed bin through a node_modules/.bin symlink under Node", () => {
+it("runs the installed bin through a node_modules/.bin symlink under Node", async () => {
   const root = mkdtempSync(join(tmpdir(), "omms-cli-symlink-"));
   try {
     const cli = join(import.meta.dir, "../dist/cli/index.js");
@@ -180,6 +192,6 @@ it("runs the installed bin through a node_modules/.bin symlink under Node", () =
     expect(help.stdout.toString()).toContain("import-opencode-history");
     expect(help.stdout.toString()).toContain("--api-key-env");
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await removeTempDir(root);
   }
 });
