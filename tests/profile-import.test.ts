@@ -163,7 +163,7 @@ it("stops after two failed batch attempts and reports the remaining count", asyn
   }
 });
 
-it("dry-run never touches stores or the model", async () => {
+it("dry-run never writes stores or calls the model", async () => {
   const state = setup();
   try {
     const result = await importProfileFromHistory(state.source, {
@@ -171,8 +171,12 @@ it("dry-run never touches stores or the model", async () => {
       dryRun: true,
       model: undefined,
       ledger: {
-        get: async () => {
-          throw new Error("ledger touched");
+        get: async () => null,
+        begin: async () => {
+          throw new Error("ledger written");
+        },
+        complete: async () => {
+          throw new Error("ledger written");
         },
       },
       promptStore: {
@@ -183,6 +187,26 @@ it("dry-run never touches stores or the model", async () => {
     } as never);
     expect(result.promptsWouldRecord).toBe(1);
     expect(state.rows).toHaveLength(0);
+    expect(state.modelCalls()).toBe(0);
+  } finally {
+    state.cleanup();
+  }
+});
+
+it("dry-run counts prompts the ledger already imported as done, not pending", async () => {
+  const state = setup();
+  try {
+    const result = await importProfileFromHistory(state.source, {
+      ...state.options,
+      dryRun: true,
+      model: undefined,
+      ledger: {
+        get: async (key: string) =>
+          key === "opencode:s:u:a#profile" ? { status: "imported" } : null,
+      },
+    } as never);
+    expect(result.promptsWouldRecord).toBe(0);
+    expect(result.promptsAlreadyHandled).toBe(1);
     expect(state.modelCalls()).toBe(0);
   } finally {
     state.cleanup();

@@ -6,7 +6,8 @@ import { userProfileManager } from "../services/user-profile/user-profile-manage
 import { userPromptManager } from "../services/user-prompt/user-prompt-manager.js";
 import type { MemoryHost } from "../types/index.js";
 import { buildImportKey, type ImportSourceSession } from "./importer.js";
-import { ImportLedger } from "./ledger.js";
+import { existsSync } from "node:fs";
+import { ImportLedger, importLedgerDbPath } from "./ledger.js";
 
 export interface ProfileImportReport {
   promptsRecorded: number;
@@ -59,6 +60,9 @@ export async function importProfileFromHistory(
     remaining: 0,
   };
   const ledger = options.ledger ?? new ImportLedger();
+  // A dry run reads the ledger only when it exists, so a preview never creates it.
+  const ledgerReadable =
+    !options.dryRun || Boolean(options.ledger) || existsSync(importLedgerDbPath());
   const prompts = options.promptStore ?? userPromptManager;
   const profiles = options.profileStore ?? userProfileManager;
   let directory: string | undefined;
@@ -76,14 +80,14 @@ export async function importProfileFromHistory(
       const key = buildImportKey(session.sessionId, unit, options.host);
       if (!key) continue;
       directory ??= session.directory;
-      if (options.dryRun) {
-        report.promptsWouldRecord++;
-        continue;
-      }
       const profileKey = `${key}#profile`;
-      const existing = await ledger.get(profileKey);
+      const existing = ledgerReadable ? await ledger.get(profileKey) : null;
       if (existing?.status === "imported") {
         report.promptsAlreadyHandled++;
+        continue;
+      }
+      if (options.dryRun) {
+        report.promptsWouldRecord++;
         continue;
       }
       await ledger.begin({
