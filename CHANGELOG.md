@@ -2,6 +2,15 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [3.1.1](https://github.com/cmdaltctr/omms/compare/v3.1.0...v3.1.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* **import:** never fail an OpenCode import on Windows temp-copy cleanup ([007c28e](https://github.com/cmdaltctr/omms/commit/007c28e7c76870e18de4b9c9359762ebf202c4e7))
+* **test:** tolerate late Windows file locks when removing CLI temp dirs ([d2e4c45](https://github.com/cmdaltctr/omms/commit/d2e4c45d7a569d5259a59b896213d2fc0a3e7b59))
+* **test:** tolerate late Windows file locks when removing CLI temp dirs ([a9e2c57](https://github.com/cmdaltctr/omms/commit/a9e2c57f8227a0006d8c5cadeba565918fce7e01))
+
 ## [3.1.0](https://github.com/cmdaltctr/omms/compare/v3.0.0...v3.1.0) (2026-09-26)
 
 
