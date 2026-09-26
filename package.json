@@ -1,6 +1,6 @@
 {
   "name": "om-memory-system",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "Opinionated modular memory system for coding agents (OpenCode + Pi)",
   "type": "module",
   "main": "dist/plugin.js",
