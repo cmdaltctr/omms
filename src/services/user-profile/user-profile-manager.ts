@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { tursoConnectionManager } from "../turso/connection-manager.js";
 import type { TursoDb } from "../turso/turso-db.js";
 import { CONFIG } from "../../config.js";
+import { resolveOpencodeHostModel } from "../ai/live-model-choice.js";
 import type { UserProfile, UserProfileChangelog, UserProfileData } from "./types.js";
 import { safeArray } from "./profile-utils.js";
 import { EmbeddingService } from "../embedding.js";
@@ -1413,7 +1414,7 @@ B: "${descB}"
 
 Answer JSON only: { "duplicate": true|false, "reason": "one sentence explanation" }`;
 
-    if (CONFIG.opencodeProvider && CONFIG.opencodeModel) {
+    if (resolveOpencodeHostModel(CONFIG)) {
       try {
         const { z } = await import("zod");
         const { generateStructuredOutput } = await loadOpencodeProvider();
@@ -1430,8 +1431,8 @@ Answer JSON only: { "duplicate": true|false, "reason": "one sentence explanation
           const result: any = await Promise.race([
             generateStructuredOutput({
               client: v2Client,
-              providerID: CONFIG.opencodeProvider,
-              modelID: CONFIG.opencodeModel,
+              providerID: resolveOpencodeHostModel(CONFIG)!.providerID,
+              modelID: resolveOpencodeHostModel(CONFIG)!.modelID,
               systemPrompt: "You are a semantic duplicate detector. Output valid JSON.",
               userPrompt: prompt,
               schema: z.object({ duplicate: z.boolean(), reason: z.string() }),
@@ -1613,7 +1614,7 @@ B: "${descB}"
 
 Answer JSON only: { "conflict": true|false, "reason": "one sentence explanation" }`;
 
-    if (CONFIG.opencodeProvider && CONFIG.opencodeModel) {
+    if (resolveOpencodeHostModel(CONFIG)) {
       try {
         const { z } = await import("zod");
         const { generateStructuredOutput } = await loadOpencodeProvider();
@@ -1630,8 +1631,8 @@ Answer JSON only: { "conflict": true|false, "reason": "one sentence explanation"
           const result: any = await Promise.race([
             generateStructuredOutput({
               client: v2Client,
-              providerID: CONFIG.opencodeProvider,
-              modelID: CONFIG.opencodeModel,
+              providerID: resolveOpencodeHostModel(CONFIG)!.providerID,
+              modelID: resolveOpencodeHostModel(CONFIG)!.modelID,
               systemPrompt: "You are a preference contradiction detector. Output valid JSON.",
               userPrompt: prompt,
               schema: z.object({ conflict: z.boolean(), reason: z.string() }),
@@ -1744,7 +1745,7 @@ Generate a concise, abstract description of the user's general behavioral tenden
 
     let newDescription: string | null = null;
 
-    if (CONFIG.opencodeProvider && CONFIG.opencodeModel) {
+    if (resolveOpencodeHostModel(CONFIG)) {
       try {
         newDescription = await this.callOpencodeProvider(systemPrompt, userPrompt);
       } catch (e) {
@@ -1882,7 +1883,7 @@ Generate a concise, abstract description of the user's general behavioral tenden
       v2Client = await getOpenCodeClient();
     } catch (e) {
       log("profile description evolution: native provider not connected", {
-        provider: CONFIG.opencodeProvider,
+        provider: resolveOpencodeHostModel(CONFIG)?.providerID,
         error: String(e),
       });
       return null;
@@ -1894,8 +1895,8 @@ Generate a concise, abstract description of the user's general behavioral tenden
     const result: any = await Promise.race([
       generateStructuredOutput({
         client: v2Client,
-        providerID: CONFIG.opencodeProvider!,
-        modelID: CONFIG.opencodeModel!,
+        providerID: resolveOpencodeHostModel(CONFIG)!.providerID,
+        modelID: resolveOpencodeHostModel(CONFIG)!.modelID,
         systemPrompt,
         userPrompt,
         schema,

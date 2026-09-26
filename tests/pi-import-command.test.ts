@@ -31,6 +31,9 @@ describe("import command argument parsing", () => {
     expect(parsed.scope).toBe("all-projects");
     expect(parsed.session).toBe("sess-1");
     expect(parsed.since).toBe(Date.parse("2026-01-01"));
+    expect(parseImportArgs("--until=2026-01-01").until).toBe(
+      Date.parse("2026-01-01T23:59:59.999Z")
+    );
     expect(parsed.until).toBe(Date.parse("2026-03-01T00:00:00Z"));
     expect(parsed.maxSessions).toBe(5);
     expect(parsed.errors).toEqual([]);
@@ -45,7 +48,7 @@ describe("import command argument parsing", () => {
       { from: "/old/one", to: "/new/one" },
       { from: "/old/two", to: "/new/two" },
     ]);
-    expect(parsed.root).toBe("/tmp/sessions");
+    expect(parsed.source).toBe("/tmp/sessions");
   });
 
   it("reports invalid values instead of guessing", () => {
@@ -71,7 +74,9 @@ describe("import command argument parsing", () => {
     expect(PI_IMPORT_COMMAND).toBe("memory-import-pi-history");
     expect(PI_IMPORT_USAGE).toContain(`/${PI_IMPORT_COMMAND}`);
     expect(PI_IMPORT_USAGE).toContain("--dry-run");
-    expect(PI_IMPORT_USAGE).toContain("--map=<oldPath>=<newPath>");
+    expect(PI_IMPORT_USAGE).toContain("--map <old>=<new>");
+    expect(PI_IMPORT_USAGE).toContain("--model <provider/id>");
+    expect(PI_IMPORT_USAGE).not.toContain("--api-key-env");
   });
 });
 

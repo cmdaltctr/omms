@@ -1,4 +1,9 @@
 import type { Context } from "@opencode/plugin/promise/plugin";
+import {
+  OPENCODE_IMPORT_COMMAND,
+  OPENCODE_IMPORT_DESCRIPTION,
+  runOpencodeImportCommand,
+} from "../adapters/opencode/import-command.js";
 import { log } from "../services/logger.js";
 import { eventBelongsToLocation, legacyToolResult, toLegacyEvent } from "./legacy-client.js";
 import type { V2MemoryBridge } from "./memory-bridge.js";
@@ -145,6 +150,34 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
           })
         ) as any,
     } as any)
+  );
+
+  // Same command as V1 and Pi. V2 runs it natively, so no model turn relays the report.
+  await (ctx as any).command?.transform?.((editor: any) =>
+    editor.add({
+      name: OPENCODE_IMPORT_COMMAND,
+      description: OPENCODE_IMPORT_DESCRIPTION,
+      execute: async (invocation: { sessionID: string; prompt?: { text?: string } }) => {
+        const sessionID = invocation.sessionID;
+        const report = await runOpencodeImportCommand({
+          argsText: invocation.prompt?.text ?? "",
+          directory: ctx.location.directory,
+          sessionModel: async () => {
+            try {
+              const session: any = await ctx.session.get({ sessionID } as any);
+              const model = session?.model ?? session?.data?.model;
+              return model?.providerID && model?.id
+                ? { providerID: String(model.providerID), modelID: String(model.id) }
+                : null;
+            } catch (error) {
+              log("v2 import: could not read the session model", { error: String(error) });
+              return null;
+            }
+          },
+        });
+        await ctx.session.synthetic({ sessionID, text: report, resume: false } as any);
+      },
+    })
   );
 
   await ctx.session.hook("prompt", async (event) => {

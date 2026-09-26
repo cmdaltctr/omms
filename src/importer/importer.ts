@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { captureConversation } from "../core/capture.js";
 import type { CaptureConversation, CaptureSummaryProvider } from "../core/host.js";
 import type { ModelPort } from "../core/profile-analysis.js";
@@ -41,6 +41,8 @@ export interface ImportFilters {
   maxSessions?: number;
   force?: boolean;
   dryRun?: boolean;
+  /** Record profile prompts only; leave memory work units untouched. */
+  skipMemories?: boolean;
   pathMaps?: ImportPathMap[];
   root?: string;
 }
@@ -137,6 +139,20 @@ export async function findMemoryIdByImportId(
     if (row) return String(row.id);
   }
   return null;
+}
+
+/**
+ * Project tag for scope filtering only. Symlinked paths (macOS /var vs
+ * /private/var) name one project, so compare through the real path.
+ */
+export function projectFilterTag(directory: string): string {
+  let real = directory;
+  try {
+    real = realpathSync.native(directory);
+  } catch {
+    // A missing directory keeps its recorded path.
+  }
+  return getTags(real).project.tag;
 }
 
 function resolveSessionDirectory(cwd: string | null, pathMaps: ImportPathMap[]): string | null {
@@ -323,7 +339,7 @@ export async function importPiHistory(
   const pathMaps = filters.pathMaps ?? [];
 
   const currentTag =
-    filters.scope === "current-project" ? getTags(filters.currentDirectory).project.tag : null;
+    filters.scope === "current-project" ? projectFilterTag(filters.currentDirectory) : null;
 
   const discovery = discoverPiSessions({ root: filters.root, maxSessions: filters.maxSessions });
 
@@ -388,7 +404,7 @@ export async function importPiHistory(
     }
 
     const tags = getTags(directory);
-    if (currentTag && tags.project.tag !== currentTag) {
+    if (currentTag && projectFilterTag(directory) !== currentTag) {
       report.sessionsFilteredOut++;
       continue;
     }
@@ -437,7 +453,11 @@ export async function importPiHistory(
   }
   const sourceSessions = [...grouped.values()];
 
-  await importHistorySource(sourceSessions, "pi", deps, filters, report);
+  if (filters.skipMemories) {
+    report.unitsTotal = candidates.length;
+  } else {
+    await importHistorySource(sourceSessions, "pi", deps, filters, report);
+  }
 
   report.projects = [...projectAggregates.values()].map((aggregate) => ({
     tag: aggregate.tag,

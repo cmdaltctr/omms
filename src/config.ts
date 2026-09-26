@@ -5,6 +5,7 @@ import { stripJsoncComments } from "./services/jsonc.js";
 import { log } from "./services/logger.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
 import { isPlaceholderApiKey } from "./services/ai/api-key-placeholder.js";
+import { getAutoCaptureProviderStatus } from "./services/ai/live-model-choice.js";
 import {
   resolveDefaultStoragePath,
   runLegacyStoreMigration,
@@ -66,7 +67,10 @@ interface OmmsConfig {
   memoryExtraParams?: Record<string, unknown>;
   opencodeProvider?: string;
   opencodeModel?: string;
-  /** Pi adapter: explicit provider/model for capture extraction. Default: inherit active Pi model. */
+  /**
+   * Pi adapter: provider/model for live capture and profile learning ("inherit" = session
+   * model). Unset: the external API when configured, otherwise the session model.
+   */
   piProvider?: string;
   piModel?: string;
   aiSessionRetentionDays?: number;
@@ -373,35 +377,38 @@ const CONFIG_TEMPLATE = `{
   },
 
   // ============================================
-  // OpenCode Provider Settings (RECOMMENDED)
+  // Model for auto-capture and profile learning (same rule in OpenCode and Pi)
   // ============================================
 
-   // Use any provider that is already authenticated in opencode for auto-capture
-   // and user profile learning. The plugin calls opencode's session.prompt API
-   // (with structured output) instead of talking to provider HTTPS endpoints
-   // directly, so opencode owns the auth, token refresh, and provider routing.
+   // Which model summarises your work, in this order:
+   //   1. The host model below: opencodeProvider/opencodeModel in OpenCode,
+   //      piProvider/piModel in Pi. Set the model to "inherit" to follow
+   //      whatever model the session is using.
+   //   2. If no host model is set: the external API (memoryModel/memoryApiUrl/
+   //      memoryApiKey further down).
+   //   3. If neither is set: the session's own model.
+   // If the host model fails and the external API is configured, the external
+   // API is used instead.
    //
-   // No separate API key is needed in this plugin — whatever you configured in
-   // opencode (OAuth like Claude Pro/Max, GitHub Copilot personal/business,
-   // bring-your-own API key, custom provider, ...) just works.
+   // Host models go through OpenCode's or Pi's own sign-in (OAuth like Claude
+   // Pro/Max, GitHub Copilot, ChatGPT, or your own key there), so no separate API
+   // key is needed here.
    //
-   // If NOT set, falls back to the manual config (memoryApiKey/memoryApiUrl/memoryModel below).
-   //
-   // Examples (the provider name must be one returned by 'opencode providers list'):
-   //   Anthropic (OAuth/API key): "opencodeProvider": "anthropic",      "opencodeModel": "claude-haiku-4-5-20251001"
-   //   OpenAI (API key):          "opencodeProvider": "openai",          "opencodeModel": "gpt-4o-mini"
-   //   GitHub Copilot:            "opencodeProvider": "github-copilot",  "opencodeModel": "gpt-4o-mini"
+   // Examples (OpenCode names from 'opencode providers list'; Pi names from its model list):
+   //   "opencodeProvider": "anthropic",    "opencodeModel": "claude-haiku-4-5-20251001"
+   //   "opencodeProvider": "openai",       "opencodeModel": "inherit"
+   //   "piProvider": "openai-codex",       "piModel": "gpt-5.6-luna"
    //
    // "opencodeProvider": "anthropic",
    // "opencodeModel": "claude-haiku-4-5-20251001",
+   // "piProvider": "openai-codex",
+   // "piModel": "gpt-5.6-luna",
 
    // ============================================
    // Auto-Capture Settings
    // ============================================
   
-  // IMPORTANT: Auto-capture only runs after either opencodeProvider/opencodeModel
-  // above is configured, or the manual fallback below is uncommented with real values.
-  // It runs in background without blocking your main session
+  // Auto-capture runs in the background without blocking your main session.
   // Note: Ollama may not support tool calling. Use OpenAI, Anthropic, or Groq for best results.
   
   "autoCaptureEnabled": true,
@@ -411,7 +418,8 @@ const CONFIG_TEMPLATE = `{
   // Any service that follows the OpenAI Chat Completions API can use it via custom "memoryApiUrl".
   "memoryProvider": "openai-chat",
   
-  // Manual fallback. Uncomment all 3 lines and replace memoryApiKey before use:
+  // External API (step 2 above, and the fallback when a host model fails).
+  // Uncomment all 3 lines and replace memoryApiKey before use:
   // "memoryModel": "gpt-4o-mini",
   // "memoryApiUrl": "https://api.openai.com/v1",
   // "memoryApiKey": "sk-...",
@@ -833,64 +841,11 @@ export let CONFIG = buildConfig(_globalFileConfig);
 
 type RuntimeConfig = ReturnType<typeof buildConfig>;
 
-interface AutoCaptureProviderRuntimeConfig {
-  opencodeProvider?: string;
-  opencodeModel?: string;
-  memoryProvider?: string;
-  memoryModel?: string;
-  memoryApiUrl?: string;
-  memoryApiKey?: string;
-}
-
-export type AutoCaptureProviderStatus =
-  { ready: true; mode: "opencode" | "manual"; issues: [] } | { ready: false; issues: string[] };
-
-function hasValue(value: string | undefined): boolean {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
+export {
+  getAutoCaptureProviderStatus,
+  type AutoCaptureProviderStatus,
+} from "./services/ai/live-model-choice.js";
 export { isPlaceholderApiKey };
-
-export function getAutoCaptureProviderStatus(
-  config: AutoCaptureProviderRuntimeConfig
-): AutoCaptureProviderStatus {
-  const hasOpencodeProvider = hasValue(config.opencodeProvider);
-  const hasOpencodeModel = hasValue(config.opencodeModel);
-  if (hasOpencodeProvider && hasOpencodeModel) {
-    return { ready: true, mode: "opencode", issues: [] };
-  }
-
-  const issues: string[] = [];
-  if (!hasOpencodeProvider) issues.push("opencodeProvider is not configured");
-  if (!hasOpencodeModel) issues.push("opencodeModel is not configured");
-
-  const hasMemoryModel = hasValue(config.memoryModel);
-  const hasMemoryApiUrl = hasValue(config.memoryApiUrl);
-  const hasMemoryApiKey = hasValue(config.memoryApiKey);
-  const hasPlaceholderMemoryApiKey = isPlaceholderApiKey(config.memoryApiKey);
-
-  // The orcarouter provider presets its endpoint and default model, so only
-  // an API key is required for the manual fallback path.
-  if (config.memoryProvider === "orcarouter") {
-    if (!hasMemoryApiKey) issues.push("memoryApiKey is not configured");
-    if (hasPlaceholderMemoryApiKey) issues.push("memoryApiKey contains a placeholder value");
-    if (hasMemoryApiKey && !hasPlaceholderMemoryApiKey) {
-      return { ready: true, mode: "manual", issues: [] };
-    }
-    return { ready: false, issues };
-  }
-
-  if (!hasMemoryModel) issues.push("memoryModel is not configured");
-  if (!hasMemoryApiUrl) issues.push("memoryApiUrl is not configured");
-  if (!hasMemoryApiKey) issues.push("memoryApiKey is not configured");
-  if (hasPlaceholderMemoryApiKey) issues.push("memoryApiKey contains a placeholder value");
-
-  if (hasMemoryModel && hasMemoryApiUrl && hasMemoryApiKey && !hasPlaceholderMemoryApiKey) {
-    return { ready: true, mode: "manual", issues: [] };
-  }
-
-  return { ready: false, issues };
-}
 
 export function hasAutoCaptureProviderConfig(config: RuntimeConfig = CONFIG): boolean {
   return getAutoCaptureProviderStatus(config).ready;

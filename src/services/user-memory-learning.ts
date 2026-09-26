@@ -2,6 +2,7 @@ import type { PluginInput } from "@opencode-ai/plugin";
 import { getTags } from "./tags.js";
 import { log } from "./logger.js";
 import { CONFIG } from "../config.js";
+import { resolveOpencodeHostModel } from "./ai/live-model-choice.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
 import type { UserPrompt } from "./user-prompt/user-prompt-manager.js";
 import { userProfileManager } from "./user-profile/user-profile-manager.js";
@@ -609,15 +610,15 @@ async function analyzeUserProfile(
 ): Promise<AnalysisResult | null> {
   log("user-profile-learning: analyze called", { hasProfile: !!existingProfile });
   let opencodeProviderError: unknown;
-  if (CONFIG.opencodeProvider && CONFIG.opencodeModel) {
+  if (resolveOpencodeHostModel(CONFIG)) {
     log("user-profile-learning: trying opencode provider");
     try {
       const { generateStructuredOutput } = await loadOpencodeProvider();
       const { getOpenCodeClient } = await import("./ai/profile-llm-client.js");
 
       log("user-profile-learning: opencode provider diag", {
-        provider: CONFIG.opencodeProvider,
-        model: CONFIG.opencodeModel,
+        provider: resolveOpencodeHostModel(CONFIG)?.providerID,
+        model: resolveOpencodeHostModel(CONFIG)?.modelID,
       });
 
       const v2Client = await getOpenCodeClient();
@@ -640,8 +641,8 @@ Use the update_user_profile tool to save the ${existingProfile ? "updated" : "ne
       const result = await Promise.race([
         generateStructuredOutput({
           client: v2Client,
-          providerID: CONFIG.opencodeProvider,
-          modelID: CONFIG.opencodeModel,
+          providerID: resolveOpencodeHostModel(CONFIG)!.providerID,
+          modelID: resolveOpencodeHostModel(CONFIG)!.modelID,
           systemPrompt,
           userPrompt: context,
           schema,
@@ -751,7 +752,7 @@ If no clear chains, return { "paths": [] }.`;
 
   let result: LearningPathsResult | null = null;
 
-  if (CONFIG.opencodeProvider && CONFIG.opencodeModel) {
+  if (resolveOpencodeHostModel(CONFIG)) {
     try {
       const { z } = await import("zod");
       const { generateStructuredOutput } = await loadOpencodeProvider();
@@ -767,8 +768,8 @@ If no clear chains, return { "paths": [] }.`;
         result = (await Promise.race([
           generateStructuredOutput({
             client: v2Client,
-            providerID: CONFIG.opencodeProvider,
-            modelID: CONFIG.opencodeModel,
+            providerID: resolveOpencodeHostModel(CONFIG)!.providerID,
+            modelID: resolveOpencodeHostModel(CONFIG)!.modelID,
             systemPrompt,
             userPrompt,
             schema: z.object({

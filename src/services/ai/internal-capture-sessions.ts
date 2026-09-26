@@ -9,6 +9,14 @@ const UNTRACK_GRACE_MS = 60_000;
 const trackedSessionIDs = new Set<string>();
 const untrackTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+/** Every title omms has used for its own sessions (capture, profile learning, profile cleanup). */
+export const INTERNAL_CAPTURE_SESSION_TITLES = [
+  INTERNAL_CAPTURE_SESSION_TITLE,
+  LEGACY_INTERNAL_CAPTURE_SESSION_TITLE,
+  "omms profile cleanup",
+  "opencode-mem profile cleanup",
+] as const;
+
 export function isInternalCaptureSessionTitle(title: string | undefined | null): boolean {
   return (
     title === INTERNAL_CAPTURE_SESSION_TITLE || title === LEGACY_INTERNAL_CAPTURE_SESSION_TITLE

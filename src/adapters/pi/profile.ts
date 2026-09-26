@@ -62,7 +62,9 @@ export function createPiProfileAnalyzer(
 export interface PiProfileLearningInput {
   directory: string;
   prompts: string[];
-  resolveModel: () => PiModelHandle | null;
+  resolveModel?: () => PiModelHandle | null;
+  /** Live model with its external-API fallback; takes precedence over resolveModel. */
+  resolveProfileModel?: () => ModelPort | null;
   notify?: (notification: {
     title: string;
     message: string;
@@ -94,7 +96,15 @@ export async function performPiProfileLearning(input: PiProfileLearningInput): P
       await import("../../services/user-profile/user-profile-manager.js");
     const existing = await userProfileManager.getActiveProfile(userId);
 
-    const analyzer = createPiProfileAnalyzer(input.resolveModel);
+    const resolveProfileModel = input.resolveProfileModel;
+    const analyzer: PiProfileAnalyzer = resolveProfileModel
+      ? {
+          async analyzeProfile(context, existingProfile) {
+            const model = resolveProfileModel();
+            return model ? analyzeProfile(model, context, existingProfile) : null;
+          },
+        }
+      : createPiProfileAnalyzer(input.resolveModel ?? (() => null));
     const context = input.prompts.map((prompt, i) => `${i + 1}. ${prompt}`).join("\n");
     const analysis = await analyzer.analyzeProfile(
       context,

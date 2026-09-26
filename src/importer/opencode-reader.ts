@@ -1,8 +1,9 @@
-import { copyFileSync, existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { constants, copyFileSync, existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
+import { INTERNAL_CAPTURE_SESSION_TITLES } from "../services/ai/internal-capture-sessions.js";
 import type { ImportSourceSession, ImportWindow } from "./importer.js";
 
 interface SessionRow {
@@ -171,8 +172,9 @@ function snapshotWalDatabase(dbPath: string): { path: string; cleanup: () => voi
   try {
     for (let attempt = 0; attempt < 5; attempt++) {
       const before = [fileStamp(dbPath), fileStamp(`${dbPath}-wal`)];
-      copyFileSync(dbPath, copy);
-      copyFileSync(`${dbPath}-wal`, `${copy}-wal`);
+      // Clone where the file system supports it (APFS, Btrfs): large databases copy instantly.
+      copyFileSync(dbPath, copy, constants.COPYFILE_FICLONE);
+      copyFileSync(`${dbPath}-wal`, `${copy}-wal`, constants.COPYFILE_FICLONE);
       const after = [fileStamp(dbPath), fileStamp(`${dbPath}-wal`)];
       if (before[0] === after[0] && before[1] === after[1]) return { path: copy, cleanup };
     }
@@ -212,28 +214,32 @@ export function readOpencodeHistory(
   };
   try {
     validateSchema(db);
-    const childSessions = Number(
-      (
-        db.prepare("SELECT COUNT(*) AS count FROM session WHERE parent_id IS NOT NULL").get() as {
-          count: number;
-        }
-      ).count
+    // omms's own capture/profile calls run in OpenCode sessions; never import them as history.
+    const hasTitle = (db.prepare("PRAGMA table_info(session)").all() as { name: string }[]).some(
+      (column) => column.name === "title"
     );
-    const topLevelSessions = Number(
-      (
-        db.prepare("SELECT COUNT(*) AS count FROM session WHERE parent_id IS NULL").get() as {
-          count: number;
-        }
-      ).count
-    );
+    const notInternal = hasTitle
+      ? `AND (s.title IS NULL OR s.title NOT IN (${INTERNAL_CAPTURE_SESSION_TITLES.map(() => "?").join(", ")}))`
+      : "";
+    const internalArgs: string[] = hasTitle ? [...INTERNAL_CAPTURE_SESSION_TITLES] : [];
+    const count = (where: string) =>
+      Number(
+        (
+          db
+            .prepare(`SELECT COUNT(*) AS count FROM session s WHERE ${where} ${notInternal}`)
+            .get(...internalArgs) as { count: number }
+        ).count
+      );
+    const childSessions = count("s.parent_id IS NOT NULL");
+    const topLevelSessions = count("s.parent_id IS NULL");
     const sessions: AsyncIterable<OpencodeSourceSession> = {
       async *[Symbol.asyncIterator]() {
         try {
           const query = `SELECT s.id, s.directory, p.worktree AS project_worktree, s.time_created
             FROM session s LEFT JOIN project p ON p.id = s.project_id
-            WHERE s.parent_id IS NULL ${filters.session ? "AND s.id = ?" : ""}
+            WHERE s.parent_id IS NULL ${notInternal} ${filters.session ? "AND s.id = ?" : ""}
             ORDER BY s.time_created, s.id ${filters.maxSessions ? "LIMIT ?" : ""}`;
-          const args: Array<string | number> = [];
+          const args: Array<string | number> = [...internalArgs];
           if (filters.session) args.push(filters.session);
           if (filters.maxSessions) args.push(filters.maxSessions);
           for (const row of db.prepare(query).all(...args) as unknown as SessionRow[]) {

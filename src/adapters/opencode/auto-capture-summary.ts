@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { CONFIG } from "../../config.js";
+import { resolveOpencodeHostModel } from "../../services/ai/live-model-choice.js";
 import { buildBoundedSummaryPrompt } from "../../core/capture-context.js";
 import { parseCaptureSummary } from "../../core/extraction.js";
 import type {
@@ -40,26 +41,25 @@ export async function generateOpenCodeAutoCaptureSummary(
 ): Promise<CaptureSummary | null> {
   let opencodeProviderError: unknown;
 
-  if (CONFIG.opencodeProvider && CONFIG.opencodeModel) {
+  const hostModel = resolveOpencodeHostModel(CONFIG);
+  if (hostModel) {
     try {
-      if (CONFIG.memoryModel) {
+      if (CONFIG.memoryModel && CONFIG.opencodeProvider) {
         log("opencodeProvider takes precedence over memoryModel for auto-capture");
       }
 
-      const { isProviderConnected, getV2Client, generateStructuredOutput } =
-        await loadOpencodeProvider();
+      const {
+        isProviderConnected,
+        getV2Client,
+        generateStructuredOutput,
+        resolveOpencodeModelRef,
+      } = await loadOpencodeProvider();
 
-      let providerID = CONFIG.opencodeProvider;
-      let modelID = CONFIG.opencodeModel;
-      if (modelID === "inherit") {
-        if (!request.prompt?.providerId || !request.prompt?.modelId) {
-          throw new Error(
-            "omms: opencodeModel is 'inherit' but no session model was recorded for this prompt"
-          );
-        }
-        providerID = request.prompt.providerId;
-        modelID = request.prompt.modelId;
-      }
+      // "inherit" (explicit, or no model configured at all) follows this prompt's session model.
+      const { providerID, modelID } = resolveOpencodeModelRef({
+        ...hostModel,
+        prompt: request.prompt,
+      });
 
       if (!isProviderConnected(providerID)) {
         throw new Error(

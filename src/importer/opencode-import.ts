@@ -6,6 +6,7 @@ import { getTags } from "../services/tags.js";
 import { extractScopeFromContainerTag } from "../services/memory-scope.js";
 import {
   importHistorySource,
+  projectFilterTag,
   type ImportPathMap,
   type ImportProjectReport,
   type ImportReport,
@@ -49,7 +50,7 @@ export async function importOpencodeHistory(
   }
   const dbPath = options.dbPath ?? join(homedir(), ".local/share/opencode/opencode.db");
   // Resolve the filter before opening the reader: the reader only closes once iterated.
-  const projectTag = options.project ? getTags(options.project).project.tag : null;
+  const projectTag = options.project ? projectFilterTag(options.project) : null;
   const reader = readOpencodeHistory(dbPath, options);
   const unresolved = new Map<string, UnresolvedProject>();
   const sessions: OpencodeSourceSession[] = [];
@@ -61,7 +62,7 @@ export async function importOpencodeHistory(
     unresolved
   )) {
     const info = getTags(session.directory).project;
-    if (projectTag && projectTag !== info.tag) {
+    if (projectTag && projectTag !== projectFilterTag(session.directory)) {
       filtered++;
       continue;
     }

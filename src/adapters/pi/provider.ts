@@ -42,6 +42,21 @@ export function resolveModelFromContext(
     }
     if (!model) model = ctx?.model ?? null;
   }
+  return toModelHandle(registry, model);
+}
+
+/**
+ * History-import resolution: an explicit `provider/id` through Pi's model
+ * registry, otherwise the session's current model. `piProvider`/`piModel`
+ * steer live capture only; an import follows the session the user is in.
+ */
+export function resolveImportModel(ctx: PiModelContext, override?: string): PiModelHandle | null {
+  if (override !== undefined) return resolveModelFromContext(ctx, override);
+  const registry = ctx?.modelRegistry;
+  return registry ? toModelHandle(registry, ctx.model) : null;
+}
+
+function toModelHandle(registry: any, model: any): PiModelHandle | null {
   if (!model) return null;
 
   return {
