@@ -1,7 +1,8 @@
 import { expect, it } from "bun:test";
 import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { removeTestDir } from "./turso-test-utils.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readOpencodeHistory } from "../src/importer/opencode-reader.js";
@@ -77,11 +78,11 @@ it("reads top-level windows and excludes hidden or synthetic parts", async () =>
     expect(JSON.stringify(sessions)).not.toContain("secret output");
     expect(JSON.stringify(sessions)).not.toContain("hidden thought");
   } finally {
-    rmSync(data.directory, { recursive: true, force: true });
+    await removeTestDir(data.directory);
   }
 });
 
-it("rejects an incomplete V1 schema with a clear error", () => {
+it("rejects an incomplete V1 schema with a clear error", async () => {
   const directory = mkdtempSync(join(tmpdir(), "omms-opencode-invalid-"));
   try {
     const path = join(directory, "invalid.db");
@@ -90,7 +91,7 @@ it("rejects an incomplete V1 schema with a clear error", () => {
     db.close();
     expect(() => readOpencodeHistory(path)).toThrow("missing session.directory");
   } finally {
-    rmSync(directory, { recursive: true, force: true });
+    await removeTestDir(directory);
   }
 });
 
@@ -128,7 +129,7 @@ it("resolves deleted worktrees, maps, root worktrees, and groups unresolved coun
     expect(resolved).toHaveLength(0);
     expect(unresolved.get(missing)).toMatchObject({ sessions: 2, units: 4 });
   } finally {
-    rmSync(data.directory, { recursive: true, force: true });
+    await removeTestDir(data.directory);
   }
 });
 
@@ -167,6 +168,6 @@ it("reads a session that exists only in the WAL and leaves the source files unch
     expect(sidecars.map(checksum)).toEqual(before);
   } finally {
     writer.close();
-    rmSync(directory, { recursive: true, force: true });
+    await removeTestDir(directory);
   }
 });

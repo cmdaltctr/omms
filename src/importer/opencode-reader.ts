@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { INTERNAL_CAPTURE_SESSION_TITLES } from "../services/ai/internal-capture-sessions.js";
+import { log } from "../services/logger.js";
+import { withSqliteFileLockRetry } from "../services/turso/sqlite-handle-release.js";
 import type { ImportSourceSession, ImportWindow } from "./importer.js";
 
 interface SessionRow {
@@ -165,9 +167,25 @@ function fileStamp(path: string): string {
  * way to see uncheckpointed turns while leaving every source file untouched.
  * A copy that raced a write or checkpoint is discarded and retried.
  */
-function snapshotWalDatabase(dbPath: string): { path: string; cleanup: () => void } {
+/**
+ * Remove a snapshot folder without ever failing the import. Windows can hold
+ * SQLite files briefly after close, so retry lock errors; if the lock
+ * outlasts the retries, log the leftover path instead of throwing.
+ */
+async function removeSnapshotDir(dir: string): Promise<void> {
+  try {
+    await withSqliteFileLockRetry(() => rmSync(dir, { recursive: true, force: true }));
+  } catch (error) {
+    log("OpenCode import: could not remove the temporary database copy", {
+      dir,
+      error: String(error),
+    });
+  }
+}
+
+function snapshotWalDatabase(dbPath: string): { path: string; cleanup: () => Promise<void> } {
   const dir = mkdtempSync(join(tmpdir(), "omms-opencode-"));
-  const cleanup = () => rmSync(dir, { recursive: true, force: true });
+  const cleanup = () => removeSnapshotDir(dir);
   const copy = join(dir, "opencode.db");
   try {
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -179,24 +197,24 @@ function snapshotWalDatabase(dbPath: string): { path: string; cleanup: () => voi
       if (before[0] === after[0] && before[1] === after[1]) return { path: copy, cleanup };
     }
   } catch (error) {
-    cleanup();
+    void cleanup();
     throw error;
   }
-  cleanup();
+  void cleanup();
   throw new Error("OpenCode database kept changing while it was copied; retry the import");
 }
 
-function openSnapshot(dbPath: string): { db: DatabaseSync; cleanup: () => void } {
+function openSnapshot(dbPath: string): { db: DatabaseSync; cleanup: () => Promise<void> } {
   if (!existsSync(`${dbPath}-wal`)) {
     // No WAL: every committed page is in the main file, so read it in place.
     const uri = `${pathToFileURL(dbPath).href}?immutable=1`;
-    return { db: new DatabaseSync(uri, { readOnly: true }), cleanup: () => {} };
+    return { db: new DatabaseSync(uri, { readOnly: true }), cleanup: async () => {} };
   }
   const snapshot = snapshotWalDatabase(dbPath);
   try {
     return { db: new DatabaseSync(snapshot.path), cleanup: snapshot.cleanup };
   } catch (error) {
-    snapshot.cleanup();
+    void snapshot.cleanup();
     throw error;
   }
 }
@@ -208,9 +226,9 @@ export function readOpencodeHistory(
 ): OpencodeReader {
   if (!existsSync(dbPath)) throw new Error(`OpenCode database not found: ${dbPath}`);
   const { db, cleanup } = openSnapshot(dbPath);
-  const close = () => {
+  const close = async () => {
     db.close();
-    cleanup();
+    await cleanup();
   };
   try {
     validateSchema(db);
@@ -254,13 +272,14 @@ export function readOpencodeHistory(
             };
           }
         } finally {
-          close();
+          await close();
         }
       },
     };
     return { childSessions, topLevelSessions, sessions };
   } catch (error) {
-    close();
+    // Cleanup never throws, so the original error is what the caller sees.
+    void close();
     throw error;
   }
 }

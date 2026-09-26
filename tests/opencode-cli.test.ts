@@ -1,21 +1,12 @@
-import { expect, it } from "bun:test";
+import { expect, it, setDefaultTimeout } from "bun:test";
 import { DatabaseSync } from "node:sqlite";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseImportArgs } from "../src/cli/index.js";
-import { withSqliteFileLockRetry } from "../src/services/turso/sqlite-handle-release.js";
-import { isExhaustedWindowsLock } from "./turso-test-utils.js";
+import { removeTestDir } from "./turso-test-utils.js";
 
-/** Windows can hold a file briefly after the CLI child exits; retry, then leave the temp dir. */
-async function removeTempDir(dir: string): Promise<void> {
-  try {
-    await withSqliteFileLockRetry(() => rmSync(dir, { recursive: true, force: true }), 1);
-  } catch (error) {
-    if (!isExhaustedWindowsLock(error)) throw error;
-    console.warn(`opencode-cli.test: could not remove ${dir}`, error);
-  }
-}
+setDefaultTimeout(30_000);
 
 it("parses the shared import flags for both hosts and rejects invalid limits", () => {
   const { host, args } = parseImportArgs([
@@ -143,7 +134,7 @@ it("prints help and exact dry-run counts without creating a memory store", async
     expect(badProvider.exitCode).not.toBe(0);
     expect(badProvider.stdout.toString() + badProvider.stderr.toString()).not.toContain(secret);
   } finally {
-    await removeTempDir(root);
+    await removeTestDir(root);
   }
 });
 
@@ -173,7 +164,7 @@ it("previews Pi history from the CLI with the same options", async () => {
     expect(output).toContain("profile prompts: 1 pending");
     expect(existsSync(join(root, ".omms", "data"))).toBe(false);
   } finally {
-    await removeTempDir(root);
+    await removeTestDir(root);
   }
 });
 
@@ -192,6 +183,6 @@ it("runs the installed bin through a node_modules/.bin symlink under Node", asyn
     expect(help.stdout.toString()).toContain("import-opencode-history");
     expect(help.stdout.toString()).toContain("--api-key-env");
   } finally {
-    await removeTempDir(root);
+    await removeTestDir(root);
   }
 });

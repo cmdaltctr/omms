@@ -32,3 +32,15 @@ export function isExhaustedWindowsLock(error: unknown): boolean {
   if (process.platform !== "win32" || !code) return false;
   return RETRYABLE_FILE_LOCK_CODES.has(code);
 }
+
+/** Remove a temp dir, retrying late Windows file locks; a lock that never clears only warns. */
+export async function removeTestDir(dir: string): Promise<void> {
+  const { withSqliteFileLockRetry } =
+    await import("../src/services/turso/sqlite-handle-release.js");
+  try {
+    await withSqliteFileLockRetry(() => rmSync(dir, { recursive: true, force: true }));
+  } catch (error) {
+    if (!isExhaustedWindowsLock(error)) throw error;
+    console.warn(`removeTestDir: could not remove ${dir}`, error);
+  }
+}
