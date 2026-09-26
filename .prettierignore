@@ -12,3 +12,5 @@ yarn.lock
 *.min.css
 .pi
 graphify-out
+# Written by release-please; its blank-line style differs from Prettier
+CHANGELOG.md
