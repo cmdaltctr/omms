@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, setDefaultTimeout } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,6 +11,9 @@ import {
 } from "../src/adapters/pi/import-command.js";
 import { createPiCaptureProvider, resolveModelFromContext } from "../src/adapters/pi/provider.js";
 import { adaptPiProfileModel } from "../src/adapters/pi/profile.js";
+
+// One test runs a Bun child process, which can exceed 5 s on Windows and Intel macOS runners.
+setDefaultTimeout(30_000);
 
 describe("import command argument parsing", () => {
   it("defaults to current-project scope with no writes", () => {
