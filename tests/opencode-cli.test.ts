@@ -1,9 +1,12 @@
-import { expect, it } from "bun:test";
+import { expect, it, setDefaultTimeout } from "bun:test";
 import { DatabaseSync } from "node:sqlite";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseImportArgs } from "../src/cli/index.js";
+import { removeTestDir } from "./turso-test-utils.js";
+
+setDefaultTimeout(30_000);
 
 it("parses the shared import flags for both hosts and rejects invalid limits", () => {
   const { host, args } = parseImportArgs([
@@ -55,7 +58,7 @@ it("treats a date-only --until as the end of that day", () => {
   expect(exact.until).toBe(Date.parse("2026-03-31T12:00:00Z"));
 });
 
-it("prints help and exact dry-run counts without creating a memory store", () => {
+it("prints help and exact dry-run counts without creating a memory store", async () => {
   const root = mkdtempSync(join(tmpdir(), "omms-cli-"));
   try {
     const dbPath = join(root, "history.db");
@@ -131,7 +134,7 @@ it("prints help and exact dry-run counts without creating a memory store", () =>
     expect(badProvider.exitCode).not.toBe(0);
     expect(badProvider.stdout.toString() + badProvider.stderr.toString()).not.toContain(secret);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await removeTestDir(root);
   }
 });
 
@@ -161,11 +164,11 @@ it("previews Pi history from the CLI with the same options", async () => {
     expect(output).toContain("profile prompts: 1 pending");
     expect(existsSync(join(root, ".omms", "data"))).toBe(false);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await removeTestDir(root);
   }
 });
 
-it("runs the installed bin through a node_modules/.bin symlink under Node", () => {
+it("runs the installed bin through a node_modules/.bin symlink under Node", async () => {
   const root = mkdtempSync(join(tmpdir(), "omms-cli-symlink-"));
   try {
     const cli = join(import.meta.dir, "../dist/cli/index.js");
@@ -180,6 +183,6 @@ it("runs the installed bin through a node_modules/.bin symlink under Node", () =
     expect(help.stdout.toString()).toContain("import-opencode-history");
     expect(help.stdout.toString()).toContain("--api-key-env");
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await removeTestDir(root);
   }
 });

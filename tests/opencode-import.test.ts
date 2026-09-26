@@ -1,7 +1,8 @@
 import { afterEach, expect, it, mock, setDefaultTimeout } from "bun:test";
 import { DatabaseSync } from "node:sqlite";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync, copyFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, existsSync, readFileSync, copyFileSync } from "node:fs";
+import { removeTestDir } from "./turso-test-utils.js";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,7 +14,7 @@ afterEach(async () => {
   await memoryClient.close();
   const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
   await tursoConnectionManager.closeAll();
-  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  for (const dir of dirs.splice(0)) await removeTestDir(dir);
 });
 const embeddingStub = {
   embedWithTimeout: async () => new Float32Array([0.25, 0.5, 0.75, 1]),
