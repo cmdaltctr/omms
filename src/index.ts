@@ -13,6 +13,12 @@ import {
   recordUserPrompt,
 } from "./adapters/opencode/user-prompt.js";
 import { executeMemoryOperation, type MemoryOperationArgs } from "./core/memory-operations.js";
+import {
+  OPENCODE_IMPORT_COMMAND,
+  OPENCODE_IMPORT_DESCRIPTION,
+  latestUserMessageModel,
+  runOpencodeImportCommand,
+} from "./adapters/opencode/import-command.js";
 import { formatMemoriesForCompaction } from "./core/retrieval.js";
 import { performUserProfileLearning } from "./services/user-memory-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
@@ -22,6 +28,7 @@ import { tursoConnectionManager } from "./services/turso/connection-manager.js";
 import { WebAuth } from "./services/web-auth.js";
 
 import { isConfigured, CONFIG, initConfigWithLegacyMigration } from "./config.js";
+import { resolveOpencodeHostModel } from "./services/ai/live-model-choice.js";
 import { log } from "./services/logger.js";
 import { getLanguageName } from "./services/language-detector.js";
 import { getHostClientConfig } from "./services/ai/opencode-host-config.js";
@@ -173,6 +180,17 @@ async function isInternalCaptureSession(client: unknown, sessionID: string): Pro
   }
 
   return false;
+}
+
+/** Register `/memory-import-opencode-history`; its work happens in command.execute.before. */
+export function applyHistoryImportCommandConfig(cfg: { command?: Record<string, unknown> }): void {
+  cfg.command = {
+    ...cfg.command,
+    [OPENCODE_IMPORT_COMMAND]: {
+      template: "Import OpenCode history into omms: $ARGUMENTS",
+      description: OPENCODE_IMPORT_DESCRIPTION,
+    },
+  };
 }
 
 /** Least-privilege agent used only by internal structured-output sessions (issue #189). */
@@ -446,6 +464,29 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
     dispose: disposePlugin,
     config: async (cfg) => {
       applyStructuredOutputAgentConfig(cfg);
+      applyHistoryImportCommandConfig(cfg);
+    },
+
+    // V1 runs slash commands as a model turn; do the import here and hand the
+    // turn only the finished report to relay.
+    "command.execute.before": async (input, output) => {
+      if (input.command !== OPENCODE_IMPORT_COMMAND) return;
+      const report = await runOpencodeImportCommand({
+        argsText: input.arguments ?? "",
+        directory,
+        sessionModel: () => latestUserMessageModel(ctx.client as any, input.sessionID),
+        notify: (message) => {
+          void ctx.client?.tui
+            ?.showToast({
+              body: { title: "omms import", message, variant: "info", duration: 3000 },
+            })
+            .catch(() => {});
+        },
+      });
+      output.parts.splice(0, output.parts.length, {
+        type: "text",
+        text: `Reply with this omms history import report exactly as written and nothing else:\n\n\`\`\`\n${report}\n\`\`\``,
+      } as any);
     },
 
     "chat.message": async (input, output) => {
@@ -549,7 +590,8 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
     },
 
     "chat.params": async (input) => {
-      if (!isConfigured() || CONFIG.opencodeModel !== "inherit") return;
+      // Record the session model whenever live calls follow it ("inherit" or nothing configured).
+      if (!isConfigured() || resolveOpencodeHostModel(CONFIG)?.modelID !== "inherit") return;
 
       try {
         await userPromptManager.setPromptModel(

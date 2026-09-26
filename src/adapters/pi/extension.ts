@@ -7,8 +7,7 @@ import { log } from "../../services/logger.js";
 import { memoryClient } from "../../services/client.js";
 import { capturePiSettledWorkUnit, createPiCaptureState } from "./capture.js";
 import type { PiSessionEntry } from "./conversation.js";
-import { createPiCaptureProvider } from "./provider.js";
-import { resolveModelFromContext } from "./provider.js";
+import { createPiLiveModels } from "./live-model.js";
 import { registerPiHistoryImportCommand } from "./import-command.js";
 import { performPiProfileLearning } from "./profile.js";
 import { buildRetrievalSection, wrapRetrievalSection } from "../../core/retrieval.js";
@@ -111,8 +110,6 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
       ctx.ui.notify(`${notification.title}: ${notification.message}`, level);
     };
 
-  const resolveModel = (ctx: ExtensionContext) => resolveModelFromContext(ctx);
-
   pi.on("session_start", async (_event, ctx) => {
     const status = startStatus(ctx, "warming");
     try {
@@ -170,7 +167,8 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     const status = startStatus(ctx, "capturing");
     try {
       const entries = toSessionEntries(ctx.sessionManager.getBranch());
-      const provider = createPiCaptureProvider(() => resolveModel(ctx));
+      const liveModels = createPiLiveModels(ctx, notify(ctx));
+      const provider = liveModels.capture;
 
       const captureResult = await capturePiSettledWorkUnit({
         sessionId: ctx.sessionManager.getSessionId(),
@@ -198,7 +196,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
           await performPiProfileLearning({
             directory: ctx.cwd,
             prompts: batch,
-            resolveModel: () => resolveModel(ctx),
+            resolveProfileModel: liveModels.profile,
             notify: notify(ctx),
           });
         }

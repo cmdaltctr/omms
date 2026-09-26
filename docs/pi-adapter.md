@@ -56,16 +56,20 @@ Pi-specific options:
 
 ```jsonc
 {
-  // Extraction model for automatic capture. Omit to inherit the active
-  // Pi model (recommended).
-  "piProvider": "anthropic",
-  "piModel": "claude-sonnet-4-5",
+  // Model for automatic capture and profile learning. "inherit" follows the
+  // session's model. Omit both to use the external API when it is configured,
+  // otherwise the session's model.
+  "piProvider": "openai-codex",
+  "piModel": "gpt-5.6-luna",
 }
 ```
 
-Model selection order: explicit `piProvider`/`piModel` if set, otherwise the
-active Pi model (`ctx.model`). If no model resolves, automatic capture is
-skipped with a log entry; manual memory operations remain available.
+Model selection follows the same rule as OpenCode ([Configuration: Choosing the model](configuration.md#choosing-the-model)): `piProvider`/`piModel` if set, otherwise the
+external API (`memoryModel`/`memoryApiUrl`/`memoryApiKey`) if configured,
+otherwise the session's model (`ctx.model`). If the Pi model fails or is not
+in Pi's model list and the external API is configured, the external API is
+used instead. If no model resolves, automatic capture fails with a log entry;
+manual memory operations remain available.
 
 The web UI is not started by the Pi adapter. When both hosts run, let OpenCode
 own the web server port as before.

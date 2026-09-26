@@ -1,5 +1,6 @@
 import type { UserProfileData } from "./types.js";
 import { CONFIG } from "../../config.js";
+import { resolveOpencodeHostModel } from "../ai/live-model-choice.js";
 import { log } from "../logger.js";
 import { loadOpencodeProvider } from "../ai/opencode-provider-loader.js";
 import {
@@ -220,7 +221,7 @@ async function callAICleanup(
   // Use opencode internal session when opencodeProvider is configured (same pattern as auto-capture).
   // When the client is available, surface OpenCode errors instead of masking them as
   // "No AI provider configured" via a silent fallback (#177).
-  if (CONFIG.opencodeProvider && CONFIG.opencodeModel) {
+  if (resolveOpencodeHostModel(CONFIG)) {
     const { getV2Client } = await loadOpencodeProvider();
     const v2Client = getV2Client();
     if (v2Client) {
@@ -334,6 +335,12 @@ async function callViaOpencodeWithClient(
   prompt: string
 ): Promise<{ profile: IndexedProfile; mapping: AIMapping }> {
   const t0 = Date.now();
+  const hostModel = resolveOpencodeHostModel(CONFIG) ?? { providerID: "", modelID: "inherit" };
+  // Only "inherit" (or no model configured) needs resolving to the session's recent model.
+  const model =
+    hostModel.modelID === "inherit"
+      ? (await loadOpencodeProvider()).resolveOpencodeModelRef(hostModel)
+      : hostModel;
   const systemPrompt =
     "You are a user profile cleanup assistant. Merge duplicate entries and return only JSON without markdown wrapping.";
 
@@ -362,10 +369,7 @@ async function callViaOpencodeWithClient(
     const promptResult = await raceWithTimeout(
       v2Client.session.prompt({
         sessionID,
-        model: {
-          providerID: CONFIG.opencodeProvider || "bs-aigw",
-          modelID: CONFIG.opencodeModel || "deepseek-v4-flash",
-        },
+        model,
         system: systemPrompt,
         parts: [{ type: "text", text: prompt }],
         // `noReply` suppresses assistant generation; cleanup needs the JSON reply (#177).

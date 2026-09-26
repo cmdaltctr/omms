@@ -8,11 +8,16 @@ import type { CaptureSummary } from "./host.js";
  * the same summary shape and validate model output against this schema so the
  * downstream capture pipeline always receives well-formed results.
  */
-export const captureSummarySchema = z.object({
-  summary: z.string(),
-  type: z.string(),
-  tags: z.array(z.string()),
-});
+export const captureSummarySchema = z
+  .object({
+    summary: z.string().default(""),
+    type: z.string(),
+    tags: z.array(z.string()).default([]),
+  })
+  .refine((value) => value.type === "skip" || value.summary.trim().length > 0, {
+    message: "A non-skip capture needs a summary",
+    path: ["summary"],
+  });
 
 /**
  * JSON schema description embedded into the summary request prompt. Kept as a

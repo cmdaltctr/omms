@@ -5,6 +5,9 @@
   "type": "module",
   "main": "dist/plugin.js",
   "types": "dist/plugin.d.ts",
+  "bin": {
+    "om-memory-system": "dist/cli/index.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/plugin.d.ts",
@@ -28,7 +31,7 @@
     }
   },
   "scripts": {
-    "build": "rm -rf dist && bunx tsc && bun run web:build",
+    "build": "rm -rf dist && bunx tsc && chmod +x dist/cli/index.js && bun run web:build",
     "web:dev": "cd web && bun run dev",
     "web:build": "cd web && bun run build",
     "dev": "tsc --watch",

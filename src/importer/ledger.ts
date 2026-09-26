@@ -3,7 +3,7 @@ import { CONFIG } from "../config.js";
 import { tursoConnectionManager } from "../services/turso/connection-manager.js";
 
 /**
- * Durable ledger for the Pi historical-session import.
+ * Durable ledger for historical-session imports across hosts.
  *
  * One row per deterministic import key. Records terminal states so reruns
  * never reprocess handled work, plus in-progress states so a crash between
@@ -47,7 +47,7 @@ function rowToEntry(row: Record<string, unknown>): ImportLedgerRow {
   };
 }
 
-export class PiImportLedger {
+export class ImportLedger {
   private initPromise: Promise<void> | null = null;
 
   private async ready(): Promise<void> {
@@ -92,6 +92,20 @@ export class PiImportLedger {
 
   async get(key: string): Promise<ImportLedgerRow | null> {
     const db = await this.db();
+    const row = await db.get(`SELECT * FROM import_ledger WHERE key = ?`, [key]);
+    return row ? rowToEntry(row) : null;
+  }
+
+  /**
+   * Read-only lookup for dry runs: never creates the table or its indexes.
+   * A ledger file without the table reads as empty.
+   */
+  async peek(key: string): Promise<ImportLedgerRow | null> {
+    const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
+    const table = await db.get(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'import_ledger'`
+    );
+    if (!table) return null;
     const row = await db.get(`SELECT * FROM import_ledger WHERE key = ?`, [key]);
     return row ? rowToEntry(row) : null;
   }
@@ -179,3 +193,6 @@ export class PiImportLedger {
     );
   }
 }
+
+/** Backwards-compatible name for existing Pi imports. */
+export { ImportLedger as PiImportLedger };
