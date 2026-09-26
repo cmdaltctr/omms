@@ -21,31 +21,54 @@ look right:
 /memory-import-pi-history
 ```
 
-By default only sessions recorded for the current project are imported.
+By default only sessions recorded for the current project are imported, and
+extraction uses this session's current model. The `piProvider`/`piModel`
+settings apply to live capture only. To import with another model from Pi's
+model list, without changing the session's model:
+
+```text
+/memory-import-pi-history --model zai/your-smaller-model
+```
+
+The same import runs from a terminal with an external model and API key,
+exactly like the OpenCode import (see [cli.md](cli.md)):
+
+```bash
+npx om-memory-system import-pi-history --dry-run
+npx om-memory-system import-pi-history --provider openai-chat --model 'your-smaller-model-id' \
+  --api-url 'https://your-provider.example/v1' --api-key-env OMMS_IMPORT_KEY
+```
 
 ## Command reference
+
+The Pi and OpenCode commands take the same options; see the full table in
+[OpenCode history import](opencode-history-import.md#options). Pi reads its
+sessions from `--root <dir>` (default `~/.pi/agent/sessions`) where OpenCode
+takes `--db`. A value may follow its flag or use `--flag=value`; quote values
+that contain spaces.
 
 ```text
 /memory-import-pi-history [options]
 
   --dry-run                  Discover, map, and report; write nothing
-  --force                    Reprocess units with terminal ledger states
-  --scope=current-project    Import only sessions from this project (default)
-  --scope=all-projects       Import every discovered session
-  --session=<id-or-file>     Import one exact session
-  --since=<date>             Only work units at/after this time
-  --until=<date>             Only work units at/before this time
-  --max-sessions=<n>         Limit discovery to the oldest n sessions
-  --map=<oldPath>=<newPath>  Remap a recorded cwd that no longer exists
-  --root=<dir>               Session root (default ~/.pi/agent/sessions)
-  --model=<provider/id>      Use a Pi model for this import without changing the active model
+  --model <provider/id>      Use another Pi model (default: this session's model)
+  --scope <scope>            current-project (default) or all-projects
+  --project <dir>            Project for current-project scope (default: working directory)
+  --session <id-or-file>     Import one exact session
+  --since <date>             Only work units at/after this time
+  --until <date>             Only work units at/before this time; a bare date covers the day
+  --max-sessions <n>         Read at most n sessions, oldest first
+  --map <oldPath>=<newPath>  Remap a recorded cwd that no longer exists
+  --root <dir>               Session root (default ~/.pi/agent/sessions)
+  --skip-memories            Record profile prompts only
   --skip-profile             Import memories without profile learning
-  --profile-batch=<n>        Prompts per profile analysis batch (default: 50)
+  --profile-batch <n>        Prompts per profile analysis batch (default: 50)
+  --force                    Reprocess units with terminal ledger states
 ```
 
 Dates accept ISO 8601 (`2026-01-01`, `2026-01-01T10:00:00Z`) or epoch
 milliseconds. `--since`/`--until` filter on each work unit's user-entry
-timestamp, inclusive. Paths containing spaces are not supported in `--map`.
+timestamp, inclusive.
 
 ## How it works
 
@@ -61,7 +84,7 @@ timestamp, inclusive. Paths containing spaces are not supported in `--map`.
    its assistant and tool work. Hidden thinking, images, and tool outputs are
    excluded; tool inputs are truncated.
 5. Every unit flows through the live-capture pipeline: privacy filter,
-   extraction (through your active Pi model unless `--model` is set), dedup,
+   extraction (through this session's model unless `--model` is set), dedup,
    embedding, persistence, with provenance `host=pi`, `sourceType=history-import`,
    session id, source file, entry ids, and timestamps.
 6. Each past user prompt is recorded once for profile learning. The importer
@@ -70,9 +93,9 @@ timestamp, inclusive. Paths containing spaces are not supported in `--map`.
    without recording or analysing them.
 
 The model override uses Pi's model registry. Select an available model with
-`--model provider/id`, for example `--model zai/your-smaller-model`. The same
-model handles memory extraction and profile analysis for this run; your active
-Pi model stays unchanged. An unknown model stops the import before processing.
+`--model provider/id`. The same model handles memory extraction and profile
+analysis for this run; the session's model stays unchanged. An unknown model
+stops the import before processing.
 
 ## Idempotency and recovery
 
@@ -113,7 +136,7 @@ appear in the command summary. For per-key inspection:
 
 ```bash
 sqlite3 ~/.omms/data/import-ledger.db \
-  "SELECT status, COUNT(*) FROM import_ledger GROUP BY status"
+  "SELECT status, COUNT(*) FROM import_ledger WHERE key LIKE 'pi:%' GROUP BY status"
 ```
 
 ## Moving machines

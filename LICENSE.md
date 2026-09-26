@@ -1,6 +1,8 @@
-MIT License
+# MIT License
 
-Copyright (c) 2025 Dr Muhammad Aizat Hawari
+Copyright (c) 2025 Zhafron Adani Kautsar (original `opencode-mem`)
+
+Copyright (c) 2025 Dr Muhammad Aizat Hawari (the `omms` fork)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
