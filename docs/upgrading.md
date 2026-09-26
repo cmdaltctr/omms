@@ -14,9 +14,19 @@ choose when to update.
 Restart the agent after updating.
 
 To stay on one version, install it with the version number instead:
-`pi install npm:om-memory-system@3.1.0` in Pi, or `opencode plugin add om-memory-system@3.1.0` in
+`pi install npm:om-memory-system@3.1.1` in Pi, or `opencode plugin add om-memory-system@3.1.1` in
 OpenCode. A pinned install is never updated or flagged; install without the
 number again to go back to receiving updates.
+
+### Trying unreleased changes (`next`)
+
+Every merge to `main` is published as a prerelease under the npm `next` tag,
+for example `3.2.0-next.8`. It has not been through the release checks, so use
+it only to try a change early. In Pi, install it with
+`pi install npm:om-memory-system@next`; Pi then reports each newer `next`
+build and `pi update` installs it. Whether OpenCode's `opencode plugin check`
+reports newer `next` builds has not been verified. Install without `@next` to
+return to full releases.
 
 Release notes for every version are in [CHANGELOG.md](../CHANGELOG.md) and on the
 [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.

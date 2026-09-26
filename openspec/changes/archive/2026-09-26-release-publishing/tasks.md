@@ -19,7 +19,10 @@
 
 - [x] 3.1 Add `.github/workflows/publish-next.yml` (switched on by repo variable `NPM_NEXT_ENABLED`; skips commits that change `.release-please-manifest.json`) (runs when Quality succeeds on `main`, skips release-please release commits, sets a `-next.<run_number>` prerelease version, builds, runs `verify-package`, runs `npm publish --tag next` with OIDC in environment `npm-next`, then asserts `dist-tags.latest` is unchanged); verify with `actionlint`
 - [x] 3.2 After the first `next` publish, verify that `npm view om-memory-system dist-tags` shows `latest` unchanged, and record whether Pi reports an update for an `npm:om-memory-system@next` install and whether OpenCode's `opencode plugin check` does for `om-memory-system@next`; document the channel for users only if at least one host notifies
-  - Verified 2026-09-26: the first `next` publish was `3.1.0-next.3` with `latest` still `3.0.0` (the workflow checks this too). The Pi and OpenCode update notices for a `next` install were not checked, so the `next` channel stays undocumented for users, as this task requires.
+  - Verified 2026-09-26: the first `next` publish was `3.1.0-next.3` with `latest` still `3.0.0` (the workflow checks this too).
+  - Pi notifies: in Pi 0.86.1 (`core/package-manager.js`), `@next` is not an exact version, so the source is unpinned; `checkForAvailableUpdates` runs `npm view om-memory-system@next version` (which returns `3.2.0-next.8`) and reports it when it is newer than the installed version.
+  - OpenCode 2.0.14 was not verified: `opencode plugin check` in an isolated home timed out starting its background service, and the live install was left untouched.
+  - Pi notifies, so `docs/upgrading.md` now documents the `next` channel for Pi and says the OpenCode behaviour is unverified.
 
 ## 4. Docs
 
@@ -38,7 +41,8 @@
 - [x] 6.2 First publish (D4): `npm login` with 2FA, a clean checkout of `main`, build, then `npm publish --access public` at `3.0.0`, then create tag `v3.0.0` and a GitHub Release at that commit so release-please counts commits from there; verify `npm view omms version dist.tarball` and install it with `pi install npm:om-memory-system` and `opencode plugin add om-memory-system` in sandboxes
 - [x] 6.3 On npmjs.com, add two trusted publishers: `release.yml` with environment `npm-publish` set to **stage-only**, and `publish-next.yml` with environment `npm-next`; verify the settings page shows both with the right modes, then set repo variable `NPM_NEXT_ENABLED=true`
 - [x] 6.4 Merge the next release PR, verify the version appears in npm's Staged tab and is not installable, approve it with 2FA, then verify it is `latest` with a provenance badge; then set "Require two-factor authentication and disallow tokens", delete the `NPM_TOKEN` secret, and verify a token-based `npm publish --dry-run` is rejected
-  - Verified 2026-09-26 with 3.1.1: staged and returned `E404` before approval, then `latest` after approval with SLSA v1 provenance. 3.1.0 never reached npm because its release smoke failed on Windows (fixed forward in 3.1.1). npm now labels the setting "Require two-factor authentication and disallow bypass 2fa tokens", and it is on. The `NPM_TOKEN` secret is deleted. The token `npm publish --dry-run` check was not run: a dry run does not authenticate against the registry, so it cannot show the rejection.
+  - Verified 2026-09-26 with 3.1.1: staged and returned `E404` before approval, then `latest` after approval with SLSA v1 provenance. 3.1.0 never reached npm because its release smoke failed on Windows (fixed forward in 3.1.1). The `NPM_TOKEN` secret is deleted.
+  - Token publishing: the registry has no read endpoint for this setting (`GET /-/package/om-memory-system/access` returns "GET is not allowed"), and `npm publish --dry-run` never contacts the registry, so neither can prove a rejection. Instead, on 2026-09-27 the maintainer ran `npm access set mfa=publish om-memory-system` ("Require two-factor authentication and disallow bypass 2fa tokens"), and it completed after a 2FA passkey check. The registry therefore holds the setting that makes it reject token-based publishes.
 
 ## Notes from setup (2026-09-25)
 
