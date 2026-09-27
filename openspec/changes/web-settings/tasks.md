@@ -6,7 +6,7 @@
 
 ## 2. Config writes and reload
 
-- [ ] 2.1 Add `jsonc-parser` and a `writeGlobalConfigKeys(edits)` service that allows only the listed keys, validates the result, and writes through a temporary file and rename; verify with tests for keeping comments, key order, and other keys, rejecting unknown keys, rejecting invalid values with the file unchanged, and creating a missing file from the template
+- [ ] 2.1 Add `jsonc-parser` and a `writeGlobalConfigKeys(edits)` service that allows only the listed keys, validates the result, and writes through a temporary file and rename; verify with tests for keeping comments, key order, and other keys, rejecting unknown keys, rejecting invalid values with the file unchanged, creating a missing file from the template, two concurrent saves both landing in order, and a save rejected with `409` when the file changed after it was read
 - [ ] 2.1a Make the writer target the config file OMMS loaded, and on a legacy-only install copy `opencode-mem.jsonc` to `~/.config/omms/omms.jsonc` before the first edit; verify with tests that the legacy file is unchanged, the new file keeps every key and comment, and the response asks for the notice
 - [ ] 2.2 Add `refreshConfigIfChanged(directory)` and call it before each capture unit and profile-learning run on both hosts; verify with a test that changes `piModel` on disk and sees the next capture resolve the new model without a restart
 - [ ] 2.3 Add `captureAttemptRetentionDays` (default `30`, minimum `1`) to `src/config.ts` and the template; verify with a config defaults test

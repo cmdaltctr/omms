@@ -410,6 +410,11 @@ describe("OpenCode v2 plugin adapter", () => {
           location: { directory: "/workspace/project" },
           data: { sessionID: "ses-3", status: { type: "busy" } },
         },
+        {
+          type: "session.status",
+          location: { directory: "/workspace/project" },
+          properties: { sessionID: "ses-4", status: { type: "idle" } },
+        },
       ],
     });
     const cleanup = await h.register();
@@ -420,6 +425,7 @@ describe("OpenCode v2 plugin adapter", () => {
     expect(idle).toEqual([
       { type: "session.idle", properties: { sessionID: "ses-1" } },
       { type: "session.idle", properties: { sessionID: "ses-2" } },
+      { type: "session.idle", properties: { sessionID: "ses-4" } },
     ]);
 
     await cleanup();

@@ -59,7 +59,13 @@ The Settings page SHALL show capture diagnostics for a selectable time range: sa
 
 - **WHEN** the user turns on the trace switch and saves
 - **THEN** the global config SHALL have `captureTrace` set to `true`
-- **AND** the next capture attempt on either host SHALL write a trace entry
+- **AND** the next capture attempt on either host SHALL write a trace entry, unless the project's config sets `captureTrace` to `false`
+
+#### Scenario: A project has turned tracing off
+
+- **WHEN** the global config turns tracing on and the current project's config sets `captureTrace` to `false`
+- **THEN** capture attempts in that project SHALL NOT write trace entries
+- **AND** the trace switch SHALL show that the project has tracing off
 
 #### Scenario: Deleting a trace file
 
@@ -132,7 +138,7 @@ The Settings page SHALL show the most recent lines of the OMMS log file in a scr
 
 ### Requirement: Settings are saved safely to the global config
 
-Saving on the Settings page SHALL write only the changed keys to the global config file that OMMS is reading. When that file is the legacy `~/.config/opencode/opencode-mem.jsonc`, the first save SHALL create `~/.config/omms/omms.jsonc` as a copy of it, comments included, apply the change there, and tell the user that OMMS now reads the new file. The legacy file SHALL NOT be written. Saving SHALL keep comments, key order, and all other keys. It SHALL reject values that fail the same validation used at startup, and SHALL leave the file unchanged when it rejects them. Running OpenCode and Pi processes SHALL use the saved values from their next capture without a restart. The page SHALL NOT write project config files. It SHALL NOT read, show, or change secret values; it SHALL show only whether a secret is set and its source type (literal, `env://`, or `file://`).
+Saving on the Settings page SHALL write only the changed keys to the global config file that OMMS is reading. When that file is the legacy `~/.config/opencode/opencode-mem.jsonc`, the first save SHALL create `~/.config/omms/omms.jsonc` as a copy of it, comments included, apply the change there, and tell the user that OMMS now reads the new file. The legacy file SHALL NOT be written. Saves SHALL run one at a time, and a save SHALL be rejected without writing when the file changed after the page read it. Saving SHALL keep comments, key order, and all other keys. It SHALL reject values that fail the same validation used at startup, and SHALL leave the file unchanged when it rejects them. Running OpenCode and Pi processes SHALL use the saved values from their next capture without a restart. The page SHALL NOT write project config files. It SHALL NOT read, show, or change secret values; it SHALL show only whether a secret is set and its source type (literal, `env://`, or `file://`).
 
 #### Scenario: A commented config file is edited
 
@@ -145,6 +151,12 @@ Saving on the Settings page SHALL write only the changed keys to the global conf
 - **THEN** `~/.config/omms/omms.jsonc` SHALL be created with every key and comment from the legacy file plus the new Pi model
 - **AND** the legacy file SHALL be unchanged
 - **AND** the page SHALL say that OMMS now reads `~/.config/omms/omms.jsonc`
+
+#### Scenario: The file changed while the page was open
+
+- **WHEN** the config file is edited by hand, or by another process, after the page read it and before the page saves
+- **THEN** the save SHALL be rejected without writing
+- **AND** the page SHALL reload the current settings and ask the user to save again
 
 #### Scenario: An invalid value is saved
 

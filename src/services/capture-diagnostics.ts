@@ -207,9 +207,11 @@ export function writeTraceEntry(
       userPrompt: redact(diagnostics.userPrompt),
       reply: redact(diagnostics.rawReply),
     };
-    appendFileSync(join(dir, `capture-${today}.jsonl`), `${JSON.stringify(entry)}\n`, {
-      mode: 0o600,
-    });
+    const file = join(dir, `capture-${today}.jsonl`);
+    appendFileSync(file, `${JSON.stringify(entry)}\n`, { mode: 0o600 });
+    // The mode above applies only when the append creates the file; a file
+    // that already existed with wider permissions is narrowed here.
+    chmodSync(file, 0o600);
   } catch (error) {
     log("Capture trace write failed", { code: errorCode(error) });
   }

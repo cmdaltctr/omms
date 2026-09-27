@@ -16,7 +16,7 @@ Relevant facts about the current code:
 
 **Goals:**
 
-- One settings page with four sections, backed by a small JSON API on the existing server.
+- One settings page with five sections, backed by a small JSON API on the existing server.
 - Config edits that a person who hand-edits their config file will not notice, apart from the changed values.
 - Changes that reach running Pi and OpenCode processes without a restart.
 
@@ -32,7 +32,7 @@ Relevant facts about the current code:
 
 ### Page and navigation
 
-The page gets a new route, `ROUTES.settings = "/settings"`, and the `AppView` union gains `"settings"`. The cogwheel (`Settings` icon from `lucide-react`, which the app already uses) becomes a fourth button in the footer group, between the theme and GitHub buttons, styled like the theme button and marked with `aria-current` when active. `SettingsView` has four sections in this order: Models, Capture diagnostics, Health, Import and backfill. Each section loads its own data, so one slow check does not block the page.
+The page gets a new route, `ROUTES.settings = "/settings"`, and the `AppView` union gains `"settings"`. The cogwheel (`Settings` icon from `lucide-react`, which the app already uses) becomes a fourth button in the footer group, between the theme and GitHub buttons, styled like the theme button and marked with `aria-current` when active. `SettingsView` has five sections in this order: Models, Capture diagnostics, Health, Import and backfill, Log. Each section loads its own data, so one slow check does not block the page.
 
 - Alternative: a modal dialog. Rejected. Imports run for minutes and need a page that survives a reload and can be linked to.
 
@@ -59,10 +59,17 @@ The page polls job progress every second while a job runs. That avoids adding se
 
 `jsonc-parser` (Microsoft, MIT, no dependencies) is added. Its `modify` and `applyEdits` functions change one key at a time and keep comments and formatting. The write sequence:
 
-1. Read the file.
-2. Apply the edits.
-3. Parse the result and validate the full config with the startup validation.
-4. Write to a temporary file in the same directory, then rename it over the original, so a crash never leaves a half-written file.
+1. Take the server's write lock, so saves from this process run one at a time.
+2. Read the file and record its modification time and a hash of its contents.
+3. Apply the edits.
+4. Parse the result and validate the full config with the startup validation.
+5. Check the file again. If its modification time or hash changed since step 2 (a hand edit, or another process such as a second OpenCode window), stop without writing and return `409 Conflict`; the page reloads the settings and asks the user to save again.
+6. Write to a temporary file in the same directory, then rename it over the original, so a crash never leaves a half-written file.
+7. Release the lock.
+
+A change that lands in the short gap between step 5 and the rename can still be lost; the check makes that window milliseconds wide instead of the whole time the page was open.
+
+- Alternative: an OS-level file lock. Rejected. Editors that save a hand edit do not take it, so it would not protect the case that matters most.
 
 When the file does not exist, it is created from the existing config template with the key set.
 

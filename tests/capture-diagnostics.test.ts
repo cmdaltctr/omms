@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -183,6 +184,18 @@ describe("trace files", () => {
       reply: "reply [REDACTED]",
     });
     expect(statSync(dir).mode & 0o777).toBe(0o700);
+    expect(statSync(file).mode & 0o777).toBe(0o600);
+  });
+
+  it("narrows an existing trace file that has wider permissions", () => {
+    const now = new Date(2026, 8, 27, 12);
+    const dir = getTraceDirectory();
+    mkdirSync(dir, { recursive: true });
+    const file = join(dir, "capture-2026-09-27.jsonl");
+    writeFileSync(file, "", { mode: 0o644 });
+    chmodSync(file, 0o644);
+    const record = buildCaptureAttemptRecord(context, diagnostics, "saved", 1);
+    emitCaptureAttempt(record, diagnostics, { captureTrace: true }, now);
     expect(statSync(file).mode & 0o777).toBe(0o600);
   });
 

@@ -31,7 +31,7 @@ Everything beyond browsing memories needs a config file edit or a terminal comma
 ## Impact
 
 - Depends on the `capture-diagnostics` change. Implement that change first.
-- Web (`web/`): a cogwheel button in `AppSidebar.tsx`, a `/settings` route in `router.ts`/`routes.ts`, a new `SettingsView` with four sections, and i18n strings for every supported language.
+- Web (`web/`): a cogwheel button in `AppSidebar.tsx`, a `/settings` route in `router.ts`/`routes.ts`, a new `SettingsView` with five sections, and i18n strings for every supported language.
 - Server (`src/services/web-server.ts`, `api-handlers.ts`): endpoints for settings read and write, the model list, diagnostics queries, trace files, health checks, and import jobs.
 - Config (`src/config.ts`, `src/services/jsonc.ts`): a comment-preserving writer for the global config and a reload when the file changes.
 - Importer (`src/importer/`): a `web` import surface and a progress callback. The shared option parser and the ledger stay as they are.

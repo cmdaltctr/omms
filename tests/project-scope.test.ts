@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { basename, join, normalize } from "node:path";
 import { tmpdir } from "node:os";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import {
   findMarkerProjectRoot,
   getGitCommonDir,
@@ -25,28 +25,29 @@ const createdDirs: string[] = [];
 // here would write to the enclosing repository instead of the temp repo.
 const GIT_HOOK_VARIABLES = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR"];
 
-function run(command: string, cwd: string): void {
+// No shell: paths such as the worktree directory are passed as single arguments.
+function git(args: string[], cwd: string): void {
   const env = { ...process.env };
   for (const name of GIT_HOOK_VARIABLES) delete env[name];
-  execSync(command, { cwd, stdio: "pipe", env });
+  execFileSync("git", args, { cwd, stdio: "pipe", env });
 }
 
 function createRepoWithWorktree(): { repoDir: string; worktreeDir: string } {
   const repoDir = mkdtempSync(join(tmpdir(), "opencode-mem-scope-"));
   createdDirs.push(repoDir);
 
-  run("git init", repoDir);
-  run("git config user.email test@example.com", repoDir);
-  run('git config user.name "Test User"', repoDir);
+  git(["init"], repoDir);
+  git(["config", "user.email", "test@example.com"], repoDir);
+  git(["config", "user.name", "Test User"], repoDir);
 
   writeFileSync(join(repoDir, "README.md"), "# test\n", "utf-8");
-  run("git add README.md", repoDir);
-  run('git commit -m "init"', repoDir);
+  git(["add", "README.md"], repoDir);
+  git(["commit", "-m", "init"], repoDir);
 
   const worktreeRoot = join(repoDir, ".worktrees");
   mkdirSync(worktreeRoot, { recursive: true });
   const worktreeDir = join(worktreeRoot, "feature-a");
-  run(`git worktree add "${worktreeDir}" -b feature-a`, repoDir);
+  git(["worktree", "add", worktreeDir, "-b", "feature-a"], repoDir);
 
   return { repoDir, worktreeDir };
 }
@@ -67,7 +68,7 @@ describe("project scope identity", () => {
       for (const extension of ["bat", "cmd"]) {
         const repoDir = mkdtempSync(join(tmpdir(), `opencode-mem-git-shim-${extension}-`));
         createdDirs.push(repoDir);
-        run("git init", repoDir);
+        git(["init"], repoDir);
 
         const sentinel = join(repoDir, "shim-executed.txt");
         writeFileSync(
@@ -87,8 +88,8 @@ describe("project scope identity", () => {
     () => {
       const repoDir = mkdtempSync(join(tmpdir(), "opencode-mem-git-exe-"));
       createdDirs.push(repoDir);
-      run("git init", repoDir);
-      run("git config user.email nested@example.com", repoDir);
+      git(["init"], repoDir);
+      git(["config", "user.email", "nested@example.com"], repoDir);
       const nestedDir = join(repoDir, "src", "nested");
       const fakeBin = join(repoDir, "tools");
       mkdirSync(nestedDir, { recursive: true });
@@ -115,7 +116,7 @@ describe("project scope identity", () => {
       const repoDir = mkdtempSync(join(tmpdir(), "opencode-mem-git-wrapper-repo-"));
       const wrapperDir = mkdtempSync(join(tmpdir(), "opencode-mem-git-wrapper-bin-"));
       createdDirs.push(repoDir, wrapperDir);
-      run("git init", repoDir);
+      git(["init"], repoDir);
       const realGit = execSync("where.exe git.exe", { encoding: "utf-8" })
         .trim()
         .split(/\r?\n/)[0]!;
@@ -187,9 +188,9 @@ describe("project marker (.omms-project)", () => {
     const repoB = join(workspaceDir, "repo-b");
     for (const repo of [repoA, repoB]) {
       mkdirSync(repo, { recursive: true });
-      run("git init", repo);
-      run("git config user.email test@example.com", repo);
-      run('git config user.name "Test User"', repo);
+      git(["init"], repo);
+      git(["config", "user.email", "test@example.com"], repo);
+      git(["config", "user.name", "Test User"], repo);
     }
     return { workspaceDir, repoA, repoB };
   }
@@ -232,7 +233,7 @@ describe("project marker (.omms-project)", () => {
     const { workspaceDir, repoA } = createMultiRepoWorkspace();
     // Give the inner repo a remote so we can assert it is intentionally ignored
     // once the workspace marker takes over identity.
-    run("git remote add origin https://example.com/repo-a.git", repoA);
+    git(["remote", "add", "origin", "https://example.com/repo-a.git"], repoA);
     writeFileSync(join(workspaceDir, ".omms-project"), "");
 
     const tag = getProjectTagInfo(repoA);
