@@ -1,7 +1,11 @@
+import { CONFIG } from "../config.js";
+import { buildCaptureAttemptRecord, emitCaptureAttempt } from "../services/capture-diagnostics.js";
 import { memoryClient } from "../services/client.js";
 import { getTags } from "../services/tags.js";
 import { buildMarkdownContext, getAutoCaptureMarkdownBudget } from "./capture-context.js";
 import type {
+  CaptureAttemptDiagnostics,
+  CaptureAttemptOutcome,
   CaptureConversation,
   CapturePromptContext,
   CaptureProvenance,
@@ -32,9 +36,40 @@ async function getLatestProjectMemory(containerTag: string): Promise<string | nu
   }
 }
 
+/**
+ * Run one capture attempt and write exactly one diagnostics record for it,
+ * whether it is saved, skipped, or fails.
+ */
 export async function captureConversation(
   workUnit: CaptureWorkUnit,
   provider: CaptureSummaryProvider
+): Promise<CaptureResult> {
+  const diagnostics: CaptureAttemptDiagnostics = {};
+  const startedAt = Date.now();
+  let outcome: CaptureAttemptOutcome = "failed";
+  try {
+    const result = await runCapture(workUnit, provider, diagnostics);
+    outcome = result.status === "captured" ? "saved" : "skipped";
+    return result;
+  } finally {
+    const record = buildCaptureAttemptRecord(
+      {
+        host: workUnit.host,
+        sourceType: workUnit.sourceType,
+        sessionId: workUnit.hostSessionId,
+      },
+      diagnostics,
+      outcome,
+      Date.now() - startedAt
+    );
+    emitCaptureAttempt(record, diagnostics, CONFIG);
+  }
+}
+
+async function runCapture(
+  workUnit: CaptureWorkUnit,
+  provider: CaptureSummaryProvider,
+  diagnostics: CaptureAttemptDiagnostics
 ): Promise<CaptureResult> {
   const tags = getTags(workUnit.projectDirectory);
   const latestMemory = await getLatestProjectMemory(tags.project.tag);
@@ -54,8 +89,10 @@ export async function captureConversation(
       projectDirectory: workUnit.projectDirectory,
       userPrompt: workUnit.userPrompt,
       prompt: workUnit.prompt,
+      diagnostics,
     });
   } catch (error) {
+    diagnostics.failureReason ??= "call-error";
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Summary generation failed: ${message}`, { cause: error });
   }
@@ -70,6 +107,8 @@ export async function captureConversation(
       : summaryResult.summary;
 
   const source = workUnit.sourceType === "history-import" ? "import" : "auto-capture";
+  // Anything that goes wrong from here on is a storage failure, thrown or reported.
+  diagnostics.failureReason = "persist-error";
   const result = await memoryClient.addMemory(summaryWithTags, tags.project.tag, {
     source,
     type: summaryResult.type,
@@ -96,5 +135,6 @@ export async function captureConversation(
     throw new Error(`Memory persistence failed: ${result.error || "database write failed"}`);
   }
 
+  diagnostics.failureReason = undefined;
   return { status: "captured", memoryId: result.id };
 }

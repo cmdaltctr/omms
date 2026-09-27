@@ -1,6 +1,7 @@
 import { Type } from "typebox";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { CONFIG, initConfigWithLegacyMigration, isConfigured } from "../../config.js";
+import { pruneTraces } from "../../services/capture-diagnostics.js";
 import { executeMemoryOperation } from "../../core/memory-operations.js";
 import { getLanguageName } from "../../services/language-detector.js";
 import { log } from "../../services/logger.js";
@@ -115,6 +116,8 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     try {
       latestCtx = ctx;
       initConfigWithLegacyMigration(ctx.cwd);
+      // Runs even with tracing off, so turning it off does not leave old traces behind.
+      pruneTraces(CONFIG);
       captureState = createPiCaptureState();
 
       const globalScope = globalThis as any;

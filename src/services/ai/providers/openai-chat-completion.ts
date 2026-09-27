@@ -3,6 +3,7 @@ import {
   type ProviderConfig,
   type ToolCallResult,
   applySafeExtraParams,
+  describeValidationError,
 } from "./base-provider.js";
 import type { AISessionManager } from "../session/ai-session-manager.js";
 import type { AIMessage, AIProviderType } from "../session/session-types.js";
@@ -195,6 +196,8 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     toolSchema: ChatCompletionTool,
     sessionId: string
   ): Promise<ToolCallResult> {
+    // Last stop reason the provider reported, so capture diagnostics can see length limits.
+    let stopReason: string | undefined;
     let session = await this.aiSessionManager.getSession(sessionId, this.sessionProviderTag());
 
     if (!session) {
@@ -314,6 +317,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
           }
 
           return {
+            stopReason,
             success: false,
             error: errorMessage,
             iterations,
@@ -330,6 +334,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
             msg: data.msg,
           });
           return {
+            stopReason,
             success: false,
             error: `API error: ${data.status} - ${data.msg}`,
             iterations,
@@ -345,11 +350,15 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
           log("Invalid API response format", {
             provider: this.getProviderName(),
             model: this.config.model,
-            response: JSON.stringify(data).slice(0, 1000),
+            // The body can carry reply text, so log only its shape and size.
+            responseKeys:
+              typeof data === "object" && data !== null ? Object.keys(data).slice(0, 20) : [],
+            responseChars: JSON.stringify(data)?.length ?? 0,
             hasChoices: Array.isArray(choices),
             choicesLength: Array.isArray(choices) ? choices.length : undefined,
           });
           return {
+            stopReason,
             success: false,
             error: "Invalid API response format",
             iterations,
@@ -357,8 +366,10 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
         }
 
         const choice = data.choices[0];
+        stopReason = choice?.finish_reason ?? undefined;
         if (!choice) {
           return {
+            stopReason,
             success: false,
             error: "Invalid API response format",
             iterations,
@@ -429,26 +440,25 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
                 );
 
                 return {
+                  stopReason,
                   success: true,
                   data: result.data,
                   iterations,
                 };
               } catch (validationError) {
-                const errorStack =
-                  validationError instanceof Error ? validationError.stack : undefined;
                 log("OpenAI tool response validation failed", {
-                  error: String(validationError),
-                  stack: errorStack,
+                  error: describeValidationError(validationError),
                   errorType:
                     validationError instanceof Error
                       ? validationError.constructor.name
                       : typeof validationError,
                   toolName: toolSchema.function.name,
                   iteration: iterations,
-                  rawArguments: toolCall.function.arguments.slice(0, 500),
+                  // Log only the size: the arguments are the model's reply.
+                  argumentsChars: toolCall.function.arguments.length,
                 });
 
-                const errorMessage = `Validation failed: ${String(validationError)}`;
+                const errorMessage = `Validation failed: ${describeValidationError(validationError)}`;
                 lastErrorMessage = errorMessage;
                 await this.addToolResponse(
                   session.id,
@@ -458,6 +468,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
                 );
 
                 return {
+                  stopReason,
                   success: false,
                   error: errorMessage,
                   iterations,
@@ -494,12 +505,14 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
         clearTimeout(timeout);
         if (error instanceof Error && error.name === "AbortError") {
           return {
+            stopReason,
             success: false,
             error: `API request timeout (${iterationTimeout}ms)`,
             iterations,
           };
         }
         return {
+          stopReason,
           success: false,
           error: String(error),
           iterations,
@@ -508,6 +521,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
     }
 
     return {
+      stopReason,
       success: false,
       error: `Max iterations (${maxIterations}) reached without tool call`,
       iterations,

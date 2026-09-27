@@ -1,4 +1,4 @@
-import { BaseAIProvider, type ToolCallResult } from "./base-provider.js";
+import { BaseAIProvider, describeValidationError, type ToolCallResult } from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
 import type { ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";
@@ -58,6 +58,8 @@ export class GoogleGeminiProvider extends BaseAIProvider {
     toolSchema: ChatCompletionTool,
     sessionId: string
   ): Promise<ToolCallResult> {
+    // Last stop reason the provider reported, so capture diagnostics can see length limits.
+    let stopReason: string | undefined;
     let session = await this.aiSessionManager.getSession(sessionId, "google-gemini");
 
     if (!session) {
@@ -187,6 +189,7 @@ export class GoogleGeminiProvider extends BaseAIProvider {
             iteration: iterations,
           });
           return {
+            stopReason,
             success: false,
             error: `Gemini API error: ${response.status} - ${errorText}`,
             iterations,
@@ -195,9 +198,15 @@ export class GoogleGeminiProvider extends BaseAIProvider {
 
         const data = (await response.json()) as any;
         const candidate = data.candidates?.[0];
+        stopReason = candidate?.finishReason;
 
         if (!candidate || !candidate.content) {
-          return { success: false, error: "Invalid Gemini API response format", iterations };
+          return {
+            stopReason,
+            success: false,
+            error: "Invalid Gemini API response format",
+            iterations,
+          };
         }
 
         const modelMsg = candidate.content;
@@ -243,16 +252,16 @@ export class GoogleGeminiProvider extends BaseAIProvider {
                   toolCall.id,
                   JSON.stringify({ success: true })
                 );
-                return { success: true, data: result.data, iterations };
+                return { stopReason, success: true, data: result.data, iterations };
               } catch (validationError) {
-                const errorMessage = `Validation failed: ${String(validationError)}`;
+                const errorMessage = `Validation failed: ${describeValidationError(validationError)}`;
                 await this.addToolResponse(
                   session.id,
                   contents,
                   toolCall.id,
                   JSON.stringify({ success: false, error: errorMessage })
                 );
-                return { success: false, error: errorMessage, iterations };
+                return { stopReason, success: false, error: errorMessage, iterations };
               }
             }
           }
@@ -270,10 +279,15 @@ export class GoogleGeminiProvider extends BaseAIProvider {
         contents.push({ role: "user", parts: [{ text: retryPrompt }] });
       } catch (error) {
         clearTimeout(timeout);
-        return { success: false, error: String(error), iterations };
+        return { stopReason, success: false, error: String(error), iterations };
       }
     }
 
-    return { success: false, error: `Max iterations (${maxIterations}) reached`, iterations };
+    return {
+      stopReason,
+      success: false,
+      error: `Max iterations (${maxIterations}) reached`,
+      iterations,
+    };
   }
 }

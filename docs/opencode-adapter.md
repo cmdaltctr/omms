@@ -73,6 +73,9 @@ under a least-privilege `omms-structured` agent that the plugin registers.
 OpenCode owns the auth, so no key is needed for a host model. These sessions
 never trigger capture themselves and are never imported as history.
 
+Each capture attempt writes a metadata line to the OMMS log, and optionally a
+full trace. See [Configuration: Capture diagnostics](configuration.md#capture-diagnostics).
+
 The web UI (`http://127.0.0.1:4747`) is started by the OpenCode plugin. When
 several OpenCode windows run, the first one owns the port; the others use it.
 

@@ -167,9 +167,69 @@ Changing `embeddingModel` (or dimensions) can trigger re-embedding of stored mem
 - `scope: "all-projects"`: query `search` / `list` across all project shards.
 - `memory.defaultScope` sets the default query scope when no explicit scope is provided.
 
+## Capture diagnostics
+
+Every capture attempt, on Pi and OpenCode, for live capture and history
+imports, writes one `Capture attempt` line to `~/.omms/omms.log`. The line
+holds metadata only: host, source (`live-capture` or `history-import`),
+session ID, extraction path (`host-model` or `external-api`), provider, model,
+the model's stop reason, the reply's content block types, prompt and reply
+sizes in characters, duration, and the outcome. It never holds prompt or reply
+text. A field the path cannot observe is `null`; for example, OpenCode's own
+model reports no block types for some server versions.
+
+The outcome is `saved`, `skipped`, or `failed`. A failed attempt carries one
+reason code:
+
+| Reason            | Meaning                                                                 |
+| ----------------- | ----------------------------------------------------------------------- |
+| `call-error`      | The model call failed or threw before a reply was available.            |
+| `empty-text`      | The reply had no text, for example only reasoning blocks.               |
+| `truncated`       | The model stopped at its output length limit and the JSON is cut off.   |
+| `invalid-json`    | The reply had text, but no JSON object could be read from it.           |
+| `schema-mismatch` | The JSON is not a valid capture summary (for example an empty summary). |
+| `persist-error`   | The summary was valid, but the memory could not be stored.              |
+
+To count failures by reason:
+
+```bash
+grep '"Capture attempt' ~/.omms/omms.log | grep -o '"reason":"[a-z-]*"' | sort | uniq -c
+```
+
+### Capture traces (opt-in)
+
+To see the full prompt and raw reply of each attempt, turn on tracing in the
+**global** config:
+
+```jsonc
+{
+  "captureTrace": true,
+  "captureTraceRetentionDays": 7, // default 7, minimum 1
+}
+```
+
+Each attempt then appends one JSON line to
+`~/.omms/traces/capture-YYYY-MM-DD.jsonl` (next to the log file, so
+`OMMS_LOG_FILE` moves it too). A trace entry has every field of the log line
+plus `systemPrompt`, `userPrompt`, and `reply`.
+
+**Traces can contain conversation content.** Before writing, OMMS replaces
+text inside `<private>` tags, your configured API keys and tokens, and common
+key formats (`sk-…`, `ghp_…`, `AKIA…`, JWTs, `Bearer` tokens, private key
+blocks) with `[REDACTED]`. Pattern matching cannot catch every secret, so the
+directory and files are readable only by you, and files older than
+`captureTraceRetentionDays` are deleted each day and at every start, even
+after you turn tracing off. Delete `~/.omms/traces/` at any time.
+
+A project config (`.opencode/omms.jsonc`) can set `"captureTrace": false` to
+stop tracing in that project. It cannot turn tracing on: a project value of
+`true` is ignored and logged, so a cloned repository cannot start recording
+your conversations. `captureTraceRetentionDays` is global only.
+
 ## Troubleshooting
 
 - Auto-capture failures do not block manual `memory` tool usage.
+- To find out why captures fail, read the `reason` in the `Capture attempt` log lines, or turn on a capture trace. See [Capture diagnostics](#capture-diagnostics).
 - If auto-capture reports that a provider is not connected, confirm the provider name with `opencode providers list` and configure that provider in opencode first.
 - If a proxy or custom provider returns plain text instead of structured/tool output, choose another model/provider or use one of the manual provider modes above.
 - For models that reject `temperature`, add `"memoryTemperature": false` when using manual API configuration.

@@ -84,6 +84,12 @@ export function resetHostFetch(): void {
   _hostFetch = undefined;
 }
 
+/** Test helper: forget the server URL, as in the native V2 plugin. */
+export function resetV2BaseUrlForTests(): void {
+  _v2BaseUrl = undefined;
+  _useSdkTransport = false;
+}
+
 export function setConnectedProviders(providers: string[]): void {
   _connectedProviders = new Set(providers);
 }
@@ -168,6 +174,34 @@ export interface StructuredOutputOptions<T> {
   schema: z.ZodType<T>;
   directory?: string;
   retryCount?: number;
+  /** Called with the raw reply before it is parsed, for capture diagnostics. */
+  onReply?: (reply: StructuredOutputReply) => void;
+}
+
+export interface StructuredOutputReply {
+  finish?: string;
+  partTypes: string[];
+  structuredOutput: unknown;
+}
+
+function reportReply(
+  onReply: StructuredOutputOptions<unknown>["onReply"],
+  data: MessageV2WithParts
+): void {
+  if (!onReply) return;
+  try {
+    onReply({
+      ...(typeof data.info.finish === "string" ? { finish: data.info.finish } : {}),
+      partTypes: (Array.isArray(data.parts) ? data.parts : [])
+        .map((part) =>
+          typeof part === "object" && part !== null ? (part as { type?: unknown }).type : undefined
+        )
+        .filter((type): type is string => typeof type === "string"),
+      structuredOutput: data.info.structured_output ?? data.info.structured,
+    });
+  } catch {
+    // Diagnostics must never change the call's result.
+  }
 }
 
 /**
@@ -232,7 +266,7 @@ export async function generateStructuredOutput<T>(opts: StructuredOutputOptions<
     providerID: opts.providerID,
     modelID: opts.modelID,
   });
-  const { client, systemPrompt, userPrompt, schema, directory, retryCount } = opts;
+  const { client, systemPrompt, userPrompt, schema, directory, retryCount, onReply } = opts;
   const { providerID, modelID } = resolved;
 
   const jsonSchema =
@@ -242,7 +276,9 @@ export async function generateStructuredOutput<T>(opts: StructuredOutputOptions<
       }
     ).toJSONSchema?.() ?? (await import("zod")).z.toJSONSchema(schema);
 
-  if (_useSdkTransport && hasV2SessionClient(client)) {
+  // The native V2 plugin has no server URL: it hands over a client whose
+  // session API wraps the plugin context, so that client is the only transport.
+  if ((_useSdkTransport || !_v2BaseUrl) && hasV2SessionClient(client)) {
     return generateViaSdkClient(client, {
       providerID,
       modelID,
@@ -252,6 +288,7 @@ export async function generateStructuredOutput<T>(opts: StructuredOutputOptions<
       retryCount,
       jsonSchema,
       schema,
+      onReply,
     });
   }
 
@@ -266,7 +303,7 @@ export async function generateStructuredOutput<T>(opts: StructuredOutputOptions<
   const sessionID = await createSession(base, directory);
   markInternalSession(sessionID);
   try {
-    const info = await withStructuredOutputTimeout(
+    const reply = await withStructuredOutputTimeout(
       () =>
         promptSession(base, {
           sessionID,
@@ -280,6 +317,8 @@ export async function generateStructuredOutput<T>(opts: StructuredOutputOptions<
         }),
       () => abortSession(base, sessionID, directory)
     );
+    reportReply(onReply, reply);
+    const info = reply.info;
 
     if (info.error) {
       throw new Error(
@@ -327,6 +366,7 @@ interface SdkStructuredOutputArgs<T> {
   retryCount?: number;
   jsonSchema: Record<string, unknown>;
   schema: z.ZodType<T>;
+  onReply?: StructuredOutputOptions<T>["onReply"];
 }
 
 function hasV2SessionClient(client: OpencodeClient): client is OpencodeClient & V2SessionClient {
@@ -376,6 +416,7 @@ async function generateViaSdkClient<T>(
     if (!data.info) {
       throw new Error("omms: prompt response missing `info`");
     }
+    reportReply(args.onReply, data);
     if (data.info.error) {
       throw new Error(
         `omms: opencode reported ${data.info.error.name}: ${formatAssistantError(data.info.error)}`
@@ -502,6 +543,7 @@ interface PromptSessionArgs {
 }
 
 interface AssistantInfo {
+  finish?: string;
   structured?: unknown;
   structured_output?: unknown;
   error?: { name: string; data?: { message?: string; [key: string]: unknown } };
@@ -537,7 +579,7 @@ interface MessageV2WithParts {
   parts: unknown[];
 }
 
-async function promptSession(base: string, args: PromptSessionArgs): Promise<AssistantInfo> {
+async function promptSession(base: string, args: PromptSessionArgs): Promise<MessageV2WithParts> {
   const url = `${base}/session/${encodeURIComponent(args.sessionID)}/message${buildQuery(args.directory)}`;
   const body = sessionPromptFields(args);
   const data = await fetchJson<MessageV2WithParts>(
@@ -551,7 +593,7 @@ async function promptSession(base: string, args: PromptSessionArgs): Promise<Ass
   if (!data.info) {
     throw new Error("omms: prompt response missing `info`");
   }
-  return data.info;
+  return data;
 }
 
 async function abortSession(base: string, sessionID: string, directory?: string): Promise<void> {

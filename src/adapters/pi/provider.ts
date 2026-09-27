@@ -1,13 +1,15 @@
 import { CONFIG } from "../../config.js";
 import { buildBoundedSummaryPrompt } from "../../core/capture-context.js";
 import {
+  buildCaptureReplyInstruction,
   buildCaptureSystemPrompt,
   captureSummaryToolSchema,
+  classifyCaptureReply,
+  normalizeStopReason,
   parseCaptureSummary,
 } from "../../core/extraction.js";
 import type { CaptureSummary, CaptureSummaryRequest } from "../../core/host.js";
 import { detectLanguage, getLanguageName } from "../../services/language-detector.js";
-import { log } from "../../services/logger.js";
 
 /**
  * Structural view of a Pi ExtensionContext's model surfaces, so the resolver
@@ -122,32 +124,55 @@ export function createPiCaptureProvider(resolveModel: () => PiModelHandle | null
           ? detectLanguage(request.userPrompt)
           : CONFIG.autoCaptureLanguage;
       const systemPrompt = buildCaptureSystemPrompt(getLanguageName(targetLang));
-      const userPrompt = buildBoundedSummaryPrompt(
-        request.context,
-        systemPrompt,
-        captureSummaryToolSchema
-      );
+      const replyInstruction = buildCaptureReplyInstruction();
+      // The instruction is counted as schema bytes so the context budget leaves room for it.
+      const userPrompt = `${buildBoundedSummaryPrompt(request.context, systemPrompt, {
+        schema: captureSummaryToolSchema,
+        replyInstruction,
+      })}\n\n${replyInstruction}`;
 
-      const reply = await model.complete({
-        systemPrompt,
-        messages: [{ role: "user", content: userPrompt, timestamp: Date.now() }],
-      });
+      const diagnostics = request.diagnostics;
+      if (diagnostics) {
+        diagnostics.path = "host-model";
+        diagnostics.provider = model.provider;
+        diagnostics.model = model.modelId;
+        diagnostics.systemPrompt = systemPrompt;
+        diagnostics.userPrompt = userPrompt;
+      }
+
+      let reply: PiAssistantReply;
+      try {
+        reply = await model.complete({
+          systemPrompt,
+          messages: [{ role: "user", content: userPrompt, timestamp: Date.now() }],
+        });
+      } catch (error) {
+        if (diagnostics) diagnostics.failureReason = "call-error";
+        throw error;
+      }
+
+      const rawReply = replyText(reply);
+      if (diagnostics) {
+        diagnostics.stopReason = normalizeStopReason(reply.stopReason);
+        diagnostics.blockTypes = reply.content.map((block) => block.type);
+        diagnostics.rawReply = rawReply;
+      }
 
       if (reply.stopReason === "error") {
+        if (diagnostics) diagnostics.failureReason = "call-error";
         throw new Error(
           `omms: Pi extraction call failed: ${reply.errorMessage || "unknown error"}`
         );
       }
 
-      const rawReply = replyText(reply);
       const summary = parseCaptureSummary(rawReply);
       if (!summary) {
-        log("Pi capture: model reply was not a valid capture summary", {
-          provider: model.provider,
-          modelId: model.modelId,
-          // The reply can carry conversation content, so log only its size.
-          replyLength: rawReply.length,
-        });
+        // The capture pipeline logs the attempt's metadata; never the reply.
+        if (diagnostics) {
+          diagnostics.failureReason =
+            classifyCaptureReply({ text: rawReply, stopReason: reply.stopReason }) ??
+            "schema-mismatch";
+        }
         throw new Error("omms: Pi extraction returned an invalid summary payload");
       }
       return summary;

@@ -63,7 +63,12 @@ mock.module(${JSON.stringify(readyUrl)}, () => ({
   ensureTursoReady: async () => {},
   resetTursoReady: () => {},
 }));
-mock.module(${JSON.stringify(loggerUrl)}, () => ({ log: () => {} }));
+const attemptRecords = [];
+mock.module(${JSON.stringify(loggerUrl)}, () => ({
+  log: (message, data) => {
+    if (message === "Capture attempt") attemptRecords.push(data);
+  },
+}));
 
 const { CONFIG } = await import(${JSON.stringify(configUrl)});
 const base = ${JSON.stringify(base)};
@@ -160,6 +165,32 @@ const memoryOpsUrl = pathToFileURL(join(import.meta.dir, "../src/core/memory-ope
 const retrievalUrl = pathToFileURL(join(import.meta.dir, "../src/core/retrieval.js")).href;
 
 describe("Pi historical importer", () => {
+  it("writes a history-import diagnostics record for each import attempt", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot + "/proj-a", { recursive: true });
+writeV3Session({
+  file: sessionRoot + "/proj-a/s1.jsonl",
+  sessionId: "sess-diag",
+  cwd: projectA,
+  windows: [
+    { userText: "Add retry to uploader", assistantText: "Added retry", timestamp: "2026-01-01T10:00:00.000Z" },
+    { userText: "SKIPME greeting", assistantText: "hello", timestamp: "2026-01-02T10:00:00.000Z" },
+  ],
+});
+await importPiHistory(
+  { loadSession: loadPiSessionForImport, provider },
+  { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot }
+);
+scenario = attemptRecords.map((r) => ({ sourceType: r.sourceType, host: r.host, outcome: r.outcome }));
+`);
+
+    expect(out).toEqual([
+      { sourceType: "history-import", host: "pi", outcome: "saved" },
+      { sourceType: "history-import", host: "pi", outcome: "skipped" },
+    ]);
+  });
+
   it("dry-run reports candidates and writes nothing", () => {
     const out = runScenario(`
 const { mkdirSync } = await import("node:fs");

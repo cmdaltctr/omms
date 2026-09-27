@@ -194,6 +194,24 @@ captured = registeredCommands.map((c) => c.name);
     expect(output.captured).toEqual(["memory-import-pi-history"]);
   });
 
+  it("removes expired trace files at session start even with tracing off", async () => {
+    const output = runScenario(`
+const fs = await import("node:fs");
+const path = await import("node:path");
+const os = await import("node:os");
+const logDir = fs.mkdtempSync(path.join(os.tmpdir(), "omms-pi-traces-"));
+process.env.OMMS_LOG_FILE = path.join(logDir, "omms.log");
+const traces = path.join(logDir, "traces");
+fs.mkdirSync(traces, { recursive: true });
+fs.writeFileSync(path.join(traces, "capture-2000-01-01.jsonl"), "{}\\n");
+await handlers["session_start"]({}, makeCtx());
+captured = fs.readdirSync(traces);
+fs.rmSync(logDir, { recursive: true, force: true });
+`);
+
+    expect(output.captured).toEqual([]);
+  });
+
   it("registers the memory tool over shared operations with host=pi context", async () => {
     const output = runScenario(`
 captured = registeredTools[0].name;

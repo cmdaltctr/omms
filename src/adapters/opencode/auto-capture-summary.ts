@@ -2,9 +2,15 @@ import { randomUUID } from "node:crypto";
 import { CONFIG } from "../../config.js";
 import { resolveOpencodeHostModel } from "../../services/ai/live-model-choice.js";
 import { buildBoundedSummaryPrompt } from "../../core/capture-context.js";
-import { parseCaptureSummary } from "../../core/extraction.js";
+import {
+  classifyCaptureReply,
+  normalizeStopReason,
+  parseCaptureSummary,
+} from "../../core/extraction.js";
 import type {
   AutoCaptureNotification,
+  CaptureAttemptDiagnostics,
+  CaptureFailureReason,
   CaptureSummary,
   CaptureSummaryRequest,
 } from "../../core/host.js";
@@ -35,11 +41,21 @@ SKIP if: greetings, casual chat, no code/decisions made
 CAPTURE if: code changed, bug fixed, feature added, decision made`;
 }
 
+/** Reason code for an error thrown on the OpenCode host-model path. */
+function hostModelFailureReason(error: unknown): CaptureFailureReason {
+  if (error instanceof Error && error.name === "ZodError") return "schema-mismatch";
+  if (String(error).includes("returned no structured output")) return "empty-text";
+  return "call-error";
+}
+
 export async function generateOpenCodeAutoCaptureSummary(
   request: CaptureSummaryRequest,
   notify?: Notify
 ): Promise<CaptureSummary | null> {
   let opencodeProviderError: unknown;
+  // Filled per path; when the host model falls back, the external API attempt
+  // overwrites it, so the record describes the call that decided the outcome.
+  const diagnostics: CaptureAttemptDiagnostics = request.diagnostics ?? {};
 
   const hostModel = resolveOpencodeHostModel(CONFIG);
   if (hostModel) {
@@ -60,6 +76,9 @@ export async function generateOpenCodeAutoCaptureSummary(
         ...hostModel,
         prompt: request.prompt,
       });
+      diagnostics.path = "host-model";
+      diagnostics.provider = providerID;
+      diagnostics.model = modelID;
 
       if (!isProviderConnected(providerID)) {
         throw new Error(
@@ -93,6 +112,8 @@ export async function generateOpenCodeAutoCaptureSummary(
         systemPrompt,
         z.toJSONSchema(schema)
       );
+      diagnostics.systemPrompt = systemPrompt;
+      diagnostics.userPrompt = aiPrompt;
 
       const result = await generateStructuredOutput({
         client: v2Client,
@@ -101,6 +122,12 @@ export async function generateOpenCodeAutoCaptureSummary(
         systemPrompt,
         userPrompt: aiPrompt,
         schema,
+        onReply: (reply) => {
+          diagnostics.stopReason = normalizeStopReason(reply.finish);
+          diagnostics.blockTypes = reply.partTypes;
+          diagnostics.rawReply =
+            reply.structuredOutput === undefined ? "" : JSON.stringify(reply.structuredOutput);
+        },
       });
 
       return {
@@ -110,6 +137,7 @@ export async function generateOpenCodeAutoCaptureSummary(
       };
     } catch (error) {
       opencodeProviderError = error;
+      diagnostics.failureReason = hostModelFailureReason(error);
       log("auto-capture: opencode provider failed, falling back to external API", {
         error: String(error),
       });
@@ -180,26 +208,40 @@ export async function generateOpenCodeAutoCaptureSummary(
   const aiPrompt = buildBoundedSummaryPrompt(request.context, systemPrompt, toolSchema);
   const captureSessionID = `auto-capture-${request.prompt?.id ?? request.sessionId}-${randomUUID()}`;
 
-  const result = await provider.executeToolCall(
+  // Replace whatever the failed host-model attempt recorded.
+  Object.assign(diagnostics, {
+    path: "external-api",
+    provider: CONFIG.memoryProvider,
+    model: CONFIG.memoryModel,
     systemPrompt,
-    aiPrompt,
-    toolSchema,
-    captureSessionID
-  );
+    userPrompt: aiPrompt,
+    stopReason: undefined,
+    blockTypes: undefined,
+    rawReply: undefined,
+    failureReason: undefined,
+  } satisfies CaptureAttemptDiagnostics);
+
+  let result;
+  try {
+    result = await provider.executeToolCall(systemPrompt, aiPrompt, toolSchema, captureSessionID);
+  } catch (error) {
+    diagnostics.failureReason = "call-error";
+    throw error;
+  }
+  diagnostics.stopReason = normalizeStopReason(result.stopReason);
 
   if (!result.success || !result.data) {
+    diagnostics.failureReason = diagnostics.stopReason === "length" ? "truncated" : "call-error";
     throw new Error(result.error || "Failed to generate summary");
   }
 
   const rawReply = JSON.stringify(result.data);
+  diagnostics.rawReply = rawReply;
   const summary = parseCaptureSummary(rawReply);
   if (!summary) {
-    log("OpenCode capture: model reply was not a valid capture summary", {
-      provider: CONFIG.memoryProvider,
-      modelId: CONFIG.memoryModel,
-      // The reply can carry conversation content, so log only its size.
-      replyLength: rawReply.length,
-    });
+    // The capture pipeline logs the attempt's metadata; never the reply.
+    diagnostics.failureReason =
+      classifyCaptureReply({ text: rawReply, stopReason: result.stopReason }) ?? "schema-mismatch";
     throw new Error("omms: OpenCode extraction returned an invalid summary payload");
   }
   return summary;

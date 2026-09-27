@@ -387,6 +387,44 @@ describe("OpenCode v2 plugin adapter", () => {
     await cleanup();
   });
 
+  it("starts capture when OpenCode 2.0.14 reports a finished turn instead of session.idle", async () => {
+    const h = createHarness({
+      events: [
+        {
+          type: "session.execution.started",
+          location: { directory: "/workspace/project" },
+          data: { sessionID: "ses-1" },
+        },
+        {
+          type: "session.execution.succeeded",
+          location: { directory: "/workspace/project" },
+          data: { sessionID: "ses-1" },
+        },
+        {
+          type: "session.status",
+          location: { directory: "/workspace/project" },
+          data: { sessionID: "ses-2", status: { type: "idle" } },
+        },
+        {
+          type: "session.status",
+          location: { directory: "/workspace/project" },
+          data: { sessionID: "ses-3", status: { type: "busy" } },
+        },
+      ],
+    });
+    const cleanup = await h.register();
+    await h.drained;
+    await Bun.sleep(0);
+
+    const idle = h.calls.legacyEvents.filter((event: any) => event.type === "session.idle");
+    expect(idle).toEqual([
+      { type: "session.idle", properties: { sessionID: "ses-1" } },
+      { type: "session.idle", properties: { sessionID: "ses-2" } },
+    ]);
+
+    await cleanup();
+  });
+
   it("forgets a deleted session", async () => {
     let releaseEvents!: () => void;
     const gate = new Promise<void>((resolve) => {

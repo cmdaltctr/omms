@@ -239,8 +239,17 @@ export function toLegacyEvent(raw: any): { type: string; properties: any } {
   const envelope = raw?.payload ?? raw;
   const source = envelope?.type === "sync" && envelope.syncEvent ? envelope.syncEvent : envelope;
   const rawType = typeof source?.type === "string" ? source.type.replace(/\.1$/, "") : source?.type;
-  const type = rawType === "session.compaction.ended" ? "session.compacted" : rawType;
   const data = source?.data ?? {};
+  // OpenCode 2.0.14 ends a turn with `session.execution.succeeded` and emits no
+  // `session.idle`; some builds report idleness through `session.status`. The
+  // V1 capture path listens for `session.idle`, so both map onto it.
+  if (
+    rawType === "session.execution.succeeded" ||
+    (rawType === "session.status" && data?.status?.type === "idle")
+  ) {
+    return { type: "session.idle", properties: { sessionID: data.sessionID } };
+  }
+  const type = rawType === "session.compaction.ended" ? "session.compacted" : rawType;
   if (source && typeof source === "object" && "properties" in source) {
     return { type, properties: source.properties };
   }
