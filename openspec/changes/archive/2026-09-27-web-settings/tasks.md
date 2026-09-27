@@ -131,7 +131,7 @@
 ## 8. Verification
 
 - [x] 8.1 Run `bun run ci:local` and confirm it passes
-- [ ] 8.2 Manually, with OpenCode and Pi both running: switch each host between Session and Manual from the page and confirm the next capture uses the chosen model without a restart; turn tracing on and off; run health checks; run and cancel a Pi backfill
+- [x] 8.2 Manually, with OpenCode and Pi both running: switch each host between Session and Manual from the page and confirm the next capture uses the chosen model without a restart; turn tracing on and off; run health checks; run and cancel a Pi backfill Result (3.2.0-next.12, real OpenCode and Pi): model switching reached live capture on both hosts without a restart, and health checks passed. Trace delete, cross-section saves, the OpenCode v2 model list, and deep Pi folders failed; PR #23 fixed them, verified by regression tests and an isolated browser run.
 - [x] 8.3 Re-run `bun run ci:local` after the session-selection implementation. Use temporary fixture histories for:
   - a one-file Pi import
   - a multi-session Pi import
