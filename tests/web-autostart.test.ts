@@ -37,7 +37,7 @@ for (const platform of ["darwin", "linux", "win32"] as const) {
     expect(installed.state).toBe("installed");
     const first = readFileSync(installed.path!, "utf8");
     expect(first).toContain("/opt/node");
-    expect(first).toContain("/opt/omms/dist/cli/index.js");
+    expect(first).toContain(join("/opt/omms", "dist", "cli", "index.js"));
     expect(first).toContain("web");
     expect(webAutostartStatus(options).state).toBe("installed");
     if (platform === "linux") {
@@ -156,5 +156,5 @@ it("uses Node or Bun rather than OpenCode's executable", () => {
   expect(resolveWebRuntime("/opt/bin/bun")).toBe("/opt/bin/bun");
   const fallback = resolveWebRuntime("/opt/bin/opencode");
   expect(fallback).not.toBe("/opt/bin/opencode");
-  expect(fallback).toMatch(/\/(node|bun)$/);
+  expect(fallback).toMatch(/[\\/](node|bun)(\.exe)?$/i);
 });
