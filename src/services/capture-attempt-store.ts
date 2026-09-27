@@ -3,15 +3,17 @@ import { CONFIG } from "../config.js";
 import type { CaptureAttemptRecord } from "./capture-diagnostics.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 
-let preparedPath: string | undefined;
-let preparing: Promise<void> | undefined;
+const prepared = new Set<string>();
+// Keyed by path: a store change mid-preparation must prepare the new store too.
+const preparing = new Map<string, Promise<void>>();
 
 async function database() {
   const path = join(CONFIG.storagePath, "user-prompts.db");
   const db = await tursoConnectionManager.getConnection(path);
-  if (path !== preparedPath) {
-    if (!preparing) {
-      preparing = db
+  if (!prepared.has(path)) {
+    let pending = preparing.get(path);
+    if (!pending) {
+      pending = db
         .batch([
           {
             sql: `CREATE TABLE IF NOT EXISTS capture_attempts (
@@ -31,13 +33,14 @@ async function database() {
           },
         ])
         .then(() => {
-          preparedPath = path;
+          prepared.add(path);
         })
         .finally(() => {
-          preparing = undefined;
+          preparing.delete(path);
         });
+      preparing.set(path, pending);
     }
-    await preparing;
+    await pending;
   }
   return db;
 }

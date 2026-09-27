@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import { localDayEnd, localDayStart } from "$lib/import-dates";
+import { mergeListing } from "$lib/import-listing";
 import { ImportSourcePicker, type ChosenSource } from "./ImportSourcePicker";
 
 type Host = "pi" | "opencode";
@@ -143,8 +144,9 @@ export function ImportSection() {
         method: "POST",
         body: JSON.stringify({ ...matchBody(), offset, limit: PAGE_SIZE, refresh }),
       });
-      if (refresh || !page || result.revision !== page.revision) setSelection(emptySelection());
-      setPage(result);
+      const merged = mergeListing(page, result, refresh);
+      if (!merged.sameListing) setSelection(emptySelection());
+      setPage(merged.page);
       setListedWith(membership);
       setStale(false);
       setError("");

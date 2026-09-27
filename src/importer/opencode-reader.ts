@@ -276,20 +276,21 @@ export async function openOpencodeHistory(
   options: OpencodeOpenOptions = {}
 ): Promise<OpencodeHistory> {
   if (!existsSync(dbPath)) throw new Error("OpenCode database not found");
-  let source = await openSource(dbPath, options);
+  let source: OpenedSource | undefined = await openSource(dbPath, options);
   let listed: Omit<OpencodeHistory, "loadUnits" | "close">;
   try {
     listed = readSessions(source.db, filters);
     if (changedSinceOpen(dbPath, source)) {
       // OpenCode started writing during the in-place read: read a private copy instead.
       source.db.close();
+      source = undefined;
       source = await openSnapshot(dbPath, options);
       listed = readSessions(source.db, filters);
     }
   } catch (error) {
-    // Cleanup never throws, so the original error is what the caller sees.
-    source.db.close();
-    await source.lease?.release();
+    // Close only what is still open, so the original error is what the caller sees.
+    source?.db.close();
+    await source?.lease?.release();
     throw error;
   }
   const opened = source;

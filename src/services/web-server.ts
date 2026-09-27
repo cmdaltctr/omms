@@ -567,17 +567,25 @@ export class WebServer {
         }
         const { writeGlobalConfigKeys, ConfigConflictError } =
           await import("./global-config-writer.js");
+        let result;
         try {
-          const result = await writeGlobalConfigKeys(body.edits, body.revision);
-          const { refreshConfigIfChanged } = await import("../config.js");
-          refreshConfigIfChanged(this.config.directory ?? process.cwd());
-          return this.jsonResponse(result);
+          result = await writeGlobalConfigKeys(body.edits, body.revision);
         } catch (error) {
           return this.jsonResponse(
             { error: error instanceof Error ? error.message : "Invalid settings" },
             error instanceof ConfigConflictError ? 409 : 400
           );
         }
+        // The file is already saved; a reload problem must not report the save as failed.
+        try {
+          const { refreshConfigIfChanged } = await import("../config.js");
+          refreshConfigIfChanged(this.config.directory ?? process.cwd());
+        } catch (error) {
+          log("Settings saved, but reloading them failed", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+        return this.jsonResponse(result);
       }
 
       if (path === "/api/settings/models" && method === "GET") {

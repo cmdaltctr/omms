@@ -182,7 +182,16 @@ export function AppSidebar({
 
         <div className="mt-auto p-3">
           <div className="flex w-full items-center rounded-lg border border-sidebar-border/80 bg-card/70">
-            <div ref={languageContainer} className="relative flex min-w-0 flex-1">
+            <div
+              ref={languageContainer}
+              className="relative flex min-w-0 flex-1"
+              onBlur={(event) => {
+                // Tabbing out of the menu closes it; moving between the trigger and options does not.
+                if (!languageContainer.current?.contains(event.relatedTarget as Node | null)) {
+                  setLanguageMenuOpen(false);
+                }
+              }}
+            >
               <button
                 ref={languageTrigger}
                 type="button"

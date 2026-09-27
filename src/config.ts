@@ -256,8 +256,9 @@ function expandPath(path: string): string {
  * Load the first config file that exists, in priority order. A file that
  * exists but cannot be read or parsed is not skipped: falling through would let
  * a lower-priority (legacy) file silently supply settings such as storagePath.
+ * `strict` (live reload) throws instead, so running hosts keep their settings.
  */
-function loadConfigFromPaths(paths: string[]): OmmsConfig {
+function loadConfigFromPaths(paths: string[], strict = false): OmmsConfig {
   const path = paths.find((candidate) => existsSync(candidate));
   if (!path) return {};
   try {
@@ -265,6 +266,8 @@ function loadConfigFromPaths(paths: string[]): OmmsConfig {
     const json = stripJsoncComments(content);
     return JSON.parse(json) as OmmsConfig;
   } catch (error) {
+    // The parser's message can quote file content, so a reload names the file only.
+    if (strict) throw new Error(`Config file cannot be parsed: ${path}`, { cause: error });
     log("Config file is invalid; using defaults instead of lower-priority files", {
       path,
       error: String(error),
@@ -921,21 +924,36 @@ function configSignature(directory: string): string {
 
 let lastConfigDirectory: string | undefined;
 let lastConfigSignature: string | undefined;
+/** Directory and signature of the last reload that failed. */
+let lastFailedConfig: string | undefined;
 
 export function refreshConfigIfChanged(directory: string): void {
   // Both hosts initialise their config at startup. Direct callers that have
   // not initialised it keep their in-memory settings untouched.
   if (lastConfigDirectory === undefined) return;
-  const signature = configSignature(directory);
-  if (directory !== lastConfigDirectory || signature !== lastConfigSignature) {
-    initConfig(directory);
+  let attempt: string | undefined;
+  try {
+    const signature = configSignature(directory);
+    if (directory === lastConfigDirectory && signature === lastConfigSignature) return;
+    attempt = `${directory}\0${signature}`;
+    if (attempt === lastFailedConfig) return;
+    initConfig(directory, { strict: true });
+    lastFailedConfig = undefined;
+  } catch (error) {
+    // A bad hand edit must not stop capture: keep the last good settings, and
+    // skip this exact file state until it changes, instead of re-reading it on
+    // every unit. The last good directory and signature stay as they were.
+    log("Config reload failed; keeping the previous settings", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    lastFailedConfig = attempt;
   }
 }
 
-export function initConfig(directory: string): void {
+export function initConfig(directory: string, options: { strict?: boolean } = {}): void {
   // omms project overrides win; the legacy opencode-mem file is still read.
-  const globalConfig = loadConfigFromPaths(CONFIG_FILES);
-  const projectConfig = loadConfigFromPaths(projectConfigPaths(directory));
+  const globalConfig = loadConfigFromPaths(CONFIG_FILES, options.strict);
+  const projectConfig = loadConfigFromPaths(projectConfigPaths(directory), options.strict);
   assertProjectRemoteProviderConfigIsSafe(projectConfig);
   const projectOverrides = { ...projectConfig };
   delete projectOverrides.autoCleanupEnabled;

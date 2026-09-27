@@ -39,16 +39,45 @@ export interface DiscoveryResult {
   unrecognized: UnrecognizedFile[];
 }
 
+/**
+ * Bounds on a folder walk. A Pi sessions folder is shallow (one folder per
+ * project), so a walk that goes past these is almost certainly a home folder,
+ * `/`, or a whole backup volume, and would block the process for minutes.
+ */
+export interface DiscoveryLimits {
+  maxDepth: number;
+  maxFolders: number;
+  maxFiles: number;
+}
+
+export const DEFAULT_DISCOVERY_LIMITS: DiscoveryLimits = {
+  maxDepth: 6,
+  maxFolders: 5_000,
+  maxFiles: 20_000,
+};
+
+export class DiscoveryLimitError extends Error {
+  constructor() {
+    super(
+      "This folder is too large to scan for Pi sessions. Choose the Pi sessions folder itself, or one .jsonl file."
+    );
+    this.name = "DiscoveryLimitError";
+  }
+}
+
 export interface DiscoveryOptions {
   root?: string;
   maxSessions?: number;
+  limits?: DiscoveryLimits;
 }
 
-function listJsonlFiles(root: string): string[] {
+function listJsonlFiles(root: string, limits: DiscoveryLimits): string[] {
   const files: string[] = [];
-  const stack = [root];
+  const stack: Array<{ dir: string; depth: number }> = [{ dir: root, depth: 0 }];
+  let folders = 0;
   while (stack.length > 0) {
-    const dir = stack.pop()!;
+    const { dir, depth } = stack.pop()!;
+    if (++folders > limits.maxFolders) throw new DiscoveryLimitError();
     let entries;
     try {
       entries = readdirSync(dir, { withFileTypes: true });
@@ -58,8 +87,10 @@ function listJsonlFiles(root: string): string[] {
     for (const entry of entries) {
       const full = join(dir, entry.name);
       if (entry.isDirectory()) {
-        stack.push(full);
+        if (depth + 1 > limits.maxDepth) throw new DiscoveryLimitError();
+        stack.push({ dir: full, depth: depth + 1 });
       } else if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+        if (files.length >= limits.maxFiles) throw new DiscoveryLimitError();
         files.push(full);
       }
     }
@@ -133,7 +164,7 @@ export function discoverPiSessions(options: DiscoveryOptions = {}): DiscoveryRes
 
   const files = isFile(root)
     ? [{ file: root, key: basename(root) }]
-    : listJsonlFiles(root).map((file) => ({
+    : listJsonlFiles(root, options.limits ?? DEFAULT_DISCOVERY_LIMITS).map((file) => ({
         file,
         key: relative(root, file).split(sep).join("/"),
       }));

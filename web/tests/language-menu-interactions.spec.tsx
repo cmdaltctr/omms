@@ -188,3 +188,18 @@ it("keeps the upward menu inside the sidebar and moves through choices by keyboa
   menu.props.onKeyDown?.({ key: "ArrowDown", preventDefault: () => {} });
   expect(focused).toContain(1);
 });
+
+it("closes when keyboard focus leaves the menu, but not when it moves inside", () => {
+  trigger(render()).props.onClick?.();
+  const inside = {};
+  refs[0].current = {
+    contains: (node: unknown) => node === inside,
+    querySelector: () => null,
+  };
+  const container = () =>
+    find(render(), (node) => node.type === "div" && typeof node.props.onBlur === "function")[0]!;
+  container().props.onBlur?.({ relatedTarget: inside });
+  expect(find(render(), (node) => node.props.role === "menu")).toHaveLength(1);
+  container().props.onBlur?.({ relatedTarget: {} });
+  expect(find(render(), (node) => node.props.role === "menu")).toHaveLength(0);
+});

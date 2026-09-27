@@ -1,7 +1,7 @@
 import { expect, it } from "bun:test";
 import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { removeTestDir } from "./turso-test-utils.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -175,6 +175,19 @@ it("refuses an in-place read while a rollback journal shows a write in progress"
   try {
     writeFileSync(`${path}-journal`, "");
     await expect(openOpencodeHistory(path)).rejects.toMatchObject({ code: "busy" });
+  } finally {
+    await removeTestDir(directory);
+  }
+});
+
+it("keeps the real error when switching from an in-place read to a copy fails", async () => {
+  const { path, directory } = fixture();
+  try {
+    // The file changes while it is read in place, and no shared copy exists to reuse.
+    queueMicrotask(() => utimesSync(path, new Date(), new Date(Date.now() + 5000)));
+    await expect(
+      openOpencodeHistory(path, {}, { shared: { key: "k", mode: "reuse" } })
+    ).rejects.toMatchObject({ code: "expired" });
   } finally {
     await removeTestDir(directory);
   }

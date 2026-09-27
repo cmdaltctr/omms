@@ -17,7 +17,11 @@ import {
   readImportSourceToken,
   validateImportSource,
 } from "../src/importer/import-sources.js";
-import { discoverPiSessions, readFirstLine } from "../src/importer/discovery.js";
+import {
+  DiscoveryLimitError,
+  discoverPiSessions,
+  readFirstLine,
+} from "../src/importer/discovery.js";
 import { resolveImportProject } from "../src/importer/import-project.js";
 
 const dirs: string[] = [];
@@ -146,4 +150,20 @@ it("resolves maps first, recorded directories next, then an OpenCode worktree", 
     directory: null,
     via: "unresolved",
   });
+});
+
+it("stops a folder walk that is too deep, too wide, or holds too many session files", () => {
+  const { root, sessions } = workspace();
+  const limits = { maxDepth: 6, maxFolders: 5_000, maxFiles: 20_000 };
+  expect(discoverPiSessions({ root: sessions, limits }).sessions).toHaveLength(2);
+  mkdirSync(join(root, "a", "b", "c"), { recursive: true });
+  expect(() => discoverPiSessions({ root, limits: { ...limits, maxDepth: 2 } })).toThrow(
+    DiscoveryLimitError
+  );
+  expect(() => discoverPiSessions({ root, limits: { ...limits, maxFolders: 2 } })).toThrow(
+    "too large to scan"
+  );
+  expect(() => discoverPiSessions({ root: sessions, limits: { ...limits, maxFiles: 1 } })).toThrow(
+    DiscoveryLimitError
+  );
 });

@@ -90,3 +90,25 @@ describe("capture attempt store", () => {
     expect(summary.recent).toHaveLength(0);
   });
 });
+
+describe("capture attempt store preparation", () => {
+  it("prepares each store path even when a second path starts mid-preparation", async () => {
+    const first = mkdtempSync(join(tmpdir(), "omms-attempts-a-"));
+    const second = mkdtempSync(join(tmpdir(), "omms-attempts-b-"));
+    const previous = CONFIG.storagePath;
+    try {
+      CONFIG.storagePath = first;
+      const one = saveCaptureAttempt(attempt("saved"));
+      CONFIG.storagePath = second;
+      const two = saveCaptureAttempt(attempt("failed", "model_error"));
+      await Promise.all([one, two]);
+      const stored = await queryCaptureAttempts(0, Date.now() + 1000);
+      expect(stored.recent.map((row: { outcome: string }) => row.outcome)).toEqual(["failed"]);
+    } finally {
+      CONFIG.storagePath = previous;
+      await tursoConnectionManager.closeAll();
+      rmSync(first, { recursive: true, force: true });
+      rmSync(second, { recursive: true, force: true });
+    }
+  });
+});
