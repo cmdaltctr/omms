@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import type {
@@ -176,6 +177,53 @@ export function pruneTraces(config: CaptureDiagnosticsConfig, now: Date = new Da
 
 let lastTraceDate: string | null = null;
 
+const WINDOWS_TRACE_ACL = `$ErrorActionPreference = 'Stop'
+$path = $env:OMMS_TRACE_ACL_PATH
+$acl = Get-Acl -LiteralPath $path
+$acl.SetAccessRuleProtection($true, $false)
+foreach ($rule in @($acl.Access)) {
+  [void]$acl.RemoveAccessRuleSpecific($rule)
+}
+$inheritance = if ((Get-Item -LiteralPath $path).PSIsContainer) {
+  [System.Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
+} else {
+  [System.Security.AccessControl.InheritanceFlags]::None
+}
+$rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
+  [System.Security.Principal.WindowsIdentity]::GetCurrent().User,
+  [System.Security.AccessControl.FileSystemRights]::FullControl,
+  $inheritance,
+  [System.Security.AccessControl.PropagationFlags]::None,
+  [System.Security.AccessControl.AccessControlType]::Allow
+)
+$acl.AddAccessRule($rule)
+Set-Acl -LiteralPath $path -AclObject $acl`;
+
+type WindowsAclRunner = (
+  command: string,
+  args: string[],
+  options: { env: NodeJS.ProcessEnv; timeout: number; windowsHide: boolean; stdio: "ignore" }
+) => void;
+
+/** Restrict a trace path to the current user on both Windows and POSIX. */
+export function protectTracePath(
+  path: string,
+  mode: number,
+  platform = process.platform,
+  run: WindowsAclRunner = execFileSync
+): void {
+  if (platform !== "win32") {
+    chmodSync(path, mode);
+    return;
+  }
+  run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", WINDOWS_TRACE_ACL], {
+    env: { ...process.env, OMMS_TRACE_ACL_PATH: path },
+    timeout: 10_000,
+    windowsHide: true,
+    stdio: "ignore",
+  });
+}
+
 /**
  * Append one trace entry to the day's JSON Lines file. A single append per
  * entry keeps lines whole when Pi and OpenCode write at the same time.
@@ -195,7 +243,7 @@ export function writeTraceEntry(
 
     const dir = getTraceDirectory();
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    chmodSync(dir, 0o700);
+    protectTracePath(dir, 0o700);
 
     const redact = (value: string | undefined) =>
       value === undefined ? null : redactTraceText(value, config);
@@ -208,10 +256,12 @@ export function writeTraceEntry(
       reply: redact(diagnostics.rawReply),
     };
     const file = join(dir, `capture-${today}.jsonl`);
+    // Narrow an existing file before appending sensitive content.
+    const existingWindowsFile = process.platform === "win32" && existsSync(file);
+    if (existingWindowsFile) protectTracePath(file, 0o600);
     appendFileSync(file, `${JSON.stringify(entry)}\n`, { mode: 0o600 });
-    // The mode above applies only when the append creates the file; a file
-    // that already existed with wider permissions is narrowed here.
-    chmodSync(file, 0o600);
+    // A new Windows file inherits the private directory ACL until this call.
+    if (!existingWindowsFile) protectTracePath(file, 0o600);
   } catch (error) {
     log("Capture trace write failed", { code: errorCode(error) });
   }

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { execFileSync } from "node:child_process";
 import {
   chmodSync,
   existsSync,
@@ -23,6 +24,7 @@ const {
   emitCaptureAttempt,
   getTraceDirectory,
   pruneTraces,
+  protectTracePath,
   redactTraceText,
   resetTraceStateForTests,
 } = await import("../src/services/capture-diagnostics.js");
@@ -45,6 +47,35 @@ const RECORD_KEYS = [
 
 const context = { host: "pi" as const, sourceType: "live-capture" as const, sessionId: "s1" };
 const fakeKey = "sk-proj-abcdefghijklmnopqrstuvwxyz0123";
+
+function windowsAcl(path: string, script: string): string {
+  return execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], {
+    encoding: "utf8",
+    env: { ...process.env, OMMS_TRACE_TEST_PATH: path },
+    timeout: 10_000,
+    windowsHide: true,
+  }).trim();
+}
+
+function expectPrivateTracePath(path: string, mode: number): void {
+  if (process.platform !== "win32") {
+    expect(statSync(path).mode & 0o777).toBe(mode);
+    return;
+  }
+  const acl = JSON.parse(
+    windowsAcl(
+      path,
+      `$ErrorActionPreference = 'Stop'
+$acl = Get-Acl -LiteralPath $env:OMMS_TRACE_TEST_PATH
+$allowed = @($acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]) |
+  Where-Object { $_.AccessControlType -eq 'Allow' } |
+  ForEach-Object { $_.IdentityReference.Value })
+@{ protectedAcl = $acl.AreAccessRulesProtected; allowed = $allowed; current = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value } | ConvertTo-Json -Compress`
+    )
+  ) as { protectedAcl: boolean; allowed: string[] | string; current: string };
+  expect(acl.protectedAcl).toBe(true);
+  expect([acl.allowed].flat()).toEqual([acl.current]);
+}
 
 let logDir: string;
 let previousLogFile: string | undefined;
@@ -151,6 +182,17 @@ describe("trace redaction", () => {
 });
 
 describe("trace files", () => {
+  it("uses a protected Windows ACL instead of Unix mode bits", () => {
+    const calls: Array<{ command: string; args: string[]; path: string | undefined }> = [];
+    protectTracePath("C:\\trace[1].jsonl", 0o600, "win32", (command, args, options) => {
+      calls.push({ command, args, path: options.env.OMMS_TRACE_ACL_PATH });
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.command).toBe("powershell.exe");
+    expect(calls[0]?.path).toBe("C:\\trace[1].jsonl");
+    expect(calls[0]?.args.join(" ")).toContain("SetAccessRuleProtection($true, $false)");
+  });
+
   const diagnostics = {
     provider: "zai",
     model: "glm-5.3",
@@ -183,8 +225,8 @@ describe("trace files", () => {
       userPrompt: "a [REDACTED] prompt",
       reply: "reply [REDACTED]",
     });
-    expect(statSync(dir).mode & 0o777).toBe(0o700);
-    expect(statSync(file).mode & 0o777).toBe(0o600);
+    expectPrivateTracePath(dir, 0o700);
+    expectPrivateTracePath(file, 0o600);
   });
 
   it("narrows an existing trace file that has wider permissions", () => {
@@ -193,10 +235,22 @@ describe("trace files", () => {
     mkdirSync(dir, { recursive: true });
     const file = join(dir, "capture-2026-09-27.jsonl");
     writeFileSync(file, "", { mode: 0o644 });
-    chmodSync(file, 0o644);
+    if (process.platform === "win32") {
+      windowsAcl(
+        file,
+        `$ErrorActionPreference = 'Stop'
+$acl = Get-Acl -LiteralPath $env:OMMS_TRACE_TEST_PATH
+$world = [System.Security.Principal.SecurityIdentifier]::new('S-1-1-0')
+$rule = [System.Security.AccessControl.FileSystemAccessRule]::new($world, 'Read', 'Allow')
+$acl.AddAccessRule($rule)
+Set-Acl -LiteralPath $env:OMMS_TRACE_TEST_PATH -AclObject $acl`
+      );
+    } else {
+      chmodSync(file, 0o644);
+    }
     const record = buildCaptureAttemptRecord(context, diagnostics, "saved", 1);
     emitCaptureAttempt(record, diagnostics, { captureTrace: true }, now);
-    expect(statSync(file).mode & 0o777).toBe(0o600);
+    expectPrivateTracePath(file, 0o600);
   });
 
   it("keeps the outcome and logs without content when the trace cannot be written", () => {
