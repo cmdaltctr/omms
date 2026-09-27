@@ -42,6 +42,20 @@ describe("OpenCode v2 legacy client bridge", () => {
     expect(result.data.connected).toEqual(["anthropic", "openai"]);
   });
 
+  it("lists each connected provider's models for the Settings page", async () => {
+    const client = createLegacyClient(createContext());
+    const { listOpencodeSettingsModels } = await import("../src/services/settings-models.js");
+    const listed = await listOpencodeSettingsModels(client as never);
+    expect(listed).toEqual({
+      available: true,
+      models: [
+        { provider: "anthropic", model: "claude", name: "claude" },
+        { provider: "anthropic", model: "claude-fast", name: "claude-fast" },
+        { provider: "openai", model: "gpt", name: "gpt" },
+      ],
+    });
+  });
+
   it("preserves create/prompt/delete structured-output semantics", async () => {
     let generationInput: any;
     const ctx = createContext({

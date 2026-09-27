@@ -216,6 +216,14 @@ const text = {
   "Chosen source": ["已选来源", "المصدر المختار"],
   Choose: ["选择", "اختيار"],
   "Only the first 500 entries are shown.": ["仅显示前 500 项。", "تُعرض أول 500 عنصر فقط."],
+  "Reload the page before saving again.": [
+    "再次保存前请重新加载页面。",
+    "أعد تحميل الصفحة قبل الحفظ مرة أخرى.",
+  ],
+  "The current settings could not be reloaded. Reload the page.": [
+    "无法重新加载当前设置。请重新加载页面。",
+    "تعذّر إعادة تحميل الإعدادات الحالية. أعد تحميل الصفحة.",
+  ],
   Log: ["日志", "السجل"],
   "Capture attempts only": ["仅显示捕获尝试", "محاولات الالتقاط فقط"],
   Refresh: ["刷新", "تحديث"],

@@ -126,7 +126,17 @@ export function createLegacyClient(ctx: Context) {
         const connected = [
           ...new Set(models.data.map((model) => model.providerID).filter(Boolean)),
         ];
-        return { data: { connected } };
+        // The Settings page lists each connected provider's models from `all`, as
+        // the V1 SDK's provider list returns them.
+        const all = connected.map((id) => ({
+          id,
+          models: Object.fromEntries(
+            models.data
+              .filter((model) => model.providerID === id)
+              .map((model) => [model.id, { name: model.name || model.id }])
+          ),
+        }));
+        return { data: { connected, all } };
       },
     },
     tui: {
