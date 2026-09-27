@@ -2,6 +2,27 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [3.3.0](https://github.com/cmdaltctr/omms/compare/v3.2.0...v3.3.0) (2026-09-27)
+
+
+### Features
+
+* enable automatic history backfill and login web app ([00a6195](https://github.com/cmdaltctr/omms/commit/00a61951007b825895e81c44d5161432c72b5ab7))
+* enable automatic history backfill and login web app ([00a6195](https://github.com/cmdaltctr/omms/commit/00a61951007b825895e81c44d5161432c72b5ab7))
+* enable automatic history backfill and login web app ([cac7182](https://github.com/cmdaltctr/omms/commit/cac7182734a94a970cb3727f3528bafc15f8bcad))
+
+
+### Bug Fixes
+
+* **test:** give each isolated test run its own log directory ([e5952ca](https://github.com/cmdaltctr/omms/commit/e5952ca57238157fc6e7702116fe0e136f4c3585))
+* **test:** keep test logs, traces, and migrations out of the real ~/.omms ([64105ee](https://github.com/cmdaltctr/omms/commit/64105eea3a47ac3b7e3d63ce70e2a770dbca15d6))
+* **test:** keep test logs, traces, and migrations out of the real ~/.omms ([4f02673](https://github.com/cmdaltctr/omms/commit/4f026732e52943bfc06a60159bd6fa5981669777))
+
+
+### Documentation
+
+* propose automatic history backfill and starting the web app at login ([8f63529](https://github.com/cmdaltctr/omms/commit/8f6352928e17ebd56f8e75cb2aae4cf8a9809258))
+
 ## [3.2.0](https://github.com/cmdaltctr/omms/compare/v3.1.1...v3.2.0) (2026-09-27)
 
 
