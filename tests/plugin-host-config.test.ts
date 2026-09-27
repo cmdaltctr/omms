@@ -68,7 +68,8 @@ describe("OpenCode host client config", () => {
   it("resets stale host fetch and logs when SDK config reflection finds no host fetch", async () => {
     const globalFetch = globalThis.fetch;
     const logFile = join(mkdtempSync(join(tmpdir(), "opencode-mem-test-")), "opencode-mem.log");
-    process.env.OPENCODE_MEM_LOG_FILE = logFile;
+    const previousLogFile = process.env.OMMS_LOG_FILE;
+    process.env.OMMS_LOG_FILE = logFile;
     const calls: string[] = [];
 
     const staleHostFetch: typeof fetch = Object.assign(
@@ -124,7 +125,8 @@ describe("OpenCode host client config", () => {
     } finally {
       globalThis.fetch = globalFetch;
       resetHostFetch();
-      delete process.env.OPENCODE_MEM_LOG_FILE;
+      if (previousLogFile === undefined) delete process.env.OMMS_LOG_FILE;
+      else process.env.OMMS_LOG_FILE = previousLogFile;
     }
   });
 });

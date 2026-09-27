@@ -50,11 +50,11 @@ class FakeSessionManager {
 
 describe("AI provider config", () => {
   const originalFetch = globalThis.fetch;
-  const originalLogFileEnv = process.env.OPENCODE_MEM_LOG_FILE;
+  const originalLogFileEnv = process.env.OMMS_LOG_FILE;
   const logDir = mkdtempSync(join(tmpdir(), "opencode-mem-logs-"));
   const logFile = join(logDir, "opencode-mem.log");
 
-  process.env.OPENCODE_MEM_LOG_FILE = logFile;
+  process.env.OMMS_LOG_FILE = logFile;
 
   beforeEach(() => {
     rmSync(logFile, { force: true });
@@ -66,9 +66,9 @@ describe("AI provider config", () => {
 
   afterAll(() => {
     if (originalLogFileEnv === undefined) {
-      delete process.env.OPENCODE_MEM_LOG_FILE;
+      delete process.env.OMMS_LOG_FILE;
     } else {
-      process.env.OPENCODE_MEM_LOG_FILE = originalLogFileEnv;
+      process.env.OMMS_LOG_FILE = originalLogFileEnv;
     }
     rmSync(logDir, { recursive: true, force: true });
   });

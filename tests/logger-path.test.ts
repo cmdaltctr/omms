@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -39,7 +39,8 @@ log("scenario-entry", { marker: true });
   }
 
   writeFileSync(scriptPath, script);
-  const proc = Bun.spawn(["bun", "run", scriptPath], { env: childEnv });
+  // Run from the temp home so the child does not load the repo's .env.test.
+  const proc = Bun.spawn(["bun", "run", scriptPath], { cwd: home, env: childEnv });
   return proc.exited.then(() => home);
 }
 
@@ -83,5 +84,22 @@ describe("log directory", () => {
       if (previous === undefined) delete process.env.OMMS_LOG_FILE;
       else process.env.OMMS_LOG_FILE = previous;
     }
+  });
+});
+
+describe("test isolation", () => {
+  it("keeps the log and traces of test runs out of the real ~/.omms", async () => {
+    const { getLogDirPath } = await import("../src/services/log-path.js");
+    const { getTraceDirectory } = await import("../src/services/capture-diagnostics.js");
+    const realDataDir = join(homedir(), ".omms");
+    expect(getLogDirPath().startsWith(realDataDir)).toBe(false);
+    expect(getTraceDirectory().startsWith(realDataDir)).toBe(false);
+  });
+
+  it("passes the redirected log to child processes spawned without an env", () => {
+    const child = Bun.spawnSync(["bun", "-e", "console.log(process.env.OMMS_LOG_FILE ?? '')"]);
+    const childLogFile = child.stdout.toString().trim();
+    expect(childLogFile).not.toBe("");
+    expect(childLogFile.startsWith(join(homedir(), ".omms"))).toBe(false);
   });
 });
