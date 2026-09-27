@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { settingsRequest } from "$lib/settings-api";
+import {
+  onSettingsSnapshot,
+  publishSettingsSnapshot,
+  settingsRequest,
+  withNote,
+} from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 
 type Attempt = {
@@ -59,6 +64,7 @@ export function DiagnosticsSection() {
   useEffect(() => {
     void refresh(days);
   }, [days, refresh]);
+  useEffect(() => onSettingsSnapshot((value) => setSnapshot(value as Snapshot)), []);
   async function save(edits: Record<string, boolean | number>) {
     if (!snapshot) return;
     try {
@@ -66,11 +72,17 @@ export function DiagnosticsSection() {
         method: "PATCH",
         body: JSON.stringify({ revision: snapshot.revision, edits }),
       });
+      publishSettingsSnapshot(await settingsRequest<Snapshot>("/api/settings"));
       await refresh(days);
     } catch (cause) {
-      setSnapshot(await settingsRequest<Snapshot>("/api/settings").catch(() => snapshot));
+      publishSettingsSnapshot(
+        await settingsRequest<Snapshot>("/api/settings").catch(() => snapshot)
+      );
       setError(
-        `${(cause as Error).message}. ${s("Current settings were reloaded; check the values and save again.")}`
+        withNote(
+          (cause as Error).message,
+          s("Current settings were reloaded; check the values and save again.")
+        )
       );
     }
   }

@@ -154,7 +154,7 @@ it("resolves maps first, recorded directories next, then an OpenCode worktree", 
 
 it("stops a folder walk that is too deep, too wide, or holds too many session files", () => {
   const { root, sessions } = workspace();
-  const limits = { maxDepth: 6, maxFolders: 5_000, maxFiles: 20_000 };
+  const limits = { maxDepth: 32, maxFolders: 5_000, maxFiles: 20_000 };
   expect(discoverPiSessions({ root: sessions, limits }).sessions).toHaveLength(2);
   mkdirSync(join(root, "a", "b", "c"), { recursive: true });
   expect(() => discoverPiSessions({ root, limits: { ...limits, maxDepth: 2 } })).toThrow(
@@ -166,4 +166,14 @@ it("stops a folder walk that is too deep, too wide, or holds too many session fi
   expect(() => discoverPiSessions({ root: sessions, limits: { ...limits, maxFiles: 1 } })).toThrow(
     DiscoveryLimitError
   );
+});
+
+it("accepts a real Pi sessions folder with deeply nested subagent runs by default", () => {
+  const { sessions } = workspace();
+  // The shape Pi writes for subagent runs: seven levels below the sessions folder.
+  const nested = join(sessions, "--project--", "run", "id", "run-0", "session", "id2", "run-0");
+  mkdirSync(nested, { recursive: true });
+  writeFileSync(join(nested, "deep.jsonl"), header("sess-deep"));
+  const found = discoverPiSessions({ root: sessions });
+  expect(found.sessions.map((session) => session.sessionId)).toContain("sess-deep");
 });

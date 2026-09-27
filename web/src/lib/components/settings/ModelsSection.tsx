@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { settingsRequest } from "$lib/settings-api";
+import {
+  onSettingsSnapshot,
+  publishSettingsSnapshot,
+  settingsRequest,
+  withNote,
+} from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 
 type Setting = { value?: string; globalValue?: string; source: string };
@@ -37,8 +42,12 @@ export function ModelsSection() {
           if (active) setLists((previous) => ({ ...previous, [host]: { available: false } }));
         });
     }
+    const unsubscribe = onSettingsSnapshot((value) => {
+      if (active) setSnapshot(value as Snapshot);
+    });
     return () => {
       active = false;
+      unsubscribe();
     };
   }, []);
 
@@ -61,7 +70,7 @@ export function ModelsSection() {
         method: "PATCH",
         body: JSON.stringify({ edits, revision: snapshot.revision }),
       });
-      setSnapshot(await settingsRequest<Snapshot>("/api/settings"));
+      publishSettingsSnapshot(await settingsRequest<Snapshot>("/api/settings"));
       setMessage(
         s(
           result.migratedLegacy
@@ -70,9 +79,14 @@ export function ModelsSection() {
         )
       );
     } catch (error) {
-      setSnapshot(await settingsRequest<Snapshot>("/api/settings").catch(() => snapshot));
+      publishSettingsSnapshot(
+        await settingsRequest<Snapshot>("/api/settings").catch(() => snapshot)
+      );
       setMessage(
-        `${(error as Error).message}. ${s("Current settings were reloaded; check the values and save again.")}`
+        withNote(
+          (error as Error).message,
+          s("Current settings were reloaded; check the values and save again.")
+        )
       );
     } finally {
       setBusy(false);

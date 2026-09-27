@@ -40,9 +40,11 @@ export interface DiscoveryResult {
 }
 
 /**
- * Bounds on a folder walk. A Pi sessions folder is shallow (one folder per
- * project), so a walk that goes past these is almost certainly a home folder,
+ * Bounds on a folder walk. A Pi sessions folder holds a few hundred folders,
+ * so a walk past the folder or file limit is almost certainly a home folder,
  * `/`, or a whole backup volume, and would block the process for minutes.
+ * Depth is only a backstop: subagent runs nest session folders seven or more
+ * levels deep (`<project>/<run>/<id>/run-0/session/<id>/run-0`).
  */
 export interface DiscoveryLimits {
   maxDepth: number;
@@ -51,7 +53,7 @@ export interface DiscoveryLimits {
 }
 
 export const DEFAULT_DISCOVERY_LIMITS: DiscoveryLimits = {
-  maxDepth: 6,
+  maxDepth: 32,
   maxFolders: 5_000,
   maxFiles: 20_000,
 };
