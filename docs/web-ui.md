@@ -2,6 +2,8 @@
 
 The OpenCode plugin serves a memory explorer at `http://127.0.0.1:4747`. Use it to browse the memory–prompt timeline, inspect captures, edit memories and manage your user profile. Pi does not start the web UI; when both run, OpenCode owns the port.
 
+The sidebar footer shows the current language as EN, ZH, or AR. Select the code to open the language menu, then choose English, Chinese, or Arabic. Opening or closing the menu keeps the current language. The choice is saved for the next visit.
+
 ## Network binding
 
 Keep `webServerHost` on `127.0.0.1` unless you intentionally expose the UI. Binding to `0.0.0.0` (or any non-loopback host) requires `webServerApiToken`; all `/api/*` requests must then send `Authorization: Bearer <token>` or `X-Omms-Token` (the legacy `X-Opencode-Mem-Token` header is still accepted). Open the UI with `?apiToken=<token>` so the browser stores and sends it.

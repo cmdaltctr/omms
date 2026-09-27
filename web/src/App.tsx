@@ -15,7 +15,8 @@ import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import { Toaster } from "$lib/components/ui/sonner";
 import { Textarea } from "$lib/components/ui/textarea";
-import { cycleLanguage, getLanguage, useI18n } from "$lib/i18n";
+import { setLanguage, useI18n } from "$lib/i18n";
+import type { Lang } from "$lib/i18n/translations";
 import { getDisplayedMemoryCount } from "$lib/memory-count";
 import { initRouter, navigate, ROUTES, useAppView } from "$lib/router";
 
@@ -33,10 +34,9 @@ const MEMORY_TYPES = [
 ] as const;
 
 export default function App() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const currentView = useAppView();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [langLabel, setLangLabel] = useState(getLanguage().toUpperCase());
 
   const explorer = useMemoriesExplorer();
   const profile = useUserProfile();
@@ -70,8 +70,9 @@ export default function App() {
     }
   }, [currentView, loadUserProfile]);
 
-  function onLangToggle() {
-    setLangLabel(cycleLanguage().toUpperCase());
+  function onLanguageSelect(next: Lang) {
+    if (next === language) return;
+    setLanguage(next);
     void explorer.loadMemories();
     void explorer.loadStats();
     if (currentView === "profile") void profile.loadUserProfile();
@@ -104,11 +105,11 @@ export default function App() {
           brand={t("brand")}
           projectLabel={t("tab-project")}
           profileLabel={t("tab-profile")}
-          langLabel={langLabel}
+          langLabel={language.toUpperCase()}
           languageLabel={t("nav-language")}
           themeLabel={t("nav-theme")}
           closeLabel={t("nav-close")}
-          onLangToggle={onLangToggle}
+          onLanguageSelect={onLanguageSelect}
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
