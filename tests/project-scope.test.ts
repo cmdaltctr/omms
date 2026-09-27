@@ -21,8 +21,14 @@ import {
 
 const createdDirs: string[] = [];
 
+// Drop the variables git sets inside hooks: with GIT_DIR set, `git config`
+// here would write to the enclosing repository instead of the temp repo.
+const GIT_HOOK_VARIABLES = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR"];
+
 function run(command: string, cwd: string): void {
-  execSync(command, { cwd, stdio: "pipe" });
+  const env = { ...process.env };
+  for (const name of GIT_HOOK_VARIABLES) delete env[name];
+  execSync(command, { cwd, stdio: "pipe", env });
 }
 
 function createRepoWithWorktree(): { repoDir: string; worktreeDir: string } {
@@ -31,7 +37,7 @@ function createRepoWithWorktree(): { repoDir: string; worktreeDir: string } {
 
   run("git init", repoDir);
   run("git config user.email test@example.com", repoDir);
-  run("git config user.name Test User", repoDir);
+  run('git config user.name "Test User"', repoDir);
 
   writeFileSync(join(repoDir, "README.md"), "# test\n", "utf-8");
   run("git add README.md", repoDir);
@@ -183,7 +189,7 @@ describe("project marker (.omms-project)", () => {
       mkdirSync(repo, { recursive: true });
       run("git init", repo);
       run("git config user.email test@example.com", repo);
-      run("git config user.name Test User", repo);
+      run('git config user.name "Test User"', repo);
     }
     return { workspaceDir, repoA, repoB };
   }
