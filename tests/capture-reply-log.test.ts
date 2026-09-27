@@ -15,6 +15,13 @@ mock.module("../src/services/logger.js", () => ({
   log: (_message: string, details: Record<string, unknown>) => logged.push(details),
 }));
 
+// The attempt record is also saved to the store in the background. With no
+// store configured that save fails and logs later, sometimes during the next
+// test, so stub it: these tests cover only what reaches the log.
+mock.module("../src/services/capture-attempt-store.js", () => ({
+  saveCaptureAttempt: async () => {},
+}));
+
 mock.module("../src/services/ai/ai-provider-factory.js", () => ({
   AIProviderFactory: {
     createProvider: () => ({
