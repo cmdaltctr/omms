@@ -3,6 +3,8 @@ export interface ToolCallResult {
   data?: any;
   error?: string;
   iterations?: number;
+  /** The provider's last reported stop reason, e.g. a length limit. */
+  stopReason?: string;
 }
 
 export interface ProviderConfig {
@@ -14,6 +16,17 @@ export interface ProviderConfig {
   maxTokens?: number;
   memoryTemperature?: number | false;
   extraParams?: Record<string, unknown>;
+}
+
+/**
+ * A validation error message that is safe to log and return. A JSON
+ * `SyntaxError` message quotes the start of the model's reply, which can carry
+ * conversation content, so it is replaced; validator messages name fields only.
+ */
+export function describeValidationError(error: unknown): string {
+  if (error instanceof SyntaxError) return "tool arguments are not valid JSON";
+  if (error instanceof Error) return error.message;
+  return "unknown validation error";
 }
 
 const PROTECTED_KEYS = new Set([

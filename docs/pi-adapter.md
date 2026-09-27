@@ -71,6 +71,9 @@ in Pi's model list and the external API is configured, the external API is
 used instead. If no model resolves, automatic capture fails with a log entry;
 manual memory operations remain available.
 
+Each capture attempt writes a metadata line to the OMMS log, and optionally a
+full trace. See [Configuration: Capture diagnostics](configuration.md#capture-diagnostics).
+
 The web UI is not started by the Pi adapter. When both hosts run, let OpenCode
 own the web server port as before.
 

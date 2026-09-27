@@ -1,4 +1,9 @@
-import { applySafeExtraParams, BaseAIProvider, type ToolCallResult } from "./base-provider.js";
+import {
+  applySafeExtraParams,
+  BaseAIProvider,
+  describeValidationError,
+  type ToolCallResult,
+} from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
 import { ToolSchemaConverter, type ChatCompletionTool } from "../tools/tool-schema.js";
 import type { AIProviderType } from "../session/session-types.js";
@@ -88,6 +93,8 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
     toolSchema: ChatCompletionTool,
     sessionId: string
   ): Promise<ToolCallResult> {
+    // Last stop reason the provider reported, so capture diagnostics can see length limits.
+    let stopReason: string | undefined;
     const providerTag = this.sessionProviderTag();
     let session = await this.aiSessionManager.getSession(sessionId, providerTag);
 
@@ -176,6 +183,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
             iteration: iterations,
           });
           return {
+            stopReason,
             success: false,
             error: `API error: ${response.status} - ${errorText}`,
             iterations,
@@ -183,6 +191,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
         }
 
         const data = (await response.json()) as AnthropicResponse;
+        stopReason = data.stop_reason;
 
         const assistantSequence = (await this.aiSessionManager.getLastSequence(session.id)) + 1;
         await this.aiSessionManager.addMessage({
@@ -207,26 +216,27 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
               throw new Error(result.errors.join(", "));
             }
             return {
+              stopReason,
               success: true,
               data: result.data,
               iterations,
             };
           } catch (validationError) {
-            const errorStack = validationError instanceof Error ? validationError.stack : undefined;
             log(this.toolValidationErrorLogLabel(), {
-              error: String(validationError),
-              stack: errorStack,
+              error: describeValidationError(validationError),
               errorType:
                 validationError instanceof Error
                   ? validationError.constructor.name
                   : typeof validationError,
               toolName: toolSchema.function.name,
               iteration: iterations,
-              rawData: JSON.stringify(toolUse).slice(0, 500),
+              // Log only the size: the tool input is the model's reply.
+              inputChars: JSON.stringify(toolUse)?.length ?? 0,
             });
             return {
+              stopReason,
               success: false,
-              error: `Validation failed: ${String(validationError)}`,
+              error: `Validation failed: ${describeValidationError(validationError)}`,
               iterations,
             };
           }
@@ -252,12 +262,14 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
         clearTimeout(timeout);
         if (error instanceof Error && error.name === "AbortError") {
           return {
+            stopReason,
             success: false,
             error: `${this.timeoutLabel()} (${this.config.iterationTimeout}ms)`,
             iterations,
           };
         }
         return {
+          stopReason,
           success: false,
           error: String(error),
           iterations,
@@ -266,6 +278,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
     }
 
     return {
+      stopReason,
       success: false,
       error: `Max iterations (${maxIterations}) reached without tool use`,
       iterations,

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { CaptureSummary } from "./host.js";
+import type { CaptureFailureReason, CaptureSummary } from "./host.js";
 
 /**
  * Shared structured-extraction contract for automatic capture.
@@ -44,6 +44,19 @@ export const captureSummaryToolSchema = {
   },
   required: ["summary", "type", "tags"],
 };
+
+/**
+ * Reply-format instruction for paths that get plain text back (the Pi model
+ * bridge). Structured-output and tool-call paths enforce the shape themselves,
+ * so without this the model only sees the Markdown layout of the summary field
+ * and `type="skip"`, and tends to answer in that form instead of JSON.
+ */
+export function buildCaptureReplyInstruction(): string {
+  return `Reply with only one JSON object and nothing else: no prose, no code fence. It must match this JSON schema:
+${JSON.stringify(captureSummaryToolSchema)}
+Put the Markdown summary (## Request / ## Outcome) inside the "summary" string.
+For a non-technical conversation reply exactly: {"type":"skip","summary":"","tags":[]}`;
+}
 
 export function buildCaptureSystemPrompt(languageName: string): string {
   return `You are a technical memory recorder for a software development project.
@@ -155,4 +168,34 @@ export function parseCaptureSummary(raw: string): CaptureSummary | null {
     type: parsed.data.type,
     tags: parsed.data.tags.map((tag) => tag.toLowerCase().trim()).filter(Boolean),
   };
+}
+
+const LENGTH_STOP_REASONS = new Set(["length", "max_tokens", "max_output_tokens"]);
+
+/**
+ * Map provider-specific stop reasons onto one vocabulary so a length limit
+ * reads as `length` on every extraction path. Other values pass through in
+ * lower case.
+ */
+export function normalizeStopReason(stopReason: string | null | undefined): string | undefined {
+  if (!stopReason) return undefined;
+  const lower = stopReason.toLowerCase();
+  return LENGTH_STOP_REASONS.has(lower) ? "length" : lower;
+}
+
+/**
+ * Explain why a reply is not a usable capture summary. Returns null when the
+ * reply parses (including a skip). Codes are checked in the spec's order, so a
+ * cut-off reply reads as `truncated` rather than `invalid-json`.
+ */
+export function classifyCaptureReply(reply: {
+  text: string;
+  stopReason?: string | null;
+}): CaptureFailureReason | null {
+  if (parseCaptureSummary(reply.text)) return null;
+  if (reply.text.trim().length === 0) return "empty-text";
+  if (normalizeStopReason(reply.stopReason) === "length") return "truncated";
+  const json = extractJsonObject(reply.text);
+  if (json === null || typeof json !== "object" || Array.isArray(json)) return "invalid-json";
+  return "schema-mismatch";
 }

@@ -68,7 +68,9 @@ formatting by hand.
 - TypeScript in strict mode, ES modules, `.js` extensions in relative imports.
 - Prettier formats code and Markdown; ESLint allows no warnings.
 - Match the naming and comment style of the code around your change.
-- Never log raw model replies, prompts, or secrets.
+- Never write raw model replies, prompts, or secrets to the log. Log sizes,
+  identifiers, and codes. Prompts and replies may go only to the opt-in capture
+  trace (`captureTrace`), after `<private>` and secret redaction.
 
 ## Commit messages and pull requests
 

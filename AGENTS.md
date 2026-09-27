@@ -108,7 +108,8 @@ bun run ci:local   # check, build, then every test file in its own process
 
 ## Security
 
-- Never log raw model replies or prompts. Log sizes and identifiers only.
+- Never write raw model replies or prompts to the log. Log sizes, identifiers, and codes; every capture attempt logs one metadata record.
+- Prompts and replies may be written only to the capture trace, only when the user turns on `captureTrace` in the global config, and only after `<private>` and secret redaction. A project config can turn tracing off but never on.
 - Accept secrets as `env://NAME` or `file://path`. Redact API keys from error messages.
 - Keep `webServerHost` on loopback by default. A non-loopback host requires `webServerApiToken`.
 - Strip text inside `<private>` tags before storage. Use `stripPrivateContent` and `isFullyPrivate` from `src/services/privacy.ts`.

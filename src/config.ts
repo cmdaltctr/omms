@@ -74,6 +74,9 @@ interface OmmsConfig {
   piProvider?: string;
   piModel?: string;
   aiSessionRetentionDays?: number;
+  /** Write full capture prompts and replies to ~/.omms/traces. Global config only. */
+  captureTrace?: boolean;
+  captureTraceRetentionDays?: number;
   webServerEnabled?: boolean;
   webServerPort?: number;
   webServerHost?: string;
@@ -187,6 +190,8 @@ const DEFAULTS: Required<
   autoCaptureMaxRetries: 3,
   autoCaptureMaxContextBytes: 131072,
   aiSessionRetentionDays: 7,
+  captureTrace: false,
+  captureTraceRetentionDays: 7,
   webServerEnabled: true,
   webServerPort: 4747,
   webServerHost: "127.0.0.1",
@@ -499,6 +504,16 @@ const CONFIG_TEMPLATE = `{
   // Days to keep AI session history before cleanup
   "aiSessionRetentionDays": 7,
 
+  // Capture diagnostics: every capture attempt always writes one metadata line
+  // (model, stop reason, sizes, outcome) to ~/.omms/omms.log, with no
+  // conversation text. Set captureTrace to true to also write each attempt's
+  // prompt and raw reply to ~/.omms/traces/ for debugging. Traces can contain
+  // conversation content: <private> text and common API key formats are
+  // redacted, files are readable only by you, and they are deleted after
+  // captureTraceRetentionDays. Only this global file can turn tracing on.
+  // "captureTrace": false,
+  // "captureTraceRetentionDays": 7,
+
   // Temperature for AI API requests (set to false to omit parameter for models that don't support it)
   // Some reasoning models (like o1, o3, gpt-5) don't support temperature parameter
   // Set to false and add "memoryTemperature": false in config when using such models
@@ -752,6 +767,11 @@ function buildConfig(fileConfig: OmmsConfig) {
       memoryApiKey,
     }),
     aiSessionRetentionDays: fileConfig.aiSessionRetentionDays ?? DEFAULTS.aiSessionRetentionDays,
+    captureTrace: fileConfig.captureTrace === true,
+    captureTraceRetentionDays: Math.max(
+      1,
+      Math.floor(fileConfig.captureTraceRetentionDays ?? DEFAULTS.captureTraceRetentionDays)
+    ),
     webServerEnabled: fileConfig.webServerEnabled ?? DEFAULTS.webServerEnabled,
     webServerPort: fileConfig.webServerPort ?? DEFAULTS.webServerPort,
     webServerHost: fileConfig.webServerHost ?? DEFAULTS.webServerHost,
@@ -865,6 +885,13 @@ export function initConfig(directory: string): void {
   const projectOverrides = { ...projectConfig };
   delete projectOverrides.autoCleanupEnabled;
   delete projectOverrides.autoCleanupRetentionDays;
+  // A checked-in project file must not start recording conversations; it may
+  // only turn tracing off for its project.
+  if (projectOverrides.captureTrace === true) {
+    log("Project config cannot turn on captureTrace; the value was ignored", { directory });
+    delete projectOverrides.captureTrace;
+  }
+  delete projectOverrides.captureTraceRetentionDays;
   const merged: OmmsConfig = { ...globalConfig, ...projectOverrides };
   lastFileConfig = merged;
   CONFIG = buildConfig(merged);

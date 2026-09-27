@@ -182,6 +182,42 @@ describe("project-scoped config resolution", () => {
     expect(CONFIG.autoCaptureEnabled).toBe(false);
   });
 
+  function mockGlobalAndProject(global: object, project: object) {
+    existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
+    readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
+      const path = normalizePath(p);
+      if (/\/\.opencode\/(omms|opencode-mem)\./.test(path)) return JSON.stringify(project) as any;
+      return JSON.stringify(global) as any;
+    });
+  }
+
+  it("defaults capture tracing to off with a 7-day retention", () => {
+    existsSpy = spyOn(fs, "existsSync").mockReturnValue(false);
+    initConfig("/no/config/project");
+    expect(CONFIG.captureTrace).toBe(false);
+    expect(CONFIG.captureTraceRetentionDays).toBe(7);
+  });
+
+  it("lets a project turn capture tracing off", () => {
+    mockGlobalAndProject({ captureTrace: true }, { captureTrace: false });
+    initConfig("/my/project");
+    expect(CONFIG.captureTrace).toBe(false);
+  });
+
+  it("ignores a project that tries to turn capture tracing on", () => {
+    mockGlobalAndProject({}, { captureTrace: true, captureTraceRetentionDays: 365 });
+    initConfig("/my/project");
+    expect(CONFIG.captureTrace).toBe(false);
+    expect(CONFIG.captureTraceRetentionDays).toBe(7);
+  });
+
+  it("keeps global capture tracing when the project leaves it unset", () => {
+    mockGlobalAndProject({ captureTrace: true, captureTraceRetentionDays: 0 }, {});
+    initConfig("/my/project");
+    expect(CONFIG.captureTrace).toBe(true);
+    expect(CONFIG.captureTraceRetentionDays).toBe(1);
+  });
+
   it("falls back to defaults when neither global nor project config exists", () => {
     existsSpy = spyOn(fs, "existsSync").mockReturnValue(false);
     initConfig("/no/config/project");

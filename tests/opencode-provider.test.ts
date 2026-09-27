@@ -7,6 +7,7 @@ import {
   isInternalStructuredSession,
   isProviderConnected,
   resetHostFetch,
+  resetV2BaseUrlForTests,
   resetInternalStructuredSessions,
   setConnectedProviders,
   setHostFetch,
@@ -178,6 +179,77 @@ describe("generateStructuredOutput", () => {
     expect(deleteCall).toBeDefined();
     expect(deleteCall!.url.endsWith("/session/ses_test_1")).toBe(true);
     expect(isInternalStructuredSession("ses_test_1")).toBe(false);
+  });
+
+  it("uses a session-capable client when no server URL is known, as in the native V2 plugin", async () => {
+    resetV2BaseUrlForTests();
+    const calls: string[] = [];
+    const client = {
+      session: {
+        create: async () => {
+          calls.push("create");
+          return { data: { id: "gen-1" } };
+        },
+        prompt: async () => {
+          calls.push("prompt");
+          return {
+            data: { info: { structured_output: { topic: "auth", count: 3 } }, parts: [] },
+          };
+        },
+        delete: async () => {
+          calls.push("delete");
+          return { data: true };
+        },
+      },
+    };
+
+    const result = await generateStructuredOutput({
+      client: client as any,
+      providerID: "openai",
+      modelID: "gpt-5.6-luna",
+      systemPrompt: "system",
+      userPrompt: "user",
+      schema,
+    });
+
+    expect(result).toEqual({ topic: "auth", count: 3 });
+    expect(calls).toEqual(["create", "prompt", "delete"]);
+  });
+
+  it("reports the raw reply to onReply before parsing, even when it fails validation", async () => {
+    mock = installFetchMock((call) => {
+      if (call.method === "POST" && call.url.endsWith("/session")) {
+        return { body: { id: "ses_reply" } };
+      }
+      if (call.method === "POST" && call.url.includes("/session/ses_reply/message")) {
+        return {
+          body: {
+            info: { finish: "length", structured_output: { topic: 42 } },
+            parts: [{ type: "reasoning" }, { type: "text" }, { notAType: true }],
+          },
+        };
+      }
+      if (call.method === "DELETE") return { body: true };
+      throw new Error(`unexpected fetch: ${call.method} ${call.url}`);
+    });
+
+    const replies: unknown[] = [];
+    const client = createV2Client("http://127.0.0.1:9999");
+    await expect(
+      generateStructuredOutput({
+        client,
+        providerID: "p",
+        modelID: "m",
+        systemPrompt: "system",
+        userPrompt: "user",
+        schema,
+        onReply: (reply) => replies.push(reply),
+      })
+    ).rejects.toThrow();
+
+    expect(replies).toEqual([
+      { finish: "length", partTypes: ["reasoning", "text"], structuredOutput: { topic: 42 } },
+    ]);
   });
 
   it("rejects with full info.error details when opencode reports an assistant error", async () => {

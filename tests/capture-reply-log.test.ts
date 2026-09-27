@@ -27,12 +27,27 @@ mock.module("../src/services/ai/ai-provider-factory.js", () => ({
 }));
 
 const { createPiCaptureProvider } = await import("../src/adapters/pi/provider.js");
+const { buildCaptureAttemptRecord, emitCaptureAttempt } =
+  await import("../src/services/capture-diagnostics.js");
+
+// The capture pipeline emits the record; do the same here so the test covers
+// exactly what reaches the log for an invalid reply.
+function emit(diagnostics: Record<string, unknown>) {
+  const record = buildCaptureAttemptRecord(
+    { host: "pi", sourceType: "live-capture", sessionId: "s" },
+    diagnostics,
+    "failed",
+    1
+  );
+  emitCaptureAttempt(record, diagnostics, { memoryApiKey: secret });
+}
 const { generateOpenCodeAutoCaptureSummary } =
   await import("../src/adapters/opencode/auto-capture-summary.js");
 
 describe("invalid capture reply logging", () => {
   it("logs only the reply length, never its content or the API key", async () => {
     logged.length = 0;
+    const diagnostics: Record<string, unknown> = {};
     const provider = createPiCaptureProvider(() => ({
       provider: "test",
       modelId: "example",
@@ -40,10 +55,17 @@ describe("invalid capture reply logging", () => {
         content: [{ type: "text", text: `${"x".repeat(490)}${secret}${"y".repeat(60)}` }],
       }),
     }));
-    await expect(provider.summarize({ userPrompt: "hi", context: "hi" } as never)).rejects.toThrow(
-      "invalid summary"
-    );
-    expect(logged[0]).toMatchObject({ provider: "test", modelId: "example", replyLength: 572 });
+    await expect(
+      provider.summarize({ userPrompt: "hi", context: "hi", diagnostics } as never)
+    ).rejects.toThrow("invalid summary");
+    emit(diagnostics);
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toMatchObject({
+      provider: "test",
+      model: "example",
+      replyChars: 572,
+      reason: "invalid-json",
+    });
     expect(logged[0]).not.toHaveProperty("reply");
     expect(JSON.stringify(logged)).not.toContain("xxxx");
     expect(JSON.stringify(logged)).not.toContain(secret);
@@ -51,15 +73,23 @@ describe("invalid capture reply logging", () => {
 
   it("logs only the invalid OpenCode reply length without leaking content", async () => {
     logged.length = 0;
+    const diagnostics: Record<string, unknown> = {};
     await expect(
       generateOpenCodeAutoCaptureSummary({
         userPrompt: "hi",
         context: "hi",
         sessionId: "s",
+        diagnostics,
       } as never)
     ).rejects.toThrow("invalid summary");
-    expect(logged[0]).toMatchObject({ provider: "openai-chat", modelId: "example" });
-    expect(logged[0]?.replyLength).toBeGreaterThan(500);
+    emit(diagnostics);
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toMatchObject({
+      provider: "openai-chat",
+      model: "example",
+      reason: "schema-mismatch",
+    });
+    expect(logged[0]?.replyChars).toBeGreaterThan(500);
     expect(logged[0]).not.toHaveProperty("reply");
     expect(JSON.stringify(logged)).not.toContain("xxxx");
     expect(JSON.stringify(logged)).not.toContain(secret);

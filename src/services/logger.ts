@@ -8,23 +8,8 @@ import {
   unlinkSync,
   readdirSync,
 } from "fs";
-import { homedir } from "os";
 import { join } from "path";
-
-function getLogFilePath(): string {
-  return (
-    process.env.OMMS_LOG_FILE ||
-    // Legacy override, still honoured from the opencode-mem days.
-    process.env.OPENCODE_MEM_LOG_FILE ||
-    join(homedir(), ".omms", "omms.log")
-  );
-}
-
-function getLogDirPath(): string {
-  const logFile = getLogFilePath();
-  const lastSlash = Math.max(logFile.lastIndexOf("/"), logFile.lastIndexOf("\\"));
-  return lastSlash === -1 ? "." : logFile.slice(0, lastSlash);
-}
+import { getLogDirPath, getLogFilePath } from "./log-path.js";
 
 const MAX_LOG_SIZE = 5 * 1024 * 1024;
 const MAX_LOG_DAYS = 30;

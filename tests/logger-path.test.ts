@@ -71,3 +71,17 @@ describe("omms log identity", () => {
     expect(existsSync(legacyPath)).toBe(false);
   });
 });
+
+describe("log directory", () => {
+  it("follows OMMS_LOG_FILE so traces move with the log", async () => {
+    const { getLogDirPath } = await import("../src/services/log-path.js");
+    const previous = process.env.OMMS_LOG_FILE;
+    process.env.OMMS_LOG_FILE = "/tmp/omms-elsewhere/custom.log";
+    try {
+      expect(getLogDirPath()).toBe("/tmp/omms-elsewhere");
+    } finally {
+      if (previous === undefined) delete process.env.OMMS_LOG_FILE;
+      else process.env.OMMS_LOG_FILE = previous;
+    }
+  });
+});

@@ -23,6 +23,7 @@ import { formatMemoriesForCompaction } from "./core/retrieval.js";
 import { performUserProfileLearning } from "./services/user-memory-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
 import { startWebServer, WebServer } from "./services/web-server.js";
+import { pruneTraces } from "./services/capture-diagnostics.js";
 import { ensureTursoReady } from "./services/turso/ready.js";
 import { tursoConnectionManager } from "./services/turso/connection-manager.js";
 import { WebAuth } from "./services/web-auth.js";
@@ -251,6 +252,8 @@ function logAutoCaptureProviderStatus(): void {
 export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
   const { directory } = ctx;
   initConfigWithLegacyMigration(directory);
+  // Runs even with tracing off, so turning it off does not leave old traces behind.
+  pruneTraces(CONFIG);
   logAutoCaptureProviderStatus();
   const tags = getTags(directory);
   const autoCaptureHost = createOpenCodeAutoCaptureHost(ctx);

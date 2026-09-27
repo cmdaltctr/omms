@@ -16,6 +16,8 @@ interface ResponsesAPIOutput {
     content?: any;
   }>;
   conversation?: string;
+  status?: string;
+  incomplete_details?: { reason?: string } | null;
   usage?: {
     input_tokens: number;
     output_tokens: number;
@@ -44,6 +46,8 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
     toolSchema: ChatCompletionTool,
     sessionId: string
   ): Promise<ToolCallResult> {
+    // Last stop reason the provider reported, so capture diagnostics can see length limits.
+    let stopReason: string | undefined;
     let session = await this.aiSessionManager.getSession(sessionId, "openai-responses");
 
     if (!session) {
@@ -106,6 +110,7 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
             iteration: iterations,
           });
           return {
+            stopReason,
             success: false,
             error: `API error: ${response.status} - ${errorText}`,
             iterations,
@@ -113,6 +118,10 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
         }
 
         const data = (await response.json()) as ResponsesAPIOutput;
+        stopReason =
+          data.status === "incomplete"
+            ? (data.incomplete_details?.reason ?? "incomplete")
+            : data.status;
 
         conversationId = data.conversation || conversationId;
 
@@ -134,6 +143,7 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
           });
 
           return {
+            stopReason,
             success: true,
             data: this.validateResponse(toolCall),
             iterations,
@@ -145,12 +155,14 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
         clearTimeout(timeout);
         if (error instanceof Error && error.name === "AbortError") {
           return {
+            stopReason,
             success: false,
             error: `API request timeout (${this.config.iterationTimeout}ms)`,
             iterations,
           };
         }
         return {
+          stopReason,
           success: false,
           error: String(error),
           iterations,
@@ -159,6 +171,7 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
     }
 
     return {
+      stopReason,
       success: false,
       error: `Max iterations (${this.config.maxIterations}) reached without tool call`,
       iterations,

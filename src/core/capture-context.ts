@@ -7,7 +7,7 @@ const CONTEXT_TRUNCATION_MARKER = "\n[... truncated to autoCaptureMaxContextByte
 const SUMMARY_REQUEST_OVERHEAD_BYTES = 1024;
 const SUMMARY_OUTPUT_RESERVE_BYTES = 16384;
 const SUMMARY_ANALYSIS_SUFFIX =
-  'Analyze this conversation. If it contains technical work (code, bugs, features, decisions), create a concise summary and relevant tags. If it\'s non-technical (greetings, casual chat, incomplete requests), return type="skip" with empty summary.';
+  'Analyze this conversation. If it contains technical work (code, bugs, features, decisions), create a concise summary and relevant tags. If it\'s non-technical (greetings, casual chat, incomplete requests), set "type" to "skip" with an empty "summary".';
 
 function fitTextResponses(textResponses: string[], maxBytes: number): string {
   if (textResponses.length === 0 || maxBytes <= 0) return "";

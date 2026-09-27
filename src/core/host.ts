@@ -24,12 +24,47 @@ export interface CaptureSummary {
   tags: string[];
 }
 
+export type CaptureAttemptOutcome = "saved" | "skipped" | "failed";
+
+/** Fixed failure codes, in the order classification checks them. */
+export const CAPTURE_FAILURE_REASONS = [
+  "call-error",
+  "empty-text",
+  "truncated",
+  "invalid-json",
+  "schema-mismatch",
+  "persist-error",
+] as const;
+
+export type CaptureFailureReason = (typeof CAPTURE_FAILURE_REASONS)[number];
+
+export type CaptureExtractionPath = "host-model" | "external-api";
+
+/**
+ * Filled in by the extraction path during one capture attempt. The capture
+ * pipeline owns the object and emits it once the outcome is known. Fields a
+ * path cannot observe stay undefined. The prompt and reply fields are only
+ * ever written to the opt-in trace file, never to the log.
+ */
+export interface CaptureAttemptDiagnostics {
+  path?: CaptureExtractionPath;
+  provider?: string;
+  model?: string;
+  stopReason?: string;
+  blockTypes?: string[];
+  systemPrompt?: string;
+  userPrompt?: string;
+  rawReply?: string;
+  failureReason?: CaptureFailureReason;
+}
+
 export interface CaptureSummaryRequest {
   context: string;
   sessionId: string;
   projectDirectory: string;
   userPrompt: string;
   prompt?: CapturePromptContext;
+  diagnostics?: CaptureAttemptDiagnostics;
 }
 
 export interface CaptureSummaryProvider {
