@@ -2,6 +2,43 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [3.2.0](https://github.com/cmdaltctr/omms/compare/v3.1.1...v3.2.0) (2026-09-27)
+
+
+### Features
+
+* log every capture attempt and add opt-in capture traces ([fbfffaf](https://github.com/cmdaltctr/omms/commit/fbfffafff6a4c2f9d19a3c01242d5f39b4f43772))
+* log every capture attempt and add opt-in capture traces ([5d85f99](https://github.com/cmdaltctr/omms/commit/5d85f993263cf18305731b5b70d21549c15d2691))
+* **web:** add a Settings page for models, diagnostics, health, imports, and logs ([e4c7d21](https://github.com/cmdaltctr/omms/commit/e4c7d215ed75cb353393fa20cb34a7975783ef41))
+* **web:** choose the language from a sidebar menu ([d4eb823](https://github.com/cmdaltctr/omms/commit/d4eb823811209707c84086478067969703f014e9))
+* **web:** Settings page with session-first imports, and a language menu ([08c7aaa](https://github.com/cmdaltctr/omms/commit/08c7aaae46bd6d830960fb293ffd3e8903efdd82))
+
+
+### Bug Fixes
+
+* address review findings on capture traces and v2 idle events ([a5a74c7](https://github.com/cmdaltctr/omms/commit/a5a74c74a5796a3fa6a7e91fdf708e638c304b13))
+* address review findings on web settings, imports, and the language menu ([fed0554](https://github.com/cmdaltctr/omms/commit/fed0554100e0bd8eef202e7e397e593e373a5696))
+* **opencode:** list OpenCode models on the Settings page under the v2 plugin ([a694124](https://github.com/cmdaltctr/omms/commit/a69412498240a9343e72f02f07e4b3f324e2c3d3))
+* **opencode:** start v2 capture on session.execution.succeeded, since OpenCode 2.0.14 no longer emits session.idle ([5d85f99](https://github.com/cmdaltctr/omms/commit/5d85f993263cf18305731b5b70d21549c15d2691))
+* **opencode:** use the v2 plugin's session client for structured output when no server URL is known ([5d85f99](https://github.com/cmdaltctr/omms/commit/5d85f993263cf18305731b5b70d21549c15d2691))
+* **pi:** ask the capture model for a single JSON object; the prompt never did, so models answered in key="value" form ([5d85f99](https://github.com/cmdaltctr/omms/commit/5d85f993263cf18305731b5b70d21549c15d2691))
+* problems found testing 3.2.0-next against real OpenCode and Pi ([d3c8e2d](https://github.com/cmdaltctr/omms/commit/d3c8e2ddc52a2bb9db1cbbb7cf12a90bc8c4f149))
+* stop provider error logs from quoting model replies ([5d85f99](https://github.com/cmdaltctr/omms/commit/5d85f993263cf18305731b5b70d21549c15d2691))
+* **web:** ignore stale settings reads and never republish a pre-save snapshot ([442986b](https://github.com/cmdaltctr/omms/commit/442986befb9bf8527a04bcbc35a200e8b484cf62))
+* **web:** make trace deletion, cross-section saves, and deep Pi folders work ([3245dd6](https://github.com/cmdaltctr/omms/commit/3245dd63ef90c0792e8846b3adc308d6d1f43f7e))
+
+
+### Documentation
+
+* add the log section, save conflicts, and project trace opt-out to the web-settings proposal ([a5a74c7](https://github.com/cmdaltctr/omms/commit/a5a74c74a5796a3fa6a7e91fdf708e638c304b13))
+* add the web-settings proposal and the CLAUDE.md link to AGENTS.md ([4c32fb7](https://github.com/cmdaltctr/omms/commit/4c32fb7bd28aaa2b62ffd07861ce1f49090d7f20))
+* archive the capture-diagnostics change and sync its specs ([6e4301b](https://github.com/cmdaltctr/omms/commit/6e4301b975426b78392a0034b3efcc517eaf6e2c))
+* archive the capture-diagnostics change and sync its specs ([4250195](https://github.com/cmdaltctr/omms/commit/42501956512d7f206071e3c746d171ef3571827c))
+* archive the release-publishing change after the first CI release ([021ca6b](https://github.com/cmdaltctr/omms/commit/021ca6bf2a0df4bc49602dfed1842b9654b5771d))
+* archive the release-publishing change after the first CI release ([ba94ce8](https://github.com/cmdaltctr/omms/commit/ba94ce8eb25c8f466cb5e0d4a5470db30ab01e51))
+* archive the web-settings and select-language-from-menu changes and sync their specs ([105688f](https://github.com/cmdaltctr/omms/commit/105688ffffc7d2b8493340198301e74988bedc8a))
+* record how release tasks 3.2 and 6.4 were verified ([fcc8c88](https://github.com/cmdaltctr/omms/commit/fcc8c88b8bb5696103be7fe01d890540d6c9f75c))
+
 ## [3.1.1](https://github.com/cmdaltctr/omms/compare/v3.1.0...v3.1.1) (2026-09-26)
 
 
