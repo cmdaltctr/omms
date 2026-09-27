@@ -68,6 +68,7 @@ function pendingForSession(sessionId) {
 }
 
 mock.module(${JSON.stringify(configUrl)}, () => ({
+  refreshConfigIfChanged: () => {},
   CONFIG: {
     autoCaptureMaxRetries: 1,
     autoCaptureProviderStatus: { ready: true, mode: "opencode", issues: [] },
@@ -247,6 +248,7 @@ let failedAttempts = 0;
 let released = false;
 
 mock.module(${JSON.stringify(configUrl)}, () => ({
+  refreshConfigIfChanged: () => {},
   CONFIG: {
     autoCaptureMaxRetries: 1,
     autoCaptureProviderStatus: { ready: true, mode: "opencode", issues: [] },
@@ -358,7 +360,7 @@ describe("auto-capture idle processing", () => {
   it("captures all uncaptured prompts in a session in chronological response windows", () => {
     const result = runScenario();
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode, result.stderr).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.parsed?.addPromptIds).toEqual(["prompt-1", "prompt-2"]);
     expect(result.parsed?.summaries).toEqual(["summary-first", "summary-second"]);
@@ -373,7 +375,7 @@ describe("auto-capture idle processing", () => {
   it("preserves the opencode provider error when no manual fallback is configured", () => {
     const result = runProviderFailureScenario();
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode, result.stderr).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.parsed?.failedAttempts).toBe(1);
     expect(result.parsed?.released).toBe(true);

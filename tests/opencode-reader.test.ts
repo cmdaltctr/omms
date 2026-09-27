@@ -1,15 +1,27 @@
 import { expect, it } from "bun:test";
 import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { removeTestDir } from "./turso-test-utils.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readOpencodeHistory } from "../src/importer/opencode-reader.js";
-import {
-  resolveOpencodeProject,
-  resolveOpencodeSessions,
-} from "../src/importer/opencode-project.js";
+import { openOpencodeHistory } from "../src/importer/opencode-reader.js";
+import { resolveOpencodeProject } from "../src/importer/opencode-project.js";
+
+async function readAll(path: string, filters = {}) {
+  const history = await openOpencodeHistory(path, filters);
+  try {
+    return {
+      history,
+      sessions: history.sessions.map((meta) => ({
+        ...meta,
+        units: history.loadUnits(meta.sessionId),
+      })),
+    };
+  } finally {
+    await history.close();
+  }
+}
 
 function fixture() {
   const directory = mkdtempSync(join(tmpdir(), "omms-opencode-v1-"));
@@ -64,9 +76,7 @@ function fixture() {
 it("reads top-level windows and excludes hidden or synthetic parts", async () => {
   const data = fixture();
   try {
-    const reader = readOpencodeHistory(data.path);
-    const sessions = [];
-    for await (const session of reader.sessions) sessions.push(session);
+    const { history: reader, sessions } = await readAll(data.path);
     expect(reader.childSessions).toBe(1);
     expect(reader.topLevelSessions).toBe(1);
     expect(sessions).toHaveLength(1);
@@ -89,45 +99,35 @@ it("rejects an incomplete V1 schema with a clear error", async () => {
     const db = new DatabaseSync(path);
     db.exec("CREATE TABLE session (id TEXT)");
     db.close();
-    expect(() => readOpencodeHistory(path)).toThrow("missing session.directory");
+    await expect(openOpencodeHistory(path)).rejects.toThrow("missing session.directory");
   } finally {
     await removeTestDir(directory);
   }
 });
 
-it("resolves deleted worktrees, maps, root worktrees, and groups unresolved counts", async () => {
+it("resolves maps first, then recorded directories, then worktrees", async () => {
   const data = fixture();
   try {
     const missing = join(data.directory, "deleted-worktree");
     const mapped = join(data.directory, "mapped");
     const { mkdirSync } = await import("node:fs");
     mkdirSync(mapped);
+    // A map wins even when the recorded directory still exists, as it does for Pi.
     expect(
       resolveOpencodeProject(data.directory, mapped, [{ from: data.directory, to: mapped }])
-    ).toBe(data.directory);
+    ).toBe(mapped);
+    expect(resolveOpencodeProject(data.directory, null)).toBe(data.directory);
     expect(resolveOpencodeProject(missing, data.directory)).toBe(data.directory);
     expect(resolveOpencodeProject(missing, data.directory, [{ from: missing, to: mapped }])).toBe(
       mapped
     );
     expect(resolveOpencodeProject(missing, "/")).toBeNull();
-    const reader = readOpencodeHistory(data.path);
-    const unresolved = new Map();
-    const source = (async function* () {
-      for await (const session of reader.sessions) {
-        yield { ...session, recordedDirectory: missing, projectWorktree: "/" };
-        yield {
-          ...session,
-          sessionId: "another",
-          recordedDirectory: missing,
-          projectWorktree: "/",
-        };
-      }
-    })();
-    const resolved = [];
-    for await (const session of resolveOpencodeSessions(source, [], unresolved))
-      resolved.push(session);
-    expect(resolved).toHaveLength(0);
-    expect(unresolved.get(missing)).toMatchObject({ sessions: 2, units: 4 });
+    // A map to a missing target leaves the session unresolved instead of falling back.
+    expect(
+      resolveOpencodeProject(data.directory, data.directory, [
+        { from: data.directory, to: missing },
+      ])
+    ).toBeNull();
   } finally {
     await removeTestDir(data.directory);
   }
@@ -158,9 +158,7 @@ it("reads a session that exists only in the WAL and leaves the source files unch
     expect(sidecars.every((file) => existsSync(file))).toBe(true);
     const before = sidecars.map(checksum);
 
-    const reader = readOpencodeHistory(path, { session: "live" });
-    const sessions = [];
-    for await (const session of reader.sessions) sessions.push(session);
+    const { sessions } = await readAll(path, { session: "live" });
 
     expect(sessions.map((session) => session.units.map((unit) => unit.userPrompt))).toEqual([
       ["Only in WAL"],
@@ -168,6 +166,29 @@ it("reads a session that exists only in the WAL and leaves the source files unch
     expect(sidecars.map(checksum)).toEqual(before);
   } finally {
     writer.close();
+    await removeTestDir(directory);
+  }
+});
+
+it("refuses an in-place read while a rollback journal shows a write in progress", async () => {
+  const { path, directory } = fixture();
+  try {
+    writeFileSync(`${path}-journal`, "");
+    await expect(openOpencodeHistory(path)).rejects.toMatchObject({ code: "busy" });
+  } finally {
+    await removeTestDir(directory);
+  }
+});
+
+it("keeps the real error when switching from an in-place read to a copy fails", async () => {
+  const { path, directory } = fixture();
+  try {
+    // The file changes while it is read in place, and no shared copy exists to reuse.
+    queueMicrotask(() => utimesSync(path, new Date(), new Date(Date.now() + 5000)));
+    await expect(
+      openOpencodeHistory(path, {}, { shared: { key: "k", mode: "reuse" } })
+    ).rejects.toMatchObject({ code: "expired" });
+  } finally {
     await removeTestDir(directory);
   }
 });

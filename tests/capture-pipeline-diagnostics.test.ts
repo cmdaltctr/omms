@@ -10,7 +10,7 @@ let addMemoryResult: { success: boolean; id?: string; error?: string } = {
   id: "m1",
 };
 
-mock.module("../src/config.js", () => ({ CONFIG: config }));
+mock.module("../src/config.js", () => ({ CONFIG: config, refreshConfigIfChanged: () => {} }));
 mock.module("../src/services/logger.js", () => ({
   log: (message: string, data?: unknown) => logged.push({ message, data }),
 }));

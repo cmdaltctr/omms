@@ -94,6 +94,67 @@ describe("omms config identity", () => {
     expect(result.migrationMarker).toBe(false);
   });
 
+  it("reloads the Pi model for the next capture without restarting", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-config-test-"));
+    tempDirs.push(home);
+    const path = join(home, ".config", "omms", "omms.jsonc");
+    mkdirSync(join(home, ".config", "omms"), { recursive: true });
+    writeFileSync(path, '{ "piProvider": "zai", "piModel": "old" }');
+    const result = await runConfigScenario(
+      home,
+      `
+      const { resolvePiLiveModel } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/ai/live-model-choice.js")).href)});
+      cfg.initConfig("/tmp/project");
+      const before = resolvePiLiveModel(cfg.CONFIG);
+      writeFileSync(${JSON.stringify(path)}, '{ "piProvider": "zai", "piModel": "new" }');
+      cfg.refreshConfigIfChanged("/tmp/project");
+      return { before, after: resolvePiLiveModel(cfg.CONFIG) };
+    `
+    );
+    expect(result.ok).toBe(true);
+    expect(result.before).toEqual({ kind: "pi", provider: "zai", model: "old" });
+    expect(result.after).toEqual({ kind: "pi", provider: "zai", model: "new" });
+  });
+
+  it("keeps the previous settings when a hand edit makes the config invalid", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-config-test-"));
+    tempDirs.push(home);
+    const path = join(home, ".config", "omms", "omms.jsonc");
+    mkdirSync(join(home, ".config", "omms"), { recursive: true });
+    writeFileSync(path, '{ "piProvider": "zai", "piModel": "old" }');
+    const result = await runConfigScenario(
+      home,
+      `
+      cfg.initConfig("/tmp/project");
+      writeFileSync(${JSON.stringify(path)}, '{ "piProvider": "zai", "piModel": "bad", "embeddingDimensions": -1 }');
+      let threw = false;
+      try {
+        cfg.refreshConfigIfChanged("/tmp/project");
+        cfg.refreshConfigIfChanged("/tmp/project");
+      } catch {
+        threw = true;
+      }
+      const kept = cfg.CONFIG.piModel;
+      // A half-typed edit that is not valid JSONC also keeps the previous settings.
+      writeFileSync(${JSON.stringify(path)}, '{ "piProvider": "zai", "piModel": ');
+      try {
+        cfg.refreshConfigIfChanged("/tmp/project");
+      } catch {
+        threw = true;
+      }
+      const keptAfterTypo = cfg.CONFIG.piModel;
+      writeFileSync(${JSON.stringify(path)}, '{ "piProvider": "zai", "piModel": "fixed-model" }');
+      cfg.refreshConfigIfChanged("/tmp/project");
+      return { threw, kept, keptAfterTypo, fixed: cfg.CONFIG.piModel };
+    `
+    );
+    expect(result.ok).toBe(true);
+    expect(result.threw).toBe(false);
+    expect(result.kept).toBe("old");
+    expect(result.keptAfterTypo).toBe("old");
+    expect(result.fixed).toBe("fixed-model");
+  });
+
   it("reads the legacy config only when no omms config exists, and never writes it", async () => {
     const home = mkdtempSync(join(tmpdir(), "omms-config-test-"));
     tempDirs.push(home);

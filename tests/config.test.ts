@@ -94,6 +94,10 @@ describe("config", () => {
       expect(CONFIG.autoCaptureMaxContextBytes).toBe(131072);
     });
 
+    it("should retain capture attempts for 30 days by default", () => {
+      expect(CONFIG.captureAttemptRetentionDays).toBe(30);
+    });
+
     it("should reject unsafe auto-capture context budgets", () => {
       expect(() => normalizeAutoCaptureMaxContextBytes(-1)).toThrow();
       expect(() => normalizeAutoCaptureMaxContextBytes(1024)).toThrow();

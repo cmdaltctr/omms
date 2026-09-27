@@ -9,7 +9,7 @@ import type { ImportPathMap } from "./importer.js";
  */
 
 export type ImportHost = "pi" | "opencode";
-export type ImportSurface = "session" | "cli";
+export type ImportSurface = "session" | "cli" | "web";
 
 export interface HistoryImportArgs {
   help: boolean;
@@ -204,13 +204,60 @@ export function parseHistoryImportArgs(
   if (result.project !== undefined && result.scope === "all-projects") {
     result.errors.push("--project cannot be combined with --scope=all-projects");
   }
-  if (options.surface === "session" && result.model !== undefined) {
+  if (options.surface !== "cli" && result.model !== undefined) {
     const separator = result.model.indexOf("/");
     if (separator < 1 || separator === result.model.length - 1) {
       result.errors.push(`--model must be provider/id, got "${result.model}"`);
     }
   }
   return result;
+}
+
+/**
+ * Options the Settings page sends. Sessions come from the page's selection
+ * and the source from a signed token, so there is no `session`,
+ * `maxSessions`, or `source` here.
+ */
+export interface WebImportOptions {
+  dryRun?: boolean;
+  force?: boolean;
+  skipMemories?: boolean;
+  skipProfile?: boolean;
+  model?: string;
+  scope?: HistoryImportArgs["scope"];
+  project?: string;
+  /** Epoch ms from the browser's local day start, or an ISO date. */
+  since?: string | number;
+  /** Epoch ms from the browser's local day end, or an ISO date. */
+  until?: string | number;
+  profileBatch?: number;
+  pathMaps?: ImportPathMap[];
+}
+
+/** Convert page fields to the shared CLI grammar, which performs validation. */
+export function webImportTokens(options: WebImportOptions, _host: ImportHost): string[] {
+  const tokens: string[] = [];
+  for (const [field, flag] of [
+    ["dryRun", "--dry-run"],
+    ["force", "--force"],
+    ["skipMemories", "--skip-memories"],
+    ["skipProfile", "--skip-profile"],
+  ] as const) {
+    if (options[field]) tokens.push(flag);
+  }
+  for (const [field, flag] of [
+    ["model", "--model"],
+    ["scope", "--scope"],
+    ["project", "--project"],
+    ["since", "--since"],
+    ["until", "--until"],
+    ["profileBatch", "--profile-batch"],
+  ] as const) {
+    const value = options[field];
+    if (value !== undefined) tokens.push(flag, String(value));
+  }
+  for (const map of options.pathMaps ?? []) tokens.push("--map", `${map.from}=${map.to}`);
+  return tokens;
 }
 
 /** True when the run calls a model: a real import of memories or the profile. */

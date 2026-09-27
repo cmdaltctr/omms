@@ -1,5 +1,6 @@
-import type { MouseEvent } from "react";
-import { Folder, Languages, Moon, Sun, User, X } from "lucide-react";
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { Folder, Moon, Settings, Sun, User, X } from "lucide-react";
+import type { Lang } from "$lib/i18n/translations";
 import { GithubIcon } from "$lib/components/icons/GithubIcon";
 import { Button } from "$lib/components/ui/button";
 import { Separator } from "$lib/components/ui/separator";
@@ -16,10 +17,17 @@ type Props = {
   langLabel: string;
   languageLabel: string;
   themeLabel: string;
+  settingsLabel: string;
   closeLabel: string;
   onOpenChange?: (open: boolean) => void;
-  onLangToggle?: () => void;
+  onLanguageSelect?: (language: Lang) => void;
 };
+
+const LANGUAGE_OPTIONS: { code: Lang; label: string }[] = [
+  { code: "en", label: "English (EN)" },
+  { code: "zh", label: "中文 (ZH)" },
+  { code: "ar", label: "العربية (AR)" },
+];
 
 export function AppSidebar({
   open = false,
@@ -30,12 +38,49 @@ export function AppSidebar({
   langLabel,
   languageLabel,
   themeLabel,
+  settingsLabel,
   closeLabel,
   onOpenChange,
-  onLangToggle,
+  onLanguageSelect,
 }: Props) {
   const theme = useTheme();
   const isDark = theme === "dark";
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const languageContainer = useRef<HTMLDivElement>(null);
+  const languageTrigger = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!languageMenuOpen) return;
+    languageContainer.current?.querySelector<HTMLButtonElement>("[aria-checked=true]")?.focus();
+    function dismiss(event: PointerEvent) {
+      if (!languageContainer.current?.contains(event.target as Node)) {
+        setLanguageMenuOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [languageMenuOpen]);
+
+  function onLanguageKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setLanguageMenuOpen(false);
+      languageTrigger.current?.focus();
+    }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const options = Array.from(
+      languageContainer.current?.querySelectorAll<HTMLButtonElement>("[role=menuitemradio]") ?? []
+    );
+    const index = options.indexOf(document.activeElement as HTMLButtonElement);
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? options.length - 1
+          : (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
+    options[next]?.focus();
+  }
 
   function setOpen(next: boolean) {
     onOpenChange?.(next);
@@ -137,17 +182,56 @@ export function AppSidebar({
 
         <div className="mt-auto p-3">
           <div className="flex w-full items-center rounded-lg border border-sidebar-border/80 bg-card/70">
-            <button
-              type="button"
-              className="group flex min-w-0 flex-1 items-center gap-2 rounded-s-lg px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              onClick={onLangToggle}
-              aria-label={languageLabel}
-              title={languageLabel}
+            <div
+              ref={languageContainer}
+              className="relative flex min-w-0 flex-1"
+              onBlur={(event) => {
+                // Tabbing out of the menu closes it; moving between the trigger and options does not.
+                if (!languageContainer.current?.contains(event.relatedTarget as Node | null)) {
+                  setLanguageMenuOpen(false);
+                }
+              }}
             >
-              <Languages className="size-3.5 shrink-0" />
-              <span className="truncate">{languageLabel}</span>
-              <span className="ms-auto text-xs tabular-nums">{langLabel}</span>
-            </button>
+              <button
+                ref={languageTrigger}
+                type="button"
+                className="flex w-full items-center justify-center rounded-s-lg px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                onClick={() => setLanguageMenuOpen((open) => !open)}
+                aria-label={`${languageLabel}: ${langLabel}`}
+                aria-haspopup="menu"
+                aria-expanded={languageMenuOpen}
+                aria-controls="sidebar-language-menu"
+                title={languageLabel}
+              >
+                <span className="text-xs tabular-nums">{langLabel}</span>
+              </button>
+              {languageMenuOpen ? (
+                <div
+                  id="sidebar-language-menu"
+                  role="menu"
+                  aria-label={languageLabel}
+                  onKeyDown={onLanguageKeyDown}
+                  className="absolute bottom-full start-0 z-10 mb-2 w-44 max-h-[60vh] overflow-y-auto rounded-lg border border-sidebar-border bg-card p-1 shadow-lg"
+                >
+                  {LANGUAGE_OPTIONS.map(({ code, label }) => (
+                    <button
+                      key={code}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={langLabel.toLowerCase() === code}
+                      className="flex w-full rounded-md px-2.5 py-2 text-start text-sm text-card-foreground hover:bg-sidebar-accent focus-visible:bg-sidebar-accent"
+                      onClick={() => {
+                        onLanguageSelect?.(code);
+                        setLanguageMenuOpen(false);
+                        languageTrigger.current?.focus();
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <button
               type="button"
               className="inline-flex items-center self-stretch border-s border-sidebar-border px-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -161,6 +245,16 @@ export function AppSidebar({
                 <Sun className="size-4 rounded-md p-0.5" />
               )}
             </button>
+            <a
+              href={ROUTES.settings}
+              className="inline-flex items-center self-stretch border-s border-sidebar-border px-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              onClick={(e) => onNavClick(e, ROUTES.settings)}
+              aria-label={settingsLabel}
+              title={settingsLabel}
+              aria-current={currentView === "settings" ? "page" : undefined}
+            >
+              <Settings className="size-4" />
+            </a>
             <a
               href="https://github.com/cmdaltctr/omms"
               target="_blank"

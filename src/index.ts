@@ -324,6 +324,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
       username: CONFIG.webServerAuthUsername,
     });
     startWebServer({
+      directory,
       port: CONFIG.webServerPort,
       host: CONFIG.webServerHost,
       enabled: CONFIG.webServerEnabled,

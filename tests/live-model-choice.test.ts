@@ -57,6 +57,10 @@ describe("one live-model rule for both hosts", () => {
     expect(resolveOpencodeHostModel({ ...host, opencodeModel: "inherit" })?.modelID).toBe(
       "inherit"
     );
+    expect(resolveOpencodeHostModel({ ...none, ...external, opencodeModel: "inherit" })).toEqual({
+      providerID: "",
+      modelID: "inherit",
+    });
 
     expect(getAutoCaptureProviderStatus({ ...none, ...external })).toMatchObject({
       mode: "manual",
@@ -87,6 +91,9 @@ describe("one live-model rule for both hosts", () => {
       model: "gpt-5.6-luna",
     });
     expect(resolvePiLiveModel({ ...pinned, piModel: "inherit" })).toEqual({ kind: "session" });
+    expect(resolvePiLiveModel({ ...none, ...external, piModel: "inherit" })).toEqual({
+      kind: "session",
+    });
     expect(resolvePiLiveModel({ ...none, ...external })).toEqual({ kind: "manual" });
     expect(resolvePiLiveModel(none)).toEqual({ kind: "session" });
   });

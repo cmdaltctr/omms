@@ -65,6 +65,9 @@ export function getAutoCaptureProviderStatus(
 ): AutoCaptureProviderStatus {
   const hasOpencodeProvider = hasValue(config.opencodeProvider);
   const hasOpencodeModel = hasValue(config.opencodeModel);
+  if (config.opencodeModel?.trim() === "inherit") {
+    return { ready: true, mode: "session", issues: [] };
+  }
   if (hasOpencodeProvider && hasOpencodeModel) {
     return { ready: true, mode: "opencode", issues: [] };
   }
@@ -103,10 +106,9 @@ export type PiLiveModelChoice =
 export function resolvePiLiveModel(
   config: AutoCaptureProviderRuntimeConfig & { piProvider?: string; piModel?: string }
 ): PiLiveModelChoice {
+  if (config.piModel?.trim() === "inherit") return { kind: "session" };
   if (hasValue(config.piProvider) && hasValue(config.piModel)) {
-    return config.piModel!.trim() === "inherit"
-      ? { kind: "session" }
-      : { kind: "pi", provider: config.piProvider!.trim(), model: config.piModel!.trim() };
+    return { kind: "pi", provider: config.piProvider!.trim(), model: config.piModel!.trim() };
   }
   const manual = getManualProviderStatus(config);
   if (manual.ready) return { kind: "manual" };

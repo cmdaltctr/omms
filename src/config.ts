@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync, writeFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { stripJsoncComments } from "./services/jsonc.js";
@@ -77,6 +77,7 @@ interface OmmsConfig {
   /** Write full capture prompts and replies to ~/.omms/traces. Global config only. */
   captureTrace?: boolean;
   captureTraceRetentionDays?: number;
+  captureAttemptRetentionDays?: number;
   webServerEnabled?: boolean;
   webServerPort?: number;
   webServerHost?: string;
@@ -192,6 +193,7 @@ const DEFAULTS: Required<
   aiSessionRetentionDays: 7,
   captureTrace: false,
   captureTraceRetentionDays: 7,
+  captureAttemptRetentionDays: 30,
   webServerEnabled: true,
   webServerPort: 4747,
   webServerHost: "127.0.0.1",
@@ -254,8 +256,9 @@ function expandPath(path: string): string {
  * Load the first config file that exists, in priority order. A file that
  * exists but cannot be read or parsed is not skipped: falling through would let
  * a lower-priority (legacy) file silently supply settings such as storagePath.
+ * `strict` (live reload) throws instead, so running hosts keep their settings.
  */
-function loadConfigFromPaths(paths: string[]): OmmsConfig {
+function loadConfigFromPaths(paths: string[], strict = false): OmmsConfig {
   const path = paths.find((candidate) => existsSync(candidate));
   if (!path) return {};
   try {
@@ -263,6 +266,8 @@ function loadConfigFromPaths(paths: string[]): OmmsConfig {
     const json = stripJsoncComments(content);
     return JSON.parse(json) as OmmsConfig;
   } catch (error) {
+    // The parser's message can quote file content, so a reload names the file only.
+    if (strict) throw new Error(`Config file cannot be parsed: ${path}`, { cause: error });
     log("Config file is invalid; using defaults instead of lower-priority files", {
       path,
       error: String(error),
@@ -292,7 +297,7 @@ function assertProjectRemoteProviderConfigIsSafe(projectConfig: OmmsConfig): voi
   }
 }
 
-const CONFIG_TEMPLATE = `{
+export const CONFIG_TEMPLATE = `{
   // ============================================
   // omms (Opinionated Modular Memory System) Configuration
   // ============================================
@@ -513,6 +518,7 @@ const CONFIG_TEMPLATE = `{
   // captureTraceRetentionDays. Only this global file can turn tracing on.
   // "captureTrace": false,
   // "captureTraceRetentionDays": 7,
+  // "captureAttemptRetentionDays": 30,
 
   // Temperature for AI API requests (set to false to omit parameter for models that don't support it)
   // Some reasoning models (like o1, o3, gpt-5) don't support temperature parameter
@@ -772,6 +778,9 @@ function buildConfig(fileConfig: OmmsConfig) {
       1,
       Math.floor(fileConfig.captureTraceRetentionDays ?? DEFAULTS.captureTraceRetentionDays)
     ),
+    captureAttemptRetentionDays: normalizeAutoCleanupRetentionDays(
+      fileConfig.captureAttemptRetentionDays ?? DEFAULTS.captureAttemptRetentionDays
+    ),
     webServerEnabled: fileConfig.webServerEnabled ?? DEFAULTS.webServerEnabled,
     webServerPort: fileConfig.webServerPort ?? DEFAULTS.webServerPort,
     webServerHost: fileConfig.webServerHost ?? DEFAULTS.webServerHost,
@@ -855,6 +864,24 @@ function buildConfig(fileConfig: OmmsConfig) {
   };
 }
 
+export function getGlobalConfigSourcePath(): string | undefined {
+  return CONFIG_FILES.find((candidate) => existsSync(candidate));
+}
+
+export function getGlobalConfigWritePath(): string {
+  const source = getGlobalConfigSourcePath();
+  return source && !LEGACY_CONFIG_FILES.includes(source)
+    ? source
+    : join(OMMS_CONFIG_DIR, "omms.jsonc");
+}
+
+export function validateGlobalConfig(value: unknown): void {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Global config must be an object");
+  }
+  buildConfig(value as OmmsConfig);
+}
+
 const _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
 let lastFileConfig: OmmsConfig = _globalFileConfig;
 export let CONFIG = buildConfig(_globalFileConfig);
@@ -871,16 +898,62 @@ export function hasAutoCaptureProviderConfig(config: RuntimeConfig = CONFIG): bo
   return getAutoCaptureProviderStatus(config).ready;
 }
 
-export function initConfig(directory: string): void {
-  // omms project overrides win; the legacy opencode-mem file is still read.
-  const projectPaths = [
+function projectConfigPaths(directory: string): string[] {
+  return [
     join(directory, ".opencode", "omms.jsonc"),
     join(directory, ".opencode", "omms.json"),
     join(directory, ".opencode", "opencode-mem.jsonc"),
     join(directory, ".opencode", "opencode-mem.json"),
   ];
-  const globalConfig = loadConfigFromPaths(CONFIG_FILES);
-  const projectConfig = loadConfigFromPaths(projectPaths);
+}
+
+function configSignature(directory: string): string {
+  return [...CONFIG_FILES, ...projectConfigPaths(directory)]
+    .filter((path) => existsSync(path))
+    .map((path) => {
+      try {
+        const stat = statSync(path);
+        return `${path}:${stat.mtimeMs}:${stat.size}`;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return `${path}:missing`;
+        throw error;
+      }
+    })
+    .join("|");
+}
+
+let lastConfigDirectory: string | undefined;
+let lastConfigSignature: string | undefined;
+/** Directory and signature of the last reload that failed. */
+let lastFailedConfig: string | undefined;
+
+export function refreshConfigIfChanged(directory: string): void {
+  // Both hosts initialise their config at startup. Direct callers that have
+  // not initialised it keep their in-memory settings untouched.
+  if (lastConfigDirectory === undefined) return;
+  let attempt: string | undefined;
+  try {
+    const signature = configSignature(directory);
+    if (directory === lastConfigDirectory && signature === lastConfigSignature) return;
+    attempt = `${directory}\0${signature}`;
+    if (attempt === lastFailedConfig) return;
+    initConfig(directory, { strict: true });
+    lastFailedConfig = undefined;
+  } catch (error) {
+    // A bad hand edit must not stop capture: keep the last good settings, and
+    // skip this exact file state until it changes, instead of re-reading it on
+    // every unit. The last good directory and signature stay as they were.
+    log("Config reload failed; keeping the previous settings", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    lastFailedConfig = attempt;
+  }
+}
+
+export function initConfig(directory: string, options: { strict?: boolean } = {}): void {
+  // omms project overrides win; the legacy opencode-mem file is still read.
+  const globalConfig = loadConfigFromPaths(CONFIG_FILES, options.strict);
+  const projectConfig = loadConfigFromPaths(projectConfigPaths(directory), options.strict);
   assertProjectRemoteProviderConfigIsSafe(projectConfig);
   const projectOverrides = { ...projectConfig };
   delete projectOverrides.autoCleanupEnabled;
@@ -893,8 +966,11 @@ export function initConfig(directory: string): void {
   }
   delete projectOverrides.captureTraceRetentionDays;
   const merged: OmmsConfig = { ...globalConfig, ...projectOverrides };
+  const nextConfig = buildConfig(merged);
   lastFileConfig = merged;
-  CONFIG = buildConfig(merged);
+  CONFIG = nextConfig;
+  lastConfigDirectory = directory;
+  lastConfigSignature = configSignature(directory);
 }
 
 /**

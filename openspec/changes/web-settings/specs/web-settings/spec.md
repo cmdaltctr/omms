@@ -91,31 +91,161 @@ The Settings page SHALL run health checks on request and show each result as pas
 - **WHEN** the user tests a model and the call fails
 - **THEN** the page SHALL show fail with the error, with API keys removed
 
-### Requirement: History imports can be run from the page
+### Requirement: History imports can be run from a session list
 
-The Settings page SHALL run the OpenCode history import and the Pi history backfill with the same options as the CLI and the same shared parser: dry run, scope, project, session, date range, maximum sessions, directory maps, history location, skip memories, skip profile, and profile batch size. A real import SHALL use the model chosen on the page: one of the OpenCode signed-in models, or the saved external API. The page SHALL offer a dry-run preview before a real import. While an import runs, the page SHALL show progress and SHALL let the user cancel. At the end, it SHALL show the same report as the CLI. Only one import SHALL run at a time. Imports started from the page SHALL use the same ledger as the CLI and slash commands, so reruns stay idempotent and failed units stay retryable.
+The Settings page SHALL list Pi and OpenCode sessions from the chosen history source, defaulting to the current project. Each bounded page SHALL show selection keys, session IDs where present, dates, recorded project directories, and how each directory was resolved (recorded, mapped, worktree, or unresolved), without conversation content. The user SHALL be able to select individual sessions or all sessions matching the current source, scope, project, and directory maps across pages. The page SHALL show the selection count and run a dry-run preview of that exact selection before a real import.
 
-#### Scenario: Previewing a Pi backfill
+The session list SHALL return a revision and a listing time. The revision SHALL be derived from the source identity, the matching options, and the sorted keys of the matching sessions. It SHALL NOT be derived from file sizes or modification times. A preview or import of an explicit selection SHALL be refused as stale when a selected session no longer exists or resolves to a different project. A preview or import of all matching sessions SHALL be refused as stale when the recomputed revision differs. Both SHALL import only user turns at or before the listing time, so the preview and the import read the same turns. The server SHALL keep no selection state between requests.
 
-- **WHEN** the user runs a Pi backfill dry run for the current project
-- **THEN** the page SHALL show the same counts the CLI dry run reports
-- **AND** no model calls or store writes SHALL happen
+The session list and the importer SHALL resolve project directories with the same rules, in this order on both hosts: an exact directory map, then the recorded directory, then, for OpenCode only, the project worktree. Sessions that cannot be resolved SHALL NOT be assigned to any project. In current-project scope the page SHALL report how many sessions have missing directories and offer to show them.
+
+Web selections SHALL reuse the shared importer and its ledger. CLI and slash-command flags SHALL keep their meaning, with two exceptions. A Pi `--root` that names one `.jsonl` file SHALL import that file. An OpenCode directory map SHALL take precedence over a recorded directory that still exists. The page SHALL NOT offer the single-session or maximum-sessions options; selection replaces them.
+
+The main view SHALL show the host, session list, selection, preview, progress, cancellation, and final CLI-equivalent report. Advanced options SHALL hold scope, project, prompt date range, directory maps, source, skip memories, skip profile, profile batch size, and force. Date limits SHALL be labelled as inclusive **Prompt date from** and **Prompt date to**. They SHALL filter user turns within sessions, SHALL NOT filter the session list, and SHALL be interpreted in the browser's time zone. Empty limits SHALL include all turns. Turns that have no timestamp SHALL be included and counted in the preview. Only one preview or import SHALL run at a time. Imports SHALL stay idempotent and failed units retryable.
+
+A real web import SHALL use an OpenCode-connected model or a complete saved external API. The page SHALL show the readiness of each model source before a job starts, and SHALL label it as configured, not tested. The server SHALL check readiness again when a job is requested. Pi authentication alone SHALL NOT be shown as a usable web-import model. When no model source is ready, the page SHALL explain why the real import is unavailable and SHALL still allow a dry run. When the Pi session reader cannot be loaded in the server process, Pi preview and import SHALL be unavailable, with that reason.
+
+#### Scenario: Selecting sessions across pages
+
+- **WHEN** the user chooses Select all matching sessions for the current project
+- **THEN** the selection SHALL include matching sessions on every page, not only those visible
+- **AND** the page SHALL show how many sessions will be previewed
+
+#### Scenario: Previewing selected Pi sessions
+
+- **WHEN** the user previews selected Pi sessions
+- **THEN** the page SHALL show counts for that selection using the shared importer
+- **AND** no model calls or memory-store writes SHALL happen
+
+#### Scenario: A new session appears after listing
+
+- **WHEN** a new session that matches the filter is created after the user lists sessions and chooses Select all matching sessions
+- **THEN** the preview or import SHALL be refused as stale and the page SHALL ask the user to refresh
+- **AND** the new session SHALL NOT be included silently
+
+#### Scenario: A selected session gains turns after listing
+
+- **WHEN** a selected session receives new turns after the listing
+- **THEN** the selection SHALL NOT be refused as stale
+- **AND** the preview and the import SHALL both exclude turns after the listing time
+- **AND** the report SHALL state how many newer turns were held back
+- **AND** a later import from a fresh listing SHALL import those turns
+
+#### Scenario: Directory maps change the matching set
+
+- **WHEN** the user changes the directory maps after listing
+- **THEN** the page SHALL refresh the list before a preview or import can start
+
+#### Scenario: Sessions with missing directories in the current project view
+
+- **WHEN** some sessions record directories that no longer exist
+- **THEN** the current-project view SHALL show how many there are and offer to show them in all-projects scope
+- **AND** those sessions SHALL NOT be selectable until a directory map resolves them
+
+#### Scenario: A directory map for a path that still exists
+
+- **WHEN** an OpenCode session's recorded directory exists and a directory map names it
+- **THEN** the session SHALL resolve to the map's target, as it does for Pi
+
+#### Scenario: Date limits inside a session
+
+- **WHEN** the user sets Prompt date from or Prompt date to
+- **THEN** the inclusive limits SHALL apply to user turns within each selected session, using the start and end of each day in the browser's time zone
+- **AND** an empty limit SHALL leave that side of the range unbounded
+- **AND** the session list SHALL NOT be filtered by those dates
+
+#### Scenario: No model is ready for a real import
+
+- **WHEN** the web server has neither a connected OpenCode model nor a complete external API configuration
+- **THEN** Preview SHALL remain available
+- **AND** Import SHALL be disabled with a reason that tells the user what to configure
+- **AND** a request to start an import SHALL be rejected with that reason before any job starts
+
+#### Scenario: The external API key is missing in the server environment
+
+- **WHEN** `memoryApiKey` is `env://NAME` and `NAME` is not set in the OpenCode process
+- **THEN** readiness SHALL report the external API as missing its key, without showing a value
+
+#### Scenario: The Pi session reader is unavailable
+
+- **WHEN** the Pi SDK cannot be loaded in the OpenCode process
+- **THEN** Pi preview and import SHALL be disabled with that reason
 
 #### Scenario: Cancelling an import
 
 - **WHEN** the user cancels a running import
-- **THEN** the import SHALL stop after the current work unit
+- **THEN** the import SHALL stop after the current work unit, or earlier if it is still loading sessions or copying a snapshot
 - **AND** the units not yet processed SHALL be imported by a later run
 
 #### Scenario: A second import is started
 
-- **WHEN** an import is already running and the user starts another
-- **THEN** the page SHALL refuse the second import and show the running one
+- **WHEN** a preview or import is already running and the user starts another
+- **THEN** the page SHALL refuse the second job and show the running one
 
 #### Scenario: Rerunning after the CLI
 
 - **WHEN** a session was already imported by the CLI
-- **THEN** a page import SHALL skip it as already imported
+- **THEN** a page import SHALL skip the handled units and retain their ledger identities
+
+#### Scenario: Importing a session again from a backup copy
+
+- **WHEN** a Pi session already imported from its usual folder is selected from a backup copy of that file
+- **THEN** its units SHALL be reported as already handled
+
+### Requirement: Advanced source selection reads local history safely
+
+Advanced options SHALL let the user choose a Pi sessions directory, one Pi `.jsonl` session file, or one OpenCode database file. On every bind, the page SHALL accept an absolute path, including a path on a mounted volume. Only on a loopback bind SHALL the page also offer a server-side browser. The browser SHALL start at the host's default location, list one folder at a time, show only subfolders and eligible files, and hide symlinked entries. The page SHALL NOT upload files from the browser.
+
+The server SHALL reject relative paths, paths with `..` segments, and unsupported formats. It SHALL resolve accepted paths to their real path, so symlinks at or above the chosen path are allowed. Symlinked entries inside a Pi folder SHALL be skipped. It SHALL pin the source's real path, device, and inode, and SHALL refuse a job when these have changed since validation.
+
+The source, session list, and job endpoints SHALL be JSON `POST`s under the Settings mutation rules, apart from the side-effect-free readiness check. They SHALL return metadata only, and errors SHALL NOT contain file contents. Pi header reads SHALL be bounded to the start of each file. A selected Pi file SHALL be validated and imported as one session. A Pi file whose loaded session ID differs from its header ID SHALL be reported as a load error. A selected OpenCode database SHALL first list its contained top-level sessions.
+
+Original history files and OpenCode database, WAL, and shared-memory files SHALL remain unchanged. OpenCode snapshots SHALL be copied asynchronously and SHALL be cancellable. The server SHALL check free space before copying. A snapshot SHALL be reused by the listing, the preview, and the import of the same source. It SHALL be removed on success, failure, cancellation, expiry, and shutdown. When the web server starts, and before each new copy, snapshots left by processes that no longer run SHALL be removed.
+
+#### Scenario: Choosing a Pi session file
+
+- **WHEN** the user chooses one valid `.jsonl` session file
+- **THEN** the page SHALL list that session only
+- **AND** preview and import SHALL read only that file
+
+#### Scenario: Choosing an OpenCode database
+
+- **WHEN** the user chooses a file that passes the OpenCode V1 schema check
+- **THEN** the page SHALL list its top-level sessions for selection
+- **AND** it SHALL NOT treat the database as one session
+
+#### Scenario: A large OpenCode source needs a snapshot
+
+- **WHEN** the OpenCode database has a write-ahead log (WAL) and temporary space is less than the database size plus the WAL size plus a margin
+- **THEN** the page SHALL show an actionable space error with the needed and available sizes before copying
+- **AND** the original database, WAL, and shared-memory files SHALL remain unchanged
+
+#### Scenario: Preview and import of a large database copy it once
+
+- **WHEN** the user lists, previews, and imports sessions from one OpenCode database with a WAL
+- **THEN** the database SHALL be copied at most once
+- **AND** the web UI SHALL keep responding while the copy runs
+
+#### Scenario: A snapshot is left behind by a crash
+
+- **WHEN** OpenCode stops during an import and leaves a snapshot folder
+- **THEN** the next web server start, or the next snapshot copy from the CLI, SHALL remove that folder
+- **AND** it SHALL NOT remove a snapshot owned by a running process
+
+#### Scenario: The default Pi folder is a symlink
+
+- **WHEN** the Pi sessions folder, or one of its parent folders, is a symlink to another volume
+- **THEN** the source SHALL be accepted through its real path
+
+#### Scenario: A source path is unsupported
+
+- **WHEN** the user enters a relative path, a path with `..` segments, or a file with the wrong format
+- **THEN** the page SHALL refuse the source without returning its contents
+
+#### Scenario: Browsing from the network
+
+- **WHEN** the server is bound to a non-loopback host and a request asks to browse folders
+- **THEN** the server SHALL refuse it and the page SHALL offer only the path field
 
 ### Requirement: The page shows the OMMS log
 
@@ -175,12 +305,17 @@ Saving on the Settings page SHALL write only the changed keys to the global conf
 
 ### Requirement: Changes from the page are access-controlled
 
-Every Settings endpoint that changes config, deletes trace files, starts or cancels an import, or makes a model test call SHALL reject requests whose origin is not allowed by the web server's origin rules. When the web server is bound to a non-loopback host, these endpoints SHALL also require the existing API token or Basic Auth credentials. Turning `captureTrace` on SHALL be rejected when the server is bound to a non-loopback host without Basic Auth.
+Every Settings endpoint that changes config, deletes trace files, validates or browses an import source, lists import sessions, starts or cancels an import, or makes a model test call SHALL require a JSON request body and SHALL reject requests whose origin is not allowed by the web server's origin rules. When the web server is bound to a non-loopback host, these endpoints SHALL also require the existing API token or Basic Auth credentials. Turning `captureTrace` on SHALL be rejected when the server is bound to a non-loopback host without Basic Auth.
 
 #### Scenario: A request from another website
 
 - **WHEN** a page on another origin sends a request to change settings
 - **THEN** the server SHALL reject it and the config SHALL be unchanged
+
+#### Scenario: A cross-site request tries to list sessions
+
+- **WHEN** Basic Auth is on and a page on another site sends a request to list sessions without a JSON body
+- **THEN** the server SHALL reject it before reading any history source or copying any file
 
 #### Scenario: Turning on tracing over the network
 

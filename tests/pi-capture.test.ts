@@ -30,6 +30,7 @@ let summarizeCalls = 0;
 let captureMode = ${JSON.stringify(scriptBody.initialCaptureMode ?? "capture")};
 
 mock.module(${JSON.stringify(configUrl)}, () => ({
+  refreshConfigIfChanged: () => {},
   CONFIG: {
     autoCaptureEnabled: true,
     autoCaptureMaxContextBytes: 131072,

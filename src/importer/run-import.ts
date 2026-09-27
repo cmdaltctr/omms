@@ -16,6 +16,14 @@ export interface HistoryImportRun {
   cwd: string;
   models: HistoryImportModels;
   onProgress?: (processed: number, total: number, promptPreview: string) => void;
+  signal?: AbortSignal;
+  /** Web selection, already re-resolved against the source; `args.source` is its real path. */
+  selection?: {
+    keys: string[];
+    cutoff: number;
+    /** Shared snapshot key of an OpenCode source, reused from the listing. */
+    snapshotKey?: string;
+  };
 }
 
 export type HistoryImportReport = ImportReport & {
@@ -48,6 +56,15 @@ export async function runHistoryImport(
       ...(args.since !== undefined ? { since: args.since } : {}),
       ...(args.until !== undefined ? { until: args.until } : {}),
       ...(args.session ? { session: args.session } : {}),
+      ...(run.selection
+        ? {
+            selectionKeys: run.selection.keys,
+            cutoff: run.selection.cutoff,
+            ...(run.selection.snapshotKey
+              ? { snapshot: { key: run.selection.snapshotKey, mode: "reuse" as const } }
+              : {}),
+          }
+        : {}),
       ...(project ? { project } : {}),
       ...(args.maxSessions ? { maxSessions: args.maxSessions } : {}),
       ...(args.profileBatch ? { profileBatch: args.profileBatch } : {}),
@@ -55,6 +72,8 @@ export async function runHistoryImport(
       force: args.force,
       skipMemories: args.skipMemories,
       skipProfile: args.skipProfile,
+      ...(run.signal ? { signal: run.signal } : {}),
+      ...(run.onProgress ? { onProgress: run.onProgress } : {}),
       ...(run.models.capture ? { provider: capture } : {}),
       ...(run.models.profile ? { profileModel: run.models.profile } : {}),
     });
@@ -67,6 +86,7 @@ export async function runHistoryImport(
       loadSession: loadPiSessionForImport,
       provider: capture,
       ...(run.onProgress ? { onProgress: run.onProgress } : {}),
+      ...(run.signal ? { signal: run.signal } : {}),
       ...(!args.skipProfile
         ? {
             profile: {
@@ -80,6 +100,7 @@ export async function runHistoryImport(
       scope: args.scope,
       currentDirectory: project ?? run.cwd,
       ...(args.session ? { session: args.session } : {}),
+      ...(run.selection ? { selectionKeys: run.selection.keys, cutoff: run.selection.cutoff } : {}),
       ...(args.since !== undefined ? { since: args.since } : {}),
       ...(args.until !== undefined ? { until: args.until } : {}),
       ...(args.maxSessions ? { maxSessions: args.maxSessions } : {}),
@@ -125,6 +146,16 @@ export function formatHistoryImportReport(
   for (const unresolvable of report.unresolvableSessions) {
     lines.push(`  unresolved ${unresolvable.cwd ?? "(no cwd)"}: ${unresolvable.file} (use --map)`);
   }
+  if (report.unitsUntimed) {
+    lines.push(
+      `  turns without a timestamp: ${report.unitsUntimed} (date limits cannot exclude them)`
+    );
+  }
+  if (report.unitsHeldBack) {
+    lines.push(
+      `  newer turns held back: ${report.unitsHeldBack}; list the sessions again and import to include them`
+    );
+  }
   if (report.loadErrors.length > 0) lines.push(`  load errors: ${report.loadErrors.length}`);
   if (report.profile) {
     lines.push(
@@ -150,6 +181,8 @@ export function summarizeHistoryImportReport(report: HistoryImportReport) {
     unitsSkipped: report.unitsSkipped,
     unitsFailed: report.unitsFailed,
     unitsAlreadyHandled: report.unitsAlreadyHandled,
+    unitsHeldBack: report.unitsHeldBack ?? 0,
+    unitsUntimed: report.unitsUntimed ?? 0,
     projects: report.projects.length,
     unresolved: (report.unresolvedProjects?.length ?? 0) + report.unresolvableSessions.length,
     loadErrors: report.loadErrors.length,

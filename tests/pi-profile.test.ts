@@ -103,6 +103,30 @@ scenario = result;
     expect(out.mergeCalls[0].profileId).toBe("42");
   });
 
+  it("provides the full JSON contract to the Pi model before validating its reply", () => {
+    const out = runScenario(`
+let prompt = "";
+const analyzer = createPiProfileAnalyzer(() => ({
+  provider: "anthropic",
+  modelId: "claude-sonnet-4-5",
+  complete: async ({ systemPrompt }) => {
+    prompt = systemPrompt;
+    const fields = ["preferences", "patterns", "workflows", "category", "description", "confidence", "evidence", "steps"];
+    return {
+      content: [{ type: "text", text: fields.every((field) => prompt.includes(field))
+        ? ${JSON.stringify(VALID_PROFILE)} : "{}" }],
+      stopReason: "stop",
+    };
+  },
+}));
+const result = await analyzer.analyzeProfile("A coding preference", null);
+scenario = { count: result.raw.preferences.length, prompt };
+`);
+
+    expect(out.scenario.count).toBe(1);
+    expect(out.scenario.prompt).toContain("confidence");
+  });
+
   it("accepts fenced JSON with surrounding prose", () => {
     const out = runScenario(`
 const analyzer = createPiProfileAnalyzer(() =>

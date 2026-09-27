@@ -44,6 +44,7 @@ const prompts = Array.from({ length: 10 }, (_, i) => ({
 }));
 
 mock.module(${JSON.stringify(configUrl)}, () => ({
+  refreshConfigIfChanged: () => {},
   CONFIG: {
     autoCaptureProviderStatus: { ready: true, mode: "opencode", issues: [] },
     userProfileAnalysisInterval: 5,

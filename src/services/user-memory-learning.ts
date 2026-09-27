@@ -1,7 +1,7 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import { getTags } from "./tags.js";
 import { log } from "./logger.js";
-import { CONFIG } from "../config.js";
+import { CONFIG, refreshConfigIfChanged } from "../config.js";
 import { resolveOpencodeHostModel } from "./ai/live-model-choice.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
 import type { UserPrompt } from "./user-prompt/user-prompt-manager.js";
@@ -61,6 +61,7 @@ export async function performUserProfileLearning(
   directory: string
 ): Promise<void> {
   if (isLearningRunning) return;
+  refreshConfigIfChanged(directory);
   if (!CONFIG.autoCaptureProviderStatus || !CONFIG.autoCaptureProviderStatus.ready) {
     log("user-profile-learning: skipped (provider not ready)", {
       issues: CONFIG.autoCaptureProviderStatus?.issues ?? ["status undefined"],

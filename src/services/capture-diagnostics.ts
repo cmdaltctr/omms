@@ -232,6 +232,9 @@ export function emitCaptureAttempt(
   } catch {
     // The log is best effort here, as everywhere else.
   }
+  void import("./capture-attempt-store.js")
+    .then(({ saveCaptureAttempt }) => saveCaptureAttempt(record, now.getTime()))
+    .catch((error: unknown) => log("Capture attempt store failed", { code: errorCode(error) }));
   if (config.captureTrace === true) {
     writeTraceEntry(record, diagnostics, config, now);
   }

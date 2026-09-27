@@ -49,11 +49,17 @@ All endpoints live under `/api/settings/`:
 | GET / DELETE | `/api/settings/traces[/:file]`           | List, read, or delete trace files (names must match the pattern)                 |
 | POST         | `/api/settings/health`                   | Run checks; `{ testModels: true }` adds the model test calls                     |
 | GET          | `/api/settings/log?lines=&filter=`       | Last lines of the OMMS log (at most 256 KB read, optional `filter=capture`)      |
-| POST         | `/api/settings/imports`                  | Start an import job (`host`, options, model choice)                              |
+| POST         | `/api/settings/imports/sources/browse`   | Loopback only: one folder's subfolders and eligible files, no recursion          |
+| POST         | `/api/settings/imports/sources/validate` | Check an absolute source path; return its kind and a source token                |
+| POST         | `/api/settings/imports/sessions`         | One page of session metadata, the selection revision, and the listing time       |
+| GET          | `/api/settings/imports/readiness`        | Model and reader readiness for a real import; no secret values, no side effects  |
+| POST         | `/api/settings/imports`                  | Start a preview or import job (`host`, selection, options, model choice)         |
 | GET          | `/api/settings/imports/current`          | Progress and report of the running or last job                                   |
 | POST         | `/api/settings/imports/current/cancel`   | Cancel the running job                                                           |
 
 The page polls job progress every second while a job runs. That avoids adding server-sent events to a server that has none.
+
+The source and session endpoints are `POST`s even though they change no settings. Listing an OpenCode database can copy gigabytes. A `GET` would skip the JSON content-type check, and with Basic Auth on it would also skip the token check for `/api/settings*`. A page on another site could then start that work, even though it cannot read the reply. As `POST`s with a JSON body, they go through the same mutation guard as every other change.
 
 ### Safe config writes
 
@@ -103,14 +109,88 @@ A `capture_attempts` table is added to the store with the diagnostics fields fro
 
 ### Imports from the page
 
-- `ImportSurface` gains `"web"`. The page sends structured options, which the server turns into the same argument list the CLI builds, so the shared parser validates both paths.
-- The model choice is either an OpenCode `provider/model`, run through the same OpenCode structured-output path as live capture, or the saved external API.
-- `runHistoryImport` gains an optional `AbortSignal`, checked between work units, so a cancel lands on a unit boundary and the ledger stays consistent.
-- One in-memory job slot is used per server process. The ledger's existing locking protects against a CLI import running at the same time.
+- `ImportSurface` gains `"web"`. CLI and slash-command flags keep their current meaning. The page sends a `selection` object and an `options` object. The server validates `selection` itself and turns it into a new `selectionKeys` importer filter; the shared parser never sees it. `options` goes through `webImportTokens` and the shared parser as before. `session` and `maxSessions` are removed from the web options: selection replaces both, so the page has only one way to choose sessions.
+- `runHistoryImport` gains an optional `AbortSignal`. It is checked between work units, while the Pi importer loads sessions, while the OpenCode reader yields sessions, and during a snapshot copy. A cancel therefore stops loading a large selection early, and it lands on a unit boundary once units run, so the ledger stays consistent.
+- One in-memory job slot is used per server process. A preview is a job like an import, so it also takes the slot. The ledger's existing locking protects against a CLI import running at the same time.
+
+#### Session selection and the revision
+
+`ImportFilters` (Pi) and `OpencodeImportOptions` gain `selectionKeys?: string[]`. Only the web surface sets it, and it cannot be combined with `session` or `maxSessions`. When it is set, the importer applies it during discovery, before the project filter. The CLI's order stays unchanged: `maxSessions` first, then `session`, then the project filter (`discovery.ts`, `opencode-reader.ts`). CLI tests pin that order.
+
+Each listed session has a selection key:
+
+- **OpenCode:** the session ID.
+- **Pi:** the file path relative to the source root. This path is unique even when a header has no ID or two files share one.
+
+The Pi importer checks that the ID `SessionManager` loads matches the header ID. When the header has an ID and the two differ, the file is reported as a load error. Ledger keys do not change: they are still `host:sessionId:userEntryId:terminalEntryId`, built from the loaded session ID. The key does not contain the file path, so a session imported once from its usual folder counts as already done when it is imported again from a backup copy.
+
+The session list reply includes `total`, one page of rows, `revision`, and `listedAt` (server time in epoch ms). `revision` is a SHA-256 hash of:
+
+- the host and the source identity: its real path, device, and inode
+- the options that decide which sessions match: scope, project, and directory maps
+- the sorted selection keys of every matching, resolvable session
+
+The revision never uses file sizes or modification times. The server runs inside OpenCode, which writes its database on every message, and an active Pi session file grows while it is used. A revision built from file stamps would be stale on every import. Adding turns to a session leaves the revision the same. Adding, removing, or re-projecting a session changes it.
+
+The server keeps no selection state between requests. The page sends one of two selections:
+
+- `{ mode: "ids", keys, revision, listedAt }`, with at most 1,000 keys. At preview and import, the server re-resolves each key. It refuses the job with `409 stale` when a key no longer exists or now resolves to a different project. New sessions do not matter in this mode.
+- `{ mode: "all", excludedKeys, revision, listedAt }`. At preview and import, the server re-resolves the filter and recomputes the revision. It refuses the job with `409 stale` when the revision differs, so a newly created session can never be added silently.
+
+Both modes cap each unit's user-turn time at `listedAt`, in addition to any Prompt date to limit. Preview and import therefore read the same turns, even when a selected session keeps growing. A later run started from a fresh listing picks up the newer turns under the same ledger keys. The report states how many turns were held back as newer than `listedAt`, for example "newer turns held back: 12; list the sessions again and import to include them". Held-back turns are never written to the ledger, so no turn is marked handled without being imported. For OpenCode with a WAL, preview and import also read the same snapshot (see below). Dry-run counts, rerun skips, and profile batching keep their current behaviour.
+
+#### Project resolution
+
+A new shared module, `src/importer/import-project.ts`, resolves a session's recorded directory. The session list and both importers call it, so the list, the selection revision, and the imported set always agree. It returns `{ directory, via }`, where `via` is one of:
+
+1. `mapped`: a directory map matches the recorded path exactly, and its target is a directory.
+2. `recorded`: the recorded directory exists.
+3. `worktree` (OpenCode only): the recorded directory is missing, and the project worktree exists and is not `/`. The worktree is the same OpenCode project, so this does not move memories to another project. The list shows the fallback so it is visible.
+4. `unresolved`.
+
+Maps come first on both hosts. Pi already works that way. For OpenCode this is a behaviour change: a map whose source path still exists used to be silently ignored. It is recorded in `docs/tdr/` and covered by a regression test. Current-project matching compares real paths, as `projectFilterTag` does today.
+
+In current-project scope, unresolved sessions cannot be matched to the project, so they cannot appear in the list. The list therefore shows "N sessions have recorded directories that no longer exist", with an action that switches to all-projects scope and opens the directory maps. In all-projects scope, unresolved rows show their recorded path and cannot be selected until a map resolves them.
+
+#### Sources and path rules
+
+A source is a server-side path, never an upload. There are three kinds: `pi-folder`, `pi-file` (one `.jsonl`), and `opencode-db` (any SQLite file that passes the V1 schema check, whatever its name).
+
+- **Path entry, on every bind:** a person enters an absolute path. The validate endpoint rejects relative paths and paths that contain `..` segments. It resolves the path with `realpath`, so symlinks at or above the chosen path are accepted. Examples are `/tmp` on macOS and a `~/.pi` linked to another volume. The endpoint checks the kind and format, then returns `{ kind, displayPath, sourceToken }`. The token is signed by the server process and holds the real path, device, and inode. Later requests send the token instead of a path. At job start the server stats the path again and refuses the job when the device or inode has changed.
+- **Browse, on loopback binds only:** the chooser lists one folder at a time and does not recurse. It starts at the host's default location and shows subfolders and eligible `.jsonl` or `.db` files. Entries that are symlinks are hidden. On a non-loopback bind the browse endpoint returns `403`, and the page shows only the path field. A remote user therefore cannot list the machine's folders.
+- **Inside a Pi folder**, discovery keeps skipping symlinked entries, as `readdirSync` with `withFileTypes` already does.
+- **Pi header reads are bounded:** the first line is read from at most the first 64 KB, instead of the whole file. The CLI and the page share this reader. A file root is discovered as one session. The CLI's `--root` therefore also accepts one file, which today silently finds no sessions.
+- **Errors** name the file and give a reason code, and never include file contents. On a non-loopback bind, any path in an error or report is shown relative to the source, apart from the recorded project directories the list shows on purpose.
+
+#### OpenCode snapshots
+
+The reader keeps its current rules. A database without a WAL is opened in place with `immutable=1`. A database with a WAL is read from a private copy, so OpenCode's database, `-wal`, and `-shm` files are never opened for writing. The following changes are made for large sources and for running inside the OpenCode process:
+
+- **No-WAL race:** when a `-journal` file exists, the source is refused as busy. After an in-place read, the reader checks again that no `-wal` has appeared and that the database stamp has not changed. When either check fails, the read is retried through the snapshot path.
+- **Free space:** before copying, the server checks `statfsSync(tmpdir())`. The available bytes must be at least the database size plus the WAL size plus the larger of 256 MB and 10%. When they are not, the job fails before any copy, with the needed and available sizes in the error.
+- **Asynchronous copy:** the copy runs as an asynchronous, cancellable stream copy. A copy-on-write clone is tried first. The event loop that serves the web UI and live capture never blocks for the length of a copy. Session reads yield to the event loop between sessions.
+- **Retries:** when the source is on a different device from the temporary folder, or is larger than 1 GB, the copy makes one attempt instead of five. If the source changed during that copy, the error says to quit OpenCode or choose a checkpointed backup.
+- **Reuse:** one snapshot is kept per source token, with a reference count and a 30-minute idle limit. The listing, the preview, and the import reuse it, so an 8 GB database is copied once. A preview or import holds a reference until it ends. A snapshot that has expired makes the job stale, and the page asks for a refresh. Because the snapshot does not change, `mode: "all"` over a snapshot cannot pick up a new session.
+- **Cleanup:** each snapshot folder, `omms-opencode-*`, holds an `owner.json` file with the process ID and creation time. The folder is removed when a real import ends (success, failure, or cancellation), on a failed or cancelled copy, on expiry, and on server shutdown. A preview keeps it for the import that follows. When the web server starts, and before every new copy (which covers the CLI and slash commands), OMMS deletes any snapshot folder whose owner process is no longer running. A running CLI import's folder is never deleted.
+- **Memory:** the OpenCode importer stops holding every session's turns in memory. A counting pass builds each session's turns, applies the same date, cutoff, and key filters, keeps only the counts, and releases them. The import pass then builds turns again, one session at a time. The preview reports the selected session and turn counts.
+
+#### Prompt date limits
+
+The page shows **Prompt date from** and **Prompt date to**. Both are inclusive and apply to individual user turns, not to session creation dates. They do not filter the session list, because a session created before the start date can still contain turns inside the range. The page converts each date to epoch ms at the start or end of that day in the browser's time zone. It sends numbers, so the server's UTC reading of bare dates, which the CLI keeps, never shifts the range. An empty limit leaves that side open. Turns that have no timestamp are included, as they are today, and the preview reports how many there are.
+
+#### Model readiness
+
+`GET /api/settings/imports/readiness` returns, without secret values:
+
+- `external`: one of `ready`, `missing-model`, `missing-url`, `missing-key`, or `unsupported-provider`. It is checked with the same rules as `selectImportModel`. `env://` and `file://` keys are resolved inside the server process, which is OpenCode's environment, not the user's shell.
+- `opencode`: the connected providers and their models.
+- `piReader`: `available`, or `unavailable` with a reason, depending on whether `@earendil-works/pi-coding-agent` can be loaded in this process. Pi sessions are loaded through it even for a dry run.
+
+The page picks the first ready model as the default. When none is ready, Import is disabled with the reason, and Preview stays available. When the Pi reader is unavailable, Pi preview and import are also disabled with the reason. Every state is labelled "configured, not tested", with a link to the Health section's model test. `POST /api/settings/imports` runs the same checks before it accepts a job and returns `400` with the reason. A misconfigured model therefore never turns into a job that fails later. Pi credentials alone never count as a ready web-import model, because the OpenCode process cannot call Pi models.
 
 ### Access control
 
-A new guard wraps every mutating settings endpoint:
+A new guard wraps every mutating settings endpoint, and the import source, session list, and job endpoints:
 
 1. The existing origin check.
 2. The existing token or Basic Auth when the server is not on loopback.
@@ -123,6 +203,11 @@ Turning `captureTrace` on is refused when the server is not on loopback and Basi
 - [The page writes the user's config file] → Only fixed keys can be written, the change is checked before writing, the rename is atomic, and comments are kept. The ADR records this choice.
 - [Pi SDK internals may change] → The Pi model list is best effort, with a typed fallback. It is read-only and never blocks saving.
 - [A long import runs inside the OpenCode plugin process] → Imports already run in that process from the slash command. Cancel and the single job slot keep it bounded.
+- [Source browsing can expose local paths] → Browsing works only on loopback. On other binds the page accepts typed paths only. Every source endpoint is a guarded JSON `POST`, returns metadata only, and never sends transcript content.
+- [An OpenCode database on another volume can require a large temporary copy] → Check free space first, copy asynchronously, allow cancellation, make one attempt for large or cross-device sources, reuse one snapshot per source, remove orphaned snapshots at startup, and leave the database, WAL, and SHM files untouched.
+- [Selecting all sessions in a large database can load many turns] → A first pass counts turns, and turns are built for one session at a time. The preview shows the counts before anything is imported.
+- [A path swapped for a symlink between validation and import] → The source token pins the real path, device, and inode, and job start checks them again.
+- [OpenCode directory maps now take precedence over existing recorded directories] → This matches Pi, and a map is an explicit user choice. It is recorded in a TDR and covered by a regression test.
 - [Settings apply only while OpenCode serves the UI] → The docs say that Pi users can open the page while OpenCode runs, or edit the config file.
 - [The live-reload stat on every capture] → This is one or two `stat` calls per unit, which is small next to a model call.
 
