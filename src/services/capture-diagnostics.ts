@@ -1,5 +1,13 @@
 import { execFileSync } from "node:child_process";
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, unlinkSync } from "fs";
+import {
+  appendFileSync,
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  unlinkSync,
+} from "fs";
 import { join } from "path";
 import type {
   CaptureAttemptDiagnostics,
@@ -179,25 +187,39 @@ let lastTraceDate: string | null = null;
 
 const WINDOWS_TRACE_ACL = `$ErrorActionPreference = 'Stop'
 $path = $env:OMMS_TRACE_ACL_PATH
-$acl = Get-Acl -LiteralPath $path
+$isDirectory = [System.IO.Directory]::Exists($path)
+$acl = if ($isDirectory) {
+  [System.IO.Directory]::GetAccessControl($path)
+} else {
+  [System.IO.File]::GetAccessControl($path)
+}
+$currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+$owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier])
+if ($owner.Value -ne $currentUser.Value) {
+  throw 'Trace path has a different owner'
+}
 $acl.SetAccessRuleProtection($true, $false)
 foreach ($rule in @($acl.Access)) {
   [void]$acl.RemoveAccessRuleSpecific($rule)
 }
-$inheritance = if ((Get-Item -LiteralPath $path).PSIsContainer) {
+$inheritance = if ($isDirectory) {
   [System.Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
 } else {
   [System.Security.AccessControl.InheritanceFlags]::None
 }
 $rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
-  [System.Security.Principal.WindowsIdentity]::GetCurrent().User,
+  $currentUser,
   [System.Security.AccessControl.FileSystemRights]::FullControl,
   $inheritance,
   [System.Security.AccessControl.PropagationFlags]::None,
   [System.Security.AccessControl.AccessControlType]::Allow
 )
 $acl.AddAccessRule($rule)
-Set-Acl -LiteralPath $path -AclObject $acl`;
+if ($isDirectory) {
+  [System.IO.Directory]::SetAccessControl($path, $acl)
+} else {
+  [System.IO.File]::SetAccessControl($path, $acl)
+}`;
 
 type WindowsAclRunner = (
   command: string,
@@ -243,7 +265,15 @@ export function writeTraceEntry(
 
     const dir = getTraceDirectory();
     mkdirSync(dir, { recursive: true, mode: 0o700 });
+    if (!lstatSync(dir).isDirectory()) throw new Error("Trace directory is not a real directory");
     protectTracePath(dir, 0o700);
+    const dailyFile = `capture-${today}.jsonl`;
+    for (const name of readdirSync(dir)) {
+      if (!TRACE_FILE.test(name) || name === dailyFile) continue;
+      const retained = join(dir, name);
+      if (!lstatSync(retained).isFile()) throw new Error("Trace path is not a regular file");
+      protectTracePath(retained, 0o600);
+    }
 
     const redact = (value: string | undefined) =>
       value === undefined ? null : redactTraceText(value, config);
@@ -255,9 +285,11 @@ export function writeTraceEntry(
       userPrompt: redact(diagnostics.userPrompt),
       reply: redact(diagnostics.rawReply),
     };
-    const file = join(dir, `capture-${today}.jsonl`);
+    const file = join(dir, dailyFile);
+    const existingFile = lstatSync(file, { throwIfNoEntry: false });
+    if (existingFile && !existingFile.isFile()) throw new Error("Trace path is not a regular file");
     // Narrow an existing file before appending sensitive content.
-    const existingWindowsFile = process.platform === "win32" && existsSync(file);
+    const existingWindowsFile = process.platform === "win32" && Boolean(existingFile);
     if (existingWindowsFile) protectTracePath(file, 0o600);
     appendFileSync(file, `${JSON.stringify(entry)}\n`, { mode: 0o600 });
     // A new Windows file inherits the private directory ACL until this call.

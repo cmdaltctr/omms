@@ -15,9 +15,9 @@ The tests expected Unix modes `0700` and `0600`, but Windows reported `0666` aft
 
 ## Decision
 
-Keep Unix mode checks on POSIX. On Windows, protect the traces directory before writing content. Use `Get-Acl` and `Set-Acl` with a protected access-control list (ACL) that grants full control only to the current user's security identifier. Remove inherited and explicit rules. Protect an existing daily file before appending to it, then protect the file after creation. Pass paths through an environment variable to a fixed PowerShell script, not through shell interpolation. If protection fails, stop the trace write and log only the failure code.
+Keep Unix mode checks on POSIX. On Windows, protect the traces directory before writing content. Use the .NET `System.IO.File` and `System.IO.Directory` access-control methods from PowerShell. The GitHub Windows runner could not load PowerShell's `Microsoft.PowerShell.Security` module, so `Get-Acl` and `Set-Acl` failed. Reject a directory or file owned by another user. Remove inherited and explicit rules, then grant full control only to the current user's security identifier. Protect retained date-named files and an existing daily file before appending. Reject symbolic links. A new file inherits the private directory ACL until its own rules are protected. Pass paths through an environment variable to a fixed script, not through shell interpolation. If protection fails, stop the trace write and log only the failure code.
 
-Tests inspect Windows ACLs and confirm that an explicit `Everyone` read grant is removed from an existing file. They continue to check exact mode bits on POSIX. The test for trace redaction still runs on every platform.
+Tests inspect Windows ACLs and confirm that an explicit `Everyone` read grant is removed from an existing file. A regression also checks retained files from an earlier day. POSIX tests still check exact mode bits, and trace redaction runs on every platform.
 
 ## Consequences
 
@@ -45,7 +45,7 @@ Tests inspect Windows ACLs and confirm that an explicit `Everyone` read grant is
 ## How to Recognise / Handle This Again
 
 1. Find a Windows smoke failure in `tests/capture-diagnostics.test.ts` or a `Capture trace write failed` log record.
-2. Inspect the traces directory and file ACLs with `Get-Acl -LiteralPath <path>`.
+2. Inspect ACLs with `[System.IO.Directory]::GetAccessControl(<path>)` or `[System.IO.File]::GetAccessControl(<path>)` in Windows PowerShell.
 3. Check that the current user is the only allowed identity and inheritance is disabled.
 4. Run the focused test on Windows before another release attempt.
 
@@ -57,7 +57,7 @@ Tests inspect Windows ACLs and confirm that an explicit `Everyone` read grant is
 ## References
 
 - [Node.js file system documentation](https://nodejs.org/docs/latest-v24.x/api/fs.html)
-- [PowerShell Set-Acl documentation](https://learn.microsoft.com/powershell/module/microsoft.powershell.security/set-acl)
+- [.NET file ACL documentation](https://learn.microsoft.com/dotnet/standard/io/how-to-add-or-remove-access-control-list-entries)
 - `src/services/capture-diagnostics.ts`
 - `tests/capture-diagnostics.test.ts`
 - [TDR-005](./005-two-tier-capture-diagnostics.md)
