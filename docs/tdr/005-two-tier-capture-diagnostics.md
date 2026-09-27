@@ -64,6 +64,6 @@ To surface stop reasons, `ToolCallResult` gained `stopReason`, and `generateStru
 
 ## References
 
-- `openspec/changes/capture-diagnostics/`
+- `openspec/changes/archive/2026-09-27-capture-diagnostics/` and `openspec/specs/capture-diagnostics/spec.md`
 - [TDR-002](./002-accept-bare-skip-replies.md)
 - [Configuration: Capture diagnostics](../configuration.md#capture-diagnostics)
