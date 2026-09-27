@@ -1,7 +1,7 @@
 # TDR-009: Protect capture traces with Windows access-control lists
 
 **Date:** 2026-09-27
-**Status:** Proposed
+**Status:** Accepted
 **Deciders:** OMMS maintainers
 **Tags:** Windows, capture, privacy
 

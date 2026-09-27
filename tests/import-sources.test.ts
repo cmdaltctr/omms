@@ -52,11 +52,13 @@ it("accepts Pi folders, Pi session files, and SQLite files, and pins their ident
   const { sessions, db } = workspace();
   const folder = validateImportSource("pi", sessions);
   expect(folder.kind).toBe("pi-folder");
-  expect(folder.displayPath).toBe(realpathSync(sessions));
+  expect(folder.displayPath).toBe(realpathSync.native(sessions));
   expect(validateImportSource("pi", join(sessions, "b.jsonl")).kind).toBe("pi-file");
   const database = validateImportSource("opencode", db);
   expect(database.kind).toBe("opencode-db");
-  expect(readImportSourceToken(database.sourceToken, "opencode").realPath).toBe(realpathSync(db));
+  expect(readImportSourceToken(database.sourceToken, "opencode").realPath).toBe(
+    realpathSync.native(db)
+  );
   expect(() => readImportSourceToken(database.sourceToken, "pi")).toThrow("other host");
   expect(() => readImportSourceToken(`${database.sourceToken}x`, "opencode")).toThrow(
     "no longer valid"
@@ -89,7 +91,7 @@ it("accepts a symlinked root or ancestor through its real path, like a mounted v
   const linked = join(root, "linked-volume");
   symlinkSync(root, linked);
   const result = validateImportSource("pi", join(linked, "sessions"));
-  expect(result.displayPath).toBe(realpathSync(sessions));
+  expect(result.displayPath).toBe(realpathSync.native(sessions));
 });
 
 it("refuses a source replaced after validation", () => {
@@ -109,7 +111,7 @@ it("browses one folder, shows eligible entries only, and hides symlinks", () => 
     ["nested", "folder"],
     ["b.jsonl", "pi-file"],
   ]);
-  expect(pi.parent).toBe(realpathSync(root));
+  expect(pi.parent).toBe(realpathSync.native(root));
   const opencode = browseImportSources("opencode", root);
   expect(opencode.entries.map((entry) => entry.name)).toEqual(["sessions", "history.db"]);
 });
