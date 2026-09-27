@@ -8,6 +8,7 @@ import { EditMemoryDialog } from "$lib/components/explorer/EditMemoryDialog";
 import { MemoryList } from "$lib/components/explorer/MemoryList";
 import { ProfileView } from "$lib/components/explorer/ProfileView";
 import { TagMigrationDialog } from "$lib/components/explorer/TagMigrationDialog";
+import { SettingsView } from "$lib/components/settings/SettingsView";
 import { Alert, AlertDescription } from "$lib/components/ui/alert";
 import { Button } from "$lib/components/ui/button";
 import { Checkbox } from "$lib/components/ui/checkbox";
@@ -108,6 +109,7 @@ export default function App() {
           langLabel={language.toUpperCase()}
           languageLabel={t("nav-language")}
           themeLabel={t("nav-theme")}
+          settingsLabel={t("nav-settings")}
           closeLabel={t("nav-close")}
           onLanguageSelect={onLanguageSelect}
         />
@@ -141,7 +143,11 @@ export default function App() {
 
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h1 className="text-base tracking-wide text-primary">
-                {currentView === "project" ? t("tab-project") : t("tab-profile")}
+                {currentView === "project"
+                  ? t("tab-project")
+                  : currentView === "profile"
+                    ? t("tab-profile")
+                    : t("nav-settings")}
               </h1>
               {currentView === "project" ? (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -352,6 +358,8 @@ export default function App() {
                   </form>
                 </section>
               </>
+            ) : currentView === "settings" ? (
+              <SettingsView />
             ) : (
               <ProfileView
                 profile={profile.userProfile}

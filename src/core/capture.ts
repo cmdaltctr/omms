@@ -1,4 +1,4 @@
-import { CONFIG } from "../config.js";
+import { CONFIG, refreshConfigIfChanged } from "../config.js";
 import { buildCaptureAttemptRecord, emitCaptureAttempt } from "../services/capture-diagnostics.js";
 import { memoryClient } from "../services/client.js";
 import { getTags } from "../services/tags.js";
@@ -44,6 +44,7 @@ export async function captureConversation(
   workUnit: CaptureWorkUnit,
   provider: CaptureSummaryProvider
 ): Promise<CaptureResult> {
+  refreshConfigIfChanged(workUnit.projectDirectory);
   const diagnostics: CaptureAttemptDiagnostics = {};
   const startedAt = Date.now();
   let outcome: CaptureAttemptOutcome = "failed";

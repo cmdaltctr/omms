@@ -1,22 +1,27 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { closeSync, existsSync, openSync, readSync, readdirSync, statSync } from "node:fs";
+import { basename, join, relative, sep } from "node:path";
 import { homedir } from "node:os";
 
 /**
  * Discovery of Pi session files for the historical importer. Read-only: only
- * the first line (the session header) is parsed here, so discovery stays cheap
- * and full parsing happens later per candidate session.
+ * the first line (the session header) is parsed here, from at most the first
+ * 64 KB of each file, so discovery stays cheap on large histories and full
+ * parsing happens later per candidate session.
  *
- * Files that are not Pi session format (for example subagent artifacts, which
- * use a different record format without a `type: "session"` header) are
- * reported as unrecognized and skipped rather than treated as errors.
+ * The root may be a sessions folder or one `.jsonl` session file. Files that
+ * are not Pi session format (for example subagent artifacts, which use a
+ * different record format without a `type: "session"` header) are reported
+ * as unrecognized and skipped rather than treated as errors. Symlinked entries
+ * inside a folder are never followed.
  */
 
 export const DEFAULT_PI_SESSION_ROOT = join(homedir(), ".pi", "agent", "sessions");
+export const PI_HEADER_READ_LIMIT = 64 * 1024;
 
 export interface DiscoveredPiSession {
   file: string;
+  /** Path relative to the root, with `/` separators; the file name for a file root. */
+  key: string;
   sessionId: string | null;
   cwd: string | null;
   version: number | null;
@@ -62,17 +67,58 @@ function listJsonlFiles(root: string): string[] {
   return files.sort();
 }
 
-function readHeaderLine(file: string): { header: any } | { error: string } {
-  let firstLine: string;
+/** Read the first line of a file without reading past `PI_HEADER_READ_LIMIT` bytes. */
+export function readFirstLine(file: string, limit = PI_HEADER_READ_LIMIT): string {
+  const fd = openSync(file, "r");
   try {
-    const stream = readFileSync(file, "utf8");
-    const newline = stream.indexOf("\n");
-    firstLine = (newline === -1 ? stream : stream.slice(0, newline)).trim();
+    const buffer = Buffer.alloc(limit);
+    const read = readSync(fd, buffer, 0, limit, 0);
+    const text = buffer.subarray(0, read).toString("utf8");
+    const newline = text.indexOf("\n");
+    return newline === -1 ? text : text.slice(0, newline);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function readHeaderLine(file: string): { header: any } | { error: string } {
+  try {
+    const firstLine = readFirstLine(file).trim();
     if (!firstLine) return { error: "empty file" };
     return { header: JSON.parse(firstLine) };
   } catch (error) {
-    if (error instanceof SyntaxError) return { error: `malformed header: ${String(error)}` };
-    return { error: `unreadable: ${String(error)}` };
+    if (error instanceof SyntaxError) return { error: "malformed header" };
+    return { error: `unreadable: ${(error as NodeJS.ErrnoException).code ?? "error"}` };
+  }
+}
+
+/** Parse one file's header, or say why the file is not a Pi session. */
+export function readPiSessionHeader(
+  file: string,
+  key: string
+): DiscoveredPiSession | UnrecognizedFile {
+  const parsed = readHeaderLine(file);
+  if ("error" in parsed) return { file, reason: parsed.error };
+  const header = parsed.header;
+  if (header?.type !== "session") {
+    return { file, reason: "not a Pi session file (no session header)" };
+  }
+  const timestamp = typeof header.timestamp === "string" ? Date.parse(header.timestamp) : NaN;
+  return {
+    file,
+    key,
+    sessionId: typeof header.id === "string" ? header.id : null,
+    cwd: typeof header.cwd === "string" ? header.cwd : null,
+    version: typeof header.version === "number" ? header.version : null,
+    timestamp: Number.isNaN(timestamp) ? null : timestamp,
+  };
+}
+
+function isFile(path: string): boolean {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
   }
 }
 
@@ -85,25 +131,17 @@ export function discoverPiSessions(options: DiscoveryOptions = {}): DiscoveryRes
     return { sessions, unrecognized };
   }
 
-  for (const file of listJsonlFiles(root)) {
-    const parsed = readHeaderLine(file);
-    if ("error" in parsed) {
-      unrecognized.push({ file, reason: parsed.error });
-      continue;
-    }
-    const header = parsed.header;
-    if (header?.type !== "session") {
-      unrecognized.push({ file, reason: "not a Pi session file (no session header)" });
-      continue;
-    }
-    const timestamp = typeof header.timestamp === "string" ? Date.parse(header.timestamp) : NaN;
-    sessions.push({
-      file,
-      sessionId: typeof header.id === "string" ? header.id : null,
-      cwd: typeof header.cwd === "string" ? header.cwd : null,
-      version: typeof header.version === "number" ? header.version : null,
-      timestamp: Number.isNaN(timestamp) ? null : timestamp,
-    });
+  const files = isFile(root)
+    ? [{ file: root, key: basename(root) }]
+    : listJsonlFiles(root).map((file) => ({
+        file,
+        key: relative(root, file).split(sep).join("/"),
+      }));
+
+  for (const { file, key } of files) {
+    const result = readPiSessionHeader(file, key);
+    if ("reason" in result) unrecognized.push(result);
+    else sessions.push(result);
   }
 
   // Chronological order, oldest first; files without a timestamp sort last.

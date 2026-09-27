@@ -19,7 +19,7 @@ The difference is the model:
 | CLI              | The saved external API (`memoryProvider`, `memoryModel`, `memoryApiUrl`, `memoryApiKey`), or flags for this run | Yes            |
 
 Use the slash command when you can: it uses the model you are already signed
-in to. Use the CLI for scripts, or when no session is open.
+in to. Use the CLI for scripts, or when no session is open. You can also run the same importer from the [web Settings page](web-ui.md#settings-page) while OpenCode serves it. Preview there before a real import. The page uses a connected OpenCode model or the saved external API, with the same ledger and report.
 
 ## Requirements
 
@@ -72,9 +72,9 @@ Nothing is saved to the configuration.
 | `--session <id>`                   | Import one session (Pi also accepts a session file path).                                                                           |
 | `--since <date>`, `--until <date>` | Inclusive date range. A bare date in `--until` covers that whole day.                                                               |
 | `--max-sessions <n>`               | Read at most this many sessions, oldest first.                                                                                      |
-| `--map <old>=<new>`                | Map a recorded directory that no longer exists. Repeat as needed.                                                                   |
+| `--map <old>=<new>`                | Map a recorded directory to another one. A map wins over the recorded directory on both hosts. Repeat as needed.                    |
 | `--db <path>`                      | OpenCode only: database. Default `~/.local/share/opencode/opencode.db`.                                                             |
-| `--root <dir>`                     | Pi only: session root. Default `~/.pi/agent/sessions`.                                                                              |
+| `--root <path>`                    | Pi only: a session folder or one `.jsonl` session file. Default `~/.pi/agent/sessions`.                                             |
 | `--skip-memories`                  | Record profile prompts only.                                                                                                        |
 | `--skip-profile`                   | Import memories only.                                                                                                               |
 | `--profile-batch <n>`              | Prompts per profile analysis batch. Default: 50.                                                                                    |

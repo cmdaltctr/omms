@@ -10,3 +10,5 @@ Local decision records for OMMS maintainers.
 | [004](./004-release-pipeline.md)                   | Release pipeline with staged approval and a next channel          | 2026-09-25 | Accepted |
 | [005](./005-history-import-surfaces-and-model.md)  | One import command per host, using the session's model by default | 2026-09-26 | Accepted |
 | [006](./006-one-live-model-rule-for-both-hosts.md) | One live-model rule for OpenCode and Pi                           | 2026-09-26 | Accepted |
+| [007](./007-edit-global-config-from-web-ui.md)     | Edit the global config from the web UI                            | 2026-09-27 | Proposed |
+| [008](./008-session-first-web-import.md)           | Session-first imports from the web UI with pinned selections      | 2026-09-27 | Proposed |

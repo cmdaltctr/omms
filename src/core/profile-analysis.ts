@@ -28,7 +28,15 @@ CRITICAL: Detect the language used by the user in their prompts. You MUST output
 
 CRITICAL: All JSON string values MUST escape double quotes with backslash. Do NOT use unescaped quotation marks inside string values.
 
-Respond with a single JSON object matching the update_user_profile contract.`;
+Respond with one JSON object. It must have these required fields:
+{
+  "preferences": [{ "category": "string", "description": "string", "confidence": 0.8, "evidence": ["string"] }],
+  "patterns": [{ "category": "string", "description": "string" }],
+  "workflows": [{ "description": "string", "steps": ["string"] }]
+}
+Use an empty array for a field with no findings. Confidence must be a number from 0 to 1.
+If you include "validations", each entry needs a numeric "index", a string "reason", and a "verdict" of "confirmed", "contradicted", "no_evidence", "inaccurate", or "oversimplified".
+Return JSON only, without Markdown or other text.`;
 }
 
 /** Analyse prompts with a host-neutral model and merge the validated profile. */

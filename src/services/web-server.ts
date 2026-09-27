@@ -5,7 +5,7 @@ import { join, dirname, extname, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
 import { corsPreflightResponse, disallowedCorsResponse, isAllowedBrowserOrigin } from "./cors.js";
-import { assertWebServerNetworkAuth, authorizeApiRequest } from "./web-api-auth.js";
+import { assertWebServerNetworkAuth, authorizeApiRequest, isLoopbackHost } from "./web-api-auth.js";
 import { getOrCreateAuthToken, isAuthorizedApiRequest } from "./auth-token.js";
 import { WebAuth } from "./web-auth.js";
 import { NODE_HTTP_IDLE_TIMEOUT_MS } from "./request-timeouts.js";
@@ -210,6 +210,7 @@ export function nextFallbackPort(
 interface WebServerConfig {
   port: number;
   host: string;
+  directory?: string;
   enabled: boolean;
   auth?: WebAuth;
   apiToken?: string;
@@ -226,6 +227,25 @@ export class WebServer {
   private portsExhaustedNotified = false;
   private takeoverFailures: number = 0;
   private readonly maxFallbackPort: number;
+  private settingsImportJobs?: import("../importer/web-import-jobs.js").SettingsImportJobs;
+
+  /** Run an import-page action; errors carry their own status and never file contents. */
+  private async importResponse(action: () => unknown, status = 200): Promise<Response> {
+    try {
+      return this.jsonResponse(await action(), status);
+    } catch (error) {
+      const code = (error as { status?: unknown }).status;
+      return this.jsonResponse(
+        { error: error instanceof Error ? error.message : "Import request failed" },
+        typeof code === "number" ? code : 400
+      );
+    }
+  }
+
+  private async importJobs() {
+    const { SettingsImportJobs } = await import("../importer/web-import-jobs.js");
+    return (this.settingsImportJobs ??= new SettingsImportJobs());
+  }
 
   constructor(config: WebServerConfig) {
     this.config = config;
@@ -253,6 +273,10 @@ export class WebServer {
     if (!this.config.enabled) {
       return;
     }
+    // Remove OpenCode snapshot copies left by processes that quit mid-import.
+    void import("../importer/web-import-api.js")
+      .then(({ sweepOrphanSnapshots }) => sweepOrphanSnapshots())
+      .catch(() => {});
 
     assertWebServerNetworkAuth(
       this.config.host,
@@ -397,6 +421,8 @@ export class WebServer {
     this.server.stop();
     this.server = null;
     this.isOwner = false;
+    const { opencodeSnapshots } = await import("../importer/web-import-api.js");
+    await opencodeSnapshots.closeAll();
   }
 
   isRunning(): boolean {
@@ -459,7 +485,12 @@ export class WebServer {
       if (!authCheck.ok && authCheck.response) return authCheck.response;
     }
 
-    if (path.startsWith("/api/") && path !== "/api/health" && !isAuthorizedApiRequest(req)) {
+    if (
+      path.startsWith("/api/") &&
+      path !== "/api/health" &&
+      !(path.startsWith("/api/settings") && auth?.isEnabled()) &&
+      !isAuthorizedApiRequest(req)
+    ) {
       const configuredTokenFailure = this.config.apiToken
         ? authorizeApiRequest(req, this.config.apiToken)
         : null;
@@ -468,6 +499,18 @@ export class WebServer {
           configuredTokenFailure ??
           this.jsonResponse({ success: false, error: "Unauthorized" }, 401)
         );
+      }
+    }
+
+    if (path.startsWith("/api/settings") && !["GET", "HEAD"].includes(method)) {
+      if (!/^application\/json(?:\s*;|$)/i.test(req.headers.get("content-type") ?? "")) {
+        return this.jsonResponse({ error: "JSON content type required" }, 415);
+      }
+      if (!isLoopbackHost(this.config.host) && !auth?.isEnabled()) {
+        const denied = authorizeApiRequest(req, this.config.apiToken);
+        if (!this.config.apiToken || denied) {
+          return denied ?? this.jsonResponse({ error: "Unauthorized" }, 401);
+        }
       }
     }
 
@@ -480,7 +523,7 @@ export class WebServer {
         });
       }
 
-      if (path === "/" || path === "/index.html") {
+      if (path === "/" || path === "/index.html" || path === "/settings") {
         return this.serveStaticFile("index.html", "text/html");
       }
 
@@ -497,6 +540,176 @@ export class WebServer {
             return staticResponse;
           }
         }
+      }
+
+      if (path === "/api/settings" && method === "GET") {
+        const { getSettingsSnapshot } = await import("./settings-snapshot.js");
+        return this.jsonResponse(getSettingsSnapshot(this.config.directory ?? process.cwd()));
+      }
+
+      if (path === "/api/settings" && method === "PATCH") {
+        const body = (await req.json()) as { edits?: Record<string, unknown>; revision?: string };
+        if (
+          !body ||
+          typeof body.edits !== "object" ||
+          !body.edits ||
+          Array.isArray(body.edits) ||
+          typeof body.revision !== "string"
+        ) {
+          return this.jsonResponse({ error: "Edits and revision required" }, 400);
+        }
+        if (
+          body.edits.captureTrace === true &&
+          !isLoopbackHost(this.config.host) &&
+          !auth?.isEnabled()
+        ) {
+          return this.jsonResponse({ error: "Tracing requires Basic Auth on network hosts" }, 403);
+        }
+        const { writeGlobalConfigKeys, ConfigConflictError } =
+          await import("./global-config-writer.js");
+        try {
+          const result = await writeGlobalConfigKeys(body.edits, body.revision);
+          const { refreshConfigIfChanged } = await import("../config.js");
+          refreshConfigIfChanged(this.config.directory ?? process.cwd());
+          return this.jsonResponse(result);
+        } catch (error) {
+          return this.jsonResponse(
+            { error: error instanceof Error ? error.message : "Invalid settings" },
+            error instanceof ConfigConflictError ? 409 : 400
+          );
+        }
+      }
+
+      if (path === "/api/settings/models" && method === "GET") {
+        const { listOpencodeSettingsModels, listPiSettingsModels } =
+          await import("./settings-models.js");
+        const host = url.searchParams.get("host");
+        if (host === "pi") return this.jsonResponse(await listPiSettingsModels());
+        if (host === "opencode") return this.jsonResponse(await listOpencodeSettingsModels());
+        return this.jsonResponse({ error: "Invalid host" }, 400);
+      }
+
+      if (path === "/api/settings/diagnostics" && method === "GET") {
+        const { queryCaptureAttempts } = await import("./capture-attempt-store.js");
+        const days = Math.max(1, Math.min(90, Number(url.searchParams.get("days")) || 7));
+        return this.jsonResponse(
+          await queryCaptureAttempts(Date.now() - days * 86400000, Date.now())
+        );
+      }
+
+      if (path === "/api/settings/traces" && method === "GET") {
+        const { listSettingsTraces } = await import("./settings-traces.js");
+        return this.jsonResponse({ traces: await listSettingsTraces() });
+      }
+
+      if (path.startsWith("/api/settings/traces/") && (method === "GET" || method === "DELETE")) {
+        const file = decodeURIComponent(path.slice("/api/settings/traces/".length));
+        if (!/^capture-\d{4}-\d{2}-\d{2}\.jsonl$/.test(file)) {
+          return this.jsonResponse({ error: "Invalid trace file name" }, 400);
+        }
+        const { readSettingsTrace, deleteSettingsTrace } = await import("./settings-traces.js");
+        if (method === "DELETE") {
+          await deleteSettingsTrace(file);
+          return this.jsonResponse({ deleted: true });
+        }
+        return this.jsonResponse({ file, content: await readSettingsTrace(file) });
+      }
+
+      if (path === "/api/settings/health" && method === "POST") {
+        const body = (await req.json()) as { testModels?: unknown };
+        if (
+          !body ||
+          typeof body !== "object" ||
+          (body.testModels !== undefined && typeof body.testModels !== "boolean")
+        ) {
+          return this.jsonResponse({ error: "Invalid health options" }, 400);
+        }
+        const { runSettingsHealth } = await import("../importer/settings-health.js");
+        return this.jsonResponse(
+          await runSettingsHealth({
+            directory: this.config.directory ?? process.cwd(),
+            host: this.config.host,
+            authEnabled: auth?.isEnabled() ?? false,
+            apiTokenSet: Boolean(this.config.apiToken),
+            testModels: body.testModels === true,
+          })
+        );
+      }
+
+      if (path === "/api/settings/imports/readiness" && method === "GET") {
+        const { importReadiness } = await import("../importer/web-import-api.js");
+        return this.jsonResponse(await importReadiness());
+      }
+
+      if (path === "/api/settings/imports/sources/browse" && method === "POST") {
+        // Listing folders would expose the machine's layout to remote users.
+        if (!isLoopbackHost(this.config.host)) {
+          return this.jsonResponse(
+            { error: "Browsing is available only on a loopback bind; enter a path instead" },
+            403
+          );
+        }
+        const body = (await req.json()) as { host?: unknown; path?: unknown };
+        if (body?.host !== "pi" && body?.host !== "opencode") {
+          return this.jsonResponse({ error: "Choose Pi or OpenCode" }, 400);
+        }
+        const { browseImportSources } = await import("../importer/web-import-api.js");
+        return this.importResponse(() => browseImportSources(body.host as "pi", body.path));
+      }
+
+      if (path === "/api/settings/imports/sources/validate" && method === "POST") {
+        const body = (await req.json()) as { host?: unknown; path?: unknown };
+        if (body?.host !== "pi" && body?.host !== "opencode") {
+          return this.jsonResponse({ error: "Choose Pi or OpenCode" }, 400);
+        }
+        const { validateImportSource } = await import("../importer/web-import-api.js");
+        return this.importResponse(() => validateImportSource(body.host as "pi", body.path));
+      }
+
+      if (path === "/api/settings/imports/sessions" && method === "POST") {
+        const body = (await req.json()) as Record<string, unknown> | null;
+        const { listImportSessions, validateSessionListRequest } =
+          await import("../importer/web-import-api.js");
+        return this.importResponse(async () => {
+          const request = validateSessionListRequest(body);
+          return listImportSessions(request, {
+            ...request.match,
+            cwd: this.config.directory ?? process.cwd(),
+          });
+        });
+      }
+
+      if (path === "/api/settings/imports" && method === "POST") {
+        const jobs = await this.importJobs();
+        return this.importResponse(
+          async () => jobs.start(await req.json(), this.config.directory ?? process.cwd()),
+          202
+        );
+      }
+
+      if (path === "/api/settings/imports/current" && method === "GET") {
+        return this.jsonResponse({ job: (await this.importJobs()).current() });
+      }
+
+      if (path === "/api/settings/imports/current/cancel" && method === "POST") {
+        try {
+          return this.jsonResponse({ job: (await this.importJobs()).cancel() });
+        } catch (error) {
+          return this.jsonResponse(
+            { error: error instanceof Error ? error.message : "No running import" },
+            409
+          );
+        }
+      }
+
+      if (path === "/api/settings/log" && method === "GET") {
+        const { readSettingsLog } = await import("./settings-log.js");
+        return this.jsonResponse(
+          await readSettingsLog(
+            Number(url.searchParams.get("lines") ?? 200),
+            url.searchParams.get("filter") === "capture"
+          )
+        );
       }
 
       if (path === "/api/tags" && method === "GET") {

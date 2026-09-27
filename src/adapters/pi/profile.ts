@@ -1,4 +1,4 @@
-import { CONFIG } from "../../config.js";
+import { CONFIG, refreshConfigIfChanged } from "../../config.js";
 import {
   analyzeProfile,
   type ExistingProfileInput,
@@ -83,6 +83,7 @@ export async function performPiProfileLearning(input: PiProfileLearningInput): P
   if (input.prompts.length === 0) return;
 
   try {
+    refreshConfigIfChanged(input.directory);
     const tags = getTags(input.directory);
     if (!tags.user.userEmail) {
       log("pi profile learning: skipped (no user email resolved)", {

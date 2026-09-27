@@ -105,6 +105,15 @@ export class CleanupService {
       const promptsDeleted = promptCleanupResult.deleted - linkedMemoryIds.size;
 
       try {
+        const { pruneCaptureAttempts } = await import("./capture-attempt-store.js");
+        await pruneCaptureAttempts(CONFIG.captureAttemptRetentionDays);
+      } catch (error) {
+        log("Capture attempt cleanup failed", {
+          code: error instanceof Error ? error.name : "unknown",
+        });
+      }
+
+      try {
         await userPromptManager.vacuum();
         log("Cleanup: VACUUM done", { db: "user-prompts.db" });
       } catch (err) {

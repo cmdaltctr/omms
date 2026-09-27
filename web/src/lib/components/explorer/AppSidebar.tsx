@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { Folder, Moon, Sun, User, X } from "lucide-react";
+import { Folder, Moon, Settings, Sun, User, X } from "lucide-react";
 import type { Lang } from "$lib/i18n/translations";
 import { GithubIcon } from "$lib/components/icons/GithubIcon";
 import { Button } from "$lib/components/ui/button";
@@ -17,6 +17,7 @@ type Props = {
   langLabel: string;
   languageLabel: string;
   themeLabel: string;
+  settingsLabel: string;
   closeLabel: string;
   onOpenChange?: (open: boolean) => void;
   onLanguageSelect?: (language: Lang) => void;
@@ -37,6 +38,7 @@ export function AppSidebar({
   langLabel,
   languageLabel,
   themeLabel,
+  settingsLabel,
   closeLabel,
   onOpenChange,
   onLanguageSelect,
@@ -234,6 +236,16 @@ export function AppSidebar({
                 <Sun className="size-4 rounded-md p-0.5" />
               )}
             </button>
+            <a
+              href={ROUTES.settings}
+              className="inline-flex items-center self-stretch border-s border-sidebar-border px-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              onClick={(e) => onNavClick(e, ROUTES.settings)}
+              aria-label={settingsLabel}
+              title={settingsLabel}
+              aria-current={currentView === "settings" ? "page" : undefined}
+            >
+              <Settings className="size-4" />
+            </a>
             <a
               href="https://github.com/cmdaltctr/omms"
               target="_blank"

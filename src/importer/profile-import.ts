@@ -36,6 +36,7 @@ type Ledger = Pick<ImportLedger, "get" | "begin" | "complete"> &
 export interface ProfileImportOptions {
   host: MemoryHost;
   dryRun?: boolean;
+  signal?: AbortSignal;
   batchSize?: number;
   model?: ModelPort;
   ledger?: Ledger;
@@ -69,7 +70,9 @@ export async function importProfileFromHistory(
   let directory: string | undefined;
 
   for await (const session of source) {
+    if (options.signal?.aborted) break;
     for (const unit of session.units) {
+      if (options.signal?.aborted) break;
       const prompt = stripPrivateContent(unit.userPrompt).trim();
       if (
         !prompt ||
@@ -113,7 +116,7 @@ export async function importProfileFromHistory(
       report.promptsRecorded++;
     }
   }
-  if (options.dryRun || !directory) return report;
+  if (options.dryRun || !directory || options.signal?.aborted) return report;
 
   const user = getTags(directory).user;
   if (!user.userEmail) {
@@ -123,6 +126,7 @@ export async function importProfileFromHistory(
   }
   const model = options.model!;
   while ((report.remaining = await prompts.countUnanalyzedForUserLearning()) > 0) {
+    if (options.signal?.aborted) break;
     const batch = await prompts.getPromptsForUserLearning(batchSize);
     if (batch.length === 0) break;
     let succeeded = false;

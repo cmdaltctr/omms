@@ -71,6 +71,14 @@ The plugin creates a full commented template at this path on first startup (only
 }
 ```
 
+## Settings in the web UI
+
+Open [Settings](web-ui.md#settings-page) while OpenCode serves the UI. The page can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `captureTrace`, `captureTraceRetentionDays`, and `captureAttemptRetentionDays` in the global file. It does not edit a project's config or any credential. `captureAttemptRetentionDays` defaults to 30; both retention fields require at least 1 day.
+
+Choosing **Session model** writes `inherit` to the host's model key. That choice takes priority over a configured external API. Choosing a manual model writes the selected host provider and model. The next capture or profile-learning run in OpenCode or Pi reloads changed config files; restart is not required.
+
+A legacy-only install copies its old config and comments to `~/.config/omms/omms.jsonc` on the first page save. OMMS reads the new file from then on. The old file stays unchanged. The page rejects a save if the file changed since it was loaded; review the refreshed values before saving again.
+
 ## Choosing the model
 
 Auto-capture and profile learning run a background AI request to summarize technical work and learn your preferences. OpenCode and Pi choose that model by the same rule:

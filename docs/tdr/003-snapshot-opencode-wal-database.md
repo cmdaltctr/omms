@@ -1,7 +1,7 @@
 # TDR-003: Read WAL-mode OpenCode databases through a consistent temporary copy
 
 **Date:** 2026-09-26
-**Status:** Accepted
+**Status:** Superseded by TDR-008
 **Deciders:** Project maintainer
 **Supersedes:** TDR-001
 **Tags:** sqlite, wal, history-import

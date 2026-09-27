@@ -14,6 +14,7 @@ import {
   type PiSessionEntry,
 } from "../adapters/pi/conversation.js";
 import { discoverPiSessions } from "./discovery.js";
+import { resolveImportProject } from "./import-project.js";
 import { PiImportLedger, importLedgerDbPath, type ImportLedgerRow } from "./ledger.js";
 import type { LoadedPiSession } from "./session-loader.js";
 import type { MemoryHost } from "../types/index.js";
@@ -45,6 +46,13 @@ export interface ImportFilters {
   skipMemories?: boolean;
   pathMaps?: ImportPathMap[];
   root?: string;
+  /**
+   * Web selection: only these discovery keys (paths relative to `root`).
+   * Never combined with `session` or `maxSessions`.
+   */
+  selectionKeys?: string[];
+  /** Web selection: user turns after this epoch ms are held back for a later run. */
+  cutoff?: number;
 }
 
 export type ImportUnitStatus =
@@ -87,12 +95,17 @@ export interface ImportReport {
   projects: ImportProjectReport[];
   units: ImportUnitReport[];
   profile?: ProfileImportReport;
+  /** Turns newer than the web listing time, left for a later run. */
+  unitsHeldBack?: number;
+  /** Turns without a timestamp; date limits cannot exclude them. */
+  unitsUntimed?: number;
 }
 
 export interface ImporterDeps {
   loadSession: (file: string) => LoadedPiSession;
   provider: CaptureSummaryProvider;
   onProgress?: (processed: number, total: number, promptPreview: string) => void;
+  signal?: AbortSignal;
   ledger?: PiImportLedger;
   profile?: { model?: ModelPort; batchSize?: number };
 }
@@ -155,13 +168,6 @@ export function projectFilterTag(directory: string): string {
   return getTags(real).project.tag;
 }
 
-function resolveSessionDirectory(cwd: string | null, pathMaps: ImportPathMap[]): string | null {
-  if (!cwd) return null;
-  const mapped = pathMaps.find((map) => map.from === cwd)?.to;
-  const directory = mapped ?? cwd;
-  return existsSync(directory) ? directory : null;
-}
-
 function preview(text: string): string {
   const trimmed = text.trim().replace(/\s+/g, " ");
   return trimmed.length > 60 ? `${trimmed.slice(0, 60)}...` : trimmed;
@@ -175,6 +181,58 @@ function windowWithinDateRange(
   if (filters.since !== undefined && window.userTimestamp < filters.since) return false;
   if (filters.until !== undefined && window.userTimestamp > filters.until) return false;
   return true;
+}
+
+/**
+ * Keep the windows a run would import: inside the date range and not newer
+ * than the web listing cutoff. Held-back windows are only counted; they never
+ * reach the ledger, so a later run imports them under the same keys.
+ */
+export function selectImportWindows<T extends ImportWindow>(
+  windows: T[],
+  filters: Pick<ImportFilters, "since" | "until" | "cutoff">
+): { kept: T[]; heldBack: number; untimed: number } {
+  const kept: T[] = [];
+  let heldBack = 0;
+  let untimed = 0;
+  for (const window of windows) {
+    if (!windowWithinDateRange(window, filters)) continue;
+    if (
+      filters.cutoff !== undefined &&
+      window.userTimestamp !== undefined &&
+      window.userTimestamp > filters.cutoff
+    ) {
+      heldBack++;
+      continue;
+    }
+    if (window.userTimestamp === undefined) untimed++;
+    kept.push(window);
+  }
+  return { kept, heldBack, untimed };
+}
+
+/** Units of one session that `importHistorySource` would consider, for a counting pass. */
+export function countImportableUnits(
+  session: ImportSourceSession,
+  host: MemoryHost,
+  filters: Pick<ImportFilters, "since" | "until">
+): number {
+  return session.units.filter(
+    (window) =>
+      windowWithinDateRange(window, filters) &&
+      buildImportKey(session.sessionId, window, host) !== null
+  ).length;
+}
+
+/** Sessions produced on demand, so a large source never holds every turn at once. */
+export interface LazyImportSource {
+  /** Units that pass the date and key filters, counted in an earlier pass. */
+  total: number;
+  open: () => AsyncIterable<ImportSourceSession>;
+}
+
+function isLazySource(source: unknown): source is LazyImportSource {
+  return typeof (source as LazyImportSource).open === "function";
 }
 
 async function lookupExistingMemory(
@@ -192,9 +250,9 @@ async function lookupExistingMemory(
 
 /** Process host-labelled work units through the shared capture and ledger pipeline. */
 export async function importHistorySource(
-  source: AsyncIterable<ImportSourceSession> | Iterable<ImportSourceSession>,
+  source: AsyncIterable<ImportSourceSession> | Iterable<ImportSourceSession> | LazyImportSource,
   host: MemoryHost,
-  deps: Pick<ImporterDeps, "provider" | "ledger" | "onProgress">,
+  deps: Pick<ImporterDeps, "provider" | "ledger" | "onProgress" | "signal">,
   filters: Pick<ImportFilters, "dryRun" | "force" | "since" | "until">,
   report: ImportReport
 ): Promise<void> {
@@ -214,21 +272,36 @@ export async function importHistorySource(
     }
   }
 
-  const candidates: Array<ImportSourceSession & { hash: string; window: ImportWindow }> = [];
-  for await (const session of source) {
+  type Candidate = ImportSourceSession & { hash: string; window: ImportWindow };
+  const sessionCandidates = (session: ImportSourceSession): Candidate[] => {
     const { hash } = extractScopeFromContainerTag(getTags(session.directory).project.tag);
-    for (const window of session.units) {
-      if (!windowWithinDateRange(window, filters)) continue;
-      if (!buildImportKey(session.sessionId, window, host)) continue;
-      candidates.push({ ...session, hash, window });
-    }
+    return session.units
+      .filter(
+        (window) =>
+          windowWithinDateRange(window, filters) &&
+          buildImportKey(session.sessionId, window, host) !== null
+      )
+      .map((window) => ({ ...session, hash, window }));
+  };
+  // A lazy source is read session by session; an eager one is buffered as before.
+  let candidates: AsyncIterable<Candidate> | Candidate[];
+  if (isLazySource(source)) {
+    report.unitsTotal = source.total;
+    candidates = (async function* () {
+      for await (const session of source.open()) yield* sessionCandidates(session);
+    })();
+  } else {
+    const all: Candidate[] = [];
+    for await (const session of source) all.push(...sessionCandidates(session));
+    report.unitsTotal = all.length;
+    candidates = all;
   }
-  report.unitsTotal = candidates.length;
 
   const storageAccessible = ledgerFileExists;
   let processed = 0;
 
-  for (const candidate of candidates) {
+  for await (const candidate of candidates) {
+    if (deps.signal?.aborted) break;
     const { sessionId, directory, sourceFile, hash, window } = candidate;
     const key = buildImportKey(sessionId, window, host)!;
     processed++;
@@ -366,7 +439,10 @@ export async function importPiHistory(
     skipReasons: {},
     projects: [],
     units: [],
+    unitsHeldBack: 0,
+    unitsUntimed: 0,
   };
+  const selected = filters.selectionKeys ? new Set(filters.selectionKeys) : null;
 
   const projectAggregates = new Map<
     string,
@@ -383,6 +459,11 @@ export async function importPiHistory(
   const candidates: CandidateUnit[] = [];
 
   for (const discovered of discovery.sessions) {
+    if (deps.signal?.aborted) break;
+    if (selected && !selected.has(discovered.key)) {
+      report.sessionsFilteredOut++;
+      continue;
+    }
     if (filters.session) {
       const wanted = filters.session;
       if (discovered.sessionId !== wanted && discovered.file !== wanted) {
@@ -402,7 +483,17 @@ export async function importPiHistory(
       continue;
     }
 
-    const directory = resolveSessionDirectory(session.cwd, pathMaps);
+    // The header ID names the session in the page's list; a file that loads as
+    // another session would be imported under keys the user never saw.
+    if (discovered.sessionId && discovered.sessionId !== session.sessionId) {
+      report.loadErrors.push({
+        file: discovered.file,
+        error: "Loaded session ID does not match the file header",
+      });
+      continue;
+    }
+
+    const directory = resolveImportProject(session.cwd, pathMaps).directory;
     if (!directory) {
       report.unresolvableSessions.push({ file: session.sourceFile, cwd: session.cwd });
       continue;
@@ -430,9 +521,13 @@ export async function importPiHistory(
     }
     aggregate.sessions.add(session.sessionId);
 
-    const windows = extractPiConversationWindows(session.branch as PiSessionEntry[]);
-    for (const window of windows) {
-      if (!windowWithinDateRange(window, filters)) continue;
+    const windows = selectImportWindows(
+      extractPiConversationWindows(session.branch as PiSessionEntry[]),
+      filters
+    );
+    report.unitsHeldBack! += windows.heldBack;
+    report.unitsUntimed! += windows.untimed;
+    for (const window of windows.kept) {
       const key = buildImportKey(session.sessionId, window);
       if (!key) continue;
       candidates.push({ session, directory, tag: tags.project.tag, hash, window });
@@ -472,10 +567,11 @@ export async function importPiHistory(
     units: aggregate.units,
   }));
 
-  if (deps.profile) {
+  if (deps.profile && !deps.signal?.aborted) {
     const { importProfileFromHistory } = await import("./profile-import.js");
     report.profile = await importProfileFromHistory(sourceSessions, {
       host: "pi",
+      signal: deps.signal,
       dryRun,
       model: deps.profile.model,
       batchSize: deps.profile.batchSize,

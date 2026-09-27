@@ -94,6 +94,28 @@ describe("omms config identity", () => {
     expect(result.migrationMarker).toBe(false);
   });
 
+  it("reloads the Pi model for the next capture without restarting", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-config-test-"));
+    tempDirs.push(home);
+    const path = join(home, ".config", "omms", "omms.jsonc");
+    mkdirSync(join(home, ".config", "omms"), { recursive: true });
+    writeFileSync(path, '{ "piProvider": "zai", "piModel": "old" }');
+    const result = await runConfigScenario(
+      home,
+      `
+      const { resolvePiLiveModel } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/ai/live-model-choice.js")).href)});
+      cfg.initConfig("/tmp/project");
+      const before = resolvePiLiveModel(cfg.CONFIG);
+      writeFileSync(${JSON.stringify(path)}, '{ "piProvider": "zai", "piModel": "new" }');
+      cfg.refreshConfigIfChanged("/tmp/project");
+      return { before, after: resolvePiLiveModel(cfg.CONFIG) };
+    `
+    );
+    expect(result.ok).toBe(true);
+    expect(result.before).toEqual({ kind: "pi", provider: "zai", model: "old" });
+    expect(result.after).toEqual({ kind: "pi", provider: "zai", model: "new" });
+  });
+
   it("reads the legacy config only when no omms config exists, and never writes it", async () => {
     const home = mkdtempSync(join(tmpdir(), "omms-config-test-"));
     tempDirs.push(home);

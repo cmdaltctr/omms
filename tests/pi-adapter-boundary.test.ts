@@ -49,7 +49,21 @@ describe("Pi adapter boundary", () => {
       }) as string[];
       for (const entry of entries.filter((name) => name.endsWith(".ts"))) {
         const source = readFileSync(join(import.meta.dir, "..", dir, entry), "utf8");
-        expect(source).not.toContain("importer/");
+        if (dir === "src/services" && entry === "web-server.ts") {
+          const webImports = [
+            'import("../importer/web-import-jobs.js")',
+            'import("../importer/settings-health.js")',
+            'import("../importer/web-import-api.js")',
+          ];
+          for (const webImport of webImports) {
+            expect(source).toContain(webImport);
+          }
+          expect(
+            webImports.reduce((rest, webImport) => rest.replaceAll(webImport, ""), source)
+          ).not.toContain("importer/");
+        } else {
+          expect(source).not.toContain("importer/");
+        }
       }
     }
   });

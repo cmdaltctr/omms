@@ -1,7 +1,4 @@
-import { CONFIG, isConfigured } from "../../config.js";
-import { buildBoundedSummaryPrompt } from "../../core/capture-context.js";
-import type { CaptureSummaryProvider } from "../../core/host.js";
-import type { ModelPort } from "../../core/profile-analysis.js";
+import { isConfigured } from "../../config.js";
 import {
   historyImportUsage,
   importNeedsModel,
@@ -12,8 +9,13 @@ import {
   formatHistoryImportReport,
   summarizeHistoryImportReport,
   runHistoryImport,
-  type HistoryImportModels,
 } from "../../importer/run-import.js";
+import {
+  createOpencodeImportModels,
+  type OpencodeModelRef,
+} from "../../services/ai/opencode-import-models.js";
+export { createOpencodeImportModels } from "../../services/ai/opencode-import-models.js";
+export type { OpencodeModelRef } from "../../services/ai/opencode-import-models.js";
 import { loadOpencodeProvider } from "../../services/ai/opencode-provider-loader.js";
 import { memoryClient } from "../../services/client.js";
 import { log } from "../../services/logger.js";
@@ -34,11 +36,6 @@ export const OPENCODE_IMPORT_DESCRIPTION =
   "Import historical OpenCode sessions into the shared memory store (try --dry-run first)";
 export const OPENCODE_IMPORT_USAGE = historyImportUsage("opencode", "session");
 
-export interface OpencodeModelRef {
-  providerID: string;
-  modelID: string;
-}
-
 export interface OpencodeImportCommandInput {
   argsText: string;
   /** Session directory; relative paths and the default project resolve here. */
@@ -53,67 +50,6 @@ let importCommandRunning = false;
 function splitModel(value: string): OpencodeModelRef {
   const separator = value.indexOf("/");
   return { providerID: value.slice(0, separator), modelID: value.slice(separator + 1) };
-}
-
-/** Capture and profile calls routed through OpenCode's structured-output sessions. */
-export async function createOpencodeImportModels(
-  ref: OpencodeModelRef,
-  directory: string
-): Promise<Required<HistoryImportModels>> {
-  const { getV2Client, generateStructuredOutput } = await loadOpencodeProvider();
-  const client = getV2Client();
-  if (!client) throw new Error("the OpenCode client is not ready; retry in a moment");
-  const { z } = await import("zod");
-  const { buildCaptureSystemPrompt, createUserProfileAnalysisSchema, parseCaptureSummary } =
-    await import("../../core/extraction.js");
-  const { detectLanguage, getLanguageName } = await import("../../services/language-detector.js");
-
-  const captureSchema = z.object({
-    summary: z.string().optional(),
-    type: z.string(),
-    tags: z.array(z.string()).optional(),
-  });
-  const capture: CaptureSummaryProvider = {
-    async summarize(request) {
-      const target =
-        CONFIG.autoCaptureLanguage && CONFIG.autoCaptureLanguage !== "auto"
-          ? CONFIG.autoCaptureLanguage
-          : detectLanguage(request.userPrompt);
-      const systemPrompt = buildCaptureSystemPrompt(getLanguageName(target));
-      const result = await generateStructuredOutput({
-        client,
-        ...ref,
-        systemPrompt,
-        userPrompt: buildBoundedSummaryPrompt(
-          request.context,
-          systemPrompt,
-          z.toJSONSchema(captureSchema)
-        ),
-        schema: captureSchema,
-        directory,
-      });
-      const parsed = parseCaptureSummary(JSON.stringify(result));
-      if (!parsed) throw new Error("History capture returned an invalid summary");
-      return parsed;
-    },
-  };
-  const profileSchema = createUserProfileAnalysisSchema(z);
-  const profile: ModelPort = {
-    provider: ref.providerID,
-    modelId: ref.modelID,
-    async complete(systemPrompt, userPrompt) {
-      const result = await generateStructuredOutput({
-        client,
-        ...ref,
-        systemPrompt,
-        userPrompt,
-        schema: profileSchema,
-        directory,
-      });
-      return JSON.stringify(result);
-    },
-  };
-  return { capture, profile };
 }
 
 /** Parse, run, and describe one import; always resolves to text for the session. */

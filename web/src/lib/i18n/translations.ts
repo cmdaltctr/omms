@@ -8,6 +8,7 @@ export const translations = {
     "nav-close": "Close menu",
     "nav-language": "Language",
     "nav-theme": "Theme",
+    "nav-settings": "Settings",
     "theme-dark": "Dark",
     "theme-light": "Light",
     "label-tag": "Tag:",
@@ -157,6 +158,7 @@ export const translations = {
     "nav-close": "关闭菜单",
     "nav-language": "语言",
     "nav-theme": "主题",
+    "nav-settings": "设置",
     "theme-dark": "深色",
     "theme-light": "浅色",
     "label-tag": "标签:",
@@ -305,6 +307,7 @@ export const translations = {
     "nav-close": "إغلاق القائمة",
     "nav-language": "اللغة",
     "nav-theme": "المظهر",
+    "nav-settings": "الإعدادات",
     "theme-dark": "داكن",
     "theme-light": "فاتح",
 

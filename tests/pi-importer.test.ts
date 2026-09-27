@@ -26,6 +26,13 @@ const importerUrl = pathToFileURL(join(import.meta.dir, "../src/importer/importe
 const loaderUrl = pathToFileURL(join(import.meta.dir, "../src/importer/session-loader.js")).href;
 const ledgerUrl = pathToFileURL(join(import.meta.dir, "../src/importer/ledger.js")).href;
 const fixturesUrl = pathToFileURL(join(import.meta.dir, "./pi-import-fixtures.js")).href;
+const jobsUrl = pathToFileURL(join(import.meta.dir, "../src/importer/web-import-jobs.js")).href;
+const sourcesUrl = pathToFileURL(join(import.meta.dir, "../src/importer/import-sources.js")).href;
+const sessionsUrl = pathToFileURL(join(import.meta.dir, "../src/importer/import-sessions.js")).href;
+const runImportUrl = pathToFileURL(join(import.meta.dir, "../src/importer/run-import.js")).href;
+const modelSelectionUrl = pathToFileURL(
+  join(import.meta.dir, "../src/importer/model-selection.js")
+).href;
 
 /**
  * Engine-level importer tests: real storage (temp libSQL), real project
@@ -189,6 +196,38 @@ scenario = attemptRecords.map((r) => ({ sourceType: r.sourceType, host: r.host, 
       { sourceType: "history-import", host: "pi", outcome: "saved" },
       { sourceType: "history-import", host: "pi", outcome: "skipped" },
     ]);
+  });
+
+  it("cancels after a work unit and imports only the remaining unit on rerun", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot + "/proj-a", { recursive: true });
+writeV3Session({
+  file: sessionRoot + "/proj-a/cancel.jsonl",
+  sessionId: "sess-cancel", cwd: projectA,
+  windows: [
+    { userText: "First memory", assistantText: "first done", timestamp: "2026-01-01T10:00:00.000Z" },
+    { userText: "Second memory", assistantText: "second done", timestamp: "2026-01-02T10:00:00.000Z" },
+  ],
+});
+const controller = new AbortController();
+const cancellingProvider = { summarize: async (request) => {
+  const result = await provider.summarize(request);
+  controller.abort();
+  return result;
+} };
+const first = await importPiHistory(
+  { loadSession: loadPiSessionForImport, provider: cancellingProvider, signal: controller.signal },
+  { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot }
+);
+const second = await importPiHistory(
+  { loadSession: loadPiSessionForImport, provider },
+  { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot }
+);
+scenario = { first: first.unitsImported, second: second.unitsImported,
+  already: second.unitsAlreadyHandled, calls: providerCalls.length };
+`);
+    expect(out).toEqual({ first: 1, second: 1, already: 1, calls: 2 });
   });
 
   it("dry-run reports candidates and writes nothing", () => {
@@ -617,5 +656,212 @@ scenario = { report };
     expect(out.report.loadErrors[0].error).toContain("synthetic load failure");
     expect(out.report.sessionsLoaded).toBe(1);
     expect(out.report.unitsImported).toBe(1);
+  });
+
+  it("reuses the CLI ledger from a page import", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot, { recursive: true });
+writeV3Session({
+  file: sessionRoot + "/already.jsonl", sessionId: "sess-already", cwd: projectA,
+  windows: [{ userText: "Already imported", assistantText: "done" }],
+});
+const cli = await importPiHistory(
+  { loadSession: loadPiSessionForImport, provider },
+  { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot, skipProfile: true }
+);
+mock.module(${JSON.stringify(modelSelectionUrl)}, () => ({
+  selectImportModel: () => ({ capture: provider, profile: { provider: "test", modelId: "test", complete: async () => "{}" } }),
+}));
+const { SettingsImportJobs } = await import(${JSON.stringify(jobsUrl)});
+const { validateImportSource } = await import(${JSON.stringify(sourcesUrl)});
+const { listImportSessions } = await import(${JSON.stringify(sessionsUrl)});
+const source = validateImportSource("pi", sessionRoot);
+const list = await listImportSessions(
+  { sourceToken: source.sourceToken, refresh: true },
+  { host: "pi", scope: "all-projects", pathMaps: [], cwd: projectA }
+);
+const jobs = new SettingsImportJobs({
+  readiness: async () => ({
+    external: { state: "ready", provider: "openai-chat", model: "m" },
+    opencode: { available: false, models: [] },
+    piReader: { available: true },
+  }),
+});
+await jobs.start({
+  host: "pi",
+  source: source.sourceToken,
+  selection: { mode: "all", excludedKeys: [], revision: list.revision, listedAt: list.listedAt },
+  options: { scope: "all-projects", skipProfile: true },
+  modelChoice: "external",
+}, projectA);
+for (let i = 0; i < 100 && jobs.current()?.state === "running"; i++) {
+  await new Promise((resolve) => setTimeout(resolve, 20));
+}
+scenario = { cli: cli.unitsImported, page: jobs.current() };
+`);
+    expect(out.cli).toBe(1);
+    expect(out.page.state).toBe("done");
+    expect(out.page.summary.unitsAlreadyHandled).toBe(1);
+    expect(out.page.summary.unitsImported).toBe(0);
+  });
+
+  it("imports exactly one file when the root is a .jsonl file", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot, { recursive: true });
+writeV3Session({
+  file: sessionRoot + "/one.jsonl", sessionId: "sess-one", cwd: projectA,
+  windows: [{ userText: "Only this file", assistantText: "ok" }],
+});
+writeV3Session({
+  file: sessionRoot + "/two.jsonl", sessionId: "sess-two", cwd: projectA,
+  windows: [{ userText: "Not this file", assistantText: "no" }],
+});
+const report = await importPiHistory(
+  { loadSession: loadPiSessionForImport, provider },
+  { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot + "/one.jsonl", dryRun: true }
+);
+scenario = { discovered: report.sessionsDiscovered, previews: report.units.map((u) => u.promptPreview) };
+`);
+    expect(out.discovered).toBe(1);
+    expect(out.previews).toEqual(["Only this file"]);
+  });
+
+  it("reports a file whose loaded session ID differs from its header as a load error", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot, { recursive: true });
+writeV3Session({
+  file: sessionRoot + "/a.jsonl", sessionId: "sess-a", cwd: projectA,
+  windows: [{ userText: "Mismatched", assistantText: "x" }],
+});
+const report = await importPiHistory(
+  { loadSession: (file) => ({ ...loadPiSessionForImport(file), sessionId: "other" }), provider },
+  { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot, dryRun: true }
+);
+scenario = { errors: report.loadErrors.map((e) => e.error), units: report.unitsTotal };
+`);
+    expect(out.errors).toEqual(["Loaded session ID does not match the file header"]);
+    expect(out.units).toBe(0);
+  });
+
+  it("imports only selected keys, holds back newer turns, and imports them on a later run", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot + "/p", { recursive: true });
+writeV3Session({
+  file: sessionRoot + "/p/picked.jsonl", sessionId: "sess-picked", cwd: projectA,
+  windows: [
+    { userText: "Before listing", assistantText: "a", timestamp: "2026-01-01T10:00:00.000Z" },
+    { userText: "After listing", assistantText: "b", timestamp: "2026-01-03T10:00:00.000Z" },
+  ],
+});
+writeV3Session({
+  file: sessionRoot + "/p/skipped.jsonl", sessionId: "sess-skipped", cwd: projectA,
+  windows: [{ userText: "Not selected", assistantText: "c", timestamp: "2026-01-01T11:00:00.000Z" }],
+});
+const cutoff = Date.parse("2026-01-02T00:00:00Z");
+const filters = { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot, skipProfile: true };
+const preview = await importPiHistory(
+  { loadSession: loadPiSessionForImport, provider },
+  { ...filters, dryRun: true, selectionKeys: ["p/picked.jsonl"], cutoff }
+);
+const first = await importPiHistory(
+  { loadSession: loadPiSessionForImport, provider },
+  { ...filters, selectionKeys: ["p/picked.jsonl"], cutoff }
+);
+const callsAfterFirst = [...providerCalls];
+const second = await importPiHistory(
+  { loadSession: loadPiSessionForImport, provider },
+  { ...filters, selectionKeys: ["p/picked.jsonl"], cutoff: Date.now() }
+);
+scenario = {
+  preview: { units: preview.unitsTotal, heldBack: preview.unitsHeldBack, filtered: preview.sessionsFilteredOut },
+  first: { imported: first.unitsImported, heldBack: first.unitsHeldBack },
+  callsAfterFirst,
+  second: { imported: second.unitsImported, already: second.unitsAlreadyHandled, heldBack: second.unitsHeldBack },
+};
+`);
+    expect(out.preview).toEqual({ units: 1, heldBack: 1, filtered: 1 });
+    expect(out.first).toEqual({ imported: 1, heldBack: 1 });
+    expect(out.callsAfterFirst).toEqual(["Before listing"]);
+    expect(out.second).toEqual({ imported: 1, already: 1, heldBack: 0 });
+  });
+
+  it("stops loading sessions when cancelled before any unit runs", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot, { recursive: true });
+writeV3Session({
+  file: sessionRoot + "/c.jsonl", sessionId: "sess-c", cwd: projectA,
+  windows: [{ userText: "Cancelled early", assistantText: "x" }],
+});
+const controller = new AbortController();
+controller.abort();
+const report = await importPiHistory(
+  { loadSession: loadPiSessionForImport, provider, signal: controller.signal },
+  { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot, skipProfile: true }
+);
+scenario = { loaded: report.sessionsLoaded, calls: providerCalls.length };
+`);
+    expect(out).toEqual({ loaded: 0, calls: 0 });
+  });
+
+  it("lists and imports the same sessions, with maps, and refuses stale selections", () => {
+    const out = runScenario(`
+const { mkdirSync, rmSync } = await import("node:fs");
+mkdirSync(sessionRoot, { recursive: true });
+const moved = base + "/moved-away";
+writeV3Session({
+  file: sessionRoot + "/here.jsonl", sessionId: "sess-here", cwd: projectA,
+  windows: [{ userText: "Here", assistantText: "x", timestamp: "2026-01-01T10:00:00.000Z" }],
+});
+writeV3Session({
+  file: sessionRoot + "/moved.jsonl", sessionId: "sess-moved", cwd: moved,
+  windows: [{ userText: "Moved", assistantText: "y", timestamp: "2026-01-01T11:00:00.000Z" }],
+});
+const { validateImportSource } = await import(${JSON.stringify(sourcesUrl)});
+const { listImportSessions, resolveImportSelection } = await import(${JSON.stringify(sessionsUrl)});
+const { runHistoryImport } = await import(${JSON.stringify(runImportUrl)});
+const source = validateImportSource("pi", sessionRoot);
+const match = { host: "pi", scope: "current-project", project: projectA, pathMaps: [{ from: moved, to: projectA }], cwd: projectA };
+const noMap = await listImportSessions({ sourceToken: source.sourceToken, refresh: true }, { ...match, pathMaps: [] });
+const list = await listImportSessions({ sourceToken: source.sourceToken, refresh: true }, match);
+const all = { mode: "all", excludedKeys: [], revision: list.revision, listedAt: list.listedAt };
+const selection = await resolveImportSelection(source.sourceToken, all, match);
+const report = await runHistoryImport(
+  "pi",
+  { help: false, dryRun: true, force: false, skipMemories: false, skipProfile: true, scope: "current-project", project: projectA, pathMaps: match.pathMaps, source: sessionRoot, errors: [] },
+  { cwd: projectA, models: {}, selection: { keys: selection.keys, cutoff: selection.cutoff } }
+);
+const ids = { mode: "ids", sessions: list.rows.map((row) => ({ key: row.key, directory: row.directory })), listedAt: list.listedAt };
+writeV3Session({
+  file: sessionRoot + "/new.jsonl", sessionId: "sess-new", cwd: projectA,
+  windows: [{ userText: "New", assistantText: "z", timestamp: "2026-01-01T12:00:00.000Z" }],
+});
+const staleAll = await resolveImportSelection(source.sourceToken, all, match).then(() => "ok", (e) => e.status);
+const stillIds = await resolveImportSelection(source.sourceToken, ids, match).then((r) => r.keys.length, (e) => e.status);
+rmSync(sessionRoot + "/here.jsonl");
+const staleIds = await resolveImportSelection(source.sourceToken, ids, match).then(() => "ok", (e) => e.status);
+scenario = {
+  noMap: { total: noMap.total, unresolved: noMap.unresolvedCount },
+  listed: list.rows.map((row) => [row.key, row.via]).sort(),
+  imported: report.units.map((u) => u.sessionId).sort(),
+  staleAll, stillIds, staleIds,
+  json: JSON.stringify(list),
+};
+`);
+    expect(out.noMap).toEqual({ total: 1, unresolved: 1 });
+    expect(out.listed).toEqual([
+      ["here.jsonl", "recorded"],
+      ["moved.jsonl", "mapped"],
+    ]);
+    expect(out.imported).toEqual(["sess-here", "sess-moved"]);
+    expect(out.staleAll).toBe(409);
+    expect(out.stillIds).toBe(2);
+    expect(out.staleIds).toBe(409);
+    expect(out.json).not.toContain("Here");
+    expect(out.json).not.toContain("Moved");
   });
 });
