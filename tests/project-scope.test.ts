@@ -117,7 +117,7 @@ describe("project scope identity", () => {
       const wrapperDir = mkdtempSync(join(tmpdir(), "opencode-mem-git-wrapper-bin-"));
       createdDirs.push(repoDir, wrapperDir);
       git(["init"], repoDir);
-      const realGit = execSync("where.exe git.exe", { encoding: "utf-8" })
+      const realGit = execFileSync("where.exe", ["git.exe"], { encoding: "utf-8" })
         .trim()
         .split(/\r?\n/)[0]!;
       writeFileSync(join(wrapperDir, "git.cmd"), `@"${realGit}" %*\r\n`, "utf-8");
