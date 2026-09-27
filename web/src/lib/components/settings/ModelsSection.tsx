@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import {
+  beginSettingsRead,
   onSettingsSnapshot,
-  publishSettingsSnapshot,
+  reloadSettingsSnapshot,
   settingsRequest,
   withNote,
 } from "$lib/settings-api";
@@ -26,9 +27,10 @@ export function ModelsSection() {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
+    const read = beginSettingsRead();
     void settingsRequest<Snapshot>("/api/settings")
       .then((value) => {
-        if (active) setSnapshot(value);
+        if (active && read.isCurrent()) setSnapshot(value);
       })
       .catch((error: Error) => {
         if (active) setMessage(error.message);
@@ -65,31 +67,35 @@ export function ModelsSection() {
         ? { [modelKey]: "inherit" }
         : { [providerKey]: choice.slice(0, slash), [modelKey]: choice.slice(slash + 1) };
     setBusy(true);
+    let result: { migratedLegacy: boolean } | undefined;
+    let failure: Error | undefined;
     try {
-      const result = await settingsRequest<{ migratedLegacy: boolean }>("/api/settings", {
+      result = await settingsRequest<{ migratedLegacy: boolean }>("/api/settings", {
         method: "PATCH",
         body: JSON.stringify({ edits, revision: snapshot.revision }),
       });
-      publishSettingsSnapshot(await settingsRequest<Snapshot>("/api/settings"));
-      setMessage(
-        s(
-          result.migratedLegacy
-            ? "Saved. OMMS now reads ~/.config/omms/omms.jsonc. The legacy config was kept."
-            : "Saved. New capture and profile work uses these settings."
-        )
-      );
     } catch (error) {
-      publishSettingsSnapshot(
-        await settingsRequest<Snapshot>("/api/settings").catch(() => snapshot)
+      failure = error as Error;
+    }
+    // Publish only settings that were actually reloaded, never the pre-save copy.
+    const reloaded = (await reloadSettingsSnapshot<Snapshot>()) !== null;
+    setBusy(false);
+    if (result) {
+      const saved = s(
+        result.migratedLegacy
+          ? "Saved. OMMS now reads ~/.config/omms/omms.jsonc. The legacy config was kept."
+          : "Saved. New capture and profile work uses these settings."
       );
+      setMessage(reloaded ? saved : `${saved} ${s("Reload the page before saving again.")}`);
+    } else {
       setMessage(
         withNote(
-          (error as Error).message,
-          s("Current settings were reloaded; check the values and save again.")
+          failure?.message ?? "",
+          reloaded
+            ? s("Current settings were reloaded; check the values and save again.")
+            : s("The current settings could not be reloaded. Reload the page.")
         )
       );
-    } finally {
-      setBusy(false);
     }
   }
 

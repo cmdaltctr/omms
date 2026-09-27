@@ -45,3 +45,24 @@ it("joins a server message and a note with one full stop", async () => {
   );
   expect(withNote("Invalid value", "Check the values.")).toBe("Invalid value. Check the values.");
 });
+
+it("ignores a settings read that finishes after a newer snapshot was published", async () => {
+  const { beginSettingsRead, publishSettingsSnapshot } =
+    await import("../web/src/lib/settings-api.js");
+  const slow = beginSettingsRead();
+  publishSettingsSnapshot({ revision: "newer" });
+  expect(slow.isCurrent()).toBe(false);
+  expect(beginSettingsRead().isCurrent()).toBe(true);
+});
+
+it("publishes nothing when the reload after a save fails", async () => {
+  const { onSettingsSnapshot, reloadSettingsSnapshot } =
+    await import("../web/src/lib/settings-api.js");
+  Object.assign(globalThis, { window: { __OMMS_TOKEN__: "t" } });
+  globalThis.fetch = (async () => new Response("{}", { status: 500 })) as unknown as typeof fetch;
+  const published: unknown[] = [];
+  const stop = onSettingsSnapshot((value) => published.push(value));
+  expect(await reloadSettingsSnapshot()).toBeNull();
+  stop();
+  expect(published).toEqual([]);
+});

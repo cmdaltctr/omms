@@ -20,6 +20,7 @@ export async function settingsRequest<T>(path: string, options: RequestInit = {}
 
 type SnapshotListener = (snapshot: unknown) => void;
 const snapshotListeners = new Set<SnapshotListener>();
+let snapshotGeneration = 0;
 
 /**
  * Share a freshly loaded settings snapshot with every section. Each section
@@ -27,7 +28,28 @@ const snapshotListeners = new Set<SnapshotListener>();
  * makes the next save in another look like an outside edit (409).
  */
 export function publishSettingsSnapshot(snapshot: unknown): void {
+  snapshotGeneration++;
   for (const listener of snapshotListeners) listener(snapshot);
+}
+
+/**
+ * Start a settings read. `isCurrent()` is false once a newer snapshot was
+ * published meanwhile, so a slow read never replaces a newer revision.
+ */
+export function beginSettingsRead(): { isCurrent: () => boolean } {
+  const started = snapshotGeneration;
+  return { isCurrent: () => snapshotGeneration === started };
+}
+
+/** Load and publish the current settings; `null` when the load fails. */
+export async function reloadSettingsSnapshot<T>(): Promise<T | null> {
+  try {
+    const snapshot = await settingsRequest<T>("/api/settings");
+    publishSettingsSnapshot(snapshot);
+    return snapshot;
+  } catch {
+    return null;
+  }
 }
 
 export function onSettingsSnapshot(listener: SnapshotListener): () => void {

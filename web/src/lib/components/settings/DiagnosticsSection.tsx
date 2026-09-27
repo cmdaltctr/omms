@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  beginSettingsRead,
   onSettingsSnapshot,
-  publishSettingsSnapshot,
+  reloadSettingsSnapshot,
   settingsRequest,
   withNote,
 } from "$lib/settings-api";
@@ -47,6 +48,7 @@ export function DiagnosticsSection() {
   const [view, setView] = useState("");
   const [error, setError] = useState("");
   const refresh = useCallback(async (range: number) => {
+    const read = beginSettingsRead();
     try {
       const [attempts, files, settings] = await Promise.all([
         settingsRequest<Diagnostics>(`/api/settings/diagnostics?days=${range}`),
@@ -55,7 +57,8 @@ export function DiagnosticsSection() {
       ]);
       setData(attempts);
       setTraces(files.traces);
-      setSnapshot(settings);
+      // A save elsewhere may have published a newer revision while this ran.
+      if (read.isCurrent()) setSnapshot(settings);
       setError("");
     } catch (cause) {
       setError((cause as Error).message);
@@ -67,24 +70,30 @@ export function DiagnosticsSection() {
   useEffect(() => onSettingsSnapshot((value) => setSnapshot(value as Snapshot)), []);
   async function save(edits: Record<string, boolean | number>) {
     if (!snapshot) return;
+    let failure: Error | undefined;
     try {
       await settingsRequest("/api/settings", {
         method: "PATCH",
         body: JSON.stringify({ revision: snapshot.revision, edits }),
       });
-      publishSettingsSnapshot(await settingsRequest<Snapshot>("/api/settings"));
-      await refresh(days);
     } catch (cause) {
-      publishSettingsSnapshot(
-        await settingsRequest<Snapshot>("/api/settings").catch(() => snapshot)
-      );
-      setError(
-        withNote(
-          (cause as Error).message,
-          s("Current settings were reloaded; check the values and save again.")
-        )
-      );
+      failure = cause as Error;
     }
+    // Publish only settings that were actually reloaded, never the pre-save copy.
+    const reloaded = (await reloadSettingsSnapshot<Snapshot>()) !== null;
+    if (!failure) {
+      await refresh(days);
+      if (!reloaded) setError(s("Reload the page before saving again."));
+      return;
+    }
+    setError(
+      withNote(
+        failure.message,
+        reloaded
+          ? s("Current settings were reloaded; check the values and save again.")
+          : s("The current settings could not be reloaded. Reload the page.")
+      )
+    );
   }
   async function openTrace(name: string) {
     try {
