@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -23,6 +23,10 @@ function runScenario(input: ScenarioInput) {
   const dir = mkdtempSync(join(tmpdir(), "opencode-mem-profile-runtime-"));
   tempDirs.push(dir);
   const scriptPath = join(dir, "scenario.mjs");
+  const home = join(dir, "home");
+  const globalConfig = join(home, ".config", "omms");
+  mkdirSync(globalConfig, { recursive: true });
+  writeFileSync(join(globalConfig, "omms.jsonc"), '{ "webServerEnabled": false }');
 
   const script = `
 import { mock } from "bun:test";
@@ -168,6 +172,8 @@ console.log(JSON.stringify({ writeResult, readResult }));
   writeFileSync(scriptPath, script, "utf-8");
   const result = Bun.spawnSync({
     cmd: [process.execPath, scriptPath],
+    cwd: dir,
+    env: { ...process.env, HOME: home, USERPROFILE: home },
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -198,7 +204,6 @@ function profileConfig(overrides: Record<string, unknown> = {}) {
     storagePath: "./data",
     userEmailOverride: "test@example.com",
     userNameOverride: "Test User",
-    webServerEnabled: false,
     autoCaptureEnabled: false,
     ...overrides,
   };
@@ -266,7 +271,6 @@ describe("memory tool profile runtime behavior", () => {
     const result = runScenario({
       config: {
         storagePath: "./data",
-        webServerEnabled: false,
         autoCaptureEnabled: false,
       },
       args: { mode: "profile", content: "Default Jira board is DOPS" },

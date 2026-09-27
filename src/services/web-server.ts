@@ -547,6 +547,19 @@ export class WebServer {
         return this.jsonResponse(getSettingsSnapshot(this.config.directory ?? process.cwd()));
       }
 
+      if (path === "/api/settings/backfill" && method === "GET") {
+        const { readBackfillStatus } = await import("./backfill-state.js");
+        return this.jsonResponse({
+          pi: await readBackfillStatus("pi"),
+          opencode: await readBackfillStatus("opencode"),
+        });
+      }
+
+      if (path === "/api/settings/web-autostart" && method === "GET") {
+        const { webAutostartStatus } = await import("./web-autostart.js");
+        return this.jsonResponse(webAutostartStatus());
+      }
+
       if (path === "/api/settings" && method === "PATCH") {
         const body = (await req.json()) as { edits?: Record<string, unknown>; revision?: string };
         if (

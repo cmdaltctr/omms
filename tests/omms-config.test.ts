@@ -49,12 +49,13 @@ try {
   // the temp home, where it cannot load the repo's .env.test.
   const childEnv = { ...process.env, HOME: home, USERPROFILE: home };
   delete childEnv.OMMS_SKIP_LEGACY_MIGRATION;
-  const proc = Bun.spawn(["bun", "run", scriptPath], { cwd: home, env: childEnv });
+  const proc = Bun.spawn(["bun", "run", scriptPath], { cwd: home, env: childEnv, stderr: "pipe" });
   const stdout = new Response(proc.stdout).text();
+  const stderr = new Response(proc.stderr).text();
   return proc.exited.then(async () => {
     const text = await stdout;
     const match = text.match(/SCENARIO_RESULT:(.*)$/m);
-    if (!match) throw new Error(`scenario produced no result:\n${text}`);
+    if (!match) throw new Error(`scenario produced no result:\n${text}\n${await stderr}`);
     return JSON.parse(match[1]);
   });
 }
@@ -304,6 +305,85 @@ describe("omms config identity", () => {
     expect(result.storagePath).toBe("/tmp/custom-store");
     expect(result.markerCreated).toBe(false);
     expect(result.backupCreated).toBe(false);
+  });
+});
+
+describe("global automatic backfill settings", () => {
+  it("defaults to on and ignores project overrides", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-backfill-home-"));
+    const project = mkdtempSync(join(tmpdir(), "omms-backfill-project-"));
+    tempDirs.push(home, project);
+    mkdirSync(join(project, ".opencode"), { recursive: true });
+    writeFileSync(
+      join(project, ".opencode", "omms.jsonc"),
+      JSON.stringify({
+        autoBackfill: false,
+        webServerAutoStart: false,
+        piBackfillModel: "other/model",
+      })
+    );
+    const result = await runConfigScenario(
+      home,
+      `
+      initConfig(${JSON.stringify(project)});
+      return { autoBackfill: cfg.CONFIG.autoBackfill,
+        webServerAutoStart: cfg.CONFIG.webServerAutoStart,
+        piBackfillModel: cfg.CONFIG.piBackfillModel,
+        opencodeBackfillModel: cfg.CONFIG.opencodeBackfillModel };
+    `
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      autoBackfill: true,
+      webServerAutoStart: true,
+      piBackfillModel: "inherit",
+      opencodeBackfillModel: "inherit",
+    });
+  });
+
+  it("keeps the shared web server controlled by global config across projects", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-web-home-"));
+    const projectA = mkdtempSync(join(tmpdir(), "omms-web-project-a-"));
+    const projectB = mkdtempSync(join(tmpdir(), "omms-web-project-b-"));
+    tempDirs.push(home, projectA, projectB);
+    const globalPath = join(home, ".config", "omms", "omms.jsonc");
+    mkdirSync(join(home, ".config", "omms"), { recursive: true });
+    mkdirSync(join(projectA, ".opencode"), { recursive: true });
+    writeFileSync(join(projectA, ".opencode", "omms.jsonc"), '{ "webServerEnabled": false }');
+    writeFileSync(globalPath, '{ "webServerEnabled": true }');
+    const result = await runConfigScenario(
+      home,
+      `
+      initConfig(${JSON.stringify(projectA)});
+      const aWhenOn = cfg.CONFIG.webServerEnabled;
+      initConfig(${JSON.stringify(projectB)});
+      const bWhenOn = cfg.CONFIG.webServerEnabled;
+      writeFileSync(${JSON.stringify(globalPath)}, '{ "webServerEnabled": false }');
+      writeFileSync(${JSON.stringify(join(projectA, ".opencode", "omms.jsonc"))}, '{ "webServerEnabled": true }');
+      initConfig(${JSON.stringify(projectA)});
+      const aWhenOff = cfg.CONFIG.webServerEnabled;
+      initConfig(${JSON.stringify(projectB)});
+      return { aWhenOn, bWhenOn, aWhenOff, bWhenOff: cfg.CONFIG.webServerEnabled };
+    `
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      aWhenOn: true,
+      bWhenOn: true,
+      aWhenOff: false,
+      bWhenOff: false,
+    });
+  });
+
+  it("rejects an invalid backfill model at load", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-backfill-home-"));
+    tempDirs.push(home);
+    const path = join(home, ".config", "omms", "omms.jsonc");
+    mkdirSync(join(home, ".config", "omms"), { recursive: true });
+    writeFileSync(path, '{ "piBackfillModel": "provider/" }');
+    await expect(runConfigScenario(home, `initConfig("/tmp/project"); return {};`)).rejects.toThrow(
+      "Invalid piBackfillModel config"
+    );
   });
 });
 

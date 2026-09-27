@@ -12,6 +12,8 @@ afterEach(() => {
 });
 
 const extensionUrl = new URL("../src/adapters/pi/extension.js", import.meta.url).href;
+const backfillUrl = new URL("../src/importer/auto-backfill.js", import.meta.url).href;
+const autostartUrl = new URL("../src/services/web-autostart.js", import.meta.url).href;
 const clientUrl = new URL("../src/services/client.js", import.meta.url).href;
 const configUrl = new URL("../src/config.js", import.meta.url).href;
 const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
@@ -41,8 +43,7 @@ let searchQueries = [];
 let searchError = false;
 let warmupError = false;
 
-mock.module(${JSON.stringify(configUrl)}, () => ({
-  CONFIG: {
+const stubConfig = {
     autoCaptureEnabled: false,
     autoCaptureLanguage: "en",
     chatMessage: { enabled: true, excludeCurrentSession: true },
@@ -52,7 +53,9 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
     memory: { defaultScope: "project" },
     injectProfile: false,
     userProfileAnalysisInterval: 1,
-  },
+};
+mock.module(${JSON.stringify(configUrl)}, () => ({
+  CONFIG: stubConfig,
   isConfigured: () => true,
   initConfig: () => {},
   initConfigWithLegacyMigration: () => {},
@@ -102,7 +105,16 @@ mock.module(${JSON.stringify(tagsUrl)}, () => ({
   }),
 }));
 
-mock.module(${JSON.stringify(loggerUrl)}, () => ({ log: () => {} }));
+const logCalls = [];
+mock.module(${JSON.stringify(loggerUrl)}, () => ({ log: (message) => logCalls.push(message) }));
+const autostartCalls = [];
+let autostartFails = false;
+mock.module(${JSON.stringify(autostartUrl)}, () => ({
+  reconcileWebAutostart: () => {
+    autostartCalls.push(1);
+    if (autostartFails) throw new Error("login item failed");
+  },
+}));
 
 mock.module(${JSON.stringify(languageUrl)}, () => ({
   detectLanguage: () => "en",
@@ -116,6 +128,17 @@ mock.module(${JSON.stringify(contextServiceUrl)}, () => ({
 
 const profileCreates = [];
 const profileUpdates = [];
+const backfillCalls = [];
+let holdBackfill = false;
+let releaseBackfill;
+mock.module(${JSON.stringify(backfillUrl)}, () => ({
+  scheduleAutoBackfill: async (input) => {
+    backfillCalls.push(input);
+    if (holdBackfill) await new Promise((resolve) => {
+      releaseBackfill = resolve;
+    });
+  },
+}));
 mock.module(${JSON.stringify(profileManagerUrl)}, () => ({
   userProfileManager: {
     getActiveProfile: async () => null,
@@ -187,6 +210,78 @@ console.log("RESULT:" + JSON.stringify({ registeredTools, registeredCommands, to
 }
 
 describe("Pi extension entry point", () => {
+  it("reconciles the login item and logs failures without stopping Pi", () => {
+    const output = runScenario(`
+stubConfig.webServerAutoStart = true;
+stubConfig.webServerEnabled = true;
+delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
+autostartFails = true;
+await handlers["session_start"]({}, makeCtx());
+await new Promise((resolve) => setTimeout(resolve, 10));
+captured = { calls: autostartCalls.length, logged: logCalls.some((line) => line.includes("login item")) };
+    `);
+    expect(output.captured).toEqual({ calls: 1, logged: true });
+  });
+
+  it("schedules backfill once and resolves the configured Pi model", () => {
+    const output = runScenario(`
+stubConfig.autoBackfill = true;
+stubConfig.piBackfillModel = "zai/glm-5-turbo";
+delete process.env.OMMS_DISABLE_AUTO_BACKFILL;
+const ctx = makeCtx({ model: { provider: "zai", id: "session" },
+  modelRegistry: { find: (provider, id) => ({ provider, id }),
+    complete: async () => ({ content: [{ type: "text", text: "done" }] }) } });
+await handlers["session_start"]({}, ctx);
+await handlers["session_start"]({}, ctx);
+await (globalThis[Symbol.for("omms.pi.backfill.scheduled")]?.promise ?? globalThis[Symbol.for("omms.pi.backfill.scheduled")]);
+const resolved = await backfillCalls[0]?.resolveModels();
+captured = { count: backfillCalls.length, model: resolved?.model };
+    `);
+    expect(output.captured).toEqual({ count: 1, model: "zai/glm-5-turbo" });
+  });
+  it("uses the live-model rule for an inherited Pi backfill model", () => {
+    const output = runScenario(`
+stubConfig.autoBackfill = true;
+stubConfig.piBackfillModel = "inherit";
+stubConfig.piProvider = "zai";
+stubConfig.piModel = "configured";
+delete process.env.OMMS_DISABLE_AUTO_BACKFILL;
+const ctx = makeCtx({ model: { provider: "zai", id: "session" },
+  modelRegistry: { find: (provider, id) => ({ provider, id }),
+    complete: async () => ({ content: [{ type: "text", text: "done" }] }) } });
+await handlers["session_start"]({}, ctx);
+await (globalThis[Symbol.for("omms.pi.backfill.scheduled")]?.promise ?? globalThis[Symbol.for("omms.pi.backfill.scheduled")]);
+captured = (await backfillCalls[0]?.resolveModels()).model;
+    `);
+    expect(output.captured).toBe("zai/configured");
+  });
+
+  it("aborts and awaits backfill before closing the store, then allows a new session", () => {
+    const output = runScenario(`
+stubConfig.autoBackfill = true;
+delete process.env.OMMS_DISABLE_AUTO_BACKFILL;
+holdBackfill = true;
+const ctx = makeCtx();
+await handlers["session_start"]({}, ctx);
+await new Promise((resolve) => setTimeout(resolve, 10));
+const closing = handlers["session_shutdown"]({}, ctx);
+await new Promise((resolve) => setTimeout(resolve, 10));
+const closedBeforeBackfillSettled = closeCalls.length;
+const signalled = backfillCalls[0]?.signal?.aborted ?? false;
+releaseBackfill?.();
+await closing;
+holdBackfill = false;
+await handlers["session_start"]({}, ctx);
+await new Promise((resolve) => setTimeout(resolve, 10));
+captured = { closedBeforeBackfillSettled, signalled, scheduled: backfillCalls.length };
+    `);
+    expect(output.captured).toEqual({
+      closedBeforeBackfillSettled: 0,
+      signalled: true,
+      scheduled: 2,
+    });
+  });
+
   it("registers the history import command alongside the memory tool", async () => {
     const output = runScenario(`
 captured = registeredCommands.map((c) => c.name);

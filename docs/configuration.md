@@ -28,12 +28,16 @@ The plugin creates a full commented template at this path on first startup (only
     "defaultScope": "project",
   },
   "webServerEnabled": true,
+  "webServerAutoStart": true,
   "webServerPort": 4747,
   // Required when webServerHost is not 127.0.0.1/localhost:
   // "webServerHost": "0.0.0.0",
   // "webServerApiToken": "env://OMMS_WEB_TOKEN",
 
   "autoCaptureEnabled": true,
+  "autoBackfill": true,
+  "piBackfillModel": "inherit", // or "provider/model"
+  "opencodeBackfillModel": "inherit", // or "provider/model"
   "autoCaptureLanguage": "auto",
 
   // Model for auto-capture and profile learning (see "Choosing the model").
@@ -73,11 +77,21 @@ The plugin creates a full commented template at this path on first startup (only
 
 ## Settings in the web UI
 
-Open [Settings](web-ui.md#settings-page) while OpenCode serves the UI. The page can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `captureTrace`, `captureTraceRetentionDays`, and `captureAttemptRetentionDays` in the global file. It does not edit a project's config or any credential. `captureAttemptRetentionDays` defaults to 30; both retention fields require at least 1 day.
+Open [Settings](web-ui.md#settings-page) in the login web app, in OpenCode, or with `om-memory-system web`. The page can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `autoBackfill`, `opencodeBackfillModel`, `piBackfillModel`, `webServerAutoStart`, `captureTrace`, `captureTraceRetentionDays`, and `captureAttemptRetentionDays` in the global file. It does not edit a project's config or any credential. `captureAttemptRetentionDays` defaults to 30; both retention fields require at least 1 day.
 
 Choosing **Session model** writes `inherit` to the host's model key. That choice takes priority over a configured external API. Choosing a manual model writes the selected host provider and model. The next capture or profile-learning run in OpenCode or Pi reloads changed config files; restart is not required.
 
 A legacy-only install copies its old config and comments to `~/.config/omms/omms.jsonc` on the first page save. OMMS reads the new file from then on. The old file stays unchanged. The page rejects a save if the file changed since it was loaded; review the refreshed values before saving again.
+
+## Automatic history import and login web app
+
+`autoBackfill` defaults to `true`. About 30 seconds after a Pi or OpenCode start, that host imports its own past chats in the background. It covers resolvable projects, records profile prompts, and resumes from the ledger after a restart. A fixed cutoff, saved at the first run for each host, limits the work to turns that existed then. Live capture handles newer turns. Imports skip exchanges already saved by live capture. Unresolved directories appear in the progress counts; use a manual import with `--map` to include them.
+
+`piBackfillModel` and `opencodeBackfillModel` default to `"inherit"`. Pi then follows its live-capture model rule. OpenCode uses its configured host model, the saved external API, or its configured default model. Set either key to a signed-in `provider/model` to choose another backfill model without changing live capture. A missing model stops the backfill and records an error. Backfill makes model calls; set `"autoBackfill": false` before upgrading if you want to avoid them. Turning it off during a run stops after the current exchange.
+
+`webServerAutoStart` defaults to `true`. When `webServerEnabled` is also true, OMMS registers a per-user login item for the web app: a LaunchAgent on macOS, a systemd user unit on Linux, or a Startup-folder entry on Windows. A host start reconciles the item; turning either setting off removes it at the next host start. Use `om-memory-system web install` or `web uninstall` to apply the change immediately. The item needs Node or Bun and uses the same port and authentication settings as the OpenCode-hosted web app.
+
+The four new settings and `webServerEnabled` are global-only. Values in a project's `.opencode/omms.jsonc` are ignored, so one project cannot turn off the shared web server for another project. See [Automatic import](web-ui.md#settings-page) for status and [CLI](cli.md#web-app-commands) for the login-item commands.
 
 ## Choosing the model
 

@@ -17,6 +17,7 @@ import {
 export { createOpencodeImportModels } from "../../services/ai/opencode-import-models.js";
 export type { OpencodeModelRef } from "../../services/ai/opencode-import-models.js";
 import { loadOpencodeProvider } from "../../services/ai/opencode-provider-loader.js";
+import { beginManualImport } from "../../importer/manual-import-guard.js";
 import { memoryClient } from "../../services/client.js";
 import { log } from "../../services/logger.js";
 
@@ -67,6 +68,7 @@ export async function runOpencodeImportCommand(input: OpencodeImportCommandInput
   if (importCommandRunning) return `${name}: an import is already running`;
 
   importCommandRunning = true;
+  const endManualImport = beginManualImport("opencode");
   try {
     let ref: OpencodeModelRef | null = null;
     if (parsed.model || importNeedsModel(parsed)) {
@@ -109,6 +111,7 @@ export async function runOpencodeImportCommand(input: OpencodeImportCommandInput
     log("OpenCode history import failed", { error: message });
     return `${name} failed: ${message}`;
   } finally {
+    endManualImport();
     importCommandRunning = false;
   }
 }

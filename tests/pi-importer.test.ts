@@ -172,6 +172,89 @@ const memoryOpsUrl = pathToFileURL(join(import.meta.dir, "../src/core/memory-ope
 const retrievalUrl = pathToFileURL(join(import.meta.dir, "../src/core/retrieval.js")).href;
 
 describe("Pi historical importer", () => {
+  it("skips live-captured exchanges in dry and real imports", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot + "/proj-a", { recursive: true });
+const file = sessionRoot + "/proj-a/live.jsonl";
+const windows = [
+  { userText: "First request", assistantText: "First reply", timestamp: "2026-01-01T10:00:00.000Z" },
+  { userText: "Second request", assistantText: "Second reply", timestamp: "2026-01-02T10:00:00.000Z" },
+  { userText: "Third request", assistantText: "Third reply", timestamp: "2026-01-03T10:00:00.000Z" },
+];
+writeV3Session({ file, sessionId: "sess-live", cwd: projectA, windows: windows.slice(0, 1) });
+await importPiHistory({ loadSession: loadPiSessionForImport, provider },
+  { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot });
+const { tursoConnectionManager } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/turso/connection-manager.js")).href)});
+const { tursoShardManager } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/turso/shard-manager.js")).href)});
+const { getTags } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/tags.js")).href)});
+const { extractScopeFromContainerTag } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/memory-scope.js")).href)});
+const hash = extractScopeFromContainerTag(getTags(projectA).project.tag).hash;
+for (const shard of await tursoShardManager.getAllShards("project", hash)) {
+  const db = await tursoConnectionManager.getConnection(shard.dbPath);
+  await db.run("UPDATE memories SET metadata = json_remove(json_set(metadata, '$.sourceType', 'live-capture'), '$.importId')");
+}
+await (await tursoConnectionManager.getConnection(importLedgerDbPath())).run("DELETE FROM import_ledger");
+writeV3Session({ file, sessionId: "sess-live", cwd: projectA, windows });
+const dry = await importPiHistory({ loadSession: loadPiSessionForImport, provider },
+  { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot, dryRun: true });
+const dryRows = await ledgerRows();
+const real = await importPiHistory({ loadSession: loadPiSessionForImport, provider },
+  { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot });
+scenario = { dry: { skipped: dry.unitsSkipped, wouldImport: dry.unitsWouldImport },
+  real: { skipped: real.unitsSkipped, imported: real.unitsImported, reasons: real.skipReasons },
+  rows: await ledgerRows(), dryRows, calls: providerCalls.length };
+    `);
+    expect(out.dry).toEqual({ skipped: 1, wouldImport: 2 });
+    expect(out.dryRows).toEqual([]);
+    expect(out.real).toMatchObject({ skipped: 1, imported: 2, reasons: { "live-captured": 1 } });
+    expect(
+      out.rows.some((row: any) => row.status === "skipped" && row.skip_reason === "live-captured")
+    ).toBe(true);
+    expect(out.calls).toBe(3);
+  });
+  it("skips a later turn saved live after the import began", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot + "/proj-a", { recursive: true });
+writeV3Session({ file: sessionRoot + "/proj-a/race.jsonl", sessionId: "sess-race", cwd: projectA,
+  windows: [
+    { userText: "First request", assistantText: "First reply" },
+    { userText: "Second request", assistantText: "Second reply" },
+    { userText: "Third request", assistantText: "Third reply" },
+  ],
+});
+const { tursoConnectionManager } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/turso/connection-manager.js")).href)});
+const { tursoShardManager } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/turso/shard-manager.js")).href)});
+const { getTags } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/tags.js")).href)});
+const { extractScopeFromContainerTag } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/memory-scope.js")).href)});
+const hash = extractScopeFromContainerTag(getTags(projectA).project.tag).hash;
+const raceProvider = { summarize: async (request) => {
+  providerCalls.push(request.userPrompt);
+  if (request.userPrompt === "First request") {
+    const shard = await tursoShardManager.createShard("project", hash, 0);
+    const db = await tursoConnectionManager.getConnection(shard.dbPath);
+    await db.run("INSERT INTO memories (id, content, vector, container_tag, created_at, updated_at, metadata) VALUES (?, ?, vector32(?), ?, ?, ?, ?)",
+      ["new-live", "Saved during import", JSON.stringify(Array(CONFIG.embeddingDimensions).fill(0)),
+        hash, 1, 1, JSON.stringify({ host: "pi", hostSessionId: "sess-race",
+          sourceType: "live-capture", promptId: "f0000002", sourceEntryIds: ["f0000003"] })]);
+  }
+  return { summary: "## Request\\n" + request.userPrompt + "\\n\\n## Outcome\\nDone.",
+    type: "technical-decision", tags: ["import-fixture"] };
+} };
+const report = await importPiHistory({ loadSession: loadPiSessionForImport, provider: raceProvider },
+  { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot });
+scenario = { skipped: report.unitsSkipped, imported: report.unitsImported,
+  reasons: report.skipReasons, calls: providerCalls };
+    `);
+    expect(out).toEqual({
+      skipped: 1,
+      imported: 2,
+      reasons: { "live-captured": 1 },
+      calls: ["First request", "Third request"],
+    });
+  });
+
   it("writes a history-import diagnostics record for each import attempt", () => {
     const out = runScenario(`
 const { mkdirSync } = await import("node:fs");

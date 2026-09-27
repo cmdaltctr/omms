@@ -1,8 +1,6 @@
 # Pi Historical Session Import
 
-Import your existing Pi session history into the shared memory store. The
-import is explicit and read-only toward Pi: your session JSONL files are never
-modified, and nothing imports until you run the command.
+Import your existing Pi session history into the shared memory store. Pi session JSONL files stay unchanged. By default, OMMS also imports older sessions automatically after Pi starts; the command below gives you a manual preview and control over scope and maps.
 
 Verified against `@earendil-works/pi-coding-agent` 0.86.1.
 
@@ -38,6 +36,12 @@ npx om-memory-system import-pi-history --dry-run
 npx om-memory-system import-pi-history --provider openai-chat --model 'your-smaller-model-id' \
   --api-url 'https://your-provider.example/v1' --api-key-env OMMS_IMPORT_KEY
 ```
+
+## Automatic import
+
+On first Pi start, OMMS waits about 30 seconds, then saves a cutoff for Pi and imports earlier turns across projects whose directories resolve. It skips turns already saved by live capture, using the recorded Pi prompt ID and assistant entry IDs. Later Pi starts resume pending work using the same cutoff and ledger. Newer turns are handled by live capture; use this command for custom sources, maps, or another date range.
+
+Automatic import uses `piBackfillModel`: `"inherit"` follows Pi's live-capture model rule, and `provider/model` chooses a signed-in Pi model just for backfill. The setting does not change the slash command's session model. Set `"autoBackfill": false` in the global config to prevent the automatic run. For state, pending counts, cutoff and errors, open [Web Settings](web-ui.md#settings-page). The import makes model calls. Preview manually before a large additional import.
 
 ## Command reference
 

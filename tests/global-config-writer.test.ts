@@ -46,6 +46,24 @@ async function scenario(body: string, seed?: string, legacy = false) {
 }
 
 describe("global config writer", () => {
+  it("saves each automatic setting and exposes its global snapshot", async () => {
+    const result = await scenario(
+      `
+      const { getSettingsSnapshot } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/settings-snapshot.ts")).href)});
+      await writeGlobalConfigKeys({ autoBackfill: false, webServerAutoStart: false,
+        piBackfillModel: "zai/glm-5-turbo", opencodeBackfillModel: "a/b/c" },
+        readGlobalConfigRevision());
+      return { text: readFileSync(target, "utf8"), settings: getSettingsSnapshot(${JSON.stringify(import.meta.dir)}).settings };
+    `,
+      "{}\n"
+    );
+    expect(result.text).toContain('"autoBackfill": false');
+    expect(result.text).toContain('"webServerAutoStart": false');
+    expect(result.settings.piBackfillModel.globalValue).toBe("zai/glm-5-turbo");
+    expect(result.settings.opencodeBackfillModel.globalValue).toBe("a/b/c");
+    expect(result.settings.autoBackfill.globalValue).toBe(false);
+    expect(result.settings.webServerAutoStart.globalValue).toBe(false);
+  });
   it("keeps comments, order, and unrelated values", async () => {
     const seed =
       '{\n  // owner\n  "maxMemories": 12,\n  "piModel": "old",\n  "memoryModel": "secret-model"\n}\n';

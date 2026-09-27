@@ -1,15 +1,14 @@
 # omms CLI
 
-The npm package ships one command, `om-memory-system`. It imports past OpenCode
-and Pi history into the omms memory store from a terminal, without an agent
-session open.
+The npm package ships one command, `om-memory-system`. It imports past OpenCode and Pi history, starts the web app, and manages its login item without an agent session open.
 
 ```text
 om-memory-system import-opencode-history [options]
 om-memory-system import-pi-history [options]
+om-memory-system web [install|uninstall|status]
 ```
 
-Both commands take the same options and run the same importer as the in-session
+The two import commands take the same options and run the same importer as the in-session
 slash commands `/memory-import-opencode-history` and `/memory-import-pi-history`.
 The difference is the model:
 
@@ -106,6 +105,14 @@ OpenCode history import (dry-run)
 
 Error messages never contain the API key: the key from `--api-key-env` and the
 saved `memoryApiKey` are replaced with `[redacted]`.
+
+## Web app commands
+
+`om-memory-system web` runs the web app in the foreground, without Pi or OpenCode. It needs `webServerEnabled: true` and the configured port must be free. Press Ctrl+C to stop it. If an OpenCode host already owns the port, OMMS leaves that owner running.
+
+`om-memory-system web install` enables `webServerAutoStart` in the global config and registers the login item. It requires `webServerEnabled: true`, an installed Node or Bun runtime, and a resolvable package path. `om-memory-system web uninstall` disables the setting and removes only OMMS's own item. `om-memory-system web status` reads the item state without changing it. Supported platforms are macOS, Linux with systemd user services, and Windows. For an unsupported platform or a missing runtime, run `om-memory-system web` manually.
+
+The login item starts the standalone web app after sign-in. It shares the same data and settings as the hosts. See [Web UI](web-ui.md) for port ownership and authentication.
 
 ## Safety
 

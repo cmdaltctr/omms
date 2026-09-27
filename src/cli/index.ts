@@ -19,8 +19,10 @@ const usage = `Usage: om-memory-system <command> [options]
 Commands:
   import-opencode-history   Import OpenCode history into omms
   import-pi-history         Import Pi history into omms
+  web                       Start the web app in the foreground
+  web install|uninstall|status  Manage the web app login item
 
-Both commands take the same options; run one with --help to see them.
+Import commands take the same options; run one with --help to see them.
 Inside a session, /memory-import-opencode-history and /memory-import-pi-history
 use that session's model instead of an API key.`;
 
@@ -37,6 +39,17 @@ export async function runCli(argv: string[]): Promise<number> {
   if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
     console.log(usage);
     return 0;
+  }
+  if (argv[0] === "web") {
+    try {
+      const { runWebCommand } = await import("./web-command.js");
+      return await runWebCommand(argv.slice(1));
+    } catch (error) {
+      console.error(
+        `OMMS web command failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return 1;
+    }
   }
   const apiKeyEnv =
     argv.find((_, index) => argv[index - 1] === "--api-key-env") ??

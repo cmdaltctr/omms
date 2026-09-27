@@ -54,6 +54,38 @@ async function scenario(body: string, globalConfig = "{}", projectConfig?: strin
 }
 
 describe("settings API", () => {
+  it("reports both backfills and the login item without exposing prompts or creating a ledger", async () => {
+    const result = await scenario(`
+      const { existsSync } = await import("node:fs");
+      const { join } = await import("node:path");
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "isolated-store");
+      const path = join(CONFIG.storagePath, "import-ledger.db");
+      const empty = await (await send("/api/settings/backfill")).json();
+      const untouched = !existsSync(path);
+      const { getBackfillCutoff, updateBackfillStatus } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/backfill-state.ts")).href)});
+      await getBackfillCutoff("pi", 123);
+      await updateBackfillStatus("pi", { state: "failed", model: "zai/model",
+        counts: { imported: 1, skipped: 2, failed: 3, pending: 4, unresolved: 5 },
+        error: new Error("api_key=private-test-value") });
+      const backfill = await send("/api/settings/backfill");
+      const login = await send("/api/settings/web-autostart");
+      return { empty, untouched, status: backfill.status, rows: await backfill.json(),
+        loginStatus: login.status, login: await login.json() };
+    `);
+    expect(result.empty).toEqual({ pi: null, opencode: null });
+    expect(result.untouched).toBe(true);
+    expect(result.status).toBe(200);
+    expect(result.rows.pi).toMatchObject({
+      cutoff: 123,
+      state: "failed",
+      counts: { imported: 1, skipped: 2, failed: 3, pending: 4, unresolved: 5 },
+    });
+    expect(result.rows.opencode).toBeNull();
+    expect(result.loginStatus).toBe(200);
+    expect(result.login.state).toBe("not-installed");
+    expect(JSON.stringify(result.rows)).not.toContain("private-test-value");
+  });
   it("ignores a supplied log path, filters capture lines, and enforces the limit", async () => {
     const result = await scenario(`
       const { writeFileSync } = await import("node:fs");
@@ -78,6 +110,31 @@ describe("settings API", () => {
     expect(result.body.settings.piModel).toMatchObject({ value: "project", source: "project" });
     expect(result.body.secrets.memoryApiKey).toMatchObject({ set: true, source: "env" });
     expect(JSON.stringify(result.body)).not.toContain("OMMS_SECRET_TEST");
+  });
+
+  it("saves all automatic import and web app settings without changing live model keys", async () => {
+    const result = await scenario(
+      `
+      for (const edits of [
+        { autoBackfill: false }, { piBackfillModel: "zai/glm-5-turbo" },
+        { opencodeBackfillModel: "zai-coding-plan/glm-5-turbo" },
+        { webServerAutoStart: false },
+      ]) {
+        const snapshot = await (await send("/api/settings")).json();
+        const saved = await send("/api/settings", "PATCH", { edits, revision: snapshot.revision },
+          { "content-type": "application/json" });
+        if (saved.status !== 200) throw new Error(await saved.text());
+      }
+      return (await (await send("/api/settings")).json()).settings;
+    `,
+      '{ "piProvider": "openai-codex", "piModel": "gpt-test" }'
+    );
+    expect(result.autoBackfill.globalValue).toBe(false);
+    expect(result.webServerAutoStart.globalValue).toBe(false);
+    expect(result.piBackfillModel.globalValue).toBe("zai/glm-5-turbo");
+    expect(result.opencodeBackfillModel.globalValue).toBe("zai-coding-plan/glm-5-turbo");
+    expect(result.piProvider.globalValue).toBe("openai-codex");
+    expect(result.piModel.globalValue).toBe("gpt-test");
   });
 
   it("writes valid settings, rejects stale revisions, and keeps secrets out of responses", async () => {

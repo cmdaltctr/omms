@@ -85,6 +85,46 @@ function fixture() {
 
 const checksum = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex");
 
+it("skips an OpenCode exchange already captured live in dry and real imports", async () => {
+  const data = fixture();
+  const { CONFIG } = await import("../src/config.js");
+  CONFIG.storagePath = join(data.root, "store");
+  CONFIG.embeddingDimensions = 4;
+  const { memoryClient } = await import("../src/services/client.js");
+  const { getTags } = await import("../src/services/tags.js");
+  const saved = await memoryClient.addMemory(
+    "Existing live memory",
+    getTags(data.project).project.tag,
+    {
+      host: "opencode",
+      hostSessionId: "s",
+      sourceType: "live-capture",
+      promptId: "u1",
+      sourceEntryIds: ["u1", "a1"],
+    }
+  );
+  expect(saved.success).toBe(true);
+  const { importOpencodeHistory } = await import("../src/importer/opencode-import.js");
+  const dry = await importOpencodeHistory({ dbPath: data.dbPath, dryRun: true, skipProfile: true });
+  expect(dry.unitsSkipped).toBe(1);
+  expect(dry.unitsWouldImport).toBe(2);
+  const calls: string[] = [];
+  const real = await importOpencodeHistory({
+    dbPath: data.dbPath,
+    skipProfile: true,
+    provider: {
+      summarize: async ({ userPrompt }) => {
+        calls.push(userPrompt);
+        return { summary: "Imported", type: "feature", tags: [] };
+      },
+    },
+  });
+  expect(real.unitsSkipped).toBe(1);
+  expect(real.unitsImported).toBe(2);
+  expect(real.skipReasons["live-captured"]).toBe(1);
+  expect(calls).toHaveLength(2);
+});
+
 it("filters before calls and imports, skips, retries, and reconciles by importId", async () => {
   const data = fixture();
   const { CONFIG } = await import("../src/config.js");

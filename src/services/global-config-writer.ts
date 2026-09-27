@@ -17,6 +17,10 @@ const keys = new Set([
   "captureTrace",
   "captureTraceRetentionDays",
   "captureAttemptRetentionDays",
+  "autoBackfill",
+  "opencodeBackfillModel",
+  "piBackfillModel",
+  "webServerAutoStart",
 ]);
 
 export class ConfigConflictError extends Error {
@@ -58,7 +62,7 @@ export async function writeGlobalConfigKeys(
   for (const [key, value] of Object.entries(edits)) {
     if (!keys.has(key)) throw new Error(`Setting ${key} cannot be edited here`);
     if (
-      key === "captureTrace"
+      key === "captureTrace" || key === "autoBackfill" || key === "webServerAutoStart"
         ? typeof value !== "boolean"
         : key.endsWith("RetentionDays")
           ? !Number.isSafeInteger(value) || (value as number) < 1
