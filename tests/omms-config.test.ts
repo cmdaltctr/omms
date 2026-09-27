@@ -45,10 +45,11 @@ try {
 
   // HOME must be set in the spawn environment: Bun's os.homedir() ignores
   // in-script process.env changes. The migration kill-switch (set by the
-  // test preload in this parent process) must not leak into the child.
+  // test preload and .env.test) must not leak into the child, so it runs from
+  // the temp home, where it cannot load the repo's .env.test.
   const childEnv = { ...process.env, HOME: home, USERPROFILE: home };
   delete childEnv.OMMS_SKIP_LEGACY_MIGRATION;
-  const proc = Bun.spawn(["bun", "run", scriptPath], { env: childEnv });
+  const proc = Bun.spawn(["bun", "run", scriptPath], { cwd: home, env: childEnv });
   const stdout = new Response(proc.stdout).text();
   return proc.exited.then(async () => {
     const text = await stdout;

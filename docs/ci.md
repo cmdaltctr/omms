@@ -48,6 +48,11 @@ starts one Bun process per test file. The suite shares module and storage
 state across files, so a single-process run fails non-deterministically
 depending on file order. One process per file is deterministic.
 
+Tests never write to the real `~/.omms`. `.env.test`, which Bun loads for
+every test process and its children, points `OMMS_LOG_FILE` (and so the
+traces directory) at a temp path and turns off the one-time migrations. The
+isolated runner also gives each full run its own log directory.
+
 ## Git hooks
 
 Husky installs two hooks:

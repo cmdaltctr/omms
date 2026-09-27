@@ -7,6 +7,14 @@
 set -euo pipefail
 
 shopt -s nullglob
+
+# Give this run its own log and traces directory. A real environment variable
+# takes precedence over the fallback in .env.test, and every test process and
+# its children inherit it, so concurrent runs never share log output.
+if [[ -z "${OMMS_LOG_FILE:-}" ]]; then
+  export OMMS_LOG_FILE="$(mktemp -d "${TMPDIR:-/tmp}/omms-test-logs.XXXXXX")/omms.log"
+fi
+
 for test_file in tests/*.test.ts; do
   echo ">>> $test_file"
   bun test "$test_file"
