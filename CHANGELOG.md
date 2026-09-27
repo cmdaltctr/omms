@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [3.3.1](https://github.com/cmdaltctr/omms/compare/v3.3.0...v3.3.1) (2026-09-27)
+
+
+### Bug Fixes
+
+* match native Windows import source paths ([c20930f](https://github.com/cmdaltctr/omms/commit/c20930f7d2260e4179423a6e70dbbf2652252a10))
+* match Windows paths in web autostart tests ([96230f6](https://github.com/cmdaltctr/omms/commit/96230f60d6f07e3c4e4de243a6876fe0cac53011))
+* protect capture traces with Windows ACLs ([a3ab30e](https://github.com/cmdaltctr/omms/commit/a3ab30e66882868ee9eaf3fb7f3426059e6eefcc))
+* protect capture traces with Windows ACLs ([1eb4d22](https://github.com/cmdaltctr/omms/commit/1eb4d2291b9917ae5d150bdae66c1386647f01d2))
+* reject foreign trace owners and secure retained files ([782fd7d](https://github.com/cmdaltctr/omms/commit/782fd7d6ed3e53ec716b0934a9eef6dcf958c57e))
+* restore Windows release smoke tests ([84eac3d](https://github.com/cmdaltctr/omms/commit/84eac3d99e0c5e9453ce105d8a2988fd38e1995c))
+* run Windows Git wrapper test without a shell ([532b0b1](https://github.com/cmdaltctr/omms/commit/532b0b1fd26171d46db68f70c16bde22b748bea8))
+
 ## [3.3.0](https://github.com/cmdaltctr/omms/compare/v3.2.0...v3.3.0) (2026-09-27)
 
 
