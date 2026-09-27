@@ -1,4 +1,13 @@
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, unlinkSync } from "fs";
+import { execFileSync } from "node:child_process";
+import {
+  appendFileSync,
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  unlinkSync,
+} from "fs";
 import { join } from "path";
 import type {
   CaptureAttemptDiagnostics,
@@ -176,6 +185,67 @@ export function pruneTraces(config: CaptureDiagnosticsConfig, now: Date = new Da
 
 let lastTraceDate: string | null = null;
 
+const WINDOWS_TRACE_ACL = `$ErrorActionPreference = 'Stop'
+$path = $env:OMMS_TRACE_ACL_PATH
+$isDirectory = [System.IO.Directory]::Exists($path)
+$acl = if ($isDirectory) {
+  [System.IO.Directory]::GetAccessControl($path)
+} else {
+  [System.IO.File]::GetAccessControl($path)
+}
+$currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+$owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier])
+if ($owner.Value -ne $currentUser.Value) {
+  throw 'Trace path has a different owner'
+}
+$acl.SetAccessRuleProtection($true, $false)
+foreach ($rule in @($acl.Access)) {
+  [void]$acl.RemoveAccessRuleSpecific($rule)
+}
+$inheritance = if ($isDirectory) {
+  [System.Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
+} else {
+  [System.Security.AccessControl.InheritanceFlags]::None
+}
+$rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
+  $currentUser,
+  [System.Security.AccessControl.FileSystemRights]::FullControl,
+  $inheritance,
+  [System.Security.AccessControl.PropagationFlags]::None,
+  [System.Security.AccessControl.AccessControlType]::Allow
+)
+$acl.AddAccessRule($rule)
+if ($isDirectory) {
+  [System.IO.Directory]::SetAccessControl($path, $acl)
+} else {
+  [System.IO.File]::SetAccessControl($path, $acl)
+}`;
+
+type WindowsAclRunner = (
+  command: string,
+  args: string[],
+  options: { env: NodeJS.ProcessEnv; timeout: number; windowsHide: boolean; stdio: "ignore" }
+) => void;
+
+/** Restrict a trace path to the current user on both Windows and POSIX. */
+export function protectTracePath(
+  path: string,
+  mode: number,
+  platform = process.platform,
+  run: WindowsAclRunner = execFileSync
+): void {
+  if (platform !== "win32") {
+    chmodSync(path, mode);
+    return;
+  }
+  run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", WINDOWS_TRACE_ACL], {
+    env: { ...process.env, OMMS_TRACE_ACL_PATH: path },
+    timeout: 10_000,
+    windowsHide: true,
+    stdio: "ignore",
+  });
+}
+
 /**
  * Append one trace entry to the day's JSON Lines file. A single append per
  * entry keeps lines whole when Pi and OpenCode write at the same time.
@@ -195,7 +265,15 @@ export function writeTraceEntry(
 
     const dir = getTraceDirectory();
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    chmodSync(dir, 0o700);
+    if (!lstatSync(dir).isDirectory()) throw new Error("Trace directory is not a real directory");
+    protectTracePath(dir, 0o700);
+    const dailyFile = `capture-${today}.jsonl`;
+    for (const name of readdirSync(dir)) {
+      if (!TRACE_FILE.test(name) || name === dailyFile) continue;
+      const retained = join(dir, name);
+      if (!lstatSync(retained).isFile()) throw new Error("Trace path is not a regular file");
+      protectTracePath(retained, 0o600);
+    }
 
     const redact = (value: string | undefined) =>
       value === undefined ? null : redactTraceText(value, config);
@@ -207,11 +285,15 @@ export function writeTraceEntry(
       userPrompt: redact(diagnostics.userPrompt),
       reply: redact(diagnostics.rawReply),
     };
-    const file = join(dir, `capture-${today}.jsonl`);
+    const file = join(dir, dailyFile);
+    const existingFile = lstatSync(file, { throwIfNoEntry: false });
+    if (existingFile && !existingFile.isFile()) throw new Error("Trace path is not a regular file");
+    // Narrow an existing file before appending sensitive content.
+    const existingWindowsFile = process.platform === "win32" && Boolean(existingFile);
+    if (existingWindowsFile) protectTracePath(file, 0o600);
     appendFileSync(file, `${JSON.stringify(entry)}\n`, { mode: 0o600 });
-    // The mode above applies only when the append creates the file; a file
-    // that already existed with wider permissions is narrowed here.
-    chmodSync(file, 0o600);
+    // A new Windows file inherits the private directory ACL until this call.
+    if (!existingWindowsFile) protectTracePath(file, 0o600);
   } catch (error) {
     log("Capture trace write failed", { code: errorCode(error) });
   }

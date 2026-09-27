@@ -30,6 +30,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [006](./006-fix-silent-capture-failures.md)                | Fix silent capture failures on Pi and on OpenCode v2                    | Accepted              | 2026-09-27 |
 | [007](./007-directory-maps-take-precedence.md)             | Directory maps take precedence on both hosts; a Pi root may be one file | Accepted              | 2026-09-27 |
 | [008](./008-shared-async-opencode-snapshot.md)             | Copy OpenCode databases asynchronously and share one copy per source    | Accepted              | 2026-09-27 |
+| [009](./009-protect-capture-traces-on-windows.md)          | Protect capture traces with Windows access-control lists                | Proposed              | 2026-09-27 |
 
 ## Status values
 
