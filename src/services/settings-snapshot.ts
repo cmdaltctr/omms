@@ -17,6 +17,10 @@ const editable = [
   "captureTrace",
   "captureTraceRetentionDays",
   "captureAttemptRetentionDays",
+  "autoBackfill",
+  "opencodeBackfillModel",
+  "piBackfillModel",
+  "webServerAutoStart",
 ] as const;
 
 function readSettingsFile(path: string | undefined): Record<string, unknown> {
@@ -41,13 +45,21 @@ export function getSettingsSnapshot(directory: string) {
     editable.map((key) => {
       const projectOverrides =
         Object.hasOwn(project, key) &&
-        (key === "captureTrace" ? project[key] === false : !key.endsWith("RetentionDays"));
+        (key === "captureTrace"
+          ? project[key] === false
+          : !key.endsWith("RetentionDays") &&
+            ![
+              "autoBackfill",
+              "opencodeBackfillModel",
+              "piBackfillModel",
+              "webServerAutoStart",
+            ].includes(key));
       const source = projectOverrides
         ? "project"
         : Object.hasOwn(global, key)
           ? "global"
           : "default";
-      const value = projectOverrides ? project[key] : (CONFIG[key] ?? global[key]);
+      const value = projectOverrides ? project[key] : (global[key] ?? CONFIG[key]);
       return [key, { value, source, globalValue: global[key] ?? CONFIG[key] }];
     })
   );

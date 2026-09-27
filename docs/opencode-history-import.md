@@ -26,6 +26,12 @@ The command uses this session's model through OpenCode's own sign-in, so no OMMS
 
 By default only sessions recorded for the current project are imported. Add `--scope all-projects` to import every project. The importer uses `~/.local/share/opencode/opencode.db` by default; use `--db <path>` for another OpenCode V1 database. Run only one importer against the memory store at a time.
 
+## Automatic import
+
+By default, OMMS waits about 30 seconds after OpenCode starts. It saves a cutoff for OpenCode and imports earlier turns across projects whose directories resolve. It skips exchanges already saved by live capture, checking the stored entry IDs and Pi prompt IDs. Later starts resume pending work using the same cutoff and ledger; live capture handles newer turns. The importer reads a private database snapshot while OpenCode is running. Use a manual command for custom databases, maps or another date range.
+
+`opencodeBackfillModel: "inherit"` selects the configured OpenCode host model, the saved external API, or OpenCode's configured default model. Set it to `provider/model` to use another signed-in model for backfill alone. A missing model records an error instead of changing the live-capture model. Automatic import makes model calls. To prevent it, set `"autoBackfill": false` in the global config before starting OpenCode. Check the cutoff, progress and errors in [Web Settings](web-ui.md#settings-page).
+
 ## From a terminal
 
 The same import also runs outside OpenCode. It then has no session model, so it calls the external model configured in OMMS (`memoryProvider`, `memoryModel` and its credentials):

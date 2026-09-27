@@ -14,7 +14,9 @@ import { performPiProfileLearning } from "./profile.js";
 import { buildRetrievalSection, wrapRetrievalSection } from "../../core/retrieval.js";
 
 const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("omms.plugin.warmedup");
+const GLOBAL_PI_BACKFILL_KEY = Symbol.for("omms.pi.backfill.scheduled");
 const OMMS_STATUS_KEY = "omms";
+type PiBackfillTask = { controller: AbortController; promise: Promise<void> };
 
 type OmmsStatus = "warming" | "connected" | "recalling" | "capturing" | "error";
 
@@ -76,6 +78,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
   // Latest session context, refreshed on session_start and consumed by the
   // import command (command contexts do not expose the model registry).
   let latestCtx: ExtensionContext | null = null;
+  let backfillSessionId: string | null = null;
   let statusVersion = 0;
 
   const startStatus = (ctx: ExtensionContext, status: OmmsStatus): number => {
@@ -119,8 +122,58 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
       // Runs even with tracing off, so turning it off does not leave old traces behind.
       pruneTraces(CONFIG);
       captureState = createPiCaptureState();
+      if (
+        CONFIG.webServerAutoStart !== undefined &&
+        process.env.OMMS_DISABLE_WEB_AUTOSTART !== "1"
+      ) {
+        void import("../../services/web-autostart.js")
+          .then(({ reconcileWebAutostart }) => reconcileWebAutostart(CONFIG))
+          .catch((error: unknown) =>
+            log("Pi login item reconciliation failed", {
+              code: error instanceof Error ? error.name : "unknown",
+            })
+          );
+      }
 
       const globalScope = globalThis as any;
+      const sessionId = ctx.sessionManager.getSessionId();
+      if (
+        isConfigured() &&
+        CONFIG.autoBackfill &&
+        process.env.OMMS_DISABLE_AUTO_BACKFILL !== "1" &&
+        !globalScope[GLOBAL_PI_BACKFILL_KEY] &&
+        backfillSessionId !== sessionId
+      ) {
+        backfillSessionId = sessionId;
+        const controller = new AbortController();
+        const task: PiBackfillTask = { controller, promise: Promise.resolve() };
+        globalScope[GLOBAL_PI_BACKFILL_KEY] = task;
+        task.promise = (async () => {
+          const { scheduleAutoBackfill } = await import("../../importer/auto-backfill.js");
+          await scheduleAutoBackfill({
+            host: "pi",
+            cwd: ctx.cwd,
+            signal: controller.signal,
+            resolveModels: async () => {
+              const { resolvePiBackfillModels } = await import("./backfill-models.js");
+              return resolvePiBackfillModels(ctx);
+            },
+            notify: (message) => {
+              if (!controller.signal.aborted && ctx.hasUI) ctx.ui.notify(message, "info");
+            },
+          });
+        })()
+          .catch((error: unknown) =>
+            log("Pi backfill failed", {
+              error: error instanceof Error ? error.message : String(error),
+            })
+          )
+          .finally(() => {
+            if (globalScope[GLOBAL_PI_BACKFILL_KEY] === task) {
+              delete globalScope[GLOBAL_PI_BACKFILL_KEY];
+            }
+          });
+      }
       if (!globalScope[GLOBAL_PLUGIN_WARMUP_KEY] && isConfigured()) {
         (async () => {
           try {
@@ -218,6 +271,10 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     captureState = createPiCaptureState();
     promptsSinceProfileAnalysis = [];
     (globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] = false;
+    const task = (globalThis as any)[GLOBAL_PI_BACKFILL_KEY] as PiBackfillTask | undefined;
+    task?.controller.abort();
+    if (task) await task.promise;
+    backfillSessionId = null;
     try {
       await memoryClient.close();
     } catch {

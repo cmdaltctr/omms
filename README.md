@@ -26,8 +26,7 @@ the other. Everything is stored locally on your machine.
   OpenCode v1.
 - **Learns your preferences.** A user profile of your habits builds up over
   time and follows you across projects.
-- **Imports your past sessions.** One command turns old OpenCode or Pi
-  history into memories and a profile.
+- **Imports your past sessions.** Pi and OpenCode import older history after startup. A command provides a preview and manual control.
 - **Lets you look and edit.** A local web page shows every memory and your
   profile.
 - **Keeps private things private.** Text inside `<private>` tags is never
@@ -98,13 +97,12 @@ See [Configuration](docs/configuration.md#choosing-the-model).
 ### 3. Check it works
 
 Work normally for a few turns, then open `http://127.0.0.1:4747` in your
-browser (OpenCode serves this page). New memories appear on the timeline.
+browser. OpenCode or the login web app serves this page. New memories appear on the timeline.
 You can also ask the agent: "search memory for what we changed today".
 
 ## Import your past history
 
-To turn earlier sessions into memories, preview first and then run it inside
-the agent:
+Older sessions import automatically after a host starts. This makes model calls. To opt out, set `"autoBackfill": false` in `~/.config/omms/omms.jsonc` before starting. For a manual import or custom source, preview inside the agent:
 
 ```text
 /memory-import-opencode-history --dry-run

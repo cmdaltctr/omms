@@ -1,0 +1,97 @@
+import { useEffect, useState } from "react";
+import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
+import { useSettingsText } from "$lib/i18n/settings";
+
+type Snapshot = { revision: string; settings: Record<string, { globalValue?: unknown }> };
+type LoginItem = { state: string; command?: string };
+
+export function WebAppSection() {
+  const s = useSettingsText();
+  const [snapshot, setSnapshot] = useState<Snapshot>();
+  const [item, setItem] = useState<LoginItem>();
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void settingsRequest<Snapshot>("/api/settings")
+      .then((value) => {
+        if (active) setSnapshot(value);
+      })
+      .catch((error: Error) => {
+        if (active) setMessage(error.message);
+      });
+    void settingsRequest<LoginItem>("/api/settings/web-autostart")
+      .then((value) => {
+        if (active) setItem(value);
+      })
+      .catch((error: Error) => {
+        if (active) setMessage(error.message);
+      });
+    const unsubscribe = onSettingsSnapshot((value) => {
+      if (active) setSnapshot(value as Snapshot);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
+  async function save(enabled: boolean) {
+    if (!snapshot) return;
+    setBusy(true);
+    try {
+      await settingsRequest("/api/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          edits: { webServerAutoStart: enabled },
+          revision: snapshot.revision,
+        }),
+      });
+      setMessage(s("Saved. The login item changes at the next Pi or OpenCode start."));
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+    await reloadSettingsSnapshot<Snapshot>();
+    setBusy(false);
+  }
+
+  return (
+    <section
+      className="space-y-3 rounded-xl border border-border bg-card p-4"
+      aria-label={s("Web app")}
+    >
+      <h2 className="text-lg font-medium">{s("Web app")}</h2>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={Boolean(snapshot?.settings.webServerAutoStart?.globalValue)}
+          disabled={busy || !snapshot}
+          onChange={(event) => void save(event.target.checked)}
+        />
+        {s("Start web app at login")}
+      </label>
+      <p className="text-sm">
+        {s("Login item")}: {s(item?.state ?? "not installed")}
+      </p>
+      {item?.state === "unsupported" && (
+        <p role="status">{s("Login items are unsupported on this platform.")}</p>
+      )}
+      {item?.state === "no-runtime" && (
+        <p role="status">{s("Install Node or Bun to start the web app at login.")}</p>
+      )}
+      <p className="text-xs text-muted-foreground">
+        {s("Use these commands to apply the change now:")}
+      </p>
+      <div className="space-y-1 font-mono text-xs">
+        <p>om-memory-system web</p>
+        <p>om-memory-system web install</p>
+        <p>om-memory-system web uninstall</p>
+        <p>om-memory-system web status</p>
+      </div>
+      {message && (
+        <p role="status" className="text-sm">
+          {message}
+        </p>
+      )}
+    </section>
+  );
+}

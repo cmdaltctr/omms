@@ -26,6 +26,12 @@ When `webServerAutoStart` is `true`, which is the default, and `webServerEnabled
 - **WHEN** the installed OMMS package path changes and a host starts
 - **THEN** the login item SHALL be rewritten to start the new path
 
+#### Scenario: One project's web preference cannot disable the shared server
+
+- **WHEN** the global `webServerEnabled` setting is `true` and project A sets it to `false`
+- **THEN** the project setting SHALL be ignored
+- **AND** project B SHALL still be able to use the shared web app
+
 #### Scenario: An unsupported platform
 
 - **WHEN** the platform has no supported login-item mechanism

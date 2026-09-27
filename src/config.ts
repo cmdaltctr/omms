@@ -6,6 +6,7 @@ import { log } from "./services/logger.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
 import { isPlaceholderApiKey } from "./services/ai/api-key-placeholder.js";
 import { getAutoCaptureProviderStatus } from "./services/ai/live-model-choice.js";
+import { parseBackfillModel } from "./importer/backfill-model.js";
 import {
   resolveDefaultStoragePath,
   runLegacyStoreMigration,
@@ -78,6 +79,10 @@ interface OmmsConfig {
   captureTrace?: boolean;
   captureTraceRetentionDays?: number;
   captureAttemptRetentionDays?: number;
+  autoBackfill?: boolean;
+  opencodeBackfillModel?: string;
+  piBackfillModel?: string;
+  webServerAutoStart?: boolean;
   webServerEnabled?: boolean;
   webServerPort?: number;
   webServerHost?: string;
@@ -194,6 +199,10 @@ const DEFAULTS: Required<
   captureTrace: false,
   captureTraceRetentionDays: 7,
   captureAttemptRetentionDays: 30,
+  autoBackfill: true,
+  opencodeBackfillModel: "inherit",
+  piBackfillModel: "inherit",
+  webServerAutoStart: true,
   webServerEnabled: true,
   webServerPort: 4747,
   webServerHost: "127.0.0.1",
@@ -341,6 +350,13 @@ export const CONFIG_TEMPLATE = `{
   // Web Server Settings
   // ============================================
   
+  // Start a background import of past chats on each host's next start.
+  "autoBackfill": true,
+  // "piBackfillModel": "inherit", // or "provider/model"
+  // "opencodeBackfillModel": "inherit", // or "provider/model"
+
+  // Register the web app to start when you log in.
+  "webServerAutoStart": true,
   // Enable web UI for managing memories (accessible at http://localhost:4747)
   "webServerEnabled": true,
   
@@ -713,6 +729,13 @@ function buildConfig(fileConfig: OmmsConfig) {
   );
   const userProfileAutoCleanupInterval =
     fileConfig.userProfileAutoCleanupInterval ?? DEFAULTS.userProfileAutoCleanupInterval;
+  parseBackfillModel(fileConfig, "pi");
+  parseBackfillModel(fileConfig, "opencode");
+  for (const key of ["autoBackfill", "webServerAutoStart"] as const) {
+    if (fileConfig[key] !== undefined && typeof fileConfig[key] !== "boolean") {
+      throw new Error(`Invalid ${key} config`);
+    }
+  }
 
   if (
     !Number.isInteger(embeddingDimensions) ||
@@ -781,6 +804,10 @@ function buildConfig(fileConfig: OmmsConfig) {
     captureAttemptRetentionDays: normalizeAutoCleanupRetentionDays(
       fileConfig.captureAttemptRetentionDays ?? DEFAULTS.captureAttemptRetentionDays
     ),
+    autoBackfill: fileConfig.autoBackfill ?? DEFAULTS.autoBackfill,
+    opencodeBackfillModel: fileConfig.opencodeBackfillModel ?? DEFAULTS.opencodeBackfillModel,
+    piBackfillModel: fileConfig.piBackfillModel ?? DEFAULTS.piBackfillModel,
+    webServerAutoStart: fileConfig.webServerAutoStart ?? DEFAULTS.webServerAutoStart,
     webServerEnabled: fileConfig.webServerEnabled ?? DEFAULTS.webServerEnabled,
     webServerPort: fileConfig.webServerPort ?? DEFAULTS.webServerPort,
     webServerHost: fileConfig.webServerHost ?? DEFAULTS.webServerHost,
@@ -965,6 +992,11 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
     delete projectOverrides.captureTrace;
   }
   delete projectOverrides.captureTraceRetentionDays;
+  delete projectOverrides.autoBackfill;
+  delete projectOverrides.opencodeBackfillModel;
+  delete projectOverrides.piBackfillModel;
+  delete projectOverrides.webServerAutoStart;
+  delete projectOverrides.webServerEnabled;
   const merged: OmmsConfig = { ...globalConfig, ...projectOverrides };
   const nextConfig = buildConfig(merged);
   lastFileConfig = merged;

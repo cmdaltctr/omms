@@ -4,20 +4,11 @@ import {
   resolvePiLiveModel,
 } from "../services/ai/live-model-choice.js";
 import { isLoopbackHost } from "../services/web-api-auth.js";
+import { safeHealthError } from "../services/safe-health-error.js";
+export { safeHealthError } from "../services/safe-health-error.js";
 
 export type HealthRow = { check: string; status: "pass" | "warn" | "fail"; reason: string };
 const PROBE = "Reply with a short acknowledgement.";
-
-/** Remove configured credentials before returning a model error to the browser. */
-export function safeHealthError(error: unknown, secrets: Array<string | undefined>): string {
-  let message = error instanceof Error ? error.message : String(error);
-  for (const secret of secrets) {
-    if (secret && secret.length > 2) message = message.replaceAll(secret, "[redacted]");
-  }
-  return message
-    .replace(/(Bearer\s+)[^\s]+/gi, "$1[redacted]")
-    .replace(/(api[_-]?key[=:]\s*)[^\s&]+/gi, "$1[redacted]");
-}
 
 export function captureFailureHealth(
   byModel: Array<{ total: number; failed: number }>,

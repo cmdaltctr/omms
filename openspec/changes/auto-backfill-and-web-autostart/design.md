@@ -8,7 +8,7 @@ Relevant facts about the current code:
 
 - **Imports.** `runHistoryImport` (`src/importer/run-import.ts`) runs one host's import over the shared importer, which processes one work unit at a time, records each unit in `import-ledger.db`, and builds profile batches from the recorded prompts. It accepts an `AbortSignal`, an `onProgress` callback, and `until`, which limits user turns to a time. It is called today by the two session commands, the CLI, and the Settings page job runner (`web-import-jobs.ts`).
 - **Host models.** Pi resolves models through `ctx.modelRegistry`: `resolveImportModel(ctx, "provider/id")` for a named model and `createPiLiveModels(ctx)` for the live-model rule. OpenCode builds import models with `createOpencodeImportModels({ providerID, modelID })` and knows its connected providers only after `ctx.client.provider.list()` returns. The external API is built by `selectImportModel({})`.
-- **Live capture provenance.** Live capture stores `host`, `hostSessionId`, `sourceType: "live-capture"`, and `sourceEntryIds` (Pi entry IDs, or OpenCode message IDs) in each memory's metadata. The importer builds its units from the same IDs, but it never checks them against live memories.
+- **Live capture provenance.** Live capture stores `host`, `hostSessionId`, `sourceType: "live-capture"`, `promptId`, and `sourceEntryIds` in each memory's metadata. In Pi, the user entry ID is `promptId`; `sourceEntryIds` contains assistant entries. OpenCode uses user message IDs in `sourceEntryIds`. The importer does not check either field against live memories.
 - **Config.** `refreshConfigIfChanged(directory)` reloads `CONFIG` when the config file changed. The Settings page writes only keys listed in `global-config-writer.ts` and shows keys listed in `settings-snapshot.ts`.
 - **Web server.** `startWebServer` runs under Node or Bun and already negotiates port ownership and takeover between processes. Only the OpenCode plugin calls it.
 - **Cross-process locks.** `src/services/turso/cross-process-write-lock.ts` implements a PID-liveness advisory lock with stale reclaim.
@@ -33,7 +33,7 @@ Relevant facts about the current code:
 
 ### D1. One runner, started by each adapter
 
-`src/importer/auto-backfill.ts` exports `scheduleAutoBackfill({ host, cwd, resolveModels, notify })`. The adapters call it once per process: OpenCode from plugin init, Pi from the first `session_start` (guarded by a global symbol like the warmup flag). The runner waits 30 seconds, then:
+`src/importer/auto-backfill.ts` exports `scheduleAutoBackfill({ host, cwd, resolveModels, notify, signal })`. OpenCode calls it from plugin init. Pi calls it once per active session from `session_start`, with a session-scoped abort signal and an active-task guard. The runner waits up to 30 seconds, unless the session shuts down, then:
 
 1. returns if `CONFIG.autoBackfill` is false, or the kill switch `OMMS_DISABLE_AUTO_BACKFILL` is set;
 2. takes the host lock (D4) or returns;
@@ -48,6 +48,8 @@ Alternative: a job inside the Settings page's `SettingsImportJobs`. Rejected, be
 
 The importer already processes one unit at a time; the runner adds no parallelism. Between units, the runner's `onProgress` callback calls `refreshConfigIfChanged(cwd)` at most every 5 seconds and aborts the run when `autoBackfill` became false. It also writes the status (D6) at most every 5 seconds. The runner wraps the capture provider: after 5 consecutive thrown summaries it records the last error and aborts, so an unavailable model does not burn through thousands of failing calls. Failed units stay `failed` in the ledger and are retried on the next start.
 
+Pi `session_shutdown` aborts the session-scoped signal and awaits the active runner before closing `memoryClient`. The delay is cancellable, so a session that ends during the first 30 seconds leaves no pending import. Once the task settles, its active-task guard is cleared. A later `session_start` in the same process may resume under the original cutoff.
+
 Alternative: pausing while the host's agent is busy. Rejected for now. Model calls are remote, and embedding one memory is short; the importer's one-unit pace is enough. The runner can add a busy check later without changing the specs.
 
 ### D3. The cutoff
@@ -58,7 +60,7 @@ Alternative: no cutoff, relying only on the live-capture skip (D7). Rejected: a 
 
 ### D4. One run per host across processes
 
-The runner takes `backfill-<host>.lock` in `storagePath` using the same PID-liveness and stale-reclaim approach as the write lock. It holds it for the whole run and releases it on finish, on abort, and on process exit. A process that fails to take the lock returns without a run. A module-level flag, shared with the session import commands, also prevents an automatic run from starting while a manual import runs in the same process.
+The runner claims one row per host in `backfill_locks(host TEXT PRIMARY KEY, pid INTEGER NOT NULL, token TEXT NOT NULL)` inside `import-ledger.db`. A new row is inserted only if absent. A stale row is replaced with one conditional update that matches its old PID and token; only one competing process can succeed. Releasing deletes only the row with the owner's token. A crashed process leaves a row that another process can reclaim after checking PID liveness. Each database write is brief; no transaction stays open during model calls or memory operations. The lock helper is asynchronous, and a process that fails to claim the row returns without a run. A module-level flag, shared with the session import commands, also prevents an automatic run from starting while a manual import runs in the same process.
 
 ### D5. Model resolution
 
@@ -75,7 +77,7 @@ The status row in `backfill_state` holds the state, the model as `provider/model
 
 ### D7. Skipping exchanges live capture already saved
 
-Before it processes a session, the importer asks the memory store for the `sourceEntryIds` of memories in that session's project shards whose metadata has the same `host` and `hostSessionId` and a `sourceType` other than `history-import`. A unit whose user entry ID (Pi) or user message ID (OpenCode) is in that set is recorded as `skipped` with reason `live-captured`, so later runs do not ask again. The query runs once per session. It lives in `src/services/` as a read-only helper and is used by `importer.ts` and `opencode-import.ts`, so every surface gets it. A dry run reports these units as skipped and never writes the ledger.
+Before each exchange, the importer asks the memory store for user IDs from non-import memories in that session's project shards with the same `host` and `hostSessionId`. For Pi, the helper reads `promptId` as well as `sourceEntryIds`, since existing live captures store the user entry ID only in `promptId`. For OpenCode, it reads user message IDs from `sourceEntryIds`; including `promptId` also covers existing memories that use that field. A unit whose user ID is in the set is recorded as `skipped` with reason `live-captured`, so later runs do not ask again. The importer refreshes the IDs before each exchange, because live capture may save a later exchange while an import processes the same session. The read-only helper lives in `src/services/` and is used by `importer.ts` and `opencode-import.ts`, so every surface gets it. The existing deduplication and ledger checks remain in place; a capture that lands after the refreshed read can still race with persistence. A dry run reports these units as skipped and never writes the ledger.
 
 Alternative: rely on the web page's manual deduplication. Rejected, because most users never run it and duplicates would reach retrieval.
 

@@ -16,6 +16,7 @@ import {
 } from "../../importer/run-import.js";
 import { createPiCaptureProvider, resolveImportModel } from "./provider.js";
 import { adaptPiProfileModel } from "./profile.js";
+import { beginManualImport } from "../../importer/manual-import-guard.js";
 
 /**
  * Pi command surface for the historical-session importer:
@@ -98,6 +99,7 @@ export function registerPiHistoryImportCommand(
       }
 
       importCommandRunning = true;
+      const endManualImport = beginManualImport("pi");
       try {
         // Best-effort warmup so failures surface as per-unit errors instead of
         // every unit failing on embedding initialisation.
@@ -140,6 +142,7 @@ export function registerPiHistoryImportCommand(
         log("Pi history import failed", { error: message });
         notify(`memory-import-pi-history failed: ${message}`);
       } finally {
+        endManualImport();
         importCommandRunning = false;
       }
     },

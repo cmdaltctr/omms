@@ -254,6 +254,15 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
   initConfigWithLegacyMigration(directory);
   // Runs even with tracing off, so turning it off does not leave old traces behind.
   pruneTraces(CONFIG);
+  if (CONFIG.webServerAutoStart !== undefined && process.env.OMMS_DISABLE_WEB_AUTOSTART !== "1") {
+    void import("./services/web-autostart.js")
+      .then(({ reconcileWebAutostart }) => reconcileWebAutostart(CONFIG))
+      .catch((error: unknown) =>
+        log("OpenCode login item reconciliation failed", {
+          code: error instanceof Error ? error.name : "unknown",
+        })
+      );
+  }
   logAutoCaptureProviderStatus();
   const tags = getTags(directory);
   const autoCaptureHost = createOpenCodeAutoCaptureHost(ctx);
@@ -277,9 +286,11 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
   await configureOpencodeHostTransport(ctx);
 
   (async () => {
+    let connected: string[] = [];
     try {
       const providerResult = await ctx.client.provider.list();
       if (providerResult.data?.connected) {
+        connected = providerResult.data.connected;
         const { setConnectedProviders } = await loadOpencodeProvider();
         setConnectedProviders(providerResult.data.connected);
         log("opencode providers connected", {
@@ -293,6 +304,31 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
       }
     } catch (error) {
       log("Failed to initialize opencode provider state", { error: String(error) });
+    }
+    if (CONFIG.autoBackfill && process.env.OMMS_DISABLE_AUTO_BACKFILL !== "1" && isConfigured()) {
+      void import("./adapters/opencode/backfill-startup.js")
+        .then(({ startOpencodeBackfill }) =>
+          startOpencodeBackfill({
+            connected,
+            directory,
+            configModel: async () => {
+              const response = await ctx.client.config.get();
+              return unwrapSdkData<{ model?: string }>(response)?.model ?? null;
+            },
+            notify: (message) => {
+              void ctx.client.tui
+                ?.showToast({
+                  body: { title: "Automatic import", message, variant: "info", duration: 5000 },
+                })
+                .catch(() => {});
+            },
+          })
+        )
+        .catch((error: unknown) =>
+          log("OpenCode backfill failed", {
+            error: error instanceof Error ? error.message : String(error),
+          })
+        );
     }
   })();
 

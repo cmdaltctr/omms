@@ -4,6 +4,7 @@ import type { CaptureConversation, CaptureSummaryProvider } from "../core/host.j
 import type { ModelPort } from "../core/profile-analysis.js";
 import type { ProfileImportReport } from "./profile-import.js";
 import { memoryClient } from "../services/client.js";
+import { findLiveCapturedEntryIds } from "../services/live-captured-entries.js";
 import { extractScopeFromContainerTag } from "../services/memory-scope.js";
 import { getTags } from "../services/tags.js";
 import { tursoConnectionManager } from "../services/turso/connection-manager.js";
@@ -330,6 +331,20 @@ export async function importHistorySource(
       unit.status = "already-handled";
       unit.reason = existing.status;
       report.unitsAlreadyHandled++;
+      report.units.push(unit);
+      continue;
+    }
+
+    const liveEntryIds = await findLiveCapturedEntryIds(hash, host, sessionId);
+    if (liveEntryIds.has(window.userEntryId)) {
+      if (!dryRun) {
+        await ledger.begin({ key, sessionId, sourceFile, projectHash: hash });
+        await ledger.skip(key, "live-captured");
+      }
+      unit.status = "skipped";
+      unit.reason = "live-captured";
+      report.unitsSkipped++;
+      report.skipReasons["live-captured"] = (report.skipReasons["live-captured"] ?? 0) + 1;
       report.units.push(unit);
       continue;
     }

@@ -56,6 +56,12 @@ The backfill SHALL process one exchange at a time. It SHALL resume where it stop
 - **THEN** the next run SHALL continue with the remaining exchanges
 - **AND** no memory SHALL be stored twice
 
+#### Scenario: Pi closes while a backfill is waiting or running
+
+- **WHEN** Pi shuts down during the start-up delay or between exchanges
+- **THEN** the pending run SHALL stop before closing the store
+- **AND** a later Pi session in the same process SHALL be able to resume with the original cutoff
+
 #### Scenario: The backfill model is unavailable
 
 - **WHEN** the backfill model's calls fail for several exchanges in a row
@@ -64,12 +70,23 @@ The backfill SHALL process one exchange at a time. It SHALL resume where it stop
 
 ### Requirement: Only one backfill per host runs at a time
 
-At most one automatic backfill for a given host SHALL run at a time across all processes that share the memory store. A process that finds a run already active SHALL NOT start another. A run left by a process that no longer exists SHALL NOT block a new run. An automatic run SHALL NOT start while a manual import of the same host runs in the same process.
+At most one automatic backfill for a given host SHALL run at a time across all processes that share the memory store. A process that finds a run already active SHALL NOT start another. A run left by a process that no longer exists SHALL NOT block a new run. The claim SHALL use a conditional database write that prevents competing processes from replacing one another's claim. It SHALL hold no database transaction while importing, so other Pi sessions can continue normal memory operations. An automatic run SHALL NOT start while a manual import of the same host runs in the same process.
 
 #### Scenario: Two Pi windows start
 
 - **WHEN** two Pi processes start within seconds of each other
 - **THEN** only one SHALL run the Pi backfill
+
+#### Scenario: Two processes race to replace a stale claim
+
+- **WHEN** two Pi processes see the same claim left by a dead process
+- **THEN** only one SHALL replace it
+- **AND** the other process SHALL NOT remove the new owner's claim
+
+#### Scenario: A second Pi session remains active
+
+- **WHEN** one Pi session runs the backfill and another session saves or searches memory
+- **THEN** the second session SHALL continue using the store
 
 #### Scenario: The process running the backfill crashes
 
@@ -108,12 +125,18 @@ Each host's backfill SHALL record its state (not started, running, stopped, done
 
 ### Requirement: Imports skip exchanges that live capture already saved
 
-Every history import, automatic or manual, from any surface, SHALL skip an exchange whose user message or entry is already part of a memory that live capture saved for the same host session. It SHALL record such an exchange as skipped in the ledger and SHALL count it in the report.
+Every history import, automatic or manual, from any surface, SHALL skip an exchange whose user message or entry is already part of a memory that live capture saved for the same host session. It SHALL match Pi user entry IDs against `promptId` and `sourceEntryIds` in existing live memories, and OpenCode user message IDs against the same fields. It SHALL record such an exchange as skipped in the ledger and SHALL count it in the report.
 
 #### Scenario: A chat captured live is backfilled
 
 - **WHEN** live capture saved a memory for a Pi exchange, and the backfill later reaches the same exchange
 - **THEN** the backfill SHALL NOT store a second memory for it
+
+#### Scenario: Live capture saves a later turn during an import
+
+- **WHEN** live capture saves a later exchange after the importer has begun that session
+- **THEN** the importer SHALL check the live-capture IDs again before that exchange
+- **AND** it SHALL report the exchange as skipped without calling the import model
 
 #### Scenario: A manual import after live capture
 

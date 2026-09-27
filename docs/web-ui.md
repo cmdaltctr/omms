@@ -1,17 +1,19 @@
 # Web UI
 
-The OpenCode plugin serves a memory explorer at `http://127.0.0.1:4747`. Use it to browse the memory–prompt timeline, inspect captures, edit memories and manage your user profile. Pi does not start the web UI; when both run, OpenCode owns the port.
+OMMS serves a memory explorer at `http://127.0.0.1:4747`. OpenCode can serve it while running. The per-user login item can keep it available without an open agent; `om-memory-system web` also starts it manually. Pi does not serve the page. If OpenCode starts while the standalone server owns the port, it uses the running server. Use the page to browse memories, inspect captures, edit entries and manage your profile.
 
 The sidebar footer shows the current language as EN, ZH, or AR. Select the code to open the language menu, then choose English, Chinese, or Arabic. Opening or closing the menu keeps the current language. The choice is saved for the next visit.
 
 ## Settings page
 
-Open `http://127.0.0.1:4747/settings` or select the cogwheel in the sidebar footer. OpenCode serves the page. Pi uses the same global config and store, but does not serve the page itself.
+Open `http://127.0.0.1:4747/settings` or select the cogwheel in the sidebar footer. OpenCode or the standalone web app serves the page. Pi uses the same global config and store.
 
 - **Models:** Choose the session model or a signed-in model for each host. Manual mode shows a model picker when the server can list models. Type `provider/model` when it cannot. The cards show the effective model and the read-only external API fallback. Project overrides take precedence. The page shows whether credentials are configured, without showing their values. An isolated preview cannot list OpenCode models because it has no OpenCode client; the plugin-hosted page can.
 - **Capture diagnostics:** Select 1, 7, 30, or 90 days to see outcomes, failure reasons, and recent attempts. You can set attempt and trace retention, enable tracing, and inspect or delete trace files. Traces can contain conversation content after redaction. Turn tracing on only when you need it.
 - **Health:** Run config, store, embedding, web binding, model-selection, and capture failure checks. An optional model test sends a fixed short prompt. A session model needs an active host session to test; the OpenCode server cannot call a Pi session model.
-- **Import and backfill:** See [Importing from the page](#importing-from-the-page).
+- **Automatic import:** Turn background history import on or off for both hosts. Choose a separate `provider/model` for Pi and OpenCode, or inherit each host's model rule. The page shows each host's state, cutoff, pending count and last error. It polls while an import runs. A first run starts about 30 seconds after a host starts and may make model calls. See [Configuration](configuration.md#automatic-history-import-and-login-web-app).
+- **Web app:** Turn the per-user login item on or off. See whether it is installed, unavailable or unsupported. The setting takes effect at the next host start; use [the CLI](cli.md#web-app-commands) to apply it immediately.
+- **Import and backfill:** For a manual import, see [Importing from the page](#importing-from-the-page).
 - **Log:** View the most recent OMMS log lines. Filter for capture attempts or copy the log path.
 
 Saves change only the global config. Existing comments and unrelated keys remain. If the file changed while the page was open, review the reloaded settings before saving again. A first save from a legacy-only install copies that file into `~/.config/omms/omms.jsonc` and leaves the old file unchanged. New capture and profile work in running hosts picks up the saved settings without a restart.
@@ -36,7 +38,7 @@ What the page guarantees:
 - **Directory maps** (`old=new`, one per line) take precedence over the recorded directory. Sessions whose directory no longer exists appear under **All projects** with the recorded path, and you can import them once a map resolves them. In the current-project view the page shows how many there are.
 - **Large OpenCode databases.** While OpenCode is running, its database has a write-ahead log, so the server reads a private copy. It checks that the temporary folder has room for the database, its log, and a margin before copying, and it says how much space is needed if not. The listing, preview, and import share one copy, which is removed after 30 minutes idle and when OpenCode stops. A copy of a database on another volume, or over 1 GB, is tried once; if OpenCode changes the database during that copy, quit OpenCode or choose a checkpointed backup.
 
-**Model readiness.** A real import needs a model that OpenCode is connected to, or a complete saved external API (`memoryProvider`, `memoryModel`, `memoryApiUrl`, and `memoryApiKey`). Pi sign-ins cannot run a web import, because the OpenCode process cannot call Pi models. The page checks readiness inside the OpenCode process, so an `env://` key that exists only in your shell shows as missing. "Configured, not tested" means the settings are present; use **Health** to test a call. A preview needs no model. Pi previews and imports need the Pi SDK (`@earendil-works/pi-coding-agent`) installed where OpenCode loads the plugin; the page says so when it is missing.
+**Model readiness.** A real import needs a model that OpenCode is connected to (when OpenCode hosts the page), or a complete saved external API (`memoryProvider`, `memoryModel`, `memoryApiUrl`, and `memoryApiKey`). Pi sign-ins cannot run a web import, because the web server cannot call Pi models. The page checks readiness inside its running process, so an `env://` key that exists only in another shell shows as missing. "Configured, not tested" means the settings are present; use **Health** to test a call. A preview needs no model. Pi previews and imports need the Pi SDK (`@earendil-works/pi-coding-agent`) installed in the web server's package environment; the page says so when it is missing.
 
 ## Network binding
 
