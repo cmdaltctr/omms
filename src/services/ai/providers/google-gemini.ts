@@ -3,6 +3,7 @@ import { AISessionManager } from "../session/ai-session-manager.js";
 import type { ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";
 import { UserProfileValidator } from "../validators/user-profile-validator.js";
+import { parseRetryAfter } from "../../../core/capture-retry-policy.js";
 
 /**
  * Google Gemini Provider
@@ -192,6 +193,8 @@ export class GoogleGeminiProvider extends BaseAIProvider {
             stopReason,
             success: false,
             error: `Gemini API error: ${response.status} - ${errorText}`,
+            httpStatus: response.status,
+            retryAfterMs: parseRetryAfter(response.headers?.get?.("retry-after")),
             iterations,
           };
         }

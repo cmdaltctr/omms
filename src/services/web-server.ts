@@ -646,6 +646,20 @@ export class WebServer {
             error: error instanceof Error ? error.message : String(error),
           });
         }
+        if (body.edits.captureRetryRetentionHours === 0) {
+          // Turning the queue off removes waiting turns now, not at the next cleanup.
+          try {
+            const [{ CONFIG }, { pruneCaptureRetries }] = await Promise.all([
+              import("../config.js"),
+              import("./capture-retry-queue.js"),
+            ]);
+            await pruneCaptureRetries({ ...CONFIG, captureRetryRetentionHours: 0 });
+          } catch (error) {
+            log("Settings saved, but clearing the capture retry queue failed", {
+              code: error instanceof Error ? error.name : "unknown",
+            });
+          }
+        }
         return this.jsonResponse(result);
       }
 
@@ -713,11 +727,26 @@ export class WebServer {
       }
 
       if (path === "/api/settings/diagnostics" && method === "GET") {
-        const { queryCaptureAttempts } = await import("./capture-attempt-store.js");
+        const [{ queryCaptureAttempts }, { CONFIG }, { countCaptureRetries }] = await Promise.all([
+          import("./capture-attempt-store.js"),
+          import("../config.js"),
+          import("./capture-retry-queue.js"),
+        ]);
         const days = Math.max(1, Math.min(90, Number(url.searchParams.get("days")) || 7));
-        return this.jsonResponse(
-          await queryCaptureAttempts(Date.now() - days * 86400000, Date.now())
-        );
+        return this.jsonResponse({
+          ...(await queryCaptureAttempts(Date.now() - days * 86400000, Date.now())),
+          retryQueue: await countCaptureRetries(CONFIG),
+        });
+      }
+
+      const retryNow = /^\/api\/settings\/capture-retry\/(pi|opencode)\/run$/.exec(path);
+      if (retryNow && method === "POST") {
+        const [{ CONFIG }, { requestCaptureRetryNow }] = await Promise.all([
+          import("../config.js"),
+          import("./capture-retry-drain.js"),
+        ]);
+        const host = retryNow[1] as "pi" | "opencode";
+        return this.jsonResponse({ result: await requestCaptureRetryNow(host, CONFIG) });
       }
 
       if (path === "/api/settings/traces" && method === "GET") {

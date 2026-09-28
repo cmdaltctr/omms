@@ -59,6 +59,21 @@ context that grows from real work.
   [Choosing the model](configuration.md#choosing-the-model). With nothing set,
   it uses the session's own model.
 
+### When capture fails
+
+- If the capture model cannot be reached (network error, timeout, rate limit or
+  server error), OMMS keeps the turn and tries again later. Both hosts first
+  make quick retries within the turn: up to `autoCaptureMaxRetries` tries
+  (default 3), 2 and 4 seconds apart.
+- Retries start when a session starts and after the next successful capture.
+  The waits grow from 1 minute to 12 hours.
+- Each host retries only its own turns, with its current capture model.
+- Waiting turns are deleted after `captureRetryRetentionHours` (72 hours by
+  default). See [Capture retry queue](configuration.md#capture-retry-queue).
+- A bad key, a bad request or a bad model reply is not retried. Fix the cause,
+  then run a manual history import for that session. Also run one if a turn
+  waited longer than the retention, or if you turned the queue off.
+
 ## User profile
 
 The **user profile** is a separate summary of how you like to work, such as

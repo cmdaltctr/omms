@@ -4,6 +4,7 @@ import { GoogleGeminiProvider } from "../src/services/ai/providers/google-gemini
 import { OpenAIChatCompletionProvider } from "../src/services/ai/providers/openai-chat-completion.js";
 import { OpenAIResponsesProvider } from "../src/services/ai/providers/openai-responses.js";
 import type { ChatCompletionTool } from "../src/services/ai/tools/tool-schema.js";
+import { readJson } from "../src/adapters/opencode/opencode-diagnostics.js";
 
 const toolSchema: ChatCompletionTool = {
   type: "function",
@@ -108,5 +109,42 @@ describe("external API providers report their stop reason", () => {
     const result = await provider.executeToolCall("s", "u", toolSchema, "id");
     expect(result.success).toBe(false);
     expect(result.stopReason).toBe("MAX_TOKENS");
+  });
+});
+
+describe("model call failures report their HTTP status", () => {
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  function failWith(status: number, retryAfter?: string) {
+    globalThis.fetch = (async () =>
+      new Response("busy", {
+        status,
+        headers: retryAfter ? { "Retry-After": retryAfter } : {},
+      })) as unknown as typeof fetch;
+  }
+
+  it.each([
+    ["OpenAI chat completions", OpenAIChatCompletionProvider],
+    ["OpenAI responses", OpenAIResponsesProvider],
+    ["Anthropic messages", AnthropicMessagesProvider],
+    ["Google Gemini", GoogleGeminiProvider],
+  ] as const)("%s sets httpStatus on a 503 reply", async (_name, Provider) => {
+    failWith(503, "30");
+    const provider = new Provider(config, new FakeSessionManager() as any);
+    const result = await provider.executeToolCall("s", "u", toolSchema, "id");
+    expect(result.success).toBe(false);
+    expect(result.httpStatus).toBe(503);
+    expect(result.retryAfterMs).toBe(30_000);
+  });
+
+  it("OpenCode server calls attach httpStatus to the thrown error", async () => {
+    const res = new Response("busy", { status: 503 });
+    const error = await readJson(res, { label: "POST /session", url: "http://x/session" }).catch(
+      (e: unknown) => e
+    );
+    expect((error as { httpStatus?: number }).httpStatus).toBe(503);
   });
 });

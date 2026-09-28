@@ -5,6 +5,10 @@ export interface ToolCallResult {
   iterations?: number;
   /** The provider's last reported stop reason, e.g. a length limit. */
   stopReason?: string;
+  /** The HTTP status of a failed reply, so capture can tell whether a retry may help. */
+  httpStatus?: number;
+  /** The wait a failed reply asked for in its `Retry-After` header. */
+  retryAfterMs?: number;
 }
 
 export interface ProviderConfig {

@@ -218,6 +218,18 @@ describe("project-scoped config resolution", () => {
     expect(CONFIG.captureTraceRetentionDays).toBe(1);
   });
 
+  it("ignores a project value for capture retry retention", () => {
+    mockGlobalAndProject({ captureRetryRetentionHours: 12 }, { captureRetryRetentionHours: 720 });
+    initConfig("/my/project");
+    expect(CONFIG.captureRetryRetentionHours).toBe(12);
+  });
+
+  it("turns the capture retry queue off with a global value of 0", () => {
+    mockGlobalAndProject({ captureRetryRetentionHours: 0 }, {});
+    initConfig("/my/project");
+    expect(CONFIG.captureRetryRetentionHours).toBe(0);
+  });
+
   it("falls back to defaults when neither global nor project config exists", () => {
     existsSpy = spyOn(fs, "existsSync").mockReturnValue(false);
     initConfig("/no/config/project");

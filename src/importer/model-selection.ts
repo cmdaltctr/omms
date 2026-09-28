@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { CONFIG } from "../config.js";
 import { buildBoundedSummaryPrompt } from "../core/capture-context.js";
+import { httpStatusError } from "../core/capture-retry-policy.js";
 import {
   buildCaptureSystemPrompt,
   captureSummaryToolSchema,
@@ -80,7 +81,16 @@ export function selectImportModel(flags: ImportModelFlags): SelectedImportModel 
         `history-capture-${randomUUID()}`
       );
       if (!result.success || !result.data) {
-        throw new Error("History capture model call failed");
+        if (result.httpStatus === undefined) throw new Error("History capture model call failed");
+        if (request.diagnostics) {
+          request.diagnostics.httpStatus = result.httpStatus;
+          request.diagnostics.retryAfterMs = result.retryAfterMs;
+        }
+        throw httpStatusError(
+          "History capture model call failed",
+          result.httpStatus,
+          result.retryAfterMs
+        );
       }
       const raw = typeof result.data === "string" ? result.data : JSON.stringify(result.data);
       const parsed = parseCaptureSummary(raw);

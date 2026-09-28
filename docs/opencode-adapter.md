@@ -121,7 +121,7 @@ to the next user prompt.
 - From assistant messages, capture takes visible text, and tool names with their inputs.
 - It leaves out reasoning and tool outputs. It cuts tool inputs to 100 characters.
 - The plugin claims a prompt before capture. So repeated idle events or several windows never capture it twice.
-- A failed capture tries again up to `autoCaptureMaxRetries` times.
+- A failed capture tries again up to `autoCaptureMaxRetries` times (default 3), 2 and 4 seconds apart. If the last try fails because the model cannot be reached, the turn goes to the [capture retry queue](configuration.md#capture-retry-queue).
 
 ### Compaction
 

@@ -112,6 +112,17 @@ Every capture attempt writes one metadata record: host, model, sizes, stop reaso
 - **Recent attempts.** One row for each attempt, with its model, stop reason, sizes, duration, and outcome.
 - **Attempt retention (days).** How long OMMS keeps these records. The default is 30 days.
 
+### Capture retry queue
+
+When a live capture fails because the capture model cannot be reached, OMMS keeps a cleaned copy of the turn and tries it again later.
+
+- **Retry retention (hours).** How long a waiting turn is kept. The default is 72 hours. The range is 0 to 720.
+- Set it to 0 to turn the queue off. The save deletes the waiting turns at once.
+- **Turns waiting for retry** shows the number of waiting turns for Pi and for OpenCode.
+- **Retry now** retries that host's waiting turns at once when the host runs this web server. Otherwise the page says the turns retry at that host's next session start.
+- **Retry now** is disabled when the host has no waiting turns or the queue is off.
+- Queued turns can contain conversation content. OMMS removes text inside `<private>` tags and common API key formats first.
+
 ### Capture traces
 
 A trace is the full prompt and reply of each capture attempt, saved to `~/.omms/traces/` for debugging.

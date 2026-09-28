@@ -37,6 +37,7 @@ import {
   untrackInternalCaptureSession,
 } from "./internal-capture-sessions.js";
 import { createLazyV2Client, type HostTransport } from "./opencode-sdk-client.js";
+import { httpStatusError, parseRetryAfter } from "../../core/capture-retry-policy.js";
 
 /** Dedicated agent registered via the plugin config hook (step-capped). */
 export const STRUCTURED_OUTPUT_AGENT = "omms-structured";
@@ -321,9 +322,7 @@ export async function generateStructuredOutput<T>(opts: StructuredOutputOptions<
     const info = reply.info;
 
     if (info.error) {
-      throw new Error(
-        `omms: opencode reported ${info.error.name}: ${formatAssistantError(info.error)}`
-      );
+      throw assistantError(info.error);
     }
 
     const structuredOutput = info.structured_output ?? info.structured;
@@ -418,9 +417,7 @@ async function generateViaSdkClient<T>(
     }
     reportReply(args.onReply, data);
     if (data.info.error) {
-      throw new Error(
-        `omms: opencode reported ${data.info.error.name}: ${formatAssistantError(data.info.error)}`
-      );
+      throw assistantError(data.info.error);
     }
 
     const structuredOutput = data.info.structured_output ?? data.info.structured;
@@ -480,7 +477,13 @@ function readSdkData<T>(response: unknown, label: string): T {
     const status = result.response ? ` (${responseStatus(result.response)})` : "";
     const responseUrl = result.response?.url || result.request?.url;
     const url = responseUrl ? diagnosticUrl(responseUrl) : "the authenticated client";
-    throw new Error(`omms: opencode ${label} failed at ${url}${status}: <redacted response body>`);
+    const message = `omms: opencode ${label} failed at ${url}${status}: <redacted response body>`;
+    if (!result.response) throw new Error(message);
+    throw httpStatusError(
+      message,
+      result.response.status,
+      parseRetryAfter(result.response.headers?.get?.("retry-after"))
+    );
   }
   if (result?.data === undefined) {
     throw new Error(`omms: opencode ${label} returned no response data`);
@@ -547,6 +550,13 @@ interface AssistantInfo {
   structured?: unknown;
   structured_output?: unknown;
   error?: { name: string; data?: { message?: string; [key: string]: unknown } };
+}
+
+/** The model's error reply, with its HTTP status when OpenCode reports one. */
+function assistantError(error: NonNullable<AssistantInfo["error"]>): Error {
+  const message = `omms: opencode reported ${error.name}: ${formatAssistantError(error)}`;
+  const status = error.data?.statusCode;
+  return typeof status === "number" ? httpStatusError(message, status) : new Error(message);
 }
 
 function formatAssistantError(error: NonNullable<AssistantInfo["error"]>): string {

@@ -43,7 +43,13 @@ type Totals = {
   failed: number;
 };
 type Reason = { host: string; reason: string; count: number };
-type Diagnostics = { byModel: Totals[]; byReason: Reason[]; recent: Attempt[] };
+type RetryHost = "opencode" | "pi";
+type Diagnostics = {
+  byModel: Totals[];
+  byReason: Reason[];
+  recent: Attempt[];
+  retryQueue?: Record<RetryHost, number>;
+};
 type Trace = { file: string; size: number };
 type Setting = { value: unknown; source: string };
 type Snapshot = { revision: string; settings: Record<string, Setting> };
@@ -56,6 +62,7 @@ export function DiagnosticsSection() {
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [view, setView] = useState("");
   const [error, setError] = useState("");
+  const [retryNote, setRetryNote] = useState("");
   const refresh = useCallback(async (range: number) => {
     const read = beginSettingsRead();
     try {
@@ -91,6 +98,8 @@ export function DiagnosticsSection() {
     // Publish only settings that were actually reloaded, never the pre-save copy.
     const reloaded = (await reloadSettingsSnapshot<Snapshot>()) !== null;
     if (!failure) {
+      // A saved retention change can empty the queue, so an earlier Retry now note is stale.
+      setRetryNote("");
       await refresh(days);
       if (!reloaded) setError(s("Reload the page before saving again."));
       return;
@@ -126,7 +135,30 @@ export function DiagnosticsSection() {
       setError((cause as Error).message);
     }
   }
+  async function retryNow(host: RetryHost) {
+    try {
+      const { result } = await settingsRequest<{ result: "started" | "scheduled" | "running" }>(
+        `/api/settings/capture-retry/${host}/run`,
+        { method: "POST", body: "{}" }
+      );
+      setRetryNote(
+        result === "scheduled"
+          ? s(
+              host === "pi"
+                ? "These turns retry at the next Pi session start."
+                : "These turns retry at the next OpenCode session start."
+            )
+          : result === "running"
+            ? s("A retry is already running.")
+            : s("Retrying now.")
+      );
+      await refresh(days);
+    } catch (cause) {
+      setError((cause as Error).message);
+    }
+  }
   const trace = snapshot?.settings.captureTrace;
+  const retryHours = Number(snapshot?.settings.captureRetryRetentionHours?.value ?? 72);
   return (
     <section
       className="space-y-4 rounded-xl border border-border bg-card p-4"
@@ -319,6 +351,46 @@ export function DiagnosticsSection() {
             />
           </label>
         ))}
+        <label className="block">
+          {s("Retry retention (hours)")}{" "}
+          <input
+            key={`captureRetryRetentionHours-${retryHours}`}
+            type="number"
+            min={0}
+            max={720}
+            className="ms-2 w-20 rounded border border-border bg-background p-1"
+            defaultValue={retryHours}
+            onBlur={(e) => {
+              const value = Number(e.target.value);
+              if (Number.isSafeInteger(value) && value >= 0 && value <= 720 && value !== retryHours)
+                void save({ captureRetryRetentionHours: value });
+            }}
+          />
+        </label>
+        <p className="text-xs text-muted-foreground">
+          {s(
+            "When the capture model cannot be reached, OMMS keeps the turn and tries again later. Queued turns can hold conversation content after redaction. 0 turns the queue off and deletes waiting turns."
+          )}
+        </p>
+        <h3 className="font-medium">{s("Turns waiting for retry")}</h3>
+        {(["pi", "opencode"] as const).map((host) => {
+          const count = data?.retryQueue?.[host] ?? 0;
+          return (
+            <div className="flex items-center gap-2" key={host}>
+              <span className="w-24">{host === "pi" ? "Pi" : "OpenCode"}</span>
+              <span className="tabular-nums">{count}</span>
+              <button
+                type="button"
+                disabled={count === 0 || retryHours === 0}
+                className="disabled:opacity-50"
+                onClick={() => void retryNow(host)}
+              >
+                {s("Retry now")}
+              </button>
+            </div>
+          );
+        })}
+        {retryNote && <p className="text-xs text-muted-foreground">{retryNote}</p>}
         <h3 className="font-medium">{s("Trace files")}</h3>
         {traces.map((file) => (
           <div className="flex items-center gap-2" key={file.file}>

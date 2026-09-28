@@ -290,7 +290,10 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
   // Web imports, Health, and Settings served by this process can list and use OpenCode's models.
   // Awaited so the web server never serves those routes before the registry is filled.
   await import("./adapters/opencode/backfill-startup.js")
-    .then(({ registerOpencodeImportModels }) => registerOpencodeImportModels())
+    .then(({ registerOpencodeImportModels, registerOpencodeCaptureRetryDrain }) => {
+      registerOpencodeImportModels();
+      registerOpencodeCaptureRetryDrain(autoCaptureHost, directory);
+    })
     .catch(() => {});
 
   (async () => {
@@ -703,6 +706,16 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
     },
     event: async (input: { event: { type: string; properties?: any } }) => {
       const event = input.event;
+      if (event.type === "session.created") {
+        if (!isConfigured() || !CONFIG.autoCaptureEnabled) return;
+        const sessionID = event.properties?.info?.id ?? event.properties?.sessionID;
+        // OMMS's own structured-output sessions must not start a retry pass.
+        if (sessionID && (await isInternalCaptureSession(ctx.client, sessionID))) return;
+        const { startCaptureRetryDrain } = await import("./services/capture-retry-drain.js");
+        startCaptureRetryDrain("opencode");
+        return;
+      }
+
       if (event.type === "session.idle") {
         if (!isConfigured() || !CONFIG.autoCaptureEnabled) return;
         const sessionID = event.properties?.sessionID;

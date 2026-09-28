@@ -1,10 +1,13 @@
 import { CONFIG } from "../../config.js";
+import type { AutoCaptureHost } from "../../core/host.js";
 import { scheduleAutoBackfill } from "../../importer/auto-backfill.js";
 import {
   registerHostBackfillModels,
   registerOpencodeHostModels,
 } from "../../importer/backfill-controls.js";
 import { listOpencodeClientModels } from "../../importer/settings-models.js";
+import { drainOpencodeCaptureRetries } from "../../services/auto-capture.js";
+import { registerCaptureRetryDrain } from "../../services/capture-retry-drain.js";
 import { resolveOpencodeBackfillModels } from "./backfill-models.js";
 import { createOpencodeImportModels } from "./opencode-import-models.js";
 import { getV2Client, isProviderConnected } from "./opencode-provider.js";
@@ -43,4 +46,9 @@ export function registerOpencodeImportModels(): void {
       return client ? listOpencodeClientModels(client) : null;
     },
   });
+}
+
+/** Let triggers and Retry now in this process retry OpenCode's queued turns. */
+export function registerOpencodeCaptureRetryDrain(host: AutoCaptureHost, directory: string): void {
+  registerCaptureRetryDrain("opencode", () => drainOpencodeCaptureRetries(host, directory));
 }

@@ -1,8 +1,10 @@
 import { CONFIG } from "../../config.js";
-import { captureConversation } from "../../core/capture.js";
+import { captureConversation, type CaptureWorkUnit } from "../../core/capture.js";
+import { quickRetryDelayMs } from "../../core/capture-retry-policy.js";
 import type { CaptureSummaryProvider } from "../../core/host.js";
 import { log } from "../../services/logger.js";
 import { memoryClient } from "../../services/client.js";
+import { queueFailedCapture, startCaptureRetryDrain } from "../../services/capture-retry-drain.js";
 import { extractPiConversation, type PiSessionEntry } from "../../importer/pi-conversation.js";
 
 export interface PiCaptureState {
@@ -38,6 +40,22 @@ export type PiSettledCaptureResult =
     }
   | { status: "failed"; error: string };
 
+/** Try the turn up to `autoCaptureMaxRetries` times, as OpenCode does, before it counts as failed. */
+async function captureWithQuickRetries(unit: CaptureWorkUnit, provider: CaptureSummaryProvider) {
+  const maxRetries = Math.max(1, CONFIG.autoCaptureMaxRetries ?? 3);
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await captureConversation(unit, provider);
+    } catch (error) {
+      if (attempt >= maxRetries) throw error;
+      log(`Pi auto-capture warning (attempt ${attempt}/${maxRetries})`, {
+        sessionID: unit.hostSessionId,
+      });
+      await new Promise((resolve) => setTimeout(resolve, quickRetryDelayMs(attempt)));
+    }
+  }
+}
+
 /**
  * Capture the work unit completed by the most recent user prompt on the
  * settled branch. Safe to call for every `agent_settled` event: a work unit is
@@ -50,6 +68,7 @@ export async function capturePiSettledWorkUnit(
   if (!CONFIG.autoCaptureEnabled) return { status: "skipped", reason: "disabled" };
   if (input.state.running) return { status: "skipped", reason: "busy" };
   input.state.running = true;
+  let workUnit: CaptureWorkUnit | null = null;
 
   try {
     const window = extractPiConversation(input.entries);
@@ -64,28 +83,24 @@ export async function capturePiSettledWorkUnit(
       return { status: "skipped", reason: "not-ready" };
     }
 
-    const captureResult = await captureConversation(
-      {
-        host: "pi",
-        hostSessionId: input.sessionId,
-        sourceType: "live-capture",
-        projectDirectory: input.directory,
-        userPrompt: window.userPrompt,
-        promptId: window.userEntryId,
-        prompt: {
-          id: window.userEntryId,
-          providerId: input.prompt?.providerId ?? null,
-          modelId: input.prompt?.modelId ?? null,
-        },
-        textResponses: window.textResponses,
-        toolCalls: window.toolCalls,
-        sourceEntryIds: window.sourceEntryIds,
-        ...(window.sourceTimestamp !== undefined
-          ? { sourceTimestamp: window.sourceTimestamp }
-          : {}),
+    workUnit = {
+      host: "pi",
+      hostSessionId: input.sessionId,
+      sourceType: "live-capture",
+      projectDirectory: input.directory,
+      userPrompt: window.userPrompt,
+      promptId: window.userEntryId,
+      prompt: {
+        id: window.userEntryId,
+        providerId: input.prompt?.providerId ?? null,
+        modelId: input.prompt?.modelId ?? null,
       },
-      input.provider
-    );
+      textResponses: window.textResponses,
+      toolCalls: window.toolCalls,
+      sourceEntryIds: window.sourceEntryIds,
+      ...(window.sourceTimestamp !== undefined ? { sourceTimestamp: window.sourceTimestamp } : {}),
+    };
+    const captureResult = await captureWithQuickRetries(workUnit, input.provider);
 
     input.state.handledUserEntries.add(window.userEntryId);
 
@@ -104,6 +119,8 @@ export async function capturePiSettledWorkUnit(
       memoryId: captureResult.memoryId,
       host: "pi",
     });
+    // The capture model answers again, so earlier failed turns may go through now.
+    startCaptureRetryDrain("pi");
 
     if (CONFIG.showAutoCaptureToasts && input.notify) {
       await Promise.resolve(
@@ -119,6 +136,8 @@ export async function capturePiSettledWorkUnit(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log(`Pi auto-capture error: ${message}`, { sessionID: input.sessionId });
+    // The next prompt moves capture on to a newer turn, so keep this one for a later retry.
+    if (workUnit) await queueFailedCapture(workUnit, error, CONFIG);
 
     if (CONFIG.showErrorToasts && input.notify) {
       const shortReason = message.length > 100 ? message.substring(0, 100) + "..." : message;

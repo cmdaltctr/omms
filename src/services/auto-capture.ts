@@ -1,6 +1,13 @@
-import { CONFIG } from "../config.js";
-import { captureConversation } from "../core/capture.js";
+import { CONFIG, refreshConfigIfChanged } from "../config.js";
+import { captureConversation, type CaptureResult, type CaptureWorkUnit } from "../core/capture.js";
+import { quickRetryDelayMs } from "../core/capture-retry-policy.js";
 import type { AutoCaptureHost } from "../core/host.js";
+import {
+  drainCaptureRetries,
+  queueFailedCapture,
+  startCaptureRetryDrain,
+  type CaptureRetryDrainResult,
+} from "./capture-retry-drain.js";
 import { log } from "./logger.js";
 import { userPromptManager, type UserPrompt } from "./user-prompt/user-prompt-manager.js";
 
@@ -10,7 +17,6 @@ export {
   getAutoCaptureMarkdownBudget,
 } from "../core/capture-context.js";
 
-const RETRY_BASE_DELAY_MS = 2000;
 let isCaptureRunning = false;
 
 async function notifySafely(
@@ -54,6 +60,7 @@ async function capturePrompt(
 ): Promise<void> {
   let claimedPromptId: string | null = null;
   let attempt = prompt.capture_attempts || 0;
+  let workUnit: CaptureWorkUnit | null = null;
 
   try {
     if (!(await userPromptManager.claimPrompt(prompt.id))) return;
@@ -66,23 +73,21 @@ async function capturePrompt(
         if (!conversation) return;
         if (conversation.textResponses.length === 0 && conversation.toolCalls.length === 0) return;
 
-        const captureResult = await captureConversation(
-          {
-            host: host.host,
-            hostSessionId: sessionID,
-            sourceType: "live-capture",
-            projectDirectory: directory,
-            userPrompt: prompt.content,
-            promptId: prompt.id,
-            prompt: {
-              id: prompt.id,
-              providerId: prompt.providerId,
-              modelId: prompt.modelId,
-            },
-            ...conversation,
+        workUnit = {
+          host: host.host,
+          hostSessionId: sessionID,
+          sourceType: "live-capture",
+          projectDirectory: directory,
+          userPrompt: prompt.content,
+          promptId: prompt.id,
+          prompt: {
+            id: prompt.id,
+            providerId: prompt.providerId,
+            modelId: prompt.modelId,
           },
-          host
-        );
+          ...conversation,
+        };
+        const captureResult = await captureConversation(workUnit, host);
 
         if (captureResult.status === "skipped") {
           log("Auto-capture skipped", {
@@ -104,6 +109,8 @@ async function capturePrompt(
           memoryId: captureResult.memoryId,
           host: host.host,
         });
+        // The capture model answers again, so earlier failed turns may go through now.
+        startCaptureRetryDrain("opencode");
 
         if (CONFIG.showAutoCaptureToasts) {
           await notifySafely(host, {
@@ -120,9 +127,7 @@ async function capturePrompt(
 
         if (attempt < maxRetries) {
           log(`Auto-capture warning (attempt ${attempt}/${maxRetries})`, { error: errMsg });
-          await new Promise((resolve) =>
-            setTimeout(resolve, RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1))
-          );
+          await new Promise((resolve) => setTimeout(resolve, quickRetryDelayMs(attempt)));
         } else {
           throw error;
         }
@@ -131,6 +136,8 @@ async function capturePrompt(
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
     log(`Auto-capture final error after ${attempt} attempts`, { error: errMsg });
+    // Only after the quick retries fail; the queue decides whether a retry can help.
+    if (workUnit) await queueFailedCapture(workUnit, error, CONFIG);
 
     if (CONFIG.showErrorToasts) {
       const shortReason = errMsg.length > 100 ? errMsg.substring(0, 100) + "..." : errMsg;
@@ -154,4 +161,34 @@ async function capturePrompt(
       }
     }
   }
+}
+
+/** A retried OpenCode turn updates its prompt row the same way a live capture does. */
+export async function settleOpencodeRetriedPrompt(
+  unit: CaptureWorkUnit,
+  result: CaptureResult
+): Promise<void> {
+  if (!unit.promptId) return;
+  if (result.status === "skipped") {
+    await userPromptManager.deletePrompt(unit.promptId);
+    return;
+  }
+  await userPromptManager.linkMemoryToPrompt(unit.promptId, result.memoryId);
+  await userPromptManager.markAsCaptured(unit.promptId);
+}
+
+/** Retry OpenCode's queued turns with its current capture model choice. */
+export function drainOpencodeCaptureRetries(
+  host: AutoCaptureHost,
+  directory: string
+): Promise<CaptureRetryDrainResult> {
+  // A retention change in the config file applies from this pass on.
+  refreshConfigIfChanged(directory);
+  return drainCaptureRetries({
+    host: "opencode",
+    provider: host,
+    config: CONFIG,
+    isReady: () => host.isCaptureReady(),
+    onSettled: settleOpencodeRetriedPrompt,
+  });
 }

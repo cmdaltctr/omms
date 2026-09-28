@@ -156,6 +156,68 @@ describe("settings API", () => {
     expect(result.text).toContain('"piModel": "new"');
   });
 
+  it("reports queued turns per host and retries them now", async () => {
+    const queueUrl = pathToFileURL(
+      join(import.meta.dir, "../src/services/capture-retry-queue.ts")
+    ).href;
+    const drainUrl = pathToFileURL(
+      join(import.meta.dir, "../src/services/capture-retry-drain.ts")
+    ).href;
+    const configUrl = pathToFileURL(join(import.meta.dir, "../src/config.ts")).href;
+    const result = await scenario(`
+      const { CONFIG } = await import(${JSON.stringify(configUrl)});
+      const queue = await import(${JSON.stringify(queueUrl)});
+      const drain = await import(${JSON.stringify(drainUrl)});
+      const json = { "content-type": "application/json" };
+      const unit = (host, promptId) => ({ host, hostSessionId: "s", sourceType: "live-capture",
+        projectDirectory: "/p", userPrompt: "prompt", promptId, textResponses: ["reply"], toolCalls: [] });
+      const later = Date.now() + 60 * 60 * 1000;
+      for (const id of ["a", "b"]) {
+        await queue.enqueueCaptureRetry(unit("pi", id), { reason: "call-error" }, CONFIG, later);
+      }
+      await queue.enqueueCaptureRetry(unit("opencode", "c"), { reason: "call-error" }, CONFIG, later);
+      const counts = (await (await send("/api/settings/diagnostics?days=7")).json()).retryQueue;
+
+      const scheduled = await (await send("/api/settings/capture-retry/opencode/run", "POST", {}, json)).json();
+      const due = await queue.listDueCaptureRetries("opencode", CONFIG);
+
+      let started = 0;
+      drain.registerCaptureRetryDrain("pi", async () => { started++; return {}; });
+      const startedResult = await (await send("/api/settings/capture-retry/pi/run", "POST", {}, json)).json();
+
+      let release;
+      const gate = new Promise((resolve) => (release = resolve));
+      const pass = drain.drainCaptureRetries({ host: "pi", config: CONFIG,
+        provider: { async summarize() { await gate; throw new Error("down"); } } });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const running = await (await send("/api/settings/capture-retry/pi/run", "POST", {}, json)).json();
+      release();
+      await pass;
+
+      const form = await send("/api/settings/capture-retry/pi/run", "POST", {}, { "content-type": "text/plain" });
+      const network = new WebServer({ enabled: true, host: "0.0.0.0", port: 4747, apiToken: "network-test-token" });
+      const noToken = await network.handleRequest(new Request("http://127.0.0.1:4747/api/settings/capture-retry/pi/run",
+        { method: "POST", headers: { ...json, "x-omms-token": token }, body: "{}" }));
+
+      const before = await (await send("/api/settings")).json();
+      const off = await send("/api/settings", "PATCH",
+        { edits: { captureRetryRetentionHours: 0 }, revision: before.revision }, json);
+      const afterOff = (await (await send("/api/settings/diagnostics?days=7")).json()).retryQueue;
+      return { counts, scheduled, dueOpencode: due.length, started, startedResult, running,
+        form: form.status, noToken: noToken.status, off: off.status, afterOff };
+    `);
+    expect(result.counts).toEqual({ pi: 2, opencode: 1 });
+    expect(result.scheduled).toEqual({ result: "scheduled" });
+    expect(result.dueOpencode).toBe(1);
+    expect(result.startedResult).toEqual({ result: "started" });
+    expect(result.started).toBe(1);
+    expect(result.running).toEqual({ result: "running" });
+    expect(result.form).toBe(415);
+    expect(result.noToken).toBe(401);
+    expect(result.off).toBe(200);
+    expect(result.afterOff).toEqual({ pi: 0, opencode: 0 });
+  });
+
   it("rejects traversal in trace endpoints", async () => {
     const result = await scenario(`
       const read = await send("/api/settings/traces/%2e%2e%2fsecret");

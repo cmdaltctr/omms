@@ -17,6 +17,7 @@ const keys = new Set([
   "captureTrace",
   "captureTraceRetentionDays",
   "captureAttemptRetentionDays",
+  "captureRetryRetentionHours",
   "autoBackfill",
   "opencodeBackfillModel",
   "piBackfillModel",
@@ -49,6 +50,9 @@ function isValidEdit(key: string, value: unknown): boolean {
     return typeof value === "boolean";
   }
   if (key.endsWith("RetentionDays")) return Number.isSafeInteger(value) && (value as number) >= 1;
+  if (key === "captureRetryRetentionHours") {
+    return Number.isSafeInteger(value) && (value as number) >= 0 && (value as number) <= 720;
+  }
   if (key === "memoryApiKey") return isSecretReference(value);
   if (key === "memoryProvider") return MEMORY_PROVIDERS.includes(value as string);
   // Entries are checked by the startup validation below.

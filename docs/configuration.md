@@ -82,10 +82,11 @@ On first start, if no config exists at all, the plugin creates a full commented 
 Open the Settings page in the login web app, in OpenCode, or with `om-memory-system web`. [Web UI settings](web-ui-settings.md) explains each part of the page.
 
 - The page writes only to the global file. It does not edit a project's config.
-- It can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `autoBackfill`, `opencodeBackfillModel`, `piBackfillModel`, `importPathMaps`, `webServerAutoStart`, `captureTrace`, `captureTraceRetentionDays`, `captureAttemptRetentionDays`, `memoryProvider`, `memoryApiUrl`, `memoryModel`, and `memoryApiKey`.
+- It can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `autoBackfill`, `opencodeBackfillModel`, `piBackfillModel`, `importPathMaps`, `webServerAutoStart`, `captureTrace`, `captureTraceRetentionDays`, `captureAttemptRetentionDays`, `captureRetryRetentionHours`, `memoryProvider`, `memoryApiUrl`, `memoryModel`, and `memoryApiKey`.
 - The only credential it changes is `memoryApiKey`. It accepts only an `env://` or `file://` reference and rejects a literal key.
 - If you paste a key, the page saves it to a key file in `~/.config/omms/secrets/` and stores a `file://` reference to it. The folder and file are readable only by you.
 - `captureAttemptRetentionDays` defaults to 30. Both retention fields need at least 1 day.
+- `captureRetryRetentionHours` defaults to 72. It accepts whole hours from 0 to 720. 0 turns the capture retry queue off, and saving 0 deletes the waiting turns at once.
 - Choosing **Session model** writes `inherit` to the host's model key. That choice takes priority over a configured external API.
 - Choosing a manual model writes the selected host provider and model.
 - OpenCode and Pi reload changed config files at the next capture or profile-learning run. You do not need to restart.
@@ -138,7 +139,7 @@ On the Settings page you can **Run now**, **Pause**, and **Resume** each host's 
 
 Some settings are read only from the global file.
 
-- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `autoCleanupEnabled`, and `autoCleanupRetentionDays`. This stops one project from, for example, turning off the shared web server for another.
+- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoCleanupEnabled`, and `autoCleanupRetentionDays`. This stops one project from, for example, turning off the shared web server for another.
 - A project config cannot turn `captureTrace` on. See [Capture traces](#capture-traces-opt-in).
 - A project config that sets `embeddingApiUrl`, `embeddingApiKey`, `memoryProvider`, `memoryApiUrl`, or `memoryApiKey` is an error. Move those to the global file.
 
@@ -329,6 +330,30 @@ A project config (`.opencode/omms.jsonc`) can set `"captureTrace": false` to
 stop tracing in that project. It cannot turn tracing on: a project value of
 `true` is ignored and logged, so a cloned repository cannot start recording
 your conversations. `captureTraceRetentionDays` is global only.
+
+### Capture retry queue
+
+When a live capture fails because the capture model cannot be reached, OMMS
+keeps a copy of the turn and tries it again later. It queues a turn only for a
+network failure, a timeout, or HTTP 408, 429 or 5xx. It does not queue a bad
+key, a bad request or a bad model reply.
+
+```jsonc
+{
+  "captureRetryRetentionHours": 72, // default 72, whole hours from 0 to 720
+}
+```
+
+- The queue is in `~/.omms/data/user-prompts.db`, never in a project folder.
+- OMMS removes `<private>` text and redacts secrets with the trace rules before
+  it stores a turn. A turn over 256 KB is not queued. The queue holds at most
+  20 MB.
+- A turn is deleted when its retry saves a memory, when the retry skips it, when
+  the retry fails for good, or after `captureRetryRetentionHours`.
+- `0` turns the queue off. OMMS queues nothing, retries nothing, and deletes
+  the waiting turns.
+- `captureRetryRetentionHours` is global only. A project value is ignored.
+- Running hosts use a changed value from their next retry pass or cleanup run.
 
 ## Troubleshooting
 

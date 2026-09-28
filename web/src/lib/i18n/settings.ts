@@ -110,6 +110,24 @@ const text = {
   ],
   "Trace retention (days)": ["追踪保留天数", "مدة حفظ التتبعات (بالأيام)"],
   "Attempt retention (days)": ["尝试记录保留天数", "مدة حفظ المحاولات (بالأيام)"],
+  "Retry retention (hours)": ["重试保留小时数", "مدة حفظ إعادة المحاولة (بالساعات)"],
+  "When the capture model cannot be reached, OMMS keeps the turn and tries again later. Queued turns can hold conversation content after redaction. 0 turns the queue off and deletes waiting turns.":
+    [
+      "捕获模型无法访问时，OMMS 会保留该轮对话并稍后重试。排队的对话在脱敏后仍可能包含对话内容。设为 0 会关闭队列并删除等待中的对话。",
+      "عندما يتعذر الوصول إلى نموذج الالتقاط، يحتفظ OMMS بالجولة ويعيد المحاولة لاحقاً. قد تحتوي الجولات المنتظرة على محتوى المحادثة بعد التنقيح. القيمة 0 توقف قائمة الانتظار وتحذف الجولات المنتظرة.",
+    ],
+  "Turns waiting for retry": ["等待重试的对话", "الجولات المنتظرة لإعادة المحاولة"],
+  "Retry now": ["立即重试", "أعد المحاولة الآن"],
+  "Retrying now.": ["正在重试。", "تجري إعادة المحاولة الآن."],
+  "A retry is already running.": ["重试已在运行。", "إعادة المحاولة قيد التشغيل بالفعل."],
+  "These turns retry at the next Pi session start.": [
+    "这些对话将在下次启动 Pi 会话时重试。",
+    "ستُعاد محاولة هذه الجولات عند بدء جلسة Pi التالية.",
+  ],
+  "These turns retry at the next OpenCode session start.": [
+    "这些对话将在下次启动 OpenCode 会话时重试。",
+    "ستُعاد محاولة هذه الجولات عند بدء جلسة OpenCode التالية.",
+  ],
   "Trace files": ["追踪文件", "ملفات التتبع"],
   View: ["查看", "عرض"],
   Delete: ["删除", "حذف"],
