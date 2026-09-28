@@ -22,7 +22,7 @@ const promptManagerUrl = new URL(
 const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
 const languageUrl = new URL("../src/services/language-detector.js", import.meta.url).href;
 const opencodeProviderLoaderUrl = new URL(
-  "../src/services/ai/opencode-provider-loader.js",
+  "../src/adapters/opencode/opencode-provider-loader.js",
   import.meta.url
 ).href;
 

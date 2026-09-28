@@ -15,7 +15,7 @@ import type {
   CaptureSummaryRequest,
 } from "../../core/host.js";
 import { log } from "../../services/logger.js";
-import { loadOpencodeProvider } from "../../services/ai/opencode-provider-loader.js";
+import { loadOpencodeProvider } from "./opencode-provider-loader.js";
 
 type Notify = (notification: AutoCaptureNotification) => Promise<void> | void;
 

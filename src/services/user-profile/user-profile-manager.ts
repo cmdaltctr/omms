@@ -3,13 +3,13 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { tursoConnectionManager } from "../turso/connection-manager.js";
 import type { TursoDb } from "../turso/turso-db.js";
 import { CONFIG } from "../../config.js";
-import { resolveOpencodeHostModel } from "../ai/live-model-choice.js";
+import type { ModelPort } from "../../core/profile-analysis.js";
+import { completeStructured, resolveHostProfileModel } from "./profile-model.js";
 import type { UserProfile, UserProfileChangelog, UserProfileData } from "./types.js";
 import { safeArray } from "./profile-utils.js";
 import { EmbeddingService } from "../embedding.js";
 import { log } from "../logger.js";
 import { cosineSimilarityNumbers, l2Normalize } from "../../utils/math.js";
-import { loadOpencodeProvider } from "../ai/opencode-provider-loader.js";
 
 const CENTROID_EMA_WEIGHT = 0.85;
 const CENTROID_EMA_WEIGHT_COMPLEMENT = 0.15;
@@ -1414,35 +1414,22 @@ B: "${descB}"
 
 Answer JSON only: { "duplicate": true|false, "reason": "one sentence explanation" }`;
 
-    if (resolveOpencodeHostModel(CONFIG)) {
+    const hostModel = await resolveHostProfileModel();
+    if (hostModel) {
       try {
         const { z } = await import("zod");
-        const { generateStructuredOutput } = await loadOpencodeProvider();
-        const { getOpenCodeClient } = await import("../ai/profile-llm-client.js");
-
-        let v2Client;
-        try {
-          v2Client = await getOpenCodeClient();
-        } catch (e) {
-          log("profile dedup check: native provider not connected", { error: String(e) });
-        }
-
-        if (v2Client) {
-          const result: any = await Promise.race([
-            generateStructuredOutput({
-              client: v2Client,
-              providerID: resolveOpencodeHostModel(CONFIG)!.providerID,
-              modelID: resolveOpencodeHostModel(CONFIG)!.modelID,
-              systemPrompt: "You are a semantic duplicate detector. Output valid JSON.",
-              userPrompt: prompt,
-              schema: z.object({ duplicate: z.boolean(), reason: z.string() }),
-            }),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("dedup check timeout")), 30000)
-            ),
-          ]);
-          return result.duplicate || false;
-        }
+        const result: any = await Promise.race([
+          completeStructured(
+            hostModel,
+            "You are a semantic duplicate detector. Output valid JSON.",
+            prompt,
+            z.object({ duplicate: z.boolean(), reason: z.string() })
+          ),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("dedup check timeout")), 30000)
+          ),
+        ]);
+        return result.duplicate || false;
       } catch (e) {
         log("profile dedup check: native provider failed", { error: String(e) });
       }
@@ -1614,35 +1601,22 @@ B: "${descB}"
 
 Answer JSON only: { "conflict": true|false, "reason": "one sentence explanation" }`;
 
-    if (resolveOpencodeHostModel(CONFIG)) {
+    const hostModel = await resolveHostProfileModel();
+    if (hostModel) {
       try {
         const { z } = await import("zod");
-        const { generateStructuredOutput } = await loadOpencodeProvider();
-        const { getOpenCodeClient } = await import("../ai/profile-llm-client.js");
-
-        let v2Client;
-        try {
-          v2Client = await getOpenCodeClient();
-        } catch (e) {
-          log("profile conflict check: native provider not connected", { error: String(e) });
-        }
-
-        if (v2Client) {
-          const result: any = await Promise.race([
-            generateStructuredOutput({
-              client: v2Client,
-              providerID: resolveOpencodeHostModel(CONFIG)!.providerID,
-              modelID: resolveOpencodeHostModel(CONFIG)!.modelID,
-              systemPrompt: "You are a preference contradiction detector. Output valid JSON.",
-              userPrompt: prompt,
-              schema: z.object({ conflict: z.boolean(), reason: z.string() }),
-            }),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error("conflict check timeout")), 30000)
-            ),
-          ]);
-          return result.conflict || false;
-        }
+        const result: any = await Promise.race([
+          completeStructured(
+            hostModel,
+            "You are a preference contradiction detector. Output valid JSON.",
+            prompt,
+            z.object({ conflict: z.boolean(), reason: z.string() })
+          ),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("conflict check timeout")), 30000)
+          ),
+        ]);
+        return result.conflict || false;
       } catch (e) {
         log("profile conflict check: native provider failed", { error: String(e) });
       }
@@ -1745,9 +1719,10 @@ Generate a concise, abstract description of the user's general behavioral tenden
 
     let newDescription: string | null = null;
 
-    if (resolveOpencodeHostModel(CONFIG)) {
+    const hostModel = await resolveHostProfileModel();
+    if (hostModel) {
       try {
-        newDescription = await this.callOpencodeProvider(systemPrompt, userPrompt);
+        newDescription = await this.callHostModel(hostModel, systemPrompt, userPrompt);
       } catch (e) {
         log("profile description evolution: native provider failed, trying external API", {
           error: String(e),
@@ -1871,36 +1846,16 @@ Generate a concise, abstract description of the user's general behavioral tenden
     }
   }
 
-  private async callOpencodeProvider(
+  private async callHostModel(
+    model: ModelPort,
     systemPrompt: string,
     userPrompt: string
   ): Promise<string | null> {
-    const { generateStructuredOutput } = await loadOpencodeProvider();
-    const { getOpenCodeClient } = await import("../ai/profile-llm-client.js");
-
-    let v2Client;
-    try {
-      v2Client = await getOpenCodeClient();
-    } catch (e) {
-      log("profile description evolution: native provider not connected", {
-        provider: resolveOpencodeHostModel(CONFIG)?.providerID,
-        error: String(e),
-      });
-      return null;
-    }
-
     const { z } = await import("zod");
     const schema = z.object({ description: z.string() });
 
     const result: any = await Promise.race([
-      generateStructuredOutput({
-        client: v2Client,
-        providerID: resolveOpencodeHostModel(CONFIG)!.providerID,
-        modelID: resolveOpencodeHostModel(CONFIG)!.modelID,
-        systemPrompt,
-        userPrompt,
-        schema,
-      }),
+      completeStructured(model, systemPrompt, userPrompt, schema),
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error("evolve description timeout")), 120000)
       ),

@@ -20,7 +20,7 @@ export async function createOpencodeImportModels(
   const { z } = await import("zod");
   const { buildCaptureSystemPrompt, createUserProfileAnalysisSchema, parseCaptureSummary } =
     await import("../../core/extraction.js");
-  const { detectLanguage, getLanguageName } = await import("../language-detector.js");
+  const { detectLanguage, getLanguageName } = await import("../../services/language-detector.js");
 
   const captureSchema = z.object({
     summary: z.string().optional(),

@@ -28,9 +28,9 @@ Rules:
 - `src/core/*`, `src/services/*`, and `src/types/*` must not import
   `src/importer/*`. The one exception is `src/services/web-server.ts`. It
   reaches the importer only through dynamic imports of
-  `src/importer/web-import-api.ts`, `src/importer/settings-health.ts`, and
-  `src/importer/web-import-jobs.ts`. `tests/pi-adapter-boundary.test.ts`
-  enforces this.
+  `src/importer/web-import-api.ts`, `src/importer/settings-health.ts`,
+  `src/importer/web-import-jobs.ts`, and `src/importer/settings-models.ts`.
+  `tests/pi-adapter-boundary.test.ts` enforces this.
 - The OpenCode entry points (`src/index.ts`, `src/v2/adapter.ts`,
   `src/v2/plugin.ts`) must not import `importer/` or `@earendil-works`
   directly. They load importer code through `src/adapters/opencode/*`.
@@ -50,6 +50,13 @@ Rules:
   depend on shared code; shared code never depends on an adapter.
 - `session-loader.ts` loads the Pi SDK. The importer loads it with dynamic
   `import()`, only when it reads Pi history.
+- Only three importer files name a host SDK: `session-loader.ts`,
+  `import-readiness.ts`, and `settings-models.ts`. Only `session-loader.ts`
+  imports it statically. The boundary test checks every file.
+- OpenCode's model access for web imports, Health, and Settings reaches the
+  importer through `registerOpencodeHostModels` in `backfill-controls.ts`.
+  The OpenCode adapter registers it at plugin start. With nothing registered,
+  as in the standalone web app, OpenCode models report as unavailable.
 - `src/core/internal-prompt.ts` recognises omms's own summary and profile
   prompts, which are the same text on both hosts.
 
@@ -58,13 +65,21 @@ Rules:
 The shared capture pipeline depends on two interfaces only:
 
 - `CaptureSummaryProvider.summarize(request)` does structured extraction.
-  - The OpenCode provider path (`src/services/ai/*`) and the Pi model bridge (`src/adapters/pi/provider.ts`) both implement it.
+  - The OpenCode provider path (`src/adapters/opencode/opencode-provider.ts`) and the Pi model bridge (`src/adapters/pi/provider.ts`) both implement it.
   - Throw to defer or skip the work unit. Do not return partial data. Manual memory operations stay available.
 - `AutoCaptureHost` extends `CaptureSummaryProvider`. It adds session
   conversation access (`getConversation`), readiness (`isCaptureReady`), and
   optional notifications (`notify`).
   - The OpenCode adapter implements it.
   - The Pi adapter calls `captureConversation` directly from `agent_settled`.
+
+`ModelPort` in `src/core/profile-analysis.ts` is the profile model port.
+It has `complete` for plain text and an optional `completeStructured` for
+host-enforced JSON. Profile dedup, conflict, description, and cleanup calls in
+`src/services/user-profile/` use the model a host registers with
+`registerHostProfileModel` (`profile-model.ts`). With none, they use the
+external API. OpenCode registers `adaptOpencodeProfileModel`. Pi registers
+nothing, so its behaviour does not change.
 
 `CaptureWorkUnit` in `src/core/capture.ts` is the only shape the shared
 pipeline accepts. It holds visible conversation content and provenance.
@@ -77,7 +92,7 @@ Hidden reasoning and host SDK objects never go into it.
 | `src/core`                                          | Ports, capture pipeline, context budgeting, shared extraction schema and parsing, retrieval, `memory` tool operations                                                                 |
 | `src/services`                                      | Storage (Turso/libSQL), embeddings, vector search, privacy, deduplication, project identity, profiles, portability, cleanup, web backend, live-model rule (`ai/live-model-choice.ts`) |
 | `src/importer`                                      | History import and automatic backfill, import ledger, import runs and progress, backfill controls, path maps, the web import API                                                      |
-| `src/adapters/opencode` + `src/index.ts` + `src/v2` | OpenCode lifecycle, session reading, provider bridge, OpenCode backfill model resolver, V2 compatibility                                                                              |
+| `src/adapters/opencode` + `src/index.ts` + `src/v2` | OpenCode lifecycle, session reading, provider bridge, OpenCode model code and profile learning, OpenCode backfill model resolver, V2 compatibility                                    |
 | `src/adapters/pi`                                   | Pi lifecycle (`session_start`, `before_agent_start`, `agent_settled`, `session_shutdown`), retrieval injection, model bridge, Pi backfill model resolver, `memory` tool registration  |
 
 ### Shared modules added for import and settings

@@ -6,7 +6,7 @@ const invalid = { type: "feature", summary: "" };
 
 mock.module("../src/config.js", () => ({ CONFIG: config }));
 mock.module("../src/services/logger.js", () => ({ log: () => {} }));
-mock.module("../src/services/ai/opencode-provider-loader.js", () => ({
+mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
   loadOpencodeProvider: async () => ({
     isProviderConnected: () => true,
     getV2Client: () => ({}),

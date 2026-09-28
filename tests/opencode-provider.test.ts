@@ -17,7 +17,7 @@ import {
   STRUCTURED_OUTPUT_METADATA,
   STRUCTURED_OUTPUT_PERMISSIONS,
   STRUCTURED_OUTPUT_TOOLS,
-} from "../src/services/ai/opencode-provider.js";
+} from "../src/adapters/opencode/opencode-provider.js";
 
 const schema = z.object({
   topic: z.string(),
@@ -856,7 +856,9 @@ describe("generateStructuredOutput regression tests (issue #110)", () => {
     // We cannot easily reset the module, so we use a unique schema sentinel
     // and rely on the test ordering: this test only runs if the previous
     // tests did not leak base URL. The cleanest way: re-import the module.
-    const mod = await import(`../src/services/ai/opencode-provider.js?cachebust=${Math.random()}`);
+    const mod = await import(
+      `../src/adapters/opencode/opencode-provider.js?cachebust=${Math.random()}`
+    );
     // createV2Client has the side effect of setting the base URL, so any
     // call from other tests would have populated it. We just verify that
     // the function exists and behaves consistently when called repeatedly
@@ -892,7 +894,8 @@ describe("resolveOpencodeModelRef / inherit", () => {
   });
 
   it("passes concrete model ids through unchanged", async () => {
-    const { resolveOpencodeModelRef } = await import("../src/services/ai/opencode-provider.js");
+    const { resolveOpencodeModelRef } =
+      await import("../src/adapters/opencode/opencode-provider.js");
     expect(resolveOpencodeModelRef({ providerID: "local", modelID: "h100/qwen:latest" })).toEqual({
       providerID: "local",
       modelID: "h100/qwen:latest",
@@ -900,7 +903,8 @@ describe("resolveOpencodeModelRef / inherit", () => {
   });
 
   it("prefers the recorded prompt model when modelID is inherit", async () => {
-    const { resolveOpencodeModelRef } = await import("../src/services/ai/opencode-provider.js");
+    const { resolveOpencodeModelRef } =
+      await import("../src/adapters/opencode/opencode-provider.js");
     expect(
       resolveOpencodeModelRef({
         providerID: "local",
@@ -928,7 +932,8 @@ describe("resolveOpencodeModelRef / inherit", () => {
       })
     );
 
-    const { resolveOpencodeModelRef } = await import("../src/services/ai/opencode-provider.js");
+    const { resolveOpencodeModelRef } =
+      await import("../src/adapters/opencode/opencode-provider.js");
     expect(resolveOpencodeModelRef({ providerID: "local", modelID: "inherit" })).toEqual({
       providerID: "local",
       modelID: "h100/qwen:latest",
@@ -936,7 +941,8 @@ describe("resolveOpencodeModelRef / inherit", () => {
   });
 
   it("throws a clear error when inherit has no prompt model and no recent list", async () => {
-    const { resolveOpencodeModelRef } = await import("../src/services/ai/opencode-provider.js");
+    const { resolveOpencodeModelRef } =
+      await import("../src/adapters/opencode/opencode-provider.js");
     expect(() => resolveOpencodeModelRef({ providerID: "local", modelID: "inherit" })).toThrow(
       /no session model was recorded and no recent OpenCode model is available/
     );

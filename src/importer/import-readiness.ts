@@ -58,7 +58,7 @@ export async function importReadiness(deps: ReadinessDeps = {}): Promise<ImportR
     externalApiState(deps.supportedProviders),
     (
       deps.listOpencodeModels ??
-      (async () => (await import("../services/settings-models.js")).listOpencodeSettingsModels())
+      (async () => (await import("./settings-models.js")).listOpencodeSettingsModels())
     )(),
     (deps.loadPiSdk ?? (() => import("@earendil-works/pi-coding-agent")))().then(
       () => ({ available: true }),

@@ -10,6 +10,16 @@ export { safeHealthError } from "../services/safe-health-error.js";
 export type HealthRow = { check: string; status: "pass" | "warn" | "fail"; reason: string };
 const PROBE = "Reply with a short acknowledgement.";
 
+async function createOpencodeImportModels(
+  ref: { providerID: string; modelID: string },
+  directory: string
+) {
+  const { getOpencodeHostModels } = await import("./backfill-controls.js");
+  const opencode = getOpencodeHostModels();
+  if (!opencode) throw new Error("the OpenCode client is not ready; retry in a moment");
+  return opencode.createImportModels(ref, directory);
+}
+
 export function captureFailureHealth(
   byModel: Array<{ total: number; failed: number }>,
   byReason: Array<{ reason: string; count: number }>
@@ -115,11 +125,7 @@ export async function runSettingsHealth(input: HealthInput): Promise<{ checks: H
       if (ref?.modelID === "inherit")
         throw new Error("A session model needs an active session to test");
       const capture = ref
-        ? (
-            await (
-              await import("../services/ai/opencode-import-models.js")
-            ).createOpencodeImportModels(ref, input.directory)
-          ).capture
+        ? (await createOpencodeImportModels(ref, input.directory)).capture
         : (await import("./model-selection.js")).selectImportModel({}).capture;
       await capture.summarize({
         userPrompt: PROBE,

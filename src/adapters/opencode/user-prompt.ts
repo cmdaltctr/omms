@@ -1,5 +1,5 @@
 import { isStructuredSummaryPromptMessage } from "../../core/internal-prompt.js";
-import { isInternalStructuredSession } from "../../services/ai/opencode-provider.js";
+import { isInternalStructuredSession } from "./opencode-provider.js";
 import { userPromptManager } from "../../services/user-prompt/user-prompt-manager.js";
 
 export { isStructuredSummaryPromptMessage };

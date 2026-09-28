@@ -61,7 +61,7 @@ describe("OpenCode plugin loader bundle boundary", () => {
   }, 30_000);
 
   it("resolves the provider module from a single-file bundled lazy loader", async () => {
-    const { path, text } = buildDistEntry("./dist/services/ai/opencode-provider-loader.js");
+    const { path, text } = buildDistEntry("./dist/adapters/opencode/opencode-provider-loader.js");
 
     expect(text).not.toContain("@opencode-ai/sdk/v2/client");
     expect(text).not.toContain("@vercel/oidc");

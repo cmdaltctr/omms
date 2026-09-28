@@ -43,7 +43,7 @@ mock.module(${JSON.stringify(url("../src/services/tags.js"))}, () => ({
 mock.module(${JSON.stringify(url("../src/services/auto-capture.js"))}, () => ({
   performAutoCapture: async () => {},
 }));
-mock.module(${JSON.stringify(url("../src/services/user-memory-learning.js"))}, () => ({
+mock.module(${JSON.stringify(url("../src/adapters/opencode/profile-learning.js"))}, () => ({
   performUserProfileLearning: async () => {},
 }));
 mock.module(${JSON.stringify(url("../src/services/web-server.js"))}, () => ({

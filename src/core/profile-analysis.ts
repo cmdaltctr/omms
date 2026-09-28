@@ -7,6 +7,12 @@ export interface ModelPort {
   provider: string;
   modelId: string;
   complete(systemPrompt: string, userPrompt: string): Promise<string>;
+  /** Host-enforced JSON output; callers fall back to `complete` and parse when absent. */
+  completeStructured?<T>(
+    systemPrompt: string,
+    userPrompt: string,
+    schema: z.ZodType<T>
+  ): Promise<T>;
 }
 
 export interface ExistingProfileInput {

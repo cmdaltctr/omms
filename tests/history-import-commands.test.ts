@@ -39,7 +39,7 @@ mock.module("../src/services/logger.js", () => ({
 
 const structuredCalls: Array<{ providerID: string; modelID: string }> = [];
 const connected = new Set(["zai", "other"]);
-mock.module("../src/services/ai/opencode-provider-loader.js", () => ({
+mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
   loadOpencodeProvider: async () => ({
     isProviderConnected: (provider: string) => connected.has(provider),
     getV2Client: () => ({}),

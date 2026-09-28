@@ -1,14 +1,14 @@
 import type { PluginInput } from "@opencode-ai/plugin";
-import { getTags } from "./tags.js";
-import { log } from "./logger.js";
-import { CONFIG, refreshConfigIfChanged } from "../config.js";
-import { resolveOpencodeHostModel } from "./ai/live-model-choice.js";
-import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
-import type { UserPrompt } from "./user-prompt/user-prompt-manager.js";
-import { userProfileManager } from "./user-profile/user-profile-manager.js";
-import { sortProfileItems } from "../utils/profile.js";
-import type { UserProfile, UserProfileData } from "./user-profile/types.js";
-import { loadOpencodeProvider } from "./ai/opencode-provider-loader.js";
+import { getTags } from "../../services/tags.js";
+import { log } from "../../services/logger.js";
+import { CONFIG, refreshConfigIfChanged } from "../../config.js";
+import { resolveOpencodeHostModel } from "../../services/ai/live-model-choice.js";
+import { userPromptManager } from "../../services/user-prompt/user-prompt-manager.js";
+import type { UserPrompt } from "../../services/user-prompt/user-prompt-manager.js";
+import { userProfileManager } from "../../services/user-profile/user-profile-manager.js";
+import { sortProfileItems } from "../../utils/profile.js";
+import type { UserProfile, UserProfileData } from "../../services/user-profile/types.js";
+import { loadOpencodeProvider } from "./opencode-provider-loader.js";
 
 let isLearningRunning = false;
 
@@ -35,7 +35,7 @@ async function runAutomaticProfileCleanup(userId: string): Promise<void> {
       profileData.preferences.length + profileData.patterns.length + profileData.workflows.length;
     if (itemCount < 2) return;
 
-    const { aiCleanupProfile } = await import("./user-profile/ai-cleanup.js");
+    const { aiCleanupProfile } = await import("../../services/user-profile/ai-cleanup.js");
     const result = await aiCleanupProfile(profileData);
     if (result.diff.merged.length === 0 && result.diff.removed.length === 0) return;
 
@@ -436,7 +436,7 @@ CRITICAL: Only output observations grounded in the RECENT PROMPTS above. Write d
 import {
   createUserProfileAnalysisSchema,
   USER_PROFILE_LLM_CONFIDENCE_MAX,
-} from "../core/extraction.js";
+} from "../../core/extraction.js";
 
 export { createUserProfileAnalysisSchema, USER_PROFILE_LLM_CONFIDENCE_MAX };
 
@@ -615,7 +615,7 @@ async function analyzeUserProfile(
     log("user-profile-learning: trying opencode provider");
     try {
       const { generateStructuredOutput } = await loadOpencodeProvider();
-      const { getOpenCodeClient } = await import("./ai/profile-llm-client.js");
+      const { getOpenCodeClient } = await import("./profile-llm-client.js");
 
       log("user-profile-learning: opencode provider diag", {
         provider: resolveOpencodeHostModel(CONFIG)?.providerID,
@@ -691,8 +691,8 @@ Use the update_user_profile tool to save the ${existingProfile ? "updated" : "ne
     throw new Error("External API not configured for user memory learning");
   }
 
-  const { AIProviderFactory } = await import("./ai/ai-provider-factory.js");
-  const { buildMemoryProviderConfig } = await import("./ai/provider-config.js");
+  const { AIProviderFactory } = await import("../../services/ai/ai-provider-factory.js");
+  const { buildMemoryProviderConfig } = await import("../../services/ai/provider-config.js");
 
   const providerConfig = buildMemoryProviderConfig(CONFIG);
 
@@ -757,7 +757,7 @@ If no clear chains, return { "paths": [] }.`;
     try {
       const { z } = await import("zod");
       const { generateStructuredOutput } = await loadOpencodeProvider();
-      const { getOpenCodeClient } = await import("./ai/profile-llm-client.js");
+      const { getOpenCodeClient } = await import("./profile-llm-client.js");
 
       let v2Client;
       try {

@@ -44,7 +44,7 @@ describe("OpenCode v2 legacy client bridge", () => {
 
   it("lists each connected provider's models for the Settings page", async () => {
     const client = createLegacyClient(createContext());
-    const { listOpencodeSettingsModels } = await import("../src/services/settings-models.js");
+    const { listOpencodeSettingsModels } = await import("../src/importer/settings-models.js");
     const listed = await listOpencodeSettingsModels(client as never);
     expect(listed).toEqual({
       available: true,

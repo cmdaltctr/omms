@@ -10,7 +10,7 @@ OMMS's shared layers still hold OpenCode's own model code. `src/services/ai/` co
   - `opencode-provider.ts`, `opencode-sdk-client.ts`, `opencode-provider-loader.ts`, `opencode-host-config.ts`, `opencode-import-models.ts`, `opencode-diagnostics.ts`, and `profile-llm-client.ts`
   - `internal-capture-sessions.ts`, except the list of internal session titles. The OpenCode history reader needs that list, so it moves to `src/importer/`.
 - Move OpenCode's profile learning loop, `src/services/user-memory-learning.ts`, which takes OpenCode's `PluginInput`, into `src/adapters/opencode/`.
-- Change `user-profile-manager.ts` and `ai-cleanup.ts` in `src/services/user-profile/` to call a model through the existing `ModelPort` (`src/core/profile-analysis.ts`), which the host passes in. They no longer resolve or call OpenCode models themselves.
+- Change `user-profile-manager.ts` and `ai-cleanup.ts` in `src/services/user-profile/` to call a model through the existing `ModelPort` (`src/core/profile-analysis.ts`), which the host registers. They no longer resolve or call OpenCode models themselves.
 - Let the OpenCode adapter register its import models with the importer, the same way it registers its backfill models today (`registerHostBackfillModels`). `web-import-jobs.ts` and `settings-health.ts` then use the registered models instead of importing OpenCode code.
 - Move host model listing for the Settings page (`src/services/settings-models.ts`) into `src/importer/`. The importer already holds the code that reads host data without the host running.
 - Extend the boundary tests:

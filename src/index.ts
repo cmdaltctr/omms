@@ -20,7 +20,7 @@ import {
   runOpencodeImportCommand,
 } from "./adapters/opencode/import-command.js";
 import { formatMemoriesForCompaction } from "./core/retrieval.js";
-import { performUserProfileLearning } from "./services/user-memory-learning.js";
+import { performUserProfileLearning } from "./adapters/opencode/profile-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
 import { startWebServer, WebServer } from "./services/web-server.js";
 import { pruneTraces } from "./services/capture-diagnostics.js";
@@ -32,18 +32,19 @@ import { isConfigured, CONFIG, initConfigWithLegacyMigration } from "./config.js
 import { resolveOpencodeHostModel } from "./services/ai/live-model-choice.js";
 import { log } from "./services/logger.js";
 import { getLanguageName } from "./services/language-detector.js";
-import { getHostClientConfig } from "./services/ai/opencode-host-config.js";
-import { loadOpencodeProvider } from "./services/ai/opencode-provider-loader.js";
+import { getHostClientConfig } from "./adapters/opencode/opencode-host-config.js";
+import { loadOpencodeProvider } from "./adapters/opencode/opencode-provider-loader.js";
 import {
   STRUCTURED_OUTPUT_AGENT,
   STRUCTURED_OUTPUT_TOOLS,
-} from "./services/ai/opencode-provider.js";
+} from "./adapters/opencode/opencode-provider.js";
 
 import {
   INTERNAL_CAPTURE_SESSION_TITLE,
   isInternalCaptureSessionTitle,
   isTrackedInternalCaptureSession,
-} from "./services/ai/internal-capture-sessions.js";
+} from "./adapters/opencode/internal-capture-sessions.js";
+import { registerOpencodeProfileModel } from "./adapters/opencode/profile-model.js";
 
 export { INTERNAL_CAPTURE_SESSION_TITLE, isInternalCaptureSessionTitle };
 export { isStructuredSummaryPromptMessage };
@@ -284,6 +285,13 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
   }
 
   await configureOpencodeHostTransport(ctx);
+  // Shared profile dedup, conflict, description, and cleanup calls use OpenCode's host model.
+  registerOpencodeProfileModel();
+  // Web imports, Health, and Settings served by this process can list and use OpenCode's models.
+  // Awaited so the web server never serves those routes before the registry is filled.
+  await import("./adapters/opencode/backfill-startup.js")
+    .then(({ registerOpencodeImportModels }) => registerOpencodeImportModels())
+    .catch(() => {});
 
   (async () => {
     let connected: string[] = [];

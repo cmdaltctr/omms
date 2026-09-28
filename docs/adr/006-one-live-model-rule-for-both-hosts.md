@@ -56,7 +56,7 @@ OpenCode call sites use `resolveOpencodeHostModel(CONFIG)`: capture, profile lea
 
 - `src/services/ai/live-model-choice.ts`, `src/config.ts`
 - `src/adapters/pi/live-model.ts`, `src/adapters/pi/extension.ts`, `src/adapters/pi/profile.ts`
-- `src/adapters/opencode/auto-capture-summary.ts`, `src/services/user-memory-learning.ts`
+- `src/adapters/opencode/auto-capture-summary.ts`, `src/adapters/opencode/profile-learning.ts`
 - `src/services/user-profile/user-profile-manager.ts`, `src/services/user-profile/ai-cleanup.ts`
 - `tests/live-model-choice.test.ts`
 - README "Auto-Capture AI Provider", `docs/pi-adapter.md`
