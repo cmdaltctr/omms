@@ -170,6 +170,7 @@ export async function generateOpenCodeAutoCaptureSummary(
 
   const { AIProviderFactory } = await import("../../services/ai/ai-provider-factory.js");
   const { buildMemoryProviderConfig } = await import("../../services/ai/provider-config.js");
+  const { toolCallFailureReason } = await import("../../services/ai/providers/base-provider.js");
   const { detectLanguage, getLanguageName } = await import("../../services/language-detector.js");
 
   const providerConfig = buildMemoryProviderConfig(CONFIG);
@@ -238,7 +239,7 @@ export async function generateOpenCodeAutoCaptureSummary(
   diagnostics.retryAfterMs = result.retryAfterMs;
 
   if (!result.success || !result.data) {
-    diagnostics.failureReason = diagnostics.stopReason === "length" ? "truncated" : "call-error";
+    diagnostics.failureReason = toolCallFailureReason(result, diagnostics.stopReason === "length");
     throw new Error(result.error || "Failed to generate summary");
   }
 

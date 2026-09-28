@@ -124,7 +124,12 @@ describe("OpenCode capture diagnostics", () => {
 
   it("reports a failed external API call as call-error", async () => {
     externalConfig();
-    toolCallResult = { success: false, error: "API error: 500", stopReason: "stop" };
+    toolCallResult = {
+      success: false,
+      error: "API error: 500",
+      stopReason: "stop",
+      httpStatus: 500,
+    };
     const { error, diagnostics } = await run();
     expect(error).toBeDefined();
     expect(diagnostics).toMatchObject({
@@ -133,6 +138,20 @@ describe("OpenCode capture diagnostics", () => {
       model: "glm-5.3",
       failureReason: "call-error",
     });
+  });
+
+  it("reports an external API request with no reply as call-error", async () => {
+    externalConfig();
+    toolCallResult = { success: false, error: "TypeError: fetch failed", transportError: true };
+    const { diagnostics } = await run();
+    expect(diagnostics.failureReason).toBe("call-error");
+  });
+
+  it("reports an unusable external API reply with no HTTP error as schema-mismatch", async () => {
+    externalConfig();
+    toolCallResult = { success: false, error: "Max iterations (5) reached without tool call" };
+    const { diagnostics } = await run();
+    expect(diagnostics.failureReason).toBe("schema-mismatch");
   });
 
   it("reports an external API length stop as truncated", async () => {

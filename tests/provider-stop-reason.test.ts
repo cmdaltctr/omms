@@ -140,6 +140,34 @@ describe("model call failures report their HTTP status", () => {
     expect(result.retryAfterMs).toBe(30_000);
   });
 
+  it.each([
+    ["OpenAI chat completions", OpenAIChatCompletionProvider],
+    ["OpenAI responses", OpenAIResponsesProvider],
+    ["Anthropic messages", AnthropicMessagesProvider],
+    ["Google Gemini", GoogleGeminiProvider],
+  ] as const)(
+    "%s marks a network failure, and not a bad reply, as a transport error",
+    async (_name, Provider) => {
+      globalThis.fetch = (async () => {
+        throw new TypeError("Unable to connect");
+      }) as unknown as typeof fetch;
+      const provider = new Provider(config, new FakeSessionManager() as any);
+      const down = await provider.executeToolCall("s", "u", toolSchema, "id");
+      expect(down).toMatchObject({ success: false, transportError: true });
+
+      replyWith({});
+      const bad = await new Provider(config, new FakeSessionManager() as any).executeToolCall(
+        "s",
+        "u",
+        toolSchema,
+        "id"
+      );
+      expect(bad.success).toBe(false);
+      expect(bad.transportError).toBeFalsy();
+      expect(bad.httpStatus).toBeUndefined();
+    }
+  );
+
   it("OpenCode server calls attach httpStatus to the thrown error", async () => {
     const res = new Response("busy", { status: 503 });
     const error = await readJson(res, { label: "POST /session", url: "http://x/session" }).catch(

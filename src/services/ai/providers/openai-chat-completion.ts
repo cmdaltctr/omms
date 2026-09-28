@@ -4,6 +4,7 @@ import {
   type ToolCallResult,
   applySafeExtraParams,
   describeValidationError,
+  isTransportError,
 } from "./base-provider.js";
 import type { AISessionManager } from "../session/ai-session-manager.js";
 import type { AIMessage, AIProviderType } from "../session/session-types.js";
@@ -510,6 +511,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
           return {
             stopReason,
             success: false,
+            transportError: true,
             error: `API request timeout (${iterationTimeout}ms)`,
             iterations,
           };
@@ -518,6 +520,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
           stopReason,
           success: false,
           error: String(error),
+          transportError: isTransportError(error),
           iterations,
         };
       }

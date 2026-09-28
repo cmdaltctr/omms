@@ -3,6 +3,7 @@ import { CONFIG } from "../src/config.js";
 
 const calls: Array<{ provider: string; config: { model: string; apiKey: string } }> = [];
 const results: Array<{ name: string; tool: unknown }> = [];
+let failure: Record<string, unknown> | null = null;
 mock.module("../src/services/ai/ai-provider-factory.js", () => ({
   AIProviderFactory: {
     getSupportedProviders: () => ["openai-chat", "anthropic"],
@@ -15,6 +16,7 @@ mock.module("../src/services/ai/ai-provider-factory.js", () => ({
           tool: { function: { name: string } }
         ) => {
           results.push({ name: tool.function.name, tool });
+          if (failure) return failure;
           return {
             success: true,
             data:
@@ -80,5 +82,38 @@ it("overrides the import model for both steps without changing configuration or 
   } finally {
     Object.assign(CONFIG, previous);
     delete process.env.OMMS_TEST_IMPORT_KEY;
+  }
+});
+
+it("labels an external API failure so only a request with no reply or an HTTP error is retried", async () => {
+  const previous = { ...CONFIG };
+  Object.assign(CONFIG, {
+    memoryProvider: "openai-chat",
+    memoryModel: "m",
+    memoryApiUrl: "https://default.invalid",
+    memoryApiKey: "key-for-test",
+  });
+  const summarize = async (result: Record<string, unknown>) => {
+    failure = { success: false, error: "failed", ...result };
+    const diagnostics: Record<string, unknown> = {};
+    await selectImportModel({})
+      .capture.summarize({
+        userPrompt: "hi",
+        context: "hi",
+        sessionId: "s",
+        projectDirectory: "/tmp",
+        diagnostics,
+      })
+      .catch(() => {});
+    return diagnostics.failureReason;
+  };
+  try {
+    expect(await summarize({ transportError: true })).toBe("call-error");
+    expect(await summarize({ httpStatus: 503 })).toBe("call-error");
+    expect(await summarize({})).toBe("schema-mismatch");
+    expect(await summarize({ stopReason: "length" })).toBe("truncated");
+  } finally {
+    failure = null;
+    Object.assign(CONFIG, previous);
   }
 });

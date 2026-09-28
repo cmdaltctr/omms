@@ -202,6 +202,14 @@ describe("claims", () => {
     expect(results.filter(Boolean)).toHaveLength(1);
   });
 
+  it("keeps a live claim when the same turn is queued again", async () => {
+    await queue.enqueueCaptureRetry(unit(), network, config, T0);
+    const [row] = await queue.listDueCaptureRetries("pi", config, T0 + HOUR);
+    expect(await queue.claimCaptureRetry(row!.id, config, T0 + HOUR)).toBe(true);
+    await queue.enqueueCaptureRetry(unit(), network, config, T0 + HOUR + 1000);
+    expect(await queue.claimCaptureRetry(row!.id, config, T0 + HOUR + 2000)).toBe(false);
+  });
+
   it("lets an expired lease be claimed again", async () => {
     await queue.enqueueCaptureRetry(unit(), network, config, T0);
     const [row] = await queue.listDueCaptureRetries("pi", config, T0 + HOUR);

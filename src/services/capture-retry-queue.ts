@@ -148,7 +148,7 @@ export async function enqueueCaptureRetry(
     ON CONFLICT (host, turn_id) DO UPDATE SET
       work_unit = excluded.work_unit, size_bytes = excluded.size_bytes,
       attempts = excluded.attempts, next_attempt_at = excluded.next_attempt_at,
-      last_reason = excluded.last_reason, claimed_until = NULL`,
+      last_reason = excluded.last_reason`,
     [
       unit.host,
       unit.hostSessionId,

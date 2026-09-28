@@ -1,4 +1,9 @@
-import { BaseAIProvider, describeValidationError, type ToolCallResult } from "./base-provider.js";
+import {
+  BaseAIProvider,
+  describeValidationError,
+  isTransportError,
+  type ToolCallResult,
+} from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
 import type { ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";
@@ -282,7 +287,13 @@ export class GoogleGeminiProvider extends BaseAIProvider {
         contents.push({ role: "user", parts: [{ text: retryPrompt }] });
       } catch (error) {
         clearTimeout(timeout);
-        return { stopReason, success: false, error: String(error), iterations };
+        return {
+          stopReason,
+          success: false,
+          error: String(error),
+          transportError: isTransportError(error),
+          iterations,
+        };
       }
     }
 

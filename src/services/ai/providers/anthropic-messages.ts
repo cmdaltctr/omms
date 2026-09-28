@@ -2,6 +2,7 @@ import {
   applySafeExtraParams,
   BaseAIProvider,
   describeValidationError,
+  isTransportError,
   type ToolCallResult,
 } from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
@@ -267,6 +268,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
           return {
             stopReason,
             success: false,
+            transportError: true,
             error: `${this.timeoutLabel()} (${this.config.iterationTimeout}ms)`,
             iterations,
           };
@@ -275,6 +277,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
           stopReason,
           success: false,
           error: String(error),
+          transportError: isTransportError(error),
           iterations,
         };
       }
