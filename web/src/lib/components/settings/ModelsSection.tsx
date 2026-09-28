@@ -257,7 +257,9 @@ function ModelCard({
       )}
       {current === "manual" && list && !list.available && (
         <p className="text-xs text-muted-foreground">
-          {s("Model list unavailable. Enter provider/model manually.")}
+          {list.reason
+            ? s(list.reason)
+            : s("Model list unavailable. Enter provider/model manually.")}
         </p>
       )}
       <button

@@ -35,6 +35,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [011](./011-use-execfilesync-in-windows-git-wrapper-test.md) | Use execFileSync in the Windows Git wrapper test                        | Proposed              | 2026-09-27 |
 | [012](./012-tag-migration-touches-only-untagged-memories.md) | Tag migration touches only untagged memories                            | Proposed              | 2026-09-28 |
 | [013](./013-stable-homebrew-runtime-for-login-item.md)       | Store a stable Homebrew runtime path in the login item                  | Proposed              | 2026-09-28 |
+| [014](./014-read-opencode-v2-models-over-http.md)            | Read OpenCode v2 models through a private `opencode serve`              | Proposed              | 2026-09-28 |
 
 ## Status values
 

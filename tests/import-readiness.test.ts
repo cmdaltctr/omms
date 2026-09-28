@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from "bun:test";
+import { afterEach, expect, it, mock } from "bun:test";
 import { CONFIG } from "../src/config.js";
 import { importBlockedReason, importReadiness } from "../src/importer/import-readiness.js";
 
@@ -83,4 +83,18 @@ it("blocks Pi previews and imports when the Pi SDK cannot load", async () => {
   expect(readiness.piReader.available).toBe(false);
   expect(importBlockedReason(readiness, { host: "pi", needsModel: false })).toContain("Pi SDK");
   expect(importBlockedReason(readiness, { host: "opencode", needsModel: false })).toBeNull();
+});
+
+it("keeps the OpenCode import models to a live session", async () => {
+  let standaloneReads = 0;
+  mock.module("../src/importer/opencode-standalone-models.js", () => ({
+    readStandaloneOpencodeModels: async () => {
+      standaloneReads += 1;
+      return { outcome: "listed", models: [{ provider: "zai", model: "glm", name: "GLM" }] };
+    },
+  }));
+  configure({});
+  const readiness = await importReadiness({ ...deps, listOpencodeModels: undefined });
+  expect(standaloneReads).toBe(0);
+  expect(readiness.opencode).toEqual({ available: false, models: [] });
 });

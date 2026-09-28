@@ -1,0 +1,68 @@
+{
+  "location": { "directory": "/home/tester" },
+  "data": [
+    {
+      "id": "glm-5.3",
+      "modelID": "glm-5.3",
+      "providerID": "zai-coding-plan",
+      "family": "glm",
+      "name": "GLM-5.3",
+      "compatibility": { "reasoningField": "reasoning_content" },
+      "package": "@ai-sdk/openai-compatible",
+      "settings": {
+        "apiKey": "fixture-secret-key-7f3a9c",
+        "baseURL": "https://api.example.test/v1",
+        "provider": "zai-coding-plan"
+      },
+      "capabilities": { "tools": true, "input": ["text"], "output": ["text"] },
+      "variants": [],
+      "time": { "released": 1790000000000 },
+      "cost": [{ "input": 0.6, "output": 2.2, "cache": { "read": 0.1, "write": 0 } }],
+      "status": "active",
+      "enabled": true,
+      "limit": { "context": 200000, "output": 128000 }
+    },
+    {
+      "id": "glm-5.3-flash",
+      "modelID": "glm-5.3-flash",
+      "providerID": "zai-coding-plan",
+      "family": "glm",
+      "name": "GLM-5.3-Flash",
+      "compatibility": { "reasoningField": "reasoning_content" },
+      "package": "@ai-sdk/openai-compatible",
+      "settings": {
+        "apiKey": "fixture-secret-key-7f3a9c",
+        "baseURL": "https://api.example.test/v1",
+        "provider": "zai-coding-plan"
+      },
+      "capabilities": { "tools": true, "input": ["text"], "output": ["text"] },
+      "variants": [],
+      "time": { "released": 1790000000000 },
+      "cost": [{ "input": 0.1, "output": 0.4, "cache": { "read": 0, "write": 0 } }],
+      "status": "active",
+      "enabled": true,
+      "limit": { "context": 200000, "output": 64000 }
+    },
+    {
+      "id": "gpt-6-luna-fast",
+      "modelID": "gpt-6-luna",
+      "providerID": "openai",
+      "family": "gpt",
+      "name": "",
+      "compatibility": { "reasoningField": "reasoning" },
+      "package": "@ai-sdk/openai",
+      "settings": {
+        "apiKey": "fixture-secret-key-7f3a9c",
+        "baseURL": "https://api.example.test/openai",
+        "provider": "openai"
+      },
+      "capabilities": { "tools": true, "input": ["text", "image"], "output": ["text"] },
+      "variants": [],
+      "time": { "released": 1790000000000 },
+      "cost": [{ "input": 2, "output": 8, "cache": { "read": 0.5, "write": 0 } }],
+      "status": "active",
+      "enabled": true,
+      "limit": { "context": 400000, "output": 128000 }
+    }
+  ]
+}

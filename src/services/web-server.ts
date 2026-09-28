@@ -432,8 +432,10 @@ export class WebServer {
     this.server.stop();
     this.server = null;
     this.isOwner = false;
-    const { opencodeSnapshots } = await import("../importer/web-import-api.js");
+    const { opencodeSnapshots, stopStandaloneOpencodeReads } =
+      await import("../importer/web-import-api.js");
     await opencodeSnapshots.closeAll();
+    await stopStandaloneOpencodeReads();
   }
 
   isRunning(): boolean {

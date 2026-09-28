@@ -1,0 +1,21 @@
+{
+  "all": [
+    {
+      "id": "zai-coding-plan",
+      "name": "Z.AI Coding Plan",
+      "env": ["ZHIPU_API_KEY"],
+      "models": {
+        "glm-5.3": { "id": "glm-5.3", "name": "GLM-5.3" },
+        "glm-5.3-flash": { "id": "glm-5.3-flash", "name": "GLM-5.3-Flash" }
+      }
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "env": ["ANTHROPIC_API_KEY"],
+      "models": { "claude-hidden": { "id": "claude-hidden", "name": "Not signed in" } }
+    }
+  ],
+  "default": { "zai-coding-plan": "glm-5.3" },
+  "connected": ["zai-coding-plan"]
+}

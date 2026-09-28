@@ -25,6 +25,35 @@ const text = {
     "模型列表不可用。请手动输入提供商/模型。",
     "قائمة النماذج غير متاحة. أدخل المزوّد/النموذج يدوياً.",
   ],
+  // Model list reasons from src/importer/settings-models.ts; keep the keys identical.
+  "OpenCode model list unavailable": ["OpenCode 模型列表不可用", "قائمة نماذج OpenCode غير متاحة"],
+  "OMMS could not find OpenCode on this computer, so it cannot list OpenCode's models here. Type the model as provider/model, for example zai-coding-plan/glm-5.3. If OpenCode is installed, open an OpenCode session and reload this page.":
+    [
+      "OMMS 在这台电脑上找不到 OpenCode，因此无法在此列出 OpenCode 的模型。请按 提供商/模型 格式输入模型，例如 zai-coding-plan/glm-5.3。如果已安装 OpenCode，请打开一个 OpenCode 会话，然后重新加载此页面。",
+      "لم يعثر OMMS على OpenCode في هذا الحاسوب، لذا لا يمكنه عرض نماذج OpenCode هنا. أدخل النموذج بصيغة المزوّد/النموذج، مثل zai-coding-plan/glm-5.3. إذا كان OpenCode مثبتاً، فافتح جلسة OpenCode ثم أعد تحميل هذه الصفحة.",
+    ],
+  "OpenCode took too long to send its model list. Reload this page to try again, or type the model as provider/model.":
+    [
+      "OpenCode 发送模型列表的时间过长。请重新加载此页面重试，或按 提供商/模型 格式输入模型。",
+      "استغرق OpenCode وقتاً طويلاً لإرسال قائمة نماذجه. أعد تحميل هذه الصفحة للمحاولة مرة أخرى، أو أدخل النموذج بصيغة المزوّد/النموذج.",
+    ],
+  "OpenCode has no signed-in models. Run `opencode auth login`, then reload this page.": [
+    "OpenCode 没有已登录的模型。请运行 `opencode auth login`，然后重新加载此页面。",
+    "لا توجد في OpenCode نماذج مسجَّل الدخول إليها. شغّل `opencode auth login` ثم أعد تحميل هذه الصفحة.",
+  ],
+  "This OpenCode version sent a model list OMMS cannot read. Type the model as provider/model. Update OMMS if this continues.":
+    [
+      "此版本的 OpenCode 发送的模型列表 OMMS 无法读取。请按 提供商/模型 格式输入模型。如果问题持续，请更新 OMMS。",
+      "أرسل هذا الإصدار من OpenCode قائمة نماذج لا يستطيع OMMS قراءتها. أدخل النموذج بصيغة المزوّد/النموذج. حدّث OMMS إذا استمرت المشكلة.",
+    ],
+  "OMMS could not read Pi's model list. Type the model as provider/model.": [
+    "OMMS 无法读取 Pi 的模型列表。请按 提供商/模型 格式输入模型。",
+    "تعذّر على OMMS قراءة قائمة نماذج Pi. أدخل النموذج بصيغة المزوّد/النموذج.",
+  ],
+  "Pi has no signed-in models. Sign in to a provider in Pi, then reload this page.": [
+    "Pi 没有已登录的模型。请在 Pi 中登录一个提供商，然后重新加载此页面。",
+    "لا توجد في Pi نماذج مسجَّل الدخول إليها. سجّل الدخول إلى مزوّد في Pi ثم أعد تحميل هذه الصفحة.",
+  ],
   "Save model": ["保存模型", "حفظ النموذج"],
   "Enter a model as provider/model.": [
     "按 提供商/模型 格式输入。",

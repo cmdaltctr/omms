@@ -61,7 +61,8 @@ describe("OpenCode host models registry", () => {
   });
 
   it("reports the OpenCode model list as unavailable with nothing registered", async () => {
-    expect(await listOpencodeSettingsModels()).toEqual({
+    // null skips the standalone OpenCode server, which tests/settings-models.test.ts covers.
+    expect(await listOpencodeSettingsModels(undefined, null)).toEqual({
       available: false,
       reason: "OpenCode model list unavailable",
     });

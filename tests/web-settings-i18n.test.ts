@@ -25,3 +25,13 @@ it("has Chinese and Arabic text for every literal label in the Settings sections
   }
   expect(missing).toEqual([]);
 });
+
+it("has Chinese and Arabic text for every model list reason the server returns", async () => {
+  const { SETTINGS_MODEL_REASONS } = await import("../src/importer/settings-models.js");
+  expect(SETTINGS_MODEL_REASONS.length).toBeGreaterThanOrEqual(7);
+  const missing = SETTINGS_MODEL_REASONS.filter(
+    (reason) =>
+      translateSettings(reason, "zh") === reason || translateSettings(reason, "ar") === reason
+  );
+  expect(missing).toEqual([]);
+});
