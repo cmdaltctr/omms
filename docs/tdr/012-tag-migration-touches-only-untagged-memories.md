@@ -15,7 +15,7 @@ The web UI's **Memory Tagging Migration** dialog reports how many memories have 
 
 ## Decision
 
-The run builds its work list once, when it starts, from `SELECT id FROM memories WHERE tags IS NULL OR tags = ''` in each project shard, so the total matches the dialog's count. Each memory is re-read by id; one that gained tags or was deleted since is passed over. Only a memory that receives tags is re-embedded. A failure is recorded in `errors` and the run always moves on. When a run completes, the next run starts from a fresh list of whatever is still untagged.
+The run builds its work list once, when it starts, from `SELECT id FROM memories WHERE tags IS NULL OR tags = ''` in each project shard, so the total matches the dialog's count. Each memory is re-read by id; one that gained tags or was deleted since is passed over. Only a memory that receives tags is re-embedded. Its tags and both vectors are saved in one `UPDATE`, so a failed embedding leaves it untagged and a later run tries it again. A failure is recorded in `errors` and the run always moves on. When a run completes, the next run starts from a fresh list of whatever is still untagged.
 
 ## Consequences
 

@@ -38,6 +38,7 @@ it("tags only untagged memories, keeps tagged vectors, and moves past a failure"
     ["tagged", ["kept"]],
     ["untagged-ok", undefined],
     ["untagged-fails", undefined],
+    ["untagged-embed-fails", undefined],
   ] as const) {
     await tursoVectorSearch.insertVector(db, {
       id,
@@ -54,6 +55,7 @@ it("tags only untagged memories, keeps tagged vectors, and moves past a failure"
   const originalEmbed = embeddingService.embedWithTimeout;
   const originalCreate = AIProviderFactory.createProvider;
   embeddingService.embedWithTimeout = (async (text: string) => {
+    if (text.includes("untagged-embed-fails")) throw new Error("embedding timed out");
     embedded.push(text);
     return vector;
   }) as typeof originalEmbed;
@@ -64,15 +66,17 @@ it("tags only untagged memories, keeps tagged vectors, and moves past a failure"
         : { success: true, data: { tags: ["Bun", "sqlite"] } },
   })) as unknown as typeof originalCreate;
   try {
-    expect((await handleDetectTagMigration()).data).toEqual({ needsMigration: true, count: 2 });
+    expect((await handleDetectTagMigration()).data).toEqual({ needsMigration: true, count: 3 });
     const first = await handleRunTagMigrationBatch(1);
-    const second = await handleRunTagMigrationBatch(1);
-    expect(first.data).toEqual({ processed: 1, total: 2, hasMore: true });
-    expect(second.data).toEqual({ processed: 2, total: 2, hasMore: false });
+    const second = await handleRunTagMigrationBatch(2);
+    expect(first.data).toEqual({ processed: 1, total: 3, hasMore: true });
+    expect(second.data).toEqual({ processed: 3, total: 3, hasMore: false });
 
     const rows = await db.all("SELECT id, tags FROM memories ORDER BY id");
     expect(rows.map((row) => [row.id, row.tags])).toEqual([
       ["tagged", "kept"],
+      // Tags are saved only together with fresh vectors, so a failed embedding stays untagged.
+      ["untagged-embed-fails", null],
       ["untagged-fails", null],
       ["untagged-ok", "bun,sqlite"],
     ]);
@@ -82,7 +86,7 @@ it("tags only untagged memories, keeps tagged vectors, and moves past a failure"
 
     // A later run starts over with only what is still untagged.
     const retry = await handleRunTagMigrationBatch(5);
-    expect(retry.data).toEqual({ processed: 1, total: 1, hasMore: false });
+    expect(retry.data).toEqual({ processed: 2, total: 2, hasMore: false });
   } finally {
     embeddingService.embedWithTimeout = originalEmbed;
     AIProviderFactory.createProvider = originalCreate;

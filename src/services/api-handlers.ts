@@ -1532,12 +1532,12 @@ export async function handleRunTagMigrationBatch(
         if (!result.success || tags.length === 0) {
           throw new Error(result.error ?? "The model returned no tags");
         }
-        await db.run("UPDATE memories SET tags = ? WHERE id = ?", [tags.join(","), m.id]);
         const vector = await embeddingService.embedWithTimeout(m.content, { task: "document" });
         const tagsVector = await embeddingService.embedWithTimeout(formatTagsForEmbedding(tags), {
           task: "document",
         });
-        await tursoVectorSearch.updateVector(db, m.id, vector, tagsVector);
+        // One statement, so a memory never ends up tagged with stale vectors.
+        await tursoVectorSearch.updateVector(db, m.id, vector, tagsVector, tags.join(","));
       } catch (e) {
         const errorMsg = String(e);
         migrationProgress.errors.push(errorMsg);
