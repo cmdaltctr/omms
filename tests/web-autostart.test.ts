@@ -7,9 +7,10 @@ import {
   writeFileSync,
   mkdirSync,
   chmodSync,
+  symlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   installWebAutostart,
   removeWebAutostart,
@@ -157,4 +158,27 @@ it("uses Node or Bun rather than OpenCode's executable", () => {
   const fallback = resolveWebRuntime("/opt/bin/opencode");
   expect(fallback).not.toBe("/opt/bin/opencode");
   expect(fallback).toMatch(/[\\/](node|bun)(\.exe)?$/i);
+});
+
+it("replaces a versioned Homebrew Cellar path with its stable link", () => {
+  const prefix = mkdtempSync(join(tmpdir(), "omms-brew-"));
+  homes.push(prefix);
+  const cellar = join(prefix, "Cellar", "node", "26.9.0", "bin");
+  mkdirSync(cellar, { recursive: true });
+  const node = join(cellar, "node");
+  writeFileSync(node, "");
+  chmodSync(node, 0o755);
+  // Unlinked or keg-only formula: only the opt link exists.
+  mkdirSync(join(prefix, "opt"), { recursive: true });
+  symlinkSync(join(prefix, "Cellar", "node", "26.9.0"), join(prefix, "opt", "node"));
+  expect(resolveWebRuntime(node, "darwin")).toBe(join(prefix, "opt", "node", "bin", "node"));
+  // Linked formula: prefer the familiar bin link.
+  mkdirSync(join(prefix, "bin"));
+  symlinkSync(node, join(prefix, "bin", "node"));
+  expect(resolveWebRuntime(node, "darwin")).toBe(join(prefix, "bin", "node"));
+  // No link at all: keep the path that works today.
+  const other = join(prefix, "Cellar", "bun", "1.3.0", "bin", "bun");
+  mkdirSync(dirname(other), { recursive: true });
+  writeFileSync(other, "");
+  expect(resolveWebRuntime(other, "darwin")).toBe(other);
 });

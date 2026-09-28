@@ -4,17 +4,17 @@ The npm package ships one terminal command, `om-memory-system`. Use it to import
 
 ## Command reference
 
-| Command                                            | What it does                                                          |
-| -------------------------------------------------- | --------------------------------------------------------------------- |
-| `om-memory-system import-opencode-history [flags]` | Import OpenCode history with the external API.                        |
-| `om-memory-system import-pi-history [flags]`       | Import Pi history with the external API.                              |
-| `om-memory-system web`                             | Start the web app in the foreground.                                  |
-| `om-memory-system web install`                     | Set `webServerAutoStart` to `true` and install the login item.        |
-| `om-memory-system web uninstall`                   | Set `webServerAutoStart` to `false` and remove the login item.        |
-| `om-memory-system web status`                      | Print the setting, the login item state, and whether a web app is up. |
-| `om-memory-system --version`, `-v`                 | Print the installed version and exit with code `0`.                   |
-| `om-memory-system --help`, `-h`, or no arguments   | Print the command list.                                               |
-| `om-memory-system <import command> --help`         | Print the flags for that import command.                              |
+| Command                                            | What it does                                                                     |
+| -------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `om-memory-system import-opencode-history [flags]` | Import OpenCode history with the external API.                                   |
+| `om-memory-system import-pi-history [flags]`       | Import Pi history with the external API.                                         |
+| `om-memory-system web`                             | Start the web app in the foreground.                                             |
+| `om-memory-system web install`                     | Set `webServerAutoStart` to `true` and install the login item.                   |
+| `om-memory-system web uninstall`                   | Set `webServerAutoStart` to `false` and remove the login item.                   |
+| `om-memory-system web status`                      | Print the setting, the login item state, the URL, and whether the web app is up. |
+| `om-memory-system --version`, `-v`                 | Print the installed version and exit with code `0`.                              |
+| `om-memory-system --help`, `-h`, or no arguments   | Print the command list.                                                          |
+| `om-memory-system <import command> --help`         | Print the flags for that import command.                                         |
 
 Slash commands inside a session:
 
@@ -148,11 +148,13 @@ Error messages never contain the API key. The key from `--api-key-env` and the s
 `om-memory-system web install` sets `webServerAutoStart` to `true` in the global config and registers the login item.
 
 - It needs `webServerEnabled: true`, an installed Node or Bun runtime, and a package path it can find.
+- It prints the web app URL from `webServerHost` and `webServerPort`, for example `http://127.0.0.1:4747`.
+- For a Homebrew runtime, the item stores the stable link, for example `/opt/homebrew/bin/node`. It does not store the versioned `Cellar` path, so a Homebrew upgrade does not break the item.
 - It exits with code `1` if the item is not installed.
 
 `om-memory-system web uninstall` sets `webServerAutoStart` to `false` and removes only OMMS's own item.
 
-`om-memory-system web status` prints JSON with the setting, the item state, and whether a web app answers. It changes nothing.
+`om-memory-system web status` prints JSON with the setting, the item state, the web app URL, and whether a web app answers. It changes nothing.
 
 Any other argument after `web` prints the usage and exits with code `1`.
 

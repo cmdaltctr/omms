@@ -47,6 +47,8 @@ console.log("RESULT:" + JSON.stringify({ install, status, uninstall, refused, di
     expect(out.installedConfig).toContain('"webServerAutoStart": true');
     expect(out.uninstalledConfig).toContain('"webServerAutoStart": false');
     expect(out.commands.some((line: string) => line.includes("launchctl bootstrap"))).toBe(true);
+    expect(text).toContain("OMMS web app: http://127.0.0.1:4747");
+    expect(text).toContain('"url": "http://127.0.0.1:4747"');
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

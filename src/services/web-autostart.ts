@@ -5,6 +5,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   unlinkSync,
   writeFileSync,
@@ -50,15 +51,35 @@ function executable(name: string): string | null {
   return null;
 }
 
+function sameFile(a: string, b: string): boolean {
+  try {
+    return realpathSync(a) === realpathSync(b);
+  } catch {
+    return false;
+  }
+}
+
+/** A Homebrew upgrade deletes the versioned Cellar folder, so use a link that survives it. */
+function stableRuntime(path: string): string {
+  const match = /^(.*)[\\/]Cellar[\\/]([^\\/]+)[\\/][^\\/]+[\\/]bin[\\/]([^\\/]+)$/.exec(path);
+  const [, prefix, formula, name] = match ?? [];
+  if (!prefix || !formula || !name) return path;
+  const linked = join(prefix, "bin", name);
+  if (sameFile(linked, path)) return linked;
+  const opt = join(prefix, "opt", formula, "bin", name);
+  return sameFile(opt, path) ? opt : path;
+}
+
 /** OpenCode's executable is not a JavaScript runtime. */
 export function resolveWebRuntime(
   execPath = process.execPath,
   platform = process.platform
 ): string | null {
   const name = basename(execPath).toLowerCase();
-  if (["node", "bun", "node.exe", "bun.exe"].includes(name)) return execPath;
+  if (["node", "bun", "node.exe", "bun.exe"].includes(name)) return stableRuntime(execPath);
   const suffix = platform === "win32" ? ".exe" : "";
-  return executable(`node${suffix}`) ?? executable(`bun${suffix}`);
+  const found = executable(`node${suffix}`) ?? executable(`bun${suffix}`);
+  return found && stableRuntime(found);
 }
 
 function packageRoot(): string | null {
