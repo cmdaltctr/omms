@@ -22,6 +22,7 @@ type Runs = Record<BackfillHost, { run: ImportRunView; runNowUnavailable: string
 type ModelList = {
   available: boolean;
   models?: Array<{ provider: string; model: string; name: string }>;
+  reason?: string;
 };
 type Status = {
   state: string;
@@ -235,7 +236,11 @@ export function AutoImportSection() {
               </p>
             )}
             {lists[host]?.available === false && (
-              <p>{s("Model list unavailable. Enter provider/model manually.")}</p>
+              <p>
+                {lists[host].reason
+                  ? s(lists[host].reason)
+                  : s("Model list unavailable. Enter provider/model manually.")}
+              </p>
             )}
             <button
               type="button"

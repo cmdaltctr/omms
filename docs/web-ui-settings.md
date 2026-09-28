@@ -76,6 +76,32 @@ Each card also shows, without letting you change it:
 
 The rule for choosing a model is the same on both hosts. See [Configuration: Choosing the model](configuration.md#choosing-the-model).
 
+### Model lists
+
+Inside an OpenCode session, the OpenCode card lists the session's signed-in models. The login web app and `om-memory-system web` have no OpenCode session. There, OMMS starts a private `opencode serve` to read the list, and stops it after the read:
+
+- The server listens only on `127.0.0.1`, on a free port, with a password that OMMS makes for that start.
+- OMMS finds `opencode` in `~/.opencode/bin`, then on `PATH`, then in `/opt/homebrew/bin`, `/usr/local/bin`, and `~/.bun/bin`. It does not read your shell profile.
+- OpenCode's reply contains provider API keys. OMMS keeps only the provider, model ID, and name. The keys never reach the page, the log, or error messages.
+- OMMS keeps a list for 5 minutes, so a reload does not start OpenCode again. A failed read is kept for 30 seconds.
+- The server starts in your home folder, so it reads OpenCode's global config only. Type a provider that you set up only in a project's `opencode.json` as `provider/model`.
+
+The Pi card reads Pi's sign-ins in the OMMS process, with or without a session.
+
+When a list is not available, the card and the Automatic import section show why, and what to do:
+
+| Message starts with                                      | Cause                                                               | What to do                                                              |
+| -------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| OMMS could not find OpenCode on this computer            | `opencode` is in none of the folders above.                         | Type `provider/model`, or open an OpenCode session and reload the page. |
+| OpenCode took too long to send its model list            | OpenCode did not start in 10 seconds, or sent no list in 5 seconds. | Reload the page to try again, or type `provider/model`.                 |
+| OpenCode has no signed-in models                         | OpenCode answered with an empty list.                               | Run `opencode auth login`, then reload the page.                        |
+| This OpenCode version sent a model list OMMS cannot read | OpenCode's reply has a format that OMMS does not know.              | Type `provider/model`. Update OMMS if this continues.                   |
+| OMMS could not read Pi's model list                      | The Pi SDK did not load.                                            | Type `provider/model`.                                                  |
+| Pi has no signed-in models                               | No Pi provider has a sign-in.                                       | Sign in to a provider in Pi, then reload the page.                      |
+| OpenCode model list unavailable                          | The OpenCode session could not give its list.                       | Type `provider/model`, or reload the page.                              |
+
+Health checks, test calls, and history imports that use an OpenCode model still need an OpenCode session.
+
 ## Capture diagnostics
 
 Every capture attempt writes one metadata record: host, model, sizes, stop reason, outcome, and failure reason. It never contains conversation text. This section shows those records.

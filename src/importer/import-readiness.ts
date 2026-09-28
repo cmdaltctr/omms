@@ -58,7 +58,9 @@ export async function importReadiness(deps: ReadinessDeps = {}): Promise<ImportR
     externalApiState(deps.supportedProviders),
     (
       deps.listOpencodeModels ??
-      (async () => (await import("./settings-models.js")).listOpencodeSettingsModels())
+      // Imports run OpenCode models, so they need a session, not the standalone list.
+      (async () =>
+        (await import("./settings-models.js")).listOpencodeSettingsModels(undefined, null))
     )(),
     (deps.loadPiSdk ?? (() => import("@earendil-works/pi-coding-agent")))().then(
       () => ({ available: true }),
