@@ -10,13 +10,10 @@ import {
   summarizeHistoryImportReport,
   runHistoryImport,
 } from "../../importer/run-import.js";
-import {
-  createOpencodeImportModels,
-  type OpencodeModelRef,
-} from "../../services/ai/opencode-import-models.js";
-export { createOpencodeImportModels } from "../../services/ai/opencode-import-models.js";
-export type { OpencodeModelRef } from "../../services/ai/opencode-import-models.js";
-import { loadOpencodeProvider } from "../../services/ai/opencode-provider-loader.js";
+import { createOpencodeImportModels, type OpencodeModelRef } from "./opencode-import-models.js";
+export { createOpencodeImportModels } from "./opencode-import-models.js";
+export type { OpencodeModelRef } from "./opencode-import-models.js";
+import { loadOpencodeProvider } from "./opencode-provider-loader.js";
 import { beginManualImport } from "../../importer/manual-import-guard.js";
 import { memoryClient } from "../../services/client.js";
 import { log } from "../../services/logger.js";

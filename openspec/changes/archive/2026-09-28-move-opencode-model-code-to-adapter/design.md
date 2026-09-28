@@ -46,25 +46,29 @@ What calls the OpenCode-specific modules in `src/services/ai/` today:
 
 `INTERNAL_CAPTURE_SESSION_TITLES` and `isInternalCaptureSessionTitle` describe OpenCode's history format: the titles omms gives its own capture sessions. The OpenCode history reader needs them without OpenCode running. They move to `src/importer/opencode-internal-sessions.ts`. The in-process tracking of live internal sessions (`isTrackedInternalCaptureSession`) moves with the adapter.
 
-### D3. Shared profile code takes a ModelPort
+### D3. Shared profile code uses a registered ModelPort
 
-`user-profile-manager.ts` and `ai-cleanup.ts` gain an optional `ModelPort` argument on the functions that call a model today. When the host passes one, they call `model.complete(system, prompt)` with the same prompt and schema as now. When it does not, they use the external API as today. The OpenCode adapter builds the `ModelPort` from its host model with a new `adaptOpencodeProfileModel`, in the same way as `adaptPiProfileModel`. The web server's profile cleanup endpoint passes the port registered by the host serving it (D4), or none in the standalone web app.
+A host registers a `ModelPort` factory with `registerHostProfileModel` in `src/services/user-profile/profile-model.ts`. `user-profile-manager.ts` and `ai-cleanup.ts` call `resolveHostProfileModel()`. When it returns a port, they call it with the same prompt and schema as now. When it returns null, they use the external API as today. The OpenCode adapter registers `adaptOpencodeProfileModel` at plugin start. Pi registers nothing, so Pi behaviour does not change. The standalone web app registers nothing, so its cleanup uses the external API, as today.
+
+`ModelPort` gains an optional `completeStructured(system, user, schema)`. OpenCode maps it to its structured output, as before. A port without it falls back to `complete` and parses the reply with the schema.
+
+Why a registration and not an argument: an argument would have to pass through `mergeProfileData`, `mergeItems`, and `evolveAndUpdate`, and through callers in `src/core/memory-operations.ts` and the web server. The registration keeps the same routing in every process with less change. It lives in services, because `src/services/` cannot import `src/importer/`.
 
 Alternative: move both files into the adapter. Rejected, because Pi and the web server use them too.
 
 ### D4. The importer receives OpenCode's models by registration
 
-`src/importer/backfill-controls.ts` generalises its registry. A host registers one object with its backfill model resolver, its import model factory, and its profile `ModelPort` factory. `web-import-jobs.ts` and `settings-health.ts` use the registered import model factory instead of importing `opencode-import-models.ts`. With nothing registered, as in the standalone web app, they report that OpenCode models are unavailable, exactly as they do now when no OpenCode client exists.
+`src/importer/backfill-controls.ts` keeps `registerHostBackfillModels` and adds `registerOpencodeHostModels`. The OpenCode adapter registers one object with `isProviderConnected`, `createImportModels`, and `listSettingsModels`. `web-import-jobs.ts`, `settings-health.ts`, and `settings-models.ts` use it instead of importing adapter code. With nothing registered, as in the standalone web app, they report that OpenCode models are unavailable, with the same messages as now. Pi registers no import models, because web imports use only OpenCode or external models. The profile port is not in this registry (see D3).
 
 Alternative: let the importer import the adapter dynamically. Rejected by ADR-011.
 
 ### D5. Model listing for the Settings page moves to the importer
 
-`settings-models.ts` lists each host's signed-in models for the page. It reads host data without the host running, which is the importer's role (ADR-011). It moves to `src/importer/settings-models.ts`. It loads the Pi SDK and the OpenCode client dynamically, as today.
+`settings-models.ts` lists each host's signed-in models for the page. It reads host data without the host running, which is the importer's role (ADR-011). It moves to `src/importer/settings-models.ts`. It loads the Pi SDK dynamically, as today. It gets the OpenCode model list from the D4 registration.
 
 ### D6. One boundary test covers every shared file
 
-`tests/pi-adapter-boundary.test.ts` gains a check that walks every `.ts` file under `src/core`, `src/services`, and `src/types`. It fails on any `@opencode-ai/` or `@earendil-works/` specifier in an `import`, `import type`, `export … from`, or `import()` call. For `src/importer`, it allows host SDKs only as dynamic `import()` in a named list of reader modules. The failure message names each file.
+`tests/pi-adapter-boundary.test.ts` gains a check that walks every `.ts` file under `src/core`, `src/services`, and `src/types`. It fails on any `@opencode-ai/` or `@earendil-works/` specifier in an `import`, `import type`, `export … from`, or `import()` call. For `src/importer`, it allows host SDKs only in a named list of reader modules (`session-loader.ts`, `import-readiness.ts`, `settings-models.ts`). Only `session-loader.ts` may import its SDK statically, because `run-import.ts` loads it through `import()`. The test also fails if any file imports `session-loader.ts` statically. The failure message names each file.
 
 ## Risks / Trade-offs
 

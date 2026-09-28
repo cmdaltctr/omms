@@ -20,7 +20,7 @@ OMMS (npm `om-memory-system`) is a memory plugin for AI coding agents. One share
 | `src/services/`                          | Storage (Turso/libSQL), embeddings, privacy, deduplication, project tags, profiles, web backend    |
 | `src/services/ai/live-model-choice.ts`   | The live-model rule for both hosts. Pure functions; callers pass `CONFIG`.                         |
 | `src/importer/`                          | History import: shared option parser (`import-args.ts`), runner (`run-import.ts`), ledger, readers |
-| `src/adapters/opencode/`, `src/index.ts` | OpenCode V1 plugin hooks and the OpenCode import command                                           |
+| `src/adapters/opencode/`, `src/index.ts` | OpenCode V1 plugin hooks, OpenCode model code, profile learning, and the OpenCode import command   |
 | `src/v2/`                                | OpenCode V2 plugin adapter over the V1 plugin                                                      |
 | `src/adapters/pi/`                       | Pi extension, Pi model bridge, Pi import command                                                   |
 | `src/cli/`                               | `om-memory-system` terminal command for both hosts                                                 |
@@ -28,7 +28,7 @@ OMMS (npm `om-memory-system`) is a memory plugin for AI coding agents. One share
 
 Keep these boundaries:
 
-- `src/core/` and `src/services/` must not import `@opencode-ai/*`, `@earendil-works/*`, or `src/adapters/*`.
+- `src/core/` and `src/services/` must not import `@opencode-ai/*`, `@earendil-works/*`, or `src/adapters/*`. Hosts register their models through `registerHostProfileModel` and `registerOpencodeHostModels`.
 - `src/importer/` must not import `src/adapters/*`. Each host's history reader lives in `src/importer/`, and adapters import from it.
 - `tests/host-neutral-capture-boundary.test.ts` and `tests/pi-adapter-boundary.test.ts` enforce that rule.
 - An adapter must not import the other host's adapter modules.

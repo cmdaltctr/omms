@@ -4,10 +4,7 @@ import { resolveExternalBackfillModels } from "../../importer/external-backfill-
 import { selectImportModel } from "../../importer/model-selection.js";
 import type { HistoryImportModels } from "../../importer/run-import.js";
 import { getAutoCaptureProviderStatus } from "../../services/ai/live-model-choice.js";
-import {
-  createOpencodeImportModels,
-  type OpencodeModelRef,
-} from "../../services/ai/opencode-import-models.js";
+import { createOpencodeImportModels, type OpencodeModelRef } from "./opencode-import-models.js";
 
 interface BackfillConfig {
   opencodeBackfillModel?: string;

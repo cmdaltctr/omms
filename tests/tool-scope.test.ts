@@ -18,7 +18,7 @@ const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
 const contextUrl = new URL("../src/services/context.js", import.meta.url).href;
 const privacyUrl = new URL("../src/services/privacy.js", import.meta.url).href;
 const autoCaptureUrl = new URL("../src/services/auto-capture.js", import.meta.url).href;
-const learningUrl = new URL("../src/services/user-memory-learning.js", import.meta.url).href;
+const learningUrl = new URL("../src/adapters/opencode/profile-learning.js", import.meta.url).href;
 const promptManagerUrl = new URL(
   "../src/services/user-prompt/user-prompt-manager.js",
   import.meta.url

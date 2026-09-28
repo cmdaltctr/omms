@@ -220,14 +220,11 @@ export class SettingsImportJobs {
             models = { capture: selected.capture, profile: selected.profile };
           } else {
             const [providerID = "", ...id] = input.modelChoice!.split("/");
-            const { loadOpencodeProvider } =
-              await import("../services/ai/opencode-provider-loader.js");
-            const { isProviderConnected } = await loadOpencodeProvider();
-            if (!isProviderConnected(providerID))
+            const { getOpencodeHostModels } = await import("./backfill-controls.js");
+            const opencode = getOpencodeHostModels();
+            if (!opencode?.isProviderConnected(providerID))
               throw new Error("OpenCode provider is not connected");
-            const { createOpencodeImportModels } =
-              await import("../services/ai/opencode-import-models.js");
-            models = await createOpencodeImportModels(
+            models = await opencode.createImportModels(
               { providerID, modelID: id.join("/") },
               directory
             );

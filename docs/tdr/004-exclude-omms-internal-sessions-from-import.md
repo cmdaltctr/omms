@@ -22,7 +22,7 @@ Their prompts are OMMS's own summarisation requests, so importing them would sto
 
 ## Decision
 
-`INTERNAL_CAPTURE_SESSION_TITLES` in `src/services/ai/internal-capture-sessions.ts` lists every title OMMS has used. When the `session` table has a `title` column, the reader adds `AND (s.title IS NULL OR s.title NOT IN (...))` to the session query and to both session counts. Any new internal title must be added to that list.
+`INTERNAL_CAPTURE_SESSION_TITLES` in `src/importer/opencode-internal-sessions.ts` lists every title OMMS has used. When the `session` table has a `title` column, the reader adds `AND (s.title IS NULL OR s.title NOT IN (...))` to the session query and to both session counts. Any new internal title must be added to that list.
 
 ## Consequences
 
@@ -49,7 +49,7 @@ Their prompts are OMMS's own summarisation requests, so importing them would sto
 ## How to Recognise / Handle This Again
 
 1. Symptom: imported memories or profile prompts describe summarising conversations or `save_memory` calls.
-2. Check with the query above, or look for a new title in `internal-capture-sessions.ts`.
+2. Check with the query above, or look for a new title in `opencode-internal-sessions.ts`.
 3. Add the title to `INTERNAL_CAPTURE_SESSION_TITLES` and rerun; the "never imports omms's own internal capture sessions" test covers the filter.
 
 ## Revisit Triggers
@@ -59,6 +59,6 @@ OMMS changes its internal session title, or OpenCode stores a reliable internal 
 ## References
 
 - `src/importer/opencode-reader.ts`
-- `src/services/ai/internal-capture-sessions.ts`
+- `src/importer/opencode-internal-sessions.ts`
 - `tests/history-import-commands.test.ts`
 - ADR-005

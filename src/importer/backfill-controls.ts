@@ -17,6 +17,32 @@ export function registerHostBackfillModels(host: BackfillHost, resolve: ResolveM
   hostResolvers.set(host, resolve);
 }
 
+export interface SettingsModel {
+  provider: string;
+  model: string;
+  name: string;
+}
+
+/** OpenCode's model access for web imports, Health, and Settings, when OpenCode runs this process. */
+export interface OpencodeHostModels {
+  isProviderConnected(providerID: string): boolean;
+  createImportModels(
+    ref: { providerID: string; modelID: string },
+    directory: string
+  ): Promise<Required<HistoryImportModels>>;
+  listSettingsModels(): Promise<SettingsModel[] | null>;
+}
+
+let opencodeHostModels: OpencodeHostModels | null = null;
+
+export function registerOpencodeHostModels(models: OpencodeHostModels | null): void {
+  opencodeHostModels = models;
+}
+
+export function getOpencodeHostModels(): OpencodeHostModels | null {
+  return opencodeHostModels;
+}
+
 /** A control request the page cannot carry out; `status` is the HTTP status. */
 export class BackfillControlError extends Error {
   constructor(

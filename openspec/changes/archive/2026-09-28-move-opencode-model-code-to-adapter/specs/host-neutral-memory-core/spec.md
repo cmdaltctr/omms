@@ -18,5 +18,5 @@ The shared capture/profile pipeline SHALL depend on a provider-neutral structure
 #### Scenario: Profile learning on OpenCode
 
 - **WHEN** OpenCode runs profile learning or AI profile cleanup with an OpenCode host model
-- **THEN** the shared profile code SHALL call the model through a `ModelPort` that the OpenCode adapter passes in
+- **THEN** the shared profile code SHALL call the model through a `ModelPort` that the OpenCode adapter registers
 - **AND** the result SHALL be the same as before the move

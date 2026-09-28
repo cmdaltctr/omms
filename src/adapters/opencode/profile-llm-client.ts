@@ -1,6 +1,6 @@
 import type { OpencodeClient } from "@opencode-ai/sdk/v2/client";
 import { CONFIG } from "../../config.js";
-import { resolveOpencodeHostModel } from "./live-model-choice.js";
+import { resolveOpencodeHostModel } from "../../services/ai/live-model-choice.js";
 import { loadOpencodeProvider } from "./opencode-provider-loader.js";
 
 let _cachedClient: OpencodeClient | null = null;

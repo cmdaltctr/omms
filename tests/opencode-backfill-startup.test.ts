@@ -23,7 +23,7 @@ mock.module(${JSON.stringify(url("../src/services/client.js"))}, () => ({ memory
   warmup: async () => {}, close: async () => {} } }));
 mock.module(${JSON.stringify(url("../src/services/tags.js"))}, () => ({ getTags: () => ({
   project: { tag: "test" }, user: { userEmail: "test@example.invalid" } }) }));
-mock.module(${JSON.stringify(url("../src/services/ai/opencode-provider-loader.js"))}, () => ({
+mock.module(${JSON.stringify(url("../src/adapters/opencode/opencode-provider-loader.js"))}, () => ({
   loadOpencodeProvider: async () => ({ resetHostFetch: () => {}, setHostFetch: () => {},
     setV2Client: () => {}, createV2Client: () => ({}), setConnectedProviders: () => {} }) }));
 mock.module(${JSON.stringify(url("../src/importer/auto-backfill.js"))}, () => ({

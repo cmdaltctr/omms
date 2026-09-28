@@ -16,7 +16,7 @@ const LEGACY_FALLBACK_FILES = new Set([
   "src/services/log-path.ts", // OPENCODE_MEM_LOG_FILE override
   "src/services/tags.ts", // .opencode-mem-project marker
   "src/services/auth-token.ts", // legacy token file and x-opencode-mem-token header
-  "src/services/ai/internal-capture-sessions.ts", // legacy capture session title
+  "src/importer/opencode-internal-sessions.ts", // legacy capture session title
   "src/services/onnxruntime-resolve.ts", // pre-migration plugin cache path hint
   "web/src/lib/preferences.ts", // legacy localStorage adoption
   "web/src/lib/theme.ts", // opencode-mem-theme key

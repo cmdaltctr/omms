@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { extractTextFromPromptResult } from "../src/services/user-profile/ai-cleanup.js";
+import { extractTextFromPromptResult } from "../src/adapters/opencode/profile-model.js";
 
 const tempDirs: string[] = [];
 
@@ -65,8 +65,9 @@ describe("extractTextFromPromptResult", () => {
 const aiCleanupUrl = new URL("../src/services/user-profile/ai-cleanup.js", import.meta.url).href;
 const configUrl = new URL("../src/config.js", import.meta.url).href;
 const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
+const profileModelUrl = new URL("../src/adapters/opencode/profile-model.js", import.meta.url).href;
 const opencodeProviderLoaderUrl = new URL(
-  "../src/services/ai/opencode-provider-loader.js",
+  "../src/adapters/opencode/opencode-provider-loader.js",
   import.meta.url
 ).href;
 
@@ -164,6 +165,9 @@ if (${withExternalApi}) {
   };
 }
 
+// The OpenCode plugin registers its profile model at start-up.
+const { registerOpencodeProfileModel } = await import(${JSON.stringify(profileModelUrl)});
+registerOpencodeProfileModel();
 const { aiCleanupProfile } = await import(${JSON.stringify(aiCleanupUrl)});
 
 const profile = {

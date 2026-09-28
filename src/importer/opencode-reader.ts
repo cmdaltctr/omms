@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
-import { INTERNAL_CAPTURE_SESSION_TITLES } from "../services/ai/internal-capture-sessions.js";
+import { INTERNAL_CAPTURE_SESSION_TITLES } from "./opencode-internal-sessions.js";
 import type { ImportWindow } from "./importer.js";
 import {
   acquirePrivateSnapshot,

@@ -1,22 +1,35 @@
 import type { OpencodeClient } from "@opencode-ai/sdk/v2/client";
+import type { SettingsModel } from "./backfill-controls.js";
+
+/** Connected models from an OpenCode client; null when the client returns no list. */
+export async function listOpencodeClientModels(
+  client: Pick<OpencodeClient, "provider">
+): Promise<SettingsModel[] | null> {
+  const result = await client.provider.list();
+  if (!result.data) return null;
+  const connected = new Set(result.data.connected);
+  return result.data.all
+    .filter((provider) => connected.has(provider.id))
+    .flatMap((provider) =>
+      Object.entries(provider.models).map(([model, info]) => ({
+        provider: provider.id,
+        model,
+        name: info.name,
+      }))
+    );
+}
 
 export async function listOpencodeSettingsModels(client?: Pick<OpencodeClient, "provider">) {
   try {
-    const active = client ?? (await import("./ai/opencode-provider.js")).getV2Client();
-    if (!active) return { available: false as const, reason: "OpenCode model list unavailable" };
-    const result = await active.provider.list();
-    if (!result.data)
-      return { available: false as const, reason: "OpenCode model list unavailable" };
-    const connected = new Set(result.data.connected);
-    const models = result.data.all
-      .filter((provider) => connected.has(provider.id))
-      .flatMap((provider) =>
-        Object.entries(provider.models).map(([model, info]) => ({
-          provider: provider.id,
-          model,
-          name: info.name,
-        }))
-      );
+    let models: SettingsModel[] | null;
+    if (client) {
+      models = await listOpencodeClientModels(client);
+    } else {
+      const { getOpencodeHostModels } = await import("./backfill-controls.js");
+      const opencode = getOpencodeHostModels();
+      models = opencode ? await opencode.listSettingsModels() : null;
+    }
+    if (!models) return { available: false as const, reason: "OpenCode model list unavailable" };
     return { available: true as const, models };
   } catch {
     return { available: false as const, reason: "OpenCode model list unavailable" };

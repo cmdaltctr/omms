@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 const tempDirs: string[] = [];
 
-const learningUrl = new URL("../src/services/user-memory-learning.js", import.meta.url).href;
+const learningUrl = new URL("../src/adapters/opencode/profile-learning.js", import.meta.url).href;
 const configUrl = new URL("../src/config.js", import.meta.url).href;
 const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
 const promptManagerUrl = new URL(
@@ -17,11 +17,13 @@ const profileManagerUrl = new URL(
   import.meta.url
 ).href;
 const opencodeProviderLoaderUrl = new URL(
-  "../src/services/ai/opencode-provider-loader.js",
+  "../src/adapters/opencode/opencode-provider-loader.js",
   import.meta.url
 ).href;
-const profileLlmClientUrl = new URL("../src/services/ai/profile-llm-client.js", import.meta.url)
-  .href;
+const profileLlmClientUrl = new URL(
+  "../src/adapters/opencode/profile-llm-client.js",
+  import.meta.url
+).href;
 const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
 
 function runProviderFailureScenario() {

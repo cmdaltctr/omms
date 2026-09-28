@@ -698,7 +698,7 @@ export class WebServer {
 
       if (path === "/api/settings/models" && method === "GET") {
         const { listOpencodeSettingsModels, listPiSettingsModels } =
-          await import("./settings-models.js");
+          await import("../importer/settings-models.js");
         const host = url.searchParams.get("host");
         if (host === "pi") return this.jsonResponse(await listPiSettingsModels());
         if (host === "opencode") return this.jsonResponse(await listOpencodeSettingsModels());

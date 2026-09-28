@@ -1,12 +1,9 @@
 import type { UserProfileData } from "./types.js";
 import { CONFIG } from "../../config.js";
-import { resolveOpencodeHostModel } from "../ai/live-model-choice.js";
 import { log } from "../logger.js";
-import { loadOpencodeProvider } from "../ai/opencode-provider-loader.js";
-import {
-  EXTERNAL_PROFILE_CLEANUP_TIMEOUT_MS,
-  OPENCODE_PROFILE_CLEANUP_TIMEOUT_MS,
-} from "../request-timeouts.js";
+import type { ModelPort } from "../../core/profile-analysis.js";
+import { resolveHostProfileModel } from "./profile-model.js";
+import { EXTERNAL_PROFILE_CLEANUP_TIMEOUT_MS } from "../request-timeouts.js";
 import { applySafeExtraParams } from "../ai/providers/base-provider.js";
 
 export interface AICleanupResult {
@@ -218,16 +215,12 @@ function formatForAI(item: IndexedProfileItem): Record<string, unknown> {
 async function callAICleanup(
   prompt: string
 ): Promise<{ profile: IndexedProfile; mapping: AIMapping }> {
-  // Use opencode internal session when opencodeProvider is configured (same pattern as auto-capture).
-  // When the client is available, surface OpenCode errors instead of masking them as
+  // Use the host model when the host registered one (same pattern as auto-capture).
+  // When it is available, surface its errors instead of masking them as
   // "No AI provider configured" via a silent fallback (#177).
-  if (resolveOpencodeHostModel(CONFIG)) {
-    const { getV2Client } = await loadOpencodeProvider();
-    const v2Client = getV2Client();
-    if (v2Client) {
-      return callViaOpencodeWithClient(v2Client, prompt);
-    }
-    log("AI cleanup: opencode client unavailable, falling back to external API");
+  const hostModel = await resolveHostProfileModel();
+  if (hostModel) {
+    return callViaHostModel(hostModel, prompt);
   }
 
   if (CONFIG.memoryModel && CONFIG.memoryApiUrl) {
@@ -291,117 +284,22 @@ async function callViaExternalAPI(
   };
 }
 
-type PromptPart = { type?: string; text?: string };
-type PromptInfo = {
-  error?: { name: string; data?: { message?: string } };
-};
-type PromptResultShape = {
-  data?: { info?: PromptInfo; parts?: PromptPart[] };
-  info?: PromptInfo;
-  parts?: PromptPart[];
-};
-
-/**
- * Extract assistant text from an OpenCode session.prompt result.
- * AssistantMessage has no `text` field; content lives in `parts` (#177).
- */
-export function extractTextFromPromptResult(promptResult: unknown): {
-  info: PromptInfo | undefined;
-  rawText: string;
-} {
-  const result = promptResult as PromptResultShape;
-  const info = result?.data?.info ?? result?.info;
-  const parts = result?.data?.parts ?? result?.parts ?? [];
-  const rawText = parts
-    .filter((p) => p.type === "text" && p.text)
-    .map((p) => p.text)
-    .join("\n")
-    .trim();
-  return { info, rawText };
-}
-
-function raceWithTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(message)), ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => {
-    if (timer !== undefined) clearTimeout(timer);
-  });
-}
-
-async function callViaOpencodeWithClient(
-  v2Client: any,
+async function callViaHostModel(
+  model: ModelPort,
   prompt: string
 ): Promise<{ profile: IndexedProfile; mapping: AIMapping }> {
-  const t0 = Date.now();
-  const hostModel = resolveOpencodeHostModel(CONFIG) ?? { providerID: "", modelID: "inherit" };
-  // Only "inherit" (or no model configured) needs resolving to the session's recent model.
-  const model =
-    hostModel.modelID === "inherit"
-      ? (await loadOpencodeProvider()).resolveOpencodeModelRef(hostModel)
-      : hostModel;
   const systemPrompt =
     "You are a user profile cleanup assistant. Merge duplicate entries and return only JSON without markdown wrapping.";
+  const rawText = await model.complete(systemPrompt, prompt);
 
-  const created = (await raceWithTimeout(
-    v2Client.session.create({
-      title: "omms profile cleanup",
-      directory: process.cwd(),
-    }),
-    30000,
-    "session.create timeout"
-  )) as any;
-  log("AI cleanup: session.create result", {
-    rawType: typeof created,
-    keys: Object.keys(created || {}),
-    hasData: !!created?.data,
-    dataId: created?.data?.id,
-  });
+  const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("AI response did not contain valid JSON");
 
-  const sessionID = created?.data?.id || created?.id || created?.sessionID;
-  if (!sessionID) throw new Error("session.create returned no session id");
-
-  log("AI cleanup: session created", { sessionID, createMs: Date.now() - t0 });
-
-  try {
-    const TIMEOUT_MS = OPENCODE_PROFILE_CLEANUP_TIMEOUT_MS;
-    const promptResult = await raceWithTimeout(
-      v2Client.session.prompt({
-        sessionID,
-        model,
-        system: systemPrompt,
-        parts: [{ type: "text", text: prompt }],
-        // `noReply` suppresses assistant generation; cleanup needs the JSON reply (#177).
-        noReply: false,
-      }),
-      TIMEOUT_MS,
-      `opencodeClient prompt timeout after ${TIMEOUT_MS}ms`
-    );
-
-    log("AI cleanup: session.prompt done", { promptMs: Date.now() - t0 });
-
-    const { info, rawText } = extractTextFromPromptResult(promptResult);
-
-    if (!info) throw new Error("prompt response missing info");
-    if (info.error)
-      throw new Error(`opencode reported ${info.error.name}: ${info.error.data?.message ?? ""}`);
-
-    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("AI response did not contain valid JSON");
-
-    const parsed = JSON.parse(jsonMatch[0]);
-    return {
-      profile: parsed as IndexedProfile,
-      mapping: normalizeAIMapping(parsed.mapping),
-    };
-  } finally {
-    try {
-      await v2Client.session.delete({ sessionID });
-    } catch {
-      // ignore cleanup failures for ephemeral sessions
-    }
-  }
+  const parsed = JSON.parse(jsonMatch[0]);
+  return {
+    profile: parsed as IndexedProfile,
+    mapping: normalizeAIMapping(parsed.mapping),
+  };
 }
 
 function buildItemIndex(profile: IndexedProfile): Map<string, IndexedProfileItem> {

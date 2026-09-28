@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import {
   listPiSettingsModels,
   listOpencodeSettingsModels,
-} from "../src/services/settings-models.js";
+} from "../src/importer/settings-models.js";
 
 describe("settings model lists", () => {
   it("lists connected OpenCode provider models", async () => {

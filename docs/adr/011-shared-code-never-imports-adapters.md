@@ -39,7 +39,9 @@ Adding a host means adding `src/adapters/<host>/` and, when it has importable hi
 
 ### Neutral
 
-- `src/services/` still holds OpenCode's own model code (`opencode-provider.ts`, `opencode-sdk-client.ts`, `profile-llm-client.ts`, `user-memory-learning.ts`), which uses OpenCode SDK types. Moving it into the OpenCode adapter is planned as the OpenSpec change `move-opencode-model-code-to-adapter`.
+- The OpenSpec change `move-opencode-model-code-to-adapter` moved OpenCode's own model code from `src/services/` into `src/adapters/opencode/`. Shared code now reaches OpenCode models through registrations: `registerHostProfileModel` for profile calls and `registerOpencodeHostModels` for web imports, Health, and Settings. The standalone web app registers neither, so it reports OpenCode models as unavailable, as before.
+- Follow-up: OpenCode and Pi still run separate profile learning loops (`src/adapters/opencode/profile-learning.ts` and the Pi adapter). One shared loop is future work.
+- Follow-up: the OpenCode V2 plugin (`src/v2/`) still wraps the V1 plugin (`src/index.ts`) through a fake V1 client (`legacy-client.ts`). Rebuild it on the native V2 API and drop V1 support in a separate breaking change (4.0.0).
 
 ## Alternatives considered
 
