@@ -135,6 +135,16 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
           );
       }
 
+      // Run now on a Settings page served by this process can use Pi's signed-in models.
+      void Promise.all([
+        import("../../importer/backfill-controls.js"),
+        import("./backfill-models.js"),
+      ])
+        .then(([{ registerHostBackfillModels }, { resolvePiBackfillModels }]) =>
+          registerHostBackfillModels("pi", () => resolvePiBackfillModels(ctx))
+        )
+        .catch(() => {});
+
       const globalScope = globalThis as any;
       const sessionId = ctx.sessionManager.getSessionId();
       if (

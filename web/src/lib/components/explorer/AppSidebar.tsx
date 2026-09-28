@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { Folder, Moon, Settings, Sun, User, X } from "lucide-react";
+import { Folder, Moon, PanelLeftClose, PanelLeftOpen, Settings, Sun, User, X } from "lucide-react";
 import type { Lang } from "$lib/i18n/translations";
 import { GithubIcon } from "$lib/components/icons/GithubIcon";
 import { Button } from "$lib/components/ui/button";
@@ -14,11 +14,14 @@ type Props = {
   brand: string;
   projectLabel: string;
   profileLabel: string;
+  profileSections: { id: string; label: string }[];
   langLabel: string;
   languageLabel: string;
   themeLabel: string;
   settingsLabel: string;
   closeLabel: string;
+  collapseLabel: string;
+  expandLabel: string;
   onOpenChange?: (open: boolean) => void;
   onLanguageSelect?: (language: Lang) => void;
 };
@@ -29,17 +32,30 @@ const LANGUAGE_OPTIONS: { code: Lang; label: string }[] = [
   { code: "ar", label: "العربية (AR)" },
 ];
 
+const COLLAPSED_KEY = "omms-sidebar-collapsed";
+
+function readCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function AppSidebar({
   open = false,
   currentView,
   brand,
   projectLabel,
   profileLabel,
+  profileSections,
   langLabel,
   languageLabel,
   themeLabel,
   settingsLabel,
   closeLabel,
+  collapseLabel,
+  expandLabel,
   onOpenChange,
   onLanguageSelect,
 }: Props) {
@@ -48,6 +64,19 @@ export function AppSidebar({
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const languageContainer = useRef<HTMLDivElement>(null);
   const languageTrigger = useRef<HTMLButtonElement>(null);
+  // Collapsing only applies on desktop; the mobile drawer always shows the full sidebar.
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const onDesktop = (classes: string) => (collapsed ? classes : "");
+
+  function toggleCollapsed() {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0");
+    } catch {
+      // Storage can be blocked; the toggle still works for this page view.
+    }
+  }
 
   useEffect(() => {
     if (!languageMenuOpen) return;
@@ -102,9 +131,32 @@ export function AppSidebar({
     setOpen(false);
   }
 
+  function onSectionClick(event: MouseEvent, id: string) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+    event.preventDefault();
+    const scroll = () =>
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (currentView === "profile") {
+      scroll();
+    } else {
+      navigate(ROUTES.profile);
+      // The profile view renders after navigation; wait for its sections to appear.
+      let tries = 0;
+      const wait = () => {
+        if (document.getElementById(id)) scroll();
+        else if (tries++ < 50) requestAnimationFrame(wait);
+      };
+      requestAnimationFrame(wait);
+    }
+    setOpen(false);
+  }
+
   function navClass(active: boolean) {
     return cn(
       "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors",
+      onDesktop("md:justify-center md:px-0"),
       active
         ? "bg-sidebar-accent text-sidebar-accent-foreground"
         : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
@@ -124,12 +176,13 @@ export function AppSidebar({
 
       <aside
         className={cn(
-          "inset-y-0 start-0 z-50 flex h-svh w-64 shrink-0 flex-col border-e border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform duration-200",
+          "inset-y-0 start-0 z-50 flex h-svh w-64 shrink-0 flex-col border-e border-sidebar-border bg-sidebar text-sidebar-foreground transition-[transform,width] duration-200",
+          onDesktop("md:w-14"),
           "fixed md:sticky md:top-0 md:translate-x-0!",
           open ? "translate-x-0" : "max-md:-translate-x-full max-md:rtl:translate-x-full"
         )}
       >
-        <div className="flex items-center gap-2 px-4 py-4">
+        <div className={cn("flex items-center gap-2 px-4 py-4", onDesktop("md:flex-col md:px-2"))}>
           <a
             href={ROUTES.home}
             className="flex min-w-0 flex-1 items-center gap-2 rounded-lg transition-colors hover:opacity-90"
@@ -142,10 +195,30 @@ export function AppSidebar({
               height={20}
               className="size-5 shrink-0 rounded-sm"
             />
-            <span className="truncate text-sm font-medium tracking-wide text-sidebar-primary">
+            <span
+              className={cn(
+                "truncate text-sm font-medium tracking-wide text-sidebar-primary",
+                onDesktop("md:hidden")
+              )}
+            >
               {brand}
             </span>
           </a>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="hidden shrink-0 text-muted-foreground hover:text-primary md:inline-flex"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? expandLabel : collapseLabel}
+            aria-expanded={!collapsed}
+            title={collapsed ? expandLabel : collapseLabel}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="size-4 rtl:-scale-x-100" />
+            ) : (
+              <PanelLeftClose className="size-4 rtl:-scale-x-100" />
+            )}
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -159,32 +232,66 @@ export function AppSidebar({
 
         <Separator className="bg-sidebar-border" />
 
-        <nav className="flex flex-1 flex-col gap-1 p-3" aria-label="Main">
+        <nav
+          className={cn("flex flex-1 flex-col gap-1 p-3", onDesktop("md:px-2"))}
+          aria-label="Main"
+        >
           <a
             href={ROUTES.project}
             className={navClass(currentView === "project")}
             aria-current={currentView === "project" ? "page" : undefined}
+            title={collapsed ? projectLabel : undefined}
             onClick={(e) => onNavClick(e, ROUTES.project)}
           >
             <Folder className="size-4 shrink-0" />
-            <span className="truncate text-start">{projectLabel}</span>
+            <span className={cn("truncate text-start", onDesktop("md:sr-only"))}>
+              {projectLabel}
+            </span>
           </a>
           <a
             href={ROUTES.profile}
             className={navClass(currentView === "profile")}
             aria-current={currentView === "profile" ? "page" : undefined}
+            title={collapsed ? profileLabel : undefined}
             onClick={(e) => onNavClick(e, ROUTES.profile)}
           >
             <User className="size-4 shrink-0" />
-            <span className="truncate text-start">{profileLabel}</span>
+            <span className={cn("truncate text-start", onDesktop("md:sr-only"))}>
+              {profileLabel}
+            </span>
           </a>
+          <ul
+            className={cn(
+              "ms-5 space-y-0.5 border-s border-sidebar-border ps-2",
+              onDesktop("md:hidden")
+            )}
+          >
+            {profileSections.map((section) => (
+              <li key={section.id}>
+                <a
+                  href={`${ROUTES.profile}#${section.id}`}
+                  className="block truncate rounded-lg px-2.5 py-1 text-xs text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/70 hover:text-primary"
+                  onClick={(e) => onSectionClick(e, section.id)}
+                >
+                  {section.label}
+                </a>
+              </li>
+            ))}
+          </ul>
         </nav>
 
-        <div className="mt-auto p-3">
-          <div className="flex w-full items-center rounded-lg border border-sidebar-border/80 bg-card/70">
+        <div className={cn("mt-auto p-3", onDesktop("md:px-2"))}>
+          <div
+            className={cn(
+              "flex w-fit items-center rounded-lg border border-sidebar-border/80 bg-card/70",
+              onDesktop(
+                "md:mx-auto md:flex-col md:[&>*]:justify-center md:[&>*]:py-1.5 md:[&>*+*]:border-s-0 md:[&>*+*]:border-t md:[&>*]:rounded-none"
+              )
+            )}
+          >
             <div
               ref={languageContainer}
-              className="relative flex min-w-0 flex-1"
+              className="relative flex self-stretch"
               onBlur={(event) => {
                 // Tabbing out of the menu closes it; moving between the trigger and options does not.
                 if (!languageContainer.current?.contains(event.relatedTarget as Node | null)) {
@@ -195,7 +302,7 @@ export function AppSidebar({
               <button
                 ref={languageTrigger}
                 type="button"
-                className="flex w-full items-center justify-center rounded-s-lg px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                className="inline-flex items-center justify-center rounded-s-lg px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 onClick={() => setLanguageMenuOpen((open) => !open)}
                 aria-label={`${languageLabel}: ${langLabel}`}
                 aria-haspopup="menu"

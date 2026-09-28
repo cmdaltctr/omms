@@ -1,14 +1,24 @@
 import { useEffect, useState } from "react";
+import { Select } from "$lib/components/ui/select";
 import {
+  backfillActions,
   backfillModelEdit,
   manualModelFieldVisible,
+  progressView,
   shouldPollBackfill,
   type BackfillHost,
+  type ImportRunView,
 } from "$lib/auto-import-settings";
+import { externalMissing } from "$lib/external-api-settings";
 import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 
-type Snapshot = { revision: string; settings: Record<string, { globalValue?: unknown }> };
+type Snapshot = {
+  revision: string;
+  settings: Record<string, { globalValue?: unknown }>;
+  secrets?: Record<string, { set: boolean }>;
+};
+type Runs = Record<BackfillHost, { run: ImportRunView; runNowUnavailable: string | null }>;
 type ModelList = {
   available: boolean;
   models?: Array<{ provider: string; model: string; name: string }>;
@@ -32,12 +42,20 @@ export function AutoImportSection() {
   const s = useSettingsText();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [rows, setRows] = useState<Rows>({ pi: null, opencode: null });
+  const [runs, setRuns] = useState<Runs>();
   const [lists, setLists] = useState<Record<string, ModelList>>({});
   const [choices, setChoices] = useState<Partial<Record<BackfillHost, string>>>({});
   const [typedModes, setTypedModes] = useState<Partial<Record<BackfillHost, boolean>>>({});
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const polling = shouldPollBackfill(rows);
+  const polling =
+    shouldPollBackfill(rows) ||
+    runs?.pi.run?.state === "running" ||
+    runs?.opencode.run?.state === "running";
+  const loadRuns = () =>
+    settingsRequest<Runs>("/api/settings/backfill/runs")
+      .then(setRuns)
+      .catch((error: Error) => setMessage(error.message));
   useEffect(() => {
     let active = true;
     void settingsRequest<Snapshot>("/api/settings")
@@ -54,6 +72,7 @@ export function AutoImportSection() {
       .catch((error: Error) => {
         if (active) setMessage(error.message);
       });
+    void loadRuns();
     for (const host of ["pi", "opencode"] as const) {
       void settingsRequest<ModelList>(`/api/settings/models?host=${host}`)
         .then((value) => {
@@ -83,6 +102,7 @@ export function AutoImportSection() {
         .catch((error: Error) => {
           if (active) setMessage(error.message);
         });
+      if (active) void loadRuns();
     }, 3000);
     return () => {
       active = false;
@@ -98,11 +118,27 @@ export function AutoImportSection() {
         method: "PATCH",
         body: JSON.stringify({ edits, revision: snapshot.revision }),
       });
-      setMessage(s("Saved. Changes apply at the next host start."));
+      setMessage(s("Saved. Changes apply at the next run."));
     } catch (error) {
       setMessage((error as Error).message);
     }
     await reloadSettingsSnapshot<Snapshot>();
+    setBusy(false);
+  }
+  async function control(host: BackfillHost, action: "run" | "pause" | "resume") {
+    setBusy(true);
+    try {
+      await settingsRequest(`/api/settings/backfill/${host}/${action}`, {
+        method: "POST",
+        body: "{}",
+      });
+      setMessage(
+        s(action === "pause" ? "Pausing after the current exchange." : "Backfill started.")
+      );
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+    await loadRuns();
     setBusy(false);
   }
   function saveModel(host: BackfillHost, choice: string) {
@@ -121,7 +157,7 @@ export function AutoImportSection() {
       <h2 className="text-lg font-medium">{s("Automatic import")}</h2>
       <p className="text-sm text-muted-foreground">
         {s(
-          "Automatic import makes model calls. Changes apply at the next host start. Turning it off stops a running import after the current exchange."
+          "Automatic import makes model calls. A model change applies at the next run. Turning it off stops a running import after the current exchange."
         )}
       </p>
       <label className="flex items-center gap-2 text-sm">
@@ -139,14 +175,26 @@ export function AutoImportSection() {
         const options = lists[host]?.models ?? [];
         const known =
           current === "inherit" ||
+          current === "external" ||
           options.some((item) => `${item.provider}/${item.model}` === current);
+        const missing = externalMissing({
+          memoryProvider: snapshot?.settings.memoryProvider?.globalValue as string | undefined,
+          memoryModel: snapshot?.settings.memoryModel?.globalValue as string | undefined,
+          memoryApiUrl: snapshot?.settings.memoryApiUrl?.globalValue as string | undefined,
+          keySet: Boolean(snapshot?.secrets?.memoryApiKey?.set),
+        });
+        const run = runs?.[host].run ?? null;
+        const unavailable = runs?.[host].runNowUnavailable ?? null;
+        const actions = backfillActions(run, unavailable);
+        const progress = run?.state === "running" ? progressView(run) : null;
         const typed = manualModelFieldVisible(typedModes[host], known);
         return (
           <div key={host} className="space-y-2 rounded-lg border border-border p-3 text-sm">
             <h3 className="font-medium">{host === "pi" ? "Pi" : "OpenCode"}</h3>
             <label className="block">
               {s("Backfill model")}
-              <select
+              <Select
+                aria-label={`${host === "pi" ? "Pi" : "OpenCode"} ${s("Backfill model")}`}
                 className="mt-1 block w-full rounded border border-border bg-background p-2"
                 value={typed ? "typed" : current}
                 onChange={(event) => {
@@ -156,6 +204,9 @@ export function AutoImportSection() {
                 }}
               >
                 <option value="inherit">{s("Same as live capture")}</option>
+                <option value="external" disabled={missing.length > 0}>
+                  {s("External API")}
+                </option>
                 {options.map((item) => (
                   <option
                     key={`${item.provider}/${item.model}`}
@@ -165,7 +216,7 @@ export function AutoImportSection() {
                   </option>
                 ))}
                 <option value="typed">{s("Manual provider/model")}</option>
-              </select>
+              </Select>
             </label>
             {typed && (
               <input
@@ -177,6 +228,11 @@ export function AutoImportSection() {
                   setChoices((previous) => ({ ...previous, [host]: event.target.value }))
                 }
               />
+            )}
+            {missing.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {s("External API needs")}: {missing.join(", ")}
+              </p>
             )}
             {lists[host]?.available === false && (
               <p>{s("Model list unavailable. Enter provider/model manually.")}</p>
@@ -190,8 +246,56 @@ export function AutoImportSection() {
               {s("Save model")}
             </button>
             <p>
-              {s("State")}: {s(rows[host]?.state ?? "not started")}
+              {s("State")}:{" "}
+              {run?.paused ? s("paused") : s(run?.state ?? rows[host]?.state ?? "not started")}
+              {run?.state === "running" && run.surface && ` (${s(`started from ${run.surface}`)})`}
             </p>
+            {progress && (
+              <div className="space-y-1">
+                <div
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progress.percent}
+                  className="h-2 w-full overflow-hidden rounded bg-muted"
+                >
+                  <div className="h-full bg-primary" style={{ width: `${progress.percent}%` }} />
+                </div>
+                <p className="text-muted-foreground">
+                  {progress.percent}% · {progress.done} · {s("Minutes left")}:{" "}
+                  {progress.minutesLeft === "unknown"
+                    ? s("unknown")
+                    : progress.minutesLeft.replace("about", s("about"))}
+                </p>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded border border-border px-3 py-1.5"
+                disabled={busy || !actions.runNow}
+                onClick={() => void control(host, "run")}
+              >
+                {s("Run now")}
+              </button>
+              <button
+                type="button"
+                className="rounded border border-border px-3 py-1.5"
+                disabled={busy || !actions.pause}
+                onClick={() => void control(host, "pause")}
+              >
+                {s("Pause")}
+              </button>
+              <button
+                type="button"
+                className="rounded border border-border px-3 py-1.5"
+                disabled={busy || !actions.resume}
+                onClick={() => void control(host, "resume")}
+              >
+                {s("Resume")}
+              </button>
+            </div>
+            {unavailable && <p className="text-xs text-muted-foreground">{unavailable}</p>}
             {rows[host] && (
               <div className="space-y-1 text-muted-foreground">
                 <p>
@@ -201,6 +305,14 @@ export function AutoImportSection() {
                 <p>
                   {s("Pending")}: {rows[host].counts.pending} · {s("Unresolved sessions")}:{" "}
                   {rows[host].counts.unresolved}
+                  {rows[host].counts.unresolved > 0 && (
+                    <>
+                      {" "}
+                      <a className="underline" href="#directory-maps">
+                        {s("Directory maps")}
+                      </a>
+                    </>
+                  )}
                 </p>
                 <p>
                   {s("Model")}: {rows[host].model ?? s("none")}

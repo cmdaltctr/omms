@@ -7,6 +7,9 @@ import { importLedgerDbPath } from "../src/importer/ledger.js";
 import {
   getBackfillCutoff,
   readBackfillStatus,
+  readUnresolvedDirectories,
+  recordUnresolvedDirectories,
+  summarizeUnresolvedDirectories,
   updateBackfillStatus,
 } from "../src/services/backfill-state.js";
 import { tursoConnectionManager } from "../src/services/turso/connection-manager.js";
@@ -46,4 +49,32 @@ it("stores each host's cutoff once and persists only bounded status metadata", a
   );
   expect(row?.counts).not.toContain("prompt");
   expect(row?.error).not.toContain("secret-token");
+});
+
+it("stores unresolved directories with session counts, capped at 200, paths only", async () => {
+  directory = mkdtempSync(join(tmpdir(), "omms-backfill-state-"));
+  CONFIG.storagePath = directory;
+  const sessions = [
+    { directory: "/gone/a" },
+    { directory: "/gone/a" },
+    { directory: null },
+    { directory: "/gone/b", sessions: 3 },
+    ...Array.from({ length: 250 }, (_, i) => ({ directory: `/tmp/t${i}` })),
+  ];
+  const summary = summarizeUnresolvedDirectories(sessions);
+  expect(summary).toHaveLength(200);
+  expect(summary.slice(0, 2)).toEqual([
+    { directory: "/gone/b", sessions: 3 },
+    { directory: "/gone/a", sessions: 2 },
+  ]);
+  expect(await readUnresolvedDirectories("pi")).toEqual([]);
+  await recordUnresolvedDirectories("pi", summary, 100);
+  expect(await readUnresolvedDirectories("pi")).toEqual(summary);
+  // Recording a listing must not start a backfill or fix its cutoff.
+  expect(await readBackfillStatus("pi")).toBeNull();
+  const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
+  const row = await db.get<{ directories: string }>(
+    "SELECT directories FROM unresolved_directories WHERE host = 'pi'"
+  );
+  expect(Object.keys(JSON.parse(row!.directories)[0]).sort()).toEqual(["directory", "sessions"]);
 });

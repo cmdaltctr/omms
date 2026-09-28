@@ -99,6 +99,38 @@ describe("one live-model rule for both hosts", () => {
   });
 });
 
+describe("the external host model value", () => {
+  it("sends both hosts to the external API when it is ready", () => {
+    const configured = { ...none, ...external, opencodeProvider: "openai", piProvider: "zai" };
+    const opencode = getAutoCaptureProviderStatus({ ...configured, opencodeModel: "external" });
+    const pi = resolvePiLiveModel({ ...configured, piModel: "external" });
+    expect(opencode).toEqual({ ready: true, mode: "manual", issues: [] });
+    expect(resolveOpencodeHostModel({ ...configured, opencodeModel: "external" })).toBeNull();
+    expect(pi).toEqual({ kind: "manual" });
+  });
+
+  it("disables both hosts with the same missing settings when the API is half set", () => {
+    const half = { ...none, memoryModel: "cheap", memoryApiKey: "real-key" };
+    const opencode = getAutoCaptureProviderStatus({ ...half, opencodeModel: "external" });
+    const pi = resolvePiLiveModel({ ...half, piModel: "external" });
+    expect(opencode).toEqual({ ready: false, issues: ["memoryApiUrl is not configured"] });
+    expect(pi).toEqual({ kind: "unready", issues: ["memoryApiUrl is not configured"] });
+    expect(resolveOpencodeHostModel({ ...half, opencodeModel: "external" })).toBeNull();
+  });
+
+  it("leaves the other host on its own rule", () => {
+    const both = {
+      ...none,
+      ...external,
+      opencodeProvider: "openai",
+      opencodeModel: "gpt-5.6-luna",
+      piModel: "external",
+    };
+    expect(getAutoCaptureProviderStatus(both)).toMatchObject({ mode: "opencode" });
+    expect(resolvePiLiveModel(both)).toEqual({ kind: "manual" });
+  });
+});
+
 describe("Pi live models", () => {
   const saved = {
     piProvider: CONFIG.piProvider,
@@ -173,6 +205,25 @@ describe("Pi live models", () => {
     expect((await createPiLiveModels(ctx().ctx).capture.summarize(request))?.summary).toBe(
       "from external"
     );
+  });
+
+  it("calls only the external API when piModel is external", async () => {
+    Object.assign(CONFIG, { piProvider: "openai-codex", piModel: "external", ...external });
+    const live = ctx();
+    const models = createPiLiveModels(live.ctx);
+    expect((await models.capture.summarize(request))?.summary).toBe("from external");
+    await models.profile()!.complete("system", "prompt");
+    expect(live.called).toEqual([]);
+    expect(externalCalls).toEqual(["capture", "profile"]);
+  });
+
+  it("does not fall back when piModel is external and the API is not configured", async () => {
+    Object.assign(CONFIG, { piModel: "external", memoryModel: undefined, memoryApiKey: "" });
+    const live = ctx();
+    await expect(createPiLiveModels(live.ctx).capture.summarize(request)).rejects.toThrow(
+      "memoryModel is not configured"
+    );
+    expect(live.called).toEqual([]);
   });
 
   it("surfaces the Pi failure when no external API is configured", async () => {

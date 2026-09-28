@@ -1,4 +1,6 @@
 import { ModelsSection } from "./ModelsSection";
+import { ExternalApiSection } from "./ExternalApiSection";
+import { DirectoryMapsSection } from "./DirectoryMapsSection";
 import { DiagnosticsSection } from "./DiagnosticsSection";
 import { HealthSection } from "./HealthSection";
 import { ImportSection } from "./ImportSection";
@@ -8,12 +10,14 @@ import { LogSection } from "./LogSection";
 
 export function SettingsView() {
   return (
-    <div className="space-y-6">
+    <div className="settings-view space-y-6">
+      <ExternalApiSection />
       <ModelsSection />
       <DiagnosticsSection />
       <HealthSection />
       <ImportSection />
       <AutoImportSection />
+      <DirectoryMapsSection />
       <WebAppSection />
       <LogSection />
     </div>

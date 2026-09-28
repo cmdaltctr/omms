@@ -305,16 +305,23 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
     } catch (error) {
       log("Failed to initialize opencode provider state", { error: String(error) });
     }
+    const configModel = async () => {
+      const response = await ctx.client.config.get();
+      return unwrapSdkData<{ model?: string }>(response)?.model ?? null;
+    };
+    // Run now on a Settings page served by this process can use OpenCode's signed-in models.
+    void import("./adapters/opencode/backfill-startup.js")
+      .then(({ registerOpencodeBackfillModels }) =>
+        registerOpencodeBackfillModels({ connected, directory, configModel })
+      )
+      .catch(() => {});
     if (CONFIG.autoBackfill && process.env.OMMS_DISABLE_AUTO_BACKFILL !== "1" && isConfigured()) {
       void import("./adapters/opencode/backfill-startup.js")
         .then(({ startOpencodeBackfill }) =>
           startOpencodeBackfill({
             connected,
             directory,
-            configModel: async () => {
-              const response = await ctx.client.config.get();
-              return unwrapSdkData<{ model?: string }>(response)?.model ?? null;
-            },
+            configModel,
             notify: (message) => {
               void ctx.client.tui
                 ?.showToast({

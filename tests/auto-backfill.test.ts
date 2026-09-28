@@ -370,3 +370,54 @@ it("stops after five failed summaries and retries on the next start", async () =
   expect(attempts).toBe(11);
   expect((await readBackfillStatus("pi"))?.state).toBe("done");
 });
+
+it("counts only units that need work as pending and passes the dry-run total", async () => {
+  directory = mkdtempSync(join(tmpdir(), "omms-auto-backfill-"));
+  CONFIG.storagePath = directory;
+  let track: { expectedTotal?: number } | undefined;
+  const pending: number[] = [];
+  let clock = 0;
+  await scheduleAutoBackfill({
+    host: "pi",
+    cwd: directory,
+    wait: async () => {},
+    enabled: () => true,
+    now: () => (clock += 10_000),
+    notify: () => {},
+    resolveModels: async () => ({ model: "external/glm", models: {} }),
+    run: (async (
+      _host: string,
+      args: { dryRun: boolean },
+      context: {
+        track?: { expectedTotal?: number };
+        onProgress?: (p: number, t: number, s: string, handled?: number) => void;
+      }
+    ) => {
+      if (args.dryRun) {
+        return {
+          unitsWouldImport: 7,
+          unitsImported: 0,
+          unitsSkipped: 0,
+          unitsFailed: 0,
+          unresolvableSessions: [],
+          unresolvedProjects: [],
+        };
+      }
+      track = context.track;
+      // 729 of 736 units are already in the ledger; 2 of the 7 are done.
+      context.onProgress?.(732, 736, "private", 729);
+      pending.push((await readBackfillStatus("pi"))!.counts.pending);
+      return {
+        unitsWouldImport: 0,
+        unitsImported: 2,
+        unitsSkipped: 0,
+        unitsFailed: 0,
+        unresolvableSessions: [],
+        unresolvedProjects: [],
+      };
+    }) as never,
+  });
+  expect(track?.expectedTotal).toBe(7);
+  const status = await readBackfillStatus("pi");
+  expect(status?.counts.pending).toBe(5);
+});

@@ -5,6 +5,8 @@ import type { BackfillHost } from "./backfill-model.js";
 import { tryAcquireBackfillLock } from "./backfill-lock.js";
 import {
   getBackfillCutoff,
+  recordUnresolvedDirectories,
+  unresolvedDirectoriesOf,
   updateBackfillStatus,
   type BackfillStatus,
 } from "../services/backfill-state.js";
@@ -15,6 +17,8 @@ import {
 } from "./run-import.js";
 import type { HistoryImportArgs } from "./import-args.js";
 import { isManualImportRunning } from "./manual-import-guard.js";
+import { isBackfillPaused, type ImportSurface } from "./import-runs.js";
+import { workProgress } from "./import-progress.js";
 
 type Counts = BackfillStatus["counts"];
 type Run = typeof runHistoryImport;
@@ -28,6 +32,10 @@ export interface AutoBackfillOptions {
   now?: () => number;
   enabled?: () => boolean;
   signal?: AbortSignal;
+  /** `web` for Run now and Resume on the Settings page. */
+  surface?: ImportSurface;
+  /** Skip the start-up delay and the autoBackfill switch: the user asked for this run. */
+  userStarted?: boolean;
 }
 
 const zero = (): Counts => ({ imported: 0, skipped: 0, failed: 0, pending: 0, unresolved: 0 });
@@ -54,16 +62,15 @@ const delay = (signal?: AbortSignal) =>
 
 /** Schedule one host's history import after startup; callers do not await it. */
 export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promise<void> {
-  await (options.wait ?? (() => delay(options.signal)))();
+  if (!options.userStarted) await (options.wait ?? (() => delay(options.signal)))();
   if (options.signal?.aborted) return;
-  if (
-    !(
-      options.enabled ??
-      (() => CONFIG.autoBackfill && process.env.OMMS_DISABLE_AUTO_BACKFILL !== "1")
-    )()
-  )
-    return;
+  const enabled =
+    options.enabled ??
+    (() => CONFIG.autoBackfill && process.env.OMMS_DISABLE_AUTO_BACKFILL !== "1");
+  if (!options.userStarted && !enabled()) return;
   if (isManualImportRunning(options.host)) return;
+  // A paused backfill waits for Resume, across host starts.
+  if (await isBackfillPaused(options.host).catch(() => false)) return;
   const release = await tryAcquireBackfillLock(options.host);
   if (!release) return;
   const clock = options.now ?? Date.now;
@@ -99,6 +106,13 @@ export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promis
       signal: controller.signal,
     });
     current = counts(dry);
+    await recordUnresolvedDirectories(options.host, unresolvedDirectoriesOf(dry)).catch(
+      (error: unknown) =>
+        log("Backfill unresolved directories write failed", {
+          host: options.host,
+          error: error instanceof Error ? error.message : String(error),
+        })
+    );
     if (controller.signal.aborted) {
       state = "stopped";
       return;
@@ -152,14 +166,20 @@ export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promis
         cwd: options.cwd,
         models,
         signal: controller.signal,
-        onProgress: (done, total) => {
-          processed = done;
+        track: {
+          surface: options.surface ?? "auto",
+          lockHeld: true,
+          expectedTotal: dry.unitsWouldImport,
+        },
+        onProgress: (done, total, _preview, alreadyHandled = 0) => {
+          // Count only units that needed work; ledger hits are not pending work.
+          processed = workProgress(done, total, alreadyHandled, dry.unitsWouldImport).done;
           const now = clock();
           if (now - checkedAt < 5_000) return;
           checkedAt = now;
           refreshConfigIfChanged(options.cwd);
-          if (!CONFIG.autoBackfill) controller.abort();
-          current = { ...current, pending: Math.max(0, total - done) };
+          if (!options.userStarted && !CONFIG.autoBackfill) controller.abort();
+          current = { ...current, pending: Math.max(0, dry.unitsWouldImport - processed) };
           pendingWrite = pendingWrite
             .then(() =>
               updateBackfillStatus(options.host, { state: "running", model, counts: current })
@@ -174,8 +194,10 @@ export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promis
       }
     );
     await pendingWrite;
-    current = { ...counts(real), pending: Math.max(0, dry.unitsWouldImport - processed) };
-    state = controller.signal.aborted ? "stopped" : real.unitsFailed ? "failed" : "done";
+    const finished = real.unitsImported + real.unitsSkipped + real.unitsFailed;
+    current = { ...counts(real), pending: Math.max(0, dry.unitsWouldImport - finished) };
+    const paused = await isBackfillPaused(options.host).catch(() => false);
+    state = controller.signal.aborted || paused ? "stopped" : real.unitsFailed ? "failed" : "done";
     if (!options.signal?.aborted) {
       options.notify(
         `${options.host} automatic import ${state}: ${current.imported} imported, ${current.failed} failed. autoBackfill controls the next run.`

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
+import { versionNotice, type VersionInfo } from "$lib/external-api-settings";
 
 type Snapshot = { revision: string; settings: Record<string, { globalValue?: unknown }> };
 type LoginItem = { state: string; command?: string };
@@ -9,6 +10,7 @@ export function WebAppSection() {
   const s = useSettingsText();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [item, setItem] = useState<LoginItem>();
+  const [version, setVersion] = useState<VersionInfo>();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -27,6 +29,11 @@ export function WebAppSection() {
       .catch((error: Error) => {
         if (active) setMessage(error.message);
       });
+    void settingsRequest<VersionInfo>("/api/settings/version")
+      .then((value) => {
+        if (active) setVersion(value);
+      })
+      .catch(() => {});
     const unsubscribe = onSettingsSnapshot((value) => {
       if (active) setSnapshot(value as Snapshot);
     });
@@ -78,6 +85,7 @@ export function WebAppSection() {
       {item?.state === "no-runtime" && (
         <p role="status">{s("Install Node or Bun to start the web app at login.")}</p>
       )}
+      {version && <VersionNotice info={version} />}
       <p className="text-xs text-muted-foreground">
         {s("Use these commands to apply the change now:")}
       </p>
@@ -93,5 +101,29 @@ export function WebAppSection() {
         </p>
       )}
     </section>
+  );
+}
+
+function VersionNotice({ info }: { info: VersionInfo }) {
+  const s = useSettingsText();
+  const notice = versionNotice(info);
+  return (
+    <div className="space-y-1 text-sm">
+      <p>
+        {s("Running version")}: {info.running} · {s("Global command")}:{" "}
+        {info.global ?? s("not installed globally")}
+      </p>
+      {notice.kind === "different" && (
+        <p role="status" className="text-amber-600">
+          {s("The global command's version differs from the running OMMS. Upgrade it:")}
+        </p>
+      )}
+      {notice.command && <p className="font-mono text-xs">{notice.command}</p>}
+      <p className="text-xs text-muted-foreground">
+        {s(
+          "A global install is optional but recommended: the login item and the terminal commands then run without npx."
+        )}
+      </p>
+    </div>
   );
 }

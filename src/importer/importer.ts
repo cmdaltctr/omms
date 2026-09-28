@@ -105,7 +105,13 @@ export interface ImportReport {
 export interface ImporterDeps {
   loadSession: (file: string) => LoadedPiSession;
   provider: CaptureSummaryProvider;
-  onProgress?: (processed: number, total: number, promptPreview: string) => void;
+  /** `alreadyHandled`: units found already done so far, which need no model call. */
+  onProgress?: (
+    processed: number,
+    total: number,
+    promptPreview: string,
+    alreadyHandled?: number
+  ) => void;
   signal?: AbortSignal;
   ledger?: PiImportLedger;
   profile?: { model?: ModelPort; batchSize?: number };
@@ -306,7 +312,12 @@ export async function importHistorySource(
     const { sessionId, directory, sourceFile, hash, window } = candidate;
     const key = buildImportKey(sessionId, window, host)!;
     processed++;
-    deps.onProgress?.(processed, report.unitsTotal, preview(window.userPrompt));
+    deps.onProgress?.(
+      processed,
+      report.unitsTotal,
+      preview(window.userPrompt),
+      report.unitsAlreadyHandled
+    );
 
     const unit: ImportUnitReport = {
       key,

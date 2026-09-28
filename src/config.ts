@@ -7,6 +7,7 @@ import { resolveSecretValue } from "./services/secret-resolver.js";
 import { isPlaceholderApiKey } from "./services/ai/api-key-placeholder.js";
 import { getAutoCaptureProviderStatus } from "./services/ai/live-model-choice.js";
 import { parseBackfillModel } from "./importer/backfill-model.js";
+import { parseImportPathMaps } from "./importer/import-path-maps.js";
 import {
   resolveDefaultStoragePath,
   runLegacyStoreMigration,
@@ -60,7 +61,8 @@ interface OmmsConfig {
   autoCaptureMaxRetries?: number;
   autoCaptureMaxContextBytes?: number;
   autoCaptureLanguage?: string;
-  memoryProvider?: "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter";
+  memoryProvider?:
+    "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter" | "google-gemini";
   memoryModel?: string;
   memoryApiUrl?: string;
   memoryApiKey?: string;
@@ -82,6 +84,8 @@ interface OmmsConfig {
   autoBackfill?: boolean;
   opencodeBackfillModel?: string;
   piBackfillModel?: string;
+  /** Saved directory maps for every history import. Global config only. */
+  importPathMaps?: Array<{ from: string; to: string }>;
   webServerAutoStart?: boolean;
   webServerEnabled?: boolean;
   webServerPort?: number;
@@ -159,7 +163,8 @@ const DEFAULTS: Required<
   memoryModel?: string;
   memoryApiUrl?: string;
   memoryApiKey?: string;
-  memoryProvider?: "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter";
+  memoryProvider?:
+    "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter" | "google-gemini";
   memoryTemperature?: number | false;
   memoryExtraParams?: Record<string, unknown>;
   opencodeProvider?: string;
@@ -202,6 +207,7 @@ const DEFAULTS: Required<
   autoBackfill: true,
   opencodeBackfillModel: "inherit",
   piBackfillModel: "inherit",
+  importPathMaps: [],
   webServerAutoStart: true,
   webServerEnabled: true,
   webServerPort: 4747,
@@ -352,8 +358,10 @@ export const CONFIG_TEMPLATE = `{
   
   // Start a background import of past chats on each host's next start.
   "autoBackfill": true,
-  // "piBackfillModel": "inherit", // or "provider/model"
-  // "opencodeBackfillModel": "inherit", // or "provider/model"
+  // "piBackfillModel": "inherit", // or "external", or "provider/model"
+  // "opencodeBackfillModel": "inherit", // or "external", or "provider/model"
+  // Directory maps for history recorded in moved or deleted directories.
+  // "importPathMaps": [{ "from": "~/code/app-feat-x", "to": "~/code/app" }],
 
   // Register the web app to start when you log in.
   "webServerAutoStart": true,
@@ -370,7 +378,7 @@ export const CONFIG_TEMPLATE = `{
   // "webServerAuthPassword": "",
   // "webServerAuthUsername": "",
 
-  // Required when webServerHost is not loopback. Protects /api/* with Bearer / X-Opencode-Mem-Token.
+  // Required when webServerHost is not loopback. Protects /api/* with Bearer / X-Omms-Token (legacy X-Opencode-Mem-Token still works).
   // "webServerApiToken": "env://OMMS_WEB_TOKEN",
   
   // ============================================
@@ -409,7 +417,8 @@ export const CONFIG_TEMPLATE = `{
    // Which model summarises your work, in this order:
    //   1. The host model below: opencodeProvider/opencodeModel in OpenCode,
    //      piProvider/piModel in Pi. Set the model to "inherit" to follow
-   //      whatever model the session is using.
+   //      whatever model the session is using, or to "external" to send
+   //      every call to the external API below.
    //   2. If no host model is set: the external API (memoryModel/memoryApiUrl/
    //      memoryApiKey further down).
    //   3. If neither is set: the session's own model.
@@ -439,7 +448,7 @@ export const CONFIG_TEMPLATE = `{
   
   "autoCaptureEnabled": true,
   
-  // Provider type: "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter"
+  // Provider type: "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter" | "google-gemini"
   // Note: "openai-chat" is a generic OpenAI API-compatible mode.
   // Any service that follows the OpenAI Chat Completions API can use it via custom "memoryApiUrl".
   "memoryProvider": "openai-chat",
@@ -719,8 +728,22 @@ export function normalizeAutoCleanupRetentionDays(value: number): number {
   return value;
 }
 
+/**
+ * The external API key, or undefined when its `env://` or `file://` source does
+ * not resolve in this process (a login web app does not see shell-profile
+ * variables). Readiness then reports the key as missing instead of the whole
+ * config failing to load.
+ */
+function resolveMemoryApiKey(value: string | undefined): string | undefined {
+  try {
+    return resolveSecretValue(value);
+  } catch {
+    return undefined;
+  }
+}
+
 function buildConfig(fileConfig: OmmsConfig) {
-  const memoryApiKey = resolveSecretValue(fileConfig.memoryApiKey);
+  const memoryApiKey = resolveMemoryApiKey(fileConfig.memoryApiKey);
   const embeddingDimensions =
     fileConfig.embeddingDimensions ??
     getEmbeddingDimensions(fileConfig.embeddingModel ?? DEFAULTS.embeddingModel);
@@ -731,6 +754,7 @@ function buildConfig(fileConfig: OmmsConfig) {
     fileConfig.userProfileAutoCleanupInterval ?? DEFAULTS.userProfileAutoCleanupInterval;
   parseBackfillModel(fileConfig, "pi");
   parseBackfillModel(fileConfig, "opencode");
+  const importPathMaps = parseImportPathMaps(fileConfig.importPathMaps);
   for (const key of ["autoBackfill", "webServerAutoStart"] as const) {
     if (fileConfig[key] !== undefined && typeof fileConfig[key] !== "boolean") {
       throw new Error(`Invalid ${key} config`);
@@ -778,7 +802,7 @@ function buildConfig(fileConfig: OmmsConfig) {
     autoCaptureMaxContextBytes,
     autoCaptureLanguage: fileConfig.autoCaptureLanguage,
     memoryProvider: (fileConfig.memoryProvider ?? "openai-chat") as
-      "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter",
+      "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter" | "google-gemini",
     memoryModel: fileConfig.memoryModel,
     memoryApiUrl: fileConfig.memoryApiUrl,
     memoryApiKey,
@@ -791,6 +815,7 @@ function buildConfig(fileConfig: OmmsConfig) {
     autoCaptureProviderStatus: getAutoCaptureProviderStatus({
       opencodeProvider: fileConfig.opencodeProvider,
       opencodeModel: fileConfig.opencodeModel,
+      memoryProvider: fileConfig.memoryProvider,
       memoryModel: fileConfig.memoryModel,
       memoryApiUrl: fileConfig.memoryApiUrl,
       memoryApiKey,
@@ -807,6 +832,7 @@ function buildConfig(fileConfig: OmmsConfig) {
     autoBackfill: fileConfig.autoBackfill ?? DEFAULTS.autoBackfill,
     opencodeBackfillModel: fileConfig.opencodeBackfillModel ?? DEFAULTS.opencodeBackfillModel,
     piBackfillModel: fileConfig.piBackfillModel ?? DEFAULTS.piBackfillModel,
+    importPathMaps,
     webServerAutoStart: fileConfig.webServerAutoStart ?? DEFAULTS.webServerAutoStart,
     webServerEnabled: fileConfig.webServerEnabled ?? DEFAULTS.webServerEnabled,
     webServerPort: fileConfig.webServerPort ?? DEFAULTS.webServerPort,
@@ -995,6 +1021,7 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   delete projectOverrides.autoBackfill;
   delete projectOverrides.opencodeBackfillModel;
   delete projectOverrides.piBackfillModel;
+  delete projectOverrides.importPathMaps;
   delete projectOverrides.webServerAutoStart;
   delete projectOverrides.webServerEnabled;
   const merged: OmmsConfig = { ...globalConfig, ...projectOverrides };

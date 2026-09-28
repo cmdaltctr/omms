@@ -59,3 +59,30 @@ it("inherits the external live model when it is configured", async () => {
   );
   expect(result.model).toBe("openai-chat/small");
 });
+
+it("sends an external OpenCode backfill to the external API, or names what is missing", async () => {
+  const context = {
+    connected: [],
+    directory: "/project",
+    configModel: async () => null,
+    makeModels,
+    externalModels: () => ({
+      provider: "openai-chat",
+      modelId: "small",
+      capture: { summarize: async () => null },
+      profile: { provider: "openai-chat", modelId: "small", complete: async () => "" },
+    }),
+  };
+  const ready = {
+    opencodeBackfillModel: "external",
+    opencodeProvider: "anthropic",
+    opencodeModel: "claude",
+    memoryModel: "small",
+    memoryApiUrl: "https://example.invalid",
+    memoryApiKey: "test-key",
+  };
+  expect((await resolveOpencodeBackfillModels(ready, context)).model).toBe("openai-chat/small");
+  await expect(
+    resolveOpencodeBackfillModels({ ...ready, memoryModel: undefined }, context)
+  ).rejects.toThrow("memoryModel is not configured");
+});

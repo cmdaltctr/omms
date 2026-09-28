@@ -9,6 +9,7 @@ export function useMemoriesExplorer() {
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedTag, setSelectedTag] = useState("");
+  const [selectedKeyword, setSelectedKeyword] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -38,8 +39,9 @@ export function useMemoriesExplorer() {
     isSearching,
     searchQuery,
     selectedTag,
+    selectedKeyword,
   });
-  stateRef.current = { currentPage, isSearching, searchQuery, selectedTag };
+  stateRef.current = { currentPage, isSearching, searchQuery, selectedTag, selectedKeyword };
 
   const setSelected = useCallback((next: Set<string>) => {
     setSelectedIds(new Set(next));
@@ -65,12 +67,14 @@ export function useMemoriesExplorer() {
       isSearching?: boolean;
       searchQuery?: string;
       selectedTag?: string;
+      selectedKeyword?: string;
     }) => {
       const {
         currentPage: page,
         isSearching: searching,
         searchQuery: query,
         selectedTag: tag,
+        selectedKeyword: keyword,
       } = {
         ...stateRef.current,
         ...overrides,
@@ -83,8 +87,9 @@ export function useMemoriesExplorer() {
       if (searching) {
         endpoint = `/api/search?q=${encodeURIComponent(query)}&page=${page}&pageSize=20`;
         if (tag) endpoint += `&tag=${encodeURIComponent(tag)}`;
-      } else if (tag) {
-        endpoint += `&tag=${encodeURIComponent(tag)}`;
+      } else {
+        if (tag) endpoint += `&tag=${encodeURIComponent(tag)}`;
+        if (keyword) endpoint += `&keyword=${encodeURIComponent(keyword)}`;
       }
 
       const result = await fetchAPI<{
@@ -171,10 +176,13 @@ export function useMemoriesExplorer() {
     setSearchQuery(query);
     setIsSearching(true);
     setCurrentPage(1);
+    // Text search does not filter by keyword, so drop the keyword badge too.
+    setSelectedKeyword("");
     void loadMemories({
       page: 1,
       isSearching: true,
       searchQuery: query,
+      selectedKeyword: "",
     });
   }
 
@@ -201,6 +209,20 @@ export function useMemoriesExplorer() {
       isSearching: false,
       searchQuery: "",
       selectedTag: value,
+    });
+  }
+
+  function onKeywordFilterChange(value: string) {
+    setSelectedKeyword(value);
+    setCurrentPage(1);
+    setIsSearching(false);
+    setSearchQuery("");
+    setSearchInput("");
+    void loadMemories({
+      page: 1,
+      isSearching: false,
+      searchQuery: "",
+      selectedKeyword: value,
     });
   }
 
@@ -407,6 +429,8 @@ export function useMemoriesExplorer() {
     memories,
     selectedIds,
     selectedTag,
+    selectedKeyword,
+    onKeywordFilterChange,
     searchInput,
     setSearchInput,
     isSearching,

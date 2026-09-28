@@ -22,6 +22,8 @@ type Props = {
   onEdit: (id: string) => void;
   onDeleteMemory: (id: string, isLinked: boolean) => void;
   onDeletePrompt: (id: string, isLinked: boolean) => void;
+  activeKeyword?: string;
+  onKeywordClick?: (keyword: string) => void;
 };
 
 export function MemoryList({
@@ -38,6 +40,8 @@ export function MemoryList({
   onEdit,
   onDeleteMemory,
   onDeletePrompt,
+  activeKeyword,
+  onKeywordClick,
 }: Props) {
   const { t } = useI18n();
   const groups = useMemo(() => groupMemories(memories), [memories]);
@@ -59,7 +63,7 @@ export function MemoryList({
 
   return (
     <div className="space-y-3">
-      <div className="space-y-3 min-h-32">
+      <div className="grid min-h-32 items-start gap-3 lg:grid-cols-2">
         {loading && memories.length === 0 ? (
           <div className="text-sm text-muted-foreground py-8 text-center">{t("loading-init")}</div>
         ) : error ? (
@@ -83,6 +87,8 @@ export function MemoryList({
                 onEdit={onEdit}
                 onDeleteMemory={onDeleteMemory}
                 onDeletePrompt={onDeletePrompt}
+                activeKeyword={activeKeyword}
+                onKeywordClick={onKeywordClick}
               />
             ) : group.type === "prompt" ? (
               <MemoryCard
@@ -96,6 +102,8 @@ export function MemoryList({
                 onEdit={onEdit}
                 onDeleteMemory={onDeleteMemory}
                 onDeletePrompt={onDeletePrompt}
+                activeKeyword={activeKeyword}
+                onKeywordClick={onKeywordClick}
               />
             ) : (
               <MemoryCard
@@ -109,6 +117,8 @@ export function MemoryList({
                 onEdit={onEdit}
                 onDeleteMemory={onDeleteMemory}
                 onDeletePrompt={onDeletePrompt}
+                activeKeyword={activeKeyword}
+                onKeywordClick={onKeywordClick}
               />
             )
           )

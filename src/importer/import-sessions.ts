@@ -127,18 +127,11 @@ export async function matchImportSessions(
     options.scope === "current-project"
       ? projectFilterTag(resolve(options.cwd, options.project ?? "."))
       : null;
-  // Map targets resolve against the working directory, as `runHistoryImport` does.
-  const rows = await readRows(
-    identity,
-    {
-      ...options,
-      pathMaps: options.pathMaps.map((map) => ({
-        from: map.from,
-        to: resolve(options.cwd, map.to),
-      })),
-    },
-    snapshotMode
-  );
+  // Saved maps plus the request's own, as `runHistoryImport` uses them.
+  // The revision hashes the same merged maps, so a saved-map change is seen as stale.
+  const { runPathMaps } = await import("./import-path-maps.js");
+  const merged = { ...options, pathMaps: await runPathMaps(options.pathMaps, options.cwd) };
+  const rows = await readRows(identity, merged, snapshotMode);
   const unresolved = rows.filter((row) => row.directory === null);
   const matching = rows
     .filter((row) => row.directory !== null)
@@ -150,7 +143,7 @@ export async function matchImportSessions(
     unresolved,
     revision: revisionOf(
       identity,
-      options,
+      merged,
       projectTag,
       matching.map((row) => row.key)
     ),
@@ -239,6 +232,15 @@ export async function listImportSessions(
   // A refresh takes a fresh copy of a live database; paging reuses the current one.
   const listedAt = Date.now();
   const matched = await matchImportSessions(identity, options, request.refresh ? "fresh" : "any");
+  // Feed the Directory maps list; a failure here must not break the listing.
+  const { recordUnresolvedDirectories, summarizeUnresolvedDirectories } =
+    await import("../services/backfill-state.js");
+  await recordUnresolvedDirectories(
+    options.host,
+    summarizeUnresolvedDirectories(
+      matched.unresolved.map((row) => ({ directory: row.recordedDirectory }))
+    )
+  ).catch(() => {});
   const rows = [
     ...matched.matching.map((row) => ({ ...row, selectable: true })),
     ...(options.scope === "all-projects"

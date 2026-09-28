@@ -22,6 +22,9 @@ Commands:
   web                       Start the web app in the foreground
   web install|uninstall|status  Manage the web app login item
 
+Options:
+  --version, -v             Print the installed version
+
 Import commands take the same options; run one with --help to see them.
 Inside a session, /memory-import-opencode-history and /memory-import-pi-history
 use that session's model instead of an API key.`;
@@ -36,6 +39,11 @@ export function parseImportArgs(argv: string[]): { host: ImportHost; args: Histo
 }
 
 export async function runCli(argv: string[]): Promise<number> {
+  if (argv[0] === "--version" || argv[0] === "-v") {
+    const { packageVersion } = await import("../services/package-version.js");
+    console.log(packageVersion());
+    return 0;
+  }
   if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
     console.log(usage);
     return 0;
@@ -82,7 +90,11 @@ export async function runCli(argv: string[]): Promise<number> {
     }
     const { formatHistoryImportReport, historyImportFailed, runHistoryImport } =
       await import("../importer/run-import.js");
-    const report = await runHistoryImport(host, args, { cwd: process.cwd(), models });
+    const report = await runHistoryImport(host, args, {
+      cwd: process.cwd(),
+      models,
+      track: { surface: "cli" },
+    });
     console.log(formatHistoryImportReport(host, report, model));
     return historyImportFailed(report) ? 1 : 0;
   } catch (error) {

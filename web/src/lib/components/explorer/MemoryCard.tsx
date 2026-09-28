@@ -1,3 +1,5 @@
+import { KeywordBadge } from "./KeywordBadge";
+import { Tooltip } from "$lib/components/ui/tooltip";
 import {
   ArrowDown,
   ArrowUp,
@@ -27,6 +29,8 @@ type Props = {
   onEdit?: (id: string) => void;
   onDeleteMemory?: (id: string, isLinked: boolean) => void;
   onDeletePrompt?: (id: string, isLinked: boolean) => void;
+  activeKeyword?: string;
+  onKeywordClick?: (keyword: string) => void;
 };
 
 function displayInfo(m: MemoryItem): string {
@@ -64,6 +68,8 @@ export function MemoryCard({
   onEdit,
   onDeleteMemory,
   onDeletePrompt,
+  activeKeyword,
+  onKeywordClick,
 }: Props) {
   const { t } = useI18n();
 
@@ -128,22 +134,28 @@ export function MemoryCard({
               <Button variant="ghost" size="icon-xs" onClick={() => onEdit?.(memory.id)}>
                 <PenLine className="size-3.5" />
               </Button>
-              <Button
-                variant="destructive"
-                size="xs"
-                onClick={() => onDeleteMemory?.(memory.id, true)}
-              >
-                <Trash2 className="size-3.5" />
-                {t("btn-delete-pair")}
-              </Button>
+              <Tooltip content={t("tooltip-delete-pair")}>
+                <Button
+                  variant="destructive"
+                  size="icon-xs"
+                  aria-label={t("btn-delete-pair")}
+                  onClick={() => onDeleteMemory?.(memory.id, true)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </Tooltip>
             </div>
           </div>
           {memory.tags?.length ? (
             <div className="flex flex-wrap gap-1">
               {memory.tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="font-normal">
-                  {tag}
-                </Badge>
+                <KeywordBadge
+                  key={tag}
+                  keyword={tag}
+                  active={activeKeyword?.toLowerCase() === tag.toLowerCase()}
+                  title={t("tooltip-filter-keyword")}
+                  onClick={onKeywordClick}
+                />
               ))}
             </div>
           ) : null}
@@ -189,14 +201,28 @@ export function MemoryCard({
             ) : null}
             <span className="text-xs text-muted-foreground">{formatDate(item.createdAt)}</span>
           </div>
-          <Button
-            variant="destructive"
-            size="xs"
-            onClick={() => onDeletePrompt?.(item.id, isLinked)}
-          >
-            <Trash2 className="size-3.5" />
-            {isLinked ? t("btn-delete-pair") : t("btn-delete")}
-          </Button>
+          {isLinked ? (
+            <Tooltip content={t("tooltip-delete-prompt-pair")}>
+              <Button
+                variant="destructive"
+                size="icon-xs"
+                aria-label={isLinked ? t("btn-delete-pair") : t("btn-delete")}
+                onClick={() => onDeletePrompt?.(item.id, isLinked)}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            </Tooltip>
+          ) : (
+            <Button
+              variant="destructive"
+              size="icon-xs"
+              aria-label={isLinked ? t("btn-delete-pair") : t("btn-delete")}
+              title={t("btn-delete")}
+              onClick={() => onDeletePrompt?.(item.id, isLinked)}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          )}
         </div>
         <p className="text-sm whitespace-pre-wrap break-words">{item.content}</p>
         {isLinked ? (
@@ -259,22 +285,40 @@ export function MemoryCard({
             <Button variant="ghost" size="icon-xs" onClick={() => onEdit?.(item.id)}>
               <PenLine className="size-3.5" />
             </Button>
-            <Button
-              variant="destructive"
-              size="xs"
-              onClick={() => onDeleteMemory?.(item.id, isLinked)}
-            >
-              <Trash2 className="size-3.5" />
-              {isLinked ? t("btn-delete-pair") : t("btn-delete")}
-            </Button>
+            {isLinked ? (
+              <Tooltip content={t("tooltip-delete-pair")}>
+                <Button
+                  variant="destructive"
+                  size="icon-xs"
+                  aria-label={isLinked ? t("btn-delete-pair") : t("btn-delete")}
+                  onClick={() => onDeleteMemory?.(item.id, isLinked)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </Tooltip>
+            ) : (
+              <Button
+                variant="destructive"
+                size="icon-xs"
+                aria-label={isLinked ? t("btn-delete-pair") : t("btn-delete")}
+                title={t("btn-delete")}
+                onClick={() => onDeleteMemory?.(item.id, isLinked)}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            )}
           </div>
         </div>
         {item.tags?.length ? (
           <div className="flex flex-wrap gap-1">
             {item.tags.map((tag) => (
-              <Badge key={tag} variant="outline" className="font-normal">
-                {tag}
-              </Badge>
+              <KeywordBadge
+                key={tag}
+                keyword={tag}
+                active={activeKeyword?.toLowerCase() === tag.toLowerCase()}
+                title={t("tooltip-filter-keyword")}
+                onClick={onKeywordClick}
+              />
             ))}
           </div>
         ) : null}

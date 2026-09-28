@@ -1,5 +1,6 @@
 import { CONFIG } from "../../config.js";
 import { parseBackfillModel } from "../../importer/backfill-model.js";
+import { resolveExternalBackfillModels } from "../../importer/external-backfill-models.js";
 import { selectImportModel } from "../../importer/model-selection.js";
 import type { HistoryImportModels } from "../../importer/run-import.js";
 import { getAutoCaptureProviderStatus } from "../../services/ai/live-model-choice.js";
@@ -32,6 +33,9 @@ export async function resolveOpencodeBackfillModels(
   context: OpenCodeBackfillContext
 ): Promise<{ model: string; models: HistoryImportModels }> {
   const choice = parseBackfillModel(config, "opencode");
+  if (choice === "external") {
+    return resolveExternalBackfillModels("opencode", config, context.externalModels);
+  }
   let ref: OpencodeModelRef;
   if (choice === "inherit") {
     const live = getAutoCaptureProviderStatus(config);
@@ -49,7 +53,8 @@ export async function resolveOpencodeBackfillModels(
         : await context.configModel();
     if (!selected) throw new Error("OpenCode backfill: no configured default model");
     const parsed = parseBackfillModel({ opencodeBackfillModel: selected }, "opencode");
-    if (parsed === "inherit") throw new Error("OpenCode backfill: no configured default model");
+    if (typeof parsed === "string")
+      throw new Error("OpenCode backfill: no configured default model");
     ref = { providerID: parsed.provider, modelID: parsed.model };
   } else {
     ref = { providerID: choice.provider, modelID: choice.model };

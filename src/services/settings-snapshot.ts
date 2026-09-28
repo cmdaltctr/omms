@@ -21,7 +21,22 @@ const editable = [
   "opencodeBackfillModel",
   "piBackfillModel",
   "webServerAutoStart",
+  "memoryProvider",
+  "memoryApiUrl",
+  "memoryModel",
+  "importPathMaps",
 ] as const;
+
+/** Keys a project config cannot override, so the page always shows the global value. */
+const globalOnly = [
+  "autoBackfill",
+  "opencodeBackfillModel",
+  "piBackfillModel",
+  "webServerAutoStart",
+  "memoryProvider",
+  "memoryApiUrl",
+  "importPathMaps",
+];
 
 function readSettingsFile(path: string | undefined): Record<string, unknown> {
   if (!path) return {};
@@ -47,13 +62,7 @@ export function getSettingsSnapshot(directory: string) {
         Object.hasOwn(project, key) &&
         (key === "captureTrace"
           ? project[key] === false
-          : !key.endsWith("RetentionDays") &&
-            ![
-              "autoBackfill",
-              "opencodeBackfillModel",
-              "piBackfillModel",
-              "webServerAutoStart",
-            ].includes(key));
+          : !key.endsWith("RetentionDays") && !globalOnly.includes(key));
       const source = projectOverrides
         ? "project"
         : Object.hasOwn(global, key)
@@ -66,18 +75,21 @@ export function getSettingsSnapshot(directory: string) {
   const secrets = Object.fromEntries(
     ["memoryApiKey", "embeddingApiKey", "webServerApiToken", "webServerAuthPassword"].map((key) => {
       const raw = global[key];
+      const source =
+        typeof raw === "string"
+          ? raw.startsWith("env://")
+            ? "env"
+            : raw.startsWith("file://")
+              ? "file"
+              : "literal"
+          : null;
       return [
         key,
         {
           set: typeof raw === "string" && raw.length > 0,
-          source:
-            typeof raw === "string"
-              ? raw.startsWith("env://")
-                ? "env"
-                : raw.startsWith("file://")
-                  ? "file"
-                  : "literal"
-              : null,
+          source,
+          // The variable name or file path, never a literal value.
+          reference: memoryKeyStatus(raw).reference,
         },
       ];
     })
@@ -87,9 +99,39 @@ export function getSettingsSnapshot(directory: string) {
     settings,
     secrets,
     fallback: { model: CONFIG.memoryModel ?? null, configured: isExternalModelReady(CONFIG) },
+    externalKey: memoryKeyStatus(global.memoryApiKey),
     effective: {
       opencode: getAutoCaptureProviderStatus(CONFIG),
       pi: resolvePiLiveModel(CONFIG),
     },
+  };
+}
+
+/**
+ * Where `memoryApiKey` comes from and whether it resolves in this web
+ * server's own process. The key value itself is never returned.
+ */
+export function memoryKeyStatus(raw: unknown, resolved = CONFIG.memoryApiKey) {
+  const source =
+    typeof raw !== "string" || !raw
+      ? null
+      : raw.startsWith("env://")
+        ? "env"
+        : raw.startsWith("file://")
+          ? "file"
+          : "literal";
+  return {
+    source,
+    reference:
+      source === "env"
+        ? (raw as string).slice("env://".length)
+        : source === "file"
+          ? (raw as string).slice("file://".length)
+          : null,
+    resolvesInWebApp: Boolean(resolved),
+    warning:
+      source === "env"
+        ? "A login web app does not see variables set only in a shell profile; a key file works everywhere."
+        : null,
   };
 }

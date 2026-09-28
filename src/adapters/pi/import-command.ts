@@ -114,6 +114,7 @@ export function registerPiHistoryImportCommand(
         let lastProgressNotify = 0;
         const report = await runHistoryImport("pi", parsed, {
           cwd: ctx.cwd,
+          track: { surface: "slash" },
           models:
             selectedModel && !parsed.dryRun
               ? {

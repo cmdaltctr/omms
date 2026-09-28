@@ -47,11 +47,14 @@ const props = {
   brand: "omms",
   projectLabel: "Project",
   profileLabel: "Profile",
+  profileSections: [{ id: "profile-preferences", label: "Preferences" }],
   langLabel: "EN",
   languageLabel: "Language",
   themeLabel: "Theme",
   settingsLabel: "Settings",
   closeLabel: "Close",
+  collapseLabel: "Collapse",
+  expandLabel: "Expand",
 };
 function render(overrides: Record<string, unknown> = {}) {
   cursor = 0;

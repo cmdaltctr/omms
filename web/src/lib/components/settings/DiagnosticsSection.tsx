@@ -1,4 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
+import { Select } from "$lib/components/ui/select";
+import { cn } from "$lib/utils";
+
+const tableWrap = "overflow-x-auto rounded-lg border border-border";
+const caption = "px-3 py-2 text-start font-medium";
+const thead = "bg-muted/50 text-xs text-muted-foreground";
+const th = "px-3 py-2 text-start font-medium";
+const tr = "border-t border-border transition-colors hover:bg-muted/30";
+const td = "px-3 py-1.5";
 import {
   beginSettingsRead,
   onSettingsSnapshot,
@@ -124,10 +133,11 @@ export function DiagnosticsSection() {
       aria-label={s("Capture diagnostics")}
     >
       <h2 className="text-lg font-medium">{s("Capture diagnostics")}</h2>
-      <label className="text-sm">
-        {s("Time range")}{" "}
-        <select
-          className="ms-2 rounded border border-border bg-background p-1"
+      <label className="flex items-center gap-2 pb-2 text-sm">
+        {s("Time range")}
+        <Select
+          aria-label={s("Time range")}
+          className="rounded-lg border border-border bg-background px-2 py-1"
           value={days}
           onChange={(e) => setDays(Number(e.target.value))}
         >
@@ -135,16 +145,16 @@ export function DiagnosticsSection() {
           <option value={7}>{s("7 days")}</option>
           <option value={30}>{s("30 days")}</option>
           <option value={90}>{s("90 days")}</option>
-        </select>
+        </Select>
       </label>
       {error && <p role="alert">{error}</p>}
-      <div className="overflow-x-auto">
-        <table className="w-full text-start text-sm">
-          <caption className="text-start font-medium">{s("Outcomes by model")}</caption>
-          <thead>
+      <div className={tableWrap}>
+        <table className="w-full text-sm">
+          <caption className={caption}>{s("Outcomes by model")}</caption>
+          <thead className={thead}>
             <tr>
-              {["Host / model", "Saved", "Skipped", "Failed", "Total"].map((label) => (
-                <th scope="col" key={label}>
+              {["Host / model", "Saved", "Skipped", "Failed", "Total"].map((label, column) => (
+                <th scope="col" className={cn(th, column > 0 && "text-end")} key={label}>
                   {s(label)}
                 </th>
               ))}
@@ -152,37 +162,58 @@ export function DiagnosticsSection() {
           </thead>
           <tbody>
             {data?.byModel.map((row, index) => (
-              <tr key={`${row.host}-${row.provider}-${row.model}-${index}`}>
-                <td>
-                  {row.host}: {row.provider}/{row.model}
+              <tr className={tr} key={`${row.host}-${row.provider}-${row.model}-${index}`}>
+                <td className={td}>
+                  <span className="text-muted-foreground">{row.host}</span>{" "}
+                  <span className="font-mono text-xs">
+                    {row.provider || row.model ? `${row.provider ?? ""}/${row.model ?? ""}` : "—"}
+                  </span>
                 </td>
-                <td>
-                  {row.saved} ({Math.round((100 * row.saved) / row.total)}%)
-                </td>
-                <td>
-                  {row.skipped} ({Math.round((100 * row.skipped) / row.total)}%)
-                </td>
-                <td>
-                  {row.failed} ({Math.round((100 * row.failed) / row.total)}%)
-                </td>
-                <td>{row.total}</td>
+                {([row.saved, row.skipped, row.failed] as const).map((count, column) => (
+                  <td className={cn(td, "text-end tabular-nums")} key={column}>
+                    {count}{" "}
+                    <span className="text-xs text-muted-foreground">
+                      {Math.round((100 * count) / row.total)}%
+                    </span>
+                  </td>
+                ))}
+                <td className={cn(td, "text-end font-medium tabular-nums")}>{row.total}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="text-sm">
-        <h3 className="font-medium">{s("Failure reasons")}</h3>
-        {data?.byReason.map((row, index) => (
-          <p key={`${row.host}-${row.reason}-${index}`}>
-            {row.host}: {row.reason} ({row.count})
-          </p>
-        ))}
+      <div className={tableWrap}>
+        <table className="w-full text-sm">
+          <caption className={caption}>{s("Failure reasons")}</caption>
+          <thead className={thead}>
+            <tr>
+              <th scope="col" className={th}>
+                {s("Host")}
+              </th>
+              <th scope="col" className={th}>
+                {s("Reason")}
+              </th>
+              <th scope="col" className={cn(th, "text-end")}>
+                {s("Total")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.byReason.map((row, index) => (
+              <tr className={tr} key={`${row.host}-${row.reason}-${index}`}>
+                <td className={cn(td, "text-muted-foreground")}>{row.host}</td>
+                <td className={cn(td, "font-mono text-xs")}>{row.reason}</td>
+                <td className={cn(td, "text-end tabular-nums")}>{row.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <div className="max-h-52 overflow-auto text-sm">
-        <table className="w-full min-w-max">
-          <caption className="text-start font-medium">{s("Recent attempts")}</caption>
-          <thead>
+      <div className={cn(tableWrap, "max-h-72 overflow-y-auto")}>
+        <table className="w-full min-w-max text-sm">
+          <caption className={caption}>{s("Recent attempts")}</caption>
+          <thead className={cn(thead, "sticky top-0")}>
             <tr>
               {[
                 "Time",
@@ -199,7 +230,7 @@ export function DiagnosticsSection() {
                 "Outcome",
                 "Reason",
               ].map((column) => (
-                <th scope="col" className="pe-3 text-start" key={column}>
+                <th scope="col" className={th} key={column}>
                   {s(column)}
                 </th>
               ))}
@@ -207,7 +238,7 @@ export function DiagnosticsSection() {
           </thead>
           <tbody>
             {data?.recent.map((row, index) => (
-              <tr key={`${row.timestamp}-${index}`}>
+              <tr className={tr} key={`${row.timestamp}-${index}`}>
                 {[
                   new Date(row.timestamp).toLocaleString(),
                   row.host,
@@ -223,7 +254,7 @@ export function DiagnosticsSection() {
                   row.outcome,
                   row.reason,
                 ].map((value, cell) => (
-                  <td className="pe-3" key={cell}>
+                  <td className={cn(td, "whitespace-nowrap")} key={cell}>
                     {value ?? ""}
                   </td>
                 ))}

@@ -98,6 +98,39 @@ describe("global config writer", () => {
     expect(result.text).toBe(seed);
   });
 
+  it("saves external API settings and maps, and refuses a literal key without writing", async () => {
+    const seed = '{\n  // keep me\n  "piModel": "a"\n}\n';
+    const result = await scenario(
+      `
+      const saved = await writeGlobalConfigKeys({
+        memoryProvider: "openai-chat",
+        memoryApiUrl: "https://api.example.invalid/v1",
+        memoryModel: "glm-5-turbo",
+        memoryApiKey: "env://ZAI_API_KEY",
+        importPathMaps: [{ from: "/old", to: "/new" }],
+      }, readGlobalConfigRevision());
+      const afterSave = readFileSync(target, "utf8");
+      let literal = "";
+      try {
+        await writeGlobalConfigKeys({ memoryApiKey: "sk-literal-secret" }, saved.revision);
+      } catch (error) { literal = error.message; }
+      let provider = "";
+      try {
+        await writeGlobalConfigKeys({ memoryProvider: "nope" }, saved.revision);
+      } catch (error) { provider = error.message; }
+      return { afterSave, unchanged: readFileSync(target, "utf8") === afterSave, literal, provider };
+    `,
+      seed
+    );
+    expect(result.afterSave).toContain("// keep me");
+    expect(result.afterSave).toContain('"memoryApiKey": "env://ZAI_API_KEY"');
+    expect(result.afterSave).toContain('"from": "/old"');
+    expect(result.unchanged).toBe(true);
+    expect(result.literal).toBe("memoryApiKey must be an env:// or file:// reference");
+    expect(result.literal).not.toContain("sk-literal-secret");
+    expect(result.provider).toBe("Invalid memoryProvider setting");
+  });
+
   it("creates a missing config from the template", async () => {
     const result = await scenario(`
       await writeGlobalConfigKeys({ piModel: "test" }, readGlobalConfigRevision());

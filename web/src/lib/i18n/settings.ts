@@ -277,6 +277,121 @@ const text = {
   "Log lines": ["日志行", "أسطر السجل"],
   "No log has been written yet.": ["尚未写入日志。", "لم يُكتب سجل بعد."],
   "Loading log…": ["正在加载日志…", "جارٍ تحميل السجل…"],
+  "External API": ["外部 API", "واجهة API الخارجية"],
+  "An OpenAI- or Anthropic-compatible endpoint that either host can use for capture and backfill.":
+    [
+      "兼容 OpenAI 或 Anthropic 的端点，两个宿主都可用于捕获和回填。",
+      "نقطة نهاية متوافقة مع OpenAI أو Anthropic يمكن لأي مضيف استخدامها للالتقاط والاستيراد.",
+    ],
+  Provider: ["提供商", "المزوّد"],
+  "API URL": ["API 地址", "عنوان API"],
+  "API key": ["API 密钥", "مفتاح API"],
+  "Save endpoint": ["保存端点", "حفظ نقطة النهاية"],
+  "Nothing to save.": ["没有需要保存的内容。", "لا يوجد ما يُحفظ."],
+  "Key source": ["密钥来源", "مصدر المفتاح"],
+  "environment variable": ["环境变量", "متغير البيئة"],
+  "key file": ["密钥文件", "ملف المفتاح"],
+  "set in the config file": ["在配置文件中设置", "مضبوط في ملف الإعدادات"],
+  "resolves in the web app": ["可在网页应用中解析", "يُقرأ في تطبيق الويب"],
+  "does not resolve in the web app": ["无法在网页应用中解析", "لا يُقرأ في تطبيق الويب"],
+  "A login web app does not see variables set only in a shell profile; a key file works everywhere.":
+    [
+      "登录时启动的网页应用看不到仅在 shell 配置文件中设置的变量；密钥文件在任何地方都可用。",
+      "تطبيق الويب الذي يبدأ عند تسجيل الدخول لا يرى المتغيرات المضبوطة في ملف الصدفة فقط؛ ملف المفتاح يعمل في كل مكان.",
+    ],
+  "The key does not resolve in this web app. Save it to a key file instead.": [
+    "此网页应用无法解析该密钥。请改为保存到密钥文件。",
+    "لا يُقرأ المفتاح في تطبيق الويب هذا. احفظه في ملف مفتاح بدلاً من ذلك.",
+  ],
+  "Environment variable": ["环境变量", "متغير البيئة"],
+  "Key file": ["密钥文件", "ملف المفتاح"],
+  "Save key to a private file": ["将密钥保存到私有文件", "حفظ المفتاح في ملف خاص"],
+  "Variable name": ["变量名", "اسم المتغير"],
+  "Key file path": ["密钥文件路径", "مسار ملف المفتاح"],
+  "Key file name": ["密钥文件名", "اسم ملف المفتاح"],
+  "The key is written to ~/.config/omms/secrets/ readable only by you. It is never shown again.": [
+    "密钥写入 ~/.config/omms/secrets/，仅你可读，之后不再显示。",
+    "يُكتب المفتاح في ~/.config/omms/secrets/ ولا يقرؤه غيرك، ولن يُعرض مرة أخرى.",
+  ],
+  "Save key source": ["保存密钥来源", "حفظ مصدر المفتاح"],
+  "Key source saved.": ["密钥来源已保存。", "تم حفظ مصدر المفتاح."],
+  "A key file with this name exists. Replace it?": [
+    "已存在同名密钥文件。要替换吗？",
+    "يوجد ملف مفتاح بهذا الاسم. هل تريد استبداله؟",
+  ],
+  "Enter a variable name such as ZAI_API_KEY": [
+    "请输入变量名，例如 ZAI_API_KEY",
+    "أدخل اسم متغير مثل ZAI_API_KEY",
+  ],
+  "Enter the path of a key file": ["请输入密钥文件路径", "أدخل مسار ملف المفتاح"],
+  "Name the key file with letters, digits, dashes, or underscores": [
+    "密钥文件名只能包含字母、数字、短横线或下划线",
+    "سمِّ ملف المفتاح بحروف أو أرقام أو شرطات أو شرطات سفلية",
+  ],
+  "Paste the key": ["请粘贴密钥", "الصق المفتاح"],
+  Test: ["测试", "اختبار"],
+  "Test call succeeded": ["测试调用成功", "نجح استدعاء الاختبار"],
+  "Test call failed": ["测试调用失败", "فشل استدعاء الاختبار"],
+  "External API needs": ["外部 API 缺少", "تحتاج واجهة API الخارجية إلى"],
+  "Automatic import makes model calls. A model change applies at the next run. Turning it off stops a running import after the current exchange.":
+    [
+      "自动导入会调用模型。模型更改在下次运行时生效。关闭后，正在进行的导入会在当前对话完成后停止。",
+      "يستدعي الاستيراد التلقائي النماذج. يسري تغيير النموذج في التشغيل التالي. إيقافه يوقف الاستيراد الجاري بعد المحادثة الحالية.",
+    ],
+  "Saved. Changes apply at the next run.": [
+    "已保存。更改在下次运行时生效。",
+    "تم الحفظ. تسري التغييرات في التشغيل التالي.",
+  ],
+  paused: ["已暂停", "متوقف مؤقتاً"],
+  "started from auto": ["自动启动", "بدأ تلقائياً"],
+  "started from web": ["从网页启动", "بدأ من الويب"],
+  "started from cli": ["从终端启动", "بدأ من الطرفية"],
+  "started from slash": ["从斜杠命令启动", "بدأ من أمر الشرطة المائلة"],
+  "Minutes left": ["剩余分钟", "الدقائق المتبقية"],
+  unknown: ["未知", "غير معروف"],
+  about: ["约", "حوالي"],
+  "Run now": ["立即运行", "تشغيل الآن"],
+  Pause: ["暂停", "إيقاف مؤقت"],
+  Resume: ["继续", "استئناف"],
+  "Pausing after the current exchange.": [
+    "将在当前对话完成后暂停。",
+    "سيتوقف مؤقتاً بعد المحادثة الحالية.",
+  ],
+  "Backfill started.": ["回填已开始。", "بدأ الاستيراد."],
+  "Directory maps": ["目录映射", "خرائط المجلدات"],
+  "Map a directory that was moved or deleted to the project it belongs to. A change applies to the next import or backfill run.":
+    [
+      "将已移动或删除的目录映射到其所属项目。更改在下次导入或回填时生效。",
+      "اربط مجلداً نُقل أو حُذف بالمشروع الذي ينتمي إليه. يسري التغيير في الاستيراد التالي.",
+    ],
+  "Saved maps": ["已保存的映射", "الخرائط المحفوظة"],
+  Keep: ["保留", "إبقاء"],
+  Remove: ["移除", "إزالة"],
+  "Unresolved directories": ["无法解析的目录", "مجلدات غير محلولة"],
+  "No unresolved directories in the latest run.": [
+    "最近一次运行没有无法解析的目录。",
+    "لا توجد مجلدات غير محلولة في آخر تشغيل.",
+  ],
+  "No suggestion found.": ["未找到建议。", "لم يُعثر على اقتراح."],
+  "Target directory": ["目标目录", "المجلد الهدف"],
+  "Use this map": ["使用此映射", "استخدام هذه الخريطة"],
+  "Save maps": ["保存映射", "حفظ الخرائط"],
+  "Saved. Maps apply to the next import or backfill run.": [
+    "已保存。映射在下次导入或回填时生效。",
+    "تم الحفظ. تسري الخرائط في الاستيراد التالي.",
+  ],
+  "Running version": ["运行版本", "الإصدار الجاري"],
+  "Global command": ["全局命令", "الأمر العام"],
+  "not installed globally": ["未全局安装", "غير مثبت عمومياً"],
+  "The global command's version differs from the running OMMS. Upgrade it:": [
+    "全局命令的版本与正在运行的 OMMS 不同。请升级：",
+    "يختلف إصدار الأمر العام عن OMMS الجاري. حدّثه:",
+  ],
+  "A global install is optional but recommended: the login item and the terminal commands then run without npx.":
+    [
+      "全局安装是可选的，但建议安装：这样登录项和终端命令无需 npx 即可运行。",
+      "التثبيت العام اختياري لكنه موصى به: يعمل عنصر تسجيل الدخول وأوامر الطرفية حينها دون npx.",
+    ],
 } as const;
 
 export function translateSettings(message: string, language: "en" | "zh" | "ar"): string {

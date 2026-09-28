@@ -6,6 +6,8 @@ export const translations = {
     "tab-profile": "USER PROFILE",
     "nav-menu": "Menu",
     "nav-close": "Close menu",
+    "nav-collapse": "Collapse sidebar",
+    "nav-expand": "Expand sidebar",
     "nav-language": "Language",
     "nav-theme": "Theme",
     "nav-settings": "Settings",
@@ -17,6 +19,13 @@ export const translations = {
     "label-content": "Content:",
     "btn-cleanup": "Cleanup",
     "btn-deduplicate": "Deduplicate",
+    "tooltip-filter-keyword": "Show all memories with this keyword",
+    "label-keyword": "Keyword",
+    "btn-clear-keyword": "Clear keyword filter",
+    "tooltip-cleanup":
+      "Delete memories and prompts not updated in the retention period (30 days by default). Pinned memories are kept.",
+    "tooltip-deduplicate":
+      "Delete exact duplicate memories in each project and keep the newest copy. Similar memories are only reported, not deleted.",
     "btn-delete-selected": "Delete Selected",
     "btn-select-all": "Select Page",
     "btn-deselect-all": "Deselect All",
@@ -77,8 +86,10 @@ export const translations = {
     "confirm-delete-pair": "Delete this memory AND its linked prompt?",
     "confirm-delete-prompt": "Delete this prompt AND its linked memory?",
     "confirm-bulk-delete": "Delete {count} selected memories?",
-    "confirm-cleanup": "This will remove all memories that are no longer relevant. Continue?",
-    "confirm-dedup": "This will merge duplicate or highly similar memories. Continue?",
+    "confirm-cleanup":
+      "This deletes memories and prompts not updated in the retention period. Pinned memories are kept. Continue?",
+    "confirm-dedup":
+      "This deletes exact duplicate memories and keeps the newest copy. Similar memories are only reported. Continue?",
     "text-selected": "{count} selected",
     "text-page": "Page {current} of {total}",
     "text-total": "Total: {count}",
@@ -108,6 +119,8 @@ export const translations = {
     "empty-patterns": "No patterns detected yet",
     "empty-workflows": "No workflows identified yet",
     "btn-delete-pair": "Delete Pair",
+    "tooltip-delete-pair": "Delete this memory AND its linked prompt",
+    "tooltip-delete-prompt-pair": "Delete this prompt AND its linked memory",
     "btn-edit": "Edit",
     "btn-delete": "Delete",
     "label-category": "Category",
@@ -156,6 +169,8 @@ export const translations = {
     "tab-profile": "用户画像",
     "nav-menu": "菜单",
     "nav-close": "关闭菜单",
+    "nav-collapse": "收起侧边栏",
+    "nav-expand": "展开侧边栏",
     "nav-language": "语言",
     "nav-theme": "主题",
     "nav-settings": "设置",
@@ -167,6 +182,12 @@ export const translations = {
     "label-content": "内容:",
     "btn-cleanup": "清理",
     "btn-deduplicate": "去重",
+    "tooltip-filter-keyword": "显示带有此关键词的所有记忆",
+    "label-keyword": "关键词",
+    "btn-clear-keyword": "清除关键词筛选",
+    "tooltip-cleanup": "删除在保留期内（默认 30 天）未更新的记忆和提示词。已置顶的记忆会保留。",
+    "tooltip-deduplicate":
+      "删除每个项目中完全重复的记忆，只保留最新的一条。相似的记忆只会报告，不会删除。",
     "btn-delete-selected": "删除选中",
     "btn-select-all": "全选当前页",
     "btn-deselect-all": "取消全选",
@@ -225,8 +246,8 @@ export const translations = {
     "confirm-delete-pair": "删除这条记忆及其关联的提示词？",
     "confirm-delete-prompt": "删除这条提示词及其关联的记忆？",
     "confirm-bulk-delete": "删除选中的 {count} 条记忆？",
-    "confirm-cleanup": "这将删除所有不再相关的记忆。是否继续？",
-    "confirm-dedup": "这将合并重复或高度相似的记忆。是否继续？",
+    "confirm-cleanup": "这将删除在保留期内未更新的记忆和提示词。已置顶的记忆会保留。是否继续？",
+    "confirm-dedup": "这将删除完全重复的记忆，只保留最新的一条。相似的记忆只会报告。是否继续？",
     "text-selected": "已选择 {count} 条",
     "text-page": "第 {current} 页，共 {total} 页",
     "text-total": "总计: {count}",
@@ -256,6 +277,8 @@ export const translations = {
     "empty-patterns": "尚未检测到行为模式",
     "empty-workflows": "尚未识别出工作流程",
     "btn-delete-pair": "删除组合",
+    "tooltip-delete-pair": "删除这条记忆及其关联的提示词",
+    "tooltip-delete-prompt-pair": "删除这条提示词及其关联的记忆",
     "btn-edit": "编辑",
     "btn-delete": "删除",
     "label-category": "类别",
@@ -305,6 +328,8 @@ export const translations = {
     "tab-profile": "ملف المستخدم",
     "nav-menu": "القائمة",
     "nav-close": "إغلاق القائمة",
+    "nav-collapse": "طي الشريط الجانبي",
+    "nav-expand": "توسيع الشريط الجانبي",
     "nav-language": "اللغة",
     "nav-theme": "المظهر",
     "nav-settings": "الإعدادات",
@@ -318,6 +343,13 @@ export const translations = {
 
     "btn-cleanup": "تنظيف",
     "btn-deduplicate": "إزالة التكرار",
+    "tooltip-filter-keyword": "عرض كل الذكريات التي تحمل هذه الكلمة المفتاحية",
+    "label-keyword": "الكلمة المفتاحية",
+    "btn-clear-keyword": "مسح تصفية الكلمة المفتاحية",
+    "tooltip-cleanup":
+      "حذف الذكريات والموجهات التي لم تُحدَّث خلال فترة الاحتفاظ (30 يومًا افتراضيًا). تبقى الذكريات المثبتة.",
+    "tooltip-deduplicate":
+      "حذف الذكريات المكررة تمامًا في كل مشروع مع الإبقاء على أحدث نسخة. الذكريات المتشابهة يتم الإبلاغ عنها فقط ولا تُحذف.",
     "btn-delete-selected": "حذف المحدد",
     "btn-select-all": "تحديد الصفحة",
     "btn-deselect-all": "إلغاء التحديد",
@@ -398,9 +430,11 @@ export const translations = {
 
     "confirm-bulk-delete": "هل تريد حذف {count} من الذكريات المحددة؟",
 
-    "confirm-cleanup": "سيؤدي هذا إلى حذف جميع الذكريات التي لم تعد ذات صلة. هل تريد المتابعة؟",
+    "confirm-cleanup":
+      "سيؤدي هذا إلى حذف الذكريات والموجهات التي لم تُحدَّث خلال فترة الاحتفاظ. تبقى الذكريات المثبتة. هل تريد المتابعة؟",
 
-    "confirm-dedup": "سيؤدي هذا إلى دمج الذكريات المتكررة أو المتشابهة جدًا. هل تريد المتابعة؟",
+    "confirm-dedup":
+      "سيؤدي هذا إلى حذف الذكريات المكررة تمامًا مع الإبقاء على أحدث نسخة. الذكريات المتشابهة يتم الإبلاغ عنها فقط. هل تريد المتابعة؟",
 
     "text-selected": "تم تحديد {count}",
     "text-page": "الصفحة {current} من {total}",
@@ -438,6 +472,8 @@ export const translations = {
     "empty-workflows": "لم يتم التعرف على أي سير عمل بعد",
 
     "btn-delete-pair": "حذف الزوج",
+    "tooltip-delete-pair": "حذف هذه الذكرى والموجه المرتبط بها",
+    "tooltip-delete-prompt-pair": "حذف هذا الموجه والذكرى المرتبطة به",
     "btn-edit": "تعديل",
     "btn-delete": "حذف",
     "label-category": "الفئة",

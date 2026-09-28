@@ -1,5 +1,6 @@
 import { CONFIG } from "../../config.js";
 import { parseBackfillModel } from "../../importer/backfill-model.js";
+import { resolveExternalBackfillModels } from "../../importer/external-backfill-models.js";
 import type { HistoryImportModels } from "../../importer/run-import.js";
 import { createPiLiveModels } from "./live-model.js";
 import { adaptPiProfileModel } from "./profile.js";
@@ -8,9 +9,16 @@ import { createPiCaptureProvider, resolveImportModel, type PiModelContext } from
 /** Resolve the Pi backfill independently of the manual import's session-model rule. */
 export async function resolvePiBackfillModels(
   ctx: PiModelContext,
-  config: { piBackfillModel?: string } = CONFIG
+  config: {
+    piBackfillModel?: string;
+    memoryProvider?: string;
+    memoryModel?: string;
+    memoryApiUrl?: string;
+    memoryApiKey?: string;
+  } = CONFIG
 ): Promise<{ model: string; models: HistoryImportModels }> {
   const choice = parseBackfillModel(config, "pi");
+  if (choice === "external") return resolveExternalBackfillModels("pi", config);
   if (choice === "inherit") {
     const live = createPiLiveModels(ctx);
     const profile = live.profile();

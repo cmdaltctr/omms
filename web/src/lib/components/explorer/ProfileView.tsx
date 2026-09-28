@@ -262,8 +262,8 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <section className="space-y-3">
+        <div className="grid gap-6">
+          <section id="profile-preferences" className="scroll-mt-4 space-y-3">
             <h4 className="flex items-center gap-2 text-sm font-medium">
               <Heart className="size-4" />
               {t("profile-preferences")}
@@ -273,7 +273,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
               <p className="text-sm text-muted-foreground">{t("empty-preferences")}</p>
             ) : (
               <>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {prefPage.items.map((item) => (
                     <ItemCard
                       key={indexOfItem(preferences, item)}
@@ -288,7 +288,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
             )}
           </section>
 
-          <section className="space-y-3">
+          <section id="profile-patterns" className="scroll-mt-4 space-y-3">
             <h4 className="flex items-center gap-2 text-sm font-medium">
               <Activity className="size-4" />
               {t("profile-patterns")}
@@ -298,7 +298,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
               <p className="text-sm text-muted-foreground">{t("empty-patterns")}</p>
             ) : (
               <>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {patPage.items.map((item) => (
                     <ItemCard
                       key={indexOfItem(patterns, item)}
@@ -313,7 +313,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
             )}
           </section>
 
-          <section className="space-y-3 lg:col-span-2">
+          <section id="profile-workflows" className="scroll-mt-4 space-y-3">
             <h4 className="flex items-center gap-2 text-sm font-medium">
               <Workflow className="size-4" />
               {t("profile-workflows")}

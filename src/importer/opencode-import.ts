@@ -45,7 +45,13 @@ export interface OpencodeImportOptions {
   profileBatch?: number;
   provider?: CaptureSummaryProvider;
   profileModel?: ModelPort;
-  onProgress?: (processed: number, total: number, promptPreview: string) => void;
+  /** `alreadyHandled`: units found already done so far, which need no model call. */
+  onProgress?: (
+    processed: number,
+    total: number,
+    promptPreview: string,
+    alreadyHandled?: number
+  ) => void;
   signal?: AbortSignal;
 }
 

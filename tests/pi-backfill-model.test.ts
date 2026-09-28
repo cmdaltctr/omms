@@ -39,3 +39,14 @@ it("inherits the live Pi model rule", async () => {
     CONFIG.piModel = previous.piModel;
   }
 });
+
+it("stops an external Pi backfill with the missing setting named", async () => {
+  const ctx = { model: undefined, modelRegistry: { find: () => undefined } } as never;
+  await expect(
+    resolvePiBackfillModels(ctx, {
+      piBackfillModel: "external",
+      memoryApiUrl: "https://example.invalid/v1",
+      memoryApiKey: "key",
+    })
+  ).rejects.toThrow("memoryModel is not configured");
+});

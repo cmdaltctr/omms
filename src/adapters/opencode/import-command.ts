@@ -93,6 +93,7 @@ export async function runOpencodeImportCommand(input: OpencodeImportCommandInput
     const report = await runHistoryImport("opencode", parsed, {
       cwd: input.directory,
       models,
+      track: { surface: "slash" },
       onProgress: (processed, total, promptPreview) => {
         if (processed - lastProgress >= 25 || processed === total) {
           lastProgress = processed;

@@ -109,6 +109,19 @@ describe("OpenCode capture diagnostics", () => {
     expect(diagnostics.failureReason).toBe("schema-mismatch");
   });
 
+  it("calls only the external API when opencodeModel is external", async () => {
+    externalConfig();
+    Object.assign(config, { opencodeProvider: "anthropic", opencodeModel: "external" });
+    let hostCalls = 0;
+    structuredBehaviour = async () => {
+      hostCalls++;
+      return {};
+    };
+    const { diagnostics } = await run();
+    expect(hostCalls).toBe(0);
+    expect(diagnostics).toMatchObject({ path: "external-api", model: "glm-5.3" });
+  });
+
   it("reports a failed external API call as call-error", async () => {
     externalConfig();
     toolCallResult = { success: false, error: "API error: 500", stopReason: "stop" };

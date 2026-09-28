@@ -22,3 +22,27 @@ describe("backfill model selection", () => {
     expect(() => parseBackfillModel({ piBackfillModel: "provider/" }, "pi")).toThrow();
   });
 });
+
+describe("the external backfill model", () => {
+  it("parses external as its own variant", () => {
+    expect(parseBackfillModel({ opencodeBackfillModel: "external" }, "opencode")).toBe("external");
+  });
+
+  it("uses the external API only when it is configured", async () => {
+    const { resolveExternalBackfillModels } =
+      await import("../src/importer/external-backfill-models.js");
+    const select = () => ({
+      provider: "openai-chat",
+      modelId: "glm",
+      capture: { summarize: async () => null },
+      profile: { provider: "openai-chat", modelId: "glm", complete: async () => "" },
+    });
+    const ready = { memoryModel: "glm", memoryApiUrl: "https://x.invalid", memoryApiKey: "k" };
+    expect((await resolveExternalBackfillModels("pi", ready, select)).model).toBe(
+      "openai-chat/glm"
+    );
+    await expect(
+      resolveExternalBackfillModels("opencode", { ...ready, memoryApiUrl: undefined }, select)
+    ).rejects.toThrow("OpenCode backfill: memoryApiUrl is not configured");
+  });
+});

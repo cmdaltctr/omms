@@ -239,6 +239,7 @@ export class SettingsImportJobs {
           cwd: directory,
           models,
           signal: controller.signal,
+          track: { surface: "web" },
           selection: {
             keys: selection.keys,
             cutoff: selection.cutoff,

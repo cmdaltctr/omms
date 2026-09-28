@@ -138,5 +138,10 @@
     "*.{css,html,json,jsonc,md,yml,yaml}": [
       "prettier --write"
     ]
+  },
+  "allowScripts": {
+    "onnxruntime-node": true,
+    "msgpackr-extract": true,
+    "protobufjs": true
   }
 }

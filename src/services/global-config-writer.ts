@@ -21,7 +21,40 @@ const keys = new Set([
   "opencodeBackfillModel",
   "piBackfillModel",
   "webServerAutoStart",
+  "memoryProvider",
+  "memoryApiUrl",
+  "memoryModel",
+  "memoryApiKey",
+  "importPathMaps",
 ]);
+
+const MEMORY_PROVIDERS = [
+  "openai-chat",
+  "openai-responses",
+  "anthropic",
+  "minimax",
+  "orcarouter",
+  "google-gemini",
+];
+
+/** The page may point `memoryApiKey` at a source, never store the key itself. */
+export function isSecretReference(value: unknown): value is string {
+  return (
+    typeof value === "string" && /^(env:\/\/[A-Za-z_][A-Za-z0-9_]*|file:\/\/.+)$/.test(value.trim())
+  );
+}
+
+function isValidEdit(key: string, value: unknown): boolean {
+  if (key === "captureTrace" || key === "autoBackfill" || key === "webServerAutoStart") {
+    return typeof value === "boolean";
+  }
+  if (key.endsWith("RetentionDays")) return Number.isSafeInteger(value) && (value as number) >= 1;
+  if (key === "memoryApiKey") return isSecretReference(value);
+  if (key === "memoryProvider") return MEMORY_PROVIDERS.includes(value as string);
+  // Entries are checked by the startup validation below.
+  if (key === "importPathMaps") return Array.isArray(value);
+  return typeof value === "string" && value.trim().length > 0;
+}
 
 export class ConfigConflictError extends Error {
   readonly status = 409;
@@ -61,14 +94,13 @@ export async function writeGlobalConfigKeys(
   if (!edits || !Object.keys(edits).length) throw new Error("No settings to save");
   for (const [key, value] of Object.entries(edits)) {
     if (!keys.has(key)) throw new Error(`Setting ${key} cannot be edited here`);
-    if (
-      key === "captureTrace" || key === "autoBackfill" || key === "webServerAutoStart"
-        ? typeof value !== "boolean"
-        : key.endsWith("RetentionDays")
-          ? !Number.isSafeInteger(value) || (value as number) < 1
-          : typeof value !== "string" || !value.trim()
-    ) {
-      throw new Error(`Invalid ${key} setting`);
+    if (!isValidEdit(key, value)) {
+      // Never echo the value: a rejected memoryApiKey may be a literal key.
+      throw new Error(
+        key === "memoryApiKey"
+          ? "memoryApiKey must be an env:// or file:// reference"
+          : `Invalid ${key} setting`
+      );
     }
   }
   const wasQueued = pending > 0;
