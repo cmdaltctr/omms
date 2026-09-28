@@ -96,7 +96,7 @@ function serveFetch(opts: {
   port: number;
   hostname: string;
   fetch: (req: Request) => Promise<Response>;
-}): PortableServerHandle {
+}): Promise<PortableServerHandle> {
   if (isBun) {
     const bunHandle = (
       globalThis as unknown as { Bun: { serve: (opts: unknown) => { stop: () => void } } }
@@ -105,7 +105,7 @@ function serveFetch(opts: {
       hostname: opts.hostname,
       fetch: opts.fetch,
     });
-    return { stop: () => bunHandle.stop() };
+    return Promise.resolve({ stop: () => bunHandle.stop() });
   }
 
   // Node path: wrap node:http around the fetch-style handler. The adapter
@@ -164,31 +164,35 @@ function serveFetch(opts: {
     }
   });
 
-  // Surface EADDRINUSE synchronously so callers can detect the
-  // already-running-instance case the same way they do under Bun.
-  let listenError: Error | undefined;
-  server.on("error", (err: NodeJS.ErrnoException) => {
-    if (err.code === "EADDRINUSE") {
-      listenError = err;
-    }
-  });
-  // exclusive: false disables SO_EXCLUSIVEADDRUSE on Windows, allowing
-  // rebind after a crashed predecessor left orphaned sockets behind.
-  server.listen({ port: opts.port, host: opts.hostname, reuseAddr: true, exclusive: false });
   server.unref();
   server.timeout = NODE_HTTP_IDLE_TIMEOUT_MS;
   server.keepAliveTimeout = 10000;
   server.headersTimeout = 11000;
 
-  if (listenError) {
-    throw listenError;
-  }
-  return {
-    stop: () => {
-      server.closeAllConnections();
-      server.close();
-    },
-  };
+  // Node reports EADDRINUSE after listen() returns, so wait for the outcome.
+  // Callers then see a busy port the same way they do under Bun.
+  return new Promise((resolve, reject) => {
+    const onError = (error: NodeJS.ErrnoException) => {
+      server.off("listening", onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off("error", onError);
+      // Keep a listener, so a later server error is logged instead of crashing the process.
+      server.on("error", (error) => log("Web server error", { error: String(error) }));
+      resolve({
+        stop: () => {
+          server.closeAllConnections();
+          server.close();
+        },
+      });
+    };
+    server.once("error", onError);
+    server.once("listening", onListening);
+    // exclusive: false disables SO_EXCLUSIVEADDRUSE on Windows, allowing
+    // rebind after a crashed predecessor left orphaned sockets behind.
+    server.listen({ port: opts.port, host: opts.hostname, reuseAddr: true, exclusive: false });
+  });
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -296,7 +300,7 @@ export class WebServer {
     );
 
     try {
-      this.server = serveFetch({
+      this.server = await serveFetch({
         port: this.config.port,
         hostname: this.config.host,
         fetch: this.handleRequest.bind(this),
