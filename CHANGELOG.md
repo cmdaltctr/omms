@@ -2,6 +2,31 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [3.5.0](https://github.com/cmdaltctr/omms/compare/v3.4.2...v3.5.0) (2026-09-28)
+
+
+### Features
+
+* list OpenCode models in the standalone web app ([24e262b](https://github.com/cmdaltctr/omms/commit/24e262ba3fe1509fa27b4b5fe676b19ad90fda4d))
+* list OpenCode models in the standalone web app ([123b650](https://github.com/cmdaltctr/omms/commit/123b650ed41f66c1f377b917bac4fadcc919a5b5))
+* retry failed live captures from a queue on both hosts ([8fdbe15](https://github.com/cmdaltctr/omms/commit/8fdbe1594a79674f75c892d9033dc9c58b70d173))
+* retry failed live captures from a queue on both hosts ([5afbcf5](https://github.com/cmdaltctr/omms/commit/5afbcf523850e25e4cf85ce65d30ba94f38b7d16))
+
+
+### Bug Fixes
+
+* queue only unreachable-model failures and keep live retry claims ([d7038e9](https://github.com/cmdaltctr/omms/commit/d7038e96cca6b25d89746ecce9a5f37c419963b3))
+* **web:** bracket IPv6 hosts in the dashboard URL ([ab39a37](https://github.com/cmdaltctr/omms/commit/ab39a37ac5ea87fbb4cdff6d74e2aa43f384b6d4))
+* **web:** bracket IPv6 hosts in the web server URL ([ac64ef6](https://github.com/cmdaltctr/omms/commit/ac64ef6ebde29b6778ce111041a8f233636a7f58))
+* **web:** print dashboard URL and use a stable Node path for the login item ([5ee203c](https://github.com/cmdaltctr/omms/commit/5ee203c5d1fe2406d9d375dfddb6ba61d916333c))
+* **web:** print dashboard URL and use a stable Node path for the login item ([b088f81](https://github.com/cmdaltctr/omms/commit/b088f81d049e22a59fc446b9c9f447780d3f9385)), closes [#43](https://github.com/cmdaltctr/omms/issues/43)
+
+
+### Documentation
+
+* **ci:** say how to recover when a release merge starts no Release run ([50e4c96](https://github.com/cmdaltctr/omms/commit/50e4c969a9592f098b631df6d8e80a2938a4f168))
+* **ci:** say how to recover when a release merge starts no Release run ([866062b](https://github.com/cmdaltctr/omms/commit/866062b34283dba46af0266ac038f8c140b82e00))
+
 ## [3.4.2](https://github.com/cmdaltctr/omms/compare/v3.4.1...v3.4.2) (2026-09-28)
 
 
