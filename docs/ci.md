@@ -198,6 +198,10 @@ Versions come from commit messages. Use `feat:` (minor), `fix:` (patch),
 
 To reject a staged version, run `npm stage reject <stage-id>`.
 
+If no Release run starts after you merge the release pull request, GitHub
+missed the push. Merge any other pull request into `main`. release-please then
+finds the merged release pull request, tags it, and runs smoke and `publish`.
+
 If the smoke gate fails, nothing is staged. The tag and GitHub Release
 already exist. To fix it:
 
