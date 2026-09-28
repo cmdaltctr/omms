@@ -242,12 +242,16 @@ describe("settings API", () => {
       CONFIG.memoryModel = "m"; CONFIG.memoryApiUrl = "https://x.invalid"; CONFIG.memoryApiKey = "k";
       await startImportRun("pi", "cli");
       const busy = await send("/api/settings/backfill/pi/run", "POST", {}, json);
+      await send("/api/settings/backfill/pi/pause", "POST", {}, json);
+      const refusedResume = await send("/api/settings/backfill/pi/resume", "POST", {}, json);
+      const afterResume = (await (await send("/api/settings/backfill/runs")).json()).pi.run.paused;
       return { form: form.status, foreign: foreign.status, noToken: noToken.status,
         hostModel: [hostModel.status, (await hostModel.json()).error],
         unconfigured: [unconfigured.status, (await unconfigured.json()).error],
         pause: pause.status, paused: runs.opencode.run.paused,
         piUnavailable: runs.pi.runNowUnavailable,
-        busy: [busy.status, (await busy.json()).error] };
+        busy: [busy.status, (await busy.json()).error],
+        refusedResume: refusedResume.status, afterResume };
     `
     );
     expect(result.form).toBe(415);
@@ -263,6 +267,9 @@ describe("settings API", () => {
     expect(result.paused).toBe(true);
     expect(result.piUnavailable).toContain("Open Pi");
     expect(result.busy).toEqual([409, "A Pi import is already running"]);
+    // A refused Resume keeps the backfill paused.
+    expect(result.refusedResume).toBe(409);
+    expect(result.afterResume).toBe(true);
   });
 
   it("saves a pasted key to a user-only file and never returns or logs it", async () => {

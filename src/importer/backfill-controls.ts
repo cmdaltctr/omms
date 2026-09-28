@@ -130,6 +130,12 @@ export class BackfillControls {
     const reason = runNowUnavailableReason(host);
     if (reason) throw new BackfillControlError(reason, 409);
     await setBackfillPaused(host, false);
-    return this.runNow(host, cwd);
+    try {
+      return await this.runNow(host, cwd);
+    } catch (error) {
+      // Run now refused (a run is active, or a setting is missing): stay paused.
+      await setBackfillPaused(host, true);
+      throw error;
+    }
   }
 }

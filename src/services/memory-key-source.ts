@@ -72,7 +72,11 @@ export function parseMemoryKeySource(body: unknown): MemoryKeySourceRequest {
  */
 export async function storeMemoryKeySource(
   request: MemoryKeySourceRequest,
-  options: { directory?: string; platform?: NodeJS.Platform } = {}
+  options: {
+    directory?: string;
+    platform?: NodeJS.Platform;
+    restrict?: typeof restrictToCurrentUser;
+  } = {}
 ): Promise<{ reference: string; source: "env" | "file"; path?: string }> {
   if (request.source === "env") return { reference: `env://${request.name}`, source: "env" };
   if (request.source === "file") {
@@ -89,8 +93,13 @@ export async function storeMemoryKeySource(
 
   const directory = options.directory ?? secretsDirectory();
   const platform = options.platform ?? process.platform;
+  const restrict = options.restrict ?? restrictToCurrentUser;
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-  restrictToCurrentUser(directory, 0o700, platform);
+  try {
+    restrict(directory, 0o700, platform);
+  } catch {
+    throw new MemoryKeySourceError("The secrets folder could not be made private", 500);
+  }
   const path = join(directory, `${request.name}.key`);
   const content = `${request.value.trim()}\n`;
   if (!request.replace) {
@@ -105,11 +114,18 @@ export async function storeMemoryKeySource(
       }
       throw new MemoryKeySourceError("The key file could not be written", 500);
     }
+    try {
+      restrict(path, 0o600, platform);
+    } catch {
+      // Never leave a key readable by others: remove it so a retry starts clean.
+      await fs.rm(path, { force: true });
+      throw new MemoryKeySourceError("The key file could not be made private", 500);
+    }
   } else {
     const temp = join(directory, `.${randomUUID()}.tmp`);
     try {
       await fs.writeFile(temp, content, { flag: "wx", mode: 0o600 });
-      restrictToCurrentUser(temp, 0o600, platform);
+      restrict(temp, 0o600, platform);
       await fs.rename(temp, path);
     } catch {
       throw new MemoryKeySourceError("The key file could not be written", 500);
@@ -117,6 +133,6 @@ export async function storeMemoryKeySource(
       await fs.rm(temp, { force: true });
     }
   }
-  restrictToCurrentUser(path, 0o600, platform);
+  // A replaced file was made private as the temp file before it moved into place.
   return { reference: `file://${path}`, source: "file", path };
 }

@@ -76,3 +76,22 @@ describe("directory map suggestions", () => {
     expect(readdirSync(base).sort()).toEqual(entries);
   });
 });
+
+describe("the suggestion search stays local", () => {
+  it("never suggests a folder from the filesystem root or beside the home folder", () => {
+    const base = root();
+    const home = join(base, "home", "me");
+    mkdirSync(home, { recursive: true });
+    // A project next to the home folder, and one directly under the "root".
+    repo(join(base, "home", "tmp"));
+    repo(join(base, "scratch"));
+    const context = { home };
+    // Walking up from a missing folder under home must not scan beside home.
+    expect(suggestMapTarget(join(home, "tmp-gone", "x"), context)).toBeNull();
+    // A missing folder beside home must not scan the folder that holds home.
+    expect(suggestMapTarget(join(base, "home", "tmp-feat"), context)).toBeNull();
+    // Still finds a real sibling inside home.
+    const app = repo(join(home, "code", "app"));
+    expect(suggestMapTarget(join(home, "code", "app-feat-x"), context)).toBe(app);
+  });
+});

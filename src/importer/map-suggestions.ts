@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { homedir } from "node:os";
+import { basename, dirname, join, parse } from "node:path";
 import type { UnresolvedDirectory } from "../services/backfill-state.js";
 
 const PROJECT_MARKERS = [".git", "package.json", "pyproject.toml", "Cargo.toml", "go.mod"];
@@ -16,14 +17,19 @@ function isProject(path: string): boolean {
   return PROJECT_MARKERS.some((marker) => existsSync(join(path, marker)));
 }
 
-function childDirectories(parent: string): string[] {
+function childDirectories(parent: string, cache?: Map<string, string[]>): string[] {
+  const cached = cache?.get(parent);
+  if (cached) return cached;
+  let children: string[];
   try {
-    return readdirSync(parent, { withFileTypes: true })
+    children = readdirSync(parent, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => join(parent, entry.name));
   } catch {
-    return [];
+    children = [];
   }
+  cache?.set(parent, children);
+  return children;
 }
 
 /** `app` is a leading part of `app`, `app-feat-x`, and `app-feat-x-2`, not of `apple`. */
@@ -36,6 +42,10 @@ export interface MapSuggestionContext {
   knownProjects?: readonly string[];
   /** OpenCode's recorded project worktree for a session directory, read without writing. */
   opencodeWorktree?: (directory: string) => string | null | undefined;
+  /** The user's home folder; the search never climbs above it. Defaults to `homedir()`. */
+  home?: string;
+  /** Folder listings already read in this request. */
+  cache?: Map<string, string[]>;
 }
 
 /**
@@ -53,13 +63,18 @@ export function suggestMapTarget(
     if (!isDirectory(project)) continue;
     searchRoots.add(dirname(project));
   }
+  // Never list the filesystem root or the folder that holds every home folder,
+  // and stop at the home folder itself: broad scans suggest unrelated folders.
+  const home = context.home ?? homedir();
+  const blocked = new Set([parse(missing).root, dirname(home)]);
   let ancestor = missing;
-  while (dirname(ancestor) !== ancestor) {
+  while (dirname(ancestor) !== ancestor && ancestor !== home) {
     const name = basename(ancestor);
     const parents = new Set([dirname(ancestor), ...searchRoots]);
     let best: string | null = null;
     for (const parent of parents) {
-      for (const candidate of childDirectories(parent)) {
+      if (blocked.has(parent)) continue;
+      for (const candidate of childDirectories(parent, context.cache)) {
         if (candidate === ancestor || !isLeadingPart(basename(candidate), name)) continue;
         if (!isProject(candidate)) continue;
         if (!best || basename(candidate).length > basename(best).length) best = candidate;
@@ -81,9 +96,10 @@ export function suggestMapTargets(
   directories: readonly UnresolvedDirectory[],
   context: MapSuggestionContext = {}
 ): SuggestedDirectory[] {
+  const withCache = { ...context, cache: context.cache ?? new Map<string, string[]>() };
   return directories.map((item) => ({
     ...item,
-    suggestion: suggestMapTarget(item.directory, context),
+    suggestion: suggestMapTarget(item.directory, withCache),
   }));
 }
 

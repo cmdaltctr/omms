@@ -128,12 +128,10 @@ export async function matchImportSessions(
       ? projectFilterTag(resolve(options.cwd, options.project ?? "."))
       : null;
   // Saved maps plus the request's own, as `runHistoryImport` uses them.
+  // The revision hashes the same merged maps, so a saved-map change is seen as stale.
   const { runPathMaps } = await import("./import-path-maps.js");
-  const rows = await readRows(
-    identity,
-    { ...options, pathMaps: await runPathMaps(options.pathMaps, options.cwd) },
-    snapshotMode
-  );
+  const merged = { ...options, pathMaps: await runPathMaps(options.pathMaps, options.cwd) };
+  const rows = await readRows(identity, merged, snapshotMode);
   const unresolved = rows.filter((row) => row.directory === null);
   const matching = rows
     .filter((row) => row.directory !== null)
@@ -145,7 +143,7 @@ export async function matchImportSessions(
     unresolved,
     revision: revisionOf(
       identity,
-      options,
+      merged,
       projectTag,
       matching.map((row) => row.key)
     ),

@@ -891,6 +891,33 @@ scenario = { loaded: report.sessionsLoaded, calls: providerCalls.length };
     expect(out).toEqual({ loaded: 0, calls: 0 });
   });
 
+  it("changes the listing revision when a saved directory map changes", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot, { recursive: true });
+const moved = base + "/moved-away";
+writeV3Session({
+  file: sessionRoot + "/moved.jsonl", sessionId: "sess-moved", cwd: moved,
+  windows: [{ userText: "Moved", assistantText: "y", timestamp: "2026-01-01T11:00:00.000Z" }],
+});
+const { validateImportSource } = await import(${JSON.stringify(sourcesUrl)});
+const { listImportSessions } = await import(${JSON.stringify(sessionsUrl)});
+const source = validateImportSource("pi", sessionRoot);
+const match = { host: "pi", scope: "all-projects", pathMaps: [], cwd: projectA };
+CONFIG.importPathMaps = [{ from: moved, to: projectA }];
+const toA = await listImportSessions({ sourceToken: source.sourceToken, refresh: true }, match);
+CONFIG.importPathMaps = [{ from: moved, to: projectB }];
+const toB = await listImportSessions({ sourceToken: source.sourceToken, refresh: true }, match);
+scenario = {
+  keys: [toA.rows.map((row) => row.key), toB.rows.map((row) => row.key)],
+  sameRevision: toA.revision === toB.revision,
+};
+`);
+    // Same session keys, different target: the revision must still change.
+    expect(out.keys).toEqual([["moved.jsonl"], ["moved.jsonl"]]);
+    expect(out.sameRevision).toBe(false);
+  });
+
   it("lists and imports the same sessions, with maps, and refuses stale selections", () => {
     const out = runScenario(`
 const { mkdirSync, rmSync } = await import("node:fs");

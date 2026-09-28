@@ -61,7 +61,8 @@ interface OmmsConfig {
   autoCaptureMaxRetries?: number;
   autoCaptureMaxContextBytes?: number;
   autoCaptureLanguage?: string;
-  memoryProvider?: "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter";
+  memoryProvider?:
+    "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter" | "google-gemini";
   memoryModel?: string;
   memoryApiUrl?: string;
   memoryApiKey?: string;
@@ -162,7 +163,8 @@ const DEFAULTS: Required<
   memoryModel?: string;
   memoryApiUrl?: string;
   memoryApiKey?: string;
-  memoryProvider?: "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter";
+  memoryProvider?:
+    "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter" | "google-gemini";
   memoryTemperature?: number | false;
   memoryExtraParams?: Record<string, unknown>;
   opencodeProvider?: string;
@@ -446,7 +448,7 @@ export const CONFIG_TEMPLATE = `{
   
   "autoCaptureEnabled": true,
   
-  // Provider type: "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter"
+  // Provider type: "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter" | "google-gemini"
   // Note: "openai-chat" is a generic OpenAI API-compatible mode.
   // Any service that follows the OpenAI Chat Completions API can use it via custom "memoryApiUrl".
   "memoryProvider": "openai-chat",
@@ -800,7 +802,7 @@ function buildConfig(fileConfig: OmmsConfig) {
     autoCaptureMaxContextBytes,
     autoCaptureLanguage: fileConfig.autoCaptureLanguage,
     memoryProvider: (fileConfig.memoryProvider ?? "openai-chat") as
-      "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter",
+      "openai-chat" | "openai-responses" | "anthropic" | "minimax" | "orcarouter" | "google-gemini",
     memoryModel: fileConfig.memoryModel,
     memoryApiUrl: fileConfig.memoryApiUrl,
     memoryApiKey,
