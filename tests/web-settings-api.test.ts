@@ -309,7 +309,8 @@ describe("settings API", () => {
       expect(result.fileMode).toBe("600");
       expect(result.dirMode).toBe("700");
     }
-    expect(result.config).toContain(`"memoryApiKey": "file://${result.file}"`);
+    // JSON escapes Windows backslashes, so compare against the encoded value.
+    expect(result.config).toContain(`"memoryApiKey": ${JSON.stringify(`file://${result.file}`)}`);
     for (const text of [
       result.savedText,
       result.againText,
