@@ -15,7 +15,14 @@ if [[ -z "${OMMS_LOG_FILE:-}" ]]; then
   export OMMS_LOG_FILE="$(mktemp -d "${TMPDIR:-/tmp}/omms-test-logs.XXXXXX")/omms.log"
 fi
 
+# Windows runners start processes slowly, so allow 30 seconds per test there.
+# Other platforms keep Bun's default, and explicit per-test timeouts still apply.
+timeout_args=()
+case "${OSTYPE:-}" in
+  msys* | cygwin* | win32*) timeout_args=(--timeout 30000) ;;
+esac
+
 for test_file in tests/*.test.ts; do
   echo ">>> $test_file"
-  bun test "$test_file"
+  bun test ${timeout_args[@]+"${timeout_args[@]}"} "$test_file"
 done
