@@ -1,7 +1,10 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, setDefaultTimeout } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+// Each test spawns a Bun process; a Windows runner can take over 5 seconds.
+setDefaultTimeout(30_000);
 
 type ScenarioInput = {
   config: Record<string, unknown>;
