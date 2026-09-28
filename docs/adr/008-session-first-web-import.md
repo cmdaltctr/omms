@@ -56,8 +56,8 @@ The Settings page first offered the history importer as a form of CLI flags. Use
 
 ## References
 
-- [Importing from the page](../web-ui.md#importing-from-the-page)
+- [Importing from the page](../web-ui-settings.md#import-and-backfill)
 - [ADR-005](./005-history-import-surfaces-and-model.md), [ADR-007](./007-edit-global-config-from-web-ui.md)
 - [TDR-007](../tdr/007-directory-maps-take-precedence.md), [TDR-008](../tdr/008-shared-async-opencode-snapshot.md)
 - `src/importer/import-sessions.ts`, `src/importer/import-sources.ts`, `src/importer/import-readiness.ts`, `src/importer/web-import-jobs.ts`
-- [OpenSpec design](../../openspec/changes/web-settings/design.md)
+- [OpenSpec design](../../openspec/changes/archive/2026-09-27-web-settings/design.md)

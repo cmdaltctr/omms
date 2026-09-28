@@ -4,11 +4,12 @@ OMMS works with no configuration. This page covers the settings you may want to 
 
 ## Where the settings live
 
-Configure at `~/.config/omms/omms.jsonc`. While that file does not exist, omms still reads the legacy `~/.config/opencode/opencode-mem.jsonc` (it is never written), so existing installs keep working before you migrate settings. Per-project overrides go in `<project>/.opencode/omms.jsonc` (the legacy `.opencode/opencode-mem.jsonc` is still read when no `omms.jsonc` exists):
+- **Global file:** `~/.config/omms/omms.jsonc`. On Windows this is `%USERPROFILE%\.config\omms\omms.jsonc`, not AppData.
+- **Legacy global file:** while the global file does not exist, OMMS still reads `~/.config/opencode/opencode-mem.jsonc`. It never writes to it.
+- **Project file:** `<project>/.opencode/omms.jsonc` overrides the global file for that project. OMMS still reads a legacy `.opencode/opencode-mem.jsonc` when no `omms.jsonc` exists. Some settings are [global only](#global-only-settings).
+- **Default store:** `~/.omms/data` (`%USERPROFILE%\.omms\data` on Windows). A legacy `~/.opencode-mem/data` store moves to the new path at first start.
 
-**Windows:** `%USERPROFILE%\.config\omms\omms.jsonc` (not AppData). Default storage resolves to `%USERPROFILE%\.omms\data` (the `~` form in the example below expands to your user home on Windows as well). A legacy `~/.opencode-mem/data` store migrates to the new path automatically on first start.
-
-The plugin creates a full commented template at this path on first startup (only when no config exists at all). The trimmed example below shows the most common settings:
+On first start, if no config exists at all, the plugin creates a full commented template. This shorter example shows the most common settings:
 
 ```jsonc
 {
@@ -36,8 +37,9 @@ The plugin creates a full commented template at this path on first startup (only
 
   "autoCaptureEnabled": true,
   "autoBackfill": true,
-  "piBackfillModel": "inherit", // or "provider/model"
-  "opencodeBackfillModel": "inherit", // or "provider/model"
+  "piBackfillModel": "inherit", // or "external", or "provider/model"
+  "opencodeBackfillModel": "inherit", // or "external", or "provider/model"
+  "importPathMaps": [{ "from": "~/code/app-feat-x", "to": "~/code/app" }],
   "autoCaptureLanguage": "auto",
 
   // Model for auto-capture and profile learning (see "Choosing the model").
@@ -77,31 +79,87 @@ The plugin creates a full commented template at this path on first startup (only
 
 ## Settings in the web UI
 
-Open [Settings](web-ui.md#settings-page) in the login web app, in OpenCode, or with `om-memory-system web`. The page can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `autoBackfill`, `opencodeBackfillModel`, `piBackfillModel`, `webServerAutoStart`, `captureTrace`, `captureTraceRetentionDays`, and `captureAttemptRetentionDays` in the global file. It does not edit a project's config or any credential. `captureAttemptRetentionDays` defaults to 30; both retention fields require at least 1 day.
+Open the Settings page in the login web app, in OpenCode, or with `om-memory-system web`. [Web UI settings](web-ui-settings.md) explains each part of the page.
 
-Choosing **Session model** writes `inherit` to the host's model key. That choice takes priority over a configured external API. Choosing a manual model writes the selected host provider and model. The next capture or profile-learning run in OpenCode or Pi reloads changed config files; restart is not required.
-
-A legacy-only install copies its old config and comments to `~/.config/omms/omms.jsonc` on the first page save. OMMS reads the new file from then on. The old file stays unchanged. The page rejects a save if the file changed since it was loaded; review the refreshed values before saving again.
+- The page writes only to the global file. It does not edit a project's config.
+- It can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `autoBackfill`, `opencodeBackfillModel`, `piBackfillModel`, `importPathMaps`, `webServerAutoStart`, `captureTrace`, `captureTraceRetentionDays`, `captureAttemptRetentionDays`, `memoryProvider`, `memoryApiUrl`, `memoryModel`, and `memoryApiKey`.
+- The only credential it changes is `memoryApiKey`. It accepts only an `env://` or `file://` reference and rejects a literal key.
+- If you paste a key, the page saves it to a key file in `~/.config/omms/secrets/` and stores a `file://` reference to it. The folder and file are readable only by you.
+- `captureAttemptRetentionDays` defaults to 30. Both retention fields need at least 1 day.
+- Choosing **Session model** writes `inherit` to the host's model key. That choice takes priority over a configured external API.
+- Choosing a manual model writes the selected host provider and model.
+- OpenCode and Pi reload changed config files at the next capture or profile-learning run. You do not need to restart.
+- On a legacy-only install, the first save copies the old config and its comments to `~/.config/omms/omms.jsonc`. OMMS reads the new file from then on. The old file stays unchanged.
+- The page rejects a save if the file changed since the page loaded it. Check the refreshed values, then save again.
 
 ## Automatic history import and login web app
 
-`autoBackfill` defaults to `true`. About 30 seconds after a Pi or OpenCode start, that host imports its own past chats in the background. It covers resolvable projects, records profile prompts, and resumes from the ledger after a restart. A fixed cutoff, saved at the first run for each host, limits the work to turns that existed then. Live capture handles newer turns. Imports skip exchanges already saved by live capture. Unresolved directories appear in the progress counts; use a manual import with `--map` to include them.
+`autoBackfill` defaults to `true`. About 30 seconds after Pi or OpenCode starts, that host imports its own past chats in the background.
 
-`piBackfillModel` and `opencodeBackfillModel` default to `"inherit"`. Pi then follows its live-capture model rule. OpenCode uses its configured host model, the saved external API, or its configured default model. Set either key to a signed-in `provider/model` to choose another backfill model without changing live capture. A missing model stops the backfill and records an error. Backfill makes model calls; set `"autoBackfill": false` before upgrading if you want to avoid them. Turning it off during a run stops after the current exchange.
+- It covers projects whose directories resolve, and it records profile prompts.
+- It resumes from the ledger after a restart.
+- At the first run for each host, it saves a fixed cutoff. It only imports turns that existed then. Live capture handles newer turns.
+- It skips exchanges that live capture already saved.
+- Unresolved directories appear in the progress counts and in the Settings page's **Directory maps** list. To include them, save a map there or add it to `importPathMaps`.
+- Backfill makes model calls. To avoid them, set `"autoBackfill": false` before you upgrade. If you turn it off during a run, the run stops after the current exchange.
 
-`webServerAutoStart` defaults to `true`. When `webServerEnabled` is also true, OMMS registers a per-user login item for the web app: a LaunchAgent on macOS, a systemd user unit on Linux, or a Startup-folder entry on Windows. A host start reconciles the item; turning either setting off removes it at the next host start. Use `om-memory-system web install` or `web uninstall` to apply the change immediately. The item needs Node or Bun and uses the same port and authentication settings as the OpenCode-hosted web app.
+`importPathMaps` is a list of `{ "from": ..., "to": ... }` directory maps.
 
-The four new settings and `webServerEnabled` are global-only. Values in a project's `.opencode/omms.jsonc` are ignored, so one project cannot turn off the shared web server for another project. See [Automatic import](web-ui.md#settings-page) for status and [CLI](cli.md#web-app-commands) for the login-item commands.
+- `~` is expanded. After that, both paths must be absolute. A bad entry is a config error.
+- Automatic backfill, web imports, CLI imports, and slash-command imports all use it.
+- A run's own `--map` adds to the list and wins for the same `from`.
+- If the `to` directory does not exist, its sessions stay unresolved.
+
+On the Settings page you can **Run now**, **Pause**, and **Resume** each host's backfill.
+
+- A paused backfill does not start when the host starts. It waits until you resume it.
+- Every real import records its progress in `import-ledger.db`. It stores numbers only, no conversation content.
+- One import per host runs at a time, across the backfill, the page, the slash commands, and the CLI.
+
+`piBackfillModel` and `opencodeBackfillModel` choose the backfill model. They default to `"inherit"`.
+
+- `"inherit"` on Pi follows Pi's live-capture model rule.
+- `"inherit"` on OpenCode uses the configured host model, then the saved external API, then OpenCode's configured default model.
+- `"external"` sends that host's backfill to the external API. If the external API is not fully configured, the backfill stops and names the missing setting. With `"external"`, Run now also works in the login web app with no host open.
+- A signed-in `provider/model` chooses another backfill model without changing live capture.
+- Any other value is a config error.
+- If no model is available, the backfill stops and records an error.
+
+`webServerAutoStart` defaults to `true`. When `webServerEnabled` is also true, OMMS registers a per-user login item for the web app.
+
+- On macOS it is a LaunchAgent. On Linux it is a systemd user unit. On Windows it is a Startup-folder entry.
+- Each host start checks the item. If you turn either setting off, the next host start removes it.
+- To apply a change at once, run `om-memory-system web install` or `om-memory-system web uninstall`.
+- The item needs Node or Bun. It uses the same port and authentication settings as the OpenCode-hosted web app.
+
+`autoBackfill` and `webServerAutoStart` must be `true` or `false`.
+
+## Global-only settings
+
+Some settings are read only from the global file.
+
+- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `autoCleanupEnabled`, and `autoCleanupRetentionDays`. This stops one project from, for example, turning off the shared web server for another.
+- A project config cannot turn `captureTrace` on. See [Capture traces](#capture-traces-opt-in).
+- A project config that sets `embeddingApiUrl`, `embeddingApiKey`, `memoryProvider`, `memoryApiUrl`, or `memoryApiKey` is an error. Move those to the global file.
+
+See [Web UI settings](web-ui-settings.md) for backfill status and [CLI](cli.md#web-app-commands) for the login-item commands.
 
 ## Choosing the model
 
-Auto-capture and profile learning run a background AI request to summarize technical work and learn your preferences. OpenCode and Pi choose that model by the same rule:
+Auto-capture and profile learning send a background AI request. It summarises technical work and learns your preferences. OpenCode and Pi choose the model by the same rule:
 
-1. **Host model:** `opencodeProvider` + `opencodeModel` in OpenCode, `piProvider` + `piModel` in Pi. Set the model to `"inherit"` to follow whatever model the session uses.
-2. **External API:** if no host model is set, `memoryModel` + `memoryApiUrl` + `memoryApiKey` (below).
+1. **Host model:** `opencodeProvider` and `opencodeModel` in OpenCode, `piProvider` and `piModel` in Pi.
+   - Set the model to `"inherit"` to follow the session's model.
+   - Set it to `"external"` to send every call to the external API. The provider value is then ignored.
+2. **External API:** if no host model is set, `memoryModel`, `memoryApiUrl`, and `memoryApiKey` (below).
 3. **Session model:** if neither is set, the session's own model.
 
-If the host model fails and the external API is configured, the external API is used instead. A half-configured external API (for example a model without a key) disables auto-capture and reports the missing settings instead of switching silently.
+How failures are handled:
+
+- If the host model fails and the external API is configured, OMMS uses the external API instead.
+- With `"external"`, the external API is already the main call. A failure is not retried elsewhere.
+- With `"external"` and an incomplete external API, auto-capture is off on that host. OMMS reports the missing settings.
+- A half-configured external API (for example, a model without a key) also turns auto-capture off and reports the missing settings. OMMS does not switch models silently.
 
 ```jsonc
 "opencodeProvider": "openai",
@@ -110,9 +168,16 @@ If the host model fails and the external API is configured, the external API is 
 "piModel": "gpt-5.6-luna",
 ```
 
-Host models go through OpenCode's or Pi's own sign-in, so OpenCode or Pi owns the auth, token refresh, and provider routing, and no separate key is needed here. The OpenCode provider name must match an entry from `opencode providers list` and support structured JSON output; the Pi name must be in Pi's model list.
+Host models use OpenCode's or Pi's own sign-in. The host handles the login, token refresh, and provider routing, so you need no separate key here.
 
-**Follow the session model:** `"inherit"` (or setting nothing at all) resolves to a concrete model at call time. In OpenCode, **auto-capture** records each prompt's model via the `chat.params` hook and reuses it. **Profile learning** and other structured-output paths are not tied to a single user message, so they use the most recent model in OpenCode's `model.json` recent list (preferring `opencodeProvider` when set). In Pi, `"inherit"` is the session's current model.
+- The OpenCode provider name must match an entry from `opencode providers list`. The model must support structured JSON output.
+- The Pi name must be in Pi's model list.
+
+**Follow the session model:** `"inherit"`, or no setting at all, picks a concrete model at call time.
+
+- In OpenCode, **auto-capture** records each prompt's model through the `chat.params` hook and uses it again.
+- In OpenCode, **profile learning** and other structured-output paths are not tied to one user message. They use the most recent model in OpenCode's `model.json` recent list. They prefer `opencodeProvider` when it is set.
+- In Pi, `"inherit"` is the session's current model.
 
 **External API** (step 2, and the fallback when a host model fails):
 
@@ -123,39 +188,50 @@ Host models go through OpenCode's or Pi's own sign-in, so OpenCode or Pi owns th
 "memoryApiKey": "sk-...",
 ```
 
-**API Key Formats:**
+**API key formats:**
 
 ```jsonc
 "memoryApiKey": "sk-..."
-"memoryApiKey": "file://~/.config/opencode/api-key.txt"
+"memoryApiKey": "file://~/.config/omms/secrets/memory-api.key"
 "memoryApiKey": "env://OPENAI_API_KEY"
 ```
 
-Manual `memoryProvider` modes:
+- A login web app started by the login item does not load your shell profile. An `env://` variable set only there does not resolve in it. The Settings page's External API card reports this.
+- A `file://` key file works in every OMMS process.
+- If an `env://` or `file://` key does not resolve, OMMS treats `memoryApiKey` as not set. It still loads the rest of the config.
 
-- `openai-chat`: OpenAI Chat Completions compatible API with tool/function calling. This can work with compatible proxies such as LiteLLM only when the selected upstream model and proxy preserve tool calls.
-- `openai-responses`: OpenAI Responses API with function-call output.
-- `anthropic`: Anthropic Messages API with tool use.
-- `minimax`: MiniMax Anthropic Messages-compatible endpoint. Set `memoryApiUrl` to the global endpoint (`https://api.minimax.io`) or the China endpoint (`https://api.minimaxi.com`); the `/anthropic/v1/messages` path and `x-api-key` header are applied automatically. MiniMax text models such as `MiniMax-M3` support the adaptive thinking modes used by this plugin via `memoryExtraParams`.
-- `orcarouter`: OpenAI-compatible model gateway with namespaced model IDs. `memoryApiUrl` and `memoryModel` are optional — they default to `https://api.orcarouter.ai/v1` and `orcarouter/auto` (a routing alias that selects a capable model per request). If you set `memoryModel`, use a namespaced ID such as `openai/gpt-5.5` or `deepseek/deepseek-v4-flash`; OrcaRouter rejects bare model names. Example:
-  ```jsonc
-  "memoryProvider": "orcarouter",
-  "memoryApiKey": "<OrcaRouter API key>",
-  ```
-  [OrcaRouter](https://www.orcarouter.ai) also runs gateway-level, zero-trust security for AI agents on the same endpoint — screening every prompt/response and governing every tool call on a default-deny basis, with no application code changes.
+`memoryProvider` modes:
+
+- `openai-chat`: an OpenAI Chat Completions compatible API with tool (function) calling. It can work with compatible proxies such as LiteLLM, but only when the upstream model and the proxy keep tool calls.
+- `openai-responses`: the OpenAI Responses API with function-call output.
+- `anthropic`: the Anthropic Messages API with tool use.
+- `google-gemini`: the Google Gemini API.
+- `minimax`: a MiniMax endpoint compatible with Anthropic Messages.
+  - Set `memoryApiUrl` to the global endpoint (`https://api.minimax.io`) or the China endpoint (`https://api.minimaxi.com`).
+  - OMMS adds the `/anthropic/v1/messages` path and the `x-api-key` header.
+  - MiniMax text models such as `MiniMax-M3` support the adaptive thinking modes this plugin uses through `memoryExtraParams`.
+- `orcarouter`: an OpenAI-compatible model gateway with namespaced model IDs.
+  - `memoryApiUrl` and `memoryModel` are optional. They default to `https://api.orcarouter.ai/v1` and `orcarouter/auto`. `orcarouter/auto` is a routing alias that picks a capable model for each request.
+  - If you set `memoryModel`, use a namespaced ID such as `openai/gpt-5.5` or `deepseek/deepseek-v4-flash`. OrcaRouter rejects bare model names.
+  - Only `memoryApiKey` is required:
+    ```jsonc
+    "memoryProvider": "orcarouter",
+    "memoryApiKey": "<OrcaRouter API key>",
+    ```
+  - [OrcaRouter](https://www.orcarouter.ai) also runs gateway-level security for AI agents on the same endpoint. It screens every prompt and response and controls every tool call on a default-deny basis. You do not need to change application code.
 
 ## Embeddings
 
-Embeddings power similarity search for memories and the user profile. Configure them in the same file (`~/.config/omms/omms.jsonc`). There is **no MLX backend** — local embeddings use `@huggingface/transformers` with ONNX, not Apple MLX.
+Embeddings power similarity search for memories and the user profile. Set them in the same global file.
 
-**Local (default):** set only `embeddingModel`. On first use the model is downloaded from Hugging Face and cached under `{storagePath}/.cache` (default `~/.omms/data/.cache`).
-
-**Remote (OpenAI-compatible):** set both `embeddingApiUrl` and `embeddingApiKey`. The plugin then calls `{embeddingApiUrl}/embeddings` with a Bearer token. `embeddingApiKey` accepts the same secret formats as `memoryApiKey` (`literal`, `env://…`, `file://…`).
+- There is **no MLX backend**. Local embeddings use `@huggingface/transformers` with ONNX, not Apple MLX.
+- **Local (default):** set only `embeddingModel`. On first use, OMMS downloads the model from Hugging Face and caches it under `{storagePath}/.cache` (default `~/.omms/data/.cache`).
+- **Remote (OpenAI-compatible):** set both `embeddingApiUrl` and `embeddingApiKey`. OMMS then calls `{embeddingApiUrl}/embeddings` with a Bearer token. `embeddingApiKey` accepts the same formats as `memoryApiKey`: a literal key, `env://…`, or `file://…`.
 
 | Key                   | Role                                                                                      |
 | --------------------- | ----------------------------------------------------------------------------------------- |
 | `embeddingModel`      | Hugging Face id (local) or API model name (remote). Default: `Xenova/nomic-embed-text-v1` |
-| `embeddingDimensions` | Optional override; usually omit — dimensions are looked up from a built-in map            |
+| `embeddingDimensions` | Optional override. Usually leave it out; OMMS looks up dimensions in a built-in map       |
 | `embeddingApiUrl`     | Base URL for an OpenAI-compatible embeddings API (no trailing path beyond `/v1`)          |
 | `embeddingApiKey`     | API key for that endpoint (required together with `embeddingApiUrl`)                      |
 
@@ -169,7 +245,7 @@ Recommended local models:
 | `Xenova/all-MiniLM-L6-v2`            | 384  | Very fast, 512 context              |
 | `Xenova/all-mpnet-base-v2`           | 768  | Good quality, 512 context           |
 
-Example — remote OpenAI embeddings:
+Example of remote OpenAI embeddings:
 
 ```jsonc
 {
@@ -179,9 +255,15 @@ Example — remote OpenAI embeddings:
 }
 ```
 
-Changing `embeddingModel` (or dimensions) can trigger re-embedding of stored memories on next startup. Prefer picking a model once and sticking with it for a given data directory.
+If you change `embeddingModel` or the dimensions, OMMS can re-embed stored memories at the next start. Choose one model for each data directory and keep it.
 
-**Intel Mac (`darwin/x64`):** `onnxruntime-node@1.21.0` through `1.23.2` can crash OpenCode's embedded Bun `1.3.14` during process exit after successful local embeddings (`Ort::Env` teardown / SIGILL). The fix shipped in `1.24.1`, but fixed releases still lack an x64 native binding. `omms` therefore pins `onnxruntime-node@1.20.1` and loads transformers through a CJS resolve shim so OpenCode nested installs keep that binding. Transformers is resolved to an absolute path before that shim is installed so OpenCode's Bun `--compile` host does not fail with `Cannot find module '@huggingface/transformers' from ''`. After upgrading, clear OpenCode's nested plugin cache (`~/.cache/opencode/packages/om-memory-system@*`, or `opencode-mem@*` on pre-migration installs) and reinstall, or use a remote endpoint via `embeddingApiUrl` + `embeddingApiKey` (example above). This pin stays until onnxruntime publishes a post-teardown-fix darwin/x64 build.
+**Intel Mac (`darwin/x64`):** `onnxruntime-node@1.21.0` to `1.23.2` can crash OpenCode's embedded Bun `1.3.14` when the process exits after local embeddings (`Ort::Env` teardown, SIGILL).
+
+- The fix shipped in `1.24.1`, but fixed releases still have no x64 native binding.
+- So `omms` pins `onnxruntime-node@1.20.1`. It loads transformers through a CJS resolve shim, so OpenCode nested installs keep that binding.
+- OMMS resolves transformers to an absolute path before it installs that shim. This stops OpenCode's Bun `--compile` host failing with `Cannot find module '@huggingface/transformers' from ''`.
+- After you upgrade, clear OpenCode's nested plugin cache (`~/.cache/opencode/packages/om-memory-system@*`, or `opencode-mem@*` on installs before the migration) and reinstall. Or use a remote endpoint through `embeddingApiUrl` and `embeddingApiKey` (example above).
+- The pin stays until onnxruntime publishes a darwin/x64 build with the teardown fix.
 
 ## Memory scope
 
