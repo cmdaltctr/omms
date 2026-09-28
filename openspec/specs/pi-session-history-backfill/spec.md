@@ -6,9 +6,9 @@ Defines safe, explicit import of Pi session history into shared memory while pre
 
 ## Requirements
 
-### Requirement: Backfill is explicit and read-only toward Pi history
+### Requirement: Backfill is read-only toward Pi history
 
-Historical Pi backfill SHALL be opt-in and SHALL treat Pi session JSONL files as immutable input.
+Historical Pi backfill SHALL run when the user requests it, or automatically when `autoBackfill` is on, as the `auto-backfill` capability defines. It SHALL treat Pi session JSONL files as immutable input.
 
 #### Scenario: An import completes successfully
 
@@ -19,6 +19,11 @@ Historical Pi backfill SHALL be opt-in and SHALL treat Pi session JSONL files as
 
 - **WHEN** the importer encounters an extraction, storage, or process failure
 - **THEN** it SHALL NOT modify, truncate, rename, or delete the source JSONL file
+
+#### Scenario: Automatic backfill is turned off
+
+- **WHEN** `autoBackfill` is `false`
+- **THEN** Pi history SHALL be imported only when the user runs an import
 
 ### Requirement: Importer prefers Pi's exported session model
 
