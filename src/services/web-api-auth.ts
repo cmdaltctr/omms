@@ -6,6 +6,12 @@ export function isLoopbackHost(host: string): boolean {
   return LOOPBACK_HOSTS.has(host.trim().toLowerCase());
 }
 
+/** A URL needs brackets around an IPv6 literal such as ::1. */
+export function webServerUrl(host: string, port: number): string {
+  const urlHost = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
+  return `http://${urlHost}:${port}`;
+}
+
 export function assertWebServerNetworkAuth(
   host: string,
   apiToken?: string,

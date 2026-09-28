@@ -24,10 +24,8 @@ export async function runWebCommand(
     console.error("OMMS web server is disabled (webServerEnabled is false)");
     return 1;
   }
-  const host = config.CONFIG.webServerHost;
-  // A URL needs brackets around an IPv6 literal such as ::1.
-  const urlHost = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
-  const url = `http://${urlHost}:${config.CONFIG.webServerPort}`;
+  const { webServerUrl } = await import("../services/web-api-auth.js");
+  const url = webServerUrl(config.CONFIG.webServerHost, config.CONFIG.webServerPort);
   if (action === "install" || action === "uninstall") {
     const { readGlobalConfigRevision, writeGlobalConfigKeys } =
       await import("../services/global-config-writer.js");

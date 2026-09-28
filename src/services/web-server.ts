@@ -5,7 +5,12 @@ import { join, dirname, extname, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
 import { corsPreflightResponse, disallowedCorsResponse, isAllowedBrowserOrigin } from "./cors.js";
-import { assertWebServerNetworkAuth, authorizeApiRequest, isLoopbackHost } from "./web-api-auth.js";
+import {
+  assertWebServerNetworkAuth,
+  authorizeApiRequest,
+  isLoopbackHost,
+  webServerUrl,
+} from "./web-api-auth.js";
 import { getOrCreateAuthToken, isAuthorizedApiRequest } from "./auth-token.js";
 import { WebAuth } from "./web-auth.js";
 import { NODE_HTTP_IDLE_TIMEOUT_MS } from "./request-timeouts.js";
@@ -440,7 +445,7 @@ export class WebServer {
   }
 
   getUrl(): string {
-    return `http://${this.config.host}:${this.config.port}`;
+    return webServerUrl(this.config.host, this.config.port);
   }
 
   async checkServerAvailable(): Promise<boolean> {
