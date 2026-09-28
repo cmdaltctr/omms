@@ -24,6 +24,8 @@ const installedConfig = readFileSync(path, "utf8");
 const status = await runWebCommand(["status"], options, async () => false);
 const uninstall = await runWebCommand(["uninstall"], options, async () => false);
 const uninstalledConfig = readFileSync(path, "utf8");
+writeFileSync(path, '{ "webServerHost": "::1" }');
+const ipv6Status = await runWebCommand(["status"], options, async () => false);
 writeFileSync(path, '{ "webServerEnabled": false }');
 const refused = await runWebCommand([], options, async () => false);
 const disabledInstall = await runWebCommand(["install"], options, async () => false);
@@ -49,6 +51,7 @@ console.log("RESULT:" + JSON.stringify({ install, status, uninstall, refused, di
     expect(out.commands.some((line: string) => line.includes("launchctl bootstrap"))).toBe(true);
     expect(text).toContain("OMMS web app: http://127.0.0.1:4747");
     expect(text).toContain('"url": "http://127.0.0.1:4747"');
+    expect(text).toContain('"url": "http://[::1]:4747"');
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
