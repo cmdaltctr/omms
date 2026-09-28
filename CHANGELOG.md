@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [3.4.1](https://github.com/cmdaltctr/omms/compare/v3.4.0...v3.4.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* **test:** tolerate a locked temp folder on Windows in map suggestion tests ([a04b5be](https://github.com/cmdaltctr/omms/commit/a04b5be5bb4548113e47e1a74c29c087205619f5))
+* **test:** tolerate a locked temp folder on Windows in map suggestion tests ([8bf3482](https://github.com/cmdaltctr/omms/commit/8bf34823e7bfd50d3261ef824972958b253aac7a))
+
 ## [3.4.0](https://github.com/cmdaltctr/omms/compare/v3.3.1...v3.4.0) (2026-09-28)
 
 
