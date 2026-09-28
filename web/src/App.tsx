@@ -1,10 +1,12 @@
 import { useEffect, useState, type MouseEvent } from "react";
+import { Select } from "$lib/components/ui/select";
 import { Loader, Menu, Plus, RefreshCw, Search, Trash, TriangleAlert, X } from "lucide-react";
 import { useMemoriesExplorer } from "@/hooks/useMemoriesExplorer";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { AiCleanupDialog } from "$lib/components/explorer/AiCleanupDialog";
 import { AppSidebar } from "$lib/components/explorer/AppSidebar";
 import { EditMemoryDialog } from "$lib/components/explorer/EditMemoryDialog";
+import { KeywordBadge } from "$lib/components/explorer/KeywordBadge";
 import { MemoryList } from "$lib/components/explorer/MemoryList";
 import { ProfileView } from "$lib/components/explorer/ProfileView";
 import { TagMigrationDialog } from "$lib/components/explorer/TagMigrationDialog";
@@ -15,6 +17,7 @@ import { Checkbox } from "$lib/components/ui/checkbox";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
 import { Toaster } from "$lib/components/ui/sonner";
+import { Tooltip } from "$lib/components/ui/tooltip";
 import { Textarea } from "$lib/components/ui/textarea";
 import { setLanguage, useI18n } from "$lib/i18n";
 import type { Lang } from "$lib/i18n/translations";
@@ -106,11 +109,18 @@ export default function App() {
           brand={t("brand")}
           projectLabel={t("tab-project")}
           profileLabel={t("tab-profile")}
+          profileSections={[
+            { id: "profile-preferences", label: t("profile-preferences") },
+            { id: "profile-patterns", label: t("profile-patterns") },
+            { id: "profile-workflows", label: t("profile-workflows") },
+          ]}
           langLabel={language.toUpperCase()}
           languageLabel={t("nav-language")}
           themeLabel={t("nav-theme")}
           settingsLabel={t("nav-settings")}
           closeLabel={t("nav-close")}
+          collapseLabel={t("nav-collapse")}
+          expandLabel={t("nav-expand")}
           onLanguageSelect={onLanguageSelect}
         />
 
@@ -168,11 +178,11 @@ export default function App() {
             {currentView === "project" ? (
               <>
                 <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-3">
-                  <div className="space-y-1">
+                  <div className="min-w-0 max-w-full space-y-1">
                     <Label htmlFor="tag-filter">{t("label-tag")}</Label>
-                    <select
+                    <Select
                       id="tag-filter"
-                      className="flex h-8 min-w-48 rounded-lg border border-border bg-background px-2 text-sm"
+                      className="flex h-8 w-64 max-w-full rounded-lg border border-border bg-background px-2 text-sm"
                       value={explorer.selectedTag}
                       onChange={(e) => explorer.onTagFilterChange(e.currentTarget.value)}
                     >
@@ -182,8 +192,26 @@ export default function App() {
                           {tag.displayName || tag.tag}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
+
+                  {explorer.selectedKeyword ? (
+                    <div className="space-y-1">
+                      <span className="block text-sm font-medium">{t("label-keyword")}</span>
+                      <div className="flex h-8 items-center gap-1">
+                        <KeywordBadge keyword={explorer.selectedKeyword} active />
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => explorer.onKeywordFilterChange("")}
+                          aria-label={t("btn-clear-keyword")}
+                          title={t("btn-clear-keyword")}
+                        >
+                          <X className="size-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className="flex flex-1 items-end gap-1.5 min-w-56">
                     <div className="flex-1 space-y-1">
@@ -209,14 +237,18 @@ export default function App() {
                   </div>
 
                   <div className="flex flex-wrap gap-1.5">
-                    <Button variant="outline" size="sm" onClick={explorer.runCleanup}>
-                      <Trash className="size-3.5" />
-                      {t("btn-cleanup")}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={explorer.runDeduplication}>
-                      <RefreshCw className="size-3.5" />
-                      {t("btn-deduplicate")}
-                    </Button>
+                    <Tooltip content={t("tooltip-cleanup")}>
+                      <Button variant="outline" size="sm" onClick={explorer.runCleanup}>
+                        <Trash className="size-3.5" />
+                        {t("btn-cleanup")}
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={t("tooltip-deduplicate")}>
+                      <Button variant="outline" size="sm" onClick={explorer.runDeduplication}>
+                        <RefreshCw className="size-3.5" />
+                        {t("btn-deduplicate")}
+                      </Button>
+                    </Tooltip>
                   </div>
 
                   {explorer.selectedIds.size > 0 ? (
@@ -292,6 +324,14 @@ export default function App() {
                   onEdit={explorer.openEdit}
                   onDeleteMemory={explorer.deleteMemory}
                   onDeletePrompt={explorer.deletePrompt}
+                  activeKeyword={explorer.selectedKeyword}
+                  onKeywordClick={(keyword) =>
+                    explorer.onKeywordFilterChange(
+                      explorer.selectedKeyword.toLowerCase() === keyword.toLowerCase()
+                        ? ""
+                        : keyword
+                    )
+                  }
                 />
 
                 <section className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -300,7 +340,7 @@ export default function App() {
                     <div className="grid gap-3 md:grid-cols-3">
                       <div className="space-y-1">
                         <Label htmlFor="add-tag">{t("label-tag")}</Label>
-                        <select
+                        <Select
                           id="add-tag"
                           required
                           className="flex h-8 w-full rounded-lg border border-border bg-background px-2 text-sm"
@@ -313,11 +353,11 @@ export default function App() {
                               {tag.displayName || tag.tag}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor="add-type">{t("label-type")}</Label>
-                        <select
+                        <Select
                           id="add-type"
                           className="flex h-8 w-full rounded-lg border border-border bg-background px-2 text-sm"
                           value={explorer.addType}
@@ -328,7 +368,7 @@ export default function App() {
                               {t(type ? `opt-${type}` : "opt-other")}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor="add-tags">{t("label-tags")}</Label>

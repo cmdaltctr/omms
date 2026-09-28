@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Select } from "$lib/components/ui/select";
 import { settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import { localDayEnd, localDayStart } from "$lib/import-dates";
@@ -287,7 +288,7 @@ export function ImportSection() {
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-sm">
           {s("History host")}
-          <select
+          <Select
             className={field}
             value={host}
             onChange={(event) => {
@@ -299,7 +300,7 @@ export function ImportSection() {
           >
             <option value="pi">Pi</option>
             <option value="opencode">OpenCode</option>
-          </select>
+          </Select>
         </label>
         <button
           type="button"
@@ -326,14 +327,14 @@ export function ImportSection() {
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-sm">
               {s("Scope")}
-              <select
+              <Select
                 className={field}
                 value={scope}
                 onChange={(event) => setScope(event.target.value as typeof scope)}
               >
                 <option value="current-project">{s("Current project")}</option>
                 <option value="all-projects">{s("All projects")}</option>
-              </select>
+              </Select>
             </label>
             {scope === "current-project" && (
               <label className="text-sm">
@@ -507,7 +508,7 @@ export function ImportSection() {
 
       <label className="block text-sm">
         {s("Import model")}
-        <select className={field} value={model} onChange={(event) => setModel(event.target.value)}>
+        <Select className={field} value={model} onChange={(event) => setModel(event.target.value)}>
           <option value="">{s("None")}</option>
           {readiness?.opencode.models.map((item) => (
             <option key={`${item.provider}/${item.model}`} value={`${item.provider}/${item.model}`}>
@@ -519,7 +520,7 @@ export function ImportSection() {
             {readiness?.external.model ? ` (${readiness.external.model})` : ""}
             {readiness && readiness.external.state !== "ready" ? ` — ${s("not ready")}` : ""}
           </option>
-        </select>
+        </Select>
       </label>
       <p className="text-xs text-muted-foreground">
         {s("Configured, not tested.")}{" "}

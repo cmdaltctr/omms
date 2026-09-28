@@ -170,3 +170,14 @@
   display: grid;
   place-items: center;
 }
+
+/* Settings buttons: pointer and an eased shift to the primary green on hover, like the sidebar icons. */
+.settings-view button:not(:disabled) {
+  cursor: pointer;
+}
+.settings-view button:not([class*="bg-primary"]) {
+  transition: color 200ms ease-in;
+}
+.settings-view button:not(:disabled):not([class*="bg-primary"]):hover {
+  color: var(--primary);
+}

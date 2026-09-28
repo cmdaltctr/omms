@@ -1,13 +1,4 @@
-import { execFileSync } from "node:child_process";
-import {
-  appendFileSync,
-  chmodSync,
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readdirSync,
-  unlinkSync,
-} from "fs";
+import { appendFileSync, existsSync, lstatSync, mkdirSync, readdirSync, unlinkSync } from "fs";
 import { join } from "path";
 import type {
   CaptureAttemptDiagnostics,
@@ -18,6 +9,7 @@ import type {
 import type { MemoryHost, MemorySourceType } from "../types/index.js";
 import { getLogDirPath } from "./log-path.js";
 import { log } from "./logger.js";
+import { restrictToCurrentUser } from "./private-path.js";
 import { stripPrivateContent } from "./privacy.js";
 
 /**
@@ -185,66 +177,8 @@ export function pruneTraces(config: CaptureDiagnosticsConfig, now: Date = new Da
 
 let lastTraceDate: string | null = null;
 
-const WINDOWS_TRACE_ACL = `$ErrorActionPreference = 'Stop'
-$path = $env:OMMS_TRACE_ACL_PATH
-$isDirectory = [System.IO.Directory]::Exists($path)
-$acl = if ($isDirectory) {
-  [System.IO.Directory]::GetAccessControl($path)
-} else {
-  [System.IO.File]::GetAccessControl($path)
-}
-$currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
-$owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier])
-if ($owner.Value -ne $currentUser.Value) {
-  throw 'Trace path has a different owner'
-}
-$acl.SetAccessRuleProtection($true, $false)
-foreach ($rule in @($acl.Access)) {
-  [void]$acl.RemoveAccessRuleSpecific($rule)
-}
-$inheritance = if ($isDirectory) {
-  [System.Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
-} else {
-  [System.Security.AccessControl.InheritanceFlags]::None
-}
-$rule = [System.Security.AccessControl.FileSystemAccessRule]::new(
-  $currentUser,
-  [System.Security.AccessControl.FileSystemRights]::FullControl,
-  $inheritance,
-  [System.Security.AccessControl.PropagationFlags]::None,
-  [System.Security.AccessControl.AccessControlType]::Allow
-)
-$acl.AddAccessRule($rule)
-if ($isDirectory) {
-  [System.IO.Directory]::SetAccessControl($path, $acl)
-} else {
-  [System.IO.File]::SetAccessControl($path, $acl)
-}`;
-
-type WindowsAclRunner = (
-  command: string,
-  args: string[],
-  options: { env: NodeJS.ProcessEnv; timeout: number; windowsHide: boolean; stdio: "ignore" }
-) => void;
-
 /** Restrict a trace path to the current user on both Windows and POSIX. */
-export function protectTracePath(
-  path: string,
-  mode: number,
-  platform = process.platform,
-  run: WindowsAclRunner = execFileSync
-): void {
-  if (platform !== "win32") {
-    chmodSync(path, mode);
-    return;
-  }
-  run("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", WINDOWS_TRACE_ACL], {
-    env: { ...process.env, OMMS_TRACE_ACL_PATH: path },
-    timeout: 10_000,
-    windowsHide: true,
-    stdio: "ignore",
-  });
-}
+export const protectTracePath = restrictToCurrentUser;
 
 /**
  * Append one trace entry to the day's JSON Lines file. A single append per

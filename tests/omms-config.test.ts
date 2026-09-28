@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const tempDirs: string[] = [];
@@ -384,6 +384,57 @@ describe("global automatic backfill settings", () => {
     await expect(runConfigScenario(home, `initConfig("/tmp/project"); return {};`)).rejects.toThrow(
       "Invalid piBackfillModel config"
     );
+  });
+});
+
+describe("external model values and saved directory maps", () => {
+  it("accepts external and expands saved maps, ignoring a project's maps", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-maps-home-"));
+    const project = mkdtempSync(join(tmpdir(), "omms-maps-project-"));
+    tempDirs.push(home, project);
+    mkdirSync(join(home, ".config", "omms"), { recursive: true });
+    mkdirSync(join(project, ".opencode"), { recursive: true });
+    writeFileSync(
+      join(home, ".config", "omms", "omms.jsonc"),
+      JSON.stringify({
+        piModel: "external",
+        opencodeModel: "external",
+        piBackfillModel: "external",
+        opencodeBackfillModel: "external",
+        importPathMaps: [{ from: "~/code/app-feat-x", to: "~/code/app" }],
+      })
+    );
+    writeFileSync(
+      join(project, ".opencode", "omms.jsonc"),
+      JSON.stringify({ importPathMaps: [{ from: "/x", to: "/y" }] })
+    );
+    const result = await runConfigScenario(
+      home,
+      `
+      initConfig(${JSON.stringify(project)});
+      return { maps: cfg.CONFIG.importPathMaps, pi: cfg.CONFIG.piBackfillModel };
+    `
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      pi: "external",
+      maps: [{ from: join(home, "code", "app-feat-x"), to: join(home, "code", "app") }],
+    });
+  });
+
+  it("rejects invalid map entries", async () => {
+    const { parseImportPathMaps } = await import("../src/importer/import-path-maps.js");
+    for (const importPathMaps of [
+      "not-a-list",
+      [{ from: "/a" }],
+      [{ from: "relative", to: "/b" }],
+      [null],
+    ]) {
+      expect(() => parseImportPathMaps(importPathMaps)).toThrow("importPathMaps");
+    }
+    expect(parseImportPathMaps([{ from: "/a/", to: "/b" }])).toEqual([
+      { from: resolve("/a"), to: resolve("/b") },
+    ]);
   });
 });
 

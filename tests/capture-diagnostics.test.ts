@@ -193,7 +193,7 @@ describe("trace files", () => {
   it("uses a protected Windows ACL instead of Unix mode bits", () => {
     const calls: Array<{ command: string; args: string[]; path: string | undefined }> = [];
     protectTracePath("C:\\trace[1].jsonl", 0o600, "win32", (command, args, options) => {
-      calls.push({ command, args, path: options.env.OMMS_TRACE_ACL_PATH });
+      calls.push({ command, args, path: options.env.OMMS_PRIVATE_PATH });
     });
     expect(calls).toHaveLength(1);
     expect(calls[0]?.command).toBe("powershell.exe");

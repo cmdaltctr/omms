@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Select } from "$lib/components/ui/select";
 import {
   beginSettingsRead,
   onSettingsSnapshot,
@@ -7,6 +8,7 @@ import {
   withNote,
 } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
+import { externalMissing, hostModelEdit } from "$lib/external-api-settings";
 
 type Setting = { value?: string; globalValue?: string; source: string };
 type Snapshot = {
@@ -55,17 +57,13 @@ export function ModelsSection() {
 
   async function save(host: string, choice: string) {
     if (!snapshot) return;
-    const providerKey = `${host}Provider`;
-    const modelKey = `${host}Model`;
-    const slash = choice.indexOf("/");
-    if (choice !== "inherit" && (slash < 1 || slash === choice.length - 1)) {
-      setMessage(s("Enter a model as provider/model."));
+    let edits: Record<string, string>;
+    try {
+      edits = hostModelEdit(host as "opencode" | "pi", choice);
+    } catch (error) {
+      setMessage(s((error as Error).message));
       return;
     }
-    const edits =
-      choice === "inherit"
-        ? { [modelKey]: "inherit" }
-        : { [providerKey]: choice.slice(0, slash), [modelKey]: choice.slice(slash + 1) };
     setBusy(true);
     let result: { migratedLegacy: boolean } | undefined;
     let failure: Error | undefined;
@@ -99,6 +97,12 @@ export function ModelsSection() {
     }
   }
 
+  const missing = externalMissing({
+    memoryProvider: snapshot?.settings.memoryProvider?.globalValue,
+    memoryModel: snapshot?.settings.memoryModel?.globalValue,
+    memoryApiUrl: snapshot?.settings.memoryApiUrl?.globalValue,
+    keySet: Boolean(snapshot?.secrets.memoryApiKey?.set),
+  });
   return (
     <section
       className="space-y-3 rounded-xl border border-border bg-card p-4"
@@ -121,6 +125,7 @@ export function ModelsSection() {
               : (snapshot?.effective.opencode.mode ?? "unready")
           }
           list={lists[host]}
+          externalMissing={missing}
           busy={busy || !snapshot}
           onSave={(choice) => save(host, choice)}
         />
@@ -149,6 +154,7 @@ function ModelCard({
   provider,
   effective,
   list,
+  externalMissing,
   busy,
   onSave,
 }: {
@@ -157,6 +163,7 @@ function ModelCard({
   provider?: Setting;
   effective?: string;
   list?: ModelList;
+  externalMissing: string[];
   busy: boolean;
   onSave: (choice: string) => void;
 }) {
@@ -164,13 +171,16 @@ function ModelCard({
   const selected =
     model?.globalValue === "inherit" || !model?.globalValue
       ? "inherit"
-      : `${provider?.globalValue ?? ""}/${model.globalValue}`;
-  const [choice, setChoice] = useState<"inherit" | "manual">();
+      : model.globalValue === "external"
+        ? "external"
+        : `${provider?.globalValue ?? ""}/${model.globalValue}`;
+  const [choice, setChoice] = useState<"inherit" | "manual" | "external">();
   const [manual, setManual] = useState<string>();
   const [picked, setPicked] = useState<string>();
-  const current = choice ?? (selected === "inherit" ? "inherit" : "manual");
+  const current =
+    choice ?? (selected === "inherit" || selected === "external" ? selected : "manual");
   const options = list?.models ?? [];
-  const savedModel = selected === "inherit" ? "" : selected;
+  const savedModel = selected === "inherit" || selected === "external" ? "" : selected;
   const selectedModel =
     picked || savedModel || (options[0] ? `${options[0].provider}/${options[0].model}` : "typed");
   const useTyped = !options.some((entry) => `${entry.provider}/${entry.model}` === selectedModel);
@@ -180,13 +190,15 @@ function ModelCard({
       <h3 className="font-medium">{host === "pi" ? "Pi" : "OpenCode"}</h3>
       <p className="text-xs text-muted-foreground">
         {s("Effective model")}:{" "}
-        {model?.value === "inherit" || effective === "session"
-          ? s("session")
-          : effective === "manual"
-            ? s("external API")
-            : effective === "unready"
-              ? s("unavailable")
-              : `${provider?.value ?? ""}/${model?.value ?? ""}`}
+        {model?.value === "external" && effective === "manual"
+          ? s("external API")
+          : model?.value === "inherit" || effective === "session"
+            ? s("session")
+            : effective === "manual"
+              ? s("external API")
+              : effective === "unready"
+                ? s("unavailable")
+                : `${provider?.value ?? ""}/${model?.value ?? ""}`}
       </p>
       {(model?.source === "project" || provider?.source === "project") && (
         <p className="text-xs text-amber-600">
@@ -196,17 +208,25 @@ function ModelCard({
       <label className="block text-sm" htmlFor={`${host}-model`}>
         {s("Model choice")}
       </label>
-      <select
+      <Select
         id={`${host}-model`}
         className="w-full rounded-lg border border-border bg-background p-2 text-sm"
         value={current}
-        onChange={(event) => setChoice(event.target.value as "inherit" | "manual")}
+        onChange={(event) => setChoice(event.target.value as "inherit" | "manual" | "external")}
       >
         <option value="inherit">{s("Session model")}</option>
         <option value="manual">{s("Manual model")}</option>
-      </select>
+        <option value="external" disabled={externalMissing.length > 0}>
+          {s("External API")}
+        </option>
+      </Select>
+      {externalMissing.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {s("External API needs")}: {externalMissing.join(", ")}
+        </p>
+      )}
       {current === "manual" && list?.available && options.length > 0 && (
-        <select
+        <Select
           className="w-full rounded-lg border border-border bg-background p-2 text-sm"
           aria-label={`${host === "pi" ? "Pi" : "OpenCode"} ${s("Model")}`}
           value={useTyped ? "typed" : selectedModel}
@@ -221,7 +241,7 @@ function ModelCard({
             </option>
           ))}
           <option value="typed">{s("Manual provider/model")}</option>
-        </select>
+        </Select>
       )}
       {current === "manual" && useTyped && (
         <input
@@ -245,7 +265,7 @@ function ModelCard({
         className="rounded-lg border border-border px-3 py-1.5 text-sm"
         disabled={busy}
         onClick={() =>
-          onSave(current === "inherit" ? "inherit" : useTyped ? typed.trim() : selectedModel)
+          onSave(current !== "manual" ? current : useTyped ? typed.trim() : selectedModel)
         }
       >
         {s("Save model")}

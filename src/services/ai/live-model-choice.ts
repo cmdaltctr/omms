@@ -17,7 +17,8 @@ export interface AutoCaptureProviderRuntimeConfig {
 /**
  * Where live capture and profile learning send model calls, the same on both hosts:
  * - `opencode`: the configured host model (`opencodeModel`/`piModel`; "inherit" = session model)
- * - `manual`: no host model, so the external API (`memoryModel`/`memoryApiUrl`/`memoryApiKey`)
+ * - `manual`: the external API (`memoryModel`/`memoryApiUrl`/`memoryApiKey`), because the
+ *   host model is "external" or no host model is set
  * - `session`: neither is set, so the session's own model through the host's sign-in
  */
 export type AutoCaptureProviderStatus =
@@ -60,6 +61,14 @@ function getManualProviderStatus(config: AutoCaptureProviderRuntimeConfig): {
   };
 }
 
+/** The host chose the external API: it is the primary call, so there is no fallback. */
+function externalChoiceStatus(config: AutoCaptureProviderRuntimeConfig): AutoCaptureProviderStatus {
+  const manual = getManualProviderStatus(config);
+  return manual.ready
+    ? { ready: true, mode: "manual", issues: [] }
+    : { ready: false, issues: manual.issues };
+}
+
 export function getAutoCaptureProviderStatus(
   config: AutoCaptureProviderRuntimeConfig
 ): AutoCaptureProviderStatus {
@@ -68,6 +77,7 @@ export function getAutoCaptureProviderStatus(
   if (config.opencodeModel?.trim() === "inherit") {
     return { ready: true, mode: "session", issues: [] };
   }
+  if (config.opencodeModel?.trim() === "external") return externalChoiceStatus(config);
   if (hasOpencodeProvider && hasOpencodeModel) {
     return { ready: true, mode: "opencode", issues: [] };
   }
@@ -107,6 +117,10 @@ export function resolvePiLiveModel(
   config: AutoCaptureProviderRuntimeConfig & { piProvider?: string; piModel?: string }
 ): PiLiveModelChoice {
   if (config.piModel?.trim() === "inherit") return { kind: "session" };
+  if (config.piModel?.trim() === "external") {
+    const status = externalChoiceStatus(config);
+    return status.ready ? { kind: "manual" } : { kind: "unready", issues: status.issues };
+  }
   if (hasValue(config.piProvider) && hasValue(config.piModel)) {
     return { kind: "pi", provider: config.piProvider!.trim(), model: config.piModel!.trim() };
   }
@@ -119,4 +133,10 @@ export function resolvePiLiveModel(
 /** True when the external API is fully configured and can serve as a fallback. */
 export function isExternalModelReady(config: AutoCaptureProviderRuntimeConfig): boolean {
   return getManualProviderStatus(config).ready;
+}
+
+/** Why the external API cannot be used as a host's chosen model, or an empty list. */
+export function externalModelIssues(config: AutoCaptureProviderRuntimeConfig): string[] {
+  const manual = getManualProviderStatus(config);
+  return manual.ready ? [] : manual.issues;
 }

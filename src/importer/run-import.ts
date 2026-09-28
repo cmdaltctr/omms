@@ -2,8 +2,9 @@ import { resolve } from "node:path";
 import type { CaptureSummaryProvider } from "../core/host.js";
 import type { ModelPort } from "../core/profile-analysis.js";
 import type { HistoryImportArgs, ImportHost } from "./import-args.js";
-import type { ImportReport } from "./importer.js";
+import type { ImportPathMap, ImportReport } from "./importer.js";
 import type { UnresolvedProject } from "./opencode-project.js";
+import type { ImportSurface } from "./import-runs.js";
 
 /** The two model roles an import uses; absent in a dry run or when the step is skipped. */
 export interface HistoryImportModels {
@@ -15,8 +16,18 @@ export interface HistoryImportRun {
   /** Directory that relative paths and the default project resolve against. */
   cwd: string;
   models: HistoryImportModels;
-  onProgress?: (processed: number, total: number, promptPreview: string) => void;
+  /** `alreadyHandled`: units found already done so far, which need no model call. */
+  onProgress?: (
+    processed: number,
+    total: number,
+    promptPreview: string,
+    alreadyHandled?: number
+  ) => void;
   signal?: AbortSignal;
+  /** Record progress and take the host's lock for a run that calls models. */
+  track?: { surface: ImportSurface; lockHeld?: boolean; expectedTotal?: number };
+  /** Saved directory maps; defaults to the global `importPathMaps`. */
+  savedPathMaps?: readonly ImportPathMap[];
   /** Web selection, already re-resolved against the source; `args.source` is its real path. */
   selection?: {
     keys: string[];
@@ -37,15 +48,103 @@ const dryRunCapture: CaptureSummaryProvider = {
   },
 };
 
-/** Run one host's history import with already-parsed, validated arguments. */
+/** Another process or surface holds this host's import lock. */
+export class ImportAlreadyRunningError extends Error {
+  constructor(host: ImportHost) {
+    super(`${host === "pi" ? "A Pi" : "An OpenCode"} import is already running`);
+    this.name = "ImportAlreadyRunningError";
+  }
+}
+
+/**
+ * Run one host's history import with already-parsed, validated arguments.
+ * With `track`, a run that calls models takes the host's cross-process lock
+ * and records its progress; a dry run never does either.
+ */
 export async function runHistoryImport(
+  host: ImportHost,
+  args: HistoryImportArgs,
+  run: HistoryImportRun
+): Promise<HistoryImportReport> {
+  if (!run.track || args.dryRun) return runUntracked(host, args, run);
+  let release: (() => Promise<void>) | null = null;
+  if (!run.track.lockHeld) {
+    const { tryAcquireBackfillLock } = await import("./backfill-lock.js");
+    release = await tryAcquireBackfillLock(host);
+    if (!release) throw new ImportAlreadyRunningError(host);
+  }
+  try {
+    const { startImportRun } = await import("./import-runs.js");
+    const { workProgress } = await import("./import-progress.js");
+    const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    run.signal?.addEventListener("abort", onAbort, { once: true });
+    if (run.signal?.aborted) controller.abort();
+    const recorder = await startImportRun(host, run.track.surface, {
+      onPause: () => controller.abort(),
+    });
+    try {
+      const report = await runUntracked(host, args, {
+        ...run,
+        signal: controller.signal,
+        onProgress: (processed, total, preview, alreadyHandled = 0) => {
+          // Units already in the ledger need no model call: leave them out of
+          // the progress so the bar and the time left describe real work.
+          const work = workProgress(processed, total, alreadyHandled, run.track!.expectedTotal);
+          recorder.progress(work.done, work.total);
+          run.onProgress?.(processed, total, preview, alreadyHandled);
+        },
+      });
+      const handled = report.unitsImported + report.unitsSkipped + report.unitsFailed;
+      await recorder.finish(
+        recorder.pauseRequested ? "paused" : controller.signal.aborted ? "stopped" : "done",
+        {
+          // The total stays the one progress last reported; a real run has no
+          // "would import" count of its own.
+          done: handled,
+          imported: report.unitsImported,
+          skipped: report.unitsSkipped,
+          failed: report.unitsFailed,
+        }
+      );
+      await recordUnresolved(host, report);
+      return report;
+    } catch (error) {
+      await recorder
+        .finish(
+          recorder.pauseRequested ? "paused" : controller.signal.aborted ? "stopped" : "failed",
+          {},
+          error
+        )
+        .catch(() => {});
+      throw error;
+    } finally {
+      run.signal?.removeEventListener("abort", onAbort);
+    }
+  } finally {
+    await release?.();
+  }
+}
+
+async function recordUnresolved(host: ImportHost, report: HistoryImportReport): Promise<void> {
+  try {
+    const { recordUnresolvedDirectories, unresolvedDirectoriesOf } =
+      await import("../services/backfill-state.js");
+    await recordUnresolvedDirectories(host, unresolvedDirectoriesOf(report));
+  } catch {
+    // The list is a convenience for the Settings page; the import itself succeeded.
+  }
+}
+
+async function runUntracked(
   host: ImportHost,
   args: HistoryImportArgs,
   run: HistoryImportRun
 ): Promise<HistoryImportReport> {
   const at = (path: string) => resolve(run.cwd, path);
   const project = args.scope === "current-project" ? at(args.project ?? ".") : undefined;
-  const pathMaps = args.pathMaps.map((map) => ({ from: map.from, to: at(map.to) }));
+  const { runPathMaps } = await import("./import-path-maps.js");
+  const pathMaps = await runPathMaps(args.pathMaps, run.cwd, run.savedPathMaps);
   const capture = run.models.capture ?? dryRunCapture;
 
   if (host === "opencode") {

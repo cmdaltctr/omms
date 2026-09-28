@@ -228,6 +228,7 @@ export class WebServer {
   private takeoverFailures: number = 0;
   private readonly maxFallbackPort: number;
   private settingsImportJobs?: import("../importer/web-import-jobs.js").SettingsImportJobs;
+  private backfillControlsInstance?: import("../importer/web-import-api.js").BackfillControls;
 
   /** Run an import-page action; errors carry their own status and never file contents. */
   private async importResponse(action: () => unknown, status = 200): Promise<Response> {
@@ -240,6 +241,11 @@ export class WebServer {
         typeof code === "number" ? code : 400
       );
     }
+  }
+
+  private async backfillControls() {
+    const { BackfillControls } = await import("../importer/web-import-api.js");
+    return (this.backfillControlsInstance ??= new BackfillControls());
   }
 
   private async importJobs() {
@@ -555,6 +561,41 @@ export class WebServer {
         });
       }
 
+      if (path === "/api/settings/backfill/runs" && method === "GET") {
+        return this.jsonResponse(await (await this.backfillControls()).status());
+      }
+
+      const backfillAction = /^\/api\/settings\/backfill\/(pi|opencode)\/(run|pause|resume)$/.exec(
+        path
+      );
+      if (backfillAction && method === "POST") {
+        const host = backfillAction[1] as "pi" | "opencode";
+        const controls = await this.backfillControls();
+        const cwd = this.config.directory ?? process.cwd();
+        return this.importResponse(() =>
+          backfillAction[2] === "pause"
+            ? controls.pause(host)
+            : backfillAction[2] === "resume"
+              ? controls.resume(host, cwd)
+              : controls.runNow(host, cwd)
+        );
+      }
+
+      if (path === "/api/settings/version" && method === "GET") {
+        const [{ packageVersion }, { globalCommandVersion }] = await Promise.all([
+          import("./package-version.js"),
+          import("./global-version.js"),
+        ]);
+        const running = packageVersion();
+        const global = await globalCommandVersion();
+        return this.jsonResponse({
+          running,
+          global: global.version,
+          globalPath: global.path,
+          mismatch: global.version !== null && global.version !== running,
+        });
+      }
+
       if (path === "/api/settings/web-autostart" && method === "GET") {
         const { webAutostartStatus } = await import("./web-autostart.js");
         return this.jsonResponse(webAutostartStatus());
@@ -599,6 +640,60 @@ export class WebServer {
           });
         }
         return this.jsonResponse(result);
+      }
+
+      if (path === "/api/settings/external-api/key" && method === "POST") {
+        // The body can hold a pasted key: never log it, and never echo it back.
+        const body = (await req.json()) as Record<string, unknown> | null;
+        const { MemoryKeySourceError, parseMemoryKeySource, storeMemoryKeySource } =
+          await import("./memory-key-source.js");
+        try {
+          const request = parseMemoryKeySource(body);
+          if (
+            request.source === "paste" &&
+            !isLoopbackHost(this.config.host) &&
+            !auth?.isEnabled()
+          ) {
+            return this.jsonResponse(
+              { error: "Saving a key requires Basic Auth on network hosts" },
+              403
+            );
+          }
+          if (typeof body?.revision !== "string") {
+            return this.jsonResponse({ error: "Revision required" }, 400);
+          }
+          const stored = await storeMemoryKeySource(request);
+          const { writeGlobalConfigKeys } = await import("./global-config-writer.js");
+          const result = await writeGlobalConfigKeys(
+            { memoryApiKey: stored.reference },
+            body.revision
+          );
+          const { refreshConfigIfChanged } = await import("../config.js");
+          refreshConfigIfChanged(this.config.directory ?? process.cwd());
+          const { memoryKeyStatus } = await import("./settings-snapshot.js");
+          return this.jsonResponse({ ...result, key: memoryKeyStatus(stored.reference) });
+        } catch (error) {
+          const status =
+            error instanceof MemoryKeySourceError
+              ? error.status
+              : ((error as { status?: number }).status ?? 400);
+          const message = error instanceof Error ? error.message : "Key source not saved";
+          const secret = typeof body?.value === "string" ? body.value.trim() : "";
+          return this.jsonResponse(
+            { error: secret ? message.replaceAll(secret, "[redacted]") : message },
+            status
+          );
+        }
+      }
+
+      if (path === "/api/settings/external-api/test" && method === "POST") {
+        const { testExternalApi } = await import("../importer/web-import-api.js");
+        return this.jsonResponse(await testExternalApi());
+      }
+
+      if (path === "/api/settings/import-maps" && method === "GET") {
+        const { directoryMapsView } = await import("../importer/web-import-api.js");
+        return this.jsonResponse(await directoryMapsView());
       }
 
       if (path === "/api/settings/models" && method === "GET") {
@@ -743,7 +838,8 @@ export class WebServer {
         const page = parseInt(url.searchParams.get("page") || "1");
         const pageSize = parseInt(url.searchParams.get("pageSize") || "20");
         const includePrompts = url.searchParams.get("includePrompts") !== "false";
-        const result = await handleListMemories(tag, page, pageSize, includePrompts);
+        const keyword = url.searchParams.get("keyword") || undefined;
+        const result = await handleListMemories(tag, page, pageSize, includePrompts, keyword);
         return this.jsonResponse(result);
       }
 

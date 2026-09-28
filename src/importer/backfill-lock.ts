@@ -6,7 +6,7 @@ import type { BackfillHost } from "./backfill-model.js";
 
 type LockState = { pid: number; token: string };
 
-function live(pid: number): boolean {
+export function isProcessAlive(pid: number): boolean {
   if (!Number.isSafeInteger(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
@@ -37,7 +37,7 @@ export async function tryAcquireBackfillLock(
         [host]
       );
       if (!holder) continue;
-      if (live(holder.pid)) return null;
+      if (isProcessAlive(holder.pid)) return null;
       const replaced = await db.run(
         "UPDATE backfill_locks SET pid = ?, token = ? WHERE host = ? AND pid = ? AND token = ?",
         [state.pid, state.token, host, holder.pid, holder.token]
