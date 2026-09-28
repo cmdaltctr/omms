@@ -114,6 +114,16 @@ describe("profile manager model routing", () => {
     expect(bodies).toHaveLength(1);
   });
 
+  it("uses the external API when the host model cannot be resolved", async () => {
+    registerHostProfileModel(async () => {
+      throw new Error("provider module failed to load");
+    });
+    const bodies = externalApi({ conflict: true });
+
+    expect(await manager.checkConflict("likes tabs", "hates tabs")).toBe(true);
+    expect(bodies).toHaveLength(1);
+  });
+
   it("falls back to the external API when the host model fails", async () => {
     registerHostProfileModel(async () => ({
       provider: "openai",

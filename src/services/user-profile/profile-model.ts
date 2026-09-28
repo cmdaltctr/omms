@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { ModelPort } from "../../core/profile-analysis.js";
 import { extractJsonObject } from "../../core/extraction.js";
+import { log } from "../logger.js";
 
 type ResolveProfileModel = () => Promise<ModelPort | null>;
 
@@ -15,8 +16,17 @@ export function registerHostProfileModel(resolve: ResolveProfileModel | null): v
   hostProfileModel = resolve;
 }
 
+/** A host model that fails to resolve counts as unavailable, so callers keep their external API fallback. */
 export async function resolveHostProfileModel(): Promise<ModelPort | null> {
-  return hostProfileModel ? hostProfileModel() : null;
+  if (!hostProfileModel) return null;
+  try {
+    return await hostProfileModel();
+  } catch (error) {
+    log("profile model: host model unavailable, falling back to external API", {
+      error: String(error),
+    });
+    return null;
+  }
 }
 
 export async function completeStructured<T>(

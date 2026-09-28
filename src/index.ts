@@ -288,7 +288,8 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
   // Shared profile dedup, conflict, description, and cleanup calls use OpenCode's host model.
   registerOpencodeProfileModel();
   // Web imports, Health, and Settings served by this process can list and use OpenCode's models.
-  void import("./adapters/opencode/backfill-startup.js")
+  // Awaited so the web server never serves those routes before the registry is filled.
+  await import("./adapters/opencode/backfill-startup.js")
     .then(({ registerOpencodeImportModels }) => registerOpencodeImportModels())
     .catch(() => {});
 
