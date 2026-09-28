@@ -24,6 +24,8 @@ export async function runWebCommand(
     console.error("OMMS web server is disabled (webServerEnabled is false)");
     return 1;
   }
+  const { webServerUrl } = await import("../services/web-api-auth.js");
+  const url = webServerUrl(config.CONFIG.webServerHost, config.CONFIG.webServerPort);
   if (action === "install" || action === "uninstall") {
     const { readGlobalConfigRevision, writeGlobalConfigKeys } =
       await import("../services/global-config-writer.js");
@@ -37,6 +39,7 @@ export async function runWebCommand(
         ? installWebAutostart({ ...options, start: true })
         : removeWebAutostart({ ...options, start: true });
     console.log(`OMMS login item: ${result.state}`);
+    if (action === "install" && result.state === "installed") console.log(`OMMS web app: ${url}`);
     return action === "install" && result.state !== "installed" ? 1 : 0;
   }
   if (action === "status") {
@@ -54,7 +57,7 @@ export async function runWebCommand(
       });
     console.log(
       JSON.stringify(
-        { setting: config.CONFIG.webServerAutoStart, item: status, online: await check() },
+        { setting: config.CONFIG.webServerAutoStart, item: status, url, online: await check() },
         null,
         2
       )

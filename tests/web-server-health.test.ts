@@ -3,6 +3,15 @@ import { createServer } from "node:http";
 import { WebServer, nextFallbackPort } from "../src/services/web-server.js";
 
 describe("web server health check", () => {
+  it("brackets an IPv6 host in its URL", () => {
+    expect(new WebServer({ enabled: true, host: "::1", port: 4747 }).getUrl()).toBe(
+      "http://[::1]:4747"
+    );
+    expect(new WebServer({ enabled: true, host: "[::1]", port: 4747 }).getUrl()).toBe(
+      "http://[::1]:4747"
+    );
+  });
+
   it("authenticates the stats request when an API token is configured", async () => {
     const originalFetch = globalThis.fetch;
     let requestHeaders: Headers | undefined;
