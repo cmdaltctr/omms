@@ -2,6 +2,16 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [3.4.2](https://github.com/cmdaltctr/omms/compare/v3.4.1...v3.4.2) (2026-09-28)
+
+
+### Bug Fixes
+
+* **ci:** allow 30 seconds per test on Windows ([674c33d](https://github.com/cmdaltctr/omms/commit/674c33d0cd654f0af3e69bc73dfcd9d1f0162f83))
+* **test:** allow 30 seconds for profile tool runtime tests ([4c8b099](https://github.com/cmdaltctr/omms/commit/4c8b099b5f83c242d5ae02163d64de6bd6ccf618))
+* **test:** compare the saved key path as JSON on Windows ([2906c78](https://github.com/cmdaltctr/omms/commit/2906c78b8e76ead43043acafcc5cde7c4a3063d3))
+* **test:** compare the saved key path as JSON on Windows ([c8b566c](https://github.com/cmdaltctr/omms/commit/c8b566c67b64af7fb2361ddddf52e536e3ce4c4a))
+
 ## [3.4.1](https://github.com/cmdaltctr/omms/compare/v3.4.0...v3.4.1) (2026-09-28)
 
 
