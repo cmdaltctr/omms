@@ -51,6 +51,7 @@ bun install --frozen-lockfile
 - The script starts one Bun process for each test file.
 - The suite shares module and storage state across files. In one process, results change with file order.
 - One process for each file gives the same result every time.
+- On Windows, each test gets 30 seconds, because process start-up is slow there. Other platforms keep the Bun default of 5 seconds.
 - Do not use `bun test` for the whole suite. About 48 tests fail from shared module state. Those failures are not regressions.
 
 Tests never write to the real `~/.omms`. Bun loads `.env.test` for every test process and its children. It:
