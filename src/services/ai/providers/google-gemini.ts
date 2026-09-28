@@ -1,8 +1,14 @@
-import { BaseAIProvider, describeValidationError, type ToolCallResult } from "./base-provider.js";
+import {
+  BaseAIProvider,
+  describeValidationError,
+  isTransportError,
+  type ToolCallResult,
+} from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
 import type { ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";
 import { UserProfileValidator } from "../validators/user-profile-validator.js";
+import { parseRetryAfter } from "../../../core/capture-retry-policy.js";
 
 /**
  * Google Gemini Provider
@@ -192,6 +198,8 @@ export class GoogleGeminiProvider extends BaseAIProvider {
             stopReason,
             success: false,
             error: `Gemini API error: ${response.status} - ${errorText}`,
+            httpStatus: response.status,
+            retryAfterMs: parseRetryAfter(response.headers?.get?.("retry-after")),
             iterations,
           };
         }
@@ -279,7 +287,13 @@ export class GoogleGeminiProvider extends BaseAIProvider {
         contents.push({ role: "user", parts: [{ text: retryPrompt }] });
       } catch (error) {
         clearTimeout(timeout);
-        return { stopReason, success: false, error: String(error), iterations };
+        return {
+          stopReason,
+          success: false,
+          error: String(error),
+          transportError: isTransportError(error),
+          iterations,
+        };
       }
     }
 

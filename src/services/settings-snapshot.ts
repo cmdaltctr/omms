@@ -17,6 +17,7 @@ const editable = [
   "captureTrace",
   "captureTraceRetentionDays",
   "captureAttemptRetentionDays",
+  "captureRetryRetentionHours",
   "autoBackfill",
   "opencodeBackfillModel",
   "piBackfillModel",
@@ -29,6 +30,7 @@ const editable = [
 
 /** Keys a project config cannot override, so the page always shows the global value. */
 const globalOnly = [
+  "captureRetryRetentionHours",
   "autoBackfill",
   "opencodeBackfillModel",
   "piBackfillModel",

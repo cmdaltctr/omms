@@ -1,7 +1,13 @@
-import { BaseAIProvider, type ToolCallResult, applySafeExtraParams } from "./base-provider.js";
+import {
+  BaseAIProvider,
+  type ToolCallResult,
+  applySafeExtraParams,
+  isTransportError,
+} from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
 import { ToolSchemaConverter, type ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";
+import { parseRetryAfter } from "../../../core/capture-retry-policy.js";
 
 interface ResponsesAPIOutput {
   id: string;
@@ -113,6 +119,8 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
             stopReason,
             success: false,
             error: `API error: ${response.status} - ${errorText}`,
+            httpStatus: response.status,
+            retryAfterMs: parseRetryAfter(response.headers?.get?.("retry-after")),
             iterations,
           };
         }
@@ -157,6 +165,7 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
           return {
             stopReason,
             success: false,
+            transportError: true,
             error: `API request timeout (${this.config.iterationTimeout}ms)`,
             iterations,
           };
@@ -165,6 +174,7 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
           stopReason,
           success: false,
           error: String(error),
+          transportError: isTransportError(error),
           iterations,
         };
       }

@@ -16,6 +16,7 @@ const clientUrl = new URL("../src/services/client.js", import.meta.url).href;
 const configUrl = new URL("../src/config.js", import.meta.url).href;
 const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
 const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
+const retryDrainUrl = new URL("../src/services/capture-retry-drain.js", import.meta.url).href;
 
 function runScenario(scriptBody: string): any {
   const dir = mkdtempSync(join(tmpdir(), "opencode-mem-pi-capture-"));
@@ -34,6 +35,7 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
   CONFIG: {
     autoCaptureEnabled: true,
     autoCaptureMaxContextBytes: 131072,
+    autoCaptureMaxRetries: ${JSON.stringify(scriptBody.maxRetries ?? 1)},
     showAutoCaptureToasts: false,
     showErrorToasts: false,
     chatMessage: { enabled: true },
@@ -68,6 +70,16 @@ mock.module(${JSON.stringify(tagsUrl)}, () => ({
 
 mock.module(${JSON.stringify(loggerUrl)}, () => ({ log: () => {} }));
 
+const queuedRetries = [];
+const drainStarts = [];
+mock.module(${JSON.stringify(retryDrainUrl)}, () => ({
+  queueFailedCapture: async (unit, error) => {
+    queuedRetries.push({ promptId: unit.promptId, host: unit.host, error: error.message });
+    return true;
+  },
+  startCaptureRetryDrain: (host) => drainStarts.push(host),
+}));
+
 const { capturePiSettledWorkUnit, createPiCaptureState } = await import(
   ${JSON.stringify(captureUrl)}
 );
@@ -98,6 +110,10 @@ const provider = {
     if (captureMode === "fail") {
       throw new Error("extraction unavailable");
     }
+    if (captureMode === "fail-once") {
+      captureMode = "capture";
+      throw new Error("extraction unavailable");
+    }
     if (captureMode === "skip") {
       return { summary: "", type: "skip", tags: [] };
     }
@@ -114,6 +130,8 @@ console.log(
     JSON.stringify({
       addCalls,
       summarizeCalls,
+      queuedRetries,
+      drainStarts,
       results: typeof scenario !== "undefined" ? scenario : null,
     })
 );
@@ -286,6 +304,53 @@ scenario = { failed, retried };
     expect(output.results.failed.error).toContain("extraction unavailable");
     expect(output.results.retried.status).toBe("captured");
     expect(output.addCalls.length).toBe(1);
+  });
+
+  it("queues a failed turn for retry and starts a retry pass after a save", () => {
+    const output = runScenario({
+      initialCaptureMode: "fail",
+      code: `
+const state = createPiCaptureState();
+const failed = await capturePiSettledWorkUnit({
+  sessionId: "s1", directory: "/workspace",
+  entries: [userEntry("u-1", "prompt one"), assistantEntry("a-1", "work one")],
+  provider, state,
+});
+captureMode = "capture";
+const saved = await capturePiSettledWorkUnit({
+  sessionId: "s1", directory: "/workspace",
+  entries: [userEntry("u-2", "prompt two"), assistantEntry("a-2", "work two")],
+  provider, state,
+});
+scenario = { failed, saved };
+`,
+    });
+
+    expect(output.results.failed.status).toBe("failed");
+    expect(output.results.saved.status).toBe("captured");
+    expect(output.queuedRetries).toEqual([
+      { promptId: "u-1", host: "pi", error: "Summary generation failed: extraction unavailable" },
+    ]);
+    expect(output.drainStarts).toEqual(["pi"]);
+  });
+
+  it("makes quick retries within the turn before it queues anything", () => {
+    const output = runScenario({
+      initialCaptureMode: "fail-once",
+      maxRetries: 2,
+      code: `
+const state = createPiCaptureState();
+scenario = await capturePiSettledWorkUnit({
+  sessionId: "s1", directory: "/workspace",
+  entries: [userEntry("u-1", "prompt one"), assistantEntry("a-1", "work one")],
+  provider, state,
+});
+`,
+    });
+
+    expect(output.results.status).toBe("captured");
+    expect(output.summarizeCalls).toBe(2);
+    expect(output.queuedRetries).toEqual([]);
   });
 
   it("skips capture when the settled branch has no response window", () => {

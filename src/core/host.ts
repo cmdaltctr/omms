@@ -56,6 +56,10 @@ export interface CaptureAttemptDiagnostics {
   userPrompt?: string;
   rawReply?: string;
   failureReason?: CaptureFailureReason;
+  /** HTTP status of a failed model call, when the path knows it. */
+  httpStatus?: number;
+  /** The wait a failed model call asked for in its `Retry-After` header. */
+  retryAfterMs?: number;
 }
 
 export interface CaptureSummaryRequest {

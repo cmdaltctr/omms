@@ -5,6 +5,12 @@ export interface ToolCallResult {
   iterations?: number;
   /** The provider's last reported stop reason, e.g. a length limit. */
   stopReason?: string;
+  /** The HTTP status of a failed reply, so capture can tell whether a retry may help. */
+  httpStatus?: number;
+  /** The wait a failed reply asked for in its `Retry-After` header. */
+  retryAfterMs?: number;
+  /** True when the request got no reply at all: a timeout or a network failure. */
+  transportError?: boolean;
 }
 
 export interface ProviderConfig {
@@ -16,6 +22,28 @@ export interface ProviderConfig {
   maxTokens?: number;
   memoryTemperature?: number | false;
   extraParams?: Record<string, unknown>;
+}
+
+/**
+ * True for a request that never got a reply: an abort by timeout, or the
+ * `TypeError` that `fetch` throws for a network failure.
+ */
+export function isTransportError(error: unknown): boolean {
+  return error instanceof Error && (error.name === "AbortError" || error instanceof TypeError);
+}
+
+/**
+ * The capture reason code for a failed tool call. Only an HTTP error or a
+ * request with no reply is a call error; any other failure means the model
+ * answered with something unusable, which a retry does not fix.
+ */
+export function toolCallFailureReason(
+  result: ToolCallResult,
+  lengthStop: boolean
+): "truncated" | "call-error" | "schema-mismatch" {
+  if (lengthStop) return "truncated";
+  if (result.httpStatus !== undefined || result.transportError) return "call-error";
+  return "schema-mismatch";
 }
 
 /**

@@ -21,6 +21,7 @@ const promptManagerUrl = new URL(
 ).href;
 const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
 const languageUrl = new URL("../src/services/language-detector.js", import.meta.url).href;
+const retryDrainUrl = new URL("../src/services/capture-retry-drain.js", import.meta.url).href;
 const opencodeProviderLoaderUrl = new URL(
   "../src/adapters/opencode/opencode-provider-loader.js",
   import.meta.url
@@ -356,6 +357,107 @@ console.log(JSON.stringify({ toasts, failedAttempts, released }));
   };
 }
 
+function runRetryQueueScenario() {
+  const dir = mkdtempSync(join(tmpdir(), "opencode-mem-auto-capture-retry-"));
+  tempDirs.push(dir);
+  const scriptPath = join(dir, "scenario.mjs");
+
+  const script = `
+import { mock } from "bun:test";
+
+const prompts = {};
+for (const id of ["prompt-fail", "prompt-ok", "prompt-retried", "prompt-retry-skip"]) {
+  prompts[id] = { id, captured: false, deleted: false, linkedMemoryId: null };
+}
+const queuedRetries = [];
+const drainStarts = [];
+const refreshed = [];
+const drained = [];
+
+mock.module(${JSON.stringify(configUrl)}, () => ({
+  refreshConfigIfChanged: (directory) => refreshed.push(directory),
+  CONFIG: {
+    autoCaptureMaxRetries: 1,
+    autoCaptureProviderStatus: { ready: true, mode: "opencode", issues: [] },
+    showAutoCaptureToasts: false,
+    showErrorToasts: false,
+  },
+}));
+mock.module(${JSON.stringify(clientUrl)}, () => ({
+  memoryClient: {
+    listMemories: async () => ({ success: true, memories: [] }),
+    addMemory: async () => ({ success: true, id: "mem-live" }),
+    close() {},
+  },
+}));
+mock.module(${JSON.stringify(tagsUrl)}, () => ({
+  getTags: () => ({ project: { tag: "opencode_project_test", displayName: "Test" } }),
+}));
+mock.module(${JSON.stringify(promptManagerUrl)}, () => ({
+  userPromptManager: {
+    getUncapturedPromptsForSession: async () => [
+      { id: "prompt-fail", messageId: "msg-fail", content: "fail", capture_attempts: 0 },
+      { id: "prompt-ok", messageId: "msg-ok", content: "ok", capture_attempts: 0 },
+    ],
+    claimPrompt: async () => true,
+    recordFailedAttempt: async () => {},
+    releaseClaim: async () => true,
+    linkMemoryToPrompt: async (id, memoryId) => { prompts[id].linkedMemoryId = memoryId; },
+    markAsCaptured: async (id) => { prompts[id].captured = true; },
+    deletePrompt: async (id) => { prompts[id].deleted = true; },
+  },
+}));
+mock.module(${JSON.stringify(loggerUrl)}, () => ({ log: () => {} }));
+mock.module(${JSON.stringify(retryDrainUrl)}, () => ({
+  queueFailedCapture: async (unit, error) => {
+    queuedRetries.push({ promptId: unit.promptId, host: unit.host, error: error.message });
+    return true;
+  },
+  startCaptureRetryDrain: (host) => drainStarts.push(host),
+  drainCaptureRetries: async (options) => {
+    drained.push({ host: options.host, refreshedFirst: refreshed.includes("/workspace") });
+    return {};
+  },
+}));
+
+const { performAutoCapture, settleOpencodeRetriedPrompt, drainOpencodeCaptureRetries } = await import(
+  ${JSON.stringify(autoCaptureUrl)}
+);
+await performAutoCapture(
+  {
+    host: "opencode",
+    isCaptureReady: () => true,
+    getConversation: async () => ({ textResponses: ["done"], toolCalls: [] }),
+    summarize: async ({ userPrompt }) => {
+      if (userPrompt === "fail") throw new Error("ECONNREFUSED");
+      return { summary: "saved", type: "discussion", tags: [] };
+    },
+  },
+  "session-1",
+  "/workspace"
+);
+
+const unit = (promptId) => ({ host: "opencode", promptId });
+await settleOpencodeRetriedPrompt(unit("prompt-retried"), { status: "captured", memoryId: "mem-retry" });
+await settleOpencodeRetriedPrompt(unit("prompt-retry-skip"), { status: "skipped" });
+
+refreshed.length = 0;
+await drainOpencodeCaptureRetries({ isCaptureReady: () => true }, "/workspace");
+
+console.log(JSON.stringify({ queuedRetries, drainStarts, prompts, drained }));
+`;
+
+  writeFileSync(scriptPath, script);
+  const result = Bun.spawnSync({
+    cmd: [process.execPath, scriptPath],
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const stdout = Buffer.from(result.stdout).toString("utf8").trim();
+  const stderr = Buffer.from(result.stderr).toString("utf8").trim();
+  return { exitCode: result.exitCode, stderr, parsed: stdout ? JSON.parse(stdout) : null };
+}
+
 describe("auto-capture idle processing", () => {
   it("captures all uncaptured prompts in a session in chronological response windows", () => {
     const result = runScenario();
@@ -383,5 +485,37 @@ describe("auto-capture idle processing", () => {
     const message = result.parsed?.toasts[0]?.body?.message ?? "";
     expect(message).toContain("Thinking mode does not support");
     expect(message).not.toContain("External API not configured");
+  });
+
+  it("queues a turn after the last quick retry fails and starts a retry pass after a save", () => {
+    const result = runRetryQueueScenario();
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.parsed?.queuedRetries).toEqual([
+      {
+        promptId: "prompt-fail",
+        host: "opencode",
+        error: "Summary generation failed: ECONNREFUSED",
+      },
+    ]);
+    expect(result.parsed?.drainStarts).toEqual(["opencode"]);
+  });
+
+  it("marks a retried prompt captured and linked, and deletes a skipped one", () => {
+    const result = runRetryQueueScenario();
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.parsed?.prompts["prompt-retried"]).toMatchObject({
+      captured: true,
+      linkedMemoryId: "mem-retry",
+    });
+    expect(result.parsed?.prompts["prompt-retry-skip"].deleted).toBe(true);
+  });
+
+  it("reloads a changed config file before a retry pass", () => {
+    const result = runRetryQueueScenario();
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.parsed?.drained).toEqual([{ host: "opencode", refreshedFirst: true }]);
   });
 });

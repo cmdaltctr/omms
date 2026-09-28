@@ -17,6 +17,7 @@ const {
   isPlaceholderApiKey,
   normalizeAutoCleanupRetentionDays,
   normalizeAutoCaptureMaxContextBytes,
+  normalizeCaptureRetryRetentionHours,
 } = await import("../src/config.js");
 
 afterAll(() => {
@@ -96,6 +97,20 @@ describe("config", () => {
 
     it("should retain capture attempts for 30 days by default", () => {
       expect(CONFIG.captureAttemptRetentionDays).toBe(30);
+    });
+
+    it("should keep failed captures for retry for 72 hours by default", () => {
+      expect(CONFIG.captureRetryRetentionHours).toBe(72);
+    });
+
+    it("should round retry retention down to whole hours within 0 to 720", () => {
+      expect(normalizeCaptureRetryRetentionHours(undefined)).toBe(72);
+      expect(normalizeCaptureRetryRetentionHours("24")).toBe(72);
+      expect(normalizeCaptureRetryRetentionHours(Number.NaN)).toBe(72);
+      expect(normalizeCaptureRetryRetentionHours(0)).toBe(0);
+      expect(normalizeCaptureRetryRetentionHours(-5)).toBe(0);
+      expect(normalizeCaptureRetryRetentionHours(24.9)).toBe(24);
+      expect(normalizeCaptureRetryRetentionHours(900)).toBe(720);
     });
 
     it("should reject unsafe auto-capture context budgets", () => {

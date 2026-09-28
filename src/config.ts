@@ -81,6 +81,8 @@ interface OmmsConfig {
   captureTrace?: boolean;
   captureTraceRetentionDays?: number;
   captureAttemptRetentionDays?: number;
+  /** Hours to keep failed live captures for retry. 0 turns the queue off. Global config only. */
+  captureRetryRetentionHours?: number;
   autoBackfill?: boolean;
   opencodeBackfillModel?: string;
   piBackfillModel?: string;
@@ -204,6 +206,7 @@ const DEFAULTS: Required<
   captureTrace: false,
   captureTraceRetentionDays: 7,
   captureAttemptRetentionDays: 30,
+  captureRetryRetentionHours: 72,
   autoBackfill: true,
   opencodeBackfillModel: "inherit",
   piBackfillModel: "inherit",
@@ -523,7 +526,8 @@ export const CONFIG_TEMPLATE = `{
   // Timeout per iteration in milliseconds (30 seconds default)
   "autoCaptureIterationTimeout": 30000,
 
-  // Maximum number of times to retry capturing a prompt if it fails (due to network, API errors, etc.)
+  // Tries for one turn's capture, on Pi and OpenCode, 2 and 4 seconds apart. After the
+  // last one fails, a turn the model could not reach goes to the capture retry queue.
   "autoCaptureMaxRetries": 3,
 
   // Maximum UTF-8 bytes for the auto-capture markdown context sent to the summary model.
@@ -544,6 +548,14 @@ export const CONFIG_TEMPLATE = `{
   // "captureTrace": false,
   // "captureTraceRetentionDays": 7,
   // "captureAttemptRetentionDays": 30,
+
+  // Capture retry queue: when a live capture fails because the model cannot be
+  // reached (network error, timeout, HTTP 408, 429 or 5xx), OMMS keeps a copy of
+  // the turn in ~/.omms/data and tries it again later. The copy has <private>
+  // text and common API key formats removed. Turns are deleted when the retry
+  // ends or after captureRetryRetentionHours (0 to 720). 0 turns the queue off.
+  // Only this global file can set it.
+  // "captureRetryRetentionHours": 72,
 
   // Temperature for AI API requests (set to false to omit parameter for models that don't support it)
   // Some reasoning models (like o1, o3, gpt-5) don't support temperature parameter
@@ -721,6 +733,14 @@ export function normalizeAutoCaptureMaxContextBytes(value: number): number {
   return value;
 }
 
+/** Whole hours from 0 to 720. A value that is not a number gives the default. */
+export function normalizeCaptureRetryRetentionHours(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULTS.captureRetryRetentionHours;
+  }
+  return Math.min(720, Math.max(0, Math.floor(value)));
+}
+
 export function normalizeAutoCleanupRetentionDays(value: number): number {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`Invalid autoCleanupRetentionDays config: ${value}`);
@@ -828,6 +848,9 @@ function buildConfig(fileConfig: OmmsConfig) {
     ),
     captureAttemptRetentionDays: normalizeAutoCleanupRetentionDays(
       fileConfig.captureAttemptRetentionDays ?? DEFAULTS.captureAttemptRetentionDays
+    ),
+    captureRetryRetentionHours: normalizeCaptureRetryRetentionHours(
+      fileConfig.captureRetryRetentionHours
     ),
     autoBackfill: fileConfig.autoBackfill ?? DEFAULTS.autoBackfill,
     opencodeBackfillModel: fileConfig.opencodeBackfillModel ?? DEFAULTS.opencodeBackfillModel,
@@ -1018,6 +1041,8 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
     delete projectOverrides.captureTrace;
   }
   delete projectOverrides.captureTraceRetentionDays;
+  // The queue holds conversation text, so only the global file sets how long.
+  delete projectOverrides.captureRetryRetentionHours;
   delete projectOverrides.autoBackfill;
   delete projectOverrides.opencodeBackfillModel;
   delete projectOverrides.piBackfillModel;

@@ -1,14 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { CONFIG } from "../config.js";
 import { buildBoundedSummaryPrompt } from "../core/capture-context.js";
+import { httpStatusError } from "../core/capture-retry-policy.js";
 import {
   buildCaptureSystemPrompt,
   captureSummaryToolSchema,
+  normalizeStopReason,
   parseCaptureSummary,
 } from "../core/extraction.js";
 import type { CaptureSummaryProvider } from "../core/host.js";
 import type { ModelPort } from "../core/profile-analysis.js";
 import { AIProviderFactory } from "../services/ai/ai-provider-factory.js";
+import { toolCallFailureReason } from "../services/ai/providers/base-provider.js";
 import { buildMemoryProviderConfig } from "../services/ai/provider-config.js";
 import { resolveSecretValue } from "../services/secret-resolver.js";
 import type { AIProviderType } from "../services/ai/session/session-types.js";
@@ -80,7 +83,21 @@ export function selectImportModel(flags: ImportModelFlags): SelectedImportModel 
         `history-capture-${randomUUID()}`
       );
       if (!result.success || !result.data) {
-        throw new Error("History capture model call failed");
+        if (request.diagnostics) {
+          // Only an HTTP error or a request with no reply is worth a later retry.
+          request.diagnostics.failureReason = toolCallFailureReason(
+            result,
+            normalizeStopReason(result.stopReason) === "length"
+          );
+          request.diagnostics.httpStatus = result.httpStatus;
+          request.diagnostics.retryAfterMs = result.retryAfterMs;
+        }
+        if (result.httpStatus === undefined) throw new Error("History capture model call failed");
+        throw httpStatusError(
+          "History capture model call failed",
+          result.httpStatus,
+          result.retryAfterMs
+        );
       }
       const raw = typeof result.data === "string" ? result.data : JSON.stringify(result.data);
       const parsed = parseCaptureSummary(raw);

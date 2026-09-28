@@ -1,3 +1,5 @@
+import { httpStatusError, parseRetryAfter } from "../../core/capture-retry-policy.js";
+
 export interface FetchEndpoint {
   readonly label: string;
   readonly url: string;
@@ -29,8 +31,10 @@ export async function readJson<T>(res: Response, endpoint: FetchEndpoint): Promi
   const text = await res.text();
   const url = diagnosticUrl(endpoint.url);
   if (!res.ok) {
-    throw new Error(
-      `omms: opencode ${endpoint.label} failed at ${url} (${responseStatus(res)}): ${redactedBody(text)}`
+    throw httpStatusError(
+      `omms: opencode ${endpoint.label} failed at ${url} (${responseStatus(res)}): ${redactedBody(text)}`,
+      res.status,
+      parseRetryAfter(res.headers?.get?.("retry-after"))
     );
   }
   if (!text) {

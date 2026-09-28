@@ -2,6 +2,7 @@ import {
   applySafeExtraParams,
   BaseAIProvider,
   describeValidationError,
+  isTransportError,
   type ToolCallResult,
 } from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
@@ -9,6 +10,7 @@ import { ToolSchemaConverter, type ChatCompletionTool } from "../tools/tool-sche
 import type { AIProviderType } from "../session/session-types.js";
 import { log } from "../../logger.js";
 import { UserProfileValidator } from "../validators/user-profile-validator.js";
+import { parseRetryAfter } from "../../../core/capture-retry-policy.js";
 
 interface AnthropicMessage {
   role: "user" | "assistant";
@@ -186,6 +188,8 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
             stopReason,
             success: false,
             error: `API error: ${response.status} - ${errorText}`,
+            httpStatus: response.status,
+            retryAfterMs: parseRetryAfter(response.headers?.get?.("retry-after")),
             iterations,
           };
         }
@@ -264,6 +268,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
           return {
             stopReason,
             success: false,
+            transportError: true,
             error: `${this.timeoutLabel()} (${this.config.iterationTimeout}ms)`,
             iterations,
           };
@@ -272,6 +277,7 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
           stopReason,
           success: false,
           error: String(error),
+          transportError: isTransportError(error),
           iterations,
         };
       }

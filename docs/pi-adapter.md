@@ -109,6 +109,7 @@ Capture runs only at `agent_settled`, after automatic retries, compaction,
 and queued continuation finish. The adapter does not use `agent_end`, on
 purpose.
 
+- A failed capture tries again up to `autoCaptureMaxRetries` times (default 3), 2 and 4 seconds apart, the same as OpenCode. If the last try fails because the model cannot be reached, the turn goes to the [capture retry queue](configuration.md#capture-retry-queue).
 - The Pi user-entry ID identifies the work unit. So retries, compaction continuation, and repeated settled events never capture it twice.
 - From assistant entries, capture takes only visible text and tool-call inputs.
 - It leaves out hidden thinking blocks and tool results. It cuts tool inputs to 100 characters.

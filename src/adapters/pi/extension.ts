@@ -1,6 +1,11 @@
 import { Type } from "typebox";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { CONFIG, initConfigWithLegacyMigration, isConfigured } from "../../config.js";
+import {
+  CONFIG,
+  initConfigWithLegacyMigration,
+  isConfigured,
+  refreshConfigIfChanged,
+} from "../../config.js";
 import { pruneTraces } from "../../services/capture-diagnostics.js";
 import { executeMemoryOperation } from "../../core/memory-operations.js";
 import { getLanguageName } from "../../services/language-detector.js";
@@ -134,6 +139,23 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
             })
           );
       }
+
+      // Retry turns whose capture failed earlier, with this session's capture model.
+      void import("../../services/capture-retry-drain.js")
+        .then(({ drainCaptureRetries, registerCaptureRetryDrain, startCaptureRetryDrain }) => {
+          registerCaptureRetryDrain("pi", () => {
+            // A retention change in the config file applies from this pass on.
+            refreshConfigIfChanged(ctx.cwd);
+            return drainCaptureRetries({
+              host: "pi",
+              provider: createPiLiveModels(ctx, notify(ctx)).capture,
+              config: CONFIG,
+              isReady: () => isConfigured() && !memoryClient.getEmbeddingInitError?.(),
+            });
+          });
+          if (isConfigured() && CONFIG.autoCaptureEnabled) startCaptureRetryDrain("pi");
+        })
+        .catch(() => {});
 
       // Run now on a Settings page served by this process can use Pi's signed-in models.
       void Promise.all([

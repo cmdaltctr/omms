@@ -4,12 +4,14 @@ import {
   type ToolCallResult,
   applySafeExtraParams,
   describeValidationError,
+  isTransportError,
 } from "./base-provider.js";
 import type { AISessionManager } from "../session/ai-session-manager.js";
 import type { AIMessage, AIProviderType } from "../session/session-types.js";
 import type { ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";
 import { UserProfileValidator } from "../validators/user-profile-validator.js";
+import { parseRetryAfter } from "../../../core/capture-retry-policy.js";
 
 interface ToolCallResponse {
   choices: Array<{
@@ -320,6 +322,8 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
             stopReason,
             success: false,
             error: errorMessage,
+            httpStatus: response.status,
+            retryAfterMs: parseRetryAfter(response.headers?.get?.("retry-after")),
             iterations,
           };
         }
@@ -507,6 +511,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
           return {
             stopReason,
             success: false,
+            transportError: true,
             error: `API request timeout (${iterationTimeout}ms)`,
             iterations,
           };
@@ -515,6 +520,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
           stopReason,
           success: false,
           error: String(error),
+          transportError: isTransportError(error),
           iterations,
         };
       }

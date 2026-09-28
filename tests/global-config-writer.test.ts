@@ -98,6 +98,41 @@ describe("global config writer", () => {
     expect(result.text).toBe(seed);
   });
 
+  it("saves capture retry retention in whole hours from 0 to 720", async () => {
+    const seed = '{ "piModel": "old" }\n';
+    const result = await scenario(
+      `
+      const errors = [];
+      for (const edits of [
+        { captureRetryRetentionHours: -1 },
+        { captureRetryRetentionHours: 721 },
+        { captureRetryRetentionHours: 1.5 },
+        { captureRetryRetentionHours: "24" },
+      ]) {
+        try { await writeGlobalConfigKeys(edits, readGlobalConfigRevision()); }
+        catch (error) { errors.push(String(error)); }
+      }
+      await writeGlobalConfigKeys({ captureRetryRetentionHours: 0 }, readGlobalConfigRevision());
+      // A project value is ignored: the page shows the global value.
+      const { mkdirSync } = await import("node:fs");
+      const { join } = await import("node:path");
+      const project = join(target, "..", "..", "..", "project");
+      mkdirSync(join(project, ".opencode"), { recursive: true });
+      writeFileSync(join(project, ".opencode", "omms.jsonc"), '{ "captureRetryRetentionHours": 720 }');
+      const { getSettingsSnapshot } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/settings-snapshot.ts")).href)});
+      return {
+        errors,
+        text: readFileSync(target, "utf8"),
+        setting: getSettingsSnapshot(project).settings.captureRetryRetentionHours,
+      };
+    `,
+      seed
+    );
+    expect(result.errors).toHaveLength(4);
+    expect(result.text).toContain('"captureRetryRetentionHours": 0');
+    expect(result.setting).toMatchObject({ value: 0, source: "global", globalValue: 0 });
+  });
+
   it("saves external API settings and maps, and refuses a literal key without writing", async () => {
     const seed = '{\n  // keep me\n  "piModel": "a"\n}\n';
     const result = await scenario(

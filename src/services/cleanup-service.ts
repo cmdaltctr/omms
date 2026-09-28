@@ -114,6 +114,15 @@ export class CleanupService {
       }
 
       try {
+        const { pruneCaptureRetries } = await import("./capture-retry-queue.js");
+        await pruneCaptureRetries(CONFIG);
+      } catch (error) {
+        log("Capture retry cleanup failed", {
+          code: error instanceof Error ? error.name : "unknown",
+        });
+      }
+
+      try {
         await userPromptManager.vacuum();
         log("Cleanup: VACUUM done", { db: "user-prompts.db" });
       } catch (err) {

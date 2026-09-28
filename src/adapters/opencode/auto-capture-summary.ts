@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { CONFIG } from "../../config.js";
 import { resolveOpencodeHostModel } from "../../services/ai/live-model-choice.js";
 import { buildBoundedSummaryPrompt } from "../../core/capture-context.js";
+import { errorHttpStatus, errorRetryAfterMs } from "../../core/capture-retry-policy.js";
 import {
   classifyCaptureReply,
   normalizeStopReason,
@@ -138,6 +139,8 @@ export async function generateOpenCodeAutoCaptureSummary(
     } catch (error) {
       opencodeProviderError = error;
       diagnostics.failureReason = hostModelFailureReason(error);
+      diagnostics.httpStatus = errorHttpStatus(error);
+      diagnostics.retryAfterMs = errorRetryAfterMs(error);
       log("auto-capture: opencode provider failed, falling back to external API", {
         error: String(error),
       });
@@ -167,6 +170,7 @@ export async function generateOpenCodeAutoCaptureSummary(
 
   const { AIProviderFactory } = await import("../../services/ai/ai-provider-factory.js");
   const { buildMemoryProviderConfig } = await import("../../services/ai/provider-config.js");
+  const { toolCallFailureReason } = await import("../../services/ai/providers/base-provider.js");
   const { detectLanguage, getLanguageName } = await import("../../services/language-detector.js");
 
   const providerConfig = buildMemoryProviderConfig(CONFIG);
@@ -219,6 +223,8 @@ export async function generateOpenCodeAutoCaptureSummary(
     blockTypes: undefined,
     rawReply: undefined,
     failureReason: undefined,
+    httpStatus: undefined,
+    retryAfterMs: undefined,
   } satisfies CaptureAttemptDiagnostics);
 
   let result;
@@ -229,9 +235,11 @@ export async function generateOpenCodeAutoCaptureSummary(
     throw error;
   }
   diagnostics.stopReason = normalizeStopReason(result.stopReason);
+  diagnostics.httpStatus = result.httpStatus;
+  diagnostics.retryAfterMs = result.retryAfterMs;
 
   if (!result.success || !result.data) {
-    diagnostics.failureReason = diagnostics.stopReason === "length" ? "truncated" : "call-error";
+    diagnostics.failureReason = toolCallFailureReason(result, diagnostics.stopReason === "length");
     throw new Error(result.error || "Failed to generate summary");
   }
 

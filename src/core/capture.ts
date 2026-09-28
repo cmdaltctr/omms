@@ -3,6 +3,11 @@ import { buildCaptureAttemptRecord, emitCaptureAttempt } from "../services/captu
 import { memoryClient } from "../services/client.js";
 import { getTags } from "../services/tags.js";
 import { buildMarkdownContext, getAutoCaptureMarkdownBudget } from "./capture-context.js";
+import {
+  errorHttpStatus,
+  errorRetryAfterMs,
+  type CaptureFailureInfo,
+} from "./capture-retry-policy.js";
 import type {
   CaptureAttemptDiagnostics,
   CaptureAttemptOutcome,
@@ -21,6 +26,20 @@ export interface CaptureWorkUnit extends CaptureProvenance, CaptureConversation 
 
 export type CaptureResult =
   { status: "captured"; memoryId: string } | { status: "skipped"; type?: string };
+
+/**
+ * Thrown by `captureConversation` for a failed attempt. Keeps the original
+ * message and cause, and adds what the retry queue needs to classify it.
+ */
+export class CaptureAttemptError extends Error {
+  readonly failure: CaptureFailureInfo;
+
+  constructor(error: unknown, failure: CaptureFailureInfo) {
+    super(error instanceof Error ? error.message : String(error), { cause: error });
+    this.name = "CaptureAttemptError";
+    this.failure = failure;
+  }
+}
 
 async function getLatestProjectMemory(containerTag: string): Promise<string | null> {
   try {
@@ -52,6 +71,12 @@ export async function captureConversation(
     const result = await runCapture(workUnit, provider, diagnostics);
     outcome = result.status === "captured" ? "saved" : "skipped";
     return result;
+  } catch (error) {
+    throw new CaptureAttemptError(error, {
+      reason: diagnostics.failureReason ?? "call-error",
+      httpStatus: diagnostics.httpStatus ?? errorHttpStatus(error),
+      retryAfterMs: diagnostics.retryAfterMs ?? errorRetryAfterMs(error),
+    });
   } finally {
     const record = buildCaptureAttemptRecord(
       {
