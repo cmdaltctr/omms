@@ -62,11 +62,11 @@ Use a change for a new feature, a change to user-visible behaviour, a breaking c
 5. Implement with the `openspec-apply-change` skill. Mark each task `- [x]` in `tasks.md` when it is done and tested.
 6. If the plan changes during work, update the change artifacts with the `openspec-update-change` skill.
 7. Before you report completion, run the `openspec-verify-change` skill.
-8. After the pull request merges, archive the change with the `openspec-archive-change` skill. Archiving moves it to `openspec/changes/archive/` and updates `openspec/specs/`.
+8. Before you create the pull request, archive the completed change with the `openspec-archive-change` skill. Archiving moves it to `openspec/changes/archive/` and syncs its spec deltas into `openspec/specs/`. Archive only when every task is done and step 7 passes.
 
 Use `openspec list` for active changes and `openspec status --change <name>` for artifact status.
 
-Commit OpenSpec artifacts with the code change they describe. Commit the archive move in the pull request that archives a change.
+Commit OpenSpec artifacts with the code change they describe. Commit the archive move in the same pull request as the change. A change that is only a proposal stays active until it is implemented.
 
 ## Commands
 
