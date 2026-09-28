@@ -2,6 +2,34 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [3.4.0](https://github.com/cmdaltctr/omms/compare/v3.3.1...v3.4.0) (2026-09-28)
+
+
+### Features
+
+* external API, saved directory maps, and import progress ([cbf2fec](https://github.com/cmdaltctr/omms/commit/cbf2fec739a235526ad84f30614f24a41ea3e151))
+* external API, saved directory maps, and import progress ([8d09784](https://github.com/cmdaltctr/omms/commit/8d0978419381e4cf41412d2fcb530eb418c9f218))
+
+
+### Bug Fixes
+
+* address review findings in backfill controls, maps, and key files ([2ee8061](https://github.com/cmdaltctr/omms/commit/2ee8061b4aa2df1b2bd21d839933db6b7d8542cc))
+* **opencode:** keep profile fallback and import model registry ready ([c847d3b](https://github.com/cmdaltctr/omms/commit/c847d3b43655939ca98db55c68ff51d386fbb91d))
+* **web:** address review findings in the explorer and Settings page ([dbeb25b](https://github.com/cmdaltctr/omms/commit/dbeb25b03158cb0f9da1e19b7154380a3bdbdc23))
+* **web:** save migrated tags and vectors in one update ([e95d1c7](https://github.com/cmdaltctr/omms/commit/e95d1c7c3960c52c7104b319c2ff86161eb13af7))
+* **web:** tag migration touches only untagged memories ([72d1722](https://github.com/cmdaltctr/omms/commit/72d1722bcac25f484376bd95a0ff11752a9f7f37))
+
+
+### Documentation
+
+* archive a completed OpenSpec change before opening its pull request ([b77ae14](https://github.com/cmdaltctr/omms/commit/b77ae14b0de466fd4b4eca1ea9c10278415de105))
+* archive auto-backfill-and-web-autostart OpenSpec change ([f242b65](https://github.com/cmdaltctr/omms/commit/f242b65df17e81de7bf1c44350d633f6e46f83f4))
+* archive auto-backfill-and-web-autostart OpenSpec change ([290ca79](https://github.com/cmdaltctr/omms/commit/290ca7925c644f4ac1eb4c134355c6d7ca632529))
+* **openspec:** archive external-api-backfill-maps-progress ([e71e8f1](https://github.com/cmdaltctr/omms/commit/e71e8f11d0d53010fa0d752d99272397e2e36a7e))
+* **openspec:** propose moving OpenCode model code into its adapter ([148658d](https://github.com/cmdaltctr/omms/commit/148658dd17a7277a834f495e57462241d8a2851b))
+* settings page guide and plain-language docs audit ([56cc36a](https://github.com/cmdaltctr/omms/commit/56cc36a92119a2b0d608c493acf6a53d7201d772))
+* settings page guide, docs audit, and OpenSpec archive ([751d12b](https://github.com/cmdaltctr/omms/commit/751d12b73a05c49718e35cb7a0d267ead87105ab))
+
 ## [3.3.1](https://github.com/cmdaltctr/omms/compare/v3.3.0...v3.3.1) (2026-09-27)
 
 
