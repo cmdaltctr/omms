@@ -1,35 +1,39 @@
 # Pi Historical Session Import
 
-Import your existing Pi session history into the shared memory store. Pi session JSONL files stay unchanged. By default, OMMS also imports older sessions automatically after Pi starts; the command below gives you a manual preview and control over scope and maps.
+Import your existing Pi session history into the shared memory store. Pi session JSONL files stay unchanged.
+
+- By default, OMMS also imports older sessions automatically after Pi starts. See [Automatic import](#automatic-import).
+- The command below gives you a manual preview and control over scope and maps.
 
 Verified against `@earendil-works/pi-coding-agent` 0.86.1.
 
 ## Quick start
 
-From inside `pi`, in the project you want to import for:
+1. Open `pi` in the project you want to import for.
+2. Run a dry run. It reports what would happen and writes nothing.
 
-```text
-/memory-import-pi-history --dry-run
-```
+   ```text
+   /memory-import-pi-history --dry-run
+   ```
 
-The dry-run reports what would happen and writes nothing. When the numbers
-look right:
+3. When the numbers look right, run the import.
 
-```text
-/memory-import-pi-history
-```
+   ```text
+   /memory-import-pi-history
+   ```
 
-By default only sessions recorded for the current project are imported, and
-extraction uses this session's current model. The `piProvider`/`piModel`
-settings apply to live capture only. To import with another model from Pi's
-model list, without changing the session's model:
+By default:
+
+- Only sessions recorded for the current project are imported.
+- Extraction uses this session's current model. The `piProvider` and `piModel` settings apply to live capture only.
+
+To import with another model from Pi's model list, without changing the session's model:
 
 ```text
 /memory-import-pi-history --model zai/your-smaller-model
 ```
 
-The same import runs from a terminal with an external model and API key,
-exactly like the OpenCode import (see [cli.md](cli.md)):
+The same import runs from a terminal with an external model and API key. See [cli.md](cli.md).
 
 ```bash
 npx om-memory-system import-pi-history --dry-run
@@ -39,17 +43,39 @@ npx om-memory-system import-pi-history --provider openai-chat --model 'your-smal
 
 ## Automatic import
 
-On first Pi start, OMMS waits about 30 seconds, then saves a cutoff for Pi and imports earlier turns across projects whose directories resolve. It skips turns already saved by live capture, using the recorded Pi prompt ID and assistant entry IDs. Later Pi starts resume pending work using the same cutoff and ledger. Newer turns are handled by live capture; use this command for custom sources, maps, or another date range.
+On the first Pi start, OMMS waits about 30 seconds. It then saves a cutoff for Pi and imports earlier turns across projects whose directories resolve.
 
-Automatic import uses `piBackfillModel`: `"inherit"` follows Pi's live-capture model rule, and `provider/model` chooses a signed-in Pi model just for backfill. The setting does not change the slash command's session model. Set `"autoBackfill": false` in the global config to prevent the automatic run. For state, pending counts, cutoff and errors, open [Web Settings](web-ui.md#settings-page). The import makes model calls. Preview manually before a large additional import.
+- It skips turns that live capture already saved. It checks the recorded Pi prompt ID and assistant entry IDs.
+- Later Pi starts resume pending work with the same cutoff and ledger.
+- Live capture handles newer turns. Use the command for custom sources, maps, or another date range.
+- The import makes model calls. Preview by hand before a large extra import.
+- To stop the automatic run, set `"autoBackfill": false` in the global config.
+
+`piBackfillModel` chooses the backfill model:
+
+- `"inherit"` (default) follows Pi's live-capture model rule.
+- `"external"` uses the external API.
+- `provider/model` chooses a signed-in Pi model for backfill only.
+- The setting does not change the slash command's model.
+
+On the Settings page you can:
+
+- See the state, pending counts, cutoff, and errors.
+- **Run now**, **Pause**, and **Resume** the backfill, and watch its progress bar and minutes left.
+- Manage saved directory maps (`importPathMaps`) in **Directory maps**. The page suggests targets for unresolved directories. Saved maps also apply to the automatic import.
+
+See [Web UI settings](web-ui-settings.md) for details.
+
+- With `piBackfillModel` set to `"external"`, **Run now** works in the login web app with no host open.
+- A paused backfill stays paused across Pi starts until you resume it.
+- One Pi import runs at a time, whether from a backfill, the page, a slash command, or the CLI.
 
 ## Command reference
 
-The Pi and OpenCode commands take the same options; see the full table in
-[OpenCode history import](opencode-history-import.md#options). Pi reads its
-sessions from `--root <dir>` (default `~/.pi/agent/sessions`) where OpenCode
-takes `--db`. A value may follow its flag or use `--flag=value`; quote values
-that contain spaces.
+The Pi and OpenCode commands take the same options. The full table is in [cli.md](cli.md#import-options).
+
+- Pi reads its sessions from `--root <dir>`. OpenCode takes `--db` instead.
+- A value may follow its flag or use `--flag=value`. Quote values that contain spaces.
 
 ```text
 /memory-import-pi-history [options]
@@ -62,81 +88,69 @@ that contain spaces.
   --since <date>             Only work units at/after this time
   --until <date>             Only work units at/before this time; a bare date covers the day
   --max-sessions <n>         Read at most n sessions, oldest first
-  --map <oldPath>=<newPath>  Remap a recorded cwd that no longer exists
-  --root <dir>               Session root (default ~/.pi/agent/sessions)
+  --map <oldPath>=<newPath>  Remap a recorded cwd that no longer exists (repeatable)
+  --root <dir>               Session folder or one .jsonl file (default ~/.pi/agent/sessions)
   --skip-memories            Record profile prompts only
   --skip-profile             Import memories without profile learning
   --profile-batch <n>        Prompts per profile analysis batch (default: 50)
-  --force                    Reprocess units with terminal ledger states
+  --force                    Reprocess units with final ledger states
+  --help                     Show this help
 ```
 
-Dates accept ISO 8601 (`2026-01-01`, `2026-01-01T10:00:00Z`) or epoch
-milliseconds. `--since`/`--until` filter on each work unit's user-entry
-timestamp, inclusive.
+- Dates accept ISO 8601 (`2026-01-01`, `2026-01-01T10:00:00Z`) or epoch milliseconds.
+- `--since` and `--until` filter on each work unit's user-entry timestamp. Both are inclusive.
 
 ## How it works
 
-1. Sessions are discovered under the session root. Only files with a Pi
-   session header qualify; subagent artifacts and unrecognized formats are
-   counted and skipped.
-2. Each session loads through Pi's own `SessionManager.open`, which migrates
-   legacy session versions in memory.
-3. The recorded `cwd` in each session header resolves through the same project
-   identity as live capture, so imported memories land in the same namespace
-   you already use.
-4. Each user prompt on the session's active branch becomes one work unit with
-   its assistant and tool work. Hidden thinking, images, and tool outputs are
-   excluded; tool inputs are truncated.
-5. Every unit flows through the live-capture pipeline: privacy filter,
-   extraction (through this session's model unless `--model` is set), dedup,
-   embedding, persistence, with provenance `host=pi`, `sourceType=history-import`,
-   session id, source file, entry ids, and timestamps.
-6. Each past user prompt is recorded once for profile learning. The importer
-   analyses unprocessed prompts in batches, creating or updating your user
-   profile. `--skip-profile` omits these steps. Dry-run reports pending prompts
-   without recording or analysing them.
+1. OMMS finds sessions under the session root. Only files with a Pi session header count. It counts and skips subagent files and unknown formats.
+2. Each session loads through Pi's own `SessionManager.open`. This updates old session versions in memory.
+3. The recorded `cwd` in each session header resolves through the same project identity as live capture. Imported memories land in the namespace you already use.
+4. Each user prompt on the session's active branch becomes one work unit, with its assistant and tool work. Hidden thinking, images, and tool outputs are left out. Tool inputs are shortened.
+5. Every unit goes through the live-capture pipeline: privacy filter, extraction, dedup, embedding, and storage.
+   - Extraction uses this session's model unless you set `--model`.
+   - Provenance records `host=pi`, `sourceType=history-import`, the session id, source file, entry ids, and timestamps.
+6. Each past user prompt is recorded once for profile learning. The importer analyses new prompts in batches and creates or updates your user profile.
+   - `--skip-profile` leaves out these steps.
+   - A dry run reports pending prompts without recording or analysing them.
 
-The model override uses Pi's model registry. Select an available model with
-`--model provider/id`. The same model handles memory extraction and profile
-analysis for this run; the session's model stays unchanged. An unknown model
-stops the import before processing.
+About `--model`:
+
+- It uses Pi's model registry. Choose an available model as `provider/id`.
+- The same model handles memory extraction and profile analysis for this run.
+- The session's model stays unchanged.
+- An unknown model stops the import before any processing.
 
 ## Idempotency and recovery
 
-Each work unit gets a deterministic key:
-`pi:<session-id>:<user-entry-id>:<assistant-terminal-entry-id>`. A durable
-ledger inside the store (`import-ledger.db` in the storage path) records
-imported, skipped, and failed states.
+Each work unit gets a fixed key: `pi:<session-id>:<user-entry-id>:<assistant-terminal-entry-id>`. A ledger in the store (`import-ledger.db` in the storage path) records imported, skipped, and failed states.
 
 - Import twice: the second run processes nothing.
-- Extraction skips are terminal: non-technical units never spend model calls
-  again.
-- Failures are retryable: fix the cause and rerun.
-- Crash between the memory write and the ledger update: the rerun finds the
-  stored `importId` and reconciles instead of duplicating.
+- Extraction skips are final. Non-technical units never cost model calls again.
+- Failures can be retried. Fix the cause and run again.
+- If a crash happens between the memory write and the ledger update, the next run finds the stored `importId`. It reconciles instead of duplicating.
 
 ## Unresolvable directories
 
-Sessions recorded in directories that no longer exist (deleted worktrees, temp
-dirs) are skipped and listed in the report. To import them into the project
-they belonged to:
+Sessions recorded in directories that no longer exist (deleted worktrees, temp folders) are skipped and listed in the report. To import them into the project they belonged to:
 
 ```text
 --map /old/deleted-worktree-path=/current/main-repo-path
 ```
 
-The map target must exist. Repeat `--map` for multiple paths.
+- The map target must exist.
+- Repeat `--map` for more paths.
+- To keep a map for every later import and the automatic backfill, save it in `importPathMaps` or in the Settings page's **Directory maps**.
+- A `--map` for the same directory wins for that run.
 
 ## Cost
 
-One model call per work unit, plus one per profile batch. Non-technical units
-return `skip` after a single call. Run `--dry-run` first: it reports the unit
-count per project and pending profile prompts before any spend.
+- One model call per work unit, plus one per profile batch.
+- Non-technical units return `skip` after one call.
+- Run `--dry-run` first. It reports the unit count per project and pending profile prompts before any spend.
 
 ## Inspecting import status
 
-The ledger lives at `<storagePath>/import-ledger.db`. Status counts per run
-appear in the command summary. For per-key inspection:
+The ledger is at `<storagePath>/import-ledger.db`. Each run's counts appear in the command summary. To inspect each key:
 
 ```bash
 sqlite3 ~/.omms/data/import-ledger.db \
@@ -145,34 +159,30 @@ sqlite3 ~/.omms/data/import-ledger.db \
 
 ## Moving machines
 
-The memory store is portable. To carry memories and import state to a new
-machine:
+The memory store is portable. To move memories and import state to a new machine:
 
-1. Copy the whole data directory:
+1. Copy the whole data directory.
 
-```bash
-rsync -a ~/.omms/data/ newmachine:~/.omms/data/
-```
+   ```bash
+   rsync -a ~/.omms/data/ newmachine:~/.omms/data/
+   ```
 
-2. Copy the config: `~/.config/omms/omms.jsonc` (on machines still on the
-   legacy layout, `~/.config/opencode/opencode-mem.jsonc`).
-3. Install the embedding runtime on the new machine and keep the model
-   identical (for example `ollama pull qwen3-embedding:0.6b`). Stored vectors
-   only match queries from the same embedding model.
-4. Clone your repositories.
+2. Copy the config: `~/.config/omms/omms.jsonc`. On the legacy layout, copy `~/.config/opencode/opencode-mem.jsonc`.
+3. Copy any key files your config points to, such as `~/.config/omms/secrets/`.
+4. Keep the embedding model the same. Stored vectors only match queries from the same embedding model.
+5. Clone your repositories.
 
-If the absolute project path is identical on the new machine, you are done.
-If the username or layout differs, project tags change and memories appear
-orphaned. Re-associate per project from inside that project:
+If the absolute project path is the same on the new machine, you are done.
+
+If the username or layout differs, project tags change and memories look orphaned. Link them again from inside each project:
 
 ```text
 memory list-shards
 memory migrate --from-path /old/machine/absolute/path
 ```
 
-or `--from-hash <hash>` from the `list-shards` output. The old path does not
-need to exist on the new machine. No re-embedding happens.
+- You can use `--from-hash <hash>` from the `list-shards` output instead.
+- The old path does not need to exist on the new machine.
+- No re-embedding happens.
 
-Pi session files move separately (`~/.pi/agent/sessions`). Because the import
-ledger travels with the data directory, rerunning the import on the new
-machine creates zero duplicates.
+Pi session files (`~/.pi/agent/sessions`) move separately. The import ledger moves with the data directory, so running the import again on the new machine creates no duplicates.

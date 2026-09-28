@@ -18,7 +18,7 @@ agent. Bug reports, fixes, documentation, and new features are all welcome.
 
 ## Set up
 
-You need [Bun](https://bun.sh) and Node.js 24. The package itself supports
+You need [Bun](https://bun.sh) and Node.js 24. The published package supports
 Node.js 22.14 or later.
 
 ```bash

@@ -1,11 +1,11 @@
 # Migrating from opencode-mem to omms
 
-omms is the fork's package identity (upstream owns `opencode-mem` on npm).
-From version 3.0.0 the identity is fully separated:
+omms is this fork's own identity. The upstream project owns `opencode-mem` on
+npm. From version 3.0.0 the two are fully separate:
 
 | What                 | Legacy (opencode-mem)                    | omms                                                      |
 | -------------------- | ---------------------------------------- | --------------------------------------------------------- |
-| Package              | `opencode-mem`                           | `omms`                                                    |
+| npm package          | `opencode-mem`                           | `om-memory-system`                                        |
 | Default store        | `~/.opencode-mem/data`                   | `~/.omms/data`                                            |
 | Primary config       | `~/.config/opencode/opencode-mem.jsonc`  | `~/.config/omms/omms.jsonc`                               |
 | Plugin id            | `opencode-mem`                           | `omms`                                                    |
@@ -19,40 +19,42 @@ From version 3.0.0 the identity is fully separated:
 
 ## What happens automatically
 
-On the first start after upgrading, if `~/.opencode-mem/data` exists and
-`~/.omms/data` does not, omms runs a one-time migration:
+On the first start after the upgrade, omms runs a one-time migration if
+`~/.opencode-mem/data` exists and `~/.omms/data` does not:
 
-1. **Backup.** A timestamped, checksum-verified backup of the ENTIRE
-   `~/.opencode-mem` directory is created at
-   `~/.omms/backups/opencode-mem-<timestamp>/`, with a `manifest.json`
-   recording every file's size and SHA-256. The backup is verified before
-   anything else happens.
-2. **Copy.** The store is COPIED to `~/.omms/data`. Every copied file is
-   checksum-verified against its source. The legacy directory is never moved,
-   renamed, modified, or deleted.
-3. **Marker.** `~/.omms/migration-marker.json` records the source,
-   destination, backup path, file count, and timestamps. Any later start sees
-   the marker and does nothing.
+1. **Backup.** omms makes a timestamped backup of the WHOLE `~/.opencode-mem`
+   directory at `~/.omms/backups/opencode-mem-<timestamp>/`. A
+   `manifest.json` records each file's size and SHA-256 checksum. omms checks
+   the backup before it does anything else.
+2. **Copy.** omms COPIES the store to `~/.omms/data` and checks each copied
+   file against its source. It never moves, renames, changes or deletes the
+   legacy directory.
+3. **Marker.** `~/.omms/migration-marker.json` records the source, the
+   destination, the backup path, the file count and the times. Later starts
+   see the marker and do nothing.
 
-If the backup or any file verification fails, the migration aborts
-immediately, writes a marker with `status: "failed"`, and storage keeps
-resolving to `~/.opencode-mem/data`. Your legacy directory is untouched
-either way.
+If the backup or any file check fails:
 
-Fresh installs (no `~/.opencode-mem` directory) start directly at the omms
-paths; no marker or backup is created.
+- the migration stops at once
+- it writes a marker with `status: "failed"`
+- storage stays on `~/.opencode-mem/data`
+
+Your legacy directory is untouched in every case.
+
+A fresh install (no `~/.opencode-mem` directory) starts directly on the omms
+paths. It makes no marker and no backup.
 
 ## Before you upgrade
 
-- Close OpenCode and Pi while the first omms start runs the migration. The
-  migration copies the store as it reads it; concurrent writes from another
-  process could miss the copy window.
-- Make sure you have disk space for one backup of `~/.opencode-mem` plus one
+- Close OpenCode and Pi while the first omms start runs the migration. The copy
+  reads the store as it is. Writes from another process at the same time could
+  be missed.
+- Make sure you have disk space for one backup of `~/.opencode-mem` and one
   copy of the store.
 
 ## Rollback
 
-Two options, both safe because the legacy directory is never modified:
+Both options are safe, because omms never changes the legacy directory.
 
 1. **Point storage at the original** (recommended). Set `storagePath` in
    `~/.config/omms/omms.jsonc`:
@@ -63,12 +65,12 @@ Two options, both safe because the legacy directory is never modified:
    }
    ```
 
-   omms then reads and writes the legacy directory exactly as before. Remove
-   the setting to return to `~/.omms/data`.
+   omms then reads and writes the legacy directory as before. Remove the
+   setting to go back to `~/.omms/data`.
 
-2. **Restore the backup.** The verified backup at
+2. **Restore the backup.** The backup at
    `~/.omms/backups/opencode-mem-<timestamp>/` is a full copy of the legacy
-   directory. Copy it back if you ever damage the original:
+   directory. Copy it back if the original is ever damaged:
 
    ```bash
    rsync -a ~/.omms/backups/opencode-mem-<timestamp>/ ~/.opencode-mem/
@@ -77,106 +79,118 @@ Two options, both safe because the legacy directory is never modified:
 ## If the migration failed
 
 A failed marker (`status: "failed"` in `~/.omms/migration-marker.json`) keeps
-omms on the legacy layout, so nothing is lost. To retry:
+omms on the legacy layout, so nothing is lost. To try again:
 
 1. Close OpenCode and Pi.
-2. Read the marker's `stage` and `error` fields and fix the cause (commonly
-   disk space or permissions on `~/.omms`).
-3. Delete `~/.omms/migration-marker.json` and, if present, the partial
-   `~/.omms/data` directory (the migration removes it itself, but a crashed
-   run can leave it behind).
-4. Start OpenCode or Pi once; the migration runs again.
+2. Read the `stage` and `error` fields in the marker.
+3. Fix the cause. It is often disk space or permissions on `~/.omms`.
+4. Delete `~/.omms/migration-marker.json`.
+5. Delete the partial `~/.omms/data` directory if it is there. A crashed run
+   can leave it behind.
+6. Start OpenCode or Pi once. The migration runs again.
 
-You can also inspect the backup's `manifest.json` and compare checksums
-manually:
+You can also compare checksums with the backup's `manifest.json` by hand:
 
 ```bash
-shasum -a 256 ~/.opencode-mem/data/global.sqlite
-jq '.files[] | select(.path == "data/global.sqlite")' \
+shasum -a 256 ~/.opencode-mem/data/metadata.db
+jq '.files[] | select(.path == "data/metadata.db")' \
   ~/.omms/backups/opencode-mem-<timestamp>/manifest.json
 ```
 
-## Configuration: dual-read
+## Configuration: reading both files
 
-`~/.config/omms/omms.jsonc` is the primary config. The legacy
-`~/.config/opencode/opencode-mem.jsonc` is read only while no omms config
-file exists, and it is never written. To migrate your settings by hand, copy
-the legacy file to `~/.config/omms/omms.jsonc` and edit it; once the omms file
-exists it takes precedence. A fresh install with no config at all gets a
-commented template at `~/.config/omms/omms.jsonc`.
+- `~/.config/omms/omms.jsonc` is the primary config.
+- omms reads the legacy `~/.config/opencode/opencode-mem.jsonc` only while no
+  omms config file exists. It never writes to it.
+- To move your settings by hand, copy the legacy file to
+  `~/.config/omms/omms.jsonc` and edit it. Once the omms file exists, it wins.
+- A fresh install with no config gets a commented template at
+  `~/.config/omms/omms.jsonc`.
 
-Project-level overrides live in `<project>/.opencode/omms.jsonc`. The legacy
-`<project>/.opencode/opencode-mem.jsonc` is still read when no `omms.jsonc`
-exists; when both exist, `omms.jsonc` wins. Rename the file at your own pace.
+Project settings live in `<project>/.opencode/omms.jsonc`. omms still reads the
+legacy `<project>/.opencode/opencode-mem.jsonc` when no `omms.jsonc` exists.
+When both exist, `omms.jsonc` wins. Rename the file when it suits you.
 
 ## Container tag prefix
 
-Memory rows written by older versions carry the `opencode_project_<hash>`
-and `opencode_user_<hash>` container tag prefix. From the release that
-includes the tag prefix migration, new memories carry `omms_` instead, and
-stored rows are migrated automatically on the first start.
+A container tag marks which project or user a memory belongs to. Older versions
+wrote memory rows with the `opencode_project_<hash>` and
+`opencode_user_<hash>` prefixes. From the release with the tag prefix
+migration, new memories use `omms_`. Stored rows are migrated automatically on
+the first start.
 
 ### What happens automatically
 
-On the first start after upgrading, before any memory read or write is
-served:
+On the first start after the upgrade, before OMMS serves any memory read or
+write:
 
-1. **Backup.** A timestamped, checksum-verified copy of the ENTIRE store
-   directory is created at `~/.omms/backups/tag-prefix-<timestamp>/`, beside
-   the directory-migration backups, with a `manifest.json` recording every
-   file's size and SHA-256. The backup is verified before anything is
-   rewritten. It is never deleted or modified. If it cannot be created or
-   verified, nothing is rewritten and the start aborts with an error.
-2. **Rewrite.** Every memory row's `container_tag` is rewritten from
-   `opencode_<scope>_<hash>` to `omms_<scope>_<hash>` across all project and
-   user shards. Each shard is rewritten by one SQL UPDATE inside that shard's
-   write transaction, under the existing cross-process write lock, so a
-   concurrent host can never interleave with the rewrite.
-3. **Verification.** Per shard: the row count is unchanged, the memory id set
-   is unchanged, the number of rewritten rows equals the number of `opencode_`
-   rows seen before, and zero `opencode_` rows remain. Any mismatch rolls
-   that shard's transaction back and aborts the start. Vectors, metadata, and
-   every other column are untouched.
-4. **Marker.** Completion is recorded in a `tag_prefix_migration` table in
-   the store's `metadata.db`; per-shard progress is recorded in each shard's
-   `shard_metadata` table. Later starts see the marker and do nothing.
+1. **Backup.** omms makes a timestamped copy of the WHOLE store directory at
+   `~/.omms/backups/tag-prefix-<timestamp>/`.
+   - A `manifest.json` records each file's size and SHA-256 checksum.
+   - omms checks the backup before it rewrites anything.
+   - omms never deletes or changes the backup.
+   - If the backup cannot be made or checked, nothing is rewritten and the
+     start stops with an error.
+2. **Rewrite.** omms rewrites each memory row's `container_tag` from
+   `opencode_<scope>_<hash>` to `omms_<scope>_<hash>`, in every project and
+   user shard.
+   - Each shard gets one SQL UPDATE inside that shard's write transaction.
+   - This runs under the existing cross-process write lock, so another host
+     cannot write in the middle of it.
+3. **Checks.** For each shard, omms checks that:
+   - the row count has not changed
+   - the set of memory IDs has not changed
+   - the number of rewritten rows equals the number of `opencode_` rows before
+   - no `opencode_` rows remain
 
-The migration is idempotent and resumable. An interrupted run resumes on the
-remaining shards only. A crash between the last shard rewrite and the marker
-write completes on the next start without rewriting anything.
+   Any mismatch rolls back that shard's transaction and stops the start.
+   Vectors, metadata and all other columns are not touched.
 
-Close OpenCode and Pi while the first start after upgrade runs the migration,
-for the same reason as the directory migration above.
+4. **Marker.** A `tag_prefix_migration` table in the store's `metadata.db`
+   records completion. Each shard's `shard_metadata` table records progress for
+   that shard. Later starts see the marker and do nothing.
+
+You can safely run the migration more than once, and it continues after an
+interruption:
+
+- An interrupted run continues on the remaining shards only.
+- If a crash happens after the last shard rewrite but before the marker write,
+  the next start completes it without rewriting anything.
+
+Close OpenCode and Pi while the first start after the upgrade runs this
+migration, for the same reason as the directory migration above.
 
 ### Rollback
 
-Restore the verified backup over the store directory, then optionally set
-`containerTagPrefix` to `opencode` so tags match the restored rows:
+1. Restore the backup over the store directory:
 
-```bash
-rsync -a ~/.omms/backups/tag-prefix-<timestamp>/ ~/.omms/data/
-```
+   ```bash
+   rsync -a ~/.omms/backups/tag-prefix-<timestamp>/ ~/.omms/data/
+   ```
 
-```jsonc
-{
-  // ~/.config/omms/omms.jsonc — only while running on a restored pre-migration store
-  "containerTagPrefix": "opencode",
-}
-```
+2. Optionally, set `containerTagPrefix` to `opencode` so tags match the
+   restored rows:
+
+   ```jsonc
+   {
+     // ~/.config/omms/omms.jsonc: only while running on a restored pre-migration store
+     "containerTagPrefix": "opencode",
+   }
+   ```
 
 ### Config warning
 
-If your config explicitly sets `containerTagPrefix: "opencode"`, omms warns
-once at startup after the migration: stored rows carry `omms_`, so the
-override matches no rows. Remove the override. The setting itself still
-works for custom prefixes.
+If your config sets `containerTagPrefix: "opencode"`, omms warns once at
+startup after the migration. Stored rows now use `omms_`, so that setting
+matches no rows. Remove it. The setting still works for custom prefixes.
 
-Operators can disable the automatic gate with `OMMS_SKIP_TAG_PREFIX_MIGRATION=1`.
-The test suite uses this; do not set it during normal use.
+To turn off the automatic step, set `OMMS_SKIP_TAG_PREFIX_MIGRATION=1`. The
+test suite uses this. Do not set it in normal use.
 
 ## Log files
 
-New logs go to `~/.omms/omms.log` with `omms-<date>.log` archives. Set
-`OMMS_LOG_FILE` to override the path; the legacy `OPENCODE_MEM_LOG_FILE` is
-still honoured when `OMMS_LOG_FILE` is unset. Old logs stay in
-`~/.opencode-mem/` untouched.
+- New logs go to `~/.omms/omms.log`, with `omms-<date>.log` archives.
+- Set `OMMS_LOG_FILE` to use a different path.
+- omms still honours the legacy `OPENCODE_MEM_LOG_FILE` when `OMMS_LOG_FILE` is
+  not set.
+- Old logs stay untouched in `~/.opencode-mem/`.

@@ -13,3 +13,5 @@ Local decision records for OMMS maintainers.
 | [007](./007-edit-global-config-from-web-ui.md)        | Edit the global config from the web UI                            | 2026-09-27 | Proposed |
 | [008](./008-session-first-web-import.md)              | Session-first imports from the web UI with pinned selections      | 2026-09-27 | Proposed |
 | [009](./009-default-on-backfill-and-login-web-app.md) | Default-on history backfill and login web app                     | 2026-09-27 | Proposed |
+| [010](./010-private-key-file-for-external-api.md)     | Save a pasted external API key to a private key file              | 2026-09-28 | Proposed |
+| [011](./011-shared-code-never-imports-adapters.md)    | Shared code never imports a host adapter                          | 2026-09-28 | Proposed |

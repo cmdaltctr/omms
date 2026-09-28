@@ -43,7 +43,7 @@ Enable a per-user login item for the standalone web app by default. The item sta
 
 ## References
 
-- [Change design](../../openspec/changes/auto-backfill-and-web-autostart/design.md)
+- [Change design](../../openspec/changes/archive/2026-09-28-auto-backfill-and-web-autostart/design.md)
 - [Configuration](../configuration.md#automatic-history-import-and-login-web-app)
 - `src/importer/auto-backfill.ts`
 - `src/services/web-autostart.ts`

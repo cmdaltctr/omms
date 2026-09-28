@@ -1,4 +1,4 @@
-# OMMS — Opinionated Modular Memory System
+# OMMS: Opinionated Modular Memory System
 
 [![npm version](https://img.shields.io/npm/v/om-memory-system.svg)](https://www.npmjs.com/package/om-memory-system)
 [![npm downloads](https://img.shields.io/npm/dm/om-memory-system.svg)](https://www.npmjs.com/package/om-memory-system)
@@ -26,7 +26,8 @@ the other. Everything is stored locally on your machine.
   OpenCode v1.
 - **Learns your preferences.** A user profile of your habits builds up over
   time and follows you across projects.
-- **Imports your past sessions.** Pi and OpenCode import older history after startup. A command provides a preview and manual control.
+- **Imports your past sessions.** Pi and OpenCode import older history after
+  startup. A command gives you a preview and manual control.
 - **Lets you look and edit.** A local web page shows every memory and your
   profile.
 - **Keeps private things private.** Text inside `<private>` tags is never
@@ -74,6 +75,14 @@ pi install npm:om-memory-system
 
 Restart Pi. You can install OMMS in both agents; they share the same memory.
 
+**Terminal command (optional, recommended).** A global install lets the login
+web app and the `om-memory-system` terminal commands run without `npx`:
+
+```bash
+npm i -g om-memory-system      # or: bun add -g om-memory-system
+om-memory-system --version
+```
+
 ### 2. Choose which model writes memories (optional)
 
 With no settings, OMMS uses the model of the session you are working in. To
@@ -91,18 +100,22 @@ config file yet, OMMS creates this one with comments on first start.
 }
 ```
 
-You can also use any OpenAI-compatible or Anthropic API with your own key.
-See [Configuration](docs/configuration.md#choosing-the-model).
+You can also use any OpenAI-compatible or Anthropic API with your own key, set
+up on the Settings page's **External API** card, and choose `"external"` as a
+host's model. See [Configuration](docs/configuration.md#choosing-the-model).
 
 ### 3. Check it works
 
 Work normally for a few turns, then open `http://127.0.0.1:4747` in your
-browser. OpenCode or the login web app serves this page. New memories appear on the timeline.
-You can also ask the agent: "search memory for what we changed today".
+browser. OpenCode or the login web app serves this page. New memories appear
+on the timeline. You can also ask the agent: "search memory for what we changed today".
 
 ## Import your past history
 
-Older sessions import automatically after a host starts. This makes model calls. To opt out, set `"autoBackfill": false` in `~/.config/omms/omms.jsonc` before starting. For a manual import or custom source, preview inside the agent:
+Older sessions import automatically after a host starts. This makes model
+calls. To turn it off, set `"autoBackfill": false` in
+`~/.config/omms/omms.jsonc` before you start the agent. For a manual import or
+a custom source, preview it inside the agent:
 
 ```text
 /memory-import-opencode-history --dry-run
@@ -134,6 +147,7 @@ backup first. See [Updating and upgrading](docs/upgrading.md) and
 | [Using memory day to day](docs/using-memory.md)            | How capture and recall work, the `memory` tool, the user profile |
 | [Configuration](docs/configuration.md)                     | Settings, choosing the model, embeddings, troubleshooting        |
 | [Web UI](docs/web-ui.md)                                   | The memory explorer, opening it on a network safely              |
+| [Settings page](docs/web-ui-settings.md)                   | Every card and control on the web Settings page                  |
 | [Moving projects](docs/moving-projects.md)                 | Nested repositories, moved folders, backup and restore           |
 | [Updating and upgrading](docs/upgrading.md)                | Updates, pinning a version, older stores                         |
 | [OpenCode adapter](docs/opencode-adapter.md)               | How the OpenCode plugin hooks in                                 |
