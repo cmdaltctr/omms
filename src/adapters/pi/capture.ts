@@ -3,7 +3,7 @@ import { captureConversation } from "../../core/capture.js";
 import type { CaptureSummaryProvider } from "../../core/host.js";
 import { log } from "../../services/logger.js";
 import { memoryClient } from "../../services/client.js";
-import { extractPiConversation, type PiSessionEntry } from "./conversation.js";
+import { extractPiConversation, type PiSessionEntry } from "../../importer/pi-conversation.js";
 
 export interface PiCaptureState {
   /** User entry IDs terminally handled by a settled capture for this session. */

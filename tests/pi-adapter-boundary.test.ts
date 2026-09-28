@@ -22,8 +22,8 @@ describe("Pi adapter boundary", () => {
     }
   });
 
-  it("does not leak the Pi adapter into the shared core or services", () => {
-    for (const dir of ["src/core", "src/services", "src/types"]) {
+  it("keeps host adapters out of the shared core, services, and importer", () => {
+    for (const dir of ["src/core", "src/services", "src/types", "src/importer"]) {
       const entries = readdirSync(join(import.meta.dir, "..", dir), {
         recursive: true,
       }) as string[];

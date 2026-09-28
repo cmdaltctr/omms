@@ -13,7 +13,7 @@ import {
   extractPiConversationWindows,
   type PiConversationWindow,
   type PiSessionEntry,
-} from "../adapters/pi/conversation.js";
+} from "./pi-conversation.js";
 import { discoverPiSessions } from "./discovery.js";
 import { resolveImportProject } from "./import-project.js";
 import { PiImportLedger, importLedgerDbPath, type ImportLedgerRow } from "./ledger.js";

@@ -1,5 +1,5 @@
 import { SessionManager } from "@earendil-works/pi-coding-agent";
-import type { PiSessionEntry } from "../adapters/pi/conversation.js";
+import type { PiSessionEntry } from "./pi-conversation.js";
 
 /**
  * Loads a Pi session file for import through Pi's own exported session model
