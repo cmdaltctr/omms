@@ -176,10 +176,13 @@ export function useMemoriesExplorer() {
     setSearchQuery(query);
     setIsSearching(true);
     setCurrentPage(1);
+    // Text search does not filter by keyword, so drop the keyword badge too.
+    setSelectedKeyword("");
     void loadMemories({
       page: 1,
       isSearching: true,
       searchQuery: query,
+      selectedKeyword: "",
     });
   }
 

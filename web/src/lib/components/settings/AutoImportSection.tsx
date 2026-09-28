@@ -194,6 +194,7 @@ export function AutoImportSection() {
             <label className="block">
               {s("Backfill model")}
               <Select
+                aria-label={`${host === "pi" ? "Pi" : "OpenCode"} ${s("Backfill model")}`}
                 className="mt-1 block w-full rounded border border-border bg-background p-2"
                 value={typed ? "typed" : current}
                 onChange={(event) => {

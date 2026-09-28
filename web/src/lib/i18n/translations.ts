@@ -86,8 +86,10 @@ export const translations = {
     "confirm-delete-pair": "Delete this memory AND its linked prompt?",
     "confirm-delete-prompt": "Delete this prompt AND its linked memory?",
     "confirm-bulk-delete": "Delete {count} selected memories?",
-    "confirm-cleanup": "This will remove all memories that are no longer relevant. Continue?",
-    "confirm-dedup": "This will merge duplicate or highly similar memories. Continue?",
+    "confirm-cleanup":
+      "This deletes memories and prompts not updated in the retention period. Pinned memories are kept. Continue?",
+    "confirm-dedup":
+      "This deletes exact duplicate memories and keeps the newest copy. Similar memories are only reported. Continue?",
     "text-selected": "{count} selected",
     "text-page": "Page {current} of {total}",
     "text-total": "Total: {count}",
@@ -244,8 +246,8 @@ export const translations = {
     "confirm-delete-pair": "删除这条记忆及其关联的提示词？",
     "confirm-delete-prompt": "删除这条提示词及其关联的记忆？",
     "confirm-bulk-delete": "删除选中的 {count} 条记忆？",
-    "confirm-cleanup": "这将删除所有不再相关的记忆。是否继续？",
-    "confirm-dedup": "这将合并重复或高度相似的记忆。是否继续？",
+    "confirm-cleanup": "这将删除在保留期内未更新的记忆和提示词。已置顶的记忆会保留。是否继续？",
+    "confirm-dedup": "这将删除完全重复的记忆，只保留最新的一条。相似的记忆只会报告。是否继续？",
     "text-selected": "已选择 {count} 条",
     "text-page": "第 {current} 页，共 {total} 页",
     "text-total": "总计: {count}",
@@ -428,9 +430,11 @@ export const translations = {
 
     "confirm-bulk-delete": "هل تريد حذف {count} من الذكريات المحددة؟",
 
-    "confirm-cleanup": "سيؤدي هذا إلى حذف جميع الذكريات التي لم تعد ذات صلة. هل تريد المتابعة؟",
+    "confirm-cleanup":
+      "سيؤدي هذا إلى حذف الذكريات والموجهات التي لم تُحدَّث خلال فترة الاحتفاظ. تبقى الذكريات المثبتة. هل تريد المتابعة؟",
 
-    "confirm-dedup": "سيؤدي هذا إلى دمج الذكريات المتكررة أو المتشابهة جدًا. هل تريد المتابعة؟",
+    "confirm-dedup":
+      "سيؤدي هذا إلى حذف الذكريات المكررة تمامًا مع الإبقاء على أحدث نسخة. الذكريات المتشابهة يتم الإبلاغ عنها فقط. هل تريد المتابعة؟",
 
     "text-selected": "تم تحديد {count}",
     "text-page": "الصفحة {current} من {total}",

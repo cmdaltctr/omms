@@ -151,6 +151,7 @@ export function ExternalApiSection() {
       <label className="block text-sm">
         {s("Provider")}
         <Select
+          aria-label={s("Provider")}
           className="mt-1 block w-full rounded border border-border bg-background p-2"
           value={value("memoryProvider") || "openai-chat"}
           onChange={(event) => setFields({ ...fields, memoryProvider: event.target.value })}

@@ -136,6 +136,7 @@ export function DiagnosticsSection() {
       <label className="flex items-center gap-2 pb-2 text-sm">
         {s("Time range")}
         <Select
+          aria-label={s("Time range")}
           className="rounded-lg border border-border bg-background px-2 py-1"
           value={days}
           onChange={(e) => setDays(Number(e.target.value))}
@@ -165,7 +166,7 @@ export function DiagnosticsSection() {
                 <td className={td}>
                   <span className="text-muted-foreground">{row.host}</span>{" "}
                   <span className="font-mono text-xs">
-                    {row.provider || row.model ? `${row.provider}/${row.model}` : "—"}
+                    {row.provider || row.model ? `${row.provider ?? ""}/${row.model ?? ""}` : "—"}
                   </span>
                 </td>
                 {([row.saved, row.skipped, row.failed] as const).map((count, column) => (

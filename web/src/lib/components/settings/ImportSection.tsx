@@ -289,6 +289,7 @@ export function ImportSection() {
         <label className="text-sm">
           {s("History host")}
           <Select
+            aria-label={s("History host")}
             className={field}
             value={host}
             onChange={(event) => {
@@ -328,6 +329,7 @@ export function ImportSection() {
             <label className="text-sm">
               {s("Scope")}
               <Select
+                aria-label={s("Scope")}
                 className={field}
                 value={scope}
                 onChange={(event) => setScope(event.target.value as typeof scope)}
@@ -508,7 +510,12 @@ export function ImportSection() {
 
       <label className="block text-sm">
         {s("Import model")}
-        <Select className={field} value={model} onChange={(event) => setModel(event.target.value)}>
+        <Select
+          aria-label={s("Import model")}
+          className={field}
+          value={model}
+          onChange={(event) => setModel(event.target.value)}
+        >
           <option value="">{s("None")}</option>
           {readiness?.opencode.models.map((item) => (
             <option key={`${item.provider}/${item.model}`} value={`${item.provider}/${item.model}`}>
