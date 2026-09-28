@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { extractPiConversation, type PiSessionEntry } from "../src/adapters/pi/conversation.js";
+import { extractPiConversation, type PiSessionEntry } from "../src/importer/pi-conversation.js";
 
 function userEntry(id: string, text: string): PiSessionEntry {
   return {

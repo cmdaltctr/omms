@@ -355,10 +355,16 @@ export class TursoVectorSearch {
     db: TursoDb,
     memoryId: string,
     vector: Float32Array,
-    tagsVector?: Float32Array
+    tagsVector?: Float32Array,
+    tags?: string
   ): Promise<void> {
     const contentVector = vectorToJson(vector);
-    if (tagsVector) {
+    if (tagsVector && tags !== undefined) {
+      await db.execute(
+        `UPDATE memories SET tags = ?, vector = vector32(?), tags_vector = vector32(?) WHERE id = ?`,
+        [tags, contentVector, vectorToJson(tagsVector), memoryId]
+      );
+    } else if (tagsVector) {
       await db.execute(
         `UPDATE memories SET vector = vector32(?), tags_vector = vector32(?) WHERE id = ?`,
         [contentVector, vectorToJson(tagsVector), memoryId]

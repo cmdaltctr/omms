@@ -1,4 +1,4 @@
-import type { CaptureConversation, CaptureToolCall } from "../../core/host.js";
+import type { CaptureConversation, CaptureToolCall } from "../core/host.js";
 
 /**
  * Minimal structural view of Pi session entries (see Pi session-format docs).

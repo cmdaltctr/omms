@@ -29,6 +29,7 @@ OMMS (npm `om-memory-system`) is a memory plugin for AI coding agents. One share
 Keep these boundaries:
 
 - `src/core/` and `src/services/` must not import `@opencode-ai/*`, `@earendil-works/*`, or `src/adapters/*`.
+- `src/importer/` must not import `src/adapters/*`. Each host's history reader lives in `src/importer/`, and adapters import from it.
 - `tests/host-neutral-capture-boundary.test.ts` and `tests/pi-adapter-boundary.test.ts` enforce that rule.
 - An adapter must not import the other host's adapter modules.
 - Load host SDKs and heavy modules with dynamic `import()`. `tests/plugin-bundle-boundary.test.ts` checks the plugin bundle.

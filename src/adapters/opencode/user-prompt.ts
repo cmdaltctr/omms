@@ -1,15 +1,8 @@
+import { isStructuredSummaryPromptMessage } from "../../core/internal-prompt.js";
 import { isInternalStructuredSession } from "../../services/ai/opencode-provider.js";
 import { userPromptManager } from "../../services/user-prompt/user-prompt-manager.js";
 
-export function isStructuredSummaryPromptMessage(userMessage: string): boolean {
-  // This is the plugin's own structured-summary or profile-analysis request.
-  // OpenCode echoes it through chat.message like a normal user message, but
-  // capturing it would create self-referential memories / an infinite learning loop.
-  if (userMessage.includes("# User Profile Analysis")) {
-    return true;
-  }
-  return userMessage.includes("Analyze this conversation.") && userMessage.includes('type="skip"');
-}
+export { isStructuredSummaryPromptMessage };
 
 /** True when a prompt is omms's own internal traffic and must not be recorded or searched. */
 export function isInternalPrompt(sessionID: string, userMessage: string): boolean {

@@ -33,6 +33,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [009](./009-protect-capture-traces-on-windows.md)            | Protect capture traces with Windows access-control lists                | Accepted              | 2026-09-27 |
 | [010](./010-match-windows-native-import-source-paths.md)     | Match Windows import-source tests to native canonical paths             | Proposed              | 2026-09-27 |
 | [011](./011-use-execfilesync-in-windows-git-wrapper-test.md) | Use execFileSync in the Windows Git wrapper test                        | Proposed              | 2026-09-27 |
+| [012](./012-tag-migration-touches-only-untagged-memories.md) | Tag migration touches only untagged memories                            | Proposed              | 2026-09-28 |
 
 ## Status values
 

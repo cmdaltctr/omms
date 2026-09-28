@@ -1,4 +1,4 @@
-import { isInternalPrompt } from "../adapters/opencode/user-prompt.js";
+import { isStructuredSummaryPromptMessage } from "../core/internal-prompt.js";
 import { analyzeProfile, type ModelPort } from "../core/profile-analysis.js";
 import { isFullyPrivate, stripPrivateContent } from "../services/privacy.js";
 import { getTags } from "../services/tags.js";
@@ -77,7 +77,8 @@ export async function importProfileFromHistory(
       if (
         !prompt ||
         isFullyPrivate(unit.userPrompt) ||
-        isInternalPrompt(session.sessionId, prompt)
+        // OpenCode history already leaves out omms's own capture sessions by title.
+        isStructuredSummaryPromptMessage(prompt)
       ) {
         continue;
       }

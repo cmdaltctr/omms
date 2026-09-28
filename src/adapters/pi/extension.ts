@@ -7,7 +7,7 @@ import { getLanguageName } from "../../services/language-detector.js";
 import { log } from "../../services/logger.js";
 import { memoryClient } from "../../services/client.js";
 import { capturePiSettledWorkUnit, createPiCaptureState } from "./capture.js";
-import type { PiSessionEntry } from "./conversation.js";
+import type { PiSessionEntry } from "../../importer/pi-conversation.js";
 import { createPiLiveModels } from "./live-model.js";
 import { registerPiHistoryImportCommand } from "./import-command.js";
 import { performPiProfileLearning } from "./profile.js";
