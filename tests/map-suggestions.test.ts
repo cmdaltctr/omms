@@ -12,7 +12,14 @@ import {
 
 const dirs: string[] = [];
 afterEach(() => {
-  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  for (const dir of dirs.splice(0)) {
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    } catch (error) {
+      // Windows can hold a closed SQLite file for a moment (EBUSY). A leftover temp folder is harmless there.
+      if (process.platform !== "win32") throw error;
+    }
+  }
 });
 
 function root() {
