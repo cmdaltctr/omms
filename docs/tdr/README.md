@@ -36,7 +36,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [012](./012-tag-migration-touches-only-untagged-memories.md) | Tag migration touches only untagged memories                            | Proposed              | 2026-09-28 |
 | [013](./013-stable-homebrew-runtime-for-login-item.md)       | Store a stable Homebrew runtime path in the login item                  | Proposed              | 2026-09-28 |
 | [014](./014-read-opencode-v2-models-over-http.md)            | Read OpenCode v2 models through a private `opencode serve`              | Proposed              | 2026-09-28 |
-| [015](./015-wait-for-node-listen-before-owning-the-port.md)  | Wait for the Node listen result before the web app owns the port        | Proposed              | 2026-09-29 |
+| [015](./015-wait-for-node-listen-outcome.md)                 | Wait for the Node listen outcome before claiming the web port           | Proposed              | 2026-09-29 |
 
 ## Status values
 

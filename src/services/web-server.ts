@@ -92,7 +92,7 @@ export function attachNodeDisconnectHandlers(
   res.on("close", disconnectOnce);
 }
 
-async function serveFetch(opts: {
+function serveFetch(opts: {
   port: number;
   hostname: string;
   fetch: (req: Request) => Promise<Response>;
@@ -105,7 +105,7 @@ async function serveFetch(opts: {
       hostname: opts.hostname,
       fetch: opts.fetch,
     });
-    return { stop: () => bunHandle.stop() };
+    return Promise.resolve({ stop: () => bunHandle.stop() });
   }
 
   // Node path: wrap node:http around the fetch-style handler. The adapter
@@ -164,32 +164,35 @@ async function serveFetch(opts: {
     }
   });
 
+  server.unref();
   server.timeout = NODE_HTTP_IDLE_TIMEOUT_MS;
   server.keepAliveTimeout = 10000;
   server.headersTimeout = 11000;
-  // Node reports EADDRINUSE after `listen` returns. Wait for the outcome so
-  // callers see the already-running-instance case the same way as under Bun.
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
+
+  // Node reports EADDRINUSE after listen() returns, so wait for the outcome.
+  // Callers then see a busy port the same way they do under Bun.
+  return new Promise((resolve, reject) => {
+    const onError = (error: NodeJS.ErrnoException) => {
+      server.off("listening", onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off("error", onError);
+      // Keep a listener, so a later server error is logged instead of crashing the process.
+      server.on("error", (error) => log("Web server error", { error: String(error) }));
+      resolve({
+        stop: () => {
+          server.closeAllConnections();
+          server.close();
+        },
+      });
+    };
+    server.once("error", onError);
+    server.once("listening", onListening);
     // exclusive: false disables SO_EXCLUSIVEADDRUSE on Windows, allowing
     // rebind after a crashed predecessor left orphaned sockets behind.
-    server.listen(
-      { port: opts.port, host: opts.hostname, reuseAddr: true, exclusive: false },
-      () => {
-        server.off("error", reject);
-        resolve();
-      }
-    );
+    server.listen({ port: opts.port, host: opts.hostname, reuseAddr: true, exclusive: false });
   });
-  // Later socket errors must not crash the host process.
-  server.on("error", () => {});
-  server.unref();
-  return {
-    stop: () => {
-      server.closeAllConnections();
-      server.close();
-    },
-  };
 }
 
 const __filename = fileURLToPath(import.meta.url);
