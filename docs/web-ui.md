@@ -13,6 +13,18 @@ Four things can serve the page. They all use the same port, settings, and memory
 
 Pi does not serve the page. If OpenCode starts while another OMMS process serves the page, OpenCode uses that one instead of starting a second server.
 
+### Port ownership and step-aside
+
+One OMMS process owns the port. A process that finds the port busy waits and checks every 5 seconds. It takes the port only when the owner stops answering.
+
+`om-memory-system web install` can ask an older owner to step aside. The request is `POST /api/web/step-aside`. It needs the local API token (`~/.omms/.auth-token`) and a loopback caller. The owner refuses with `409` when the caller is not newer than itself.
+
+- A standalone web app (`om-memory-system web` or the login item) exits with code `0`.
+- A web app inside an OpenCode session stops serving. The session keeps running. The web app waits 60 seconds before it can take the port back, so the login item can bind first.
+- Each request writes one log record with the outcome (`stepped_aside`, `refused_not_newer`, or `refused_auth`) and both versions. The log never holds the token.
+
+OMMS 3.5.0 and earlier have no step-aside route. Stop those web apps by hand.
+
 A global install of the terminal command is optional but recommended. With it, the login item and the commands run without `npx`:
 
 ```bash

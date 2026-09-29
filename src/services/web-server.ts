@@ -8,9 +8,12 @@ import { corsPreflightResponse, disallowedCorsResponse, isAllowedBrowserOrigin }
 import {
   assertWebServerNetworkAuth,
   authorizeApiRequest,
+  isLoopbackAddress,
   isLoopbackHost,
   webServerUrl,
 } from "./web-api-auth.js";
+import { packageVersion } from "./package-version.js";
+import { isOlderVersion } from "./version-compare.js";
 import { getOrCreateAuthToken, isAuthorizedApiRequest } from "./auth-token.js";
 import { WebAuth } from "./web-auth.js";
 import { NODE_HTTP_IDLE_TIMEOUT_MS } from "./request-timeouts.js";
@@ -95,15 +98,16 @@ export function attachNodeDisconnectHandlers(
 function serveFetch(opts: {
   port: number;
   hostname: string;
-  fetch: (req: Request) => Promise<Response>;
+  fetch: (req: Request, remoteAddress?: string) => Promise<Response>;
 }): Promise<PortableServerHandle> {
   if (isBun) {
+    type BunServer = { requestIP(req: Request): { address: string } | null };
     const bunHandle = (
       globalThis as unknown as { Bun: { serve: (opts: unknown) => { stop: () => void } } }
     ).Bun.serve({
       port: opts.port,
       hostname: opts.hostname,
-      fetch: opts.fetch,
+      fetch: (req: Request, server: BunServer) => opts.fetch(req, server.requestIP(req)?.address),
     });
     return Promise.resolve({ stop: () => bunHandle.stop() });
   }
@@ -136,7 +140,7 @@ function serveFetch(opts: {
         ...(hasBody ? ({ duplex: "half" } as Record<string, unknown>) : {}),
       });
 
-      const webRes = await opts.fetch(webReq);
+      const webRes = await opts.fetch(webReq, req.socket.remoteAddress);
       if (destroyed) return;
       res.statusCode = webRes.status;
       webRes.headers.forEach((value, name) => res.setHeader(name, value));
@@ -223,7 +227,13 @@ interface WebServerConfig {
   enabled: boolean;
   auth?: WebAuth;
   apiToken?: string;
+  /** How long a stepped-aside server waits before it may take the port back. */
+  stepAsideHoldOffMs?: number;
 }
+
+const STEP_ASIDE_HOLD_OFF_MS = 60_000;
+/** Lets the 202 reply reach the caller before the server stops. */
+const STEP_ASIDE_REPLY_GRACE_MS = 100;
 
 export class WebServer {
   private server: PortableServerHandle | null = null;
@@ -233,6 +243,9 @@ export class WebServer {
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private onTakeoverCallback: (() => Promise<void>) | null = null;
   private onPortsExhaustedCallback: (() => void) | null = null;
+  private onStepAsideCallback: (() => void | Promise<void>) | null = null;
+  private stepAsideTimer: NodeJS.Timeout | null = null;
+  private holdOffTimer: NodeJS.Timeout | null = null;
   private portsExhaustedNotified = false;
   private takeoverFailures: number = 0;
   private readonly maxFallbackPort: number;
@@ -295,6 +308,60 @@ export class WebServer {
 
   setOnPortsExhaustedCallback(callback: () => void): void {
     this.onPortsExhaustedCallback = callback;
+  }
+
+  /** Standalone web apps register this to exit when a newer OMMS asks them to step aside. */
+  setOnStepAside(callback: () => void | Promise<void>): void {
+    this.onStepAsideCallback = callback;
+  }
+
+  private scheduleStepAside(): void {
+    if (this.stepAsideTimer) return;
+    this.stepAsideTimer = setTimeout(async () => {
+      this.stepAsideTimer = null;
+      if (this.onStepAsideCallback) {
+        try {
+          await this.onStepAsideCallback();
+        } catch (error) {
+          log("Step-aside callback error", { error: String(error) });
+        }
+        return;
+      }
+      // Inside a host session: stop serving, keep the session alive, and let the
+      // newer web app bind the port before the takeover loop can run again.
+      await this.stop();
+      this.startPromise = null;
+      this.holdOffTimer = setTimeout(() => {
+        this.holdOffTimer = null;
+        this.startHealthCheckLoop();
+      }, this.config.stepAsideHoldOffMs ?? STEP_ASIDE_HOLD_OFF_MS);
+      this.holdOffTimer.unref();
+    }, STEP_ASIDE_REPLY_GRACE_MS);
+    this.stepAsideTimer.unref();
+  }
+
+  private handleStepAside(remoteAddress: string | undefined, body: unknown): Response {
+    const callerVersion =
+      body && typeof (body as { version?: unknown }).version === "string"
+        ? (body as { version: string }).version.slice(0, 40)
+        : "";
+    const record = (outcome: string) =>
+      log("Web server step-aside request", {
+        outcome,
+        ownVersion: packageVersion(),
+        callerVersion,
+      });
+    if (!isLoopbackAddress(remoteAddress)) {
+      record("refused_auth");
+      return this.jsonResponse({ success: false, error: "Loopback caller required" }, 403);
+    }
+    if (!callerVersion || !isOlderVersion(packageVersion(), callerVersion)) {
+      record("refused_not_newer");
+      return this.jsonResponse({ success: false, error: "Caller is not newer" }, 409);
+    }
+    record("stepped_aside");
+    this.scheduleStepAside();
+    return this.jsonResponse({ success: true }, 202);
   }
 
   async start(): Promise<void> {
@@ -454,6 +521,9 @@ export class WebServer {
 
   async stop(): Promise<void> {
     this.stopHealthCheckLoop();
+    for (const timer of [this.stepAsideTimer, this.holdOffTimer]) if (timer) clearTimeout(timer);
+    this.stepAsideTimer = null;
+    this.holdOffTimer = null;
 
     if (!this.isOwner || !this.server) {
       return;
@@ -507,7 +577,7 @@ export class WebServer {
 
   // --- HTTP request handling ---
 
-  private async handleRequest(req: Request): Promise<Response> {
+  private async handleRequest(req: Request, remoteAddress?: string): Promise<Response> {
     const url = new URL(req.url);
     const path = url.pathname;
     const method = req.method;
@@ -538,6 +608,13 @@ export class WebServer {
         ? authorizeApiRequest(req, this.config.apiToken)
         : null;
       if (!this.config.apiToken || configuredTokenFailure) {
+        if (path === "/api/web/step-aside") {
+          log("Web server step-aside request", {
+            outcome: "refused_auth",
+            ownVersion: packageVersion(),
+            callerVersion: "",
+          });
+        }
         return (
           configuredTokenFailure ??
           this.jsonResponse({ success: false, error: "Unauthorized" }, 401)
@@ -616,6 +693,11 @@ export class WebServer {
               ? controls.resume(host, cwd)
               : controls.runNow(host, cwd)
         );
+      }
+
+      if (path === "/api/web/step-aside" && method === "POST") {
+        const body = await req.json().catch(() => null);
+        return this.handleStepAside(remoteAddress, body);
       }
 
       if (path === "/api/settings/version" && method === "GET") {
