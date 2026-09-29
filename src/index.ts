@@ -3,7 +3,6 @@ import type { Part } from "@opencode-ai/sdk";
 import { tool } from "@opencode-ai/plugin";
 
 import { memoryClient } from "./services/client.js";
-import { formatContextForPrompt } from "./services/context.js";
 import { getTags } from "./services/tags.js";
 import { performAutoCapture } from "./services/auto-capture.js";
 import { createOpenCodeAutoCaptureHost } from "./adapters/opencode/auto-capture-host.js";
@@ -19,7 +18,7 @@ import {
   latestUserMessageModel,
   runOpencodeImportCommand,
 } from "./adapters/opencode/import-command.js";
-import { formatMemoriesForCompaction } from "./core/retrieval.js";
+import { buildRecentMemoriesSection, formatMemoriesForCompaction } from "./core/retrieval.js";
 import { performUserProfileLearning } from "./adapters/opencode/profile-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
 import { startWebServer, WebServer } from "./services/web-server.js";
@@ -589,35 +588,14 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
 
         if (!shouldInject) return;
 
-        const listResult = await memoryClient.listMemories(
-          tags.project.tag,
-          CONFIG.chatMessage.maxMemories
-        );
-
-        let memories = listResult.success ? listResult.memories : [];
-
-        if (CONFIG.chatMessage.excludeCurrentSession) {
-          memories = memories.filter((m: any) => m.metadata?.sessionID !== input.sessionID);
-        }
-
-        if (CONFIG.chatMessage.maxAgeDays) {
-          const cutoffDate = Date.now() - CONFIG.chatMessage.maxAgeDays * 86400000;
-          memories = memories.filter((m: any) => new Date(m.createdAt).getTime() > cutoffDate);
-        }
-
-        if (memories.length === 0) return;
-
-        const projectMemories = {
-          results: memories.map((m: any) => ({
-            similarity: 1.0,
-            memory: m.summary,
-          })),
-          total: memories.length,
-          timing: 0,
-        };
-
-        const userId = tags.user.userEmail || null;
-        const memoryContext = await formatContextForPrompt(userId, projectMemories);
+        const memoryContext = await buildRecentMemoriesSection({
+          projectTag: tags.project.tag,
+          userEmail: tags.user.userEmail,
+          sessionId: input.sessionID,
+          maxMemories: CONFIG.chatMessage.maxMemories,
+          excludeCurrentSession: CONFIG.chatMessage.excludeCurrentSession,
+          maxAgeDays: CONFIG.chatMessage.maxAgeDays,
+        });
 
         if (memoryContext) {
           const contextPart: Part = {

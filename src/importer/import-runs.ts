@@ -47,7 +47,9 @@ async function table(storagePath?: string) {
     samples TEXT, paused INTEGER NOT NULL DEFAULT 0
   )`);
   // A row per host keeps every later statement a plain UPDATE.
-  await db.run("INSERT OR IGNORE INTO import_runs (host) VALUES ('pi'), ('opencode')");
+  await db.run(
+    "INSERT OR IGNORE INTO import_runs (host) VALUES ('pi'), ('opencode'), ('claude-code')"
+  );
   return db;
 }
 

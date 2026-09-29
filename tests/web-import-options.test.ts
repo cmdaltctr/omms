@@ -45,3 +45,19 @@ it("never turns page options into session, max-sessions, or source flags", () =>
   );
   expect(tokens).toEqual([]);
 });
+
+it("parses Claude Code page options like its CLI flags, with no model", () => {
+  const page = { dryRun: true, scope: "all-projects" as const, since: "2026-01-01" };
+  const pageArgs = parseHistoryImportArgs(webImportTokens(page, "claude-code"), {
+    host: "claude-code",
+    surface: "web",
+  });
+  expect(pageArgs.errors).toEqual([]);
+  expect(pageArgs).toEqual(
+    parseHistoryImportArgs(["--dry-run", "--scope", "all-projects", "--since", "2026-01-01"], {
+      host: "claude-code",
+      surface: "cli",
+    })
+  );
+  expect(pageArgs.model).toBeUndefined();
+});

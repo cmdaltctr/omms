@@ -98,3 +98,41 @@ it("keeps the OpenCode import models to a live session", async () => {
   expect(standaloneReads).toBe(0);
   expect(readiness.opencode).toEqual({ available: false, models: [] });
 });
+
+it("lists Claude Code with its default folder and the external API as its only model", async () => {
+  configure({});
+  const readiness = await importReadiness({ ...deps, claudeRoot: () => "/nonexistent/projects" });
+  expect(readiness.claudeCode).toEqual({
+    available: true,
+    defaultRoot: "/nonexistent/projects",
+    defaultRootFound: false,
+    modelChoices: ["external"],
+  });
+  expect(importBlockedReason(readiness, { host: "claude-code", needsModel: false })).toBeNull();
+  // With no choice, a Claude Code import uses the external API.
+  expect(importBlockedReason(readiness, { host: "claude-code", needsModel: true })).toBeNull();
+  expect(
+    importBlockedReason(readiness, {
+      host: "claude-code",
+      needsModel: true,
+      modelChoice: "external",
+    })
+  ).toBeNull();
+  // A connected OpenCode model is still refused: Claude Code has no host models.
+  expect(
+    importBlockedReason(readiness, {
+      host: "claude-code",
+      needsModel: true,
+      modelChoice: "zai/glm",
+    })
+  ).toBe("Claude Code imports use the external API");
+});
+
+it("reports the missing external API setting for a Claude Code import", async () => {
+  configure({ memoryApiUrl: undefined });
+  const readiness = await importReadiness(deps);
+  expect(importBlockedReason(readiness, { host: "claude-code", needsModel: true })).toBe(
+    "The external API has no memoryApiUrl in the global config"
+  );
+  expect(importBlockedReason(readiness, { host: "claude-code", needsModel: false })).toBeNull();
+});

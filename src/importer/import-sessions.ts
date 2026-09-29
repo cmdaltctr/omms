@@ -23,7 +23,10 @@ export const MAX_SELECTED_KEYS = 1000;
 const MAX_PAGE = 200;
 
 export interface ImportSessionRow {
-  /** Selection key: the OpenCode session ID, or the Pi file path relative to the source. */
+  /**
+   * Selection key: the OpenCode session ID, or the Pi or Claude Code file path
+   * relative to the source.
+   */
   key: string;
   sessionId: string | null;
   createdAt: number | null;
@@ -65,6 +68,17 @@ async function readRows(
 ): Promise<ImportSessionRow[]> {
   if (options.host === "pi") {
     return discoverPiSessions({ root: identity.realPath }).sessions.map((session) => ({
+      key: session.key,
+      sessionId: session.sessionId,
+      createdAt: session.timestamp,
+      recordedDirectory: session.cwd,
+      ...resolveImportProject(session.cwd, options.pathMaps),
+    }));
+  }
+  if (options.host === "claude-code") {
+    // The reader loads the storage engine, so it stays out of this module's static imports.
+    const { discoverClaudeSessions } = await import("./claude-reader.js");
+    return discoverClaudeSessions({ root: identity.realPath }).sessions.map((session) => ({
       key: session.key,
       sessionId: session.sessionId,
       createdAt: session.timestamp,
@@ -173,7 +187,9 @@ export interface SessionListRequest {
 export function validateSessionListRequest(value: unknown): SessionListRequest {
   const input = value as Record<string, unknown> | null;
   if (!input || typeof input !== "object") throw new Error("Invalid session list request");
-  if (input.host !== "pi" && input.host !== "opencode") throw new Error("Choose Pi or OpenCode");
+  if (input.host !== "pi" && input.host !== "opencode" && input.host !== "claude-code") {
+    throw new Error("Choose Pi, OpenCode, or Claude Code");
+  }
   const scope = input.scope ?? "current-project";
   if (scope !== "current-project" && scope !== "all-projects") throw new Error("Invalid scope");
   const project = input.project;

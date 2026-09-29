@@ -5,6 +5,7 @@ import type { HistoryImportArgs, ImportHost } from "./import-args.js";
 import type { ImportPathMap, ImportReport } from "./importer.js";
 import type { UnresolvedProject } from "./opencode-project.js";
 import type { ImportSurface } from "./import-runs.js";
+import { hostLabel } from "../types/host-label.js";
 
 /** The two model roles an import uses; absent in a dry run or when the step is skipped. */
 export interface HistoryImportModels {
@@ -51,7 +52,7 @@ const dryRunCapture: CaptureSummaryProvider = {
 /** Another process or surface holds this host's import lock. */
 export class ImportAlreadyRunningError extends Error {
   constructor(host: ImportHost) {
-    super(`${host === "pi" ? "A Pi" : "An OpenCode"} import is already running`);
+    super(`${host === "opencode" ? "An" : "A"} ${hostLabel(host)} import is already running`);
     this.name = "ImportAlreadyRunningError";
   }
 }
@@ -178,38 +179,42 @@ async function runUntracked(
     });
   }
 
+  const deps = {
+    provider: capture,
+    ...(run.onProgress ? { onProgress: run.onProgress } : {}),
+    ...(run.signal ? { signal: run.signal } : {}),
+    ...(!args.skipProfile
+      ? {
+          profile: {
+            ...(run.models.profile ? { model: run.models.profile } : {}),
+            ...(args.profileBatch ? { batchSize: args.profileBatch } : {}),
+          },
+        }
+      : {}),
+  };
+  const filters = {
+    scope: args.scope,
+    currentDirectory: project ?? run.cwd,
+    ...(args.session ? { session: args.session } : {}),
+    ...(run.selection ? { selectionKeys: run.selection.keys, cutoff: run.selection.cutoff } : {}),
+    ...(args.since !== undefined ? { since: args.since } : {}),
+    ...(args.until !== undefined ? { until: args.until } : {}),
+    ...(args.maxSessions ? { maxSessions: args.maxSessions } : {}),
+    ...(args.source ? { root: at(args.source) } : {}),
+    force: args.force,
+    dryRun: args.dryRun,
+    skipMemories: args.skipMemories,
+    pathMaps,
+  };
+
+  if (host === "claude-code") {
+    const { importClaudeHistory } = await import("./claude-import.js");
+    return importClaudeHistory(deps, filters);
+  }
+
   const { importPiHistory } = await import("./importer.js");
   const { loadPiSessionForImport } = await import("./session-loader.js");
-  return importPiHistory(
-    {
-      loadSession: loadPiSessionForImport,
-      provider: capture,
-      ...(run.onProgress ? { onProgress: run.onProgress } : {}),
-      ...(run.signal ? { signal: run.signal } : {}),
-      ...(!args.skipProfile
-        ? {
-            profile: {
-              ...(run.models.profile ? { model: run.models.profile } : {}),
-              ...(args.profileBatch ? { batchSize: args.profileBatch } : {}),
-            },
-          }
-        : {}),
-    },
-    {
-      scope: args.scope,
-      currentDirectory: project ?? run.cwd,
-      ...(args.session ? { session: args.session } : {}),
-      ...(run.selection ? { selectionKeys: run.selection.keys, cutoff: run.selection.cutoff } : {}),
-      ...(args.since !== undefined ? { since: args.since } : {}),
-      ...(args.until !== undefined ? { until: args.until } : {}),
-      ...(args.maxSessions ? { maxSessions: args.maxSessions } : {}),
-      ...(args.source ? { root: at(args.source) } : {}),
-      force: args.force,
-      dryRun: args.dryRun,
-      skipMemories: args.skipMemories,
-      pathMaps,
-    }
-  );
+  return importPiHistory({ ...deps, loadSession: loadPiSessionForImport }, filters);
 }
 
 /** The same plain-text report for every host and surface. */
@@ -218,9 +223,7 @@ export function formatHistoryImportReport(
   report: HistoryImportReport,
   model?: string
 ): string {
-  const lines = [
-    `${host === "pi" ? "Pi" : "OpenCode"} history import${report.dryRun ? " (dry-run)" : ""}`,
-  ];
+  const lines = [`${hostLabel(host)} history import${report.dryRun ? " (dry-run)" : ""}`];
   if (model) lines.push(`  model: ${model}`);
   lines.push(
     `  sessions: ${report.sessionsLoaded}/${report.sessionsDiscovered} loaded, ${report.sessionsFilteredOut} filtered out` +

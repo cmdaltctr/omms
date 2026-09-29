@@ -1,4 +1,5 @@
 import { externalModelIssues } from "../services/ai/live-model-choice.js";
+import { hostLabel } from "../types/host-label.js";
 import type { BackfillHost } from "./backfill-model.js";
 import type { SelectedImportModel } from "./model-selection.js";
 import type { HistoryImportModels } from "./run-import.js";
@@ -17,8 +18,7 @@ export async function resolveExternalBackfillModels(
   externalModels?: (flags: Record<string, never>) => SelectedImportModel
 ): Promise<{ model: string; models: HistoryImportModels }> {
   const issues = externalModelIssues(config);
-  const label = host === "pi" ? "Pi" : "OpenCode";
-  if (issues.length > 0) throw new Error(`${label} backfill: ${issues.join("; ")}`);
+  if (issues.length > 0) throw new Error(`${hostLabel(host)} backfill: ${issues.join("; ")}`);
   const select = externalModels ?? (await import("./model-selection.js")).selectImportModel;
   const external = select({});
   return {

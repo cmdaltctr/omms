@@ -1,6 +1,6 @@
 # Configuration
 
-OMMS works with no configuration. This page covers the settings you may want to change. OpenCode and Pi read the same files and share one store.
+OMMS works with no configuration. This page covers the settings you may want to change. OpenCode, Pi, and Claude Code read the same files and share one store.
 
 ## Where the settings live
 
@@ -89,13 +89,13 @@ Open the Settings page in the login web app, in OpenCode, or with `om-memory-sys
 - `captureRetryRetentionHours` defaults to 72. It accepts whole hours from 0 to 720. 0 turns the capture retry queue off, and saving 0 deletes the waiting turns at once.
 - Choosing **Session model** writes `inherit` to the host's model key. That choice takes priority over a configured external API.
 - Choosing a manual model writes the selected host provider and model.
-- OpenCode and Pi reload changed config files at the next capture or profile-learning run. You do not need to restart.
+- OpenCode, Pi, and the web app that serves Claude Code reload changed config files at the next capture or profile-learning run. You do not need to restart.
 - On a legacy-only install, the first save copies the old config and its comments to `~/.config/omms/omms.jsonc`. OMMS reads the new file from then on. The old file stays unchanged.
 - The page rejects a save if the file changed since the page loaded it. Check the refreshed values, then save again.
 
 ## Automatic history import and login web app
 
-`autoBackfill` defaults to `true`. About 30 seconds after Pi or OpenCode starts, that host imports its own past chats in the background.
+`autoBackfill` defaults to `true`. About 30 seconds after Pi or OpenCode starts, that host imports its own past chats in the background. For Claude Code, the web app runs the backfill after the first Claude Code session start that reaches it. See [Claude Code history import](claude-code-history-import.md#automatic-import).
 
 - It covers projects whose directories resolve, and it records profile prompts.
 - It resumes from the ledger after a restart.
@@ -125,6 +125,7 @@ On the Settings page you can **Run now**, **Pause**, and **Resume** each host's 
 - A signed-in `provider/model` chooses another backfill model without changing live capture.
 - Any other value is a config error.
 - If no model is available, the backfill stops and records an error.
+- Claude Code has no backfill model setting. Its backfill always uses the external API. There is no `claudeBackfillModel` key.
 
 `webServerAutoStart` defaults to `true`. When `webServerEnabled` is also true, OMMS registers a per-user login item for the web app.
 
@@ -154,6 +155,15 @@ Auto-capture and profile learning send a background AI request. It summarises te
    - Set it to `"external"` to send every call to the external API. The provider value is then ignored.
 2. **External API:** if no host model is set, `memoryModel`, `memoryApiUrl`, and `memoryApiKey` (below).
 3. **Session model:** if neither is set, the session's own model.
+
+Claude Code uses step 2 only. Its hooks cannot call the Claude Code session's
+model, so there is no Claude Code host model setting and no session model path.
+
+- Set `memoryModel`, `memoryApiUrl`, and `memoryApiKey` to turn on Claude Code capture and profile learning.
+- When the external API is not fully configured, Claude Code capture and profile learning are off. The web app logs the missing settings once, and the Settings page shows them.
+- Retrieval and the `om-memory-system memory` command work without the external API.
+
+See [Claude Code adapter](claude-code-adapter.md#the-external-api-is-required).
 
 How failures are handled:
 
@@ -274,7 +284,7 @@ If you change `embeddingModel` or the dimensions, OMMS can re-embed stored memor
 
 ## Capture diagnostics
 
-Every capture attempt, on Pi and OpenCode, for live capture and history
+Every capture attempt, on Pi, OpenCode, and Claude Code, for live capture and history
 imports, writes one `Capture attempt` line to `~/.omms/omms.log`. The line
 holds metadata only: host, source (`live-capture` or `history-import`),
 session ID, extraction path (`host-model` or `external-api`), provider, model,
@@ -358,6 +368,7 @@ key, a bad request or a bad model reply.
 ## Troubleshooting
 
 - Auto-capture failures do not block manual `memory` tool usage.
+- If Claude Code captures nothing, look for `Claude Code capture is off` in `~/.omms/omms.log`. It names the missing external API settings. See [Claude Code adapter: Troubleshooting](claude-code-adapter.md#troubleshooting).
 - To find out why captures fail, read the `reason` in the `Capture attempt` log lines, or turn on a capture trace. See [Capture diagnostics](#capture-diagnostics).
 - If auto-capture reports that a provider is not connected, confirm the provider name with `opencode providers list` and configure that provider in opencode first.
 - If a proxy or custom provider returns plain text instead of structured/tool output, choose another model/provider or use one of the manual provider modes above.

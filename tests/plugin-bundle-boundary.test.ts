@@ -60,6 +60,20 @@ describe("OpenCode plugin loader bundle boundary", () => {
     expect(text).not.toContain("getVercelOidcToken");
   }, 30_000);
 
+  it("keeps the Claude Code hook client out of the OpenCode and Pi bundles", () => {
+    // The bundler marks each module with a `// dist/<path>` comment. The CLI
+    // bundle loads the hook command, so it proves the marker check works.
+    expect(buildDistEntry("./dist/cli/index.js").text).toContain("dist/adapters/claude-code/");
+
+    // Collect entry names so a failure lists them instead of printing a whole bundle.
+    const leaking = [
+      "./dist/plugin.js",
+      "./dist/v2/plugin.js",
+      "./dist/adapters/pi/extension.js",
+    ].filter((entry) => buildDistEntry(entry).text.includes("adapters/claude-code"));
+    expect(leaking).toEqual([]);
+  }, 30_000);
+
   it("resolves the provider module from a single-file bundled lazy loader", async () => {
     const { path, text } = buildDistEntry("./dist/adapters/opencode/opencode-provider-loader.js");
 

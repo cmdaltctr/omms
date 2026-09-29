@@ -6,6 +6,7 @@ import { readGlobalConfigRevision } from "./global-config-writer.js";
 import {
   getAutoCaptureProviderStatus,
   isExternalModelReady,
+  resolveClaudeCodeLiveModel,
   resolvePiLiveModel,
 } from "./ai/live-model-choice.js";
 
@@ -105,6 +106,8 @@ export function getSettingsSnapshot(directory: string) {
     effective: {
       opencode: getAutoCaptureProviderStatus(CONFIG),
       pi: resolvePiLiveModel(CONFIG),
+      // Claude Code capture uses the external API only; `issues` names each missing setting.
+      "claude-code": resolveClaudeCodeLiveModel(CONFIG),
     },
   };
 }

@@ -1,5 +1,5 @@
 export type MemoryType = string;
-export type MemoryHost = "opencode" | "pi";
+export type MemoryHost = "opencode" | "pi" | "claude-code";
 export type MemorySourceType = "live-capture" | "history-import";
 
 export interface MemoryMetadata {

@@ -9,13 +9,19 @@ import {
 } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import { externalMissing, hostModelEdit } from "$lib/external-api-settings";
+import { hostLabel } from "$lib/host-label";
+import { ClaudeCaptureStatus, type ClaudeCaptureState } from "./ClaudeCaptureStatus";
 
 type Setting = { value?: string; globalValue?: string; source: string };
 type Snapshot = {
   revision: string;
   settings: Record<string, Setting>;
   fallback: { model: string | null; configured: boolean };
-  effective: { opencode: { mode?: string; ready: boolean }; pi: { kind: string } };
+  effective: {
+    opencode: { mode?: string; ready: boolean };
+    pi: { kind: string };
+    "claude-code"?: ClaudeCaptureState;
+  };
   secrets: Record<string, { set: boolean; source: string | null }>;
 };
 type Model = { provider: string; model: string; name: string };
@@ -130,6 +136,7 @@ export function ModelsSection() {
           onSave={(choice) => save(host, choice)}
         />
       ))}
+      <ClaudeCaptureStatus status={snapshot?.effective["claude-code"]} />
       <div className="text-xs text-muted-foreground">
         {s("Credentials (values hidden)")}:{" "}
         {snapshot &&
@@ -158,7 +165,7 @@ function ModelCard({
   busy,
   onSave,
 }: {
-  host: string;
+  host: "opencode" | "pi";
   model?: Setting;
   provider?: Setting;
   effective?: string;
@@ -187,7 +194,7 @@ function ModelCard({
   const typed = manual ?? savedModel;
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
-      <h3 className="font-medium">{host === "pi" ? "Pi" : "OpenCode"}</h3>
+      <h3 className="font-medium">{hostLabel(host)}</h3>
       <p className="text-xs text-muted-foreground">
         {s("Effective model")}:{" "}
         {model?.value === "external" && effective === "manual"
@@ -228,7 +235,7 @@ function ModelCard({
       {current === "manual" && list?.available && options.length > 0 && (
         <Select
           className="w-full rounded-lg border border-border bg-background p-2 text-sm"
-          aria-label={`${host === "pi" ? "Pi" : "OpenCode"} ${s("Model")}`}
+          aria-label={`${hostLabel(host)} ${s("Model")}`}
           value={useTyped ? "typed" : selectedModel}
           onChange={(event) => setPicked(event.target.value)}
         >

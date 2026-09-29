@@ -26,6 +26,9 @@ it("keeps the manual field visible when typed text matches a listed model", () =
 it("polls only while a host is running", () => {
   expect(shouldPollBackfill({ pi: { state: "running" }, opencode: null })).toBe(true);
   expect(shouldPollBackfill({ pi: { state: "done" }, opencode: { state: "failed" } })).toBe(false);
+  expect(
+    shouldPollBackfill({ pi: null, opencode: null, "claude-code": { state: "running" } })
+  ).toBe(true);
 });
 
 it("renders both Settings sections with the global switches and the running poll", () => {
@@ -40,4 +43,7 @@ it("renders both Settings sections with the global switches and the running poll
   expect(web).toContain("webServerAutoStart");
   expect(view).toContain("<AutoImportSection />");
   expect(view).toContain("<WebAppSection />");
+  // Claude Code gets a backfill card without a model select.
+  expect(automatic).toContain('"claude-code"');
+  expect(automatic).toContain('host === "claude-code" ? (');
 });

@@ -28,6 +28,7 @@ const {
   getAutoCaptureProviderStatus,
   isExternalModelReady,
   resolveOpencodeHostModel,
+  resolveClaudeCodeLiveModel,
   resolvePiLiveModel,
 } = await import("../src/services/ai/live-model-choice.js");
 const { createPiLiveModels } = await import("../src/adapters/pi/live-model.js");
@@ -128,6 +129,88 @@ describe("the external host model value", () => {
     };
     expect(getAutoCaptureProviderStatus(both)).toMatchObject({ mode: "opencode" });
     expect(resolvePiLiveModel(both)).toEqual({ kind: "manual" });
+  });
+});
+
+describe("Claude Code live model", () => {
+  it("uses the external API when it is fully configured", () => {
+    expect(resolveClaudeCodeLiveModel({ ...none, ...external })).toEqual({
+      ready: true,
+      mode: "manual",
+      issues: [],
+    });
+  });
+
+  it("reports each missing external API setting", () => {
+    expect(resolveClaudeCodeLiveModel({ ...none, ...external, memoryModel: undefined })).toEqual({
+      ready: false,
+      issues: ["memoryModel is not configured"],
+    });
+    expect(resolveClaudeCodeLiveModel({ ...none, ...external, memoryApiUrl: undefined })).toEqual({
+      ready: false,
+      issues: ["memoryApiUrl is not configured"],
+    });
+    expect(resolveClaudeCodeLiveModel({ ...none, ...external, memoryApiKey: undefined })).toEqual({
+      ready: false,
+      issues: ["memoryApiKey is not configured"],
+    });
+    expect(resolveClaudeCodeLiveModel({ ...none, ...external, memoryApiKey: "sk-..." })).toEqual({
+      ready: false,
+      issues: ["memoryApiKey contains a placeholder value"],
+    });
+  });
+
+  it("needs only an API key for orcarouter", () => {
+    const orcarouter = { ...none, memoryProvider: "orcarouter" };
+    expect(resolveClaudeCodeLiveModel({ ...orcarouter, memoryApiKey: "real-key" })).toEqual({
+      ready: true,
+      mode: "manual",
+      issues: [],
+    });
+    expect(resolveClaudeCodeLiveModel(orcarouter)).toEqual({
+      ready: false,
+      issues: ["memoryApiKey is not configured"],
+    });
+  });
+
+  it("is not ready when nothing is configured, with no session model path", () => {
+    expect(resolveClaudeCodeLiveModel(none)).toEqual({
+      ready: false,
+      issues: [
+        "memoryModel is not configured",
+        "memoryApiUrl is not configured",
+        "memoryApiKey is not configured",
+      ],
+    });
+  });
+
+  it("ignores the OpenCode and Pi host models", () => {
+    const hosts = {
+      ...none,
+      opencodeProvider: "openai",
+      opencodeModel: "gpt-5.6-luna",
+      piProvider: "zai",
+      piModel: "inherit",
+    };
+    expect(resolveClaudeCodeLiveModel(hosts)).toMatchObject({ ready: false });
+    expect(resolveClaudeCodeLiveModel({ ...hosts, ...external })).toMatchObject({
+      mode: "manual",
+    });
+  });
+
+  it("leaves the OpenCode and Pi results unchanged", () => {
+    expect(getAutoCaptureProviderStatus(none)).toEqual({
+      ready: true,
+      mode: "session",
+      issues: [],
+    });
+    expect(resolvePiLiveModel(none)).toEqual({ kind: "session" });
+    expect(getAutoCaptureProviderStatus({ ...none, ...external })).toEqual({
+      ready: true,
+      mode: "manual",
+      issues: [],
+    });
+    expect(resolvePiLiveModel({ ...none, ...external })).toEqual({ kind: "manual" });
   });
 });
 

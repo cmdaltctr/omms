@@ -8,8 +8,10 @@ import {
   shouldPollBackfill,
   type BackfillHost,
   type ImportRunView,
+  type ModelBackfillHost,
 } from "$lib/auto-import-settings";
 import { externalMissing } from "$lib/external-api-settings";
+import { hostLabel } from "$lib/host-label";
 import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 
@@ -39,10 +41,12 @@ type Status = {
 } | null;
 type Rows = Record<BackfillHost, Status>;
 
+const HOSTS = ["pi", "opencode", "claude-code"] as const;
+
 export function AutoImportSection() {
   const s = useSettingsText();
   const [snapshot, setSnapshot] = useState<Snapshot>();
-  const [rows, setRows] = useState<Rows>({ pi: null, opencode: null });
+  const [rows, setRows] = useState<Rows>({ pi: null, opencode: null, "claude-code": null });
   const [runs, setRuns] = useState<Runs>();
   const [lists, setLists] = useState<Record<string, ModelList>>({});
   const [choices, setChoices] = useState<Partial<Record<BackfillHost, string>>>({});
@@ -50,9 +54,7 @@ export function AutoImportSection() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const polling =
-    shouldPollBackfill(rows) ||
-    runs?.pi.run?.state === "running" ||
-    runs?.opencode.run?.state === "running";
+    shouldPollBackfill(rows) || HOSTS.some((host) => runs?.[host]?.run?.state === "running");
   const loadRuns = () =>
     settingsRequest<Runs>("/api/settings/backfill/runs")
       .then(setRuns)
@@ -74,6 +76,7 @@ export function AutoImportSection() {
         if (active) setMessage(error.message);
       });
     void loadRuns();
+    // Claude Code has no backfill model setting, so it has no model list.
     for (const host of ["pi", "opencode"] as const) {
       void settingsRequest<ModelList>(`/api/settings/models?host=${host}`)
         .then((value) => {
@@ -142,7 +145,7 @@ export function AutoImportSection() {
     await loadRuns();
     setBusy(false);
   }
-  function saveModel(host: BackfillHost, choice: string) {
+  function saveModel(host: ModelBackfillHost, choice: string) {
     try {
       void save(backfillModelEdit(host, choice.trim()));
     } catch (error) {
@@ -170,7 +173,7 @@ export function AutoImportSection() {
         />
         {s("Import past chats automatically")}
       </label>
-      {(["pi", "opencode"] as const).map((host) => {
+      {HOSTS.map((host) => {
         const saved = String(snapshot?.settings[`${host}BackfillModel`]?.globalValue ?? "inherit");
         const current = choices[host] ?? saved;
         const options = lists[host]?.models ?? [];
@@ -184,72 +187,82 @@ export function AutoImportSection() {
           memoryApiUrl: snapshot?.settings.memoryApiUrl?.globalValue as string | undefined,
           keySet: Boolean(snapshot?.secrets?.memoryApiKey?.set),
         });
-        const run = runs?.[host].run ?? null;
-        const unavailable = runs?.[host].runNowUnavailable ?? null;
+        const run = runs?.[host]?.run ?? null;
+        const unavailable = runs?.[host]?.runNowUnavailable ?? null;
         const actions = backfillActions(run, unavailable);
         const progress = run?.state === "running" ? progressView(run) : null;
         const typed = manualModelFieldVisible(typedModes[host], known);
         return (
           <div key={host} className="space-y-2 rounded-lg border border-border p-3 text-sm">
-            <h3 className="font-medium">{host === "pi" ? "Pi" : "OpenCode"}</h3>
-            <label className="block">
-              {s("Backfill model")}
-              <Select
-                aria-label={`${host === "pi" ? "Pi" : "OpenCode"} ${s("Backfill model")}`}
-                className="mt-1 block w-full rounded border border-border bg-background p-2"
-                value={typed ? "typed" : current}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  setTypedModes((previous) => ({ ...previous, [host]: value === "typed" }));
-                  setChoices((previous) => ({ ...previous, [host]: value }));
-                }}
-              >
-                <option value="inherit">{s("Same as live capture")}</option>
-                <option value="external" disabled={missing.length > 0}>
-                  {s("External API")}
-                </option>
-                {options.map((item) => (
-                  <option
-                    key={`${item.provider}/${item.model}`}
-                    value={`${item.provider}/${item.model}`}
+            <h3 className="font-medium">{hostLabel(host)}</h3>
+            {host === "claude-code" ? (
+              <p className="text-muted-foreground">
+                {s(
+                  "Claude Code backfill always uses the external API. It has no backfill model setting."
+                )}
+              </p>
+            ) : (
+              <>
+                <label className="block">
+                  {s("Backfill model")}
+                  <Select
+                    aria-label={`${hostLabel(host)} ${s("Backfill model")}`}
+                    className="mt-1 block w-full rounded border border-border bg-background p-2"
+                    value={typed ? "typed" : current}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setTypedModes((previous) => ({ ...previous, [host]: value === "typed" }));
+                      setChoices((previous) => ({ ...previous, [host]: value }));
+                    }}
                   >
-                    {item.name} ({item.provider}/{item.model})
-                  </option>
-                ))}
-                <option value="typed">{s("Manual provider/model")}</option>
-              </Select>
-            </label>
-            {typed && (
-              <input
-                aria-label={`${host} ${s("Manual provider/model")}`}
-                className="w-full rounded border border-border bg-background p-2"
-                placeholder="provider/model"
-                value={current === "typed" ? "" : current}
-                onChange={(event) =>
-                  setChoices((previous) => ({ ...previous, [host]: event.target.value }))
-                }
-              />
+                    <option value="inherit">{s("Same as live capture")}</option>
+                    <option value="external" disabled={missing.length > 0}>
+                      {s("External API")}
+                    </option>
+                    {options.map((item) => (
+                      <option
+                        key={`${item.provider}/${item.model}`}
+                        value={`${item.provider}/${item.model}`}
+                      >
+                        {item.name} ({item.provider}/{item.model})
+                      </option>
+                    ))}
+                    <option value="typed">{s("Manual provider/model")}</option>
+                  </Select>
+                </label>
+                {typed && (
+                  <input
+                    aria-label={`${host} ${s("Manual provider/model")}`}
+                    className="w-full rounded border border-border bg-background p-2"
+                    placeholder="provider/model"
+                    value={current === "typed" ? "" : current}
+                    onChange={(event) =>
+                      setChoices((previous) => ({ ...previous, [host]: event.target.value }))
+                    }
+                  />
+                )}
+                {missing.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {s("External API needs")}: {missing.join(", ")}
+                  </p>
+                )}
+                {lists[host]?.available === false && (
+                  <p>
+                    {lists[host].reason
+                      ? s(lists[host].reason)
+                      : s("Model list unavailable. Enter provider/model manually.")}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className="rounded border border-border px-3 py-1.5"
+                  disabled={busy || !snapshot}
+                  onClick={() => saveModel(host, current)}
+                >
+                  {s("Save model")}
+                </button>
+              </>
             )}
-            {missing.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {s("External API needs")}: {missing.join(", ")}
-              </p>
-            )}
-            {lists[host]?.available === false && (
-              <p>
-                {lists[host].reason
-                  ? s(lists[host].reason)
-                  : s("Model list unavailable. Enter provider/model manually.")}
-              </p>
-            )}
-            <button
-              type="button"
-              className="rounded border border-border px-3 py-1.5"
-              disabled={busy || !snapshot}
-              onClick={() => saveModel(host, current)}
-            >
-              {s("Save model")}
-            </button>
             <p>
               {s("State")}:{" "}
               {run?.paused ? s("paused") : s(run?.state ?? rows[host]?.state ?? "not started")}

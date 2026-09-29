@@ -35,9 +35,72 @@ export async function buildRetrievalSection(
   return memoryContext || null;
 }
 
+export interface RecentMemoriesOptions {
+  /** Project container tag, from `getTags(directory).project.tag`. */
+  projectTag: string;
+  /** Profile owner, from `getTags(directory).user.userEmail`. */
+  userEmail: string | null | undefined;
+  sessionId: string;
+  /** `CONFIG.chatMessage.maxMemories` */
+  maxMemories?: number;
+  /** `CONFIG.chatMessage.excludeCurrentSession` */
+  excludeCurrentSession?: boolean;
+  /** `CONFIG.chatMessage.maxAgeDays` */
+  maxAgeDays?: number;
+}
+
+/**
+ * The project's most recent memories as a context section, shared by every host
+ * that injects them at session start (OpenCode's first `chat.message`, Claude
+ * Code `SessionStart`). Returns null when no memory qualifies.
+ */
+export async function buildRecentMemoriesSection(
+  options: RecentMemoriesOptions
+): Promise<string | null> {
+  const listResult = await memoryClient.listMemories(options.projectTag, options.maxMemories);
+
+  let memories = listResult.success ? listResult.memories : [];
+
+  if (options.excludeCurrentSession) {
+    memories = memories.filter((m: any) => m.metadata?.sessionID !== options.sessionId);
+  }
+
+  if (options.maxAgeDays) {
+    const cutoffDate = Date.now() - options.maxAgeDays * 86400000;
+    memories = memories.filter((m: any) => new Date(m.createdAt).getTime() > cutoffDate);
+  }
+
+  if (memories.length === 0) return null;
+
+  const projectMemories = {
+    results: memories.map((m: any) => ({
+      similarity: 1.0,
+      memory: m.summary,
+    })),
+    total: memories.length,
+    timing: 0,
+  };
+
+  const memoryContext = await formatContextForPrompt(options.userEmail || null, projectMemories);
+
+  return memoryContext || null;
+}
+
 /** Delimit a retrieval section so it is recognisable as injected memory, not user text. */
 export function wrapRetrievalSection(section: string): string {
   return `<${RETRIEVAL_SECTION_TAG}>\n${section}\n</${RETRIEVAL_SECTION_TAG}>`;
+}
+
+// Only a closed section is injected context: `wrapRetrievalSection` always closes it, and the
+// Claude Code hook keeps the closing tag when it truncates. An unclosed tag is user text.
+const RETRIEVAL_SECTION_RE = new RegExp(
+  `<${RETRIEVAL_SECTION_TAG}>[\\s\\S]*?</${RETRIEVAL_SECTION_TAG}>`,
+  "g"
+);
+
+/** Remove injected retrieval sections, so injected memories are never captured as user text. */
+export function stripRetrievalSections(text: string): string {
+  return text.replace(RETRIEVAL_SECTION_RE, "").trim();
 }
 
 const EMBEDDED_TAGS_FOOTER_RE = /\n*Tags: ([^\n]*)\s*$/;

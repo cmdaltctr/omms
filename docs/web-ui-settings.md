@@ -19,7 +19,7 @@ The page never shows a secret. For a key it shows only whether it is set and whe
 
 ## External API
 
-An external API is an OpenAI- or Anthropic-compatible endpoint that you pay for with your own key, for example a Z.ai GLM plan. Either host can use it for live capture and for importing old chats.
+An external API is an OpenAI- or Anthropic-compatible endpoint that you pay for with your own key, for example a Z.ai GLM plan. Any host can use it for live capture and for importing old chats. Claude Code capture, profile learning, and imports need it, because Claude Code has no other model path.
 
 The card sets four values:
 
@@ -74,7 +74,17 @@ Each card also shows, without letting you change it:
 - **External API fallback.** The external model used when a manual host model fails.
 - A warning when a project config overrides the host's model.
 
-The rule for choosing a model is the same on both hosts. See [Configuration: Choosing the model](configuration.md#choosing-the-model).
+The rule for choosing a model is the same on OpenCode and Pi. See [Configuration: Choosing the model](configuration.md#choosing-the-model).
+
+### Claude Code capture status
+
+Claude Code has no model card. Its capture and profile learning always use the external API. A **Claude Code** box below the OpenCode and Pi model cards shows the status:
+
+- When `memoryModel`, `memoryApiUrl`, and `memoryApiKey` are all set, it shows "Claude Code capture uses the external API."
+- When one of them is missing, it shows "Claude Code capture is off. Complete the external API settings." A **Missing settings** line names each one, for example `memoryApiKey is not configured`.
+- Retrieval and the `om-memory-system memory` command work while capture is off.
+
+`GET /api/settings` returns the same status as `effective["claude-code"]`, with `ready`, `mode`, and `issues`. See [Claude Code adapter](claude-code-adapter.md).
 
 ### Model lists
 
@@ -118,8 +128,9 @@ When a live capture fails because the capture model cannot be reached, OMMS keep
 
 - **Retry retention (hours).** How long a waiting turn is kept. The default is 72 hours. The range is 0 to 720.
 - Set it to 0 to turn the queue off. The save deletes the waiting turns at once.
-- **Turns waiting for retry** shows the number of waiting turns for Pi and for OpenCode.
+- **Turns waiting for retry** shows the number of waiting turns for Pi, OpenCode, and Claude Code.
 - **Retry now** retries that host's waiting turns at once when the host runs this web server. Otherwise the page says the turns retry at that host's next session start.
+- The web app always runs the Claude Code retry pass, so **Retry now** works for Claude Code in any web app.
 - **Retry now** is disabled when the host has no waiting turns or the queue is off.
 - Queued turns can contain conversation content. OMMS removes text inside `<private>` tags and common API key formats first.
 
@@ -142,17 +153,17 @@ This section runs checks on the parts OMMS needs, and shows a pass, warning, or 
 - **Run checks.** Check the config files, the memory store, the embedding model, the web binding, the model selection, and the capture failure rate over the last 24 hours.
 - **Run checks and test models.** Also send one short fixed prompt to each host's capture model.
 
-A session model can be tested only from inside an open session. The OpenCode web server cannot call a Pi session model.
+A session model can be tested only from inside an open session. The OpenCode web server cannot call a Pi session model. Claude Code uses the external API, so the External API card's **Test** covers it.
 
 ## Import and backfill
 
 Use this section to import past chats by hand. A backfill is an import of old chats; the next section runs one automatically.
 
-1. Choose the **History host**: Pi or OpenCode.
+1. Choose the **History host**: Pi, OpenCode, or Claude Code.
 2. Select **List sessions**. The list shows each session's date, ID, project folder, and how the folder was found. It never shows prompts or replies.
 3. Tick sessions, or select **Select all matching** to include every page.
 4. Select **Preview (dry run)**. It counts the exchanges that would be imported. It makes no model calls and writes nothing.
-5. Choose the **Import model**: a connected OpenCode model, or **Saved external API**.
+5. Choose the **Import model**: a connected OpenCode model, or **Saved external API**. A Claude Code import always uses the saved external API.
 6. Select **Start import**.
 
 While an import runs, progress updates every second. **Cancel after current unit** stops at a safe point. A later run imports the rest. The page, the terminal commands, and the automatic backfill share one record of finished work, called the ledger, so nothing is imported twice.
@@ -174,15 +185,15 @@ The page keeps the preview and the import on the same sessions:
 
 Select **Advanced options** to see these fields.
 
-| Option                                      | Effect                                                                                                      |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Source                                      | Pi: a sessions folder or one `.jsonl` file. OpenCode: a database file. The default is the host's own store. |
-| Scope                                       | **Current project** or **All projects**.                                                                    |
-| Project directory                           | The project for the current-project scope.                                                                  |
-| Prompt date from, Prompt date to            | Import only turns from these whole days, in your browser's time zone.                                       |
-| Directory maps                              | `old=new`, one per line. They apply to this import and win over saved maps for the same folder.             |
-| Profile batch size                          | Prompts per profile analysis request.                                                                       |
-| Force reimport, Skip memories, Skip profile | Import finished units again, or skip one of the two import steps (memories or the user profile).            |
+| Option                                      | Effect                                                                                                                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Source                                      | Pi: a sessions folder or one `.jsonl` file. OpenCode: a database file. Claude Code: a transcripts folder (source kind `claude-projects`). The default is the host's own store. |
+| Scope                                       | **Current project** or **All projects**.                                                                                                                                       |
+| Project directory                           | The project for the current-project scope.                                                                                                                                     |
+| Prompt date from, Prompt date to            | Import only turns from these whole days, in your browser's time zone.                                                                                                          |
+| Directory maps                              | `old=new`, one per line. They apply to this import and win over saved maps for the same folder.                                                                                |
+| Profile batch size                          | Prompts per profile analysis request.                                                                                                                                          |
+| Force reimport, Skip memories, Skip profile | Import finished units again, or skip one of the two import steps (memories or the user profile).                                                                               |
 
 Other details:
 
@@ -190,13 +201,13 @@ Other details:
 - The server reads files in place and never changes them.
 - While OpenCode runs, the server reads a private copy of its database. It first checks that the temporary folder has space for the copy.
 
-**Model readiness.** A real import needs a connected OpenCode model, when OpenCode serves the page, or a fully set up external API. A web import cannot use a Pi sign-in. `Configured, not tested.` means the settings are present. Use **Test models in Health** to try a call.
+**Model readiness.** A real import needs a connected OpenCode model, when OpenCode serves the page, or a fully set up external API. A web import cannot use a Pi sign-in. A Claude Code import needs the external API. Import readiness has a `claudeCode` entry: it shows the default folder `~/.claude/projects` and whether it exists. `Configured, not tested.` means the settings are present. Use **Test models in Health** to try a call.
 
 ## Automatic import
 
-An automatic import, or backfill, imports each host's old chats in the background. It starts about 30 seconds after Pi or OpenCode starts. It makes model calls, so it costs what your model costs.
+An automatic import, or backfill, imports each host's old chats in the background. It starts about 30 seconds after Pi or OpenCode starts. For Claude Code, it starts about 30 seconds after the first Claude Code session start that reaches the web app. It makes model calls, so it costs what your model costs.
 
-- **Import past chats automatically** turns backfill on or off for both hosts (`autoBackfill`). Turning it off stops a running backfill after its current exchange.
+- **Import past chats automatically** turns backfill on or off for every host (`autoBackfill`). Turning it off stops a running backfill after its current exchange.
 
 For each host:
 
@@ -209,6 +220,8 @@ For each host:
 - **Counts.** Imported, skipped, failed, and pending exchanges, and sessions whose folder cannot be found. When there are any, a link goes to [Directory maps](#directory-maps).
 - **Model**, **Cutoff**, and the last error. The cutoff is fixed at the first backfill. Later turns are saved by live capture instead.
 
+The Claude Code card has no **Backfill model** choice. It shows "Claude Code backfill always uses the external API. It has no backfill model setting." When the external API is not fully configured, **Run now** and **Resume** name the missing setting. See [Claude Code history import](claude-code-history-import.md#automatic-import).
+
 The page refreshes these values every 3 seconds while an import runs. Progress counts only exchanges that need a model call. Exchanges already in the ledger are left out.
 
 Only one import runs for each host at a time. This includes a backfill, a page import, a terminal import, and a slash command. A second one is refused with `A Pi import is already running`.
@@ -219,7 +232,7 @@ Only one import runs for each host at a time. This includes a backfill, a page i
 - **Pause** stops the run after its current exchange, including a run in another process. A paused backfill does not start again when the host starts.
 - **Resume** clears the pause and starts the run. It continues from the ledger.
 
-Run now and Resume run inside the web app. Without Pi or OpenCode open, they need the host's backfill model to use the external API. Otherwise the page says: `Open Pi, or choose the external API for Pi's backfill`. When OpenCode serves the page, OpenCode's backfill can also use OpenCode's connected models.
+Run now and Resume run inside the web app. The Claude Code backfill always runs in the web app with the external API. Without Pi or OpenCode open, they need the host's backfill model to use the external API. Otherwise the page says: `Open Pi, or choose the external API for Pi's backfill`. When OpenCode serves the page, OpenCode's backfill can also use OpenCode's connected models.
 
 ## Directory maps
 

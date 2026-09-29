@@ -4,9 +4,10 @@ import { settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import { localDayEnd, localDayStart } from "$lib/import-dates";
 import { mergeListing } from "$lib/import-listing";
+import type { WebHost } from "$lib/host-label";
 import { ImportSourcePicker, type ChosenSource } from "./ImportSourcePicker";
 
-type Host = "pi" | "opencode";
+type Host = WebHost;
 type Job = {
   id: string;
   host: string;
@@ -43,6 +44,7 @@ type Readiness = {
     models: Array<{ provider: string; model: string; name: string }>;
   };
   piReader: { available: boolean; reason?: string };
+  claudeCode?: { available: boolean; defaultRoot: string; defaultRootFound: boolean };
 };
 type Selection =
   { mode: "ids"; picked: Map<string, string> } | { mode: "all"; excluded: Set<string> };
@@ -90,7 +92,9 @@ export function ImportSection() {
   const [listing, setListing] = useState(false);
   const [selection, setSelection] = useState<Selection>(emptySelection);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
-  const [model, setModel] = useState("");
+  const [chosenModel, setModel] = useState("");
+  // Claude Code imports have no session model: only the external API applies.
+  const model = host === "claude-code" && chosenModel !== "external" ? "" : chosenModel;
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState("");
 
@@ -188,9 +192,11 @@ export function ImportSection() {
     : !readiness
       ? s("Model readiness is unknown. Reload the page.")
       : !model
-        ? s(
-            "No import model is ready. Connect a model in OpenCode or complete the external API settings."
-          )
+        ? host === "claude-code"
+          ? s("Claude Code imports use the external API. Complete the external API settings.")
+          : s(
+              "No import model is ready. Connect a model in OpenCode or complete the external API settings."
+            )
         : model === "external" && readiness.external.state !== "ready"
           ? s(EXTERNAL_REASONS[readiness.external.state] ?? "The external API is not ready")
           : null;
@@ -293,7 +299,11 @@ export function ImportSection() {
             className={field}
             value={host}
             onChange={(event) => {
-              setHost(event.target.value as Host);
+              const next = event.target.value as Host;
+              setHost(next);
+              if (next === "claude-code" && readiness?.external.state === "ready") {
+                setModel("external");
+              }
               setSource(null);
               setPage(null);
               setSelection(emptySelection());
@@ -301,6 +311,7 @@ export function ImportSection() {
           >
             <option value="pi">Pi</option>
             <option value="opencode">OpenCode</option>
+            <option value="claude-code">Claude Code</option>
           </Select>
         </label>
         <button
@@ -321,6 +332,14 @@ export function ImportSection() {
         {scope === "current-project" ? s("Current project") : s("All projects")}
       </p>
       {piBlocked && <p role="alert">{readiness?.piReader.reason}</p>}
+      {host === "claude-code" && readiness?.claudeCode && (
+        <p className="text-xs text-muted-foreground">
+          {s("Claude Code transcripts")}:{" "}
+          <span className="font-mono break-all">{readiness.claudeCode.defaultRoot}</span> (
+          {readiness.claudeCode.defaultRootFound ? s("found") : s("not found")}).{" "}
+          {s("Claude Code imports always use the external API.")}
+        </p>
+      )}
 
       {advanced && (
         <div className="space-y-3 rounded-lg border border-border p-3">
@@ -517,11 +536,15 @@ export function ImportSection() {
           onChange={(event) => setModel(event.target.value)}
         >
           <option value="">{s("None")}</option>
-          {readiness?.opencode.models.map((item) => (
-            <option key={`${item.provider}/${item.model}`} value={`${item.provider}/${item.model}`}>
-              {item.name} ({item.provider}/{item.model})
-            </option>
-          ))}
+          {host !== "claude-code" &&
+            readiness?.opencode.models.map((item) => (
+              <option
+                key={`${item.provider}/${item.model}`}
+                value={`${item.provider}/${item.model}`}
+              >
+                {item.name} ({item.provider}/{item.model})
+              </option>
+            ))}
           <option value="external">
             {s("Saved external API")}
             {readiness?.external.model ? ` (${readiness.external.model})` : ""}

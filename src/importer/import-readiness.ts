@@ -1,4 +1,7 @@
+import { existsSync } from "node:fs";
 import { CONFIG } from "../config.js";
+import type { ImportHost } from "./import-args.js";
+import { defaultClaudeSourcePath } from "./import-sources.js";
 
 /**
  * What a real web import could use right now, checked inside the OpenCode
@@ -17,6 +20,16 @@ export interface ImportReadiness {
     models: Array<{ provider: string; model: string; name: string }>;
   };
   piReader: { available: boolean; reason?: string };
+  /**
+   * The Claude Code reader ships with OMMS, so it is always available. Its
+   * imports have no session model and always use the external API.
+   */
+  claudeCode: {
+    available: true;
+    defaultRoot: string;
+    defaultRootFound: boolean;
+    modelChoices: ["external"];
+  };
 }
 
 export interface ReadinessDeps {
@@ -26,6 +39,7 @@ export interface ReadinessDeps {
     models?: Array<{ provider: string; model: string; name: string }>;
   }>;
   loadPiSdk?: () => Promise<unknown>;
+  claudeRoot?: () => string;
 }
 
 const EXTERNAL_REASONS: Record<Exclude<ExternalApiState, "ready">, string> = {
@@ -74,18 +88,36 @@ export async function importReadiness(deps: ReadinessDeps = {}): Promise<ImportR
     external: { state, provider: CONFIG.memoryProvider, model: CONFIG.memoryModel ?? null },
     opencode: { available: opencode.available, models: opencode.models ?? [] },
     piReader,
+    claudeCode: claudeReadiness(deps.claudeRoot?.() ?? defaultClaudeSourcePath()),
+  };
+}
+
+function claudeReadiness(defaultRoot: string): ImportReadiness["claudeCode"] {
+  return {
+    available: true,
+    defaultRoot,
+    defaultRootFound: existsSync(defaultRoot),
+    modelChoices: ["external"],
   };
 }
 
 /** Why a job cannot start, or `null` when it can. */
 export function importBlockedReason(
   readiness: ImportReadiness,
-  request: { host: "pi" | "opencode"; needsModel: boolean; modelChoice?: string }
+  request: { host: ImportHost; needsModel: boolean; modelChoice?: string }
 ): string | null {
   if (request.host === "pi" && !readiness.piReader.available) {
     return readiness.piReader.reason ?? "The Pi session reader is unavailable";
   }
   if (!request.needsModel) return null;
+  if (request.host === "claude-code") {
+    // Claude Code has no host models to offer.
+    if (request.modelChoice !== undefined && request.modelChoice !== "external") {
+      return "Claude Code imports use the external API";
+    }
+    const state = readiness.external.state;
+    return state === "ready" ? null : EXTERNAL_REASONS[state];
+  }
   if (!request.modelChoice) return "Choose an import model";
   if (request.modelChoice === "external") {
     const state = readiness.external.state;

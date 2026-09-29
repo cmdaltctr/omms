@@ -1,7 +1,7 @@
 # Contributing to OMMS
 
-Thank you for helping. OMMS is a memory plugin for OpenCode and the Pi coding
-agent. Bug reports, fixes, documentation, and new features are all welcome.
+Thank you for helping. OMMS is a memory plugin for OpenCode, the Pi coding
+agent, and Claude Code. Bug reports, fixes, documentation, and new features are all welcome.
 
 ## Before you start
 
@@ -36,8 +36,9 @@ needs internet access once.
 
 1. Create a branch from `main`. Never commit to `main` directly.
 2. Keep the change focused on one thing.
-3. If you change a feature for one host (OpenCode or Pi), change it for the
-   other host too. Both hosts must offer the same capabilities.
+3. If you change a feature for one host (OpenCode, Pi, or Claude Code),
+   change it for the other hosts too. All hosts must offer the same
+   capabilities.
 4. Add or update tests. Every bug fix needs a test that fails without the fix.
 5. Update the matching guide in `docs/` when user-visible behaviour changes.
    Keep `README.md` short; detail belongs in `docs/`.

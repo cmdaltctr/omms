@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { formatMemoriesForCompaction, wrapRetrievalSection } from "../src/core/retrieval.js";
+import {
+  formatMemoriesForCompaction,
+  stripRetrievalSections,
+  wrapRetrievalSection,
+} from "../src/core/retrieval.js";
 
 const tempDirs: string[] = [];
 
@@ -115,6 +119,13 @@ captured = await buildRetrievalSection("queue?", "/repo", "ses-1");
 
   it("wraps a section in the omms-retrieval tag", () => {
     expect(wrapRetrievalSection("body")).toBe("<omms-retrieval>\nbody\n</omms-retrieval>");
+  });
+
+  it("strips a closed retrieval section and keeps an unclosed tag typed by the user", () => {
+    const injected = wrapRetrievalSection("remembered fact");
+    expect(stripRetrievalSections(`${injected}\nWhat is next?`)).toBe("What is next?");
+    const typed = "<omms-retrieval> explain this tag to me";
+    expect(stripRetrievalSections(typed)).toBe(typed);
   });
 
   it("formats restored session memories and strips a matching tags footer", () => {

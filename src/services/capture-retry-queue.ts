@@ -261,10 +261,12 @@ export async function countCaptureRetries(
   const rows = await db.all(
     "SELECT host, COUNT(*) AS count FROM capture_retry_queue GROUP BY host"
   );
-  const counts: Record<MemoryHost, number> = { opencode: 0, pi: 0 };
+  const counts: Record<MemoryHost, number> = { opencode: 0, pi: 0, "claude-code": 0 };
   for (const row of rows) {
     const host = String(row.host);
-    if (host === "opencode" || host === "pi") counts[host] = Number(row.count);
+    if (host === "opencode" || host === "pi" || host === "claude-code") {
+      counts[host] = Number(row.count);
+    }
   }
   return counts;
 }

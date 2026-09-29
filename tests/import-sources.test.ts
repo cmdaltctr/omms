@@ -14,9 +14,12 @@ import { join } from "node:path";
 import {
   assertImportSourceUnchanged,
   browseImportSources,
+  defaultClaudeSourcePath,
+  defaultImportSourcePath,
   readImportSourceToken,
   validateImportSource,
 } from "../src/importer/import-sources.js";
+import { defaultClaudeProjectsRoot } from "../src/importer/claude-reader.js";
 import {
   DiscoveryLimitError,
   discoverPiSessions,
@@ -86,6 +89,33 @@ it("refuses relative paths, '..' segments, and wrong formats without returning c
   expect(() => validateImportSource("opencode", sessions)).toThrow("OpenCode database");
 });
 
+it("accepts a Claude Code transcripts folder, signed like the Pi folder kind", () => {
+  const { root, sessions, db } = workspace();
+  const folder = validateImportSource("claude-code", sessions);
+  expect(folder.kind).toBe("claude-projects");
+  expect(folder.displayPath).toBe(realpathSync.native(sessions));
+  const identity = readImportSourceToken(folder.sourceToken, "claude-code");
+  expect(identity).toMatchObject({ host: "claude-code", kind: "claude-projects" });
+  expect(() => readImportSourceToken(folder.sourceToken, "pi")).toThrow("another host");
+  // A Pi folder token is not a Claude Code source either.
+  const pi = validateImportSource("pi", sessions).sourceToken;
+  expect(() => readImportSourceToken(pi, "claude-code")).toThrow("another host");
+  // Files, OpenCode databases, and missing paths are refused.
+  expect(() => validateImportSource("claude-code", db)).toThrow("Claude Code transcripts folder");
+  expect(() => validateImportSource("claude-code", join(sessions, "b.jsonl"))).toThrow(
+    "Claude Code transcripts folder"
+  );
+  expect(() => validateImportSource("claude-code", join(root, "missing"))).toThrow(
+    "Path not found"
+  );
+});
+
+it("defaults a Claude Code source to the reader's ~/.claude/projects", () => {
+  expect(defaultClaudeSourcePath()).toBe(defaultClaudeProjectsRoot());
+  expect(defaultImportSourcePath("claude-code")).toBe(defaultClaudeProjectsRoot());
+  expect(defaultImportSourcePath("opencode")).not.toBe(defaultClaudeProjectsRoot());
+});
+
 it("accepts a symlinked root or ancestor through its real path, like a mounted volume", () => {
   const { root, sessions } = workspace();
   const linked = join(root, "linked-volume");
@@ -114,6 +144,9 @@ it("browses one folder, shows eligible entries only, and hides symlinks", () => 
   expect(pi.parent).toBe(realpathSync.native(root));
   const opencode = browseImportSources("opencode", root);
   expect(opencode.entries.map((entry) => entry.name)).toEqual(["sessions", "history.db"]);
+  // A Claude Code source is a folder, so files are never offered.
+  const claude = browseImportSources("claude-code", sessions);
+  expect(claude.entries.map((entry) => [entry.name, entry.kind])).toEqual([["nested", "folder"]]);
 });
 
 it("discovers a file root as one session, keys by relative path, and skips symlinks", () => {

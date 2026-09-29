@@ -46,3 +46,34 @@ describe("the external backfill model", () => {
     ).rejects.toThrow("OpenCode backfill: memoryApiUrl is not configured");
   });
 });
+
+describe("the Claude Code backfill model", () => {
+  it("always uses the external API and reads no config key", () => {
+    const read: PropertyKey[] = [];
+    const config = new Proxy(
+      { claudeBackfillModel: "x/y", opencodeBackfillModel: "a/b", piBackfillModel: "c/d" },
+      {
+        get(target, key, receiver) {
+          read.push(key);
+          return Reflect.get(target, key, receiver);
+        },
+      }
+    );
+    expect(parseBackfillModel(config, "claude-code")).toBe("external");
+    expect(read).toEqual([]);
+  });
+
+  it("names the missing setting in the same words as Pi", async () => {
+    const { resolveExternalBackfillModels } =
+      await import("../src/importer/external-backfill-models.js");
+    const unconfigured = { memoryApiUrl: "https://example.invalid/v1", memoryApiKey: "key" };
+    const reason = async (host: "pi" | "claude-code") =>
+      resolveExternalBackfillModels(host, unconfigured).then(
+        () => "resolved",
+        (error: Error) => error.message
+      );
+    const pi = await reason("pi");
+    expect(pi).toBe("Pi backfill: memoryModel is not configured");
+    expect(await reason("claude-code")).toBe(pi.replace(/^Pi /, "Claude Code "));
+  });
+});

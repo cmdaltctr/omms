@@ -1,7 +1,7 @@
 # Shared Memory Core Boundary
 
-OMMS runs one memory engine behind two host adapters: the OpenCode plugin and
-the Pi coding-agent extension. This page sets out:
+OMMS runs one memory engine behind three host adapters: the OpenCode plugin,
+the Pi coding-agent extension, and the Claude Code hooks. This page sets out:
 
 - the boundary between the shared code and the adapters
 - the import rules
@@ -10,13 +10,13 @@ the Pi coding-agent extension. This page sets out:
 ## Layout and import direction
 
 ```text
-         src/core + src/services + src/importer
-             (shared memory core and engine)
-                     ▲         ▲
-                     │         │
-        src/adapters/opencode   src/adapters/pi
-        + src/index.ts          (Pi extension)
-        + src/v2 (compat)
+               src/core + src/services + src/importer
+                   (shared memory core and engine)
+                  ▲               ▲               ▲
+                  │               │               │
+     src/adapters/opencode   src/adapters/pi   src/adapters/claude-code
+     + src/index.ts          (Pi extension)    (hook client, reached
+     + src/v2 (compat)                         through src/cli)
 ```
 
 Rules:
@@ -29,23 +29,34 @@ Rules:
   `src/importer/*`. The one exception is `src/services/web-server.ts`. It
   reaches the importer only through dynamic imports of
   `src/importer/web-import-api.ts`, `src/importer/settings-health.ts`,
-  `src/importer/web-import-jobs.ts`, and `src/importer/settings-models.ts`.
-  `tests/pi-adapter-boundary.test.ts` enforces this.
+  `src/importer/web-import-jobs.ts`, `src/importer/settings-models.ts`, and
+  `src/importer/claude-hook-api.ts`. `tests/pi-adapter-boundary.test.ts`
+  enforces this.
 - The OpenCode entry points (`src/index.ts`, `src/v2/adapter.ts`,
   `src/v2/plugin.ts`) must not import `importer/` or `@earendil-works`
   directly. They load importer code through `src/adapters/opencode/*`.
 - Adapters own everything that is specific to a host: lifecycle events,
   session reading, host UI, host model access, and tool registration.
-- An adapter must not import the other host's host-coupled modules.
+- An adapter must not import another host's host-coupled modules.
+- `src/adapters/claude-code/*` must not import the OpenCode or Pi adapters, or
+  a host SDK. `src/core/*`, `src/services/*`, `src/importer/*`, `src/types/*`,
+  and the OpenCode and Pi hosts must not import it. Only `src/cli/index.ts`
+  loads it, with dynamic `import()`.
+  `tests/claude-code-adapter-boundary.test.ts` enforces this.
+- The Claude Code hook client loads no store and no embedding model. It sends
+  each hook event to the web app, which does the memory work.
 - Load host SDKs and heavy modules with dynamic `import()`.
-  `tests/plugin-bundle-boundary.test.ts` checks the plugin bundle.
+  `tests/plugin-bundle-boundary.test.ts` checks the plugin bundle. It also
+  checks that the OpenCode and Pi bundles do not include
+  `adapters/claude-code`.
 
-`src/importer/` is shared by both hosts and never imports an adapter.
+`src/importer/` is shared by all hosts and never imports an adapter.
 `tests/pi-adapter-boundary.test.ts` checks this.
 
 - The readers for each host's history format live in the importer:
-  `opencode-reader.ts` for OpenCode's database, and `pi-conversation.ts`
-  with `session-loader.ts` for Pi session files.
+  `opencode-reader.ts` for OpenCode's database, `pi-conversation.ts`
+  with `session-loader.ts` for Pi session files, and `claude-conversation.ts`
+  with `claude-reader.ts` for Claude Code transcripts.
 - The Pi adapter imports `pi-conversation.ts` for live capture. Adapters may
   depend on shared code; shared code never depends on an adapter.
 - `session-loader.ts` loads the Pi SDK. The importer loads it with dynamic
@@ -58,7 +69,7 @@ Rules:
   The OpenCode adapter registers it at plugin start. With nothing registered,
   as in the standalone web app, OpenCode models report as unavailable.
 - `src/core/internal-prompt.ts` recognises omms's own summary and profile
-  prompts, which are the same text on both hosts.
+  prompts, which are the same text on every host.
 
 ## Ports (`src/core/host.ts`)
 
@@ -72,6 +83,9 @@ The shared capture pipeline depends on two interfaces only:
   optional notifications (`notify`).
   - The OpenCode adapter implements it.
   - The Pi adapter calls `captureConversation` directly from `agent_settled`.
+  - For Claude Code, `src/importer/claude-hook-api.ts` in the web app calls
+    `captureConversation` with the external API provider from
+    `selectImportModel`.
 
 `ModelPort` in `src/core/profile-analysis.ts` is the profile model port.
 It has `complete` for plain text and an optional `completeStructured` for
@@ -79,7 +93,10 @@ host-enforced JSON. Profile dedup, conflict, description, and cleanup calls in
 `src/services/user-profile/` use the model a host registers with
 `registerHostProfileModel` (`profile-model.ts`). With none, they use the
 external API. OpenCode registers `adaptOpencodeProfileModel`. Pi registers
-nothing, so its behaviour does not change.
+nothing, so its behaviour does not change. Claude Code registers nothing. Its
+profile learning calls the external API profile model directly, because a
+registration applies to the whole process. When the web app runs inside
+OpenCode, a Claude Code registration would replace OpenCode's model.
 
 `CaptureWorkUnit` in `src/core/capture.ts` is the only shape the shared
 pipeline accepts. It holds visible conversation content and provenance.
@@ -94,6 +111,7 @@ Hidden reasoning and host SDK objects never go into it.
 | `src/importer`                                      | History import and automatic backfill, import ledger, import runs and progress, backfill controls, path maps, the web import API                                                      |
 | `src/adapters/opencode` + `src/index.ts` + `src/v2` | OpenCode lifecycle, session reading, provider bridge, OpenCode model code and profile learning, OpenCode backfill model resolver, V2 compatibility                                    |
 | `src/adapters/pi`                                   | Pi lifecycle (`session_start`, `before_agent_start`, `agent_settled`, `session_shutdown`), retrieval injection, model bridge, Pi backfill model resolver, `memory` tool registration  |
+| `src/adapters/claude-code`                          | The `claude-hook <event>` command: hook input, finding or starting the web app, one request, added context output, one log line. No store and no model                                |
 
 ### Shared modules added for import and settings
 
@@ -112,9 +130,26 @@ Hidden reasoning and host SDK objects never go into it.
 | `src/services/global-version.ts`                       | The version of the global `om-memory-system` command, if installed                                                            |
 | `src/services/package-version.ts`                      | This package's version, read from its `package.json`                                                                          |
 
+### Shared modules added for Claude Code
+
+| Module                                  | Purpose                                                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `src/importer/claude-conversation.ts`   | Pure transcript parsing and window building, for live capture and history import                             |
+| `src/importer/claude-reader.ts`         | Transcript discovery under `~/.claude/projects` or `--root`, as a `LazyImportSource`                         |
+| `src/importer/claude-import.ts`         | `importClaudeHistory`: the shared importer, ledger, and profile steps with host `claude-code`                |
+| `src/importer/claude-hook-api.ts`       | Web app handlers for `POST /api/claude/retrieve` and `POST /api/claude/capture`, capture worker, retry drain |
+| `src/services/claude-capture-cursor.ts` | The last captured user entry for each Claude Code session, in `user-prompts.db`                              |
+| `src/cli/memory-command.ts`             | `om-memory-system memory <mode>`: the shared `memory` operations from a terminal, with host `claude-code`    |
+| `src/types/host-label.ts`               | `hostLabel()`: the display name of each host                                                                 |
+
+`resolveClaudeCodeLiveModel` in `src/services/ai/live-model-choice.ts` is the
+Claude Code model rule: the external API only. See
+[ADR-013](adr/013-claude-code-host-through-hooks-and-web-app.md).
+
 ## Cross-process storage safety
 
-OpenCode and Pi can run in separate processes against the same store:
+OpenCode, Pi, the web app, and the `memory` command can run in separate
+processes against the same store:
 
 - Every connection sets `busy_timeout=5000` and uses one pooled handle.
 - Every write goes through `withScopeWriteLock`. It nests a cross-process
@@ -141,7 +176,7 @@ Phase 1 kept these, and later phases must keep them:
    - The legacy folder is backed up and copied, never changed.
    - Storage uses the legacy layout until the migration succeeds.
    - The container tag prefix changed from `opencode_project_<hash>` to `omms_project_<hash>`. A one-time verified rewrite of stored rows did this, with a backup first.
-   - The same project folder resolves to the same shard set from either host.
+   - The same project folder resolves to the same shard set from any host.
 2. Memories written before provenance fields existed stay valid and
    searchable. Provenance (`host`, `hostSessionId`, `sourceType`,
    `sourceEntryIds`, `sourceTimestamp`, `sourceFile`, `importId`) is optional

@@ -183,6 +183,8 @@ OpenCode and Pi SHALL choose the model for automatic capture and profile learnin
 
 When the host model is `external`, the provider value SHALL be ignored and every call SHALL go to the external API. When the host model is `external` and the external API is not fully configured, automatic capture on that host SHALL be disabled and the missing settings SHALL be reported. When another host model fails and the external API is fully configured, the call SHALL use the external API and the user SHALL be notified. When the external API is only partly configured and no host model is set, automatic capture SHALL be disabled and the missing settings SHALL be reported.
 
+Claude Code SHALL use step 2 only. It SHALL have no host model setting and no session model path, because its hooks cannot call the session's model. When the external API is not fully configured, Claude Code automatic capture and profile learning SHALL be disabled and the missing settings SHALL be reported. The order for OpenCode and Pi SHALL NOT change.
+
 #### Scenario: Nothing is configured
 
 - **WHEN** no host model and no external API settings exist
@@ -215,9 +217,21 @@ When the host model is `external`, the provider value SHALL be ignored and every
 - **WHEN** `opencodeModel` is `external` and `memoryApiUrl` is not set
 - **THEN** OpenCode's automatic capture SHALL be disabled and `memoryApiUrl` SHALL be reported as missing
 
+#### Scenario: Claude Code with nothing configured
+
+- **WHEN** no external API settings exist and a Claude Code turn ends
+- **THEN** no model call SHALL be made
+- **AND** the missing settings SHALL be reported
+
+#### Scenario: Claude Code with the external API configured
+
+- **WHEN** the external API is fully configured and a Claude Code turn ends
+- **THEN** the capture SHALL call the external API
+- **AND** the OpenCode and Pi model choice SHALL be unchanged
+
 ### Requirement: History import has the same options on both hosts
 
-The OpenCode and Pi history imports SHALL accept one option set, parsed by one shared parser, both in a session and from the terminal. Only the history location flag SHALL differ: `--db` for OpenCode and `--root` for Pi. The default scope SHALL be the current project on both hosts.
+The OpenCode, Pi, and Claude Code history imports SHALL accept one option set, parsed by one shared parser, both in a session and from the terminal. Only the history location flag SHALL differ: `--db` for OpenCode, `--root` for Pi, and `--root` for Claude Code. The default scope SHALL be the current project on every host. Claude Code SHALL have a terminal import only, because it has no in-session command surface.
 
 #### Scenario: The same flags on both hosts
 
@@ -228,3 +242,8 @@ The OpenCode and Pi history imports SHALL accept one option set, parsed by one s
 
 - **WHEN** `--until 2026-03-31` is given
 - **THEN** work units from the whole of 31 March 2026 SHALL be included
+
+#### Scenario: The same flags on the Claude Code import
+
+- **WHEN** the maintainer passes `--dry-run --scope all-projects --since 2026-01-01` to `import-claude-history`
+- **THEN** the import SHALL apply the same filters and report in the same format as the other two

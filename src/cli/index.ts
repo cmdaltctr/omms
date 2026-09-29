@@ -12,6 +12,7 @@ import {
 const COMMANDS: Record<string, ImportHost> = {
   "import-opencode-history": "opencode",
   "import-pi-history": "pi",
+  "import-claude-history": "claude-code",
 };
 
 const usage = `Usage: om-memory-system <command> [options]
@@ -19,20 +20,28 @@ const usage = `Usage: om-memory-system <command> [options]
 Commands:
   import-opencode-history   Import OpenCode history into omms
   import-pi-history         Import Pi history into omms
+  import-claude-history     Import Claude Code history into omms
   web                       Start the web app in the foreground
   web install|uninstall|status  Manage the web app login item
+  memory <mode> [options]   Search, add, list, or forget memories (run with --help)
+  claude-hook <event>       Run a Claude Code hook (used by the Claude Code plugin)
 
 Options:
   --version, -v             Print the installed version
 
 Import commands take the same options; run one with --help to see them.
 Inside a session, /memory-import-opencode-history and /memory-import-pi-history
-use that session's model instead of an API key.`;
+use that session's model instead of an API key. import-claude-history always
+uses the external API or --provider, --api-url, and --api-key-env.`;
 
 export function parseImportArgs(argv: string[]): { host: ImportHost; args: HistoryImportArgs } {
   const [command, ...rest] = argv;
   const host = command ? COMMANDS[command] : undefined;
-  if (!host) throw new Error("Expected import-opencode-history or import-pi-history; use --help");
+  if (!host) {
+    throw new Error(
+      "Expected import-opencode-history, import-pi-history, or import-claude-history; use --help"
+    );
+  }
   const args = parseHistoryImportArgs(rest, { host, surface: "cli" });
   if (!args.help && args.errors.length > 0) throw new Error(args.errors.join("; "));
   return { host, args };
@@ -47,6 +56,16 @@ export async function runCli(argv: string[]): Promise<number> {
   if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
     console.log(usage);
     return 0;
+  }
+  if (argv[0] === "claude-hook") {
+    const { runClaudeHookCommand } = await import("../adapters/claude-code/hook-command.js");
+    await runClaudeHookCommand(argv.slice(1));
+    // An idle fetch connection could keep the hook alive past its Claude Code timeout.
+    process.exit(0);
+  }
+  if (argv[0] === "memory") {
+    const { runMemoryCommand } = await import("./memory-command.js");
+    return await runMemoryCommand(argv.slice(1));
   }
   if (argv[0] === "web") {
     try {

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
+import type { WebHost } from "$lib/host-label";
 
 export type ChosenSource = {
-  kind: "pi-folder" | "pi-file" | "opencode-db";
+  kind: "pi-folder" | "pi-file" | "opencode-db" | "claude-projects";
   displayPath: string;
   sourceToken: string;
 };
@@ -21,7 +22,7 @@ type BrowseResult = {
  * server refuses it otherwise. No file is ever uploaded from the browser.
  */
 export function ImportSourcePicker(props: {
-  host: "pi" | "opencode";
+  host: WebHost;
   onChoose: (source: ChosenSource | null) => void;
 }) {
   const s = useSettingsText();
@@ -74,7 +75,9 @@ export function ImportSourcePicker(props: {
       <label className="block">
         {props.host === "pi"
           ? s("Pi sessions folder or one .jsonl session file")
-          : s("OpenCode database file")}
+          : props.host === "claude-code"
+            ? s("Claude Code transcripts folder")
+            : s("OpenCode database file")}
         <input
           className="mt-1 block w-full rounded border border-border bg-background p-2 font-mono"
           value={path}
@@ -132,7 +135,8 @@ export function ImportSourcePicker(props: {
                 ) : (
                   <span className="font-mono text-xs">{entry.name}</span>
                 )}
-                {(entry.kind !== "folder" || props.host === "pi") && (
+                {/* Pi and Claude Code read a folder; OpenCode reads one database file. */}
+                {(entry.kind !== "folder" || props.host !== "opencode") && (
                   <button
                     type="button"
                     className="text-xs underline"

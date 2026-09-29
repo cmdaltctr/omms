@@ -1,0 +1,14 @@
+{
+  "name": "omms",
+  "displayName": "OMMS",
+  "version": "3.5.0",
+  "description": "Shared project memory for Claude Code through OMMS (om-memory-system). Needs om-memory-system installed globally.",
+  "author": {
+    "name": "cmdaltctr",
+    "url": "https://github.com/cmdaltctr"
+  },
+  "homepage": "https://github.com/cmdaltctr/omms#readme",
+  "repository": "https://github.com/cmdaltctr/omms",
+  "license": "MIT",
+  "keywords": ["omms", "memory", "claude-code", "coding-agent"]
+}

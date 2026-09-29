@@ -17,6 +17,10 @@ It runs inside [OpenCode](https://opencode.ai) and the
 Both share one memory per project, so a note written in one is available in
 the other. Everything is stored locally on your machine.
 
+Claude Code is also supported, through a plugin of hooks. It needs a global
+install and your own external API for capture. See the
+[Claude Code adapter](docs/claude-code-adapter.md) guide.
+
 ## What it does
 
 - **Remembers automatically.** After each piece of work, a background model
@@ -43,6 +47,8 @@ You need one of:
 
 - **OpenCode** 1.18.29 or later (v1 plugin API) or OpenCode v2
 - **Pi coding agent**
+- **Claude Code**, through a plugin of hooks. Capture needs your own external API. See
+  the [Claude Code adapter](docs/claude-code-adapter.md) guide for setup.
 
 Nothing else is required. OMMS brings its own database. On first use it
 downloads a small embedding model (the part that makes memories searchable),
@@ -142,22 +148,24 @@ backup first. See [Updating and upgrading](docs/upgrading.md) and
 
 ## Documentation
 
-| Read this                                                  | To learn about                                                   |
-| ---------------------------------------------------------- | ---------------------------------------------------------------- |
-| [Using memory day to day](docs/using-memory.md)            | How capture and recall work, the `memory` tool, the user profile |
-| [Configuration](docs/configuration.md)                     | Settings, choosing the model, embeddings, troubleshooting        |
-| [Web UI](docs/web-ui.md)                                   | The memory explorer, opening it on a network safely              |
-| [Settings page](docs/web-ui-settings.md)                   | Every card and control on the web Settings page                  |
-| [Moving projects](docs/moving-projects.md)                 | Nested repositories, moved folders, backup and restore           |
-| [Updating and upgrading](docs/upgrading.md)                | Updates, pinning a version, older stores                         |
-| [OpenCode adapter](docs/opencode-adapter.md)               | How the OpenCode plugin hooks in                                 |
-| [Pi adapter](docs/pi-adapter.md)                           | How the Pi extension hooks in                                    |
-| [OpenCode history import](docs/opencode-history-import.md) | Importing past OpenCode sessions                                 |
-| [Pi history import](docs/pi-history-import.md)             | Importing past Pi sessions, moving machines                      |
-| [CLI reference](docs/cli.md)                               | The `om-memory-system` terminal command                          |
-| [Migrating from opencode-mem](docs/omms-migration.md)      | What changes when upgrading from the original plugin             |
-| [For developers](docs/developers.md)                       | Building, testing, the public `tags` export, architecture        |
-| [Contributing](CONTRIBUTING.md)                            | How to set up, test, and send a pull request                     |
+| Read this                                                        | To learn about                                                   |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [Using memory day to day](docs/using-memory.md)                  | How capture and recall work, the `memory` tool, the user profile |
+| [Configuration](docs/configuration.md)                           | Settings, choosing the model, embeddings, troubleshooting        |
+| [Web UI](docs/web-ui.md)                                         | The memory explorer, opening it on a network safely              |
+| [Settings page](docs/web-ui-settings.md)                         | Every card and control on the web Settings page                  |
+| [Moving projects](docs/moving-projects.md)                       | Nested repositories, moved folders, backup and restore           |
+| [Updating and upgrading](docs/upgrading.md)                      | Updates, pinning a version, older stores                         |
+| [OpenCode adapter](docs/opencode-adapter.md)                     | How the OpenCode plugin hooks in                                 |
+| [Pi adapter](docs/pi-adapter.md)                                 | How the Pi extension hooks in                                    |
+| [Claude Code adapter](docs/claude-code-adapter.md)               | Installing the Claude Code plugin, hooks, the `memory` command   |
+| [OpenCode history import](docs/opencode-history-import.md)       | Importing past OpenCode sessions                                 |
+| [Pi history import](docs/pi-history-import.md)                   | Importing past Pi sessions, moving machines                      |
+| [Claude Code history import](docs/claude-code-history-import.md) | Importing past Claude Code transcripts                           |
+| [CLI reference](docs/cli.md)                                     | The `om-memory-system` terminal command                          |
+| [Migrating from opencode-mem](docs/omms-migration.md)            | What changes when upgrading from the original plugin             |
+| [For developers](docs/developers.md)                             | Building, testing, the public `tags` export, architecture        |
+| [Contributing](CONTRIBUTING.md)                                  | How to set up, test, and send a pull request                     |
 
 ## About this fork
 
