@@ -19,7 +19,7 @@ One OMMS process owns the port. A process that finds the port busy waits and che
 `om-memory-system web install` can ask an older owner to step aside. The request is `POST /api/web/step-aside`. It needs the local API token (`~/.omms/.auth-token`) and a loopback caller. The owner refuses with `409` when the caller is not newer than itself.
 
 - A standalone web app (`om-memory-system web` or the login item) exits with code `0`.
-- A web app inside an OpenCode or Pi session stops serving. The session keeps running. The web app waits 60 seconds before it can take the port back, so the login item can bind first.
+- A web app inside an OpenCode session stops serving. The session keeps running. The web app waits 60 seconds before it can take the port back, so the login item can bind first.
 - Each request writes one log record with the outcome (`stepped_aside`, `refused_not_newer`, or `refused_auth`) and both versions. The log never holds the token.
 
 OMMS 3.5.0 and earlier have no step-aside route. Stop those web apps by hand.

@@ -152,7 +152,7 @@ Error messages never contain the API key. The key from `--api-key-env` and the s
 - For a Homebrew runtime, the item stores the stable link, for example `/opt/homebrew/bin/node`. It does not store the versioned `Cellar` path, so a Homebrew upgrade does not break the item.
 - It exits with code `1` if the item is not installed.
 - Before it starts the login item, it reads the version of any OMMS web app on the configured port:
-  - An older web app receives a step-aside request. A standalone web app exits. A web app inside an OpenCode or Pi session stops serving and the session keeps running. `web install` waits up to 10 seconds for the port, starts the login item, and prints `OMMS web app: <url> (version <version>)`.
+  - An older web app receives a step-aside request. A standalone web app exits. A web app inside an OpenCode session stops serving and the session keeps running. `web install` waits up to 10 seconds for the port, starts the login item, and prints `OMMS web app: <url> (version <version>)`.
   - An older web app from OMMS 3.5.0 or earlier has no step-aside route. `web install` prints the version and how to stop it. Stop that web app, then run `web install` again.
   - A web app of the same version keeps running. `web install` prints its version.
   - A newer web app keeps running. `web install` tells you to update the global command with `npm i -g om-memory-system`.

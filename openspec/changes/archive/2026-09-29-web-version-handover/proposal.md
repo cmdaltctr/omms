@@ -8,7 +8,7 @@ After an upgrade, the user runs `om-memory-system web install`. The command rest
 
 - `om-memory-system web install` reads the version of the web app on the configured port before it starts the login item.
 - When that web app is an older OMMS, `web install` asks it to step aside. It uses the local API token. The old web app stops serving, and the new login item takes the port.
-- A web app that steps aside behaves by its kind. A standalone web app (`om-memory-system web` or the login item) exits. A web app inside an OpenCode or Pi session stops serving but keeps the session running, and does not take the port back for 60 seconds.
+- A web app that steps aside behaves by its kind. A standalone web app (`om-memory-system web` or the login item) exits. A web app inside an OpenCode session stops serving but keeps the session running, and does not take the port back for 60 seconds.
 - A web app of the same or a newer version keeps the port. `web install` says which version holds it.
 - An older web app without the step-aside route (3.5.0 and earlier) cannot be asked. `web install` names its version and says how to stop it.
 - `web install` prints which version serves the port when it finishes.
@@ -28,6 +28,6 @@ None.
 - **Code:** `src/cli/web-command.ts`, `src/services/web-server.ts` (a new token-protected step-aside route and a takeover hold-off), and a small version-compare module.
 - **API:** a new `POST /api/web/step-aside` route. It needs the local API token and a loopback caller. `GET /api/settings/version` is unchanged and supplies the running version.
 - **Compatibility:** the handover works only when the old web app has this change. Web apps from 3.5.0 and earlier get the message and the next step.
-- **Hosts:** both OpenCode and Pi sessions honour the step-aside request through the shared web server. No adapter changes.
+- **Hosts:** OpenCode is the only host that runs a web server inside its session, and it honours the step-aside request through the shared web server. Pi only registers the login item. No adapter changes.
 - **Not in scope:** handover at host start or at every web server start (option 2b). A future change can build on the same route.
 - **Docs:** `docs/cli.md` and `docs/web-ui.md`.

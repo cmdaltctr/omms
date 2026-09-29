@@ -43,7 +43,7 @@ A new `src/services/version-compare.ts` exports `compareVersions(a, b)`. It foll
 `WebServer` gets `setOnStepAside(callback)`:
 
 - The standalone command (`runWebCommand` without an action, including `--login-item`) registers a callback that stops the server and exits with code `0`.
-- Without a callback (inside an OpenCode or Pi session), the server stops serving, becomes a non-owner, and starts its health loop after a 60-second hold-off. The session keeps running. Under the existing rule it takes the port back only when no OMMS answers after that.
+- Without a callback (inside an OpenCode session), the server stops serving, becomes a non-owner, and starts its health loop after a 60-second hold-off. The session keeps running. Under the existing rule it takes the port back only when no OMMS answers after that.
 
 ### 4. Install order
 
