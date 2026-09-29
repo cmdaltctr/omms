@@ -49,12 +49,13 @@ boundaries.
 
 ## Check your work
 
-| Command                         | When                                                                       |
-| ------------------------------- | -------------------------------------------------------------------------- |
-| `bun run check`                 | Often. Format check, lint, and typecheck; about 11 seconds.                |
-| `bun test tests/<name>.test.ts` | While you work on one area. Run `bun run build` first if it needs `dist/`. |
-| `bun run ci:local`              | Before you open or update a pull request. This is the required gate.       |
-| `bun run check:package`         | After `bun run build`, when you change `package.json` or entry points.     |
+| Command                                                                        | When                                                                       |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `bun run check`                                                                | Often. Format check, lint, and typecheck; about 11 seconds.                |
+| `bun test tests/<name>.test.ts`                                                | While you work on one area. Run `bun run build` first if it needs `dist/`. |
+| `bun test --tsconfig-override web/tsconfig.app.json web/tests/<name>.spec.tsx` | While you work on a web page spec.                                         |
+| `bun run ci:local`                                                             | Before you open or update a pull request. This is the required gate.       |
+| `bun run check:package`                                                        | After `bun run build`, when you change `package.json` or entry points.     |
 
 Do not run the whole suite with plain `bun test`. It runs every file in one
 process, and shared state makes about 48 tests fail for reasons unrelated to

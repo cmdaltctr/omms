@@ -552,6 +552,13 @@ export function ImportSection() {
           </option>
         </Select>
       </label>
+      {host !== "claude-code" && readiness && !readiness.opencode.available && (
+        <p className="text-xs text-muted-foreground">
+          {s(
+            "An import with an OpenCode signed-in model runs from the terminal or with /import in OpenCode."
+          )}
+        </p>
+      )}
       <p className="text-xs text-muted-foreground">
         {s("Configured, not tested.")}{" "}
         <button

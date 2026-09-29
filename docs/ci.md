@@ -51,6 +51,7 @@ bun install --frozen-lockfile
 - The script starts one Bun process for each test file.
 - The suite shares module and storage state across files. In one process, results change with file order.
 - One process for each file gives the same result every time.
+- The runner also runs each web page spec (`web/tests/*.spec.ts` and `*.spec.tsx`) in its own process. It passes `--tsconfig-override web/tsconfig.app.json`, because Bun does not follow the tsconfig references in `web/tsconfig.json` and cannot resolve the `$lib` alias without it. To run one spec by hand: `bun test --tsconfig-override web/tsconfig.app.json web/tests/<name>.spec.tsx`.
 - On Windows, each test gets 30 seconds, because process start-up is slow there. Other platforms keep the Bun default of 5 seconds.
 - Do not use `bun test` for the whole suite. About 48 tests fail from shared module state. Those failures are not regressions.
 

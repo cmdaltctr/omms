@@ -138,6 +138,26 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
               code: error instanceof Error ? error.name : "unknown",
             })
           );
+        // Start the shared web app if none runs. The session does not wait for it.
+        void Promise.all([
+          import("../../services/web-ensure.js"),
+          import("../../services/web-api-auth.js"),
+        ])
+          .then(([{ ensureWebApp }, { webServerUrl }]) =>
+            ensureWebApp({
+              settings: {
+                enabled: CONFIG.webServerEnabled,
+                baseUrl: webServerUrl(CONFIG.webServerHost, CONFIG.webServerPort),
+              },
+              budgetMs: 0,
+              wait: false,
+            })
+          )
+          .catch((error: unknown) =>
+            log("Pi web app start failed", {
+              code: error instanceof Error ? error.name : "unknown",
+            })
+          );
       }
 
       // Retry turns whose capture failed earlier, with this session's capture model.

@@ -14,6 +14,7 @@ afterEach(() => {
 const extensionUrl = new URL("../src/adapters/pi/extension.js", import.meta.url).href;
 const backfillUrl = new URL("../src/importer/auto-backfill.js", import.meta.url).href;
 const autostartUrl = new URL("../src/services/web-autostart.js", import.meta.url).href;
+const ensureUrl = new URL("../src/services/web-ensure.js", import.meta.url).href;
 const clientUrl = new URL("../src/services/client.js", import.meta.url).href;
 const configUrl = new URL("../src/config.js", import.meta.url).href;
 const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
@@ -113,6 +114,15 @@ mock.module(${JSON.stringify(autostartUrl)}, () => ({
   reconcileWebAutostart: () => {
     autostartCalls.push(1);
     if (autostartFails) throw new Error("login item failed");
+  },
+}));
+
+const ensureCalls = [];
+mock.module(${JSON.stringify(ensureUrl)}, () => ({
+  // Never settles: a session start must not wait for the web app.
+  ensureWebApp: (options) => {
+    ensureCalls.push(options);
+    return new Promise(() => {});
   },
 }));
 
@@ -221,6 +231,39 @@ await new Promise((resolve) => setTimeout(resolve, 10));
 captured = { calls: autostartCalls.length, logged: logCalls.some((line) => line.includes("login item")) };
     `);
     expect(output.captured).toEqual({ calls: 1, logged: true });
+  });
+
+  it("starts the shared web app once at session start without waiting for it", () => {
+    const output = runScenario(`
+stubConfig.webServerAutoStart = true;
+stubConfig.webServerEnabled = true;
+stubConfig.webServerHost = "127.0.0.1";
+stubConfig.webServerPort = 4747;
+delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
+await handlers["session_start"]({}, makeCtx());
+await new Promise((resolve) => setTimeout(resolve, 10));
+captured = { calls: ensureCalls.length, options: ensureCalls[0] };
+    `);
+    expect(output.captured).toEqual({
+      calls: 1,
+      options: {
+        settings: { enabled: true, baseUrl: "http://127.0.0.1:4747" },
+        budgetMs: 0,
+        wait: false,
+      },
+    });
+  });
+
+  it("does not start the web app when web autostart is disabled for tests", () => {
+    const output = runScenario(`
+stubConfig.webServerAutoStart = true;
+stubConfig.webServerEnabled = true;
+process.env.OMMS_DISABLE_WEB_AUTOSTART = "1";
+await handlers["session_start"]({}, makeCtx());
+await new Promise((resolve) => setTimeout(resolve, 10));
+captured = { calls: ensureCalls.length };
+    `);
+    expect(output.captured).toEqual({ calls: 0 });
   });
 
   it("schedules backfill once and resolves the configured Pi model", () => {

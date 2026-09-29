@@ -26,3 +26,10 @@ for test_file in tests/*.test.ts; do
   echo ">>> $test_file"
   bun test ${timeout_args[@]+"${timeout_args[@]}"} "$test_file"
 done
+
+# Web page specs. Bun does not follow the tsconfig references in web/tsconfig.json,
+# so the `$lib` and `$shared` aliases only resolve with the app tsconfig.
+for spec_file in web/tests/*.spec.ts web/tests/*.spec.tsx; do
+  echo ">>> $spec_file"
+  bun test --tsconfig-override web/tsconfig.app.json ${timeout_args[@]+"${timeout_args[@]}"} "$spec_file"
+done

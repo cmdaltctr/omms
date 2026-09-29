@@ -72,6 +72,49 @@ it("allows a dry run with no ready model but blocks a real import", async () => 
   ).toContain("not connected");
 });
 
+it("names the terminal and /import when an OpenCode model is chosen without host models", async () => {
+  configure({});
+  const readiness = await importReadiness({
+    ...deps,
+    listOpencodeModels: async () => ({ available: false }),
+  });
+  expect(readiness.opencode).toEqual({ available: false, models: [] });
+  const reason = importBlockedReason(readiness, {
+    host: "opencode",
+    needsModel: true,
+    modelChoice: "zai/glm",
+  });
+  expect(reason).toContain("terminal");
+  expect(reason).toContain("/import");
+  expect(reason).toContain("external API");
+  // The external API still works, so it is the one model offered.
+  expect(
+    importBlockedReason(readiness, {
+      host: "opencode",
+      needsModel: true,
+      modelChoice: "external",
+    })
+  ).toBeNull();
+});
+
+it("keeps the plain reason when host models exist but the chosen one is missing", async () => {
+  configure({});
+  const readiness = await importReadiness({
+    ...deps,
+    listOpencodeModels: async () => ({
+      available: true,
+      models: [{ provider: "zai", model: "glm", name: "GLM" }],
+    }),
+  });
+  expect(
+    importBlockedReason(readiness, {
+      host: "opencode",
+      needsModel: true,
+      modelChoice: "zai/other",
+    })
+  ).toBe("The chosen OpenCode model is not connected");
+});
+
 it("blocks Pi previews and imports when the Pi SDK cannot load", async () => {
   configure({});
   const readiness = await importReadiness({

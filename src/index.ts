@@ -21,11 +21,9 @@ import {
 import { buildRecentMemoriesSection, formatMemoriesForCompaction } from "./core/retrieval.js";
 import { performUserProfileLearning } from "./adapters/opencode/profile-learning.js";
 import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js";
-import { startWebServer, WebServer } from "./services/web-server.js";
 import { pruneTraces } from "./services/capture-diagnostics.js";
 import { ensureTursoReady } from "./services/turso/ready.js";
 import { tursoConnectionManager } from "./services/turso/connection-manager.js";
-import { WebAuth } from "./services/web-auth.js";
 
 import { isConfigured, CONFIG, initConfigWithLegacyMigration } from "./config.js";
 import { resolveOpencodeHostModel } from "./services/ai/live-model-choice.js";
@@ -266,7 +264,6 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
   logAutoCaptureProviderStatus();
   const tags = getTags(directory);
   const autoCaptureHost = createOpenCodeAutoCaptureHost(ctx);
-  let webServer: WebServer | null = null;
   let idleTimeout: ReturnType<typeof setTimeout> | null = null;
 
   const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("omms.plugin.warmedup");
@@ -286,8 +283,8 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
   await configureOpencodeHostTransport(ctx);
   // Shared profile dedup, conflict, description, and cleanup calls use OpenCode's host model.
   registerOpencodeProfileModel();
-  // Web imports, Health, and Settings served by this process can list and use OpenCode's models.
-  // Awaited so the web server never serves those routes before the registry is filled.
+  // In-process backfill, capture, and the capture retry drain use OpenCode's models.
+  // Awaited so those paths never run before the registry is filled.
   await import("./adapters/opencode/backfill-startup.js")
     .then(({ registerOpencodeImportModels, registerOpencodeCaptureRetryDrain }) => {
       registerOpencodeImportModels();
@@ -371,99 +368,43 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
     }
   }
 
-  if (CONFIG.webServerEnabled && tursoReadyForWeb) {
-    const webAuth = new WebAuth({
-      password: CONFIG.webServerAuthPassword,
-      username: CONFIG.webServerAuthUsername,
-    });
-    startWebServer({
-      directory,
-      port: CONFIG.webServerPort,
-      host: CONFIG.webServerHost,
-      enabled: CONFIG.webServerEnabled,
-      auth: webAuth,
-      apiToken: CONFIG.webServerApiToken,
-    })
-      .then((server) => {
-        webServer = server;
-        const url = webServer.getUrl();
-
-        webServer.setOnTakeoverCallback(async () => {
-          if (ctx.client?.tui) {
-            ctx.client.tui
-              .showToast({
-                body: {
-                  title: "Memory Explorer",
-                  message: "Took over web server ownership",
-                  variant: "success",
-                  duration: 3000,
-                },
-              })
-              .catch(() => {});
+  if (
+    CONFIG.webServerEnabled &&
+    tursoReadyForWeb &&
+    process.env.OMMS_DISABLE_WEB_AUTOSTART !== "1"
+  ) {
+    const showToast = (message: string, variant: "info" | "error", duration: number) => {
+      if (!ctx.client?.tui) return;
+      ctx.client.tui
+        .showToast({ body: { title: "Memory Explorer", message, variant, duration } })
+        .catch(() => {});
+    };
+    // The shared web app serves the page. This plugin starts it only when none runs.
+    void Promise.all([import("./services/web-ensure.js"), import("./services/web-api-auth.js")])
+      .then(([{ ensureWebApp }, { webServerUrl }]) => {
+        const baseUrl = webServerUrl(CONFIG.webServerHost, CONFIG.webServerPort);
+        return ensureWebApp({
+          settings: { enabled: CONFIG.webServerEnabled, baseUrl },
+          budgetMs: 10_000,
+        }).then((result) => {
+          if (result === "running" || result === "started") {
+            showToast(`Web UI available at ${baseUrl}`, "info", 3000);
+          } else if (result === "port-busy") {
+            showToast(
+              `Web UI unavailable: another program uses port ${CONFIG.webServerPort}`,
+              "error",
+              5000
+            );
+          } else if (result === "no-runtime") {
+            showToast(
+              "Web UI unavailable: no Node or Bun runtime found to start it",
+              "error",
+              5000
+            );
           }
         });
-
-        webServer.setOnPortsExhaustedCallback(() => {
-          if (ctx.client?.tui) {
-            ctx.client.tui
-              .showToast({
-                body: {
-                  title: "Memory Explorer",
-                  message: `Web UI unavailable: ports ${CONFIG.webServerPort}-${CONFIG.webServerPort + 10} are held by non-responsive processes`,
-                  variant: "error",
-                  duration: 5000,
-                },
-              })
-              .catch(() => {});
-          }
-        });
-
-        if (webServer.isServerOwner()) {
-          if (ctx.client?.tui) {
-            ctx.client.tui
-              .showToast({
-                body: {
-                  title: "Memory Explorer",
-                  message: webAuth.isEnabled()
-                    ? `Web UI started at ${url} (auth required)`
-                    : `Web UI started at ${url}`,
-                  variant: "success",
-                  duration: 5000,
-                },
-              })
-              .catch(() => {});
-          }
-        } else {
-          if (ctx.client?.tui) {
-            ctx.client.tui
-              .showToast({
-                body: {
-                  title: "Memory Explorer",
-                  message: `Web UI available at ${url}`,
-                  variant: "info",
-                  duration: 3000,
-                },
-              })
-              .catch(() => {});
-          }
-        }
       })
-      .catch((error) => {
-        log("Web server failed to start", { error: String(error) });
-
-        if (ctx.client?.tui) {
-          ctx.client.tui
-            .showToast({
-              body: {
-                title: "Memory Explorer Error",
-                message: `Failed to start: ${String(error)}`,
-                variant: "error",
-                duration: 5000,
-              },
-            })
-            .catch(() => {});
-        }
-      });
+      .catch((error) => log("Web app start failed", { error: String(error) }));
   }
 
   let cleanedUp = false;
@@ -474,7 +415,6 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
       clearTimeout(idleTimeout);
       idleTimeout = null;
     }
-    if (webServer) await webServer.stop();
     if (memoryClient) await memoryClient.close();
   };
 
@@ -712,11 +652,9 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
           try {
             await performAutoCapture(autoCaptureHost, sessionID, directory);
 
-            if (webServer?.isServerOwner()) {
-              await performUserProfileLearning(ctx, directory);
-              const { cleanupService } = await import("./services/cleanup-service.js");
-              if (await cleanupService.shouldRunCleanup()) await cleanupService.runCleanup();
-            }
+            await performUserProfileLearning(ctx, directory);
+            const { cleanupService } = await import("./services/cleanup-service.js");
+            if (await cleanupService.shouldRunCleanup()) await cleanupService.runCleanup();
           } catch (error) {
             log("Idle processing error", { error: String(error) });
           } finally {

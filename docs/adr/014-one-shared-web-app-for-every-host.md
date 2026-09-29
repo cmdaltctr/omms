@@ -28,6 +28,7 @@ One standalone web app serves every host.
 - The module never starts a web app on another port. When a program that is not OMMS holds the port, it starts nothing and logs a code.
 - OpenCode, Pi, and the Claude Code hook each call it with one line. OpenCode no longer runs a web server inside its session.
 - The page can stop and restart the web app, because only one kind of web app exists.
+- OpenCode ran profile learning and daily cleanup only in the process that owned the web port. With no in-process server, no OpenCode process owns a port. Both now run on `session.idle` in every OpenCode session, as profile learning already runs in each Pi and Claude Code session. Cleanup keeps its daily limit in each process.
 
 ## Consequences
 
@@ -42,6 +43,7 @@ One standalone web app serves every host.
 ### Negative
 
 - The web page can no longer use OpenCode's signed-in models. Page imports with an OpenCode model, the OpenCode model test, a page-started OpenCode backfill with an OpenCode model, and **Retry now** for OpenCode's queued turns report that they are unavailable and name the next step.
+- Two OpenCode windows now both run profile learning and cleanup. Cleanup deletes by age, so a second run does nothing new. Two windows can at worst analyse the same waiting prompts twice, because the profile update retries on a version conflict. This is accepted.
 - The spawned web app runs the version of the package that started it. It can differ from the global command until `web install` hands the port over.
 
 ### Neutral
@@ -54,6 +56,7 @@ One standalone web app serves every host.
 
 - **Keep OpenCode's in-process server and add the start check to Pi and Claude Code.** This keeps OpenCode's page features for users with the login item off. It keeps two kinds of web app, two power-button modes, and the in-process code paths.
 - **Add a standalone OpenCode import reader first.** It would keep page imports with OpenCode's models. It is a larger change. It stays a follow-up, like the existing standalone model-list reader.
+- **Move profile learning and cleanup into the standalone web app.** This would keep one runner for both. The web app has no OpenCode session, so it cannot call OpenCode's models for profile learning. It is a larger change and stays a follow-up.
 - **Use a port bind as the lock.** The spawned child binds the port, not the caller, so a bind check races with the child's own start.
 
 ## References

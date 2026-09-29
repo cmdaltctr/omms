@@ -231,6 +231,8 @@ interface WebServerConfig {
   stepAsideHoldOffMs?: number;
 }
 
+type PowerAction = "stop" | "restart";
+
 const STEP_ASIDE_HOLD_OFF_MS = 60_000;
 /** Lets the 202 reply reach the caller before the server stops. */
 const STEP_ASIDE_REPLY_GRACE_MS = 100;
@@ -244,6 +246,7 @@ export class WebServer {
   private onTakeoverCallback: (() => Promise<void>) | null = null;
   private onPortsExhaustedCallback: (() => void) | null = null;
   private onStepAsideCallback: (() => void | Promise<void>) | null = null;
+  private onPowerActionCallback: ((action: PowerAction) => void | Promise<void>) | null = null;
   private stepAsideTimer: NodeJS.Timeout | null = null;
   private holdOffTimer: NodeJS.Timeout | null = null;
   private portsExhaustedNotified = false;
@@ -313,6 +316,35 @@ export class WebServer {
   /** Standalone web apps register this to exit when a newer OMMS asks them to step aside. */
   setOnStepAside(callback: () => void | Promise<void>): void {
     this.onStepAsideCallback = callback;
+  }
+
+  /** Standalone web apps register this to stop or restart from the page. */
+  setOnPowerAction(callback: (action: PowerAction) => void | Promise<void>): void {
+    this.onPowerActionCallback = callback;
+  }
+
+  private handlePowerAction(action: PowerAction, remoteAddress: string | undefined): Response {
+    const record = (outcome: string) =>
+      log("Web server power request", { action, outcome, ownVersion: packageVersion() });
+    if (!isLoopbackAddress(remoteAddress)) {
+      record("refused_not_loopback");
+      return this.jsonResponse({ success: false, error: "Loopback caller required" }, 403);
+    }
+    const callback = this.onPowerActionCallback;
+    if (!callback) {
+      record("unsupported");
+      return this.jsonResponse({ success: false, error: "Not supported by this web app" }, 409);
+    }
+    record(action === "stop" ? "stopping" : "restarting");
+    // Let the 202 reply reach the caller before the web app goes down.
+    setTimeout(async () => {
+      try {
+        await callback(action);
+      } catch (error) {
+        log("Power action callback error", { action, error: String(error) });
+      }
+    }, STEP_ASIDE_REPLY_GRACE_MS).unref();
+    return this.jsonResponse({ success: true }, 202);
   }
 
   private scheduleStepAside(): void {
@@ -395,6 +427,10 @@ export class WebServer {
         fetch: this.handleRequest.bind(this),
       });
       this.isOwner = true;
+      // A restart copy is named in the start lock until it owns the port.
+      void import("./web-ensure.js")
+        .then(({ removeStartLockFor }) => removeStartLockFor(process.pid))
+        .catch(() => {});
       // This process serves the Claude Code hooks, so it also retries their failed captures.
       void import("../importer/claude-hook-api.js")
         .then(({ startClaudeCodeWorker }) => startClaudeCodeWorker())
@@ -615,6 +651,13 @@ export class WebServer {
             callerVersion: "",
           });
         }
+        if (method === "POST" && (path === "/api/web/stop" || path === "/api/web/restart")) {
+          log("Web server power request", {
+            action: path === "/api/web/stop" ? "stop" : "restart",
+            outcome: "refused_auth",
+            ownVersion: packageVersion(),
+          });
+        }
         return (
           configuredTokenFailure ??
           this.jsonResponse({ success: false, error: "Unauthorized" }, 401)
@@ -693,6 +736,17 @@ export class WebServer {
               ? controls.resume(host, cwd)
               : controls.runNow(host, cwd)
         );
+      }
+
+      if (path === "/api/web/status" && method === "GET") {
+        return this.jsonResponse({
+          version: packageVersion(),
+          canControl: isLoopbackAddress(remoteAddress) && this.onPowerActionCallback !== null,
+        });
+      }
+
+      if ((path === "/api/web/stop" || path === "/api/web/restart") && method === "POST") {
+        return this.handlePowerAction(path === "/api/web/stop" ? "stop" : "restart", remoteAddress);
       }
 
       if (path === "/api/web/step-aside" && method === "POST") {

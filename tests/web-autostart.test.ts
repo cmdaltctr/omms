@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import {
   existsSync,
   mkdtempSync,
@@ -15,6 +15,7 @@ import {
   installWebAutostart,
   removeWebAutostart,
   resolveWebRuntime,
+  restartWebAutostart,
   webAutostartStatus,
 } from "../src/services/web-autostart.js";
 
@@ -181,4 +182,54 @@ it("replaces a versioned Homebrew Cellar path with its stable link", () => {
   mkdirSync(dirname(other), { recursive: true });
   writeFileSync(other, "");
   expect(resolveWebRuntime(other, "darwin")).toBe(other);
+});
+
+describe("restartWebAutostart", () => {
+  it("restarts the macOS login item with launchctl kickstart -k", () => {
+    const commands: string[] = [];
+    const restarted = restartWebAutostart({
+      home: "/home/test",
+      platform: "darwin",
+      run: (command, args) => commands.push([command, ...args].join(" ")),
+    });
+    expect(restarted).toBe(true);
+    expect(commands).toEqual([
+      `launchctl kickstart -k gui/${process.getuid?.() ?? 0}/io.github.cmdaltctr.omms.web`,
+    ]);
+  });
+
+  it("restarts the Linux login item through the user service manager", () => {
+    const commands: string[] = [];
+    const restarted = restartWebAutostart({
+      home: "/home/test",
+      platform: "linux",
+      run: (command, args) => commands.push([command, ...args].join(" ")),
+    });
+    expect(restarted).toBe(true);
+    expect(commands).toEqual(["systemctl --user restart omms-web.service"]);
+  });
+
+  it("reports failure when the service manager command fails", () => {
+    for (const platform of ["darwin", "linux"]) {
+      const restarted = restartWebAutostart({
+        home: "/home/test",
+        platform,
+        run: () => {
+          throw new Error("service not loaded");
+        },
+      });
+      expect(restarted).toBe(false);
+    }
+  });
+
+  it("has no service manager command on Windows", () => {
+    const commands: string[] = [];
+    const restarted = restartWebAutostart({
+      home: "C:\\Users\\test",
+      platform: "win32",
+      run: (command) => commands.push(command),
+    });
+    expect(restarted).toBe(false);
+    expect(commands).toEqual([]);
+  });
 });

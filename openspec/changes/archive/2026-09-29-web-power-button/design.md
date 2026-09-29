@@ -63,6 +63,8 @@ Alternative: a port bind as the lock. Rejected. The spawned child binds the port
 
 Each host call is one line plus its existing guard.
 
+**OpenCode profile learning and cleanup.** `session.idle` in `src/index.ts` ran profile learning and the daily cleanup only when `webServer?.isServerOwner()` was true. With no in-process server that check can never pass, so both would stop. Remove the check. Both run on every OpenCode `session.idle`, after capture, the same way Pi and Claude Code run profile learning in each session. Cleanup keeps its in-process daily limit (`shouldRunCleanup`). Chosen over moving cleanup into the standalone web app, which is a larger change and stays a follow-up.
+
 ### 3. What the page loses, and the page changes
 
 The web process never has OpenCode's host models now. The code already reports this in most places:
@@ -102,6 +104,7 @@ Record the decision in `docs/adr/014-one-shared-web-app-for-every-host.md` and a
 - [Lock file left by a crash] → Stale after the pid dies or after 20 seconds.
 - [Two different OMMS versions start at once] → Both use the same lock path, so one starts.
 - [A hook fires during a Restart] → For a detached restart, the old process writes the start lock with the new copy's pid before it exits, so a hook waits and does not spawn. The web server removes the lock when it becomes the owner and the lock names its own pid. For a login-item restart the pid is unknown, so a hook may spawn a second copy. The takeover rule leaves one owner, and the other copy waits as a non-owner.
+- [Two OpenCode windows now both run profile learning and cleanup] → Cleanup deletes by age, so a second run does nothing new. Profile learning marks each prompt as learned and its profile update retries on a version conflict, so two windows can at worst analyse the same waiting prompts twice. Accepted; a shared lock is a follow-up if it shows up in practice.
 - [Tests that expect the OpenCode plugin to start a server] → Task 3.4 finds and updates them.
 - [Any local process with the token can stop the app] → Same exposure as step-aside: user-only token file, loopback only, no data changes.
 

@@ -38,6 +38,21 @@ When `webServerEnabled` is `true`, each OpenCode start, each Pi start, and each 
 - **WHEN** `webServerEnabled` is `false` and a host starts
 - **THEN** no web app SHALL be started
 
+### Requirement: OpenCode background work does not depend on owning a web server
+
+OpenCode SHALL run profile learning and the daily cleanup after each `session.idle` capture in every OpenCode session, whether or not any web app runs. It SHALL NOT require that the OpenCode process owns the web port. Cleanup SHALL keep its once-a-day limit in each process.
+
+#### Scenario: OpenCode idles while the shared web app serves the page
+
+- **WHEN** an OpenCode session goes idle and the shared standalone web app owns the port
+- **THEN** OpenCode SHALL capture the session's prompts
+- **AND** it SHALL run profile learning and, when a day has passed, the cleanup
+
+#### Scenario: Two OpenCode windows are open
+
+- **WHEN** two OpenCode sessions go idle
+- **THEN** each SHALL run profile learning and the daily cleanup in its own process
+
 ## MODIFIED Requirements
 
 ### Requirement: The web app runs without a host session

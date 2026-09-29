@@ -223,6 +223,20 @@ export async function runWebCommand(
   };
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
+  // The page's Stop and Restart buttons reach the same process through this callback.
+  const { createPowerAction } = await import("./web-power.js");
+  server.setOnPowerAction(
+    createPowerAction({
+      stopServer: async () => {
+        clearInterval(keeper);
+        process.off("SIGINT", stop);
+        process.off("SIGTERM", stop);
+        await server.stop();
+      },
+      loginItem: action === "--login-item",
+      autostart: options,
+    })
+  );
   // A newer `web install` asked this web app to give up the port.
   server.setOnStepAside(async () => {
     clearInterval(keeper);

@@ -245,6 +245,35 @@ export function removeWebAutostart(options: WebAutostartOptions = {}): WebAutost
   return { state: "not-installed", path };
 }
 
+/**
+ * Restart the login item through the platform service manager. A detached child
+ * of the item would die with its launchd job or systemd control group, so the
+ * service manager does the restart. Returns false when it cannot.
+ */
+export function restartWebAutostart(options: WebAutostartOptions = {}): boolean {
+  const home = options.home ?? homedir();
+  const platform = options.platform ?? process.platform;
+  try {
+    if (platform === "darwin") {
+      runCommand(options, home, "launchctl", [
+        "kickstart",
+        "-k",
+        `gui/${process.getuid?.() ?? 0}/${NAME}`,
+      ]);
+    } else if (platform === "linux") {
+      runCommand(options, home, "systemctl", ["--user", "restart", "omms-web.service"]);
+    } else {
+      return false;
+    }
+    return true;
+  } catch (error) {
+    log("OMMS login item restart failed", {
+      code: error instanceof Error ? error.name : "unknown",
+    });
+    return false;
+  }
+}
+
 /** Host start checks the global settings. A failed item cannot block a session. */
 export function reconcileWebAutostart(
   config: Pick<typeof CONFIG, "webServerAutoStart" | "webServerEnabled"> = CONFIG,

@@ -4,14 +4,37 @@ OMMS serves a web app at `http://127.0.0.1:4747`. Use it to browse and edit memo
 
 ## Starting the web app
 
-Four things can serve the page. They all use the same port, settings, and memory store.
+One shared web app serves the page for every host. It runs as its own process, apart from any host session. It uses one port, one set of settings, and one memory store.
 
-- **OpenCode** starts it while OpenCode runs.
+These things start it:
+
+- **OpenCode, Pi, and Claude Code** each check the port when a session starts (Claude Code: when a hook runs). If an OMMS web app answers, the host uses it. If none answers, the host starts one `om-memory-system web` in the background. The web app keeps running after the session ends.
 - **The login item** starts it when you sign in to your computer. Turn it on with `om-memory-system web install`, or on the Settings page. See [CLI: Web app commands](cli.md#web-app-commands).
 - **`om-memory-system web`** starts it by hand in the terminal. Press Ctrl+C to stop it.
-- **A Claude Code hook** starts `om-memory-system web` in the background when no web app answers. It keeps running after the Claude Code session ends. See [Claude Code adapter](claude-code-adapter.md#start-on-demand).
 
-Pi does not serve the page. If OpenCode starts while another OMMS process serves the page, OpenCode uses that one instead of starting a second server.
+Two hosts that start at the same time start one web app. A start lock (`~/.omms/web-start.lock`) makes the other hosts wait. A lock is stale when its process is gone or it is older than 20 seconds, so a crash does not block a later start.
+
+If another program (not OMMS) uses the configured port, no host starts a web app. The host writes a `port-busy` code to the log. Set `webServerPort` to a free port.
+
+To keep the web app off, set `webServerEnabled` to `false` in the global config. No host then starts it.
+
+OpenCode does not run a web server inside its session. The web app has no OpenCode session, so it cannot use OpenCode's signed-in models. See [Settings page](web-ui-settings.md) for what changes.
+
+## Power button
+
+When you open the page from the same computer, the sidebar footer shows a power button. It is green while the web app answers, and grey when the last check failed. The page checks every 15 seconds. Select it to open a dialog with two actions:
+
+- **Restart** (the main action) starts a fresh copy of the web app on the same port. The page waits until the copy answers, then reloads.
+- **Stop** turns the web app off and exits it with code `0`. The page shows a stopped screen with the command `om-memory-system web`.
+
+A stop lasts until the next OpenCode start, Pi start, Claude Code prompt, `om-memory-system web install`, or login. Then a host starts the web app again.
+
+The routes are `GET /api/web/status`, `POST /api/web/restart`, and `POST /api/web/stop`. Stop and Restart need the local API token (`~/.omms/.auth-token`) and a loopback caller. Without the token they return `401`. From another address they return `403`. A web app that cannot restart itself returns `409`. On success they return `202` before the web app stops. Each request writes one log record (`stopping`, `restarting`, `refused_auth`, `refused_not_loopback`, or `unsupported`) and the version. The log never holds the token. The page hides the button when it may not control the web app.
+
+How Restart works:
+
+- **Login item:** the service manager restarts it (`launchctl kickstart -k` on macOS, `systemctl --user restart` on Linux). If that command fails, the web app starts a detached copy instead.
+- **Started by a host or by hand:** the web app starts a detached copy and exits. A web app you started by hand loses its terminal, so its output no longer shows there.
 
 ### Port ownership and step-aside
 
@@ -20,7 +43,7 @@ One OMMS process owns the port. A process that finds the port busy waits and che
 `om-memory-system web install` can ask an older owner to step aside. The request is `POST /api/web/step-aside`. It needs the local API token (`~/.omms/.auth-token`) and a loopback caller. The owner refuses with `409` when the caller is not newer than itself.
 
 - A standalone web app (`om-memory-system web` or the login item) exits with code `0`.
-- A web app inside an OpenCode session stops serving. The session keeps running. The web app waits 60 seconds before it can take the port back, so the login item can bind first.
+- A web app inside an OpenCode session stops serving. The session keeps running. The web app waits 60 seconds before it can take the port back, so the login item can bind first. Only an older OpenCode plugin runs a web app in its session.
 - Each request writes one log record with the outcome (`stepped_aside`, `refused_not_newer`, or `refused_auth`) and both versions. The log never holds the token.
 
 OMMS 3.5.0 and earlier have no step-aside route. Stop those web apps by hand.

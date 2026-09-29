@@ -1,0 +1,99 @@
+import { expect, it, setDefaultTimeout } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+setDefaultTimeout(60_000);
+
+const repoRoot = join(import.meta.dir, "..");
+
+async function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const address = probe.address();
+      probe.close(() =>
+        address && typeof address !== "string"
+          ? resolve(address.port)
+          : reject(new Error("no port"))
+      );
+    });
+  });
+}
+
+/** Process ids that listen on the port. */
+async function listeners(port: number): Promise<string[]> {
+  const proc = Bun.spawn(["lsof", "-ti", `tcp:${port}`, "-sTCP:LISTEN"], { stdout: "pipe" });
+  const text = await new Response(proc.stdout).text();
+  await proc.exited;
+  return text.split("\n").filter(Boolean);
+}
+
+it("starts exactly one web app for two host processes that start at once", async () => {
+  const home = mkdtempSync(join(tmpdir(), "omms-ensure-real-"));
+  const port = await freePort();
+  const token = "test-token-for-ensure";
+  mkdirSync(join(home, ".config", "omms"), { recursive: true });
+  mkdirSync(join(home, ".omms"), { recursive: true });
+  writeFileSync(join(home, ".omms", ".auth-token"), token, { mode: 0o600 });
+  writeFileSync(
+    join(home, ".config", "omms", "omms.jsonc"),
+    JSON.stringify({
+      storagePath: join(home, "data"),
+      webServerEnabled: true,
+      webServerAutoStart: false,
+      webServerPort: port,
+      webServerHost: "127.0.0.1",
+    })
+  );
+  const script = `
+    import { ensureWebApp } from ${JSON.stringify(join(repoRoot, "dist", "services", "web-ensure.js"))};
+    const result = await ensureWebApp({
+      settings: { enabled: true, baseUrl: "http://127.0.0.1:${port}" },
+      budgetMs: 30000,
+    });
+    console.log(result);
+  `;
+  const caller = () =>
+    Bun.spawn(["node", "--input-type=module", "-e", script], {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        HOME: home,
+        USERPROFILE: home,
+        OMMS_LOG_FILE: join(home, "omms.log"),
+        OMMS_DISABLE_AUTO_BACKFILL: "1",
+        OMMS_DISABLE_WEB_AUTOSTART: "1",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+  try {
+    const callers = [caller(), caller()];
+    const outputs = await Promise.all(
+      callers.map(async (proc) => {
+        const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+        return { out: out.trim(), code };
+      })
+    );
+    expect(outputs.map((entry) => entry.code)).toEqual([0, 0]);
+    expect(outputs.map((entry) => entry.out).sort()).toEqual(["running", "started"]);
+    const health = await fetch(`http://127.0.0.1:${port}/api/health`);
+    expect(health.ok).toBe(true);
+    expect(await listeners(port)).toHaveLength(1);
+  } finally {
+    // Ask the detached web app to exit, as a newer OMMS would.
+    await fetch(`http://127.0.0.1:${port}/api/web/step-aside`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-omms-token": token },
+      body: JSON.stringify({ version: "99.0.0" }),
+    }).catch(() => undefined);
+    for (let i = 0; i < 50 && (await listeners(port)).length > 0; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    for (const pid of await listeners(port)) process.kill(Number(pid), "SIGKILL");
+    rmSync(home, { recursive: true, force: true });
+  }
+});

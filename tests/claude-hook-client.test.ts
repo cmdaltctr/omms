@@ -68,6 +68,7 @@ function harness(
   const logs: Harness["logs"] = [];
   const out: string[] = [];
   const clock = { t: 0 };
+  const lockFiles = new Map<string, string>();
   let up = config.up ?? true;
   let pollsAfterSpawn = -1;
   const fakeFetch = async (url: string | URL | Request, init?: RequestInit) => {
@@ -111,6 +112,21 @@ function harness(
     readToken: async () => TOKEN,
     resolveRuntime: async () => (config.runtime === undefined ? "/usr/bin/node" : config.runtime),
     cliScript: "/pkg/dist/cli/index.js",
+    // Keep the start lock off the real home folder.
+    ensureDeps: {
+      lockPath: "/fake/.omms/web-start.lock",
+      lockFs: {
+        createExclusive: (path, text) => {
+          if (lockFiles.has(path)) return false;
+          lockFiles.set(path, text);
+          return true;
+        },
+        read: (path) => lockFiles.get(path) ?? null,
+        remove: (path) => void lockFiles.delete(path),
+      },
+      pidAlive: () => true,
+      log: () => undefined,
+    },
     loadSettings: async () => {
       if (config.loadSettingsThrows) throw new Error("config broke");
       return {
@@ -278,7 +294,8 @@ describe("claude-hook command", () => {
     expect(spawned?.args).toEqual(["/pkg/dist/cli/index.js", "web"]);
     expect(spawned?.options).toMatchObject({ detached: true, stdio: "ignore" });
     expect(spawned?.unref).toBe(1);
-    expect(healthCalls(h).length).toBe(4);
+    // Three polls after the start, one probe first, and one after the lock is taken.
+    expect(healthCalls(h).length).toBe(5);
     expect(posts(h)).toHaveLength(1);
     expect(h.out).toHaveLength(1);
     expect(logged(h)).toMatchObject({ code: "ok", spawned: true });
