@@ -1,0 +1,15 @@
+{
+  "name": "omms",
+  "description": "OMMS (om-memory-system): shared project memory for coding agents.",
+  "owner": {
+    "name": "cmdaltctr",
+    "url": "https://github.com/cmdaltctr"
+  },
+  "plugins": [
+    {
+      "name": "omms",
+      "source": "./",
+      "description": "Shared project memory for Claude Code through OMMS (om-memory-system)."
+    }
+  ]
+}

@@ -75,7 +75,9 @@ export function validateWebImportRequest(value: unknown): Request {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Invalid import request");
   const input = value as Record<string, unknown>;
-  if (input.host !== "pi" && input.host !== "opencode") throw new Error("Choose Pi or OpenCode");
+  if (input.host !== "pi" && input.host !== "opencode" && input.host !== "claude-code") {
+    throw new Error("Choose Pi, OpenCode, or Claude Code");
+  }
   if (!input.options || typeof input.options !== "object" || Array.isArray(input.options))
     throw new Error("Invalid import options");
   const options = input.options as Record<string, unknown>;
@@ -113,12 +115,21 @@ export function validateWebImportRequest(value: unknown): Request {
       (input.modelChoice !== "external" && !/^[^/]+\/.+$/.test(input.modelChoice)))
   )
     throw new Error("Choose a signed-in provider/model or the external API");
+  // Claude Code has no session model: its imports always use the external API.
+  if (
+    input.host === "claude-code" &&
+    input.modelChoice !== undefined &&
+    input.modelChoice !== "external"
+  )
+    throw new Error("Claude Code imports use the external API");
+  const modelChoice =
+    input.host === "claude-code" ? "external" : (input.modelChoice as string | undefined);
   return {
     host: input.host,
     source: input.source,
     selection: validateImportSelection(input.selection),
     options: options as WebImportOptions,
-    modelChoice: input.modelChoice as string | undefined,
+    modelChoice,
   };
 }
 

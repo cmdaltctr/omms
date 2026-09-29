@@ -168,7 +168,7 @@ describe("pausing a backfill", () => {
     expect(recorder.pauseRequested).toBe(true);
   });
 
-  for (const host of ["pi", "opencode"] as const) {
+  for (const host of ["pi", "opencode", "claude-code"] as const) {
     it(`keeps ${host}'s backfill paused across a restart until resume`, async () => {
       const directory = store();
       await setBackfillPaused(host, true);

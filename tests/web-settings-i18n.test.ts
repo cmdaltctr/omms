@@ -35,3 +35,20 @@ it("has Chinese and Arabic text for every model list reason the server returns",
   );
   expect(missing).toEqual([]);
 });
+
+it("has Chinese and Arabic text for every external API issue the capture status names", async () => {
+  const { resolveClaudeCodeLiveModel } = await import("../src/services/ai/live-model-choice.js");
+  const issues = new Set<string>();
+  for (const config of [
+    {},
+    { memoryApiKey: "your-api-key-here" },
+    { memoryModel: "m", memoryApiUrl: "https://api.invalid/v1" },
+  ]) {
+    for (const issue of resolveClaudeCodeLiveModel(config).issues) issues.add(issue);
+  }
+  expect(issues.size).toBeGreaterThanOrEqual(3);
+  const missing = [...issues].filter(
+    (issue) => translateSettings(issue, "zh") === issue || translateSettings(issue, "ar") === issue
+  );
+  expect(missing).toEqual([]);
+});

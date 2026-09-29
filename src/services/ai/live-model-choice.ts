@@ -130,6 +130,16 @@ export function resolvePiLiveModel(
   return { kind: "unready", issues: manual.issues };
 }
 
+/**
+ * Claude Code's live model: the external API only. Its hooks cannot call the
+ * session's model, so there is no host model and no session fallback.
+ */
+export function resolveClaudeCodeLiveModel(
+  config: AutoCaptureProviderRuntimeConfig
+): AutoCaptureProviderStatus {
+  return externalChoiceStatus(config);
+}
+
 /** True when the external API is fully configured and can serve as a fallback. */
 export function isExternalModelReady(config: AutoCaptureProviderRuntimeConfig): boolean {
   return getManualProviderStatus(config).ready;

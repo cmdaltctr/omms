@@ -4,7 +4,7 @@ import { CONFIG } from "../config.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { safeHealthError } from "./safe-health-error.js";
 
-type BackfillHost = "pi" | "opencode";
+type BackfillHost = "pi" | "opencode" | "claude-code";
 const importLedgerDbPath = () => join(CONFIG.storagePath, "import-ledger.db");
 
 export type BackfillStatus = {

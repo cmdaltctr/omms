@@ -73,7 +73,7 @@ describe("settings API", () => {
       return { empty, untouched, status: backfill.status, rows: await backfill.json(),
         loginStatus: login.status, login: await login.json() };
     `);
-    expect(result.empty).toEqual({ pi: null, opencode: null });
+    expect(result.empty).toEqual({ pi: null, opencode: null, "claude-code": null });
     expect(result.untouched).toBe(true);
     expect(result.status).toBe(200);
     expect(result.rows.pi).toMatchObject({
@@ -86,6 +86,23 @@ describe("settings API", () => {
     expect(result.login.state).toBe("not-installed");
     expect(JSON.stringify(result.rows)).not.toContain("private-test-value");
   });
+  it("reports that Claude Code capture is off and names the missing setting", async () => {
+    const half = await scenario(
+      `return (await (await send("/api/settings")).json()).effective["claude-code"];`,
+      JSON.stringify({ memoryModel: "m", memoryApiUrl: "https://api.invalid/v1" })
+    );
+    expect(half).toEqual({ ready: false, issues: ["memoryApiKey is not configured"] });
+    const full = await scenario(
+      `return (await (await send("/api/settings")).json()).effective["claude-code"];`,
+      JSON.stringify({
+        memoryModel: "m",
+        memoryApiUrl: "https://api.invalid/v1",
+        memoryApiKey: "k",
+      })
+    );
+    expect(full).toEqual({ ready: true, mode: "manual", issues: [] });
+  });
+
   it("ignores a supplied log path, filters capture lines, and enforces the limit", async () => {
     const result = await scenario(`
       const { writeFileSync } = await import("node:fs");
@@ -194,6 +211,12 @@ describe("settings API", () => {
       release();
       await pass;
 
+      await queue.enqueueCaptureRetry(unit("claude-code", "d"), { reason: "call-error" }, CONFIG, later);
+      let claudeStarted = 0;
+      drain.registerCaptureRetryDrain("claude-code", async () => { claudeStarted++; return {}; });
+      const claude = await (await send("/api/settings/capture-retry/claude-code/run", "POST", {}, json)).json();
+      const claudeDue = (await queue.listDueCaptureRetries("claude-code", CONFIG)).length;
+
       const form = await send("/api/settings/capture-retry/pi/run", "POST", {}, { "content-type": "text/plain" });
       const network = new WebServer({ enabled: true, host: "0.0.0.0", port: 4747, apiToken: "network-test-token" });
       const noToken = await network.handleRequest(new Request("http://127.0.0.1:4747/api/settings/capture-retry/pi/run",
@@ -204,18 +227,22 @@ describe("settings API", () => {
         { edits: { captureRetryRetentionHours: 0 }, revision: before.revision }, json);
       const afterOff = (await (await send("/api/settings/diagnostics?days=7")).json()).retryQueue;
       return { counts, scheduled, dueOpencode: due.length, started, startedResult, running,
+        claude, claudeStarted, claudeDue,
         form: form.status, noToken: noToken.status, off: off.status, afterOff };
     `);
-    expect(result.counts).toEqual({ pi: 2, opencode: 1 });
+    expect(result.counts).toEqual({ pi: 2, opencode: 1, "claude-code": 0 });
     expect(result.scheduled).toEqual({ result: "scheduled" });
     expect(result.dueOpencode).toBe(1);
     expect(result.startedResult).toEqual({ result: "started" });
     expect(result.started).toBe(1);
     expect(result.running).toEqual({ result: "running" });
+    expect(result.claude).toEqual({ result: "started" });
+    expect(result.claudeStarted).toBe(1);
+    expect(result.claudeDue).toBe(1);
     expect(result.form).toBe(415);
     expect(result.noToken).toBe(401);
     expect(result.off).toBe(200);
-    expect(result.afterOff).toEqual({ pi: 0, opencode: 0 });
+    expect(result.afterOff).toEqual({ pi: 0, opencode: 0, "claude-code": 0 });
   });
 
   it("rejects traversal in trace endpoints", async () => {
@@ -450,9 +477,99 @@ describe("settings API", () => {
     expect(result.relative).toBe(400);
     expect(result.getList).not.toBe(200);
     expect(result.readiness).toBe(200);
-    expect(result.readinessKeys).toEqual(["external", "opencode", "piReader"]);
+    expect(result.readinessKeys).toEqual(["claudeCode", "external", "opencode", "piReader"]);
     expect(result.browse).toBe(200);
     expect(result.entries).toContain("pi-sessions");
+  });
+
+  it("lists, validates, browses, and previews Claude Code history with metadata only", async () => {
+    const result = await scenario(`
+      const { mkdirSync, writeFileSync } = await import("node:fs");
+      const { join } = await import("node:path");
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "isolated-store");
+      const root = join(process.env.HOME, ".claude", "projects");
+      const app = join(process.env.HOME, "code", "app");
+      mkdirSync(app, { recursive: true });
+      mkdirSync(join(root, "-code-app"), { recursive: true });
+      const entry = (fields) => JSON.stringify({ sessionId: "cc-1", cwd: app, isSidechain: false, ...fields });
+      writeFileSync(join(root, "-code-app", "cc-1.jsonl"), [
+        entry({ type: "user", uuid: "u1", timestamp: "2026-03-01T10:00:00.000Z", message: { role: "user", content: "secret prompt text" } }),
+        entry({ type: "assistant", uuid: "a1", timestamp: "2026-03-01T10:00:01.000Z", message: { role: "assistant", content: [{ type: "text", text: "secret reply" }] } }),
+      ].join("\\n") + "\\n");
+      const json = { "content-type": "application/json" };
+      const readiness = await (await send("/api/settings/imports/readiness")).json();
+      // No source: the default ~/.claude/projects folder.
+      const list = await send("/api/settings/imports/sessions", "POST", { host: "claude-code", scope: "all-projects" }, json);
+      const listed = await list.json();
+      const validate = await send("/api/settings/imports/sources/validate", "POST", { host: "claude-code", path: root }, json);
+      const source = await validate.json();
+      const file = await send("/api/settings/imports/sources/validate", "POST", { host: "claude-code", path: join(root, "-code-app", "cc-1.jsonl") }, json);
+      const browse = await send("/api/settings/imports/sources/browse", "POST", { host: "claude-code" }, json);
+      const unknown = await send("/api/settings/imports/sources/validate", "POST", { host: "codex", path: root }, json);
+      const maps = await (await send("/api/settings/import-maps")).json();
+      const selection = { mode: "all", excludedKeys: [], revision: listed.revision, listedAt: listed.listedAt };
+      const started = await send("/api/settings/imports", "POST",
+        { host: "claude-code", source: source.sourceToken, selection, options: { dryRun: true, scope: "all-projects" } }, json);
+      const other = await send("/api/settings/imports", "POST",
+        { host: "claude-code", source: source.sourceToken, selection, options: { dryRun: true, scope: "all-projects" }, modelChoice: "zai/glm" }, json);
+      let job;
+      for (let i = 0; i < 200; i++) {
+        job = (await (await send("/api/settings/imports/current")).json()).job;
+        if (job && job.state !== "running") break;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      return {
+        claudeCode: readiness.claudeCode, root,
+        list: list.status, listSource: listed.source.kind, rows: listed.rows, text: JSON.stringify(listed),
+        validate: validate.status, kind: source.kind, file: file.status,
+        browse: browse.status, browsePath: (await browse.json()).path, unknown: unknown.status,
+        mapHosts: Object.keys(maps).sort(),
+        started: started.status, other: other.status, otherError: (await other.json()).error,
+        job: { host: job.host, state: job.state, dryRun: job.dryRun, sessions: job.sessions, report: job.report, error: job.error },
+      };
+    `);
+    expect(result.claudeCode).toEqual({
+      available: true,
+      defaultRoot: result.root,
+      defaultRootFound: true,
+      modelChoices: ["external"],
+    });
+    expect(result.list).toBe(200);
+    expect(result.listSource).toBe("claude-projects");
+    expect(result.rows).toEqual([
+      {
+        key: "-code-app/cc-1.jsonl",
+        sessionId: "cc-1",
+        createdAt: Date.parse("2026-03-01T10:00:00.000Z"),
+        recordedDirectory: expect.stringContaining("code"),
+        directory: expect.stringContaining("code"),
+        via: "recorded",
+        selectable: true,
+      },
+    ]);
+    expect(result.text).not.toContain("secret prompt text");
+    expect(result.text).not.toContain("secret reply");
+    expect(result.validate).toBe(200);
+    expect(result.kind).toBe("claude-projects");
+    expect(result.file).toBe(400);
+    expect(result.browse).toBe(200);
+    expect(result.browsePath).toContain(".claude");
+    expect(result.unknown).toBe(400);
+    // The Directory maps section lists Claude Code's unresolved directories too.
+    expect(result.mapHosts).toEqual(["claude-code", "opencode", "pi", "saved"]);
+    expect(result.started).toBe(202);
+    // One slot: the second request is refused, either as busy or for its model.
+    expect([400, 409]).toContain(result.other);
+    expect(result.job).toMatchObject({
+      host: "claude-code",
+      state: "done",
+      dryRun: true,
+      sessions: 1,
+    });
+    expect(result.job.report).toContain("Claude Code history import (dry-run)");
+    expect(result.job.report).toContain("1 pending");
+    expect(result.job.report).not.toContain("secret prompt text");
   });
 
   it("refuses browsing on a network bind and cross-site listing without a JSON body", async () => {

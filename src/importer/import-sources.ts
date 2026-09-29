@@ -20,7 +20,7 @@ import { DEFAULT_OPENCODE_DB } from "./opencode-reader.js";
  * requests carry a signed token that pins the real path, device, and inode.
  */
 
-export type ImportSourceKind = "pi-folder" | "pi-file" | "opencode-db";
+export type ImportSourceKind = "pi-folder" | "pi-file" | "opencode-db" | "claude-projects";
 
 export interface ImportSourceIdentity {
   host: ImportHost;
@@ -61,7 +61,7 @@ export function readImportSourceToken(token: unknown, host: ImportHost): ImportS
     throw new ImportSourceError("The history source is no longer valid. Choose it again.");
   }
   const identity = JSON.parse(Buffer.from(payload, "base64url").toString()) as ImportSourceIdentity;
-  if (identity.host !== host) throw new ImportSourceError("The source belongs to the other host");
+  if (identity.host !== host) throw new ImportSourceError("The source belongs to another host");
   return identity;
 }
 
@@ -108,8 +108,19 @@ function isSqliteFile(path: string): boolean {
   }
 }
 
+/**
+ * Same folder as `defaultClaudeProjectsRoot()` in `claude-reader.ts`. That
+ * module loads the storage engine, so this light module keeps its own copy;
+ * `tests/import-sources.test.ts` checks that the two agree.
+ */
+export function defaultClaudeSourcePath(): string {
+  return join(homedir(), ".claude", "projects");
+}
+
 export function defaultImportSourcePath(host: ImportHost): string {
-  return host === "pi" ? DEFAULT_PI_SESSION_ROOT : DEFAULT_OPENCODE_DB;
+  if (host === "pi") return DEFAULT_PI_SESSION_ROOT;
+  if (host === "claude-code") return defaultClaudeSourcePath();
+  return DEFAULT_OPENCODE_DB;
 }
 
 export interface ValidatedImportSource {
@@ -131,6 +142,9 @@ export function validateImportSource(host: ImportHost, path: unknown): Validated
       }
       kind = "pi-file";
     } else throw new ImportSourceError("Choose a Pi sessions folder or one .jsonl session file");
+  } else if (host === "claude-code") {
+    if (!info.isDirectory()) throw new ImportSourceError("Choose a Claude Code transcripts folder");
+    kind = "claude-projects";
   } else {
     if (!info.isFile() || !isSqliteFile(realPath)) {
       throw new ImportSourceError("Choose an OpenCode database file");
@@ -151,7 +165,7 @@ const BROWSE_LIMIT = 500;
 
 /**
  * One folder at a time, with no recursion: subfolders and files the host can
- * import. Symlinked entries are hidden. Only offered on loopback binds.
+ * import. A Claude Code source is always a folder, so it lists folders only. Symlinked entries are hidden. Only offered on loopback binds.
  */
 export function browseImportSources(
   host: ImportHost,
@@ -159,7 +173,8 @@ export function browseImportSources(
 ): { path: string; parent: string | null; entries: BrowseEntry[]; truncated: boolean } {
   let start = path;
   if (start === undefined || start === null || start === "") {
-    const preferred = host === "pi" ? DEFAULT_PI_SESSION_ROOT : dirname(DEFAULT_OPENCODE_DB);
+    const preferred =
+      host === "opencode" ? dirname(DEFAULT_OPENCODE_DB) : defaultImportSourcePath(host);
     start = existsSync(preferred) ? preferred : homedir();
   }
   const folder = checkedPath(start);

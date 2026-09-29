@@ -16,6 +16,7 @@ import {
   withNote,
 } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
+import { hostLabel, type WebHost } from "$lib/host-label";
 
 type Attempt = {
   timestamp: number;
@@ -43,7 +44,7 @@ type Totals = {
   failed: number;
 };
 type Reason = { host: string; reason: string; count: number };
-type RetryHost = "opencode" | "pi";
+type RetryHost = WebHost;
 type Diagnostics = {
   byModel: Totals[];
   byReason: Reason[];
@@ -143,11 +144,11 @@ export function DiagnosticsSection() {
       );
       setRetryNote(
         result === "scheduled"
-          ? s(
-              host === "pi"
-                ? "These turns retry at the next Pi session start."
-                : "These turns retry at the next OpenCode session start."
-            )
+          ? host === "pi"
+            ? s("These turns retry at the next Pi session start.")
+            : host === "claude-code"
+              ? s("These turns retry at the next Claude Code session start.")
+              : s("These turns retry at the next OpenCode session start.")
           : result === "running"
             ? s("A retry is already running.")
             : s("Retrying now.")
@@ -373,11 +374,11 @@ export function DiagnosticsSection() {
           )}
         </p>
         <h3 className="font-medium">{s("Turns waiting for retry")}</h3>
-        {(["pi", "opencode"] as const).map((host) => {
+        {(["pi", "opencode", "claude-code"] as const).map((host) => {
           const count = data?.retryQueue?.[host] ?? 0;
           return (
             <div className="flex items-center gap-2" key={host}>
-              <span className="w-24">{host === "pi" ? "Pi" : "OpenCode"}</span>
+              <span className="w-24">{hostLabel(host)}</span>
               <span className="tabular-nums">{count}</span>
               <button
                 type="button"

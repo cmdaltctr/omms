@@ -60,7 +60,11 @@ describe("capture retry queue store", () => {
     expect(rows).toHaveLength(1);
     expect(Number(rows[0]!.attempts)).toBe(2);
     expect(Number(rows[0]!.created_at)).toBe(T0);
-    expect(await queue.countCaptureRetries(config)).toEqual({ opencode: 0, pi: 1 });
+    expect(await queue.countCaptureRetries(config)).toEqual({
+      opencode: 0,
+      pi: 1,
+      "claude-code": 0,
+    });
   });
 
   it("lists only this host's due rows, oldest first", async () => {

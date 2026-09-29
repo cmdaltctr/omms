@@ -144,7 +144,7 @@ export async function directoryMapsView(
     ...CONFIG.importPathMaps.map((map) => map.to),
     ...worktrees.values(),
   ];
-  const host = async (name: "pi" | "opencode") => {
+  const host = async (name: "pi" | "opencode" | "claude-code") => {
     const pending = (await readUnresolvedDirectories(name)).filter(
       (item) => !saved.has(item.directory)
     );
@@ -153,5 +153,10 @@ export async function directoryMapsView(
       ...(name === "opencode" ? { opencodeWorktree: (dir: string) => worktrees.get(dir) } : {}),
     });
   };
-  return { saved: CONFIG.importPathMaps, pi: await host("pi"), opencode: await host("opencode") };
+  return {
+    saved: CONFIG.importPathMaps,
+    pi: await host("pi"),
+    opencode: await host("opencode"),
+    "claude-code": await host("claude-code"),
+  };
 }

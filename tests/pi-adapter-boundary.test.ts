@@ -112,6 +112,7 @@ describe("Pi adapter boundary", () => {
             'import("../importer/settings-health.js")',
             'import("../importer/web-import-api.js")',
             'import("../importer/settings-models.js")',
+            'import("../importer/claude-hook-api.js")',
           ];
           for (const webImport of webImports) {
             expect(source).toContain(webImport);

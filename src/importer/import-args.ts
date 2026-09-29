@@ -8,7 +8,7 @@ import type { ImportPathMap } from "./importer.js";
  * external API and key).
  */
 
-export type ImportHost = "pi" | "opencode";
+export type ImportHost = "pi" | "opencode" | "claude-code";
 export type ImportSurface = "session" | "cli" | "web";
 
 export interface HistoryImportArgs {
@@ -36,7 +36,11 @@ export interface HistoryImportArgs {
   errors: string[];
 }
 
-export const SOURCE_FLAG: Record<ImportHost, string> = { pi: "--root", opencode: "--db" };
+export const SOURCE_FLAG: Record<ImportHost, string> = {
+  pi: "--root",
+  opencode: "--db",
+  "claude-code": "--root",
+};
 
 const CLI_ONLY_FLAGS = new Set(["--provider", "--api-url", "--api-key-env"]);
 const BOOLEAN_FLAGS = new Set([
@@ -266,15 +270,18 @@ export function importNeedsModel(args: HistoryImportArgs): boolean {
 }
 
 export function historyImportUsage(host: ImportHost, surface: ImportSurface): string {
-  const name = host === "pi" ? "pi" : "opencode";
+  const name = host === "claude-code" ? "claude" : host;
+  // Claude Code has no session command surface, so its usage names the terminal command.
   const invoke =
-    surface === "session"
+    surface === "session" && host !== "claude-code"
       ? `/memory-import-${name}-history`
       : `om-memory-system import-${name}-history`;
   const source =
     host === "pi"
       ? "  --root <dir>              Pi session root (default ~/.pi/agent/sessions)"
-      : "  --db <path>               OpenCode database (default ~/.local/share/opencode/opencode.db)";
+      : host === "claude-code"
+        ? "  --root <dir>              Claude Code transcripts folder (default ~/.claude/projects)"
+        : "  --db <path>               OpenCode database (default ~/.local/share/opencode/opencode.db)";
   const model =
     surface === "session"
       ? `  --model <provider/id>     Use another signed-in model (default: this session's model)`

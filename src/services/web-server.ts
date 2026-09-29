@@ -92,11 +92,11 @@ export function attachNodeDisconnectHandlers(
   res.on("close", disconnectOnce);
 }
 
-function serveFetch(opts: {
+async function serveFetch(opts: {
   port: number;
   hostname: string;
   fetch: (req: Request) => Promise<Response>;
-}): PortableServerHandle {
+}): Promise<PortableServerHandle> {
   if (isBun) {
     const bunHandle = (
       globalThis as unknown as { Bun: { serve: (opts: unknown) => { stop: () => void } } }
@@ -164,25 +164,26 @@ function serveFetch(opts: {
     }
   });
 
-  // Surface EADDRINUSE synchronously so callers can detect the
-  // already-running-instance case the same way they do under Bun.
-  let listenError: Error | undefined;
-  server.on("error", (err: NodeJS.ErrnoException) => {
-    if (err.code === "EADDRINUSE") {
-      listenError = err;
-    }
-  });
-  // exclusive: false disables SO_EXCLUSIVEADDRUSE on Windows, allowing
-  // rebind after a crashed predecessor left orphaned sockets behind.
-  server.listen({ port: opts.port, host: opts.hostname, reuseAddr: true, exclusive: false });
-  server.unref();
   server.timeout = NODE_HTTP_IDLE_TIMEOUT_MS;
   server.keepAliveTimeout = 10000;
   server.headersTimeout = 11000;
-
-  if (listenError) {
-    throw listenError;
-  }
+  // Node reports EADDRINUSE after `listen` returns. Wait for the outcome so
+  // callers see the already-running-instance case the same way as under Bun.
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    // exclusive: false disables SO_EXCLUSIVEADDRUSE on Windows, allowing
+    // rebind after a crashed predecessor left orphaned sockets behind.
+    server.listen(
+      { port: opts.port, host: opts.hostname, reuseAddr: true, exclusive: false },
+      () => {
+        server.off("error", reject);
+        resolve();
+      }
+    );
+  });
+  // Later socket errors must not crash the host process.
+  server.on("error", () => {});
+  server.unref();
   return {
     stop: () => {
       server.closeAllConnections();
@@ -248,6 +249,28 @@ export class WebServer {
     }
   }
 
+  /** Claude Code hook requests; they reach this point only with a valid API token. */
+  private async claudeHookResponse(req: Request, path: string): Promise<Response> {
+    const api = await import("../importer/claude-hook-api.js");
+    const body: unknown = await req.json().catch(() => null);
+    try {
+      if (path === "/api/claude/capture") {
+        return this.jsonResponse(api.handleClaudeCapture(body), 202);
+      }
+      const cwd = this.config.directory ?? process.cwd();
+      return this.jsonResponse(
+        await api.handleClaudeRetrieve(body, {
+          startBackfill: async () => (await this.backfillControls()).startAuto("claude-code", cwd),
+        })
+      );
+    } catch (error) {
+      if (error instanceof api.ClaudeHookRequestError) {
+        return this.jsonResponse({ error: error.message }, error.status);
+      }
+      throw error;
+    }
+  }
+
   private async backfillControls() {
     const { BackfillControls } = await import("../importer/web-import-api.js");
     return (this.backfillControlsInstance ??= new BackfillControls());
@@ -296,12 +319,16 @@ export class WebServer {
     );
 
     try {
-      this.server = serveFetch({
+      this.server = await serveFetch({
         port: this.config.port,
         hostname: this.config.host,
         fetch: this.handleRequest.bind(this),
       });
       this.isOwner = true;
+      // This process serves the Claude Code hooks, so it also retries their failed captures.
+      void import("../importer/claude-hook-api.js")
+        .then(({ startClaudeCodeWorker }) => startClaudeCodeWorker())
+        .catch(() => {});
     } catch (error) {
       const errorMsg = String(error);
 
@@ -565,6 +592,7 @@ export class WebServer {
         return this.jsonResponse({
           pi: await readBackfillStatus("pi"),
           opencode: await readBackfillStatus("opencode"),
+          "claude-code": await readBackfillStatus("claude-code"),
         });
       }
 
@@ -572,11 +600,10 @@ export class WebServer {
         return this.jsonResponse(await (await this.backfillControls()).status());
       }
 
-      const backfillAction = /^\/api\/settings\/backfill\/(pi|opencode)\/(run|pause|resume)$/.exec(
-        path
-      );
+      const backfillAction =
+        /^\/api\/settings\/backfill\/(pi|opencode|claude-code)\/(run|pause|resume)$/.exec(path);
       if (backfillAction && method === "POST") {
-        const host = backfillAction[1] as "pi" | "opencode";
+        const host = backfillAction[1] as "pi" | "opencode" | "claude-code";
         const controls = await this.backfillControls();
         const cwd = this.config.directory ?? process.cwd();
         return this.importResponse(() =>
@@ -739,13 +766,15 @@ export class WebServer {
         });
       }
 
-      const retryNow = /^\/api\/settings\/capture-retry\/(pi|opencode)\/run$/.exec(path);
+      const retryNow = /^\/api\/settings\/capture-retry\/(pi|opencode|claude-code)\/run$/.exec(
+        path
+      );
       if (retryNow && method === "POST") {
         const [{ CONFIG }, { requestCaptureRetryNow }] = await Promise.all([
           import("../config.js"),
           import("./capture-retry-drain.js"),
         ]);
-        const host = retryNow[1] as "pi" | "opencode";
+        const host = retryNow[1] as "pi" | "opencode" | "claude-code";
         return this.jsonResponse({ result: await requestCaptureRetryNow(host, CONFIG) });
       }
 
@@ -802,20 +831,24 @@ export class WebServer {
           );
         }
         const body = (await req.json()) as { host?: unknown; path?: unknown };
-        if (body?.host !== "pi" && body?.host !== "opencode") {
-          return this.jsonResponse({ error: "Choose Pi or OpenCode" }, 400);
+        if (body?.host !== "pi" && body?.host !== "opencode" && body?.host !== "claude-code") {
+          return this.jsonResponse({ error: "Choose Pi, OpenCode, or Claude Code" }, 400);
         }
         const { browseImportSources } = await import("../importer/web-import-api.js");
-        return this.importResponse(() => browseImportSources(body.host as "pi", body.path));
+        return this.importResponse(() =>
+          browseImportSources(body.host as "pi" | "opencode" | "claude-code", body.path)
+        );
       }
 
       if (path === "/api/settings/imports/sources/validate" && method === "POST") {
         const body = (await req.json()) as { host?: unknown; path?: unknown };
-        if (body?.host !== "pi" && body?.host !== "opencode") {
-          return this.jsonResponse({ error: "Choose Pi or OpenCode" }, 400);
+        if (body?.host !== "pi" && body?.host !== "opencode" && body?.host !== "claude-code") {
+          return this.jsonResponse({ error: "Choose Pi, OpenCode, or Claude Code" }, 400);
         }
         const { validateImportSource } = await import("../importer/web-import-api.js");
-        return this.importResponse(() => validateImportSource(body.host as "pi", body.path));
+        return this.importResponse(() =>
+          validateImportSource(body.host as "pi" | "opencode" | "claude-code", body.path)
+        );
       }
 
       if (path === "/api/settings/imports/sessions" && method === "POST") {
@@ -925,6 +958,13 @@ export class WebServer {
 
         const result = await handleSearch(query, tag, page, pageSize);
         return this.jsonResponse(result);
+      }
+
+      if (
+        (path === "/api/claude/retrieve" || path === "/api/claude/capture") &&
+        method === "POST"
+      ) {
+        return this.claudeHookResponse(req, path);
       }
 
       if (path === "/api/stats" && method === "GET") {

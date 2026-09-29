@@ -1,6 +1,6 @@
 # Repository Instructions
 
-OMMS (npm `om-memory-system`) is a memory plugin for AI coding agents. One shared engine runs behind two hosts: the OpenCode plugin and the Pi extension. Both hosts use one store per project.
+OMMS (npm `om-memory-system`) is a memory plugin for AI coding agents. One shared engine runs behind three hosts: the OpenCode plugin, the Pi extension, and the Claude Code hooks. All hosts use one store per project.
 
 ## GitHub Flow
 
@@ -18,12 +18,13 @@ OMMS (npm `om-memory-system`) is a memory plugin for AI coding agents. One share
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | `src/core/`                              | Host ports (`host.ts`), capture pipeline, extraction schema, retrieval, `memory` tool operations   |
 | `src/services/`                          | Storage (Turso/libSQL), embeddings, privacy, deduplication, project tags, profiles, web backend    |
-| `src/services/ai/live-model-choice.ts`   | The live-model rule for both hosts. Pure functions; callers pass `CONFIG`.                         |
+| `src/services/ai/live-model-choice.ts`   | The live-model rule for every host. Pure functions; callers pass `CONFIG`.                         |
 | `src/importer/`                          | History import: shared option parser (`import-args.ts`), runner (`run-import.ts`), ledger, readers |
 | `src/adapters/opencode/`, `src/index.ts` | OpenCode V1 plugin hooks, OpenCode model code, profile learning, and the OpenCode import command   |
 | `src/v2/`                                | OpenCode V2 plugin adapter over the V1 plugin                                                      |
 | `src/adapters/pi/`                       | Pi extension, Pi model bridge, Pi import command                                                   |
-| `src/cli/`                               | `om-memory-system` terminal command for both hosts                                                 |
+| `src/adapters/claude-code/`              | Claude Code hook client (`claude-hook <event>`). The web app does the memory work                  |
+| `src/cli/`                               | `om-memory-system` terminal command for every host, and the `memory` command                       |
 | `web/`                                   | Web UI (Vite). It has its own `package.json`.                                                      |
 
 Keep these boundaries:
@@ -46,6 +47,7 @@ Pi and OpenCode must have the same user capabilities.
   1. The host model: `opencodeProvider`/`opencodeModel` or `piProvider`/`piModel`. `"inherit"` means the session model.
   2. The external API: `memoryModel`, `memoryApiUrl`, and `memoryApiKey`.
   3. The session model.
+- Claude Code uses step 2 only. Its hooks cannot call the session model, so it has no host model and no session model.
 - Change that order only in `live-model-choice.ts`.
 - In-session history imports use the session model, or `--model provider/id`. Only the CLI uses `--provider`, `--api-url`, and `--api-key-env`.
 

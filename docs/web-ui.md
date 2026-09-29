@@ -4,11 +4,12 @@ OMMS serves a web app at `http://127.0.0.1:4747`. Use it to browse and edit memo
 
 ## Starting the web app
 
-Three things can serve the page. They all use the same port, settings, and memory store.
+Four things can serve the page. They all use the same port, settings, and memory store.
 
 - **OpenCode** starts it while OpenCode runs.
 - **The login item** starts it when you sign in to your computer. Turn it on with `om-memory-system web install`, or on the Settings page. See [CLI: Web app commands](cli.md#web-app-commands).
 - **`om-memory-system web`** starts it by hand in the terminal. Press Ctrl+C to stop it.
+- **A Claude Code hook** starts `om-memory-system web` in the background when no web app answers. It keeps running after the Claude Code session ends. See [Claude Code adapter](claude-code-adapter.md#start-on-demand).
 
 Pi does not serve the page. If OpenCode starts while another OMMS process serves the page, OpenCode uses that one instead of starting a second server.
 

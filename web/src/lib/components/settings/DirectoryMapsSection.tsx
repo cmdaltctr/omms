@@ -2,10 +2,16 @@ import { useEffect, useState } from "react";
 import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { mapsToSave, type MapDecision, type PathMap } from "$lib/external-api-settings";
 import { useSettingsText } from "$lib/i18n/settings";
+import { hostLabel } from "$lib/host-label";
 
 type Snapshot = { revision: string };
 type Suggested = { directory: string; sessions: number; suggestion: string | null };
-type View = { saved: PathMap[]; pi: Suggested[]; opencode: Suggested[] };
+type View = {
+  saved: PathMap[];
+  pi: Suggested[];
+  opencode: Suggested[];
+  "claude-code"?: Suggested[];
+};
 
 export function DirectoryMapsSection() {
   const s = useSettingsText();
@@ -108,17 +114,17 @@ export function DirectoryMapsSection() {
           </li>
         ))}
       </ul>
-      {(["pi", "opencode"] as const).map((host) => (
+      {(["pi", "opencode", "claude-code"] as const).map((host) => (
         <div key={host} className="space-y-2">
           <h3 className="font-medium">
-            {host === "pi" ? "Pi" : "OpenCode"}: {s("Unresolved directories")}
+            {hostLabel(host)}: {s("Unresolved directories")}
           </h3>
-          {!view?.[host].length && (
+          {!view?.[host]?.length && (
             <p className="text-sm text-muted-foreground">
               {s("No unresolved directories in the latest run.")}
             </p>
           )}
-          {view?.[host].map((row) => {
+          {view?.[host]?.map((row) => {
             const decision = decisions[row.directory];
             const target = decision?.target ?? row.suggestion ?? "";
             return (

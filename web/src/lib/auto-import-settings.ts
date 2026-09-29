@@ -1,8 +1,10 @@
-export type BackfillHost = "pi" | "opencode";
+export type BackfillHost = "pi" | "opencode" | "claude-code";
+/** Hosts with a backfill model setting. Claude Code always uses the external API. */
+export type ModelBackfillHost = Exclude<BackfillHost, "claude-code">;
 export type BackfillState = { state: string } | null;
 
-export function shouldPollBackfill(rows: Record<BackfillHost, BackfillState>): boolean {
-  return rows.pi?.state === "running" || rows.opencode?.state === "running";
+export function shouldPollBackfill(rows: Partial<Record<BackfillHost, BackfillState>>): boolean {
+  return Object.values(rows).some((row) => row?.state === "running");
 }
 
 /** One host's run record, as `/api/settings/backfill/runs` reports it. */
@@ -48,7 +50,7 @@ export function manualModelFieldVisible(typedMode: boolean | undefined, known: b
   return typedMode ?? !known;
 }
 
-export function backfillModelEdit(host: BackfillHost, value: string): Record<string, string> {
+export function backfillModelEdit(host: ModelBackfillHost, value: string): Record<string, string> {
   const slash = value.indexOf("/");
   if (value !== "inherit" && value !== "external" && (slash < 1 || slash === value.length - 1)) {
     throw new Error("Enter a model as provider/model.");

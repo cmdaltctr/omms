@@ -128,6 +128,47 @@ const text = {
     "这些对话将在下次启动 OpenCode 会话时重试。",
     "ستُعاد محاولة هذه الجولات عند بدء جلسة OpenCode التالية.",
   ],
+  "These turns retry at the next Claude Code session start.": [
+    "这些对话将在下次启动 Claude Code 会话时重试。",
+    "ستُعاد محاولة هذه الجولات عند بدء جلسة Claude Code التالية.",
+  ],
+  // Claude Code has no host model: capture, profile learning, backfill, and imports use the external API.
+  "Claude Code capture uses the external API.": [
+    "Claude Code 捕获使用外部 API。",
+    "يستخدم التقاط Claude Code واجهة API الخارجية.",
+  ],
+  "Claude Code capture is off. Complete the external API settings.": [
+    "Claude Code 捕获已关闭。请完成外部 API 设置。",
+    "التقاط Claude Code متوقف. أكمل إعدادات واجهة API الخارجية.",
+  ],
+  "Missing settings": ["缺少的设置", "الإعدادات الناقصة"],
+  // Issue text from src/services/ai/live-model-choice.ts; keep the keys identical.
+  "memoryModel is not configured": ["未配置 memoryModel", "لم يُضبط memoryModel"],
+  "memoryApiUrl is not configured": ["未配置 memoryApiUrl", "لم يُضبط memoryApiUrl"],
+  "memoryApiKey is not configured": ["未配置 memoryApiKey", "لم يُضبط memoryApiKey"],
+  "memoryApiKey contains a placeholder value": [
+    "memoryApiKey 包含占位值",
+    "يحتوي memoryApiKey على قيمة نائبة",
+  ],
+  "Claude Code backfill always uses the external API. It has no backfill model setting.": [
+    "Claude Code 回填始终使用外部 API，没有回填模型设置。",
+    "يستخدم استيراد Claude Code دائماً واجهة API الخارجية، ولا يوجد له إعداد لنموذج الاستيراد.",
+  ],
+  "Claude Code transcripts folder": [
+    "Claude Code 对话记录文件夹",
+    "مجلد سجلات محادثات Claude Code",
+  ],
+  "Claude Code transcripts": ["Claude Code 对话记录", "سجلات محادثات Claude Code"],
+  found: ["已找到", "موجود"],
+  "not found": ["未找到", "غير موجود"],
+  "Claude Code imports always use the external API.": [
+    "Claude Code 导入始终使用外部 API。",
+    "يستخدم استيراد Claude Code دائماً واجهة API الخارجية.",
+  ],
+  "Claude Code imports use the external API. Complete the external API settings.": [
+    "Claude Code 导入使用外部 API。请完成外部 API 设置。",
+    "يستخدم استيراد Claude Code واجهة API الخارجية. أكمل إعدادات واجهة API الخارجية.",
+  ],
   "Trace files": ["追踪文件", "ملفات التتبع"],
   View: ["查看", "عرض"],
   Delete: ["删除", "حذف"],

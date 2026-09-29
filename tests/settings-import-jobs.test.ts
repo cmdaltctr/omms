@@ -121,6 +121,66 @@ describe("web import jobs", () => {
     await expect(jobs.start(preview, "/tmp/project")).rejects.toThrow("no Pi SDK");
   });
 
+  it("runs a Claude Code preview and always uses the external API for a real import", async () => {
+    const claudeIdentity = {
+      host: "claude-code" as const,
+      kind: "claude-projects" as const,
+      realPath: "/tmp/claude/projects",
+      dev: 1,
+      ino: 3,
+    };
+    const hosts: string[] = [];
+    let ran = 0;
+    const jobs = new SettingsImportJobs({
+      readiness: async () => readiness(),
+      resolveSelection: async (_token, _selection, options) => {
+        hosts.push(options.host);
+        return { identity: claudeIdentity, keys: ["-tmp-app/s1.jsonl"], cutoff: 1000 };
+      },
+      runner: async (host, args, run) => {
+        ran++;
+        expect(host).toBe("claude-code");
+        expect(args.source).toBe("/tmp/claude/projects");
+        expect(run.models).toEqual({});
+        // A folder source has no shared OpenCode snapshot.
+        expect(run.selection).toEqual({ keys: ["-tmp-app/s1.jsonl"], cutoff: 1000 });
+        return report;
+      },
+    });
+    const claudePreview = { ...preview, host: "claude-code" };
+    await jobs.start(claudePreview, "/tmp/project");
+    await settle();
+    expect(hosts).toEqual(["claude-code"]);
+    expect(jobs.current()).toMatchObject({ host: "claude-code", state: "done" });
+    expect(jobs.current()?.report).toContain("Claude Code history import (dry-run)");
+    expect(jobs.current()?.report).toContain("model: external");
+
+    // No model choice still means the external API, so its missing key is the reason.
+    const real = { ...claudePreview, options: {} };
+    await expect(jobs.start(real, "/tmp/project")).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringContaining("key is missing"),
+    });
+    await expect(jobs.start({ ...real, modelChoice: "zai/glm" }, "/tmp/project")).rejects.toThrow(
+      "Claude Code imports use the external API"
+    );
+    expect(ran).toBe(1);
+  });
+
+  it("accepts Claude Code requests with the external API only", () => {
+    const base = { host: "claude-code", source: "t", selection, options: {} };
+    expect(validateWebImportRequest(base).modelChoice).toBe("external");
+    expect(validateWebImportRequest({ ...base, modelChoice: "external" }).host).toBe("claude-code");
+    expect(() => validateWebImportRequest({ ...base, modelChoice: "zai/glm" })).toThrow(
+      "Claude Code imports use the external API"
+    );
+    expect(() => validateWebImportRequest({ ...base, host: "codex" })).toThrow(
+      "Choose Pi, OpenCode, or Claude Code"
+    );
+    // Pi keeps an unset model choice unset.
+    expect(validateWebImportRequest({ ...base, host: "pi" }).modelChoice).toBeUndefined();
+  });
+
   it("returns 409 for a stale selection", async () => {
     const jobs = new SettingsImportJobs({
       readiness: async () => readiness(),
