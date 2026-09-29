@@ -630,7 +630,7 @@ export async function handleSearch(
       type: "memory",
       id: r.id,
       content: r.memory,
-      memoryType: r.metadata?.type,
+      memoryType: r.type ?? r.metadata?.type,
       tags: r.tags,
       createdAt: safeToISOString(r.createdAt ?? r.metadata?.createdAt),
       updatedAt: r.metadata?.updatedAt ? safeToISOString(r.metadata.updatedAt) : undefined,

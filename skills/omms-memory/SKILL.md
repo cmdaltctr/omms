@@ -18,7 +18,7 @@ om-memory-system memory search "<query>"
 ```
 
 - Use technical keywords, for example `"database choice"` or `"webhook retry policy"`.
-- Each result has `id`, `content`, and `similarity` (0 to 100).
+- Each result has `id`, `content`, `similarity` (0 to 100), and `type` when the memory has one.
 - Add `--limit N` to get fewer results. Add `--scope all-projects` to search every project.
 
 ## When to save

@@ -301,6 +301,7 @@ export class LocalMemoryClient {
       const memories = allMemories.slice(0, limit).map((r: any) => ({
         id: r.id,
         summary: r.content,
+        type: r.type ? String(r.type) : undefined,
         createdAt: safeToISOString(r.created_at),
         metadata: safeJSONParse(r.metadata),
         displayName: r.display_name,
