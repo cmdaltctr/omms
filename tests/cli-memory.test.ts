@@ -181,6 +181,8 @@ scenario = {
   limit: await cli(["list", "--limit", "many"]),
   flag: await cli(["add", "--colour", "blue"]),
   missing: await cli(["add", "--content"]),
+  swallowed: await cli(["add", "--content", "--dry-run"]),
+  literal: await cli(["add", "--content=--dry-run", "--dry-run"]),
 };
 `);
 
@@ -190,6 +192,10 @@ scenario = {
     expect(scenario.flag.stderr.join("\n")).toContain("--colour");
     expect(scenario.missing.code).toBe(1);
     expect(scenario.missing.stderr.join("\n")).toContain("--content");
+    // A following flag is not the value of --content.
+    expect(scenario.swallowed.code).toBe(1);
+    expect(scenario.swallowed.stderr.join("\n")).toContain("--content needs a value");
+    expect(scenario.literal.stderr.join("\n")).not.toContain("needs a value");
   });
 
   it("adds a memory with host claude-code and prints one JSON document", async () => {

@@ -120,7 +120,14 @@ export function parseMemoryCommandArgs(argv: string[]): ParsedMemoryCommand {
     }
     const key = VALUE_FLAGS[flag];
     if (!key) throw new Error(`Unknown option ${flag}`);
-    const value = equals === -1 ? rest[++index] : token.slice(equals + 1);
+    // A following flag is not a value; literal text that starts with "--" needs `--flag=value`.
+    const next = rest[index + 1];
+    const value =
+      equals !== -1
+        ? token.slice(equals + 1)
+        : next !== undefined && !next.startsWith("--")
+          ? rest[++index]
+          : undefined;
     if (value === undefined) throw new Error(`${flag} needs a value`);
     values[key] = value;
   }

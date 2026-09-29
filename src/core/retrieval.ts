@@ -91,9 +91,10 @@ export function wrapRetrievalSection(section: string): string {
   return `<${RETRIEVAL_SECTION_TAG}>\n${section}\n</${RETRIEVAL_SECTION_TAG}>`;
 }
 
-// An unclosed section runs to the end, as a truncated injection would.
+// Only a closed section is injected context: `wrapRetrievalSection` always closes it, and the
+// Claude Code hook keeps the closing tag when it truncates. An unclosed tag is user text.
 const RETRIEVAL_SECTION_RE = new RegExp(
-  `<${RETRIEVAL_SECTION_TAG}>[\\s\\S]*?(?:</${RETRIEVAL_SECTION_TAG}>|$)`,
+  `<${RETRIEVAL_SECTION_TAG}>[\\s\\S]*?</${RETRIEVAL_SECTION_TAG}>`,
   "g"
 );
 

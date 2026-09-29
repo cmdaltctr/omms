@@ -214,7 +214,7 @@ and log codes.
 
 - The CLI only reads history. OpenCode's database, its `-wal` and `-shm` files, Pi's session files, and Claude Code's transcripts stay unchanged. See [opencode-history-import.md](opencode-history-import.md) for how the WAL is read while OpenCode is open.
 - Reruns are safe. A ledger in the store skips finished work. Failed work stays retryable.
-- One import per host runs at a time. A real import (not `--dry-run`) takes the host's lock in the store. A CLI run, a slash command, a web import, and a backfill for the same host cannot overlap. The second one stops with "A Pi import is already running", or the OpenCode version of that message.
+- One import per host runs at a time. A real import (not `--dry-run`) takes the host's lock in the store. A CLI run, a slash command, a web import, and a backfill for the same host cannot overlap. The second one stops with "A Pi import is already running", or the OpenCode or Claude Code version of that message.
 - Every real import records its progress in the store. The Settings page shows a CLI run with its percentage and time left. If the terminal closes, the page shows the run as stopped. Run the command again to continue from the ledger.
 - There is no undo command. Back up `~/.omms/data` before a large import if you may want to roll back.
 

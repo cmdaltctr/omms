@@ -85,10 +85,13 @@ export interface LoadedClaudeSession {
 
 type Candidate = { file: string; key: string } | UnrecognizedFile;
 
-function readEntries(dir: string): Dirent[] {
+/** A missing folder is an empty history. Any other read error is reported, not hidden. */
+function readEntries(dir: string, unreadable: Candidate[]): Dirent[] {
   try {
     return readdirSync(dir, { withFileTypes: true });
-  } catch {
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") unreadable.push({ file: dir, reason: `unreadable: ${code ?? "error"}` });
     return [];
   }
 }
@@ -103,10 +106,10 @@ function jsonlCandidate(dir: string, entry: Dirent, keyPrefix: string): Candidat
 /** `.jsonl` files in the root and in its direct sub-folders, sorted by key. */
 function listCandidates(root: string): Candidate[] {
   const candidates: Candidate[] = [];
-  for (const entry of readEntries(root)) {
+  for (const entry of readEntries(root, candidates)) {
     if (entry.isDirectory()) {
       const dir = join(root, entry.name);
-      for (const child of readEntries(dir)) {
+      for (const child of readEntries(dir, candidates)) {
         const candidate = jsonlCandidate(dir, child, `${entry.name}/`);
         if (candidate) candidates.push(candidate);
       }

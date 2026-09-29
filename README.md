@@ -47,6 +47,8 @@ You need one of:
 
 - **OpenCode** 1.18.29 or later (v1 plugin API) or OpenCode v2
 - **Pi coding agent**
+- **Claude Code**, through a plugin of hooks. Capture needs your own external API. See
+  the [Claude Code adapter](docs/claude-code-adapter.md) guide for setup.
 
 Nothing else is required. OMMS brings its own database. On first use it
 downloads a small embedding model (the part that makes memories searchable),

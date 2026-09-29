@@ -40,6 +40,9 @@
 
 - [x] 6.1 Add `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `hooks/hooks.json` (SessionStart 20 s, UserPromptSubmit 10 s, Stop 60 s async), and `skills/omms-memory/SKILL.md`. Verify: `claude plugin validate .` passes and a test asserts the three events, timeouts, and `async: true` on Stop.
 - [x] 6.2 Manual check on this machine: install the plugin from the local marketplace, run one Claude Code turn, and confirm a memory with host `claude-code` appears in the web app, that `UserPromptSubmit` injects it on the next prompt, and that the hooks exit 0 with the web app stopped. Verify: record the result in the pull request.
+  - Result (Claude Code 2.1.284): the plugin ran from `--plugin-dir` in a live session. SessionStart started the web app, Stop saved one `claude-code` memory, and the next session got it back through SessionStart and UserPromptSubmit. The hooks exited 0 with the web app stopped, disabled, or blocked by another program on the port.
+  - Marketplace install, checked in a throwaway `HOME`: `claude plugin marketplace add <repo>` then `claude plugin install omms@omms` gave `omms@omms` 3.5.0, enabled, with `hooks/hooks.json` in the plugin cache.
+  - Command missing: with `om-memory-system` off `PATH`, the hooks exit 127. A live `claude -p` run with the plugin loaded still exited 0 and answered normally.
 
 ## 7. Web UI
 

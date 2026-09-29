@@ -156,6 +156,25 @@ describe("discoverClaudeSessions", () => {
     ]);
   });
 
+  it("reports a folder it cannot read, and treats a missing root as empty", () => {
+    const root = fixtureRoot();
+    const locked = join(root, "-tmp-locked");
+    mkdirSync(locked);
+    chmodSync(locked, 0o000);
+    const runsAsRoot = process.getuid?.() === 0 || process.platform === "win32";
+    try {
+      const result = discoverClaudeSessions({ root });
+      const reasons = result.unrecognized.map((item) => [
+        item.file.slice(root.length + 1),
+        item.reason,
+      ]);
+      if (!runsAsRoot) expect(reasons).toContainEqual(["-tmp-locked", "unreadable: EACCES"]);
+      expect(discoverClaudeSessions({ root: join(root, "missing") }).unrecognized).toEqual([]);
+    } finally {
+      chmodSync(locked, 0o755);
+    }
+  });
+
   it("reports files it cannot read or use", () => {
     const root = fixtureRoot();
     const project = join(root, "-tmp-bad");
