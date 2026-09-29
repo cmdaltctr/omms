@@ -6,6 +6,16 @@ export function isLoopbackHost(host: string): boolean {
   return LOOPBACK_HOSTS.has(host.trim().toLowerCase());
 }
 
+/** True for a peer socket address on this machine: 127.x.x.x, ::1, or an IPv4-mapped 127.x.x.x. */
+export function isLoopbackAddress(address: string | undefined): boolean {
+  if (!address) return false;
+  const value = address
+    .trim()
+    .toLowerCase()
+    .replace(/^::ffff:/, "");
+  return value === "::1" || /^127(?:\.\d{1,3}){3}$/.test(value);
+}
+
 /** A URL needs brackets around an IPv6 literal such as ::1. */
 export function webServerUrl(host: string, port: number): string {
   const urlHost = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
