@@ -133,6 +133,7 @@ The hooks and the web app read the same configuration files as the other
 hosts. See [Configuration](configuration.md).
 
 - The hook command reads the global config only (`~/.config/omms/omms.jsonc`). It uses `webServerEnabled`, `webServerHost`, `webServerPort`, and the Basic Auth settings to find the web app.
+- The hook uses only the configured `webServerPort`. In rare cases the web app cannot take that port and moves to a nearby one, up to the port plus 10. The hook does not look there. It gets no memories and exits with code 0, until the web app is back on the configured port.
 - The web app reads the project config for the session's working directory before each request.
 - Retrieval uses `chatMessage.enabled`, `chatMessage.maxMemories`, `chatMessage.excludeCurrentSession`, and `chatMessage.maxAgeDays`.
 - Retrieval after compaction uses `compaction.enabled` and `compaction.memoryLimit`.
