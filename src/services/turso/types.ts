@@ -34,6 +34,7 @@ export interface SearchResult {
   similarity: number;
   createdAt?: number;
   tags?: string[];
+  type?: string;
   metadata?: Record<string, unknown>;
   displayName?: string;
   userName?: string;

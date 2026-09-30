@@ -265,6 +265,36 @@ scenario = { add, search, flagged };
     expect(onlyJson(scenario.flagged).results).toHaveLength(1);
   });
 
+  it("shows the --type value in search and list output", async () => {
+    const { home, run } = createHarness();
+    writeGlobalConfig(home);
+    const scenario = await run(`
+const typed = await cli(["add", "--content", "Chose libSQL as the database", "--type", "decision"]);
+const untyped = await cli(["add", "--content", "Plain note without a type"]);
+const list = await cli(["list"]);
+const search = await cli(["search", "database choice"]);
+${LOAD_STORED_ROWS}
+scenario = { typed, untyped, list, search, listedTypes: listed.memories.map((m) => [m.id, m.type]) };
+`);
+
+    const typedId = onlyJson(scenario.typed).id;
+    const untypedId = onlyJson(scenario.untyped).id;
+
+    const listed = onlyJson(scenario.list).memories;
+    expect(listed.find((m: any) => m.id === typedId).type).toBe("decision");
+    expect(listed.find((m: any) => m.id === untypedId).type).toBeUndefined();
+
+    const found = onlyJson(scenario.search).results;
+    expect(found.find((r: any) => r.id === typedId).type).toBe("decision");
+    expect(found.find((r: any) => r.id === untypedId).type).toBeUndefined();
+
+    // Raw client result. JSON turns an undefined type inside an array into null.
+    expect(Object.fromEntries(scenario.listedTypes)).toEqual({
+      [typedId]: "decision",
+      [untypedId]: null,
+    });
+  });
+
   it("lists with --limit, forgets by --id, and honours --directory", async () => {
     const { home, run } = createHarness();
     writeGlobalConfig(home);

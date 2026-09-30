@@ -50,6 +50,7 @@ function formatSearchResults(query: string, results: any, limit?: number) {
     results: memoryResults.slice(0, limit || 10).map((result: any) => ({
       id: result.id,
       content: result.memory || result.chunk,
+      type: result.type,
       similarity: Math.round(result.similarity * 100),
     })),
   };
@@ -284,6 +285,7 @@ export async function executeMemoryOperation(
           memories: result.memories?.map((memory: any) => ({
             id: memory.id,
             content: memory.summary,
+            type: memory.type,
             createdAt: memory.createdAt,
           })),
         };

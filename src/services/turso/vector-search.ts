@@ -146,7 +146,7 @@ export class TursoVectorSearch {
     const rows = await db.all(
       containerTag === ""
         ? `
-      SELECT id, content, tags, created_at, metadata, container_tag,
+      SELECT id, content, tags, type, created_at, metadata, container_tag,
              display_name, user_name, user_email, project_path, project_name,
              git_repo_url, is_pinned,
              vector_distance_cos(vector, vector32(?)) AS content_dist,
@@ -157,7 +157,7 @@ export class TursoVectorSearch {
       WHERE id IN (${placeholders})
     `
         : `
-      SELECT id, content, tags, created_at, metadata, container_tag,
+      SELECT id, content, tags, type, created_at, metadata, container_tag,
              display_name, user_name, user_email, project_path, project_name,
              git_repo_url, is_pinned,
              vector_distance_cos(vector, vector32(?)) AS content_dist,
@@ -205,6 +205,7 @@ export class TursoVectorSearch {
         similarity,
         createdAt: Number(row.created_at),
         tags: memoryTagsStr ? memoryTagsStr.split(",") : [],
+        type: row.type ? String(row.type) : undefined,
         metadata: parseMetadata(row.metadata),
         containerTag: String(row.container_tag),
         displayName: row.display_name ? String(row.display_name) : undefined,
