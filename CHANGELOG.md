@@ -2,6 +2,49 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [3.6.0](https://github.com/cmdaltctr/omms/compare/v3.5.0...v3.6.0) (2026-09-30)
+
+
+### Features
+
+* add Claude Code host through hooks and the web app ([54f6b52](https://github.com/cmdaltctr/omms/commit/54f6b52fecc5212705659d3b624e7496766db73b))
+* add Claude Code host through hooks and the web app ([88fe00c](https://github.com/cmdaltctr/omms/commit/88fe00cfaab828531ce09db984c5b8433c373ace))
+* one shared web app for every host, with Restart and Stop ([91f7457](https://github.com/cmdaltctr/omms/commit/91f74578d19b3156b75b85192ea0e4268338387c))
+* run one shared web app for every host, with Restart and Stop ([f48b205](https://github.com/cmdaltctr/omms/commit/f48b205bd3f0c768a590ca2673ac2eb9d7c473f2))
+* set the Claude Code folder on the Settings page ([3b97eb2](https://github.com/cmdaltctr/omms/commit/3b97eb2eae345dc404c38f66ced1e94d96ef8b25))
+* set the Claude Code folder on the Settings page ([c6201da](https://github.com/cmdaltctr/omms/commit/c6201da361290d95ae21290530053f8bc4bfbf47))
+* **web:** hand the port to the newer version on web install ([2a8dd86](https://github.com/cmdaltctr/omms/commit/2a8dd86f27c9e4987e279f6511c7f35ba2bf08f7))
+* **web:** hand the port to the newer version on web install ([fc68b5d](https://github.com/cmdaltctr/omms/commit/fc68b5dda77d47e4ce6bb05c704b450242984632))
+
+
+### Bug Fixes
+
+* address review feedback on the Claude Code host ([de4d604](https://github.com/cmdaltctr/omms/commit/de4d6042919007c96af1567c4232b9266fa9f5b2))
+* address review on the Claude Code folder setting ([0923b3c](https://github.com/cmdaltctr/omms/commit/0923b3c59eaea77ffc24b51ca1abd547b33a26f3))
+* atomic stale-lock takeover, and keep serving when a restart copy fails ([c21601f](https://github.com/cmdaltctr/omms/commit/c21601fab9fe1dcb0d4b091f73073b9998741381))
+* check the shared web app in Pi without webServerAutoStart, and run one power action at a time ([79f3d4c](https://github.com/cmdaltctr/omms/commit/79f3d4cd3e062da17aa65b74cbd5ac9ba1e09f7b))
+* keep the Claude plugin manifest in release-please format ([17a4834](https://github.com/cmdaltctr/omms/commit/17a483417eda0bef6b753026c62276027db49e05))
+* keep the Claude plugin manifest in release-please format ([85421d4](https://github.com/cmdaltctr/omms/commit/85421d40e866e62715c4a5455b29cc05c399fe7e))
+* make Claude discovery without a root follow the claudeConfigDir setting ([ba8af28](https://github.com/cmdaltctr/omms/commit/ba8af28970300a5e4f471b89f31f1fe3c2cc6147))
+* match the projects folder by letter case on disk ([b5cea33](https://github.com/cmdaltctr/omms/commit/b5cea33611da037dcbb47ea2a1cbb0f92de40b0f))
+* restrict the capture route to Claude Code transcripts ([b739828](https://github.com/cmdaltctr/omms/commit/b7398282467d07bcbbcb364469a2a4c20b3ff85b))
+* restrict the capture route to Claude Code transcripts ([8f7cedd](https://github.com/cmdaltctr/omms/commit/8f7cedd444db5db5371d36cc4bf06c6ea1690047))
+* show memory type in search and list output ([a43cddd](https://github.com/cmdaltctr/omms/commit/a43cdddb563b63b2e3cbbbcdbe3bf8b9c2814882))
+* show memory type in search and list output ([9df79c6](https://github.com/cmdaltctr/omms/commit/9df79c6afa09ff6b20c68c3f8a4706b92570b206))
+* take over a stale web start lock atomically, and keep serving when a restart copy fails ([41153cc](https://github.com/cmdaltctr/omms/commit/41153ccabbedbc5afc00644e025f9d0fb6f9a50a))
+* wait for the Node listen result before the web app owns its port, so a ([88fe00c](https://github.com/cmdaltctr/omms/commit/88fe00cfaab828531ce09db984c5b8433c373ace))
+* **web:** take over the port under Node when another web app holds it ([e1aa8eb](https://github.com/cmdaltctr/omms/commit/e1aa8eb5c42cb4eade17414cbd104d9569f27187))
+* **web:** take over the port under Node when another web app holds it ([d5829d1](https://github.com/cmdaltctr/omms/commit/d5829d16cdf14a6a04f87349f614d9d34f7f3ee2))
+
+
+### Documentation
+
+* note that a Claude Code hook can start the web app [skip ci] ([8dd32b3](https://github.com/cmdaltctr/omms/commit/8dd32b36efa03eae7abdb7f25c3e72d0f93fbc3e))
+* note that the hook uses only the configured web port ([6a1226a](https://github.com/cmdaltctr/omms/commit/6a1226aa08f62d04fcb78a5a358d4d39d67af7b8))
+* **openspec:** propose web-power-button and ADR-014 ([9114619](https://github.com/cmdaltctr/omms/commit/911461943751977fdb0dfad162db93eae7d11ad1))
+* **openspec:** propose web-version-handover ([45c2433](https://github.com/cmdaltctr/omms/commit/45c2433b25352bbd49af7f640285d037398e0151))
+* say only OpenCode runs a web server inside its session ([373dce6](https://github.com/cmdaltctr/omms/commit/373dce611dbedc90a16c7265433062107fbf1d12))
+
 ## [3.5.0](https://github.com/cmdaltctr/omms/compare/v3.4.2...v3.5.0) (2026-09-28)
 
 
