@@ -6,6 +6,7 @@ import { join } from "node:path";
 import {
   ensureWebApp,
   nodeLockFs,
+  renameRetrying,
   takeStartLock,
   type EnsureDeps,
   type EnsureResult,
@@ -359,6 +360,46 @@ describe("takeStartLock", () => {
     expect(takeStartLock(callerDeps(disk.fs, 200, clock))).toBe(true);
     expect(JSON.parse(disk.names.get(LOCK)?.text ?? "null")).toMatchObject({ pid: 200 });
     expect(disk.names.has(tombFor(stale))).toBe(false);
+  });
+});
+
+describe("renameRetrying", () => {
+  const busy = (code: string) => Object.assign(new Error(code), { code });
+
+  it("retries on Windows while a reader holds the target open", () => {
+    let calls = 0;
+    const waits: number[] = [];
+    renameRetrying(
+      "a",
+      "b",
+      () => {
+        calls++;
+        if (calls < 3) throw busy("EPERM");
+      },
+      "win32",
+      (ms) => waits.push(ms)
+    );
+    expect(calls).toBe(3);
+    expect(waits).toHaveLength(2);
+  });
+
+  it("throws at once on other platforms and for other errors", () => {
+    const fail = (code: string) => () => {
+      throw busy(code);
+    };
+    expect(() => renameRetrying("a", "b", fail("EPERM"), "linux", () => {})).toThrow("EPERM");
+    expect(() => renameRetrying("a", "b", fail("ENOENT"), "win32", () => {})).toThrow("ENOENT");
+  });
+
+  it("gives up on Windows after the last wait", () => {
+    let calls = 0;
+    const waits: number[] = [];
+    const fail = () => {
+      calls++;
+      throw busy("EBUSY");
+    };
+    expect(() => renameRetrying("a", "b", fail, "win32", (ms) => waits.push(ms))).toThrow("EBUSY");
+    expect(calls).toBe(waits.length + 1);
   });
 });
 
