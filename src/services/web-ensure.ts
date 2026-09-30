@@ -132,9 +132,38 @@ export const nodeLockFs: LockFs = {
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     const temp = `${path}.${process.pid}.tmp`;
     writeFileSync(temp, text, { mode: 0o600 });
-    renameSync(temp, path);
+    renameRetrying(temp, path);
   },
 };
+
+// Windows refuses to rename over a file another process has open, even for a
+// moment. Readers hold the lock only while they read it, so a short retry wins.
+const RENAME_RETRY_WAITS_MS = [1, 2, 5, 10, 20, 50, 100, 200];
+const RENAME_BUSY_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
+
+/** `renameSync` that retries while Windows reports the target busy. */
+export function renameRetrying(
+  from: string,
+  to: string,
+  rename: (from: string, to: string) => void = renameSync,
+  platform: NodeJS.Platform = process.platform,
+  wait: (ms: number) => void = (ms) =>
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+): void {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      rename(from, to);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      const waitMs = RENAME_RETRY_WAITS_MS[attempt];
+      if (platform !== "win32" || !code || !RENAME_BUSY_CODES.has(code) || waitMs === undefined) {
+        throw error;
+      }
+      wait(waitMs);
+    }
+  }
+}
 
 /** Remove the start lock when it names `pid`. A restart copy calls this once it owns the port. */
 export function removeStartLockFor(
