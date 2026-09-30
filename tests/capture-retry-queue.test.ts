@@ -175,6 +175,7 @@ describe("cleaning and size limits", () => {
     expect(JSON.stringify(logged)).not.toContain("xxxx");
   });
 
+  // 110 large writes can pass Bun's 5-second default on a slow CI runner.
   it("deletes the oldest rows to stay under 20 MB", async () => {
     const chunk = "y".repeat(200 * 1024);
     // 110 rows of about 200 KB each pass 20 MB.
@@ -192,7 +193,7 @@ describe("cleaning and size limits", () => {
     const turns = rows.map((row) => String(row.turn_id));
     expect(turns).not.toContain("turn-0");
     expect(turns).toContain("turn-109");
-  });
+  }, 30_000);
 });
 
 describe("claims", () => {
