@@ -121,6 +121,30 @@ result.afterRestart = [...actions];
     expect(result.afterRestart).toEqual(["stop", "restart"]);
   });
 
+  it("runs the callback once when a second request arrives while the first is running", async () => {
+    const { result } = await runScenario(`
+const actions = [];
+let release;
+const held = new Promise((resolve) => { release = resolve; });
+const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+server.setOnPowerAction(async (action) => { actions.push(action); await held; });
+result.first = (await call(server, "127.0.0.1", "POST", "/api/web/restart")).status;
+result.second = (await call(server, "127.0.0.1", "POST", "/api/web/restart")).status;
+result.third = (await call(server, "127.0.0.1", "POST", "/api/web/stop")).status;
+await sleep(400);
+result.whileRunning = [...actions];
+release();
+await sleep(100);
+// After the first action ends, a new request runs again.
+result.later = (await call(server, "127.0.0.1", "POST", "/api/web/stop")).status;
+await sleep(400);
+result.afterEnd = [...actions];
+`);
+    expect([result.first, result.second, result.third, result.later]).toEqual([202, 202, 202, 202]);
+    expect(result.whileRunning).toEqual(["restart"]);
+    expect(result.afterEnd).toEqual(["restart", "stop"]);
+  });
+
   it("refuses without the token, from a non-loopback address, and without a callback", async () => {
     const { result } = await runScenario(`
 const actions = [];
@@ -162,6 +186,8 @@ await call(server, "127.0.0.1", "POST", "/api/web/stop", {});
 await call(server, "10.0.0.5", "POST", "/api/web/stop");
 await call(bare, "127.0.0.1", "POST", "/api/web/restart");
 await call(server, "127.0.0.1", "POST", "/api/web/restart");
+// Let the first action end, so the next request is a separate one.
+await sleep(400);
 await call(server, "127.0.0.1", "POST", "/api/web/stop");
 await sleep(400);
 `);

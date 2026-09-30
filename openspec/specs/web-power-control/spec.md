@@ -50,6 +50,11 @@ After a stop, the page SHALL show that the web app stopped and the command to st
 - **THEN** the web app SHALL refuse it with `403` and SHALL keep serving
 - **AND** the page SHALL NOT show the power button to that caller
 
+#### Scenario: A repeated request while one runs
+
+- **WHEN** a stop or restart request arrives while an earlier one is still running
+- **THEN** the web app SHALL reply `202` and SHALL NOT start a second stop or restart
+
 #### Scenario: Cancelling the dialog
 
 - **WHEN** the user closes the confirmation dialog without choosing an action

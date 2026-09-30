@@ -75,7 +75,8 @@ write a full trace. See [Configuration: Capture diagnostics](configuration.md#ca
 
 At session start the Pi adapter checks for the shared web app. If none answers,
 it starts one `om-memory-system web` in the background and does not wait for it.
-If one answers, Pi uses it. Set `webServerEnabled` to `false` to keep the web
+If one answers, Pi uses it. This check runs at every session start, whatever
+`webServerAutoStart` says. Set `webServerEnabled` to `false` to keep the web
 app off. When `webServerAutoStart` is set, the Pi adapter also updates the web
 app login item, the same as OpenCode. See [Web UI](web-ui.md#starting-the-web-app).
 

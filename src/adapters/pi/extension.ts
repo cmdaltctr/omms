@@ -138,6 +138,8 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
               code: error instanceof Error ? error.name : "unknown",
             })
           );
+      }
+      if (process.env.OMMS_DISABLE_WEB_AUTOSTART !== "1") {
         // Start the shared web app if none runs. The session does not wait for it.
         void Promise.all([
           import("../../services/web-ensure.js"),

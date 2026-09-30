@@ -29,7 +29,7 @@ When you open the page from the same computer, the sidebar footer shows a power 
 
 A stop lasts until the next OpenCode start, Pi start, Claude Code prompt, `om-memory-system web install`, or login. Then a host starts the web app again.
 
-The routes are `GET /api/web/status`, `POST /api/web/restart`, and `POST /api/web/stop`. Stop and Restart need the local API token (`~/.omms/.auth-token`) and a loopback caller. Without the token they return `401`. From another address they return `403`. A web app that cannot restart itself returns `409`. On success they return `202` before the web app stops. Each request writes one log record (`stopping`, `restarting`, `refused_auth`, `refused_not_loopback`, or `unsupported`) and the version. The log never holds the token. The page hides the button when it may not control the web app.
+The routes are `GET /api/web/status`, `POST /api/web/restart`, and `POST /api/web/stop`. Stop and Restart need the local API token (`~/.omms/.auth-token`) and a loopback caller. Without the token they return `401`. From another address they return `403`. A web app that cannot restart itself returns `409`. On success they return `202` before the web app stops. A second request that arrives while a stop or restart is running also gets `202` and does nothing more. Each request writes one log record (`stopping`, `restarting`, `already_running`, `refused_auth`, `refused_not_loopback`, or `unsupported`) and the version. The log never holds the token. The page hides the button when it may not control the web app.
 
 How Restart works:
 

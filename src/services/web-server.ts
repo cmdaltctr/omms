@@ -247,6 +247,7 @@ export class WebServer {
   private onPortsExhaustedCallback: (() => void) | null = null;
   private onStepAsideCallback: (() => void | Promise<void>) | null = null;
   private onPowerActionCallback: ((action: PowerAction) => void | Promise<void>) | null = null;
+  private powerActionRunning = false;
   private stepAsideTimer: NodeJS.Timeout | null = null;
   private holdOffTimer: NodeJS.Timeout | null = null;
   private portsExhaustedNotified = false;
@@ -335,6 +336,12 @@ export class WebServer {
       record("unsupported");
       return this.jsonResponse({ success: false, error: "Not supported by this web app" }, 409);
     }
+    // A repeated request must not start a second stop or restart while one runs.
+    if (this.powerActionRunning) {
+      record("already_running");
+      return this.jsonResponse({ success: true }, 202);
+    }
+    this.powerActionRunning = true;
     record(action === "stop" ? "stopping" : "restarting");
     // Let the 202 reply reach the caller before the web app goes down.
     setTimeout(async () => {
@@ -342,6 +349,8 @@ export class WebServer {
         await callback(action);
       } catch (error) {
         log("Power action callback error", { action, error: String(error) });
+      } finally {
+        this.powerActionRunning = false;
       }
     }, STEP_ASIDE_REPLY_GRACE_MS).unref();
     return this.jsonResponse({ success: true }, 202);

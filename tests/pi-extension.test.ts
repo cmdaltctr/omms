@@ -254,6 +254,21 @@ captured = { calls: ensureCalls.length, options: ensureCalls[0] };
     });
   });
 
+  it("starts the shared web app even when webServerAutoStart is unset", () => {
+    const output = runScenario(`
+delete stubConfig.webServerAutoStart;
+stubConfig.webServerEnabled = true;
+stubConfig.webServerHost = "127.0.0.1";
+stubConfig.webServerPort = 4747;
+delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
+await handlers["session_start"]({}, makeCtx());
+await new Promise((resolve) => setTimeout(resolve, 10));
+captured = { ensure: ensureCalls.length, loginItem: autostartCalls.length };
+    `);
+    // The login item stays tied to webServerAutoStart. The web app check does not.
+    expect(output.captured).toEqual({ ensure: 1, loginItem: 0 });
+  });
+
   it("does not start the web app when web autostart is disabled for tests", () => {
     const output = runScenario(`
 stubConfig.webServerAutoStart = true;
