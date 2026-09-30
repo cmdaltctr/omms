@@ -10,6 +10,7 @@ import {
 import type { Dirent } from "node:fs";
 import { basename, join } from "node:path";
 import { StringDecoder } from "node:string_decoder";
+import { CONFIG } from "../config.js";
 import { claudeProjectsRoot } from "../services/claude-folder.js";
 import { extractScopeFromContainerTag } from "../services/memory-scope.js";
 import { getTags } from "../services/tags.js";
@@ -188,7 +189,7 @@ function isFile(path: string): boolean {
 export function discoverClaudeSessions(
   options: ClaudeDiscoveryOptions = {}
 ): ClaudeDiscoveryResult {
-  const root = options.root ?? defaultClaudeProjectsRoot();
+  const root = options.root ?? defaultClaudeProjectsRoot(CONFIG.claudeConfigDir);
   const sessions: DiscoveredClaudeSession[] = [];
   const unrecognized: UnrecognizedFile[] = [];
   if (!existsSync(root)) return { sessions, unrecognized };

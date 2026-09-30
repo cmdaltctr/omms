@@ -74,6 +74,32 @@ describe("defaultClaudeProjectsRoot", () => {
     expect(defaultClaudeProjectsRoot()).toBe(join(homedir(), ".claude", "projects"));
   });
 
+  it("follows the claudeConfigDir setting when discovery has no root", () => {
+    const home = tempDir("claude-home-");
+    const custom = join(home, "custom-claude");
+    cpSync(FIXTURE_ROOT, join(custom, "projects"), { recursive: true });
+    mkdirSync(join(home, ".config", "omms"), { recursive: true });
+    writeFileSync(
+      join(home, ".config", "omms", "omms.jsonc"),
+      JSON.stringify({ claudeConfigDir: custom })
+    );
+    const readerUrl = pathToFileURL(join(import.meta.dir, "../src/importer/claude-reader.js")).href;
+    const script = `const { discoverClaudeSessions } = await import(${JSON.stringify(readerUrl)});
+console.log("RESULT:" + JSON.stringify(discoverClaudeSessions().sessions.map((s) => s.key)));`;
+    const scriptPath = join(home, "scenario.mjs");
+    writeFileSync(scriptPath, script);
+    const env: Record<string, string | undefined> = {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+    };
+    delete env.CLAUDE_CONFIG_DIR;
+    const proc = Bun.spawnSync(["bun", "run", scriptPath], { cwd: home, env });
+    const match = proc.stdout.toString().match(/RESULT:(.*)$/m);
+    if (!match) throw new Error(`no result: ${proc.stdout}\n${proc.stderr}`);
+    expect(JSON.parse(match[1]!)).toEqual([OTHER_KEY, MAIN_KEY]);
+  });
+
   it("is where discovery looks without a root", () => {
     // Bun reads the home folder once at start, so a child process gets the fake one.
     const home = tempDir("claude-home-");
