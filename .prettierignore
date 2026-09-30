@@ -14,3 +14,5 @@ yarn.lock
 graphify-out
 # Written by release-please; its blank-line style differs from Prettier
 CHANGELOG.md
+# release-please rewrites the version with JSON.stringify, which expands arrays Prettier would collapse
+.claude-plugin/plugin.json

@@ -10,5 +10,10 @@
   "homepage": "https://github.com/cmdaltctr/omms#readme",
   "repository": "https://github.com/cmdaltctr/omms",
   "license": "MIT",
-  "keywords": ["omms", "memory", "claude-code", "coding-agent"]
+  "keywords": [
+    "omms",
+    "memory",
+    "claude-code",
+    "coding-agent"
+  ]
 }
