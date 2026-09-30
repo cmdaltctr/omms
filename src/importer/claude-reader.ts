@@ -49,8 +49,10 @@ import {
 export const CLAUDE_HEADER_READ_LIMIT = 1024 * 1024;
 const READ_CHUNK = 64 * 1024;
 
+/** `$CLAUDE_CONFIG_DIR/projects` when the variable is set, else `~/.claude/projects`. */
 export function defaultClaudeProjectsRoot(): string {
-  return join(homedir(), ".claude", "projects");
+  const configDir = process.env.CLAUDE_CONFIG_DIR?.trim();
+  return join(configDir || join(homedir(), ".claude"), "projects");
 }
 
 export interface DiscoveredClaudeSession {

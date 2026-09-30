@@ -75,7 +75,7 @@ mock.module(${JSON.stringify(moduleUrl("src/services/logger.js"))}, () => ({
   log: (message, data) => logs.push({ message, data: data ?? null }),
 }));
 
-const { writeFileSync, appendFileSync } = await import("node:fs");
+const { writeFileSync, appendFileSync, mkdirSync, symlinkSync } = await import("node:fs");
 const { join } = await import("node:path");
 const config = await import(${JSON.stringify(moduleUrl("src/config.js"))});
 const projectDir = ${JSON.stringify(projectDir)};
@@ -97,7 +97,11 @@ const provider = {
 };
 
 let line = 0;
-const transcript = join(${JSON.stringify(home)}, "transcript.jsonl");
+// Claude Code writes <projects root>/<folder>/<session_id>.jsonl.
+const projectsRoot = join(${JSON.stringify(home)}, ".claude", "projects");
+const transcriptDir = join(projectsRoot, "-proj");
+mkdirSync(transcriptDir, { recursive: true });
+const transcript = join(transcriptDir, "ses-1.jsonl");
 writeFileSync(transcript, "");
 function entry(type, uuid, content, extra = {}) {
   line++;
@@ -346,7 +350,7 @@ scenario = { queued, calls: calls.length };
     const { run } = createHarness();
     const scenario = await run(`
 await (async () => {
-  api.handleClaudeCapture({ session_id: "ses-1", transcript_path: join(projectDir, "missing.jsonl"), cwd: projectDir }, { captureProvider: () => provider });
+  api.handleClaudeCapture({ session_id: "ses-missing", transcript_path: join(transcriptDir, "ses-missing.jsonl"), cwd: projectDir }, { captureProvider: () => provider });
   await api.whenClaudeCaptureIdle();
   writeFileSync(transcript, "not json\\n{broken\\n");
   await capture({ last_assistant_message: "private reply text" });
@@ -363,6 +367,106 @@ scenario = { skips, calls: calls.length, bad, logText: JSON.stringify(logs) };
     ]);
     expect(scenario.bad).toBe(400);
     expect(scenario.logText).not.toContain("private reply text");
+  });
+
+  it("follows CLAUDE_CONFIG_DIR for the projects folder", async () => {
+    const { run } = createHarness();
+    const scenario = await run(`
+const customConfig = join(otherProjectDir, "claude-config");
+const customDir = join(customConfig, "projects", "-proj");
+mkdirSync(customDir, { recursive: true });
+const customTranscript = join(customDir, "ses-1.jsonl");
+writeFileSync(customTranscript, "{}\\n");
+process.env.CLAUDE_CONFIG_DIR = customConfig;
+const statusOf = (path) => {
+  try {
+    api.handleClaudeCapture({ session_id: "ses-1", transcript_path: path, cwd: projectDir }, { captureProvider: () => provider });
+    return 202;
+  } catch (error) { return error.status; }
+};
+scenario = { custom: statusOf(customTranscript), defaultRoot: statusOf(transcript) };
+await api.whenClaudeCaptureIdle();
+`);
+    expect(scenario.custom).toBe(202);
+    expect(scenario.defaultRoot).toBe(400);
+  });
+
+  it("accepts the projects folder when CLAUDE_CONFIG_DIR differs only in letter case", async () => {
+    const { run } = createHarness();
+    // Node's plain realpathSync keeps the letter case it is given; only .native
+    // returns the case on disk. Bun already returns the case on disk, so the
+    // test replaces the plain function to act like Node.
+    const scenario = await run(`
+const realFs = await import("node:fs");
+const realConfig = join(otherProjectDir, "Case-Config");
+const dir = join(realConfig, "projects", "-proj");
+mkdirSync(dir, { recursive: true });
+const file = join(dir, "ses-1.jsonl");
+writeFileSync(file, "{}\\n");
+const lowerConfig = join(otherProjectDir, "case-config");
+// A case-sensitive file system has no such folder, so the check does not apply.
+const caseInsensitive = realFs.existsSync(lowerConfig);
+const nodeLikeRealpath = Object.assign(
+  (path) => { realFs.statSync(path); return path; },
+  { native: realFs.realpathSync.native }
+);
+mock.module("node:fs", () => ({ ...realFs, default: { ...realFs.default, realpathSync: nodeLikeRealpath }, realpathSync: nodeLikeRealpath }));
+const nodeApi = await import(${JSON.stringify(moduleUrl("src/importer/claude-hook-api.js"))} + "?node-like");
+process.env.CLAUDE_CONFIG_DIR = lowerConfig;
+let status = 202;
+try {
+  nodeApi.handleClaudeCapture({ session_id: "ses-1", transcript_path: file, cwd: projectDir }, { captureProvider: () => provider });
+} catch (error) { status = error.status; }
+await nodeApi.whenClaudeCaptureIdle();
+scenario = { caseInsensitive, status };
+`);
+    if (!scenario.caseInsensitive) return;
+    expect(scenario.status).toBe(202);
+  });
+
+  it("rejects a transcript path outside the projects folder, a symlink out of it, or a wrong file name", async () => {
+    const { run } = createHarness();
+    const scenario = await run(`
+turn(1, "Question one", "Answer one");
+const outsideFile = join(otherProjectDir, "ses-1.jsonl");
+writeFileSync(outsideFile, "{}\\n");
+writeFileSync(join(otherProjectDir, "ses-2.jsonl"), "{}\\n");
+writeFileSync(join(transcriptDir, "other.jsonl"), "{}\\n");
+symlinkSync(otherProjectDir, join(projectsRoot, "-escape"));
+symlinkSync(join(otherProjectDir, "ses-2.jsonl"), join(transcriptDir, "ses-2.jsonl"));
+
+const attempts = {
+  outsideRoot: ["ses-1", outsideFile],
+  // Built by hand: path.join would collapse the ".." segments.
+  dotDotEscape: ["ses-1", transcriptDir + "/../../../../../../../../../../.." + outsideFile],
+  dirSymlinkEscape: ["ses-1", join(projectsRoot, "-escape", "ses-1.jsonl")],
+  fileSymlinkEscape: ["ses-2", join(transcriptDir, "ses-2.jsonl")],
+  wrongName: ["ses-1", join(transcriptDir, "other.jsonl")],
+  otherSessionsFile: ["ses-3", transcript],
+};
+const status = {};
+for (const [name, [sessionId, path]] of Object.entries(attempts)) {
+  status[name] = null;
+  try {
+    api.handleClaudeCapture({ session_id: sessionId, transcript_path: path, cwd: projectDir }, { captureProvider: () => provider });
+  } catch (error) { status[name] = error.status; }
+}
+await api.whenClaudeCaptureIdle();
+const rejectedCalls = calls.length;
+const valid = await capture();
+scenario = { status, rejectedCalls, valid, validCalls: calls.length };
+`);
+    expect(scenario.status).toEqual({
+      outsideRoot: 400,
+      dotDotEscape: 400,
+      dirSymlinkEscape: 400,
+      fileSymlinkEscape: 400,
+      wrongName: 400,
+      otherSessionsFile: 400,
+    });
+    expect(scenario.rejectedCalls).toBe(0);
+    expect(scenario.valid).toEqual({ queued: true });
+    expect(scenario.validCalls).toBe(1);
   });
 
   it("records prompts and runs profile learning at the interval with the external model", async () => {
@@ -424,7 +528,7 @@ const token = getOrCreateAuthToken();
 const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747, directory: projectDir });
 const post = (path, body, headers = {}) => server.handleRequest(new Request("http://127.0.0.1:4747" + path, {
   method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) }));
-const missing = join(projectDir, "missing-transcript.jsonl");
+const missing = join(transcriptDir, "ses-route.jsonl");
 const captureBody = { session_id: "ses-route", transcript_path: missing, cwd: projectDir };
 const deniedCapture = await post("/api/claude/capture", captureBody);
 const deniedRetrieve = await post("/api/claude/retrieve", { event: "session-start", session_id: "s", cwd: projectDir, source: "startup" });

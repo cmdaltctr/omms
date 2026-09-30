@@ -1,5 +1,6 @@
+import { realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { isAbsolute } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { CONFIG, refreshConfigIfChanged } from "../config.js";
 import { captureConversation, type CaptureResult, type CaptureWorkUnit } from "../core/capture.js";
 import { classifyCaptureFailure, quickRetryDelayMs } from "../core/capture-retry-policy.js";
@@ -34,6 +35,7 @@ import {
   type ClaudeConversationWindow,
   type ClaudeTranscriptEntry,
 } from "./claude-conversation.js";
+import { defaultClaudeProjectsRoot } from "./claude-reader.js";
 
 // The web app's side of the Claude Code hooks (design decisions 4, 6, 7):
 // retrieval for SessionStart and UserPromptSubmit, a one-worker capture queue
@@ -115,6 +117,41 @@ function parseRetrieveRequest(body: unknown): RetrieveRequest {
   };
 }
 
+/**
+ * Resolves symlinks and returns the letter case on disk. Node's plain
+ * `realpathSync` keeps the case it is given, which fails the root check on a
+ * case-insensitive file system. A path that does not exist yet resolves
+ * through its nearest existing parent.
+ */
+function realPathOrResolved(path: string): string {
+  const absolute = resolve(path);
+  try {
+    return realpathSync.native(absolute);
+  } catch {
+    const parent = dirname(absolute);
+    if (parent === absolute) return absolute;
+    return join(realPathOrResolved(parent), basename(absolute));
+  }
+}
+
+/**
+ * Claude Code writes `<projects root>/<folder>/<session_id>.jsonl`. Accept only
+ * that shape, so the route cannot be used to read other `.jsonl` files. Returns
+ * the resolved path, which the capture then reads.
+ */
+function checkedTranscriptPath(transcriptPath: string, sessionId: string): string {
+  const fileName = `${sessionId}.jsonl`;
+  const real = realPathOrResolved(transcriptPath);
+  if (basename(transcriptPath) !== fileName || basename(real) !== fileName) {
+    throw new ClaudeHookRequestError("transcript_path must be named <session_id>.jsonl");
+  }
+  const root = realPathOrResolved(defaultClaudeProjectsRoot());
+  if (!real.startsWith(root + sep)) {
+    throw new ClaudeHookRequestError("transcript_path must be under the Claude projects folder");
+  }
+  return real;
+}
+
 function parseCaptureRequest(body: unknown): CaptureRequest {
   const input = objectBody(body);
   const transcriptPath = input.transcript_path;
@@ -125,9 +162,11 @@ function parseCaptureRequest(body: unknown): CaptureRequest {
   ) {
     throw new ClaudeHookRequestError("transcript_path must be an absolute .jsonl path");
   }
+  const { sessionId, cwd } = sessionAndCwd(input);
   return {
-    ...sessionAndCwd(input),
-    transcriptPath,
+    sessionId,
+    cwd,
+    transcriptPath: checkedTranscriptPath(transcriptPath, sessionId),
     lastAssistantMessage: optionalString(input, "last_assistant_message"),
     stopHookActive: input.stop_hook_active === true,
   };
