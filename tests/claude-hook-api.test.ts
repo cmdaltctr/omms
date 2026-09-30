@@ -391,6 +391,39 @@ await api.whenClaudeCaptureIdle();
     expect(scenario.defaultRoot).toBe(400);
   });
 
+  it("accepts the projects folder when CLAUDE_CONFIG_DIR differs only in letter case", async () => {
+    const { run } = createHarness();
+    // Node's plain realpathSync keeps the letter case it is given; only .native
+    // returns the case on disk. Bun already returns the case on disk, so the
+    // test replaces the plain function to act like Node.
+    const scenario = await run(`
+const realFs = await import("node:fs");
+const realConfig = join(otherProjectDir, "Case-Config");
+const dir = join(realConfig, "projects", "-proj");
+mkdirSync(dir, { recursive: true });
+const file = join(dir, "ses-1.jsonl");
+writeFileSync(file, "{}\\n");
+const lowerConfig = join(otherProjectDir, "case-config");
+// A case-sensitive file system has no such folder, so the check does not apply.
+const caseInsensitive = realFs.existsSync(lowerConfig);
+const nodeLikeRealpath = Object.assign(
+  (path) => { realFs.statSync(path); return path; },
+  { native: realFs.realpathSync.native }
+);
+mock.module("node:fs", () => ({ ...realFs, default: { ...realFs.default, realpathSync: nodeLikeRealpath }, realpathSync: nodeLikeRealpath }));
+const nodeApi = await import(${JSON.stringify(moduleUrl("src/importer/claude-hook-api.js"))} + "?node-like");
+process.env.CLAUDE_CONFIG_DIR = lowerConfig;
+let status = 202;
+try {
+  nodeApi.handleClaudeCapture({ session_id: "ses-1", transcript_path: file, cwd: projectDir }, { captureProvider: () => provider });
+} catch (error) { status = error.status; }
+await nodeApi.whenClaudeCaptureIdle();
+scenario = { caseInsensitive, status };
+`);
+    if (!scenario.caseInsensitive) return;
+    expect(scenario.status).toBe(202);
+  });
+
   it("rejects a transcript path outside the projects folder, a symlink out of it, or a wrong file name", async () => {
     const { run } = createHarness();
     const scenario = await run(`

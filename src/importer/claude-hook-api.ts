@@ -117,11 +117,16 @@ function parseRetrieveRequest(body: unknown): RetrieveRequest {
   };
 }
 
-/** Resolves symlinks. A path that does not exist yet resolves through its nearest existing parent. */
+/**
+ * Resolves symlinks and returns the letter case on disk. Node's plain
+ * `realpathSync` keeps the case it is given, which fails the root check on a
+ * case-insensitive file system. A path that does not exist yet resolves
+ * through its nearest existing parent.
+ */
 function realPathOrResolved(path: string): string {
   const absolute = resolve(path);
   try {
-    return realpathSync(absolute);
+    return realpathSync.native(absolute);
   } catch {
     const parent = dirname(absolute);
     if (parent === absolute) return absolute;
