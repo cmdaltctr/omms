@@ -3,10 +3,14 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSyn
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { listeners } from "./port-listeners.js";
 
 setDefaultTimeout(60_000);
 
 const repoRoot = join(import.meta.dir, "..");
+// Node imports need a file URL. A Windows path such as D:\... is not one.
+const webEnsureModule = pathToFileURL(join(repoRoot, "dist", "services", "web-ensure.js")).href;
 
 async function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -21,14 +25,6 @@ async function freePort(): Promise<number> {
       );
     });
   });
-}
-
-/** Process ids that listen on the port. */
-async function listeners(port: number): Promise<string[]> {
-  const proc = Bun.spawn(["lsof", "-ti", `tcp:${port}`, "-sTCP:LISTEN"], { stdout: "pipe" });
-  const text = await new Response(proc.stdout).text();
-  await proc.exited;
-  return text.split("\n").filter(Boolean);
 }
 
 it("starts exactly one web app for two host processes that start at once", async () => {
@@ -49,7 +45,7 @@ it("starts exactly one web app for two host processes that start at once", async
     })
   );
   const script = `
-    import { ensureWebApp } from ${JSON.stringify(join(repoRoot, "dist", "services", "web-ensure.js"))};
+    import { ensureWebApp } from ${JSON.stringify(webEnsureModule)};
     const result = await ensureWebApp({
       settings: { enabled: true, baseUrl: "http://127.0.0.1:${port}" },
       budgetMs: 30000,
@@ -107,7 +103,7 @@ it("gives a stale start lock to exactly one of several processes that replace it
   writeFileSync(lock, JSON.stringify({ pid: 999_999, at: Date.now() - 60_000 }));
   const script = `
     import { existsSync } from "node:fs";
-    import { nodeLockFs, takeStartLock } from ${JSON.stringify(join(repoRoot, "dist", "services", "web-ensure.js"))};
+    import { nodeLockFs, takeStartLock } from ${JSON.stringify(webEnsureModule)};
     while (!existsSync(${JSON.stringify(go)})) await new Promise((r) => setTimeout(r, 1));
     const held = takeStartLock({
       lockPath: ${JSON.stringify(lock)},

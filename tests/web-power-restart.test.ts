@@ -1,17 +1,10 @@
 import { expect, it, setDefaultTimeout } from "bun:test";
 import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { listeners } from "./port-listeners.js";
 import { startStandaloneWeb } from "./standalone-web-fixture.js";
 
 setDefaultTimeout(60_000);
-
-/** Process ids that listen on the port. */
-async function listeners(port: number): Promise<string[]> {
-  const proc = Bun.spawn(["lsof", "-ti", `tcp:${port}`, "-sTCP:LISTEN"], { stdout: "pipe" });
-  const text = await new Response(proc.stdout).text();
-  await proc.exited;
-  return text.split("\n").filter(Boolean);
-}
 
 async function waitFor<T>(read: () => Promise<T | null>, ms: number): Promise<T | null> {
   const deadline = Date.now() + ms;
