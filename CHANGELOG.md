@@ -2,6 +2,17 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [3.6.2](https://github.com/cmdaltctr/omms/compare/v3.6.1...v3.6.2) (2026-09-30)
+
+
+### Bug Fixes
+
+* expect the Windows session order in the Claude reader test ([8a63301](https://github.com/cmdaltctr/omms/commit/8a633019e85ceda56738c424e9aaede1c98ea77d))
+* make the six-platform release smoke pass on Windows ([8b44988](https://github.com/cmdaltctr/omms/commit/8b449884fba2e7f25f339c4f77abf8306b7dfbb1))
+* point the memory CLI test at its temporary home on Windows ([a5eec7d](https://github.com/cmdaltctr/omms/commit/a5eec7ddf463352dcb8db89939327bf61e8b484e))
+* retry the web start lock replace while Windows holds it open ([380607e](https://github.com/cmdaltctr/omms/commit/380607e58210c568f33fee2928220b82cdccdd85))
+* run the real-process web tests on Windows ([f3a0733](https://github.com/cmdaltctr/omms/commit/f3a07331fd6d9cd73273593d7368653f25d6a61b))
+
 ## [3.6.1](https://github.com/cmdaltctr/omms/compare/v3.6.0...v3.6.1) (2026-09-30)
 
 
