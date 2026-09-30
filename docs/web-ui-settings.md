@@ -155,6 +155,17 @@ This section runs checks on the parts OMMS needs, and shows a pass, warning, or 
 
 A session model can be tested only from inside an open session. The web app cannot call an OpenCode signed-in model or a Pi session model. The **OpenCode model test** row then shows `warn` with the text `Skipped: an OpenCode signed-in model can be tested only inside OpenCode`. To test it, run a capture in OpenCode, or set the external API as the capture model. Claude Code uses the external API, so the External API card's **Test** covers it.
 
+## Claude Code folder
+
+Use this section when Claude Code does not keep its data in `~/.claude`, for example when you start it with `CLAUDE_CONFIG_DIR`.
+
+- **Claude Code folder** (`claudeConfigDir`) is the folder, not its `projects` subfolder. Enter an absolute path or a path that starts with `~/`. The page refuses any other value.
+- Leave the field empty to use the web app's `CLAUDE_CONFIG_DIR` variable, then `~/.claude`.
+- **Transcripts folder in use** shows `<folder>/projects`. **From** says whether it comes from this setting, the variable, or the default.
+- A warning shows when the folder does not exist. Claude Code capture then returns `400` for every turn, and the import screen finds no sessions.
+- A save applies to the next capture and the next import. You do not restart anything.
+- A project config cannot change this setting.
+
 ## Import and backfill
 
 Use this section to import past chats by hand. A backfill is an import of old chats; the next section runs one automatically.

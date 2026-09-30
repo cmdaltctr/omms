@@ -40,6 +40,7 @@ On first start, if no config exists at all, the plugin creates a full commented 
   "piBackfillModel": "inherit", // or "external", or "provider/model"
   "opencodeBackfillModel": "inherit", // or "external", or "provider/model"
   "importPathMaps": [{ "from": "~/code/app-feat-x", "to": "~/code/app" }],
+  "claudeConfigDir": "",
   "autoCaptureLanguage": "auto",
 
   // Model for auto-capture and profile learning (see "Choosing the model").
@@ -82,7 +83,7 @@ On first start, if no config exists at all, the plugin creates a full commented 
 Open the Settings page in the login web app, in OpenCode, or with `om-memory-system web`. [Web UI settings](web-ui-settings.md) explains each part of the page.
 
 - The page writes only to the global file. It does not edit a project's config.
-- It can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `autoBackfill`, `opencodeBackfillModel`, `piBackfillModel`, `importPathMaps`, `webServerAutoStart`, `captureTrace`, `captureTraceRetentionDays`, `captureAttemptRetentionDays`, `captureRetryRetentionHours`, `memoryProvider`, `memoryApiUrl`, `memoryModel`, and `memoryApiKey`.
+- It can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `autoBackfill`, `opencodeBackfillModel`, `piBackfillModel`, `importPathMaps`, `claudeConfigDir`, `webServerAutoStart`, `captureTrace`, `captureTraceRetentionDays`, `captureAttemptRetentionDays`, `captureRetryRetentionHours`, `memoryProvider`, `memoryApiUrl`, `memoryModel`, and `memoryApiKey`.
 - The only credential it changes is `memoryApiKey`. It accepts only an `env://` or `file://` reference and rejects a literal key.
 - If you paste a key, the page saves it to a key file in `~/.config/omms/secrets/` and stores a `file://` reference to it. The folder and file are readable only by you.
 - `captureAttemptRetentionDays` defaults to 30. Both retention fields need at least 1 day.
@@ -136,11 +137,21 @@ On the Settings page you can **Run now**, **Pause**, and **Resume** each host's 
 
 `autoBackfill` and `webServerAutoStart` must be `true` or `false`.
 
+## Claude Code folder
+
+`claudeConfigDir` is the folder Claude Code keeps its data in. OMMS reads Claude Code transcripts from `<folder>/projects`.
+
+- Leave it empty (the default) to use `CLAUDE_CONFIG_DIR`, then `~/.claude`.
+- Set it when you start Claude Code with `CLAUDE_CONFIG_DIR`. The web app often does not have that variable, for example when a login item starts it.
+- The value must be an absolute path or start with `~/`. Any other value is a config error.
+- Live capture, history import, and automatic backfill all use it. A CLI `--root` still overrides it for one import.
+- Set it on the Settings page, in the **Claude Code folder** section. The page shows the folder in use and where it comes from.
+
 ## Global-only settings
 
 Some settings are read only from the global file.
 
-- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoCleanupEnabled`, and `autoCleanupRetentionDays`. This stops one project from, for example, turning off the shared web server for another.
+- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoCleanupEnabled`, and `autoCleanupRetentionDays`. This stops one project from, for example, turning off the shared web server for another.
 - A project config cannot turn `captureTrace` on. See [Capture traces](#capture-traces-opt-in).
 - A project config that sets `embeddingApiUrl`, `embeddingApiKey`, `memoryProvider`, `memoryApiUrl`, or `memoryApiKey` is an error. Move those to the global file.
 

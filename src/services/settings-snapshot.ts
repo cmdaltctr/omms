@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse, type ParseError } from "jsonc-parser";
 import { CONFIG, getGlobalConfigSourcePath } from "../config.js";
+import { resolveClaudeFolder } from "./claude-folder.js";
 import { readGlobalConfigRevision } from "./global-config-writer.js";
 import {
   getAutoCaptureProviderStatus,
@@ -27,6 +28,7 @@ const editable = [
   "memoryApiUrl",
   "memoryModel",
   "importPathMaps",
+  "claudeConfigDir",
 ] as const;
 
 /** Keys a project config cannot override, so the page always shows the global value. */
@@ -39,6 +41,7 @@ const globalOnly = [
   "memoryProvider",
   "memoryApiUrl",
   "importPathMaps",
+  "claudeConfigDir",
 ];
 
 function readSettingsFile(path: string | undefined): Record<string, unknown> {
@@ -97,6 +100,9 @@ export function getSettingsSnapshot(directory: string) {
       ];
     })
   );
+  const claudeSetting = global.claudeConfigDir ?? CONFIG.claudeConfigDir;
+  const claude = resolveClaudeFolder(typeof claudeSetting === "string" ? claudeSetting : "");
+  const claudeRoot = join(claude.folder, "projects");
   return {
     revision: readGlobalConfigRevision(),
     settings,
@@ -109,6 +115,8 @@ export function getSettingsSnapshot(directory: string) {
       // Claude Code capture uses the external API only; `issues` names each missing setting.
       "claude-code": resolveClaudeCodeLiveModel(CONFIG),
     },
+    // The folder Claude Code capture and import read; the check never reads transcripts.
+    claudeFolder: { root: claudeRoot, source: claude.source, exists: existsSync(claudeRoot) },
   };
 }
 

@@ -8,6 +8,7 @@ import {
   getGlobalConfigWritePath,
   validateGlobalConfig,
 } from "../config.js";
+import { isValidClaudeConfigDir } from "./claude-folder.js";
 
 const keys = new Set([
   "opencodeProvider",
@@ -27,6 +28,7 @@ const keys = new Set([
   "memoryModel",
   "memoryApiKey",
   "importPathMaps",
+  "claudeConfigDir",
 ]);
 
 const MEMORY_PROVIDERS = [
@@ -57,6 +59,8 @@ function isValidEdit(key: string, value: unknown): boolean {
   if (key === "memoryProvider") return MEMORY_PROVIDERS.includes(value as string);
   // Entries are checked by the startup validation below.
   if (key === "importPathMaps") return Array.isArray(value);
+  // An empty value clears the field.
+  if (key === "claudeConfigDir") return isValidClaudeConfigDir(value);
   return typeof value === "string" && value.trim().length > 0;
 }
 

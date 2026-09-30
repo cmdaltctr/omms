@@ -6,6 +6,36 @@ import {
   manualModelFieldVisible,
   shouldPollBackfill,
 } from "../web/src/lib/auto-import-settings.js";
+import {
+  isValidClaudeConfigDir as pageClaudeCheck,
+  nextClaudeDraft,
+} from "../web/src/lib/claude-folder-settings.js";
+import { isValidClaudeConfigDir as serverClaudeCheck } from "../src/services/claude-folder.js";
+
+it("checks the Claude Code folder on the page the way the server does", () => {
+  const values = [
+    "",
+    "  ",
+    "/data/claude",
+    "~/claude",
+    "claude/config",
+    "./claude",
+    "~",
+    "~claude",
+  ];
+  for (const value of values) {
+    expect(pageClaudeCheck(value)).toBe(serverClaudeCheck(value));
+  }
+  expect(pageClaudeCheck("claude/config")).toBe(false);
+});
+
+it("keeps an edited Claude Code folder when another section saves", () => {
+  // Not edited: the field follows the saved value.
+  expect(nextClaudeDraft("/saved", "/old", false)).toBe("/saved");
+  expect(nextClaudeDraft(undefined, "/old", false)).toBe("");
+  // Edited and not yet saved: the user's text stays.
+  expect(nextClaudeDraft("/saved", "/typed", true)).toBe("/typed");
+});
 
 it("saves the backfill model without editing the live-capture model", () => {
   expect(backfillModelEdit("pi", "inherit")).toEqual({ piBackfillModel: "inherit" });
@@ -43,6 +73,15 @@ it("renders both Settings sections with the global switches and the running poll
   expect(web).toContain("webServerAutoStart");
   expect(view).toContain("<AutoImportSection />");
   expect(view).toContain("<WebAppSection />");
+  // The Claude Code folder: a field, the folder in use, its source, and a missing folder warning.
+  const claude = readFileSync(join(folder, "ClaudeFolderSection.tsx"), "utf8");
+  expect(view).toContain("<ClaudeFolderSection />");
+  expect(claude).toContain("claudeConfigDir");
+  // web/tests/claude-folder-status.spec.tsx renders the folder, its source, and the warning.
+  expect(claude).toContain("<ClaudeFolderStatus folder={snapshot?.claudeFolder} />");
+  // A slow first load never replaces a newer published snapshot.
+  expect(claude).toContain("read.isCurrent()");
+  expect(claude).toContain("isValidClaudeConfigDir");
   // Claude Code gets a backfill card without a model select.
   expect(automatic).toContain('"claude-code"');
   expect(automatic).toContain('host === "claude-code" ? (');

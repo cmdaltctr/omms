@@ -2,6 +2,7 @@ import { existsSync, readFileSync, mkdirSync, writeFileSync, statSync } from "no
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { stripJsoncComments } from "./services/jsonc.js";
+import { isValidClaudeConfigDir } from "./services/claude-folder.js";
 import { log } from "./services/logger.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
 import { isPlaceholderApiKey } from "./services/ai/api-key-placeholder.js";
@@ -88,6 +89,8 @@ interface OmmsConfig {
   piBackfillModel?: string;
   /** Saved directory maps for every history import. Global config only. */
   importPathMaps?: Array<{ from: string; to: string }>;
+  /** Claude Code's folder (its transcripts are in `<folder>/projects`). Empty means `CLAUDE_CONFIG_DIR`, then `~/.claude`. Global config only. */
+  claudeConfigDir?: string;
   webServerAutoStart?: boolean;
   webServerEnabled?: boolean;
   webServerPort?: number;
@@ -211,6 +214,7 @@ const DEFAULTS: Required<
   opencodeBackfillModel: "inherit",
   piBackfillModel: "inherit",
   importPathMaps: [],
+  claudeConfigDir: "",
   webServerAutoStart: true,
   webServerEnabled: true,
   webServerPort: 4747,
@@ -365,6 +369,8 @@ export const CONFIG_TEMPLATE = `{
   // "opencodeBackfillModel": "inherit", // or "external", or "provider/model"
   // Directory maps for history recorded in moved or deleted directories.
   // "importPathMaps": [{ "from": "~/code/app-feat-x", "to": "~/code/app" }],
+  // Claude Code's folder, when it is not ~/.claude (like CLAUDE_CONFIG_DIR).
+  // "claudeConfigDir": "~/.claude-work",
 
   // Register the web app to start when you log in.
   "webServerAutoStart": true,
@@ -775,6 +781,12 @@ function buildConfig(fileConfig: OmmsConfig) {
   parseBackfillModel(fileConfig, "pi");
   parseBackfillModel(fileConfig, "opencode");
   const importPathMaps = parseImportPathMaps(fileConfig.importPathMaps);
+  if (
+    fileConfig.claudeConfigDir !== undefined &&
+    !isValidClaudeConfigDir(fileConfig.claudeConfigDir)
+  ) {
+    throw new Error("Invalid claudeConfigDir config");
+  }
   for (const key of ["autoBackfill", "webServerAutoStart"] as const) {
     if (fileConfig[key] !== undefined && typeof fileConfig[key] !== "boolean") {
       throw new Error(`Invalid ${key} config`);
@@ -856,6 +868,7 @@ function buildConfig(fileConfig: OmmsConfig) {
     opencodeBackfillModel: fileConfig.opencodeBackfillModel ?? DEFAULTS.opencodeBackfillModel,
     piBackfillModel: fileConfig.piBackfillModel ?? DEFAULTS.piBackfillModel,
     importPathMaps,
+    claudeConfigDir: expandPath(fileConfig.claudeConfigDir?.trim() ?? DEFAULTS.claudeConfigDir),
     webServerAutoStart: fileConfig.webServerAutoStart ?? DEFAULTS.webServerAutoStart,
     webServerEnabled: fileConfig.webServerEnabled ?? DEFAULTS.webServerEnabled,
     webServerPort: fileConfig.webServerPort ?? DEFAULTS.webServerPort,
@@ -1047,6 +1060,8 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   delete projectOverrides.opencodeBackfillModel;
   delete projectOverrides.piBackfillModel;
   delete projectOverrides.importPathMaps;
+  // A checked-in project file must not point the web app at another folder.
+  delete projectOverrides.claudeConfigDir;
   delete projectOverrides.webServerAutoStart;
   delete projectOverrides.webServerEnabled;
   const merged: OmmsConfig = { ...globalConfig, ...projectOverrides };

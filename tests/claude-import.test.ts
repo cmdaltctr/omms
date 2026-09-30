@@ -132,6 +132,27 @@ console.log("RESULT:" + JSON.stringify(scenario ?? null));
 }
 
 describe("Claude Code history import", () => {
+  it("reads the claudeConfigDir folder when no --root is given, in the terminal and on the page", () => {
+    const out = runScenario(`
+delete process.env.CLAUDE_CONFIG_DIR;
+CONFIG.claudeConfigDir = base;
+const args = parseHistoryImportArgs(
+  ["--scope", "all-projects", "--dry-run", "--skip-profile"],
+  { host: "claude-code", surface: "cli" }
+);
+const dry = await runHistoryImport("claude-code", args, { cwd: base, models: {}, savedPathMaps: [] });
+const { listImportSessions } = await import(${JSON.stringify(url("../src/importer/import-sessions.js"))});
+const page = await listImportSessions(
+  { refresh: true },
+  { host: "claude-code", scope: "all-projects", pathMaps: [], cwd: base }
+);
+scenario = { base, root: dry.root, discovered: dry.sessionsDiscovered, listed: page.total };
+`);
+    expect(out.root).toBe(join(out.base, "projects"));
+    expect(out.discovered).toBeGreaterThan(0);
+    expect(out.listed).toBe(out.discovered);
+  });
+
   it("stores nothing in a dry run, one memory per window in a real run, and skips all on rerun", () => {
     const out = runScenario(`
 const dry = await runImport(["--dry-run"]);

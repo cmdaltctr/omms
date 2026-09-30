@@ -478,6 +478,33 @@ const text = {
     "已保存。映射在下次导入或回填时生效。",
     "تم الحفظ. تسري الخرائط في الاستيراد التالي.",
   ],
+  "Claude Code folder": ["Claude Code 文件夹", "مجلد Claude Code"],
+  "Set this when Claude Code does not use ~/.claude, for example when you start it with CLAUDE_CONFIG_DIR. Leave it empty to use the default.":
+    [
+      "当 Claude Code 不使用 ~/.claude 时（例如用 CLAUDE_CONFIG_DIR 启动它），请设置此项。留空则使用默认文件夹。",
+      "اضبط هذا عندما لا يستخدم Claude Code المجلد ‎~/.claude، مثلاً عند تشغيله مع CLAUDE_CONFIG_DIR. اتركه فارغاً لاستخدام المجلد الافتراضي.",
+    ],
+  "Save folder": ["保存文件夹", "حفظ المجلد"],
+  "Transcripts folder in use": ["正在使用的会话记录文件夹", "مجلد سجلات الجلسات المستخدم"],
+  From: ["来源", "المصدر"],
+  "this setting": ["此设置", "هذا الإعداد"],
+  "the CLAUDE_CONFIG_DIR variable of the web app": [
+    "网页应用的 CLAUDE_CONFIG_DIR 变量",
+    "متغير CLAUDE_CONFIG_DIR لتطبيق الويب",
+  ],
+  "the default folder": ["默认文件夹", "المجلد الافتراضي"],
+  "This folder does not exist. Claude Code capture and import will not work:": [
+    "此文件夹不存在。Claude Code 的捕获和导入将无法工作：",
+    "هذا المجلد غير موجود. لن يعمل الالتقاط والاستيراد في Claude Code:",
+  ],
+  "Enter a full path, or a path that starts with ~/.": [
+    "请输入完整路径，或以 ~/ 开头的路径。",
+    "أدخل مساراً كاملاً، أو مساراً يبدأ بـ ‎~/.",
+  ],
+  "Saved. Capture and import use this folder now.": [
+    "已保存。捕获和导入现在使用此文件夹。",
+    "تم الحفظ. يستخدم الالتقاط والاستيراد هذا المجلد الآن.",
+  ],
   "Running version": ["运行版本", "الإصدار الجاري"],
   "Global command": ["全局命令", "الأمر العام"],
   "not installed globally": ["未全局安装", "غير مثبت عمومياً"],

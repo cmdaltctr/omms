@@ -31,7 +31,7 @@ Verified against Claude Code 2.1.284.
 
 By default:
 
-- OMMS reads transcripts from `~/.claude/projects`, or from `$CLAUDE_CONFIG_DIR/projects` when that variable is set.
+- OMMS reads transcripts from `<Claude folder>/projects`. The Claude folder is the **Claude Code folder** setting (`claudeConfigDir`) when it is set, then `CLAUDE_CONFIG_DIR`, then `~/.claude`. Live capture uses the same folder. `--root` overrides it for one import.
 - Only sessions recorded for the current project are imported.
 - Extraction and profile learning use the saved external API (`memoryProvider`, `memoryModel`, `memoryApiUrl`, `memoryApiKey`).
 
@@ -140,7 +140,7 @@ The Settings page's **Import and backfill** section can import Claude Code
 history. See [Web UI settings: Import and backfill](web-ui-settings.md#import-and-backfill).
 
 - Choose **Claude Code** as the history host.
-- The default source is `~/.claude/projects`, or `$CLAUDE_CONFIG_DIR/projects` when that variable is set. The source kind is `claude-projects`. A Claude Code source must be a folder.
+- The default source is the projects folder that live capture uses: from the **Claude Code folder** setting, then `CLAUDE_CONFIG_DIR`, then `~/.claude`. The folder picker opens there. The source kind is `claude-projects`. A Claude Code source must be a folder.
 - **List sessions** shows each session's date, ID, and project folder.
 - The import model is always the saved external API. A request for any other model is refused with `Claude Code imports use the external API`.
 - Import readiness has a `claudeCode` entry. It shows the default folder and whether it exists. The reader ships with OMMS, so it is always available.

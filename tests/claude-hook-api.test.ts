@@ -391,6 +391,65 @@ await api.whenClaudeCaptureIdle();
     expect(scenario.defaultRoot).toBe(400);
   });
 
+  it("uses the claudeConfigDir setting over CLAUDE_CONFIG_DIR", async () => {
+    const custom = mkdtempSync(join(tmpdir(), "omms-claude-hook-setting-"));
+    tempDirs.push(custom);
+    const { run } = createHarness({ ...EXTERNAL_API, claudeConfigDir: custom });
+    const scenario = await run(`
+const customDir = join(${JSON.stringify(custom)}, "projects", "-proj");
+mkdirSync(customDir, { recursive: true });
+const customTranscript = join(customDir, "ses-1.jsonl");
+writeFileSync(customTranscript, "{}\\n");
+const envConfig = join(otherProjectDir, "env-config");
+const envDir = join(envConfig, "projects", "-proj");
+mkdirSync(envDir, { recursive: true });
+const envTranscript = join(envDir, "ses-1.jsonl");
+writeFileSync(envTranscript, "{}\\n");
+process.env.CLAUDE_CONFIG_DIR = envConfig;
+const statusOf = (path) => {
+  try {
+    api.handleClaudeCapture({ session_id: "ses-1", transcript_path: path, cwd: projectDir }, { captureProvider: () => provider });
+    return 202;
+  } catch (error) { return error.status; }
+};
+scenario = { custom: statusOf(customTranscript), env: statusOf(envTranscript), defaultRoot: statusOf(transcript) };
+await api.whenClaudeCaptureIdle();
+`);
+    expect(scenario).toEqual({ custom: 202, env: 400, defaultRoot: 400 });
+  });
+
+  it("uses a claudeConfigDir saved while the web app runs, without a restart", async () => {
+    const custom = mkdtempSync(join(tmpdir(), "omms-claude-hook-live-"));
+    tempDirs.push(custom);
+    const { home, run } = createHarness();
+    const globalFile = join(home, ".config", "omms", "omms.jsonc");
+    const scenario = await run(`
+delete process.env.CLAUDE_CONFIG_DIR;
+const { readFileSync } = await import("node:fs");
+const customDir = join(${JSON.stringify(custom)}, "projects", "-proj");
+mkdirSync(customDir, { recursive: true });
+const customTranscript = join(customDir, "ses-1.jsonl");
+writeFileSync(customTranscript, "{}\\n");
+const statusOf = (path) => {
+  try {
+    api.handleClaudeCapture({ session_id: "ses-1", transcript_path: path, cwd: projectDir }, { captureProvider: () => provider });
+    return 202;
+  } catch (error) { return error.status; }
+};
+const before = { custom: statusOf(customTranscript), defaultRoot: statusOf(transcript) };
+await api.whenClaudeCaptureIdle();
+// The Settings page saves the key into the global file.
+const globalFile = ${JSON.stringify(globalFile)};
+const saved = { ...JSON.parse(readFileSync(globalFile, "utf8")), claudeConfigDir: ${JSON.stringify(custom)} };
+writeFileSync(globalFile, JSON.stringify(saved));
+const after = { custom: statusOf(customTranscript), defaultRoot: statusOf(transcript) };
+await api.whenClaudeCaptureIdle();
+scenario = { before, after };
+`);
+    expect(scenario.before).toEqual({ custom: 400, defaultRoot: 202 });
+    expect(scenario.after).toEqual({ custom: 202, defaultRoot: 400 });
+  });
+
   it("accepts the projects folder when CLAUDE_CONFIG_DIR differs only in letter case", async () => {
     const { run } = createHarness();
     // Node's plain realpathSync keeps the letter case it is given; only .native

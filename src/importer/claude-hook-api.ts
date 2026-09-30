@@ -145,7 +145,7 @@ function checkedTranscriptPath(transcriptPath: string, sessionId: string): strin
   if (basename(transcriptPath) !== fileName || basename(real) !== fileName) {
     throw new ClaudeHookRequestError("transcript_path must be named <session_id>.jsonl");
   }
-  const root = realPathOrResolved(defaultClaudeProjectsRoot());
+  const root = realPathOrResolved(defaultClaudeProjectsRoot(CONFIG.claudeConfigDir));
   if (!real.startsWith(root + sep)) {
     throw new ClaudeHookRequestError("transcript_path must be under the Claude projects folder");
   }
@@ -163,6 +163,8 @@ function parseCaptureRequest(body: unknown): CaptureRequest {
     throw new ClaudeHookRequestError("transcript_path must be an absolute .jsonl path");
   }
   const { sessionId, cwd } = sessionAndCwd(input);
+  // The path check uses `claudeConfigDir`, which the Settings page may just have changed.
+  refreshConfigIfChanged(cwd);
   return {
     sessionId,
     cwd,

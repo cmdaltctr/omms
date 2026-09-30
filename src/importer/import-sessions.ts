@@ -239,7 +239,13 @@ export async function listImportSessions(
 ): Promise<ImportSessionPage> {
   const source =
     request.sourceToken === undefined
-      ? validateImportSource(options.host, defaultImportSourcePath(options.host))
+      ? validateImportSource(
+          options.host,
+          defaultImportSourcePath(
+            options.host,
+            (await import("../config.js")).CONFIG.claudeConfigDir
+          )
+        )
       : null;
   const token = source?.sourceToken ?? request.sourceToken;
   const identity = readImportSourceToken(token, options.host);

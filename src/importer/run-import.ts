@@ -209,7 +209,16 @@ async function runUntracked(
 
   if (host === "claude-code") {
     const { importClaudeHistory } = await import("./claude-import.js");
-    return importClaudeHistory(deps, filters);
+    if (args.source) return importClaudeHistory(deps, filters);
+    // Without --root, read the folder live capture uses.
+    const [{ CONFIG }, { claudeProjectsRoot }] = await Promise.all([
+      import("../config.js"),
+      import("../services/claude-folder.js"),
+    ]);
+    return importClaudeHistory(deps, {
+      ...filters,
+      root: claudeProjectsRoot(CONFIG.claudeConfigDir),
+    });
   }
 
   const { importPiHistory } = await import("./importer.js");

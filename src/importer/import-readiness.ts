@@ -88,7 +88,9 @@ export async function importReadiness(deps: ReadinessDeps = {}): Promise<ImportR
     external: { state, provider: CONFIG.memoryProvider, model: CONFIG.memoryModel ?? null },
     opencode: { available: opencode.available, models: opencode.models ?? [] },
     piReader,
-    claudeCode: claudeReadiness(deps.claudeRoot?.() ?? defaultClaudeSourcePath()),
+    claudeCode: claudeReadiness(
+      deps.claudeRoot?.() ?? defaultClaudeSourcePath(CONFIG.claudeConfigDir)
+    ),
   };
 }
 
