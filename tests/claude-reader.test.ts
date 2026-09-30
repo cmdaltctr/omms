@@ -221,8 +221,9 @@ describe("discoverClaudeSessions", () => {
     expect(reasons["empty.jsonl"]).toBe("no user entry");
     expect(reasons["no-user.jsonl"]).toBe("no user entry");
     if (!runsAsRoot) expect(reasons["locked.jsonl"]).toBe("unreadable: EACCES");
+    // locked.jsonl copies OTHER_KEY, so they share a timestamp and keep path order.
     expect(result.sessions.map((session) => session.key)).toEqual(
-      runsAsRoot ? [OTHER_KEY, "-tmp-bad/locked.jsonl", MAIN_KEY] : [OTHER_KEY, MAIN_KEY]
+      runsAsRoot ? ["-tmp-bad/locked.jsonl", OTHER_KEY, MAIN_KEY] : [OTHER_KEY, MAIN_KEY]
     );
     chmodSync(locked, 0o644);
   });
