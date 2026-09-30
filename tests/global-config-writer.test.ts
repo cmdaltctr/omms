@@ -98,6 +98,65 @@ describe("global config writer", () => {
     expect(result.text).toBe(seed);
   });
 
+  it("saves claudeConfigDir globally, clears it with an empty value, and reports the folder", async () => {
+    const seed = '{ "piModel": "old" }\n';
+    const result = await scenario(
+      `
+      delete process.env.CLAUDE_CONFIG_DIR;
+      const { mkdirSync } = await import("node:fs");
+      const { join } = await import("node:path");
+      const home = join(target, "..", "..", "..");
+      const errors = [];
+      for (const edits of [{ claudeConfigDir: "claude/config" }, { claudeConfigDir: 3 }]) {
+        try { await writeGlobalConfigKeys(edits, readGlobalConfigRevision()); }
+        catch (error) { errors.push(String(error)); }
+      }
+      const untouched = readFileSync(target, "utf8");
+      const custom = join(home, "custom-claude");
+      await writeGlobalConfigKeys({ claudeConfigDir: custom }, readGlobalConfigRevision());
+      const project = join(home, "project");
+      mkdirSync(join(project, ".opencode"), { recursive: true });
+      writeFileSync(join(project, ".opencode", "omms.jsonc"), '{ "claudeConfigDir": "/evil" }');
+      const { getSettingsSnapshot } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/settings-snapshot.ts")).href)});
+      const saved = getSettingsSnapshot(project);
+      const missing = saved.claudeFolder;
+      mkdirSync(join(custom, "projects"), { recursive: true });
+      const found = getSettingsSnapshot(project).claudeFolder;
+      await writeGlobalConfigKeys({ claudeConfigDir: "~/tilde-claude" }, readGlobalConfigRevision());
+      const tilde = getSettingsSnapshot(project).claudeFolder;
+      await writeGlobalConfigKeys({ claudeConfigDir: "" }, readGlobalConfigRevision());
+      const cleared = getSettingsSnapshot(project).claudeFolder;
+      process.env.CLAUDE_CONFIG_DIR = join(home, "env-claude");
+      const fromEnv = getSettingsSnapshot(project).claudeFolder;
+      return { errors, untouched, custom, home, setting: saved.settings.claudeConfigDir,
+        missing, found, tilde, cleared, fromEnv, text: readFileSync(target, "utf8") };
+    `,
+      seed
+    );
+    expect(result.errors).toHaveLength(2);
+    expect(result.untouched).toBe(seed);
+    expect(result.setting).toMatchObject({ value: result.custom, source: "global" });
+    expect(result.missing).toEqual({
+      root: join(result.custom, "projects"),
+      source: "setting",
+      exists: false,
+    });
+    expect(result.found.exists).toBe(true);
+    expect(result.tilde).toMatchObject({
+      root: join(result.home, "tilde-claude", "projects"),
+      source: "setting",
+    });
+    expect(result.cleared).toMatchObject({
+      root: join(result.home, ".claude", "projects"),
+      source: "default",
+    });
+    expect(result.fromEnv).toMatchObject({
+      root: join(result.home, "env-claude", "projects"),
+      source: "env",
+    });
+    expect(result.text).toContain('"claudeConfigDir": ""');
+  });
+
   it("saves capture retry retention in whole hours from 0 to 720", async () => {
     const seed = '{ "piModel": "old" }\n';
     const result = await scenario(

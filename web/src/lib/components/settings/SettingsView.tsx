@@ -6,6 +6,7 @@ import { HealthSection } from "./HealthSection";
 import { ImportSection } from "./ImportSection";
 import { AutoImportSection } from "./AutoImportSection";
 import { WebAppSection } from "./WebAppSection";
+import { ClaudeFolderSection } from "./ClaudeFolderSection";
 import { LogSection } from "./LogSection";
 
 export function SettingsView() {
@@ -15,6 +16,7 @@ export function SettingsView() {
       <ModelsSection />
       <DiagnosticsSection />
       <HealthSection />
+      <ClaudeFolderSection />
       <ImportSection />
       <AutoImportSection />
       <DirectoryMapsSection />

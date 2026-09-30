@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs";
-import { initConfig, CONFIG } from "../src/config.js";
+import { homedir } from "node:os";
+import { initConfig, CONFIG, validateGlobalConfig } from "../src/config.js";
 
 describe("project-scoped config resolution", () => {
   let readSpy: ReturnType<typeof spyOn>;
@@ -230,9 +231,34 @@ describe("project-scoped config resolution", () => {
     expect(CONFIG.captureRetryRetentionHours).toBe(0);
   });
 
+  it("loads claudeConfigDir from the global file and expands ~/", () => {
+    mockGlobalAndProject({ claudeConfigDir: "/data/claude" }, {});
+    initConfig("/my/project");
+    expect(CONFIG.claudeConfigDir).toBe("/data/claude");
+    readSpy.mockRestore();
+    existsSpy.mockRestore();
+    mockGlobalAndProject({ claudeConfigDir: "~/work/claude" }, {});
+    initConfig("/my/project");
+    expect(CONFIG.claudeConfigDir).toBe(`${homedir()}/work/claude`);
+  });
+
+  it("ignores a project value for claudeConfigDir", () => {
+    mockGlobalAndProject({ claudeConfigDir: "/data/claude" }, { claudeConfigDir: "/evil/claude" });
+    initConfig("/my/project");
+    expect(CONFIG.claudeConfigDir).toBe("/data/claude");
+  });
+
+  it("rejects a relative claudeConfigDir", () => {
+    expect(() => validateGlobalConfig({ claudeConfigDir: "claude/config" })).toThrow(
+      "Invalid claudeConfigDir config"
+    );
+    expect(() => validateGlobalConfig({ claudeConfigDir: "" })).not.toThrow();
+  });
+
   it("falls back to defaults when neither global nor project config exists", () => {
     existsSpy = spyOn(fs, "existsSync").mockReturnValue(false);
     initConfig("/no/config/project");
+    expect(CONFIG.claudeConfigDir).toBe("");
     expect(CONFIG.autoCaptureEnabled).toBe(true); // default value
     expect(CONFIG.opencodeProvider).toBeUndefined();
   });

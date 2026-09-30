@@ -116,6 +116,21 @@ it("defaults a Claude Code source to the reader's ~/.claude/projects", () => {
   expect(defaultImportSourcePath("opencode")).not.toBe(defaultClaudeProjectsRoot());
 });
 
+it("agrees with the reader on the setting and on CLAUDE_CONFIG_DIR", () => {
+  const saved = process.env.CLAUDE_CONFIG_DIR;
+  try {
+    process.env.CLAUDE_CONFIG_DIR = "/env/claude";
+    expect(defaultClaudeSourcePath()).toBe("/env/claude/projects");
+    expect(defaultClaudeSourcePath()).toBe(defaultClaudeProjectsRoot());
+    expect(defaultClaudeSourcePath("/data/claude")).toBe("/data/claude/projects");
+    expect(defaultClaudeSourcePath("/data/claude")).toBe(defaultClaudeProjectsRoot("/data/claude"));
+    expect(defaultImportSourcePath("claude-code", "/data/claude")).toBe("/data/claude/projects");
+  } finally {
+    if (saved === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+    else process.env.CLAUDE_CONFIG_DIR = saved;
+  }
+});
+
 it("accepts a symlinked root or ancestor through its real path, like a mounted volume", () => {
   const { root, sessions } = workspace();
   const linked = join(root, "linked-volume");
@@ -147,6 +162,14 @@ it("browses one folder, shows eligible entries only, and hides symlinks", () => 
   // A Claude Code source is a folder, so files are never offered.
   const claude = browseImportSources("claude-code", sessions);
   expect(claude.entries.map((entry) => [entry.name, entry.kind])).toEqual([["nested", "folder"]]);
+});
+
+it("opens the Claude Code folder picker in the folder from the setting", () => {
+  const { root } = workspace();
+  mkdirSync(join(root, "claude", "projects", "-proj"), { recursive: true });
+  const claude = browseImportSources("claude-code", undefined, join(root, "claude"));
+  expect(claude.path).toBe(realpathSync.native(join(root, "claude", "projects")));
+  expect(claude.entries.map((entry) => entry.name)).toEqual(["-proj"]);
 });
 
 it("discovers a file root as one session, keys by relative path, and skips symlinks", () => {

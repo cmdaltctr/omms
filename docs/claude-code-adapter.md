@@ -241,15 +241,22 @@ turn on a queue with one worker and answers at once.
 The route reads only Claude Code transcripts. It accepts a transcript path when
 both of these are true:
 
-- The path, after symlinks are resolved, is under `~/.claude/projects`. When `CLAUDE_CONFIG_DIR` is set, the folder is `$CLAUDE_CONFIG_DIR/projects` instead.
+- The path, after symlinks are resolved, is under the Claude projects folder, `<Claude folder>/projects`.
 - The file name is `<session_id>.jsonl`.
 
 Any other path gets `400`, and the web app reads no file. Claude Code names the
 transcript this way for a new, resumed, continued, and forked session.
 
-The web app reads `CLAUDE_CONFIG_DIR` from its own environment. If you set the
-variable for Claude Code, set it for the web app too. Otherwise the web app
-rejects every transcript path with `400`.
+The web app finds the Claude folder in this order:
+
+1. The **Claude Code folder** field on the Settings page (`claudeConfigDir` in the global config).
+2. The `CLAUDE_CONFIG_DIR` variable in the web app's own environment.
+3. `~/.claude`.
+
+If you start Claude Code with `CLAUDE_CONFIG_DIR`, enter the same folder in the
+**Claude Code folder** field. You do not need to set the variable for the web
+app. The field shows the folder in use and warns when it does not exist. A save
+applies to the next capture, with no restart.
 
 The worker:
 

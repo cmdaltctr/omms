@@ -982,9 +982,16 @@ export class WebServer {
         if (body?.host !== "pi" && body?.host !== "opencode" && body?.host !== "claude-code") {
           return this.jsonResponse({ error: "Choose Pi, OpenCode, or Claude Code" }, 400);
         }
-        const { browseImportSources } = await import("../importer/web-import-api.js");
+        const [{ browseImportSources }, { CONFIG }] = await Promise.all([
+          import("../importer/web-import-api.js"),
+          import("../config.js"),
+        ]);
         return this.importResponse(() =>
-          browseImportSources(body.host as "pi" | "opencode" | "claude-code", body.path)
+          browseImportSources(
+            body.host as "pi" | "opencode" | "claude-code",
+            body.path,
+            CONFIG.claudeConfigDir
+          )
         );
       }
 

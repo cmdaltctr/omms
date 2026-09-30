@@ -10,6 +10,7 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
+import { claudeProjectsRoot } from "../services/claude-folder.js";
 import { DEFAULT_PI_SESSION_ROOT, readPiSessionHeader } from "./discovery.js";
 import type { ImportHost } from "./import-args.js";
 import { DEFAULT_OPENCODE_DB } from "./opencode-reader.js";
@@ -108,18 +109,14 @@ function isSqliteFile(path: string): boolean {
   }
 }
 
-/**
- * Same folder as `defaultClaudeProjectsRoot()` in `claude-reader.ts`. That
- * module loads the storage engine, so this light module keeps its own copy;
- * `tests/import-sources.test.ts` checks that the two agree.
- */
-export function defaultClaudeSourcePath(): string {
-  return join(homedir(), ".claude", "projects");
+/** The Claude projects folder; `claudeConfigDir` is `CONFIG.claudeConfigDir`. */
+export function defaultClaudeSourcePath(claudeConfigDir?: string): string {
+  return claudeProjectsRoot(claudeConfigDir);
 }
 
-export function defaultImportSourcePath(host: ImportHost): string {
+export function defaultImportSourcePath(host: ImportHost, claudeConfigDir?: string): string {
   if (host === "pi") return DEFAULT_PI_SESSION_ROOT;
-  if (host === "claude-code") return defaultClaudeSourcePath();
+  if (host === "claude-code") return defaultClaudeSourcePath(claudeConfigDir);
   return DEFAULT_OPENCODE_DB;
 }
 
@@ -169,12 +166,15 @@ const BROWSE_LIMIT = 500;
  */
 export function browseImportSources(
   host: ImportHost,
-  path?: unknown
+  path?: unknown,
+  claudeConfigDir?: string
 ): { path: string; parent: string | null; entries: BrowseEntry[]; truncated: boolean } {
   let start = path;
   if (start === undefined || start === null || start === "") {
     const preferred =
-      host === "opencode" ? dirname(DEFAULT_OPENCODE_DB) : defaultImportSourcePath(host);
+      host === "opencode"
+        ? dirname(DEFAULT_OPENCODE_DB)
+        : defaultImportSourcePath(host, claudeConfigDir);
     start = existsSync(preferred) ? preferred : homedir();
   }
   const folder = checkedPath(start);

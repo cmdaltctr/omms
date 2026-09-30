@@ -8,9 +8,9 @@ import {
   statSync,
 } from "node:fs";
 import type { Dirent } from "node:fs";
-import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { StringDecoder } from "node:string_decoder";
+import { claudeProjectsRoot } from "../services/claude-folder.js";
 import { extractScopeFromContainerTag } from "../services/memory-scope.js";
 import { getTags } from "../services/tags.js";
 import {
@@ -49,10 +49,9 @@ import {
 export const CLAUDE_HEADER_READ_LIMIT = 1024 * 1024;
 const READ_CHUNK = 64 * 1024;
 
-/** `$CLAUDE_CONFIG_DIR/projects` when the variable is set, else `~/.claude/projects`. */
-export function defaultClaudeProjectsRoot(): string {
-  const configDir = process.env.CLAUDE_CONFIG_DIR?.trim();
-  return join(configDir || join(homedir(), ".claude"), "projects");
+/** The Claude projects folder; `claudeConfigDir` is `CONFIG.claudeConfigDir`. */
+export function defaultClaudeProjectsRoot(claudeConfigDir?: string): string {
+  return claudeProjectsRoot(claudeConfigDir);
 }
 
 export interface DiscoveredClaudeSession {

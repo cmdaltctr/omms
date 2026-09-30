@@ -171,6 +171,19 @@ it("lists Claude Code with its default folder and the external API as its only m
   ).toBe("Claude Code imports use the external API");
 });
 
+it("reads the Claude Code folder from the claudeConfigDir setting", async () => {
+  configure({});
+  const before = CONFIG.claudeConfigDir;
+  try {
+    CONFIG.claudeConfigDir = "/nonexistent/claude-setting";
+    const readiness = await importReadiness(deps);
+    expect(readiness.claudeCode.defaultRoot).toBe("/nonexistent/claude-setting/projects");
+    expect(readiness.claudeCode.defaultRootFound).toBe(false);
+  } finally {
+    CONFIG.claudeConfigDir = before;
+  }
+});
+
 it("reports the missing external API setting for a Claude Code import", async () => {
   configure({ memoryApiUrl: undefined });
   const readiness = await importReadiness(deps);
