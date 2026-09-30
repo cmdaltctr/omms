@@ -86,15 +86,34 @@ result.own = own;
 `);
     expect(result.noCallback).toEqual({
       status: 200,
-      body: { version: result.own, canControl: false },
+      body: { version: result.own, canControl: false, instance: expect.any(String) },
     });
-    expect(result.loopback.body).toEqual({ version: result.own, canControl: true });
+    expect(result.loopback.body).toEqual({
+      version: result.own,
+      canControl: true,
+      instance: expect.any(String),
+    });
     expect(result.mapped.body.canControl).toBe(true);
     expect(result.remote).toEqual({
       status: 200,
-      body: { version: result.own, canControl: false },
+      body: { version: result.own, canControl: false, instance: expect.any(String) },
     });
     expect(result.noToken).toBe(401);
+  });
+
+  it("reports one instance value per process, so the page can tell a restarted web app", async () => {
+    const scenario = `
+const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+const read = async () => (await call(server, "127.0.0.1", "GET", "/api/web/status")).json();
+result.first = (await read()).instance;
+result.second = (await read()).instance;
+`;
+    const one = (await runScenario(scenario)).result;
+    const two = (await runScenario(scenario)).result;
+    expect(typeof one.first).toBe("string");
+    expect(one.first.length).toBeGreaterThan(8);
+    expect(one.second).toBe(one.first);
+    expect(two.first).not.toBe(one.first);
   });
 });
 
@@ -239,5 +258,29 @@ result.lockLeft = existsSync(lock);
 await server.stop();
 `);
     expect(result.lockLeft).toBe(true);
+  });
+});
+
+describe("WebServer stop and start again", () => {
+  it("serves the port again after stop, so a failed restart can resume", async () => {
+    const { result } = await runScenario(`
+const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 48833 });
+const up = async () => {
+  try {
+    return (await fetch("http://127.0.0.1:48833/api/health")).ok;
+  } catch {
+    return false;
+  }
+};
+await server.start();
+result.first = await up();
+await server.stop();
+result.stopped = !(await up());
+await server.start();
+result.again = await up();
+result.owner = server.isServerOwner();
+await server.stop();
+`);
+    expect(result).toEqual({ first: true, stopped: true, again: true, owner: true });
   });
 });

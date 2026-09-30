@@ -1,5 +1,5 @@
 import { expect, it, setDefaultTimeout } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -94,6 +94,52 @@ it("starts exactly one web app for two host processes that start at once", async
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     for (const pid of await listeners(port)) process.kill(Number(pid), "SIGKILL");
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+it("gives a stale start lock to exactly one of several processes that replace it at once", async () => {
+  const home = mkdtempSync(join(tmpdir(), "omms-lock-real-"));
+  const lock = join(home, ".omms", "web-start.lock");
+  const go = join(home, "go");
+  mkdirSync(join(home, ".omms"), { recursive: true });
+  // A lock from a crashed start: old enough to be stale whatever its pid.
+  writeFileSync(lock, JSON.stringify({ pid: 999_999, at: Date.now() - 60_000 }));
+  const script = `
+    import { existsSync } from "node:fs";
+    import { nodeLockFs, takeStartLock } from ${JSON.stringify(join(repoRoot, "dist", "services", "web-ensure.js"))};
+    while (!existsSync(${JSON.stringify(go)})) await new Promise((r) => setTimeout(r, 1));
+    const held = takeStartLock({
+      lockPath: ${JSON.stringify(lock)},
+      lockFs: nodeLockFs,
+      pid: process.pid,
+      now: () => Date.now(),
+      pidAlive: (pid) => {
+        try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; }
+      },
+    });
+    console.log(JSON.stringify({ pid: process.pid, held }));
+    // Stay alive, so the winner's lock is not stale while the others run.
+    await new Promise((r) => setTimeout(r, 1500));
+  `;
+  try {
+    const callers = Array.from({ length: 6 }, () =>
+      Bun.spawn(["node", "--input-type=module", "-e", script], { stdout: "pipe", stderr: "pipe" })
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    writeFileSync(go, "");
+    const results = await Promise.all(
+      callers.map(async (proc) => {
+        const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+        expect(code).toBe(0);
+        return JSON.parse(out.trim()) as { pid: number; held: boolean };
+      })
+    );
+    const winners = results.filter((result) => result.held);
+    expect(winners).toHaveLength(1);
+    expect(JSON.parse(readFileSync(lock, "utf8"))).toMatchObject({ pid: winners[0]?.pid });
+    expect(readdirSync(join(home, ".omms")).filter((name) => name.endsWith(".stale"))).toEqual([]);
+  } finally {
     rmSync(home, { recursive: true, force: true });
   }
 });

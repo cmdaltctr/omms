@@ -30,12 +30,14 @@ mock.module("../src/lib/i18n/index.ts", () => ({
 }));
 
 const requests: string[] = [];
-let status: { version: string; canControl: boolean } | null = {
+let status: { version: string; canControl: boolean; instance?: string } | null = {
   version: "1.0.0",
   canControl: true,
+  instance: "first",
 };
 let sendResult = true;
-let waitResult = true;
+let waitResult: "restarted" | "unchanged" | "down" = "restarted";
+const waitedFor: (string | null)[] = [];
 mock.module("../src/lib/power.ts", () => ({
   STATUS_POLL_MS: 15_000,
   readPowerStatus: async () => status,
@@ -43,7 +45,10 @@ mock.module("../src/lib/power.ts", () => ({
     requests.push(action);
     return sendResult;
   },
-  waitForWebApp: async () => waitResult,
+  waitForWebApp: async (previous: string | null) => {
+    waitedFor.push(previous);
+    return waitResult;
+  },
 }));
 
 const { PowerButton } = await import("../src/lib/components/explorer/PowerButton.tsx");
@@ -82,9 +87,10 @@ beforeEach(() => {
   state = [];
   cursor = 0;
   requests.length = 0;
-  status = { version: "1.0.0", canControl: true };
+  status = { version: "1.0.0", canControl: true, instance: "first" };
   sendResult = true;
-  waitResult = true;
+  waitResult = "restarted";
+  waitedFor.length = 0;
   reloads = 0;
   Object.assign(globalThis, {
     window: { location: { reload: () => reloads++ } },
@@ -142,6 +148,8 @@ it("sends the chosen action and reloads after a restart", async () => {
   await tick();
   expect(requests).toEqual(["restart"]);
   expect(reloads).toBe(1);
+  // The page waits for a process other than the one it read the status from.
+  expect(waitedFor).toEqual(["first"]);
 });
 
 it("shows the stopped screen with the command and the note after Stop", async () => {
@@ -164,7 +172,7 @@ it("shows the stopped screen with the command and the note after Stop", async ()
 });
 
 it("shows the stopped screen when the web app does not come back after a restart", async () => {
-  waitResult = false;
+  waitResult = "down";
   const tree = await loaded();
   powerButton(tree)?.props.onClick?.();
   (choice(render(), "Restart")?.props.onClick as () => void)();
@@ -183,4 +191,19 @@ it("keeps the dialog open and says so when the request fails", async () => {
   expect(dialog(after)?.props.open).toBe(true);
   expect(textOf(after)).toContain(translations.en["power-request-failed"]);
   expect(textOf(after)).not.toContain(translations.en["power-stopped-title"]);
+});
+
+it("says the restart failed and stays usable when the old web app still answers", async () => {
+  waitResult = "unchanged";
+  const tree = await loaded();
+  powerButton(tree)?.props.onClick?.();
+  (choice(render(), "Restart")?.props.onClick as () => void)();
+  await tick();
+  const after = render();
+  expect(reloads).toBe(0);
+  expect(textOf(after)).not.toContain(translations.en["power-stopped-title"]);
+  expect(textOf(after)).not.toContain(translations.en["power-restarting"]);
+  expect(dialog(after)?.props.open).toBe(true);
+  expect(textOf(after)).toContain(translations.en["power-restart-failed"]);
+  expect(choice(after, "Restart")?.props.disabled).toBe(false);
 });

@@ -24,17 +24,27 @@ OpenCode does not run a web server inside its session. The web app has no OpenCo
 
 When you open the page from the same computer, the sidebar footer shows a power button. It is green while the web app answers, and grey when the last check failed. The page checks every 15 seconds. Select it to open a dialog with two actions:
 
-- **Restart** (the main action) starts a fresh copy of the web app on the same port. The page waits until the copy answers, then reloads.
+- **Restart** (the main action) starts a fresh copy of the web app on the same port. The page waits up to 30 seconds for the copy to answer, then reloads. If the restart fails and the old web app still answers, the dialog opens again and says so.
 - **Stop** turns the web app off and exits it with code `0`. The page shows a stopped screen with the command `om-memory-system web`.
 
 A stop lasts until the next OpenCode start, Pi start, Claude Code prompt, `om-memory-system web install`, or login. Then a host starts the web app again.
 
-The routes are `GET /api/web/status`, `POST /api/web/restart`, and `POST /api/web/stop`. Stop and Restart need the local API token (`~/.omms/.auth-token`) and a loopback caller. Without the token they return `401`. From another address they return `403`. A web app that cannot restart itself returns `409`. On success they return `202` before the web app stops. A second request that arrives while a stop or restart is running also gets `202` and does nothing more. Each request writes one log record (`stopping`, `restarting`, `already_running`, `refused_auth`, `refused_not_loopback`, or `unsupported`) and the version. The log never holds the token. The page hides the button when it may not control the web app.
+The routes are `GET /api/web/status` (version, `canControl`, and an `instance` value that changes with each web app process), `POST /api/web/restart`, and `POST /api/web/stop`. Stop and Restart need the local API token (`~/.omms/.auth-token`) and a loopback caller. Without the token they return `401`. From another address they return `403`. A web app that cannot restart itself returns `409`. On success they return `202` before the web app stops. A second request that arrives while a stop or restart is running also gets `202` and does nothing more. Each request writes one log record (`stopping`, `restarting`, `already_running`, `refused_auth`, `refused_not_loopback`, or `unsupported`) and the version. The log never holds the token. The page hides the button when it may not control the web app.
 
 How Restart works:
 
 - **Login item:** the service manager restarts it (`launchctl kickstart -k` on macOS, `systemctl --user restart` on Linux). If that command fails, the web app starts a detached copy instead.
-- **Started by a host or by hand:** the web app starts a detached copy and exits. A web app you started by hand loses its terminal, so its output no longer shows there.
+- **Started by a host or by hand:** the web app starts a detached copy first. The copy waits while the old web app holds the port. The old web app then stops serving and exits when the copy answers. A web app you started by hand loses its terminal, so its output no longer shows there.
+
+The copy takes the port through the 5-second check in "Port ownership and step-aside" below, so a restart takes up to about 7 seconds.
+
+A restart does not leave the port empty when the copy fails:
+
+- If the copy cannot start, or exits in its first second, the old web app keeps serving.
+- If the copy exits after the old web app stopped serving, the old web app serves again.
+- If the copy does not answer within 15 seconds, the old web app stops the copy and serves again.
+
+Each failed restart writes one log record `Web app restart failed` with a code: `spawn-error`, `copy-exit`, or `handoff`.
 
 ### Port ownership and step-aside
 

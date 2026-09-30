@@ -17,6 +17,7 @@ type Phase = "idle" | "working" | "restarting" | "stopped";
 /** The command that starts the web app again. */
 const START_COMMAND = "om-memory-system web";
 
+/** Sidebar power button. It renders only for a local caller that may stop or restart the web app. */
 export function PowerButton() {
   const { t } = useI18n();
   const [canControl, setCanControl] = useState(false);
@@ -25,6 +26,8 @@ export function PowerButton() {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [message, setMessage] = useState("");
+  // The process that served the last status call; Restart waits for another one.
+  const [instance, setInstance] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,7 +35,9 @@ export function PowerButton() {
       void readPowerStatus().then((status) => {
         if (cancelled) return;
         setOk(status !== null);
-        if (status) setCanControl(status.canControl);
+        if (!status) return;
+        setCanControl(status.canControl);
+        setInstance(status.instance ?? null);
       });
     load();
     const timer = setInterval(load, STATUS_POLL_MS);
@@ -57,8 +62,16 @@ export function PowerButton() {
       return;
     }
     setPhase("restarting");
-    if (await waitForWebApp()) {
+    const outcome = await waitForWebApp(instance);
+    if (outcome === "restarted") {
       window.location.reload();
+      return;
+    }
+    if (outcome === "unchanged") {
+      // The copy failed and the old web app serves again: say so, and stay usable.
+      setMessage("power-restart-failed");
+      setPhase("idle");
+      setOpen(true);
       return;
     }
     setMessage("power-restart-timeout");

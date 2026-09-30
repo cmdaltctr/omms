@@ -1,5 +1,16 @@
 import { describe, expect, it } from "bun:test";
-import { ensureWebApp, type EnsureDeps, type EnsureResult } from "../src/services/web-ensure.js";
+import { createHash } from "node:crypto";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  ensureWebApp,
+  nodeLockFs,
+  takeStartLock,
+  type EnsureDeps,
+  type EnsureResult,
+  type LockFs,
+} from "../src/services/web-ensure.js";
 
 const BASE = "http://127.0.0.1:4747";
 const LOCK = "/home/test/.omms/web-start.lock";
@@ -59,6 +70,14 @@ function world(
       },
       read: (path) => files.get(path) ?? null,
       remove: (path) => void files.delete(path),
+      link: (from, to) => {
+        const text = files.get(from);
+        if (text === undefined || files.has(to)) return false;
+        files.set(to, text);
+        return true;
+      },
+      ageMs: (path) => (files.has(path) ? 0 : null),
+      replace: (path, text) => void files.set(path, text),
     },
     pidAlive: config.alive ?? (() => true),
     pid: 100,
@@ -226,5 +245,154 @@ describe("ensureWebApp start lock", () => {
     // Let the background poll run out.
     for (let i = 0; i < 200 && w.files.has(LOCK); i++) await Promise.resolve();
     expect(w.files.has(LOCK)).toBe(false);
+  });
+});
+
+/**
+ * An in-memory file system with hard links. `beforeStep` runs before each file
+ * operation, so a test can run a second caller in the middle of the first.
+ */
+function linkedFs(clock: { t: number }) {
+  // Each name points to an inode; a hard link shares the inode.
+  const names = new Map<string, { text: string; ctime: number }>();
+  let beforeStep: (() => void) | null = null;
+  const step = () => {
+    const hook = beforeStep;
+    beforeStep = null;
+    hook?.();
+  };
+  const fs: LockFs = {
+    createExclusive(path, text) {
+      step();
+      if (names.has(path)) return false;
+      names.set(path, { text, ctime: clock.t });
+      return true;
+    },
+    read(path) {
+      step();
+      return names.get(path)?.text ?? null;
+    },
+    remove(path) {
+      step();
+      names.delete(path);
+    },
+    link(from, to) {
+      step();
+      const inode = names.get(from);
+      if (!inode || names.has(to)) return false;
+      inode.ctime = clock.t;
+      names.set(to, inode);
+      return true;
+    },
+    ageMs(path) {
+      step();
+      const inode = names.get(path);
+      return inode ? clock.t - inode.ctime : null;
+    },
+    replace(path, text) {
+      step();
+      names.set(path, { text, ctime: clock.t });
+    },
+  };
+  return {
+    fs,
+    names,
+    /** Run `hook` before the next file operation only. */
+    once(hook: () => void) {
+      beforeStep = hook;
+    },
+  };
+}
+
+describe("takeStartLock", () => {
+  const stale = JSON.stringify({ pid: 999, at: 1_000 });
+  const callerDeps = (fs: LockFs, pid: number, clock: { t: number }) => ({
+    lockPath: LOCK,
+    lockFs: fs,
+    pid,
+    now: () => clock.t,
+    pidAlive: (candidate: number) => candidate !== 999,
+  });
+
+  it("gives the lock to exactly one of two callers that replace the same stale lock", () => {
+    // Run caller B in full before each file step of caller A in turn.
+    for (let at = 0; at < 20; at++) {
+      const clock = { t: 100_000 };
+      const disk = linkedFs(clock);
+      disk.names.set(LOCK, { text: stale, ctime: 1_000 });
+      let stepsSeen = 0;
+      let bHeld: boolean | null = null;
+      const arm = () =>
+        disk.once(() => {
+          if (stepsSeen++ < at) return arm();
+          bHeld = takeStartLock(callerDeps(disk.fs, 200, clock));
+        });
+      arm();
+      const aHeld = takeStartLock(callerDeps(disk.fs, 100, clock));
+      if (bHeld === null) break; // A finished in fewer steps than `at`.
+      expect({ at, holders: [aHeld, bHeld].filter(Boolean).length }).toEqual({ at, holders: 1 });
+      const lock = JSON.parse(disk.names.get(LOCK)?.text ?? "null") as { pid: number };
+      expect(lock.pid).toBe(aHeld ? 100 : 200);
+    }
+  });
+
+  const tombFor = (text: string) =>
+    `${LOCK}.${createHash("sha256").update(text).digest("hex").slice(0, 16)}.stale`;
+
+  it("waits while another caller holds the tombstone for the same stale lock", () => {
+    const clock = { t: 100_000 };
+    const disk = linkedFs(clock);
+    disk.names.set(LOCK, { text: stale, ctime: 1_000 });
+    disk.names.set(tombFor(stale), { text: stale, ctime: clock.t - 1_000 });
+    expect(takeStartLock(callerDeps(disk.fs, 100, clock))).toBe(false);
+    expect(disk.names.has(tombFor(stale))).toBe(true);
+    expect(disk.names.get(LOCK)?.text).toBe(stale);
+  });
+
+  it("clears a tombstone left by a crashed takeover, then the next caller takes the lock", () => {
+    const clock = { t: 100_000 };
+    const disk = linkedFs(clock);
+    disk.names.set(LOCK, { text: stale, ctime: 1_000 });
+    disk.names.set(tombFor(stale), { text: stale, ctime: clock.t - 20_001 });
+    expect(takeStartLock(callerDeps(disk.fs, 100, clock))).toBe(false);
+    expect(disk.names.has(tombFor(stale))).toBe(false);
+    expect(takeStartLock(callerDeps(disk.fs, 200, clock))).toBe(true);
+    expect(JSON.parse(disk.names.get(LOCK)?.text ?? "null")).toMatchObject({ pid: 200 });
+    expect(disk.names.has(tombFor(stale))).toBe(false);
+  });
+});
+
+describe("nodeLockFs.replace", () => {
+  it("replaces the lock without a moment where a reader finds it missing", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omms-lock-replace-"));
+    const path = join(dir, "web-start.lock");
+    nodeLockFs.replace(path, "first");
+    // A second process reads the lock in a tight loop while this one replaces it.
+    const reader = Bun.spawn(
+      [
+        "node",
+        "-e",
+        `const fs = require("node:fs"); let missing = 0;
+         const end = Date.now() + 1500;
+         while (Date.now() < end) { try { fs.readFileSync(${JSON.stringify(path)}); } catch { missing++; } }
+         console.log(missing);`,
+      ],
+      { stdout: "pipe" }
+    );
+    try {
+      const end = Date.now() + 1500;
+      for (let i = 0; Date.now() < end; i++) {
+        nodeLockFs.replace(path, JSON.stringify({ pid: i, at: i }));
+        await Promise.resolve();
+      }
+      const missing = Number((await new Response(reader.stdout).text()).trim());
+      expect(missing).toBe(0);
+      nodeLockFs.replace(path, "last");
+      expect(readFileSync(path, "utf8")).toBe("last");
+      expect(readdirSync(dir)).toEqual(["web-start.lock"]);
+    } finally {
+      reader.kill();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

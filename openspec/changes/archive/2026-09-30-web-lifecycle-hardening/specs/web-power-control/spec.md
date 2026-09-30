@@ -1,10 +1,6 @@
-# web-power-control Specification
+# Spec Delta
 
-## Purpose
-
-Let a user stop or restart the shared OMMS web app from its own page, without a terminal.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: The web app can be stopped and restarted from its page
 

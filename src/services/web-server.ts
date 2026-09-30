@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { Readable } from "node:stream";
@@ -236,6 +237,8 @@ type PowerAction = "stop" | "restart";
 const STEP_ASIDE_HOLD_OFF_MS = 60_000;
 /** Lets the 202 reply reach the caller before the server stops. */
 const STEP_ASIDE_REPLY_GRACE_MS = 100;
+/** Differs between processes, so the page can tell a restarted web app from the old one. */
+const PROCESS_INSTANCE = randomUUID();
 
 export class WebServer {
   private server: PortableServerHandle | null = null;
@@ -324,6 +327,7 @@ export class WebServer {
     this.onPowerActionCallback = callback;
   }
 
+  /** Only a local caller may stop the web app; the token alone is not enough. */
   private handlePowerAction(action: PowerAction, remoteAddress: string | undefined): Response {
     const record = (outcome: string) =>
       log("Web server power request", { action, outcome, ownVersion: packageVersion() });
@@ -569,6 +573,8 @@ export class WebServer {
     for (const timer of [this.stepAsideTimer, this.holdOffTimer]) if (timer) clearTimeout(timer);
     this.stepAsideTimer = null;
     this.holdOffTimer = null;
+    // A restart whose copy failed calls start() again on this server.
+    this.startPromise = null;
 
     if (!this.isOwner || !this.server) {
       return;
@@ -747,10 +753,12 @@ export class WebServer {
         );
       }
 
+      // The page shows the power button only when this says the caller may control the web app.
       if (path === "/api/web/status" && method === "GET") {
         return this.jsonResponse({
           version: packageVersion(),
           canControl: isLoopbackAddress(remoteAddress) && this.onPowerActionCallback !== null,
+          instance: PROCESS_INSTANCE,
         });
       }
 

@@ -214,7 +214,7 @@ export async function runWebCommand(
   });
   console.log(`OMMS web app: ${server.getUrl()}`);
   // The Node HTTP adapter unrefs its socket for plugin use. Keep the CLI alive.
-  const keeper = setInterval(() => {}, 60_000);
+  let keeper = setInterval(() => {}, 60_000);
   const stop = () => {
     clearInterval(keeper);
     process.off("SIGINT", stop);
@@ -233,6 +233,14 @@ export async function runWebCommand(
         process.off("SIGTERM", stop);
         await server.stop();
       },
+      // A restart whose copy failed serves again from this process.
+      resumeServer: async () => {
+        keeper = setInterval(() => {}, 60_000);
+        process.once("SIGINT", stop);
+        process.once("SIGTERM", stop);
+        await server.start();
+      },
+      baseUrl: server.getUrl(),
       loginItem: action === "--login-item",
       autostart: options,
     })

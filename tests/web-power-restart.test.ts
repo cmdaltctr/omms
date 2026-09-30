@@ -1,5 +1,6 @@
 import { expect, it, setDefaultTimeout } from "bun:test";
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import { startStandaloneWeb } from "./standalone-web-fixture.js";
 
 setDefaultTimeout(60_000);
@@ -90,5 +91,36 @@ it("exits with code 0 on Stop", async () => {
     child.kill("SIGKILL");
     await child.exited;
     rmSync(home, { recursive: true, force: true });
+  }
+});
+
+it("keeps serving on the same process when the restarted copy cannot start", async () => {
+  // Run from a copy of the build, then remove its CLI entry. This process has
+  // loaded it already; a fresh copy fails at once.
+  const version = JSON.parse(readFileSync(join(import.meta.dir, "..", "package.json"), "utf8"))
+    .version as string;
+  const { home, port, token, child, root } = await startStandaloneWeb(version);
+  const base = `http://127.0.0.1:${port}`;
+  try {
+    rmSync(join(root, "dist", "cli", "index.js"));
+    const restart = await fetch(`${base}/api/web/restart`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-omms-token": token },
+      body: "{}",
+    });
+    expect(restart.status).toBe(202);
+    await new Promise((resolve) => setTimeout(resolve, 5_000));
+    expect(child.exitCode).toBeNull();
+    expect(await listeners(port)).toEqual([String(child.pid)]);
+    expect((await fetch(`${base}/api/health`)).ok).toBe(true);
+    const log = readFileSync(join(home, "omms.log"), "utf8");
+    expect(log).toContain("Web app restart failed");
+    expect(log).toContain("copy-exit");
+  } finally {
+    child.kill("SIGKILL");
+    await child.exited;
+    for (const pid of await listeners(port)) process.kill(Number(pid), "SIGKILL");
+    rmSync(home, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
   }
 });
