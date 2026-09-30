@@ -98,7 +98,8 @@ console.log("RESULT:" + JSON.stringify(typeof scenario !== "undefined" ? scenari
     writeFileSync(scriptPath, script);
     const proc = Bun.spawnSync(["bun", "run", scriptPath], {
       cwd: workDir,
-      env: { ...process.env, HOME: home, OMMS_SKIP_LEGACY_MIGRATION: "1" },
+      // Windows reads the home folder from USERPROFILE, not HOME.
+      env: { ...process.env, HOME: home, USERPROFILE: home, OMMS_SKIP_LEGACY_MIGRATION: "1" },
     });
     const stdout = proc.stdout.toString();
     const match = stdout.match(/RESULT:(.*)$/m);
