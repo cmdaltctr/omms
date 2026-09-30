@@ -38,7 +38,9 @@ describe("resolveClaudeFolder", () => {
   });
 
   it("returns the projects folder inside the Claude folder", () => {
-    expect(claudeProjectsRoot("/data/claude", "/env/claude", home)).toBe("/data/claude/projects");
+    expect(claudeProjectsRoot("/data/claude", "/env/claude", home)).toBe(
+      join("/data/claude", "projects")
+    );
     expect(claudeProjectsRoot(undefined, "", home)).toBe(join(home, ".claude", "projects"));
   });
 });

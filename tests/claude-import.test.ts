@@ -148,7 +148,7 @@ const page = await listImportSessions(
 );
 scenario = { base, root: dry.root, discovered: dry.sessionsDiscovered, listed: page.total };
 `);
-    expect(out.root).toBe(out.base + "/projects");
+    expect(out.root).toBe(join(out.base, "projects"));
     expect(out.discovered).toBeGreaterThan(0);
     expect(out.listed).toBe(out.discovered);
   });

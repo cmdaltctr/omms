@@ -120,11 +120,13 @@ it("agrees with the reader on the setting and on CLAUDE_CONFIG_DIR", () => {
   const saved = process.env.CLAUDE_CONFIG_DIR;
   try {
     process.env.CLAUDE_CONFIG_DIR = "/env/claude";
-    expect(defaultClaudeSourcePath()).toBe("/env/claude/projects");
+    expect(defaultClaudeSourcePath()).toBe(join("/env/claude", "projects"));
     expect(defaultClaudeSourcePath()).toBe(defaultClaudeProjectsRoot());
-    expect(defaultClaudeSourcePath("/data/claude")).toBe("/data/claude/projects");
+    expect(defaultClaudeSourcePath("/data/claude")).toBe(join("/data/claude", "projects"));
     expect(defaultClaudeSourcePath("/data/claude")).toBe(defaultClaudeProjectsRoot("/data/claude"));
-    expect(defaultImportSourcePath("claude-code", "/data/claude")).toBe("/data/claude/projects");
+    expect(defaultImportSourcePath("claude-code", "/data/claude")).toBe(
+      join("/data/claude", "projects")
+    );
   } finally {
     if (saved === undefined) delete process.env.CLAUDE_CONFIG_DIR;
     else process.env.CLAUDE_CONFIG_DIR = saved;

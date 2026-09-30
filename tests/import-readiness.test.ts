@@ -1,4 +1,5 @@
 import { afterEach, expect, it, mock } from "bun:test";
+import { join } from "node:path";
 import { CONFIG } from "../src/config.js";
 import { importBlockedReason, importReadiness } from "../src/importer/import-readiness.js";
 
@@ -177,7 +178,7 @@ it("reads the Claude Code folder from the claudeConfigDir setting", async () => 
   try {
     CONFIG.claudeConfigDir = "/nonexistent/claude-setting";
     const readiness = await importReadiness(deps);
-    expect(readiness.claudeCode.defaultRoot).toBe("/nonexistent/claude-setting/projects");
+    expect(readiness.claudeCode.defaultRoot).toBe(join("/nonexistent/claude-setting", "projects"));
     expect(readiness.claudeCode.defaultRootFound).toBe(false);
   } finally {
     CONFIG.claudeConfigDir = before;
