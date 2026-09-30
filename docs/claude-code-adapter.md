@@ -190,13 +190,16 @@ Auth.
 ### Start on demand
 
 When no OMMS web app answers, the hook starts `om-memory-system web` as a
-detached process. It uses the same runtime rule as the login item, and the web
-app uses the same port, bind address, and token rules. The hook then checks
-the health route until the web app answers or the start budget ends.
+detached process. The hook follows the shared start rule that OpenCode and Pi
+also use (`ensureWebApp`, see [Web UI](web-ui.md#starting-the-web-app)). It uses
+the same runtime rule as the login item, and the web app uses the same port,
+bind address, and token rules. The hook then checks the health route until the
+web app answers or the start budget ends.
 
 - The web app keeps running after the Claude Code session ends.
-- When OpenCode, the login item, or `om-memory-system web` already serves the web app, the hook uses it and starts nothing.
-- When two hooks start the web app at the same time, the port ownership rules keep one server.
+- When OpenCode, Pi, the login item, or `om-memory-system web` already serves the web app, the hook uses it and starts nothing.
+- When two hooks, or a hook and another host, start the web app at the same time, the start lock (`~/.omms/web-start.lock`) lets one start it. The others wait for it.
+- Set `webServerEnabled` to `false` in the global config to keep the web app off. The hook then starts nothing and logs `server-disabled`.
 - The first `SessionStart` of the day can take some seconds. A prompt sent before the web app is ready gets no added context.
 
 To avoid the start delay, install the login item with

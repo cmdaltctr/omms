@@ -4,7 +4,7 @@ import type { ImportHost } from "./import-args.js";
 import { defaultClaudeSourcePath } from "./import-sources.js";
 
 /**
- * What a real web import could use right now, checked inside the OpenCode
+ * What a real web import could use right now, checked inside the web app
  * process that runs it. `env://` and `file://` keys were resolved when the
  * config loaded, so a variable set only in the user's shell shows as missing.
  * "Ready" means configured, not tested: the Health section runs test calls.
@@ -126,5 +126,9 @@ export function importBlockedReason(
   const connected = readiness.opencode.models.some(
     (model) => `${model.provider}/${model.model}` === request.modelChoice
   );
-  return connected ? null : "The chosen OpenCode model is not connected";
+  if (connected) return null;
+  // The web app has no OpenCode session, so no host model is ever connected here.
+  return readiness.opencode.available
+    ? "The chosen OpenCode model is not connected"
+    : "The chosen OpenCode model is not connected here. An import with an OpenCode signed-in model runs from the terminal or with /import in OpenCode. Choose the external API for a web import.";
 }

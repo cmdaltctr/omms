@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from
 import { Folder, Moon, PanelLeftClose, PanelLeftOpen, Settings, Sun, User, X } from "lucide-react";
 import type { Lang } from "$lib/i18n/translations";
 import { GithubIcon } from "$lib/components/icons/GithubIcon";
+import { PowerButton } from "$lib/components/explorer/PowerButton";
 import { Button } from "$lib/components/ui/button";
 import { Separator } from "$lib/components/ui/separator";
 import { navigate, ROUTES, type AppView } from "$lib/router";
@@ -362,6 +363,7 @@ export function AppSidebar({
             >
               <Settings className="size-4" />
             </a>
+            <PowerButton />
             <a
               href="https://github.com/cmdaltctr/omms"
               target="_blank"

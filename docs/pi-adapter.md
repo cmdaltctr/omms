@@ -73,9 +73,12 @@ The extension chooses the capture model with the same rule as OpenCode (see
 Each capture attempt writes a metadata line to the OMMS log. It can also
 write a full trace. See [Configuration: Capture diagnostics](configuration.md#capture-diagnostics).
 
-The Pi adapter does not start the web server itself. When both hosts run, let
-OpenCode own the web server port. When `webServerAutoStart` is set, the Pi
-adapter updates the web app login item, the same as OpenCode.
+At session start the Pi adapter checks for the shared web app. If none answers,
+it starts one `om-memory-system web` in the background and does not wait for it.
+If one answers, Pi uses it. This check runs at every session start, whatever
+`webServerAutoStart` says. Set `webServerEnabled` to `false` to keep the web
+app off. When `webServerAutoStart` is set, the Pi adapter also updates the web
+app login item, the same as OpenCode. See [Web UI](web-ui.md#starting-the-web-app).
 
 History backfill (automatic history import) uses `piBackfillModel`. See
 [Configuration: Automatic history import and login web app](configuration.md#automatic-history-import-and-login-web-app).

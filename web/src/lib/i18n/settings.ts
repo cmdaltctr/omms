@@ -296,6 +296,16 @@ const text = {
   Next: ["下一页", "التالي"],
   None: ["无", "لا شيء"],
   "Configured, not tested.": ["已配置，未测试。", "مُعدّ، لم يُختبر."],
+  "An import with an OpenCode signed-in model runs from the terminal or with /import in OpenCode.":
+    [
+      "使用 OpenCode 已登录模型的导入需在终端运行，或在 OpenCode 中使用 /import。",
+      "يتم الاستيراد بنموذج OpenCode المسجَّل الدخول من الطرفية أو بالأمر /import داخل OpenCode.",
+    ],
+  "The chosen OpenCode model is not connected here. An import with an OpenCode signed-in model runs from the terminal or with /import in OpenCode. Choose the external API for a web import.":
+    [
+      "所选 OpenCode 模型在此处未连接。使用 OpenCode 已登录模型的导入需在终端运行，或在 OpenCode 中使用 /import。网页导入请选择外部 API。",
+      "نموذج OpenCode المختار غير متصل هنا. يتم الاستيراد بنموذج OpenCode المسجَّل الدخول من الطرفية أو بالأمر /import داخل OpenCode. اختر واجهة API الخارجية للاستيراد من الصفحة.",
+    ],
   "Test models in Health": ["在健康检查中测试模型", "اختبر النماذج في قسم السلامة"],
   Import: ["导入", "استيراد"],
   sessions: ["个会话", "جلسات"],

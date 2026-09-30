@@ -1,7 +1,6 @@
-import { spawn as nodeSpawn } from "node:child_process";
 import { homedir } from "node:os";
-import { fileURLToPath } from "node:url";
 import { AUTH_HEADER } from "../../services/auth-token.js";
+import type { EnsureDeps } from "../../services/web-ensure.js";
 
 // Claude Code hook client: read the hook input, find or start the OMMS web
 // app, send one request, print the added context, and log one metadata line.
@@ -20,8 +19,6 @@ export const RETRIEVAL_TAG = "omms-retrieval";
 
 const INPUT_TIMEOUT_MS = 2_000;
 const MAX_INPUT_BYTES = 1024 * 1024;
-const HEALTH_PROBE_MS = 1_000;
-const POLL_INTERVAL_MS = 250;
 
 const BUDGETS: Record<ClaudeHookEvent, { startMs: number; requestMs: number }> = {
   "session-start": { startMs: 15_000, requestMs: 3_000 },
@@ -41,17 +38,6 @@ export interface HookServerSettings {
   basicAuth?: { username: string; password: string };
 }
 
-interface SpawnedChild {
-  unref(): void;
-  on(event: "error", listener: (error: Error) => void): unknown;
-}
-
-type SpawnFn = (
-  command: string,
-  args: string[],
-  options: { detached: true; stdio: "ignore"; cwd: string; windowsHide: true }
-) => SpawnedChild;
-
 /** A readable byte stream such as `process.stdin`. */
 export interface HookInputStream {
   on(event: "data", listener: (chunk: Buffer | string) => void): unknown;
@@ -65,7 +51,7 @@ export interface ClaudeHookOptions {
   stdin?: HookInputStream;
   writeStdout?: (text: string) => void;
   fetch?: typeof fetch;
-  spawn?: SpawnFn;
+  spawn?: EnsureDeps["spawn"];
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   log?: (message: string, data: Record<string, unknown>) => void | Promise<void>;
@@ -74,6 +60,8 @@ export interface ClaudeHookOptions {
   loadSettings?: () => Promise<HookServerSettings>;
   /** The `om-memory-system` script that `web` is run from. */
   cliScript?: string;
+  /** Overrides for the shared start rule, such as the start lock. */
+  ensureDeps?: Partial<EnsureDeps>;
   inputTimeoutMs?: number;
   maxInputBytes?: number;
   /** Overrides the event's request budget. */
@@ -186,23 +174,27 @@ function requestFor(event: ClaudeHookEvent, input: HookInput): { path: string; b
 }
 
 function productionDefaults(): Required<
-  Omit<ClaudeHookOptions, "requestTimeoutMs" | "inputTimeoutMs" | "maxInputBytes">
+  Omit<
+    ClaudeHookOptions,
+    | "requestTimeoutMs"
+    | "inputTimeoutMs"
+    | "maxInputBytes"
+    | "spawn"
+    | "resolveRuntime"
+    | "cliScript"
+    | "ensureDeps"
+  >
 > {
   return {
     stdin: process.stdin,
     writeStdout: (text) => process.stdout.write(text),
     fetch: globalThis.fetch,
-    spawn: nodeSpawn as unknown as SpawnFn,
     now: () => Date.now(),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     // The shared logger only uses the file system; load it lazily anyway.
     log: async (message, data) => (await import("../../services/logger.js")).log(message, data),
     readToken: async () => (await import("../../services/auth-token.js")).getOrCreateAuthToken(),
-    resolveRuntime: async () =>
-      (await import("../../services/web-autostart.js")).resolveWebRuntime(),
     loadSettings: loadWebSettings,
-    // From dist/adapters/claude-code/ to the CLI entry point.
-    cliScript: fileURLToPath(new URL("../../cli/index.js", import.meta.url)),
   };
 }
 
@@ -275,7 +267,7 @@ async function runSteps(
   const settings = await deps.loadSettings();
   if (!settings.enabled) return "server-disabled";
   const budget = BUDGETS[event];
-  const ready = await ensureServer(settings.baseUrl, budget.startMs, deps, result);
+  const ready = await ensureServer(settings, budget.startMs, deps, result);
   if (ready !== "ok") return ready;
 
   const headers: Record<string, string> = {
@@ -319,50 +311,29 @@ async function runSteps(
   return "ok";
 }
 
-async function isHealthy(baseUrl: string, timeoutMs: number, deps: Deps): Promise<boolean> {
-  try {
-    const response = await deps.fetch(`${baseUrl}/api/health`, {
-      method: "GET",
-      signal: AbortSignal.timeout(Math.max(1, timeoutMs)),
-    });
-    if (!response.ok) return false;
-    // Same envelope check as WebServer.checkServerAvailable: another local
-    // service on the port must not count as OMMS.
-    const body = (await response.json()) as { success?: unknown; status?: unknown };
-    return body.success === true && body.status === "ok";
-  } catch {
-    return false;
-  }
-}
-
-/** Use a running web app, or start `om-memory-system web` and wait for it within the budget. */
+/** Use a running web app, or start one through the shared rule and wait for it within the budget. */
 async function ensureServer(
-  baseUrl: string,
+  settings: HookServerSettings,
   budgetMs: number,
   deps: Deps,
   result: ClaudeHookResult
 ): Promise<"ok" | "server-unreachable" | "start-timeout"> {
-  const started = deps.now();
-  const remaining = () => budgetMs - (deps.now() - started);
-  if (await isHealthy(baseUrl, Math.min(HEALTH_PROBE_MS, remaining()), deps)) return "ok";
-
-  const runtime = await deps.resolveRuntime();
-  if (!runtime) return "server-unreachable";
-  const child = deps.spawn(runtime, [deps.cliScript, "web"], {
-    detached: true,
-    stdio: "ignore",
-    cwd: homedir(),
-    windowsHide: true,
+  const { ensureWebApp } = await import("../../services/web-ensure.js");
+  const answer = await ensureWebApp({
+    settings: { enabled: settings.enabled, baseUrl: settings.baseUrl },
+    budgetMs,
+    wait: true,
+    deps: {
+      fetch: deps.fetch,
+      now: deps.now,
+      sleep: deps.sleep,
+      ...(deps.spawn ? { spawn: deps.spawn } : {}),
+      ...(deps.resolveRuntime ? { resolveRuntime: deps.resolveRuntime } : {}),
+      ...(deps.cliScript ? { cliScript: deps.cliScript } : {}),
+      ...deps.ensureDeps,
+    },
   });
-  // A missing runtime reports through this event; polling then runs out.
-  child.on("error", () => undefined);
-  child.unref();
-  result.spawned = true;
-
-  while (remaining() > 0) {
-    await deps.sleep(Math.min(POLL_INTERVAL_MS, remaining()));
-    if (remaining() <= 0) break;
-    if (await isHealthy(baseUrl, Math.min(HEALTH_PROBE_MS, remaining()), deps)) return "ok";
-  }
-  return "start-timeout";
+  result.spawned = answer === "started";
+  if (answer === "running" || answer === "started") return "ok";
+  return answer === "start-timeout" ? "start-timeout" : "server-unreachable";
 }

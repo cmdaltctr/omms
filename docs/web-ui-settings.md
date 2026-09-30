@@ -2,7 +2,7 @@
 
 This guide explains each part of the web app's Settings page, in the order the page shows them.
 
-Open `http://127.0.0.1:4747/settings`, or select the cogwheel at the bottom of the sidebar. OpenCode serves the page while it runs. The login web app and `om-memory-system web` serve it without an agent open. See [Web UI](web-ui.md) for starting the web app, ports, and access control.
+Open `http://127.0.0.1:4747/settings`, or select the cogwheel at the bottom of the sidebar. One shared web app serves the page. OpenCode, Pi, and Claude Code start it when none runs, and the login item starts it at sign-in. See [Web UI](web-ui.md) for starting the web app, ports, and access control.
 
 ## How saving works
 
@@ -88,7 +88,7 @@ Claude Code has no model card. Its capture and profile learning always use the e
 
 ### Model lists
 
-Inside an OpenCode session, the OpenCode card lists the session's signed-in models. The login web app and `om-memory-system web` have no OpenCode session. There, OMMS starts a private `opencode serve` to read the list, and stops it after the read:
+The web app has no OpenCode session. OMMS starts a private `opencode serve` to read the list, and stops it after the read:
 
 - The server listens only on `127.0.0.1`, on a free port, with a password that OMMS makes for that start.
 - OMMS finds `opencode` in `~/.opencode/bin`, then on `PATH`, then in `/opt/homebrew/bin`, `/usr/local/bin`, and `~/.bun/bin`. It does not read your shell profile.
@@ -129,7 +129,7 @@ When a live capture fails because the capture model cannot be reached, OMMS keep
 - **Retry retention (hours).** How long a waiting turn is kept. The default is 72 hours. The range is 0 to 720.
 - Set it to 0 to turn the queue off. The save deletes the waiting turns at once.
 - **Turns waiting for retry** shows the number of waiting turns for Pi, OpenCode, and Claude Code.
-- **Retry now** retries that host's waiting turns at once when the host runs this web server. Otherwise the page says the turns retry at that host's next session start.
+- **Retry now** retries the waiting turns of Pi and Claude Code at once. OpenCode's waiting turns retry at the next OpenCode session start, because only an OpenCode session can call OpenCode's models. The page says so.
 - The web app always runs the Claude Code retry pass, so **Retry now** works for Claude Code in any web app.
 - **Retry now** is disabled when the host has no waiting turns or the queue is off.
 - Queued turns can contain conversation content. OMMS removes text inside `<private>` tags and common API key formats first.
@@ -153,7 +153,7 @@ This section runs checks on the parts OMMS needs, and shows a pass, warning, or 
 - **Run checks.** Check the config files, the memory store, the embedding model, the web binding, the model selection, and the capture failure rate over the last 24 hours.
 - **Run checks and test models.** Also send one short fixed prompt to each host's capture model.
 
-A session model can be tested only from inside an open session. The OpenCode web server cannot call a Pi session model. Claude Code uses the external API, so the External API card's **Test** covers it.
+A session model can be tested only from inside an open session. The web app cannot call an OpenCode signed-in model or a Pi session model. The **OpenCode model test** row then shows `warn` with the text `Skipped: an OpenCode signed-in model can be tested only inside OpenCode`. To test it, run a capture in OpenCode, or set the external API as the capture model. Claude Code uses the external API, so the External API card's **Test** covers it.
 
 ## Import and backfill
 
@@ -163,7 +163,7 @@ Use this section to import past chats by hand. A backfill is an import of old ch
 2. Select **List sessions**. The list shows each session's date, ID, project folder, and how the folder was found. It never shows prompts or replies.
 3. Tick sessions, or select **Select all matching** to include every page.
 4. Select **Preview (dry run)**. It counts the exchanges that would be imported. It makes no model calls and writes nothing.
-5. Choose the **Import model**: a connected OpenCode model, or **Saved external API**. A Claude Code import always uses the saved external API.
+5. Choose the **Import model**: **Saved external API**. The web app has no OpenCode session, so it offers no OpenCode signed-in model. The page says an import with an OpenCode signed-in model runs from the terminal or with `/import` in OpenCode. A Claude Code import always uses the saved external API.
 6. Select **Start import**.
 
 While an import runs, progress updates every second. **Cancel after current unit** stops at a safe point. A later run imports the rest. The page, the terminal commands, and the automatic backfill share one record of finished work, called the ledger, so nothing is imported twice.
@@ -232,7 +232,7 @@ Only one import runs for each host at a time. This includes a backfill, a page i
 - **Pause** stops the run after its current exchange, including a run in another process. A paused backfill does not start again when the host starts.
 - **Resume** clears the pause and starts the run. It continues from the ledger.
 
-Run now and Resume run inside the web app. The Claude Code backfill always runs in the web app with the external API. Without Pi or OpenCode open, they need the host's backfill model to use the external API. Otherwise the page says: `Open Pi, or choose the external API for Pi's backfill`. When OpenCode serves the page, OpenCode's backfill can also use OpenCode's connected models.
+Run now and Resume run inside the web app. The Claude Code backfill always runs in the web app with the external API. Without Pi or OpenCode open, they need the host's backfill model to use the external API. Otherwise the page says: `Open Pi, or choose the external API for Pi's backfill`. The web app has no OpenCode session, so OpenCode's backfill from the page needs the external API. A backfill with an OpenCode signed-in model runs inside OpenCode, from the terminal, or with `/import`.
 
 ## Directory maps
 
@@ -257,7 +257,7 @@ The list fills when you list sessions under Import and backfill with All project
 
 ## Web app
 
-- **Start web app at login** (`webServerAutoStart`) installs or removes a login item that starts the web app when you sign in. The change applies at the next Pi or OpenCode start. To apply it now, run `om-memory-system web install` or `om-memory-system web uninstall`.
+- **Start web app at login** (`webServerAutoStart`) installs or removes a login item that starts the web app when you sign in. The change applies at the next Pi or OpenCode start. The power button in the sidebar restarts or stops the web app. See [Web UI: Power button](web-ui.md#power-button). To apply it now, run `om-memory-system web install` or `om-memory-system web uninstall`.
 - **Login item** shows whether the item is installed, unsupported on this system, or missing a Node or Bun runtime.
 - **Running version** is the OMMS version that serves this page. **Global command** is the version of `om-memory-system` on the web app's `PATH`, or `not installed globally`.
 - When the two versions differ, the section warns and shows the upgrade command: `npm i -g om-memory-system@latest`.

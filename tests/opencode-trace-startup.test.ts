@@ -46,10 +46,6 @@ mock.module(${JSON.stringify(url("../src/services/auto-capture.js"))}, () => ({
 mock.module(${JSON.stringify(url("../src/adapters/opencode/profile-learning.js"))}, () => ({
   performUserProfileLearning: async () => {},
 }));
-mock.module(${JSON.stringify(url("../src/services/web-server.js"))}, () => ({
-  startWebServer: async () => null,
-  WebServer: class {},
-}));
 mock.module(${JSON.stringify(url("../src/services/user-prompt/user-prompt-manager.js"))}, () => ({
   userPromptManager: { savePrompt() {} },
 }));

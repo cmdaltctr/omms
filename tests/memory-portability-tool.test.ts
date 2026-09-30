@@ -23,7 +23,6 @@ const promptManagerUrl = new URL(
   "../src/services/user-prompt/user-prompt-manager.js",
   import.meta.url
 ).href;
-const webServerUrl = new URL("../src/services/web-server.js", import.meta.url).href;
 const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
 const languageUrl = new URL("../src/services/language-detector.js", import.meta.url).href;
 
@@ -88,10 +87,6 @@ mock.module(${JSON.stringify(privacyUrl)}, () => ({
 mock.module(${JSON.stringify(autoCaptureUrl)}, () => ({ performAutoCapture: async () => {} }));
 mock.module(${JSON.stringify(learningUrl)}, () => ({ performUserProfileLearning: async () => {} }));
 mock.module(${JSON.stringify(promptManagerUrl)}, () => ({ userPromptManager: { savePrompt() {} } }));
-mock.module(${JSON.stringify(webServerUrl)}, () => ({
-  startWebServer: async () => null,
-  WebServer: class {},
-}));
 mock.module(${JSON.stringify(loggerUrl)}, () => ({ log: () => {} }));
 mock.module(${JSON.stringify(languageUrl)}, () => ({ getLanguageName: () => "English" }));
 

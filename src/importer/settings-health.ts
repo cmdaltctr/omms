@@ -119,22 +119,31 @@ export async function runSettingsHealth(input: HealthInput): Promise<{ checks: H
     });
   }
   if (input.testModels) {
-    await check("OpenCode model test", async () => {
-      const { resolveOpencodeHostModel } = await import("../services/ai/live-model-choice.js");
-      const ref = resolveOpencodeHostModel(CONFIG);
-      if (ref?.modelID === "inherit")
-        throw new Error("A session model needs an active session to test");
-      const capture = ref
-        ? (await createOpencodeImportModels(ref, input.directory)).capture
-        : (await import("./model-selection.js")).selectImportModel({}).capture;
-      await capture.summarize({
-        userPrompt: PROBE,
-        context: PROBE,
-        sessionId: "health",
-        projectDirectory: input.directory,
+    const { resolveOpencodeHostModel } = await import("../services/ai/live-model-choice.js");
+    const { getOpencodeHostModels } = await import("./backfill-controls.js");
+    const opencodeRef = resolveOpencodeHostModel(CONFIG);
+    if (opencodeRef && !getOpencodeHostModels()) {
+      // The web app runs outside OpenCode, so an OpenCode signed-in model cannot be called here.
+      checks.push({
+        check: "OpenCode model test",
+        status: "warn",
+        reason:
+          "Skipped: an OpenCode signed-in model can be tested only inside OpenCode. Run a capture in OpenCode, or set the external API as the capture model.",
       });
-      return "Fixed prompt completed";
-    });
+    } else {
+      await check("OpenCode model test", async () => {
+        const capture = opencodeRef
+          ? (await createOpencodeImportModels(opencodeRef, input.directory)).capture
+          : (await import("./model-selection.js")).selectImportModel({}).capture;
+        await capture.summarize({
+          userPrompt: PROBE,
+          context: PROBE,
+          sessionId: "health",
+          projectDirectory: input.directory,
+        });
+        return "Fixed prompt completed";
+      });
+    }
     if (pi.kind === "manual") {
       await check("Pi model test", async () => {
         const { selectImportModel } = await import("./model-selection.js");
