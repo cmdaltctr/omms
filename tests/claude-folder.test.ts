@@ -37,6 +37,13 @@ describe("resolveClaudeFolder", () => {
     expect(resolveClaudeFolder("~/work/claude", "", home).folder).toBe(join(home, "work/claude"));
   });
 
+  it("expands ~/ in CLAUDE_CONFIG_DIR too", () => {
+    expect(resolveClaudeFolder(undefined, "~/claude-work", home)).toEqual({
+      folder: join(home, "claude-work"),
+      source: "env",
+    });
+  });
+
   it("returns the projects folder inside the Claude folder", () => {
     expect(claudeProjectsRoot("/data/claude", "/env/claude", home)).toBe(
       join("/data/claude", "projects")

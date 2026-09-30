@@ -27,15 +27,12 @@ export function resolveClaudeFolder(
   env: string | undefined = process.env.CLAUDE_CONFIG_DIR,
   home: string = homedir()
 ): ClaudeFolder {
+  const expand = (path: string) => (path.startsWith("~/") ? join(home, path.slice(2)) : path);
   const setting = configured?.trim();
-  if (setting) {
-    return {
-      folder: setting.startsWith("~/") ? join(home, setting.slice(2)) : setting,
-      source: "setting",
-    };
-  }
+  if (setting) return { folder: expand(setting), source: "setting" };
+  // A variable set without shell expansion can still hold a literal `~/`.
   const fromEnv = env?.trim();
-  if (fromEnv) return { folder: fromEnv, source: "env" };
+  if (fromEnv) return { folder: expand(fromEnv), source: "env" };
   return { folder: join(home, ".claude"), source: "default" };
 }
 

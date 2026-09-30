@@ -1,7 +1,12 @@
-import { useEffect, useState } from "react";
-import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
+import { useEffect, useRef, useState } from "react";
+import {
+  beginSettingsRead,
+  onSettingsSnapshot,
+  reloadSettingsSnapshot,
+  settingsRequest,
+} from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
-import { isValidClaudeConfigDir } from "$lib/claude-folder-settings";
+import { isValidClaudeConfigDir, nextClaudeDraft } from "$lib/claude-folder-settings";
 
 type ClaudeFolder = { root: string; source: "setting" | "env" | "default"; exists: boolean };
 type Snapshot = {
@@ -16,16 +21,22 @@ export function ClaudeFolderSection() {
   const [draft, setDraft] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  // True while the field holds text the user has not saved yet.
+  const edited = useRef(false);
   useEffect(() => {
     let active = true;
     const show = (value: Snapshot) => {
       if (!active) return;
       setSnapshot(value);
-      const saved = value.settings.claudeConfigDir?.globalValue;
-      setDraft(typeof saved === "string" ? saved : "");
+      setDraft((draft) =>
+        nextClaudeDraft(value.settings.claudeConfigDir?.globalValue, draft, edited.current)
+      );
     };
+    const read = beginSettingsRead();
     void settingsRequest<Snapshot>("/api/settings")
-      .then(show)
+      .then((value) => {
+        if (read.isCurrent()) show(value);
+      })
       .catch((error: Error) => {
         if (active) setMessage(error.message);
       });
@@ -50,6 +61,7 @@ export function ClaudeFolderSection() {
           revision: snapshot.revision,
         }),
       });
+      edited.current = false;
       setMessage(s("Saved. Capture and import use this folder now."));
     } catch (error) {
       setMessage((error as Error).message);
@@ -75,7 +87,10 @@ export function ClaudeFolderSection() {
           placeholder="~/.claude"
           value={draft}
           disabled={busy || !snapshot}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            edited.current = true;
+            setDraft(event.target.value);
+          }}
         />
       </label>
       <button

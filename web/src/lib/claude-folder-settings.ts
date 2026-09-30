@@ -13,3 +13,9 @@ export function isValidClaudeConfigDir(value: string): boolean {
     trimmed.startsWith("\\\\")
   );
 }
+
+/** The field after a new snapshot: an edited, unsaved value stays; otherwise the saved one. */
+export function nextClaudeDraft(saved: unknown, draft: string, edited: boolean): string {
+  if (edited) return draft;
+  return typeof saved === "string" ? saved : "";
+}

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs";
 import { homedir } from "node:os";
+import { join } from "node:path";
 import { initConfig, CONFIG, validateGlobalConfig } from "../src/config.js";
 
 describe("project-scoped config resolution", () => {
@@ -239,7 +240,7 @@ describe("project-scoped config resolution", () => {
     existsSpy.mockRestore();
     mockGlobalAndProject({ claudeConfigDir: "~/work/claude" }, {});
     initConfig("/my/project");
-    expect(CONFIG.claudeConfigDir).toBe(`${homedir()}/work/claude`);
+    expect(CONFIG.claudeConfigDir).toBe(join(homedir(), "work", "claude"));
   });
 
   it("ignores a project value for claudeConfigDir", () => {
