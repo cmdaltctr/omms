@@ -1,5 +1,14 @@
 import { spawn as nodeSpawn } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  linkSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +17,7 @@ import { fileURLToPath } from "node:url";
 // at most one standalone web app runs per machine. It imports no host adapter,
 // no store, and no embedding model, so the Claude Code hook can use it.
 
+/** Each code maps to a host message or log code; none of them fails the session. */
 export type EnsureResult =
   "running" | "started" | "disabled" | "port-busy" | "no-runtime" | "start-timeout";
 
@@ -28,14 +38,21 @@ type SpawnFn = (
   options: { detached: true; stdio: "ignore"; cwd: string; windowsHide: true }
 ) => SpawnedChild;
 
-/** The three file operations the start lock needs. */
+/** The file operations the start lock needs. */
 export interface LockFs {
   /** Create the file only when it does not exist. Returns false when it does. */
   createExclusive(path: string, text: string): boolean;
   read(path: string): string | null;
   remove(path: string): void;
+  /** Hard-link `from` to `to`. False when `to` exists or `from` is missing. */
+  link(from: string, to: string): boolean;
+  /** Time since the file's change time, or null when it is missing. A link sets the change time. */
+  ageMs(path: string): number | null;
+  /** Replace the file in one step, so a reader never finds it missing. */
+  replace(path: string, text: string): void;
 }
 
+/** Injected so tests run the start rule without a network, a process, or a real clock. */
 export interface EnsureDeps {
   fetch: typeof fetch;
   spawn: SpawnFn;
@@ -52,6 +69,7 @@ export interface EnsureDeps {
   log: (message: string, data: Record<string, unknown>) => void | Promise<void>;
 }
 
+/** Hosts differ only in these values; the start rule itself has no host-specific code. */
 export interface EnsureOptions {
   settings: EnsureSettings;
   /** How long the caller may wait for the web app to answer. */
@@ -71,6 +89,7 @@ export function startLockPath(home = homedir()): string {
   return join(home, ".omms", "web-start.lock");
 }
 
+/** Lock files are private to the user (0600 in a 0700 folder), like the token file. */
 export const nodeLockFs: LockFs = {
   createExclusive(path, text) {
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
@@ -91,6 +110,29 @@ export const nodeLockFs: LockFs = {
   },
   remove(path) {
     rmSync(path, { force: true });
+  },
+  link(from, to) {
+    try {
+      linkSync(from, to);
+      return true;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "EEXIST" || code === "ENOENT") return false;
+      throw error;
+    }
+  },
+  ageMs(path) {
+    try {
+      return Date.now() - statSync(path).ctimeMs;
+    } catch {
+      return null;
+    }
+  },
+  replace(path, text) {
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+    const temp = `${path}.${process.pid}.tmp`;
+    writeFileSync(temp, text, { mode: 0o600 });
+    renameSync(temp, path);
   },
 };
 
@@ -154,7 +196,10 @@ async function probe(baseUrl: string, timeoutMs: number, deps: EnsureDeps): Prom
   }
 }
 
-function lockIsStale(text: string | null, deps: EnsureDeps): boolean {
+/** What taking the start lock needs; a test drives two callers through it step by step. */
+export type LockDeps = Pick<EnsureDeps, "lockPath" | "lockFs" | "pid" | "now" | "pidAlive">;
+
+function lockIsStale(text: string | null, deps: LockDeps): boolean {
   if (text === null) return true;
   try {
     const { pid, at } = JSON.parse(text) as { pid?: unknown; at?: unknown };
@@ -165,16 +210,34 @@ function lockIsStale(text: string | null, deps: EnsureDeps): boolean {
   }
 }
 
-/** Take the start lock. A stale lock is removed and taken once more. */
-function takeLock(deps: EnsureDeps): boolean {
+/**
+ * Take the start lock. A stale lock is replaced by one caller only: the caller
+ * that hard-links it to a tombstone named after its text. Remove-then-create
+ * alone let two callers each remove the lock the other had just created.
+ */
+export function takeStartLock(deps: LockDeps): boolean {
   const mine = JSON.stringify({ pid: deps.pid, at: deps.now() });
   if (deps.lockFs.createExclusive(deps.lockPath, mine)) return true;
   const seen = deps.lockFs.read(deps.lockPath);
+  if (seen === null) return deps.lockFs.createExclusive(deps.lockPath, mine);
   if (!lockIsStale(seen, deps)) return false;
-  // Another caller may have replaced the stale lock since it was read.
-  if (deps.lockFs.read(deps.lockPath) !== seen) return false;
-  deps.lockFs.remove(deps.lockPath);
-  return deps.lockFs.createExclusive(deps.lockPath, mine);
+  const tomb = `${deps.lockPath}.${createHash("sha256").update(seen).digest("hex").slice(0, 16)}.stale`;
+  if (!deps.lockFs.link(deps.lockPath, tomb)) {
+    // A takeover that crashed after its link leaves the tombstone behind. Clear
+    // it, and let the next caller do the takeover.
+    const age = deps.lockFs.ageMs(tomb);
+    if (age !== null && age > START_LOCK_STALE_MS) deps.lockFs.remove(tomb);
+    return false;
+  }
+  try {
+    // A slow caller can link a lock that was replaced after it read it. That
+    // lock is live, so leave it.
+    if (deps.lockFs.read(tomb) !== seen) return false;
+    deps.lockFs.remove(deps.lockPath);
+    return deps.lockFs.createExclusive(deps.lockPath, mine);
+  } finally {
+    deps.lockFs.remove(tomb);
+  }
 }
 
 /**
@@ -211,7 +274,7 @@ export async function ensureWebApp(options: EnsureOptions): Promise<EnsureResult
       return "no-runtime";
     }
 
-    held = takeLock(deps);
+    held = takeStartLock(deps);
     if (!held) return await waitForOther(settings.baseUrl, wait, remaining, deps);
 
     // Another caller may have finished its start before this one took the lock.

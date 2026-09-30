@@ -17,4 +17,4 @@ Local decision records for OMMS maintainers.
 | [011](./011-shared-code-never-imports-adapters.md)         | Shared code never imports a host adapter                          | 2026-09-28 | Proposed |
 | [012](./012-capture-retry-queue-stores-cleaned-turns.md)   | Keep cleaned failed turns for a limited time to retry capture     | 2026-09-28 | Proposed |
 | [013](./013-claude-code-host-through-hooks-and-web-app.md) | Claude Code host through hooks and the web app                    | 2026-09-29 | Proposed |
-| [014](./014-one-shared-web-app-for-every-host.md)          | One shared web app for every host                                 | 2026-09-29 | Proposed |
+| [014](./014-one-shared-web-app-for-every-host.md)          | One shared web app for every host                                 | 2026-09-29 | Accepted |

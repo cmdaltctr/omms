@@ -1,7 +1,7 @@
 # ADR-014: One shared web app for every host
 
 **Date:** 2026-09-29
-**Status:** Proposed
+**Status:** Accepted
 **Deciders:** OMMS maintainers
 
 ## Context

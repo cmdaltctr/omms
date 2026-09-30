@@ -53,27 +53,49 @@ it("reads the status with the token, and returns null on failure", async () => {
   expect(await readPowerStatus()).toBeNull();
 });
 
-it("waits for the old web app to go away, then for the new one to answer", async () => {
-  // Answers, answers, refuses, refuses, then the new copy answers.
-  const answers = [true, true, false, false, true];
+it("reads the instance value from the status", async () => {
+  stubFetch(() => Response.json({ version: "1.2.3", canControl: true, instance: "abc" }));
+  expect(await readPowerStatus()).toEqual({ version: "1.2.3", canControl: true, instance: "abc" });
+});
+
+/** Reply to status calls in order: an instance value, or null for no answer. */
+function statusReplies(replies: (string | null)[]) {
   let index = 0;
   stubFetch(() => {
-    const up = answers[Math.min(index++, answers.length - 1)];
-    if (!up) throw new TypeError("fetch failed");
-    return Response.json({ success: true, status: "ok" });
+    const instance = replies[Math.min(index++, replies.length - 1)];
+    if (instance === null) throw new TypeError("fetch failed");
+    return Response.json({ version: "1.2.3", canControl: true, instance });
   });
+  return () => index;
+}
+
+it("reports a restart once a new instance answers", async () => {
+  // The old process answers, goes away, then the new copy answers.
+  const count = statusReplies(["old", "old", null, null, "new"]);
   let slept = 0;
-  const up = await waitForWebApp({ sleep: async (ms) => void (slept += ms) });
-  expect(up).toBe(true);
-  expect(index).toBe(5);
+  const outcome = await waitForWebApp("old", { sleep: async (ms) => void (slept += ms) });
+  expect(outcome).toBe("restarted");
+  expect(count()).toBe(5);
+  expect(calls.every((call) => call.url === "/api/web/status")).toBe(true);
   expect(slept).toBeGreaterThan(0);
 });
 
-it("gives up when the web app never comes back", async () => {
-  stubFetch(() => {
-    throw new TypeError("fetch failed");
-  });
+it("reports unchanged when only the old instance answers for 30 seconds", async () => {
+  statusReplies(["old"]);
   let slept = 0;
-  expect(await waitForWebApp({ sleep: async (ms) => void (slept += ms) })).toBe(false);
-  expect(slept).toBeGreaterThanOrEqual(20_000);
+  expect(await waitForWebApp("old", { sleep: async (ms) => void (slept += ms) })).toBe("unchanged");
+  expect(slept).toBeGreaterThanOrEqual(30_000);
+});
+
+it("reports down when nothing answers for 30 seconds", async () => {
+  statusReplies([null]);
+  let slept = 0;
+  expect(await waitForWebApp("old", { sleep: async (ms) => void (slept += ms) })).toBe("down");
+  expect(slept).toBeGreaterThanOrEqual(30_000);
+});
+
+it("reports the old instance that answers again after a gap as unchanged", async () => {
+  // The copy failed and the old process serves again.
+  statusReplies(["old", null, null, "old"]);
+  expect(await waitForWebApp("old", { sleep: async () => undefined })).toBe("unchanged");
 });
