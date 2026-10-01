@@ -71,7 +71,7 @@ The sidebar footer shows the current language: EN, ZH, or AR. Select it to choos
 
 ## Settings page
 
-Open `http://127.0.0.1:4747/settings`, or select the cogwheel in the sidebar footer. The page has these sections:
+Open `http://127.0.0.1:4747/settings`, select **Settings** in the sidebar, or select the cogwheel at the bottom of the sidebar. The arrow next to **Settings** opens a list of the page cards. Select a card to go straight to it. The sidebar remembers whether the list is open. The page has these sections:
 
 - **External API.** Set up your own OpenAI- or Anthropic-compatible endpoint and its key, and test it.
 - **Models.** Choose the capture model for each host.
