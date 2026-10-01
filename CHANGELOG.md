@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.2.0](https://github.com/cmdaltctr/omms/compare/v4.1.0...v4.2.0) (2026-10-01)
+
+
+### Features
+
+* **web:** clearer Settings, profile identity, and Pi backfill outside Pi ([602511b](https://github.com/cmdaltctr/omms/commit/602511b1c9d8871ea15dba9d10832e362fdd8283))
+* **web:** clearer Settings, profile identity, and Pi backfill outside Pi ([7ea6729](https://github.com/cmdaltctr/omms/commit/7ea672935f0c6a532629398b4a9eb7cd18e55626))
+
 ## [4.1.0](https://github.com/cmdaltctr/omms/compare/v4.0.1...v4.1.0) (2026-10-01)
 
 
