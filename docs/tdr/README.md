@@ -40,6 +40,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [016](./016-atomic-stale-start-lock-takeover.md)             | Atomic takeover of a stale web start lock                               | Proposed              | 2026-09-30 |
 | [017](./017-profile-calls-need-their-own-time-limit.md)      | Profile calls need their own time limit                                 | Proposed              | 2026-09-30 |
 | [018](./018-close-catch-up-lease-test-databases.md)          | Close catch-up lease test databases before cleanup                      | Proposed              | 2026-10-01 |
+| [019](./019-stabilise-release-smoke-test-assertions.md)      | Stabilise release smoke test assertions                                 | Proposed              | 2026-10-01 |
 
 ## Status values
 

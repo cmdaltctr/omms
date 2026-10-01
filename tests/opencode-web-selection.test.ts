@@ -1,4 +1,4 @@
-import { afterEach, expect, it, mock, setDefaultTimeout } from "bun:test";
+import { afterEach, expect, it, mock, setDefaultTimeout, spyOn } from "bun:test";
 import { DatabaseSync } from "node:sqlite";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -153,16 +153,29 @@ it("pins the session set, holds back newer turns, copies once, and leaves the so
       source: live.dbPath,
       errors: [],
     };
+    const { opencodeSnapshots } = await import("../src/importer/opencode-snapshot.js");
+    const listingSnapshot = await opencodeSnapshots.acquire(snapshotKey, live.dbPath, "reuse");
+    await listingSnapshot.release();
     const copiesBeforeJob = ownedSnapshots();
-    const preview = await runHistoryImport("opencode", args, {
-      cwd: live.projectA,
-      models: {},
-      selection: { keys: selection.keys, cutoff: selection.cutoff, snapshotKey },
-    });
-    expect(preview.unitsTotal).toBe(1);
-    expect(preview.unitsHeldBack).toBe(1);
-    // The job reused the listing's copy instead of copying again.
-    expect(ownedSnapshots()).toEqual(copiesBeforeJob);
+    const acquire = spyOn(opencodeSnapshots, "acquire");
+    try {
+      const preview = await runHistoryImport("opencode", args, {
+        cwd: live.projectA,
+        models: {},
+        selection: { keys: selection.keys, cutoff: selection.cutoff, snapshotKey },
+      });
+      expect(preview.unitsTotal).toBe(1);
+      expect(preview.unitsHeldBack).toBe(1);
+      expect(acquire).toHaveBeenCalledTimes(1);
+      expect(acquire.mock.calls[0]?.[0]).toBe(snapshotKey);
+      expect(acquire.mock.calls[0]?.[2]).toBe("reuse");
+      const jobSnapshot = await acquire.mock.results[0]?.value;
+      expect(jobSnapshot?.path).toBe(listingSnapshot.path);
+      // Retired copies can finish deleting while the job reuses the current copy.
+      expect(ownedSnapshots().filter((dir) => !copiesBeforeJob.includes(dir))).toEqual([]);
+    } finally {
+      acquire.mockRestore();
+    }
 
     // A new session changes the revision, so the old "all" selection is stale.
     live.session("s2", 20);
@@ -181,8 +194,10 @@ it("pins the session set, holds back newer turns, copies once, and leaves the so
     ).rejects.toMatchObject({ status: 409 });
     // Only the reads above touched the source; our own writer made these changes.
     live.db.close();
-    const { opencodeSnapshots } = await import("../src/importer/opencode-snapshot.js");
     await opencodeSnapshots.closeAll();
+    // A retired copy's Windows cleanup can still be completing after closeAll.
+    const cleanupDeadline = Date.now() + 10_000;
+    while (ownedSnapshots().length > 0 && Date.now() < cleanupDeadline) await Bun.sleep(25);
     expect(ownedSnapshots()).toEqual([]);
   } finally {
     try {
