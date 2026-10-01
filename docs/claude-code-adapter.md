@@ -39,17 +39,15 @@ continues with no added context, and no capture occurs.
 
 The plugin files are in the repository root:
 
-| File                              | Content                                                                     |
-| --------------------------------- | --------------------------------------------------------------------------- |
-| `.claude-plugin/plugin.json`      | The plugin manifest. The plugin name is `omms`.                             |
-| `.claude-plugin/marketplace.json` | A marketplace named `omms` that lists the plugin.                           |
-| `hooks/hooks.json`                | The `SessionStart`, `UserPromptSubmit`, and `Stop` hooks.                   |
-| `skills/omms-memory/SKILL.md`     | The `omms-memory` skill. It tells the agent when to search and save memory. |
+| File                              | Content                                                     |
+| --------------------------------- | ----------------------------------------------------------- |
+| `.claude-plugin/plugin.json`      | The plugin manifest. The plugin name is `omms`.             |
+| `.claude-plugin/marketplace.json` | A marketplace named `omms` that lists the plugin.           |
+| `hooks/hooks.json`                | The `SessionStart`, `UserPromptSubmit`, and `Stop` hooks.   |
+| `skills/omms-memory/SKILL.md`     | The skill that tells Claude when to search and save memory. |
 
-The same skill file serves Pi and OpenCode. In Claude Code, start it by name
-with `/omms:omms-memory`. See [Using memory: The omms-memory skill](using-memory.md#the-omms-memory-skill).
-The plugin manifest, the marketplace file, and the hooks file are not in the
-npm package. Install the plugin from the repository.
+The plugin files are not in the npm package. Install the plugin from the
+repository.
 
 1. Open Claude Code.
 2. Add the OMMS marketplace:
@@ -126,9 +124,8 @@ already has a `hooks` object, merge the three events into it.
 }
 ```
 
-A hand edit does not install the `omms-memory` skill. To give Claude the same
-guidance, copy `skills/omms-memory/` to `~/.claude/skills/omms-memory/`. The
-folder is in the repository, and in the npm package from this release.
+A hand edit does not install the skill. To give Claude the same guidance,
+copy `skills/omms-memory/` to `~/.claude/skills/omms-memory/`.
 
 ## Configuration
 
@@ -211,9 +208,8 @@ To avoid the start delay, install the login item with
 
 ### Web app routes
 
-The web app has two routes for the hooks. Both need the local token
-(`~/.omms/.auth-token`) or an API token, like the other `/api/` routes. The hook
-sends the local token. A request without a valid token gets `401 Unauthorized`.
+The web app has two routes for the hooks. Both need the API token, like the
+other `/api/` routes. A request without the token gets `401 Unauthorized`.
 
 | Route                       | Used by                            | Answer                                       |
 | --------------------------- | ---------------------------------- | -------------------------------------------- |
@@ -290,15 +286,6 @@ prompts reaches `userProfileAnalysisInterval`, it runs one profile learning
 pass with the external API. A failed pass is logged. It never blocks capture
 or the `memory` command.
 
-- A pass reads the waiting prompts of the last 7 days, newest first. When none are recent, it reads the oldest.
-- Trivial prompts, such as `yes go`, are marked as learned with no model call. They do not count toward the interval.
-- A profile call has its own time limit of 120 seconds. Captures keep `autoCaptureIterationTimeout`.
-- A failure writes one `Claude Code profile learning failed` record with the host and a reason code. The record holds no prompt, reply, or key.
-- After a failure, the web app starts no profile pass for 10 minutes. Capture continues. A success or a web app restart clears the wait.
-- The web app runs no live pass while a profile catch-up run works.
-
-To clear a backlog, use **Catch up profile** on the Settings page, or `om-memory-system profile-catch-up`. See [Settings page: Profile learning](web-ui-settings.md#profile-learning) and [CLI: Profile catch-up](cli.md#profile-catch-up).
-
 Claude Code profile learning calls the external API directly. It does not
 register a host profile model, because that registration is for the whole
 process. When the web app runs inside OpenCode, it would replace OpenCode's
@@ -313,9 +300,9 @@ app tries this once per process. See
 
 ## The `memory` command
 
-Claude Code has no in-process `memory` tool. The `omms-memory` skill tells
-Claude to run the `om-memory-system memory` command in its Bash tool instead.
-You can run it too.
+Claude Code has no in-process `memory` tool. The plugin skill tells Claude to
+run the `om-memory-system memory` command in its Bash tool instead. You can run
+it too.
 
 ```text
 om-memory-system memory <mode> [options]
@@ -429,9 +416,6 @@ Other checks:
 
 - **No memories are captured.** Look for `Claude Code capture is off` in the log. It names the missing external API settings. The Settings page shows the same status. `GET /api/settings` returns it as `effective["claude-code"]`, with `ready` and `issues`.
 - **Captures fail.** Read the `Capture attempt` lines. See [Configuration: Capture diagnostics](configuration.md#capture-diagnostics).
-- **Find Claude Code rows.** On the Settings page, set the **Host** filter in **Capture diagnostics** to **Claude Code**. Each external API attempt shows the path `external-api`, the provider, and the model, also when it failed. Rows from an older version can have no model.
-- **Check the setup.** Select **Run checks** in **Health**. The **Claude Code model** row fails and names each missing external API setting. The **Claude Code folder** row warns with the path when the transcripts folder does not exist. **Run checks and test models** adds the **Claude Code model test** row, which makes one short call to the external API.
-- **The profile does not update.** Look for `Claude Code profile learning failed` in the log. The record holds the host and a reason code: `timeout`, `http-<status>`, `no-tool-call`, `invalid-reply`, `not-configured`, or `error`. See [Using memory: User profile](using-memory.md#user-profile).
 - **The command is not found.** Run `om-memory-system --version` in the shell that starts Claude Code. Install it globally if it fails.
 - **The backfill did not start.** The web app tries the Claude Code backfill once per process. If the external API was missing at that time, set it up and select **Run now**, or restart the web app.
 

@@ -22,7 +22,6 @@ settings, memory builds up as you work.
    - On OpenCode v1, the most recent memories go into the first message of a
      session (`chatMessage.injectOn`).
    - After compaction, the session's own memories are put back.
-   - The added memories are the closest matches only. Their header tells the agent to search the full store. See [When agents search memory](#when-agents-search-memory).
 5. Browse or edit memories in the web UI at `http://127.0.0.1:4747`.
 6. Use the `memory` tool to store or find something at once. See
    [The memory tool](#the-memory-tool).
@@ -87,38 +86,6 @@ preferences and habits. It covers all your projects.
 - You do not fill it in by hand. Profile learning fills it when a model is
   ready.
 
-How profile learning behaves:
-
-- A live pass reads the waiting prompts of the last 7 days, newest first. When none are recent, it reads the oldest. A large backlog from a history import therefore does not delay your recent prompts.
-- Trivial prompts are marked as learned with no model call. A prompt is trivial when its trimmed text is under 20 characters and has fewer than three words, for example `yes go`. `use bun not npm` has four words, so OMMS keeps it. Trivial prompts do not count toward `userProfileAnalysisInterval`.
-- A profile call to the external API has its own time limit of 120 seconds. Captures keep `autoCaptureIterationTimeout` (default 30 seconds).
-- A failed pass writes one log record with the host and a reason code. The record holds no prompt, reply, or key.
-- After a failure, that process starts no profile pass for 10 minutes. Capture continues. A success clears the wait. A restart also clears it.
-
-| Reason code      | Meaning                                                      |
-| ---------------- | ------------------------------------------------------------ |
-| `timeout`        | The model did not reply within the time limit.               |
-| `http-<status>`  | The API answered with an HTTP error, for example `http-429`. |
-| `no-tool-call`   | The model did not return the profile through a tool call.    |
-| `invalid-reply`  | The reply was not a valid profile.                           |
-| `not-configured` | The model settings are not complete.                         |
-| `error`          | Another error.                                               |
-
-The log messages are `Claude Code profile learning failed`, `pi profile learning: aborted`, and `user-profile-learning: aborted` (OpenCode). To find them:
-
-```bash
-grep -E 'profile learning failed|profile learning: aborted|user-profile-learning: aborted' ~/.omms/omms.log | tail
-```
-
-### Catch up the profile
-
-Prompts can wait for profile learning, for example after a history import. To analyse all of them at once:
-
-- On the Settings page, select **Catch up profile** in the **Profile learning** card. See [Settings page: Profile learning](web-ui-settings.md#profile-learning).
-- In a terminal, run `om-memory-system profile-catch-up`. See [CLI: Profile catch-up](cli.md#profile-catch-up).
-
-A run analyses 50 prompts in each model call, oldest first. It costs one model call for each batch. It stops at the first failed batch and keeps the finished batches. The next run continues from there. If you start a second run, from the page or a terminal, the newest run takes over after the current batch, so no batch is paid for twice.
-
 ## Web UI
 
 Open `http://127.0.0.1:4747` to browse the memory and prompt timeline, look at
@@ -145,33 +112,3 @@ memory({ mode: "import", inputPath: "./memories.json" });
 See [Moving projects](moving-projects.md) for `list-shards`, `migrate`,
 `export` and `import`. See [Configuration](configuration.md#memory-scope) for
 `scope`.
-
-## When agents search memory
-
-OMMS adds the closest matches to the agent's context. These are not all your memories. The header of that context says so. It tells the agent to search the full store before it investigates a problem, or when you refer to earlier work.
-
-The agent should search the full store:
-
-- before it debugs or investigates a problem;
-- when you refer to earlier work, for example "we fixed this before", "last time", "remember", or "did we";
-- before a decision about project conventions.
-
-The `memory` tool description in Pi and OpenCode gives the same instruction. These texts raise the chance of a search, but a model can still skip it. To make sure, ask the agent to search memory, or start the `omms-memory` skill.
-
-## The omms-memory skill
-
-The `omms-memory` skill tells the agent when and how to search and save memory. One skill file serves every host.
-
-- With a `memory` tool (Pi and OpenCode), the agent uses the tool.
-- Without one (Claude Code), the agent runs `om-memory-system memory` in its shell. See [Claude Code adapter: The memory command](claude-code-adapter.md#the-memory-command).
-
-Each host loads the skill by itself. You do not copy any files.
-
-| Host        | How the skill loads                                                      | Start it by name                              |
-| ----------- | ------------------------------------------------------------------------ | --------------------------------------------- |
-| Pi          | The npm package lists the skill in its `pi` manifest.                    | `/skill:omms-memory`                          |
-| OpenCode v1 | The plugin adds the package's `skills` folder to OpenCode's skill paths. | Ask the agent to use the `omms-memory` skill. |
-| OpenCode v2 | The plugin adds the skill to OpenCode's skill list.                      | `/omms-memory`                                |
-| Claude Code | The Claude Code plugin includes the skill.                               | `/omms:omms-memory`                           |
-
-The agent also loads the skill by itself when a task matches its description.

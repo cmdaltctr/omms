@@ -38,7 +38,6 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [014](./014-read-opencode-v2-models-over-http.md)            | Read OpenCode v2 models through a private `opencode serve`              | Proposed              | 2026-09-28 |
 | [015](./015-wait-for-node-listen-outcome.md)                 | Wait for the Node listen outcome before claiming the web port           | Proposed              | 2026-09-29 |
 | [016](./016-atomic-stale-start-lock-takeover.md)             | Atomic takeover of a stale web start lock                               | Proposed              | 2026-09-30 |
-| [017](./017-profile-calls-need-their-own-time-limit.md)      | Profile calls need their own time limit                                 | Proposed              | 2026-09-30 |
 
 ## Status values
 

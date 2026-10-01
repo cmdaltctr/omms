@@ -14,7 +14,6 @@ Every section saves to the global config file, `~/.config/omms/omms.jsonc`.
 - If OMMS still reads the old `~/.config/opencode/opencode-mem.jsonc`, the first save copies it, comments included, to `~/.config/omms/omms.jsonc`. The old file is not changed. From then on OMMS reads the new file.
 - Running Pi and OpenCode use the saved values from their next capture. You do not need to restart them.
 - A value that fails OMMS's startup checks is refused, and the file stays unchanged.
-- The general save refuses the embedding keys and the browser password. Change them on the **Embedding** card and the **Keys and access** card.
 
 The page never shows a secret. For a key it shows only whether it is set and where it comes from: a literal value, an environment variable (`env://NAME`), or a file (`file://path`).
 
@@ -113,140 +112,15 @@ When a list is not available, the card and the Automatic import section show why
 
 Health checks, test calls, and history imports that use an OpenCode model still need an OpenCode session.
 
-## Embedding
-
-The embedder is the model that turns memory text into search vectors. Search compares these vectors. Every memory in the store must use the same embedder, so a change re-embeds every memory.
-
-The card is locked. It shows:
-
-- **Kind:** **Built-in model** or **OpenAI-compatible server**.
-- **Server URL**, for a server.
-- **Model** and **Vector size**.
-- **API key:** set or not set. The page never shows the key.
-- **Stored memories:** the number of memories a change re-embeds.
-
-The padlock shows only when you open the page on the computer that runs OMMS. From another computer, the card is read-only.
-
-### Change the embedder
-
-1. Select the padlock to unlock the card.
-2. Choose **Built-in model** or **OpenAI-compatible server**.
-3. For a server, choose a **Preset**. The preset fills the **Server URL**.
-4. Type the exact **Model** name that the server or Hugging Face uses.
-5. For a server, choose the **API key** source.
-6. Select **Test**.
-7. Check the vector size in the result.
-8. Select **Apply**.
-9. Read the confirmation, then confirm.
-
-| Preset     | Server URL                     |
-| ---------- | ------------------------------ |
-| Ollama     | `http://localhost:11434/v1`    |
-| llama.cpp  | `http://localhost:8080/v1`     |
-| OpenRouter | `https://openrouter.ai/api/v1` |
-| OpenAI     | `https://api.openai.com/v1`    |
-| Custom     | Type your own URL.             |
-
-API key sources:
-
-- **No key.** Use this for a server on your computer, such as Ollama or llama.cpp.
-- **Keep the saved key.** Use the key that is set now.
-- **Environment variable.** Type the variable name. OMMS saves `env://NAME`.
-- **Key file.** Type the path to a file that holds only the key.
-- **Save key to a private file.** Paste the key. OMMS writes it to `~/.config/omms/secrets/` and saves its `file://` path.
-
-**Test** embeds one fixed sentence with the values in the form. It shows `Test passed. Vector size` and the size, or `Test failed` and the reason. The reason never contains the key. A test does not change the embedder that OMMS uses.
-
-**Apply** is available only after a passing test of the values in the form. Change a value and you must test again. The server also refuses an apply without a passing test of the same values in the last 10 minutes.
-
-The confirmation tells you:
-
-- how many stored memories OMMS re-embeds;
-- that a hosted server is called once for each memory, which may cost money;
-- that search results are poor until the re-embed ends;
-- to restart open OpenCode and Pi sessions after the change.
-
-After you confirm, OMMS writes `embeddingApiUrl`, `embeddingModel`, `embeddingDimensions`, and `embeddingApiKey` in one save. It then re-embeds every memory. The card shows the progress.
-
-- A failed run shows the reason and **Retry**. A retry re-embeds only the store files that are still out of date.
-- **Cancel**, or locking the card again, drops your edits.
-- The padlock stays disabled while a re-embed runs.
-
-The routes are `GET /api/settings/embedding`, `POST /api/settings/embedding/test`, `POST /api/settings/embedding/apply`, and `GET` or `POST /api/settings/embedding/run`. The `POST` routes need a caller on this machine and the local token file (`~/.omms/.auth-token`). Other callers get `403`. Apply answers `202`. It answers `409` without a matching test or while a run works.
-
-See [Configuration: Embeddings](configuration.md#embeddings) for the config keys.
-
-## Keys and access
-
-This card shows each credential that OMMS can use. It never shows a secret value.
-
-| Row                  | Config key or file        | Used for                                                                           | Change it on              |
-| -------------------- | ------------------------- | ---------------------------------------------------------------------------------- | ------------------------- |
-| External API key     | `memoryApiKey`            | Capture and profile learning through the external API. Claude Code always uses it. | the **External API** card |
-| Embedding server key | `embeddingApiKey`         | Calls to an embedding server on another machine.                                   | the **Embedding** card    |
-| API tokens           | `~/.omms/api-tokens.json` | Scripts and other computers that call the web app's API.                           | the table below           |
-| Browser password     | `webServerAuthPassword`   | A user name and password before the page opens.                                    | the form below            |
-
-Each row shows one state:
-
-- ✅ **set**: the credential is set.
-- ⛔️ **missing**: OMMS needs it and it is not set.
-- grey **not needed**: OMMS does not need it with your settings.
-- grey **never used before**: shown for the external API key when no host has used it yet.
-
-When OMMS needs each one:
-
-- **External API key:** when OpenCode or Pi uses the external API, or when there is evidence that you use Claude Code with OMMS. Evidence is a Claude Code capture that OMMS recorded, or a Claude Code folder that you saved in the [Claude Code folder](#claude-code-folder) card. A default `~/.claude` folder alone is not evidence, because Claude Code can be installed without the OMMS plugin. To mark the key as needed before your first Claude Code capture, save your folder in that card.
-- **Embedding server key:** only for an embedding server that is not on this computer.
-- **API tokens:** only when the web app listens on a host that is not loopback, and no browser password is set.
-- **Browser password:** never marked as needed.
-
-When `omms.jsonc` still sets `webServerApiToken`, the card shows a warning. OMMS imported that key once as the token `from config file` and does not read it any more. See [Upgrading: API tokens](upgrading.md#api-tokens-replace-webserverapitoken).
-
-Open the page on the computer that runs OMMS to manage tokens and the password. From another computer, the card hides these controls and says so.
-
-### API tokens
-
-An API token lets a script or another computer call the web app's API. Send it as `Authorization: Bearer <token>` or in the `X-Omms-Token` header.
-
-To create a token:
-
-1. Type a **Token name**.
-2. Choose **Expires after**: 7, 30, or 90 days, or **Never**.
-3. Select **Generate token**.
-4. Select **Copy**, and keep the token in a safe place.
-
-The page shows the token value once. OMMS keeps only a hash of it, so nobody can show it again.
-
-The table lists each token with its **Name**, **Created**, **Expires**, and **Last used** time. **Last used** updates at most once a minute. To stop a token, select **Revoke** and confirm. Scripts that use it then get `401`. An expired token also gets `401`.
-
-The routes are `GET` and `POST /api/settings/tokens`, and `DELETE /api/settings/tokens/<id>`. They need a caller on this machine (`403` otherwise) and the local token file (`401` otherwise).
-
-### Browser password
-
-The browser password turns on HTTP Basic Auth. The browser then asks for a user name and password before the page opens.
-
-- To set it, type the **Password** and, optionally, the **User name**. Then select **Save password**. The default user name is your computer user name.
-- OMMS writes the password to `~/.config/omms/secrets/web-password.key` with mode `0600`. It saves `webServerAuthPassword: file://...` and `webServerAuthUsername` in the global config.
-- **Clear password** removes both config keys and deletes the password file.
-- Restart the web app to use a new password. Use the [power button](web-ui.md#power-button).
-
-The route is `POST /api/settings/web-password`. It needs a caller on this machine and the local token file.
-
 ## Capture diagnostics
 
 Every capture attempt writes one metadata record: host, model, sizes, stop reason, outcome, and failure reason. It never contains conversation text. This section shows those records.
 
 - **Time range.** Show the last 24 hours, 7 days, 30 days, or 90 days.
-- **Host.** Show all hosts, or only OpenCode, Pi, or Claude Code. The server applies the filter, so the recent list fills with the chosen host. The route is `GET /api/settings/diagnostics?host=opencode`, `pi`, or `claude-code`. Another value gets `400`.
 - **Outcomes by model.** Saved, skipped, and failed counts for each host and model.
 - **Failure reasons.** The most common reasons for failed attempts.
 - **Recent attempts.** One row for each attempt, with its model, stop reason, sizes, duration, and outcome.
 - **Attempt retention (days).** How long OMMS keeps these records. The default is 30 days.
-
-The tables show host names: OpenCode, Pi, and Claude Code.
-
-An attempt through the external API records the path `external-api`, the provider, and the model, on every host. It records them also when the call fails. Rows written by an older version are not changed, so they can show an empty model.
 
 ### Capture retry queue
 
@@ -279,15 +153,7 @@ This section runs checks on the parts OMMS needs, and shows a pass, warning, or 
 - **Run checks.** Check the config files, the memory store, the embedding model, the web binding, the model selection, and the capture failure rate over the last 24 hours.
 - **Run checks and test models.** Also send one short fixed prompt to each host's capture model.
 
-A session model can be tested only from inside an open session. The web app cannot call an OpenCode signed-in model or a Pi session model. The **OpenCode model test** row then shows `warn` with the text `Skipped: an OpenCode signed-in model can be tested only inside OpenCode`. To test it, run a capture in OpenCode, or set the external API as the capture model.
-
-Claude Code rows:
-
-- **Claude Code model.** `pass` when the external API is fully set up. `fail` when it is not. The row names each missing setting, for example `memoryApiKey is not configured`. It never shows a key.
-- **Claude Code folder.** `pass` when the Claude Code transcripts folder exists. `warn` with the path when it does not. See [Claude Code folder](#claude-code-folder).
-- **Claude Code model test.** Only with **Run checks and test models**. It sends one short fixed prompt to the external API.
-
-One health run makes at most one external API test call. The **OpenCode model test** row (when OpenCode uses the external API), the Pi manual-model test, and the **Claude Code model test** row share that call.
+A session model can be tested only from inside an open session. The web app cannot call an OpenCode signed-in model or a Pi session model. The **OpenCode model test** row then shows `warn` with the text `Skipped: an OpenCode signed-in model can be tested only inside OpenCode`. To test it, run a capture in OpenCode, or set the external API as the capture model. Claude Code uses the external API, so the External API card's **Test** covers it.
 
 ## Claude Code folder
 
@@ -309,8 +175,6 @@ Use this section to import past chats by hand. A backfill is an import of old ch
 3. Tick sessions, or select **Select all matching** to include every page.
 4. Select **Preview (dry run)**. It counts the exchanges that would be imported. It makes no model calls and writes nothing.
 5. Choose the **Import model**: **Saved external API**. The web app has no OpenCode session, so it offers no OpenCode signed-in model. The page says an import with an OpenCode signed-in model runs from the terminal or with `/import` in OpenCode. A Claude Code import always uses the saved external API.
-   - The option reads **Saved external API**, without the model name. It adds **not ready** when the external API is not fully set up.
-   - After any save on the page, the section reads the import readiness again. A new external API model applies to the next import without a page reload.
 6. Select **Start import**.
 
 While an import runs, progress updates every second. **Cancel after current unit** stops at a safe point. A later run imports the rest. The page, the terminal commands, and the automatic backfill share one record of finished work, called the ledger, so nothing is imported twice.
@@ -380,33 +244,6 @@ Only one import runs for each host at a time. This includes a backfill, a page i
 - **Resume** clears the pause and starts the run. It continues from the ledger.
 
 Run now and Resume run inside the web app. The Claude Code backfill always runs in the web app with the external API. Without Pi or OpenCode open, they need the host's backfill model to use the external API. Otherwise the page says: `Open Pi, or choose the external API for Pi's backfill`. The web app has no OpenCode session, so OpenCode's backfill from the page needs the external API. A backfill with an OpenCode signed-in model runs inside OpenCode, from the terminal, or with `/import`.
-
-## Profile learning
-
-Profile learning reads your prompts and updates the user profile. Each host runs a live pass after `userProfileAnalysisInterval` new prompts. See [Using memory: User profile](using-memory.md#user-profile).
-
-A backlog can build up, for example after a history import or after failed passes. This card clears it.
-
-- **Prompts waiting for profile learning** shows the number of waiting prompts.
-- **Model calls** shows how many calls a run makes. One call analyses 50 prompts.
-- **Catch up profile** starts a run with the saved external API. The page first asks you to confirm, and shows the number of model calls.
-- While the run works, the card shows the batches done and the prompts that still wait.
-- **Pause** stops the run after the current batch. **Resume** continues it.
-- A failed batch stops the run. The card shows its reason code, for example `timeout` or `http-429`. Finished batches stay learned. The next run continues from there.
-
-Rules for a run:
-
-- The run takes the oldest prompts first.
-- Only one run works at a time, across the page and the terminal. A second start on the page gets `409`.
-- The newest run takes over. When you start a terminal run while the page run works, the page run stops before its next batch and shows **A newer catch-up run took over.** The terminal run waits until the page run finishes its current batch, so no batch is sent twice.
-- A run that stops without clearing its record, for example after a crash, blocks nothing after 10 minutes.
-- The web app runs no live Claude Code profile pass while a catch-up run works.
-- The run ignores the 10-minute wait that follows a failed live pass, because you started it.
-- Open the page on the computer that runs OMMS to start, pause, or resume a run. From another computer, the card shows the counts only.
-
-The routes are `GET /api/settings/profile/catch-up` and `POST /api/settings/profile/catch-up/start`, `.../pause`, and `.../resume`. The `POST` routes need a caller on this machine and the local token file (`~/.omms/.auth-token`). Other callers get `403`.
-
-To use another model, or to run the catch-up from a terminal, see [CLI: Profile catch-up](cli.md#profile-catch-up).
 
 ## Directory maps
 

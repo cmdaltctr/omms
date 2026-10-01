@@ -18,7 +18,6 @@ The npm package ships one terminal command, `om-memory-system`. Use it to import
 | `om-memory-system <import command> --help`         | Print the flags for that import command.                                                                            |
 | `om-memory-system memory <mode> [options]`         | Run one memory operation and print JSON. See [The memory command](#the-memory-command).                             |
 | `om-memory-system claude-hook <event>`             | Run a Claude Code hook. The Claude Code plugin calls it. See [Claude Code hook command](#claude-code-hook-command). |
-| `om-memory-system profile-catch-up [flags]`        | Analyse every prompt that waits for profile learning. See [Profile catch-up](#profile-catch-up).                    |
 
 Slash commands inside a session:
 
@@ -170,49 +169,11 @@ Error messages never contain the API key. The key from `--api-key-env` and the s
 
 `om-memory-system web status` prints JSON with the setting, the item state, the web app URL, and whether a web app answers. It changes nothing.
 
-`web status` and `web install` talk to the web app on this computer with the local token file (`~/.omms/.auth-token`). They do not read `webServerApiToken`.
-
 Any other argument after `web` prints the usage and exits with code `1`.
 
 Supported platforms are macOS, Linux with systemd user services, and Windows. On other platforms, or without a runtime, run `om-memory-system web` yourself.
 
 The login item starts the standalone web app after sign-in. It uses the same data and settings as the hosts. See [Web UI](web-ui.md) for port ownership and authentication.
-
-## Profile catch-up
-
-`om-memory-system profile-catch-up` analyses every prompt that waits for profile learning. It does the same run as the **Catch up profile** button on the Settings page. See [Settings page: Profile learning](web-ui-settings.md#profile-learning).
-
-```bash
-om-memory-system profile-catch-up            # print the counts, make no model calls
-om-memory-system profile-catch-up --yes      # start the run
-om-memory-system profile-catch-up --dry-run  # print the counts only
-```
-
-Without `--yes`, the command prints the waiting prompts and the model calls, then exits:
-
-```text
-Waiting prompts: 2902
-Model calls: 59 (batches of 50)
-Run again with --yes to start.
-```
-
-| Flag                   | Effect                                              |
-| ---------------------- | --------------------------------------------------- |
-| `--yes`                | Start the run.                                      |
-| `--dry-run`            | Print the counts only.                              |
-| `--provider <type>`    | Provider type. Default: the saved `memoryProvider`. |
-| `--model <id>`         | Model id. Default: the saved `memoryModel`.         |
-| `--api-url <url>`      | API URL. Default: the saved `memoryApiUrl`.         |
-| `--api-key-env <NAME>` | Read the API key from this environment variable.    |
-| `--help`               | Print the flags.                                    |
-
-- The model flags choose another model for this run only. The command does not save them.
-- The run sends 50 prompts in each model call, oldest first. It prints the batches done and the prompts that still wait after each batch.
-- The newest catch-up run takes over. If a run already works on the Settings page or in another terminal, this run waits until that run finishes its current batch, then continues. The older run stops and says that a newer run took over. No batch is sent twice.
-- If this run is taken over, it prints `Stopped: a newer catch-up run took over.` and exits with code 0.
-- A failed batch stops the run. The command prints the reason code, for example `Stopped: timeout`, and exits with code `1`. Finished batches stay learned. Run the command again to continue.
-- A run needs a user email. OMMS reads it from git or from `userEmailOverride`.
-- Error messages never contain the API key.
 
 ## The memory command
 
