@@ -2,6 +2,13 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.1.0](https://github.com/cmdaltctr/omms/compare/v4.0.1...v4.1.0) (2026-10-01)
+
+
+### Features
+
+* new logo and a Settings tree in the sidebar ([f5dea68](https://github.com/cmdaltctr/omms/commit/f5dea6897fce6bdda18eed89087c2e108262d1bf))
+
 ## [4.0.1](https://github.com/cmdaltctr/omms/compare/v4.0.0...v4.0.1) (2026-10-01)
 
 
