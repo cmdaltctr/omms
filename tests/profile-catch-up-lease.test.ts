@@ -1,5 +1,5 @@
 import { afterAll, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG } from "../src/config.js";
@@ -7,10 +7,11 @@ import {
   CatchUpLease,
   LEASE_EXPIRY_MS,
 } from "../src/services/user-prompt/profile-catch-up-lease.js";
+import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
 const dir = mkdtempSync(join(tmpdir(), "omms-catch-up-lease-"));
 CONFIG.storagePath = dir;
-afterAll(() => rmSync(dir, { recursive: true, force: true }));
+afterAll(() => cleanupTursoTestDirectory(dir));
 let clock = 1_000_000;
 let file = 0;
 function lease() {
