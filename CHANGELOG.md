@@ -2,6 +2,16 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.0.1](https://github.com/cmdaltctr/omms/compare/v4.0.0...v4.0.1) (2026-10-01)
+
+
+### Bug Fixes
+
+* close catch-up lease test databases before Windows cleanup ([48b86c3](https://github.com/cmdaltctr/omms/commit/48b86c3dc64558d6518e8a29635f9324596b9c6e))
+* close prompt learning test database before Windows cleanup ([604d484](https://github.com/cmdaltctr/omms/commit/604d484d904621c61f937c93609421c0e8e52a76))
+* stabilise release smoke tests across platforms ([3ca5530](https://github.com/cmdaltctr/omms/commit/3ca55302924a39f89ab71ffb4044f7580d7729ff))
+* stabilise snapshot reuse and package smoke tests ([36f0981](https://github.com/cmdaltctr/omms/commit/36f098122e8573aa31bdb4a208fa367d1d749369))
+
 ## [4.0.0](https://github.com/cmdaltctr/omms/compare/v3.6.2...v4.0.0) (2026-10-01)
 
 
