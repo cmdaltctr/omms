@@ -27,6 +27,9 @@ export type UnresolvedDirectory = { directory: string; sessions: number };
 
 export const MAX_UNRESOLVED_DIRECTORIES = 200;
 
+/** The entry for sessions that recorded no directory. It cannot be mapped. */
+export const NO_DIRECTORY = "";
+
 const emptyCounts = () => ({ imported: 0, skipped: 0, failed: 0, pending: 0, unresolved: 0 });
 
 async function table() {
@@ -79,15 +82,16 @@ export async function readBackfillStatus(host: BackfillHost): Promise<BackfillSt
 
 /**
  * Group unresolved sessions by directory, most sessions first, capped so the
- * row stays small. Sessions with no recorded directory are left out.
+ * row stays small. Sessions with no recorded directory share the
+ * {@link NO_DIRECTORY} entry, so the counts add up to the host's total.
  */
 export function summarizeUnresolvedDirectories(
   sessions: ReadonlyArray<{ directory: string | null; sessions?: number }>
 ): UnresolvedDirectory[] {
   const byDirectory = new Map<string, number>();
   for (const item of sessions) {
-    if (!item.directory) continue;
-    byDirectory.set(item.directory, (byDirectory.get(item.directory) ?? 0) + (item.sessions ?? 1));
+    const key = item.directory || NO_DIRECTORY;
+    byDirectory.set(key, (byDirectory.get(key) ?? 0) + (item.sessions ?? 1));
   }
   return [...byDirectory]
     .map(([directory, count]) => ({ directory, sessions: count }))
@@ -106,8 +110,17 @@ export function unresolvedDirectoriesOf(report: {
   ]);
 }
 
+/** Unresolved sessions of an import report, the same total the Directory maps list adds up to. */
+export function unresolvedSessionCount(report: {
+  unresolvedProjects?: ReadonlyArray<{ sessions: number }>;
+  unresolvableSessions: ReadonlyArray<unknown>;
+}): number {
+  const mapped = (report.unresolvedProjects ?? []).reduce((sum, item) => sum + item.sessions, 0);
+  return mapped + report.unresolvableSessions.length;
+}
+
 /**
- * Save the unresolved directories of a host's latest listing or run. They
+ * Save the unresolved directories of a host's latest full run or listing. They
  * live in their own table, so recording them never sets a backfill cutoff.
  */
 export async function recordUnresolvedDirectories(

@@ -9,7 +9,10 @@ import {
   readBackfillStatus,
   readUnresolvedDirectories,
   recordUnresolvedDirectories,
+  NO_DIRECTORY,
   summarizeUnresolvedDirectories,
+  unresolvedDirectoriesOf,
+  unresolvedSessionCount,
   updateBackfillStatus,
 } from "../src/services/backfill-state.js";
 import { tursoConnectionManager } from "../src/services/turso/connection-manager.js";
@@ -77,4 +80,22 @@ it("stores unresolved directories with session counts, capped at 200, paths only
     "SELECT directories FROM unresolved_directories WHERE host = 'pi'"
   );
   expect(Object.keys(JSON.parse(row!.directories)[0]).sort()).toEqual(["directory", "sessions"]);
+});
+
+it("counts sessions with no directory under one entry so the list adds up to the card count", () => {
+  const report = {
+    unresolvedProjects: [
+      { directory: "/gone/a", sessions: 20 },
+      { directory: "/gone/b", sessions: 5 },
+    ],
+    unresolvableSessions: [{ cwd: null }, { cwd: null }],
+  };
+  const list = unresolvedDirectoriesOf(report);
+  expect(list).toEqual([
+    { directory: "/gone/a", sessions: 20 },
+    { directory: "/gone/b", sessions: 5 },
+    { directory: NO_DIRECTORY, sessions: 2 },
+  ]);
+  expect(unresolvedSessionCount(report)).toBe(27);
+  expect(list.reduce((sum, item) => sum + item.sessions, 0)).toBe(unresolvedSessionCount(report));
 });

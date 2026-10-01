@@ -13,3 +13,19 @@ export function sortProfileItems(items: any[], metric: "confidence" | "frequency
     return (b.frequency || 0) - (a.frequency || 0);
   });
 }
+
+const PROFILE_FIELDS = ["preferences", "patterns", "workflows"] as const;
+
+/** A copy of profile data without the per-item embedding vectors the browser never uses. */
+export function stripProfileVectors<T extends Record<string, any>>(data: T): T {
+  const copy: Record<string, any> = { ...data };
+  for (const field of PROFILE_FIELDS) {
+    if (!Array.isArray(copy[field])) continue;
+    copy[field] = copy[field].map((item: any) => {
+      if (!item || typeof item !== "object") return item;
+      const { centroid: _centroid, anchor: _anchor, ...rest } = item;
+      return rest;
+    });
+  }
+  return copy as T;
+}

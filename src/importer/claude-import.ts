@@ -83,6 +83,7 @@ export async function importClaudeHistory(
       dryRun: Boolean(filters.dryRun),
       model: deps.profile.model,
       batchSize: deps.profile.batchSize,
+      ...(deps.profile.onProgress ? { onProgress: deps.profile.onProgress } : {}),
     });
   }
 

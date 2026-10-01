@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -37,6 +37,35 @@ const importArgs = {
 };
 
 describe("import run records", () => {
+  it("moves a running import to the profile phase and starts the next run in the exchanges phase", async () => {
+    store();
+    const recorder = await startImportRun("claude-code", "auto", { intervalMs: 0 });
+    recorder.progress(6, 6);
+    recorder.profileProgress(0, 3);
+    recorder.profileProgress(2, 3);
+    // finish waits for queued writes, so the phase is on disk before it reads back.
+    const running = await (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return readImportRun("claude-code");
+    })();
+    expect(running).toMatchObject({
+      state: "running",
+      phase: "profile",
+      profileDone: 2,
+      profileTotal: 3,
+      done: 6,
+    });
+    await recorder.finish("done", { total: 6, done: 6, imported: 6 });
+    expect(await readImportRun("claude-code")).toMatchObject({ state: "done" });
+    const next = await startImportRun("claude-code", "web");
+    expect(await readImportRun("claude-code")).toMatchObject({
+      phase: "exchanges",
+      profileDone: 0,
+      profileTotal: 0,
+    });
+    await next.finish("done", {});
+  });
+
   it("stores only numbers, throttles writes, and never stores the prompt preview", async () => {
     const directory = store();
     let now = 1_000;
@@ -116,6 +145,24 @@ describe("import run records", () => {
     const release = await tryAcquireBackfillLock("pi", home);
     expect(release).not.toBeNull();
     await release!();
+  });
+});
+
+describe("unresolved directory list", () => {
+  it("is replaced only by a run over every project, not by a one-project run", async () => {
+    const directory = store();
+    const root = join(directory, "claude-projects");
+    mkdirSync(root);
+    const { readUnresolvedDirectories, recordUnresolvedDirectories } =
+      await import("../src/services/backfill-state.js");
+    const earlier = [{ directory: "/gone/app-feat-x", sessions: 4 }];
+    await recordUnresolvedDirectories("claude-code", earlier);
+    const run = { cwd: directory, models: {}, track: { surface: "cli" as const } };
+    const args = { ...importArgs, source: root, skipMemories: true };
+    await runHistoryImport("claude-code", { ...args, scope: "current-project" }, run);
+    expect(await readUnresolvedDirectories("claude-code")).toEqual(earlier);
+    await runHistoryImport("claude-code", { ...args, scope: "all-projects" }, run);
+    expect(await readUnresolvedDirectories("claude-code")).toEqual([]);
   });
 });
 

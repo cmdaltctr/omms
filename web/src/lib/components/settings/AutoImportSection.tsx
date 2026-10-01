@@ -3,8 +3,11 @@ import { Select } from "$lib/components/ui/select";
 import {
   backfillActions,
   backfillModelEdit,
+  importStatusBadge,
+  lastRunSummary,
   manualModelFieldVisible,
   progressView,
+  showsExchangeProgress,
   shouldPollBackfill,
   type BackfillHost,
   type ImportRunView,
@@ -14,6 +17,7 @@ import { externalMissing } from "$lib/external-api-settings";
 import { hostLabel } from "$lib/host-label";
 import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
+import { ImportStatusBadge } from "./ImportStatusBadge";
 
 type Snapshot = {
   revision: string;
@@ -190,11 +194,15 @@ export function AutoImportSection() {
         const run = runs?.[host]?.run ?? null;
         const unavailable = runs?.[host]?.runNowUnavailable ?? null;
         const actions = backfillActions(run, unavailable);
-        const progress = run?.state === "running" ? progressView(run) : null;
+        const progress = showsExchangeProgress(run) ? progressView(run) : null;
+        const summary = lastRunSummary(run);
+        const badge = importStatusBadge(rows[host], run);
         const typed = manualModelFieldVisible(typedModes[host], known);
         return (
           <div key={host} className="space-y-2 rounded-lg border border-border p-3 text-sm">
-            <h3 className="font-medium">{hostLabel(host)}</h3>
+            <h3 className="flex items-center gap-2 font-medium">
+              {hostLabel(host)} <ImportStatusBadge badge={badge} />
+            </h3>
             {host === "claude-code" ? (
               <p className="text-muted-foreground">
                 {s(
@@ -268,6 +276,12 @@ export function AutoImportSection() {
               {run?.paused ? s("paused") : s(run?.state ?? rows[host]?.state ?? "not started")}
               {run?.state === "running" && run.surface && ` (${s(`started from ${run.surface}`)})`}
             </p>
+            {badge.kind === "learning-profile" && (
+              <p className="text-muted-foreground">
+                {s("All exchanges are done. Learning the profile from the imported prompts")}:{" "}
+                {badge.done} / {badge.total} {s("batches")}
+              </p>
+            )}
             {progress && (
               <div className="space-y-1">
                 <div
@@ -314,19 +328,29 @@ export function AutoImportSection() {
               </button>
             </div>
             {unavailable && <p className="text-xs text-muted-foreground">{unavailable}</p>}
+            {summary && (
+              <p className="text-muted-foreground">
+                {s("Last run")}: {new Date(summary.finishedAt).toLocaleString()} ·{" "}
+                {s(`started from ${summary.surface}`)} · {s(summary.state)} · {s("Imported")}:{" "}
+                {summary.imported} · {s("Skipped")}: {summary.skipped} · {s("Failed")}:{" "}
+                {summary.failed}
+              </p>
+            )}
             {rows[host] && (
               <div className="space-y-1 text-muted-foreground">
-                <p>
-                  {s("Imported")}: {rows[host].counts.imported} · {s("Skipped")}:{" "}
-                  {rows[host].counts.skipped} · {s("Failed")}: {rows[host].counts.failed}
-                </p>
+                {!summary && (
+                  <p>
+                    {s("Imported")}: {rows[host].counts.imported} · {s("Skipped")}:{" "}
+                    {rows[host].counts.skipped} · {s("Failed")}: {rows[host].counts.failed}
+                  </p>
+                )}
                 <p>
                   {s("Pending")}: {rows[host].counts.pending} · {s("Unresolved sessions")}:{" "}
                   {rows[host].counts.unresolved}
                   {rows[host].counts.unresolved > 0 && (
                     <>
                       {" "}
-                      <a className="underline" href="#directory-maps">
+                      <a className="underline" href="#settings-section-directory-maps">
                         {s("Directory maps")}
                       </a>
                     </>

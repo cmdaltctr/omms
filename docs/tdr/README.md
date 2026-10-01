@@ -41,6 +41,8 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [017](./017-profile-calls-need-their-own-time-limit.md)      | Profile calls need their own time limit                                 | Proposed              | 2026-09-30 |
 | [018](./018-close-catch-up-lease-test-databases.md)          | Close catch-up lease test databases before cleanup                      | Proposed              | 2026-10-01 |
 | [019](./019-stabilise-release-smoke-test-assertions.md)      | Stabilise release smoke test assertions                                 | Proposed              | 2026-10-01 |
+| [020](./020-trust-git-outside-a-project.md)                  | Trust git on PATH outside a project                                     | Proposed              | 2026-10-01 |
+| [021](./021-load-pi-sdk-from-pi-install.md)                  | Load the Pi SDK from Pi's install outside Pi                            | Proposed              | 2026-10-01 |
 
 ## Status values
 

@@ -435,6 +435,59 @@ export class WebServer {
     }
   }
 
+  /** List active profiles, choose the one in use, or merge one into another. */
+  private async handleProfilesRoute(
+    req: Request,
+    path: string,
+    method: string
+  ): Promise<Response | null> {
+    const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
+    const { listProfiles, mergeProfiles, ProfileAdminError } = await import("./profile-admin.js");
+    const { resolveWebProfileUserId } = await import("./profile-identity.js");
+    const { CONFIG } = await import("../config.js");
+    const store = userProfileManager;
+    if (path === "/api/settings/profiles" && method === "GET") {
+      const current = await resolveWebProfileUserId(CONFIG);
+      return this.jsonResponse({ profiles: await listProfiles(store, current) });
+    }
+    if (method !== "POST") return null;
+    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    try {
+      if (path === "/api/settings/profiles/use") {
+        const userId = typeof body?.userId === "string" ? body.userId : "";
+        if (typeof body?.revision !== "string") {
+          return this.jsonResponse({ error: "Revision required" }, 400);
+        }
+        const active = await store.getAllActiveProfiles();
+        if (!active.some((profile) => profile.userId === userId)) {
+          return this.jsonResponse({ error: "No active profile has that email" }, 404);
+        }
+        const { writeGlobalConfigKeys } = await import("./global-config-writer.js");
+        const result = await writeGlobalConfigKeys({ userEmailOverride: userId }, body.revision, {
+          only: new Set(["userEmailOverride"]),
+        });
+        const { refreshConfigIfChanged } = await import("../config.js");
+        refreshConfigIfChanged(this.config.directory ?? process.cwd());
+        return this.jsonResponse(result);
+      }
+      if (path === "/api/settings/profiles/merge") {
+        const sourceId = typeof body?.sourceId === "string" ? body.sourceId : "";
+        const targetId = typeof body?.targetId === "string" ? body.targetId : "";
+        return this.jsonResponse(await mergeProfiles(store, sourceId, targetId));
+      }
+    } catch (error) {
+      const status =
+        error instanceof ProfileAdminError
+          ? error.status
+          : ((error as { status?: number }).status ?? 400);
+      return this.jsonResponse(
+        { error: error instanceof Error ? error.message : "Profile change failed" },
+        status
+      );
+    }
+    return null;
+  }
+
   /** Set or clear the browser password. The body holds the password: never log or echo it. */
   private async handleWebPassword(
     req: Request,
@@ -1075,6 +1128,11 @@ export class WebServer {
 
       if (path === "/api/settings/tokens" || path.startsWith("/api/settings/tokens/")) {
         return this.handleTokenRoute(req, path, method, remoteAddress);
+      }
+
+      if (path === "/api/settings/profiles" || path.startsWith("/api/settings/profiles/")) {
+        const response = await this.handleProfilesRoute(req, path, method);
+        if (response) return response;
       }
 
       if (path.startsWith("/api/settings/profile/catch-up")) {

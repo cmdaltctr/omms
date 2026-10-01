@@ -12,6 +12,7 @@ import {
   relative,
 } from "node:path";
 import { accessSync, constants, realpathSync, existsSync } from "node:fs";
+import { homedir } from "node:os";
 
 function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex").slice(0, 16);
@@ -57,14 +58,16 @@ function isPathInside(root: string, candidate: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
-function findUntrustedProjectRoot(directory: string): string {
+// `null` when no repository or marker is above the directory: there is no
+// project that could ship its own `git`, so every `PATH` entry is trusted.
+function findUntrustedProjectRoot(directory: string): string | null {
   let current = canonicalPath(directory);
   while (true) {
     if (existsSync(join(current, ".git")) || hasProjectMarker(current)) {
       return current;
     }
     const parent = dirname(current);
-    if (parent === current) return canonicalPath(directory);
+    if (parent === current) return null;
     current = parent;
   }
 }
@@ -74,7 +77,7 @@ interface GitCommand {
   shell: false | string;
 }
 
-function resolveTrustedWindowsShell(untrustedRoot: string): string | null {
+function resolveTrustedWindowsShell(untrustedRoot: string | null): string | null {
   const candidates = [
     process.env.ComSpec,
     process.env.SystemRoot ? join(process.env.SystemRoot, "System32", "cmd.exe") : undefined,
@@ -85,7 +88,7 @@ function resolveTrustedWindowsShell(untrustedRoot: string): string | null {
     try {
       accessSync(path, constants.X_OK);
       const candidate = canonicalPath(path);
-      if (!isPathInside(untrustedRoot, candidate)) return candidate;
+      if (!untrustedRoot || !isPathInside(untrustedRoot, candidate)) return candidate;
     } catch {
       // ignore unreadable or untrusted PATH entries
     }
@@ -107,7 +110,7 @@ function resolveTrustedGitCommand(directory: string): GitCommand | null {
       try {
         accessSync(candidatePath, constants.X_OK);
         const executable = canonicalPath(candidatePath);
-        if (isPathInside(untrustedRoot, executable)) continue;
+        if (untrustedRoot && isPathInside(untrustedRoot, executable)) continue;
 
         if (executableName === "git.exe" || process.platform !== "win32") {
           return { executable, shell: false };
@@ -173,6 +176,11 @@ export interface TagInfo {
 
 export function getGitEmail(directory: string = process.cwd()): string | null {
   return runGit(["config", "user.email"], directory);
+}
+
+/** The `--global` git email, read from the home directory. */
+export function getGlobalGitEmail(): string | null {
+  return runGit(["config", "--global", "user.email"], homedir());
 }
 
 export function getGitName(directory: string = process.cwd()): string | null {

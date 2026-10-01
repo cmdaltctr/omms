@@ -14,6 +14,8 @@ import {
 
 export type ImportSurface = "auto" | "web" | "cli" | "slash";
 export type ImportRunState = "running" | "paused" | "stopped" | "done" | "failed";
+/** A run imports exchanges first, then learns the profile from the imported prompts. */
+export type ImportRunPhase = "exchanges" | "profile";
 
 export interface ImportRunCounts {
   total: number;
@@ -33,6 +35,10 @@ export interface ImportRun extends ImportRunCounts, ProgressEstimate {
   error: string | null;
   /** The user paused this host's backfill; automatic runs wait for Resume. */
   paused: boolean;
+  phase: ImportRunPhase;
+  /** Profile batches done and planned, while `phase` is `profile`. */
+  profileDone: number;
+  profileTotal: number;
 }
 
 const dbPath = (storagePath = CONFIG.storagePath) => join(storagePath, "import-ledger.db");
@@ -46,6 +52,17 @@ async function table(storagePath?: string) {
     failed INTEGER NOT NULL DEFAULT 0, error TEXT, updated_at INTEGER,
     samples TEXT, paused INTEGER NOT NULL DEFAULT 0
   )`);
+  for (const column of [
+    "phase TEXT",
+    "profile_done INTEGER NOT NULL DEFAULT 0",
+    "profile_total INTEGER NOT NULL DEFAULT 0",
+  ]) {
+    try {
+      await db.run(`ALTER TABLE import_runs ADD COLUMN ${column}`);
+    } catch (error) {
+      if (!String((error as Error)?.message ?? error).includes("duplicate column")) throw error;
+    }
+  }
   // A row per host keeps every later statement a plain UPDATE.
   await db.run(
     "INSERT OR IGNORE INTO import_runs (host) VALUES ('pi'), ('opencode'), ('claude-code')"
@@ -87,6 +104,9 @@ export async function readImportRun(host: BackfillHost): Promise<ImportRun | nul
     failed: Number(row.failed),
     error: row.error === null ? null : String(row.error),
     paused: Number(row.paused) === 1,
+    phase: row.phase === "profile" ? "profile" : "exchanges",
+    profileDone: Number(row.profile_done ?? 0),
+    profileTotal: Number(row.profile_total ?? 0),
     ...(state === "running"
       ? estimateProgress(total, done, samples)
       : {
@@ -113,6 +133,8 @@ export async function setBackfillPaused(host: BackfillHost, paused: boolean): Pr
 export interface ImportRunRecorder {
   /** Feed from `onProgress`; writes at most once per interval and checks the paused flag. */
   progress(done: number, total: number): void;
+  /** Feed from the profile step: batches done and planned. Moves the run to the profile phase. */
+  profileProgress(done: number, total: number): void;
   /** True after a progress write saw the paused flag. */
   readonly pauseRequested: boolean;
   finish(
@@ -143,7 +165,8 @@ export async function startImportRun(
   const startedAt = clock();
   await db.run(
     `UPDATE import_runs SET surface = ?, state = 'running', pid = ?, started_at = ?, total = 0,
-       done = 0, imported = 0, skipped = 0, failed = 0, error = NULL, updated_at = ?, samples = '[]'
+       done = 0, imported = 0, skipped = 0, failed = 0, error = NULL, updated_at = ?, samples = '[]',
+       phase = 'exchanges', profile_done = 0, profile_total = 0
      WHERE host = ?`,
     [surface, process.pid, startedAt, startedAt, host]
   );
@@ -183,6 +206,19 @@ export async function startImportRun(
     progress(done, total) {
       latest = { done, total };
       if (clock() - lastWrite >= interval) write();
+    },
+    profileProgress(done, total) {
+      const now = clock();
+      writing = writing
+        .then(() =>
+          db.run(
+            `UPDATE import_runs SET phase = 'profile', profile_done = ?, profile_total = ?,
+               updated_at = ? WHERE host = ?`,
+            [count(done), count(total), now, host]
+          )
+        )
+        .then(() => {})
+        .catch(() => {});
     },
     get pauseRequested() {
       return pauseRequested;

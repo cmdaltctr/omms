@@ -5,6 +5,7 @@ import { ExternalApiSection } from "./ExternalApiSection";
 import { EmbeddingSection } from "./EmbeddingSection";
 import { KeysAccessSection } from "./KeysAccessSection";
 import { ProfileCatchUpSection } from "./ProfileCatchUpSection";
+import { ProfilesSection } from "./ProfilesSection";
 import { DirectoryMapsSection } from "./DirectoryMapsSection";
 import { DiagnosticsSection } from "./DiagnosticsSection";
 import { HealthSection } from "./HealthSection";
@@ -24,11 +25,21 @@ const CARDS: Record<SettingsSectionId, ComponentType> = {
   "settings-section-claude-folder": ClaudeFolderSection,
   "settings-section-import": ImportSection,
   "settings-section-auto-import": AutoImportSection,
-  "settings-section-profile": ProfileCatchUpSection,
+  "settings-section-profile": ProfileCards,
   "settings-section-directory-maps": DirectoryMapsSection,
   "settings-section-web-app": WebAppSection,
   "settings-section-log": LogSection,
 };
+
+/** The Profiles card hides itself with one profile, so it shares the Profile learning anchor. */
+function ProfileCards() {
+  return (
+    <div className="space-y-6">
+      <ProfilesSection />
+      <ProfileCatchUpSection />
+    </div>
+  );
+}
 
 export function SettingsView() {
   return (

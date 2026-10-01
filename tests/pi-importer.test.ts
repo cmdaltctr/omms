@@ -789,6 +789,39 @@ scenario = { cli: cli.unitsImported, page: jobs.current() };
     expect(out.page.summary.unitsImported).toBe(0);
   });
 
+  it("keeps the full unresolved list when one project's sessions are listed later", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot, { recursive: true });
+writeV3Session({
+  file: sessionRoot + "/here.jsonl", sessionId: "sess-here", cwd: projectA,
+  windows: [{ userText: "Work here", assistantText: "ok" }],
+});
+writeV3Session({
+  file: sessionRoot + "/gone.jsonl", sessionId: "sess-gone", cwd: base + "/deleted-worktree",
+  windows: [{ userText: "Work in a deleted worktree", assistantText: "ok" }],
+});
+const { validateImportSource } = await import(${JSON.stringify(sourcesUrl)});
+const { listImportSessions } = await import(${JSON.stringify(sessionsUrl)});
+const { readUnresolvedDirectories } = await import(${JSON.stringify(
+      pathToFileURL(join(import.meta.dir, "../src/services/backfill-state.js")).href
+    )});
+const source = validateImportSource("pi", sessionRoot);
+await listImportSessions(
+  { sourceToken: source.sourceToken, refresh: true },
+  { host: "pi", scope: "all-projects", pathMaps: [], cwd: projectA }
+);
+const afterAll = await readUnresolvedDirectories("pi");
+await listImportSessions(
+  { sourceToken: source.sourceToken, refresh: true },
+  { host: "pi", scope: "current-project", project: projectA, pathMaps: [], cwd: projectA }
+);
+scenario = { afterAll, afterProject: await readUnresolvedDirectories("pi"), base };
+`);
+    expect(out.afterAll).toEqual([{ directory: out.base + "/deleted-worktree", sessions: 1 }]);
+    expect(out.afterProject).toEqual(out.afterAll);
+  });
+
   it("imports exactly one file when the root is a .jsonl file", () => {
     const out = runScenario(`
 const { mkdirSync } = await import("node:fs");

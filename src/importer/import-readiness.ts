@@ -76,11 +76,12 @@ export async function importReadiness(deps: ReadinessDeps = {}): Promise<ImportR
       (async () =>
         (await import("./settings-models.js")).listOpencodeSettingsModels(undefined, null))
     )(),
-    (deps.loadPiSdk ?? (() => import("@earendil-works/pi-coding-agent")))().then(
+    (deps.loadPiSdk ?? (async () => (await import("./pi-sdk.js")).loadPiSdk()))().then(
       () => ({ available: true }),
       () => ({
         available: false,
-        reason: "The Pi SDK (@earendil-works/pi-coding-agent) is not installed for OpenCode",
+        reason:
+          "The Pi SDK (@earendil-works/pi-coding-agent) was not found. Install Pi on this computer.",
       })
     ),
   ]);

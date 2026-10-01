@@ -59,11 +59,11 @@ Rules:
   with `claude-reader.ts` for Claude Code transcripts.
 - The Pi adapter imports `pi-conversation.ts` for live capture. Adapters may
   depend on shared code; shared code never depends on an adapter.
-- `session-loader.ts` loads the Pi SDK. The importer loads it with dynamic
-  `import()`, only when it reads Pi history.
-- Only three importer files name a host SDK: `session-loader.ts`,
-  `import-readiness.ts`, and `settings-models.ts`. Only `session-loader.ts`
-  imports it statically. The boundary test checks every file.
+- `pi-sdk.ts` loads the Pi SDK with dynamic `import()`. When OMMS's own
+  dependencies lack it, it uses the copy in Pi's install. `session-loader.ts`,
+  `import-readiness.ts`, and `settings-models.ts` get the SDK through it, only
+  when they read Pi history or Pi's model list.
+- Only these importer files name a host SDK. The boundary test checks every file.
 - OpenCode's model access for web imports, Health, and Settings reaches the
   importer through `registerOpencodeHostModels` in `backfill-controls.ts`.
   The OpenCode adapter registers it at plugin start. With nothing registered,

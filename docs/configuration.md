@@ -91,6 +91,7 @@ Open the Settings page in the login web app, in OpenCode, or with `om-memory-sys
 - `captureRetryRetentionHours` defaults to 72. It accepts whole hours from 0 to 720. 0 turns the capture retry queue off, and saving 0 deletes the waiting turns at once.
 - Choosing **Session model** writes `inherit` to the host's model key. That choice takes priority over a configured external API.
 - Choosing a manual model writes the selected host provider and model.
+- `userEmailOverride` names the user profile in every folder. Without it, OMMS uses the folder's git email, then your global git email. A repository with its own `user.email` otherwise starts a second profile. The Settings page's **Profiles** card can set this key and merge profiles. See [Settings page: Profiles](web-ui-settings.md#profiles).
 - OpenCode, Pi, and the web app that serves Claude Code reload changed config files at the next capture or profile-learning run. You do not need to restart.
 - On a legacy-only install, the first save copies the old config and its comments to `~/.config/omms/omms.jsonc`. OMMS reads the new file from then on. The old file stays unchanged.
 - The page rejects a save if the file changed since the page loaded it. Check the refreshed values, then save again.

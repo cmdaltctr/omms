@@ -19,7 +19,8 @@ import { Badge } from "$lib/components/ui/badge";
 import { Button } from "$lib/components/ui/button";
 import { formatDate } from "$lib/format";
 import { useI18n } from "$lib/i18n";
-import { parseProfileField } from "$lib/profile-utils";
+import { cn } from "$lib/utils";
+import { CONFIDENCE_CLASSES, confidenceLevel, parseProfileField } from "$lib/profile-utils";
 import type { ProfileItem, UserProfile } from "$lib/types";
 
 type ProfileField = "preferences" | "patterns" | "workflows";
@@ -177,8 +178,11 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
             </Button>
           </div>
           <div
-            className="size-9 rounded-full border border-border grid place-items-center text-[10px] tabular-nums shrink-0"
-            title={`${pct}%`}
+            className={cn(
+              "shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+              CONFIDENCE_CLASSES[confidenceLevel(pct)]
+            )}
+            title={`${t("label-confidence")}: ${pct}%`}
           >
             {pct}%
           </div>
