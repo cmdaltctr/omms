@@ -83,8 +83,7 @@ export async function runProfileCatchUpCommand(
       batchSize: CATCH_UP_BATCH_SIZE,
       onProgress: ({ batchesBuilt, remaining }) =>
         print(`Batches done: ${batchesBuilt}; prompts waiting: ${remaining}`),
-    });
-    await hooks.release();
+    }).finally(() => hooks.release().catch(() => {}));
     print(`Batches done: ${report.batchesBuilt}; prompts waiting: ${report.remaining}`);
     if (report.superseded) {
       print("Stopped: a newer catch-up run took over.");

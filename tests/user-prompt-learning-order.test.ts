@@ -17,13 +17,15 @@ afterAll(() => {
   rmSync(sandbox, { recursive: true, force: true });
 });
 
-type Manager = InstanceType<typeof UserPromptManager> & { ready(): Promise<TursoDb> };
+type Manager = InstanceType<typeof UserPromptManager>;
+/** Test-only access to the private database handle. */
+const dbOf = (manager: Manager) => (manager as unknown as { ready(): Promise<TursoDb> }).ready();
 const DAY = 86_400_000;
 const now = Date.UTC(2026, 8, 30);
 
 async function seed(prompts: Array<[string, number]>): Promise<Manager> {
   const manager = new UserPromptManager() as Manager;
-  const db = await manager.ready();
+  const db = await dbOf(manager);
   await db.run("DELETE FROM user_prompts");
   for (const [index, [content, createdAt]] of prompts.entries()) {
     const id = await manager.savePrompt("s", `m${index}`, "/p", content);
@@ -79,4 +81,13 @@ it("counts waiting trivial prompts without marking them", async () => {
   ]);
   expect(await manager.countTrivialPromptsForLearning()).toBe(2);
   expect(await manager.countUnanalyzedForUserLearning()).toBe(3);
+});
+
+it("treats a whitespace-padded short reply as trivial", async () => {
+  const manager = await seed([
+    ["\n".repeat(20) + "yes go\t\t", now],
+    ["use bun not npm", now],
+  ]);
+  expect(await manager.countTrivialPromptsForLearning()).toBe(1);
+  expect(await manager.skipTrivialPromptsForLearning()).toBe(1);
 });

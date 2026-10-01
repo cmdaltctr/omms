@@ -4,6 +4,7 @@ import {
   onSettingsSnapshot,
   reloadSettingsSnapshot,
   settingsRequest,
+  withBusy,
 } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import {
@@ -182,14 +183,14 @@ export function KeysAccessSection() {
   }, []);
 
   async function act(action: () => Promise<void>) {
-    setBusy(true);
-    try {
-      await action();
-    } catch (error) {
-      setMessage((error as Error).message);
-    }
-    await reloadSettingsSnapshot<Snapshot>();
-    setBusy(false);
+    await withBusy(setBusy, async () => {
+      try {
+        await action();
+      } catch (error) {
+        setMessage((error as Error).message);
+      }
+      await reloadSettingsSnapshot<Snapshot>();
+    }).catch(() => {});
   }
 
   const generate = (name: string, expiresInDays: number | null) =>

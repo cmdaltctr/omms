@@ -1,10 +1,8 @@
-# embedding-settings Specification
-
 ## Purpose
 
 How OMMS chooses the embedder that turns memory text into search vectors, how a candidate embedder is tested, and how a change re-embeds every stored memory so search keeps working.
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Two kinds of embedder
 

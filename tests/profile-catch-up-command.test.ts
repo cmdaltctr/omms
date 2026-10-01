@@ -4,6 +4,7 @@ const selected: unknown[] = [];
 const drained: unknown[] = [];
 const lease: string[] = [];
 let superseded = false;
+let drainThrows = false;
 mock.module("../src/config.js", () => ({
   CONFIG: { memoryApiKey: "saved-key" },
   initConfig: () => {},
@@ -34,6 +35,7 @@ mock.module("../src/importer/model-selection.js", () => ({
 mock.module("../src/importer/profile-backlog.js", () => ({
   drainProfileBacklog: async (options: unknown) => {
     drained.push(options);
+    if (drainThrows) throw new Error("store unavailable");
     return superseded
       ? { batchesBuilt: 3, remaining: 2450, superseded: true }
       : { batchesBuilt: 52, remaining: 0 };
@@ -51,6 +53,7 @@ beforeEach(() => {
   drained.length = 0;
   lease.length = 0;
   superseded = false;
+  drainThrows = false;
   output = [];
 });
 
@@ -106,4 +109,10 @@ it("takes the run record, releases it, and reports a takeover", async () => {
   expect(lease).toEqual(["take", "release"]);
   expect((drained[0] as { beforeBatch?: unknown }).beforeBatch).toBeFunction();
   expect(output.join("\n")).toContain("a newer catch-up run took over");
+});
+
+it("releases the run record when the run throws", async () => {
+  drainThrows = true;
+  expect(await runProfileCatchUpCommand(["--yes"], print)).toBe(1);
+  expect(lease).toEqual(["take", "release"]);
 });

@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -33,10 +33,13 @@ function hashToken(value: string): Buffer {
   return createHash("sha256").update(value).digest();
 }
 
-function read(path: string): StoredToken[] {
+function read(
+  path: string,
+  readText: (path: string) => string = (file) => readFileSync(file, "utf8")
+): StoredToken[] {
   let text: string;
   try {
-    text = readFileSync(path, "utf8");
+    text = readText(path);
   } catch {
     return [];
   }
@@ -45,6 +48,40 @@ function read(path: string): StoredToken[] {
     return Array.isArray(parsed.tokens) ? parsed.tokens : [];
   } catch {
     return [];
+  }
+}
+
+const LOCK_STALE_MS = 10_000;
+
+/**
+ * Run a read-modify-write while holding `<path>.lock`, so two processes
+ * cannot undo each other's change. A lock older than 10 seconds is stale.
+ */
+function withLock<T>(path: string, update: () => T): T {
+  const lock = `${path}.lock`;
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  const deadline = Date.now() + 2_000;
+  for (;;) {
+    try {
+      writeFileSync(lock, String(process.pid), { flag: "wx", mode: 0o600 });
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      try {
+        if (Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS) rmSync(lock, { force: true });
+      } catch {
+        // Removed by its owner meanwhile; try again.
+      }
+      if (Date.now() > deadline) {
+        throw new Error("The API token file is busy; try again", { cause: error });
+      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+    }
+  }
+  try {
+    return update();
+  } finally {
+    rmSync(lock, { force: true });
   }
 }
 
@@ -92,23 +129,31 @@ export function createApiToken(
     expiresAt: expiresInDays === null ? null : now + expiresInDays * DAY_MS,
     lastUsedAt: null,
   };
-  write(path, [...read(path), token]);
+  withLock(path, () => write(path, [...read(path), token]));
   return { value, token: view(token) };
 }
 
 export function revokeApiToken(id: string, path = apiTokensPath()): boolean {
-  const tokens = read(path);
-  const kept = tokens.filter((token) => token.id !== id);
-  if (kept.length === tokens.length) return false;
-  write(path, kept);
-  return true;
+  return withLock(path, () => {
+    const tokens = read(path);
+    const kept = tokens.filter((token) => token.id !== id);
+    if (kept.length === tokens.length) return false;
+    write(path, kept);
+    return true;
+  });
 }
 
 /** True when `value` matches an unexpired token; compares hashes in constant time. */
-export function verifyApiToken(value: string, path = apiTokensPath(), now = Date.now()): boolean {
+export function verifyApiToken(
+  value: string,
+  path = apiTokensPath(),
+  now = Date.now(),
+  /** Tests pass a stale reader to model another process writing in between. */
+  readText: (path: string) => string = (file) => readFileSync(file, "utf8")
+): boolean {
   if (!value) return false;
   const candidate = hashToken(value);
-  const tokens = read(path);
+  const tokens = read(path, readText);
   let match: StoredToken | undefined;
   for (const token of tokens) {
     const stored = Buffer.from(token.hash, "hex");
@@ -116,9 +161,17 @@ export function verifyApiToken(value: string, path = apiTokensPath(), now = Date
   }
   if (!match || !isLive(match, now)) return false;
   if (match.lastUsedAt === null || now - match.lastUsedAt >= LAST_USED_INTERVAL_MS) {
-    match.lastUsedAt = now;
+    const id = match.id;
     try {
-      write(path, tokens);
+      // Re-read under the lock and change only this row, so a revoke or create
+      // made by another process since the first read is kept.
+      withLock(path, () => {
+        const current = read(path);
+        const row = current.find((token) => token.id === id);
+        if (!row) return;
+        row.lastUsedAt = now;
+        write(path, current);
+      });
     } catch {
       // A failed last-used write must not refuse a valid token.
     }
@@ -140,18 +193,20 @@ export function importConfigApiToken(
   now = Date.now()
 ): boolean {
   if (!value) return false;
-  const tokens = read(path);
-  if (tokens.some((token) => token.name === CONFIG_TOKEN_NAME)) return false;
-  write(path, [
-    ...tokens,
-    {
-      id: randomUUID(),
-      name: CONFIG_TOKEN_NAME,
-      hash: hashToken(value).toString("hex"),
-      createdAt: now,
-      expiresAt: null,
-      lastUsedAt: null,
-    },
-  ]);
-  return true;
+  return withLock(path, () => {
+    const tokens = read(path);
+    if (tokens.some((token) => token.name === CONFIG_TOKEN_NAME)) return false;
+    write(path, [
+      ...tokens,
+      {
+        id: randomUUID(),
+        name: CONFIG_TOKEN_NAME,
+        hash: hashToken(value).toString("hex"),
+        createdAt: now,
+        expiresAt: null,
+        lastUsedAt: null,
+      },
+    ]);
+    return true;
+  });
 }

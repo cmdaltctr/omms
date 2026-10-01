@@ -321,7 +321,8 @@ export class UserPromptManager {
     const db = await this.ready();
     const rows = await db.all(
       `SELECT id, content FROM user_prompts
-      WHERE user_learning_captured = 0 AND length(trim(content)) < 20`
+      WHERE user_learning_captured = 0
+        AND length(trim(content, ' ' || char(9, 10, 11, 12, 13))) < 20`
     );
     return rows.filter((row) => isTrivialPrompt(String(row.content))).map((row) => String(row.id));
   }

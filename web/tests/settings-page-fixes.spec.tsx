@@ -61,3 +61,44 @@ it("asks about untagged memories once per count, and again only when more appear
   expect(shouldOpenTagMigration(9)).toBe(true);
   expect(shouldOpenTagMigration(0)).toBe(false);
 });
+
+it("forgets a closed count once the migration completes", async () => {
+  const { clearTagMigrationClose } = await import("../src/lib/tag-migration-prompt.ts");
+  rememberTagMigrationClose(7);
+  clearTagMigrationClose();
+  expect(shouldOpenTagMigration(3)).toBe(true);
+});
+
+it("lets only the newest refresh write its results", async () => {
+  const { createLatestGate } = await import("../src/lib/settings-api.ts");
+  const gate = createLatestGate();
+  const older = gate.begin();
+  const newer = gate.begin();
+  expect(older()).toBe(false);
+  expect(newer()).toBe(true);
+});
+
+it("clears the busy flag even when the work fails", async () => {
+  const { withBusy } = await import("../src/lib/settings-api.ts");
+  const states: boolean[] = [];
+  await expect(
+    withBusy(
+      (value) => states.push(value),
+      async () => {
+        throw new Error("reload failed");
+      }
+    )
+  ).rejects.toThrow("reload failed");
+  expect(states).toEqual([true, false]);
+});
+
+it("refreshes diagnostics for the chosen host after Retry now", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const source = readFileSync(
+    join(import.meta.dir, "../src/lib/components/settings/DiagnosticsSection.tsx"),
+    "utf8"
+  );
+  expect(source).toContain("async function retryNow(retryHost: RetryHost)");
+  expect(source).toMatch(/retryNow\(retryHost[\s\S]*?await refresh\(days, host\)/);
+});

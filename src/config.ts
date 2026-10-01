@@ -819,7 +819,8 @@ function buildConfig(fileConfig: OmmsConfig) {
       fileConfig.embeddingUseTaskPrefixes ?? DEFAULTS.embeddingUseTaskPrefixes,
     embeddingApiUrl: fileConfig.embeddingApiUrl,
     embeddingApiKey: fileConfig.embeddingApiUrl
-      ? resolveSecretValue(fileConfig.embeddingApiKey ?? process.env.OPENAI_API_KEY)
+      ? // No ambient OPENAI_API_KEY: an unset key means no Authorization header.
+        resolveSecretValue(fileConfig.embeddingApiKey)
       : undefined,
     similarityThreshold: fileConfig.similarityThreshold ?? DEFAULTS.similarityThreshold,
     maxMemories: fileConfig.maxMemories ?? DEFAULTS.maxMemories,

@@ -149,3 +149,15 @@ it("applies only a tested embedder, from this machine, one run at a time", async
   expect(result.done.progress.total).toBe(2);
   expect(result.needsMigration).toBe(false);
 }, 30000);
+
+it("refuses Apply when the key behind a tested source has changed", async () => {
+  const { result } = await scenario(`
+    const candidate = { kind: "server", url: embedUrl, model: "fake-model", key: { source: "env", name: "EMBED_TEST_KEY" } };
+    await send("/api/settings/embedding/test", "POST", candidate);
+    process.env.EMBED_TEST_KEY = "a-different-key";
+    const changed = await send("/api/settings/embedding/apply", "POST", { candidate, revision: await revision() });
+    return { changed: changed.status, body: await changed.text() };
+  `);
+  expect(result.changed).toBe(409);
+  expect(result.body).not.toContain("a-different-key");
+}, 30000);

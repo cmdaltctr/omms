@@ -140,3 +140,45 @@ it("stops the page run when a run in another process takes over", async () => {
   expect(result.calls).toBe(1);
   expect(result.terminalStart).toBe("ok");
 }, 30000);
+
+it("frees the in-process lock when the run record cannot be taken", async () => {
+  const home = mkdtempSync(join(tmpdir(), "omms-catch-up-setup-"));
+  dirs.push(home);
+  mkdirSync(join(home, ".config", "omms"), { recursive: true });
+  writeFileSync(join(home, ".config", "omms", "omms.jsonc"), "{}");
+  const script = `
+    const { mock } = await import("bun:test");
+    mock.module(${src("importer/model-selection.ts")}, () => ({
+      selectImportModel: () => ({ profile: { provider: "stub", modelId: "stub", async complete() { return "{}"; } } }),
+    }));
+    mock.module(${src("services/tags.ts")}, () => ({
+      getTags: () => ({ user: { userEmail: "me@example.invalid" } }),
+    }));
+    let fail = true;
+    const real = await import(${src("services/user-prompt/profile-catch-up-lease.ts")});
+    mock.module(${src("services/user-prompt/profile-catch-up-lease.ts")}, () => ({
+      ...real,
+      CatchUpLease: class extends real.CatchUpLease {
+        async take(owner) { if (fail) throw new Error("database is locked"); return super.take(owner); }
+      },
+    }));
+    const { startCatchUp } = await import(${src("importer/profile-catch-up.ts")});
+    const { profileCatchUpLock } = await import(${src("core/profile-backoff.ts")});
+    let first;
+    try { await startCatchUp(process.env.HOME); } catch (error) { first = error.status ?? "thrown"; }
+    const lockedAfterFailure = profileCatchUpLock.isActive();
+    console.log("RESULT:" + JSON.stringify({ first, lockedAfterFailure }));
+    process.exit(0);
+  `;
+  const scriptPath = join(home, "scenario.mjs");
+  writeFileSync(scriptPath, script);
+  const proc = Bun.spawn(["bun", "run", scriptPath], {
+    env: { ...process.env, HOME: home, USERPROFILE: home, OMMS_LOG_FILE: join(home, "omms.log") },
+  });
+  const text = await new Response(proc.stdout).text();
+  const error = await new Response(proc.stderr).text();
+  expect(await proc.exited, error).toBe(0);
+  const result = JSON.parse(text.match(/RESULT:(.*)$/m)![1]!);
+  expect(result.first).toBeDefined();
+  expect(result.lockedAfterFailure).toBe(false);
+}, 30000);

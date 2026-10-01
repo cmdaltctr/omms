@@ -16,3 +16,8 @@ export function shouldOpenTagMigration(count: number): boolean {
 export function rememberTagMigrationClose(count: number): void {
   writePreference(KEY, String(count));
 }
+
+/** After the migration tags every memory, a later untagged memory should ask again. */
+export function clearTagMigrationClose(): void {
+  writePreference(KEY, "0");
+}

@@ -68,3 +68,11 @@ it("resets its warm state and cache when the embedder settings change", async ()
   expect((await service.embed("same text")).length).toBe(5);
   expect(seen.some((call) => call.port === large.port)).toBe(true);
 });
+
+it("resets when the task prefix setting changes", async () => {
+  const { embeddingSettingsSignature } = await import("../src/services/embedding.js");
+  const base = { embeddingApiUrl: "http://x/v1", embeddingModel: "m" };
+  expect(embeddingSettingsSignature({ ...base, embeddingUseTaskPrefixes: true })).not.toBe(
+    embeddingSettingsSignature({ ...base, embeddingUseTaskPrefixes: false })
+  );
+});

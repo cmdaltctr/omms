@@ -73,12 +73,24 @@ function resolveKey(choice: EmbeddingKeyChoice): string | undefined {
   }
 }
 
-/** Identifies the tested values; a pasted key is hashed, never kept. */
-function candidateHash(candidate: EmbeddingCandidate): string {
+/**
+ * Identifies the tested values, including the key they resolved to, so a
+ * changed variable, file, or saved key forces a new test before Apply.
+ */
+function candidateHash(candidate: EmbeddingCandidate, resolvedKey: string | undefined): string {
   const key = candidate.key.source === "paste" ? { ...candidate.key, value: "" } : candidate.key;
   const secret = candidate.key.source === "paste" ? candidate.key.value.trim() : "";
   return createHash("sha256")
-    .update(JSON.stringify([candidate.kind, candidate.url ?? "", candidate.model, key, secret]))
+    .update(
+      JSON.stringify([
+        candidate.kind,
+        candidate.url ?? "",
+        candidate.model,
+        key,
+        secret,
+        resolvedKey ?? "",
+      ])
+    )
     .digest("hex");
 }
 
@@ -99,7 +111,7 @@ export async function testEmbeddingCandidate(
     };
     const vector = await new EmbeddingService(() => settings).embedWithTimeout(TEST_SENTENCE);
     if (!vector.length) return { ok: false, reason: "The embedder returned no values" };
-    passedTests.set(candidateHash(candidate), { dimensions: vector.length, at: now });
+    passedTests.set(candidateHash(candidate, key), { dimensions: vector.length, at: now });
     return { ok: true, dimensions: vector.length };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -172,7 +184,14 @@ export async function applyEmbeddingCandidate(
   now = Date.now()
 ): Promise<void> {
   if (run.state === "running") throw new EmbeddingChangeError("A re-embed is already running", 409);
-  const passed = passedTests.get(candidateHash(candidate));
+  let resolved: string | undefined;
+  try {
+    resolved = candidate.kind === "server" ? resolveKey(candidate.key) : undefined;
+  } catch {
+    resolved = undefined;
+  }
+  const identity = candidateHash(candidate, resolved);
+  const passed = passedTests.get(identity);
   if (!passed || now - passed.at > TEST_VALID_MS) {
     throw new EmbeddingChangeError("Test these values before you apply them", 409);
   }
@@ -189,7 +208,7 @@ export async function applyEmbeddingCandidate(
   const { EMBEDDING_KEYS, writeGlobalConfigKeys } = await import("./global-config-writer.js");
   await writeGlobalConfigKeys(edits, revision, { only: EMBEDDING_KEYS });
   refreshConfig();
-  passedTests.delete(candidateHash(candidate));
+  passedTests.delete(identity);
   await startReembed();
 }
 

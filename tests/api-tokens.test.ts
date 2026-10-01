@@ -85,3 +85,15 @@ it("rejects a bad name or expiry", () => {
   expect(() => createApiToken("", 30, file)).toThrow();
   expect(() => createApiToken("ci", 12 as 30, file)).toThrow();
 });
+
+it("does not bring back a revoked token when a stale last-used write follows", () => {
+  const file = tokenFile();
+  const kept = createApiToken("kept", null, file, 1_000);
+  const gone = createApiToken("gone", null, file, 1_000);
+  // Another process revokes "gone" between this process's read and its last-used write.
+  const stale = readFileSync(file, "utf8");
+  expect(revokeApiToken(gone.token.id, file)).toBe(true);
+  expect(verifyApiToken(kept.value, file, 100_000, () => stale)).toBe(true);
+  expect(listApiTokens(file).map((token) => token.name)).toEqual(["kept"]);
+  expect(verifyApiToken(gone.value, file, 200_000)).toBe(false);
+});

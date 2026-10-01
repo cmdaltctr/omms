@@ -37,6 +37,16 @@ bun install && bun run build && npm pack
 `scripts/verify-nested-onnxruntime-fixture.mjs` shows the install layout that
 CI checks for a packed build.
 
+### The omms-memory skill
+
+The package ships the `omms-memory` skill. The plugin adds it to OpenCode, so you do not copy any files.
+
+- OpenCode v1: the plugin's `config` hook adds the package's `skills` folder to `skills.paths`. It keeps your other paths. When the folder is missing, the plugin writes a log line and skips it.
+- OpenCode v2: the plugin adds the skill to OpenCode's skill list. Start it by name with `/omms-memory`.
+- The skill tells the agent to search memory with the `memory` tool before it debugs or investigates, and when you refer to earlier work. The `memory` tool description gives the same instruction.
+
+See [Using memory: The omms-memory skill](using-memory.md#the-omms-memory-skill).
+
 ## Configuration
 
 The plugin reads the same configuration files as the Pi extension:

@@ -14,6 +14,7 @@ import {
   reloadSettingsSnapshot,
   settingsRequest,
   withNote,
+  createLatestGate,
 } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import { hostLabel, hostName, type WebHost } from "$lib/host-label";
@@ -70,23 +71,31 @@ export function DiagnosticsSection() {
   const [view, setView] = useState("");
   const [error, setError] = useState("");
   const [retryNote, setRetryNote] = useState("");
-  const refresh = useCallback(async (range: number, chosen: WebHost | "all") => {
-    const read = beginSettingsRead();
-    try {
-      const [attempts, files, settings] = await Promise.all([
-        settingsRequest<Diagnostics>(diagnosticsPath(range, chosen)),
-        settingsRequest<{ traces: Trace[] }>("/api/settings/traces"),
-        settingsRequest<Snapshot>("/api/settings"),
-      ]);
-      setData(attempts);
-      setTraces(files.traces);
-      // A save elsewhere may have published a newer revision while this ran.
-      if (read.isCurrent()) setSnapshot(settings);
-      setError("");
-    } catch (cause) {
-      setError((cause as Error).message);
-    }
-  }, []);
+  // A Host or range change can start a refresh while an older one still runs.
+  const [refreshes] = useState(createLatestGate);
+  const refresh = useCallback(
+    async (range: number, chosen: WebHost | "all") => {
+      const read = beginSettingsRead();
+      const isLatest = refreshes.begin();
+      try {
+        const [attempts, files, settings] = await Promise.all([
+          settingsRequest<Diagnostics>(diagnosticsPath(range, chosen)),
+          settingsRequest<{ traces: Trace[] }>("/api/settings/traces"),
+          settingsRequest<Snapshot>("/api/settings"),
+        ]);
+        if (!isLatest()) return;
+        setData(attempts);
+        setTraces(files.traces);
+        // A save elsewhere may have published a newer revision while this ran.
+        if (read.isCurrent()) setSnapshot(settings);
+        setError("");
+      } catch (cause) {
+        if (!isLatest()) return;
+        setError((cause as Error).message);
+      }
+    },
+    [refreshes]
+  );
   useEffect(() => {
     void refresh(days, host);
   }, [days, host, refresh]);
@@ -142,17 +151,17 @@ export function DiagnosticsSection() {
       setError((cause as Error).message);
     }
   }
-  async function retryNow(host: RetryHost) {
+  async function retryNow(retryHost: RetryHost) {
     try {
       const { result } = await settingsRequest<{ result: "started" | "scheduled" | "running" }>(
-        `/api/settings/capture-retry/${host}/run`,
+        `/api/settings/capture-retry/${retryHost}/run`,
         { method: "POST", body: "{}" }
       );
       setRetryNote(
         result === "scheduled"
-          ? host === "pi"
+          ? retryHost === "pi"
             ? s("These turns retry at the next Pi session start.")
-            : host === "claude-code"
+            : retryHost === "claude-code"
               ? s("These turns retry at the next Claude Code session start.")
               : s("These turns retry at the next OpenCode session start.")
           : result === "running"

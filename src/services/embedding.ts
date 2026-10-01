@@ -131,11 +131,13 @@ export function embeddingServerRequest(
   return { url: `${settings.embeddingApiUrl}/embeddings`, headers };
 }
 
-function settingsSignature(settings: EmbedderSettings): string {
+/** Changes whenever the embedder or its input text would change. */
+export function embeddingSettingsSignature(settings: EmbedderSettings): string {
   return JSON.stringify([
     settings.embeddingApiUrl ?? "",
     settings.embeddingModel,
     settings.embeddingApiKey ?? "",
+    settings.embeddingUseTaskPrefixes ?? false,
   ]);
 }
 
@@ -153,7 +155,7 @@ export class EmbeddingService {
 
   /** Drop the loaded model, warm state, and cache when the embedder settings change. */
   private resetIfSettingsChanged(): void {
-    const signature = settingsSignature(this.settings());
+    const signature = embeddingSettingsSignature(this.settings());
     if (this.signature === signature) return;
     if (this.signature !== null) {
       this.pipe = null;

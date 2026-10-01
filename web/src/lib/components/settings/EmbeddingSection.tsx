@@ -5,6 +5,7 @@ import {
   onSettingsSnapshot,
   reloadSettingsSnapshot,
   settingsRequest,
+  withBusy,
 } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import {
@@ -176,23 +177,23 @@ export function EmbeddingSection() {
 
   async function test() {
     if (!fields) return;
-    setBusy(true);
-    try {
-      const result = await settingsRequest<{ ok: boolean; dimensions?: number; reason?: string }>(
-        "/api/settings/embedding/test",
-        { method: "POST", body: JSON.stringify(candidateBody(fields)) }
-      );
-      if (result.ok && result.dimensions) {
-        setPassed({ key: candidateKey(fields), dimensions: result.dimensions });
-        setMessage(`${s("Test passed. Vector size")}: ${result.dimensions}`);
-      } else {
-        setPassed(undefined);
-        setMessage(`${s("Test failed")}: ${result.reason ?? ""}`);
+    await withBusy(setBusy, async () => {
+      try {
+        const result = await settingsRequest<{ ok: boolean; dimensions?: number; reason?: string }>(
+          "/api/settings/embedding/test",
+          { method: "POST", body: JSON.stringify(candidateBody(fields)) }
+        );
+        if (result.ok && result.dimensions) {
+          setPassed({ key: candidateKey(fields), dimensions: result.dimensions });
+          setMessage(`${s("Test passed. Vector size")}: ${result.dimensions}`);
+        } else {
+          setPassed(undefined);
+          setMessage(`${s("Test failed")}: ${result.reason ?? ""}`);
+        }
+      } catch (error) {
+        setMessage(s((error as Error).message));
       }
-    } catch (error) {
-      setMessage(s((error as Error).message));
-    }
-    setBusy(false);
+    });
   }
 
   async function apply() {
@@ -203,22 +204,22 @@ export function EmbeddingSection() {
       ...risks.map((risk) => s(risk)),
     ].join("\n");
     if (!window.confirm(text)) return;
-    setBusy(true);
-    try {
-      const started = await settingsRequest<EmbeddingRun>("/api/settings/embedding/apply", {
-        method: "POST",
-        body: JSON.stringify({ candidate: candidateBody(fields), revision: snapshot.revision }),
-      });
-      setRun(started);
-      setUnlocked(false);
-      setFields(undefined);
-      setPassed(undefined);
-      setMessage("");
-    } catch (error) {
-      setMessage((error as Error).message);
-    }
-    await reloadSettingsSnapshot<Snapshot>();
-    setBusy(false);
+    await withBusy(setBusy, async () => {
+      try {
+        const started = await settingsRequest<EmbeddingRun>("/api/settings/embedding/apply", {
+          method: "POST",
+          body: JSON.stringify({ candidate: candidateBody(fields), revision: snapshot.revision }),
+        });
+        setRun(started);
+        setUnlocked(false);
+        setFields(undefined);
+        setPassed(undefined);
+        setMessage("");
+      } catch (error) {
+        setMessage((error as Error).message);
+      }
+      await reloadSettingsSnapshot<Snapshot>();
+    });
   }
 
   async function retry() {

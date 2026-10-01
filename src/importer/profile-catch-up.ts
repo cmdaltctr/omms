@@ -34,9 +34,10 @@ export async function catchUpLeaseHooks(signal?: AbortSignal, lease = new CatchU
 export class CatchUpError extends Error {
   constructor(
     message: string,
-    readonly status: number
+    readonly status: number,
+    options?: { cause?: unknown }
   ) {
-    super(message);
+    super(message, options);
     this.name = "CatchUpError";
   }
 }
@@ -78,11 +79,22 @@ export async function startCatchUp(
     profileCatchUpLock.end();
     throw new CatchUpError(error instanceof Error ? error.message : "No model", 400);
   }
-  const remaining = (await previewCatchUp()).waiting;
-  controller = new AbortController();
+  const runController = new AbortController();
+  const signal = runController.signal;
+  let remaining: number;
+  let hooks: Awaited<ReturnType<typeof catchUpLeaseHooks>>;
+  try {
+    remaining = (await previewCatchUp()).waiting;
+    hooks = await catchUpLeaseHooks(signal);
+  } catch (error) {
+    // Setup failed before the run started; free the lock so a retry can start.
+    profileCatchUpLock.end();
+    throw new CatchUpError(error instanceof Error ? error.message : "Catch-up not started", 500, {
+      cause: error,
+    });
+  }
+  controller = runController;
   job = { state: "running", batchesBuilt: 0, remaining };
-  const signal = controller.signal;
-  const hooks = await catchUpLeaseHooks(signal);
   void drainProfileBacklog({
     beforeBatch: hooks.beforeBatch,
     afterBatch: hooks.afterBatch,

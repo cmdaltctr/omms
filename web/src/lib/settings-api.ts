@@ -63,3 +63,30 @@ export function onSettingsSnapshot(listener: SnapshotListener): () => void {
 export function withNote(message: string, note: string): string {
   return `${message.replace(/\.+$/, "")}. ${note}`;
 }
+
+/**
+ * Lets only the newest of several overlapping requests write its result:
+ * `begin()` returns a check that is true only while no newer request began.
+ */
+export function createLatestGate(): { begin: () => () => boolean } {
+  let latest = 0;
+  return {
+    begin() {
+      const mine = ++latest;
+      return () => mine === latest;
+    },
+  };
+}
+
+/** Run `work` with the busy flag on, and turn it off even when `work` throws. */
+export async function withBusy<T>(
+  setBusy: (busy: boolean) => void,
+  work: () => Promise<T>
+): Promise<T> {
+  setBusy(true);
+  try {
+    return await work();
+  } finally {
+    setBusy(false);
+  }
+}

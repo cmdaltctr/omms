@@ -115,6 +115,24 @@ describe("project-scoped config resolution", () => {
     }
   });
 
+  it("sends no ambient OPENAI_API_KEY to an embedding server with no key set", () => {
+    const oldOpenAiKey = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = "ambient-secret";
+    existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
+    readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
+      const path = normalizePath(p);
+      if (/\/\.opencode\//.test(path)) return "{}" as any;
+      return JSON.stringify({ embeddingApiUrl: "http://localhost:11434/v1" }) as any;
+    });
+    try {
+      initConfig("/my/project");
+      expect(CONFIG.embeddingApiKey).toBeUndefined();
+    } finally {
+      if (oldOpenAiKey === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = oldOpenAiKey;
+    }
+  });
+
   it("rejects project memory provider settings before they can reuse a global key", () => {
     existsSpy = spyOn(fs, "existsSync").mockReturnValue(true);
     readSpy = spyOn(fs, "readFileSync").mockImplementation((p) => {
