@@ -12,6 +12,7 @@ import {
   recordUserPrompt,
 } from "./adapters/opencode/user-prompt.js";
 import { executeMemoryOperation, type MemoryOperationArgs } from "./core/memory-operations.js";
+import { memoryToolDescription } from "./core/memory-tool-text.js";
 import {
   OPENCODE_IMPORT_COMMAND,
   OPENCODE_IMPORT_DESCRIPTION,
@@ -30,6 +31,7 @@ import { resolveOpencodeHostModel } from "./services/ai/live-model-choice.js";
 import { log } from "./services/logger.js";
 import { getLanguageName } from "./services/language-detector.js";
 import { getHostClientConfig } from "./adapters/opencode/opencode-host-config.js";
+import { applySkillsPathConfig } from "./adapters/opencode/package-skills.js";
 import { loadOpencodeProvider } from "./adapters/opencode/opencode-provider-loader.js";
 import {
   STRUCTURED_OUTPUT_AGENT,
@@ -462,6 +464,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
     config: async (cfg) => {
       applyStructuredOutputAgentConfig(cfg);
       applyHistoryImportCommandConfig(cfg);
+      applySkillsPathConfig(cfg);
     },
 
     // V1 runs slash commands as a model turn; do the import here and hand the
@@ -582,7 +585,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
 
     tool: {
       memory: tool({
-        description: `Manage and query project memory (MATCH USER LANGUAGE: ${getLanguageName(CONFIG.autoCaptureLanguage || "en")}). Use 'search' with technical keywords/tags, 'add' to store knowledge, 'profile' for preferences. Use migrate/list-shards/export/import when a project directory moves. Search/list scope: project or all-projects.`,
+        description: memoryToolDescription(getLanguageName(CONFIG.autoCaptureLanguage || "en")),
         args: {
           mode: tool.schema
             .enum([

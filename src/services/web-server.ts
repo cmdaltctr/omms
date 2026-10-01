@@ -15,7 +15,7 @@ import {
 } from "./web-api-auth.js";
 import { packageVersion } from "./package-version.js";
 import { isOlderVersion } from "./version-compare.js";
-import { getOrCreateAuthToken, isAuthorizedApiRequest } from "./auth-token.js";
+import { AUTH_HEADER, getOrCreateAuthToken, isAuthorizedApiRequest } from "./auth-token.js";
 import { WebAuth } from "./web-auth.js";
 import { NODE_HTTP_IDLE_TIMEOUT_MS } from "./request-timeouts.js";
 import {
@@ -360,6 +360,172 @@ export class WebServer {
     return this.jsonResponse({ success: true }, 202);
   }
 
+  /** API token routes. Only a caller on this machine with the local token manages tokens. */
+  private async handleTokenRoute(
+    req: Request,
+    path: string,
+    method: string,
+    remoteAddress: string | undefined
+  ): Promise<Response> {
+    if (!isLoopbackAddress(remoteAddress)) {
+      return this.jsonResponse({ error: "Only this machine can manage API tokens" }, 403);
+    }
+    if (!isAuthorizedApiRequest(req)) {
+      return this.jsonResponse({ success: false, error: "Unauthorized" }, 401);
+    }
+    const tokens = await import("./api-tokens.js");
+    if (path === "/api/settings/tokens" && method === "GET") {
+      return this.jsonResponse({ tokens: tokens.listApiTokens() });
+    }
+    if (path === "/api/settings/tokens" && method === "POST") {
+      const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+      try {
+        const expiry = body?.expiresInDays ?? null;
+        return this.jsonResponse(
+          tokens.createApiToken(
+            String(body?.name ?? ""),
+            expiry as import("./api-tokens.js").TokenExpiryDays
+          ),
+          201
+        );
+      } catch (error) {
+        return this.jsonResponse(
+          { error: error instanceof Error ? error.message : "Token not created" },
+          400
+        );
+      }
+    }
+    const revoke = /^\/api\/settings\/tokens\/([A-Za-z0-9-]{1,64})$/.exec(path);
+    if (revoke && method === "DELETE") {
+      return tokens.revokeApiToken(revoke[1]!)
+        ? this.jsonResponse({ success: true })
+        : this.jsonResponse({ error: "Token not found" }, 404);
+    }
+    return this.jsonResponse({ error: "Not found" }, 404);
+  }
+
+  /** Profile catch-up: a preview for anyone with API access; runs only from this machine. */
+  private async handleCatchUpRoute(
+    req: Request,
+    path: string,
+    method: string,
+    remoteAddress: string | undefined
+  ): Promise<Response | null> {
+    const catchUp = await import("../importer/web-import-api.js");
+    if (path === "/api/settings/profile/catch-up" && method === "GET") {
+      return this.jsonResponse({
+        preview: await catchUp.previewCatchUp(),
+        job: catchUp.catchUpState(),
+      });
+    }
+    const action = /^\/api\/settings\/profile\/catch-up\/(start|pause|resume)$/.exec(path)?.[1];
+    if (!action || method !== "POST") return null;
+    if (!isLoopbackAddress(remoteAddress) || !isAuthorizedApiRequest(req)) {
+      return this.jsonResponse({ error: "Only this machine can run a profile catch-up" }, 403);
+    }
+    if (action === "pause") return this.jsonResponse(catchUp.pauseCatchUp());
+    try {
+      const job = await catchUp.startCatchUp(this.config.directory ?? process.cwd());
+      return this.jsonResponse(job, 202);
+    } catch (error) {
+      return this.jsonResponse(
+        { error: error instanceof Error ? error.message : "Catch-up not started" },
+        (error as { status?: number }).status ?? 400
+      );
+    }
+  }
+
+  /** Set or clear the browser password. The body holds the password: never log or echo it. */
+  private async handleWebPassword(
+    req: Request,
+    remoteAddress: string | undefined
+  ): Promise<Response> {
+    if (!isLoopbackAddress(remoteAddress) || !isAuthorizedApiRequest(req)) {
+      return this.jsonResponse({ error: "Only this machine can change the browser password" }, 403);
+    }
+    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    const password = typeof body?.password === "string" ? body.password : "";
+    if (typeof body?.revision !== "string") {
+      return this.jsonResponse({ error: "Revision required" }, 400);
+    }
+    try {
+      const { clearWebPassword, saveWebPassword } = await import("./web-password.js");
+      const result =
+        body.clear === true
+          ? await clearWebPassword(body.revision)
+          : await saveWebPassword(
+              password,
+              typeof body.username === "string" ? body.username : undefined,
+              body.revision
+            );
+      const { refreshConfigIfChanged } = await import("../config.js");
+      refreshConfigIfChanged(this.config.directory ?? process.cwd());
+      return this.jsonResponse(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Password not saved";
+      return this.jsonResponse(
+        { error: password ? message.replaceAll(password, "[redacted]") : message },
+        (error as { status?: number }).status ?? 400
+      );
+    }
+  }
+
+  /** Embedding card routes. Changing the embedder needs a caller on this machine with the local token. */
+  private async handleEmbeddingRoute(
+    req: Request,
+    path: string,
+    method: string,
+    remoteAddress: string | undefined
+  ): Promise<Response | null> {
+    const change = await import("./embedding-change.js");
+    if (path === "/api/settings/embedding" && method === "GET") {
+      return this.jsonResponse(await change.currentEmbedding());
+    }
+    if (path === "/api/settings/embedding/run" && method === "GET") {
+      return this.jsonResponse(change.embeddingRunState());
+    }
+    const routes = ["/api/settings/embedding/test", "/api/settings/embedding/apply"];
+    if (method !== "POST" || ![...routes, "/api/settings/embedding/run"].includes(path))
+      return null;
+    if (!isLoopbackAddress(remoteAddress) || !isAuthorizedApiRequest(req)) {
+      return this.jsonResponse({ error: "Only this machine can change the embedder" }, 403);
+    }
+    // The body can hold a pasted key: never log it, and never echo it back.
+    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    const pasted = (body?.candidate ?? body) as { key?: { value?: unknown } } | null;
+    const secret = typeof pasted?.key?.value === "string" ? pasted.key.value.trim() : "";
+    try {
+      if (path === "/api/settings/embedding/test") {
+        return this.jsonResponse(
+          await change.testEmbeddingCandidate(change.parseEmbeddingCandidate(body))
+        );
+      }
+      if (path === "/api/settings/embedding/run") {
+        await change.startReembed();
+        return this.jsonResponse(change.embeddingRunState(), 202);
+      }
+      if (typeof body?.revision !== "string") {
+        return this.jsonResponse({ error: "Revision required" }, 400);
+      }
+      const { refreshConfigIfChanged } = await import("../config.js");
+      await change.applyEmbeddingCandidate(
+        change.parseEmbeddingCandidate(body.candidate),
+        body.revision,
+        () => {
+          refreshConfigIfChanged(this.config.directory ?? process.cwd());
+        }
+      );
+      return this.jsonResponse(change.embeddingRunState(), 202);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Embedder not changed";
+      const status = (error as { status?: number }).status ?? 400;
+      return this.jsonResponse(
+        { error: secret ? message.replaceAll(secret, "[redacted]") : message },
+        status
+      );
+    }
+  }
+
   private scheduleStepAside(): void {
     if (this.stepAsideTimer) return;
     this.stepAsideTimer = setTimeout(async () => {
@@ -427,9 +593,20 @@ export class WebServer {
       .then(({ sweepOrphanSnapshots }) => sweepOrphanSnapshots())
       .catch(() => {});
 
+    const tokens = await import("./api-tokens.js");
+    try {
+      // `webServerApiToken` is imported into the token table once, then no longer read.
+      if (tokens.importConfigApiToken(this.config.apiToken)) {
+        log("Imported webServerApiToken into the API token table");
+      }
+    } catch (error) {
+      log("Importing webServerApiToken failed", {
+        code: error instanceof Error ? error.name : "unknown",
+      });
+    }
     assertWebServerNetworkAuth(
       this.config.host,
-      this.config.apiToken,
+      tokens.hasUnexpiredApiToken(),
       this.config.auth?.isEnabled() ?? false
     );
 
@@ -603,10 +780,9 @@ export class WebServer {
 
   async checkServerAvailable(): Promise<boolean> {
     try {
-      const headers = this.config.apiToken
-        ? { Authorization: `Bearer ${this.config.apiToken}` }
-        : undefined;
-      const endpoint = this.config.apiToken ? "/api/stats" : "/api/health";
+      // Only a web app on this machine answers here, so the local token file is enough.
+      const headers = { [AUTH_HEADER]: getOrCreateAuthToken() };
+      const endpoint = "/api/health";
       const response = await fetch(`${this.getUrl()}${endpoint}`, {
         method: "GET",
         headers,
@@ -655,10 +831,8 @@ export class WebServer {
       !(path.startsWith("/api/settings") && auth?.isEnabled()) &&
       !isAuthorizedApiRequest(req)
     ) {
-      const configuredTokenFailure = this.config.apiToken
-        ? authorizeApiRequest(req, this.config.apiToken)
-        : null;
-      if (!this.config.apiToken || configuredTokenFailure) {
+      const tokenFailure = authorizeApiRequest(req);
+      if (tokenFailure) {
         if (path === "/api/web/step-aside") {
           log("Web server step-aside request", {
             outcome: "refused_auth",
@@ -673,10 +847,7 @@ export class WebServer {
             ownVersion: packageVersion(),
           });
         }
-        return (
-          configuredTokenFailure ??
-          this.jsonResponse({ success: false, error: "Unauthorized" }, 401)
-        );
+        return tokenFailure;
       }
     }
 
@@ -685,10 +856,8 @@ export class WebServer {
         return this.jsonResponse({ error: "JSON content type required" }, 415);
       }
       if (!isLoopbackHost(this.config.host) && !auth?.isEnabled()) {
-        const denied = authorizeApiRequest(req, this.config.apiToken);
-        if (!this.config.apiToken || denied) {
-          return denied ?? this.jsonResponse({ error: "Unauthorized" }, 401);
-        }
+        const denied = authorizeApiRequest(req);
+        if (denied) return denied;
       }
     }
 
@@ -722,7 +891,19 @@ export class WebServer {
 
       if (path === "/api/settings" && method === "GET") {
         const { getSettingsSnapshot } = await import("./settings-snapshot.js");
-        return this.jsonResponse(getSettingsSnapshot(this.config.directory ?? process.cwd()));
+        const snapshot = getSettingsSnapshot(this.config.directory ?? process.cwd());
+        // The Keys card needs evidence that Claude Code uses OMMS; the default folder is not enough.
+        let attempts = false;
+        try {
+          const { hasCaptureAttempts } = await import("./capture-attempt-store.js");
+          attempts = await hasCaptureAttempts("claude-code");
+        } catch {
+          // No diagnostics store yet: no evidence.
+        }
+        return this.jsonResponse({
+          ...snapshot,
+          claudeCodeEvidence: { attempts, folderSet: snapshot.claudeFolder.source === "setting" },
+        });
       }
 
       if (path === "/api/settings/backfill" && method === "GET") {
@@ -758,6 +939,8 @@ export class WebServer {
         return this.jsonResponse({
           version: packageVersion(),
           canControl: isLoopbackAddress(remoteAddress) && this.onPowerActionCallback !== null,
+          // Keys, tokens, and the embedder can be changed only from this machine.
+          isLocal: isLoopbackAddress(remoteAddress),
           instance: PROCESS_INSTANCE,
         });
       }
@@ -890,6 +1073,24 @@ export class WebServer {
         }
       }
 
+      if (path === "/api/settings/tokens" || path.startsWith("/api/settings/tokens/")) {
+        return this.handleTokenRoute(req, path, method, remoteAddress);
+      }
+
+      if (path.startsWith("/api/settings/profile/catch-up")) {
+        const response = await this.handleCatchUpRoute(req, path, method, remoteAddress);
+        if (response) return response;
+      }
+
+      if (path === "/api/settings/web-password" && method === "POST") {
+        return this.handleWebPassword(req, remoteAddress);
+      }
+
+      if (path.startsWith("/api/settings/embedding")) {
+        const response = await this.handleEmbeddingRoute(req, path, method, remoteAddress);
+        if (response) return response;
+      }
+
       if (path === "/api/settings/external-api/test" && method === "POST") {
         const { testExternalApi } = await import("../importer/web-import-api.js");
         return this.jsonResponse(await testExternalApi());
@@ -916,8 +1117,12 @@ export class WebServer {
           import("./capture-retry-queue.js"),
         ]);
         const days = Math.max(1, Math.min(90, Number(url.searchParams.get("days")) || 7));
+        const host = url.searchParams.get("host") || undefined;
+        if (host && !["opencode", "pi", "claude-code"].includes(host)) {
+          return this.jsonResponse({ error: "Invalid host" }, 400);
+        }
         return this.jsonResponse({
-          ...(await queryCaptureAttempts(Date.now() - days * 86400000, Date.now())),
+          ...(await queryCaptureAttempts(Date.now() - days * 86400000, Date.now(), 100, host)),
           retryQueue: await countCaptureRetries(CONFIG),
         });
       }
@@ -967,7 +1172,7 @@ export class WebServer {
             directory: this.config.directory ?? process.cwd(),
             host: this.config.host,
             authEnabled: auth?.isEnabled() ?? false,
-            apiTokenSet: Boolean(this.config.apiToken),
+            apiTokenSet: (await import("./api-tokens.js")).hasUnexpiredApiToken(),
             testModels: body.testModels === true,
           })
         );

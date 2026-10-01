@@ -75,10 +75,13 @@ Open `http://127.0.0.1:4747/settings`, or select the cogwheel in the sidebar foo
 
 - **External API.** Set up your own OpenAI- or Anthropic-compatible endpoint and its key, and test it.
 - **Models.** Choose the capture model for each host.
+- **Embedding.** See and change the embedder, test it, and re-embed every memory.
+- **Keys and access.** See which credentials are set, manage API tokens, and set the browser password.
 - **Capture diagnostics.** See capture outcomes and failures, and manage debug traces.
 - **Health.** Check that each part of OMMS works.
 - **Import and backfill.** Import past chats by hand.
 - **Automatic import.** Control the background import of past chats, watch its progress, and run, pause, or resume it.
+- **Profile learning.** Clear the backlog of prompts that wait for profile learning.
 - **Directory maps.** Tell OMMS where chats from deleted folders belong.
 - **Web app.** Control the login item and check the installed version.
 - **Log.** Read the latest OMMS log lines.
@@ -91,16 +94,36 @@ Some terminals send local addresses through their own proxy. For example, Orca o
 
 ## Network access
 
-Keep `webServerHost` on `127.0.0.1` unless you mean to open the web app to other computers.
+Keep `webServerHost` on `127.0.0.1` unless you mean to open the web app to other computers. Loopback means your own computer only.
 
-A non-loopback host, such as `0.0.0.0`, needs `webServerApiToken`. Loopback means your own computer only.
+A web app on a non-loopback host, such as `0.0.0.0`, starts only when one of these exists:
 
-- Every `/api/*` request must then send `Authorization: Bearer <token>` or the `X-Omms-Token` header. The old `X-Opencode-Mem-Token` header still works.
-- Open the page once with `?apiToken=<token>`. The browser stores the token and sends it.
+- an API token that has not expired;
+- a browser password (HTTP Basic Auth).
+
+Otherwise it refuses to start. The error tells you to create an API token on the Settings page, set a browser password, or bind to `127.0.0.1`.
+
+### API tokens
+
+Create API tokens on the Settings page, in the **Keys and access** card. See [Settings page: API tokens](web-ui-settings.md#api-tokens).
+
+- Each token has a name and an expiry: 7, 30, or 90 days, or never.
+- The page shows the value once. OMMS keeps only a SHA-256 hash in `~/.omms/api-tokens.json` (mode `0600`).
+- A script sends the token as `Authorization: Bearer <token>` or in the `X-Omms-Token` header. The old `X-Opencode-Mem-Token` header still works.
+- An expired or revoked token gets `401`.
+- Only a caller on this computer with the local token file (`~/.omms/.auth-token`) can create, list, or revoke tokens.
+
+API tokens replace `webServerApiToken`. At the first start after the upgrade, OMMS imports that config value once as the token `from config file`, with no expiry. From then on, OMMS does not read the key. See [Upgrading: API tokens](upgrading.md#api-tokens-replace-webserverapitoken).
+
+The hosts, the Claude Code hooks, the page, and the `om-memory-system web` commands use the local token file. They need no API token.
 
 ## HTTP Basic Auth
 
-On a network address, anyone on the network can reach the web app. Add a password with HTTP Basic Auth in the global config:
+On a network address, anyone on the network can reach the web app. Add a password with HTTP Basic Auth.
+
+To set it on the Settings page, open **Keys and access**, then **Browser password**. The page saves the password to a private key file and writes the config keys for you. See [Settings page: Browser password](web-ui-settings.md#browser-password). Restart the web app to use a new password.
+
+You can also set it in the global config:
 
 ```jsonc
 {
@@ -131,7 +154,9 @@ Some Settings actions are refused on a network address without Basic Auth: turni
 
 ## Re-embedding
 
-Changing the embedding model's size migrates each memory store file safely:
+Change the embedder on the Settings page, in the **Embedding** card. See [Settings page: Embedding](web-ui-settings.md#embedding). OMMS re-embeds a store file when its vector size or its stored model name differs from the configured embedder. A store file from an older version with no stored model name is re-embedded only when its size differs.
+
+A re-embed migrates each memory store file safely:
 
 1. OMMS makes every new embedding first.
 2. It writes them into a temporary file and checks the row count.

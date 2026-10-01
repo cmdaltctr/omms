@@ -8,6 +8,8 @@ import {
 } from "../../config.js";
 import { pruneTraces } from "../../services/capture-diagnostics.js";
 import { executeMemoryOperation } from "../../core/memory-operations.js";
+import { memoryToolDescription } from "../../core/memory-tool-text.js";
+import { isTrivialPrompt } from "../../core/trivial-prompt.js";
 import { getLanguageName } from "../../services/language-detector.js";
 import { log } from "../../services/logger.js";
 import { memoryClient } from "../../services/client.js";
@@ -294,8 +296,10 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
       });
 
       const settledPrompt = lastSettledUserPrompt(entries);
+      // Pi batches this session's prompts in memory, so they are recent by design.
       if (
         settledPrompt &&
+        !isTrivialPrompt(settledPrompt) &&
         CONFIG.userProfileAnalysisInterval > 0 &&
         !memoryClient.getEmbeddingInitError?.()
       ) {
@@ -340,9 +344,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "memory",
     label: "Memory",
-    description: `Manage and query project memory (MATCH USER LANGUAGE: ${getLanguageName(
-      CONFIG.autoCaptureLanguage || "en"
-    )}). Use 'search' with technical keywords/tags, 'add' to store knowledge, 'profile' for preferences. Use migrate/list-shards/export/import when a project directory moves. Search/list scope: project or all-projects.`,
+    description: memoryToolDescription(getLanguageName(CONFIG.autoCaptureLanguage || "en")),
     parameters: Type.Object({
       mode: Type.Optional(Type.Union(MEMORY_TOOL_MODES.map((mode) => Type.Literal(mode)))),
       content: Type.Optional(Type.String()),

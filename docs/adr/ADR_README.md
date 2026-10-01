@@ -18,3 +18,5 @@ Local decision records for OMMS maintainers.
 | [012](./012-capture-retry-queue-stores-cleaned-turns.md)   | Keep cleaned failed turns for a limited time to retry capture     | 2026-09-28 | Proposed |
 | [013](./013-claude-code-host-through-hooks-and-web-app.md) | Claude Code host through hooks and the web app                    | 2026-09-29 | Proposed |
 | [014](./014-one-shared-web-app-for-every-host.md)          | One shared web app for every host                                 | 2026-09-29 | Accepted |
+| [015](./015-managed-api-tokens-and-embedding-changes.md)   | Managed API tokens and a tested embedding change                  | 2026-09-30 | Proposed |
+| [016](./016-one-memory-skill-for-every-host.md)            | One memory skill for every host                                   | 2026-09-30 | Proposed |

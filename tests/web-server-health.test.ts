@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { createServer } from "node:http";
+import { getOrCreateAuthToken } from "../src/services/auth-token.js";
 import { WebServer, nextFallbackPort } from "../src/services/web-server.js";
 
 describe("web server health check", () => {
@@ -12,12 +13,12 @@ describe("web server health check", () => {
     );
   });
 
-  it("authenticates the stats request when an API token is configured", async () => {
+  it("sends the local token, not the config token, when it checks for a web app", async () => {
     const originalFetch = globalThis.fetch;
     let requestHeaders: Headers | undefined;
     globalThis.fetch = async (_input, init) => {
       requestHeaders = new Headers(init?.headers);
-      return new Response(JSON.stringify({ success: true }), { status: 200 });
+      return new Response(JSON.stringify({ success: true, status: "ok" }), { status: 200 });
     };
 
     try {
@@ -29,7 +30,8 @@ describe("web server health check", () => {
       });
 
       expect(await server.checkServerAvailable()).toBe(true);
-      expect(requestHeaders?.get("Authorization")).toBe("Bearer health-token");
+      expect(requestHeaders?.get("Authorization")).toBeNull();
+      expect(requestHeaders?.get("x-omms-token")).toBe(getOrCreateAuthToken());
     } finally {
       globalThis.fetch = originalFetch;
     }

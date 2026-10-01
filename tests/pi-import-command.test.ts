@@ -194,7 +194,7 @@ for (const args of [["init", "-q"], ["config", "user.email", "test@example.inval
 const root = base + "/sessions";
 mkdirSync(root);
 writeV3Session({ file: root + "/s.jsonl", sessionId: "s", cwd: project,
-  windows: [{ userText: "Improve importer", assistantText: "Done" }] });
+  windows: [{ userText: "Improve the history importer speed", assistantText: "Done" }] });
 const filters = { scope: "all-projects", currentDirectory: project, root };
 const provider = { summarize: async () => ({ type: "skip", summary: "", tags: [] }) };
 const model = { provider: "test", modelId: "cheap", complete: async () =>

@@ -10,3 +10,4 @@ export { stopStandaloneOpencodeReads } from "./opencode-standalone-models.js";
 export { BackfillControls } from "./backfill-controls.js";
 export { directoryMapsView } from "./map-suggestions.js";
 export { testExternalApi } from "./external-api-test.js";
+export { catchUpState, pauseCatchUp, previewCatchUp, startCatchUp } from "./profile-catch-up.js";

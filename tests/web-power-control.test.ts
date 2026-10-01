@@ -86,17 +86,23 @@ result.own = own;
 `);
     expect(result.noCallback).toEqual({
       status: 200,
-      body: { version: result.own, canControl: false, instance: expect.any(String) },
+      body: { version: result.own, canControl: false, isLocal: true, instance: expect.any(String) },
     });
     expect(result.loopback.body).toEqual({
       version: result.own,
       canControl: true,
+      isLocal: true,
       instance: expect.any(String),
     });
     expect(result.mapped.body.canControl).toBe(true);
     expect(result.remote).toEqual({
       status: 200,
-      body: { version: result.own, canControl: false, instance: expect.any(String) },
+      body: {
+        version: result.own,
+        canControl: false,
+        isLocal: false,
+        instance: expect.any(String),
+      },
     });
     expect(result.noToken).toBe(401);
   });

@@ -1,5 +1,5 @@
 import { isStructuredSummaryPromptMessage } from "../core/internal-prompt.js";
-import { analyzeProfile, type ModelPort } from "../core/profile-analysis.js";
+import type { ModelPort } from "../core/profile-analysis.js";
 import { isFullyPrivate, stripPrivateContent } from "../services/privacy.js";
 import { getTags } from "../services/tags.js";
 import { userProfileManager } from "../services/user-profile/user-profile-manager.js";
@@ -8,6 +8,7 @@ import type { MemoryHost } from "../types/index.js";
 import { buildImportKey, type ImportSourceSession } from "./importer.js";
 import { existsSync } from "node:fs";
 import { ImportLedger, importLedgerDbPath } from "./ledger.js";
+import { drainProfileBacklog } from "./profile-backlog.js";
 
 export interface ProfileImportReport {
   promptsRecorded: number;
@@ -125,53 +126,17 @@ export async function importProfileFromHistory(
     report.error = "Profile import needs a user email";
     return report;
   }
-  const model = options.model!;
-  while ((report.remaining = await prompts.countUnanalyzedForUserLearning()) > 0) {
-    if (options.signal?.aborted) break;
-    const batch = await prompts.getPromptsForUserLearning(batchSize);
-    if (batch.length === 0) break;
-    let succeeded = false;
-    for (let attempt = 0; attempt < 2 && !succeeded; attempt++) {
-      try {
-        const existing = await profiles.getActiveProfile(user.userEmail);
-        const context = batch.map((item, index) => `${index + 1}. ${item.content}`).join("\n");
-        const analysis = await analyzeProfile(
-          model,
-          context,
-          existing ? { id: existing.id, profileData: existing.profileData } : null
-        );
-        if (existing) {
-          if (
-            !analysis.merged ||
-            !(await profiles.updateProfile(
-              existing.id,
-              analysis.merged,
-              batch.length,
-              `History import of ${batch.length} prompts`
-            ))
-          )
-            throw new Error("Profile update conflict");
-        } else {
-          await profiles.createProfile(
-            user.userEmail,
-            user.displayName || user.userEmail,
-            user.userName || user.userEmail,
-            user.userEmail,
-            analysis.raw,
-            batch.length
-          );
-        }
-        await prompts.markMultipleAsUserLearningCaptured(batch.map((item) => item.id));
-        report.batchesBuilt++;
-        succeeded = true;
-      } catch (error) {
-        if (attempt === 1) {
-          report.error = error instanceof Error ? error.message : String(error);
-          report.remaining = await prompts.countUnanalyzedForUserLearning();
-          return report;
-        }
-      }
-    }
-  }
+  const drained = await drainProfileBacklog({
+    user: { ...user, userEmail: user.userEmail },
+    model: options.model!,
+    batchSize,
+    signal: options.signal,
+    label: "History import",
+    promptStore: prompts,
+    profileStore: profiles,
+  });
+  report.batchesBuilt += drained.batchesBuilt;
+  report.remaining = drained.remaining;
+  if (drained.error) report.error = drained.error;
   return report;
 }

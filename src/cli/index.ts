@@ -24,6 +24,7 @@ Commands:
   web                       Start the web app in the foreground
   web install|uninstall|status  Manage the web app login item
   memory <mode> [options]   Search, add, list, or forget memories (run with --help)
+  profile-catch-up          Analyse every prompt waiting for profile learning (run with --help)
   claude-hook <event>       Run a Claude Code hook (used by the Claude Code plugin)
 
 Options:
@@ -66,6 +67,10 @@ export async function runCli(argv: string[]): Promise<number> {
   if (argv[0] === "memory") {
     const { runMemoryCommand } = await import("./memory-command.js");
     return await runMemoryCommand(argv.slice(1));
+  }
+  if (argv[0] === "profile-catch-up") {
+    const { runProfileCatchUpCommand } = await import("./profile-catch-up-command.js");
+    return await runProfileCatchUpCommand(argv.slice(1));
   }
   if (argv[0] === "web") {
     try {

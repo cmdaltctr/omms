@@ -31,6 +31,20 @@ const keys = new Set([
   "claudeConfigDir",
 ]);
 
+/**
+ * Written only by the embedding apply route, together, after a passing test.
+ * The general settings save refuses them, so a change always re-embeds.
+ */
+export const EMBEDDING_KEYS = new Set([
+  "embeddingApiUrl",
+  "embeddingApiKey",
+  "embeddingModel",
+  "embeddingDimensions",
+]);
+
+/** Written only by the browser password route; the password itself lives in a private key file. */
+export const PASSWORD_KEYS = new Set(["webServerAuthPassword", "webServerAuthUsername"]);
+
 const MEMORY_PROVIDERS = [
   "openai-chat",
   "openai-responses",
@@ -48,6 +62,19 @@ export function isSecretReference(value: unknown): value is string {
 }
 
 function isValidEdit(key: string, value: unknown): boolean {
+  // `undefined` removes the key from the file.
+  if (key === "embeddingApiUrl") {
+    return value === undefined || (typeof value === "string" && /^https?:\/\/\S+$/.test(value));
+  }
+  if (key === "embeddingApiKey" || key === "webServerAuthPassword") {
+    return value === undefined || isSecretReference(value);
+  }
+  if (key === "webServerAuthUsername") {
+    return value === undefined || (typeof value === "string" && value.trim().length > 0);
+  }
+  if (key === "embeddingDimensions") {
+    return Number.isInteger(value) && (value as number) > 0 && (value as number) <= 65536;
+  }
   if (key === "captureTrace" || key === "autoBackfill" || key === "webServerAutoStart") {
     return typeof value === "boolean";
   }
@@ -97,16 +124,19 @@ let lastWrittenRevision: string | undefined;
 /** Write only page-editable keys; reject edits based on a stale config revision. */
 export async function writeGlobalConfigKeys(
   edits: Record<string, unknown>,
-  expectedRevision: string
+  expectedRevision: string,
+  /** A route that owns a separate set of keys passes it; the general save may not touch them. */
+  options: { only?: Set<string> } = {}
 ): Promise<{ revision: string; migratedLegacy: boolean }> {
   if (!edits || !Object.keys(edits).length) throw new Error("No settings to save");
   for (const [key, value] of Object.entries(edits)) {
-    if (!keys.has(key)) throw new Error(`Setting ${key} cannot be edited here`);
+    const allowed = options.only ? options.only.has(key) : keys.has(key);
+    if (!allowed) throw new Error(`Setting ${key} cannot be edited here`);
     if (!isValidEdit(key, value)) {
       // Never echo the value: a rejected memoryApiKey may be a literal key.
       throw new Error(
-        key === "memoryApiKey"
-          ? "memoryApiKey must be an env:// or file:// reference"
+        ["memoryApiKey", "embeddingApiKey", "webServerAuthPassword"].includes(key)
+          ? `${key} must be an env:// or file:// reference`
           : `Invalid ${key} setting`
       );
     }

@@ -22,6 +22,7 @@ import { Textarea } from "$lib/components/ui/textarea";
 import { setLanguage, useI18n } from "$lib/i18n";
 import type { Lang } from "$lib/i18n/translations";
 import { getDisplayedMemoryCount } from "$lib/memory-count";
+import { clearTagMigrationClose, rememberTagMigrationClose } from "$lib/tag-migration-prompt";
 import { initRouter, navigate, ROUTES, useAppView } from "$lib/router";
 
 const MEMORY_TYPES = [
@@ -420,9 +421,14 @@ export default function App() {
       />
       <TagMigrationDialog
         open={explorer.tagMigrationOpen}
-        onOpenChange={explorer.setTagMigrationOpen}
+        onOpenChange={(open) => {
+          // A Close is remembered, so the dialog does not return on every page load.
+          if (!open) rememberTagMigrationClose(explorer.tagMigrationCount);
+          explorer.setTagMigrationOpen(open);
+        }}
         count={explorer.tagMigrationCount}
         onComplete={() => {
+          clearTagMigrationClose();
           void explorer.loadMemories();
           void explorer.loadStats();
         }}

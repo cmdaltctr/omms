@@ -497,6 +497,12 @@ let learning = false;
 async function learnProfile(directory: string, deps: ClaudeHookDeps): Promise<void> {
   const interval = CONFIG.userProfileAnalysisInterval ?? 0;
   if (!(interval > 0) || learning) return;
+  const { profileBackoff, profileCatchUpLock, recordProfileFailure } =
+    await import("../core/profile-backoff.js");
+  // A catch-up run, here or in a terminal, analyses the same prompts; skip the live pass meanwhile.
+  if (!profileBackoff.canRun() || profileCatchUpLock.isActive()) return;
+  const { CatchUpLease } = await import("../services/user-prompt/profile-catch-up-lease.js");
+  if (await new CatchUpLease().isActive().catch(() => false)) return;
   learning = true;
   try {
     const [{ userPromptManager }, { userProfileManager }, { analyzeProfile }] = await Promise.all([
@@ -504,13 +510,16 @@ async function learnProfile(directory: string, deps: ClaudeHookDeps): Promise<vo
       import("../services/user-profile/user-profile-manager.js"),
       import("../core/profile-analysis.js"),
     ]);
+    await userPromptManager.skipTrivialPromptsForLearning();
     if ((await userPromptManager.countUnanalyzedForUserLearning()) < interval) return;
     const user = getTags(directory).user;
     if (!user.userEmail) {
       log("Claude Code profile learning skipped", { code: "no-user-email" });
       return;
     }
-    const batch = await userPromptManager.getPromptsForUserLearning(interval);
+    const batch = await userPromptManager.getPromptsForUserLearning(interval, {
+      recentFirst: true,
+    });
     if (batch.length === 0) return;
     const model = deps.profileModel?.() ?? (await externalModels()).profile;
     const existing = await userProfileManager.getActiveProfile(user.userEmail);
@@ -541,12 +550,13 @@ async function learnProfile(directory: string, deps: ClaudeHookDeps): Promise<vo
       );
     }
     await userPromptManager.markMultipleAsUserLearningCaptured(batch.map((prompt) => prompt.id));
+    profileBackoff.recordSuccess();
     log("Claude Code profile learning finished", {
       prompts: batch.length,
       hadExisting: Boolean(existing),
     });
   } catch (error) {
-    log("Claude Code profile learning failed", { code: errorCode(error) });
+    recordProfileFailure("claude-code", "Claude Code profile learning failed", error);
   } finally {
     learning = false;
   }

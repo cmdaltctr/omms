@@ -10,11 +10,15 @@ import {
 } from "../core/extraction.js";
 import type { CaptureSummaryProvider } from "../core/host.js";
 import type { ModelPort } from "../core/profile-analysis.js";
+import { ProfileModelError, profileResultCode } from "../core/profile-failure.js";
 import { AIProviderFactory } from "../services/ai/ai-provider-factory.js";
 import { toolCallFailureReason } from "../services/ai/providers/base-provider.js";
 import { buildMemoryProviderConfig } from "../services/ai/provider-config.js";
 import { resolveSecretValue } from "../services/secret-resolver.js";
 import type { AIProviderType } from "../services/ai/session/session-types.js";
+
+/** The same limit the Pi and OpenCode host-model profile paths use. */
+export const PROFILE_REQUEST_TIMEOUT_MS = 120_000;
 
 export interface ImportModelFlags {
   provider?: string;
@@ -50,18 +54,29 @@ export function selectImportModel(flags: ImportModelFlags): SelectedImportModel 
   if (!AIProviderFactory.getSupportedProviders().includes(providerName as AIProviderType)) {
     throw new Error(`Unsupported import provider: ${providerName}`);
   }
+  const settings = {
+    ...CONFIG,
+    memoryProvider: providerName,
+    memoryModel: modelId,
+    memoryApiUrl: apiUrl,
+    memoryApiKey: key,
+  };
   const provider = AIProviderFactory.createProvider(
     providerName as AIProviderType,
-    buildMemoryProviderConfig({
-      ...CONFIG,
-      memoryProvider: providerName,
-      memoryModel: modelId,
-      memoryApiUrl: apiUrl,
-      memoryApiKey: key,
-    })
+    buildMemoryProviderConfig(settings)
+  );
+  // A profile reply can take over a minute; captures keep autoCaptureIterationTimeout.
+  const profileProvider = AIProviderFactory.createProvider(
+    providerName as AIProviderType,
+    buildMemoryProviderConfig(settings, { iterationTimeout: PROFILE_REQUEST_TIMEOUT_MS })
   );
   const capture: CaptureSummaryProvider = {
     async summarize(request) {
+      if (request.diagnostics) {
+        request.diagnostics.path = "external-api";
+        request.diagnostics.provider = providerName;
+        request.diagnostics.model = modelId ?? "";
+      }
       const { detectLanguage, getLanguageName } = await import("../services/language-detector.js");
       const target =
         CONFIG.autoCaptureLanguage && CONFIG.autoCaptureLanguage !== "auto"
@@ -119,13 +134,13 @@ export function selectImportModel(flags: ImportModelFlags): SelectedImportModel 
           parameters: z.toJSONSchema(createUserProfileAnalysisSchema(z)),
         },
       };
-      const result = await provider.executeToolCall(
+      const result = await profileProvider.executeToolCall(
         system,
         prompt,
         tool,
         `history-profile-${randomUUID()}`
       );
-      if (!result.success || !result.data) throw new Error("History profile model call failed");
+      if (!result.success || !result.data) throw new ProfileModelError(profileResultCode(result));
       return typeof result.data === "string" ? result.data : JSON.stringify(result.data);
     },
   };

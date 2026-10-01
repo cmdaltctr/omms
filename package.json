@@ -124,10 +124,14 @@
   "pi": {
     "extensions": [
       "./dist/adapters/pi/extension.js"
+    ],
+    "skills": [
+      "./skills"
     ]
   },
   "files": [
     "dist",
+    "skills",
     "package.json"
   ],
   "lint-staged": {

@@ -60,4 +60,25 @@ describe("Claude Code plugin assets", () => {
     expect(skill).toContain("om-memory-system memory add --content");
     expect(skill).toContain("<private>");
   });
+
+  it("skill serves every host: tool when present, command otherwise, with its triggers", () => {
+    const skill = readFileSync(join(root, "skills/omms-memory/SKILL.md"), "utf8");
+    const description = skill.match(/^description: (.+)$/m)?.[1] ?? "";
+    for (const trigger of [
+      "debug",
+      "investigat",
+      "we fixed this before",
+      "last time",
+      "remember",
+      "did we",
+      "convention",
+    ]) {
+      expect(description.toLowerCase()).toContain(trigger);
+    }
+    expect(skill).toContain("`memory` tool");
+    expect(skill).toContain('mode: "search"');
+    expect(skill).toContain("om-memory-system memory search");
+    expect(skill).toMatch(/all-projects/);
+    expect(skill).toMatch(/Never store secrets/);
+  });
 });

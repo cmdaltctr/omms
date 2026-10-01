@@ -1,3 +1,4 @@
+import { verifyApiToken } from "./api-tokens.js";
 import { getRequestToken } from "./auth-token.js";
 
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]", "0:0:0:0:0:0:0:1"]);
@@ -24,25 +25,29 @@ export function webServerUrl(host: string, port: number): string {
 
 export function assertWebServerNetworkAuth(
   host: string,
-  apiToken?: string,
+  tokenAvailable = false,
   basicAuthEnabled = false
 ): void {
-  if (!isLoopbackHost(host) && !apiToken && !basicAuthEnabled) {
+  if (!isLoopbackHost(host) && !tokenAvailable && !basicAuthEnabled) {
     throw new Error(
-      `webServerHost "${host}" exposes the API on the network. Set webServerApiToken in omms.jsonc, or bind to 127.0.0.1.`
+      `webServerHost "${host}" exposes the API on the network. Create an API token on the Settings page, set a browser password, or bind to 127.0.0.1.`
     );
   }
 }
 
-export function authorizeApiRequest(req: Request, apiToken?: string): Response | null {
-  if (!apiToken) return null;
-
+/**
+ * Authorise a request by an API token from the token table, sent as a bearer
+ * token or in the OMMS token header. `webServerApiToken` is not read here.
+ */
+export function authorizeApiRequest(
+  req: Request,
+  verify: (value: string) => boolean = verifyApiToken
+): Response | null {
   const header = req.headers.get("authorization");
   const bearer = header?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
-  const alt = getRequestToken(req);
-  const token = bearer || alt;
+  const token = bearer || getRequestToken(req);
 
-  if (token && token === apiToken) {
+  if (token && verify(token)) {
     return null;
   }
 

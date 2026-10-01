@@ -3,6 +3,9 @@ import { tursoConnectionManager } from "../turso/connection-manager.js";
 import { CONFIG } from "../../config.js";
 import type { InValue } from "@libsql/client";
 import type { TursoDb } from "../turso/turso-db.js";
+import { isTrivialPrompt } from "../../core/trivial-prompt.js";
+
+const RECENT_LEARNING_WINDOW_MS = 7 * 86_400_000;
 
 const USER_PROMPTS_DB_NAME = "user-prompts.db";
 
@@ -267,8 +270,29 @@ export class UserPromptManager {
     return Number(row?.count ?? 0);
   }
 
-  async getPromptsForUserLearning(limit: number): Promise<UserPrompt[]> {
+  /**
+   * Waiting prompts, oldest first. With `recentFirst`, a live pass takes the
+   * prompts of the last 7 days newest first, so an imported backlog cannot
+   * starve it; with none waiting it falls back to the oldest.
+   */
+  async getPromptsForUserLearning(
+    limit: number,
+    options: { recentFirst?: boolean; now?: number } = {}
+  ): Promise<UserPrompt[]> {
     const db = await this.ready();
+    if (options.recentFirst) {
+      const since = (options.now ?? Date.now()) - RECENT_LEARNING_WINDOW_MS;
+      const recent = await db.all(
+        `
+        SELECT * FROM user_prompts
+        WHERE user_learning_captured = 0 AND created_at >= ?
+        ORDER BY created_at DESC
+        LIMIT ?
+      `,
+        [since, limit]
+      );
+      if (recent.length > 0) return recent.map((row) => this.rowToPrompt(row));
+    }
     const rows = await db.all(
       `
       SELECT * FROM user_prompts
@@ -279,6 +303,28 @@ export class UserPromptManager {
       [limit]
     );
     return rows.map((row) => this.rowToPrompt(row));
+  }
+
+  /** Mark waiting trivial prompts learned without a model call; returns how many. */
+  async skipTrivialPromptsForLearning(): Promise<number> {
+    const ids = await this.waitingTrivialPromptIds();
+    await this.markMultipleAsUserLearningCaptured(ids);
+    return ids.length;
+  }
+
+  /** Waiting trivial prompts, counted without changing them; a preview uses this. */
+  async countTrivialPromptsForLearning(): Promise<number> {
+    return (await this.waitingTrivialPromptIds()).length;
+  }
+
+  private async waitingTrivialPromptIds(): Promise<string[]> {
+    const db = await this.ready();
+    const rows = await db.all(
+      `SELECT id, content FROM user_prompts
+      WHERE user_learning_captured = 0
+        AND length(trim(content, ' ' || char(9, 10, 11, 12, 13))) < 20`
+    );
+    return rows.filter((row) => isTrivialPrompt(String(row.content))).map((row) => String(row.id));
   }
 
   async markAsUserLearningCaptured(promptId: string): Promise<void> {

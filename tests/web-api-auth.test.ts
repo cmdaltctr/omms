@@ -12,19 +12,20 @@ describe("web api auth", () => {
     expect(isLoopbackHost("0.0.0.0")).toBe(false);
   });
 
-  it("requires api token for non-loopback hosts", () => {
-    expect(() => assertWebServerNetworkAuth("0.0.0.0")).toThrow(/webServerApiToken/);
-    expect(() => assertWebServerNetworkAuth("0.0.0.0", "secret")).not.toThrow();
+  it("requires an api token or a password for non-loopback hosts", () => {
+    expect(() => assertWebServerNetworkAuth("0.0.0.0")).toThrow(/API token.*browser password/);
+    expect(() => assertWebServerNetworkAuth("0.0.0.0", true)).not.toThrow();
+    expect(() => assertWebServerNetworkAuth("0.0.0.0", false, true)).not.toThrow();
     expect(() => assertWebServerNetworkAuth("127.0.0.1")).not.toThrow();
   });
 
   it("authorizes bearer and custom header tokens", () => {
-    const token = "test-token";
+    const token = (value: string) => value === "test-token";
     expect(authorizeApiRequest(new Request("http://localhost/api/stats"), token)?.status).toBe(401);
     expect(
       authorizeApiRequest(
         new Request("http://localhost/api/stats", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: "Bearer test-token" },
         }),
         token
       )
@@ -32,7 +33,7 @@ describe("web api auth", () => {
     expect(
       authorizeApiRequest(
         new Request("http://localhost/api/stats", {
-          headers: { "X-Omms-Token": token },
+          headers: { "X-Omms-Token": "test-token" },
         }),
         token
       )
@@ -41,7 +42,7 @@ describe("web api auth", () => {
     expect(
       authorizeApiRequest(
         new Request("http://localhost/api/stats", {
-          headers: { "X-Opencode-Mem-Token": token },
+          headers: { "X-Opencode-Mem-Token": "test-token" },
         }),
         token
       )
@@ -54,6 +55,5 @@ describe("web api auth", () => {
         token
       )?.status
     ).toBe(401);
-    expect(authorizeApiRequest(new Request("http://localhost/api/stats"), undefined)).toBeNull();
   });
 });

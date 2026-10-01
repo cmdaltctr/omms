@@ -14,9 +14,10 @@ import {
   reloadSettingsSnapshot,
   settingsRequest,
   withNote,
+  createLatestGate,
 } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
-import { hostLabel, type WebHost } from "$lib/host-label";
+import { hostLabel, hostName, type WebHost } from "$lib/host-label";
 
 type Attempt = {
   timestamp: number;
@@ -55,35 +56,49 @@ type Trace = { file: string; size: number };
 type Setting = { value: unknown; source: string };
 type Snapshot = { revision: string; settings: Record<string, Setting> };
 
+/** The server filters by host, so the recent list fills its limit with the chosen host alone. */
+export function diagnosticsPath(days: number, host: WebHost | "all"): string {
+  return `/api/settings/diagnostics?days=${days}${host === "all" ? "" : `&host=${host}`}`;
+}
+
 export function DiagnosticsSection() {
   const s = useSettingsText();
   const [days, setDays] = useState(7);
+  const [host, setHost] = useState<WebHost | "all">("all");
   const [data, setData] = useState<Diagnostics>();
   const [traces, setTraces] = useState<Trace[]>([]);
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [view, setView] = useState("");
   const [error, setError] = useState("");
   const [retryNote, setRetryNote] = useState("");
-  const refresh = useCallback(async (range: number) => {
-    const read = beginSettingsRead();
-    try {
-      const [attempts, files, settings] = await Promise.all([
-        settingsRequest<Diagnostics>(`/api/settings/diagnostics?days=${range}`),
-        settingsRequest<{ traces: Trace[] }>("/api/settings/traces"),
-        settingsRequest<Snapshot>("/api/settings"),
-      ]);
-      setData(attempts);
-      setTraces(files.traces);
-      // A save elsewhere may have published a newer revision while this ran.
-      if (read.isCurrent()) setSnapshot(settings);
-      setError("");
-    } catch (cause) {
-      setError((cause as Error).message);
-    }
-  }, []);
+  // A Host or range change can start a refresh while an older one still runs.
+  const [refreshes] = useState(createLatestGate);
+  const refresh = useCallback(
+    async (range: number, chosen: WebHost | "all") => {
+      const read = beginSettingsRead();
+      const isLatest = refreshes.begin();
+      try {
+        const [attempts, files, settings] = await Promise.all([
+          settingsRequest<Diagnostics>(diagnosticsPath(range, chosen)),
+          settingsRequest<{ traces: Trace[] }>("/api/settings/traces"),
+          settingsRequest<Snapshot>("/api/settings"),
+        ]);
+        if (!isLatest()) return;
+        setData(attempts);
+        setTraces(files.traces);
+        // A save elsewhere may have published a newer revision while this ran.
+        if (read.isCurrent()) setSnapshot(settings);
+        setError("");
+      } catch (cause) {
+        if (!isLatest()) return;
+        setError((cause as Error).message);
+      }
+    },
+    [refreshes]
+  );
   useEffect(() => {
-    void refresh(days);
-  }, [days, refresh]);
+    void refresh(days, host);
+  }, [days, host, refresh]);
   useEffect(() => onSettingsSnapshot((value) => setSnapshot(value as Snapshot)), []);
   async function save(edits: Record<string, boolean | number>) {
     if (!snapshot) return;
@@ -101,7 +116,7 @@ export function DiagnosticsSection() {
     if (!failure) {
       // A saved retention change can empty the queue, so an earlier Retry now note is stale.
       setRetryNote("");
-      await refresh(days);
+      await refresh(days, host);
       if (!reloaded) setError(s("Reload the page before saving again."));
       return;
     }
@@ -131,29 +146,29 @@ export function DiagnosticsSection() {
         method: "DELETE",
       });
       setView("");
-      await refresh(days);
+      await refresh(days, host);
     } catch (cause) {
       setError((cause as Error).message);
     }
   }
-  async function retryNow(host: RetryHost) {
+  async function retryNow(retryHost: RetryHost) {
     try {
       const { result } = await settingsRequest<{ result: "started" | "scheduled" | "running" }>(
-        `/api/settings/capture-retry/${host}/run`,
+        `/api/settings/capture-retry/${retryHost}/run`,
         { method: "POST", body: "{}" }
       );
       setRetryNote(
         result === "scheduled"
-          ? host === "pi"
+          ? retryHost === "pi"
             ? s("These turns retry at the next Pi session start.")
-            : host === "claude-code"
+            : retryHost === "claude-code"
               ? s("These turns retry at the next Claude Code session start.")
               : s("These turns retry at the next OpenCode session start.")
           : result === "running"
             ? s("A retry is already running.")
             : s("Retrying now.")
       );
-      await refresh(days);
+      await refresh(days, host);
     } catch (cause) {
       setError((cause as Error).message);
     }
@@ -179,6 +194,20 @@ export function DiagnosticsSection() {
           <option value={30}>{s("30 days")}</option>
           <option value={90}>{s("90 days")}</option>
         </Select>
+        {s("Host")}
+        <Select
+          aria-label={s("Host")}
+          className="rounded-lg border border-border bg-background px-2 py-1"
+          value={host}
+          onChange={(e) => setHost(e.target.value as WebHost | "all")}
+        >
+          <option value="all">{s("All")}</option>
+          {(["opencode", "pi", "claude-code"] as const).map((id) => (
+            <option key={id} value={id}>
+              {hostLabel(id)}
+            </option>
+          ))}
+        </Select>
       </label>
       {error && <p role="alert">{error}</p>}
       <div className={tableWrap}>
@@ -197,7 +226,7 @@ export function DiagnosticsSection() {
             {data?.byModel.map((row, index) => (
               <tr className={tr} key={`${row.host}-${row.provider}-${row.model}-${index}`}>
                 <td className={td}>
-                  <span className="text-muted-foreground">{row.host}</span>{" "}
+                  <span className="text-muted-foreground">{hostName(row.host)}</span>{" "}
                   <span className="font-mono text-xs">
                     {row.provider || row.model ? `${row.provider ?? ""}/${row.model ?? ""}` : "—"}
                   </span>
@@ -235,7 +264,7 @@ export function DiagnosticsSection() {
           <tbody>
             {data?.byReason.map((row, index) => (
               <tr className={tr} key={`${row.host}-${row.reason}-${index}`}>
-                <td className={cn(td, "text-muted-foreground")}>{row.host}</td>
+                <td className={cn(td, "text-muted-foreground")}>{hostName(row.host)}</td>
                 <td className={cn(td, "font-mono text-xs")}>{row.reason}</td>
                 <td className={cn(td, "text-end tabular-nums")}>{row.count}</td>
               </tr>
@@ -274,7 +303,7 @@ export function DiagnosticsSection() {
               <tr className={tr} key={`${row.timestamp}-${index}`}>
                 {[
                   new Date(row.timestamp).toLocaleString(),
-                  row.host,
+                  hostName(row.host),
                   row.sourceType,
                   row.sessionId,
                   row.path,

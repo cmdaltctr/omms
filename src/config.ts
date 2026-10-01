@@ -336,7 +336,7 @@ export const CONFIG_TEMPLATE = `{
   // Embedding Model (for similarity search)
   // ============================================
   // Local = Hugging Face / ONNX via @huggingface/transformers (not Apple MLX).
-  // Remote = set BOTH embeddingApiUrl and embeddingApiKey (OpenAI-compatible /embeddings).
+  // Remote = set embeddingApiUrl (OpenAI-compatible /embeddings); embeddingApiKey is optional.
   
   // Default: Nomic Embed v1 (768 dimensions, 8192 context, multilingual)
   "embeddingModel": "Xenova/nomic-embed-text-v1",
@@ -354,7 +354,7 @@ export const CONFIG_TEMPLATE = `{
   // "embeddingModel": "Xenova/all-MiniLM-L6-v2",            // 384 dims, very fast, 512 context
   // "embeddingModel": "Xenova/all-mpnet-base-v2",           // 768 dims, good quality, 512 context
   
-  // Optional: OpenAI-compatible API for embeddings (both URL and key required)
+  // Optional: OpenAI-compatible API for embeddings (URL required; key only if the server needs one)
   // "embeddingApiUrl": "https://api.openai.com/v1",
   // "embeddingApiKey": "env://OPENAI_API_KEY",  // or "sk-..." / "file:///path/to/key"
   // "embeddingModel": "text-embedding-3-small",  // 1536 dims, auto-detected
@@ -387,7 +387,8 @@ export const CONFIG_TEMPLATE = `{
   // "webServerAuthPassword": "",
   // "webServerAuthUsername": "",
 
-  // Required when webServerHost is not loopback. Protects /api/* with Bearer / X-Omms-Token (legacy X-Opencode-Mem-Token still works).
+  // Deprecated: imported once into the API token table, then no longer read.
+  // Create API tokens on the Settings page (Keys and access) instead.
   // "webServerApiToken": "env://OMMS_WEB_TOKEN",
   
   // ============================================
@@ -818,7 +819,8 @@ function buildConfig(fileConfig: OmmsConfig) {
       fileConfig.embeddingUseTaskPrefixes ?? DEFAULTS.embeddingUseTaskPrefixes,
     embeddingApiUrl: fileConfig.embeddingApiUrl,
     embeddingApiKey: fileConfig.embeddingApiUrl
-      ? resolveSecretValue(fileConfig.embeddingApiKey ?? process.env.OPENAI_API_KEY)
+      ? // No ambient OPENAI_API_KEY: an unset key means no Authorization header.
+        resolveSecretValue(fileConfig.embeddingApiKey)
       : undefined,
     similarityThreshold: fileConfig.similarityThreshold ?? DEFAULTS.similarityThreshold,
     maxMemories: fileConfig.maxMemories ?? DEFAULTS.maxMemories,

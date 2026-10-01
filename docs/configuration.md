@@ -20,7 +20,7 @@ On first start, if no config exists at all, the plugin creates a full commented 
   // Optional Nomic task prefixes (search_document: / search_query:). After enabling,
   // re-index existing memories so store and query vectors stay aligned.
   // "embeddingUseTaskPrefixes": true,
-  // Optional OpenAI-compatible embedding endpoint:
+  // Optional OpenAI-compatible embedding endpoint (the key is optional):
   // "embeddingApiUrl": "https://api.openai.com/v1",
   // "embeddingApiKey": "env://OPENAI_API_KEY",
   // "embeddingModel": "text-embedding-3-small",
@@ -31,9 +31,8 @@ On first start, if no config exists at all, the plugin creates a full commented 
   "webServerEnabled": true,
   "webServerAutoStart": true,
   "webServerPort": 4747,
-  // Required when webServerHost is not 127.0.0.1/localhost:
+  // Reach the web app from your network. Needs an API token or a browser password:
   // "webServerHost": "0.0.0.0",
-  // "webServerApiToken": "env://OMMS_WEB_TOKEN",
 
   "autoCaptureEnabled": true,
   "autoBackfill": true,
@@ -84,7 +83,9 @@ Open the Settings page in the login web app, in OpenCode, or with `om-memory-sys
 
 - The page writes only to the global file. It does not edit a project's config.
 - It can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `autoBackfill`, `opencodeBackfillModel`, `piBackfillModel`, `importPathMaps`, `claudeConfigDir`, `webServerAutoStart`, `captureTrace`, `captureTraceRetentionDays`, `captureAttemptRetentionDays`, `captureRetryRetentionHours`, `memoryProvider`, `memoryApiUrl`, `memoryModel`, and `memoryApiKey`.
-- The only credential it changes is `memoryApiKey`. It accepts only an `env://` or `file://` reference and rejects a literal key.
+- The general save changes only one credential, `memoryApiKey`. It accepts only an `env://` or `file://` reference and rejects a literal key.
+- The **Embedding** card changes `embeddingApiUrl`, `embeddingModel`, `embeddingDimensions`, and `embeddingApiKey` together, after a passing test. The general save refuses these keys.
+- The **Keys and access** card sets or clears the browser password. It writes `webServerAuthPassword` as a `file://` reference and `webServerAuthUsername`. The general save refuses these keys.
 - If you paste a key, the page saves it to a key file in `~/.config/omms/secrets/` and stores a `file://` reference to it. The folder and file are readable only by you.
 - `captureAttemptRetentionDays` defaults to 30. Both retention fields need at least 1 day.
 - `captureRetryRetentionHours` defaults to 72. It accepts whole hours from 0 to 720. 0 turns the capture retry queue off, and saving 0 deletes the waiting turns at once.
@@ -146,6 +147,13 @@ On the Settings page you can **Run now**, **Pause**, and **Resume** each host's 
 - The value must be an absolute path or start with `~/`. Any other value is a config error.
 - Live capture, history import, and automatic backfill all use it. A CLI `--root` still overrides it for one import.
 - Set it on the Settings page, in the **Claude Code folder** section. The page shows the folder in use and where it comes from.
+
+## Web app access
+
+- `webServerHost` defaults to `127.0.0.1`. A non-loopback host needs an unexpired API token or a browser password, or the web app refuses to start.
+- Manage API tokens on the Settings page. OMMS keeps them in `~/.omms/api-tokens.json`. See [Web UI: Network access](web-ui.md#network-access).
+- `webServerApiToken` is no longer read. At the first web app start after the upgrade, OMMS imports its value once as the API token `from config file`, with no expiry. OMMS does not change the config file. Later changes to the key have no effect. See [Upgrading: API tokens](upgrading.md#api-tokens-replace-webserverapitoken).
+- `webServerAuthPassword` and `webServerAuthUsername` turn on HTTP Basic Auth. See [Web UI: HTTP Basic Auth](web-ui.md#http-basic-auth).
 
 ## Global-only settings
 
@@ -248,14 +256,14 @@ Embeddings power similarity search for memories and the user profile. Set them i
 
 - There is **no MLX backend**. Local embeddings use `@huggingface/transformers` with ONNX, not Apple MLX.
 - **Local (default):** set only `embeddingModel`. On first use, OMMS downloads the model from Hugging Face and caches it under `{storagePath}/.cache` (default `~/.omms/data/.cache`).
-- **Remote (OpenAI-compatible):** set both `embeddingApiUrl` and `embeddingApiKey`. OMMS then calls `{embeddingApiUrl}/embeddings` with a Bearer token. `embeddingApiKey` accepts the same formats as `memoryApiKey`: a literal key, `env://…`, or `file://…`.
+- **Remote (OpenAI-compatible):** set `embeddingApiUrl`. OMMS then calls `{embeddingApiUrl}/embeddings`. `embeddingApiKey` is optional. OMMS sends it as a Bearer token only when it is set. A server on your computer, such as Ollama or llama.cpp, needs no key. OMMS no longer reads the `OPENAI_API_KEY` environment variable for embeddings. To use it, set `"embeddingApiKey": "env://OPENAI_API_KEY"`. `embeddingApiKey` accepts the same formats as `memoryApiKey`: a literal key, `env://…`, or `file://…`.
 
 | Key                   | Role                                                                                      |
 | --------------------- | ----------------------------------------------------------------------------------------- |
 | `embeddingModel`      | Hugging Face id (local) or API model name (remote). Default: `Xenova/nomic-embed-text-v1` |
 | `embeddingDimensions` | Optional override. Usually leave it out; OMMS looks up dimensions in a built-in map       |
 | `embeddingApiUrl`     | Base URL for an OpenAI-compatible embeddings API (no trailing path beyond `/v1`)          |
-| `embeddingApiKey`     | API key for that endpoint (required together with `embeddingApiUrl`)                      |
+| `embeddingApiKey`     | Optional API key for that endpoint. Sent only when set                                    |
 
 Recommended local models:
 
@@ -277,14 +285,16 @@ Example of remote OpenAI embeddings:
 }
 ```
 
-If you change `embeddingModel` or the dimensions, OMMS can re-embed stored memories at the next start. Choose one model for each data directory and keep it.
+Change the embedder on the Settings page, in the **Embedding** card. The card tests the new values, writes the four embedding keys in one save, and re-embeds every memory. See [Settings page: Embedding](web-ui-settings.md#embedding). The general settings save refuses these keys.
+
+If you change `embeddingModel` or the dimensions by hand, open the web UI and run the re-embed. OMMS flags a store file for a re-embed when its vector size or its stored model name differs from the configured embedder. A store file with no stored model name, from an older version, is flagged only on size. Choose one model for each data directory and keep it.
 
 **Intel Mac (`darwin/x64`):** `onnxruntime-node@1.21.0` to `1.23.2` can crash OpenCode's embedded Bun `1.3.14` when the process exits after local embeddings (`Ort::Env` teardown, SIGILL).
 
 - The fix shipped in `1.24.1`, but fixed releases still have no x64 native binding.
 - So `omms` pins `onnxruntime-node@1.20.1`. It loads transformers through a CJS resolve shim, so OpenCode nested installs keep that binding.
 - OMMS resolves transformers to an absolute path before it installs that shim. This stops OpenCode's Bun `--compile` host failing with `Cannot find module '@huggingface/transformers' from ''`.
-- After you upgrade, clear OpenCode's nested plugin cache (`~/.cache/opencode/packages/om-memory-system@*`, or `opencode-mem@*` on installs before the migration) and reinstall. Or use a remote endpoint through `embeddingApiUrl` and `embeddingApiKey` (example above).
+- After you upgrade, clear OpenCode's nested plugin cache (`~/.cache/opencode/packages/om-memory-system@*`, or `opencode-mem@*` on installs before the migration) and reinstall. Or use a remote endpoint through `embeddingApiUrl`, with `embeddingApiKey` when the server needs one (example above).
 - The pin stays until onnxruntime publishes a darwin/x64 build with the teardown fix.
 
 ## Memory scope

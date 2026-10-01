@@ -105,6 +105,30 @@ describe("turso re-embed migration safety", () => {
     expect(Number(metadata?.value)).toBe(4);
   });
 
+  it("flags a model change of the same size, but not a legacy shard of the right size", async () => {
+    const shard = await createSourceShard();
+    const { CONFIG } = await import("../src/config.js");
+    const previousModel = CONFIG.embeddingModel;
+    try {
+      const { migrationService } = await import("../src/services/migration-service.js");
+      expect((await migrationService.detectDimensionMismatch()).needsMigration).toBe(false);
+      CONFIG.embeddingModel = "another-model-same-size";
+      const changed = await migrationService.detectDimensionMismatch();
+      expect(changed.needsMigration).toBe(true);
+      expect(changed.shardMismatches[0]?.storedModel).toBe(previousModel);
+
+      const { tursoConnectionManager } =
+        await import("../src/services/turso/connection-manager.js");
+      const db = await tursoConnectionManager.getConnection(shard.dbPath);
+      await db.run(
+        `UPDATE shard_metadata SET value = 'legacy-unknown' WHERE key = 'embedding_model'`
+      );
+      expect((await migrationService.detectDimensionMismatch()).needsMigration).toBe(false);
+    } finally {
+      CONFIG.embeddingModel = previousModel;
+    }
+  });
+
   it("leaves the source shard untouched when any embedding fails", async () => {
     const shard = await createSourceShard();
     await stubEmbedding("content 1");

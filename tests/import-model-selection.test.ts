@@ -1,13 +1,19 @@
 import { expect, it, mock } from "bun:test";
 import { CONFIG } from "../src/config.js";
 
-const calls: Array<{ provider: string; config: { model: string; apiKey: string } }> = [];
+const calls: Array<{
+  provider: string;
+  config: { model: string; apiKey: string; iterationTimeout?: number };
+}> = [];
 const results: Array<{ name: string; tool: unknown }> = [];
 let failure: Record<string, unknown> | null = null;
 mock.module("../src/services/ai/ai-provider-factory.js", () => ({
   AIProviderFactory: {
     getSupportedProviders: () => ["openai-chat", "anthropic"],
-    createProvider: (provider: string, config: { model: string; apiKey: string }) => {
+    createProvider: (
+      provider: string,
+      config: { model: string; apiKey: string; iterationTimeout?: number }
+    ) => {
       calls.push({ provider, config });
       return {
         executeToolCall: async (
@@ -78,7 +84,8 @@ it("overrides the import model for both steps without changing configuration or 
     expect(() =>
       selectImportModel({ provider: "anthropic", apiKeyEnv: "OMMS_TEST_IMPORT_KEY" })
     ).toThrow("--api-url is required");
-    expect(calls).toHaveLength(1);
+    // One provider for capture and one for profile learning, each with its own time limit.
+    expect(calls).toHaveLength(2);
   } finally {
     Object.assign(CONFIG, previous);
     delete process.env.OMMS_TEST_IMPORT_KEY;
@@ -108,12 +115,60 @@ it("labels an external API failure so only a request with no reply or an HTTP er
     return diagnostics.failureReason;
   };
   try {
+    const diagnostics: Record<string, unknown> = {};
+    await selectImportModel({}).capture.summarize({
+      userPrompt: "hi",
+      context: "hi",
+      sessionId: "s",
+      projectDirectory: "/tmp",
+      diagnostics,
+    });
+    expect(diagnostics).toMatchObject({
+      path: "external-api",
+      provider: "openai-chat",
+      model: "m",
+    });
+    failure = { success: false, error: "failed", httpStatus: 503 };
+    const failed: Record<string, unknown> = {};
+    await selectImportModel({})
+      .capture.summarize({
+        userPrompt: "hi",
+        context: "hi",
+        sessionId: "s",
+        projectDirectory: "/tmp",
+        diagnostics: failed,
+      })
+      .catch(() => {});
+    expect(failed).toMatchObject({
+      path: "external-api",
+      provider: "openai-chat",
+      model: "m",
+      failureReason: "call-error",
+    });
     expect(await summarize({ transportError: true })).toBe("call-error");
     expect(await summarize({ httpStatus: 503 })).toBe("call-error");
     expect(await summarize({})).toBe("schema-mismatch");
     expect(await summarize({ stopReason: "length" })).toBe("truncated");
   } finally {
     failure = null;
+    Object.assign(CONFIG, previous);
+  }
+});
+
+it("gives profile calls a 120-second limit and keeps the capture limit", () => {
+  const previous = { ...CONFIG };
+  Object.assign(CONFIG, {
+    memoryProvider: "openai-chat",
+    memoryModel: "m",
+    memoryApiUrl: "https://default.invalid",
+    memoryApiKey: "key-for-test",
+    autoCaptureIterationTimeout: 30000,
+  });
+  try {
+    calls.length = 0;
+    selectImportModel({});
+    expect(calls.map((call) => call.config.iterationTimeout)).toEqual([30000, 120000]);
+  } finally {
     Object.assign(CONFIG, previous);
   }
 });

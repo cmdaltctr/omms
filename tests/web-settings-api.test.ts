@@ -19,12 +19,15 @@ async function scenario(body: string, globalConfig = "{}", projectConfig?: strin
   const serverUrl = pathToFileURL(join(import.meta.dir, "../src/services/web-server.ts")).href;
   const tokenUrl = pathToFileURL(join(import.meta.dir, "../src/services/auth-token.ts")).href;
   const embeddingUrl = pathToFileURL(join(import.meta.dir, "../src/services/embedding.ts")).href;
+  const apiTokensUrl = pathToFileURL(join(import.meta.dir, "../src/services/api-tokens.ts")).href;
   const script = `
     const { mock } = await import("bun:test");
     const embeddingUrl = ${JSON.stringify(embeddingUrl)};
     const { WebServer } = await import(${JSON.stringify(serverUrl)});
     const { getOrCreateAuthToken } = await import(${JSON.stringify(tokenUrl)});
     const token = getOrCreateAuthToken();
+    // A started web app imports the config token into the token table; these servers never start.
+    (await import(${JSON.stringify(apiTokensUrl)})).importConfigApiToken("network-test-token");
     const configPath = ${JSON.stringify(configPath)};
     const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747, directory: ${JSON.stringify(project)} });
     const send = (path, method = "GET", body, headers = {}) => server.handleRequest(
@@ -570,6 +573,44 @@ describe("settings API", () => {
     expect(result.job.report).toContain("Claude Code history import (dry-run)");
     expect(result.job.report).toContain("1 pending");
     expect(result.job.report).not.toContain("secret prompt text");
+  });
+
+  it("reports Claude Code evidence from recorded attempts, not from the default folder", async () => {
+    const result = await scenario(`
+      const { join } = await import("node:path");
+      const { mkdirSync } = await import("node:fs");
+      mkdirSync(join(process.env.HOME, ".claude", "projects"), { recursive: true });
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "evidence-store");
+      const before = (await (await send("/api/settings")).json()).claudeCodeEvidence;
+      const { saveCaptureAttempt } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/capture-attempt-store.ts")).href)});
+      await saveCaptureAttempt({ host: "claude-code", sourceType: "live", sessionId: "s", durationMs: 1, outcome: "saved" });
+      const after = (await (await send("/api/settings")).json()).claudeCodeEvidence;
+      return { before, after };
+    `);
+    expect(result.before).toEqual({ attempts: false, folderSet: false });
+    expect(result.after).toEqual({ attempts: true, folderSet: false });
+  });
+
+  it("filters capture diagnostics by host on the server", async () => {
+    const result = await scenario(`
+      const { join } = await import("node:path");
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "isolated-store");
+      const { saveCaptureAttempt } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/capture-attempt-store.ts")).href)});
+      for (const host of ["pi", "opencode", "claude-code"]) {
+        await saveCaptureAttempt({ host, sourceType: "live", sessionId: "s", durationMs: 1, outcome: "failed", reason: "call-error", provider: "p", model: "m" });
+      }
+      const hosts = (body) => [...new Set([...body.byModel, ...body.byReason, ...body.recent].map((row) => row.host))].sort();
+      const claude = await (await send("/api/settings/diagnostics?days=7&host=claude-code")).json();
+      const all = await (await send("/api/settings/diagnostics?days=7")).json();
+      const other = await send("/api/settings/diagnostics?days=7&host=other");
+      return { claude: hosts(claude), all: hosts(all), other: other.status, lists: [claude.byModel.length, claude.byReason.length, claude.recent.length] };
+    `);
+    expect(result.claude).toEqual(["claude-code"]);
+    expect(result.lists).toEqual([1, 1, 1]);
+    expect(result.all).toEqual(["claude-code", "opencode", "pi"]);
+    expect(result.other).toBe(400);
   });
 
   it("refuses browsing on a network bind and cross-site listing without a JSON body", async () => {
