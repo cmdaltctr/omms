@@ -2,7 +2,7 @@
 
 This guide explains each part of the web app's Settings page, in the order the page shows them.
 
-Open `http://127.0.0.1:4747/settings`, or select the cogwheel at the bottom of the sidebar. One shared web app serves the page. OpenCode, Pi, and Claude Code start it when none runs, and the login item starts it at sign-in. See [Web UI](web-ui.md) for starting the web app, ports, and access control.
+Open `http://127.0.0.1:4747/settings`, select **Settings** in the sidebar, or select the cogwheel at the bottom of the sidebar. The arrow next to **Settings** opens a list of the page cards. Select a card to go straight to it. The sidebar remembers whether the list is open. One shared web app serves the page. OpenCode, Pi, and Claude Code start it when none runs, and the login item starts it at sign-in. See [Web UI](web-ui.md) for starting the web app, ports, and access control.
 
 ## How saving works
 

@@ -22,6 +22,8 @@ import { Textarea } from "$lib/components/ui/textarea";
 import { setLanguage, useI18n } from "$lib/i18n";
 import type { Lang } from "$lib/i18n/translations";
 import { getDisplayedMemoryCount } from "$lib/memory-count";
+import { translateSettings } from "$lib/i18n/settings";
+import { SETTINGS_SECTIONS } from "$lib/settings-sections";
 import { clearTagMigrationClose, rememberTagMigrationClose } from "$lib/tag-migration-prompt";
 import { initRouter, navigate, ROUTES, useAppView } from "$lib/router";
 
@@ -115,6 +117,10 @@ export default function App() {
             { id: "profile-patterns", label: t("profile-patterns") },
             { id: "profile-workflows", label: t("profile-workflows") },
           ]}
+          settingsSections={SETTINGS_SECTIONS.map((section) => ({
+            id: section.id,
+            label: translateSettings(section.title, language),
+          }))}
           langLabel={language.toUpperCase()}
           languageLabel={t("nav-language")}
           themeLabel={t("nav-theme")}

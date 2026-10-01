@@ -1,3 +1,5 @@
+import type { ComponentType } from "react";
+import { SETTINGS_SECTIONS, type SettingsSectionId } from "$lib/settings-sections";
 import { ModelsSection } from "./ModelsSection";
 import { ExternalApiSection } from "./ExternalApiSection";
 import { EmbeddingSection } from "./EmbeddingSection";
@@ -12,22 +14,34 @@ import { WebAppSection } from "./WebAppSection";
 import { ClaudeFolderSection } from "./ClaudeFolderSection";
 import { LogSection } from "./LogSection";
 
+const CARDS: Record<SettingsSectionId, ComponentType> = {
+  "settings-section-external-api": ExternalApiSection,
+  "settings-section-models": ModelsSection,
+  "settings-section-embedding": EmbeddingSection,
+  "settings-section-keys": KeysAccessSection,
+  "settings-section-diagnostics": DiagnosticsSection,
+  "settings-section-health": HealthSection,
+  "settings-section-claude-folder": ClaudeFolderSection,
+  "settings-section-import": ImportSection,
+  "settings-section-auto-import": AutoImportSection,
+  "settings-section-profile": ProfileCatchUpSection,
+  "settings-section-directory-maps": DirectoryMapsSection,
+  "settings-section-web-app": WebAppSection,
+  "settings-section-log": LogSection,
+};
+
 export function SettingsView() {
   return (
     <div className="settings-view space-y-6">
-      <ExternalApiSection />
-      <ModelsSection />
-      <EmbeddingSection />
-      <KeysAccessSection />
-      <DiagnosticsSection />
-      <HealthSection />
-      <ClaudeFolderSection />
-      <ImportSection />
-      <AutoImportSection />
-      <ProfileCatchUpSection />
-      <DirectoryMapsSection />
-      <WebAppSection />
-      <LogSection />
+      {SETTINGS_SECTIONS.map(({ id }) => {
+        const Card = CARDS[id];
+        // The sidebar's Settings tree scrolls to these anchors.
+        return (
+          <div key={id} id={id} className="scroll-mt-4">
+            <Card />
+          </div>
+        );
+      })}
     </div>
   );
 }

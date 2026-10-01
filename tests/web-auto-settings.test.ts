@@ -71,11 +71,11 @@ it("renders both Settings sections with the global switches and the running poll
   expect(automatic).toContain("3000");
   expect(automatic).toContain("backfillModelEdit");
   expect(web).toContain("webServerAutoStart");
-  expect(view).toContain("<AutoImportSection />");
-  expect(view).toContain("<WebAppSection />");
+  expect(view).toContain(": AutoImportSection,");
+  expect(view).toContain(": WebAppSection,");
   // The Claude Code folder: a field, the folder in use, its source, and a missing folder warning.
   const claude = readFileSync(join(folder, "ClaudeFolderSection.tsx"), "utf8");
-  expect(view).toContain("<ClaudeFolderSection />");
+  expect(view).toContain(": ClaudeFolderSection,");
   expect(claude).toContain("claudeConfigDir");
   // web/tests/claude-folder-status.spec.tsx renders the folder, its source, and the warning.
   expect(claude).toContain("<ClaudeFolderStatus folder={snapshot?.claudeFolder} />");

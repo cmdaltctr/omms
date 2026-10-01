@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 1254 1254">
+  <rect width="1254" height="1254" fill="#0d1116"/>
+  <rect x="145" y="145" width="964" height="964" fill="none" stroke="#9BB49C" stroke-width="42"/>
+
+  <!-- Left green column -->
+  <rect x="301" y="312" width="125" height="125" fill="#88A98A"/>
+  <rect x="301" y="464" width="125" height="125" fill="#88A98A"/>
+  <rect x="301" y="616" width="125" height="125" fill="#88A98A"/>
+  <rect x="301" y="768" width="125" height="125" fill="#88A98A"/>
+
+  <!-- Right blue column -->
+  <rect x="828" y="312" width="125" height="125" fill="#A0B6CF"/>
+  <rect x="828" y="464" width="125" height="125" fill="#A0B6CF"/>
+  <rect x="828" y="616" width="125" height="125" fill="#A0B6CF"/>
+  <rect x="828" y="768" width="125" height="125" fill="#A0B6CF"/>
+
+  <!-- Inner transitional pixels -->
+  <rect x="448" y="464" width="115" height="115" fill="#A1AA7A"/>
+  <rect x="680" y="464" width="115" height="115" fill="#93AEB5"/>
+
+  <!-- Shared core -->
+  <rect x="564" y="616" width="115" height="115" fill="#D1AD59"/>
+</svg>

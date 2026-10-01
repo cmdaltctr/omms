@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { Folder, Moon, PanelLeftClose, PanelLeftOpen, Settings, Sun, User, X } from "lucide-react";
+import {
+  ChevronRight,
+  Folder,
+  Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+  Sun,
+  User,
+  X,
+} from "lucide-react";
 import type { Lang } from "$lib/i18n/translations";
 import { GithubIcon } from "$lib/components/icons/GithubIcon";
 import { PowerButton } from "$lib/components/explorer/PowerButton";
@@ -16,6 +26,8 @@ type Props = {
   projectLabel: string;
   profileLabel: string;
   profileSections: { id: string; label: string }[];
+  /** The Settings page cards, shown as a collapsible tree under Settings. */
+  settingsSections?: { id: string; label: string }[];
   langLabel: string;
   languageLabel: string;
   themeLabel: string;
@@ -34,6 +46,17 @@ const LANGUAGE_OPTIONS: { code: Lang; label: string }[] = [
 ];
 
 const COLLAPSED_KEY = "omms-sidebar-collapsed";
+const SETTINGS_TREE_KEY = "omms-sidebar-settings-open";
+
+/** The saved open state of the Settings tree, or null when none is saved. */
+function readSettingsTreeOpen(): boolean | null {
+  try {
+    const value = localStorage.getItem(SETTINGS_TREE_KEY);
+    return value === null ? null : value === "1";
+  } catch {
+    return null;
+  }
+}
 
 function readCollapsed(): boolean {
   try {
@@ -50,6 +73,7 @@ export function AppSidebar({
   projectLabel,
   profileLabel,
   profileSections,
+  settingsSections = [],
   langLabel,
   languageLabel,
   themeLabel,
@@ -68,6 +92,20 @@ export function AppSidebar({
   // Collapsing only applies on desktop; the mobile drawer always shows the full sidebar.
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const onDesktop = (classes: string) => (collapsed ? classes : "");
+  // With no saved choice, the tree starts open on the Settings page only.
+  const [settingsTreeOpen, setSettingsTreeOpen] = useState(
+    () => readSettingsTreeOpen() ?? currentView === "settings"
+  );
+
+  function toggleSettingsTree() {
+    const next = !settingsTreeOpen;
+    setSettingsTreeOpen(next);
+    try {
+      localStorage.setItem(SETTINGS_TREE_KEY, next ? "1" : "0");
+    } catch {
+      // Storage can be blocked; the toggle still works for this page view.
+    }
+  }
 
   function toggleCollapsed() {
     const next = !collapsed;
@@ -132,17 +170,17 @@ export function AppSidebar({
     setOpen(false);
   }
 
-  function onSectionClick(event: MouseEvent, id: string) {
+  function onSectionClick(event: MouseEvent, id: string, view: "profile" | "settings" = "profile") {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
     event.preventDefault();
     const scroll = () =>
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (currentView === "profile") {
+    if (currentView === view) {
       scroll();
     } else {
-      navigate(ROUTES.profile);
+      navigate(view === "settings" ? ROUTES.settings : ROUTES.profile);
       // The profile view renders after navigation; wait for its sections to appear.
       let tries = 0;
       const wait = () => {
@@ -156,7 +194,7 @@ export function AppSidebar({
 
   function navClass(active: boolean) {
     return cn(
-      "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors",
+      "flex w-full min-w-0 items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors",
       onDesktop("md:justify-center md:px-0"),
       active
         ? "bg-sidebar-accent text-sidebar-accent-foreground"
@@ -190,7 +228,7 @@ export function AppSidebar({
             onClick={(e) => onNavClick(e, ROUTES.home)}
           >
             <img
-              src="/omms-icon.png"
+              src="/omms-icon.svg"
               alt=""
               width={20}
               height={20}
@@ -234,7 +272,10 @@ export function AppSidebar({
         <Separator className="bg-sidebar-border" />
 
         <nav
-          className={cn("flex flex-1 flex-col gap-1 p-3", onDesktop("md:px-2"))}
+          className={cn(
+            "flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-3",
+            onDesktop("md:px-2")
+          )}
           aria-label="Main"
         >
           <a
@@ -279,6 +320,62 @@ export function AppSidebar({
               </li>
             ))}
           </ul>
+          <div className="flex items-center gap-0.5">
+            <a
+              href={ROUTES.settings}
+              className={navClass(currentView === "settings")}
+              aria-current={currentView === "settings" ? "page" : undefined}
+              title={collapsed ? settingsLabel : undefined}
+              onClick={(e) => onNavClick(e, ROUTES.settings)}
+            >
+              <Settings className="size-4 shrink-0" />
+              <span className={cn("truncate text-start uppercase", onDesktop("md:sr-only"))}>
+                {settingsLabel}
+              </span>
+            </a>
+            {settingsSections.length > 0 ? (
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex shrink-0 items-center rounded-lg p-1.5 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/70 hover:text-primary",
+                  onDesktop("md:hidden")
+                )}
+                onClick={toggleSettingsTree}
+                aria-expanded={settingsTreeOpen}
+                aria-controls="sidebar-settings-tree"
+                aria-label={settingsLabel}
+                title={settingsLabel}
+              >
+                <ChevronRight
+                  className={cn(
+                    "size-4 transition-transform rtl:-scale-x-100",
+                    settingsTreeOpen && "rotate-90 rtl:rotate-90"
+                  )}
+                />
+              </button>
+            ) : null}
+          </div>
+          {settingsTreeOpen && settingsSections.length > 0 ? (
+            <ul
+              id="sidebar-settings-tree"
+              className={cn(
+                "ms-5 space-y-0.5 border-s border-sidebar-border ps-2",
+                onDesktop("md:hidden")
+              )}
+            >
+              {settingsSections.map((section) => (
+                <li key={section.id}>
+                  <a
+                    href={`${ROUTES.settings}#${section.id}`}
+                    className="block truncate rounded-lg px-2.5 py-1 text-xs uppercase text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/70 hover:text-primary"
+                    onClick={(e) => onSectionClick(e, section.id, "settings")}
+                  >
+                    {section.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </nav>
 
         <div className={cn("mt-auto p-3", onDesktop("md:px-2"))}>
