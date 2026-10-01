@@ -1,13 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { Select } from "$lib/components/ui/select";
 import { cn } from "$lib/utils";
-
-const tableWrap = "overflow-x-auto rounded-lg border border-border";
-const caption = "px-3 py-2 text-start font-medium";
-const thead = "bg-muted/50 text-xs text-muted-foreground";
-const th = "px-3 py-2 text-start font-medium";
-const tr = "border-t border-border transition-colors hover:bg-muted/30";
-const td = "px-3 py-1.5";
+import { caption, tableWrap, td, th, thead, tr } from "./table-styles";
+import { groupOutcomesByHost, groupReasons, percentOf } from "$lib/diagnostics-groups";
 import {
   beginSettingsRead,
   onSettingsSnapshot,
@@ -56,6 +51,25 @@ type Trace = { file: string; size: number };
 type Setting = { value: unknown; source: string };
 type Snapshot = { revision: string; settings: Record<string, Setting> };
 
+/** Saved, Skipped, and Failed with their share of the row, then the total. */
+function OutcomeCells({
+  row,
+}: {
+  row: { saved: number; skipped: number; failed: number; total: number };
+}) {
+  return (
+    <>
+      {([row.saved, row.skipped, row.failed] as const).map((count, column) => (
+        <td className={cn(td, "text-end tabular-nums")} key={column}>
+          {count}{" "}
+          <span className="text-xs text-muted-foreground">{percentOf(count, row.total)}%</span>
+        </td>
+      ))}
+      <td className={cn(td, "text-end font-medium tabular-nums")}>{row.total}</td>
+    </>
+  );
+}
+
 /** The server filters by host, so the recent list fills its limit with the chosen host alone. */
 export function diagnosticsPath(days: number, host: WebHost | "all"): string {
   return `/api/settings/diagnostics?days=${days}${host === "all" ? "" : `&host=${host}`}`;
@@ -65,6 +79,7 @@ export function DiagnosticsSection() {
   const s = useSettingsText();
   const [days, setDays] = useState(7);
   const [host, setHost] = useState<WebHost | "all">("all");
+  const [openHosts, setOpenHosts] = useState<Set<string>>(() => new Set());
   const [data, setData] = useState<Diagnostics>();
   const [traces, setTraces] = useState<Trace[]>([]);
   const [snapshot, setSnapshot] = useState<Snapshot>();
@@ -210,9 +225,14 @@ export function DiagnosticsSection() {
         </Select>
       </label>
       {error && <p role="alert">{error}</p>}
+      <p className="text-xs text-muted-foreground">
+        {s(
+          "Saved: a memory was stored. Skipped: the model or a rule found nothing worth keeping, or the turn was private or trivial. Failed: the attempt hit an error. Total: the three added up. Each percentage is a share of its row's total."
+        )}
+      </p>
       <div className={tableWrap}>
         <table className="w-full text-sm">
-          <caption className={caption}>{s("Outcomes by model")}</caption>
+          <caption className={caption}>{s("Outcomes by host")}</caption>
           <thead className={thead}>
             <tr>
               {["Host / model", "Saved", "Skipped", "Failed", "Total"].map((label, column) => (
@@ -223,25 +243,58 @@ export function DiagnosticsSection() {
             </tr>
           </thead>
           <tbody>
-            {data?.byModel.map((row, index) => (
-              <tr className={tr} key={`${row.host}-${row.provider}-${row.model}-${index}`}>
-                <td className={td}>
-                  <span className="text-muted-foreground">{hostName(row.host)}</span>{" "}
-                  <span className="font-mono text-xs">
-                    {row.provider || row.model ? `${row.provider ?? ""}/${row.model ?? ""}` : "—"}
-                  </span>
-                </td>
-                {([row.saved, row.skipped, row.failed] as const).map((count, column) => (
-                  <td className={cn(td, "text-end tabular-nums")} key={column}>
-                    {count}{" "}
-                    <span className="text-xs text-muted-foreground">
-                      {Math.round((100 * count) / row.total)}%
-                    </span>
-                  </td>
-                ))}
-                <td className={cn(td, "text-end font-medium tabular-nums")}>{row.total}</td>
-              </tr>
-            ))}
+            {groupOutcomesByHost(data?.byModel ?? []).map((hostRow) => {
+              const open = openHosts.has(hostRow.host);
+              return (
+                <Fragment key={hostRow.host}>
+                  <tr className={cn(tr, "font-medium")}>
+                    <td className={td}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        aria-expanded={open}
+                        onClick={() =>
+                          setOpenHosts((all) => {
+                            const next = new Set(all);
+                            if (open) next.delete(hostRow.host);
+                            else next.add(hostRow.host);
+                            return next;
+                          })
+                        }
+                      >
+                        <span aria-hidden>{open ? "▾" : "▸"}</span>
+                        {hostName(hostRow.host)}
+                        <span className="text-xs font-normal text-muted-foreground">
+                          ({hostRow.models.length}{" "}
+                          {s(hostRow.models.length === 1 ? "model" : "models")})
+                        </span>
+                      </button>
+                    </td>
+                    <OutcomeCells row={hostRow} />
+                  </tr>
+                  {open &&
+                    hostRow.models.map((model) => (
+                      <tr className={tr} key={`${hostRow.host}-${model.label ?? "none"}`}>
+                        <td className={cn(td, "ps-8")}>
+                          {model.label ? (
+                            <span className="font-mono text-xs">{model.label}</span>
+                          ) : (
+                            <span
+                              className="text-xs italic text-muted-foreground"
+                              title={s(
+                                "No model was recorded for these attempts. This happens with records written by older OMMS versions, and when an attempt stops before a model is chosen."
+                              )}
+                            >
+                              {s("model not recorded")}
+                            </span>
+                          )}
+                        </td>
+                        <OutcomeCells row={model} />
+                      </tr>
+                    ))}
+                </Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -262,7 +315,7 @@ export function DiagnosticsSection() {
             </tr>
           </thead>
           <tbody>
-            {data?.byReason.map((row, index) => (
+            {groupReasons(data?.byReason ?? []).map((row, index) => (
               <tr className={tr} key={`${row.host}-${row.reason}-${index}`}>
                 <td className={cn(td, "text-muted-foreground")}>{hostName(row.host)}</td>
                 <td className={cn(td, "font-mono text-xs")}>{row.reason}</td>

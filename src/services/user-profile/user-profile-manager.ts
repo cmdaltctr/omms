@@ -494,6 +494,15 @@ export class UserProfileManager {
     }
   }
 
+  /** Turn a profile off without deleting it, so its data and changelog stay stored. */
+  async deactivateProfile(profileId: string): Promise<boolean> {
+    const db = await this.ready();
+    const changes = await db.run(`UPDATE user_profiles SET is_active = 0 WHERE id = ?`, [
+      profileId,
+    ]);
+    return Number(changes) > 0;
+  }
+
   async getProfileById(profileId: string): Promise<UserProfile | null> {
     const db = await this.ready();
     const row = await db.get(`SELECT * FROM user_profiles WHERE id = ?`, [profileId]);

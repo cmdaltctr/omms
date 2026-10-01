@@ -100,8 +100,8 @@ export async function listOpencodeSettingsModels(
 }
 
 export async function listPiSettingsModels(
-  loadSdk: () => Promise<typeof import("@earendil-works/pi-coding-agent")> = () =>
-    import("@earendil-works/pi-coding-agent")
+  loadSdk: () => Promise<typeof import("@earendil-works/pi-coding-agent")> = async () =>
+    (await import("./pi-sdk.js")).loadPiSdk()
 ) {
   try {
     const { ModelRuntime } = await loadSdk();

@@ -178,7 +178,7 @@ See [Configuration: Embeddings](configuration.md#embeddings) for the config keys
 
 ## Keys and access
 
-This card shows each credential that OMMS can use. It never shows a secret value.
+This card shows each credential that OMMS can use, in a table with the columns **Credential**, **State**, **Used for**, **Hosts**, and **Change it in**. It never shows a secret value.
 
 | Row                  | Config key or file        | Used for                                                                           | Change it on              |
 | -------------------- | ------------------------- | ---------------------------------------------------------------------------------- | ------------------------- |
@@ -239,8 +239,13 @@ Every capture attempt writes one metadata record: host, model, sizes, stop reaso
 
 - **Time range.** Show the last 24 hours, 7 days, 30 days, or 90 days.
 - **Host.** Show all hosts, or only OpenCode, Pi, or Claude Code. The server applies the filter, so the recent list fills with the chosen host. The route is `GET /api/settings/diagnostics?host=opencode`, `pi`, or `claude-code`. Another value gets `400`.
-- **Outcomes by model.** Saved, skipped, and failed counts for each host and model.
-- **Failure reasons.** The most common reasons for failed attempts.
+- **Outcomes by host.** One row for each host: OpenCode, Pi, and Claude Code. Select a host row to show one row for each of its models. A note above the table explains the columns:
+  - **Saved:** a memory was stored.
+  - **Skipped:** the model or a rule found nothing worth keeping, or the turn was private or trivial.
+  - **Failed:** the attempt hit an error.
+  - **Total:** the three added up. Each percentage is a share of its row's total.
+- **model not recorded.** A model row for attempts with no recorded model. This happens with records written by older OMMS versions, and when an attempt stops before a model is chosen. Older versions showed these as `—`.
+- **Failure reasons.** The most common reasons for failed attempts, added up for each host and reason.
 - **Recent attempts.** One row for each attempt, with its model, stop reason, sizes, duration, and outcome.
 - **Attempt retention (days).** How long OMMS keeps these records. The default is 30 days.
 
@@ -304,6 +309,13 @@ Use this section when Claude Code does not keep its data in `~/.claude`, for exa
 
 Use this section to import past chats by hand. A backfill is an import of old chats; the next section runs one automatically.
 
+At the top, one box for each host shows its import status:
+
+- **Imported ✅:** the latest run finished, nothing is pending, and no session is unresolved.
+- **Partly imported (N unresolved):** the latest run finished, but N sessions have no folder. Fix them in [Directory maps](#directory-maps).
+- **Running**, or **Learning profile** while a finished run learns the profile from the imported prompts.
+- **Stopped (N pending)**, **Paused**, **Failed ⛔️**, or **Not started**.
+
 1. Choose the **History host**: Pi, OpenCode, or Claude Code.
 2. Select **List sessions**. The list shows each session's date, ID, project folder, and how the folder was found. It never shows prompts or replies.
 3. Tick sessions, or select **Select all matching** to include every page.
@@ -362,9 +374,12 @@ For each host:
   - **Same as live capture** uses the model from the Models section. Saves `inherit`.
   - **External API** uses the External API card. Saves `external`. It can run from the web app with no host open.
   - A listed or typed `provider/model` uses another model from the host's sign-in, for example a cheaper one. Live capture keeps its own model.
+- **Status badge.** The same badge as in Import and backfill, next to the host name.
 - **State.** Not started, running, paused, stopped, done, or failed. For a running import it also shows where it started: automatically, from the web page, from the terminal, or from a slash command.
-- **Progress.** A bar, the percentage, done out of total, and the minutes left. Minutes left comes from the recent rate. It shows as unknown until about a minute of progress.
-- **Counts.** Imported, skipped, failed, and pending exchanges, and sessions whose folder cannot be found. When there are any, a link goes to [Directory maps](#directory-maps).
+- **Progress.** A bar, the percentage, done out of total, and the minutes left, only while exchanges are imported. Minutes left comes from the recent rate. It shows as unknown until about a minute of progress.
+- **Learning profile.** After the last exchange, a run learns the profile from the imported prompts, 50 prompts for each model call. The card shows the batches done out of the total in place of the bar.
+- **Last run.** When no run is active, the card shows when the latest run finished, how it started, and its imported, skipped, and failed counts.
+- **Counts.** Pending exchanges, and sessions whose folder cannot be found. When there are any, a link goes to [Directory maps](#directory-maps). The unresolved count is a number of sessions, and it matches the session counts in Directory maps.
 - **Model**, **Cutoff**, and the last error. The cutoff is fixed at the first backfill. Later turns are saved by live capture instead.
 
 The Claude Code card has no **Backfill model** choice. It shows "Claude Code backfill always uses the external API. It has no backfill model setting." When the external API is not fully configured, **Run now** and **Resume** name the missing setting. See [Claude Code history import](claude-code-history-import.md#automatic-import).
@@ -380,6 +395,16 @@ Only one import runs for each host at a time. This includes a backfill, a page i
 - **Resume** clears the pause and starts the run. It continues from the ledger.
 
 Run now and Resume run inside the web app. The Claude Code backfill always runs in the web app with the external API. Without Pi or OpenCode open, they need the host's backfill model to use the external API. Otherwise the page says: `Open Pi, or choose the external API for Pi's backfill`. The web app has no OpenCode session, so OpenCode's backfill from the page needs the external API. A backfill with an OpenCode signed-in model runs inside OpenCode, from the terminal, or with `/import`.
+
+## Profiles
+
+OMMS keeps one user profile for each git email. A folder whose repository sets its own `user.email` starts a second profile. When more than one profile is active, a **Profiles** card appears above Profile learning. It is hidden with one profile.
+
+- The table lists each profile's email, its numbers of preferences, patterns, and workflows, the prompts analysed, and its last update. ✅ **in use** marks the profile OMMS uses now.
+- **Use this profile** saves its email as `userEmailOverride` in the global config. Every folder then uses that profile.
+- **Merge into** combines one profile into the profile you choose, with the same matching rules as profile learning. The page asks you to confirm. The source profile is turned off, not deleted, and the target gets a changelog entry.
+
+The routes are `GET /api/settings/profiles`, `POST /api/settings/profiles/use` with `{ userId, revision }`, and `POST /api/settings/profiles/merge` with `{ sourceId, targetId }`.
 
 ## Profile learning
 
@@ -412,8 +437,9 @@ To use another model, or to run the catch-up from a terminal, see [CLI: Profile 
 
 A directory map tells OMMS which project a folder belongs to. Use it when chats were recorded in a folder that no longer exists, such as a deleted git worktree.
 
-- **Saved maps** lists the maps in `importPathMaps`. **Remove** marks one for removal, and **Keep** undoes that.
-- **Unresolved directories** lists, for each host, the folders the latest session listing or import could not find, with a session count.
+- **Saved maps** lists the maps in `importPathMaps`. They apply to every host. **Remove** marks one for removal, and **Keep** undoes that.
+- One card for each host lists its **Unresolved directories**: the folders the latest session listing or full import could not find, with a session count. Sessions that recorded no folder are counted under **No directory recorded**. They cannot be mapped.
+- **Smart resolve directories** fills the suggested target into every row of that host that has one and ticks **Use this map**. It says how many rows it filled and how many have no suggestion. It saves nothing. Check the rows, then select **Save maps**.
 - Where OMMS can find one, the target box holds a suggested existing folder:
   1. The main repository of a deleted worktree. For `~/code/app-feat-x` or `~/workspaces/app/feat-x`, it suggests `~/code/app`.
   2. For OpenCode, the project folder that OpenCode recorded for the session. OMMS reads OpenCode's database without writing to it.
@@ -427,7 +453,7 @@ To save maps:
 
 Maps apply to the next import or backfill run, on every surface. A terminal `--map` for the same folder wins for that run. A map to a folder that does not exist leaves its sessions unresolved. Memories already imported through a map stay when you remove it.
 
-The list fills when you list sessions under Import and backfill with All projects, or when an import or backfill runs.
+The list fills when you list sessions under Import and backfill, or when an import or backfill runs over all projects. An import of one project, or of sessions you ticked, does not replace the list.
 
 ## Web app
 

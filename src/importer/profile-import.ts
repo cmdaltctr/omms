@@ -43,6 +43,8 @@ export interface ProfileImportOptions {
   ledger?: Ledger;
   promptStore?: PromptStore;
   profileStore?: ProfileStore;
+  /** Profile batches done and planned; called before the first batch and after each one. */
+  onProgress?: (done: number, total: number) => void;
 }
 
 /** Record historical prompts and build or update the user profile in batches. */
@@ -126,7 +128,15 @@ export async function importProfileFromHistory(
     report.error = "Profile import needs a user email";
     return report;
   }
+  const planned = (waiting: number) => Math.ceil(waiting / batchSize);
+  options.onProgress?.(0, planned(await prompts.countUnanalyzedForUserLearning()));
   const drained = await drainProfileBacklog({
+    ...(options.onProgress
+      ? {
+          onProgress: ({ batchesBuilt, remaining }: { batchesBuilt: number; remaining: number }) =>
+            options.onProgress!(batchesBuilt, batchesBuilt + planned(remaining)),
+        }
+      : {}),
     user: { ...user, userEmail: user.userEmail },
     model: options.model!,
     batchSize,

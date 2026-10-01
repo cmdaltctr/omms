@@ -3,8 +3,10 @@ import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$li
 import { mapsToSave, type MapDecision, type PathMap } from "$lib/external-api-settings";
 import { useSettingsText } from "$lib/i18n/settings";
 import { hostLabel } from "$lib/host-label";
+import { applySuggestions, NO_DIRECTORY } from "$lib/directory-maps";
 
 type Snapshot = { revision: string };
+type Host = "pi" | "opencode" | "claude-code";
 type Suggested = { directory: string; sessions: number; suggestion: string | null };
 type View = {
   saved: PathMap[];
@@ -21,6 +23,7 @@ export function DirectoryMapsSection() {
   const [decisions, setDecisions] = useState<Record<string, MapDecision>>({});
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resolveNotes, setResolveNotes] = useState<Partial<Record<Host, string>>>({});
   const load = () =>
     settingsRequest<View>("/api/settings/import-maps")
       .then((value) => {
@@ -47,6 +50,15 @@ export function DirectoryMapsSection() {
       unsubscribe();
     };
   }, []);
+
+  function smartResolve(host: Host, rows: Suggested[]) {
+    const result = applySuggestions(rows, decisions);
+    setDecisions(result.decisions);
+    setResolveNotes((notes) => ({
+      ...notes,
+      [host]: `${s("Filled")}: ${result.filled} · ${s("No suggestion")}: ${result.notFilled}. ${s("Check them, then press Save maps.")}`,
+    }));
+  }
 
   function decide(row: Suggested, change: Partial<MapDecision>) {
     setDecisions((previous) => {
@@ -90,6 +102,7 @@ export function DirectoryMapsSection() {
         )}
       </p>
       <h3 className="font-medium">{s("Saved maps")}</h3>
+      <p className="text-xs text-muted-foreground">{s("Saved maps apply to every host.")}</p>
       {!view?.saved.length && <p className="text-sm text-muted-foreground">{s("none")}</p>}
       <ul className="space-y-1 text-sm">
         {view?.saved.map((map) => (
@@ -114,50 +127,86 @@ export function DirectoryMapsSection() {
           </li>
         ))}
       </ul>
-      {(["pi", "opencode", "claude-code"] as const).map((host) => (
-        <div key={host} className="space-y-2">
-          <h3 className="font-medium">
-            {hostLabel(host)}: {s("Unresolved directories")}
-          </h3>
-          {!view?.[host]?.length && (
-            <p className="text-sm text-muted-foreground">
-              {s("No unresolved directories in the latest run.")}
-            </p>
-          )}
-          {view?.[host]?.map((row) => {
-            const decision = decisions[row.directory];
-            const target = decision?.target ?? row.suggestion ?? "";
-            return (
-              <div
-                key={row.directory}
-                className="space-y-1 rounded-lg border border-border p-2 text-sm"
-              >
-                <p>
-                  <code>{row.directory}</code> · {row.sessions} {s("sessions")}
+      {(["pi", "opencode", "claude-code"] as const).map((host) => {
+        const rows = view?.[host] ?? [];
+        const mappable = rows.filter((row) => row.directory !== NO_DIRECTORY);
+        return (
+          <div key={host} className="space-y-2 rounded-lg border border-border p-3">
+            <h3 className="font-medium">
+              {hostLabel(host)}: {s("Unresolved directories")}
+            </h3>
+            {rows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {s("No unresolved directories in the latest run.")}
+              </p>
+            ) : (
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  className="rounded border border-border px-3 py-1.5 text-sm"
+                  disabled={busy || mappable.length === 0}
+                  onClick={() => smartResolve(host, rows)}
+                >
+                  {s("Smart resolve directories")}
+                </button>
+                <p className="text-xs text-muted-foreground">
+                  {s(
+                    "Finds the project each missing directory belongs to, mostly the main repository of a deleted worktree, and fills it in for you to check. Nothing is saved until you press Save maps."
+                  )}
                 </p>
-                {!row.suggestion && (
-                  <p className="text-xs text-muted-foreground">{s("No suggestion found.")}</p>
+                {resolveNotes[host] && (
+                  <p role="status" className="text-xs">
+                    {resolveNotes[host]}
+                  </p>
                 )}
-                <input
-                  aria-label={`${row.directory} ${s("Target directory")}`}
-                  className="w-full rounded border border-border bg-background p-2"
-                  placeholder={s("Target directory")}
-                  value={target}
-                  onChange={(event) => decide(row, { target: event.target.value })}
-                />
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={decision?.accepted ?? false}
-                    onChange={(event) => decide(row, { accepted: event.target.checked })}
-                  />
-                  {s("Use this map")}
-                </label>
               </div>
-            );
-          })}
-        </div>
-      ))}
+            )}
+            {rows.map((row) => {
+              if (row.directory === NO_DIRECTORY) {
+                return (
+                  <div
+                    key="no-directory"
+                    className="rounded-lg border border-dashed border-border p-2 text-sm text-muted-foreground"
+                  >
+                    {s("No directory recorded")} · {row.sessions} {s("sessions")} ·{" "}
+                    {s("These sessions cannot be mapped.")}
+                  </div>
+                );
+              }
+              const decision = decisions[row.directory];
+              const target = decision?.target ?? row.suggestion ?? "";
+              return (
+                <div
+                  key={row.directory}
+                  className="space-y-1 rounded-lg border border-border p-2 text-sm"
+                >
+                  <p>
+                    <code>{row.directory}</code> · {row.sessions} {s("sessions")}
+                  </p>
+                  {!row.suggestion && (
+                    <p className="text-xs text-muted-foreground">{s("No suggestion found.")}</p>
+                  )}
+                  <input
+                    aria-label={`${row.directory} ${s("Target directory")}`}
+                    className="w-full rounded border border-border bg-background p-2"
+                    placeholder={s("Target directory")}
+                    value={target}
+                    onChange={(event) => decide(row, { target: event.target.value })}
+                  />
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={decision?.accepted ?? false}
+                      onChange={(event) => decide(row, { accepted: event.target.checked })}
+                    />
+                    {s("Use this map")}
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
       <button
         type="button"
         className="rounded border border-border px-3 py-1.5 text-sm"

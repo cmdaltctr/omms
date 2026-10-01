@@ -212,3 +212,31 @@ it("dry-run counts prompts the ledger already imported as done, not pending", as
     state.cleanup();
   }
 });
+
+it("reports profile batches done and planned for the run's profile phase", async () => {
+  const state = setup();
+  try {
+    const unit = state.source[0]!.units[0]!;
+    for (let i = 2; i <= 5; i++) {
+      state.source[0]!.units.push({
+        ...unit,
+        userEntryId: `u${i}`,
+        userPrompt: `Prompt ${i} about tests`,
+      });
+    }
+    const progress: Array<[number, number]> = [];
+    await importProfileFromHistory(state.source, {
+      ...state.options,
+      batchSize: 2,
+      onProgress: (done: number, total: number) => progress.push([done, total]),
+    } as never);
+    expect(progress).toEqual([
+      [0, 3],
+      [1, 3],
+      [2, 3],
+      [3, 3],
+    ]);
+  } finally {
+    state.cleanup();
+  }
+});

@@ -77,7 +77,6 @@ const text = {
   "7 days": ["7 天", "7 أيام"],
   "30 days": ["30 天", "30 يوماً"],
   "90 days": ["90 天", "90 يوماً"],
-  "Outcomes by model": ["各模型结果", "النتائج حسب النموذج"],
   "Host / model": ["主机 / 模型", "المضيف / النموذج"],
   Saved: ["已保存", "محفوظ"],
   Skipped: ["已跳过", "متجاوز"],
@@ -658,6 +657,81 @@ const text = {
     "浏览器密码已清除。重启网页应用以关闭它。",
     "تم مسح كلمة مرور المتصفح. أعد تشغيل تطبيق الويب لإيقافها.",
   ],
+  Actions: ["操作", "الإجراءات"],
+  "All exchanges are done. Learning the profile from the imported prompts": [
+    "所有对话已完成。正在从导入的提示中学习画像",
+    "اكتملت كل المحادثات. يجري تعلّم الملف الشخصي من المطالبات المستوردة",
+  ],
+  batches: ["批", "دفعات"],
+  "Change it in": ["修改位置", "مكان التغيير"],
+  "Check them, then press Save maps.": ["请检查后点击保存映射。", "راجعها ثم اضغط حفظ الخرائط."],
+  Credential: ["凭据", "بيانات الاعتماد"],
+  Email: ["邮箱", "البريد الإلكتروني"],
+  Filled: ["已填写", "تم الملء"],
+  "Finds the project each missing directory belongs to, mostly the main repository of a deleted worktree, and fills it in for you to check. Nothing is saved until you press Save maps.":
+    [
+      "为每个缺失的目录找到所属项目（多为已删除工作树的主仓库），并填入供你检查。点击保存映射之前不会保存任何内容。",
+      "يعثر على المشروع الذي ينتمي إليه كل مجلد مفقود، وغالباً المستودع الرئيسي لشجرة عمل محذوفة، ويملؤه لتراجعه. لا يُحفظ شيء حتى تضغط حفظ الخرائط.",
+    ],
+  Hosts: ["主机", "المضيفات"],
+  "Import status": ["导入状态", "حالة الاستيراد"],
+  "in use": ["使用中", "قيد الاستخدام"],
+  "Last run": ["上次运行", "آخر تشغيل"],
+  "Last update": ["最后更新", "آخر تحديث"],
+  "Learning profile": ["正在学习画像", "يجري تعلّم الملف الشخصي"],
+  "Merge into": ["合并到", "دمج في"],
+  "Merge this profile into the other one? The source profile is turned off, not deleted.": [
+    "将此画像合并到另一个画像？源画像会被停用，不会被删除。",
+    "دمج هذا الملف الشخصي في الآخر؟ يُوقَف الملف المصدر ولا يُحذف.",
+  ],
+  "Merged.": ["已合并。", "تم الدمج."],
+  "model not recorded": ["未记录模型", "لم يُسجَّل نموذج"],
+  model: ["个模型", "نموذج"],
+  models: ["个模型", "نماذج"],
+  "No directory recorded": ["未记录目录", "لم يُسجَّل مجلد"],
+  "No suggestion": ["无建议", "لا اقتراح"],
+  "Not started": ["未开始", "لم يبدأ"],
+  "OMMS keeps one profile for each git email. A folder whose repository has its own email starts a second profile. Choose the profile that is yours, or merge the extra one into it.":
+    [
+      "OMMS 为每个 git 邮箱保留一个画像。若某文件夹的仓库设置了自己的邮箱，就会产生第二个画像。请选择属于你的画像，或把多余的画像合并进去。",
+      "يحتفظ OMMS بملف شخصي لكل بريد git. المجلد الذي يملك مستودعه بريداً خاصاً يبدأ ملفاً شخصياً ثانياً. اختر ملفك الشخصي، أو ادمج الملف الزائد فيه.",
+    ],
+  "Outcomes by host": ["各主机结果", "النتائج حسب المضيف"],
+  "Partly imported": ["部分已导入", "مستورد جزئياً"],
+  Patterns: ["模式", "الأنماط"],
+  pending: ["待处理", "معلّق"],
+  Preferences: ["偏好", "التفضيلات"],
+  Profiles: ["画像", "الملفات الشخصية"],
+  "Prompts analysed": ["已分析提示", "المطالبات المحلَّلة"],
+  Running: ["运行中", "قيد التشغيل"],
+  "Saved maps apply to every host.": [
+    "已保存的映射适用于所有主机。",
+    "تنطبق الخرائط المحفوظة على كل المضيفات.",
+  ],
+  "Saved: a memory was stored. Skipped: the model or a rule found nothing worth keeping, or the turn was private or trivial. Failed: the attempt hit an error. Total: the three added up. Each percentage is a share of its row's total.":
+    [
+      "已保存：存储了一条记忆。已跳过：模型或规则认为没有值得保留的内容，或该轮为私密或琐碎内容。失败：尝试出错。总计：三者之和。每个百分比是该行总计中的占比。",
+      "محفوظ: خُزّنت ذاكرة. متجاوز: لم يجد النموذج أو قاعدة ما يستحق الحفظ، أو كانت الجولة خاصة أو تافهة. فشل: واجهت المحاولة خطأ. الإجمالي: مجموع الثلاثة. كل نسبة هي حصة من إجمالي صفها.",
+    ],
+  "Saved. OMMS now uses this profile in every folder.": [
+    "已保存。OMMS 现在在所有文件夹中使用此画像。",
+    "تم الحفظ. يستخدم OMMS هذا الملف الشخصي الآن في كل المجلدات.",
+  ],
+  "Smart resolve directories": ["智能解析目录", "حلّ المجلدات تلقائياً"],
+  "No model was recorded for these attempts. This happens with records written by older OMMS versions, and when an attempt stops before a model is chosen.":
+    [
+      "这些尝试没有记录模型。旧版 OMMS 写入的记录，以及在选定模型之前就停止的尝试，会出现这种情况。",
+      "لم يُسجَّل نموذج لهذه المحاولات. يحدث ذلك في السجلات التي كتبتها إصدارات أقدم من OMMS، وعندما تتوقف المحاولة قبل اختيار نموذج.",
+    ],
+  "These sessions cannot be mapped.": ["这些会话无法映射。", "لا يمكن ربط هذه الجلسات."],
+  unresolved: ["未解析", "غير محلول"],
+  "Use this profile": ["使用此画像", "استخدام هذا الملف الشخصي"],
+  "Use this profile for every folder?": [
+    "在所有文件夹中使用此画像？",
+    "استخدام هذا الملف الشخصي في كل المجلدات؟",
+  ],
+  "Used for": ["用途", "الاستخدام"],
+  Workflows: ["工作流", "سير العمل"],
 } as const;
 
 export function translateSettings(message: string, language: "en" | "zh" | "ar"): string {

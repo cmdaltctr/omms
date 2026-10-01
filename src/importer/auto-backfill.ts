@@ -7,6 +7,7 @@ import {
   getBackfillCutoff,
   recordUnresolvedDirectories,
   unresolvedDirectoriesOf,
+  unresolvedSessionCount,
   updateBackfillStatus,
   type BackfillStatus,
 } from "../services/backfill-state.js";
@@ -45,7 +46,7 @@ function counts(report: HistoryImportReport): Counts {
     skipped: report.unitsSkipped,
     failed: report.unitsFailed,
     pending: report.unitsWouldImport,
-    unresolved: (report.unresolvedProjects?.length ?? 0) + report.unresolvableSessions.length,
+    unresolved: unresolvedSessionCount(report),
   };
 }
 const delay = (signal?: AbortSignal) =>

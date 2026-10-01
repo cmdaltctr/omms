@@ -6,6 +6,7 @@ import { localDayEnd, localDayStart } from "$lib/import-dates";
 import { mergeListing } from "$lib/import-listing";
 import type { WebHost } from "$lib/host-label";
 import { ImportSourcePicker, type ChosenSource } from "./ImportSourcePicker";
+import { HostImportBadges } from "./HostImportBadges";
 
 type Host = WebHost;
 type Job = {
@@ -311,6 +312,7 @@ export function ImportSection() {
       aria-label={s("Import and backfill")}
     >
       <h2 className="text-lg font-medium">{s("Import and backfill")}</h2>
+      <HostImportBadges />
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-sm">
           {s("History host")}

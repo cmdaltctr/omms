@@ -25,6 +25,8 @@ export interface HistoryImportRun {
     alreadyHandled?: number
   ) => void;
   signal?: AbortSignal;
+  /** Profile batches done and planned, during the profile step after the exchanges. */
+  onProfileProgress?: (done: number, total: number) => void;
   /** Record progress and take the host's lock for a run that calls models. */
   track?: { surface: ImportSurface; lockHeld?: boolean; expectedTotal?: number };
   /** Saved directory maps; defaults to the global `importPathMaps`. */
@@ -95,6 +97,10 @@ export async function runHistoryImport(
           recorder.progress(work.done, work.total);
           run.onProgress?.(processed, total, preview, alreadyHandled);
         },
+        onProfileProgress: (done, total) => {
+          recorder.profileProgress(done, total);
+          run.onProfileProgress?.(done, total);
+        },
       });
       const handled = report.unitsImported + report.unitsSkipped + report.unitsFailed;
       await recorder.finish(
@@ -108,7 +114,8 @@ export async function runHistoryImport(
           failed: report.unitsFailed,
         }
       );
-      await recordUnresolved(host, report);
+      // Only a run over every project and every session sees the full list.
+      if (args.scope === "all-projects" && !run.selection) await recordUnresolved(host, report);
       return report;
     } catch (error) {
       await recorder
@@ -176,6 +183,7 @@ async function runUntracked(
       ...(run.onProgress ? { onProgress: run.onProgress } : {}),
       ...(run.models.capture ? { provider: capture } : {}),
       ...(run.models.profile ? { profileModel: run.models.profile } : {}),
+      ...(run.onProfileProgress ? { onProfileProgress: run.onProfileProgress } : {}),
     });
   }
 
@@ -188,6 +196,7 @@ async function runUntracked(
           profile: {
             ...(run.models.profile ? { model: run.models.profile } : {}),
             ...(args.profileBatch ? { batchSize: args.profileBatch } : {}),
+            ...(run.onProfileProgress ? { onProgress: run.onProfileProgress } : {}),
           },
         }
       : {}),

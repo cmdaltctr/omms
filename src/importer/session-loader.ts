@@ -1,5 +1,8 @@
-import { SessionManager } from "@earendil-works/pi-coding-agent";
 import type { PiSessionEntry } from "./pi-conversation.js";
+import { loadPiSdk } from "./pi-sdk.js";
+
+// Outside Pi (the login web app), the SDK is found where Pi is installed.
+const { SessionManager } = await loadPiSdk();
 
 /**
  * Loads a Pi session file for import through Pi's own exported session model

@@ -17,6 +17,7 @@ const staticHostSdkImport =
 // Importer modules that read host data without the host running (ADR-011).
 const importerSdkReaders = new Set([
   "import-readiness.ts",
+  "pi-sdk.ts",
   "session-loader.ts",
   "settings-models.ts",
 ]);

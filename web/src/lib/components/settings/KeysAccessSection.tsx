@@ -14,6 +14,8 @@ import {
   type CredentialState,
 } from "$lib/credential-states";
 import { ApiTokensTable, revokeAfterConfirm, type ApiToken } from "./ApiTokensTable";
+import { cn } from "$lib/utils";
+import { caption, tableWrap, td, th, thead, tr } from "./table-styles";
 
 type Snapshot = {
   revision: string;
@@ -87,21 +89,33 @@ function StateBadge({ state }: { state: CredentialState }) {
 export function CredentialRows({ states }: { states: ReturnType<typeof credentialStates> }) {
   const s = useSettingsText();
   return (
-    <table className="w-full text-left text-xs">
-      <tbody>
-        {ROWS.map((row) => (
-          <tr key={row.id} className="align-top">
-            <td className="pe-2 font-medium">{s(row.label)}</td>
-            <td className="pe-2">
-              <StateBadge state={states[row.id]} />
-            </td>
-            <td className="pe-2">{s(row.purpose)}</td>
-            <td className="pe-2">{row.hosts === "Web app" ? s("Web app") : row.hosts}</td>
-            <td>{s(row.where)}</td>
+    <div className={tableWrap}>
+      <table className="w-full text-sm">
+        <caption className={cn(caption, "sr-only")}>{s("Keys and access")}</caption>
+        <thead className={thead}>
+          <tr>
+            <th className={th}>{s("Credential")}</th>
+            <th className={th}>{s("State")}</th>
+            <th className={th}>{s("Used for")}</th>
+            <th className={th}>{s("Hosts")}</th>
+            <th className={th}>{s("Change it in")}</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {ROWS.map((row) => (
+            <tr key={row.id} className={cn(tr, "align-top")}>
+              <td className={cn(td, "font-medium")}>{s(row.label)}</td>
+              <td className={cn(td, "whitespace-nowrap")}>
+                <StateBadge state={states[row.id]} />
+              </td>
+              <td className={td}>{s(row.purpose)}</td>
+              <td className={td}>{row.hosts === "Web app" ? s("Web app") : row.hosts}</td>
+              <td className={td}>{s(row.where)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

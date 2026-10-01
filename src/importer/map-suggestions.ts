@@ -99,7 +99,8 @@ export function suggestMapTargets(
   const withCache = { ...context, cache: context.cache ?? new Map<string, string[]>() };
   return directories.map((item) => ({
     ...item,
-    suggestion: suggestMapTarget(item.directory, withCache),
+    // Sessions with no recorded directory have nothing to map.
+    suggestion: item.directory ? suggestMapTarget(item.directory, withCache) : null,
   }));
 }
 

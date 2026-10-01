@@ -124,6 +124,7 @@ export const translations = {
     "profile-patterns": "PATTERNS",
     "profile-workflows": "WORKFLOWS",
     "label-evidence-tooltip": "AI analysis hit {count} times",
+    "label-confidence": "Confidence",
     "badge-prompt": "USER PROMPT",
     "badge-memory": "MEMORY",
     "badge-pinned": "PINNED",
@@ -296,6 +297,7 @@ export const translations = {
     "profile-patterns": "行为模式",
     "profile-workflows": "工作流程",
     "label-evidence-tooltip": "AI 分析命中 {count} 次",
+    "label-confidence": "置信度",
     "badge-prompt": "用户提示词",
     "badge-memory": "记忆",
     "badge-pinned": "已置顶",
@@ -502,6 +504,7 @@ export const translations = {
     "profile-patterns": "الأنماط",
     "profile-workflows": "سير العمل",
     "label-evidence-tooltip": "الذكاء الاصطناعي حدد هذا {count} مرات",
+    "label-confidence": "درجة الثقة",
 
     "badge-prompt": "موجه المستخدم",
     "badge-memory": "ذكرى",

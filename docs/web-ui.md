@@ -81,6 +81,7 @@ Open `http://127.0.0.1:4747/settings`, select **Settings** in the sidebar, or se
 - **Health.** Check that each part of OMMS works.
 - **Import and backfill.** Import past chats by hand.
 - **Automatic import.** Control the background import of past chats, watch its progress, and run, pause, or resume it.
+- **Profiles.** Choose or merge profiles. It shows only when more than one profile exists.
 - **Profile learning.** Clear the backlog of prompts that wait for profile learning.
 - **Directory maps.** Tell OMMS where chats from deleted folders belong.
 - **Web app.** Control the login item and check the installed version.

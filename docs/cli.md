@@ -63,7 +63,7 @@ The terminal import commands and the slash commands run the same importer with t
 ## Requirements
 
 - Node.js 22.14 or later. The OpenCode reader uses `node:sqlite`.
-- `import-pi-history` loads sessions through `@earendil-works/pi-coding-agent`. This is a peer dependency that npm installs with the package.
+- `import-pi-history` loads sessions through `@earendil-works/pi-coding-agent`. This is a peer dependency that npm installs with the package. When OMMS cannot load it from its own folder, for example in the login web app, it uses the copy in Pi's install: first `~/.pi/agent/install/releases/<current version>`, then the package behind each `pi` command on `PATH`, then the global `node_modules` of the running Node.
 - `import-claude-history` reads Claude Code transcripts directly. It needs no Claude Code package.
 - The same omms configuration and store as the plugins. The CLI reads the global config and the project config of the directory you run it from.
 

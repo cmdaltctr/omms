@@ -10,7 +10,8 @@ import { CONFIG } from "../config.js";
 import type { MemoryType } from "../types/index.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
 import type { UserProfileData } from "./user-profile/types.js";
-import { sortProfileItems } from "../utils/profile.js";
+import { sortProfileItems, stripProfileVectors } from "../utils/profile.js";
+import { resolveWebProfileUserId } from "./profile-identity.js";
 import type { ShardInfo } from "./turso/types.js";
 
 async function getAllMemoryShards(): Promise<ShardInfo[]> {
@@ -911,11 +912,9 @@ export async function handleBulkDeletePrompts(
 export async function handleGetUserProfile(userId?: string): Promise<ApiResponse<any>> {
   try {
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
-    const { getTags } = await import("./tags.js");
     let targetUserId = userId;
     if (!targetUserId) {
-      const tags = getTags(process.cwd());
-      targetUserId = tags.user.userEmail || "unknown";
+      targetUserId = (await resolveWebProfileUserId(CONFIG)) || "unknown";
     }
     const profile = await userProfileManager.getActiveProfile(targetUserId);
     if (!profile)
@@ -944,7 +943,7 @@ export async function handleGetUserProfile(userId?: string): Promise<ApiResponse
         createdAt: safeToISOString(profile.createdAt),
         lastAnalyzedAt: safeToISOString(profile.lastAnalyzedAt),
         totalPromptsAnalyzed: profile.totalPromptsAnalyzed,
-        profileData,
+        profileData: stripProfileVectors(profileData),
       },
     };
   } catch (error) {
@@ -982,7 +981,7 @@ export async function handleGetProfileSnapshot(changelogId: string): Promise<Api
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
     const changelog = await userProfileManager.getChangelogById(changelogId);
     if (!changelog) return { success: false, error: "Changelog not found" };
-    const profileData = JSON.parse(changelog.profileDataSnapshot);
+    const profileData = stripProfileVectors(JSON.parse(changelog.profileDataSnapshot));
     return {
       success: true,
       data: {
@@ -999,13 +998,11 @@ export async function handleGetProfileSnapshot(changelogId: string): Promise<Api
 
 export async function handleRefreshProfile(userId?: string): Promise<ApiResponse<any>> {
   try {
-    const { getTags } = await import("./tags.js");
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
     const { userPromptManager } = await import("./user-prompt/user-prompt-manager.js");
     let targetUserId = userId;
     if (!targetUserId) {
-      const tags = getTags(process.cwd());
-      targetUserId = tags.user.userEmail || "unknown";
+      targetUserId = (await resolveWebProfileUserId(CONFIG)) || "unknown";
     }
     const profile = await userProfileManager.getActiveProfile(targetUserId);
     let decayApplied = false;
@@ -1056,14 +1053,12 @@ export async function handleAICleanup(
 ): Promise<ApiResponse<any>> {
   try {
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
-    const { getTags } = await import("./tags.js");
     const { aiCleanupProfile, aiCleanupProfileFromIndexed, filterProfileForCleanup } =
       await import("./user-profile/ai-cleanup.js");
 
     let targetUserId = userId;
     if (!targetUserId) {
-      const tags = getTags(process.cwd());
-      targetUserId = tags.user.userEmail || "unknown";
+      targetUserId = (await resolveWebProfileUserId(CONFIG)) || "unknown";
     }
 
     const profile = await userProfileManager.getActiveProfile(targetUserId);
@@ -1213,12 +1208,10 @@ function pushItemFromProfile(target: UserProfileData, source: UserProfileData, i
 export async function handleApplyCleanup(userId?: string, body?: any): Promise<ApiResponse<any>> {
   try {
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
-    const { getTags } = await import("./tags.js");
 
     let targetUserId = userId;
     if (!targetUserId) {
-      const tags = getTags(process.cwd());
-      targetUserId = tags.user.userEmail || "unknown";
+      targetUserId = (await resolveWebProfileUserId(CONFIG)) || "unknown";
     }
 
     const pending = pendingCleanups.get(targetUserId);
@@ -1347,10 +1340,8 @@ function removeOneByDescription(profile: UserProfileData, desc: string, itemType
 export async function handleUpdateProfileItem(body?: any): Promise<ApiResponse<any>> {
   try {
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
-    const { getTags } = await import("./tags.js");
 
-    const tags = getTags(process.cwd());
-    const userId = tags.user.userEmail || "unknown";
+    const userId = (await resolveWebProfileUserId(CONFIG)) || "unknown";
     if (!userId) return { success: false, error: "Unable to resolve user identity" };
 
     const profile = await userProfileManager.getActiveProfile(userId);

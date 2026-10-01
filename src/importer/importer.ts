@@ -114,7 +114,11 @@ export interface ImporterDeps {
   ) => void;
   signal?: AbortSignal;
   ledger?: PiImportLedger;
-  profile?: { model?: ModelPort; batchSize?: number };
+  profile?: {
+    model?: ModelPort;
+    batchSize?: number;
+    onProgress?: (done: number, total: number) => void;
+  };
 }
 
 export interface ImportWindow extends CaptureConversation {
@@ -601,6 +605,7 @@ export async function importPiHistory(
       dryRun,
       model: deps.profile.model,
       batchSize: deps.profile.batchSize,
+      ...(deps.profile.onProgress ? { onProgress: deps.profile.onProgress } : {}),
     });
   }
 

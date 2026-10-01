@@ -1,9 +1,12 @@
-import { expect, it } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   backfillModelEdit,
+  importStatusBadge,
+  lastRunSummary,
   manualModelFieldVisible,
+  showsExchangeProgress,
   shouldPollBackfill,
 } from "../web/src/lib/auto-import-settings.js";
 import {
@@ -85,4 +88,88 @@ it("renders both Settings sections with the global switches and the running poll
   // Claude Code gets a backfill card without a model select.
   expect(automatic).toContain('"claude-code"');
   expect(automatic).toContain('host === "claude-code" ? (');
+});
+
+describe("import status badge", () => {
+  const status = (state: string, pending = 0, unresolved = 0, error: string | null = null) => ({
+    state,
+    counts: { pending, unresolved },
+    error,
+  });
+  const run = (over: Record<string, unknown>) =>
+    ({
+      surface: "auto",
+      state: "done",
+      total: 6,
+      done: 6,
+      percent: 100,
+      minutesLeft: null,
+      paused: false,
+      ...over,
+    }) as never;
+
+  it("shows each badge the spec names", () => {
+    expect(importStatusBadge(status("done"), run({}))).toEqual({ kind: "imported" });
+    expect(importStatusBadge(status("done", 0, 27), run({}))).toEqual({
+      kind: "partly",
+      unresolved: 27,
+    });
+    expect(importStatusBadge(status("running"), run({ state: "running" }))).toEqual({
+      kind: "running",
+    });
+    expect(
+      importStatusBadge(
+        status("running"),
+        run({ state: "running", phase: "profile", profileDone: 2, profileTotal: 3 })
+      )
+    ).toEqual({ kind: "learning-profile", done: 2, total: 3 });
+    expect(importStatusBadge(status("stopped", 4), run({ state: "paused", paused: true }))).toEqual(
+      { kind: "paused" }
+    );
+    expect(importStatusBadge(status("failed", 0, 0, "offline"), run({ state: "failed" }))).toEqual({
+      kind: "failed",
+      error: "offline",
+    });
+    expect(importStatusBadge(null, null)).toEqual({ kind: "not-started" });
+    // A finished run with one failed exchange is partly imported, not failed.
+    expect(
+      importStatusBadge(
+        {
+          state: "failed",
+          counts: { pending: 0, unresolved: 27, failed: 1 },
+          error: "call failed",
+        },
+        run({ state: "done" })
+      )
+    ).toEqual({ kind: "partly", unresolved: 27 });
+    // A backfill that failed before its run finished stays failed.
+    expect(
+      importStatusBadge(
+        { state: "failed", counts: { pending: 0, unresolved: 0, failed: 0 }, error: "no package" },
+        run({ state: "done" })
+      )
+    ).toEqual({ kind: "failed", error: "no package" });
+    expect(importStatusBadge(status("stopped", 5), run({ state: "stopped" }))).toEqual({
+      kind: "stopped",
+      pending: 5,
+    });
+  });
+
+  it("draws the exchange bar only during the exchange phase of an active run", () => {
+    expect(showsExchangeProgress(run({ state: "running" }))).toBe(true);
+    expect(showsExchangeProgress(run({ state: "running", phase: "profile" }))).toBe(false);
+    expect(showsExchangeProgress(run({ state: "done" }))).toBe(false);
+  });
+
+  it("summarises the last finished run and nothing while one runs", () => {
+    expect(lastRunSummary(run({ updatedAt: 99, imported: 6, skipped: 0, failed: 0 }))).toEqual({
+      finishedAt: 99,
+      surface: "auto",
+      imported: 6,
+      skipped: 0,
+      failed: 0,
+      state: "done",
+    });
+    expect(lastRunSummary(run({ state: "running", updatedAt: 99 }))).toBeNull();
+  });
 });
