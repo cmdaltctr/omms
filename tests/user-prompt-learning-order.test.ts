@@ -1,20 +1,28 @@
 import { afterAll, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TursoDb } from "../src/services/turso/turso-db.js";
+import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
 const sandbox = mkdtempSync(join(tmpdir(), "omms-learning-order-"));
 const originalHome = process.env.HOME;
+const originalUserProfile = process.env.USERPROFILE;
 process.env.HOME = sandbox;
 process.env.USERPROFILE = sandbox;
 
 const { UserPromptManager } = await import("../src/services/user-prompt/user-prompt-manager.js");
 const { isTrivialPrompt } = await import("../src/core/trivial-prompt.js");
 
-afterAll(() => {
-  process.env.HOME = originalHome;
-  rmSync(sandbox, { recursive: true, force: true });
+afterAll(async () => {
+  try {
+    await cleanupTursoTestDirectory(sandbox);
+  } finally {
+    if (originalHome === undefined) delete process.env.HOME;
+    else process.env.HOME = originalHome;
+    if (originalUserProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = originalUserProfile;
+  }
 });
 
 type Manager = InstanceType<typeof UserPromptManager>;

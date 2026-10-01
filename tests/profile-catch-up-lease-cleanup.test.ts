@@ -6,11 +6,7 @@ import { pathToFileURL } from "node:url";
 
 const generatedDirs: string[] = [];
 const repoRoot = join(import.meta.dir, "..");
-const leaseTest = join(repoRoot, "tests/profile-catch-up-lease.test.ts");
-// This is deliberately the same .js module URL used by the lease source.
-const connectionManagerUrl = pathToFileURL(
-  join(repoRoot, "src/services/turso/connection-manager.js")
-).href;
+const libsqlUrl = pathToFileURL(Bun.resolveSync("@libsql/client", repoRoot)).href;
 
 afterEach(() => {
   for (const dir of generatedDirs.splice(0)) {
@@ -18,33 +14,41 @@ afterEach(() => {
   }
 });
 
-it("closes the lease test's real libSQL clients before removing its temporary directory", () => {
-  const dir = mkdtempSync(join(tmpdir(), "omms-catch-up-lease-preload-"));
-  generatedDirs.push(dir);
-  const preload = join(dir, "lease-cleanup-preload.mjs");
+it.each([
+  { test: "profile-catch-up-lease", prefix: "omms-catch-up-lease-", expectedClients: 4 },
+  { test: "user-prompt-learning-order", prefix: "omms-learning-order-", expectedClients: 1 },
+])(
+  "$test closes its real libSQL clients before removing its temporary directory",
+  ({ test, prefix, expectedClients }) => {
+    const dir = mkdtempSync(join(tmpdir(), "omms-db-cleanup-preload-"));
+    generatedDirs.push(dir);
+    const preload = join(dir, "db-cleanup-preload.mjs");
 
-  writeFileSync(
-    preload,
-    `
+    writeFileSync(
+      preload,
+      `
 import { mock } from "bun:test";
 import * as fs from "node:fs";
-import { tursoConnectionManager } from ${JSON.stringify(connectionManagerUrl)};
+import { basename } from "node:path";
+import * as libsql from ${JSON.stringify(libsqlUrl)};
 
-const getConnection = tursoConnectionManager.getConnection.bind(tursoConnectionManager);
+const createClient = libsql.createClient;
 const realRmSync = fs.rmSync;
 const clients = new Set();
 
-tursoConnectionManager.getConnection = async (...args) => {
-  const db = await getConnection(...args);
-  clients.add(db.getClient());
-  return db;
-};
+mock.module("@libsql/client", () => ({
+  ...libsql,
+  createClient: (...args) => {
+    const client = createClient(...args);
+    clients.add(client);
+    return client;
+  },
+}));
 
 function rmSync(path, options) {
-  const directory = String(path);
-  if (/(^|[\\\\/])omms-catch-up-lease-[^\\\\/]+$/.test(directory)) {
+  if (basename(String(path)).startsWith(${JSON.stringify(prefix)})) {
     const openClients = [...clients].filter((client) => client.closed === false).length;
-    console.log("LEASE_CLEANUP:" + JSON.stringify({ trackedClients: clients.size, openClients }));
+    console.log("DB_CLEANUP:" + JSON.stringify({ trackedClients: clients.size, openClients }));
     if (openClients > 0) {
       const error = new Error("simulated Windows lock while libSQL clients remain open");
       error.code = "EBUSY";
@@ -60,19 +64,28 @@ mock.module("node:fs", () => ({
   rmSync,
 }));
 `,
-    "utf8"
-  );
+      "utf8"
+    );
 
-  const child = Bun.spawnSync({
-    cmd: [process.execPath, "test", "--preload", preload, leaseTest],
-    cwd: repoRoot,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const output = `${child.stdout.toString()}\n${child.stderr.toString()}`;
-  const removal = output.match(/LEASE_CLEANUP:(.*)$/m);
+    const child = Bun.spawnSync({
+      cmd: [
+        process.execPath,
+        "test",
+        "--preload",
+        preload,
+        join(repoRoot, `tests/${test}.test.ts`),
+      ],
+      cwd: repoRoot,
+      env: { ...process.env, HOME: dir, USERPROFILE: dir },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const output = `${child.stdout.toString()}\n${child.stderr.toString()}`;
+    const removal = output.match(/DB_CLEANUP:(.*)$/m);
 
-  expect(child.exitCode, output).toBe(0);
-  expect(removal, output).not.toBeNull();
-  expect(JSON.parse(removal![1]!)).toEqual({ trackedClients: 4, openClients: 0 });
-}, 30_000);
+    expect(child.exitCode, output).toBe(0);
+    expect(removal, output).not.toBeNull();
+    expect(JSON.parse(removal![1]!)).toEqual({ trackedClients: expectedClients, openClients: 0 });
+  },
+  30_000
+);

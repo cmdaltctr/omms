@@ -7,7 +7,7 @@
 
 ## Context
 
-The 4.0.0 Release workflow passed on Linux and four macOS runners. Windows failed in the cleanup hook for `tests/profile-catch-up-lease.test.ts`. All four test cases passed, but npm staging was skipped.
+The 4.0.0 Release workflow passed on Linux and four macOS runners. Windows failed in the cleanup hook for `tests/profile-catch-up-lease.test.ts`. All four test cases passed, but npm staging was skipped. A follow-up smoke run found the same missing close in `tests/user-prompt-learning-order.test.ts` after its five cases passed.
 
 ### Root Cause Analysis
 
@@ -15,7 +15,7 @@ Each test opens a database through `tursoConnectionManager`. The manager keeps t
 
 ## Decision
 
-Use `cleanupTursoTestDirectory(dir)` in the lease test's `afterAll` hook. The existing helper closes managed connections, clears caches, and retries Windows file locks after garbage collection.
+Use `cleanupTursoTestDirectory` in both cleanup hooks. Close the prompt test's database before restoring its temporary home settings. The existing helper closes managed connections, clears caches, and retries Windows file locks after garbage collection.
 
 Add a child-process regression test that makes folder removal fail while a tracked database client remains open. Run it against the original cleanup hook first. This simulates the Windows restriction on every platform.
 
@@ -23,7 +23,7 @@ Add a child-process regression test that makes folder removal fail while a track
 
 ### Positive
 
-- The lease tests release their database clients before folder removal.
+- The lease and prompt tests release their database clients before folder removal.
 - The regression catches an open-client cleanup failure on macOS too.
 
 ### Negative
@@ -59,6 +59,7 @@ Add a child-process regression test that makes folder removal fail while a track
 
 - [Failed 4.0.0 release run](https://github.com/cmdaltctr/omms/actions/runs/36834402025)
 - `tests/profile-catch-up-lease.test.ts`
+- `tests/user-prompt-learning-order.test.ts`
 - `tests/profile-catch-up-lease-cleanup.test.ts`
 - `tests/turso-test-utils.ts`
 - `src/services/turso/sqlite-handle-release.ts`
