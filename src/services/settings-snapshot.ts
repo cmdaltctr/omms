@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse, type ParseError } from "jsonc-parser";
 import { CONFIG, getGlobalConfigSourcePath } from "../config.js";
+import { hasUnexpiredApiToken } from "./api-tokens.js";
 import { resolveClaudeFolder } from "./claude-folder.js";
 import { readGlobalConfigRevision } from "./global-config-writer.js";
 import {
@@ -117,6 +118,17 @@ export function getSettingsSnapshot(directory: string) {
     },
     // The folder Claude Code capture and import read; the check never reads transcripts.
     claudeFolder: { root: claudeRoot, source: claude.source, exists: existsSync(claudeRoot) },
+    // What the Keys and access card needs to mark each credential; no secret values.
+    access: {
+      host: CONFIG.webServerHost,
+      authEnabled: Boolean(CONFIG.webServerAuthPassword),
+      authUsername: CONFIG.webServerAuthUsername ?? null,
+      tokenAvailable: hasUnexpiredApiToken(),
+      embeddingApiUrl: CONFIG.embeddingApiUrl ?? null,
+      // The config key is imported once, then no longer read.
+      configTokenIgnored:
+        typeof global.webServerApiToken === "string" && global.webServerApiToken !== "",
+    },
   };
 }
 

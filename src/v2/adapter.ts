@@ -4,6 +4,7 @@ import {
   OPENCODE_IMPORT_DESCRIPTION,
   runOpencodeImportCommand,
 } from "../adapters/opencode/import-command.js";
+import { addPackageSkill } from "../adapters/opencode/package-skills.js";
 import { log } from "../services/logger.js";
 import { eventBelongsToLocation, legacyToolResult, toLegacyEvent } from "./legacy-client.js";
 import type { V2MemoryBridge } from "./memory-bridge.js";
@@ -151,6 +152,9 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
         ) as any,
     } as any)
   );
+
+  // The omms-memory skill ships in the package; V1 loads it through the config hook.
+  await (ctx as any).skill?.transform?.((editor: any) => addPackageSkill(editor));
 
   // Same command as V1 and Pi. V2 runs it natively, so no model turn relays the report.
   await (ctx as any).command?.transform?.((editor: any) =>

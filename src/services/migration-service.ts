@@ -66,7 +66,10 @@ export class MigrationService {
         const storedDimensions = parseInt(String(metadata.embedding_dimensions || "0"));
         const storedModel = String(metadata.embedding_model || "unknown");
 
-        if (storedDimensions !== CONFIG.embeddingDimensions) {
+        // An old shard with no known model is flagged only on size, so an upgrade does not force a re-embed.
+        const knownModel = !["", "unknown", "legacy-unknown"].includes(storedModel);
+        const modelChanged = knownModel && storedModel !== CONFIG.embeddingModel;
+        if (storedDimensions !== CONFIG.embeddingDimensions || modelChanged) {
           const vectorCount = await tursoVectorSearch.countAllVectors(db);
           mismatches.push({
             shardId: shard.id,

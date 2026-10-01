@@ -5,6 +5,7 @@ import {
   type ProfileAnalysisResult,
   type ModelPort,
 } from "../../core/profile-analysis.js";
+import { profileBackoff, recordProfileFailure } from "../../core/profile-backoff.js";
 import { log } from "../../services/logger.js";
 import { getTags } from "../../services/tags.js";
 import type { PiModelHandle } from "./provider.js";
@@ -81,6 +82,10 @@ export interface PiProfileLearningInput {
  */
 export async function performPiProfileLearning(input: PiProfileLearningInput): Promise<void> {
   if (input.prompts.length === 0) return;
+  if (!profileBackoff.canRun()) {
+    log("pi profile learning: skipped (waiting after a failure)");
+    return;
+  }
 
   try {
     refreshConfigIfChanged(input.directory);
@@ -138,6 +143,7 @@ export async function performPiProfileLearning(input: PiProfileLearningInput): P
       );
     }
 
+    profileBackoff.recordSuccess();
     log("pi profile learning: profile updated", {
       userId,
       prompts: input.prompts.length,
@@ -155,7 +161,7 @@ export async function performPiProfileLearning(input: PiProfileLearningInput): P
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log(`pi profile learning: aborted (${message})`);
+    recordProfileFailure("pi", "pi profile learning: aborted", error);
     if (CONFIG.showErrorToasts && input.notify) {
       const shortReason = message.length > 100 ? message.substring(0, 100) + "..." : message;
       await Promise.resolve(

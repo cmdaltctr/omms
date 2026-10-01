@@ -35,6 +35,16 @@ pi -e /absolute/path/to/omms
 - The Pi core packages (`@earendil-works/pi-coding-agent`, `typebox`) are peer dependencies.
 - The Pi runtime on the host provides them. The package does not include a second runtime.
 
+### The omms-memory skill
+
+The package ships the `omms-memory` skill. The `pi` manifest in `package.json` lists it (`"skills": ["./skills"]`), so Pi loads it with the extension. You do not copy any files.
+
+- The skill tells the agent to search memory with the `memory` tool before it debugs or investigates, and when you refer to earlier work.
+- Start it by name with `/skill:omms-memory`.
+- The `memory` tool description gives the same instruction.
+
+See [Using memory: The omms-memory skill](using-memory.md#the-omms-memory-skill).
+
 ## Configuration
 
 The extension reads the same configuration files as the OpenCode plugin:

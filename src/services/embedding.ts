@@ -101,9 +101,41 @@ export async function loadLocalTransformersBackend(): Promise<NonNullable<typeof
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)),
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+/** The settings that choose an embedder; `CONFIG` satisfies it. */
+export interface EmbedderSettings {
+  embeddingApiUrl?: string;
+  embeddingApiKey?: string;
+  embeddingModel: string;
+  embeddingUseTaskPrefixes?: boolean;
+}
+
+/**
+ * The server request for an OpenAI-compatible embedder, or null for the
+ * built-in model. The URL alone selects the server; the key is optional.
+ */
+export function embeddingServerRequest(
+  settings: EmbedderSettings
+): { url: string; headers: Record<string, string> } | null {
+  if (!settings.embeddingApiUrl) return null;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (settings.embeddingApiKey) headers.Authorization = `Bearer ${settings.embeddingApiKey}`;
+  return { url: `${settings.embeddingApiUrl}/embeddings`, headers };
+}
+
+function settingsSignature(settings: EmbedderSettings): string {
+  return JSON.stringify([
+    settings.embeddingApiUrl ?? "",
+    settings.embeddingModel,
+    settings.embeddingApiKey ?? "",
   ]);
 }
 
@@ -114,7 +146,24 @@ export class EmbeddingService {
   /** Set when warmup fails permanently; prevents "initializing forever" (#184). */
   public initError: string | null = null;
   private cache: Map<string, Float32Array> = new Map();
-  private cachedModelName: string | null = null;
+  private signature: string | null = null;
+
+  /** `settings` is read on every call, so a config reload reaches the next embed. */
+  constructor(private readonly settings: () => EmbedderSettings = () => CONFIG) {}
+
+  /** Drop the loaded model, warm state, and cache when the embedder settings change. */
+  private resetIfSettingsChanged(): void {
+    const signature = settingsSignature(this.settings());
+    if (this.signature === signature) return;
+    if (this.signature !== null) {
+      this.pipe = null;
+      this.initPromise = null;
+      this.isWarmedUp = false;
+      this.initError = null;
+    }
+    this.clearCache();
+    this.signature = signature;
+  }
 
   static getInstance(): EmbeddingService {
     if (!(globalThis as any)[GLOBAL_EMBEDDING_KEY]) {
@@ -124,6 +173,7 @@ export class EmbeddingService {
   }
 
   async warmup(progressCallback?: (progress: any) => void): Promise<void> {
+    this.resetIfSettingsChanged();
     if (this.isWarmedUp) return;
     if (this.initError) throw new Error(this.initError);
     if (this.initPromise) return this.initPromise;
@@ -132,20 +182,19 @@ export class EmbeddingService {
   }
 
   private async initializeModel(progressCallback?: (progress: any) => void): Promise<void> {
+    const settings = this.settings();
     try {
-      if (CONFIG.embeddingApiUrl && CONFIG.embeddingApiKey) {
+      const server = embeddingServerRequest(settings);
+      if (server) {
         // Send a probe request to verify the API endpoint is actually reachable
         // Uses a minimal embedding of "ping" to test the full request pipeline
         const probeResponse = await withTimeout(
-          fetch(`${CONFIG.embeddingApiUrl}/embeddings`, {
+          fetch(server.url, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${CONFIG.embeddingApiKey}`,
-            },
+            headers: server.headers,
             body: JSON.stringify({
               input: "ping",
-              model: CONFIG.embeddingModel,
+              model: settings.embeddingModel,
             }),
           }),
           TIMEOUT_MS
@@ -164,12 +213,12 @@ export class EmbeddingService {
 
       // Local model path
       const { pipeline } = await ensureTransformersLoaded();
-      this.pipe = await pipeline("feature-extraction", CONFIG.embeddingModel, {
+      this.pipe = await pipeline("feature-extraction", settings.embeddingModel, {
         progress_callback: progressCallback,
       });
       this.isWarmedUp = true;
       this.initError = null;
-      log("Embedding model warmed up", { model: CONFIG.embeddingModel });
+      log("Embedding model warmed up", { model: settings.embeddingModel });
     } catch (error) {
       const rewritten = formatOnnxruntimeInitError(error);
       this.initPromise = null;
@@ -180,12 +229,13 @@ export class EmbeddingService {
   }
 
   async embed(text: string, options?: EmbedOptions): Promise<Float32Array> {
-    if (this.cachedModelName !== CONFIG.embeddingModel) {
-      this.clearCache();
-      this.cachedModelName = CONFIG.embeddingModel;
-    }
-
-    const input = applyEmbeddingTaskPrefix(text, options);
+    this.resetIfSettingsChanged();
+    const settings = this.settings();
+    const input = applyEmbeddingTaskPrefix(
+      text,
+      options,
+      settings.embeddingUseTaskPrefixes ?? false
+    );
 
     const cached = this.cache.get(input);
     if (cached) return cached;
@@ -199,21 +249,19 @@ export class EmbeddingService {
 
     let result: Float32Array;
 
-    if (CONFIG.embeddingApiUrl && CONFIG.embeddingApiKey) {
-      const response = await fetch(`${CONFIG.embeddingApiUrl}/embeddings`, {
+    const server = embeddingServerRequest(settings);
+    if (server) {
+      const response = await fetch(server.url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${CONFIG.embeddingApiKey}`,
-        },
+        headers: server.headers,
         body: JSON.stringify({
           input,
-          model: CONFIG.embeddingModel,
+          model: settings.embeddingModel,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`API embedding failed: ${response.statusText}`);
+        throw new Error(`API embedding failed: ${response.status} ${response.statusText}`);
       }
 
       const data: any = await response.json();

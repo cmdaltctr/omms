@@ -546,10 +546,19 @@ turn("3", "Prompt three after a failed profile step", "Reply");
 await send();
 const { userPromptManager } = await import(${JSON.stringify(moduleUrl("src/services/user-prompt/user-prompt-manager.js"))});
 const recorded = (await userPromptManager.getCapturedPrompts()).map((p) => p.content).sort();
-scenario = { afterOne, profileCalls, captures: calls.length, recorded };
+const failures = logs.filter((l) => l.message === "Claude Code profile learning failed");
+scenario = { afterOne, profileCalls, captures: calls.length, recorded, failures };
 `);
     expect(scenario.afterOne).toBe(0);
-    expect(scenario.profileCalls.length).toBeGreaterThanOrEqual(1);
+    // After a failure the process waits 10 minutes before the next profile pass.
+    expect(scenario.profileCalls).toHaveLength(1);
+    expect(scenario.failures).toEqual([
+      {
+        message: "Claude Code profile learning failed",
+        data: { host: "claude-code", reason: "error" },
+      },
+    ]);
+    expect(JSON.stringify(scenario.failures)).not.toContain("Prompt");
     expect(scenario.profileCalls[0]).toContain("Prompt one for the profile");
     expect(scenario.profileCalls[0]).toContain("Prompt two for the profile");
     // A failed profile step does not block the next capture.

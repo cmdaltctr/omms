@@ -69,6 +69,7 @@ mock.module(${JSON.stringify(tagsUrl)}, () => ({
 
 mock.module(${JSON.stringify(promptManagerUrl)}, () => ({
   userPromptManager: {
+    skipTrivialPromptsForLearning: async () => 0,
     countUnanalyzedForUserLearning: async () => 10,
     getPromptsForUserLearning: async () => prompts,
     markMultipleAsUserLearningCaptured: async () => {},

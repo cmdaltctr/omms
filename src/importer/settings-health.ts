@@ -36,6 +36,37 @@ export function captureFailureHealth(
   };
 }
 
+type ClaudeSnapshot = {
+  effective?: { "claude-code"?: { ready: boolean; issues?: string[] } };
+  claudeFolder?: { root: string; exists: boolean };
+};
+
+/** Claude Code rows from the settings snapshot; missing data is a failure, never a throw. */
+function claudeCodeRows(snapshot: ClaudeSnapshot): HealthRow[] {
+  const model = snapshot.effective?.["claude-code"];
+  const folder = snapshot.claudeFolder;
+  return [
+    {
+      check: "Claude Code model",
+      status: model?.ready ? "pass" : "fail",
+      reason: !model
+        ? "Claude Code model status is unavailable"
+        : model.ready
+          ? "Resolved: external API"
+          : (model.issues ?? []).join("; ") || "External API is not configured",
+    },
+    {
+      check: "Claude Code folder",
+      status: !folder ? "fail" : folder.exists ? "pass" : "warn",
+      reason: !folder
+        ? "Claude Code folder status is unavailable"
+        : folder.exists
+          ? `Found: ${folder.root}`
+          : `Folder not found: ${folder.root}`,
+    },
+  ];
+}
+
 export interface HealthInput {
   directory: string;
   host: string;
@@ -62,9 +93,10 @@ export async function runSettingsHealth(input: HealthInput): Promise<{ checks: H
       });
     }
   }
+  let snapshot: ClaudeSnapshot = {};
   await check("Config files", async () => {
     const { getSettingsSnapshot } = await import("../services/settings-snapshot.js");
-    getSettingsSnapshot(input.directory);
+    snapshot = (getSettingsSnapshot(input.directory) ?? {}) as ClaudeSnapshot;
     return "Global and project config parsed";
   });
   await check("Memory store", async () => {
@@ -102,6 +134,7 @@ export async function runSettingsHealth(input: HealthInput): Promise<{ checks: H
     status: pi.kind === "unready" ? "fail" : "pass",
     reason: pi.kind === "unready" ? pi.issues.join("; ") : `Resolved: ${pi.kind}`,
   });
+  checks.push(...claudeCodeRows(snapshot));
   try {
     const { queryCaptureAttempts } = await import("../services/capture-attempt-store.js");
     const { byModel, byReason } = await queryCaptureAttempts(Date.now() - 86400000, Date.now());
@@ -119,6 +152,17 @@ export async function runSettingsHealth(input: HealthInput): Promise<{ checks: H
     });
   }
   if (input.testModels) {
+    // Pi, Claude Code, and OpenCode may all use the external API; one health run calls it once.
+    let externalProbe: Promise<void> | undefined;
+    const probeExternal = () =>
+      (externalProbe ??= import("./model-selection.js").then(async ({ selectImportModel }) => {
+        await selectImportModel({}).capture.summarize({
+          userPrompt: PROBE,
+          context: PROBE,
+          sessionId: "health",
+          projectDirectory: input.directory,
+        });
+      }));
     const { resolveOpencodeHostModel } = await import("../services/ai/live-model-choice.js");
     const { getOpencodeHostModels } = await import("./backfill-controls.js");
     const opencodeRef = resolveOpencodeHostModel(CONFIG);
@@ -132,9 +176,11 @@ export async function runSettingsHealth(input: HealthInput): Promise<{ checks: H
       });
     } else {
       await check("OpenCode model test", async () => {
-        const capture = opencodeRef
-          ? (await createOpencodeImportModels(opencodeRef, input.directory)).capture
-          : (await import("./model-selection.js")).selectImportModel({}).capture;
+        if (!opencodeRef) {
+          await probeExternal();
+          return "Fixed prompt completed";
+        }
+        const { capture } = await createOpencodeImportModels(opencodeRef, input.directory);
         await capture.summarize({
           userPrompt: PROBE,
           context: PROBE,
@@ -146,13 +192,7 @@ export async function runSettingsHealth(input: HealthInput): Promise<{ checks: H
     }
     if (pi.kind === "manual") {
       await check("Pi model test", async () => {
-        const { selectImportModel } = await import("./model-selection.js");
-        await selectImportModel({}).capture.summarize({
-          userPrompt: PROBE,
-          context: PROBE,
-          sessionId: "health",
-          projectDirectory: input.directory,
-        });
+        await probeExternal();
         return "Fixed prompt completed";
       });
     } else {
@@ -160,6 +200,12 @@ export async function runSettingsHealth(input: HealthInput): Promise<{ checks: H
         check: "Pi model test",
         status: "warn",
         reason: "Pi models need an active Pi session to test",
+      });
+    }
+    if (snapshot.effective?.["claude-code"]?.ready) {
+      await check("Claude Code model test", async () => {
+        await probeExternal();
+        return "Fixed prompt completed";
       });
     }
   }

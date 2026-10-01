@@ -151,16 +151,13 @@ export async function runWebCommand(
         import("../services/auth-token.js"),
         import("../services/package-version.js"),
       ]);
-      const apiToken = config.CONFIG.webServerApiToken;
       context = {
         fetchFn: handover.fetch ?? fetch,
         sleep: handover.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))),
         url,
         port: config.CONFIG.webServerPort,
-        headers: {
-          [AUTH_HEADER]: getOrCreateAuthToken(),
-          ...(apiToken ? { authorization: `Bearer ${apiToken}` } : {}),
-        },
+        // The web app runs on this machine, so the local token file is enough.
+        headers: { [AUTH_HEADER]: getOrCreateAuthToken() },
         version: handover.version ?? packageVersion(),
       };
       outcome = await negotiateOwner(context);
@@ -183,7 +180,6 @@ export async function runWebCommand(
           port: config.CONFIG.webServerPort,
           host: config.CONFIG.webServerHost,
           enabled: true,
-          apiToken: config.CONFIG.webServerApiToken,
         }).checkServerAvailable();
       });
     console.log(
@@ -206,6 +202,7 @@ export async function runWebCommand(
     port: config.CONFIG.webServerPort,
     host: config.CONFIG.webServerHost,
     enabled: true,
+    // Imported into the token table once at start; not read for authorisation.
     apiToken: config.CONFIG.webServerApiToken,
     auth: new WebAuth({
       password: config.CONFIG.webServerAuthPassword,

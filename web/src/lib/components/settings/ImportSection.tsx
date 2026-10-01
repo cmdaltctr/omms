@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Select } from "$lib/components/ui/select";
-import { settingsRequest } from "$lib/settings-api";
+import { onSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import { localDayEnd, localDayStart } from "$lib/import-dates";
 import { mergeListing } from "$lib/import-listing";
@@ -72,6 +72,20 @@ function parseMaps(text: string, message: string) {
     });
 }
 
+/** Reload import readiness after every settings save on the page. */
+export function watchReadiness(reload: () => void): () => void {
+  return onSettingsSnapshot(() => reload());
+}
+
+/** The saved external API option, without its model name, which a save can change. */
+export function externalOptionLabel(
+  readiness: { external: { state: string } } | null,
+  s: (message: string) => string
+): string {
+  const notReady = readiness && readiness.external.state !== "ready";
+  return `${s("Saved external API")}${notReady ? ` — ${s("not ready")}` : ""}`;
+}
+
 export function ImportSection() {
   const s = useSettingsText();
   const [host, setHost] = useState<Host>("pi");
@@ -115,6 +129,12 @@ export function ImportSection() {
     void settingsRequest<{ job: Job | null }>("/api/settings/imports/current")
       .then((value) => setJob(value.job))
       .catch(() => {});
+    // A save elsewhere on the page can change the external API; keep the user's model choice.
+    return watchReadiness(() => {
+      void settingsRequest<Readiness>("/api/settings/imports/readiness")
+        .then(setReadiness)
+        .catch(() => setReadiness(null));
+    });
   }, []);
 
   useEffect(() => {
@@ -545,11 +565,7 @@ export function ImportSection() {
                 {item.name} ({item.provider}/{item.model})
               </option>
             ))}
-          <option value="external">
-            {s("Saved external API")}
-            {readiness?.external.model ? ` (${readiness.external.model})` : ""}
-            {readiness && readiness.external.state !== "ready" ? ` — ${s("not ready")}` : ""}
-          </option>
+          <option value="external">{externalOptionLabel(readiness, s)}</option>
         </Select>
       </label>
       {host !== "claude-code" && readiness && !readiness.opencode.available && (

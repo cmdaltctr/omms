@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { fetchAPI } from "$lib/api";
+import { shouldOpenTagMigration } from "$lib/tag-migration-prompt";
 import { t } from "$lib/i18n";
 import type { MemoryItem, TagInfo } from "$lib/types";
 
@@ -138,7 +139,11 @@ export function useMemoriesExplorer() {
     const tagResult = await fetchAPI<{ needsMigration: boolean; count: number }>(
       "/api/migration/tags/detect"
     );
-    if (tagResult.success && tagResult.data?.needsMigration) {
+    if (
+      tagResult.success &&
+      tagResult.data?.needsMigration &&
+      shouldOpenTagMigration(tagResult.data.count)
+    ) {
       setTagMigrationCount(tagResult.data.count);
       setTagMigrationOpen(true);
     }

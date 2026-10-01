@@ -10,3 +10,8 @@ const HOST_LABELS: Record<WebHost, string> = {
 export function hostLabel(host: WebHost): string {
   return HOST_LABELS[host];
 }
+
+/** A host id from the server as its display name; an unknown id is shown as sent. */
+export function hostName(host: string): string {
+  return Object.hasOwn(HOST_LABELS, host) ? HOST_LABELS[host as WebHost] : host;
+}

@@ -73,26 +73,34 @@ export async function saveCaptureAttempt(
   );
 }
 
+/** True when any capture attempt from this host is recorded. */
+export async function hasCaptureAttempts(host: string): Promise<boolean> {
+  const db = await database();
+  return Boolean(await db.get("SELECT 1 FROM capture_attempts WHERE host = ? LIMIT 1", [host]));
+}
+
 export async function pruneCaptureAttempts(days: number, now = Date.now()): Promise<number> {
   const db = await database();
   return db.run("DELETE FROM capture_attempts WHERE created_at < ?", [now - days * 86400000]);
 }
 
-export async function queryCaptureAttempts(from: number, to: number, limit = 100) {
+export async function queryCaptureAttempts(from: number, to: number, limit = 100, host?: string) {
   const db = await database();
-  const range = [from, to];
+  // One optional clause keeps every list filtered the same way, so `recent` fills its limit.
+  const where = host ? "created_at BETWEEN ? AND ? AND host = ?" : "created_at BETWEEN ? AND ?";
+  const range = host ? [from, to, host] : [from, to];
   const byModel = await db.all(
     `SELECT host, provider, model, COUNT(*) AS total,
     SUM(CASE WHEN outcome = 'saved' THEN 1 ELSE 0 END) AS saved,
     SUM(CASE WHEN outcome = 'skipped' THEN 1 ELSE 0 END) AS skipped,
     SUM(CASE WHEN outcome = 'failed' THEN 1 ELSE 0 END) AS failed
-    FROM capture_attempts WHERE created_at BETWEEN ? AND ?
+    FROM capture_attempts WHERE ${where}
     GROUP BY host, provider, model ORDER BY total DESC`,
     range
   );
   const byReason = await db.all(
     `SELECT host, provider, model, reason, COUNT(*) AS count
-    FROM capture_attempts WHERE created_at BETWEEN ? AND ? AND outcome = 'failed'
+    FROM capture_attempts WHERE ${where} AND outcome = 'failed'
     GROUP BY host, provider, model, reason ORDER BY count DESC`,
     range
   );
@@ -101,7 +109,7 @@ export async function queryCaptureAttempts(from: number, to: number, limit = 100
     source_type AS sourceType, session_id AS sessionId, path, provider, model,
     stop_reason AS stopReason, block_types AS blockTypes, prompt_chars AS promptChars,
     reply_chars AS replyChars, duration_ms AS durationMs, outcome, reason
-    FROM capture_attempts WHERE created_at BETWEEN ? AND ?
+    FROM capture_attempts WHERE ${where}
     ORDER BY created_at DESC, id DESC LIMIT ?`,
     [...range, Math.max(1, Math.min(500, limit))]
   );

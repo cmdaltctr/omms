@@ -137,15 +137,6 @@ export function ModelsSection() {
         />
       ))}
       <ClaudeCaptureStatus status={snapshot?.effective["claude-code"]} />
-      <div className="text-xs text-muted-foreground">
-        {s("Credentials (values hidden)")}:{" "}
-        {snapshot &&
-          Object.entries(snapshot.secrets).map(([key, secret]) => (
-            <span className="me-3" key={key}>
-              {key}: {secret.set ? `${s("set")} (${secret.source})` : s("not set")}
-            </span>
-          ))}
-      </div>
       {message && (
         <p role="status" className="text-sm">
           {message}

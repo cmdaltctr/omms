@@ -1,5 +1,6 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import { getTags } from "../../services/tags.js";
+import { profileBackoff, recordProfileFailure } from "../../core/profile-backoff.js";
 import { log } from "../../services/logger.js";
 import { CONFIG, refreshConfigIfChanged } from "../../config.js";
 import { resolveOpencodeHostModel } from "../../services/ai/live-model-choice.js";
@@ -61,6 +62,7 @@ export async function performUserProfileLearning(
   directory: string
 ): Promise<void> {
   if (isLearningRunning) return;
+  if (!profileBackoff.canRun()) return;
   refreshConfigIfChanged(directory);
   if (!CONFIG.autoCaptureProviderStatus || !CONFIG.autoCaptureProviderStatus.ready) {
     log("user-profile-learning: skipped (provider not ready)", {
@@ -70,6 +72,7 @@ export async function performUserProfileLearning(
   }
   isLearningRunning = true;
   try {
+    await userPromptManager.skipTrivialPromptsForLearning();
     const count = await userPromptManager.countUnanalyzedForUserLearning();
     const threshold = CONFIG.userProfileAnalysisInterval;
 
@@ -79,7 +82,9 @@ export async function performUserProfileLearning(
       return;
     }
 
-    const prompts = await userPromptManager.getPromptsForUserLearning(threshold);
+    const prompts = await userPromptManager.getPromptsForUserLearning(threshold, {
+      recentFirst: true,
+    });
 
     if (prompts.length === 0) {
       return;
@@ -172,6 +177,7 @@ Rules:
     const context = buildUserAnalysisContext(prompts, existingProfile, validationPrompt);
 
     const analysisResult = await analyzeUserProfile(context, existingProfile);
+    profileBackoff.recordSuccess();
 
     log("user-profile-learning: analyze done", { hasResult: !!analysisResult });
 
@@ -289,7 +295,7 @@ Rules:
     // would surface as an unhandled promise rejection. The caller (src/index.ts idle
     // timer) already wraps this call in its own try/catch, and issue #265 requires
     // provider errors to propagate instead of being masked, so rethrow after logging.
-    log("user-profile-learning: aborted", { error: String(error) });
+    recordProfileFailure("opencode", "user-profile-learning: aborted", error);
     throw error;
   } finally {
     isLearningRunning = false;
