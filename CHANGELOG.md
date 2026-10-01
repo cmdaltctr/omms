@@ -2,6 +2,23 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.0.0](https://github.com/cmdaltctr/omms/compare/v3.6.2...v4.0.0) (2026-10-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* an embedding server without embeddingApiKey no longer receives OPENAI_API_KEY. Set "embeddingApiKey": "env://OPENAI_API_KEY" to keep it.
+* webServerApiToken is imported once into the API token table as "from config file" with no expiry, then no longer read. Existing callers keep working. Create new tokens on the Settings page. A network-bound web app now starts only with an unexpired token or a browser password.
+
+### Features
+
+* settings keys and access, embedding changes, Claude Code health, and profile learning fixes ([0c3de91](https://github.com/cmdaltctr/omms/commit/0c3de91678a2cea5e13d02ce268ec8bc2a0d668f))
+
+
+### Bug Fixes
+
+* apply CodeRabbit review and restore docs and the OpenSpec archive ([8cf93ce](https://github.com/cmdaltctr/omms/commit/8cf93ce157df15f6e5f4e71057a8d06a3dc39fa9))
+
 ## [3.6.2](https://github.com/cmdaltctr/omms/compare/v3.6.1...v3.6.2) (2026-09-30)
 
 
