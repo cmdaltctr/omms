@@ -2,6 +2,25 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.3.0](https://github.com/cmdaltctr/omms/compare/v4.2.0...v4.3.0) (2026-10-02)
+
+
+### Features
+
+* **opencode:** footer status and update notice; login item keeps the newest copy ([441fcc9](https://github.com/cmdaltctr/omms/commit/441fcc906ea6e1777dc9c86e5be5816e689388c9))
+* **opencode:** footer status, update notice and newest-copy login item ([a6e4703](https://github.com/cmdaltctr/omms/commit/a6e4703575f6b27d97506f2f49f35edcc2fe53a1))
+
+
+### Bug Fixes
+
+* address OpenCode status and login-item review findings ([0633bb4](https://github.com/cmdaltctr/omms/commit/0633bb42baa49a8588502b473fe4ba1826971e84))
+
+
+### Documentation
+
+* add ADR-017 and TDR-022 for OpenCode status and the login item copy ([1f77eeb](https://github.com/cmdaltctr/omms/commit/1f77eeb4bc5836a85448ddde73d6e4e047208ba0))
+* **openspec:** record and archive the opencode-status-and-updates change ([c624bf0](https://github.com/cmdaltctr/omms/commit/c624bf02faac5ce3051e0ee8a13b28918e6ee75b))
+
 ## [4.2.0](https://github.com/cmdaltctr/omms/compare/v4.1.0...v4.2.0) (2026-10-01)
 
 
