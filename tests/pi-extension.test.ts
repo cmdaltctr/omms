@@ -120,11 +120,16 @@ mock.module(${JSON.stringify(autostartUrl)}, () => ({
 
 const registerCalls = [];
 let registerFails = false;
+let replaceOlderFails = false;
 mock.module(${JSON.stringify(handoffUrl)}, () => ({
   registerOwnCopy: () => {
     registerCalls.push(1);
     if (registerFails) throw new Error("record failed");
     return "written";
+  },
+  hostReplaceOlder: async () => {
+    if (replaceOlderFails) throw new Error("no token");
+    return { version: "4.3.2", headers: { "x-omms-token": "local" } };
   },
 }));
 
@@ -304,8 +309,23 @@ captured = { calls: ensureCalls.length, options: ensureCalls[0] };
         settings: { enabled: true, baseUrl: "http://127.0.0.1:4747" },
         budgetMs: 0,
         wait: false,
+        replaceOlder: { version: "4.3.2", headers: { "x-omms-token": "local" } },
       },
     });
+  });
+
+  it("still starts the web app, without replacing an older one, when the token step fails", () => {
+    const output = runScenario(`
+stubConfig.webServerEnabled = true;
+stubConfig.webServerHost = "127.0.0.1";
+stubConfig.webServerPort = 4747;
+delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
+replaceOlderFails = true;
+await handlers["session_start"]({}, makeCtx());
+await waitFor(() => ensureCalls.length === 1);
+captured = { replaceOlder: "replaceOlder" in ensureCalls[0] };
+    `);
+    expect(output.captured).toEqual({ replaceOlder: false });
   });
 
   it("starts the shared web app even when webServerAutoStart is unset", () => {

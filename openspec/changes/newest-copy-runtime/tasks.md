@@ -28,10 +28,10 @@
 
 ## 6. Replace an older web app
 
-- [ ] 6.1 Move `readWebVersion` and `negotiateOwner` from `src/cli/web-command.ts` to `src/services/web-handover.ts` with no behaviour change. Verify: `bun test tests/web-command.test.ts` passes unchanged.
-- [ ] 6.2 Write cases in `tests/web-ensure.test.ts`: with `replaceOlder`, an older web app gets a step-aside request, then a start through the launcher; a same or newer or unparsable version is used as is; a failed step-aside returns `running` and logs a code; two callers replace it only once; without `replaceOlder`, nothing changes. Verify: they fail before 6.3.
-- [ ] 6.3 Add `replaceOlder` to `ensureWebApp` in `src/services/web-ensure.ts`, and spawn `~/.omms/bin/omms-launch.mjs web` when it exists. Verify: 6.2 passes, and `bun test tests/web-ensure-real-process.test.ts` and `bun test tests/opencode-web-ensure.test.ts` pass.
-- [ ] 6.4 Pass `replaceOlder` from the OpenCode start, the Pi start, and the Claude Code `session-start` hook only. Add a hook client test that `user-prompt-submit` does not pass it. Verify: `bun test tests/claude-hook-client.test.ts` passes.
+- [x] 6.1 Move `readWebVersion` and `negotiateOwner` from `src/cli/web-command.ts` to `src/services/web-handover.ts` with no behaviour change. Verify: `bun test tests/web-command.test.ts` passes unchanged.
+- [x] 6.2 Write cases in `tests/web-ensure.test.ts`: with `replaceOlder`, an older web app gets a step-aside request, then a start through the launcher; a same or newer or unparsable version is used as is; a failed step-aside returns `running` and logs a code; two callers replace it only once; without `replaceOlder`, nothing changes. Verify: they fail before 6.3.
+- [x] 6.3 Add `replaceOlder` to `ensureWebApp` in `src/services/web-ensure.ts`, and spawn `~/.omms/bin/omms-launch.mjs web` when it exists. Verify: 6.2 passes, and `bun test tests/web-ensure-real-process.test.ts` and `bun test tests/opencode-web-ensure.test.ts` pass.
+- [x] 6.4 Pass `replaceOlder` from the OpenCode start, the Pi start, and the Claude Code `session-start` hook only. Add a hook client test that `user-prompt-submit` does not pass it. Verify: `bun test tests/claude-hook-client.test.ts` passes.
 
 ## 7. Claude Code plugin
 

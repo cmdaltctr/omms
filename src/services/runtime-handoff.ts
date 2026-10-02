@@ -126,3 +126,30 @@ export async function handOffOrRegister(
   registerOwnCopy({ dir: options.dir, root: ownRoot, log: options.log });
   return null;
 }
+
+/** The version of the newest valid recorded copy, or null. This is the version a launcher start runs. */
+export function newestRecordedVersion(
+  options: { dir?: string; log?: RuntimeLog } = {}
+): string | null {
+  return recordedCopy(options.dir ?? ommsDir(), options.log ?? logCode)?.version ?? null;
+}
+
+/** What `ensureWebApp` needs to replace an older running web app. */
+export interface ReplaceOlder {
+  version: string;
+  headers: Record<string, string>;
+}
+
+/**
+ * For a host start: record this copy, then name the version a running web app
+ * must reach. A web app older than it is asked to step aside. Without a
+ * recorded copy there is no target, so any running web app is used.
+ */
+export async function hostReplaceOlder(): Promise<ReplaceOlder | undefined> {
+  registerOwnCopy();
+  const version = newestRecordedVersion();
+  if (!version) return undefined;
+  const { AUTH_HEADER, getOrCreateAuthToken } = await import("./auth-token.js");
+  // The web app runs on this machine, so the local token file is enough.
+  return { version, headers: { [AUTH_HEADER]: getOrCreateAuthToken() } };
+}

@@ -152,17 +152,21 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
         void Promise.all([
           import("../../services/web-ensure.js"),
           import("../../services/web-api-auth.js"),
+          import("../../services/runtime-handoff.js"),
         ])
-          .then(([{ ensureWebApp }, { webServerUrl }]) =>
-            ensureWebApp({
+          .then(async ([{ ensureWebApp }, { webServerUrl }, { hostReplaceOlder }]) => {
+            // A web app older than the newest recorded copy steps aside for it.
+            const replaceOlder = await hostReplaceOlder().catch(() => undefined);
+            return ensureWebApp({
               settings: {
                 enabled: CONFIG.webServerEnabled,
                 baseUrl: webServerUrl(CONFIG.webServerHost, CONFIG.webServerPort),
               },
               budgetMs: 0,
               wait: false,
-            })
-          )
+              ...(replaceOlder ? { replaceOlder } : {}),
+            });
+          })
           .catch((error: unknown) =>
             log("Pi web app start failed", {
               code: error instanceof Error ? error.name : "unknown",

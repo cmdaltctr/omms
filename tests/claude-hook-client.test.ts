@@ -61,6 +61,8 @@ function harness(
     enabled?: boolean;
     basicAuth?: { username: string; password: string };
     loadSettingsThrows?: boolean;
+    /** The version of the newest recorded OMMS copy. Default: none recorded. */
+    recordedVersion?: string | null;
   } = {}
 ): Harness {
   const calls: Call[] = [];
@@ -110,6 +112,7 @@ function harness(
     },
     log: (message, data) => logs.push({ message, data }),
     readToken: async () => TOKEN,
+    recordedVersion: () => config.recordedVersion ?? null,
     resolveRuntime: async () => (config.runtime === undefined ? "/usr/bin/node" : config.runtime),
     cliScript: "/pkg/dist/cli/index.js",
     // Keep the start lock off the real home folder.
@@ -452,5 +455,65 @@ describe("claude-hook command", () => {
       Buffer.byteLength(JSON.stringify(payload("user-prompt-submit")))
     );
     expect(logged(h)?.outputBytes).toBe(Buffer.byteLength(h.out[0]!));
+  });
+});
+
+describe("replacing an older web app", () => {
+  const version = (running: string) => (call: Call) =>
+    call.url.endsWith("/api/settings/version")
+      ? Response.json({ running })
+      : call.url.endsWith("/api/web/step-aside")
+        ? new Response("no", { status: 404 })
+        : call.url.endsWith("/api/claude/retrieve")
+          ? Response.json({ additionalContext: "<omms-retrieval>\nmemo\n</omms-retrieval>" })
+          : Response.json({ queued: true }, { status: 202 });
+  const stepAside = (h: Harness) =>
+    h.calls.filter((call) => call.url.endsWith("/api/web/step-aside"));
+  const versionReads = (h: Harness) =>
+    h.calls.filter((call) => call.url.endsWith("/api/settings/version"));
+
+  it("asks an older web app to step aside at session-start, with the local token", async () => {
+    const h = harness(JSON.stringify(payload("session-start")), {
+      recordedVersion: "4.3.3",
+      route: version("4.3.0"),
+    });
+    await runClaudeHookCommand(["session-start"], h.options);
+    expect(stepAside(h)).toHaveLength(1);
+    expect(stepAside(h)[0]?.method).toBe("POST");
+    expect(stepAside(h)[0]?.headers["x-omms-token"]).toBe(TOKEN);
+    expect(stepAside(h)[0]?.body).toEqual({ version: "4.3.3" });
+    // The step-aside was refused, so the hook still gets its memories from the running app.
+    expect(posts(h).filter((call) => call.url.endsWith("/api/claude/retrieve"))).toHaveLength(1);
+    expect(logged(h)?.code).toBe("ok");
+  });
+
+  for (const event of ["user-prompt-submit", "stop"] as const) {
+    it(`does not look at the web app version at ${event}`, async () => {
+      const h = harness(JSON.stringify(payload(event)), {
+        recordedVersion: "4.3.3",
+        route: version("4.3.0"),
+      });
+      await runClaudeHookCommand([event], h.options);
+      expect(versionReads(h)).toHaveLength(0);
+      expect(stepAside(h)).toHaveLength(0);
+      expect(posts(h)).toHaveLength(1);
+    });
+  }
+
+  it("uses the running web app when it has the recorded version", async () => {
+    const h = harness(JSON.stringify(payload("session-start")), {
+      recordedVersion: "4.3.3",
+      route: version("4.3.3"),
+    });
+    await runClaudeHookCommand(["session-start"], h.options);
+    expect(stepAside(h)).toHaveLength(0);
+    expect(h.spawns).toHaveLength(0);
+  });
+
+  it("uses the running web app when no copy is recorded", async () => {
+    const h = harness(JSON.stringify(payload("session-start")), { route: version("4.3.0") });
+    await runClaudeHookCommand(["session-start"], h.options);
+    expect(versionReads(h)).toHaveLength(0);
+    expect(stepAside(h)).toHaveLength(0);
   });
 });

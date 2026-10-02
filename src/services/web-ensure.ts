@@ -1,6 +1,7 @@
 import { spawn as nodeSpawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  existsSync,
   linkSync,
   mkdirSync,
   readFileSync,
@@ -12,6 +13,9 @@ import {
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { launcherPath } from "./runtime-record.js";
+import { isOlderVersion } from "./version-compare.js";
+import { negotiateOwner, readWebVersion } from "./web-handover.js";
 
 // The shared start rule: every host calls `ensureWebApp` at session start, and
 // at most one standalone web app runs per machine. It imports no host adapter,
@@ -61,6 +65,8 @@ export interface EnsureDeps {
   resolveRuntime: () => Promise<string | null> | string | null;
   /** The `om-memory-system` script that `web` is run from. */
   cliScript: string;
+  /** `~/.omms/bin/omms-launch.mjs` when it exists. `web` then starts through it, on the newest recorded copy. */
+  launcherScript: string | null;
   lockPath: string;
   lockFs: LockFs;
   pidAlive: (pid: number) => boolean;
@@ -76,6 +82,12 @@ export interface EnsureOptions {
   budgetMs: number;
   /** `false` starts the web app and returns at once (session starts). Default `true`. */
   wait?: boolean;
+  /**
+   * Replace a running web app older than `version`: ask it to step aside, then
+   * start as for an empty port. `headers` are the local token headers the
+   * step-aside route needs. Without it, any running OMMS web app is used.
+   */
+  replaceOlder?: { version: string; headers: Record<string, string> };
   deps?: Partial<EnsureDeps>;
 }
 
@@ -189,6 +201,13 @@ function processAlive(pid: number): boolean {
   }
 }
 
+/** Tests set the switch, so they never start the developer's real recorded copy. */
+function existingLauncher(): string | null {
+  if (process.env.OMMS_DISABLE_RUNTIME_RECORD === "1") return null;
+  const file = launcherPath(join(homedir(), ".omms"));
+  return existsSync(file) ? file : null;
+}
+
 function productionDefaults(): EnsureDeps {
   return {
     fetch: globalThis.fetch,
@@ -198,6 +217,7 @@ function productionDefaults(): EnsureDeps {
     resolveRuntime: async () => (await import("./web-autostart.js")).resolveWebRuntime(),
     // From dist/services/ to the CLI entry point.
     cliScript: fileURLToPath(new URL("../cli/index.js", import.meta.url)),
+    launcherScript: existingLauncher(),
     lockPath: startLockPath(),
     lockFs: nodeLockFs,
     pidAlive: processAlive,
@@ -291,7 +311,16 @@ export async function ensureWebApp(options: EnsureOptions): Promise<EnsureResult
   let held = false;
   try {
     const first = await probe(settings.baseUrl, probeMs(), deps);
-    if (first === "omms") return "running";
+    const { replaceOlder } = options;
+    // An OMMS web app that is older than the newest copy is replaced; any other is used.
+    const replacing =
+      first === "omms" &&
+      replaceOlder !== undefined &&
+      isOlderVersion(
+        (await readWebVersion(deps.fetch, settings.baseUrl, replaceOlder.headers)) ?? "",
+        replaceOlder.version
+      );
+    if (first === "omms" && !replacing) return "running";
     if (first === "other") {
       await logCode("port-busy");
       return "port-busy";
@@ -300,11 +329,28 @@ export async function ensureWebApp(options: EnsureOptions): Promise<EnsureResult
     const runtime = await deps.resolveRuntime();
     if (!runtime) {
       await logCode("no-runtime");
-      return "no-runtime";
+      return replacing ? "running" : "no-runtime";
     }
 
     held = takeStartLock(deps);
-    if (!held) return await waitForOther(settings.baseUrl, wait, remaining, deps);
+    // The caller that holds the lock replaces the web app; the others use it.
+    if (!held)
+      return replacing ? "running" : await waitForOther(settings.baseUrl, wait, remaining, deps);
+
+    if (replacing && replaceOlder) {
+      const outcome = await negotiateOwner({
+        fetchFn: deps.fetch,
+        sleep: deps.sleep,
+        url: settings.baseUrl,
+        port: Number(new URL(settings.baseUrl).port) || 80,
+        headers: replaceOlder.headers,
+        version: replaceOlder.version,
+      });
+      if (outcome.kind !== "handed") {
+        if (outcome.kind === "stuck") await logCode("step-aside-failed");
+        return "running";
+      }
+    }
 
     // Another caller may have finished its start before this one took the lock.
     const second = await probe(settings.baseUrl, probeMs(), deps);
@@ -314,7 +360,7 @@ export async function ensureWebApp(options: EnsureOptions): Promise<EnsureResult
       return "port-busy";
     }
 
-    const child = deps.spawn(runtime, [deps.cliScript, "web"], {
+    const child = deps.spawn(runtime, [deps.launcherScript ?? deps.cliScript, "web"], {
       detached: true,
       stdio: "ignore",
       cwd: homedir(),

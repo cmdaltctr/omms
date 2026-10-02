@@ -56,6 +56,8 @@ export interface ClaudeHookOptions {
   sleep?: (ms: number) => Promise<void>;
   log?: (message: string, data: Record<string, unknown>) => void | Promise<void>;
   readToken?: () => Promise<string>;
+  /** The version of the newest recorded OMMS copy, or null. Tests inject it. */
+  recordedVersion?: () => string | null;
   resolveRuntime?: () => Promise<string | null>;
   loadSettings?: () => Promise<HookServerSettings>;
   /** The `om-memory-system` script that `web` is run from. */
@@ -180,6 +182,7 @@ function productionDefaults(): Required<
     | "inputTimeoutMs"
     | "maxInputBytes"
     | "spawn"
+    | "recordedVersion"
     | "resolveRuntime"
     | "cliScript"
     | "ensureDeps"
@@ -267,7 +270,7 @@ async function runSteps(
   const settings = await deps.loadSettings();
   if (!settings.enabled) return "server-disabled";
   const budget = BUDGETS[event];
-  const ready = await ensureServer(settings, budget.startMs, deps, result);
+  const ready = await ensureServer(event, settings, budget.startMs, deps, result);
   if (ready !== "ok") return ready;
 
   const headers: Record<string, string> = {
@@ -311,8 +314,25 @@ async function runSteps(
   return "ok";
 }
 
+/** The newest recorded copy's version with the local token, or undefined when no copy is recorded. */
+async function replaceOlderFor(
+  deps: Deps
+): Promise<{ version: string; headers: Record<string, string> } | undefined> {
+  try {
+    const version = deps.recordedVersion
+      ? deps.recordedVersion()
+      : (await import("../../services/runtime-handoff.js")).newestRecordedVersion();
+    if (!version) return undefined;
+    return { version, headers: { [AUTH_HEADER]: await deps.readToken() } };
+  } catch {
+    // Without a target, any running web app is used.
+    return undefined;
+  }
+}
+
 /** Use a running web app, or start one through the shared rule and wait for it within the budget. */
 async function ensureServer(
+  event: ClaudeHookEvent,
   settings: HookServerSettings,
   budgetMs: number,
   deps: Deps,
@@ -323,6 +343,8 @@ async function ensureServer(
     settings: { enabled: settings.enabled, baseUrl: settings.baseUrl },
     budgetMs,
     wait: true,
+    // Only a new session replaces an older web app. A prompt or a stop uses any running one.
+    ...(event === "session-start" ? { replaceOlder: await replaceOlderFor(deps) } : {}),
     deps: {
       fetch: deps.fetch,
       now: deps.now,

@@ -62,6 +62,7 @@ function world(
     now: () => clock.t,
     resolveRuntime: async () => (config.runtime === undefined ? "/usr/bin/node" : config.runtime),
     cliScript: "/pkg/dist/cli/index.js",
+    launcherScript: null,
     lockPath: LOCK,
     lockFs: {
       createExclusive: (path, text) => {
@@ -435,5 +436,162 @@ describe("nodeLockFs.replace", () => {
       reader.kill();
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("ensureWebApp replaceOlder", () => {
+  const LAUNCHER = "/home/test/.omms/bin/omms-launch.mjs";
+  const HEADERS = { "x-omms-token": "local" };
+  const NEW = "4.3.2";
+
+  /**
+   * An OMMS web app that answers health, version, and step-aside. After a 202 it
+   * goes down; a spawn brings up the new version.
+   */
+  function replaceWorld(
+    config: {
+      version?: string | null;
+      stepAside?: 202 | 404 | "throw";
+      runtime?: string | null;
+    } = {}
+  ) {
+    const w = world({ initial: "omms", runtime: config.runtime });
+    const state = {
+      alive: true,
+      version: config.version === undefined ? "4.3.0" : config.version,
+      dying: 0,
+    };
+    const requests: string[] = [];
+    w.deps.launcherScript = LAUNCHER;
+    w.deps.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const path = new URL(String(input)).pathname;
+      const method = init?.method ?? "GET";
+      requests.push(`${method} ${path}`);
+      if (path === "/api/health") {
+        if (!state.alive) throw new TypeError("fetch failed");
+        if (state.dying && --state.dying === 0) state.alive = false;
+        return Response.json({ success: true, status: "ok" });
+      }
+      if (!state.alive) throw new TypeError("fetch failed");
+      if (path === "/api/settings/version") {
+        return state.version === null
+          ? new Response("nope", { status: 404 })
+          : Response.json({ running: state.version });
+      }
+      if (path === "/api/web/step-aside") {
+        if (config.stepAside === "throw") throw new TypeError("fetch failed");
+        if (config.stepAside === 404) return new Response("nope", { status: 404 });
+        state.dying = 2;
+        return new Response(null, { status: 202 });
+      }
+      return new Response("nope", { status: 404 });
+    }) as unknown as typeof fetch;
+    const spawn = w.deps.spawn!;
+    w.deps.spawn = ((command: string, args: string[], options: any) => {
+      state.alive = true;
+      state.version = NEW;
+      return spawn(command, args, options);
+    }) as unknown as EnsureDeps["spawn"];
+    return { ...w, state, requests };
+  }
+
+  const options = (w: { deps: Partial<EnsureDeps> }) => ({
+    settings: SETTINGS,
+    budgetMs: 5_000,
+    deps: w.deps,
+    replaceOlder: { version: NEW, headers: HEADERS },
+  });
+
+  it("asks an older web app to step aside, then starts through the launcher", async () => {
+    const w = replaceWorld();
+    const result = await ensureWebApp(options(w));
+    expect(result).toBe("started");
+    expect(w.requests).toContain("POST /api/web/step-aside");
+    expect(w.spawns).toHaveLength(1);
+    expect(w.spawns[0]?.args).toEqual([LAUNCHER, "web"]);
+    expect(w.state.version).toBe(NEW);
+    expect(w.files.size).toBe(0);
+  });
+
+  it("sends the local token headers with the step-aside request", async () => {
+    const seen: Record<string, string>[] = [];
+    const w = replaceWorld();
+    const fetchFn = w.deps.fetch!;
+    w.deps.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (String(input).endsWith("/api/web/step-aside"))
+        seen.push(init?.headers as Record<string, string>);
+      return fetchFn(input, init);
+    }) as unknown as typeof fetch;
+    await ensureWebApp(options(w));
+    expect(seen[0]).toMatchObject(HEADERS);
+  });
+
+  for (const version of ["4.3.2", "4.4.0", "unknown"]) {
+    it(`uses a web app at ${version} as it is`, async () => {
+      const w = replaceWorld({ version });
+      const result = await ensureWebApp(options(w));
+      expect(result).toBe("running");
+      expect(w.requests).not.toContain("POST /api/web/step-aside");
+      expect(w.spawns).toHaveLength(0);
+    });
+  }
+
+  it("uses the running web app when it reports no version", async () => {
+    const w = replaceWorld({ version: null });
+    expect(await ensureWebApp(options(w))).toBe("running");
+    expect(w.spawns).toHaveLength(0);
+  });
+
+  it("returns running and logs a code when the step-aside is refused", async () => {
+    const w = replaceWorld({ stepAside: 404 });
+    expect(await ensureWebApp(options(w))).toBe("running");
+    expect(w.spawns).toHaveLength(0);
+    expect(w.logs.some((entry) => entry.data.code === "step-aside-failed")).toBe(true);
+    expect(w.files.size).toBe(0);
+  });
+
+  it("returns running and logs a code when the step-aside request fails", async () => {
+    const w = replaceWorld({ stepAside: "throw" });
+    expect(await ensureWebApp(options(w))).toBe("running");
+    expect(w.spawns).toHaveLength(0);
+    expect(w.logs.some((entry) => entry.data.code === "step-aside-failed")).toBe(true);
+  });
+
+  it("returns running and logs a code when no runtime is found", async () => {
+    const w = replaceWorld({ runtime: null });
+    expect(await ensureWebApp(options(w))).toBe("running");
+    expect(w.requests).not.toContain("POST /api/web/step-aside");
+    expect(w.logs.some((entry) => entry.data.code === "no-runtime")).toBe(true);
+  });
+
+  it("replaces the web app only once when two callers find it older", async () => {
+    const w = replaceWorld();
+    const results = await Promise.all([ensureWebApp(options(w)), ensureWebApp(options(w))]);
+    expect(results.sort()).toEqual(["running", "started"]);
+    expect(w.spawns).toHaveLength(1);
+    expect(w.requests.filter((line) => line === "POST /api/web/step-aside")).toHaveLength(1);
+    expect(w.files.size).toBe(0);
+  });
+
+  it("changes nothing without replaceOlder", async () => {
+    const w = replaceWorld();
+    const result = await ensureWebApp({ settings: SETTINGS, budgetMs: 5_000, deps: w.deps });
+    expect(result).toBe("running");
+    expect(w.requests).not.toContain("GET /api/settings/version");
+    expect(w.spawns).toHaveLength(0);
+  });
+
+  it("starts the own CLI script when there is no launcher", async () => {
+    const w = world({ upAfterPolls: 2 });
+    w.deps.launcherScript = null;
+    await ensureWebApp({ settings: SETTINGS, budgetMs: 5_000, deps: w.deps });
+    expect(w.spawns[0]?.args).toEqual(["/pkg/dist/cli/index.js", "web"]);
+  });
+
+  it("starts through the launcher when nothing answers and the launcher exists", async () => {
+    const w = world({ upAfterPolls: 2 });
+    w.deps.launcherScript = LAUNCHER;
+    await ensureWebApp({ settings: SETTINGS, budgetMs: 5_000, deps: w.deps });
+    expect(w.spawns[0]?.args).toEqual([LAUNCHER, "web"]);
   });
 });

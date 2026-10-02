@@ -36,6 +36,11 @@ mock.module(${JSON.stringify(url("../src/services/web-server.js"))}, () => ({
   startWebServer: async () => { webServerUses.push("start"); throw new Error("no web server in OpenCode"); },
   WebServer: class { constructor() { webServerUses.push("new"); throw new Error("no web server in OpenCode"); } },
 }));
+// Never read the developer's real record.
+let replaceOlder;
+mock.module(${JSON.stringify(url("../src/services/runtime-handoff.js"))}, () => ({
+  registerOwnCopy: () => "skipped",
+  hostReplaceOlder: async () => replaceOlder }));
 const ensureCalls = [];
 let ensureResult = "started";
 mock.module(${JSON.stringify(url("../src/services/web-ensure.js"))}, () => ({
@@ -84,6 +89,23 @@ await hooks.dispose?.();
     message: "Web UI available at http://127.0.0.1:4747",
     variant: "info",
   });
+});
+
+it("asks the web app check to replace an older web app with the recorded version", () => {
+  const result = runScenario(`
+replaceOlder = { version: "4.3.2", headers: { "x-omms-token": "local" } };
+const hooks = await OmmsPlugin({ directory: "/workspace", client });
+await new Promise((resolve) => setTimeout(resolve, 50));
+console.log("RESULT:" + JSON.stringify({ ensure: ensureCalls }));
+await hooks.dispose?.();
+`);
+  expect(result.ensure).toEqual([
+    {
+      settings: { enabled: true, baseUrl: "http://127.0.0.1:4747" },
+      budgetMs: 10000,
+      replaceOlder: { version: "4.3.2", headers: { "x-omms-token": "local" } },
+    },
+  ]);
 });
 
 it("shows an error toast when another program holds the web port", () => {
