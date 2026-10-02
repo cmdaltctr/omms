@@ -1,6 +1,6 @@
 # How OMMS updates
 
-OMMS is one npm package, `om-memory-system`. Each host keeps its own copy of it. No host installs an update by itself. You choose when to update, then restart the host.
+OMMS is one npm package, `om-memory-system`. Each host keeps its own copy of it. Pi and OpenCode never install an update by themselves. Claude Code does only when you turn on auto-update for the `omms` marketplace. Otherwise you choose when to update, then restart the host.
 
 | Host                         | How you hear about a new release                                                                                              | Update with                                                             | Then                                              |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------- |
