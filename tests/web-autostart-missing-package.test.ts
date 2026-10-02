@@ -13,13 +13,13 @@ mock.module("node:fs", () => ({
   existsSync: (path: fs.PathLike) => String(path) !== ownCli && existsSync(path),
 }));
 
-const { installWebAutostart, itemPackageRoot } = await import("../src/services/web-autostart.js");
+const { installWebAutostart } = await import("../src/services/web-autostart.js");
 
 afterEach(() => {
   homes.splice(0).forEach((home) => fs.rmSync(home, { recursive: true, force: true }));
 });
 
-it("writes the preferred global root through installWebAutostart", () => {
+it("starts the newest global copy through the launcher", () => {
   const home = fs.mkdtempSync(join(tmpdir(), "omms-global-package-"));
   homes.push(home);
   const global = join(home, "prefix", "lib", "node_modules", "om-memory-system");
@@ -30,6 +30,8 @@ it("writes the preferred global root through installWebAutostart", () => {
   ] as const) {
     fs.mkdirSync(join(root, "dist", "cli"), { recursive: true });
     fs.writeFileSync(join(root, "dist", "cli", "index.js"), "");
+    fs.mkdirSync(join(root, "bin"), { recursive: true });
+    fs.writeFileSync(join(root, "bin", "omms-launch.mjs"), "");
     fs.writeFileSync(
       join(root, "package.json"),
       JSON.stringify({ name: "om-memory-system", version })
@@ -44,7 +46,9 @@ it("writes the preferred global root through installWebAutostart", () => {
   installWebAutostart({ ...options, packageRoot: cached });
   const status = installWebAutostart(options);
   expect(status.state).toBe("installed");
-  expect(itemPackageRoot(status.path!)).toBe(global);
+  // The launcher picks the copy at login; the status names the one it would start.
+  expect(status.packagePath).toBe(global);
+  expect(fs.readFileSync(status.path!, "utf8")).toContain("omms-launch.mjs");
 });
 
 it("reports no-package instead of installing a login item for a missing CLI", () => {

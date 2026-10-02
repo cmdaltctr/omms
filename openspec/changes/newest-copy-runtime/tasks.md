@@ -23,8 +23,8 @@
 
 ## 5. Login item runs the launcher
 
-- [ ] 5.1 Update `tests/web-autostart.test.ts`: the item runs `~/.omms/bin/omms-launch.mjs web --login-item` on macOS, Linux, and Windows; an item that runs `dist/cli/index.js` directly is rewritten; install creates the launcher first; status reports what the launcher starts. Verify: the new cases fail before 5.2.
-- [ ] 5.2 Change `itemContent`, `details`, and `webAutostartStatus` in `src/services/web-autostart.ts`. Remove `preferredPackageRoot` only if nothing else uses it. Verify: 5.1 passes, and `bun test tests/web-autostart-missing-package.test.ts` passes.
+- [x] 5.1 Update `tests/web-autostart.test.ts`: the item runs `~/.omms/bin/omms-launch.mjs web --login-item` on macOS, Linux, and Windows; an item that runs `dist/cli/index.js` directly is rewritten; install creates the launcher first; status reports what the launcher starts. Verify: the new cases fail before 5.2.
+- [x] 5.2 Change `itemContent`, `details`, and `webAutostartStatus` in `src/services/web-autostart.ts`. Remove `preferredPackageRoot` only if nothing else uses it. Verify: 5.1 passes, and `bun test tests/web-autostart-missing-package.test.ts` passes.
 
 ## 6. Replace an older web app
 

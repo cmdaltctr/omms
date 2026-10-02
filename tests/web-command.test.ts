@@ -3,6 +3,9 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+// A package folder with a launcher, so the login item can be installed.
+const repoRoot = join(import.meta.dir, "..");
+
 it("manages a temp login item and saves the matching global switch", () => {
   const home = mkdtempSync(join(tmpdir(), "omms-web-command-"));
   try {
@@ -17,7 +20,7 @@ const { runWebCommand } = await import(${JSON.stringify(commandUrl)});
 const home = ${JSON.stringify(home)};
 const commands = [];
 const options = { home, platform: "darwin", runtime: "/opt/node",
-  packageRoot: "/opt/omms", run: (command, args) => commands.push([command, ...args].join(" ")) };
+  packageRoot: ${JSON.stringify(repoRoot)}, run: (command, args) => commands.push([command, ...args].join(" ")) };
 const offline = { fetch: async () => { throw new Error("offline"); }, sleep: async () => {} };
 const install = await runWebCommand(["install"], options, async () => false, offline);
 const path = join(home, ".config", "omms", "omms.jsonc");
@@ -100,7 +103,7 @@ const fakeFetch = async (input, init = {}) => {
   return Response.json({ running: state.version, global: null, mismatch: false });
 };
 const options = { home: ${JSON.stringify(home)}, platform: "darwin", runtime: "/opt/node",
-  packageRoot: "/opt/omms", run: (command, args) => {
+  packageRoot: ${JSON.stringify(repoRoot)}, run: (command, args) => {
     const line = "run: " + [command, ...args].join(" ");
     events.push(line);
     if (line.includes("bootstrap")) { state.alive = true; state.version = "3.6.0"; }

@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   copyVersion,
+  ensureLauncher,
   launcherPath,
   readRuntimeRecord,
   recordedCopy,
@@ -230,6 +231,31 @@ describe("launcher placement", () => {
     const root = makeCopy("a", "4.3.2");
     rmSync(join(root, "bin"), { recursive: true });
     expect(registerCopy({ dir, root, log })).toBe("written");
+    expect(existsSync(launcherPath(dir))).toBe(false);
+  });
+});
+
+describe("ensureLauncher", () => {
+  it("places the launcher from the first source that has one", () => {
+    const bare = makeCopy("bare", "4.3.0");
+    rmSync(join(bare, "bin"), { recursive: true });
+    const withLauncher = makeCopy("with", "4.3.2", "// from with\n");
+    expect(ensureLauncher({ dir, sources: [bare, null, withLauncher], log })).toBe(true);
+    expect(readFileSync(launcherPath(dir), "utf8")).toBe("// from with\n");
+  });
+
+  it("leaves an existing launcher alone", () => {
+    registerCopy({ dir, root: makeCopy("new", "4.4.0", "// from new\n"), log });
+    expect(ensureLauncher({ dir, sources: [makeCopy("old", "4.3.0", "// from old\n")], log })).toBe(
+      true
+    );
+    expect(readFileSync(launcherPath(dir), "utf8")).toBe("// from new\n");
+  });
+
+  it("returns false when no source has a launcher", () => {
+    const bare = makeCopy("bare", "4.3.0");
+    rmSync(join(bare, "bin"), { recursive: true });
+    expect(ensureLauncher({ dir, sources: [bare, "/does/not/exist"], log })).toBe(false);
     expect(existsSync(launcherPath(dir))).toBe(false);
   });
 });

@@ -122,6 +122,25 @@ function placeLauncher(dir: string, root: string, log?: RuntimeLog): void {
 }
 
 /**
+ * Make sure a launcher exists at `~/.omms/bin`. An existing launcher stays, so an
+ * older copy never replaces it. When it is missing, the first source with a
+ * `bin/omms-launch.mjs` provides it. Returns whether a launcher exists afterwards.
+ */
+export function ensureLauncher(options: {
+  dir: string;
+  sources: readonly (string | null | undefined)[];
+  log?: RuntimeLog;
+}): boolean {
+  const target = launcherPath(options.dir);
+  if (existsSync(target)) return true;
+  for (const root of options.sources) {
+    if (root) placeLauncher(options.dir, root, options.log);
+    if (existsSync(target)) return true;
+  }
+  return false;
+}
+
+/**
  * Record this copy when the record is missing, names a copy that is no longer
  * valid, or names an older version. An equal version keeps the record. The copy
  * that holds the record also keeps the launcher at `~/.omms/bin`. A failure is

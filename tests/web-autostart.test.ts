@@ -11,9 +11,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { launcherPath, registerCopy } from "../src/services/runtime-record.js";
 import {
   installWebAutostart,
-  itemPackageRoot,
   preferredPackageRoot,
   removeWebAutostart,
   resolveWebRuntime,
@@ -24,6 +24,26 @@ import {
 const homes: string[] = [];
 afterEach(() => homes.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true })));
 
+/** A package folder shaped like an installed OMMS copy, with a launcher. */
+function copy(base: string, name: string, version: string, launcher = true) {
+  const root = join(base, name);
+  mkdirSync(join(root, "dist", "cli"), { recursive: true });
+  writeFileSync(join(root, "dist", "cli", "index.js"), "");
+  writeFileSync(join(root, "package.json"), JSON.stringify({ name: "om-memory-system", version }));
+  if (launcher) {
+    mkdirSync(join(root, "bin"), { recursive: true });
+    writeFileSync(join(root, "bin", "omms-launch.mjs"), `// launcher ${version}\n`);
+  }
+  return root;
+}
+
+/** A fresh package folder for a test that installs a login item. */
+function pkg(version = "4.3.2"): string {
+  const base = mkdtempSync(join(tmpdir(), "omms-login-pkg-"));
+  homes.push(base);
+  return copy(base, "omms", version);
+}
+
 for (const platform of ["darwin", "linux", "win32"] as const) {
   it(`writes and rewrites only OMMS's ${platform} login item`, () => {
     const home = mkdtempSync(join(tmpdir(), "omms-login-item-"));
@@ -33,7 +53,7 @@ for (const platform of ["darwin", "linux", "win32"] as const) {
       home,
       platform,
       runtime: "/opt/node",
-      packageRoot: "/opt/omms",
+      packageRoot: pkg(),
       systemctlAvailable: true,
       run: (command: string, args: string[]) => commands.push([command, ...args].join(" ")),
     };
@@ -41,8 +61,9 @@ for (const platform of ["darwin", "linux", "win32"] as const) {
     expect(installed.state).toBe("installed");
     const first = readFileSync(installed.path!, "utf8");
     expect(first).toContain("/opt/node");
-    expect(first).toContain(join("/opt/omms", "dist", "cli", "index.js"));
-    expect(first).toContain("web");
+    expect(first).toContain(launcherPath(join(home, ".omms")));
+    expect(first).toContain("--login-item");
+    expect(first).not.toContain(join("dist", "cli", "index.js"));
     expect(webAutostartStatus(options).state).toBe("installed");
     if (platform === "linux") {
       installWebAutostart(options);
@@ -67,7 +88,7 @@ it("removes an owned Linux item after systemctl becomes unavailable", () => {
     home,
     platform: "linux",
     runtime: "/opt/node",
-    packageRoot: "/opt/omms",
+    packageRoot: pkg(),
     systemctlAvailable: true,
     run: () => {},
   };
@@ -95,7 +116,7 @@ it("leaves a foreign file at the fixed name untouched", () => {
     home,
     platform: "darwin" as const,
     runtime: "/opt/node",
-    packageRoot: "/opt/omms",
+    packageRoot: pkg(),
   };
   expect(() => installWebAutostart({ ...options, start: false })).toThrow("not owned");
   expect(() => removeWebAutostart(options)).toThrow("not owned");
@@ -106,14 +127,14 @@ it("reports missing runtime or unsupported platform without writing files", () =
   const home = mkdtempSync(join(tmpdir(), "omms-no-runtime-"));
   homes.push(home);
   expect(
-    webAutostartStatus({ home, platform: "darwin", runtime: null, packageRoot: "/opt/omms" }).state
+    webAutostartStatus({ home, platform: "darwin", runtime: null, packageRoot: pkg() }).state
   ).toBe("no-runtime");
   expect(
     webAutostartStatus({
       home,
       platform: "freebsd",
       runtime: "/opt/node",
-      packageRoot: "/opt/omms",
+      packageRoot: pkg(),
     }).state
   ).toBe("unsupported");
   expect(
@@ -121,7 +142,7 @@ it("reports missing runtime or unsupported platform without writing files", () =
       home,
       platform: "linux",
       runtime: "/opt/node",
-      packageRoot: "/opt/omms",
+      packageRoot: pkg(),
       systemctlAvailable: false,
     }).state
   ).toBe("unsupported");
@@ -144,7 +165,7 @@ it("stops a stalled login service command", () => {
         home,
         platform: "linux",
         runtime: "/opt/node",
-        packageRoot: "/opt/omms",
+        packageRoot: pkg(),
         systemctlAvailable: true,
       })
     ).toThrow();
@@ -237,17 +258,6 @@ describe("restartWebAutostart", () => {
 });
 
 describe("preferredPackageRoot", () => {
-  function copy(base: string, name: string, version: string) {
-    const root = join(base, name);
-    mkdirSync(join(root, "dist", "cli"), { recursive: true });
-    writeFileSync(join(root, "dist", "cli", "index.js"), "");
-    writeFileSync(
-      join(root, "package.json"),
-      JSON.stringify({ name: "om-memory-system", version })
-    );
-    return root;
-  }
-
   it("keeps the newer global install when a host starts OMMS from an older cached copy", () => {
     const base = mkdtempSync(join(tmpdir(), "omms-login-root-"));
     homes.push(base);
@@ -255,22 +265,6 @@ describe("preferredPackageRoot", () => {
     const global = copy(base, "global", "4.2.0");
     expect(preferredPackageRoot([cached, global, null])).toBe(global);
     expect(preferredPackageRoot([global, cached])).toBe(global);
-  });
-
-  it("keeps the global install, then the current item, when a host copy has the same version", () => {
-    const own = join(import.meta.dir, "..");
-    expect(existsSync(join(own, "dist", "cli", "index.js"))).toBe(true);
-    const version = JSON.parse(readFileSync(join(own, "package.json"), "utf8")).version;
-    const base = mkdtempSync(join(tmpdir(), "omms-login-root-"));
-    homes.push(base);
-    const global = copy(join(base, "lib", "node_modules"), "om-memory-system", version);
-    const darwin = { home: base, platform: "darwin", start: false } as const;
-    const item = installWebAutostart({ ...darwin, runtime: join(base, "bin", "node") });
-    expect(itemPackageRoot(item.path!)).toBe(global);
-    const current = copy(base, "current", version);
-    installWebAutostart({ ...darwin, runtime: "/x/bin/node", packageRoot: current });
-    installWebAutostart({ ...darwin, runtime: "/x/bin/node" });
-    expect(itemPackageRoot(item.path!)).toBe(current);
   });
 
   it("ignores folders that are not an OMMS package with a built CLI", () => {
@@ -291,59 +285,170 @@ describe("preferredPackageRoot", () => {
     expect(preferredPackageRoot([valid, invalid])).toBe(valid);
     expect(preferredPackageRoot([invalid])).toBeNull();
   });
+});
 
-  it("decodes XML entities in a macOS login item's package path once", () => {
-    const home = mkdtempSync(join(tmpdir(), "omms-login-item-"));
+describe("login item runs the launcher", () => {
+  for (const platform of ["darwin", "linux", "win32"] as const) {
+    it(`runs ~/.omms/bin/omms-launch.mjs web --login-item on ${platform}`, () => {
+      const home = mkdtempSync(join(tmpdir(), "omms-login-launcher-"));
+      homes.push(home);
+      const status = installWebAutostart({
+        home,
+        platform,
+        runtime: "/x/bin/node",
+        packageRoot: pkg(),
+        systemctlAvailable: true,
+        run: () => {},
+      });
+      const launcher = launcherPath(join(home, ".omms"));
+      expect(status.state).toBe("installed");
+      expect(readFileSync(status.path!, "utf8")).toContain(launcher);
+      expect(readFileSync(status.path!, "utf8")).toContain("--login-item");
+      expect(readFileSync(status.path!, "utf8")).not.toContain("index.js");
+    });
+  }
+
+  it("creates the launcher before it writes the item", () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-login-launcher-"));
     homes.push(home);
-    const root = copy(home, "pkg & &amp;quot;", "4.3.0");
+    const launcher = launcherPath(join(home, ".omms"));
+    expect(existsSync(launcher)).toBe(false);
+    installWebAutostart({
+      home,
+      platform: "darwin",
+      runtime: "/x/bin/node",
+      packageRoot: pkg("4.3.2"),
+      start: false,
+    });
+    expect(readFileSync(launcher, "utf8")).toBe("// launcher 4.3.2\n");
+  });
+
+  it("rewrites an item from older OMMS that runs dist/cli/index.js directly", () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-login-launcher-"));
+    homes.push(home);
+    const options = {
+      home,
+      platform: "darwin" as const,
+      runtime: "/x/bin/node",
+      packageRoot: pkg(),
+      start: false,
+    };
+    const path = installWebAutostart(options).path!;
+    writeFileSync(
+      path,
+      readFileSync(path, "utf8").replace(
+        launcherPath(join(home, ".omms")),
+        "/opt/homebrew/lib/node_modules/om-memory-system/dist/cli/index.js"
+      )
+    );
+    expect(readFileSync(path, "utf8")).toContain("om-memory-system/dist/cli/index.js");
+    installWebAutostart(options);
+    expect(readFileSync(path, "utf8")).toContain(launcherPath(join(home, ".omms")));
+    expect(readFileSync(path, "utf8")).not.toContain("om-memory-system/dist/cli/index.js");
+  });
+
+  it("never replaces a launcher from a newer copy with an older copy's launcher", () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-login-launcher-"));
+    homes.push(home);
+    registerCopy({ dir: join(home, ".omms"), root: pkg("4.4.0") });
+    installWebAutostart({
+      home,
+      platform: "darwin",
+      runtime: "/x/bin/node",
+      packageRoot: pkg("4.2.0"),
+      start: false,
+    });
+    expect(readFileSync(launcherPath(join(home, ".omms")), "utf8")).toBe("// launcher 4.4.0\n");
+  });
+
+  it("takes the launcher from another copy when the chosen copy has none", () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-login-launcher-"));
+    homes.push(home);
+    const base = mkdtempSync(join(tmpdir(), "omms-login-pkg-"));
+    homes.push(base);
+    const old = copy(base, "global", "4.3.0", false);
+    const own = copy(base, "own", "4.3.2");
+    registerCopy({ dir: join(home, ".omms"), root: old });
+    rmSync(launcherPath(join(home, ".omms")), { force: true });
     const status = installWebAutostart({
       home,
       platform: "darwin",
       runtime: "/x/bin/node",
-      packageRoot: root,
+      packageRoot: old,
+      ownRoot: own,
       start: false,
     });
-    expect(itemPackageRoot(status.path!)).toBe(root);
-    const cached = copy(home, "cache", "3.6.2");
-    expect(preferredPackageRoot([cached, itemPackageRoot(status.path!)])).toBe(root);
-    writeFileSync(
-      status.path!,
-      "<plist><string>/pkg &lt;dir&gt; &quot;quoted&quot; &apos;name&apos;/dist/cli/index.js</string></plist>"
-    );
-    expect(itemPackageRoot(status.path!)).toBe("/pkg <dir> \"quoted\" 'name'");
+    expect(status.state).toBe("installed");
+    expect(readFileSync(launcherPath(join(home, ".omms")), "utf8")).toBe("// launcher 4.3.2\n");
   });
 
-  it("keeps literal XML entity text in Linux and Windows login-item paths", () => {
-    for (const platform of ["linux", "win32"] as const) {
-      const home = mkdtempSync(join(tmpdir(), "omms-login-item-"));
-      homes.push(home);
-      const root = copy(home, "pkg &amp; dir", "4.2.0");
-      const status = installWebAutostart({
-        home,
-        platform,
-        runtime: "/x/bin/node",
-        packageRoot: root,
-        systemctlAvailable: true,
-        run: () => {},
-      });
-      expect(itemPackageRoot(status.path!)).toBe(root);
-    }
+  it("reports no-package and writes no item when no copy has a launcher", () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-login-launcher-"));
+    homes.push(home);
+    const base = mkdtempSync(join(tmpdir(), "omms-login-pkg-"));
+    homes.push(base);
+    const status = installWebAutostart({
+      home,
+      platform: "darwin",
+      runtime: "/x/bin/node",
+      packageRoot: copy(base, "bare", "4.3.0", false),
+      ownRoot: null,
+      start: false,
+    });
+    expect(status.state).toBe("no-package");
+    expect(existsSync(status.path!)).toBe(false);
   });
 
-  it("reads the package folder back from each platform's login item", () => {
-    for (const platform of ["darwin", "linux", "win32"] as const) {
-      const home = mkdtempSync(join(tmpdir(), "omms-login-item-"));
-      homes.push(home);
-      const root = copy(home, "pkg dir", "4.2.0");
-      const status = installWebAutostart({
-        home,
-        platform,
-        runtime: "/x/bin/node",
-        packageRoot: root,
-        systemctlAvailable: true,
-        run: () => {},
-      });
-      expect(itemPackageRoot(status.path!)).toBe(root);
-    }
+  it("escapes the launcher path in a macOS item", () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-login-launcher-&-"));
+    homes.push(home);
+    const status = installWebAutostart({
+      home,
+      platform: "darwin",
+      runtime: "/x/bin/node",
+      packageRoot: pkg(),
+      start: false,
+    });
+    expect(readFileSync(status.path!, "utf8")).toContain("launcher-&amp;-");
+  });
+
+  it("reports the copy the launcher starts: the newest of the record, the global install, and this copy", () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-login-launcher-"));
+    homes.push(home);
+    const base = mkdtempSync(join(tmpdir(), "omms-login-pkg-"));
+    homes.push(base);
+    const global = copy(join(base, "prefix", "lib", "node_modules"), "om-memory-system", "4.3.0");
+    const recorded = copy(base, "pi", "4.3.2");
+    const own = copy(base, "own", "4.3.1");
+    registerCopy({ dir: join(home, ".omms"), root: recorded });
+    const status = installWebAutostart({
+      home,
+      platform: "darwin",
+      runtime: join(base, "prefix", "bin", "node"),
+      ownRoot: own,
+      start: false,
+    });
+    expect(status.packagePath).toBe(recorded);
+    expect(status.launcher).toBe(launcherPath(join(home, ".omms")));
+    expect(global).toContain("om-memory-system");
+  });
+
+  it("falls back to the global install when the recorded copy is gone", () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-login-launcher-"));
+    homes.push(home);
+    const base = mkdtempSync(join(tmpdir(), "omms-login-pkg-"));
+    homes.push(base);
+    const global = copy(join(base, "prefix", "lib", "node_modules"), "om-memory-system", "4.3.0");
+    const gone = copy(base, "cache", "4.3.2");
+    registerCopy({ dir: join(home, ".omms"), root: gone });
+    rmSync(gone, { recursive: true });
+    const status = installWebAutostart({
+      home,
+      platform: "darwin",
+      runtime: join(base, "prefix", "bin", "node"),
+      ownRoot: copy(base, "own", "4.2.0"),
+      start: false,
+    });
+    expect(status.packagePath).toBe(global);
   });
 });
