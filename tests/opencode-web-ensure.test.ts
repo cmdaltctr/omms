@@ -61,7 +61,14 @@ ${body}
     );
     const child = Bun.spawnSync(["bun", "run", script], {
       cwd: dir,
-      env: { ...process.env, OMMS_DISABLE_AUTO_BACKFILL: "1", OMMS_DISABLE_WEB_AUTOSTART: "0" },
+      // The plugin removes the login item when webServerAutoStart is false, so keep it off the real home.
+      env: {
+        ...process.env,
+        HOME: dir,
+        USERPROFILE: dir,
+        OMMS_DISABLE_AUTO_BACKFILL: "1",
+        OMMS_DISABLE_WEB_AUTOSTART: "0",
+      },
     });
     const stdout = child.stdout.toString();
     const match = stdout.match(/RESULT:(.*)$/m);

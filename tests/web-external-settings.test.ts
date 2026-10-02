@@ -58,18 +58,29 @@ describe("External API card", () => {
 });
 
 describe("Web app version notice", () => {
-  it("covers equal, different, and missing global versions", () => {
-    expect(versionNotice({ running: "3.4.0", global: "3.4.0" })).toEqual({
+  it("covers equal, older, newer, missing, and unplaceable global versions", () => {
+    // The server compares the versions and sends the result as `relation`.
+    expect(versionNotice({ running: "3.4.0", global: "3.4.0", relation: "same" })).toEqual({
       kind: "same",
       command: null,
     });
-    expect(versionNotice({ running: "3.4.0", global: "3.3.1" })).toEqual({
-      kind: "different",
+    expect(versionNotice({ running: "3.4.0", global: "3.3.1", relation: "older" })).toEqual({
+      kind: "older",
       command: "npm i -g om-memory-system@latest",
     });
-    expect(versionNotice({ running: "3.4.0", global: null })).toEqual({
+    // A newer global install gets no command: the next host start replaces the web app.
+    expect(versionNotice({ running: "3.4.0", global: "3.5.0", relation: "newer" })).toEqual({
+      kind: "newer",
+      command: null,
+    });
+    // No global install is fine, so no command is shown.
+    expect(versionNotice({ running: "3.4.0", global: null, relation: "missing" })).toEqual({
       kind: "missing",
-      command: "npm i -g om-memory-system",
+      command: null,
+    });
+    expect(versionNotice({ running: "3.4.0", global: "x", relation: "unknown" })).toEqual({
+      kind: "unknown",
+      command: null,
     });
   });
 });
