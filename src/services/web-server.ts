@@ -1008,17 +1008,18 @@ export class WebServer {
       }
 
       if (path === "/api/settings/version" && method === "GET") {
-        const [{ packageVersion }, { globalCommandVersion }] = await Promise.all([
+        const [{ packageVersion }, { globalCommandVersion, globalRelation }] = await Promise.all([
           import("./package-version.js"),
           import("./global-version.js"),
         ]);
         const running = packageVersion();
-        const global = await globalCommandVersion();
+        const global = globalCommandVersion();
         return this.jsonResponse({
           running,
           global: global.version,
           globalPath: global.path,
           mismatch: global.version !== null && global.version !== running,
+          relation: globalRelation(running, global.version),
         });
       }
 

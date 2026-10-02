@@ -508,15 +508,20 @@ const text = {
   "Running version": ["运行版本", "الإصدار الجاري"],
   "Global command": ["全局命令", "الأمر العام"],
   "not installed globally": ["未全局安装", "غير مثبت عمومياً"],
-  "The global command's version differs from the running OMMS. Upgrade it:": [
-    "全局命令的版本与正在运行的 OMMS 不同。请升级：",
-    "يختلف إصدار الأمر العام عن OMMS الجاري. حدّثه:",
-  ],
-  "A global install is optional but recommended: the login item and the terminal commands then run without npx.":
+  "A newer OMMS copy runs in place of the global install. The global install is optional. To update it:":
     [
-      "全局安装是可选的，但建议安装：这样登录项和终端命令无需 npx 即可运行。",
-      "التثبيت العام اختياري لكنه موصى به: يعمل عنصر تسجيل الدخول وأوامر الطرفية حينها دون npx.",
+      "正在运行的是更新的 OMMS 副本，而不是全局安装。全局安装是可选的。更新方法：",
+      "تعمل نسخة OMMS أحدث بدلاً من التثبيت العام. التثبيت العام اختياري. لتحديثه:",
     ],
+  "The global install is newer than the running OMMS. The next Pi or OpenCode start replaces the web app.":
+    [
+      "全局安装比正在运行的 OMMS 更新。下次启动 Pi 或 OpenCode 时将替换网页应用。",
+      "التثبيت العام أحدث من OMMS الجاري. سيستبدل التشغيل التالي لـ Pi أو OpenCode تطبيق الويب.",
+    ],
+  "OMMS is not installed globally. A global install is optional.": [
+    "OMMS 未全局安装。全局安装是可选的。",
+    "OMMS غير مثبت عمومياً. التثبيت العام اختياري.",
+  ],
   "Keys and access": ["密钥与访问", "المفاتيح والوصول"],
   "not needed": ["不需要", "غير مطلوب"],
   "External API key": ["外部 API 密钥", "مفتاح واجهة API الخارجية"],

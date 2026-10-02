@@ -40,8 +40,8 @@
 
 ## 8. Settings page global version
 
-- [ ] 8.1 Update `tests/global-version.test.ts`: the version comes from the global install's `package.json` through the `PATH` symlink, and the command is not run. Add web UI cases for "runs in place of the older global", "global is newer", and "not installed, optional". Verify: they fail before 8.2.
-- [ ] 8.2 Change `src/services/global-version.ts` and the **Web app** section text, with strings in every language file under `web/src/lib/i18n/`. Verify: 8.1 passes, and `(cd web && bun run build)` passes.
+- [x] 8.1 Update `tests/global-version.test.ts`: the version comes from the global install's `package.json` through the `PATH` symlink, and the command is not run. Add web UI cases for "runs in place of the older global", "global is newer", and "not installed, optional". Verify: they fail before 8.2.
+- [x] 8.2 Change `src/services/global-version.ts` and the **Web app** section text, with strings in every language file under `web/src/lib/i18n/`. Verify: 8.1 passes, and `(cd web && bun run build)` passes.
 
 ## 9. Docs and decision record
 

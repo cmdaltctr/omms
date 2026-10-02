@@ -1,29 +1,13 @@
-import { execFile } from "node:child_process";
-import { accessSync, constants } from "node:fs";
-import { delimiter, isAbsolute, join } from "node:path";
+import { accessSync, constants, readFileSync, realpathSync } from "node:fs";
+import { delimiter, dirname, isAbsolute, join } from "node:path";
+import { compareVersions } from "./version-compare.js";
 
 export interface GlobalCommandVersion {
-  /** The version the global `om-memory-system --version` printed, or null when not installed. */
+  /** The version in the global install's `package.json`, or null when not installed or unreadable. */
   version: string | null;
   path: string | null;
-  error?: "timeout" | "failed";
+  error?: "failed";
 }
-
-type Runner = (
-  file: string,
-  args: string[],
-  options: { timeout: number; windowsHide: boolean; shell: false }
-) => Promise<string>;
-
-const TIMEOUT_MS = 3_000;
-const CACHE_MS = 10 * 60_000;
-
-const run: Runner = (file, args, options) =>
-  new Promise((resolve, reject) => {
-    execFile(file, args, { ...options, encoding: "utf8" }, (error, stdout) =>
-      error ? reject(error) : resolve(String(stdout))
-    );
-  });
 
 function executable(path: string): boolean {
   try {
@@ -56,59 +40,54 @@ export function findGlobalCommand(
   return null;
 }
 
-/**
- * The command and arguments that print the version without a user-controlled
- * shell. A Windows `.cmd` wrapper can only run through cmd.exe, so it runs
- * through the system's own cmd.exe with fixed arguments.
- */
-export function versionInvocation(
-  path: string,
-  platform: NodeJS.Platform = process.platform,
-  env: NodeJS.ProcessEnv = process.env
-): { file: string; args: string[] } {
-  if (platform === "win32" && path.toLowerCase().endsWith(".cmd")) {
-    const cmd = env.SystemRoot ? `${env.SystemRoot}\\System32\\cmd.exe` : "cmd.exe";
-    return { file: cmd, args: ["/d", "/s", "/c", `"${path}" --version`] };
-  }
-  return { file: path, args: ["--version"] };
-}
-
-let cached: { at: number; value: GlobalCommandVersion } | null = null;
-
-/** Look up the global command's version, at most once every 10 minutes. */
-export async function globalCommandVersion(
-  options: {
-    now?: () => number;
-    runner?: Runner;
-    find?: () => string | null;
-    platform?: NodeJS.Platform;
-  } = {}
-): Promise<GlobalCommandVersion> {
-  const now = (options.now ?? Date.now)();
-  if (cached && now - cached.at < CACHE_MS) return cached.value;
-  const path = (options.find ?? (() => findGlobalCommand()))();
-  let value: GlobalCommandVersion;
-  if (!path) {
-    value = { version: null, path: null };
-  } else {
-    const { file, args } = versionInvocation(path, options.platform);
+/** The package folder of the install the command belongs to, or null. */
+function packageFolder(command: string, platform: NodeJS.Platform): string | null {
+  // npm's Windows layout: the wrapper sits beside node_modules.
+  if (platform === "win32") return join(dirname(command), "node_modules", "om-memory-system");
+  let dir = dirname(realpathSync(command));
+  for (;;) {
     try {
-      const output = await (options.runner ?? run)(file, args, {
-        timeout: TIMEOUT_MS,
-        windowsHide: true,
-        shell: false,
-      });
-      const version = /\d+\.\d+\.\d+(?:[-+][\w.]+)?/.exec(output)?.[0] ?? null;
-      value = version ? { version, path } : { version: null, path, error: "failed" };
-    } catch (error) {
-      const killed = (error as { killed?: boolean; signal?: string }).killed;
-      value = { version: null, path, error: killed ? "timeout" : "failed" };
+      const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) as { name?: string };
+      if (pkg.name === "om-memory-system") return dir;
+    } catch {
+      /* Try the parent. */
     }
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
   }
-  cached = { at: now, value };
-  return value;
 }
 
-export function resetGlobalVersionCache(): void {
-  cached = null;
+/**
+ * The global command's version, read from its install's `package.json`. The
+ * command does not run: after a hand-off it would print the newest copy's version.
+ */
+export function globalCommandVersion(
+  options: { find?: () => string | null; platform?: NodeJS.Platform } = {}
+): GlobalCommandVersion {
+  const path = (options.find ?? (() => findGlobalCommand()))();
+  if (!path) return { version: null, path: null };
+  try {
+    const folder = packageFolder(path, options.platform ?? process.platform);
+    if (!folder) return { version: null, path, error: "failed" };
+    const pkg = JSON.parse(readFileSync(join(folder, "package.json"), "utf8")) as {
+      name?: string;
+      version?: unknown;
+    };
+    return pkg.name === "om-memory-system" && typeof pkg.version === "string"
+      ? { version: pkg.version, path }
+      : { version: null, path, error: "failed" };
+  } catch {
+    return { version: null, path, error: "failed" };
+  }
+}
+
+export type GlobalRelation = "missing" | "same" | "older" | "newer" | "unknown";
+
+/** How the global install compares with the running OMMS. */
+export function globalRelation(running: string, global: string | null): GlobalRelation {
+  if (global === null) return "missing";
+  const order = compareVersions(global, running);
+  if (order === null) return "unknown";
+  return order === 0 ? "same" : order < 0 ? "older" : "newer";
 }

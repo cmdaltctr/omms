@@ -104,7 +104,7 @@ export function WebAppSection() {
   );
 }
 
-function VersionNotice({ info }: { info: VersionInfo }) {
+export function VersionNotice({ info }: { info: VersionInfo }) {
   const s = useSettingsText();
   const notice = versionNotice(info);
   return (
@@ -113,17 +113,26 @@ function VersionNotice({ info }: { info: VersionInfo }) {
         {s("Running version")}: {info.running} · {s("Global command")}:{" "}
         {info.global ?? s("not installed globally")}
       </p>
-      {notice.kind === "different" && (
+      {notice.kind === "older" && (
+        <p role="status">
+          {s(
+            "A newer OMMS copy runs in place of the global install. The global install is optional. To update it:"
+          )}
+        </p>
+      )}
+      {notice.kind === "newer" && (
         <p role="status" className="text-amber-600">
-          {s("The global command's version differs from the running OMMS. Upgrade it:")}
+          {s(
+            "The global install is newer than the running OMMS. The next Pi or OpenCode start replaces the web app."
+          )}
+        </p>
+      )}
+      {notice.kind === "missing" && (
+        <p className="text-xs text-muted-foreground">
+          {s("OMMS is not installed globally. A global install is optional.")}
         </p>
       )}
       {notice.command && <p className="font-mono text-xs">{notice.command}</p>}
-      <p className="text-xs text-muted-foreground">
-        {s(
-          "A global install is optional but recommended: the login item and the terminal commands then run without npx."
-        )}
-      </p>
     </div>
   );
 }
