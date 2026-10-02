@@ -21,6 +21,6 @@ The login web app runs one copy of OMMS for every host. When a host starts, OMMS
 
 ## Stay on one version
 
-Install with a version number, for example `pi install npm:om-memory-system@4.2.0` or `opencode plugin add om-memory-system@4.2.0`. A pinned install is never updated or flagged.
+Install with a version number, for example `pi install npm:om-memory-system@4.2.0` or `opencode plugin add om-memory-system@4.2.0`. OpenCode skips exact versions during `plugin check` and `plugin update`. OMMS can still show its own newer-release notice for a pinned OpenCode install. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn that notice off.
 
 More detail: [Updating and upgrading](docs/upgrading.md).

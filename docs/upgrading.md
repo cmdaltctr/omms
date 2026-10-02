@@ -44,8 +44,10 @@ To stay on one version, install it with the version number:
 - Pi: `pi install npm:om-memory-system@3.1.1`
 - OpenCode: `opencode plugin add om-memory-system@3.1.1`
 
-A pinned install is never updated or flagged. To receive updates again,
-install without the number.
+OpenCode skips exact versions during `plugin check` and `plugin update`.
+OMMS can still show its own newer-release notice for a pinned OpenCode install.
+Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn that notice off. To receive updates
+again, install without the number.
 
 ### Trying unreleased changes (`next`)
 

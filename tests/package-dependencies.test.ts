@@ -12,6 +12,20 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe("published dependency constraints", () => {
+  it("declares the host-provided OpenCode JSX peers without installing them for other hosts", () => {
+    const peers = pkg.peerDependencies as Record<string, string>;
+    const meta = (pkg as { peerDependenciesMeta?: Record<string, { optional?: boolean }> })
+      .peerDependenciesMeta;
+    for (const [name, version] of Object.entries({
+      "@opentui/core": ">=0.5.8",
+      "@opentui/solid": ">=0.5.8",
+      "solid-js": ">=1.9.0",
+    })) {
+      expect(peers[name]).toBe(version);
+      expect(meta?.[name]?.optional).toBe(true);
+    }
+  });
+
   it("uses @libsql/client for Turso persistence and vector search", () => {
     expect(pkg.dependencies["@libsql/client"]).toBeTruthy();
     expect(pkg.dependencies).not.toHaveProperty("usearch");

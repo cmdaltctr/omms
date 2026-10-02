@@ -107,7 +107,7 @@ function packageVersionAt(root: string): string | null {
     if (pkg.name !== "om-memory-system" || !existsSync(join(root, "dist", "cli", "index.js"))) {
       return null;
     }
-    return pkg.version ?? null;
+    return typeof pkg.version === "string" ? pkg.version : null;
   } catch {
     return null;
   }
@@ -116,9 +116,19 @@ function packageVersionAt(root: string): string | null {
 /** The package folder a written login item runs, read back from its command line. */
 export function itemPackageRoot(file: string): string | null {
   try {
-    const match = /([^"<>\r\n]*?)[\\/]dist[\\/]cli[\\/]index\.js/.exec(readFileSync(file, "utf8"));
+    const content = readFileSync(file, "utf8");
+    const match = /([^"<>\r\n]*?)[\\/]dist[\\/]cli[\\/]index\.js/.exec(content);
     const path = match?.[1]?.replace(/^.*?<string>/, "").trim();
-    return path || null;
+    if (!path) return null;
+    // Only plists escape XML. Decode ampersands last to preserve literal entity text.
+    return content.includes("<plist")
+      ? path
+          .replaceAll("&quot;", '"')
+          .replaceAll("&apos;", "'")
+          .replaceAll("&lt;", "<")
+          .replaceAll("&gt;", ">")
+          .replaceAll("&amp;", "&")
+      : path;
   } catch {
     return null;
   }
@@ -137,7 +147,7 @@ export function preferredPackageRoot(
   for (const root of candidates) {
     if (!root) continue;
     const version = packageVersionAt(root);
-    if (!version) continue;
+    if (!version || compareVersions(version, version) === null) continue;
     if (!best || (compareVersions(version, best.version) ?? 0) > 0) best = { root, version };
   }
   return best?.root ?? null;
@@ -178,7 +188,7 @@ function details(options: WebAutostartOptions) {
   const current = path && existsSync(path) ? itemPackageRoot(path) : null;
   const root =
     options.packageRoot === undefined
-      ? (preferredPackageRoot([own, globalPackageRoot(runtime ?? null, platform), current]) ?? own)
+      ? preferredPackageRoot([own, globalPackageRoot(runtime ?? null, platform), current])
       : own;
   const supported =
     platform !== "linux" || (options.systemctlAvailable ?? Boolean(executable("systemctl")));
