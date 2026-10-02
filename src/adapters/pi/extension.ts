@@ -129,6 +129,12 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
       // Runs even with tracing off, so turning it off does not leave old traces behind.
       pruneTraces(CONFIG);
       captureState = createPiCaptureState();
+      // Record this copy first: the login item and the other hosts run the newest recorded copy.
+      void import("../../services/runtime-handoff.js")
+        .then(({ registerOwnCopy }) => registerOwnCopy())
+        .catch((error: unknown) =>
+          log("Pi runtime record failed", { code: error instanceof Error ? error.name : "unknown" })
+        );
       if (
         CONFIG.webServerAutoStart !== undefined &&
         process.env.OMMS_DISABLE_WEB_AUTOSTART !== "1"
@@ -146,17 +152,21 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
         void Promise.all([
           import("../../services/web-ensure.js"),
           import("../../services/web-api-auth.js"),
+          import("../../services/runtime-handoff.js"),
         ])
-          .then(([{ ensureWebApp }, { webServerUrl }]) =>
-            ensureWebApp({
+          .then(async ([{ ensureWebApp }, { webServerUrl }, { hostReplaceOlder }]) => {
+            // A web app older than the newest recorded copy steps aside for it.
+            const replaceOlder = await hostReplaceOlder(CONFIG).catch(() => undefined);
+            return ensureWebApp({
               settings: {
                 enabled: CONFIG.webServerEnabled,
                 baseUrl: webServerUrl(CONFIG.webServerHost, CONFIG.webServerPort),
               },
               budgetMs: 0,
               wait: false,
-            })
-          )
+              ...(replaceOlder ? { replaceOlder } : {}),
+            });
+          })
           .catch((error: unknown) =>
             log("Pi web app start failed", {
               code: error instanceof Error ? error.name : "unknown",

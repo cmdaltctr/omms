@@ -16,16 +16,27 @@ import { basename, dirname, join, delimiter, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
+import {
+  copyVersion,
+  ensureLauncher,
+  launcherPath,
+  recordedCopy,
+  type RuntimeLog,
+} from "./runtime-record.js";
 import { compareVersions } from "./version-compare.js";
 
 const MARKER = "OMMS login item";
 const NAME = "io.github.cmdaltctr.omms.web";
-type State = "installed" | "not-installed" | "unsupported" | "no-runtime" | "no-package";
+type State =
+  "installed" | "not-installed" | "unsupported" | "no-runtime" | "no-package" | "no-launcher";
 export type WebAutostartStatus = {
   state: State;
   path?: string;
   runtime?: string;
+  /** The copy the launcher starts now: the newest of the record, the global install, and this copy. */
   packagePath?: string;
+  /** The fixed launcher the item runs, `~/.omms/bin/omms-launch.mjs`. */
+  launcher?: string;
   command?: string;
 };
 export interface WebAutostartOptions {
@@ -33,6 +44,8 @@ export interface WebAutostartOptions {
   platform?: string;
   runtime?: string | null;
   packageRoot?: string | null;
+  /** The running copy, a launcher source when the chosen copy has none. Defaults to `packageRoot`, then this copy. */
+  ownRoot?: string | null;
   systemctlAvailable?: boolean;
   run?: (command: string, args: string[]) => void;
   start?: boolean;
@@ -98,47 +111,10 @@ function packageRoot(): string | null {
   }
 }
 
-function packageVersionAt(root: string): string | null {
-  try {
-    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
-      name?: string;
-      version?: string;
-    };
-    if (pkg.name !== "om-memory-system" || !existsSync(join(root, "dist", "cli", "index.js"))) {
-      return null;
-    }
-    return typeof pkg.version === "string" ? pkg.version : null;
-  } catch {
-    return null;
-  }
-}
-
-/** The package folder a written login item runs, read back from its command line. */
-export function itemPackageRoot(file: string): string | null {
-  try {
-    const content = readFileSync(file, "utf8");
-    const match = /([^"<>\r\n]*?)[\\/]dist[\\/]cli[\\/]index\.js/.exec(content);
-    const path = match?.[1]?.replace(/^.*?<string>/, "").trim();
-    if (!path) return null;
-    // Only plists escape XML. Decode ampersands last to preserve literal entity text.
-    return content.includes("<plist")
-      ? path
-          .replaceAll("&quot;", '"')
-          .replaceAll("&apos;", "'")
-          .replaceAll("&lt;", "<")
-          .replaceAll("&gt;", ">")
-          .replaceAll("&amp;", "&")
-      : path;
-  } catch {
-    return null;
-  }
-}
-
 /**
- * The newest OMMS copy among this one, the global install beside the runtime,
- * and the copy the item already runs. A host starts OMMS from its own cache,
- * which can be older than the global install; that copy must not downgrade
- * the login item.
+ * The newest valid OMMS copy among the candidates. On equal versions the first
+ * wins, so a host's cached copy goes last. This is the copy the launcher starts,
+ * and it matches the launcher's own choice.
  */
 export function preferredPackageRoot(
   candidates: readonly (string | null | undefined)[]
@@ -146,8 +122,8 @@ export function preferredPackageRoot(
   let best: { root: string; version: string } | null = null;
   for (const root of candidates) {
     if (!root) continue;
-    const version = packageVersionAt(root);
-    if (!version || compareVersions(version, version) === null) continue;
+    const version = copyVersion(root);
+    if (!version) continue;
     if (!best || (compareVersions(version, best.version) ?? 0) > 0) best = { root, version };
   }
   return best?.root ?? null;
@@ -184,17 +160,24 @@ function details(options: WebAutostartOptions) {
   const platform = options.platform ?? process.platform;
   const path = itemPath(home, platform);
   const runtime = options.runtime === undefined ? resolveWebRuntime() : options.runtime;
-  const own = options.packageRoot === undefined ? packageRoot() : options.packageRoot;
-  const current = path && existsSync(path) ? itemPackageRoot(path) : null;
+  const dir = join(home, ".omms");
+  const own =
+    options.ownRoot !== undefined
+      ? options.ownRoot
+      : options.packageRoot !== undefined
+        ? options.packageRoot
+        : packageRoot();
+  const recorded = recordedCopy(dir, logCode)?.root ?? null;
   const root =
     options.packageRoot === undefined
-      ? // On equal versions the first wins, so a host's cached copy goes last.
-        preferredPackageRoot([globalPackageRoot(runtime ?? null, platform), current, own])
-      : own;
+      ? preferredPackageRoot([recorded, globalPackageRoot(runtime ?? null, platform), own])
+      : options.packageRoot;
   const supported =
     platform !== "linux" || (options.systemctlAvailable ?? Boolean(executable("systemctl")));
-  return { home, platform, path, runtime, root, supported };
+  return { home, platform, path, runtime, root, own, recorded, dir, supported };
 }
+
+const logCode: RuntimeLog = (code, data) => log("Runtime record", { code, ...data });
 
 const xml = (value: string) =>
   value
@@ -205,21 +188,21 @@ const xml = (value: string) =>
 const systemd = (value: string) => `"${value.replaceAll("%", "%%").replaceAll('"', '\\"')}"`;
 const windows = (value: string) => `"${value.replaceAll("%", "%%")}"`;
 
-function itemContent(platform: string, runtime: string, cli: string): string {
+function itemContent(platform: string, runtime: string, launcher: string): string {
   if (platform === "darwin")
     return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <!-- ${MARKER} -->
 <key>Label</key><string>${NAME}</string>
-<key>ProgramArguments</key><array><string>${xml(runtime)}</string><string>${xml(cli)}</string><string>web</string><string>--login-item</string></array>
+<key>ProgramArguments</key><array><string>${xml(runtime)}</string><string>${xml(launcher)}</string><string>web</string><string>--login-item</string></array>
 <key>RunAtLoad</key><true/><key>KeepAlive</key><false/>
 <key>StandardOutPath</key><string>/dev/null</string><key>StandardErrorPath</key><string>/dev/null</string>
 </dict></plist>\n`;
   if (platform === "linux")
     return `# ${MARKER}
-[Unit]\nDescription=OMMS web app\n[Service]\nType=simple\nExecStart=${systemd(runtime)} ${systemd(cli)} web --login-item\n[Install]\nWantedBy=default.target\n`;
-  return `@echo off\r\nrem ${MARKER}\r\nstart "" /min ${windows(runtime)} ${windows(cli)} web --login-item\r\n`;
+[Unit]\nDescription=OMMS web app\n[Service]\nType=simple\nExecStart=${systemd(runtime)} ${systemd(launcher)} web --login-item\n[Install]\nWantedBy=default.target\n`;
+  return `@echo off\r\nrem ${MARKER}\r\nstart "" /min ${windows(runtime)} ${windows(launcher)} web --login-item\r\n`;
 }
 
 function owned(path: string): boolean {
@@ -233,17 +216,20 @@ function runCommand(options: WebAutostartOptions, home: string, command: string,
 
 /** Read the login item's state without changing any system files. */
 export function webAutostartStatus(options: WebAutostartOptions = {}): WebAutostartStatus {
-  const { path, runtime, root, supported } = details(options);
+  const { path, runtime, root, dir, supported } = details(options);
   if (!path || !supported) return { state: "unsupported" };
   if (!runtime) return { state: "no-runtime", path };
   if (!root) return { state: "no-package", path, runtime };
-  if (!existsSync(path)) return { state: "not-installed", path, runtime, packagePath: root };
+  const launcher = launcherPath(dir);
+  if (!existsSync(path))
+    return { state: "not-installed", path, runtime, packagePath: root, launcher };
   if (!owned(path)) throw new Error("Login item at the OMMS path is not owned by OMMS");
   return {
     state: "installed",
     path,
     runtime,
     packagePath: root,
+    launcher,
     command: readFileSync(path, "utf8"),
   };
 }
@@ -257,9 +243,15 @@ export function installWebAutostart(options: WebAutostartOptions = {}): WebAutos
     status.state === "no-package"
   )
     return status;
-  const { home, platform, path, runtime, root } = details(options);
+  const { home, platform, path, runtime, root, own, recorded, dir } = details(options);
+  // The item runs a fixed launcher, so the launcher must exist before the item does.
+  if (!ensureLauncher({ dir, sources: [root, own, recorded], log: logCode })) {
+    // A valid package exists. Only the launcher is missing, so say that.
+    logCode("launcher-missing", {});
+    return { state: "no-launcher", path: path!, runtime: runtime! };
+  }
   const file = path!;
-  const content = itemContent(platform, runtime!, join(root!, "dist", "cli", "index.js"));
+  const content = itemContent(platform, runtime!, launcherPath(dir));
   mkdirSync(dirname(file), { recursive: true });
   const changed = !existsSync(file) || readFileSync(file, "utf8") !== content;
   if (changed) {

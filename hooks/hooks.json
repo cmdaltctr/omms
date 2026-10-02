@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "om-memory-system claude-hook session-start",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/omms-launch.mjs\" --at-least-own-version claude-hook session-start",
             "timeout": 20
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "om-memory-system claude-hook user-prompt-submit",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/omms-launch.mjs\" --at-least-own-version claude-hook user-prompt-submit",
             "timeout": 10
           }
         ]
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "om-memory-system claude-hook stop",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/omms-launch.mjs\" --at-least-own-version claude-hook stop",
             "timeout": 60,
             "async": true
           }

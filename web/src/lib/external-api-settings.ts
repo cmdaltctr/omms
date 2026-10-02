@@ -53,18 +53,19 @@ export function hostModelEdit(host: "opencode" | "pi", choice: string): Record<s
   return { [`${host}Provider`]: choice.slice(0, slash), [`${host}Model`]: choice.slice(slash + 1) };
 }
 
-export type VersionInfo = { running: string; global: string | null };
+export type GlobalRelation = "missing" | "same" | "older" | "newer" | "unknown";
+/** The server compares the versions, so the page and the server agree on prereleases. */
+export type VersionInfo = { running: string; global: string | null; relation: GlobalRelation };
 
 /** The Web app section's version notice and the command it shows. */
 export function versionNotice(info: VersionInfo): {
-  kind: "same" | "different" | "missing";
+  kind: GlobalRelation;
   command: string | null;
 } {
-  if (info.global === null) return { kind: "missing", command: "npm i -g om-memory-system" };
-  if (info.global !== info.running) {
-    return { kind: "different", command: "npm i -g om-memory-system@latest" };
-  }
-  return { kind: "same", command: null };
+  return {
+    kind: info.relation,
+    command: info.relation === "older" ? "npm i -g om-memory-system@latest" : null,
+  };
 }
 
 export type PathMap = { from: string; to: string };

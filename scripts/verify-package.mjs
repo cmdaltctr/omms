@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("..", import.meta.url));
 
 const requiredFiles = [
+  "bin/omms-launch.mjs",
   "dist/plugin.js",
   "dist/v2/plugin.js",
   "opencode/tui.tsx",

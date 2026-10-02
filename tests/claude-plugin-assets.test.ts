@@ -3,9 +3,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * The Claude Code plugin is data only: a manifest, a marketplace file, the
- * hook file, and one skill. Every hook runs the globally installed
- * `om-memory-system` command (design decision 1), and no MCP server exists.
+ * The Claude Code plugin is a manifest, a marketplace file, the hook file, the
+ * launcher the hooks run, and one skill. Every hook runs the launcher, which
+ * runs the newest local OMMS copy or `npx` at the plugin's version, so a global
+ * install is optional. No MCP server exists.
  */
 
 const root = join(import.meta.dir, "..");
@@ -34,19 +35,33 @@ describe("Claude Code plugin assets", () => {
     expect(marketplace.plugins[0]).toMatchObject({ name: "omms", source: "./" });
   });
 
-  it("hooks run om-memory-system claude-hook with the agreed timeouts", () => {
+  it("manifest says the global install is optional", () => {
+    const { description } = readJson(".claude-plugin/plugin.json");
+    expect(description).not.toMatch(/needs om-memory-system installed globally/i);
+    expect(description).toMatch(/global install is optional/i);
+  });
+
+  it("hooks run the plugin launcher with the agreed timeouts", () => {
     const { hooks } = readJson("hooks/hooks.json");
 
     expect(Object.keys(hooks).sort()).toEqual(["SessionStart", "Stop", "UserPromptSubmit"]);
+    const launch = 'node "${CLAUDE_PLUGIN_ROOT}/bin/omms-launch.mjs" --at-least-own-version';
     const expected: Record<string, { command: string; timeout: number; async?: true }> = {
-      SessionStart: { command: "om-memory-system claude-hook session-start", timeout: 20 },
-      UserPromptSubmit: { command: "om-memory-system claude-hook user-prompt-submit", timeout: 10 },
-      Stop: { command: "om-memory-system claude-hook stop", timeout: 60, async: true },
+      SessionStart: { command: `${launch} claude-hook session-start`, timeout: 20 },
+      UserPromptSubmit: { command: `${launch} claude-hook user-prompt-submit`, timeout: 10 },
+      Stop: { command: `${launch} claude-hook stop`, timeout: 60, async: true },
     };
     for (const [event, handler] of Object.entries(expected)) {
       expect(hooks[event]).toHaveLength(1);
       expect(hooks[event][0].hooks).toEqual([{ type: "command", ...handler }]);
     }
+  });
+
+  it("ships the launcher the hooks run, with no version number in the hook file", () => {
+    expect(existsSync(join(root, "bin", "omms-launch.mjs"))).toBe(true);
+    const text = readFileSync(join(root, "hooks/hooks.json"), "utf8");
+    expect(text).not.toMatch(/\d+\.\d+\.\d+/);
+    expect(text).not.toContain("npx");
   });
 
   it("skill has name and description frontmatter and names the memory command", () => {

@@ -254,6 +254,14 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
   initConfigWithLegacyMigration(directory);
   // Runs even with tracing off, so turning it off does not leave old traces behind.
   pruneTraces(CONFIG);
+  // Record this copy first: the login item and the other hosts run the newest recorded copy.
+  void import("./services/runtime-handoff.js")
+    .then(({ registerOwnCopy }) => registerOwnCopy())
+    .catch((error: unknown) =>
+      log("OpenCode runtime record failed", {
+        code: error instanceof Error ? error.name : "unknown",
+      })
+    );
   if (CONFIG.webServerAutoStart !== undefined && process.env.OMMS_DISABLE_WEB_AUTOSTART !== "1") {
     void import("./services/web-autostart.js")
       .then(({ reconcileWebAutostart }) => reconcileWebAutostart(CONFIG))
@@ -382,12 +390,19 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
         .catch(() => {});
     };
     // The shared web app serves the page. This plugin starts it only when none runs.
-    void Promise.all([import("./services/web-ensure.js"), import("./services/web-api-auth.js")])
-      .then(([{ ensureWebApp }, { webServerUrl }]) => {
+    void Promise.all([
+      import("./services/web-ensure.js"),
+      import("./services/web-api-auth.js"),
+      import("./services/runtime-handoff.js"),
+    ])
+      .then(async ([{ ensureWebApp }, { webServerUrl }, { hostReplaceOlder }]) => {
         const baseUrl = webServerUrl(CONFIG.webServerHost, CONFIG.webServerPort);
+        // A web app older than the newest recorded copy steps aside for it.
+        const replaceOlder = await hostReplaceOlder(CONFIG).catch(() => undefined);
         return ensureWebApp({
           settings: { enabled: CONFIG.webServerEnabled, baseUrl },
           budgetMs: 10_000,
+          ...(replaceOlder ? { replaceOlder } : {}),
         }).then((result) => {
           if (result === "running" || result === "started") {
             showToast(`Web UI available at ${baseUrl}`, "info", 3000);

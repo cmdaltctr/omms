@@ -1,16 +1,26 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   findGlobalCommand,
   globalCommandVersion,
-  resetGlobalVersionCache,
-  versionInvocation,
+  globalRelation,
 } from "../src/services/global-version.js";
 import { packageVersion } from "../src/services/package-version.js";
 
-afterEach(() => resetGlobalVersionCache());
+const dirs: string[] = [];
+afterEach(() => dirs.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true })));
 
 describe("om-memory-system --version", () => {
   it("prints the package.json version and exits 0", () => {
@@ -23,6 +33,8 @@ describe("om-memory-system --version", () => {
     for (const flag of ["--version", "-v"]) {
       const result = spawnSync("bun", ["run", join(import.meta.dir, "../src/cli/index.ts"), flag], {
         encoding: "utf8",
+        // Print this copy's own version, even when a newer copy is recorded on this machine.
+        env: { ...process.env, OMMS_NO_HANDOFF: "1" },
       });
       expect(result.status).toBe(0);
       expect(result.stdout.trim()).toBe(expected);
@@ -46,48 +58,172 @@ describe("global command version", () => {
     ).toBe("C:\\Users\\me\\AppData\\Roaming\\npm\\om-memory-system.cmd");
     expect(seen[0]).toBe("C:\\Tools\\om-memory-system.exe");
     expect(findGlobalCommand({ PATH: "relative:/usr/bin" }, "linux", () => false)).toBeNull();
+  });
+
+  /** An installed copy: `<prefix>/lib/node_modules/om-memory-system` and a `bin` link to its CLI. */
+  function install(version: string | null) {
+    const prefix = mkdtempSync(join(tmpdir(), "omms-global-"));
+    dirs.push(prefix);
+    const root = join(prefix, "lib", "node_modules", "om-memory-system");
+    mkdirSync(join(root, "dist", "cli"), { recursive: true });
+    mkdirSync(join(prefix, "bin"));
+    const marker = join(prefix, "command-ran");
+    const cli = join(root, "dist", "cli", "index.js");
+    // If anything runs the command, this file appears.
+    writeFileSync(cli, `#!/bin/sh\ntouch "${marker}"\necho 9.9.9\n`);
+    chmodSync(cli, 0o755);
+    if (version !== null)
+      writeFileSync(
+        join(root, "package.json"),
+        JSON.stringify({ name: "om-memory-system", version })
+      );
+    const link = join(prefix, "bin", "om-memory-system");
+    symlinkSync(
+      join("..", "lib", "node_modules", "om-memory-system", "dist", "cli", "index.js"),
+      link
+    );
+    return { prefix, root, link, marker };
+  }
+
+  it("reads the version from the install's package.json through the PATH symlink", () => {
+    const { link } = install("4.3.0");
+    expect(globalCommandVersion({ find: () => link })).toEqual({ version: "4.3.0", path: link });
+  });
+
+  it("does not run the command", () => {
+    const { link, marker } = install("4.3.0");
+    globalCommandVersion({ find: () => link });
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it("reads the Windows layout beside the .cmd wrapper", () => {
+    const prefix = mkdtempSync(join(tmpdir(), "omms-global-win-"));
+    dirs.push(prefix);
+    const root = join(prefix, "node_modules", "om-memory-system");
+    mkdirSync(root, { recursive: true });
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ name: "om-memory-system", version: "4.2.1" })
+    );
+    const cmd = join(prefix, "om-memory-system.cmd");
+    writeFileSync(cmd, "@echo off\r\n");
+    expect(globalCommandVersion({ find: () => cmd, platform: "win32" })).toEqual({
+      version: "4.2.1",
+      path: cmd,
+    });
+  });
+
+  it("reports a missing command", () => {
+    expect(globalCommandVersion({ find: () => null, execPath: "/nowhere/bin/node" })).toEqual({
+      version: null,
+      path: null,
+    });
+  });
+
+  it("finds the global install beside the runtime when PATH has no command", () => {
+    // The login item runs with launchd's minimal PATH, which has no Homebrew bin folder.
+    const { prefix, root } = install("4.3.3");
     expect(
-      versionInvocation("C:\\npm\\om-memory-system.cmd", "win32", { SystemRoot: "C:\\Windows" })
+      globalCommandVersion({ find: () => null, execPath: join(prefix, "bin", "node") })
     ).toEqual({
-      file: "C:\\Windows\\System32\\cmd.exe",
-      args: ["/d", "/s", "/c", '"C:\\npm\\om-memory-system.cmd" --version'],
+      version: "4.3.3",
+      path: root,
     });
   });
 
-  it("reports a found version and caches it for 10 minutes", async () => {
-    let calls = 0;
-    let now = 0;
-    const options = {
-      now: () => now,
-      find: () => "/usr/local/bin/om-memory-system",
-      runner: async (_file: string, args: string[], opts: { timeout: number; shell: false }) => {
-        calls++;
-        expect(args).toEqual(["--version"]);
-        expect(opts).toMatchObject({ timeout: 3_000, shell: false });
-        return "3.3.1\n";
-      },
-    };
-    expect(await globalCommandVersion(options)).toEqual({
-      version: "3.3.1",
-      path: "/usr/local/bin/om-memory-system",
+  it("finds the global install above a Homebrew Cellar runtime folder", () => {
+    const { prefix, root } = install("4.3.3");
+    const execPath = join(prefix, "Cellar", "node", "26.9.0", "bin", "node");
+    expect(globalCommandVersion({ find: () => null, execPath })).toEqual({
+      version: "4.3.3",
+      path: root,
     });
-    now = 9 * 60_000;
-    await globalCommandVersion(options);
-    expect(calls).toBe(1);
-    now = 11 * 60_000;
-    await globalCommandVersion(options);
-    expect(calls).toBe(2);
   });
 
-  it("reports a missing command and a timeout", async () => {
-    expect(await globalCommandVersion({ find: () => null })).toEqual({ version: null, path: null });
-    resetGlobalVersionCache();
-    const timedOut = await globalCommandVersion({
-      find: () => "/bin/om-memory-system",
-      runner: async () => {
-        throw Object.assign(new Error("timeout"), { killed: true, signal: "SIGTERM" });
-      },
+  it("prefers the command on PATH over the install beside the runtime", () => {
+    const onPath = install("4.3.0");
+    const beside = install("4.3.3");
+    expect(
+      globalCommandVersion({
+        find: () => onPath.link,
+        execPath: join(beside.prefix, "bin", "node"),
+      }).version
+    ).toBe("4.3.0");
+  });
+
+  it("finds the Windows install beside node.exe when PATH has no command", () => {
+    const prefix = mkdtempSync(join(tmpdir(), "omms-global-win-"));
+    dirs.push(prefix);
+    const root = join(prefix, "node_modules", "om-memory-system");
+    mkdirSync(root, { recursive: true });
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ name: "om-memory-system", version: "4.2.1" })
+    );
+    expect(
+      globalCommandVersion({
+        find: () => null,
+        execPath: join(prefix, "node.exe"),
+        platform: "win32",
+      })
+    ).toEqual({ version: "4.2.1", path: root });
+  });
+
+  it("ignores a folder beside the runtime that is not an OMMS install", () => {
+    const prefix = mkdtempSync(join(tmpdir(), "omms-global-other-"));
+    dirs.push(prefix);
+    const root = join(prefix, "lib", "node_modules", "om-memory-system");
+    mkdirSync(root, { recursive: true });
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ name: "something-else", version: "1.0.0" })
+    );
+    expect(
+      globalCommandVersion({ find: () => null, execPath: join(prefix, "bin", "node") })
+    ).toEqual({
+      version: null,
+      path: null,
     });
-    expect(timedOut).toEqual({ version: null, path: "/bin/om-memory-system", error: "timeout" });
+  });
+
+  it("reports a failure when the package.json cannot be read", () => {
+    const { link } = install(null);
+    expect(globalCommandVersion({ find: () => link })).toEqual({
+      version: null,
+      path: link,
+      error: "failed",
+    });
+  });
+
+  it("reports a failure when the command is not an OMMS install", () => {
+    const prefix = mkdtempSync(join(tmpdir(), "omms-global-other-"));
+    dirs.push(prefix);
+    const other = join(prefix, "om-memory-system");
+    writeFileSync(other, "#!/bin/sh\n");
+    expect(globalCommandVersion({ find: () => other })).toEqual({
+      version: null,
+      path: other,
+      error: "failed",
+    });
+  });
+});
+
+describe("global install against the running version", () => {
+  it("says the global install is older when the running copy is newer", () => {
+    expect(globalRelation("4.3.2", "4.3.0")).toBe("older");
+  });
+
+  it("says the global install is newer than the running copy", () => {
+    expect(globalRelation("4.3.0", "4.3.2")).toBe("newer");
+  });
+
+  it("says the versions are the same, or that there is no global install", () => {
+    expect(globalRelation("4.3.2", "4.3.2")).toBe("same");
+    expect(globalRelation("4.3.2", null)).toBe("missing");
+  });
+
+  it("says unknown when a version cannot be compared", () => {
+    expect(globalRelation("unknown", "4.3.0")).toBe("unknown");
+    expect(globalRelation("4.3.0", "unknown")).toBe("unknown");
   });
 });

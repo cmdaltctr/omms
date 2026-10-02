@@ -36,6 +36,12 @@ mock.module(${JSON.stringify(url("../src/services/web-server.js"))}, () => ({
   startWebServer: async () => { webServerUses.push("start"); throw new Error("no web server in OpenCode"); },
   WebServer: class { constructor() { webServerUses.push("new"); throw new Error("no web server in OpenCode"); } },
 }));
+// Never read the developer's real record.
+let replaceOlder;
+const replaceSettings = [];
+mock.module(${JSON.stringify(url("../src/services/runtime-handoff.js"))}, () => ({
+  registerOwnCopy: () => "skipped",
+  hostReplaceOlder: async (settings) => { replaceSettings.push(settings); return replaceOlder; } }));
 const ensureCalls = [];
 let ensureResult = "started";
 mock.module(${JSON.stringify(url("../src/services/web-ensure.js"))}, () => ({
@@ -56,7 +62,14 @@ ${body}
     );
     const child = Bun.spawnSync(["bun", "run", script], {
       cwd: dir,
-      env: { ...process.env, OMMS_DISABLE_AUTO_BACKFILL: "1", OMMS_DISABLE_WEB_AUTOSTART: "0" },
+      // The plugin removes the login item when webServerAutoStart is false, so keep it off the real home.
+      env: {
+        ...process.env,
+        HOME: dir,
+        USERPROFILE: dir,
+        OMMS_DISABLE_AUTO_BACKFILL: "1",
+        OMMS_DISABLE_WEB_AUTOSTART: "0",
+      },
     });
     const stdout = child.stdout.toString();
     const match = stdout.match(/RESULT:(.*)$/m);
@@ -83,6 +96,39 @@ await hooks.dispose?.();
     title: "Memory Explorer",
     message: "Web UI available at http://127.0.0.1:4747",
     variant: "info",
+  });
+});
+
+it("asks the web app check to replace an older web app with the recorded version", () => {
+  const result = runScenario(`
+replaceOlder = { version: "4.3.2", headers: { "x-omms-token": "local" } };
+const hooks = await OmmsPlugin({ directory: "/workspace", client });
+await new Promise((resolve) => setTimeout(resolve, 50));
+console.log("RESULT:" + JSON.stringify({ ensure: ensureCalls }));
+await hooks.dispose?.();
+`);
+  expect(result.ensure).toEqual([
+    {
+      settings: { enabled: true, baseUrl: "http://127.0.0.1:4747" },
+      budgetMs: 10000,
+      replaceOlder: { version: "4.3.2", headers: { "x-omms-token": "local" } },
+    },
+  ]);
+});
+
+it("gives the browser password settings to the web app replacement", () => {
+  const result = runScenario(
+    `
+const hooks = await OmmsPlugin({ directory: "/workspace", client });
+await new Promise((resolve) => setTimeout(resolve, 50));
+console.log("RESULT:" + JSON.stringify({ settings: replaceSettings[0] }));
+await hooks.dispose?.();
+`,
+    { webServerAuthPassword: "pw", webServerAuthUsername: "me" }
+  );
+  expect(result.settings).toMatchObject({
+    webServerAuthPassword: "pw",
+    webServerAuthUsername: "me",
   });
 });
 

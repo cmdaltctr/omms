@@ -145,6 +145,7 @@
     ]
   },
   "files": [
+    "bin",
     "dist",
     "opencode",
     "skills",

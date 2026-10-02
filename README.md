@@ -17,8 +17,8 @@ It runs inside [OpenCode](https://opencode.ai) and the
 Both share one memory per project, so a note written in one is available in
 the other. Everything is stored locally on your machine.
 
-Claude Code is also supported, through a plugin of hooks. It needs a global
-install and your own external API for capture. See the
+Claude Code is also supported, through a plugin of hooks. It needs Node.js and
+your own external API for capture. A global install is optional. See the
 [Claude Code adapter](docs/claude-code-adapter.md) guide.
 
 ## What it does
@@ -81,8 +81,12 @@ pi install npm:om-memory-system
 
 Restart Pi. You can install OMMS in both agents; they share the same memory.
 
-**Terminal command (optional, recommended).** A global install lets the login
-web app and the `om-memory-system` terminal commands run without `npx`:
+**Terminal command (optional).** A global install puts the `om-memory-system`
+command on your `PATH`. You do not need it. OMMS runs the newest copy it finds on
+the machine, so updating one host is enough. A global install from 4.3 or earlier
+needs one update. See
+[Updating and upgrading](docs/upgrading.md#one-update-updates-every-host).
+To install it:
 
 ```bash
 npm i -g om-memory-system      # or: bun add -g om-memory-system

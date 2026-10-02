@@ -458,11 +458,13 @@ The list fills when you list sessions under Import and backfill, or when an impo
 ## Web app
 
 - **Start web app at login** (`webServerAutoStart`) installs or removes a login item that starts the web app when you sign in. The change applies at the next Pi or OpenCode start. The power button in the sidebar restarts or stops the web app. See [Web UI: Power button](web-ui.md#power-button). To apply it now, run `om-memory-system web install` or `om-memory-system web uninstall`.
-- **Login item** shows whether the item is installed, unsupported on this system, or missing a Node or Bun runtime.
-- **Running version** is the OMMS version that serves this page. **Global command** is the version of `om-memory-system` on the web app's `PATH`, or `not installed globally`.
-- When the two versions differ, the section warns and shows the upgrade command: `npm i -g om-memory-system@latest`.
+- **Login item** shows whether the item is installed, unsupported on this system, or missing a Node or Bun runtime. The item runs the launcher at `~/.omms/bin/omms-launch.mjs`, which starts the newest OMMS copy at each login.
+- **Running version** is the OMMS version that serves this page. **Global command** is the version of the global install. OMMS reads it from the install's `package.json` and does not run the command. It looks for the command on the web app's `PATH`, then for the install beside the Node.js that runs the web app. A login item runs with a short `PATH`, so the second place matters. It shows `not installed globally` when neither has an install.
+- When the global install is older than the running version, the section says that a newer copy runs in its place and that the global install is optional. It shows the command that updates it: `npm i -g om-memory-system@latest`.
+- When the global install is newer than the running version, the section warns you. The next Pi or OpenCode start replaces the web app.
+- When no global install exists, the section says that a global install is optional.
 
-A global install is optional but recommended. With it, the login item and the terminal commands run without `npx`. See [CLI: Global install](cli.md#global-install-optional-recommended).
+See [CLI: Global install](cli.md#global-install-optional) and [Updating and upgrading](upgrading.md#one-update-updates-every-host).
 
 ## Log
 

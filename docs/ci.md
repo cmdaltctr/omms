@@ -60,6 +60,7 @@ Tests never write to the real `~/.omms`. Bun loads `.env.test` for every test pr
 - points `OMMS_LOG_FILE` (and so the traces directory) at a temporary path
 - turns off the one-time migrations (`OMMS_SKIP_LEGACY_MIGRATION`, `OMMS_SKIP_TAG_PREFIX_MIGRATION`)
 - turns off automatic backfill (`OMMS_DISABLE_AUTO_BACKFILL`) and web login item changes (`OMMS_DISABLE_WEB_AUTOSTART`)
+- stops the real CLI from recording its copy in `~/.omms/runtime.json` (`OMMS_DISABLE_RUNTIME_RECORD`). A test that passes its own folder to the record functions still writes there.
 
 The isolated runner also gives each full run its own log directory.
 

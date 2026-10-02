@@ -3,6 +3,9 @@ import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { startStandaloneWeb } from "./standalone-web-fixture.js";
 
+// A package folder with a launcher, so the login item can be installed.
+const repoRoot = join(import.meta.dir, "..");
+
 setDefaultTimeout(60_000);
 
 it("web install hands the port over from a real older standalone web app", async () => {
@@ -15,7 +18,7 @@ it("web install hands the port over from a real older standalone web app", async
       `
 const { runWebCommand } = await import(${JSON.stringify(commandUrl)});
 const options = { home: ${JSON.stringify(old.home)}, platform: "darwin", runtime: "/opt/node",
-  packageRoot: "/opt/omms", run: () => {} }; // The login item start is stubbed.
+  packageRoot: ${JSON.stringify(repoRoot)}, run: () => {} }; // The login item start is stubbed.
 const code = await runWebCommand(["install"], options, async () => false,
   { sleep: (ms) => new Promise((resolve) => setTimeout(resolve, 50)) });
 console.log("RESULT:" + JSON.stringify({ code }));

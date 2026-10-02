@@ -49,6 +49,10 @@ export function parseImportArgs(argv: string[]): { host: ImportHost; args: Histo
 }
 
 export async function runCli(argv: string[]): Promise<number> {
+  // An older copy runs the newest recorded copy instead; otherwise it records itself.
+  const { handOffOrRegister } = await import("../services/runtime-handoff.js");
+  const handedOff = await handOffOrRegister(argv);
+  if (handedOff !== null) return handedOff;
   if (argv[0] === "--version" || argv[0] === "-v") {
     const { packageVersion } = await import("../services/package-version.js");
     console.log(packageVersion());
