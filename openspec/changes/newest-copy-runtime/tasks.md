@@ -50,5 +50,5 @@
 
 ## 10. Verify
 
-- [ ] 10.1 Run `bun run ci:local`. Verify: exit 0.
-- [ ] 10.2 Live check on macOS. Set up the global install at an older version than a local build copy. Start Pi from the build copy. Check that `~/.omms/runtime.json` names it, that the plist runs `~/.omms/bin/omms-launch.mjs`, that `curl /api/settings/version` reports the new version without a new login, and that the global `om-memory-system --version` prints the new version. Then run one Claude Code session with the plugin loaded through `--plugin-dir` and check that the hooks return memories. Verify: record the commands and output in the PR.
+- [x] 10.1 Run `bun run ci:local`. Verify: exit 0.
+- [x] 10.2 Live check on macOS. Set up the global install at an older version than a local build copy. Start Pi from the build copy. Check that `~/.omms/runtime.json` names it, that the plist runs `~/.omms/bin/omms-launch.mjs`, that `curl /api/settings/version` reports the new version without a new login, and that the global `om-memory-system --version` prints the new version. Then run one Claude Code session with the plugin loaded through `--plugin-dir` and check that the hooks return memories. Verify: record the commands and output in the PR.
