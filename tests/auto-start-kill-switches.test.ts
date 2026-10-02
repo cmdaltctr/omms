@@ -9,12 +9,12 @@ it("passes automatic start kill switches to spawned Bun children", async () => {
     const script = join(dir, "child.mjs");
     writeFileSync(
       script,
-      "console.log(JSON.stringify([process.env.OMMS_DISABLE_AUTO_BACKFILL, process.env.OMMS_DISABLE_WEB_AUTOSTART]))"
+      "console.log(JSON.stringify([process.env.OMMS_DISABLE_AUTO_BACKFILL, process.env.OMMS_DISABLE_WEB_AUTOSTART, process.env.OMMS_DISABLE_RUNTIME_RECORD]))"
     );
     const proc = Bun.spawn(["bun", "run", script], { cwd: dir });
     const output = await new Response(proc.stdout).text();
     expect(await proc.exited).toBe(0);
-    expect(JSON.parse(output.trim())).toEqual(["1", "1"]);
+    expect(JSON.parse(output.trim())).toEqual(["1", "1", "1"]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

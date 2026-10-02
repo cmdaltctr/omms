@@ -13,8 +13,8 @@
 
 ## 3. CLI hand-off
 
-- [ ] 3.1 Write `tests/cli-handoff.test.ts`: with a newer valid record, `runCli` runs that copy and returns its exit code; it does not hand off when the record is its own copy, when `OMMS_NO_HANDOFF=1`, or when `OMMS_HANDED_OFF` is set; `--version` prints the newer version after the hand-off; with an older record, it registers itself. Verify: it fails before 3.2.
-- [ ] 3.2 Add the hand-off and self-registration at the top of `runCli` in `src/cli/index.ts`. Verify: 3.1 passes, and `bun test tests/cli-memory.test.ts` and `bun test tests/opencode-cli.test.ts` still pass.
+- [x] 3.1 Write `tests/cli-handoff.test.ts`: with a newer valid record, `runCli` runs that copy and returns its exit code; it does not hand off when the record is its own copy, when `OMMS_NO_HANDOFF=1`, or when `OMMS_HANDED_OFF` is set; `--version` prints the newer version after the hand-off; with an older record, it registers itself. Verify: it fails before 3.2.
+- [x] 3.2 Add the hand-off and self-registration at the top of `runCli` in `src/cli/index.ts`. Verify: 3.1 passes, and `bun test tests/cli-memory.test.ts` and `bun test tests/opencode-cli.test.ts` still pass.
 
 ## 4. Host registration
 
