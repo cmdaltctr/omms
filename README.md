@@ -137,8 +137,9 @@ import guides, and the [CLI reference](docs/cli.md).
 ## Keeping OMMS up to date
 
 Pi shows a notice when a new version is out; update with
-`pi update npm:om-memory-system`. On OpenCode v2, run `opencode plugin check`
-and `opencode plugin update om-memory-system`. Restart the agent afterwards.
+`pi update npm:om-memory-system`. On OpenCode v2, the footer shows when a new version is out;
+run `opencode plugin update om-memory-system`. Restart the agent afterwards.
+[UPDATES.md](UPDATES.md) explains how updates work on every host.
 To stay on one version, install it with the number, for example
 `pi install npm:om-memory-system@3.1.1` or
 `opencode plugin add om-memory-system@3.1.1`; a pinned install is never

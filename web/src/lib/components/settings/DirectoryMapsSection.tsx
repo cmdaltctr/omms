@@ -168,7 +168,8 @@ export function DirectoryMapsSection() {
                     key="no-directory"
                     className="rounded-lg border border-dashed border-border p-2 text-sm text-muted-foreground"
                   >
-                    {s("No directory recorded")} · {row.sessions} {s("sessions")} ·{" "}
+                    {s("No directory recorded")} ·{" "}
+                    {row.sessions === 1 ? s("1 session") : `${row.sessions} ${s("sessions")}`} ·{" "}
                     {s("These sessions cannot be mapped.")}
                   </div>
                 );
@@ -181,7 +182,8 @@ export function DirectoryMapsSection() {
                   className="space-y-1 rounded-lg border border-border p-2 text-sm"
                 >
                   <p>
-                    <code>{row.directory}</code> · {row.sessions} {s("sessions")}
+                    <code>{row.directory}</code> ·{" "}
+                    {row.sessions === 1 ? s("1 session") : `${row.sessions} ${s("sessions")}`}
                   </p>
                   {!row.suggestion && (
                     <p className="text-xs text-muted-foreground">{s("No suggestion found.")}</p>

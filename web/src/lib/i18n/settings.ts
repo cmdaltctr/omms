@@ -308,6 +308,7 @@ const text = {
   "Test models in Health": ["在健康检查中测试模型", "اختبر النماذج في قسم السلامة"],
   Import: ["导入", "استيراد"],
   sessions: ["个会话", "جلسات"],
+  "1 session": ["1 个会话", "جلسة واحدة"],
   "List sessions first.": ["请先列出会话。", "اعرض الجلسات أولاً."],
   "Options changed. Refresh the session list first.": [
     "选项已更改。请先刷新会话列表。",

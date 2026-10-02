@@ -10,6 +10,8 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const requiredFiles = [
   "dist/plugin.js",
   "dist/v2/plugin.js",
+  "opencode/tui.tsx",
+  "dist/adapters/opencode/tui-status.js",
   "dist/adapters/pi/extension.js",
   "dist/web/index.html",
   "skills/omms-memory/SKILL.md",

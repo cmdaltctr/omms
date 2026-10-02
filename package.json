@@ -24,6 +24,7 @@
       "import": "./dist/v2/plugin.js",
       "default": "./dist/v2/plugin.js"
     },
+    "./tui": "./opencode/tui.tsx",
     "./tags": {
       "types": "./dist/services/tags.d.ts",
       "import": "./dist/services/tags.js",
@@ -131,6 +132,7 @@
   },
   "files": [
     "dist",
+    "opencode",
     "skills",
     "package.json"
   ],

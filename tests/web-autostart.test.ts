@@ -13,6 +13,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   installWebAutostart,
+  itemPackageRoot,
+  preferredPackageRoot,
   removeWebAutostart,
   resolveWebRuntime,
   restartWebAutostart,
@@ -231,5 +233,53 @@ describe("restartWebAutostart", () => {
     });
     expect(restarted).toBe(false);
     expect(commands).toEqual([]);
+  });
+});
+
+describe("preferredPackageRoot", () => {
+  function copy(base: string, name: string, version: string) {
+    const root = join(base, name);
+    mkdirSync(join(root, "dist", "cli"), { recursive: true });
+    writeFileSync(join(root, "dist", "cli", "index.js"), "");
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ name: "om-memory-system", version })
+    );
+    return root;
+  }
+
+  it("keeps the newer global install when a host starts OMMS from an older cached copy", () => {
+    const base = mkdtempSync(join(tmpdir(), "omms-login-root-"));
+    homes.push(base);
+    const cached = copy(base, "opencode-cache", "3.6.2");
+    const global = copy(base, "global", "4.2.0");
+    expect(preferredPackageRoot([cached, global, null])).toBe(global);
+    expect(preferredPackageRoot([global, cached])).toBe(global);
+  });
+
+  it("ignores folders that are not an OMMS package with a built CLI", () => {
+    const base = mkdtempSync(join(tmpdir(), "omms-login-root-"));
+    homes.push(base);
+    const own = copy(base, "own", "4.1.0");
+    mkdirSync(join(base, "empty"));
+    expect(preferredPackageRoot([join(base, "empty"), own, "/does/not/exist"])).toBe(own);
+    expect(preferredPackageRoot([join(base, "empty")])).toBeNull();
+  });
+
+  it("reads the package folder back from each platform's login item", () => {
+    for (const platform of ["darwin", "linux", "win32"] as const) {
+      const home = mkdtempSync(join(tmpdir(), "omms-login-item-"));
+      homes.push(home);
+      const root = copy(home, "pkg dir", "4.2.0");
+      const status = installWebAutostart({
+        home,
+        platform,
+        runtime: "/x/bin/node",
+        packageRoot: root,
+        systemctlAvailable: true,
+        run: () => {},
+      });
+      expect(itemPackageRoot(status.path!)).toBe(root);
+    }
   });
 });
