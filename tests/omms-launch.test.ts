@@ -17,6 +17,7 @@ import {
   compareVersions as launcherCompare,
   findCandidates,
   globalPackageRoot,
+  globalPackageRoots,
   parseLauncherArgs,
   runLauncher,
 } from "../bin/omms-launch.mjs";
@@ -158,6 +159,26 @@ describe("findCandidates", () => {
       null,
       { root: own, version: "4.3.3" },
     ]);
+  });
+
+  it("finds a Homebrew global install above the versioned Cellar folder", () => {
+    // Homebrew runs Node from Cellar/node/<version>, but npm installs under the prefix.
+    const prefix = join(base, "brew");
+    const global = join(prefix, "lib", "node_modules", "om-memory-system");
+    mkdirSync(join(global, "dist", "cli"), { recursive: true });
+    writeFileSync(
+      join(global, "package.json"),
+      JSON.stringify({ name: "om-memory-system", version: "4.3.3" })
+    );
+    writeFileSync(join(global, "dist", "cli", "index.js"), "");
+    const execPath = join(prefix, "Cellar", "node", "26.9.0", "bin", "node");
+    expect(globalPackageRoots(execPath, "darwin")).toContain(global);
+    const found = findCandidates({
+      dir: join(base, ".omms"),
+      execPath,
+      ownRoot: join(base, "no-dist"),
+    });
+    expect(found.filter(Boolean)).toEqual([{ root: global, version: "4.3.3" }]);
   });
 
   it("uses the Windows global layout beside node.exe", () => {

@@ -84,7 +84,19 @@ export function globalPackageRoot(execPath, platform = process.platform) {
   return join(dirname(dirname(execPath)), "lib", "node_modules", "om-memory-system");
 }
 
-/** The record's copy, the global install, and the own copy, in that order. Invalid ones are null. */
+/**
+ * Every place a global install can be for this Node.js binary. Homebrew runs Node
+ * from a versioned `Cellar/node/<version>` folder, but npm installs under the
+ * prefix above `Cellar`, so that prefix counts too.
+ */
+export function globalPackageRoots(execPath, platform = process.platform) {
+  const direct = globalPackageRoot(execPath, platform);
+  if (!direct) return [];
+  const brew = /^(.*)[\\/]Cellar[\\/][^\\/]+[\\/][^\\/]+[\\/]bin[\\/][^\\/]+$/.exec(execPath);
+  return brew ? [direct, join(brew[1], "lib", "node_modules", "om-memory-system")] : [direct];
+}
+
+/** The record's copy, the global installs, and the own copy, in that order. Invalid ones are null. */
 export function findCandidates({ dir, execPath, ownRoot }) {
   let recorded = null;
   try {
@@ -93,8 +105,8 @@ export function findCandidates({ dir, execPath, ownRoot }) {
   } catch {
     /* No record, or an unreadable one: the other candidates still work. */
   }
-  const global = globalPackageRoot(execPath);
-  return [recorded, global ? readCopy(global) : null, ownRoot ? readCopy(ownRoot) : null];
+  const globals = globalPackageRoots(execPath).map((root) => readCopy(root));
+  return [recorded, ...globals, ownRoot ? readCopy(ownRoot) : null];
 }
 
 /**

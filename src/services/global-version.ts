@@ -59,24 +59,53 @@ function packageFolder(command: string, platform: NodeJS.Platform): string | nul
 }
 
 /**
+ * Where a global npm install can be for a Node.js binary, the same places the
+ * launcher looks. Homebrew runs Node from a versioned `Cellar/node/<version>`
+ * folder, but npm installs under the prefix above `Cellar`.
+ */
+function installsBesideRuntime(execPath: string, platform: NodeJS.Platform): string[] {
+  if (!execPath) return [];
+  if (platform === "win32") return [join(dirname(execPath), "node_modules", "om-memory-system")];
+  const direct = join(dirname(dirname(execPath)), "lib", "node_modules", "om-memory-system");
+  const brew = /^(.*)[\\/]Cellar[\\/][^\\/]+[\\/][^\\/]+[\\/]bin[\\/][^\\/]+$/.exec(execPath);
+  return brew ? [direct, join(brew[1]!, "lib", "node_modules", "om-memory-system")] : [direct];
+}
+
+/** The version in an install's `package.json`, or null when it is not an OMMS install. */
+function installVersion(folder: string): string | null {
+  const pkg = JSON.parse(readFileSync(join(folder, "package.json"), "utf8")) as {
+    name?: string;
+    version?: unknown;
+  };
+  return pkg.name === "om-memory-system" && typeof pkg.version === "string" ? pkg.version : null;
+}
+
+/**
  * The global command's version, read from its install's `package.json`. The
  * command does not run: after a hand-off it would print the newest copy's version.
+ * The login item runs with a minimal PATH, so with no command on PATH the install
+ * beside the running Node.js counts too.
  */
 export function globalCommandVersion(
-  options: { find?: () => string | null; platform?: NodeJS.Platform } = {}
+  options: { find?: () => string | null; platform?: NodeJS.Platform; execPath?: string } = {}
 ): GlobalCommandVersion {
+  const platform = options.platform ?? process.platform;
   const path = (options.find ?? (() => findGlobalCommand()))();
-  if (!path) return { version: null, path: null };
+  if (!path) {
+    for (const folder of installsBesideRuntime(options.execPath ?? process.execPath, platform)) {
+      try {
+        const version = installVersion(folder);
+        if (version) return { version, path: folder };
+      } catch {
+        /* No install there. */
+      }
+    }
+    return { version: null, path: null };
+  }
   try {
-    const folder = packageFolder(path, options.platform ?? process.platform);
-    if (!folder) return { version: null, path, error: "failed" };
-    const pkg = JSON.parse(readFileSync(join(folder, "package.json"), "utf8")) as {
-      name?: string;
-      version?: unknown;
-    };
-    return pkg.name === "om-memory-system" && typeof pkg.version === "string"
-      ? { version: pkg.version, path }
-      : { version: null, path, error: "failed" };
+    const folder = packageFolder(path, platform);
+    const version = folder ? installVersion(folder) : null;
+    return version ? { version, path } : { version: null, path, error: "failed" };
   } catch {
     return { version: null, path, error: "failed" };
   }

@@ -114,7 +114,76 @@ describe("global command version", () => {
   });
 
   it("reports a missing command", () => {
-    expect(globalCommandVersion({ find: () => null })).toEqual({ version: null, path: null });
+    expect(globalCommandVersion({ find: () => null, execPath: "/nowhere/bin/node" })).toEqual({
+      version: null,
+      path: null,
+    });
+  });
+
+  it("finds the global install beside the runtime when PATH has no command", () => {
+    // The login item runs with launchd's minimal PATH, which has no Homebrew bin folder.
+    const { prefix, root } = install("4.3.3");
+    expect(
+      globalCommandVersion({ find: () => null, execPath: join(prefix, "bin", "node") })
+    ).toEqual({
+      version: "4.3.3",
+      path: root,
+    });
+  });
+
+  it("finds the global install above a Homebrew Cellar runtime folder", () => {
+    const { prefix, root } = install("4.3.3");
+    const execPath = join(prefix, "Cellar", "node", "26.9.0", "bin", "node");
+    expect(globalCommandVersion({ find: () => null, execPath })).toEqual({
+      version: "4.3.3",
+      path: root,
+    });
+  });
+
+  it("prefers the command on PATH over the install beside the runtime", () => {
+    const onPath = install("4.3.0");
+    const beside = install("4.3.3");
+    expect(
+      globalCommandVersion({
+        find: () => onPath.link,
+        execPath: join(beside.prefix, "bin", "node"),
+      }).version
+    ).toBe("4.3.0");
+  });
+
+  it("finds the Windows install beside node.exe when PATH has no command", () => {
+    const prefix = mkdtempSync(join(tmpdir(), "omms-global-win-"));
+    dirs.push(prefix);
+    const root = join(prefix, "node_modules", "om-memory-system");
+    mkdirSync(root, { recursive: true });
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ name: "om-memory-system", version: "4.2.1" })
+    );
+    expect(
+      globalCommandVersion({
+        find: () => null,
+        execPath: join(prefix, "node.exe"),
+        platform: "win32",
+      })
+    ).toEqual({ version: "4.2.1", path: root });
+  });
+
+  it("ignores a folder beside the runtime that is not an OMMS install", () => {
+    const prefix = mkdtempSync(join(tmpdir(), "omms-global-other-"));
+    dirs.push(prefix);
+    const root = join(prefix, "lib", "node_modules", "om-memory-system");
+    mkdirSync(root, { recursive: true });
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ name: "something-else", version: "1.0.0" })
+    );
+    expect(
+      globalCommandVersion({ find: () => null, execPath: join(prefix, "bin", "node") })
+    ).toEqual({
+      version: null,
+      path: null,
+    });
   });
 
   it("reports a failure when the package.json cannot be read", () => {
