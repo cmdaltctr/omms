@@ -43,6 +43,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [019](./019-stabilise-release-smoke-test-assertions.md)      | Stabilise release smoke test assertions                                 | Proposed              | 2026-10-01 |
 | [020](./020-trust-git-outside-a-project.md)                  | Trust git on PATH outside a project                                     | Proposed              | 2026-10-01 |
 | [021](./021-load-pi-sdk-from-pi-install.md)                  | Load the Pi SDK from Pi's install outside Pi                            | Proposed              | 2026-10-01 |
+| [022](./022-login-item-keeps-newest-copy.md)                 | The login item keeps the newest OMMS copy                               | Proposed              | 2026-10-02 |
 
 ## Status values
 

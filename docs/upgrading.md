@@ -8,12 +8,12 @@ Install OMMS without a version number, as the [README](../README.md#set-up)
 shows. Your agent can then tell you when a new release is out. Neither agent
 installs updates by itself. You choose when to update.
 
-| Agent       | How you hear about a new release                              | Update with                                                             |
-| ----------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Pi          | Pi shows an update notice while you work                      | `pi update npm:om-memory-system` (or `pi update --extensions` for all)  |
-| OpenCode v2 | Run `opencode plugin check` to list plugins with new versions | `opencode plugin update om-memory-system` (or `opencode plugin update`) |
+| Agent       | How you hear about a new release                                                                                             | Update with                                                             |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Pi          | Pi shows an update notice while you work                                                                                     | `pi update npm:om-memory-system` (or `pi update --extensions` for all)  |
+| OpenCode v2 | The footer shows `omms:connected · <version> available` and a toast names the command. `opencode plugin check` also lists it | `opencode plugin update om-memory-system` (or `opencode plugin update`) |
 
-Restart the agent after you update.
+Restart the agent after you update. OpenCode resolves "latest" once and keeps that copy in `~/.cache/opencode/npm/`, so it does not update by itself. Set `OMMS_DISABLE_UPDATE_CHECK=1` to stop the npm check. [UPDATES.md](../UPDATES.md) has a one-page summary for every host.
 
 ### The global terminal command
 
@@ -44,8 +44,10 @@ To stay on one version, install it with the version number:
 - Pi: `pi install npm:om-memory-system@3.1.1`
 - OpenCode: `opencode plugin add om-memory-system@3.1.1`
 
-A pinned install is never updated or flagged. To receive updates again,
-install without the number.
+OpenCode skips exact versions during `plugin check` and `plugin update`.
+OMMS can still show its own newer-release notice for a pinned OpenCode install.
+Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn that notice off. To receive updates
+again, install without the number.
 
 ### Trying unreleased changes (`next`)
 

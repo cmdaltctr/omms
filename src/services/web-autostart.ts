@@ -16,6 +16,7 @@ import { basename, dirname, join, delimiter, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
+import { compareVersions } from "./version-compare.js";
 
 const MARKER = "OMMS login item";
 const NAME = "io.github.cmdaltctr.omms.web";
@@ -97,6 +98,69 @@ function packageRoot(): string | null {
   }
 }
 
+function packageVersionAt(root: string): string | null {
+  try {
+    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
+      name?: string;
+      version?: string;
+    };
+    if (pkg.name !== "om-memory-system" || !existsSync(join(root, "dist", "cli", "index.js"))) {
+      return null;
+    }
+    return typeof pkg.version === "string" ? pkg.version : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The package folder a written login item runs, read back from its command line. */
+export function itemPackageRoot(file: string): string | null {
+  try {
+    const content = readFileSync(file, "utf8");
+    const match = /([^"<>\r\n]*?)[\\/]dist[\\/]cli[\\/]index\.js/.exec(content);
+    const path = match?.[1]?.replace(/^.*?<string>/, "").trim();
+    if (!path) return null;
+    // Only plists escape XML. Decode ampersands last to preserve literal entity text.
+    return content.includes("<plist")
+      ? path
+          .replaceAll("&quot;", '"')
+          .replaceAll("&apos;", "'")
+          .replaceAll("&lt;", "<")
+          .replaceAll("&gt;", ">")
+          .replaceAll("&amp;", "&")
+      : path;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The newest OMMS copy among this one, the global install beside the runtime,
+ * and the copy the item already runs. A host starts OMMS from its own cache,
+ * which can be older than the global install; that copy must not downgrade
+ * the login item.
+ */
+export function preferredPackageRoot(
+  candidates: readonly (string | null | undefined)[]
+): string | null {
+  let best: { root: string; version: string } | null = null;
+  for (const root of candidates) {
+    if (!root) continue;
+    const version = packageVersionAt(root);
+    if (!version || compareVersions(version, version) === null) continue;
+    if (!best || (compareVersions(version, best.version) ?? 0) > 0) best = { root, version };
+  }
+  return best?.root ?? null;
+}
+
+function globalPackageRoot(runtime: string | null, platform: string): string | null {
+  if (!runtime) return null;
+  const prefix = dirname(dirname(runtime));
+  return platform === "win32"
+    ? join(dirname(runtime), "node_modules", "om-memory-system")
+    : join(prefix, "lib", "node_modules", "om-memory-system");
+}
+
 function itemPath(home: string, platform: string): string | null {
   if (platform === "darwin") return join(home, "Library", "LaunchAgents", `${NAME}.plist`);
   if (platform === "linux") return join(home, ".config", "systemd", "user", "omms-web.service");
@@ -120,7 +184,12 @@ function details(options: WebAutostartOptions) {
   const platform = options.platform ?? process.platform;
   const path = itemPath(home, platform);
   const runtime = options.runtime === undefined ? resolveWebRuntime() : options.runtime;
-  const root = options.packageRoot === undefined ? packageRoot() : options.packageRoot;
+  const own = options.packageRoot === undefined ? packageRoot() : options.packageRoot;
+  const current = path && existsSync(path) ? itemPackageRoot(path) : null;
+  const root =
+    options.packageRoot === undefined
+      ? preferredPackageRoot([own, globalPackageRoot(runtime ?? null, platform), current])
+      : own;
   const supported =
     platform !== "linux" || (options.systemctlAvailable ?? Boolean(executable("systemctl")));
   return { home, platform, path, runtime, root, supported };

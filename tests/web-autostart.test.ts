@@ -13,6 +13,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
   installWebAutostart,
+  itemPackageRoot,
+  preferredPackageRoot,
   removeWebAutostart,
   resolveWebRuntime,
   restartWebAutostart,
@@ -231,5 +233,101 @@ describe("restartWebAutostart", () => {
     });
     expect(restarted).toBe(false);
     expect(commands).toEqual([]);
+  });
+});
+
+describe("preferredPackageRoot", () => {
+  function copy(base: string, name: string, version: string) {
+    const root = join(base, name);
+    mkdirSync(join(root, "dist", "cli"), { recursive: true });
+    writeFileSync(join(root, "dist", "cli", "index.js"), "");
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ name: "om-memory-system", version })
+    );
+    return root;
+  }
+
+  it("keeps the newer global install when a host starts OMMS from an older cached copy", () => {
+    const base = mkdtempSync(join(tmpdir(), "omms-login-root-"));
+    homes.push(base);
+    const cached = copy(base, "opencode-cache", "3.6.2");
+    const global = copy(base, "global", "4.2.0");
+    expect(preferredPackageRoot([cached, global, null])).toBe(global);
+    expect(preferredPackageRoot([global, cached])).toBe(global);
+  });
+
+  it("ignores folders that are not an OMMS package with a built CLI", () => {
+    const base = mkdtempSync(join(tmpdir(), "omms-login-root-"));
+    homes.push(base);
+    const own = copy(base, "own", "4.1.0");
+    mkdirSync(join(base, "empty"));
+    expect(preferredPackageRoot([join(base, "empty"), own, "/does/not/exist"])).toBe(own);
+    expect(preferredPackageRoot([join(base, "empty")])).toBeNull();
+  });
+
+  it("ignores unparseable versions before and after a valid candidate", () => {
+    const base = mkdtempSync(join(tmpdir(), "omms-login-root-"));
+    homes.push(base);
+    const invalid = copy(base, "invalid", "unknown");
+    const valid = copy(base, "valid", "4.2.0");
+    expect(preferredPackageRoot([invalid, valid])).toBe(valid);
+    expect(preferredPackageRoot([valid, invalid])).toBe(valid);
+    expect(preferredPackageRoot([invalid])).toBeNull();
+  });
+
+  it("decodes XML entities in a macOS login item's package path once", () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-login-item-"));
+    homes.push(home);
+    const root = copy(home, "pkg & &amp;quot;", "4.3.0");
+    const status = installWebAutostart({
+      home,
+      platform: "darwin",
+      runtime: "/x/bin/node",
+      packageRoot: root,
+      start: false,
+    });
+    expect(itemPackageRoot(status.path!)).toBe(root);
+    const cached = copy(home, "cache", "3.6.2");
+    expect(preferredPackageRoot([cached, itemPackageRoot(status.path!)])).toBe(root);
+    writeFileSync(
+      status.path!,
+      "<plist><string>/pkg &lt;dir&gt; &quot;quoted&quot; &apos;name&apos;/dist/cli/index.js</string></plist>"
+    );
+    expect(itemPackageRoot(status.path!)).toBe("/pkg <dir> \"quoted\" 'name'");
+  });
+
+  it("keeps literal XML entity text in Linux and Windows login-item paths", () => {
+    for (const platform of ["linux", "win32"] as const) {
+      const home = mkdtempSync(join(tmpdir(), "omms-login-item-"));
+      homes.push(home);
+      const root = copy(home, "pkg &amp; dir", "4.2.0");
+      const status = installWebAutostart({
+        home,
+        platform,
+        runtime: "/x/bin/node",
+        packageRoot: root,
+        systemctlAvailable: true,
+        run: () => {},
+      });
+      expect(itemPackageRoot(status.path!)).toBe(root);
+    }
+  });
+
+  it("reads the package folder back from each platform's login item", () => {
+    for (const platform of ["darwin", "linux", "win32"] as const) {
+      const home = mkdtempSync(join(tmpdir(), "omms-login-item-"));
+      homes.push(home);
+      const root = copy(home, "pkg dir", "4.2.0");
+      const status = installWebAutostart({
+        home,
+        platform,
+        runtime: "/x/bin/node",
+        packageRoot: root,
+        systemctlAvailable: true,
+        run: () => {},
+      });
+      expect(itemPackageRoot(status.path!)).toBe(root);
+    }
   });
 });

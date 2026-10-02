@@ -49,7 +49,7 @@ function pageSlice<T>(items: T[], page: number) {
 }
 
 function confidencePct(item: ProfileItem) {
-  return Math.round((item.confidence || 0) * 1000) / 10;
+  return Math.round((item.confidence || 0) * 100);
 }
 
 function evidenceTitle(item: ProfileItem) {

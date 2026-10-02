@@ -9,7 +9,7 @@ One shared web app serves the page for every host. It runs as its own process, a
 These things start it:
 
 - **OpenCode, Pi, and Claude Code** each check the port when a session starts (Claude Code: when a hook runs). If an OMMS web app answers, the host uses it. If none answers, the host starts one `om-memory-system web` in the background. The web app keeps running after the session ends.
-- **The login item** starts it when you sign in to your computer. Turn it on with `om-memory-system web install`, or on the Settings page. See [CLI: Web app commands](cli.md#web-app-commands).
+- **The login item** starts it when you sign in to your computer. Turn it on with `om-memory-system web install`, or on the Settings page. See [CLI: Web app commands](cli.md#web-app-commands). Each host start keeps the newest OMMS copy in the item: the host's own copy, the global install, or the copy the item already runs. An older cached copy never replaces a newer one.
 - **`om-memory-system web`** starts it by hand in the terminal. Press Ctrl+C to stop it.
 
 Two hosts that start at the same time start one web app. A start lock (`~/.omms/web-start.lock`) makes the other hosts wait. A lock is stale when its process is gone or it is older than 20 seconds, so a crash does not block a later start.

@@ -623,7 +623,8 @@ export function ImportSection() {
       {job && (
         <div role="status" className="text-sm">
           {job.host} · {job.dryRun ? s("Preview (dry run)") : s("Import")} · {s(job.state)} ·{" "}
-          {job.sessions} {s("sessions")} · {job.processed}/{job.total} {s("units")}
+          {job.sessions === 1 ? s("1 session") : `${job.sessions} ${s("sessions")}`} ·{" "}
+          {job.processed}/{job.total} {s("units")}
           {job.error && <p role="alert">{job.error}</p>}
           {job.report && (
             <pre className="mt-2 overflow-auto whitespace-pre-wrap rounded bg-background p-3 text-xs">

@@ -24,6 +24,7 @@
       "import": "./dist/v2/plugin.js",
       "default": "./dist/v2/plugin.js"
     },
+    "./tui": "./opencode/tui.tsx",
     "./tags": {
       "types": "./dist/services/tags.d.ts",
       "import": "./dist/services/tags.js",
@@ -94,7 +95,21 @@
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
+    "@opentui/core": ">=0.5.8",
+    "@opentui/solid": ">=0.5.8",
+    "solid-js": ">=1.9.0",
     "typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "@opentui/core": {
+      "optional": true
+    },
+    "@opentui/solid": {
+      "optional": true
+    },
+    "solid-js": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
@@ -131,6 +146,7 @@
   },
   "files": [
     "dist",
+    "opencode",
     "skills",
     "package.json"
   ],

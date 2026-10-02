@@ -133,6 +133,16 @@ the plugin shows OpenCode toasts for:
 
 Pi reports the same events through its footer status and notifications.
 
+### Footer status
+
+OpenCode 2.0.22 and later load the plugin's `./tui` entry. It shows OMMS's state in the prompt footer, like Pi:
+
+- `omms:warming` at start, then `omms:connected` when the web app answers on `webServerPort`.
+- `omms:web app off` when the web app does not answer. Capture and retrieval keep working.
+- `· <version> available` when npm has a newer release. A toast also names the update command once per start. The plugin checks npm at start and every 6 hours. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn the check off.
+
+The footer reads only the health route and the npm registry's `latest` version. It sends nothing about your sessions.
+
 ### Capture boundary
 
 Each user prompt is one work unit: the prompt plus the assistant messages up

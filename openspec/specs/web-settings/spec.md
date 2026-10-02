@@ -688,3 +688,17 @@ When no run is active for a host, the Automatic import card SHALL NOT show a pro
 - **WHEN** a Claude Code run finished at 20:35 with 6 imported, 0 skipped, and 0 failed, and the user reloads the page
 - **THEN** the card SHALL show no progress bar
 - **AND** SHALL show the finish time 20:35 and the counts 6, 0, and 0
+
+### Requirement: Counts use singular wording and whole-number confidence
+
+The Settings page SHALL say "1 session" for one session and "sessions" for any other number. The profile page SHALL show each confidence badge as a whole-number percentage.
+
+#### Scenario: One session
+
+- **WHEN** an unresolved directory has one session
+- **THEN** the page SHALL show "1 session"
+
+#### Scenario: Confidence with decimals
+
+- **WHEN** an item's confidence is 0.969
+- **THEN** the badge SHALL show "97%"
