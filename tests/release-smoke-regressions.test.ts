@@ -38,6 +38,7 @@ const originalWriteFileSync = fs.writeFileSync;
 function writeFileSync(path, data, options) {
   if (String(path).endsWith("scenario.mjs") && typeof data === "string") {
     for (const call of ["ensureCalls.push(options);", "autostartCalls.push(1);", "backfillCalls.push(input);"]) {
+      if (!data.includes(call)) throw new Error("Missing Pi delay injection: " + call);
       data = data.replace(call, "setTimeout(() => { " + call + " }, 50);");
     }
     console.log("PI_START_DELAY_INJECTED");
@@ -68,7 +69,7 @@ mock.module("node:fs", () => ({
     timeout: 15_000,
   });
   const output = `${child.stdout.toString()}\n${child.stderr.toString()}`;
-  expect(output).toContain("PI_START_DELAY_INJECTED");
+  expect(output.match(/PI_START_DELAY_INJECTED/g) ?? []).toHaveLength(4);
   expect(child.exitCode, output).toBe(0);
 }, 20_000);
 
