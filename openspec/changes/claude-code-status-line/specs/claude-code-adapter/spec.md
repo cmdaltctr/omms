@@ -4,7 +4,7 @@
 
 ### Requirement: Claude Code shows OMMS status under the prompt
 
-The OMMS plugin SHALL require Claude Code 2.1.287 or later, and SHALL show one status line under the prompt. Claude Code puts the plugin's name before the text, so the line reads `omms: <state>`. The state SHALL be `connected` when the web app answers its health route, `web app off` when it does not, and `not installed` when the plugin's launcher can run no OMMS copy: no local copy is new enough and `npx` fails, or Node.js cannot start. The plugin SHALL get its facts through its own launcher, so the line SHALL NOT depend on a global `om-memory-system` install. The line SHALL update while the session runs. The status line SHALL NOT replace or change the user's own `statusLine` setting.
+The OMMS plugin SHALL require Claude Code 2.1.287 or later, and SHALL show one status line under the prompt. Claude Code puts the plugin's name before the text, so the line reads `omms: <state>`. The state SHALL be `connected` when the web app answers its health route, `web app off` when it does not, and `not installed` when the plugin's launcher reports that it can run no OMMS copy: no local copy is new enough and `npx` fails. A launcher run that only runs out of time SHALL NOT show `not installed`. The line SHALL then show the health state alone, with no update, and the plugin SHALL try again at its next check. The plugin SHALL get its facts through its own launcher, so the line SHALL NOT depend on a global `om-memory-system` install. The line SHALL update while the session runs. The status line SHALL NOT replace or change the user's own `statusLine` setting.
 
 #### Scenario: Web app running
 
@@ -21,6 +21,12 @@ The OMMS plugin SHALL require Claude Code 2.1.287 or later, and SHALL show one s
 
 - **WHEN** no local OMMS copy is at least the plugin's version and `npx` fails
 - **THEN** the line SHALL read `omms: not installed`
+
+#### Scenario: A slow first download
+
+- **WHEN** no local copy is new enough, `npx` is still downloading when the launcher run times out, and the web app answers its health route
+- **THEN** the line SHALL read `omms: connected` with no update
+- **AND** the line SHALL NOT read `omms: not installed`
 
 #### Scenario: No global install
 

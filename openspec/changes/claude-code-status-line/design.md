@@ -43,7 +43,9 @@ At session start and every 6 hours, the mod runs `$.process.run(["node", <$.plug
 
 ### 2. Health states
 
-A health response with `success: true` means `connected`. A 401 also means `connected`, because a server that refuses the password is still running. Any other result, or no answer within 3 seconds, means `web app off`. When the launcher exits with a non-zero code, or `$.process.run` rejects because Node.js cannot start, the state is `not installed` and there is no update check.
+A health response with `success: true` means `connected`. A 401 also means `connected`, because a server that refuses the password is still running. Any other result, or no answer within 3 seconds, means `web app off`. When the launcher exits with a non-zero code, the state is `not installed` and there is no update check.
+
+`$.process.run` also rejects when the child is still running at the timeout, so a rejection alone does not prove that OMMS cannot run. A slow first `npx` download must not show `not installed`. On a rejection, the mod keeps the health-only state (`connected` or `web app off` from the last known or default health URL), shows no update, and tries again at the next 6-hour step. Task 1.1 checks whether the rejection error tells "cannot start" (Node.js missing) apart from "timed out". If it does, a start failure also means `not installed`. If it does not, both stay health-only.
 
 ### 3. Shared update logic moves to `src/services/`
 
@@ -63,7 +65,9 @@ Claude Code prefixes the plugin name, so the mod sets `connected`, `web app off`
 - [A mod runs only in a trusted workspace, and not with `--bare`, `--safe-mode`, or `disableAllHooks`] → The command hooks follow the same rules, so the status line is simply absent where hooks are off. Document it.
 - [The `⚠` prefix Claude Code adds can look like a warning] → Claude Code controls it, so we accept it. The docs say what the line means.
 - [The copy that runs predates the `status` subcommand] → An unknown subcommand exits 0 with no JSON. The mod then shows `connected` or `web app off` from the default health URL `http://127.0.0.1:4747/api/health`, with no update check. The launcher's minimum version makes this rare: it only happens when a newer recorded copy is still older than this release.
-- [A first `npx` run is slow] → Until the status JSON arrives, the mod polls the default health URL. The version and update notice show once the command answers.
+- [A first `npx` run is slow] → Until the status JSON arrives, the mod polls the default health URL. The version and update notice show once the command answers. A run that passes the 60-second timeout keeps the health-only state and never shows `not installed`.
+- [A copy without `status` logs a `bad-event` line on each call] → One metadata line every 6 hours, with no prompt text. It stops once that copy is replaced. Accept it.
+- [ESLint checks `hooks/`] → `eslint .` has no ignore for `hooks/`, and `tsconfig.json` covers only `src/`. The new module and its test must pass `bun run check`.
 - [`$.process.run` cold start takes 1 to 2 seconds] → It runs outside the 10-second hook limit, on the timer, and does not delay session start.
 
 ## Migration Plan

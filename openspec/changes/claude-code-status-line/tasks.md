@@ -2,11 +2,11 @@
 
 ## 1. Check the plugin loads with a mod
 
-- [ ] 1.1 Add `"modules": ["./omms-status.js"]` with a stub module to a copy of the plugin. Load it with `claude --plugin-dir` on the installed Claude Code (2.1.287 or later). In the stub, check that `$.plugin.root` is the plugin folder and that `$.process.run(["node", <root>/bin/omms-launch.mjs, "--at-least-own-version", "--version"])` prints a version. Verify: `claude plugin validate` passes, the stub reports the root and version, and the `SessionStart` command hook still runs.
+- [ ] 1.1 Add `"modules": ["./omms-status.js"]` with a stub module to a copy of the plugin. Load it with `claude --plugin-dir` on the installed Claude Code (2.1.287 or later). In the stub, check that `$.plugin.root` is the plugin folder and that `$.process.run(["node", <root>/bin/omms-launch.mjs, "--at-least-own-version", "--version"])` prints a version. Also run a command that sleeps past a short `timeoutMs`, and a command that does not exist, and record the two rejection errors: can the mod tell "timed out" from "cannot start"? Record the answer in design.md decision 2. Verify: `claude plugin validate` passes, the stub reports the root and version and both errors, and the `SessionStart` command hook still runs.
 
 ## 2. Shared update logic
 
-- [ ] 2.1 Move `latestNpmVersion` and `availableUpdate` to `src/services/update-check.ts`, and import them in `src/adapters/opencode/tui-status.ts`. Verify: `bun test tests/opencode-tui-status.test.ts` passes, and the boundary tests pass.
+- [ ] 2.1 Move `latestNpmVersion` and `availableUpdate` to `src/services/update-check.ts`, and import them in `src/adapters/opencode/tui-status.ts`. `tests/opencode-tui-status.test.ts:3` imports both from `tui-status.ts`: re-export them there, or point the test import at the new module. Do not remove or weaken any assertion. Verify: `bun test tests/opencode-tui-status.test.ts` passes, and the boundary tests pass.
 
 ## 3. Status subcommand
 
@@ -15,8 +15,8 @@
 
 ## 4. The mod
 
-- [ ] 4.1 Write `hooks/omms-status.test.ts` for `claude plugin test`. It covers: `connected`; a 401 as `connected`; `web app off`; `not installed` when the launcher exits 1 and when `$.process.run` rejects; the launcher argv built from `$.plugin.root` with a 60-second timeout; `· <version> available`; no update for a prerelease; one toast per session that names `claude plugin update omms@omms`; and a copy with no `status` output falling back to the default health URL. Verify: it fails before 4.2.
-- [ ] 4.2 Write `hooks/omms-status.js` and add `modules` to `hooks/hooks.json`. Keep the three launcher command hooks unchanged. Verify: `claude plugin validate .` passes and lists `session.start` and the `$.ui.status`, `$.ui.toast`, `$.http.fetch`, `$.process.run`, `$.clock.every` calls. `claude plugin test hooks` passes, and `bun test tests/claude-plugin-assets.test.ts` passes.
+- [ ] 4.1 Write `hooks/omms-status.test.ts` for `claude plugin test`. It covers: `connected`; a 401 as `connected`; `web app off`; `not installed` when the launcher exits 1; a `$.process.run` timeout keeps the health-only state with no update and does not show `not installed`; a start failure follows the 1.1 finding; the launcher argv built from `$.plugin.root` with a 60-second timeout; `· <version> available`; no update for a prerelease; one toast per session that names `claude plugin update omms@omms`; and a copy with no `status` output falling back to the default health URL. Also extend `tests/claude-plugin-assets.test.ts`: `hooks/hooks.json` has `"modules": ["./omms-status.js"]`, the three launcher hooks stay as they are, and the file still has no version number. Verify: both fail before 4.2.
+- [ ] 4.2 Write `hooks/omms-status.js` and add `modules` to `hooks/hooks.json`. Keep the three launcher command hooks unchanged. Verify: `claude plugin validate .` passes and lists `session.start` and the `$.ui.status`, `$.ui.toast`, `$.http.fetch`, `$.process.run`, `$.clock.every` calls. `claude plugin test hooks` passes, `bun test tests/claude-plugin-assets.test.ts` passes, and `bun run check` passes (ESLint covers `hooks/`).
 - [ ] 4.3 Make sure the npm package and its file checks still work with the new `hooks/` files. Verify: `bun run build`, then `bun run check:package` passes.
 
 ## 5. Docs
