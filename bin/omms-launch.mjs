@@ -182,7 +182,17 @@ export async function runLauncher(argv, options = {}) {
   return 1;
 }
 
-const entry = process.argv[1];
-if (entry && realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url))) {
+/** True when this file is the program Node.js started. A path that cannot be resolved is not. */
+function runDirectly() {
+  try {
+    const entry = process.argv[1];
+    return Boolean(entry) && realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    // A loader or wrapper can leave argv[1] pointing at a file that is not there.
+    return false;
+  }
+}
+
+if (runDirectly()) {
   runLauncher(process.argv.slice(2)).then((code) => process.exit(code));
 }

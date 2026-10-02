@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { compareVersions } from "../src/services/version-compare.js";
 import {
   chooseCopy,
@@ -302,6 +303,29 @@ describe("launcher process", () => {
 function readLauncher(): string {
   return readFileSync(LAUNCHER, "utf8");
 }
+
+describe("importing the launcher", () => {
+  it("does not throw when process.argv[1] names a path that does not exist", () => {
+    // A loader or wrapper can leave argv[1] pointing at a file that is not there.
+    // The direct-run check must treat that as "not run directly", and start nothing.
+    const script = join(base, "import-with-bad-argv.mjs");
+    writeFileSync(
+      script,
+      `process.argv[1] = ${JSON.stringify(join(base, "no", "such", "entry.js"))};
+try {
+  await import(${JSON.stringify(pathToFileURL(LAUNCHER).href)});
+  console.log("import ok");
+} catch (error) {
+  console.log("import threw: " + (error.code ?? error.name));
+}
+`
+    );
+    const result = spawnSync(process.execPath, [script], { encoding: "utf8" });
+    expect(result.stdout.trim()).toBe("import ok");
+    // Nothing started: the launcher printed no "no OMMS copy" message either.
+    expect(result.stderr).toBe("");
+  });
+});
 
 describe("runLauncher", () => {
   it("returns the child's exit code through the injected spawn", async () => {
