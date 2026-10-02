@@ -2,14 +2,14 @@
 
 ## 1. Newest-copy record
 
-- [ ] 1.1 Write `tests/runtime-record.test.ts`: valid-copy check, write when missing, write when newer, keep on a tie, replace a record whose copy is gone, skip an unparsable version, atomic write (no `.tmp` left), mode 0600, read failure returns null and logs a code. Verify: it fails before 1.2.
-- [ ] 1.2 Add `src/services/runtime-record.ts` as a pure module (paths and file functions passed in, no `config.ts` import). Verify: 1.1 passes, and `bun test tests/host-neutral-capture-boundary.test.ts` passes.
+- [x] 1.1 Write `tests/runtime-record.test.ts`: valid-copy check, write when missing, write when newer, keep on a tie, replace a record whose copy is gone, skip an unparsable version, atomic write (no `.tmp` left), mode 0600, read failure returns null and logs a code. Verify: it fails before 1.2.
+- [x] 1.2 Add `src/services/runtime-record.ts` as a pure module (paths and file functions passed in, no `config.ts` import). Verify: 1.1 passes, and `bun test tests/host-neutral-capture-boundary.test.ts` passes.
 
 ## 2. Launcher
 
-- [ ] 2.1 Write `tests/omms-launch.test.ts`: `chooseCopy` picks the newest valid candidate, skips a missing record copy, honours `--at-least-own-version`, chooses `npx` only when no candidate reaches it; its SemVer compare agrees with `compareVersions` over a shared list that includes prereleases; `main` passes arguments, standard input, and the exit code through (spawn a fake copy in a temp folder). Verify: it fails before 2.2.
-- [ ] 2.2 Add `bin/omms-launch.mjs` (Node built-ins only) and a `.d.mts` type file if the TypeScript build needs one. Add `bin` to `package.json` `files`. Verify: 2.1 passes, `bun run build`, then `bun run check:package` passes and lists `bin/omms-launch.mjs`.
-- [ ] 2.3 Extend 1.1/1.2: when a copy writes the record, it copies its launcher to `~/.omms/bin/omms-launch.mjs` if the file there is missing or different. An older copy never replaces it. Verify: new cases in `tests/runtime-record.test.ts` fail first, then pass.
+- [x] 2.1 Write `tests/omms-launch.test.ts`: `chooseCopy` picks the newest valid candidate, skips a missing record copy, honours `--at-least-own-version`, chooses `npx` only when no candidate reaches it; its SemVer compare agrees with `compareVersions` over a shared list that includes prereleases; `main` passes arguments, standard input, and the exit code through (spawn a fake copy in a temp folder). Verify: it fails before 2.2.
+- [x] 2.2 Add `bin/omms-launch.mjs` (Node built-ins only) and a `.d.mts` type file if the TypeScript build needs one. Add `bin` to `package.json` `files`. Verify: 2.1 passes, `bun run build`, then `bun run check:package` passes and lists `bin/omms-launch.mjs`.
+- [x] 2.3 Extend 1.1/1.2: when a copy writes the record, it copies its launcher to `~/.omms/bin/omms-launch.mjs` if the file there is missing or different. An older copy never replaces it. Verify: new cases in `tests/runtime-record.test.ts` fail first, then pass.
 
 ## 3. CLI hand-off
 
