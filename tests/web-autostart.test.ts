@@ -257,6 +257,22 @@ describe("preferredPackageRoot", () => {
     expect(preferredPackageRoot([global, cached])).toBe(global);
   });
 
+  it("keeps the global install, then the current item, when a host copy has the same version", () => {
+    const own = join(import.meta.dir, "..");
+    expect(existsSync(join(own, "dist", "cli", "index.js"))).toBe(true);
+    const version = JSON.parse(readFileSync(join(own, "package.json"), "utf8")).version;
+    const base = mkdtempSync(join(tmpdir(), "omms-login-root-"));
+    homes.push(base);
+    const global = copy(join(base, "lib", "node_modules"), "om-memory-system", version);
+    const darwin = { home: base, platform: "darwin", start: false } as const;
+    const item = installWebAutostart({ ...darwin, runtime: join(base, "bin", "node") });
+    expect(itemPackageRoot(item.path!)).toBe(global);
+    const current = copy(base, "current", version);
+    installWebAutostart({ ...darwin, runtime: "/x/bin/node", packageRoot: current });
+    installWebAutostart({ ...darwin, runtime: "/x/bin/node" });
+    expect(itemPackageRoot(item.path!)).toBe(current);
+  });
+
   it("ignores folders that are not an OMMS package with a built CLI", () => {
     const base = mkdtempSync(join(tmpdir(), "omms-login-root-"));
     homes.push(base);

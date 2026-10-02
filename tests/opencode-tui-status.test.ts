@@ -10,6 +10,25 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
 
+describe("OpenCode TUI entry", () => {
+  it("imports Solid only through OpenCode's runtime-module ids", async () => {
+    // From node_modules, OpenCode maps neither bare Solid imports nor a JSX
+    // runtime to its own copies; Bun compiles JSX for React, as Bun.build does.
+    const built = await Bun.build({
+      entrypoints: [new URL("../opencode/tui.tsx", import.meta.url).pathname],
+      packages: "external",
+      external: ["../dist/*", "opentui:*"],
+    });
+    const output = await built.outputs[0]!.text();
+    const imports = new Bun.Transpiler({ loader: "js" }).scanImports(output).map((i) => i.path);
+    expect(imports.sort()).toEqual([
+      "../dist/adapters/opencode/tui-status.js",
+      "opentui:runtime-module:%40opentui%2Fsolid%2Fjsx-runtime",
+      "opentui:runtime-module:solid-js",
+    ]);
+  });
+});
+
 describe("OpenCode footer status", () => {
   it("reads like Pi's status, and adds a newer release", () => {
     expect(tuiStatusText({ web: "connected", update: null })).toBe("omms:connected");

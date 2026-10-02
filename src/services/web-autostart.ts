@@ -188,7 +188,8 @@ function details(options: WebAutostartOptions) {
   const current = path && existsSync(path) ? itemPackageRoot(path) : null;
   const root =
     options.packageRoot === undefined
-      ? preferredPackageRoot([own, globalPackageRoot(runtime ?? null, platform), current])
+      ? // On equal versions the first wins, so a host's cached copy goes last.
+        preferredPackageRoot([globalPackageRoot(runtime ?? null, platform), current, own])
       : own;
   const supported =
     platform !== "linux" || (options.systemctlAvailable ?? Boolean(executable("systemctl")));
