@@ -204,13 +204,22 @@ ommsPiExtension(pi);
 
 let captured;
 
+// Background imports can finish after a busy runner's first timer tick.
+async function waitFor(condition, timeoutMs = 1000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() >= deadline) throw new Error("Scenario condition did not become true");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
 ${code}
 
 console.log("RESULT:" + JSON.stringify({ registeredTools, registeredCommands, toolCalls, closeCalls, statusCalls, searchQueries, profileCreates, profileUpdates, captured: typeof captured !== "undefined" ? captured : null }));
 `;
 
   writeFileSync(scriptPath, script);
-  const proc = Bun.spawnSync(["bun", "run", scriptPath], { cwd: dir });
+  const proc = Bun.spawnSync(["bun", "run", scriptPath], { cwd: dir, timeout: 3_000 });
   const stdout = proc.stdout.toString();
   const match = stdout.match(/RESULT:(.*)$/m);
   if (!match) {
@@ -220,6 +229,18 @@ console.log("RESULT:" + JSON.stringify({ registeredTools, registeredCommands, to
 }
 
 describe("Pi extension entry point", () => {
+  it("bounds a scenario wait when the background call never arrives", () => {
+    const output = runScenario(`
+try {
+  await waitFor(() => false, 25);
+  captured = "unexpected completion";
+} catch (error) {
+  captured = error.message;
+}
+    `);
+    expect(output.captured).toBe("Scenario condition did not become true");
+  });
+
   it("reconciles the login item and logs failures without stopping Pi", () => {
     const output = runScenario(`
 stubConfig.webServerAutoStart = true;
@@ -227,7 +248,7 @@ stubConfig.webServerEnabled = true;
 delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
 autostartFails = true;
 await handlers["session_start"]({}, makeCtx());
-await new Promise((resolve) => setTimeout(resolve, 10));
+await waitFor(() => autostartCalls.length === 1 && logCalls.some((line) => line.includes("login item")));
 captured = { calls: autostartCalls.length, logged: logCalls.some((line) => line.includes("login item")) };
     `);
     expect(output.captured).toEqual({ calls: 1, logged: true });
@@ -241,7 +262,7 @@ stubConfig.webServerHost = "127.0.0.1";
 stubConfig.webServerPort = 4747;
 delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
 await handlers["session_start"]({}, makeCtx());
-await new Promise((resolve) => setTimeout(resolve, 10));
+await waitFor(() => ensureCalls.length === 1);
 captured = { calls: ensureCalls.length, options: ensureCalls[0] };
     `);
     expect(output.captured).toEqual({
@@ -262,7 +283,7 @@ stubConfig.webServerHost = "127.0.0.1";
 stubConfig.webServerPort = 4747;
 delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
 await handlers["session_start"]({}, makeCtx());
-await new Promise((resolve) => setTimeout(resolve, 10));
+await waitFor(() => ensureCalls.length === 1);
 captured = { ensure: ensureCalls.length, loginItem: autostartCalls.length };
     `);
     // The login item stays tied to webServerAutoStart. The web app check does not.
@@ -321,16 +342,16 @@ delete process.env.OMMS_DISABLE_AUTO_BACKFILL;
 holdBackfill = true;
 const ctx = makeCtx();
 await handlers["session_start"]({}, ctx);
-await new Promise((resolve) => setTimeout(resolve, 10));
+await waitFor(() => backfillCalls.length === 1);
 const closing = handlers["session_shutdown"]({}, ctx);
-await new Promise((resolve) => setTimeout(resolve, 10));
+await waitFor(() => backfillCalls[0]?.signal?.aborted);
 const closedBeforeBackfillSettled = closeCalls.length;
 const signalled = backfillCalls[0]?.signal?.aborted ?? false;
 releaseBackfill?.();
 await closing;
 holdBackfill = false;
 await handlers["session_start"]({}, ctx);
-await new Promise((resolve) => setTimeout(resolve, 10));
+await waitFor(() => backfillCalls.length === 2);
 captured = { closedBeforeBackfillSettled, signalled, scheduled: backfillCalls.length };
     `);
     expect(output.captured).toEqual({

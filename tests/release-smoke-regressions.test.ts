@@ -7,6 +7,7 @@ const generatedDirs: string[] = [];
 const repoRoot = join(import.meta.dir, "..");
 const opencodeWebSelectionTest = join(repoRoot, "tests/opencode-web-selection.test.ts");
 const packageSkillsTest = join(repoRoot, "tests/package-skills.test.ts");
+const piExtensionTest = join(repoRoot, "tests/pi-extension.test.ts");
 
 afterEach(() => {
   for (const dir of generatedDirs.splice(0)) {
@@ -23,6 +24,53 @@ function runWithPreload(preload: string, test: string) {
   });
   return { child, output: `${child.stdout.toString()}\n${child.stderr.toString()}` };
 }
+
+it("waits for Pi's background startup and backfill calls instead of a fixed delay", () => {
+  const dir = mkdtempSync(join(tmpdir(), "omms-pi-start-delay-"));
+  generatedDirs.push(dir);
+  const preload = join(dir, "pi-start-delay.mjs");
+  writeFileSync(
+    preload,
+    `
+import { mock } from "bun:test";
+import * as fs from "node:fs";
+const originalWriteFileSync = fs.writeFileSync;
+function writeFileSync(path, data, options) {
+  if (String(path).endsWith("scenario.mjs") && typeof data === "string") {
+    for (const call of ["ensureCalls.push(options);", "autostartCalls.push(1);", "backfillCalls.push(input);"]) {
+      data = data.replace(call, "setTimeout(() => { " + call + " }, 50);");
+    }
+    console.log("PI_START_DELAY_INJECTED");
+  }
+  return originalWriteFileSync(path, data, options);
+}
+mock.module("node:fs", () => ({
+  ...fs,
+  default: { ...fs.default, writeFileSync },
+  writeFileSync,
+}));
+`,
+    "utf8"
+  );
+  const child = Bun.spawnSync({
+    cmd: [
+      process.execPath,
+      "test",
+      "--preload",
+      preload,
+      "--test-name-pattern",
+      "reconciles the login item|starts the shared web app|aborts and awaits backfill",
+      piExtensionTest,
+    ],
+    cwd: repoRoot,
+    stdout: "pipe",
+    stderr: "pipe",
+    timeout: 15_000,
+  });
+  const output = `${child.stdout.toString()}\n${child.stderr.toString()}`;
+  expect(output).toContain("PI_START_DELAY_INJECTED");
+  expect(child.exitCode, output).toBe(0);
+}, 20_000);
 
 it("permits a retired OpenCode snapshot to disappear while a preview reuses its current copy", () => {
   const dir = mkdtempSync(join(tmpdir(), "omms-retired-snapshot-preload-"));
