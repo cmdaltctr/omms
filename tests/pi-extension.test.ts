@@ -15,6 +15,7 @@ const extensionUrl = new URL("../src/adapters/pi/extension.js", import.meta.url)
 const backfillUrl = new URL("../src/importer/auto-backfill.js", import.meta.url).href;
 const autostartUrl = new URL("../src/services/web-autostart.js", import.meta.url).href;
 const ensureUrl = new URL("../src/services/web-ensure.js", import.meta.url).href;
+const handoffUrl = new URL("../src/services/runtime-handoff.js", import.meta.url).href;
 const clientUrl = new URL("../src/services/client.js", import.meta.url).href;
 const configUrl = new URL("../src/config.js", import.meta.url).href;
 const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
@@ -114,6 +115,16 @@ mock.module(${JSON.stringify(autostartUrl)}, () => ({
   reconcileWebAutostart: () => {
     autostartCalls.push(1);
     if (autostartFails) throw new Error("login item failed");
+  },
+}));
+
+const registerCalls = [];
+let registerFails = false;
+mock.module(${JSON.stringify(handoffUrl)}, () => ({
+  registerOwnCopy: () => {
+    registerCalls.push(1);
+    if (registerFails) throw new Error("record failed");
+    return "written";
   },
 }));
 
@@ -250,6 +261,28 @@ autostartFails = true;
 await handlers["session_start"]({}, makeCtx());
 await waitFor(() => autostartCalls.length === 1 && logCalls.some((line) => line.includes("login item")));
 captured = { calls: autostartCalls.length, logged: logCalls.some((line) => line.includes("login item")) };
+    `);
+    expect(output.captured).toEqual({ calls: 1, logged: true });
+  });
+
+  it("records its copy at session start, whatever the web app settings are", () => {
+    const output = runScenario(`
+delete stubConfig.webServerAutoStart;
+stubConfig.webServerEnabled = false;
+process.env.OMMS_DISABLE_WEB_AUTOSTART = "1";
+await handlers["session_start"]({}, makeCtx());
+await waitFor(() => registerCalls.length === 1);
+captured = { calls: registerCalls.length };
+    `);
+    expect(output.captured).toEqual({ calls: 1 });
+  });
+
+  it("logs a record failure and still starts the Pi session", () => {
+    const output = runScenario(`
+registerFails = true;
+await handlers["session_start"]({}, makeCtx());
+await waitFor(() => logCalls.some((line) => line.includes("runtime record")));
+captured = { calls: registerCalls.length, logged: logCalls.some((line) => line.includes("runtime record")) };
     `);
     expect(output.captured).toEqual({ calls: 1, logged: true });
   });

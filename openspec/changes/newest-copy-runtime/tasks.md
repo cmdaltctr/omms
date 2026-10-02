@@ -18,8 +18,8 @@
 
 ## 4. Host registration
 
-- [ ] 4.1 Add tests that an OpenCode start and a Pi start write their copy into the record through the shared service, and that a record failure does not fail the start. Verify: they fail before 4.2.
-- [ ] 4.2 Call the shared registration from `src/index.ts` and `src/adapters/pi/extension.ts` with dynamic `import()`, next to `reconcileWebAutostart`. Verify: 4.1 passes, and `bun test tests/plugin-bundle-boundary.test.ts` and `bun test tests/pi-adapter-boundary.test.ts` pass.
+- [x] 4.1 Add tests that an OpenCode start and a Pi start write their copy into the record through the shared service, and that a record failure does not fail the start. Verify: they fail before 4.2.
+- [x] 4.2 Call the shared registration from `src/index.ts` and `src/adapters/pi/extension.ts` with dynamic `import()`, next to `reconcileWebAutostart`. Verify: 4.1 passes, and `bun test tests/plugin-bundle-boundary.test.ts` and `bun test tests/pi-adapter-boundary.test.ts` pass.
 
 ## 5. Login item runs the launcher
 

@@ -129,6 +129,12 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
       // Runs even with tracing off, so turning it off does not leave old traces behind.
       pruneTraces(CONFIG);
       captureState = createPiCaptureState();
+      // Record this copy first: the login item and the other hosts run the newest recorded copy.
+      void import("../../services/runtime-handoff.js")
+        .then(({ registerOwnCopy }) => registerOwnCopy())
+        .catch((error: unknown) =>
+          log("Pi runtime record failed", { code: error instanceof Error ? error.name : "unknown" })
+        );
       if (
         CONFIG.webServerAutoStart !== undefined &&
         process.env.OMMS_DISABLE_WEB_AUTOSTART !== "1"
