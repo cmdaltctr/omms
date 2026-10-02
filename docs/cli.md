@@ -32,19 +32,29 @@ Slash commands inside a session:
 - Claude Code has no slash command. Use `import-claude-history` or the Settings page.
 - You can also run imports, backfills, and directory maps from the web Settings page. See [Web UI settings](web-ui-settings.md).
 
-## Global install (optional, recommended)
+## Global install (optional)
 
-`npx om-memory-system` works without an install. A global install has two benefits:
-
-- The login item and the terminal commands run without `npx`.
-- One known version stays on your `PATH`.
+`npx om-memory-system` works without an install. A global install is optional. It gives you the command on your `PATH` without `npx`.
 
 ```bash
 npm i -g om-memory-system      # or: bun add -g om-memory-system
 om-memory-system --version
 ```
 
-Upgrade with `npm i -g om-memory-system@latest` or `bun add -g om-memory-system@latest`. The Settings page shows the running version next to the global command's version. It warns when they differ.
+You do not need to keep the global install up to date. See [Hand-off to the newest copy](#hand-off-to-the-newest-copy). To update it, run `npm i -g om-memory-system@latest` or `bun add -g om-memory-system@latest`. The Settings page shows the running version next to the version of the global install.
+
+## Hand-off to the newest copy
+
+OMMS keeps a record of the newest copy on the machine in `~/.omms/runtime.json`. Each OpenCode start, each Pi start, and each run of `om-memory-system` write their own copy to the record when it is newer.
+
+When the record names a valid copy that is newer than the running command, the command runs that copy. The copy gets the same arguments, input, and exit code. `om-memory-system --version` prints the version of the copy that runs.
+
+- A global install from 4.3 or earlier has no hand-off code. Update it once.
+- Set `OMMS_NO_HANDOFF=1` to run the code of the command you typed, for one command.
+- A copy that is not valid is ignored. A copy is valid when its `package.json` names `om-memory-system`, its version can be compared, and it has `dist/cli/index.js`.
+- A failure to read or write the record never stops the command.
+
+See [Updating and upgrading](upgrading.md#one-update-updates-every-host).
 
 ## Which model an import uses
 
@@ -156,7 +166,8 @@ Error messages never contain the API key. The key from `--api-key-env` and the s
 
 `om-memory-system web install` sets `webServerAutoStart` to `true` in the global config and registers the login item.
 
-- It needs `webServerEnabled: true`, an installed Node or Bun runtime, and a package path it can find.
+- It needs `webServerEnabled: true`, an installed Node or Bun runtime, and an OMMS copy that has a launcher.
+- The item runs the launcher at `~/.omms/bin/omms-launch.mjs` with `web --login-item`. The launcher starts the newest valid copy at each login, so an update does not change the item. `web install` places the launcher first.
 - It prints the web app URL from `webServerHost` and `webServerPort`, for example `http://127.0.0.1:4747`.
 - For a Homebrew runtime, the item stores the stable link, for example `/opt/homebrew/bin/node`. It does not store the versioned `Cellar` path, so a Homebrew upgrade does not break the item.
 - It exits with code `1` if the item is not installed.
@@ -165,6 +176,7 @@ Error messages never contain the API key. The key from `--api-key-env` and the s
   - An older web app from OMMS 3.5.0 or earlier has no step-aside route. `web install` prints the version and how to stop it. Stop that web app, then run `web install` again.
   - A web app of the same version keeps running. `web install` prints its version.
   - A newer web app keeps running. `web install` tells you to update the global command with `npm i -g om-memory-system`.
+- An OpenCode start, a Pi start, and a Claude Code `SessionStart` do the same step-aside for a web app that is older than the newest recorded copy. You do not run `web install` after an update.
 
 `om-memory-system web uninstall` sets `webServerAutoStart` to `false` and removes only OMMS's own item.
 
@@ -239,7 +251,7 @@ The full table of modes and flags is in
 ## Claude Code hook command
 
 `om-memory-system claude-hook <event>` runs one Claude Code hook. The Claude
-Code plugin calls it. You do not run it by hand.
+Code plugin calls it through its launcher. You do not run it by hand.
 
 - `<event>` is `session-start`, `user-prompt-submit`, or `stop`.
 - It reads the hook input from standard input, for at most 2 seconds.

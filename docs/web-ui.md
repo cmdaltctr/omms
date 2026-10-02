@@ -58,7 +58,7 @@ One OMMS process owns the port. A process that finds the port busy waits and che
 
 OMMS 3.5.0 and earlier have no step-aside route. Stop those web apps by hand.
 
-A global install of the terminal command is optional but recommended. With it, the login item and the commands run without `npx`:
+A global install of the terminal command is optional. The login item and the hooks run the newest OMMS copy on the machine without it. To put the command on your `PATH`:
 
 ```bash
 npm i -g om-memory-system      # or: bun add -g om-memory-system

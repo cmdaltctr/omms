@@ -6,9 +6,9 @@ store for each project. So Claude Code can find memories that OpenCode or Pi
 captured, and the other hosts can find memories that Claude Code captured.
 
 Claude Code has no in-process plugin API. The plugin is a set of shell hooks
-and one skill. Each hook runs the `om-memory-system claude-hook <event>`
-command. The command sends the event to the OMMS web app, and the web app does
-the memory work. The plugin has no MCP server, and it never changes
+and one skill. Each hook runs the launcher in the plugin, which runs the
+`om-memory-system claude-hook <event>` command. The command sends the event to
+the OMMS web app, and the web app does the memory work. The plugin has no MCP server, and it never changes
 `CLAUDE.md`.
 
 The plugin is tested against Claude Code **2.1.284**. The transcript reader
@@ -19,21 +19,28 @@ targets that version. See [Transcript format](#transcript-format).
 You need:
 
 - Claude Code with plugin support.
-- `om-memory-system` installed globally, so that the hooks find it on `PATH`.
+- Node.js 22.14 or later. The hooks run through `node`.
 - An external API for capture. See [The external API is required](#the-external-api-is-required).
 
-Install the command:
+A global install of `om-memory-system` is optional. The hooks do not need it.
 
-```bash
-npm i -g om-memory-system      # or: bun add -g om-memory-system
-om-memory-system --version
+### How the hooks find OMMS
+
+Each hook runs this command:
+
+```text
+node "${CLAUDE_PLUGIN_ROOT}/bin/omms-launch.mjs" --at-least-own-version claude-hook <event>
 ```
 
-On Windows, the global install adds the `om-memory-system.cmd` shim that the
-hooks call. `npx om-memory-system` does not work for the hooks.
+The launcher uses only Node.js built-in modules. It picks the newest valid OMMS copy among three:
 
-If the command is not on `PATH`, each hook fails in the shell. Claude Code then
-continues with no added context, and no capture occurs.
+1. The copy named in `~/.omms/runtime.json`.
+2. The global install beside the running Node.js.
+3. The copy that holds the launcher, when it has `dist/`.
+
+It runs that copy only when the copy has the same version as the plugin, or a newer one. When no copy is new enough, it runs `npx --yes om-memory-system@<plugin version>`. The first run of `npx` downloads the package and needs network access. A later run uses the npm cache. The copy that runs writes itself to the record.
+
+When Node.js is missing, or `npx` fails or runs out of time, the hook returns nothing. Claude Code then continues with no added context, and no capture occurs.
 
 ## Installation
 
@@ -82,8 +89,12 @@ claude plugin install omms@omms
 ### Hooks by hand
 
 You can add the hooks without the plugin. Put this block in
-`~/.claude/settings.json`. It is the same as `hooks/hooks.json`. If the file
-already has a `hooks` object, merge the three events into it.
+`~/.claude/settings.json`. If the file already has a `hooks` object, merge the
+three events into it.
+
+This block runs the `om-memory-system` command from `PATH`. It needs a global
+install. The command hands off to the newest recorded copy, so it stays current.
+It has no `npx` fallback. A plugin install gives the launcher behaviour above.
 
 ```json
 {
@@ -203,6 +214,7 @@ web app answers or the start budget ends.
 - The web app keeps running after the Claude Code session ends.
 - When OpenCode, Pi, the login item, or `om-memory-system web` already serves the web app, the hook uses it and starts nothing.
 - When two hooks, or a hook and another host, start the web app at the same time, the start lock (`~/.omms/web-start.lock`) lets one start it. The others wait for it.
+- When a web app answers with a version older than the newest recorded copy, `SessionStart` asks it to step aside and starts the newest copy through the launcher. `UserPromptSubmit` and `Stop` use any running web app, whatever its version.
 - Set `webServerEnabled` to `false` in the global config to keep the web app off. The hook then starts nothing and logs `server-disabled`.
 - The first `SessionStart` of the day can take some seconds. A prompt sent before the web app is ready gets no added context.
 
@@ -432,7 +444,7 @@ Other checks:
 - **Find Claude Code rows.** On the Settings page, set the **Host** filter in **Capture diagnostics** to **Claude Code**. Each external API attempt shows the path `external-api`, the provider, and the model, also when it failed. Rows from an older version can have no model.
 - **Check the setup.** Select **Run checks** in **Health**. The **Claude Code model** row fails and names each missing external API setting. The **Claude Code folder** row warns with the path when the transcripts folder does not exist. **Run checks and test models** adds the **Claude Code model test** row, which makes one short call to the external API.
 - **The profile does not update.** Look for `Claude Code profile learning failed` in the log. The record holds the host and a reason code: `timeout`, `http-<status>`, `no-tool-call`, `invalid-reply`, `not-configured`, or `error`. See [Using memory: User profile](using-memory.md#user-profile).
-- **The command is not found.** Run `om-memory-system --version` in the shell that starts Claude Code. Install it globally if it fails.
+- **The hooks return nothing.** Run `node --version`. The plugin hooks need Node.js 22.14 or later. If `npx` is the only source of OMMS, the first hook after a plugin update downloads the package and can run out of time. Start a new session to try again. Hooks that you added by hand also need `om-memory-system --version` to work in the shell that starts Claude Code.
 - **The backfill did not start.** The web app tries the Claude Code backfill once per process. If the external API was missing at that time, set it up and select **Run now**, or restart the web app.
 
 ### Known limit: web app on another port

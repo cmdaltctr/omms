@@ -45,8 +45,8 @@
 
 ## 9. Docs and decision record
 
-- [ ] 9.1 Update `docs/upgrading.md`, `docs/claude-code-adapter.md` (new hook entries for hand-written settings, Node.js requirement, `npx` fallback), `docs/cli.md` (hand-off, `OMMS_NO_HANDOFF`), `docs/web-ui-settings.md`, `UPDATES.md`, and `README.md` (global install optional). Verify: `bun run check` passes.
-- [ ] 9.2 Write `docs/adr/018-newest-copy-runtime.md` and add it to `docs/adr/ADR_README.md`. Verify: the file exists and the index lists it.
+- [x] 9.1 Update `docs/upgrading.md`, `docs/claude-code-adapter.md` (new hook entries for hand-written settings, Node.js requirement, `npx` fallback), `docs/cli.md` (hand-off, `OMMS_NO_HANDOFF`), `docs/web-ui-settings.md`, `UPDATES.md`, and `README.md` (global install optional). Verify: `bun run check` passes.
+- [x] 9.2 Write `docs/adr/018-newest-copy-runtime.md` and add it to `docs/adr/ADR_README.md`. Verify: the file exists and the index lists it.
 
 ## 10. Verify
 

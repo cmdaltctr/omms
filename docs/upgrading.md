@@ -34,26 +34,27 @@ To update by hand:
 claude plugin update omms@omms
 ```
 
-The Claude Code plugin does not update the global `om-memory-system` command. The web app runs from that command. Update it on its own:
+The hooks run through the launcher in the plugin. The launcher runs the newest OMMS copy on the machine. When every copy is older than the plugin, it runs `npx --yes om-memory-system@<plugin version>`. A global install is optional. See [One update updates every host](#one-update-updates-every-host).
 
-```bash
-npm i -g om-memory-system@latest
-om-memory-system web install
-```
+### One update updates every host
 
-### The global terminal command
+OMMS keeps one record of the newest copy on the machine: `~/.omms/runtime.json`. OpenCode, Pi, and each `om-memory-system` run write their own copy to the record when that copy is newer. You update one host. Every other part then runs that copy:
 
-If you installed the terminal command globally (see
-[CLI](cli.md#global-install-optional-recommended)), update it on its own:
+- **Login item.** The login item runs `~/.omms/bin/omms-launch.mjs`. The launcher starts the newest valid copy at the next login.
+- **Running web app.** An OpenCode start, a Pi start, or a Claude Code `SessionStart` replaces a web app that is older than the newest copy. The old web app steps aside and the newest copy starts. You do not sign in again.
+- **Terminal command.** An old `om-memory-system` command runs the newest copy with the same arguments, input, and exit code. `om-memory-system --version` prints the version of the copy that runs. Set `OMMS_NO_HANDOFF=1` to turn this off for one command.
+- **Claude Code hooks.** The hooks use the launcher in the plugin, as described above.
+
+A global install from 4.3 or earlier has no hand-off code. Update it once. After that, every update flows through the record:
 
 ```bash
 npm i -g om-memory-system@latest   # or: bun add -g om-memory-system@latest
 om-memory-system --version
 ```
 
-The **Web app** card on the Settings page warns when the global command's
-version is different from the OMMS version that serves the page. See
-[Settings page](web-ui-settings.md).
+The **Web app** card on the Settings page shows the running version and the version of the global install. It reads the global version from the install's `package.json`. See [Settings page](web-ui-settings.md).
+
+To go back to an older version, set `OMMS_NO_HANDOFF=1` for one command. For a full rollback, remove the newer copy, then run `om-memory-system web install` from the copy to keep. When you remove the copy that the record names, the next start writes a valid copy to the record.
 
 ### Rolling back to an older version
 

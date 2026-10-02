@@ -1,7 +1,7 @@
 # TDR-022: The login item keeps the newest OMMS copy
 
 - **Date:** 2026-10-02
-- **Status:** Proposed
+- **Status:** Superseded by [ADR-018](../adr/018-newest-copy-runtime.md)
 - **Deciders:** OMMS maintainers
 - **Tags:** web app, login item, OpenCode, upgrade
 

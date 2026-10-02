@@ -1,13 +1,13 @@
 # How OMMS updates
 
-OMMS is one npm package, `om-memory-system`. Each host keeps its own copy of it. Pi and OpenCode never install an update by themselves. Claude Code does only when you turn on auto-update for the `omms` marketplace. Otherwise you choose when to update, then restart the host.
+OMMS is one npm package, `om-memory-system`. Each host keeps its own copy of it. Pi and OpenCode never install an update by themselves. Claude Code does only when you turn on auto-update for the `omms` marketplace. Otherwise you choose when to update, then restart the host. You update one host. Every other part of OMMS on the machine then runs that copy. See [One update updates every host](#one-update-updates-every-host).
 
-| Host                         | How you hear about a new release                                                                                              | Update with                                                             | Then                                              |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------- |
-| Pi                           | Pi shows an update notice when it starts                                                                                      | `pi update npm:om-memory-system`                                        | Restart Pi                                        |
-| OpenCode v2                  | The footer shows `omms:connected · 4.3.0 available`, and a toast tells you the command. `opencode plugin check` also lists it | `opencode plugin update om-memory-system`                               | Restart OpenCode, including its background server |
-| Claude Code                  | `claude plugin list` shows the installed version. Auto-update is off until you turn it on for the `omms` marketplace          | `claude plugin update omms@omms`                                        | Run `/reload-plugins` or start a new session      |
-| Web app and terminal command | The Settings page **Web app** card warns when versions differ                                                                 | `npm i -g om-memory-system@latest`, then `om-memory-system web install` | The login item restarts the web app               |
+| Host                         | How you hear about a new release                                                                                              | Update with                                                                                                          | Then                                              |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Pi                           | Pi shows an update notice when it starts                                                                                      | `pi update npm:om-memory-system`                                                                                     | Restart Pi                                        |
+| OpenCode v2                  | The footer shows `omms:connected · 4.3.0 available`, and a toast tells you the command. `opencode plugin check` also lists it | `opencode plugin update om-memory-system`                                                                            | Restart OpenCode, including its background server |
+| Claude Code                  | `claude plugin list` shows the installed version. Auto-update is off until you turn it on for the `omms` marketplace          | `claude plugin update omms@omms`                                                                                     | Run `/reload-plugins` or start a new session      |
+| Web app and terminal command | The Settings page **Web app** card shows the global version. It says a newer copy runs in place of an older global install    | Nothing. They run the newest copy. A global install from 4.3 or earlier needs one `npm i -g om-memory-system@latest` | The next host start replaces an older web app     |
 
 ## Why OpenCode needs a manual update
 
@@ -19,11 +19,19 @@ OMMS 4.3.0 and later check npm when OpenCode starts and then every 6 hours. When
 
 Claude Code updates a marketplace plugin by itself only when that marketplace has auto-update on. Third-party marketplaces, such as `omms`, start with auto-update off. To turn it on, run `/plugin`, open **Marketplaces**, select `omms`, and select **Enable auto-update**. A running session keeps the old copy until you run `/reload-plugins` or start a new session.
 
-The Claude Code plugin does not update the global `om-memory-system` command or the web app. Update those with `npm i -g om-memory-system@latest`, then `om-memory-system web install`. See [Updating and upgrading](docs/upgrading.md#claude-code).
+The Claude Code hooks run through the launcher in the plugin. The launcher runs the newest OMMS copy on the machine. When every copy is older than the plugin, it runs `npx --yes om-memory-system@<plugin version>`. A global install is optional. Node.js 22.14 or later is required. See [Updating and upgrading](docs/upgrading.md#claude-code).
+
+## One update updates every host
+
+OMMS keeps one record of the newest copy on the machine: `~/.omms/runtime.json`. OpenCode, Pi, and each `om-memory-system` run write their own copy to it when that copy is newer.
+
+- The login item runs `~/.omms/bin/omms-launch.mjs`, which starts the newest copy at the next login.
+- An OpenCode start, a Pi start, or a Claude Code `SessionStart` replaces a web app that is older than the newest copy. You do not sign in again.
+- An old `om-memory-system` command runs the newest copy. Set `OMMS_NO_HANDOFF=1` to turn this off for one command.
 
 ## The web app and the login item
 
-The login web app runs one copy of OMMS for every host. When a host starts, OMMS checks the login item. It keeps the newest of three copies: the global install, the copy the item already runs, and the host's own copy. When versions are equal, it keeps them in that order, so a host's cached copy never replaces the global install.
+The login web app runs one copy of OMMS for every host. The login item runs the launcher at `~/.omms/bin/omms-launch.mjs`. The launcher starts the newest valid copy named in the record, so an older host copy never replaces a newer one.
 
 ## Stay on one version
 
