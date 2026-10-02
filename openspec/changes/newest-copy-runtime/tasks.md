@@ -35,8 +35,8 @@
 
 ## 7. Claude Code plugin
 
-- [ ] 7.1 Change `hooks/hooks.json` to run `node "${CLAUDE_PLUGIN_ROOT}/bin/omms-launch.mjs" --at-least-own-version claude-hook <event>`, keeping the timeouts and `async`. Update the description in `.claude-plugin/plugin.json`: the global install is optional. Verify: `claude plugin validate .` passes.
-- [ ] 7.2 Add a test that the launcher reads the plugin version from the repository `package.json` and runs `npx --yes om-memory-system@<version>` when every local copy is older. Verify: the test fails before the flag works, then passes.
+- [x] 7.1 Change `hooks/hooks.json` to run `node "${CLAUDE_PLUGIN_ROOT}/bin/omms-launch.mjs" --at-least-own-version claude-hook <event>`, keeping the timeouts and `async`. Update the description in `.claude-plugin/plugin.json`: the global install is optional. Verify: `claude plugin validate .` passes.
+- [x] 7.2 Add a test that the launcher reads the plugin version from the repository `package.json` and runs `npx --yes om-memory-system@<version>` when every local copy is older. Verify: the test fails before the flag works, then passes.
 
 ## 8. Settings page global version
 
