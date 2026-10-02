@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.3.2](https://github.com/cmdaltctr/omms/compare/v4.3.1...v4.3.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **test:** build the TUI entry from a native path on Windows ([f3428a4](https://github.com/cmdaltctr/omms/commit/f3428a4f03baf6f640c3fb6ab34dbe0a857de0b7))
+* **test:** build the TUI entry from a native path on Windows ([3c0e5b9](https://github.com/cmdaltctr/omms/commit/3c0e5b946d4cf77a0866e9b83bb030bb5a35b844))
+
 ## [4.3.1](https://github.com/cmdaltctr/omms/compare/v4.3.0...v4.3.1) (2026-10-02)
 
 
