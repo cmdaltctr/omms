@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.3.3](https://github.com/cmdaltctr/omms/compare/v4.3.2...v4.3.3) (2026-10-02)
+
+
+### Bug Fixes
+
+* **web:** put API tokens in its own settings card ([26f2bb4](https://github.com/cmdaltctr/omms/commit/26f2bb45f02597103486e641e9804195aafe6bb8))
+* **web:** put API tokens in its own settings card ([92625fa](https://github.com/cmdaltctr/omms/commit/92625fa527bf74d70f5a675398b121cf5d870610))
+
 ## [4.3.2](https://github.com/cmdaltctr/omms/compare/v4.3.1...v4.3.2) (2026-10-02)
 
 
