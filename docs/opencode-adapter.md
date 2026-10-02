@@ -23,6 +23,14 @@ From npm, add the package to `~/.config/opencode/opencode.json`
 ```
 
 On OpenCode v2 you can run `opencode plugin add om-memory-system` instead.
+
+On OpenCode v2, `opencode plugin list` and `opencode plugin update` also read `~/.config/opencode/cli.json`. Add the same entry there, and keep any other keys in that file:
+
+```json
+{ "plugins": ["om-memory-system"] }
+```
+
+Without it, `opencode plugin update` reports `Plugin is not configured: om-memory-system`.
 Restart OpenCode after you change the configuration.
 
 From a local checkout (development):
