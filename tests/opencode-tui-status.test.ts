@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { fileURLToPath } from "node:url";
 import {
   availableUpdate,
   latestNpmVersion,
@@ -15,7 +16,7 @@ describe("OpenCode TUI entry", () => {
     // From node_modules, OpenCode maps neither bare Solid imports nor a JSX
     // runtime to its own copies; Bun compiles JSX for React, as Bun.build does.
     const built = await Bun.build({
-      entrypoints: [new URL("../opencode/tui.tsx", import.meta.url).pathname],
+      entrypoints: [fileURLToPath(new URL("../opencode/tui.tsx", import.meta.url))],
       packages: "external",
       external: ["../dist/*", "opentui:*"],
     });
