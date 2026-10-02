@@ -271,14 +271,16 @@ export function KeysAccessSection() {
         </p>
       ) : (
         <>
-          <h3 className="font-medium">{s("API tokens")}</h3>
-          <ApiTokensTable
-            tokens={tokens}
-            newValue={newValue}
-            busy={busy}
-            onGenerate={(name, days) => void generate(name, days)}
-            onRevoke={(token) => void revoke(token)}
-          />
+          <fieldset className="space-y-2 rounded-lg border border-border p-3 text-sm">
+            <legend className="px-1 font-medium">{s("API tokens")}</legend>
+            <ApiTokensTable
+              tokens={tokens}
+              newValue={newValue}
+              busy={busy}
+              onGenerate={(name, days) => void generate(name, days)}
+              onRevoke={(token) => void revoke(token)}
+            />
+          </fieldset>
           <fieldset className="space-y-2 rounded-lg border border-border p-3 text-sm">
             <legend className="px-1 font-medium">{s("Browser password")}</legend>
             <p className="text-xs text-muted-foreground">
