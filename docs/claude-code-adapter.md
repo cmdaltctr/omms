@@ -38,7 +38,7 @@ The launcher uses only Node.js built-in modules. It picks the newest valid OMMS 
 2. The global install beside the running Node.js.
 3. The copy that holds the launcher, when it has `dist/`.
 
-It runs that copy only when the copy has the same version as the plugin, or a newer one. When no copy is new enough, it runs `npx --yes om-memory-system@<plugin version>`. The first run of `npx` downloads the package and needs network access. A later run uses the npm cache. The copy that runs writes itself to the record.
+It runs that copy only when the copy has the same version as the plugin, or a newer one. When no copy is new enough, it runs `npx --yes om-memory-system@<plugin version>`. The first run of `npx` downloads the package and needs network access. On a cold npm cache this took 48 seconds in a test, which is longer than the 20 second `SessionStart` limit. That first hook then returns nothing. A later run uses the npm cache and takes about one second. `npx` runs from the temporary folder, so a project named `om-memory-system` in the current folder cannot replace the npm package. The copy that runs writes itself to the record.
 
 When Node.js is missing, or `npx` fails or runs out of time, the hook returns nothing. Claude Code then continues with no added context, and no capture occurs.
 

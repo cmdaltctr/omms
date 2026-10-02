@@ -13,7 +13,7 @@
 
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -154,11 +154,15 @@ export async function runLauncher(argv, options = {}) {
   if (choice.kind === "npx") {
     // npm installs npx as a .cmd wrapper on Windows, which only a shell can run.
     const windows = process.platform === "win32";
+    // Run from the temp folder. npx prefers a project in the current folder, so a project
+    // named om-memory-system (such as this repository) would win over the npm package.
+    // The hook input carries the real folder, so nothing else needs the current folder.
     return run(
       windows ? "npx.cmd" : "npx",
       ["--yes", `om-memory-system@${choice.version}`, ...args],
       {
         shell: windows,
+        cwd: tmpdir(),
       }
     );
   }

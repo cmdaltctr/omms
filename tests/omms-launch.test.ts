@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { compareVersions } from "../src/services/version-compare.js";
@@ -245,11 +253,11 @@ describe("launcher process", () => {
     const home = join(base, "home");
     mkdirSync(home, { recursive: true });
     registerCopy({ dir: join(home, ".omms"), root: makeCopy("older", "4.3.0") });
-    // A fake npx that records its arguments.
+    // A fake npx that records its arguments and the folder it runs in.
     const bin = join(base, "fakebin");
     mkdirSync(bin, { recursive: true });
     const npx = join(bin, "npx");
-    writeFileSync(npx, '#!/bin/sh\nprintf "%s\\n" "$@"\n');
+    writeFileSync(npx, '#!/bin/sh\nprintf "%s\\n" "$@"\necho "cwd:$(pwd -P)"\n');
     chmodSync(npx, 0o755);
     const result = spawnSync(
       process.execPath,
@@ -264,6 +272,8 @@ describe("launcher process", () => {
       "om-memory-system@9.9.9",
       "claude-hook",
       "session-start",
+      // Not the caller's folder: a project named om-memory-system would otherwise win over npm.
+      `cwd:${realpathSync(tmpdir())}`,
     ]);
   });
 });
