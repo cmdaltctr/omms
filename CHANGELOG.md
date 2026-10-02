@@ -2,6 +2,20 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.3.1](https://github.com/cmdaltctr/omms/compare/v4.3.0...v4.3.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* **opencode:** load the TUI footer from an npm install ([0c4e70f](https://github.com/cmdaltctr/omms/commit/0c4e70f605372e4e9179a29ffee9126b5539f564))
+* **opencode:** load the TUI footer from an npm install ([c1b207e](https://github.com/cmdaltctr/omms/commit/c1b207eff901c702dd2c016dd65ecfd739bcb4da))
+
+
+### Documentation
+
+* explain Claude Code updates and OpenCode cli.json ([5119484](https://github.com/cmdaltctr/omms/commit/5119484fbf94212cf117e2d436b90b410dcf2caf))
+* note Claude Code auto-update in the update summary ([cc8a99d](https://github.com/cmdaltctr/omms/commit/cc8a99deed330b47a122a6c6648c2857fba122ab))
+
 ## [4.3.0](https://github.com/cmdaltctr/omms/compare/v4.2.0...v4.3.0) (2026-10-02)
 
 
