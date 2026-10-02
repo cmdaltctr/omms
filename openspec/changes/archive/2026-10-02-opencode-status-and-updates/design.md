@@ -17,6 +17,8 @@ Pi shows OMMS state through its extension status API. OpenCode v2 loads a TUI pl
 3. **Login item copy.** `preferredPackageRoot` compares the versions of three candidates with `compareVersions` and keeps the newest valid one. `itemPackageRoot` reads the current copy back from the written item.
 4. **Wording.** Plural chosen by count in the components; confidence rounded with `Math.round`.
 
+Records: ADR-017 (status and update notice) and TDR-022 (login item downgrade).
+
 ## Risks / Trade-offs
 
 - [The footer needs OpenCode's TUI plugin API.] → It loads only from the npm package, which has the `./tui` export. Older OpenCode versions ignore it.

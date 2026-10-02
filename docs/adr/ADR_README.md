@@ -20,3 +20,4 @@ Local decision records for OMMS maintainers.
 | [014](./014-one-shared-web-app-for-every-host.md)          | One shared web app for every host                                 | 2026-09-29 | Accepted |
 | [015](./015-managed-api-tokens-and-embedding-changes.md)   | Managed API tokens and a tested embedding change                  | 2026-09-30 | Proposed |
 | [016](./016-one-memory-skill-for-every-host.md)            | One memory skill for every host                                   | 2026-09-30 | Proposed |
+| [017](./017-opencode-status-and-update-notice.md)          | OpenCode shows OMMS status and a newer-release notice             | 2026-10-02 | Proposed |
