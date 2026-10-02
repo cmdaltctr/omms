@@ -382,7 +382,7 @@ describe("login item runs the launcher", () => {
     expect(readFileSync(launcherPath(join(home, ".omms")), "utf8")).toBe("// launcher 4.3.2\n");
   });
 
-  it("reports no-package and writes no item when no copy has a launcher", () => {
+  it("reports no-launcher and writes no item when a valid package has no launcher", () => {
     const home = mkdtempSync(join(tmpdir(), "omms-login-launcher-"));
     homes.push(home);
     const base = mkdtempSync(join(tmpdir(), "omms-login-pkg-"));
@@ -395,7 +395,7 @@ describe("login item runs the launcher", () => {
       ownRoot: null,
       start: false,
     });
-    expect(status.state).toBe("no-package");
+    expect(status.state).toBe("no-launcher");
     expect(existsSync(status.path!)).toBe(false);
   });
 

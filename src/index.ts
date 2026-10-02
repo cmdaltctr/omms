@@ -398,7 +398,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
       .then(async ([{ ensureWebApp }, { webServerUrl }, { hostReplaceOlder }]) => {
         const baseUrl = webServerUrl(CONFIG.webServerHost, CONFIG.webServerPort);
         // A web app older than the newest recorded copy steps aside for it.
-        const replaceOlder = await hostReplaceOlder().catch(() => undefined);
+        const replaceOlder = await hostReplaceOlder(CONFIG).catch(() => undefined);
         return ensureWebApp({
           settings: { enabled: CONFIG.webServerEnabled, baseUrl },
           budgetMs: 10_000,

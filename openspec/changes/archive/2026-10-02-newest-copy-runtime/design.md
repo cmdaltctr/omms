@@ -32,7 +32,7 @@ See proposal.md for the motivation. Current state:
 `~/.omms/runtime.json` holds `{ root, version, updatedAt }`. Each copy writes itself when it is newer, or when the record's copy is gone or not valid.
 
 - Alternative: the launcher scans OpenCode's and Pi's cache folders. Rejected: the folder layouts belong to the hosts and change between releases, and a scan costs time on every hook.
-- Writes use `.tmp` and rename, mode 0600, in the existing 0700 `~/.omms` folder. Concurrent writers compare then rename. The last rename wins, and the next start corrects a lower version. The spec allows this because the record always names a valid copy.
+- Writes use `.tmp` and rename, mode 0600, in the existing 0700 `~/.omms` folder. Concurrent writers compare then rename. The last rename wins. If the last write names a lower version, only a later start of the newer copy corrects it, because an equal version keeps the record. The spec allows this because the record always names a valid copy.
 - Tie on version: keep the record. This stops churn when two copies of the same version start.
 
 ### 2. One launcher file, shared by the hooks, the login item, and the hand-off

@@ -121,13 +121,15 @@ mock.module(${JSON.stringify(autostartUrl)}, () => ({
 const registerCalls = [];
 let registerFails = false;
 let replaceOlderFails = false;
+const replaceSettings = [];
 mock.module(${JSON.stringify(handoffUrl)}, () => ({
   registerOwnCopy: () => {
     registerCalls.push(1);
     if (registerFails) throw new Error("record failed");
     return "written";
   },
-  hostReplaceOlder: async () => {
+  hostReplaceOlder: async (settings) => {
+    replaceSettings.push(settings);
     if (replaceOlderFails) throw new Error("no token");
     return { version: "4.3.2", headers: { "x-omms-token": "local" } };
   },
@@ -311,6 +313,24 @@ captured = { calls: ensureCalls.length, options: ensureCalls[0] };
         wait: false,
         replaceOlder: { version: "4.3.2", headers: { "x-omms-token": "local" } },
       },
+    });
+  });
+
+  it("gives the browser password settings to the web app replacement", () => {
+    const output = runScenario(`
+stubConfig.webServerEnabled = true;
+stubConfig.webServerHost = "127.0.0.1";
+stubConfig.webServerPort = 4747;
+stubConfig.webServerAuthPassword = "pw";
+stubConfig.webServerAuthUsername = "me";
+delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
+await handlers["session_start"]({}, makeCtx());
+await waitFor(() => ensureCalls.length === 1);
+captured = { settings: replaceSettings[0] };
+    `);
+    expect(output.captured.settings).toMatchObject({
+      webServerAuthPassword: "pw",
+      webServerAuthUsername: "me",
     });
   });
 

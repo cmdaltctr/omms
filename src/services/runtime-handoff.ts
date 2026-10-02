@@ -140,16 +140,46 @@ export interface ReplaceOlder {
   headers: Record<string, string>;
 }
 
+/** The browser password settings a web app request needs, as `CONFIG` holds them. */
+export interface BasicAuthSettings {
+  webServerAuthPassword?: string;
+  webServerAuthUsername?: string;
+}
+
+/**
+ * Headers for the version lookup and the step-aside request. They carry the local
+ * token, and Basic Auth when a browser password is set: the web server checks Basic
+ * Auth first and refuses every other API request without it.
+ */
+export async function replaceHeaders(
+  token: string,
+  settings: BasicAuthSettings = {}
+): Promise<Record<string, string>> {
+  const { AUTH_HEADER } = await import("./auth-token.js");
+  const headers: Record<string, string> = { [AUTH_HEADER]: token };
+  const password = (settings.webServerAuthPassword ?? "").trim();
+  if (!password) return headers;
+  const { WebAuth } = await import("./web-auth.js");
+  const { username } = new WebAuth({
+    password,
+    username: settings.webServerAuthUsername,
+  }).getConfig();
+  headers.authorization = `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
+  return headers;
+}
+
 /**
  * For a host start: record this copy, then name the version a running web app
  * must reach. A web app older than it is asked to step aside. Without a
  * recorded copy there is no target, so any running web app is used.
  */
-export async function hostReplaceOlder(): Promise<ReplaceOlder | undefined> {
+export async function hostReplaceOlder(
+  settings: BasicAuthSettings = {}
+): Promise<ReplaceOlder | undefined> {
   registerOwnCopy();
   const version = newestRecordedVersion();
   if (!version) return undefined;
-  const { AUTH_HEADER, getOrCreateAuthToken } = await import("./auth-token.js");
+  const { getOrCreateAuthToken } = await import("./auth-token.js");
   // The web app runs on this machine, so the local token file is enough.
-  return { version, headers: { [AUTH_HEADER]: getOrCreateAuthToken() } };
+  return { version, headers: await replaceHeaders(getOrCreateAuthToken(), settings) };
 }

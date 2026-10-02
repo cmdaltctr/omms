@@ -7,6 +7,7 @@ import {
   handOffOrRegister,
   ownPackageRoot,
   registerOwnCopy,
+  replaceHeaders,
 } from "../src/services/runtime-handoff.js";
 import { readRuntimeRecord, recordPath, registerCopy } from "../src/services/runtime-record.js";
 import { packageVersion } from "../src/services/package-version.js";
@@ -190,6 +191,28 @@ describe("handOffOrRegister", () => {
 
   it("finds its own package root from source", () => {
     expect(ownPackageRoot()).toBe(join(import.meta.dir, ".."));
+  });
+});
+
+describe("replaceHeaders", () => {
+  it("sends only the local token when no browser password is set", async () => {
+    expect(await replaceHeaders("tok")).toEqual({ "x-omms-token": "tok" });
+    expect(await replaceHeaders("tok", { webServerAuthPassword: "   " })).toEqual({
+      "x-omms-token": "tok",
+    });
+  });
+
+  it("adds Basic Auth with the configured user name when a browser password is set", async () => {
+    expect(
+      await replaceHeaders("tok", { webServerAuthPassword: "pw", webServerAuthUsername: "me" })
+    ).toEqual({ "x-omms-token": "tok", authorization: `Basic ${btoa("me:pw")}` });
+  });
+
+  it("defaults the user name the way the web server does", async () => {
+    const headers = await replaceHeaders("tok", { webServerAuthPassword: "pw" });
+    const decoded = atob(String(headers.authorization).replace("Basic ", ""));
+    expect(decoded.endsWith(":pw")).toBe(true);
+    expect(decoded.length).toBeGreaterThan(3);
   });
 });
 

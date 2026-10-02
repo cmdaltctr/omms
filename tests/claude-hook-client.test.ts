@@ -487,6 +487,30 @@ describe("replacing an older web app", () => {
     expect(logged(h)?.code).toBe("ok");
   });
 
+  it("sends the browser password with the version lookup and the step-aside request", async () => {
+    const h = harness(JSON.stringify(payload("session-start")), {
+      recordedVersion: "4.3.3",
+      route: version("4.3.0"),
+      basicAuth: { username: "me", password: "pw" },
+    });
+    await runClaudeHookCommand(["session-start"], h.options);
+    expect(versionReads(h).length).toBeGreaterThan(0);
+    for (const call of [...versionReads(h), ...stepAside(h)]) {
+      expect(call.headers.authorization).toBe(`Basic ${btoa("me:pw")}`);
+      expect(call.headers["x-omms-token"]).toBe(TOKEN);
+    }
+    expect(stepAside(h)).toHaveLength(1);
+  });
+
+  it("sends no Authorization header when no browser password is set", async () => {
+    const h = harness(JSON.stringify(payload("session-start")), {
+      recordedVersion: "4.3.3",
+      route: version("4.3.0"),
+    });
+    await runClaudeHookCommand(["session-start"], h.options);
+    expect(stepAside(h)[0]?.headers.authorization).toBeUndefined();
+  });
+
   for (const event of ["user-prompt-submit", "stop"] as const) {
     it(`does not look at the web app version at ${event}`, async () => {
       const h = harness(JSON.stringify(payload(event)), {

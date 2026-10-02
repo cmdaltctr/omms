@@ -27,7 +27,8 @@ import { compareVersions } from "./version-compare.js";
 
 const MARKER = "OMMS login item";
 const NAME = "io.github.cmdaltctr.omms.web";
-type State = "installed" | "not-installed" | "unsupported" | "no-runtime" | "no-package";
+type State =
+  "installed" | "not-installed" | "unsupported" | "no-runtime" | "no-package" | "no-launcher";
 export type WebAutostartStatus = {
   state: State;
   path?: string;
@@ -244,8 +245,11 @@ export function installWebAutostart(options: WebAutostartOptions = {}): WebAutos
     return status;
   const { home, platform, path, runtime, root, own, recorded, dir } = details(options);
   // The item runs a fixed launcher, so the launcher must exist before the item does.
-  if (!ensureLauncher({ dir, sources: [root, own, recorded], log: logCode }))
-    return { state: "no-package", path: path!, runtime: runtime! };
+  if (!ensureLauncher({ dir, sources: [root, own, recorded], log: logCode })) {
+    // A valid package exists. Only the launcher is missing, so say that.
+    logCode("launcher-missing", {});
+    return { state: "no-launcher", path: path!, runtime: runtime! };
+  }
   const file = path!;
   const content = itemContent(platform, runtime!, launcherPath(dir));
   mkdirSync(dirname(file), { recursive: true });

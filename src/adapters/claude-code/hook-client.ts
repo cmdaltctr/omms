@@ -314,16 +314,25 @@ async function runSteps(
   return "ok";
 }
 
-/** The newest recorded copy's version with the local token, or undefined when no copy is recorded. */
+/**
+ * The newest recorded copy's version with the local token and, when the web app has
+ * a browser password, Basic Auth. Undefined when no copy is recorded.
+ */
 async function replaceOlderFor(
+  settings: HookServerSettings,
   deps: Deps
 ): Promise<{ version: string; headers: Record<string, string> } | undefined> {
   try {
-    const version = deps.recordedVersion
-      ? deps.recordedVersion()
-      : (await import("../../services/runtime-handoff.js")).newestRecordedVersion();
+    const handoff = await import("../../services/runtime-handoff.js");
+    const version = deps.recordedVersion ? deps.recordedVersion() : handoff.newestRecordedVersion();
     if (!version) return undefined;
-    return { version, headers: { [AUTH_HEADER]: await deps.readToken() } };
+    return {
+      version,
+      headers: await handoff.replaceHeaders(await deps.readToken(), {
+        webServerAuthPassword: settings.basicAuth?.password,
+        webServerAuthUsername: settings.basicAuth?.username,
+      }),
+    };
   } catch {
     // Without a target, any running web app is used.
     return undefined;
@@ -344,7 +353,7 @@ async function ensureServer(
     budgetMs,
     wait: true,
     // Only a new session replaces an older web app. A prompt or a stop uses any running one.
-    ...(event === "session-start" ? { replaceOlder: await replaceOlderFor(deps) } : {}),
+    ...(event === "session-start" ? { replaceOlder: await replaceOlderFor(settings, deps) } : {}),
     deps: {
       fetch: deps.fetch,
       now: deps.now,

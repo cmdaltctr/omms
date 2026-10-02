@@ -29,7 +29,7 @@ OMMS SHALL keep one record of the newest OMMS copy in `~/.omms/runtime.json`. Th
 
 - **WHEN** OpenCode with 4.3.2 and Pi with 4.3.1 write the record at the same time
 - **THEN** the record SHALL be a complete file that names one valid copy
-- **AND** the next start of either host SHALL leave the record naming the 4.3.2 copy
+- **AND** the next start of the 4.3.2 copy SHALL leave the record naming the 4.3.2 copy
 
 ### Requirement: A launcher runs the newest copy
 

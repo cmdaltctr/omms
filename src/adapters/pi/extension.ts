@@ -156,7 +156,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
         ])
           .then(async ([{ ensureWebApp }, { webServerUrl }, { hostReplaceOlder }]) => {
             // A web app older than the newest recorded copy steps aside for it.
-            const replaceOlder = await hostReplaceOlder().catch(() => undefined);
+            const replaceOlder = await hostReplaceOlder(CONFIG).catch(() => undefined);
             return ensureWebApp({
               settings: {
                 enabled: CONFIG.webServerEnabled,

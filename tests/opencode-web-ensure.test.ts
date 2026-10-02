@@ -38,9 +38,10 @@ mock.module(${JSON.stringify(url("../src/services/web-server.js"))}, () => ({
 }));
 // Never read the developer's real record.
 let replaceOlder;
+const replaceSettings = [];
 mock.module(${JSON.stringify(url("../src/services/runtime-handoff.js"))}, () => ({
   registerOwnCopy: () => "skipped",
-  hostReplaceOlder: async () => replaceOlder }));
+  hostReplaceOlder: async (settings) => { replaceSettings.push(settings); return replaceOlder; } }));
 const ensureCalls = [];
 let ensureResult = "started";
 mock.module(${JSON.stringify(url("../src/services/web-ensure.js"))}, () => ({
@@ -113,6 +114,22 @@ await hooks.dispose?.();
       replaceOlder: { version: "4.3.2", headers: { "x-omms-token": "local" } },
     },
   ]);
+});
+
+it("gives the browser password settings to the web app replacement", () => {
+  const result = runScenario(
+    `
+const hooks = await OmmsPlugin({ directory: "/workspace", client });
+await new Promise((resolve) => setTimeout(resolve, 50));
+console.log("RESULT:" + JSON.stringify({ settings: replaceSettings[0] }));
+await hooks.dispose?.();
+`,
+    { webServerAuthPassword: "pw", webServerAuthUsername: "me" }
+  );
+  expect(result.settings).toMatchObject({
+    webServerAuthPassword: "pw",
+    webServerAuthUsername: "me",
+  });
 });
 
 it("shows an error toast when another program holds the web port", () => {
