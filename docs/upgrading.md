@@ -15,6 +15,32 @@ installs updates by itself. You choose when to update.
 
 Restart the agent after you update. OpenCode resolves "latest" once and keeps that copy in `~/.cache/opencode/npm/`, so it does not update by itself. Set `OMMS_DISABLE_UPDATE_CHECK=1` to stop the npm check. [UPDATES.md](../UPDATES.md) has a one-page summary for every host.
 
+### Claude Code
+
+Claude Code updates a marketplace plugin by itself only when that marketplace has auto-update on. Third-party marketplaces, such as `omms`, start with auto-update off.
+
+To turn on auto-update for OMMS:
+
+1. Run `/plugin` in Claude Code.
+2. Open **Marketplaces**.
+3. Select `omms`.
+4. Select **Enable auto-update**.
+
+A running session keeps the old copy. Run `/reload-plugins`, or start a new session.
+
+To update by hand:
+
+```bash
+claude plugin update omms@omms
+```
+
+The Claude Code plugin does not update the global `om-memory-system` command. The web app runs from that command. Update it on its own:
+
+```bash
+npm i -g om-memory-system@latest
+om-memory-system web install
+```
+
 ### The global terminal command
 
 If you installed the terminal command globally (see
