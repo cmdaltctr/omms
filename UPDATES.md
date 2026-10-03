@@ -17,6 +17,10 @@ OMMS 4.3.0 and later check npm when OpenCode starts and then every 6 hours. When
 
 ## Claude Code updates
 
+The `omms` marketplace installs from the GitHub `stable` branch. It receives only versions approved on npm: the channel workflow moves `stable` to the release tag named by npm `latest` within an hour of approval, or at once after manual dispatch. Claude Code installs that version at its next update check when auto-update is on.
+
+For local plugin testing, run `claude --plugin-dir /absolute/path/to/omms`. Adding a checkout as a local marketplace still installs from GitHub `stable`.
+
 Claude Code updates a marketplace plugin by itself only when that marketplace has auto-update on. Third-party marketplaces, such as `omms`, start with auto-update off. To turn it on, run `/plugin`, open **Marketplaces**, select `omms`, and select **Enable auto-update**. A running session keeps the old copy until you run `/reload-plugins` or start a new session.
 
 Claude Code 2.1.287 or later shows an OMMS status line under the prompt. When npm has a newer stable release than the copy that the hooks run, the line adds `· <version> available` and a toast names `claude plugin update omms@omms`. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn the check off. See [Claude Code adapter: Status line](docs/claude-code-adapter.md#status-line).

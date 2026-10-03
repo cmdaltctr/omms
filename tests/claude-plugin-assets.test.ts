@@ -26,13 +26,18 @@ describe("Claude Code plugin assets", () => {
     expect(existsSync(join(root, ".mcp.json"))).toBe(false);
   });
 
-  it("marketplace lists the plugin from the repository root", () => {
+  it("marketplace installs the plugin from the GitHub stable channel", () => {
     const marketplace = readJson(".claude-plugin/marketplace.json");
 
     expect(typeof marketplace.name).toBe("string");
     expect(typeof marketplace.owner?.name).toBe("string");
     expect(marketplace.plugins).toHaveLength(1);
-    expect(marketplace.plugins[0]).toMatchObject({ name: "omms", source: "./" });
+    expect(marketplace.plugins[0]).toMatchObject({ name: "omms" });
+    expect(marketplace.plugins[0].source).toEqual({
+      source: "github",
+      repo: "cmdaltctr/omms",
+      ref: "stable",
+    });
   });
 
   it("manifest says the global install is optional", () => {
