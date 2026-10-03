@@ -260,6 +260,20 @@ describe("om-memory-system command", () => {
     });
   });
 
+  it("reports the newer copy's version for claude-hook status", () => {
+    registerCopy({ dir, root: makeCopy("newer", "999.0.0") });
+    const result = run(["claude-hook", "status"]);
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      version: "999.0.0",
+      args: ["claude-hook", "status"],
+      handedOff: "1",
+    });
+    // Without the hand-off, this copy would answer with its own version.
+    const own = run(["claude-hook", "status"], { OMMS_NO_HANDOFF: "1" });
+    expect(JSON.parse(own.stdout).version).not.toBe("999.0.0");
+  });
+
   it("exits with the newer copy's exit code and passes its arguments", () => {
     registerCopy({ dir, root: makeCopy("newer", "999.0.0") });
     const result = run(["memory", "search", "database choice"], { FAKE_EXIT: "4" });

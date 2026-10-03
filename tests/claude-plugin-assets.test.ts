@@ -57,6 +57,12 @@ describe("Claude Code plugin assets", () => {
     }
   });
 
+  it("loads the status line mod beside the launcher hooks", () => {
+    const { modules } = readJson("hooks/hooks.json");
+    expect(modules).toEqual(["./omms-status.js"]);
+    expect(existsSync(join(root, "hooks", "omms-status.js"))).toBe(true);
+  });
+
   it("ships the launcher the hooks run, with no version number in the hook file", () => {
     expect(existsSync(join(root, "bin", "omms-launch.mjs"))).toBe(true);
     const text = readFileSync(join(root, "hooks/hooks.json"), "utf8");

@@ -4,9 +4,17 @@ import {
   type ClaudeHookEvent,
   type ClaudeHookOptions,
 } from "./hook-client.js";
+import { buildClaudeStatus, loadClaudeStatusInputs, type ClaudeStatusOptions } from "./status.js";
 
 function isHookEvent(value: string | undefined): value is ClaudeHookEvent {
   return (CLAUDE_HOOK_EVENTS as readonly string[]).includes(value ?? "");
+}
+
+/** `claude-hook status`: one JSON line for the status line mod. Prints nothing on failure. */
+async function printStatus(io: ClaudeHookOptions & ClaudeStatusOptions): Promise<void> {
+  const inputs = await (io.statusInputs ?? loadClaudeStatusInputs)();
+  const status = await buildClaudeStatus({ ...inputs, fetch: io.fetch ?? globalThis.fetch });
+  (io.writeStdout ?? ((text: string) => process.stdout.write(text)))(`${JSON.stringify(status)}\n`);
 }
 
 /**
@@ -15,10 +23,14 @@ function isHookEvent(value: string | undefined): value is ClaudeHookEvent {
  */
 export async function runClaudeHookCommand(
   argv: string[],
-  io: ClaudeHookOptions = {}
+  io: ClaudeHookOptions & ClaudeStatusOptions = {}
 ): Promise<number> {
   try {
     const [event] = argv;
+    if (event === "status") {
+      await printStatus(io);
+      return 0;
+    }
     if (isHookEvent(event)) {
       await runClaudeHook(event, io);
       return 0;

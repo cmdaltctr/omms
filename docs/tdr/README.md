@@ -45,6 +45,8 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [021](./021-load-pi-sdk-from-pi-install.md)                  | Load the Pi SDK from Pi's install outside Pi                            | Proposed              | 2026-10-01 |
 | [022](./022-login-item-keeps-newest-copy.md)                 | The login item keeps the newest OMMS copy                               | Superseded by ADR-018 | 2026-10-02 |
 | [023](./023-wait-for-pi-test-background-calls.md)            | Wait for Pi test background calls                                       | Proposed              | 2026-10-02 |
+| [024](./024-status-command-stdout-first-run.md)              | Keep the first-run config message off the status command's stdout       | Proposed              | 2026-10-02 |
+| [025](./025-claude-plugin-test-runs-whole-folder.md)         | Run the Claude Code mod test from a small plugin folder                 | Proposed              | 2026-10-02 |
 
 ## Status values
 
