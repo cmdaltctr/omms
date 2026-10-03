@@ -16,3 +16,5 @@ graphify-out
 CHANGELOG.md
 # release-please rewrites the version with JSON.stringify, which expands arrays Prettier would collapse
 .claude-plugin/plugin.json
+# Claude Code writes type files here when it loads this repo with --plugin-dir
+.claude-plugin/types
