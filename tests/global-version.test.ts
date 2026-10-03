@@ -87,7 +87,10 @@ describe("global command version", () => {
 
   it("reads the version from the install's package.json through the PATH symlink", () => {
     const { link } = install("4.3.0");
-    expect(globalCommandVersion({ find: () => link })).toEqual({ version: "4.3.0", path: link });
+    expect(globalCommandVersion({ find: () => link, platform: "linux" })).toEqual({
+      version: "4.3.0",
+      path: link,
+    });
   });
 
   it("does not run the command", () => {
@@ -124,7 +127,11 @@ describe("global command version", () => {
     // The login item runs with launchd's minimal PATH, which has no Homebrew bin folder.
     const { prefix, root } = install("4.3.3");
     expect(
-      globalCommandVersion({ find: () => null, execPath: join(prefix, "bin", "node") })
+      globalCommandVersion({
+        find: () => null,
+        execPath: join(prefix, "bin", "node"),
+        platform: "linux",
+      })
     ).toEqual({
       version: "4.3.3",
       path: root,
@@ -134,7 +141,7 @@ describe("global command version", () => {
   it("finds the global install above a Homebrew Cellar runtime folder", () => {
     const { prefix, root } = install("4.3.3");
     const execPath = join(prefix, "Cellar", "node", "26.9.0", "bin", "node");
-    expect(globalCommandVersion({ find: () => null, execPath })).toEqual({
+    expect(globalCommandVersion({ find: () => null, execPath, platform: "linux" })).toEqual({
       version: "4.3.3",
       path: root,
     });
@@ -147,6 +154,7 @@ describe("global command version", () => {
       globalCommandVersion({
         find: () => onPath.link,
         execPath: join(beside.prefix, "bin", "node"),
+        platform: "linux",
       }).version
     ).toBe("4.3.0");
   });
