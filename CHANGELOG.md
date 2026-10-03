@@ -2,6 +2,42 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.4.0](https://github.com/cmdaltctr/omms/compare/v4.3.3...v4.4.0) (2026-10-03)
+
+
+### Features
+
+* **claude-code:** run the hooks through the plugin launcher ([ad4ce98](https://github.com/cmdaltctr/omms/commit/ad4ce9831fcf56164a26de7ed63bacad6390fafc))
+* **claude-code:** show an OMMS status line and newer-release notice ([1421ece](https://github.com/cmdaltctr/omms/commit/1421ecee20fdfe924fa936536a8b4cb2392713be))
+* **claude-code:** show an OMMS status line and newer-release notice ([aeb3341](https://github.com/cmdaltctr/omms/commit/aeb33416a8d5e075747795df0fda121c716afa1b))
+* **cli:** hand off to the newest recorded OMMS copy ([be0fe18](https://github.com/cmdaltctr/omms/commit/be0fe1806d0c854e49c59b1459ea9dd7d3a90bad))
+* record the newest OMMS copy and add a launcher ([556be22](https://github.com/cmdaltctr/omms/commit/556be227b45ac6cbfb268b89bde35b2794fd61ff))
+* record the OpenCode and Pi copy at host start ([3926c1a](https://github.com/cmdaltctr/omms/commit/3926c1a7d57afa8c3ec54e1bea9b64e642bb7f38))
+* replace an older running web app at host start ([c343366](https://github.com/cmdaltctr/omms/commit/c343366b223372ba2c919d6c1de9bb4e2fa76e26))
+* run the newest OMMS copy from every host ([45ca742](https://github.com/cmdaltctr/omms/commit/45ca7429889d57abe93d154b8a3702de8d92b105))
+* **web:** read the global version from package.json ([22c8233](https://github.com/cmdaltctr/omms/commit/22c823339fb589faf86105d4867648bd0bf20946))
+* **web:** run the login item through the fixed launcher ([ae37c35](https://github.com/cmdaltctr/omms/commit/ae37c35b010b3d4033c05e59bde29ce486c7c053))
+
+
+### Bug Fixes
+
+* address review findings on the newest-copy runtime ([f3adc7d](https://github.com/cmdaltctr/omms/commit/f3adc7d59f7d58ed6dd6bc5a1c99ce4d7a4e02ba))
+* **claude-code:** run the launcher's npx fallback from the temp folder ([082dfce](https://github.com/cmdaltctr/omms/commit/082dfce09d773b8263ae8f5211fdf039e25d791d))
+* **claude-code:** show the status line while the launcher runs, fix doc links ([d651cc6](https://github.com/cmdaltctr/omms/commit/d651cc61688a44dccb57ef292575379e358b835f))
+* find the global install above Homebrew's Cellar folder ([aa621a5](https://github.com/cmdaltctr/omms/commit/aa621a50e5bcc4d0b785e13cfae63a1b137c6c38))
+* **launcher:** do not throw on import when argv[1] cannot be resolved ([7fae266](https://github.com/cmdaltctr/omms/commit/7fae266b518a2e0609940522130a2f94cce421ba))
+
+
+### Documentation
+
+* document OMMS_DISABLE_RUNTIME_RECORD and finish the live check task ([a558df7](https://github.com/cmdaltctr/omms/commit/a558df723ccffa2565233411df55b23e8390c2ef))
+* explain the newest-copy runtime and add ADR-018 ([e3ceaf9](https://github.com/cmdaltctr/omms/commit/e3ceaf9c588e30ac48730b1794c6e6259ccd0d04))
+* **openspec:** archive newest-copy-runtime and sync its specs ([405efb7](https://github.com/cmdaltctr/omms/commit/405efb71af3fea5c717a187598eb2bb7dec074a4))
+* **openspec:** build claude-code-status-line on the newest-copy runtime ([1224616](https://github.com/cmdaltctr/omms/commit/1224616aa070666cbd0a417b2eda2291d6ce0f9a))
+* **openspec:** fix status-line timeout state and test gaps ([e2b55c1](https://github.com/cmdaltctr/omms/commit/e2b55c1332e9de3fcc56e49fdbf2d314bb6f2ea5))
+* **openspec:** propose claude-code-status-line ([5e55707](https://github.com/cmdaltctr/omms/commit/5e55707d162edc708d0aa273f27d5d8f9f23afb5))
+* **openspec:** propose newest-copy-runtime ([1ed39a0](https://github.com/cmdaltctr/omms/commit/1ed39a0a0b66b871f9974e5d689caab46f49a62b))
+
 ## [4.3.3](https://github.com/cmdaltctr/omms/compare/v4.3.2...v4.3.3) (2026-10-02)
 
 
