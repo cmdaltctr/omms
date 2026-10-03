@@ -47,6 +47,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [023](./023-wait-for-pi-test-background-calls.md)            | Wait for Pi test background calls                                       | Proposed              | 2026-10-02 |
 | [024](./024-status-command-stdout-first-run.md)              | Keep the first-run config message off the status command's stdout       | Proposed              | 2026-10-02 |
 | [025](./025-claude-plugin-test-runs-whole-folder.md)         | Run the Claude Code mod test from a small plugin folder                 | Proposed              | 2026-10-02 |
+| [026](./026-windows-test-failures-reached-the-release.md)    | Windows test failures reached the release smoke                         | Proposed              | 2026-10-03 |
 
 ## Status values
 

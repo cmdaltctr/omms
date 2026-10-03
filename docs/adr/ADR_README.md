@@ -23,3 +23,4 @@ Local decision records for OMMS maintainers.
 | [017](./017-opencode-status-and-update-notice.md)               | OpenCode shows OMMS status and a newer-release notice             | 2026-10-02 | Proposed |
 | [018](./018-newest-copy-runtime.md)                             | Every part of OMMS runs the newest copy on the machine            | 2026-10-02 | Proposed |
 | [019](./019-claude-code-status-line-through-a-plugin-module.md) | Claude Code shows OMMS status through a plugin module             | 2026-10-02 | Proposed |
+| [020](./020-pull-requests-test-on-windows.md)                   | Pull requests run the test suite on Windows                       | 2026-10-03 | Proposed |
