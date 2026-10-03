@@ -269,8 +269,12 @@ describe("om-memory-system command", () => {
       args: ["claude-hook", "status"],
       handedOff: "1",
     });
-    // Without the hand-off, this copy would answer with its own version.
-    const own = run(["claude-hook", "status"], { OMMS_NO_HANDOFF: "1" });
+    // Without the hand-off, this copy would answer with its own version. The npm
+    // lookup is off: a real registry call can outlast the test's 5 second limit.
+    const own = run(["claude-hook", "status"], {
+      OMMS_NO_HANDOFF: "1",
+      OMMS_DISABLE_UPDATE_CHECK: "1",
+    });
     expect(JSON.parse(own.stdout).version).not.toBe("999.0.0");
   });
 
