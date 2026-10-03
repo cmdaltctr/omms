@@ -1,6 +1,10 @@
 # Third-party notices
 
-OMMS is MIT-licensed. See [LICENSE.md](LICENSE.md). This file lists material from other projects that OMMS uses, with the licence notice each one requires.
+OMMS is MIT-licensed. See [LICENSE.md](LICENSE.md).
+
+OMMS is a fork of [`tickernelz/opencode-mem`](https://github.com/tickernelz/opencode-mem) (MIT). The whole code base derives from it, so its copyright notice sits in `LICENSE.md` beside the OMMS one, not in this file.
+
+This file lists material from other projects that OMMS uses in part, with the licence notice each one requires.
 
 ## OpenChamber
 
