@@ -55,6 +55,12 @@ const cleanups = [];
 mock.module(${JSON.stringify(url("../src/services/cleanup-service.js"))}, () => ({
   cleanupService: { shouldRunCleanup: async () => true, runCleanup: async () => { cleanups.push(1); } } }));
 const toasts = [];
+// The plugin starts the web app check in the background. A fixed wait fails on a slow runner,
+// so wait for the call the test expects, up to two seconds.
+const waitFor = async (condition, ms = 2000) => {
+  const end = Date.now() + ms;
+  while (!condition() && Date.now() < end) await new Promise((resolve) => setTimeout(resolve, 5));
+};
 const client = { tui: { showToast: async ({ body }) => { toasts.push(body); } } };
 const { OmmsPlugin } = await import(${JSON.stringify(url("../src/index.js"))});
 ${body}
@@ -83,7 +89,7 @@ ${body}
 it("checks for the shared web app once, starts no web server, and shows one toast", () => {
   const result = runScenario(`
 const hooks = await OmmsPlugin({ directory: "/workspace", client });
-await new Promise((resolve) => setTimeout(resolve, 50));
+await waitFor(() => toasts.length > 0);
 console.log("RESULT:" + JSON.stringify({ ensure: ensureCalls, webServerUses, toasts }));
 await hooks.dispose?.();
 `);
@@ -103,7 +109,7 @@ it("asks the web app check to replace an older web app with the recorded version
   const result = runScenario(`
 replaceOlder = { version: "4.3.2", headers: { "x-omms-token": "local" } };
 const hooks = await OmmsPlugin({ directory: "/workspace", client });
-await new Promise((resolve) => setTimeout(resolve, 50));
+await waitFor(() => ensureCalls.length > 0);
 console.log("RESULT:" + JSON.stringify({ ensure: ensureCalls }));
 await hooks.dispose?.();
 `);
@@ -120,7 +126,7 @@ it("gives the browser password settings to the web app replacement", () => {
   const result = runScenario(
     `
 const hooks = await OmmsPlugin({ directory: "/workspace", client });
-await new Promise((resolve) => setTimeout(resolve, 50));
+await waitFor(() => replaceSettings.length > 0);
 console.log("RESULT:" + JSON.stringify({ settings: replaceSettings[0] }));
 await hooks.dispose?.();
 `,
@@ -136,7 +142,7 @@ it("shows an error toast when another program holds the web port", () => {
   const result = runScenario(`
 ensureResult = "port-busy";
 const hooks = await OmmsPlugin({ directory: "/workspace", client });
-await new Promise((resolve) => setTimeout(resolve, 50));
+await waitFor(() => toasts.length > 0);
 console.log("RESULT:" + JSON.stringify({ toasts }));
 await hooks.dispose?.();
 `);
