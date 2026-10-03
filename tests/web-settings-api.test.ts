@@ -89,8 +89,12 @@ describe("settings API", () => {
     expect(result.login.state).toBe("not-installed");
     expect(JSON.stringify(result.rows)).not.toContain("private-test-value");
   });
-  it("reports the global install's version from its package.json and how it compares", async () => {
-    const result = await scenario(`
+  // Builds a POSIX install with a symlink on PATH. Windows finds `.cmd` wrappers instead,
+  // and a symlink needs extra rights there; `global-version.test.ts` covers that layout.
+  it.skipIf(process.platform === "win32")(
+    "reports the global install's version from its package.json and how it compares",
+    async () => {
+      const result = await scenario(`
       const { mkdirSync, writeFileSync, symlinkSync, existsSync } = await import("node:fs");
       const { join } = await import("node:path");
       const prefix = join(process.env.HOME, "prefix");
@@ -109,11 +113,12 @@ describe("settings API", () => {
       const missing = await (await send("/api/settings/version")).json();
       return { older, newer, missing, ran: existsSync(join(prefix, "ran")) };
     `);
-    expect(result.older).toMatchObject({ global: "0.0.1", relation: "older", mismatch: true });
-    expect(result.newer).toMatchObject({ global: "999.0.0", relation: "newer", mismatch: true });
-    expect(result.missing).toMatchObject({ global: null, relation: "missing", mismatch: false });
-    expect(result.ran).toBe(false);
-  });
+      expect(result.older).toMatchObject({ global: "0.0.1", relation: "older", mismatch: true });
+      expect(result.newer).toMatchObject({ global: "999.0.0", relation: "newer", mismatch: true });
+      expect(result.missing).toMatchObject({ global: null, relation: "missing", mismatch: false });
+      expect(result.ran).toBe(false);
+    }
+  );
 
   it("reports that Claude Code capture is off and names the missing setting", async () => {
     const half = await scenario(

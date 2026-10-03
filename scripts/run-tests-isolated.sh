@@ -22,14 +22,34 @@ case "${OSTYPE:-}" in
   msys* | cygwin* | win32*) timeout_args=(--timeout 30000) ;;
 esac
 
+# Run every file, then list each one that failed. Stopping at the first failure hid the
+# later ones, so a Windows-only problem took one smoke run per failing file to find.
+failed=()
+
 for test_file in tests/*.test.ts; do
   echo ">>> $test_file"
-  bun test ${timeout_args[@]+"${timeout_args[@]}"} "$test_file"
+  if ! bun test ${timeout_args[@]+"${timeout_args[@]}"} "$test_file"; then
+    failed+=("$test_file")
+  fi
 done
 
 # Web page specs. Bun does not follow the tsconfig references in web/tsconfig.json,
 # so the `$lib` and `$shared` aliases only resolve with the app tsconfig.
 for spec_file in web/tests/*.spec.ts web/tests/*.spec.tsx; do
   echo ">>> $spec_file"
-  bun test --tsconfig-override web/tsconfig.app.json ${timeout_args[@]+"${timeout_args[@]}"} "$spec_file"
+  if ! bun test --tsconfig-override web/tsconfig.app.json ${timeout_args[@]+"${timeout_args[@]}"} "$spec_file"; then
+    failed+=("$spec_file")
+  fi
 done
+
+# macOS bash 3.2 treats an empty array as unbound under `set -u`, so guard each use.
+if [[ ${#failed[@]} -gt 0 ]]; then
+  echo
+  echo "${#failed[@]} test file(s) failed:"
+  for file in ${failed[@]+"${failed[@]}"}; do
+    echo "  $file"
+    # GitHub shows each one as an annotation on the job.
+    if [[ -n "${GITHUB_ACTIONS:-}" ]]; then echo "::error file=$file::$file failed"; fi
+  done
+  exit 1
+fi

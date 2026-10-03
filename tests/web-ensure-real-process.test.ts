@@ -126,8 +126,13 @@ it("gives a stale start lock to exactly one of several processes that replace it
     writeFileSync(go, "");
     const results = await Promise.all(
       callers.map(async (proc) => {
-        const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
-        expect(code).toBe(0);
+        const [out, err, code] = await Promise.all([
+          new Response(proc.stdout).text(),
+          new Response(proc.stderr).text(),
+          proc.exited,
+        ]);
+        // Show the child's error: a bare exit code hides why a start-lock race failed.
+        if (code !== 0) throw new Error(`caller exited ${code}: ${err.trim().slice(0, 800)}`);
         return JSON.parse(out.trim()) as { pid: number; held: boolean };
       })
     );
