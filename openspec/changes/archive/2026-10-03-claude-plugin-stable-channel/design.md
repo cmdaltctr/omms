@@ -10,7 +10,7 @@ See proposal.md, Why. The facts the design rests on come from the Claude Code pl
 - An `npm` plugin source does not install dependencies unless the package ships a lockfile. The OMMS package ships none.
 - A marketplace added from a git repository is cloned whole, so `marketplace.json` itself still comes from `main`. Only the plugin entry's source changes.
 
-release-please creates lightweight tags, `v<version>`, on the release commit. The repository has no `stable` branch yet.
+release-please creates lightweight tags, `v<version>`, on the release commit. At proposal time, the repository had no `stable` branch.
 
 ## Goals / Non-Goals
 
@@ -66,6 +66,13 @@ The job has `contents: write` and nothing else. It checks out with full history 
 ### 5. Order of rollout
 
 `stable` must exist before `main` names it. Otherwise every install and update fails. So the maintainer creates `stable` at the commit tagged `v4.4.1` before the pull request merges. When it merges, an existing install at 4.4.0 sees version 4.4.1 at `stable` and updates. That is the version npm already serves.
+
+The implementation and branch prerequisite are verified before archiving and
+opening the pull request. With maintainer approval, post-merge checks live in
+the separate rollout checklist in `docs/ci.md`. After merge, dispatch the
+workflow, verify it passes and reports `stable` already at `v4.4.1`, then update
+the Claude marketplace and verify plugin 4.4.1. These checks stay pending until
+merge; moving them does not change the release requirement.
 
 ### 6. Local plugin testing
 

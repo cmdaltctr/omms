@@ -8,7 +8,11 @@
   "plugins": [
     {
       "name": "omms",
-      "source": "./",
+      "source": {
+        "source": "github",
+        "repo": "cmdaltctr/omms",
+        "ref": "stable"
+      },
       "description": "Shared project memory for Claude Code through OMMS (om-memory-system)."
     }
   ]

@@ -32,3 +32,4 @@ None.
 - The workflow needs `contents: write` to push `stable`. It pushes no other ref.
 - Pi, OpenCode, and the npm package do not change. They already install from npm.
 - No new dependencies.
+- Post-merge workflow and installed-plugin checks remain in the separate rollout checklist in `docs/ci.md`. The maintainer approved this split so the verified implementation can archive before its pull request.
