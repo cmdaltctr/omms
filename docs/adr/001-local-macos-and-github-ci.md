@@ -2,6 +2,7 @@
 
 **Date:** 2026-09-21
 **Status:** Accepted
+**Superseded in part by:** [ADR-020](./020-pull-requests-test-on-windows.md), which runs the test suite on Windows for every pull request
 **Deciders:** Project maintainer
 
 ## Context

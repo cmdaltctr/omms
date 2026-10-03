@@ -17,6 +17,7 @@ concurrency: 20 jobs in total, 5 of them macOS.
 | Build, unit tests                      | Local, full gate                  | `bun run ci:local`                      |
 | Format, lint, typecheck, package shape | GitHub, `ubuntu-latest`           | Quality workflow, every PR and `main`   |
 | Build, unit tests                      | GitHub, `macos-latest`            | Quality workflow, every PR and `main`   |
+| Build, unit tests                      | GitHub, `windows-latest`          | Quality workflow, PR and `main`         |
 | Native embedding smoke (4 platforms)   | GitHub, PRs touching native paths | Embedding Backend workflow, or manual   |
 | Nested OpenCode fixture, Intel (#225)  | GitHub, PRs touching native paths | Embedding Backend workflow, or manual   |
 | Full gate and pack smoke (6 platforms) | GitHub                            | Before release, weekly (Monday), manual |
@@ -92,7 +93,7 @@ before a push to a pull request and before a merge.
 
 ### Quality (automatic)
 
-Runs on every pull request and on every push to `main`. Three jobs:
+Runs on every pull request and on every push to `main`. Four jobs:
 
 - `changes` on `ubuntu-latest`: lists the files the pull request changes.
 - `check` on `ubuntu-latest`: format, lint, typecheck, then build and
@@ -101,10 +102,16 @@ Runs on every pull request and on every push to `main`. Three jobs:
 - `test` on `macos-latest`: build, then the full suite through
   `scripts/run-tests-isolated.sh`. Skipped when a pull request changes only
   Markdown files or files under `docs/`.
+- `test-windows` on `windows-latest`: the same build and suite, run in Git
+  Bash. Skipped in the same cases as `test`. It catches tests that assume POSIX
+  paths, a shell-script command, or a symlink. Those pass on macOS and used to
+  fail only in the release smoke. See [ADR-020](adr/020-pull-requests-test-on-windows.md).
 
 - A skipped `test` job still passes the required status check. So docs-only pull requests can merge.
 - Do not add `paths-ignore` to this workflow. If it does not start, the required checks never report and the pull request stays blocked.
-- If the `changes` job fails, `test` runs anyway.
+- If the `changes` job fails, `test` and `test-windows` run anyway.
+- `test-windows` is a separate job, not a matrix entry of `test`. A matrix renames the job to `test (macos-latest)`, so the required `test` check would never report and every pull request would stay blocked.
+- The "Protect main" ruleset requires `check` and `test`. `test-windows` is not required yet: a failure shows on the pull request but does not block the merge. Add it to the ruleset once it runs reliably.
 
 Quality is the minimum gate for every pull request. This includes pull
 requests that skip the local hooks, such as Dependabot updates. Pull requests
@@ -281,7 +288,7 @@ setting and run the job again.
 Supported platforms: macOS 15 and later on Apple Silicon and Intel, Windows,
 and Linux. OpenCode users install the plugin on all of them.
 
-- Pull requests get the smallest useful coverage: one Linux quality job and one macOS test job.
+- Pull requests get one Linux quality job, one macOS test job, and one Windows test job. Windows runs on pull requests because its failures are the ones macOS cannot show.
 - The native matrix runs only when native paths change.
 - The full six-platform matrix runs before a release and every week.
 
@@ -294,10 +301,10 @@ Job counts for each event (hosted runners are free, macOS included):
 
 | Event                    | Ubuntu | Windows | macOS |
 | ------------------------ | ------ | ------- | ----- |
-| Routine pull request     | 2      | 0       | 1     |
+| Routine pull request     | 2      | 1       | 1     |
 | Docs-only pull request   | 2      | 0       | 0     |
-| Native-path pull request | 3      | 1       | 4     |
-| Push to `main`           | 4      | 0       | 1     |
+| Native-path pull request | 3      | 2       | 4     |
+| Push to `main`           | 4      | 1       | 1     |
 | Release or weekly smoke  | 2      | 1       | 4     |
 
 The practical limit is the 5-job macOS queue. Local CI spends no GitHub jobs.
