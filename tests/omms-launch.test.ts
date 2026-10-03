@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { compareVersions } from "../src/services/version-compare.js";
 import {
@@ -134,7 +134,8 @@ describe("findCandidates", () => {
     rmSync(gone, { recursive: true });
     const prefix = join(base, "prefix");
     const execPath = join(prefix, "bin", "node");
-    const global = join(prefix, "lib", "node_modules", "om-memory-system");
+    // The folder `findCandidates` checks differs by platform; the layouts have their own test.
+    const global = globalPackageRoot(execPath)!;
     mkdirSync(join(global, "dist", "cli"), { recursive: true });
     writeFileSync(
       join(global, "package.json"),
@@ -187,7 +188,7 @@ describe("findCandidates", () => {
       /node_modules[\\/]om-memory-system$/
     );
     expect(globalPackageRoot("/opt/homebrew/bin/node", "darwin")).toBe(
-      "/opt/homebrew/lib/node_modules/om-memory-system"
+      join("/opt/homebrew", "lib", "node_modules", "om-memory-system")
     );
     expect(globalPackageRoot("", "darwin")).toBeNull();
   });
@@ -278,18 +279,34 @@ describe("launcher process", () => {
     // A fake npx that records its arguments and the folder it runs in.
     const bin = join(base, "fakebin");
     mkdirSync(bin, { recursive: true });
-    const npx = join(bin, "npx");
-    writeFileSync(npx, '#!/bin/sh\nprintf "%s\\n" "$@"\necho "cwd:$(pwd -P)"\n');
-    chmodSync(npx, 0o755);
+    // On Windows the launcher runs `npx.cmd` through a shell, so the fake is a batch file.
+    const windows = process.platform === "win32";
+    if (windows) {
+      writeFileSync(
+        join(bin, "npx.cmd"),
+        "@echo off\r\nfor %%a in (%*) do echo %%a\r\necho cwd:%CD%\r\n"
+      );
+    } else {
+      const npx = join(bin, "npx");
+      writeFileSync(npx, '#!/bin/sh\nprintf "%s\\n" "$@"\necho "cwd:$(pwd -P)"\n');
+      chmodSync(npx, 0o755);
+    }
+    // Windows names the variable `Path`; a second `PATH` key would be ambiguous there.
+    const pathKey = Object.keys(process.env).find((key) => key.toLowerCase() === "path") ?? "PATH";
     const result = spawnSync(
       process.execPath,
       [launcher, "--at-least-own-version", "claude-hook", "session-start"],
       {
         encoding: "utf8",
-        env: { ...process.env, HOME: home, USERPROFILE: home, PATH: `${bin}:${process.env.PATH}` },
+        env: {
+          ...process.env,
+          HOME: home,
+          USERPROFILE: home,
+          [pathKey]: `${bin}${delimiter}${process.env[pathKey] ?? ""}`,
+        },
       }
     );
-    expect(result.stdout.trim().split("\n")).toEqual([
+    expect(result.stdout.trim().split(/\r?\n/)).toEqual([
       "--yes",
       "om-memory-system@9.9.9",
       "claude-hook",
