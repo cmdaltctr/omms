@@ -16,13 +16,15 @@ The code users run was correct on Windows. The tests were not.
 - Pull request CI ran tests only on macOS, so Windows ran them first in the release smoke.
 - `scripts/run-tests-isolated.sh` stopped at the first failing file. Each smoke run showed one failing file, and the next appeared only after a fix. Finding all of them took five runs.
 
-| Test file                   | Why it failed on Windows                                                                         |
+The 4.4.0 Release run (37121569273) showed only `global-version`. The fix-branch smoke runs on #82 showed the rest, one per run. One of them was on macOS Intel, not Windows.
+
+| Test file                   | Why it failed (Windows unless noted)                                                             |
 | --------------------------- | ------------------------------------------------------------------------------------------------ |
 | `global-version`            | Built a Linux install folder but named no platform, so Windows looked for the `.cmd` layout.     |
 | `omms-launch`               | Linux install folder, `/` separators, and a shell-script fake `npx` with a `:` `PATH` separator. |
 | `web-settings-api`          | Put a symlink on `PATH`. Windows finds `.cmd` wrappers, and a symlink needs extra rights.        |
 | `opencode-web-ensure`       | Waited a fixed 50 ms for a background call. Too short on a slow runner.                          |
-| `cli-handoff` (macOS Intel) | Called the real npm registry and passed bun's 5 second test limit.                               |
+| `cli-handoff` (macOS Intel) | Called the real npm registry and passed bun's 5 second test limit (smoke run 37138213187).       |
 | `web-ensure-real-process`   | A six-process start-lock race failed once. Not reproduced since.                                 |
 
 ## Decision
