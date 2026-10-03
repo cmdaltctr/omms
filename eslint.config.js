@@ -13,6 +13,8 @@ export default ts.config(
       "out/**",
       "web/dist/**",
       "web/node_modules/**",
+      // Claude Code writes type files here when it loads this repo with --plugin-dir
+      ".claude-plugin/types/**",
     ],
   },
   js.configs.recommended,

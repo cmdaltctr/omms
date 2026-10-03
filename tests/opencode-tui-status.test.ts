@@ -1,11 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { fileURLToPath } from "node:url";
-import {
-  availableUpdate,
-  latestNpmVersion,
-  startTuiStatus,
-  tuiStatusText,
-} from "../src/adapters/opencode/tui-status.js";
+import { startTuiStatus, tuiStatusText } from "../src/adapters/opencode/tui-status.js";
+import { availableUpdate, latestNpmVersion } from "../src/services/update-check.js";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });

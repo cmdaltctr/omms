@@ -1,4 +1,4 @@
-import { isOlderVersion } from "../../services/version-compare.js";
+import { availableUpdate, latestNpmVersion } from "../../services/update-check.js";
 
 /** What the OpenCode footer shows: the web app's state and a newer release, if any. */
 export interface TuiStatusState {
@@ -9,30 +9,6 @@ export interface TuiStatusState {
 export function tuiStatusText(state: TuiStatusState): string {
   const web = state.web === "offline" ? "omms:web app off" : `omms:${state.web}`;
   return state.update ? `${web} · ${state.update} available` : web;
-}
-
-/** The `latest` version on npm, or null when the registry cannot be reached. */
-export async function latestNpmVersion(
-  fetchFn: typeof fetch,
-  timeoutMs = 5_000
-): Promise<string | null> {
-  try {
-    const response = await fetchFn("https://registry.npmjs.org/om-memory-system/latest", {
-      signal: AbortSignal.timeout(timeoutMs),
-      headers: { accept: "application/json" },
-    });
-    if (!response.ok) return null;
-    const body = (await response.json()) as { version?: unknown };
-    return typeof body.version === "string" ? body.version : null;
-  } catch {
-    return null;
-  }
-}
-
-/** A newer release than `current`, ignoring prereleases; null otherwise. */
-export function availableUpdate(current: string, latest: string | null): string | null {
-  if (!latest || latest.includes("-")) return null;
-  return isOlderVersion(current, latest) ? latest : null;
 }
 
 export interface TuiStatusDeps {

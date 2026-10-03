@@ -5,20 +5,20 @@ the OpenCode plugin and the Pi extension. All three hosts read and write one
 store for each project. So Claude Code can find memories that OpenCode or Pi
 captured, and the other hosts can find memories that Claude Code captured.
 
-Claude Code has no in-process plugin API. The plugin is a set of shell hooks
-and one skill. Each hook runs the launcher in the plugin, which runs the
+Claude Code has no in-process plugin API. The plugin is a set of shell hooks,
+one skill, and one small status line module. Each hook runs the launcher in the plugin, which runs the
 `om-memory-system claude-hook <event>` command. The command sends the event to
 the OMMS web app, and the web app does the memory work. The plugin has no MCP server, and it never changes
 `CLAUDE.md`.
 
-The plugin is tested against Claude Code **2.1.284**. The transcript reader
-targets that version. See [Transcript format](#transcript-format).
+The plugin is tested against Claude Code **2.1.288**. The transcript reader
+targets **2.1.284**. See [Transcript format](#transcript-format).
 
 ## Before you start
 
 You need:
 
-- Claude Code with plugin support.
+- Claude Code 2.1.287 or later. The status line module needs it.
 - Node.js 22.14 or later. The hooks run through `node`.
 - An external API for capture. See [The external API is required](#the-external-api-is-required).
 
@@ -46,12 +46,13 @@ When Node.js is missing, or `npx` fails or runs out of time, the hook returns no
 
 The plugin files are in the repository root:
 
-| File                              | Content                                                                     |
-| --------------------------------- | --------------------------------------------------------------------------- |
-| `.claude-plugin/plugin.json`      | The plugin manifest. The plugin name is `omms`.                             |
-| `.claude-plugin/marketplace.json` | A marketplace named `omms` that lists the plugin.                           |
-| `hooks/hooks.json`                | The `SessionStart`, `UserPromptSubmit`, and `Stop` hooks.                   |
-| `skills/omms-memory/SKILL.md`     | The `omms-memory` skill. It tells the agent when to search and save memory. |
+| File                              | Content                                                                               |
+| --------------------------------- | ------------------------------------------------------------------------------------- |
+| `.claude-plugin/plugin.json`      | The plugin manifest. The plugin name is `omms`.                                       |
+| `.claude-plugin/marketplace.json` | A marketplace named `omms` that lists the plugin.                                     |
+| `hooks/hooks.json`                | The `SessionStart`, `UserPromptSubmit`, and `Stop` hooks, and the status line module. |
+| `hooks/omms-status.js`            | The status line module. See [Status line](#status-line).                              |
+| `skills/omms-memory/SKILL.md`     | The `omms-memory` skill. It tells the agent when to search and save memory.           |
 
 The same skill file serves Pi and OpenCode. In Claude Code, start it by name
 with `/omms:omms-memory`. See [Using memory: The omms-memory skill](using-memory.md#the-omms-memory-skill).
@@ -322,6 +323,58 @@ The first `SessionStart` that reaches the web app after the web app starts
 also starts the Claude Code backfill, under the `autoBackfill` rules. The web
 app tries this once per process. See
 [Claude Code history import: Automatic import](claude-code-history-import.md#automatic-import).
+
+## Status line
+
+With Claude Code 2.1.287 or later, the plugin shows one status line under the
+prompt. A small module draws it: `hooks/omms-status.js`, listed under `modules`
+in `hooks/hooks.json`. The module runs beside the command hooks and does not
+change them. Claude Code writes the plugin name before the text, so the line
+reads `omms: <state>`.
+
+| Line                                | Meaning                                                                                                       | What to do                                                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `omms: connected`                   | The web app answers its health route. A 401 also counts, because a web app with a password runs.              | Nothing.                                                                                                   |
+| `omms: web app off`                 | The web app does not answer within 3 seconds.                                                                 | Run `om-memory-system web`. The next hook also starts it.                                                  |
+| `omms: not installed`               | The plugin launcher can run no OMMS copy: no local copy is new enough, and `npx` fails or Node.js is missing. | Install Node.js 22.14 or later and check the network. See [How hooks find OMMS](#how-the-hooks-find-omms). |
+| `omms: connected · 4.4.0 available` | npm has a newer stable release than the OMMS copy that the launcher runs.                                     | Run `claude plugin update omms@omms`, then `/reload-plugins`.                                              |
+
+How it works:
+
+1. At session start and every 6 hours, the module runs the plugin launcher:
+   `node <plugin root>/bin/omms-launch.mjs --at-least-own-version claude-hook status`.
+   The command prints one JSON line: `{ "healthUrl", "version", "latest" }`.
+   `version` is the copy that runs. `latest` is the newest release on npm, or
+   `null` when the check is off or fails.
+2. Every 30 seconds, the module fetches the health URL. The line follows the
+   web app within 30 seconds. The first check runs at once on the default URL,
+   so the line shows even while the launcher is still running. A second check
+   runs when the launcher names the URL.
+3. When `latest` is a stable release newer than `version`, the line adds
+   `· <version> available`. A toast also names the plugin update command. It
+   shows once for each new version in a session.
+
+The launcher has a 60-second limit for this command, because a first `npx`
+download can take longer than 30 seconds. A run that passes the limit keeps the
+line to the web app state and shows no update. It never shows `not installed`.
+The next 6-hour check tries again.
+
+Notes:
+
+- The update check asks npm for the `latest` version. It sends no session
+  content. It ignores prereleases. Set `OMMS_DISABLE_UPDATE_CHECK=1` in the
+  environment that starts Claude Code to turn it off.
+- The line comes from a module, so it follows the same rules as the hooks. It
+  does not show in an untrusted workspace, with `--bare` or `--safe-mode`, or
+  with `disableAllHooks`.
+- The line is separate from your own `statusLine` setting. OMMS does not
+  replace it or change it.
+- `claude-hook status` is not a hook event. You can run it by hand to see what
+  the module reads.
+- An OMMS copy from before this command prints nothing for `status`. The line
+  then uses the default health URL, `http://127.0.0.1:4747/api/health`, with no
+  update notice. That copy writes one `bad-event` line to the log at each
+  check. The line stops when a newer copy runs.
 
 ## The `memory` command
 
