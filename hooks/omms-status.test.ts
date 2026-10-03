@@ -11,6 +11,7 @@ const UPDATE_COMMAND = "claude plugin update omms@omms";
 type Launcher =
   | { exitCode: number; stdout: string }
   | { reject: string }
+  | { hang: true }
   | { jsonVersion: string; latest: string | null; healthUrl?: string };
 type Health = "ok" | "401" | "500" | "no-success" | "down" | "hang";
 
@@ -21,7 +22,11 @@ function world(
     launcher: { exitCode: 0, stdout: "" },
   }
 ) {
-  const state = { launcher: start.launcher, health: start.health ?? "ok" };
+  const state = {
+    launcher: start.launcher,
+    health: start.health ?? "ok",
+    healthFor: {} as Record<string, Health>,
+  };
   const runs: { argv: readonly string[]; timeoutMs?: number }[] = [];
   const fetches: string[] = [];
   const statuses: (string | undefined)[] = [];
@@ -33,6 +38,7 @@ function world(
     runs.push({ argv: e.argv, timeoutMs: e.init?.timeoutMs });
     const launcher = state.launcher;
     if ("reject" in launcher) return { deny: launcher.reject };
+    if ("hang" in launcher) return new Promise(() => {});
     const stdout =
       "jsonVersion" in launcher
         ? `${JSON.stringify({
@@ -53,7 +59,7 @@ function world(
   });
   on("http.fetch", (_$: any, e: any) => {
     fetches.push(e.url);
-    const health = state.health;
+    const health = state.healthFor[e.url] ?? state.health;
     if (health === "down") return { deny: "connection refused" };
     if (health === "hang") return new Promise(() => {});
     const status = health === "401" ? 401 : health === "500" ? 500 : 200;
@@ -126,8 +132,29 @@ describe("omms status line", () => {
     const url = "http://127.0.0.1:5151/api/health";
     const w = world(on, { launcher: { jsonVersion: "4.3.3", latest: null, healthUrl: url } });
     await begin($, w);
-    expect(w.fetches.every((fetched) => fetched === url)).toBe(true);
-    expect(w.fetches.length).toBeGreaterThan(0);
+    // The first check runs before the launcher answers, on the default URL.
+    expect(w.fetches.at(-1)).toBe(url);
+    const before = w.fetches.length;
+    await w.clock.advance(HEALTH_MS);
+    expect(w.fetches.slice(before)).toEqual([url]);
+  });
+
+  test("a slow early check does not overwrite a newer one", async ($, on) => {
+    const url = "http://127.0.0.1:5151/api/health";
+    const w = world(on, { launcher: { jsonVersion: "4.3.3", latest: null, healthUrl: url } });
+    w.state.healthFor[DEFAULT_HEALTH] = "hang";
+    await begin($, w);
+    expect(last(w)).toBe("connected");
+    // The early check on the default URL gives up after 3 seconds.
+    await w.clock.advance(3_000);
+    expect(last(w)).toBe("connected");
+  });
+
+  test("shows the web app state while the launcher is still running", async ($, on) => {
+    const w = world(on, { launcher: { hang: true } });
+    await begin($, w);
+    expect(last(w)).toBe("connected");
+    expect(w.fetches).toEqual([DEFAULT_HEALTH]);
   });
 
   test("asks the plugin launcher, built from the plugin root, with a 60 second timeout", async ($, on) => {

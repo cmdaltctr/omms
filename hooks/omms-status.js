@@ -76,7 +76,10 @@ export const register = (on) => {
       }
     };
 
+    // A slow answer from an earlier check must not overwrite a newer one.
+    let healthRun = 0;
     const checkHealth = async () => {
+      const run = ++healthRun;
       const answer = async () => {
         try {
           const response = await $.http.fetch(facts.healthUrl);
@@ -87,7 +90,9 @@ export const register = (on) => {
         }
       };
       const timeout = $.clock.sleep(HEALTH_TIMEOUT_MS).then(() => false);
-      facts.web = await Promise.race([answer(), timeout]);
+      const web = await Promise.race([answer(), timeout]);
+      if (run !== healthRun) return;
+      facts.web = web;
       show();
     };
 
@@ -123,6 +128,9 @@ export const register = (on) => {
     timers = [];
     timers.push(
       $.clock.after(0, async () => {
+        // Show the web app state at once, on the default URL. The launcher can
+        // take a minute on a first `npx` download. Check again once it names the URL.
+        void checkHealth();
         await refreshStatus();
         await checkHealth();
       }),

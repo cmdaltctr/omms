@@ -55,7 +55,7 @@ OpenCode and Pi show OMMS state and a newer-release notice ([ADR-017](./017-open
 
 ## References
 
-- OpenSpec change: `openspec/changes/claude-code-status-line/`
+- OpenSpec change: `openspec/changes/archive/2026-10-03-claude-code-status-line/`
 - `hooks/omms-status.js`, `src/adapters/claude-code/status.ts`, `src/services/update-check.ts`
 - [Claude Code adapter: Status line](../claude-code-adapter.md#status-line)
 - [ADR-017](./017-opencode-status-and-update-notice.md), [ADR-018](./018-newest-copy-runtime.md)
