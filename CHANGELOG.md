@@ -2,6 +2,18 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.4.1](https://github.com/cmdaltctr/omms/compare/v4.4.0...v4.4.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **tests:** keep the status hand-off test off the network, show lock-test errors ([29712dd](https://github.com/cmdaltctr/omms/commit/29712ddfdbfd14a82f2af0f71b9f3051c2970106))
+* **tests:** make the launcher tests run on Windows ([1592ee8](https://github.com/cmdaltctr/omms/commit/1592ee8c7dd73c1886ae85ad66458f8bfa50411e))
+* **tests:** pin the global-version tests to POSIX rules ([7755986](https://github.com/cmdaltctr/omms/commit/7755986600c502c995321e2d290d75e480dd6946))
+* **tests:** pin the global-version tests to POSIX rules ([d8a2cc1](https://github.com/cmdaltctr/omms/commit/d8a2cc137f9e5f4417906b21d8a2bbe0eab963a7))
+* **tests:** skip the POSIX symlink version test on Windows ([79e4bab](https://github.com/cmdaltctr/omms/commit/79e4bab9c38c6c2994fb172b278e28d5159f912e))
+* **tests:** wait for the OpenCode web app check instead of a fixed 50 ms ([c130482](https://github.com/cmdaltctr/omms/commit/c130482021673b59d317a99af777195da5243692))
+
 ## [4.4.0](https://github.com/cmdaltctr/omms/compare/v4.3.3...v4.4.0) (2026-10-03)
 
 
