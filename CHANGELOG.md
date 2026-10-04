@@ -2,6 +2,23 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.4.2](https://github.com/cmdaltctr/omms/compare/v4.4.1...v4.4.2) (2026-10-04)
+
+
+### Bug Fixes
+
+* **claude-code:** pin plugin installs to npm-approved releases ([6300b0d](https://github.com/cmdaltctr/omms/commit/6300b0d1de37dad248a479f9214e8ba4e66a1690))
+* **claude-code:** pin plugin installs to npm-approved releases ([0d3bf5f](https://github.com/cmdaltctr/omms/commit/0d3bf5f5f948e4a727e487b9bc203460509a7f89))
+* **claude-code:** restrict channel runs to main ([0128256](https://github.com/cmdaltctr/omms/commit/0128256943c813d25cf26048c688d3db184a89e9))
+
+
+### Documentation
+
+* keep the main checkout on main and do each change in a sibling worktree ([ae930f2](https://github.com/cmdaltctr/omms/commit/ae930f21eddc96c5875855f698a7c8007da55a75))
+* keep the main checkout on main and do each change in a sibling worktree ([47ce913](https://github.com/cmdaltctr/omms/commit/47ce913c2a28676957afe0c14c0a94596496c1f5))
+* **openspec:** propose claude-plugin-stable-channel ([9927e3d](https://github.com/cmdaltctr/omms/commit/9927e3dc7ff5ab2a9273f618cd6f887d28a185eb))
+* **tdr:** say where each failure in TDR-026 was seen ([1aba1a9](https://github.com/cmdaltctr/omms/commit/1aba1a9f25c4658fc4002f04ffaa85daa5858060))
+
 ## [4.4.1](https://github.com/cmdaltctr/omms/compare/v4.4.0...v4.4.1) (2026-10-03)
 
 
