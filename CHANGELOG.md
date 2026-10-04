@@ -2,6 +2,13 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.6.0](https://github.com/cmdaltctr/omms/compare/v4.5.0...v4.6.0) (2026-10-04)
+
+
+### Features
+
+* colour the OMMS label in the Claude Code prompt footer ([0aeec03](https://github.com/cmdaltctr/omms/commit/0aeec0330ba4753d835c7ec0c06eea35a2b8daa9))
+
 ## [4.5.0](https://github.com/cmdaltctr/omms/compare/v4.4.2...v4.5.0) (2026-10-04)
 
 
