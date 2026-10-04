@@ -40,7 +40,8 @@ return success from a caught error, or skip the test.
 
 Commit the independently verified backfill cleanup fix described in TDR-029.
 Use fresh GitHub CI to check that fix, but do not treat a green run as a remedy
-for this separate rename issue. Keep the PR unmerged pending a decision on it.
+for this separate rename issue. The maintainer authorised merging PR #89 after
+CodeRabbit review and passing CI, then continuing this investigation separately.
 
 ## Consequences
 

@@ -4,7 +4,8 @@
  * Required environment:
  *   PUPPETEER_MODULE=/absolute/path/to/puppeteer-core/lib/puppeteer/puppeteer-core.js
  *   CHROME_EXECUTABLE=/absolute/path/to/Chrome
- * Optional: VISUAL_BASE_URL, VISUAL_OUTPUT_PATH, PUPPETEER_USER_DATA_DIR
+ *   PUPPETEER_USER_DATA_DIR=/absolute/path/to/isolated-browser-profile
+ * Optional: VISUAL_BASE_URL, VISUAL_OUTPUT_PATH
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
