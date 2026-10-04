@@ -5,12 +5,30 @@ OMMS (npm `om-memory-system`) is a memory plugin for AI coding agents. One share
 ## GitHub Flow
 
 - Never make code, documentation, dependency, lockfile, or generated-file changes directly on `main`.
-- Before changing files, check the current branch. If it is `main`, create or switch to a focused feature branch first.
+- Do each change in its own sibling worktree. Never switch the main checkout to a feature branch. See [Worktrees](#worktrees).
 - Keep `main` as the integration branch that only receives reviewed changes through pull requests.
 - Do not commit, amend, rebase, or push unless the user explicitly asks for that git action.
 - Write commit messages as Conventional Commits. release-please derives versions from them: `feat:` is minor, `fix:` and `deps:` are patch, and `!` is major.
 - Before a push to a pull request, run `bun run ci:local` and confirm that it passes. Each push starts GitHub CI.
 - Do not dispatch `gh workflow run` smoke workflows unless the user asks.
+
+## Worktrees
+
+The main checkout is the folder you cloned the repository into, wherever it is on your machine. It stays on `main` and is for pulls and reading. Each change gets a worktree in the same parent folder, never inside the checkout. These examples assume the checkout folder is named `omms`.
+
+```text
+<parent folder>/
+├── omms/                      # main checkout, always on main
+└── omms-<branch-with-dashes>/ # one worktree per change, removed after merge
+```
+
+1. Before you change a file, run `git rev-parse --show-toplevel`, `git branch --show-current`, and `git worktree list`. Run commands only in the worktree you checked.
+2. If the main checkout is on a branch other than `main`, tell the user before you do anything else. Offer to move that branch into its own worktree.
+3. Start a change from the main checkout: `git fetch`, then `git worktree add ../omms-feat-<name> -b feat/<name> origin/main`. Name the folder `omms-` plus the branch with `/` replaced by `-`.
+4. A new worktree has no `node_modules`. Run `bun install --frozen-lockfile` and `(cd web && bun install --frozen-lockfile)` in it first.
+5. Run installs, builds, tests, `ci:local`, and `claude --plugin-dir` in the worktree. Never run them for a change in the main checkout.
+6. Never create a worktree inside the repository or inside a tool folder such as `.claude/` or `.opencode/`.
+7. After the pull request merges, remove the worktree with `git worktree remove ../omms-<name>`, delete the branch locally and on GitHub, then run `git pull --ff-only` in the main checkout.
 
 ## Architecture
 
