@@ -195,7 +195,7 @@ export function DiagnosticsSection() {
       className="space-y-4 rounded-xl border border-border bg-card p-4"
       aria-label={s("Capture diagnostics")}
     >
-      <h2 className="text-lg font-medium">{s("Capture diagnostics")}</h2>
+      <h2 className="text-section-title font-semibold">{s("Capture diagnostics")}</h2>
       <label className="flex items-center gap-2 pb-2 text-sm">
         {s("Time range")}
         <Select
@@ -455,7 +455,7 @@ export function DiagnosticsSection() {
             "When the capture model cannot be reached, OMMS keeps the turn and tries again later. Queued turns can hold conversation content after redaction. 0 turns the queue off and deletes waiting turns."
           )}
         </p>
-        <h3 className="font-medium">{s("Turns waiting for retry")}</h3>
+        <h3 className="text-subsection-title font-semibold">{s("Turns waiting for retry")}</h3>
         {(["pi", "opencode", "claude-code"] as const).map((host) => {
           const count = data?.retryQueue?.[host] ?? 0;
           return (
@@ -474,7 +474,7 @@ export function DiagnosticsSection() {
           );
         })}
         {retryNote && <p className="text-xs text-muted-foreground">{retryNote}</p>}
-        <h3 className="font-medium">{s("Trace files")}</h3>
+        <h3 className="text-subsection-title font-semibold">{s("Trace files")}</h3>
         {traces.map((file) => (
           <div className="flex items-center gap-2" key={file.file}>
             <span>

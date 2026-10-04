@@ -74,7 +74,7 @@ export function ClaudeFolderSection() {
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("Claude Code folder")}
     >
-      <h2 className="text-lg font-medium">{s("Claude Code folder")}</h2>
+      <h2 className="text-section-title font-semibold">{s("Claude Code folder")}</h2>
       <p className="text-sm text-muted-foreground">
         {s(
           "Set this when Claude Code does not use ~/.claude, for example when you start it with CLAUDE_CONFIG_DIR. Leave it empty to use the default."

@@ -29,7 +29,7 @@ export function LogSection() {
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("Log")}
     >
-      <h2 className="text-lg font-medium">{s("Log")}</h2>
+      <h2 className="text-section-title font-semibold">{s("Log")}</h2>
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <label>
           <input

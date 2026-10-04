@@ -256,7 +256,7 @@ export function KeysAccessSection() {
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("Keys and access")}
     >
-      <h2 className="text-lg font-medium">{s("Keys and access")}</h2>
+      <h2 className="text-section-title font-semibold">{s("Keys and access")}</h2>
       {snapshot && <CredentialRows states={credentialStates(credentialInput(snapshot))} />}
       {access?.configTokenIgnored && (
         <p className="text-xs text-amber-600">

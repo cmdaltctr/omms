@@ -724,6 +724,29 @@ const text = {
     "已保存。OMMS 现在在所有文件夹中使用此画像。",
     "تم الحفظ. يستخدم OMMS هذا الملف الشخصي الآن في كل المجلدات.",
   ],
+  "Select all with targets": [
+    "选择所有已指定目标的映射",
+    "تحديد كل الخرائط ذات المجلدات المستهدفة",
+  ],
+  Directories: ["目录数", "عدد المجلدات"],
+  "Selected maps": ["已选择映射数", "عدد الخرائط المحددة"],
+  "Newly selected": ["新选择", "المحدد حديثاً"],
+  "Already selected": ["已选择", "المحدد سابقاً"],
+  "No target chosen": ["尚未选择目标", "لم يُختر مجلد مستهدف"],
+  "No suggested targets were selected.": [
+    "未选择任何建议目标。",
+    "لم تُحدد أي مجلدات مستهدفة مقترحة.",
+  ],
+  "Maps are already selected.": ["映射已被选择。", "الخرائط محددة بالفعل."],
+  "Choose targets for rows without suggestions.": [
+    "请为没有建议的行选择目标。",
+    "اختر مجلدات مستهدفة للصفوف التي لا تحتوي على اقتراحات.",
+  ],
+  "Selecting or clearing a shared directory updates every host. Clear selection keeps target text. Review targets, then press Save maps.":
+    [
+      "选择或取消选择共享目录会同步更新所有主机。清除选择会保留目标文本。请检查目标，然后点击保存映射。",
+      "تحديد مجلد مشترك أو إلغاء تحديده يُحدّث كل المضيفات. يحتفظ إلغاء التحديد بنص المجلد المستهدف. راجع المجلدات المستهدفة، ثم اضغط حفظ الخرائط.",
+    ],
   "Smart resolve directories": ["智能解析目录", "حلّ المجلدات تلقائياً"],
   "No model was recorded for these attempts. This happens with records written by older OMMS versions, and when an attempt stops before a model is chosen.":
     [

@@ -41,6 +41,7 @@ export function HostImportBadges() {
         >
           <span className="font-medium">{hostLabel(host)}</span>
           <ImportStatusBadge
+            host={host}
             badge={importStatusBadge(rows[host] ?? null, runs[host]?.run ?? null)}
           />
         </div>

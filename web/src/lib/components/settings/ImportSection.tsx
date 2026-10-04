@@ -311,7 +311,7 @@ export function ImportSection() {
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("Import and backfill")}
     >
-      <h2 className="text-lg font-medium">{s("Import and backfill")}</h2>
+      <h2 className="text-section-title font-semibold">{s("Import and backfill")}</h2>
       <HostImportBadges />
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-sm">

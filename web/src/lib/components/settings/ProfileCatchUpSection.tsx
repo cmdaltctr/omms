@@ -138,7 +138,7 @@ export function ProfileCatchUpSection() {
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("Profile learning")}
     >
-      <h2 className="text-lg font-medium">{s("Profile learning")}</h2>
+      <h2 className="text-section-title font-semibold">{s("Profile learning")}</h2>
       <p className="text-sm text-muted-foreground">
         {s(
           "Catch up analyses every waiting prompt with the saved external API, 50 prompts for each model call."
