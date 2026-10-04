@@ -107,7 +107,7 @@ bun run ci:local   # check, build, then every test file in its own process
 - Use `bun run ci:local` as the required gate before a merge.
 - Do not use `bun test` for the whole suite. It runs all files in one process, and about 48 tests fail from shared module state. Those failures are not regressions.
 - For a focused check, run one file: `bun test tests/<file>.test.ts`.
-- The Claude Code status line module (`hooks/omms-status.js`) has its own test, `hooks/omms-status.test.ts`. Bun does not run it. Run `bash scripts/test-claude-mod.sh`. It needs the `claude` command (2.1.287 or later). `ci:local` does not run it.
+- The Claude Code status line module (`hooks/omms-status.jsx`) has its own test, `hooks/omms-status.test.ts`. Bun does not run it. Run `bash scripts/test-claude-mod.sh`. It needs the `claude` command (2.1.287 or later). `ci:local` does not run it.
 - Some tests import `dist/`. If a focused test fails on missing `dist/` files, run `bun run build` first.
 - The first embedding test downloads a model from Hugging Face. It needs network access once.
 - Many tests replace `../src/config.js` with a partial stub through `mock.module`. A new export from `src/config.ts` is missing in those stubs. Put new pure logic in its own module and pass `CONFIG` as an argument.

@@ -11,8 +11,8 @@ work="$(mktemp -d "${TMPDIR:-/tmp}/omms-claude-mod.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
 mkdir -p "$work/hooks" "$work/.claude-plugin"
-cp "$root/hooks/omms-status.js" "$root/hooks/omms-status.test.ts" "$work/hooks/"
-echo '{ "modules": ["./omms-status.js"] }' > "$work/hooks/hooks.json"
+cp "$root/hooks/omms-status.jsx" "$root/hooks/omms-status.test.ts" "$work/hooks/"
+echo '{ "modules": ["./omms-status.jsx"] }' > "$work/hooks/hooks.json"
 echo '{ "name": "omms", "version": "0.0.0", "description": "OMMS status line mod test" }' \
   > "$work/.claude-plugin/plugin.json"
 
