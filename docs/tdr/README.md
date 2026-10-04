@@ -49,6 +49,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [025](./025-claude-plugin-test-runs-whole-folder.md)         | Run the Claude Code mod test from a small plugin folder                 | Proposed              | 2026-10-02 |
 | [026](./026-windows-test-failures-reached-the-release.md)    | Windows test failures reached the release smoke                         | Proposed              | 2026-10-03 |
 | [027](./027-claude-plugin-uses-explicit-https.md)            | Fetch the Claude plugin through explicit HTTPS                          | Accepted              | 2026-10-04 |
+| [028](./028-test-shutdown-state-and-child-deadlines.md)      | Test shutdown state and give nested tests separate deadlines            | Proposed              | 2026-10-04 |
 
 ## Status values
 

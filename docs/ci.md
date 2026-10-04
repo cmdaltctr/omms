@@ -90,6 +90,19 @@ before a push to a pull request and before a merge.
   Run it with `bash scripts/test-claude-mod.sh`, which needs the `claude` command.
   `ci:local` and the GitHub workflows do not run it. See [TDR-025](tdr/025-claude-plugin-test-runs-whole-folder.md).
 
+### Timing tests and child processes
+
+Wait for the event that starts a timer before testing its duration. Step-aside
+starts its hold-off after database shutdown, so its tests keep shutdown real
+and then advance a controlled clock. Fixed sleeps from the HTTP reply can read
+the state too early on Windows.
+
+A test that launches another test needs separate deadlines. Run only the
+relevant child test, give its process time for startup and cleanup, and keep
+that process deadline below the parent's. Drain both output pipes concurrently
+so a failed child reports its error. Do not retry a recurring failure into a
+green result. See [TDR-028](tdr/028-test-shutdown-state-and-child-deadlines.md).
+
 ## GitHub workflows
 
 ### Quality (automatic)

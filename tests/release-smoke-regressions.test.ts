@@ -15,14 +15,28 @@ afterEach(() => {
   }
 });
 
-function runWithPreload(preload: string, test: string) {
-  const child = Bun.spawnSync({
-    cmd: [process.execPath, "test", "--preload", preload, test],
+async function runWithPreload(preload: string, test: string, pattern?: string, timeout = 20_000) {
+  const child = Bun.spawn({
+    cmd: [
+      process.execPath,
+      "test",
+      "--preload",
+      preload,
+      ...(pattern ? ["--test-name-pattern", pattern] : []),
+      test,
+    ],
     cwd: repoRoot,
     stdout: "pipe",
     stderr: "pipe",
+    timeout,
   });
-  return { child, output: `${child.stdout.toString()}\n${child.stderr.toString()}` };
+  // Drain both pipes while the child runs; report its failure before the parent times out.
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
+  ]);
+  return { exitCode, output: `${stdout}\n${stderr}` };
 }
 
 it("waits for Pi's background startup and backfill calls instead of a fixed delay", () => {
@@ -73,7 +87,7 @@ mock.module("node:fs", () => ({
   expect(child.exitCode, output).toBe(0);
 }, 20_000);
 
-it("permits a retired OpenCode snapshot to disappear while a preview reuses its current copy", () => {
+it("permits a retired OpenCode snapshot to disappear while a preview reuses its current copy", async () => {
   const dir = mkdtempSync(join(tmpdir(), "omms-retired-snapshot-preload-"));
   generatedDirs.push(dir);
   const preload = join(dir, "retired-snapshot-preload.mjs");
@@ -118,12 +132,18 @@ mock.module("node:fs", () => ({
     "utf8"
   );
 
-  const { child, output } = runWithPreload(preload, opencodeWebSelectionTest);
+  // One 30-second test plus process startup and SQLite cleanup must fit inside the parent.
+  const { exitCode, output } = await runWithPreload(
+    preload,
+    opencodeWebSelectionTest,
+    "^pins the session set, holds back newer turns, copies once, and leaves the source unchanged$",
+    45_000
+  );
   expect(output).toContain("RETIRED_SNAPSHOT_INJECTED");
-  expect(child.exitCode, output).toBe(0);
-}, 30_000);
+  expect(exitCode, output).toBe(0);
+}, 60_000);
 
-it("allows npm pack enough time to return complete package metadata", () => {
+it("allows npm pack enough time to return complete package metadata", async () => {
   const dir = mkdtempSync(join(tmpdir(), "omms-package-skills-delay-preload-"));
   generatedDirs.push(dir);
   const preload = join(dir, "package-skills-delay-preload.mjs");
@@ -146,13 +166,13 @@ Bun.spawnSync = (command, options) => {
     "utf8"
   );
 
-  const { child, output } = runWithPreload(preload, packageSkillsTest);
+  const { exitCode, output } = await runWithPreload(preload, packageSkillsTest);
   expect(output).toContain("PACKAGE_SKILLS_DELAYED");
   expect(output).toContain("PACKAGE_SKILLS_PACK_INVOKED");
-  expect(child.exitCode, output).toBe(0);
+  expect(exitCode, output).toBe(0);
 }, 30_000);
 
-it("reports npm pack failure stderr before attempting to parse package metadata", () => {
+it("reports npm pack failure stderr before attempting to parse package metadata", async () => {
   const dir = mkdtempSync(join(tmpdir(), "omms-package-skills-failure-preload-"));
   generatedDirs.push(dir);
   const preload = join(dir, "package-skills-failure-preload.mjs");
@@ -179,9 +199,9 @@ Bun.spawnSync = (command, options) => {
     "utf8"
   );
 
-  const { child, output } = runWithPreload(preload, packageSkillsTest);
+  const { exitCode, output } = await runWithPreload(preload, packageSkillsTest);
   expect(output).toContain("PACKAGE_SKILLS_FAILURE_INJECTED");
-  expect(child.exitCode, output).not.toBe(0);
+  expect(exitCode, output).not.toBe(0);
   expect(output).toContain("SIMULATED_NPM_PACK_FAILURE");
   expect(output).not.toContain("Unexpected end of JSON input");
 });
