@@ -65,11 +65,16 @@ approved on npm. The channel workflow moves it within an hour of approval, or
 at once after the maintainer dispatches it. With marketplace auto-update on,
 Claude Code installs that version at its next update check.
 
+The plugin source uses an explicit HTTPS Git URL. This avoids Claude's SSH
+selection for the GitHub shorthand source, so a public install needs no SSH
+keys or saved GitHub host key. Custom Git URL rewrites and organisation network
+policies can still change or block the connection.
+
 1. Open Claude Code.
 2. Add the OMMS marketplace:
 
    ```text
-   /plugin marketplace add cmdaltctr/omms
+   /plugin marketplace add https://github.com/cmdaltctr/omms.git
    ```
 
 3. Install the plugin:
@@ -83,7 +88,7 @@ Claude Code installs that version at its next update check.
 The same steps work from a terminal:
 
 ```bash
-claude plugin marketplace add cmdaltctr/omms
+claude plugin marketplace add https://github.com/cmdaltctr/omms.git
 claude plugin install omms@omms
 ```
 
