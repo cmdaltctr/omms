@@ -9,8 +9,8 @@
     {
       "name": "omms",
       "source": {
-        "source": "github",
-        "repo": "cmdaltctr/omms",
+        "source": "url",
+        "url": "https://github.com/cmdaltctr/omms.git",
         "ref": "stable"
       },
       "description": "Shared project memory for Claude Code through OMMS (om-memory-system)."

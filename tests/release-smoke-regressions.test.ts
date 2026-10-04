@@ -2,6 +2,7 @@ import { afterEach, expect, it } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runBunTest, TEST_PARENT_TIMEOUT_MS } from "./test-process.js";
 
 const generatedDirs: string[] = [];
 const repoRoot = join(import.meta.dir, "..");
@@ -15,23 +16,15 @@ afterEach(() => {
   }
 });
 
-function runWithPreload(preload: string, test: string) {
-  const child = Bun.spawnSync({
-    cmd: [process.execPath, "test", "--preload", preload, test],
-    cwd: repoRoot,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  return { child, output: `${child.stdout.toString()}\n${child.stderr.toString()}` };
-}
-
-it("waits for Pi's background startup and backfill calls instead of a fixed delay", () => {
-  const dir = mkdtempSync(join(tmpdir(), "omms-pi-start-delay-"));
-  generatedDirs.push(dir);
-  const preload = join(dir, "pi-start-delay.mjs");
-  writeFileSync(
-    preload,
-    `
+it(
+  "waits for Pi's background startup and backfill calls instead of a fixed delay",
+  async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omms-pi-start-delay-"));
+    generatedDirs.push(dir);
+    const preload = join(dir, "pi-start-delay.mjs");
+    writeFileSync(
+      preload,
+      `
 import { mock } from "bun:test";
 import * as fs from "node:fs";
 const originalWriteFileSync = fs.writeFileSync;
@@ -51,36 +44,31 @@ mock.module("node:fs", () => ({
   writeFileSync,
 }));
 `,
-    "utf8"
-  );
-  const child = Bun.spawnSync({
-    cmd: [
-      process.execPath,
-      "test",
+      "utf8"
+    );
+    const { exitCode, output } = await runBunTest([
       "--preload",
       preload,
       "--test-name-pattern",
       "reconciles the login item|starts the shared web app|aborts and awaits backfill",
       piExtensionTest,
-    ],
-    cwd: repoRoot,
-    stdout: "pipe",
-    stderr: "pipe",
-    timeout: 15_000,
-  });
-  const output = `${child.stdout.toString()}\n${child.stderr.toString()}`;
-  expect(output.match(/PI_START_DELAY_INJECTED/g) ?? []).toHaveLength(4);
-  expect(child.exitCode, output).toBe(0);
-}, 20_000);
+    ]);
+    expect(output.match(/PI_START_DELAY_INJECTED/g) ?? []).toHaveLength(4);
+    expect(exitCode, output).toBe(0);
+  },
+  TEST_PARENT_TIMEOUT_MS
+);
 
-it("permits a retired OpenCode snapshot to disappear while a preview reuses its current copy", () => {
-  const dir = mkdtempSync(join(tmpdir(), "omms-retired-snapshot-preload-"));
-  generatedDirs.push(dir);
-  const preload = join(dir, "retired-snapshot-preload.mjs");
+it(
+  "permits a retired OpenCode snapshot to disappear while a preview reuses its current copy",
+  async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omms-retired-snapshot-preload-"));
+    generatedDirs.push(dir);
+    const preload = join(dir, "retired-snapshot-preload.mjs");
 
-  writeFileSync(
-    preload,
-    `
+    writeFileSync(
+      preload,
+      `
 import { mock } from "bun:test";
 import * as fs from "node:fs";
 import { tmpdir } from "node:os";
@@ -115,22 +103,33 @@ mock.module("node:fs", () => ({
   readFileSync,
 }));
 `,
-    "utf8"
-  );
+      "utf8"
+    );
 
-  const { child, output } = runWithPreload(preload, opencodeWebSelectionTest);
-  expect(output).toContain("RETIRED_SNAPSHOT_INJECTED");
-  expect(child.exitCode, output).toBe(0);
-}, 30_000);
+    // One 30-second test plus process startup and SQLite cleanup must fit inside the parent.
+    const { exitCode, output } = await runBunTest([
+      "--preload",
+      preload,
+      "--test-name-pattern",
+      "^pins the session set, holds back newer turns, copies once, and leaves the source unchanged$",
+      opencodeWebSelectionTest,
+    ]);
+    expect(output).toContain("RETIRED_SNAPSHOT_INJECTED");
+    expect(exitCode, output).toBe(0);
+  },
+  TEST_PARENT_TIMEOUT_MS
+);
 
-it("allows npm pack enough time to return complete package metadata", () => {
-  const dir = mkdtempSync(join(tmpdir(), "omms-package-skills-delay-preload-"));
-  generatedDirs.push(dir);
-  const preload = join(dir, "package-skills-delay-preload.mjs");
+it(
+  "allows npm pack enough time to return complete package metadata",
+  async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omms-package-skills-delay-preload-"));
+    generatedDirs.push(dir);
+    const preload = join(dir, "package-skills-delay-preload.mjs");
 
-  writeFileSync(
-    preload,
-    `
+    writeFileSync(
+      preload,
+      `
 const originalSpawnSync = Bun.spawnSync;
 
 Bun.spawnSync = (command, options) => {
@@ -143,23 +142,27 @@ Bun.spawnSync = (command, options) => {
   return originalSpawnSync(command, options);
 };
 `,
-    "utf8"
-  );
+      "utf8"
+    );
 
-  const { child, output } = runWithPreload(preload, packageSkillsTest);
-  expect(output).toContain("PACKAGE_SKILLS_DELAYED");
-  expect(output).toContain("PACKAGE_SKILLS_PACK_INVOKED");
-  expect(child.exitCode, output).toBe(0);
-}, 30_000);
+    const { exitCode, output } = await runBunTest(["--preload", preload, packageSkillsTest]);
+    expect(output).toContain("PACKAGE_SKILLS_DELAYED");
+    expect(output).toContain("PACKAGE_SKILLS_PACK_INVOKED");
+    expect(exitCode, output).toBe(0);
+  },
+  TEST_PARENT_TIMEOUT_MS
+);
 
-it("reports npm pack failure stderr before attempting to parse package metadata", () => {
-  const dir = mkdtempSync(join(tmpdir(), "omms-package-skills-failure-preload-"));
-  generatedDirs.push(dir);
-  const preload = join(dir, "package-skills-failure-preload.mjs");
+it(
+  "reports npm pack failure stderr before attempting to parse package metadata",
+  async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omms-package-skills-failure-preload-"));
+    generatedDirs.push(dir);
+    const preload = join(dir, "package-skills-failure-preload.mjs");
 
-  writeFileSync(
-    preload,
-    `
+    writeFileSync(
+      preload,
+      `
 import { Buffer } from "node:buffer";
 
 const originalSpawnSync = Bun.spawnSync;
@@ -176,12 +179,14 @@ Bun.spawnSync = (command, options) => {
   };
 };
 `,
-    "utf8"
-  );
+      "utf8"
+    );
 
-  const { child, output } = runWithPreload(preload, packageSkillsTest);
-  expect(output).toContain("PACKAGE_SKILLS_FAILURE_INJECTED");
-  expect(child.exitCode, output).not.toBe(0);
-  expect(output).toContain("SIMULATED_NPM_PACK_FAILURE");
-  expect(output).not.toContain("Unexpected end of JSON input");
-});
+    const { exitCode, output } = await runBunTest(["--preload", preload, packageSkillsTest]);
+    expect(output).toContain("PACKAGE_SKILLS_FAILURE_INJECTED");
+    expect(exitCode, output).not.toBe(0);
+    expect(output).toContain("SIMULATED_NPM_PACK_FAILURE");
+    expect(output).not.toContain("Unexpected end of JSON input");
+  },
+  TEST_PARENT_TIMEOUT_MS
+);
