@@ -16,7 +16,8 @@ if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Cannot read the version from release $tag." >&2
   exit 1
 fi
-if [[ $(npm view "$package" version 2>/dev/null) == "$version" ]]; then
+# Recheck the registry so npm's cache cannot hide a newly approved release.
+if [[ $(npm view "$package" version --prefer-online 2>/dev/null) == "$version" ]]; then
   echo "$package@$version is already on npm. Nothing is waiting for approval." >&2
   exit 1
 fi
@@ -39,10 +40,10 @@ if ! npm stage approve "$stage_id"; then
 fi
 
 for _ in $(seq 1 30); do
-  [[ $(npm view "$package" version 2>/dev/null) == "$version" ]] && break
+  [[ $(npm view "$package" version --prefer-online 2>/dev/null) == "$version" ]] && break
   sleep "$poll_seconds"
 done
-if [[ $(npm view "$package" version 2>/dev/null) != "$version" ]]; then
+if [[ $(npm view "$package" version --prefer-online 2>/dev/null) != "$version" ]]; then
   echo "npm latest is not $version yet. The hourly channel run finishes the rest." >&2
   exit 1
 fi

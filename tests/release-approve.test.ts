@@ -49,7 +49,11 @@ esac`
     `case "$1 $2" in
   "stage view") echo "om-memory-system@4.5.0" ;;
   "stage approve") [ "${options.approveExit ?? 0}" = 0 ] || exit ${options.approveExit ?? 0}; echo 4.5.0 > "${state("latest")}" ;;
-  "view om-memory-system") cat "${state("latest")}" ;;
+  "view om-memory-system")
+    case " $* " in
+      *" --prefer-online "*) cat "${state("latest")}" ;;
+      *) echo 4.4.2 ;;
+    esac ;;
 esac`
   );
   tool(
@@ -115,6 +119,9 @@ describe("release approve script", () => {
     const result = f.run();
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
+    const views = f.calls().filter((call) => call.startsWith("npm view "));
+    expect(views).toHaveLength(3);
+    expect(views.every((call) => call.endsWith(" version --prefer-online"))).toBe(true);
     expect(f.calls()).toContain(`npm stage approve ${STAGE}`);
     expect(f.calls()).toContain(
       "gh workflow run claude-plugin-channel.yml --repo cmdaltctr/omms --ref main"
