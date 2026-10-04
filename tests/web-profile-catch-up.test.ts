@@ -47,6 +47,11 @@ it("previews, runs one catch-up at a time from this machine, pauses, resumes, an
     const started = await send("/api/settings/profile/catch-up/start", "POST");
     const second = await send("/api/settings/profile/catch-up/start", "POST");
     const lockedDuringRun = profileCatchUpLock.isActive();
+    // Pause while the first batch is in flight. Sent earlier, it can stop the run before any batch.
+    for (let i = 0; calls === 0; i++) {
+      if (i === 200) throw new Error("no model call");
+      await new Promise((r) => setTimeout(r, 10));
+    }
     await send("/api/settings/profile/catch-up/pause", "POST");
     release();
     const paused = await waitFor((job) => job.state !== "running");
