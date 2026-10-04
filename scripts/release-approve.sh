@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Approve the staged npm release with 2FA, then move the Claude plugin channel.
 # Usage: bun run release:approve [<stage-id>]
-# Without a stage ID, the script reads it from the open approval issue that the
-# Release workflow opened.
+# Without a stage ID, the script reads it from the newest GitHub Release note,
+# where the Release workflow writes it.
 set -euo pipefail
 
 repo=${OMMS_REPO:-cmdaltctr/omms}
@@ -10,29 +10,28 @@ package=om-memory-system
 poll_seconds=${OMMS_RELEASE_POLL_SECONDS:-5}
 uuid='[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 
-issue=$(gh issue list --repo "$repo" --state open --search "\"Approve $package@\" in:title" \
-  --json number,title --jq "[.[] | select(.title | startswith(\"Approve $package@\"))] | sort_by(.number) | last | select(. != null) | \"\(.number) \(.title)\"")
-if [[ -z $issue ]]; then
-  echo "No open approval issue. Nothing is waiting for approval." >&2
+tag=$(gh release view --repo "$repo" --json tagName --jq .tagName)
+version=${tag#v}
+if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Cannot read the version from release $tag." >&2
   exit 1
 fi
-number=${issue%% *}
-version=$(sed -E "s/^[0-9]+ Approve $package@([^ ]+) on npm$/\1/" <<<"$issue")
-if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "Cannot read the version from issue #$number." >&2
+if [[ $(npm view "$package" version 2>/dev/null) == "$version" ]]; then
+  echo "$package@$version is already on npm. Nothing is waiting for approval." >&2
   exit 1
 fi
 
 stage_id=${1:-}
 if [[ -z $stage_id ]]; then
-  stage_id=$(gh issue view "$number" --repo "$repo" --json body --jq .body | grep -Eo "$uuid" | head -1 || true)
+  stage_id=$(gh release view "$tag" --repo "$repo" --json body --jq .body |
+    grep -Eo "npm stage approve $uuid" | tail -1 | cut -d' ' -f4 || true)
 fi
 if [[ ! $stage_id =~ ^$uuid$ ]]; then
-  echo "No stage ID in issue #$number. Run 'npm stage list $package', then pass the ID." >&2
+  echo "No stage ID in the $tag release note. Run 'npm stage list $package', then pass the ID." >&2
   exit 1
 fi
 
-echo "Approving $package@$version (stage $stage_id, issue #$number)."
+echo "Approving $package@$version (stage $stage_id)."
 npm stage view "$stage_id"
 if ! npm stage approve "$stage_id"; then
   echo "Approval failed. If npm says you are not logged in, run 'npm login', then try again." >&2

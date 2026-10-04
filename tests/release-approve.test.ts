@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 interface Options {
-  issue?: string;
+  latest?: string;
   body?: string;
   approveExit?: number;
   stable?: string;
@@ -27,7 +27,7 @@ function fixture(options: Options = {}) {
   const bin = join(folder, "bin");
   mkdirSync(bin);
   const state = (name: string) => join(folder, name);
-  writeFileSync(state("latest"), "4.4.2");
+  writeFileSync(state("latest"), options.latest ?? "4.4.2");
   const tool = (name: string, body: string) =>
     writeFileSync(
       join(bin, name),
@@ -38,8 +38,7 @@ function fixture(options: Options = {}) {
   tool(
     "gh",
     `case "$1 $2" in
-  "issue list") printf '%s' "${options.issue ?? "7 Approve om-memory-system@4.5.0 on npm"}" ;;
-  "issue view") printf '%s\\n' "${options.body ?? `Stage ID: \\\`${STAGE}\\\``}" ;;
+  "release view") if [ "$3" = --repo ]; then echo v4.5.0; else printf '%s\\n' "${options.body ?? `Approve it, or run \\\`npm stage approve ${STAGE}\\\` (2FA).`}"; fi ;;
   "run list") if [ -f "${state("dispatched")}" ]; then echo 101; else echo 100; fi ;;
   "workflow run") touch "${state("dispatched")}" ;;
   "run watch") exit 0 ;;
@@ -101,13 +100,12 @@ describe("release automation workflows", () => {
     expect(release).toContain("needs.publish.outputs.staged != 'true'");
   });
 
-  it("closes the approval issue under the title the Release workflow opens", () => {
-    expect(workflow("release.yml")).toContain(
-      '--title "Approve om-memory-system@$RELEASE_VERSION on npm"'
-    );
-    expect(workflow("claude-plugin-channel.yml")).toContain(
-      'title="Approve om-memory-system@$version on npm"'
-    );
+  it("tells the maintainer with a mention on the release pull request, not an issue", () => {
+    const release = workflow("release.yml");
+    expect(release).not.toContain("gh issue");
+    expect(release.match(/gh pr comment "\$pr"/g)?.length).toBe(2);
+    expect(release.match(/echo "@\$OWNER /g)?.length).toBe(2);
+    expect(release).toContain("npm stage approve $STAGE_ID");
   });
 });
 
@@ -132,16 +130,16 @@ describe("release approve script", () => {
     expect(f.calls()).toContain(`npm stage approve ${other}`);
   });
 
-  it("stops when no approval issue is open", () => {
-    const f = fixture({ issue: "" });
+  it("stops when the newest release is already on npm", () => {
+    const f = fixture({ latest: "4.5.0" });
     const result = f.run();
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("Nothing is waiting for approval");
     expect(f.calls().some((call) => call.startsWith("npm stage approve"))).toBe(false);
   });
 
-  it("stops when the issue has no stage ID", () => {
-    const f = fixture({ body: "Stage ID: not found in the log." });
+  it("stops when the release note has no stage ID", () => {
+    const f = fixture({ body: "Approve it, or run `npm stage approve <stage-id>` (2FA)." });
     const result = f.run();
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("No stage ID");
@@ -153,8 +151,9 @@ describe("release approve script", () => {
     const result = f.run();
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("run 'npm login'");
-    expect(f.calls().some((call) => call.startsWith("npm view"))).toBe(false);
-    expect(f.calls().some((call) => call.startsWith("gh workflow run"))).toBe(false);
+    const calls = f.calls();
+    const approved = calls.findIndex((call) => call.startsWith("npm stage approve"));
+    expect(calls.slice(approved + 1)).toEqual([]);
   });
 
   it("fails when stable does not reach the release tag", () => {

@@ -33,18 +33,18 @@ users from a publish by a compromised workflow or account.
    Release workflow, and `--match-head-commit` merges only the checked commit.
    Any other pull request waits for the maintainer.
 
-2. After `npm stage publish`, the Release workflow opens an issue assigned to
-   the repository owner: `Approve om-memory-system@X.Y.Z on npm`. It holds the
-   stage ID and the approve command. The assignment sends a GitHub
-   notification.
+2. After `npm stage publish`, the Release workflow comments on the merged
+   release pull request and mentions the repository owner, with the stage ID
+   and the approve command. GitHub emails the mention when the owner turns on
+   email notifications. No issue is opened, so the issue list stays clear.
 3. If smoke or publish fails before npm stages the version, the
    `report-failure` job marks the GitHub Release "not published to npm" and
-   opens an issue.
-4. `bun run release:approve` reads the stage ID from the issue, runs
-   `npm stage approve` (2FA prompt), waits for npm `latest`, dispatches the
-   Claude plugin channel, and checks that `stable` is at the release tag.
-5. The Claude plugin channel closes the approval issue when npm `latest`
-   matches its version. An approval made on npmjs.com is covered by the hourly
+   mentions the owner on the release pull request. The failed run also sends
+   GitHub's failed-workflow notification.
+4. `bun run release:approve` reads the stage ID from the newest GitHub Release
+   note, runs `npm stage approve` (2FA prompt), waits for npm `latest`,
+   dispatches the Claude plugin channel, and checks that `stable` is at the
+   release tag. An approval made on npmjs.com is covered by the hourly channel
    run.
 
 ## Consequences
@@ -63,8 +63,8 @@ users from a publish by a compromised workflow or account.
 
 ### Neutral
 
-- Notification delivery depends on the maintainer's GitHub notification
-  settings for assigned issues.
+- Email delivery depends on the maintainer's GitHub notification settings for
+  mentions and failed workflows.
 
 ## Alternatives Considered
 
