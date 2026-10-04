@@ -2,6 +2,27 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.5.0](https://github.com/cmdaltctr/omms/compare/v4.4.2...v4.5.0) (2026-10-04)
+
+
+### Features
+
+* **web:** apply warm design and accessible shared controls ([178dc8d](https://github.com/cmdaltctr/omms/commit/178dc8d45046f63aee0c4f24f70e2c9901a7ae16))
+* **web:** apply warm design and accessible shared controls ([3f4df6b](https://github.com/cmdaltctr/omms/commit/3f4df6b47f15ccde96ba96158d74ff7b8172066c))
+
+
+### Bug Fixes
+
+* **claude-code:** fetch the stable plugin through HTTPS ([88dd744](https://github.com/cmdaltctr/omms/commit/88dd744fb6fa79c7ad84d3d38cbfc913ee242014))
+* **claude-code:** fetch the stable plugin through HTTPS ([dd68ec4](https://github.com/cmdaltctr/omms/commit/dd68ec4b812ceff7535ba0763ee0465959dff17b))
+
+
+### Documentation
+
+* add canary comparison and JIT control correction to TDR-030 ([562573a](https://github.com/cmdaltctr/omms/commit/562573abc91c712efa6eaefb0da822deb471818e))
+* clarify browser runner requirements after review ([18431e6](https://github.com/cmdaltctr/omms/commit/18431e644455ac911b42d8267ffea33706cee253))
+* **web:** record design decision and archive verified trial ([f61b6b4](https://github.com/cmdaltctr/omms/commit/f61b6b41ce408d42a3a5214f1601e5265a975fa3))
+
 ## [4.4.2](https://github.com/cmdaltctr/omms/compare/v4.4.1...v4.4.2) (2026-10-04)
 
 
