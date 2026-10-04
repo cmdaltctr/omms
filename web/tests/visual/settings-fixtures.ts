@@ -133,9 +133,22 @@ export function settingsResponse(
             sessions: 2,
             suggestion: "/synthetic/preview-project",
           },
+          { directory: "/synthetic/manual", sessions: 3, suggestion: null },
+          { directory: "", sessions: 4, suggestion: null },
+          ...Array.from({ length: 30 }, (_, index) => ({
+            directory: `/synthetic/a-long-project-path-for-directory-map-review/deleted-worktree-${index}/src`,
+            sessions: 1,
+            suggestion: "/synthetic/preview-project",
+          })),
         ],
-        opencode: [],
-        "claude-code": [],
+        opencode: [
+          {
+            directory: "/synthetic/old-project",
+            sessions: 1,
+            suggestion: "/synthetic/preview-project",
+          },
+        ],
+        "claude-code": [{ directory: "/synthetic/no-suggestion", sessions: 2, suggestion: null }],
       });
     case "/api/settings/diagnostics":
       return ok({

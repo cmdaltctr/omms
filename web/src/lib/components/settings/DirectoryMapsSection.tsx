@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { mapsToSave, type MapDecision, type PathMap } from "$lib/external-api-settings";
 import { useSettingsText } from "$lib/i18n/settings";
-import { hostLabel } from "$lib/host-label";
-import { applySuggestions, NO_DIRECTORY } from "$lib/directory-maps";
+import { applySuggestions, selectWithTargets, clearSelection } from "$lib/directory-maps";
+import { DirectoryMapHost } from "./DirectoryMapHost";
 
 type Snapshot = { revision: string };
 type Host = "pi" | "opencode" | "claude-code";
@@ -23,7 +23,9 @@ export function DirectoryMapsSection() {
   const [decisions, setDecisions] = useState<Record<string, MapDecision>>({});
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [resolveNotes, setResolveNotes] = useState<Partial<Record<Host, string>>>({});
+  const [resolveNotes, setResolveNotes] = useState<
+    Partial<Record<Host, { filled: number; alreadySelected: number; notFilled: number }>>
+  >({});
   const load = () =>
     settingsRequest<View>("/api/settings/import-maps")
       .then((value) => {
@@ -56,7 +58,11 @@ export function DirectoryMapsSection() {
     setDecisions(result.decisions);
     setResolveNotes((notes) => ({
       ...notes,
-      [host]: `${s("Filled")}: ${result.filled} · ${s("No suggestion")}: ${result.notFilled}. ${s("Check them, then press Save maps.")}`,
+      [host]: {
+        filled: result.filled,
+        alreadySelected: result.alreadySelected,
+        notFilled: result.notFilled,
+      },
     }));
   }
 
@@ -108,7 +114,13 @@ export function DirectoryMapsSection() {
         {view?.saved.map((map) => (
           <li key={map.from} className="flex flex-wrap items-center gap-2">
             <span className={removed.has(map.from) ? "line-through" : ""}>
-              <code>{map.from}</code> → <code>{map.to}</code>
+              <code dir="ltr" className="break-all">
+                {map.from}
+              </code>{" "}
+              →{" "}
+              <code dir="ltr" className="break-all">
+                {map.to}
+              </code>
             </span>
             <button
               type="button"
@@ -129,84 +141,19 @@ export function DirectoryMapsSection() {
       </ul>
       {(["pi", "opencode", "claude-code"] as const).map((host) => {
         const rows = view?.[host] ?? [];
-        const mappable = rows.filter((row) => row.directory !== NO_DIRECTORY);
         return (
-          <div key={host} className="space-y-2 rounded-lg border border-border p-3">
-            <h3 className="font-medium">
-              {hostLabel(host)}: {s("Unresolved directories")}
-            </h3>
-            {rows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {s("No unresolved directories in the latest run.")}
-              </p>
-            ) : (
-              <div className="space-y-1">
-                <button
-                  type="button"
-                  className="rounded border border-border px-3 py-1.5 text-sm"
-                  disabled={busy || mappable.length === 0}
-                  onClick={() => smartResolve(host, rows)}
-                >
-                  {s("Smart resolve directories")}
-                </button>
-                <p className="text-xs text-muted-foreground">
-                  {s(
-                    "Finds the project each missing directory belongs to, mostly the main repository of a deleted worktree, and fills it in for you to check. Nothing is saved until you press Save maps."
-                  )}
-                </p>
-                {resolveNotes[host] && (
-                  <p role="status" className="text-xs">
-                    {resolveNotes[host]}
-                  </p>
-                )}
-              </div>
-            )}
-            {rows.map((row) => {
-              if (row.directory === NO_DIRECTORY) {
-                return (
-                  <div
-                    key="no-directory"
-                    className="rounded-lg border border-dashed border-border p-2 text-sm text-muted-foreground"
-                  >
-                    {s("No directory recorded")} ·{" "}
-                    {row.sessions === 1 ? s("1 session") : `${row.sessions} ${s("sessions")}`} ·{" "}
-                    {s("These sessions cannot be mapped.")}
-                  </div>
-                );
-              }
-              const decision = decisions[row.directory];
-              const target = decision?.target ?? row.suggestion ?? "";
-              return (
-                <div
-                  key={row.directory}
-                  className="space-y-1 rounded-lg border border-border p-2 text-sm"
-                >
-                  <p>
-                    <code>{row.directory}</code> ·{" "}
-                    {row.sessions === 1 ? s("1 session") : `${row.sessions} ${s("sessions")}`}
-                  </p>
-                  {!row.suggestion && (
-                    <p className="text-xs text-muted-foreground">{s("No suggestion found.")}</p>
-                  )}
-                  <input
-                    aria-label={`${row.directory} ${s("Target directory")}`}
-                    className="w-full rounded border border-border bg-background p-2"
-                    placeholder={s("Target directory")}
-                    value={target}
-                    onChange={(event) => decide(row, { target: event.target.value })}
-                  />
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={decision?.accepted ?? false}
-                      onChange={(event) => decide(row, { accepted: event.target.checked })}
-                    />
-                    {s("Use this map")}
-                  </label>
-                </div>
-              );
-            })}
-          </div>
+          <DirectoryMapHost
+            key={host}
+            host={host}
+            rows={rows}
+            decisions={decisions}
+            busy={busy}
+            note={resolveNotes[host]}
+            onDecide={decide}
+            onResolve={() => smartResolve(host, rows)}
+            onSelect={() => setDecisions((previous) => selectWithTargets(rows, previous))}
+            onClear={() => setDecisions((previous) => clearSelection(rows, previous))}
+          />
         );
       })}
       <button

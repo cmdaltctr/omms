@@ -438,8 +438,12 @@ To use another model, or to run the catch-up from a terminal, see [CLI: Profile 
 A directory map tells OMMS which project a folder belongs to. Use it when chats were recorded in a folder that no longer exists, such as a deleted git worktree.
 
 - **Saved maps** lists the maps in `importPathMaps`. They apply to every host. **Remove** marks one for removal, and **Keep** undoes that.
-- One card for each host lists its **Unresolved directories**: the folders the latest session listing or full import could not find, with a session count. Sessions that recorded no folder are counted under **No directory recorded**. They cannot be mapped.
-- **Smart resolve directories** fills the suggested target into every row of that host that has one and ticks **Use this map**. It says how many rows it filled and how many have no suggestion. It saves nothing. Check the rows, then select **Save maps**.
+- Each host's **Unresolved directories** starts collapsed. Its summary shows directory, unresolved session, and selected map counts. Expand a host to review its compact rows. Expand a row to edit its target. Collapsing either keeps unsaved targets and selections.
+- Sessions that recorded no folder appear under **No directory recorded**. They cannot be mapped and are excluded from bulk selection.
+- **Select all with targets** selects that host's rows with a non-empty target. It uses edited text when present, including an explicitly cleared target, otherwise the suggestion. It does not check that a typed folder exists.
+- **Clear selection** unticks that host's rows and keeps target text. A source shared across hosts has one map, so selecting or clearing it updates every host.
+- **Smart resolve directories** selects suggested targets while keeping accepted choices. Its result shows newly selected suggestions, already selected rows, and rows without suggestions. An empty result explains whether suggestions are already selected or targets need choosing manually. Review the rows, then press **Save maps**.
+- Bulk actions save nothing and start no import. **Save maps** stays outside the host lists and remains reachable when they are collapsed.
 - Where OMMS can find one, the target box holds a suggested existing folder:
   1. The main repository of a deleted worktree. For `~/code/app-feat-x` or `~/workspaces/app/feat-x`, it suggests `~/code/app`.
   2. For OpenCode, the project folder that OpenCode recorded for the session. OMMS reads OpenCode's database without writing to it.
@@ -447,9 +451,10 @@ A directory map tells OMMS which project a folder belongs to. Use it when chats 
 
 To save maps:
 
-1. Check or edit the target folder.
-2. Tick **Use this map**.
-3. Select **Save maps**.
+1. Expand the host and check the target summaries.
+2. Expand a row to edit its target folder when needed.
+3. Tick **Use this map**, or select **Select all with targets** and review the selections.
+4. Select **Save maps**.
 
 Maps apply to the next import or backfill run, on every surface. A terminal `--map` for the same folder wins for that run. A map to a folder that does not exist leaves its sessions unresolved. Memories already imported through a map stay when you remove it.
 
