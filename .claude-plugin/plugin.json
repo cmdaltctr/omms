@@ -1,7 +1,7 @@
 {
   "name": "omms",
   "displayName": "OMMS",
-  "version": "4.4.2",
+  "version": "4.5.0",
   "description": "Shared project memory for Claude Code through OMMS (om-memory-system). The global install is optional.",
   "author": {
     "name": "cmdaltctr",
