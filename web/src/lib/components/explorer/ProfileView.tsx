@@ -127,7 +127,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
     if (page.total <= PAGE_SIZE) return null;
     return (
       <div className="flex flex-wrap items-center gap-1.5 pt-2">
-        <span className="text-xs text-muted-foreground mr-2">
+        <span className="text-xs text-muted-foreground me-2">
           {page.start + 1}-{Math.min(page.start + PAGE_SIZE, page.total)} / {page.total}
         </span>
         {Array.from({ length: page.totalPages }, (_, i) => i + 1).map((p) => (
@@ -156,10 +156,10 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
     const idx = indexOfItem(fullList, item);
     const pct = confidencePct(item);
     return (
-      <div className="rounded-xl border border-border bg-card/50 p-3 space-y-2">
-        <div className="flex items-start gap-2">
+      <div className="min-w-0 rounded-xl border border-border bg-card p-3 space-y-2">
+        <div className="flex flex-wrap items-start gap-2">
           <Badge variant="outline">{item.category || "General"}</Badge>
-          <div className="flex items-center gap-0.5 ml-auto">
+          <div className="flex items-center gap-0.5 ms-auto">
             <Button
               variant="ghost"
               size="icon-xs"
@@ -179,7 +179,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
           </div>
           <div
             className={cn(
-              "shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+              "shrink-0 rounded-md border px-1.5 py-0.5 text-xs font-medium tabular-nums",
               CONFIDENCE_CLASSES[confidenceLevel(pct)]
             )}
             title={`${t("label-confidence")}: ${pct}%`}
@@ -187,7 +187,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
             {pct}%
           </div>
         </div>
-        <p className="text-sm">{item.description || ""}</p>
+        <p className="text-sm break-words">{item.description || ""}</p>
         {item.evidence || item.frequency ? (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span
@@ -233,19 +233,21 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
     <>
       <div className="space-y-6">
         <div className="space-y-2">
-          <h3 className="text-base font-medium">{profile.displayName || profile.userId}</h3>
+          <h3 dir="auto" className="text-sm font-semibold break-words">
+            {profile.displayName || profile.userId}
+          </h3>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-muted px-2.5 py-1 text-xs">
               <span className="text-muted-foreground">{t("profile-version")}</span>
-              <span className="ml-1">{profile.version}</span>
+              <span className="ms-1 font-mono">{profile.version}</span>
             </span>
             <span className="rounded-full bg-muted px-2.5 py-1 text-xs">
               <span className="text-muted-foreground">{t("profile-prompts")}</span>
-              <span className="ml-1">{profile.totalPromptsAnalyzed}</span>
+              <span className="ms-1 font-mono">{profile.totalPromptsAnalyzed}</span>
             </span>
             <span className="rounded-full bg-muted px-2.5 py-1 text-xs">
               <span className="text-muted-foreground">{t("profile-updated")}</span>
-              <span className="ml-1">
+              <span className="ms-1">
                 {profile.lastAnalyzedAt ? formatDate(profile.lastAnalyzedAt) : "—"}
               </span>
             </span>
@@ -268,7 +270,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
 
         <div className="grid gap-6">
           <section id="profile-preferences" className="scroll-mt-4 space-y-3">
-            <h4 className="flex items-center gap-2 text-sm font-medium">
+            <h4 className="flex items-center gap-2 text-sm font-semibold">
               <Heart className="size-4" />
               {t("profile-preferences")}
               <span className="text-muted-foreground">{preferences.length}</span>
@@ -293,7 +295,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
           </section>
 
           <section id="profile-patterns" className="scroll-mt-4 space-y-3">
-            <h4 className="flex items-center gap-2 text-sm font-medium">
+            <h4 className="flex items-center gap-2 text-sm font-semibold">
               <Activity className="size-4" />
               {t("profile-patterns")}
               <span className="text-muted-foreground">{patterns.length}</span>
@@ -318,7 +320,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
           </section>
 
           <section id="profile-workflows" className="scroll-mt-4 space-y-3">
-            <h4 className="flex items-center gap-2 text-sm font-medium">
+            <h4 className="flex items-center gap-2 text-sm font-semibold">
               <Workflow className="size-4" />
               {t("profile-workflows")}
               <span className="text-muted-foreground">{workflowsCount}</span>
@@ -335,10 +337,12 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
                     return (
                       <div
                         key={entry.index}
-                        className="rounded-xl border border-border bg-card/50 p-3 space-y-2"
+                        className="min-w-0 rounded-xl border border-border bg-card p-3 space-y-2"
                       >
                         <div className="flex items-start gap-2">
-                          <div className="text-sm font-medium flex-1">{item.description || ""}</div>
+                          <div className="text-sm font-medium min-w-0 break-words flex-1">
+                            {item.description || ""}
+                          </div>
                           <div className="flex items-center gap-0.5">
                             <Button
                               variant="ghost"
@@ -355,7 +359,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
                               <Trash2 className="size-3" />
                             </Button>
                           </div>
-                          <div className="size-9 rounded-full border border-border grid place-items-center text-[10px] tabular-nums shrink-0">
+                          <div className="size-9 rounded-full border border-border grid place-items-center text-xs tabular-nums shrink-0">
                             {pct}%
                           </div>
                         </div>

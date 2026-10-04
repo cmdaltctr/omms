@@ -1,0 +1,11 @@
+{
+  "check": "preferences restored after reload",
+  "theme": "light",
+  "lang": "ar",
+  "dir": "rtl",
+  "width": 56,
+  "collapsed": "1",
+  "tree": "0",
+  "treeHidden": true,
+  "route": "/settings"
+}

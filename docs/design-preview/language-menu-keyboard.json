@@ -1,0 +1,21 @@
+[
+  {
+    "check": "language menu opens on Enter",
+    "menu": true,
+    "focused": "menuitemradio",
+    "checked": "true"
+  },
+  { "check": "Home", "focused": "English (EN)" },
+  { "check": "End", "focused": "العربية (AR)" },
+  { "check": "ArrowDown", "focused": "English (EN)" },
+  { "check": "ArrowUp", "focused": "العربية (AR)" },
+  { "check": "language Escape", "closed": true, "focusReturned": true },
+  {
+    "check": "language selection",
+    "lang": "en",
+    "dir": "ltr",
+    "closed": true,
+    "focusReturned": true,
+    "route": "/settings"
+  }
+]

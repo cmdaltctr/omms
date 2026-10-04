@@ -160,7 +160,10 @@ export function Select({
   };
 
   return (
-    <div ref={container} className={cn("relative", className?.includes("w-full") && "w-full")}>
+    <div
+      ref={container}
+      className={cn("relative min-w-0 max-w-full", className?.includes("w-full") && "w-full")}
+    >
       <button
         ref={trigger}
         id={id}
@@ -176,9 +179,9 @@ export function Select({
         onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={onKeyDown}
         className={cn(
-          "flex items-center justify-between gap-2 text-start transition-colors hover:border-primary/60 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-9 max-w-full items-center justify-between gap-2 rounded-[10px] border border-input bg-card px-2.5 text-ui text-foreground text-start transition-colors duration-150 hover:bg-interactive-hover focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
           className,
-          "flex"
+          "flex h-9 rounded-[10px] border-input bg-card text-ui"
         )}
       >
         <span className="min-w-0 truncate">{selected?.label ?? ""}</span>
@@ -195,7 +198,7 @@ export function Select({
           id={listId}
           role="listbox"
           aria-label={ariaLabel}
-          className="absolute start-0 top-full z-20 mt-1 max-h-64 w-max min-w-full max-w-[min(40rem,calc(100vw-2rem))] overflow-auto overscroll-contain rounded-lg border border-sidebar-border bg-card p-1 shadow-lg"
+          className="absolute start-0 top-full z-20 mt-1 max-h-64 w-max min-w-full max-w-[min(40rem,calc(100vw-2rem))] overflow-auto overscroll-contain rounded-[10px] border border-input bg-card p-1 shadow-sm"
         >
           {options.map((option, index) => (
             <li
@@ -209,7 +212,7 @@ export function Select({
               onClick={() => choose(option)}
               className={cn(
                 "flex w-max min-w-full cursor-pointer items-center justify-between gap-3 whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm text-card-foreground transition-colors",
-                index === active && "bg-sidebar-accent text-primary",
+                index === active && "bg-selection text-foreground",
                 option.value === current && "font-medium",
                 option.disabled && "cursor-not-allowed opacity-50"
               )}

@@ -48,6 +48,10 @@ const LANGUAGE_OPTIONS: { code: Lang; label: string }[] = [
 const COLLAPSED_KEY = "omms-sidebar-collapsed";
 const SETTINGS_TREE_KEY = "omms-sidebar-settings-open";
 
+/** Shared base for the sidebar footer icon controls; each call site adds its own shape and edges. */
+const FOOTER_ICON_BUTTON =
+  "inline-flex min-h-11 min-w-11 md:min-h-8 md:min-w-7 items-center justify-center text-muted-foreground transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring";
+
 /** The saved open state of the Settings tree, or null when none is saved. */
 function readSettingsTreeOpen(): boolean | null {
   try {
@@ -194,11 +198,11 @@ export function AppSidebar({
 
   function navClass(active: boolean) {
     return cn(
-      "flex w-full min-w-0 items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors",
+      "flex w-full min-w-0 min-h-11 md:min-h-9 items-center gap-2 rounded-[10px] px-3 py-2 text-ui transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
       onDesktop("md:justify-center md:px-0"),
       active
         ? "bg-sidebar-accent text-sidebar-accent-foreground"
-        : "text-sidebar-foreground/80 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
+        : "text-sidebar-foreground hover:bg-interactive-hover active:bg-interactive-active"
     );
   }
 
@@ -236,7 +240,7 @@ export function AppSidebar({
             />
             <span
               className={cn(
-                "truncate text-sm font-medium tracking-wide text-sidebar-primary",
+                "truncate text-ui font-medium tracking-wide text-primary-label",
                 onDesktop("md:hidden")
               )}
             >
@@ -261,7 +265,7 @@ export function AppSidebar({
           <Button
             variant="ghost"
             size="icon-sm"
-            className="md:hidden shrink-0"
+            className="md:hidden min-h-11 min-w-11 shrink-0"
             onClick={() => setOpen(false)}
             aria-label={closeLabel}
           >
@@ -286,7 +290,7 @@ export function AppSidebar({
             onClick={(e) => onNavClick(e, ROUTES.project)}
           >
             <Folder className="size-4 shrink-0" />
-            <span className={cn("truncate text-start", onDesktop("md:sr-only"))}>
+            <span className={cn("min-w-0 break-words text-start", onDesktop("md:sr-only"))}>
               {projectLabel}
             </span>
           </a>
@@ -298,7 +302,7 @@ export function AppSidebar({
             onClick={(e) => onNavClick(e, ROUTES.profile)}
           >
             <User className="size-4 shrink-0" />
-            <span className={cn("truncate text-start", onDesktop("md:sr-only"))}>
+            <span className={cn("min-w-0 break-words text-start", onDesktop("md:sr-only"))}>
               {profileLabel}
             </span>
           </a>
@@ -312,7 +316,7 @@ export function AppSidebar({
               <li key={section.id}>
                 <a
                   href={`${ROUTES.profile}#${section.id}`}
-                  className="block truncate rounded-lg px-2.5 py-1 text-xs text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/70 hover:text-primary"
+                  className="flex min-h-11 md:min-h-7 items-center break-words rounded-lg px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
                   onClick={(e) => onSectionClick(e, section.id)}
                 >
                   {section.label}
@@ -329,7 +333,9 @@ export function AppSidebar({
               onClick={(e) => onNavClick(e, ROUTES.settings)}
             >
               <Settings className="size-4 shrink-0" />
-              <span className={cn("truncate text-start uppercase", onDesktop("md:sr-only"))}>
+              <span
+                className={cn("min-w-0 break-words text-start uppercase", onDesktop("md:sr-only"))}
+              >
                 {settingsLabel}
               </span>
             </a>
@@ -337,7 +343,7 @@ export function AppSidebar({
               <button
                 type="button"
                 className={cn(
-                  "inline-flex shrink-0 items-center rounded-lg p-1.5 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/70 hover:text-primary",
+                  "inline-flex min-h-11 min-w-11 md:min-h-7 md:min-w-7 shrink-0 items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
                   onDesktop("md:hidden")
                 )}
                 onClick={toggleSettingsTree}
@@ -367,7 +373,7 @@ export function AppSidebar({
                 <li key={section.id}>
                   <a
                     href={`${ROUTES.settings}#${section.id}`}
-                    className="block truncate rounded-lg px-2.5 py-1 text-xs uppercase text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/70 hover:text-primary"
+                    className="flex min-h-11 md:min-h-7 items-center break-words rounded-lg px-2.5 py-1 text-xs uppercase text-muted-foreground transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
                     onClick={(e) => onSectionClick(e, section.id, "settings")}
                   >
                     {section.label}
@@ -400,7 +406,7 @@ export function AppSidebar({
               <button
                 ref={languageTrigger}
                 type="button"
-                className="inline-flex items-center justify-center rounded-s-lg px-1.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                className={`${FOOTER_ICON_BUTTON} rounded-s-lg px-1.5 py-1.5 text-ui`}
                 onClick={() => setLanguageMenuOpen((open) => !open)}
                 aria-label={`${languageLabel}: ${langLabel}`}
                 aria-haspopup="menu"
@@ -424,7 +430,7 @@ export function AppSidebar({
                       type="button"
                       role="menuitemradio"
                       aria-checked={langLabel.toLowerCase() === code}
-                      className="flex w-full rounded-md px-2.5 py-2 text-start text-sm text-card-foreground hover:bg-sidebar-accent focus-visible:bg-sidebar-accent"
+                      className="flex min-h-11 md:min-h-9 w-full items-center rounded-md px-2.5 py-2 text-start text-ui text-card-foreground aria-checked:bg-selection hover:bg-interactive-hover focus-visible:bg-selection focus-visible:outline-2 focus-visible:outline-ring"
                       onClick={() => {
                         onLanguageSelect?.(code);
                         setLanguageMenuOpen(false);
@@ -439,7 +445,7 @@ export function AppSidebar({
             </div>
             <button
               type="button"
-              className="inline-flex items-center self-stretch border-s border-sidebar-border px-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              className={`${FOOTER_ICON_BUTTON} self-stretch border-s border-sidebar-border px-1.5`}
               onClick={() => toggleTheme()}
               aria-label={themeLabel}
               title={themeLabel}
@@ -452,7 +458,7 @@ export function AppSidebar({
             </button>
             <a
               href={ROUTES.settings}
-              className="inline-flex items-center self-stretch border-s border-sidebar-border px-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              className={`${FOOTER_ICON_BUTTON} self-stretch border-s border-sidebar-border px-1.5`}
               onClick={(e) => onNavClick(e, ROUTES.settings)}
               aria-label={settingsLabel}
               title={settingsLabel}
@@ -465,7 +471,7 @@ export function AppSidebar({
               href="https://github.com/cmdaltctr/omms"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center self-stretch rounded-e-lg border-s border-sidebar-border px-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              className={`${FOOTER_ICON_BUTTON} self-stretch rounded-e-lg border-s border-sidebar-border px-1.5`}
               title="GitHub"
               aria-label="GitHub"
             >

@@ -131,20 +131,27 @@ it("rejects a stale claim update after another contender has replaced its token"
   await claims.find((claim) => claim !== null)!();
 });
 
-it("lets only one process replace a stale claim", async () => {
-  const home = mkdtempSync(join(tmpdir(), "omms-backfill-process-race-"));
-  directories.push(home);
-  CONFIG.storagePath = home;
-  const db = await tursoConnectionManager.getConnection(join(home, "import-ledger.db"));
-  await db.run(
-    "CREATE TABLE backfill_locks (host TEXT PRIMARY KEY, pid INTEGER NOT NULL, token TEXT NOT NULL)"
-  );
-  await db.run("INSERT INTO backfill_locks VALUES ('pi', 2147483647, 'stale')");
-  const script = join(home, "contender.mjs");
-  const moduleUrl = pathToFileURL(join(import.meta.dir, "../src/importer/backfill-lock.ts")).href;
-  writeFileSync(
-    script,
-    `const { existsSync, writeFileSync } = await import("node:fs");
+for (const cleanupDelayMs of [0, 1500]) {
+  it(
+    cleanupDelayMs
+      ? "releases a stale claim after delayed child cleanup"
+      : "lets only one process replace a stale claim",
+    async () => {
+      const home = mkdtempSync(join(tmpdir(), "omms-backfill-process-race-"));
+      directories.push(home);
+      CONFIG.storagePath = home;
+      const db = await tursoConnectionManager.getConnection(join(home, "import-ledger.db"));
+      await db.run(
+        "CREATE TABLE backfill_locks (host TEXT PRIMARY KEY, pid INTEGER NOT NULL, token TEXT NOT NULL)"
+      );
+      await db.run("INSERT INTO backfill_locks VALUES ('pi', 2147483647, 'stale')");
+      const script = join(home, "contender.mjs");
+      const moduleUrl = pathToFileURL(
+        join(import.meta.dir, "../src/importer/backfill-lock.ts")
+      ).href;
+      writeFileSync(
+        script,
+        `const { existsSync, writeFileSync } = await import("node:fs");
     const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
     CONFIG.storagePath = ${JSON.stringify(home)};
     const { tryAcquireBackfillLock } = await import(${JSON.stringify(moduleUrl)});
@@ -155,44 +162,76 @@ it("lets only one process replace a stale claim", async () => {
     const release = await tryAcquireBackfillLock("pi", ${JSON.stringify(home)});
     writeFileSync(join(${JSON.stringify(home)}, "outcome-" + id), release ? "acquired" : "refused");
     while (release && !existsSync(join(${JSON.stringify(home)}, "release"))) await Bun.sleep(10);
+    if (release) await Bun.sleep(${cleanupDelayMs});
     await release?.();`
+      );
+      const children = ["a", "b"].map((id) => {
+        const child = Bun.spawn([process.execPath, "run", script], {
+          cwd: home,
+          env: { ...process.env, HOME: home, USERPROFILE: home, OMMS_CONTENDER: id },
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        const output = Promise.all([
+          new Response(child.stdout).text(),
+          new Response(child.stderr).text(),
+        ]).then((parts) => parts.join("\n"));
+        return { child, output };
+      });
+      let cleanup: { exitCode: number; timedOut: boolean; output: string }[];
+      try {
+        for (
+          let i = 0;
+          i < 200 && !(existsSync(join(home, "ready-a")) && existsSync(join(home, "ready-b")));
+          i++
+        )
+          await Bun.sleep(10);
+        expect(existsSync(join(home, "ready-a")) && existsSync(join(home, "ready-b"))).toBe(true);
+        writeFileSync(join(home, "go"), "go");
+        for (
+          let i = 0;
+          i < 200 && !(existsSync(join(home, "outcome-a")) && existsSync(join(home, "outcome-b")));
+          i++
+        )
+          await Bun.sleep(10);
+        expect(existsSync(join(home, "outcome-a")) && existsSync(join(home, "outcome-b"))).toBe(
+          true
+        );
+        const { readFileSync } = await import("node:fs");
+        expect(
+          ["a", "b"].map((id) => readFileSync(join(home, "outcome-" + id), "utf8")).sort()
+        ).toEqual(["acquired", "refused"]);
+      } finally {
+        writeFileSync(join(home, "release"), "release");
+        // Give cleanup its own deadline for slow Windows releases.
+        cleanup = await Promise.all(
+          children.map(async ({ child, output }) => {
+            let timedOut = false;
+            const timer = setTimeout(() => {
+              timedOut = true;
+              child.kill();
+            }, 5000);
+            let exitCode: number;
+            try {
+              exitCode = await child.exited;
+            } finally {
+              clearTimeout(timer);
+            }
+            return { exitCode, timedOut, output: await output };
+          })
+        );
+      }
+      for (const result of cleanup) {
+        if (result.timedOut || result.exitCode !== 0)
+          throw new Error(
+            `Backfill contender ${result.timedOut ? "cleanup timed out" : `exited with ${result.exitCode}`}\n${result.output}`
+          );
+      }
+      expect(await db.get("SELECT 1 FROM backfill_locks WHERE host = 'pi'")).toBeNull();
+    },
+    20_000
   );
-  const children = ["a", "b"].map((id) =>
-    Bun.spawn(["bun", "run", script], {
-      cwd: home,
-      env: { ...process.env, HOME: home, USERPROFILE: home, OMMS_CONTENDER: id },
-    })
-  );
-  try {
-    for (
-      let i = 0;
-      i < 200 && !(existsSync(join(home, "ready-a")) && existsSync(join(home, "ready-b")));
-      i++
-    )
-      await Bun.sleep(10);
-    expect(existsSync(join(home, "ready-a")) && existsSync(join(home, "ready-b"))).toBe(true);
-    writeFileSync(join(home, "go"), "go");
-    for (
-      let i = 0;
-      i < 200 && !(existsSync(join(home, "outcome-a")) && existsSync(join(home, "outcome-b")));
-      i++
-    )
-      await Bun.sleep(10);
-    expect(existsSync(join(home, "outcome-a")) && existsSync(join(home, "outcome-b"))).toBe(true);
-    const { readFileSync } = await import("node:fs");
-    expect(
-      ["a", "b"].map((id) => readFileSync(join(home, "outcome-" + id), "utf8")).sort()
-    ).toEqual(["acquired", "refused"]);
-  } finally {
-    writeFileSync(join(home, "release"), "release");
-    for (const child of children) {
-      if ((await Promise.race([child.exited, Bun.sleep(1000).then(() => null)])) === null)
-        child.kill();
-      await child.exited;
-    }
-  }
-  expect(await db.get("SELECT 1 FROM backfill_locks WHERE host = 'pi'")).toBeNull();
-}, 10_000);
+}
 
 it("reclaims a claim left by a terminated process", async () => {
   const home = mkdtempSync(join(tmpdir(), "omms-backfill-crash-"));

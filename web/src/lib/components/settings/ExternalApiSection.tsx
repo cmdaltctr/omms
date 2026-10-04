@@ -166,7 +166,8 @@ export function ExternalApiSection() {
       <label className="block text-sm">
         {s("API URL")}
         <input
-          className="mt-1 block w-full rounded border border-border bg-background p-2"
+          dir="ltr"
+          className="mt-1 block w-full rounded border border-border bg-background p-2 font-mono"
           placeholder="https://api.example.com/v1"
           value={value("memoryApiUrl")}
           onChange={(event) => setFields({ ...fields, memoryApiUrl: event.target.value })}
@@ -175,7 +176,8 @@ export function ExternalApiSection() {
       <label className="block text-sm">
         {s("Model")}
         <input
-          className="mt-1 block w-full rounded border border-border bg-background p-2"
+          dir="ltr"
+          className="mt-1 block w-full rounded border border-border bg-background p-2 font-mono"
           placeholder="glm-5-turbo"
           value={value("memoryModel")}
           onChange={(event) => setFields({ ...fields, memoryModel: event.target.value })}

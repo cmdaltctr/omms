@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import "./settings.css";
 import { SETTINGS_SECTIONS, type SettingsSectionId } from "$lib/settings-sections";
 import { ModelsSection } from "./ModelsSection";
 import { ExternalApiSection } from "./ExternalApiSection";

@@ -79,8 +79,8 @@ export function MemoryCard({
     const sim = similarityLabel(memory, true);
     return (
       <div
-        className={`rounded-xl border border-border bg-card/60 p-3 space-y-3 ${
-          selected ? "ring-1 ring-primary/50" : ""
+        className={`min-w-0 rounded-xl border border-border bg-card p-3 space-y-3 ${
+          selected ? "ring-1 ring-input" : ""
         } ${pinned ? "border-primary/40" : ""}`}
         data-id={memory.id}
       >
@@ -107,7 +107,10 @@ export function MemoryCard({
               {memory.memoryType ? <Badge variant="outline">{memory.memoryType}</Badge> : null}
               {sim ? <span className="text-xs text-primary">{sim}</span> : null}
               {pinned ? <Badge variant="secondary">{t("badge-pinned")}</Badge> : null}
-              <span className="text-xs text-muted-foreground truncate">
+              <span
+                dir="auto"
+                className="text-xs text-muted-foreground font-mono min-w-0 break-all"
+              >
                 {memory.displayName || memory.id}
               </span>
             </div>
@@ -172,7 +175,9 @@ export function MemoryCard({
                 {t("date-updated")} {dates.updatedDate}
               </span>
             ) : null}
-            <span>ID: {memory.id}</span>
+            <span dir="ltr" className="font-mono break-all">
+              ID: {memory.id}
+            </span>
           </div>
         </div>
       </div>
@@ -183,8 +188,8 @@ export function MemoryCard({
     const isLinked = !!item.linkedMemoryId;
     return (
       <div
-        className={`rounded-xl border border-border bg-card/60 p-3 space-y-2 ${
-          selected ? "ring-1 ring-primary/50" : ""
+        className={`min-w-0 rounded-xl border border-border bg-card p-3 space-y-2 ${
+          selected ? "ring-1 ring-input" : ""
         }`}
         data-id={item.id}
       >
@@ -243,8 +248,8 @@ export function MemoryCard({
     const sim = similarityLabel(item, false);
     return (
       <div
-        className={`rounded-xl border border-border bg-card/60 p-3 space-y-2 ${
-          selected ? "ring-1 ring-primary/50" : ""
+        className={`min-w-0 rounded-xl border border-border bg-card p-3 space-y-2 ${
+          selected ? "ring-1 ring-input" : ""
         } ${pinned ? "border-primary/40" : ""}`}
         data-id={item.id}
       >
@@ -260,9 +265,14 @@ export function MemoryCard({
             ) : null}
             {sim ? <span className="text-xs text-primary">{sim}</span> : null}
             {pinned ? <Badge variant="secondary">{t("badge-pinned")}</Badge> : null}
-            <span className="text-xs text-muted-foreground truncate">{displayInfo(item)}</span>
+            <span dir="auto" className="text-xs text-muted-foreground font-mono min-w-0 break-all">
+              {displayInfo(item)}
+            </span>
             {item.projectPath ? (
-              <span className="text-xs text-muted-foreground/70 truncate w-full">
+              <span
+                dir="ltr"
+                className="text-code text-muted-foreground font-mono break-all w-full"
+              >
                 {item.projectPath}
               </span>
             ) : null}
@@ -342,7 +352,9 @@ export function MemoryCard({
               {t("date-updated")} {dates.updatedDate}
             </span>
           ) : null}
-          <span>ID: {item.id}</span>
+          <span dir="ltr" className="font-mono break-all">
+            ID: {item.id}
+          </span>
         </div>
       </div>
     );

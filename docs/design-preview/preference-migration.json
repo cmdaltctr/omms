@@ -1,0 +1,38 @@
+[
+  {
+    "case": "legacy-only",
+    "result": {
+      "theme": "light",
+      "lang": "ar",
+      "dir": "rtl",
+      "storedTheme": "light",
+      "storedLang": "ar",
+      "rootShowsExplorer": true,
+      "path": "/project-memories"
+    }
+  },
+  {
+    "case": "current-wins",
+    "result": {
+      "theme": "dark",
+      "lang": "zh",
+      "dir": "ltr",
+      "storedTheme": "dark",
+      "storedLang": "zh",
+      "rootShowsExplorer": true,
+      "path": "/project-memories"
+    }
+  },
+  {
+    "case": "defaults",
+    "result": {
+      "theme": "dark",
+      "lang": "en",
+      "dir": "ltr",
+      "storedTheme": "dark",
+      "storedLang": null,
+      "rootShowsExplorer": true,
+      "path": "/project-memories"
+    }
+  }
+]

@@ -1,0 +1,29 @@
+{
+  "check": "synthetic empty search",
+  "body": "omms\nPROJECT MEMORIES\nUSER PROFILE\nPREFERENCES\nPATTERNS\nWORKFLOWS\nSETTINGS\nEN\nomms\nPROJECT MEMORIES\nTotal: 0\nTag:\nAll Tags\nSearch memories...\nCleanup\nDelete memories and prompts not updated in the retention period (30 days by default). Pinned memories are kept.\nDeduplicate\nDelete exact duplicate memories in each project and keep the newest copy. Similar memories are only reported, not deleted.\nNo memories found\nPage 1 of 1\nAdd New Memory\nTag:\nSelect tag\nType:\nother\nTags:\nContent:\nAdd Memory",
+  "memories": 0,
+  "path": "/project-memories",
+  "width": 390,
+  "height": 800,
+  "lang": "en",
+  "dir": "ltr",
+  "dark": true,
+  "background": "rgb(18, 15, 14)",
+  "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+  "codeFont": null,
+  "overflow": false,
+  "styles": [
+    "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+    "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+  ],
+  "sections": [],
+  "contrast": { "measured": 18, "minimum": 5.270294375172039, "failures": [] },
+  "fields": [
+    { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+    { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 5.93327376391561 },
+    { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+    { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+    { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+    { "height": 64, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+  ]
+}
