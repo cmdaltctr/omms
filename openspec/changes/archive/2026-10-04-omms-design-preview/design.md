@@ -126,4 +126,4 @@ Use `bun --cwd web run check` and each relevant Bun test file in its own process
 
 ## Migration Plan
 
-No data migration, runtime configuration change, or deployment is needed. Trial changes stay uncommitted in the isolated worktree until requested. Stop after verification; do not archive or perform release actions. Rollback is to leave the trial unapplied and continue using the unchanged source build; do not reset, clean, or remove worktrees without permission.
+No data migration, runtime configuration change, or deployment is needed. The user subsequently authorised committing the trial, syncing its specification, archiving the change, and integrating it through a PR to `main` after local and GitHub CI pass. ADR-022 records the shared-owner design choice. Release actions still require separate approval. Rollback is to leave the trial unapplied and continue using the unchanged source build; do not reset, clean, or remove worktrees without permission.

@@ -25,3 +25,4 @@ Local decision records for OMMS maintainers.
 | [019](./019-claude-code-status-line-through-a-plugin-module.md) | Claude Code shows OMMS status through a plugin module             | 2026-10-02 | Proposed |
 | [020](./020-pull-requests-test-on-windows.md)                   | Pull requests run the test suite on Windows                       | 2026-10-03 | Proposed |
 | [021](./021-claude-plugin-stable-channel.md)                    | Claude Code installs only npm-approved releases through stable    | 2026-10-03 | Proposed |
+| [022](./022-shared-warm-web-design.md)                          | Apply warm web design through existing shared owners              | 2026-10-04 | Accepted |

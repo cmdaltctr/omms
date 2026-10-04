@@ -6,7 +6,7 @@ Status: **COMPLETE under the user-approved browser verification scope**.
 
 The user approved `/opsx-apply` for this trial and frozen-lockfile installs. They separately approved the shared-dialog focus correction. The implementation is prepared on `feat/omms-design-preview`, based on `059da2d`, in `/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview`.
 
-The source checkout remains clean on `main` at `e73e068`. Package manifests and lockfiles have no changes. The copied canonical skill matches the source byte for byte. Its Claude symlink remains intact. The existing source licence notice was left unchanged.
+During the isolated trial, the source checkout stayed clean on `main` at `e73e068`; package manifests and lockfiles were unchanged. Merge preparation brought its existing skill and attribution commits into the feature branch, followed by remote `main` at `26f0f6e`. The package version changed only through that upstream merge. The canonical skill and Claude symlink remain intact.
 
 ## Scorecard
 
@@ -62,12 +62,14 @@ The completion review inspected existing evidence:
 - `memory-interactions.json`: Tab reaches Cancel and Save within the dialog; Cancel closes without mutations and Save sends the synthetic draft.
 - `control-states.json`: 19 passing checks, including reduced motion. `technical-fields.json` records readable monospace fields and left-to-right technical values in Arabic.
 
-This review reused the recorded browser runs. It did not rerun browser or Bun tests, launch a preview, expose a network service, or change implementation code. The specification's browser requirements are unchanged; proposal, design, and task records now include the user's waiver. Archiving still requires a separate user request.
+This review reused the recorded browser runs. It did not rerun browser or Bun tests, launch a preview, expose a network service, or change implementation code. The specification's browser requirements are unchanged; proposal, design, and task records now include the user's waiver. The user subsequently approved syncing and archiving this change.
 
 ## Merge preparation
 
 The user subsequently authorised commit, push through a pull request to `main`, local CI, and GitHub checks. `bun run ci:local` passed, including formatting, lint, type-check, build, and every test file in its own process. The first attempt stopped at formatting in this file; formatting it resolved the failure. Bun printed non-failing tsconfig directory-mismatch diagnostics during web tests.
 
-This result covers the trial before integration with newer `main` commits. Rerun local CI before pushing the integrated branch. GitHub checks are **NOT RUN** while the sync/archive choice is pending.
+The integrated branch also passed `bun run ci:local`: **1,677 passed, 0 failed across 251 files**, each in its own Bun process. Formatting, lint, type-check, and build passed. GitHub checks are **NOT RUN** until the branch is pushed.
+
+The user approved syncing all eight requirements into `openspec/specs/web-visual-design/spec.md`, archiving to `openspec/changes/archive/2026-10-04-omms-design-preview/`, and including both existing local-main documentation commits. [ADR-022](../adr/022-shared-warm-web-design.md) records the shared-owner design choice. The two branch merges changed no trial UI implementation; browser evidence remains applicable.
 
 Live-data checks, security audit, and code audit remain **NOT RUN**. No release or real-backend restart occurred. Installs were limited to the explicitly authorised frozen-lockfile commands.
