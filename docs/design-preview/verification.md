@@ -72,4 +72,14 @@ The integrated branch also passed `bun run ci:local`: **1,677 passed, 0 failed a
 
 The user approved syncing all eight requirements into `openspec/specs/web-visual-design/spec.md`, archiving to `openspec/changes/archive/2026-10-04-omms-design-preview/`, and including both existing local-main documentation commits. [ADR-022](../adr/022-shared-warm-web-design.md) records the shared-owner design choice. The two branch merges changed no trial UI implementation; browser evidence remains applicable.
 
-Live-data checks, security audit, and code audit remain **NOT RUN**. No release or real-backend restart occurred. Installs were limited to the explicitly authorised frozen-lockfile commands.
+## Windows CI follow-up
+
+The first PR #89 Quality run (`37195169537`) passed Linux quality checks and macOS tests. Windows failed the unchanged backfill race test during child cleanup. PR #88 is now integrated at `88dd744`; it leaves this backfill test unchanged.
+
+The user approved a test-only follow-up within this branch and PR. The new 1.5-second release regression failed before the cleanup fix; all seven backfill tests pass afterwards. Shortening cleanup to one second, omitting claim release, and forcing a child error each make the regression fail. The restored file passes all seven tests again. Aikido scanned the changed test file with zero findings. [TDR-029](../tdr/029-wait-for-backfill-test-child-cleanup.md) records the fix.
+
+Final local CI passed on the updated branch: **1,682 passed, 0 failed across 253 files**. Fresh GitHub checks must pass before merge. The production lock implementation is unchanged.
+
+An earlier local full-gate attempt failed once in the unchanged atomic lock-replacement test (`tests/web-ensure.test.ts`) with `ENOENT` on its temporary source file. The isolated file passed all 35 tests, followed by five successful repeated runs and the successful full gate. A later standalone probe reproduced the rename failure under Bun 1.4.2 without OMMS imports or its test runner; the Node comparison passed. The precise runtime mechanism remains unconfirmed. [TDR-030](../tdr/030-intermittent-bun-rename-failure.md) records the evidence and why no speculative workaround was applied. No assertions or implementation in that test were changed. The PR stays unmerged pending resolution or an explicit decision on this risk.
+
+Live-data checks, full security audit, and code audit remain **NOT RUN**. No release or real-backend restart occurred. Installs were limited to the explicitly authorised frozen-lockfile commands.

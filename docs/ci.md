@@ -106,6 +106,11 @@ The outer runner's command-line timeout does not propagate into child runners.
 Drain both output pipes concurrently so a failed child reports its error. Do not retry a recurring failure into a
 green result. See [TDR-028](tdr/028-test-shutdown-state-and-child-deadlines.md).
 
+A held backfill contender needs time to release its claim after the parent
+signals cleanup. Its tests wait for both child exits with separate five-second
+cleanup deadlines and report failed exits with captured output. A 1.5-second
+release delay checks this path. See [TDR-029](tdr/029-wait-for-backfill-test-child-cleanup.md).
+
 ## GitHub workflows
 
 ### Quality (automatic)
