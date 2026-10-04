@@ -22,6 +22,7 @@ concurrency: 20 jobs in total, 5 of them macOS.
 | Nested OpenCode fixture, Intel (#225)  | GitHub, PRs touching native paths | Embedding Backend workflow, or manual   |
 | Full gate and pack smoke (6 platforms) | GitHub                            | Before release, weekly (Monday), manual |
 | Release PR, tag, stage on npm          | GitHub, `ubuntu-latest`           | Release workflow, push to `main`        |
+| Merge the release PR                   | GitHub, `ubuntu-latest`           | Release auto-merge, after Quality on PR |
 | `next` prerelease on npm               | GitHub, `ubuntu-latest`           | Publish next, after Quality on `main`   |
 | Claude plugin `stable` channel         | GitHub, `ubuntu-latest`           | Hourly, manual, after npm approval      |
 
@@ -202,9 +203,38 @@ Runs on every push to `main` once the repository variable
   contents, checks the version, and runs `npm stage publish` with no token
   (npm trusted publishing). npm holds the version until the maintainer
   approves it, and the job adds the approval steps to the GitHub Release.
+  It then comments on the merged release pull request, mentions the
+  repository owner, and gives the stage ID. The mention sends a GitHub
+  notification. No issue is opened.
+- `report-failure` runs when smoke or `publish` fails before npm stages the
+  version. It marks the GitHub Release "not published to npm" and comments on
+  the release pull request with a mention. The failed run also sends GitHub's
+  failed-workflow notification.
 
 Publishing happens in this run, not in a tag-push workflow. Tags that
 release-please creates do not start other workflows.
+
+### Release auto-merge (after Quality on the release pull request)
+
+`release-auto-merge.yml` runs when a Quality run passes, Windows included, for
+a pull request on a `release-please--` branch in this repository. The branch
+name is only a first filter: anyone with write access can create such a branch.
+Before it merges, `scripts/release-pr-guard.mjs` checks that the release App
+wrote the pull request:
+
+- The author is `omms-release[bot]`, and the base is `main`.
+- Every commit has the App as author and a GitHub (`web-flow`) signature.
+- The changed files are only `CHANGELOG.md` (additions only), `package.json`,
+  `.claude-plugin/plugin.json` and `.release-please-manifest.json`.
+- The JSON files change only the version, and all versions agree.
+
+The guard runs from `main` and reads the pull request through the API. It
+never checks out the pull request's code. If a check fails, the job fails with
+the reasons and the pull request waits for the maintainer. The merge uses the
+release App token, so it starts the Release workflow, and
+`--match-head-commit` merges only the checked commit. All other pull requests
+still need the maintainer to merge them. See
+[ADR-023](adr/023-automate-release-except-npm-approval.md).
 
 ### Publish next (after Quality on `main`)
 
@@ -261,15 +291,24 @@ Versions come from commit messages. Use `feat:` (minor), `fix:` (patch),
 `refactor:`, `test:`, `ci:` and `chore:` do not trigger a release.
 
 1. Merge work into `main` as usual. Each merge also appears as `om-memory-system@next`.
-2. When you want to ship, merge the open release pull request.
-3. Wait for the Release workflow: six-platform smoke, then `publish`.
-4. Optional: to try the staged version, run `npm stage download <stage-id>` and install the tarball.
-5. Approve the staged version with 2FA (two-factor authentication). Use the
-   Staged tab at <https://www.npmjs.com/package/om-memory-system>, or run
-   `npm stage list om-memory-system`, then `npm stage approve <stage-id>`.
-6. Run `gh workflow run claude-plugin-channel.yml` to move the Claude Code channel to the approved release.
-7. Wait for the channel run to pass. Users with marketplace auto-update get it at their next check.
-8. Users on an unpinned npm install get an update notice.
+2. release-please updates the release pull request. When its Quality run passes,
+   the Release auto-merge workflow merges it.
+3. The Release workflow runs the six-platform smoke, then stages the version on
+   npm.
+4. GitHub emails you: the Release workflow mentions you in a comment on the
+   release pull request. At <https://github.com/settings/notifications>, turn on
+   Email under "Participating, @mentions and custom". For failures, also turn
+   on Email under "Actions" with "Only notify for failed workflows".
+5. Optional: to try the staged version, run `npm stage download <stage-id>` and
+   install the tarball.
+6. In the main checkout, run `bun run release:approve` and enter your 2FA code.
+   The script approves the version, waits for npm `latest`, dispatches the
+   Claude plugin channel, and checks that `stable` is at the release tag. It
+   reads the stage ID from the newest GitHub Release note.
+7. Users with marketplace auto-update get the plugin at their next check. Users
+   on an unpinned npm install get an update notice.
+
+If you approve another way, the hourly channel run moves `stable`.
 
 To reject a staged version, run `npm stage reject <stage-id>`.
 
@@ -278,10 +317,10 @@ missed the push. Merge any other pull request into `main`. release-please then
 finds the merged release pull request, tags it, and runs smoke and `publish`.
 
 If the smoke gate fails, nothing is staged. The tag and GitHub Release
-already exist. To fix it:
-
-1. Push a `fix:` commit. release-please then proposes the next patch.
-2. Edit the failed GitHub Release to say it was not published to npm.
+already exist. The `report-failure` job marks the GitHub Release "not published
+to npm" and mentions you on the release pull request. To fix it, push a `fix:`
+commit. release-please
+then proposes the next patch.
 
 ## First publish (one time)
 

@@ -26,3 +26,4 @@ Local decision records for OMMS maintainers.
 | [020](./020-pull-requests-test-on-windows.md)                   | Pull requests run the test suite on Windows                       | 2026-10-03 | Proposed |
 | [021](./021-claude-plugin-stable-channel.md)                    | Claude Code installs only npm-approved releases through stable    | 2026-10-03 | Proposed |
 | [022](./022-shared-warm-web-design.md)                          | Apply warm web design through existing shared owners              | 2026-10-04 | Accepted |
+| [023](./023-automate-release-except-npm-approval.md)            | Automate the release except the npm approval                      | 2026-10-04 | Proposed |

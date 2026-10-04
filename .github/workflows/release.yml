@@ -66,9 +66,12 @@ jobs:
     # The npm trusted publisher for this workflow is registered with this
     # environment and set to stage-only (see docs/ci.md).
     environment: npm-publish
+    outputs:
+      staged: ${{ steps.stage.outputs.staged }}
     permissions:
       contents: write # annotate the GitHub Release
       id-token: write # npm trusted publishing (OIDC)
+      pull-requests: write # tell the maintainer to approve
     steps:
       - uses: actions/checkout@v7
         with:
@@ -113,13 +116,21 @@ jobs:
       # No token: npm authenticates through OIDC. The version is held in npm's
       # Staged tab until the maintainer approves it with 2FA.
       - name: Stage on npm
-        run: npm stage publish --access public
+        id: stage
+        run: |
+          set -o pipefail
+          npm stage publish --access public 2>&1 | tee stage.log
+          echo "staged=true" >> "$GITHUB_OUTPUT"
+          # npm prints "+ om-memory-system@X.Y.Z (staged with id <uuid>)".
+          stage_id=$(grep -Eo 'staged with id [0-9a-f-]{36}' stage.log | tail -1 | cut -d' ' -f4 || true)
+          echo "stage_id=$stage_id" >> "$GITHUB_OUTPUT"
 
       - name: Add approval note to the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
           RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+          STAGE_ID: ${{ steps.stage.outputs.stage_id || '<stage-id>' }}
         run: |
           gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
           {
@@ -127,8 +138,76 @@ jobs:
             echo "---"
             echo
             echo "**npm:** \`om-memory-system@$RELEASE_VERSION\` is staged and not yet installable."
-            echo "Approve it in the Staged tab at https://www.npmjs.com/package/om-memory-system (2FA),"
-            echo "or run \`npm stage list om-memory-system\`, then \`npm stage approve <stage-id>\`."
-            echo "To try it first: \`npm stage download <stage-id>\` and install the tarball."
+            echo "Approve it with \`bun run release:approve\`, or run \`npm stage approve $STAGE_ID\` (2FA)."
+            echo "To try it first: \`npm stage download $STAGE_ID\` and install the tarball."
           } >> notes.md
           gh release edit "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+
+      # A comment that mentions the owner sends a GitHub notification (email
+      # when the owner turns it on). It goes on the merged release pull request,
+      # so no issue is opened.
+      - name: Tell the maintainer to approve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ needs.release-please.outputs.sha }}
+          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+          STAGE_ID: ${{ steps.stage.outputs.stage_id }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_SHA/pulls" --jq '.[0].number // empty')
+          if [ -z "$pr" ]; then
+            echo "No release pull request found for $RELEASE_SHA; the GitHub Release note has the steps."
+            exit 0
+          fi
+          {
+            echo "@$OWNER \`om-memory-system@$RELEASE_VERSION\` passed the six-platform smoke and is staged on npm."
+            echo
+            echo "Approve it with 2FA from the main checkout: \`bun run release:approve\`"
+            echo
+            echo "Stage ID: \`${STAGE_ID:-not found; run npm stage list om-memory-system}\`"
+          } > comment.md
+          gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body-file comment.md
+
+  # Smoke or publish failed before npm staged the version, but the tag and
+  # GitHub Release exist. Mark the release and tell the maintainer. The failed
+  # run also sends GitHub's own failed-workflow notification.
+  report-failure:
+    name: report-failure
+    needs: [release-please, smoke, publish]
+    if: >-
+      always() &&
+      needs.release-please.outputs.release_created == 'true' &&
+      needs.publish.outputs.staged != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # annotate the GitHub Release
+      pull-requests: write # tell the maintainer
+    steps:
+      - name: Mark the GitHub Release and tell the maintainer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+          RELEASE_SHA: ${{ needs.release-please.outputs.sha }}
+          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+          SMOKE: ${{ needs.smoke.result }}
+          PUBLISH: ${{ needs.publish.result }}
+          OWNER: ${{ github.repository_owner }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+          {
+            echo
+            echo "---"
+            echo
+            echo "**npm:** \`om-memory-system@$RELEASE_VERSION\` was not published to npm. The release run failed: $RUN_URL"
+          } >> notes.md
+          gh release edit "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_SHA/pulls" --jq '.[0].number // empty')
+          [ -n "$pr" ] || exit 0
+          {
+            echo "@$OWNER The Release run for \`$TAG_NAME\` failed (smoke: $SMOKE, publish: $PUBLISH). npm did not stage the version."
+            echo
+            echo "Read the failed job: $RUN_URL"
+            echo "Fix it with a \`fix:\` commit; release-please then proposes the next patch release."
+          } > comment.md
+          gh pr comment "$pr" --repo "$GITHUB_REPOSITORY" --body-file comment.md
