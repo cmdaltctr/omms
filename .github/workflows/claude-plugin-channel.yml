@@ -9,12 +9,14 @@ permissions: {}
 
 jobs:
   sync:
+    if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: main
           fetch-depth: 0
           fetch-tags: true
           persist-credentials: true # This job pushes the stable branch.

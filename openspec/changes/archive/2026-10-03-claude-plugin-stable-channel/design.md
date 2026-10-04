@@ -16,7 +16,7 @@ release-please creates lightweight tags, `v<version>`, on the release commit. At
 
 **Goals:**
 
-- The plugin version Claude Code installs always equals a version on npm `latest`.
+- The plugin version Claude Code installs equals the npm `latest` version observed at the most recent successful channel sync.
 - An approved release reaches Claude Code users with no extra release or commit to `main`.
 - The move can be tested without GitHub.
 
@@ -61,7 +61,7 @@ When npm cannot be reached, the script prints a warning and exits 0, so a regist
 
 Approval happens on npmjs.com with 2FA, outside GitHub, so no workflow event fires. The workflow runs on `schedule` every hour and on `workflow_dispatch`. The release runbook and the `s-omms-npm-release` skill dispatch it straight after approval, so the hour is only a safety net.
 
-The job has `contents: write` and nothing else. It checks out with full history and tags, keeping the checkout credentials only because this job pushes. It runs no package install, so no third-party code runs with that token.
+The job runs only when `github.ref` is `refs/heads/main` and checks out `main` explicitly. A manual dispatch from another ref skips the job. The job has `contents: write` and nothing else. It checks out with full history and tags, keeping the checkout credentials only because this job pushes. It runs no package install, so no third-party code runs with that token.
 
 ### 5. Order of rollout
 

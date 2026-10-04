@@ -70,6 +70,25 @@ that split. The behaviour requirement and its six scenarios remain unchanged.
 All implementation tasks are complete; deployment checks remain unchecked.
 No critical implementation findings remain.
 
+### Approved PR review follow-up
+
+The maintainer approved three fixes before merge:
+
+- Clarify that npm approval is followed by manual workflow dispatch.
+- Scope both copies of the release requirement to the npm `latest` value observed at the most recent successful channel sync.
+- Guard the write-enabled job with `github.ref == 'refs/heads/main'` and pin checkout to `main`.
+
+Two workflow regression tests failed against the previous workflow. After the
+fix, all 20 tests in `tests/claude-plugin-channel.test.ts` passed. The first full
+gate stopped on ESLint's `no-regex-spaces` rule in those tests. Counted spaces
+fixed it, and the full gate passed over 247 isolated test files. Exit 0. Log:
+`/tmp/omms-stable-review-ci-final.log`.
+
+The workflow YAML parses. All 26 main specs validate strictly. Aikido rescanned
+the workflow and test file and returned zero findings. The code graph was
+updated. Repository rulesets remain a separate control over who can write
+`stable`; the job guard and checkout pin do not replace those protections.
+
 ### Warning: Bun diagnostic during web tests
 
 Bun 1.4.2 printed internal directory-mismatch diagnostics involving

@@ -78,6 +78,24 @@ function fixture(stableVersion: string | null = "4.4.1") {
   return { commits, refs, stable, pushed, curl, race, run };
 }
 
+describe("Claude plugin channel workflow", () => {
+  const workflow = readFileSync(
+    join(import.meta.dir, "../.github/workflows/claude-plugin-channel.yml"),
+    "utf8"
+  );
+
+  it("limits the write-enabled job to dispatches from main", () => {
+    const job = workflow.split("\n  sync:\n")[1] ?? "";
+    expect(job).toMatch(/^ {4}if: github\.ref == 'refs\/heads\/main'$/m);
+  });
+
+  it("pins the channel script checkout to main", () => {
+    const checkout =
+      workflow.match(/^ {6}- uses: actions\/checkout@[^\n]+\n([\s\S]*?)(?=^ {6}- )/m)?.[1] ?? "";
+    expect(checkout).toMatch(/^ {10}ref: main$/m);
+  });
+});
+
 describe("Claude plugin stable channel", () => {
   it("moves stable to the release tag named by npm latest", () => {
     const f = fixture();

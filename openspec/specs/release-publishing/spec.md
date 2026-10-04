@@ -106,7 +106,7 @@ The README SHALL tell Pi and OpenCode v2 users how to install omms unpinned from
 
 ### Requirement: Claude Code receives only versions published to npm
 
-The Claude Code plugin SHALL reach users only at a version that the npm `latest` dist-tag names. The marketplace SHALL install the plugin from a ref that holds the release commit of that version, not from `main`. A merged release pull request whose npm publish fails, or that the maintainer has not approved, SHALL NOT change the plugin version Claude Code installs. After the maintainer approves a version on npm, Claude Code users with marketplace auto-update on SHALL receive it without another release. The ref SHALL move only to a commit that a `v<version>` release tag names, for a stable SemVer version. When it cannot do that, it SHALL stay where it is.
+The Claude Code plugin SHALL reach users only at a version that the npm `latest` dist-tag named at the most recent successful channel sync. The marketplace SHALL install the plugin from a ref that holds the release commit of that version, not from `main`. A merged release pull request whose npm publish fails, or that the maintainer has not approved, SHALL NOT change the plugin version Claude Code installs. After the maintainer approves a version on npm, Claude Code users with marketplace auto-update on SHALL receive it without another release. The ref SHALL move only to a commit that a `v<version>` release tag names, for a stable SemVer version. When it cannot do that, it SHALL stay where it is.
 
 #### Scenario: A release fails to publish
 

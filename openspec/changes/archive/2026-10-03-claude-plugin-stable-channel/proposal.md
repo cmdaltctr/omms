@@ -9,7 +9,7 @@ That happened on 2026-10-03. The 4.4.0 publish failed on the Windows smoke. Clau
 ## What Changes
 
 - `.claude-plugin/marketplace.json` lists the plugin with a GitHub source on a `stable` branch: `{ "source": "github", "repo": "cmdaltctr/omms", "ref": "stable" }`. Claude Code then installs the plugin from `stable`, not from `main`.
-- A new workflow, `claude-plugin-channel.yml`, moves `stable` to the commit of the git tag `v<version>`, where `<version>` is npm's `latest` dist-tag. It runs every hour, on manual dispatch, and after the maintainer approves a release. A version that npm never published never reaches `stable`.
+- A new workflow, `claude-plugin-channel.yml`, moves `stable` to the commit of the git tag `v<version>`, where `<version>` is npm's `latest` dist-tag. It runs every hour and on manual dispatch. The maintainer dispatches it after approving a release. A version that npm never published never reaches `stable`.
 - A new script, `scripts/sync-claude-plugin-channel.sh`, holds the logic, so a test can run it against a temporary git repository.
 - The release runbook and the `s-omms-npm-release` skill add one step after approval: dispatch the workflow, so Claude Code users get the release at the next auto-update and do not wait for the hourly run.
 - Docs say that Claude Code gets a release only after it is approved on npm, and that local plugin testing uses `claude --plugin-dir`. Adding this checkout as a local marketplace now installs from GitHub `stable`, not from local files.

@@ -198,7 +198,8 @@ maintainer can then try it with `om-memory-system@next`.
 ### Claude plugin channel (hourly, manual after approval)
 
 `claude-plugin-channel.yml` runs hourly and on manual dispatch. Its single
-`ubuntu-latest` job checks out full history and tags, then runs
+`ubuntu-latest` job runs only from `main` and pins checkout to `main`, with full
+history and tags. A manual dispatch from another ref skips the job. It then runs
 `scripts/sync-claude-plugin-channel.sh`. It installs no packages and needs only
 `contents: write`.
 
