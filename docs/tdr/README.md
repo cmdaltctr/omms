@@ -53,6 +53,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [029](./029-wait-for-backfill-test-child-cleanup.md)         | Wait for backfill test children to finish cleanup                       | Accepted              | 2026-10-04 |
 | [030](./030-intermittent-bun-rename-failure.md)              | Investigate an intermittent Bun rename failure                          | Proposed              | 2026-10-04 |
 | [031](./031-pause-catch-up-test-after-first-model-call.md)   | Pause the catch-up test after the first model call                      | Accepted              | 2026-10-04 |
+| [032](./032-recheck-npm-after-release-approval.md)           | Recheck npm after release approval                                      | Accepted              | 2026-10-04 |
 
 ## Status values
 
