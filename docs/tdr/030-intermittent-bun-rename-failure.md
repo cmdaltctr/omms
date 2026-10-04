@@ -28,9 +28,44 @@ do not establish the order or number of native rename operations.
 The failure occurs without OMMS imports or its test runner. The same probe under
 Node completed 139,153 replacements in 20 seconds without failure. Further Bun
 runs were also successful: 200,009 replacements in 30 seconds, 136,197 in
-20 seconds with JIT disabled, and 393,441 in a 60-second run with native rename
-tracing. A synchronous writer with the reader still active completed 136,115
-replacements in 20 seconds. These passes do not identify a cause.
+20 seconds with `JSC_useJIT=false` requested, and 393,441 in a 60-second run with
+native rename tracing. The requested compiler setting was later found ineffective:
+Bun's option dump still reported `useJIT=true`. That run is not evidence of
+compiler-disabled behaviour. A synchronous writer with the reader still active
+completed 136,115 replacements in 20 seconds. These passes do not identify a cause.
+
+### Follow-up after PR #89 merged
+
+Verified the tracer loads and intercepts native `rename` calls in both Bun and
+Node. Native call counts matched JavaScript iteration counts in the control runs.
+Three further 20-second traced Bun runs completed 404,822 replacements with zero
+failures. A forced garbage-collection probe completed 123,773 replacements in
+20 seconds without failure.
+
+Repeated the compiler-disabled control with Bun's supported
+`BUN_JSC_useJIT=false` setting. The option dump confirmed `useJIT=false`, and the
+20-second traced run completed 133,643 replacements without failure. The original
+error still has no failing native trace, so neither the compiler nor garbage
+collection has been established as its cause.
+
+### Isolated canary comparison
+
+With the maintainer's approval, downloaded the official macOS arm64 canary asset
+into `/tmp/omms-bun-canary.reCrnz`. Its SHA-256 matched the published digest:
+`d1197c909aeafda36c03d982f0aeee84522a8284aa45d099fc2f8d43230ebe6a`.
+The binary reports `1.4.3-canary.1+bb35d1b81`.
+
+Ran three paired, uninstrumented probes, alternating installed Bun 1.4.2 and
+canary. Each run allowed 20 seconds and stopped at the first error. Stable Bun
+completed 359,528 successful renames across the three runs and failed once with
+`ENOENT` after 94,411 iterations (14.132 seconds). Canary completed 395,439
+renames across its three full runs without failure. The identical probe and
+Node reader were used for both versions.
+
+The installed Bun checksum remained unchanged before and after the comparison:
+`35d20dd0263e5c950194434b925454fdfa9ba6e4467da960410fa05b08a7a5b5`.
+No project dependency or CI runtime was changed. These results justify further
+comparison with upstream changes, but do not prove that canary fixes the fault.
 
 ## Decision
 
