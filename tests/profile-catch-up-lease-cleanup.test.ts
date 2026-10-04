@@ -3,10 +3,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { runBunTest, TEST_PARENT_TIMEOUT_MS } from "./test-process.js";
 
 const generatedDirs: string[] = [];
 const repoRoot = join(import.meta.dir, "..");
 const libsqlUrl = pathToFileURL(Bun.resolveSync("@libsql/client", repoRoot)).href;
+const lifecycleUrl = pathToFileURL(join(repoRoot, "src/services/turso/lifecycle.ts")).href;
 
 afterEach(() => {
   for (const dir of generatedDirs.splice(0)) {
@@ -19,7 +21,7 @@ it.each([
   { test: "user-prompt-learning-order", prefix: "omms-learning-order-", expectedClients: 1 },
 ])(
   "$test closes its real libSQL clients before removing its temporary directory",
-  ({ test, prefix, expectedClients }) => {
+  async ({ test, prefix, expectedClients }) => {
     const dir = mkdtempSync(join(tmpdir(), "omms-db-cleanup-preload-"));
     generatedDirs.push(dir);
     const preload = join(dir, "db-cleanup-preload.mjs");
@@ -45,6 +47,19 @@ mock.module("@libsql/client", () => ({
   },
 }));
 
+// Import only after wrapping createClient, so the real database clients are tracked.
+const lifecycle = await import(${JSON.stringify(lifecycleUrl)});
+const closeTurso = lifecycle.closeTursoAndInvalidateCaches;
+mock.module(${JSON.stringify(lifecycleUrl)}, () => ({
+  ...lifecycle,
+  async closeTursoAndInvalidateCaches() {
+    await closeTurso();
+    // Reproduce Windows cleanup exceeding a nested runner's five-second default.
+    await Bun.sleep(6000);
+    console.log("SLOW_DB_CLEANUP_FINISHED");
+  },
+}));
+
 function rmSync(path, options) {
   if (basename(String(path)).startsWith(${JSON.stringify(prefix)})) {
     const openClients = [...clients].filter((client) => client.closed === false).length;
@@ -67,25 +82,16 @@ mock.module("node:fs", () => ({
       "utf8"
     );
 
-    const child = Bun.spawnSync({
-      cmd: [
-        process.execPath,
-        "test",
-        "--preload",
-        preload,
-        join(repoRoot, `tests/${test}.test.ts`),
-      ],
-      cwd: repoRoot,
-      env: { ...process.env, HOME: dir, USERPROFILE: dir },
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const output = `${child.stdout.toString()}\n${child.stderr.toString()}`;
+    const { exitCode, output } = await runBunTest(
+      ["--preload", preload, join(repoRoot, `tests/${test}.test.ts`)],
+      { env: { ...process.env, HOME: dir, USERPROFILE: dir } }
+    );
     const removal = output.match(/DB_CLEANUP:(.*)$/m);
 
-    expect(child.exitCode, output).toBe(0);
+    expect(exitCode, output).toBe(0);
+    expect(output).toContain("SLOW_DB_CLEANUP_FINISHED");
     expect(removal, output).not.toBeNull();
     expect(JSON.parse(removal![1]!)).toEqual({ trackedClients: expectedClients, openClients: 0 });
   },
-  30_000
+  TEST_PARENT_TIMEOUT_MS
 );

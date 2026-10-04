@@ -26,7 +26,7 @@ describe("Claude Code plugin assets", () => {
     expect(existsSync(join(root, ".mcp.json"))).toBe(false);
   });
 
-  it("marketplace installs the plugin from the GitHub stable channel", () => {
+  it("marketplace installs the stable channel through an explicit HTTPS Git URL", () => {
     const marketplace = readJson(".claude-plugin/marketplace.json");
 
     expect(typeof marketplace.name).toBe("string");
@@ -34,8 +34,8 @@ describe("Claude Code plugin assets", () => {
     expect(marketplace.plugins).toHaveLength(1);
     expect(marketplace.plugins[0]).toMatchObject({ name: "omms" });
     expect(marketplace.plugins[0].source).toEqual({
-      source: "github",
-      repo: "cmdaltctr/omms",
+      source: "url",
+      url: "https://github.com/cmdaltctr/omms.git",
       ref: "stable",
     });
   });

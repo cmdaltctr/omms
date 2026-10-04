@@ -25,7 +25,24 @@ async function runScenario(body: string) {
 const { WebServer } = await import(${JSON.stringify(src("web-server.js"))});
 const { getOrCreateAuthToken } = await import(${JSON.stringify(src("auth-token.js"))});
 const { packageVersion } = await import(${JSON.stringify(src("package-version.js"))});
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const { jest } = await import("bun:test");
+const realSetTimeout = globalThis.setTimeout;
+const waitFor = async (check, label) => {
+  const deadline = performance.now() + 15000;
+  while (!check()) {
+    if (performance.now() >= deadline) throw new Error("Timed out waiting for " + label);
+    await new Promise((resolve) => realSetTimeout(resolve, 10));
+  }
+};
+// Keep socket and database shutdown real; control only the subsequent hold-off.
+const controlHoldOff = (server) => {
+  const stop = server.stop.bind(server);
+  server.stop = async () => {
+    await stop();
+    jest.useFakeTimers();
+    server.stop = stop;
+  };
+};
 const token = getOrCreateAuthToken();
 const own = packageVersion();
 const stepAside = (server, address, version, headers = { "x-omms-token": token }) =>
@@ -51,13 +68,19 @@ process.exit(0);
       OMMS_LOG_FILE: logFile,
       OMMS_DISABLE_AUTO_BACKFILL: "1",
     },
+    cwd: join(import.meta.dir, ".."),
     stdout: "pipe",
     stderr: "pipe",
+    timeout: 25_000,
   });
-  const text = await new Response(proc.stdout).text();
-  await proc.exited;
+  const [text, error, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  expect(exitCode, text + error).toBe(0);
   const match = text.match(/SCENARIO_RESULT:(.*)$/m);
-  if (!match) throw new Error(`no result:\n${text}\n${await new Response(proc.stderr).text()}`);
+  if (!match) throw new Error(`no result:\n${text}\n${error}`);
   const parsed = JSON.parse(match[1]!) as { result: Record<string, any>; token: string };
   let log = "";
   try {
@@ -71,6 +94,7 @@ process.exit(0);
 describe("POST /api/web/step-aside", () => {
   it("accepts a newer caller on loopback and refuses everything else", async () => {
     const { result } = await runScenario(`
+jest.useFakeTimers();
 let stepped = 0;
 const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
 server.setOnStepAside(() => { stepped += 1; });
@@ -81,13 +105,16 @@ result.noAddress = (await stepAside(server, undefined, "99.0.0")).status;
 result.same = (await stepAside(server, "127.0.0.1", own)).status;
 result.older = (await stepAside(server, "127.0.0.1", "0.0.1")).status;
 result.unknown = (await stepAside(server, "127.0.0.1", "unknown")).status;
-await sleep(400);
+jest.advanceTimersByTime(400);
 result.steppedAfterRefusals = stepped;
 const accepted = await stepAside(server, "::ffff:127.0.0.1", "99.0.0");
 result.accepted = accepted.status;
 result.steppedAtReply = stepped;
-await sleep(400);
+jest.advanceTimersByTime(99);
+result.steppedBeforeGrace = stepped;
+jest.advanceTimersByTime(1);
 result.steppedAfterReply = stepped;
+jest.useRealTimers();
 `);
     expect(result.noToken).toBe(401);
     expect(result.badToken).toBe(401);
@@ -99,6 +126,7 @@ result.steppedAfterReply = stepped;
     expect(result.steppedAfterRefusals).toBe(0);
     expect(result.accepted).toBe(202);
     expect(result.steppedAtReply).toBe(0);
+    expect(result.steppedBeforeGrace).toBe(0);
     expect(result.steppedAfterReply).toBe(1);
   });
 
@@ -115,7 +143,7 @@ const send = (headers) => fetch("http://127.0.0.1:48811/api/web/step-aside", {
 });
 result.noToken = (await send({})).status;
 result.accepted = (await send({ "x-omms-token": token })).status;
-await sleep(400);
+await waitFor(() => stepped === 1, "step-aside callback");
 result.stepped = stepped;
 await server.stop();
 `);
@@ -132,6 +160,7 @@ const server = new WebServer({
   enabled: true, host: "127.0.0.1", port: 48812, stepAsideHoldOffMs: 1500,
 });
 await server.start();
+controlHoldOff(server);
 result.ownerBefore = server.isServerOwner();
 const reply = await fetch("http://127.0.0.1:48812/api/web/step-aside", {
   method: "POST",
@@ -139,15 +168,17 @@ const reply = await fetch("http://127.0.0.1:48812/api/web/step-aside", {
   body: JSON.stringify({ version: "99.0.0" }),
 });
 result.status = reply.status;
-await sleep(700);
+await waitFor(() => server.holdOffTimer !== null, "completed shutdown and hold-off timer");
 result.ownerAfter = server.isServerOwner();
 result.running = server.isRunning();
 result.answers = await server.checkServerAvailable();
+jest.advanceTimersByTime(1499);
 result.loopEarly = server.healthCheckInterval !== null;
-await sleep(1500);
+jest.advanceTimersByTime(1);
 result.loopLate = server.healthCheckInterval !== null;
 await server.stop();
 result.loopAfterStop = server.healthCheckInterval !== null;
+jest.useRealTimers();
 `);
     expect(result.ownerBefore).toBe(true);
     expect(result.status).toBe(202);
@@ -172,12 +203,13 @@ await fetch("http://127.0.0.1:48814/api/web/step-aside", {
   headers: { "content-type": "application/json", "x-omms-token": token },
   body: JSON.stringify({ version: "99.0.0" }),
 });
-await sleep(400);
+await waitFor(() => server.holdOffTimer !== null, "host shutdown");
 const beatsAtStepAside = beats;
-await sleep(400);
+await waitFor(() => beats > beatsAtStepAside, "host heartbeat after shutdown");
 result.exited = exited;
 result.stillBeating = beats > beatsAtStepAside;
 clearInterval(heartbeat);
+await server.stop();
 `);
     expect(result.exited).toBe(false);
     expect(result.stillBeating).toBe(true);
@@ -187,17 +219,24 @@ clearInterval(heartbeat);
     const { result } = await runScenario(`
 const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 48813 });
 await server.start();
+controlHoldOff(server);
 await fetch("http://127.0.0.1:48813/api/web/step-aside", {
   method: "POST",
   headers: { "content-type": "application/json", "x-omms-token": token },
   body: JSON.stringify({ version: "99.0.0" }),
 });
-await sleep(700);
+await waitFor(() => server.holdOffTimer !== null, "default hold-off timer");
 result.owner = server.isServerOwner();
+jest.advanceTimersByTime(59999);
 result.loop = server.healthCheckInterval !== null;
+jest.advanceTimersByTime(1);
+result.loopAfterMinute = server.healthCheckInterval !== null;
+await server.stop();
+jest.useRealTimers();
 `);
     expect(result.owner).toBe(false);
     expect(result.loop).toBe(false);
+    expect(result.loopAfterMinute).toBe(true);
   });
 });
 
@@ -209,7 +248,6 @@ server.setOnStepAside(() => {});
 await stepAside(server, "127.0.0.1", "99.0.0", {});
 await stepAside(server, "127.0.0.1", own);
 await stepAside(server, "127.0.0.1", "99.0.0");
-await sleep(300);
 `);
     expect(log).toContain("refused_auth");
     expect(log).toContain("refused_not_newer");
