@@ -12,6 +12,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     permissions:
       contents: write
+      issues: write # close the approval issue
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -22,3 +23,17 @@ jobs:
           persist-credentials: true # This job pushes the stable branch.
       - name: Sync stable to npm latest
         run: bash scripts/sync-claude-plugin-channel.sh
+
+      # The Release workflow opened this issue when it staged the version.
+      - name: Close the approval issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(npm view om-memory-system version 2>/dev/null) || exit 0
+          title="Approve om-memory-system@$version on npm"
+          gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "\"$title\" in:title" \
+            --json number,title --jq ".[] | select(.title == \"$title\") | .number" |
+            while read -r number; do
+              gh issue close "$number" --repo "$GITHUB_REPOSITORY" \
+                --comment "npm latest is $version and the Claude plugin channel is updated."
+            done

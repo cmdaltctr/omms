@@ -66,9 +66,12 @@ jobs:
     # The npm trusted publisher for this workflow is registered with this
     # environment and set to stage-only (see docs/ci.md).
     environment: npm-publish
+    outputs:
+      staged: ${{ steps.stage.outputs.staged }}
     permissions:
       contents: write # annotate the GitHub Release
       id-token: write # npm trusted publishing (OIDC)
+      issues: write # ask the maintainer to approve
     steps:
       - uses: actions/checkout@v7
         with:
@@ -113,13 +116,21 @@ jobs:
       # No token: npm authenticates through OIDC. The version is held in npm's
       # Staged tab until the maintainer approves it with 2FA.
       - name: Stage on npm
-        run: npm stage publish --access public
+        id: stage
+        run: |
+          set -o pipefail
+          npm stage publish --access public 2>&1 | tee stage.log
+          echo "staged=true" >> "$GITHUB_OUTPUT"
+          # npm prints "+ om-memory-system@X.Y.Z (staged with id <uuid>)".
+          stage_id=$(grep -Eo 'staged with id [0-9a-f-]{36}' stage.log | tail -1 | cut -d' ' -f4 || true)
+          echo "stage_id=$stage_id" >> "$GITHUB_OUTPUT"
 
       - name: Add approval note to the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
           RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+          STAGE_ID: ${{ steps.stage.outputs.stage_id || '<stage-id>' }}
         run: |
           gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
           {
@@ -127,8 +138,86 @@ jobs:
             echo "---"
             echo
             echo "**npm:** \`om-memory-system@$RELEASE_VERSION\` is staged and not yet installable."
-            echo "Approve it in the Staged tab at https://www.npmjs.com/package/om-memory-system (2FA),"
-            echo "or run \`npm stage list om-memory-system\`, then \`npm stage approve <stage-id>\`."
-            echo "To try it first: \`npm stage download <stage-id>\` and install the tarball."
+            echo "Approve it with \`bun run release:approve\`, or run \`npm stage approve $STAGE_ID\` (2FA)."
+            echo "To try it first: \`npm stage download $STAGE_ID\` and install the tarball."
           } >> notes.md
           gh release edit "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+
+      # An issue assigned to the maintainer sends a GitHub notification. The
+      # Claude plugin channel closes it when npm latest reaches this version.
+      - name: Ask the maintainer to approve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+          STAGE_ID: ${{ steps.stage.outputs.stage_id }}
+          OWNER: ${{ github.repository_owner }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "\`om-memory-system@$RELEASE_VERSION\` passed the six-platform smoke and is staged on npm."
+            echo
+            if [ -n "$STAGE_ID" ]; then
+              echo "Stage ID: \`$STAGE_ID\`"
+            else
+              echo "Stage ID: not found in the log. Run \`npm stage list om-memory-system\`."
+            fi
+            echo
+            echo "Approve it with 2FA from the main checkout:"
+            echo
+            echo '```bash'
+            echo 'bun run release:approve'
+            echo '```'
+            echo
+            echo "To reject it: \`npm stage reject <stage-id>\`."
+            echo
+            echo "- Release: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG_NAME"
+            echo "- Run: $RUN_URL"
+            echo
+            echo "The Claude plugin channel closes this issue when npm \`latest\` reaches $RELEASE_VERSION."
+          } > issue.md
+          gh issue create --repo "$GITHUB_REPOSITORY" --assignee "$OWNER" \
+            --title "Approve om-memory-system@$RELEASE_VERSION on npm" --body-file issue.md
+
+  # Smoke or publish failed before npm staged the version, but the tag and
+  # GitHub Release exist. Mark the release and tell the maintainer.
+  report-failure:
+    name: report-failure
+    needs: [release-please, smoke, publish]
+    if: >-
+      always() &&
+      needs.release-please.outputs.release_created == 'true' &&
+      needs.publish.outputs.staged != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # annotate the GitHub Release
+      issues: write # tell the maintainer
+    steps:
+      - name: Mark the GitHub Release and open an issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+          RELEASE_VERSION: ${{ needs.release-please.outputs.version }}
+          SMOKE: ${{ needs.smoke.result }}
+          PUBLISH: ${{ needs.publish.result }}
+          OWNER: ${{ github.repository_owner }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body > notes.md
+          {
+            echo
+            echo "---"
+            echo
+            echo "**npm:** \`om-memory-system@$RELEASE_VERSION\` was not published to npm. The release run failed: $RUN_URL"
+          } >> notes.md
+          gh release edit "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+          {
+            echo "The Release run for \`$TAG_NAME\` failed. Smoke: $SMOKE. Publish: $PUBLISH."
+            echo "The tag and GitHub Release exist; npm did not stage the version."
+            echo
+            echo "1. Read the failed job: $RUN_URL"
+            echo "2. Fix it with a \`fix:\` commit. release-please then proposes the next patch release."
+            echo "3. Close this issue when the next release is staged."
+          } > issue.md
+          gh issue create --repo "$GITHUB_REPOSITORY" --assignee "$OWNER" \
+            --title "Release $TAG_NAME failed: not published to npm" --body-file issue.md

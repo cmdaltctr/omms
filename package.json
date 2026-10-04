@@ -43,6 +43,7 @@
     "format:check": "prettier --check .",
     "check": "bun run format:check && bun run lint && bun run typecheck",
     "ci:local": "bash scripts/local-ci.sh",
+    "release:approve": "bash scripts/release-approve.sh",
     "verify:package": "node scripts/verify-package.mjs",
     "check:package": "bun run verify:package && publint && attw --pack --profile esm-only",
     "prepare": "husky",
