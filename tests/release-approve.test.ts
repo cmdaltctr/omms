@@ -77,18 +77,22 @@ describe("release automation workflows", () => {
   const workflow = (name: string) =>
     readFileSync(join(import.meta.dir, "../.github/workflows", name), "utf8");
 
-  it("merges only a passed release pull request, with the App token and the tested commit", () => {
+  it("merges only a passed release pull request that the guard accepts", () => {
     const merge = workflow("release-auto-merge.yml");
     expect(merge).toContain("github.event.workflow_run.conclusion == 'success'");
     expect(merge).toContain("github.event.workflow_run.event == 'pull_request'");
     expect(merge).toContain(
       "github.event.workflow_run.head_repository.full_name == github.repository"
     );
-    expect(merge).toContain(
-      "startsWith(github.event.workflow_run.head_branch, 'release-please--')"
-    );
     expect(merge).toContain("GH_TOKEN: ${{ steps.app-token.outputs.token }}");
     expect(merge).toContain('--match-head-commit "$HEAD_SHA"');
+    // The guard runs from main before the merge, and the PR code is never checked out.
+    expect(merge).toMatch(/ref: main\n\s+persist-credentials: false/);
+    const guard = merge.indexOf(
+      'node scripts/release-pr-guard.mjs guard "$RELEASE_BOT" "$HEAD_SHA"'
+    );
+    expect(guard).toBeGreaterThan(0);
+    expect(guard).toBeLessThan(merge.indexOf("gh pr merge"));
   });
 
   it("reports a failed release only when npm did not stage it", () => {

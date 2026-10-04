@@ -17,10 +17,22 @@ users from a publish by a compromised workflow or account.
 ## Decision
 
 1. `release-auto-merge.yml` merges the release pull request after its Quality
-   run passes. It acts only on `release-please--` branches in this repository
-   and merges the tested commit (`--match-head-commit`). It uses the release
-   GitHub App token, so the merge starts the Release workflow. Other pull
-   requests still need the maintainer to merge them.
+   run passes. The `release-please--` branch name is only a first filter,
+   because anyone with write access can create such a branch.
+   `scripts/release-pr-guard.mjs` merges only a pull request that the release
+   App wrote:
+   - the author is `omms-release[bot]`, from this repository, into `main`
+   - every commit has the App as author and a GitHub (`web-flow`) signature;
+     a person cannot push such a commit
+   - it changes only `CHANGELOG.md` (additions only), `package.json`,
+     `.claude-plugin/plugin.json` and `.release-please-manifest.json`
+   - the JSON files change only the version, and all versions agree
+
+   The guard runs from `main` and reads the pull request through the API; it
+   never checks out its code. The merge uses the App token, so it starts the
+   Release workflow, and `--match-head-commit` merges only the checked commit.
+   Any other pull request waits for the maintainer.
+
 2. After `npm stage publish`, the Release workflow opens an issue assigned to
    the repository owner: `Approve om-memory-system@X.Y.Z on npm`. It holds the
    stage ID and the approve command. The assignment sends a GitHub
@@ -46,7 +58,8 @@ users from a publish by a compromised workflow or account.
 
 - Every `feat:`, `fix:` or `deps:` merge ships soon after. Changes can no
   longer be held back in an open release pull request.
-- The release App token can now merge pull requests from a workflow.
+- The release App token can now merge pull requests from a workflow. The
+  guard limits it to pull requests the App wrote itself.
 
 ### Neutral
 
@@ -64,6 +77,7 @@ users from a publish by a compromised workflow or account.
 ## References
 
 - `.github/workflows/release-auto-merge.yml`
+- `scripts/release-pr-guard.mjs`
 - `.github/workflows/release.yml`
 - `.github/workflows/claude-plugin-channel.yml`
 - `scripts/release-approve.sh`

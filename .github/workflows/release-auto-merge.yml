@@ -4,6 +4,11 @@ name: Release auto-merge
 # included. The merge uses the release GitHub App token: a merge made with
 # GITHUB_TOKEN would not start the Release workflow. npm still holds the
 # version until the maintainer approves it with 2FA (see docs/ci.md).
+#
+# The branch name is only a first filter. scripts/release-pr-guard.mjs merges
+# only a pull request that the release App wrote: App author, GitHub-signed App
+# commits, the four release files, and version-only JSON changes. Anything else
+# waits for the maintainer.
 on:
   workflow_run:
     workflows: [Quality]
@@ -25,20 +30,56 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository &&
       startsWith(github.event.workflow_run.head_branch, 'release-please--')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      RELEASE_BOT: omms-release[bot]
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
     steps:
+      # The guard runs from main. The pull request's code is never checked out.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+          sparse-checkout: scripts/release-pr-guard.mjs
+          sparse-checkout-cone-mode: false
+
       - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           client-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
-      # --match-head-commit refuses the merge if release-please pushed a newer
-      # commit after this Quality run started; that commit gets its own run.
+      - name: Check the pull request is untouched release-please output
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          if [ -z "$PR_NUMBER" ]; then
+            echo "Not merged: the Quality run names no pull request."
+            exit 1
+          fi
+          mkdir -p guard/base/.claude-plugin guard/head/.claude-plugin
+          api="repos/$GITHUB_REPOSITORY"
+          gh api "$api/pulls/$PR_NUMBER" > guard/pr.json
+          gh api "$api/pulls/$PR_NUMBER/commits?per_page=100" > guard/commits.json
+          gh api "$api/pulls/$PR_NUMBER/files?per_page=100" > guard/files.json
+          base_sha=$(jq -r .base.sha guard/pr.json)
+          for name in .release-please-manifest.json package.json .claude-plugin/plugin.json; do
+            for side in base head; do
+              ref=$base_sha
+              [ "$side" = head ] && ref=$HEAD_SHA
+              gh api -H "Accept: application/vnd.github.raw" "$api/contents/$name?ref=$ref" \
+                > "guard/$side/$name" || rm -f "guard/$side/$name"
+            done
+          done
+          node scripts/release-pr-guard.mjs guard "$RELEASE_BOT" "$HEAD_SHA"
+
+      # --match-head-commit refuses the merge if anything was pushed after the
+      # tested and checked commit.
       - name: Merge the release pull request
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          gh pr merge "$HEAD_BRANCH" --repo "$GITHUB_REPOSITORY" --merge \
+          gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --merge \
             --match-head-commit "$HEAD_SHA"

@@ -215,16 +215,23 @@ release-please creates do not start other workflows.
 
 ### Release auto-merge (after Quality on the release pull request)
 
-`release-auto-merge.yml` runs when a Quality run completes. It merges the pull
-request only when all of these are true:
+`release-auto-merge.yml` runs when a Quality run passes, Windows included, for
+a pull request on a `release-please--` branch in this repository. The branch
+name is only a first filter: anyone with write access can create such a branch.
+Before it merges, `scripts/release-pr-guard.mjs` checks that the release App
+wrote the pull request:
 
-- `RELEASE_PLEASE_ENABLED` is `true`.
-- The Quality run passed, Windows included, for a pull request.
-- The branch starts with `release-please--` and is in this repository, not a
-  fork.
+- The author is `omms-release[bot]`, and the base is `main`.
+- Every commit has the App as author and a GitHub (`web-flow`) signature.
+- The changed files are only `CHANGELOG.md` (additions only), `package.json`,
+  `.claude-plugin/plugin.json` and `.release-please-manifest.json`.
+- The JSON files change only the version, and all versions agree.
 
-It merges the tested commit (`--match-head-commit`) with the release GitHub
-App token, so the merge starts the Release workflow. All other pull requests
+The guard runs from `main` and reads the pull request through the API. It
+never checks out the pull request's code. If a check fails, the job fails with
+the reasons and the pull request waits for the maintainer. The merge uses the
+release App token, so it starts the Release workflow, and
+`--match-head-commit` merges only the checked commit. All other pull requests
 still need the maintainer to merge them. See
 [ADR-023](adr/023-automate-release-except-npm-approval.md).
 
