@@ -1,6 +1,10 @@
-// OMMS status line for Claude Code 2.1.287 or later: `omms: connected`,
-// `omms: web app off` or `omms: not installed`, plus ` · <version> available`
-// when npm has a newer release. Claude Code puts the plugin name before the text.
+import { atom, read, update } from "claude-code";
+
+// OMMS status label for Claude Code 2.1.287 or later, drawn at the right of the
+// prompt footer after Claude Code's own mode labels: `● omms: connecting`
+// (yellow), `connected` (green), `web app off` or `not installed` (red), plus a
+// dim ` · <version> available` when npm has a newer release. It does not use
+// `$.ui.status`: Claude Code draws that row with a yellow warning sign.
 //
 // The module holds no OMMS logic. It asks the plugin's own launcher, the one
 // the command hooks run, for the web app's health URL, the running version and
@@ -13,6 +17,16 @@ const STATUS_INTERVAL_MS = 6 * 60 * 60 * 1000;
 // A first `npx` download can take longer than the 30 second default.
 const LAUNCHER_TIMEOUT_MS = 60_000;
 const UPDATE_COMMAND = "claude plugin update omms@omms";
+// Claude Code theme keys, so the label follows a light or dark theme.
+const COLOURS = {
+  connecting: "warning",
+  connected: "success",
+  "web app off": "error",
+  "not installed": "error",
+};
+
+// What the footer label draws. A write redraws it.
+const label = atom({ plugin: "omms", key: "label" }, { state: "connecting", update: null });
 
 /** True when `latest` is a stable release newer than `current`. A prerelease is never offered. */
 function isNewer(latest, current) {
@@ -53,6 +67,20 @@ export const register = (on) => {
   const toasted = new Set();
   let timers = [];
 
+  on("ui.render", { component: "SessionMode" }, async ($, e, next) => {
+    const modes = await next(e);
+    const { state, update: newer } = await read($, label);
+    const { Box, Text } = $.ui.resolve(e);
+    return (
+      <Box flexDirection="row">
+        {modes}
+        {e.props.modes.length > 0 && <Text dimColor> · </Text>}
+        <Text color={COLOURS[state]}>● omms: {state}</Text>
+        {newer && <Text dimColor> · {newer} available</Text>}
+      </Box>
+    );
+  });
+
   on("session.start", async ($, e, next) => {
     const started = await next(e);
     const facts = {
@@ -63,16 +91,19 @@ export const register = (on) => {
       web: null,
     };
 
-    const show = () => {
+    const show = async () => {
       if (facts.web === null) return;
-      if (!facts.isInstalled) return $.ui.status("not installed");
-      const web = facts.web ? "connected" : "web app off";
-      const update =
+      if (!facts.isInstalled) {
+        await update($, label, () => ({ state: "not installed", update: null }));
+        return;
+      }
+      const state = facts.web ? "connected" : "web app off";
+      const newer =
         facts.version && facts.latest && isNewer(facts.latest, facts.version) ? facts.latest : null;
-      $.ui.status(update ? `${web} · ${update} available` : web);
-      if (update && !toasted.has(update)) {
-        toasted.add(update);
-        $.ui.toast(`OMMS ${update} is available. Run: ${UPDATE_COMMAND}, then /reload-plugins`);
+      await update($, label, () => ({ state, update: newer }));
+      if (newer && !toasted.has(newer)) {
+        toasted.add(newer);
+        $.ui.toast(`OMMS ${newer} is available. Run: ${UPDATE_COMMAND}, then /reload-plugins`);
       }
     };
 
@@ -93,7 +124,7 @@ export const register = (on) => {
       const web = await Promise.race([answer(), timeout]);
       if (run !== healthRun) return;
       facts.web = web;
-      show();
+      await show();
     };
 
     const refreshStatus = async () => {
@@ -120,7 +151,7 @@ export const register = (on) => {
         facts.isInstalled = !String(error && error.message).includes("failed to start");
         facts.latest = null;
       }
-      show();
+      await show();
     };
 
     // The timers outlive this hook, so a slow first download never delays the session.
@@ -130,9 +161,9 @@ export const register = (on) => {
       $.clock.after(0, async () => {
         // Show the web app state at once, on the default URL. The launcher can
         // take a minute on a first `npx` download. Check again once it names the URL.
-        void checkHealth();
+        const early = checkHealth();
         await refreshStatus();
-        await checkHealth();
+        await Promise.all([early, checkHealth()]);
       }),
       $.clock.every(HEALTH_INTERVAL_MS, checkHealth),
       $.clock.every(STATUS_INTERVAL_MS, refreshStatus)

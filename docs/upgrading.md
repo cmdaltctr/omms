@@ -32,7 +32,7 @@ To turn on auto-update for OMMS:
 
 A running session keeps the old copy. Run `/reload-plugins`, or start a new session.
 
-Claude Code 2.1.287 or later tells you when a newer release exists. The OMMS status line adds `· <version> available`, and one toast names `claude plugin update omms@omms`. The notice compares npm `latest` with the OMMS copy that the hooks run. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn it off. The plugin needs Claude Code 2.1.287 or later. See [Claude Code adapter: Status line](claude-code-adapter.md#status-line).
+Claude Code 2.1.287 or later tells you when a newer release exists. The OMMS label in the prompt footer adds a dim `· <version> available`, and one toast names `claude plugin update omms@omms`. The notice compares npm `latest` with the OMMS copy that the hooks run. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn it off. The plugin needs Claude Code 2.1.287 or later. See [Claude Code adapter: Status line](claude-code-adapter.md#status-line).
 
 To update by hand:
 

@@ -1,6 +1,6 @@
 {
   "description": "OMMS memory: inject memories at session start and per prompt, capture each finished turn",
-  "modules": ["./omms-status.js"],
+  "modules": ["./omms-status.jsx"],
   "hooks": {
     "SessionStart": [
       {

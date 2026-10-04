@@ -51,7 +51,7 @@ The plugin files are in the repository root:
 | `.claude-plugin/plugin.json`      | The plugin manifest. The plugin name is `omms`.                                       |
 | `.claude-plugin/marketplace.json` | A marketplace named `omms` that lists the plugin.                                     |
 | `hooks/hooks.json`                | The `SessionStart`, `UserPromptSubmit`, and `Stop` hooks, and the status line module. |
-| `hooks/omms-status.js`            | The status line module. See [Status line](#status-line).                              |
+| `hooks/omms-status.jsx`           | The status label module. See [Status line](#status-line).                             |
 | `skills/omms-memory/SKILL.md`     | The `omms-memory` skill. It tells the agent when to search and save memory.           |
 
 The same skill file serves Pi and OpenCode. In Claude Code, start it by name
@@ -342,18 +342,20 @@ app tries this once per process. See
 
 ## Status line
 
-With Claude Code 2.1.287 or later, the plugin shows one status line under the
-prompt. A small module draws it: `hooks/omms-status.js`, listed under `modules`
-in `hooks/hooks.json`. The module runs beside the command hooks and does not
-change them. Claude Code writes the plugin name before the text, so the line
-reads `omms: <state>`.
+With Claude Code 2.1.287 or later, the plugin shows one OMMS label in the
+prompt footer. It sits at the right, after Claude Code's own mode labels such
+as `focus`. A small module draws it: `hooks/omms-status.jsx`, listed under
+`modules` in `hooks/hooks.json`. The module runs beside the command hooks and
+does not change them. The label reads `● omms: <state>`, and the dot and state
+show the state's colour. The colours come from your Claude Code theme.
 
-| Line                                | Meaning                                                                                                       | What to do                                                                                                 |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `omms: connected`                   | The web app answers its health route. A 401 also counts, because a web app with a password runs.              | Nothing.                                                                                                   |
-| `omms: web app off`                 | The web app does not answer within 3 seconds.                                                                 | Run `om-memory-system web`. The next hook also starts it.                                                  |
-| `omms: not installed`               | The plugin launcher can run no OMMS copy: no local copy is new enough, and `npx` fails or Node.js is missing. | Install Node.js 22.14 or later and check the network. See [How hooks find OMMS](#how-the-hooks-find-omms). |
-| `omms: connected · 4.4.0 available` | npm has a newer stable release than the OMMS copy that the launcher runs.                                     | Run `claude plugin update omms@omms`, then `/reload-plugins`.                                              |
+| Label                                 | Colour | Meaning                                                                                                       | What to do                                                                                                 |
+| ------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `● omms: connecting`                  | Yellow | The session has started and the first health check has not answered yet. It lasts at most about 3 seconds.    | Nothing.                                                                                                   |
+| `● omms: connected`                   | Green  | The web app answers its health route. A 401 also counts, because a web app with a password runs.              | Nothing.                                                                                                   |
+| `● omms: web app off`                 | Red    | The web app does not answer within 3 seconds.                                                                 | Run `om-memory-system web`. The next hook also starts it.                                                  |
+| `● omms: not installed`               | Red    | The plugin launcher can run no OMMS copy: no local copy is new enough, and `npx` fails or Node.js is missing. | Install Node.js 22.14 or later and check the network. See [How hooks find OMMS](#how-the-hooks-find-omms). |
+| `● omms: connected · 4.4.0 available` | Green  | npm has a newer stable release than the OMMS copy that the launcher runs. The version suffix is dim.          | Run `claude plugin update omms@omms`, then `/reload-plugins`.                                              |
 
 How it works:
 
@@ -362,17 +364,17 @@ How it works:
    The command prints one JSON line: `{ "healthUrl", "version", "latest" }`.
    `version` is the copy that runs. `latest` is the newest release on npm, or
    `null` when the check is off or fails.
-2. Every 30 seconds, the module fetches the health URL. The line follows the
+2. Every 30 seconds, the module fetches the health URL. The label follows the
    web app within 30 seconds. The first check runs at once on the default URL,
-   so the line shows even while the launcher is still running. A second check
+   so the label shows the web app state even while the launcher is still running. A second check
    runs when the launcher names the URL.
-3. When `latest` is a stable release newer than `version`, the line adds
+3. When `latest` is a stable release newer than `version`, the label adds a dim
    `· <version> available`. A toast also names the plugin update command. It
    shows once for each new version in a session.
 
 The launcher has a 60-second limit for this command, because a first `npx`
 download can take longer than 30 seconds. A run that passes the limit keeps the
-line to the web app state and shows no update. It never shows `not installed`.
+label to the web app state and shows no update. It never shows `not installed`.
 The next 6-hour check tries again.
 
 Notes:
@@ -380,11 +382,14 @@ Notes:
 - The update check asks npm for the `latest` version. It sends no session
   content. It ignores prereleases. Set `OMMS_DISABLE_UPDATE_CHECK=1` in the
   environment that starts Claude Code to turn it off.
-- The line comes from a module, so it follows the same rules as the hooks. It
+- The label comes from a module, so it follows the same rules as the hooks. It
   does not show in an untrusted workspace, with `--bare` or `--safe-mode`, or
   with `disableAllHooks`.
-- The line is separate from your own `statusLine` setting. OMMS does not
+- The label is separate from your own `statusLine` setting. OMMS does not
   replace it or change it.
+- OMMS does not use Claude Code's plugin status row. Claude Code draws that row
+  with a yellow `⚠` sign, so a healthy web app looked like a warning there.
+  Earlier OMMS versions used it.
 - `claude-hook status` is not a hook event. You can run it by hand to see what
   the module reads.
 - An OMMS copy from before this command prints nothing for `status`. The line
