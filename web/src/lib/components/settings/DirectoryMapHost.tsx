@@ -35,8 +35,13 @@ export function DirectoryMapHost({
   const selected = mappable.filter((row) => decisions[row.directory]?.accepted).length;
   return (
     <details className="min-w-0 rounded-lg border border-border p-3">
-      <summary className="cursor-pointer rounded font-medium focus-visible:outline-2 focus-visible:outline-ring">
-        {hostLabel(host)}: {s("Unresolved directories")}
+      <summary
+        id={`directory-maps-${host}`}
+        className="scroll-mt-20 cursor-pointer rounded font-medium focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <h3 className="inline text-subsection-title font-semibold">
+          {hostLabel(host)}: {s("Unresolved directories")}
+        </h3>
         <span className="mt-1 block text-xs font-normal text-muted-foreground">
           {s("Directories")}: {mappable.length} · {s("Unresolved sessions")}:{" "}
           {rows.reduce((sum, row) => sum + row.sessions, 0)} · {s("Selected maps")}: {selected}

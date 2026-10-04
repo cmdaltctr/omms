@@ -66,7 +66,7 @@ export function WebAppSection() {
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("Web app")}
     >
-      <h2 className="text-lg font-medium">{s("Web app")}</h2>
+      <h2 className="text-section-title font-semibold">{s("Web app")}</h2>
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"

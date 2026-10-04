@@ -17,7 +17,7 @@ import { externalMissing } from "$lib/external-api-settings";
 import { hostLabel } from "$lib/host-label";
 import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
-import { ImportStatusBadge } from "./ImportStatusBadge";
+import { revealDirectoryMaps } from "$lib/directory-map-navigation";
 
 type Snapshot = {
   revision: string;
@@ -162,7 +162,7 @@ export function AutoImportSection() {
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("Automatic import")}
     >
-      <h2 className="text-lg font-medium">{s("Automatic import")}</h2>
+      <h2 className="text-section-title font-semibold">{s("Automatic import")}</h2>
       <p className="text-sm text-muted-foreground">
         {s(
           "Automatic import makes model calls. A model change applies at the next run. Turning it off stops a running import after the current exchange."
@@ -200,9 +200,7 @@ export function AutoImportSection() {
         const typed = manualModelFieldVisible(typedModes[host], known);
         return (
           <div key={host} className="space-y-2 rounded-lg border border-border p-3 text-sm">
-            <h3 className="flex items-center gap-2 font-medium">
-              {hostLabel(host)} <ImportStatusBadge badge={badge} />
-            </h3>
+            <h3 className="text-subsection-title font-semibold">{hostLabel(host)}</h3>
             {host === "claude-code" ? (
               <p className="text-muted-foreground">
                 {s(
@@ -350,7 +348,12 @@ export function AutoImportSection() {
                   {rows[host].counts.unresolved > 0 && (
                     <>
                       {" "}
-                      <a className="underline" href="#settings-section-directory-maps">
+                      <a
+                        className="underline focus-visible:outline-2 focus-visible:outline-ring"
+                        href={`#directory-maps-${host}`}
+                        aria-label={`${hostLabel(host)}: ${s("Directory maps")}`}
+                        onClick={() => revealDirectoryMaps(host)}
+                      >
                         {s("Directory maps")}
                       </a>
                     </>

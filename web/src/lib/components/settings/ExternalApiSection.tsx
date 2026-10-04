@@ -142,7 +142,7 @@ export function ExternalApiSection() {
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("External API")}
     >
-      <h2 className="text-lg font-medium">{s("External API")}</h2>
+      <h2 className="text-section-title font-semibold">{s("External API")}</h2>
       <p className="text-sm text-muted-foreground">
         {s(
           "An OpenAI- or Anthropic-compatible endpoint that either host can use for capture and backfill."

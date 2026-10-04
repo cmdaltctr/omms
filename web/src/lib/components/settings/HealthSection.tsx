@@ -30,7 +30,7 @@ export function HealthSection() {
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("Health")}
     >
-      <h2 className="text-lg font-medium">{s("Health")}</h2>
+      <h2 className="text-section-title font-semibold">{s("Health")}</h2>
       <div className="flex gap-2">
         <button
           className="rounded-lg border border-border px-3 py-1.5 text-sm"

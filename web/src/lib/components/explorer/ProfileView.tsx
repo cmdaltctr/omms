@@ -233,9 +233,9 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
     <>
       <div className="space-y-6">
         <div className="space-y-2">
-          <h3 dir="auto" className="text-sm font-semibold break-words">
+          <h2 dir="auto" className="text-section-title font-semibold break-words">
             {profile.displayName || profile.userId}
-          </h3>
+          </h2>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-muted px-2.5 py-1 text-xs">
               <span className="text-muted-foreground">{t("profile-version")}</span>
@@ -270,11 +270,13 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
 
         <div className="grid gap-6">
           <section id="profile-preferences" className="scroll-mt-4 space-y-3">
-            <h4 className="flex items-center gap-2 text-sm font-semibold">
+            <h2 className="flex flex-wrap items-center gap-2 text-section-title font-semibold">
               <Heart className="size-4" />
               {t("profile-preferences")}
-              <span className="text-muted-foreground">{preferences.length}</span>
-            </h4>
+              <span className="text-xs font-normal text-muted-foreground">
+                {preferences.length}
+              </span>
+            </h2>
             {preferences.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("empty-preferences")}</p>
             ) : (
@@ -295,11 +297,11 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
           </section>
 
           <section id="profile-patterns" className="scroll-mt-4 space-y-3">
-            <h4 className="flex items-center gap-2 text-sm font-semibold">
+            <h2 className="flex flex-wrap items-center gap-2 text-section-title font-semibold">
               <Activity className="size-4" />
               {t("profile-patterns")}
-              <span className="text-muted-foreground">{patterns.length}</span>
-            </h4>
+              <span className="text-xs font-normal text-muted-foreground">{patterns.length}</span>
+            </h2>
             {patterns.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("empty-patterns")}</p>
             ) : (
@@ -320,11 +322,11 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
           </section>
 
           <section id="profile-workflows" className="scroll-mt-4 space-y-3">
-            <h4 className="flex items-center gap-2 text-sm font-semibold">
+            <h2 className="flex flex-wrap items-center gap-2 text-section-title font-semibold">
               <Workflow className="size-4" />
               {t("profile-workflows")}
-              <span className="text-muted-foreground">{workflowsCount}</span>
-            </h4>
+              <span className="text-xs font-normal text-muted-foreground">{workflowsCount}</span>
+            </h2>
             {workflowsCount === 0 ? (
               <p className="text-sm text-muted-foreground">{t("empty-workflows")}</p>
             ) : (
@@ -340,9 +342,9 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
                         className="min-w-0 rounded-xl border border-border bg-card p-3 space-y-2"
                       >
                         <div className="flex items-start gap-2">
-                          <div className="text-sm font-medium min-w-0 break-words flex-1">
+                          <h3 className="text-subsection-title font-semibold min-w-0 break-words flex-1">
                             {item.description || ""}
-                          </div>
+                          </h3>
                           <div className="flex items-center gap-0.5">
                             <Button
                               variant="ghost"

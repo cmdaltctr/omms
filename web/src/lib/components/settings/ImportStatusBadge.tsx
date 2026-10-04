@@ -1,9 +1,11 @@
 import type { ImportBadge } from "$lib/auto-import-settings";
 import { useSettingsText } from "$lib/i18n/settings";
 import { cn } from "$lib/utils";
+import { hostLabel, type WebHost } from "$lib/host-label";
+import { revealDirectoryMaps } from "$lib/directory-map-navigation";
 
 /** A small pill with one host's import status. */
-export function ImportStatusBadge({ badge }: { badge: ImportBadge }) {
+export function ImportStatusBadge({ badge, host }: { badge: ImportBadge; host: WebHost }) {
   const s = useSettingsText();
   const [text, tone] = ((): [string, string] => {
     switch (badge.kind) {
@@ -34,9 +36,22 @@ export function ImportStatusBadge({ badge }: { badge: ImportBadge }) {
         return [s("Not started"), "border-border text-muted-foreground"];
     }
   })();
+  const className = cn("inline-block rounded-full border px-2 py-0.5 text-xs font-medium", tone);
+  if (badge.kind === "partly") {
+    return (
+      <a
+        href={`#directory-maps-${host}`}
+        onClick={() => revealDirectoryMaps(host)}
+        aria-label={`${hostLabel(host)}: ${s("Directory maps")}. ${text}`}
+        className={cn(className, "underline focus-visible:outline-2 focus-visible:outline-ring")}
+      >
+        {text}
+      </a>
+    );
+  }
   return (
     <span
-      className={cn("inline-block rounded-full border px-2 py-0.5 text-xs font-medium", tone)}
+      className={className}
       title={badge.kind === "failed" && badge.error ? badge.error : undefined}
     >
       {text}

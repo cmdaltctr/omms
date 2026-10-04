@@ -101,13 +101,13 @@ export function DirectoryMapsSection() {
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("Directory maps")}
     >
-      <h2 className="text-lg font-medium">{s("Directory maps")}</h2>
+      <h2 className="text-section-title font-semibold">{s("Directory maps")}</h2>
       <p className="text-sm text-muted-foreground">
         {s(
           "Map a directory that was moved or deleted to the project it belongs to. A change applies to the next import or backfill run."
         )}
       </p>
-      <h3 className="font-medium">{s("Saved maps")}</h3>
+      <h3 className="text-subsection-title font-semibold">{s("Saved maps")}</h3>
       <p className="text-xs text-muted-foreground">{s("Saved maps apply to every host.")}</p>
       {!view?.saved.length && <p className="text-sm text-muted-foreground">{s("none")}</p>}
       <ul className="space-y-1 text-sm">

@@ -73,6 +73,8 @@ The sidebar footer shows the current language: EN, ZH, or AR. Select it to choos
 
 The approved appearance preview uses warm light and dark themes. Interface text uses the system sans-serif font. Technical values use JetBrains Mono. Shared fields and default buttons are 36px high; small and large buttons are 32px and 40px. The mobile navigation target is 44px high. Selected rows use a neutral colour.
 
+Application page titles use H1 at 24px. Main sections use H2 at 18px, with nested H3 titles at 15px. Normal UI text is 14px. These sizes use relative units and follow browser font preferences and zoom. Dialog titles use the 18px section role. Stored memory Markdown keeps its existing styles.
+
 The preview keeps the existing routes, features, preference keys, legacy migration, right-to-left layout, and save timing. Dialog close labels are translated in English, Chinese, and Arabic. The separately approved dialog correction returns focus only to a connected opener and respects a consumer focus handler.
 
 The preview used synthetic data on loopback port 5179. It did not use the normal web backend. Read [Design preview evidence](design-preview/README.md) for the trial scope, checks, and limits.
@@ -87,8 +89,8 @@ Open `http://127.0.0.1:4747/settings`, select **Settings** in the sidebar, or se
 - **Keys and access.** See which credentials are set, manage API tokens, and set the browser password.
 - **Capture diagnostics.** See capture outcomes and failures, and manage debug traces.
 - **Health.** Check that each part of OMMS works.
-- **Import and backfill.** Import past chats by hand.
-- **Automatic import.** Control the background import of past chats, watch its progress, and run, pause, or resume it.
+- **Import and backfill.** Import past chats by hand. Select a **Partly imported** badge to reveal and focus that host's unresolved directory list.
+- **Automatic import.** Control the background import of past chats, watch its progress, and run, pause, or resume it. Its unresolved-directory links reach the matching host. Overall status badges appear in Import and backfill.
 - **Profiles.** Choose or merge profiles. It shows only when more than one profile exists.
 - **Profile learning.** Clear the backlog of prompts that wait for profile learning.
 - **Directory maps.** Tell OMMS where chats from deleted folders belong.
