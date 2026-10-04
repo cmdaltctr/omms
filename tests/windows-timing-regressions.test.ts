@@ -2,19 +2,22 @@ import { afterEach, expect, it } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runBunTest, TEST_PARENT_TIMEOUT_MS } from "./test-process.js";
 
 const dirs: string[] = [];
 afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
-it("checks the step-aside hold-off after slow shutdown finishes", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "omms-slow-shutdown-"));
-  dirs.push(dir);
-  const preload = join(dir, "delay-shutdown.mjs");
-  writeFileSync(
-    preload,
-    `
+it(
+  "checks the step-aside hold-off after slow shutdown finishes",
+  async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omms-slow-shutdown-"));
+    dirs.push(dir);
+    const preload = join(dir, "delay-shutdown.mjs");
+    writeFileSync(
+      preload,
+      `
 import { mock } from "bun:test";
 import * as fs from "node:fs";
 const originalWrite = fs.writeFileSync;
@@ -39,27 +42,16 @@ function writeFileSync(path, data, ...args) {
 }
 mock.module("node:fs", () => ({ ...fs, default: { ...fs.default, writeFileSync }, writeFileSync }));
 `
-  );
-  const proc = Bun.spawn({
-    cmd: [
-      process.execPath,
-      "test",
+    );
+    const { exitCode, output } = await runBunTest([
       "--preload",
       preload,
       "--test-name-pattern",
       "stops serving, keeps the process alive",
       join(import.meta.dir, "web-step-aside.test.ts"),
-    ],
-    cwd: join(import.meta.dir, ".."),
-    stdout: "pipe",
-    stderr: "pipe",
-    timeout: 45_000,
-  });
-  const [stdout, stderr, exitCode] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  expect(stdout).toContain("SLOW_SHUTDOWN_INJECTED");
-  expect(exitCode, stdout + stderr).toBe(0);
-}, 60_000);
+    ]);
+    expect(output).toContain("SLOW_SHUTDOWN_INJECTED");
+    expect(exitCode, output).toBe(0);
+  },
+  TEST_PARENT_TIMEOUT_MS
+);

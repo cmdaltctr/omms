@@ -99,8 +99,11 @@ the state too early on Windows.
 
 A test that launches another test needs separate deadlines. Run only the
 relevant child test, give its process time for startup and cleanup, and keep
-that process deadline below the parent's. Drain both output pipes concurrently
-so a failed child reports its error. Do not retry a recurring failure into a
+that process deadline below the parent's. Use `runBunTest` from
+`tests/test-process.ts`: it passes the 30-second test/hook timeout into the
+child, bounds the process at 45 seconds, and exports a 60-second parent limit.
+The outer runner's command-line timeout does not propagate into child runners.
+Drain both output pipes concurrently so a failed child reports its error. Do not retry a recurring failure into a
 green result. See [TDR-028](tdr/028-test-shutdown-state-and-child-deadlines.md).
 
 ## GitHub workflows

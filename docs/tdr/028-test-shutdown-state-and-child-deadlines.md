@@ -24,6 +24,12 @@ inside a parent with a 30-second timeout. Each child test also allowed 30
 seconds, plus startup and cleanup. The Windows log showed the relevant child
 test passing after 25 seconds, then the parent killed the unfinished process.
 
+After those fixes passed on Windows, the same run exposed a third fault:
+`profile-catch-up-lease-cleanup.test.ts` launched a child without `--timeout`.
+Its database cleanup hook inherited Bun's five-second default, even though the
+outer suite used 30 seconds. A six-second cleanup delay reproduced both nested
+hook failures locally.
+
 ## Decision
 
 - Keep real socket and database shutdown in the step-aside tests. Wait for the
@@ -35,6 +41,10 @@ test passing after 25 seconds, then the parent killed the unfinished process.
 - Run only the relevant snapshot test in the nested regression. Give the child
   process 45 seconds and its parent 60 seconds, while retaining the child's
   30-second test limit. The extra time covers process startup and cleanup.
+- Route all six nested Bun test launch sites through `tests/test-process.ts`.
+  Pass `--timeout 30000` explicitly to the child, including its hooks. Give the
+  process 45 seconds and the parent 60 seconds. A caller can request a shorter
+  process deadline for a timeout test.
 - Drain child stdout and stderr concurrently. Terminate stalled children before
   the parent deadline so failures include their output.
 
@@ -79,9 +89,20 @@ No test is skipped on Windows.
   default delay and missing reply grace each failed the matching test.
 - Restoring the old snapshot equality assertion caused both the child and the
   retired-snapshot regression to fail.
-- Focused tests and `bun run check` passed. Full `bun run ci:local` passed across
-  248 isolated test files. Aikido returned zero findings for all three changed
-  test files. Windows CI verification remains pending.
+- The first two fixes passed in Windows run `37195332056` without a retry.
+  That run exposed the separate five-second cleanup-hook limit described above.
+- Both database cleanup regressions now inject a six-second delay, and still
+  require every real libSQL client to be closed before directory removal.
+- Shared-runner tests check concurrent pipe draining, failed-child diagnostics
+  and stalled-child termination. Removing stderr capture, hiding exit codes,
+  dropping the process deadline or omitting the hook timeout each caused the
+  relevant regression to fail.
+- The launch-site audit covered the cleanup regression, both release regression
+  launch sites, the two web wrappers and the slow-shutdown regression. None now
+  invokes a child test runner without the shared deadline policy.
+- Focused tests, `bun run check` and full `bun run ci:local` passed across
+  249 isolated test files. Aikido returned zero findings for the seven changed
+  test/helper files. Windows CI for the shared-runner change remains pending.
 
 ## How to Recognise / Handle This Again
 
