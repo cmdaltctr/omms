@@ -59,17 +59,17 @@ with `/omms:omms-memory`. See [Using memory: The omms-memory skill](using-memory
 The plugin manifest, the marketplace file, and the hooks file are not in the
 npm package. Install the plugin from the repository.
 
+The marketplace installs from the GitHub `stable` branch. That branch holds
+the release commit named by npm `latest`, so Claude Code receives only versions
+approved on npm. The channel workflow moves it within an hour of approval, or
+at once after the maintainer dispatches it. With marketplace auto-update on,
+Claude Code installs that version at its next update check.
+
 1. Open Claude Code.
 2. Add the OMMS marketplace:
 
    ```text
    /plugin marketplace add cmdaltctr/omms
-   ```
-
-   For a local checkout, give the folder path instead:
-
-   ```text
-   /plugin marketplace add /absolute/path/to/omms
    ```
 
 3. Install the plugin:
@@ -86,6 +86,17 @@ The same steps work from a terminal:
 claude plugin marketplace add cmdaltctr/omms
 claude plugin install omms@omms
 ```
+
+### Testing a local checkout
+
+Load local plugin files with:
+
+```bash
+claude --plugin-dir /absolute/path/to/omms
+```
+
+Adding a local checkout as a marketplace still installs from GitHub `stable`.
+Use `--plugin-dir` to test edits in the checkout.
 
 ### Hooks by hand
 

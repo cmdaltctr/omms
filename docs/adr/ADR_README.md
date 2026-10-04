@@ -24,3 +24,4 @@ Local decision records for OMMS maintainers.
 | [018](./018-newest-copy-runtime.md)                             | Every part of OMMS runs the newest copy on the machine            | 2026-10-02 | Proposed |
 | [019](./019-claude-code-status-line-through-a-plugin-module.md) | Claude Code shows OMMS status through a plugin module             | 2026-10-02 | Proposed |
 | [020](./020-pull-requests-test-on-windows.md)                   | Pull requests run the test suite on Windows                       | 2026-10-03 | Proposed |
+| [021](./021-claude-plugin-stable-channel.md)                    | Claude Code installs only npm-approved releases through stable    | 2026-10-03 | Proposed |

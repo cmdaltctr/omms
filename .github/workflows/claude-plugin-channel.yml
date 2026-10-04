@@ -1,0 +1,24 @@
+name: Claude plugin channel
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  sync:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: true # This job pushes the stable branch.
+      - name: Sync stable to npm latest
+        run: bash scripts/sync-claude-plugin-channel.sh

@@ -23,6 +23,7 @@ concurrency: 20 jobs in total, 5 of them macOS.
 | Full gate and pack smoke (6 platforms) | GitHub                            | Before release, weekly (Monday), manual |
 | Release PR, tag, stage on npm          | GitHub, `ubuntu-latest`           | Release workflow, push to `main`        |
 | `next` prerelease on npm               | GitHub, `ubuntu-latest`           | Publish next, after Quality on `main`   |
+| Claude plugin `stable` channel         | GitHub, `ubuntu-latest`           | Hourly, manual, after npm approval      |
 
 ## Local toolchain
 
@@ -194,6 +195,44 @@ maintainer can then try it with `om-memory-system@next`.
 - It skips release commits (commits that change `.release-please-manifest.json`).
 - It fails if `latest` moves.
 
+### Claude plugin channel (hourly, manual after approval)
+
+`claude-plugin-channel.yml` runs hourly and on manual dispatch. Its single
+`ubuntu-latest` job runs only from `main` and pins checkout to `main`, with full
+history and tags. A manual dispatch from another ref skips the job. It then runs
+`scripts/sync-claude-plugin-channel.sh`. It installs no packages and needs only
+`contents: write`.
+
+The script reads npm `latest` and moves only `refs/heads/stable` to the commit
+tagged `v<version>`. It accepts stable version numbers only. An explicit
+`--force-with-lease` protects concurrent updates and permits rollback when npm
+`latest` moves back. A matching branch needs no push. A missing tag or invalid
+version fails the run. A registry failure prints a warning, leaves the branch
+unchanged, and exits successfully.
+
+The Claude Code marketplace installs the plugin from this branch. Create
+`stable` at the commit tagged `v4.4.1` before merging the marketplace change.
+Consider a repository ruleset that limits writes to `stable` to GitHub Actions.
+
+After npm approval, dispatch the channel update:
+
+```bash
+gh workflow run claude-plugin-channel.yml
+```
+
+Wait for that run to pass before checking a Claude Code plugin update. The
+hourly schedule covers a missed dispatch.
+
+#### Claude plugin channel rollout checklist
+
+These checks follow the first merge of the stable-channel change. They remain
+separate from the archived implementation tasks and have not run yet.
+
+- [ ] Dispatch `gh workflow run claude-plugin-channel.yml` after merge.
+- [ ] Verify the new run passes and reports `stable` already at `v4.4.1`.
+- [ ] Run `claude plugin marketplace update omms`, then `claude plugin list`.
+- [ ] Confirm `omms@omms` shows version 4.4.1.
+
 ## Release runbook
 
 Versions come from commit messages. Use `feat:` (minor), `fix:` (patch),
@@ -207,7 +246,9 @@ Versions come from commit messages. Use `feat:` (minor), `fix:` (patch),
 5. Approve the staged version with 2FA (two-factor authentication). Use the
    Staged tab at <https://www.npmjs.com/package/om-memory-system>, or run
    `npm stage list om-memory-system`, then `npm stage approve <stage-id>`.
-6. Users on an unpinned install get an update notice.
+6. Run `gh workflow run claude-plugin-channel.yml` to move the Claude Code channel to the approved release.
+7. Wait for the channel run to pass. Users with marketplace auto-update get it at their next check.
+8. Users on an unpinned npm install get an update notice.
 
 To reject a staged version, run `npm stage reject <stage-id>`.
 

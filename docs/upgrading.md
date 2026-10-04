@@ -17,6 +17,10 @@ Restart the agent after you update. OpenCode resolves "latest" once and keeps th
 
 ### Claude Code
 
+The marketplace installs from the GitHub `stable` branch, which holds the release commit named by npm `latest`. Only versions approved on npm reach this channel. The channel workflow moves the branch within an hour of approval, or at once after manual dispatch. Claude Code with auto-update on installs the release at its next update check.
+
+To test local plugin edits, run `claude --plugin-dir /absolute/path/to/omms`. Adding the checkout as a local marketplace still installs from GitHub `stable`.
+
 Claude Code updates a marketplace plugin by itself only when that marketplace has auto-update on. Third-party marketplaces, such as `omms`, start with auto-update off.
 
 To turn on auto-update for OMMS:
