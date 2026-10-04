@@ -1,0 +1,1358 @@
+[
+  {
+    "case": "en-light-1280",
+    "screen": "explorer",
+    "info": {
+      "path": "/project-memories",
+      "width": 1280,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": true,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [],
+      "contrast": { "measured": 47, "minimum": 6.244010141457144, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 64, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 }
+      ]
+    }
+  },
+  {
+    "case": "en-light-1280",
+    "screen": "profile",
+    "info": {
+      "path": "/user-profile",
+      "width": 1280,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": null,
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": ["profile-preferences", "profile-patterns", "profile-workflows"],
+      "contrast": { "measured": 45, "minimum": 5.33421015745286, "failures": [] },
+      "fields": []
+    }
+  },
+  {
+    "case": "en-light-1280",
+    "screen": "settings",
+    "info": {
+      "path": "/settings",
+      "width": 1280,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [
+        "settings-section-external-api",
+        "settings-section-models",
+        "settings-section-embedding",
+        "settings-section-keys",
+        "settings-section-diagnostics",
+        "settings-section-health",
+        "settings-section-claude-folder",
+        "settings-section-import",
+        "settings-section-auto-import",
+        "settings-section-profile",
+        "settings-section-directory-maps",
+        "settings-section-web-app",
+        "settings-section-log"
+      ],
+      "contrast": { "measured": 360, "minimum": 6.039287461493532, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 }
+      ]
+    }
+  },
+  {
+    "case": "en-dark-1280",
+    "screen": "explorer",
+    "info": {
+      "path": "/project-memories",
+      "width": 1280,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": true,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [],
+      "contrast": { "measured": 47, "minimum": 5.270294375172039, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 64, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+      ]
+    }
+  },
+  {
+    "case": "en-dark-1280",
+    "screen": "profile",
+    "info": {
+      "path": "/user-profile",
+      "width": 1280,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": null,
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": ["profile-preferences", "profile-patterns", "profile-workflows"],
+      "contrast": { "measured": 45, "minimum": 5.270294375172039, "failures": [] },
+      "fields": []
+    }
+  },
+  {
+    "case": "en-dark-1280",
+    "screen": "settings",
+    "info": {
+      "path": "/settings",
+      "width": 1280,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [
+        "settings-section-external-api",
+        "settings-section-models",
+        "settings-section-embedding",
+        "settings-section-keys",
+        "settings-section-diagnostics",
+        "settings-section-health",
+        "settings-section-claude-folder",
+        "settings-section-import",
+        "settings-section-auto-import",
+        "settings-section-profile",
+        "settings-section-directory-maps",
+        "settings-section-web-app",
+        "settings-section-log"
+      ],
+      "contrast": { "measured": 360, "minimum": 5.270294375172039, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+      ]
+    }
+  },
+  {
+    "case": "en-light-768",
+    "screen": "explorer",
+    "info": {
+      "path": "/project-memories",
+      "width": 768,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [],
+      "contrast": { "measured": 47, "minimum": 6.244010141457144, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 64, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 }
+      ]
+    }
+  },
+  {
+    "case": "en-light-768",
+    "screen": "profile",
+    "info": {
+      "path": "/user-profile",
+      "width": 768,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": null,
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": ["profile-preferences", "profile-patterns", "profile-workflows"],
+      "contrast": { "measured": 45, "minimum": 5.33421015745286, "failures": [] },
+      "fields": []
+    }
+  },
+  {
+    "case": "en-light-768",
+    "screen": "settings",
+    "info": {
+      "path": "/settings",
+      "width": 768,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": true,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [
+        "settings-section-external-api",
+        "settings-section-models",
+        "settings-section-embedding",
+        "settings-section-keys",
+        "settings-section-diagnostics",
+        "settings-section-health",
+        "settings-section-claude-folder",
+        "settings-section-import",
+        "settings-section-auto-import",
+        "settings-section-profile",
+        "settings-section-directory-maps",
+        "settings-section-web-app",
+        "settings-section-log"
+      ],
+      "contrast": { "measured": 349, "minimum": 6.039287461493532, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 }
+      ]
+    }
+  },
+  {
+    "case": "en-dark-768",
+    "screen": "explorer",
+    "info": {
+      "path": "/project-memories",
+      "width": 768,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [],
+      "contrast": { "measured": 47, "minimum": 5.270294375172039, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 64, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+      ]
+    }
+  },
+  {
+    "case": "en-dark-768",
+    "screen": "profile",
+    "info": {
+      "path": "/user-profile",
+      "width": 768,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": null,
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": ["profile-preferences", "profile-patterns", "profile-workflows"],
+      "contrast": { "measured": 45, "minimum": 5.270294375172039, "failures": [] },
+      "fields": []
+    }
+  },
+  {
+    "case": "en-dark-768",
+    "screen": "settings",
+    "info": {
+      "path": "/settings",
+      "width": 768,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": true,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [
+        "settings-section-external-api",
+        "settings-section-models",
+        "settings-section-embedding",
+        "settings-section-keys",
+        "settings-section-diagnostics",
+        "settings-section-health",
+        "settings-section-claude-folder",
+        "settings-section-import",
+        "settings-section-auto-import",
+        "settings-section-profile",
+        "settings-section-directory-maps",
+        "settings-section-web-app",
+        "settings-section-log"
+      ],
+      "contrast": { "measured": 349, "minimum": 5.270294375172039, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+      ]
+    }
+  },
+  {
+    "case": "en-light-390",
+    "screen": "explorer",
+    "info": {
+      "path": "/project-memories",
+      "width": 390,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [],
+      "contrast": { "measured": 40, "minimum": 5.02409548916427, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 64, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 }
+      ]
+    }
+  },
+  {
+    "case": "en-light-390",
+    "screen": "profile",
+    "info": {
+      "path": "/user-profile",
+      "width": 390,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": null,
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": ["profile-preferences", "profile-patterns", "profile-workflows"],
+      "contrast": { "measured": 38, "minimum": 5.02409548916427, "failures": [] },
+      "fields": []
+    }
+  },
+  {
+    "case": "en-light-390",
+    "screen": "settings",
+    "info": {
+      "path": "/settings",
+      "width": 390,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": true,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [
+        "settings-section-external-api",
+        "settings-section-models",
+        "settings-section-embedding",
+        "settings-section-keys",
+        "settings-section-diagnostics",
+        "settings-section-health",
+        "settings-section-claude-folder",
+        "settings-section-import",
+        "settings-section-auto-import",
+        "settings-section-profile",
+        "settings-section-directory-maps",
+        "settings-section-web-app",
+        "settings-section-log"
+      ],
+      "contrast": { "measured": 314, "minimum": 5.02409548916427, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 }
+      ]
+    }
+  },
+  {
+    "case": "en-dark-390",
+    "screen": "explorer",
+    "info": {
+      "path": "/project-memories",
+      "width": 390,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [],
+      "contrast": { "measured": 40, "minimum": 5.270294375172039, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 64, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+      ]
+    }
+  },
+  {
+    "case": "en-dark-390",
+    "screen": "profile",
+    "info": {
+      "path": "/user-profile",
+      "width": 390,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": null,
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": ["profile-preferences", "profile-patterns", "profile-workflows"],
+      "contrast": { "measured": 38, "minimum": 5.270294375172039, "failures": [] },
+      "fields": []
+    }
+  },
+  {
+    "case": "en-dark-390",
+    "screen": "settings",
+    "info": {
+      "path": "/settings",
+      "width": 390,
+      "height": 800,
+      "lang": "en",
+      "dir": "ltr",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": true,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [
+        "settings-section-external-api",
+        "settings-section-models",
+        "settings-section-embedding",
+        "settings-section-keys",
+        "settings-section-diagnostics",
+        "settings-section-health",
+        "settings-section-claude-folder",
+        "settings-section-import",
+        "settings-section-auto-import",
+        "settings-section-profile",
+        "settings-section-directory-maps",
+        "settings-section-web-app",
+        "settings-section-log"
+      ],
+      "contrast": { "measured": 314, "minimum": 5.270294375172039, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+      ]
+    }
+  },
+  {
+    "case": "ar-light-1280",
+    "screen": "explorer",
+    "info": {
+      "path": "/project-memories",
+      "width": 1280,
+      "height": 800,
+      "lang": "ar",
+      "dir": "rtl",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": true,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [],
+      "contrast": { "measured": 47, "minimum": 6.244010141457144, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 64, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 }
+      ]
+    }
+  },
+  {
+    "case": "ar-light-1280",
+    "screen": "profile",
+    "info": {
+      "path": "/user-profile",
+      "width": 1280,
+      "height": 800,
+      "lang": "ar",
+      "dir": "rtl",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": null,
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": ["profile-preferences", "profile-patterns", "profile-workflows"],
+      "contrast": { "measured": 45, "minimum": 5.33421015745286, "failures": [] },
+      "fields": []
+    }
+  },
+  {
+    "case": "ar-light-1280",
+    "screen": "settings",
+    "info": {
+      "path": "/settings",
+      "width": 1280,
+      "height": 800,
+      "lang": "ar",
+      "dir": "rtl",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [
+        "settings-section-external-api",
+        "settings-section-models",
+        "settings-section-embedding",
+        "settings-section-keys",
+        "settings-section-diagnostics",
+        "settings-section-health",
+        "settings-section-claude-folder",
+        "settings-section-import",
+        "settings-section-auto-import",
+        "settings-section-profile",
+        "settings-section-directory-maps",
+        "settings-section-web-app",
+        "settings-section-log"
+      ],
+      "contrast": { "measured": 360, "minimum": 6.039287461493532, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 }
+      ]
+    }
+  },
+  {
+    "case": "ar-dark-1280",
+    "screen": "explorer",
+    "info": {
+      "path": "/project-memories",
+      "width": 1280,
+      "height": 800,
+      "lang": "ar",
+      "dir": "rtl",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": true,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [],
+      "contrast": { "measured": 47, "minimum": 5.270294375172039, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 64, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+      ]
+    }
+  },
+  {
+    "case": "ar-dark-1280",
+    "screen": "profile",
+    "info": {
+      "path": "/user-profile",
+      "width": 1280,
+      "height": 800,
+      "lang": "ar",
+      "dir": "rtl",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": null,
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": ["profile-preferences", "profile-patterns", "profile-workflows"],
+      "contrast": { "measured": 45, "minimum": 5.270294375172039, "failures": [] },
+      "fields": []
+    }
+  },
+  {
+    "case": "ar-dark-1280",
+    "screen": "settings",
+    "info": {
+      "path": "/settings",
+      "width": 1280,
+      "height": 800,
+      "lang": "ar",
+      "dir": "rtl",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [
+        "settings-section-external-api",
+        "settings-section-models",
+        "settings-section-embedding",
+        "settings-section-keys",
+        "settings-section-diagnostics",
+        "settings-section-health",
+        "settings-section-claude-folder",
+        "settings-section-import",
+        "settings-section-auto-import",
+        "settings-section-profile",
+        "settings-section-directory-maps",
+        "settings-section-web-app",
+        "settings-section-log"
+      ],
+      "contrast": { "measured": 360, "minimum": 5.270294375172039, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+      ]
+    }
+  },
+  {
+    "case": "ar-light-390",
+    "screen": "explorer",
+    "info": {
+      "path": "/project-memories",
+      "width": 390,
+      "height": 800,
+      "lang": "ar",
+      "dir": "rtl",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [],
+      "contrast": { "measured": 40, "minimum": 5.02409548916427, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 64, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 }
+      ]
+    }
+  },
+  {
+    "case": "ar-light-390",
+    "screen": "profile",
+    "info": {
+      "path": "/user-profile",
+      "width": 390,
+      "height": 800,
+      "lang": "ar",
+      "dir": "rtl",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": null,
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": ["profile-preferences", "profile-patterns", "profile-workflows"],
+      "contrast": { "measured": 38, "minimum": 5.02409548916427, "failures": [] },
+      "fields": []
+    }
+  },
+  {
+    "case": "ar-light-390",
+    "screen": "settings",
+    "info": {
+      "path": "/settings",
+      "width": 390,
+      "height": 800,
+      "lang": "ar",
+      "dir": "rtl",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": true,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [
+        "settings-section-external-api",
+        "settings-section-models",
+        "settings-section-embedding",
+        "settings-section-keys",
+        "settings-section-diagnostics",
+        "settings-section-health",
+        "settings-section-claude-folder",
+        "settings-section-import",
+        "settings-section-auto-import",
+        "settings-section-profile",
+        "settings-section-directory-maps",
+        "settings-section-web-app",
+        "settings-section-log"
+      ],
+      "contrast": { "measured": 323, "minimum": 5.02409548916427, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 }
+      ]
+    }
+  },
+  {
+    "case": "ar-dark-390",
+    "screen": "explorer",
+    "info": {
+      "path": "/project-memories",
+      "width": 390,
+      "height": 800,
+      "lang": "ar",
+      "dir": "rtl",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [],
+      "contrast": { "measured": 40, "minimum": 5.270294375172039, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 64, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+      ]
+    }
+  },
+  {
+    "case": "ar-dark-390",
+    "screen": "profile",
+    "info": {
+      "path": "/user-profile",
+      "width": 390,
+      "height": 800,
+      "lang": "ar",
+      "dir": "rtl",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": null,
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": ["profile-preferences", "profile-patterns", "profile-workflows"],
+      "contrast": { "measured": 38, "minimum": 5.270294375172039, "failures": [] },
+      "fields": []
+    }
+  },
+  {
+    "case": "ar-dark-390",
+    "screen": "settings",
+    "info": {
+      "path": "/settings",
+      "width": 390,
+      "height": 800,
+      "lang": "ar",
+      "dir": "rtl",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": true,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [
+        "settings-section-external-api",
+        "settings-section-models",
+        "settings-section-embedding",
+        "settings-section-keys",
+        "settings-section-diagnostics",
+        "settings-section-health",
+        "settings-section-claude-folder",
+        "settings-section-import",
+        "settings-section-auto-import",
+        "settings-section-profile",
+        "settings-section-directory-maps",
+        "settings-section-web-app",
+        "settings-section-log"
+      ],
+      "contrast": { "measured": 323, "minimum": 5.270294375172039, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+      ]
+    }
+  },
+  {
+    "case": "zh-light-390",
+    "screen": "explorer",
+    "info": {
+      "path": "/project-memories",
+      "width": 390,
+      "height": 800,
+      "lang": "zh",
+      "dir": "ltr",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [],
+      "contrast": { "measured": 40, "minimum": 5.02409548916427, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 64, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 }
+      ]
+    }
+  },
+  {
+    "case": "zh-light-390",
+    "screen": "profile",
+    "info": {
+      "path": "/user-profile",
+      "width": 390,
+      "height": 800,
+      "lang": "zh",
+      "dir": "ltr",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": null,
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": ["profile-preferences", "profile-patterns", "profile-workflows"],
+      "contrast": { "measured": 38, "minimum": 5.02409548916427, "failures": [] },
+      "fields": []
+    }
+  },
+  {
+    "case": "zh-light-390",
+    "screen": "settings",
+    "info": {
+      "path": "/settings",
+      "width": 390,
+      "height": 800,
+      "lang": "zh",
+      "dir": "ltr",
+      "dark": false,
+      "background": "rgb(253, 252, 250)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [
+        "settings-section-external-api",
+        "settings-section-models",
+        "settings-section-embedding",
+        "settings-section-keys",
+        "settings-section-diagnostics",
+        "settings-section-health",
+        "settings-section-claude-folder",
+        "settings-section-import",
+        "settings-section-auto-import",
+        "settings-section-profile",
+        "settings-section-directory-maps",
+        "settings-section-web-app",
+        "settings-section-log"
+      ],
+      "contrast": { "measured": 330, "minimum": 5.02409548916427, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 },
+        { "height": 36, "fill": "rgb(248, 247, 245)", "boundaryContrast": 3.411779611383733 }
+      ]
+    }
+  },
+  {
+    "case": "zh-dark-390",
+    "screen": "explorer",
+    "info": {
+      "path": "/project-memories",
+      "width": 390,
+      "height": 800,
+      "lang": "zh",
+      "dir": "ltr",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [],
+      "contrast": { "measured": 40, "minimum": 5.270294375172039, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 64, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+      ]
+    }
+  },
+  {
+    "case": "zh-dark-390",
+    "screen": "profile",
+    "info": {
+      "path": "/user-profile",
+      "width": 390,
+      "height": 800,
+      "lang": "zh",
+      "dir": "ltr",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": null,
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": ["profile-preferences", "profile-patterns", "profile-workflows"],
+      "contrast": { "measured": 38, "minimum": 5.270294375172039, "failures": [] },
+      "fields": []
+    }
+  },
+  {
+    "case": "zh-dark-390",
+    "screen": "settings",
+    "info": {
+      "path": "/settings",
+      "width": 390,
+      "height": 800,
+      "lang": "zh",
+      "dir": "ltr",
+      "dark": true,
+      "background": "rgb(18, 15, 14)",
+      "font": "-apple-system, \"system-ui\", \"Segoe UI\", system-ui, sans-serif",
+      "codeFont": "\"JetBrains Mono Variable\", \"JetBrains Mono\", \"Fira Code\", ui-monospace, monospace",
+      "overflow": false,
+      "styles": [
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/app.css",
+        "/Users/aizat/Development/PROJECTS/omms-feat-omms-design-preview/web/src/lib/components/settings/settings.css"
+      ],
+      "sections": [
+        "settings-section-external-api",
+        "settings-section-models",
+        "settings-section-embedding",
+        "settings-section-keys",
+        "settings-section-diagnostics",
+        "settings-section-health",
+        "settings-section-claude-folder",
+        "settings-section-import",
+        "settings-section-auto-import",
+        "settings-section-profile",
+        "settings-section-directory-maps",
+        "settings-section-web-app",
+        "settings-section-log"
+      ],
+      "contrast": { "measured": 330, "minimum": 5.270294375172039, "failures": [] },
+      "fields": [
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 },
+        { "height": 36, "fill": "rgb(24, 23, 21)", "boundaryContrast": 3.7112520633304302 }
+      ]
+    }
+  }
+]

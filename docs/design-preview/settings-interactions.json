@@ -1,0 +1,58 @@
+[
+  {
+    "check": "unsaved settings through presentation changes",
+    "sameInput": true,
+    "value": "https://draft.synthetic.invalid/v1",
+    "route": "/settings",
+    "collapsed": "1",
+    "newMutations": 0,
+    "dir": "rtl"
+  },
+  {
+    "check": "explicit Save endpoint",
+    "saved": "https://draft.synthetic.invalid/v1",
+    "mutations": [
+      {
+        "url": "/api/settings",
+        "method": "PATCH",
+        "body": "{\"edits\":{\"memoryApiUrl\":\"https://draft.synthetic.invalid/v1\"},\"revision\":\"fixture-1\"}",
+        "status": 200,
+        "fixture": "synthetic-only"
+      }
+    ]
+  },
+  { "check": "restore synthetic endpoint", "status": 200, "fixture": "synthetic-only" },
+  {
+    "check": "declined tracing confirmation",
+    "prompts": ["قد تحتوي التتبعات على محتوى المحادثة بعد التنقيح. فعّلها عند التصحيح فقط."],
+    "checked": false,
+    "newMutations": 0
+  },
+  {
+    "check": "checkbox saves on change",
+    "value": true,
+    "mutations": [
+      {
+        "url": "/api/settings",
+        "method": "PATCH",
+        "body": "{\"edits\":{\"webServerAutoStart\":true},\"revision\":\"fixture-2\"}",
+        "status": 200,
+        "fixture": "synthetic-only"
+      }
+    ]
+  },
+  { "check": "retention draft before blur", "value": "8", "newMutations": 0 },
+  {
+    "check": "retention saves on blur",
+    "value": 8,
+    "mutations": [
+      {
+        "url": "/api/settings",
+        "method": "PATCH",
+        "body": "{\"revision\":\"fixture-4\",\"edits\":{\"captureTraceRetentionDays\":8}}",
+        "status": 200,
+        "fixture": "synthetic-only"
+      }
+    ]
+  }
+]

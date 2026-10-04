@@ -69,6 +69,14 @@ om-memory-system --version
 
 The sidebar footer shows the current language: EN, ZH, or AR. Select it to choose English, Chinese, or Arabic. The page remembers your choice for the next visit.
 
+## Appearance preview
+
+The approved appearance preview uses warm light and dark themes. Interface text uses the system sans-serif font. Technical values use JetBrains Mono. Shared fields and default buttons are 36px high; small and large buttons are 32px and 40px. The mobile navigation target is 44px high. Selected rows use a neutral colour.
+
+The preview keeps the existing routes, features, preference keys, legacy migration, right-to-left layout, and save timing. Dialog close labels are translated in English, Chinese, and Arabic. The separately approved dialog correction returns focus only to a connected opener and respects a consumer focus handler.
+
+The preview used synthetic data on loopback port 5179. It did not use the normal web backend. Read [Design preview evidence](design-preview/README.md) for the trial scope, checks, and limits.
+
 ## Settings page
 
 Open `http://127.0.0.1:4747/settings`, select **Settings** in the sidebar, or select the cogwheel at the bottom of the sidebar. The arrow next to **Settings** opens a list of the page cards. Select a card to go straight to it. The sidebar remembers whether the list is open. The page has these sections:

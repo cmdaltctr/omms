@@ -48,7 +48,7 @@ export function Tooltip({
         id={id}
         role="tooltip"
         style={{ transform: `translateX(calc(-50% + ${shift}px))` }}
-        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max max-w-[calc(100vw-1rem)] rounded-md border border-border bg-card px-2 py-1 text-xs whitespace-nowrap text-card-foreground opacity-0 shadow-lg transition-opacity duration-150 ease-in group-focus-within/tooltip:opacity-100 group-hover/tooltip:opacity-100"
+        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max max-w-[min(24rem,calc(100vw-1rem))] rounded-md border border-border bg-card px-2 py-1 text-xs whitespace-normal text-card-foreground opacity-0 shadow-sm transition-opacity duration-150 ease-in group-focus-within/tooltip:opacity-100 group-hover/tooltip:opacity-100"
       >
         {content}
         <span

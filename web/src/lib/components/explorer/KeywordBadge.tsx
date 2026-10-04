@@ -28,7 +28,7 @@ export function KeywordBadge({
       aria-pressed={active}
       onClick={() => onClick?.(keyword)}
       className={cn(
-        "inline-flex h-5 cursor-pointer items-center rounded-2xl border px-2 text-xs whitespace-nowrap transition-[filter,box-shadow] duration-150 ease-in hover:brightness-125",
+        "inline-flex min-h-6 max-w-full cursor-pointer items-center rounded-[7px] border px-2 text-xs break-words transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
         // Dark text on the light theme, light text on the dark theme, so the label stays readable.
         "[color:oklch(0.42_0.13_var(--keyword-hue))] dark:[color:oklch(0.8_0.13_var(--keyword-hue))]",
         active && "ring-2 ring-offset-1 ring-offset-background"

@@ -1,0 +1,8 @@
+{
+  "case": "English light edit, then Arabic dark while draft remains open",
+  "tabTrap": "PASS: eight Tab presses stayed in the edit dialog",
+  "escape": "PASS: Escape closed the dialog",
+  "focusReturn": { "status": "FAIL", "expected": "Edit button", "actual": "BODY" },
+  "route": "/project-memories",
+  "selection": "checked"
+}

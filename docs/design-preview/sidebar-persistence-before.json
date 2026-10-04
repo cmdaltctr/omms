@@ -1,0 +1,11 @@
+[
+  { "check": "collapsed width", "width": 56 },
+  { "check": "expanded width", "width": 256 },
+  {
+    "check": "preferences before reload",
+    "theme": "light",
+    "lang": "ar",
+    "collapsed": "1",
+    "tree": "0"
+  }
+]

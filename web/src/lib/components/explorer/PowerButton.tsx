@@ -85,7 +85,7 @@ export function PowerButton() {
       <button
         type="button"
         data-power={ok ? "on" : "off"}
-        className="inline-flex items-center self-stretch border-s border-sidebar-border px-1.5 text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        className="inline-flex min-h-11 min-w-11 md:min-h-8 md:min-w-7 items-center justify-center self-stretch border-s border-sidebar-border px-1.5 text-muted-foreground transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
         onClick={() => {
           setMessage("");
           setOpen(true);

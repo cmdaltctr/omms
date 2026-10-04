@@ -104,7 +104,7 @@ export default function App() {
     <>
       <Toaster richColors position="bottom-right" />
 
-      <div className="flex min-h-svh bg-background text-foreground">
+      <div className="flex min-h-svh bg-background text-foreground overflow-x-clip">
         <AppSidebar
           open={sidebarOpen}
           onOpenChange={setSidebarOpen}
@@ -136,6 +136,7 @@ export default function App() {
             <Button
               variant="ghost"
               size="icon-sm"
+              className="min-h-11 min-w-11"
               onClick={() => setSidebarOpen(true)}
               aria-label={t("nav-menu")}
             >
@@ -159,7 +160,7 @@ export default function App() {
             ) : null}
 
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h1 className="text-base tracking-wide text-primary">
+              <h1 className="text-page-title font-semibold text-foreground">
                 {currentView === "project"
                   ? t("tab-project")
                   : currentView === "profile"
@@ -189,7 +190,7 @@ export default function App() {
                     <Label htmlFor="tag-filter">{t("label-tag")}</Label>
                     <Select
                       id="tag-filter"
-                      className="flex h-8 w-64 max-w-full rounded-lg border border-border bg-background px-2 text-sm"
+                      className="w-64 max-w-full"
                       value={explorer.selectedTag}
                       onChange={(e) => explorer.onTagFilterChange(e.currentTarget.value)}
                     >
@@ -205,7 +206,7 @@ export default function App() {
                   {explorer.selectedKeyword ? (
                     <div className="space-y-1">
                       <span className="block text-sm font-medium">{t("label-keyword")}</span>
-                      <div className="flex h-8 items-center gap-1">
+                      <div className="flex h-9 items-center gap-1">
                         <KeywordBadge keyword={explorer.selectedKeyword} active />
                         <Button
                           variant="ghost"
@@ -220,8 +221,8 @@ export default function App() {
                     </div>
                   ) : null}
 
-                  <div className="flex flex-1 items-end gap-1.5 min-w-56">
-                    <div className="flex-1 space-y-1">
+                  <div className="flex flex-1 items-end gap-1.5 min-w-0 basis-56">
+                    <div className="min-w-0 flex-1 space-y-1">
                       <Label htmlFor="search-input" className="sr-only">
                         {t("placeholder-search")}
                       </Label>
@@ -350,7 +351,7 @@ export default function App() {
                         <Select
                           id="add-tag"
                           required
-                          className="flex h-8 w-full rounded-lg border border-border bg-background px-2 text-sm"
+                          className="w-full"
                           value={explorer.addTag}
                           onChange={(e) => explorer.setAddTag(e.target.value)}
                         >
@@ -366,7 +367,7 @@ export default function App() {
                         <Label htmlFor="add-type">{t("label-type")}</Label>
                         <Select
                           id="add-type"
-                          className="flex h-8 w-full rounded-lg border border-border bg-background px-2 text-sm"
+                          className="w-full"
                           value={explorer.addType}
                           onChange={(e) => explorer.setAddType(e.target.value)}
                         >

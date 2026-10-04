@@ -61,6 +61,7 @@ export const translations = {
     "opt-analysis": "analysis",
     "opt-configuration": "configuration",
     "modal-edit-title": "Edit Memory",
+    "dialog-close": "Close",
     "modal-migration-title": "Memory Tagging Migration",
     "modal-changelog-title": "Profile Version History",
     "btn-cancel": "Cancel",
@@ -238,6 +239,7 @@ export const translations = {
     "opt-analysis": "分析 (analysis)",
     "opt-configuration": "配置 (configuration)",
     "modal-edit-title": "编辑记忆",
+    "dialog-close": "关闭",
     "modal-migration-title": "记忆标签迁移",
     "modal-changelog-title": "画像版本历史",
     "btn-cancel": "取消",
@@ -419,6 +421,7 @@ export const translations = {
     "opt-configuration": "إعدادات",
 
     "modal-edit-title": "تعديل الذكرى",
+    "dialog-close": "إغلاق",
     "modal-migration-title": "ترحيل وسوم الذكريات",
     "modal-changelog-title": "سجل إصدارات الملف الشخصي",
 

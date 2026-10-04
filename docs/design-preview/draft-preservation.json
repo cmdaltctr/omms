@@ -1,0 +1,12 @@
+{
+  "sameDialog": true,
+  "sameTextarea": true,
+  "draft": "Synthetic unsaved draft\nمسودة مع example/model-preview\n中文草稿\nconst id = \"synthetic-only\";",
+  "route": "/project-memories",
+  "selected": "checked",
+  "collapsed": "1",
+  "lang": "ar",
+  "dir": "rtl",
+  "closeName": "إغلاق",
+  "textboxDirection": "ltr"
+}

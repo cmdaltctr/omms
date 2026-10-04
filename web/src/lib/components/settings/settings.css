@@ -1,0 +1,91 @@
+/* Native settings controls retain their original events and save timing. */
+.settings-view {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.84375rem;
+  line-height: 1.45;
+}
+
+.settings-view h2 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.settings-view input:not([type="checkbox"]):not([type="radio"]):not([data-slot]),
+.settings-view select {
+  min-width: 0;
+  max-width: 100%;
+  height: 36px;
+  border: 1px solid var(--input);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--foreground);
+  padding: 4px 10px;
+  font-size: 0.84375rem;
+  transition: background-color 150ms;
+}
+
+.settings-view input::placeholder {
+  color: var(--muted-foreground);
+}
+
+.settings-view :is(input[type="checkbox"], input[type="radio"]) {
+  accent-color: var(--primary);
+  flex-shrink: 0;
+}
+
+.settings-view button:not([data-slot]):not([role="combobox"]):not(.underline) {
+  min-height: 36px;
+  max-width: 100%;
+  border: 1px solid var(--input);
+  border-radius: 10px;
+  background: var(--card);
+  padding: 4px 10px;
+  white-space: normal;
+  transition: background-color 150ms;
+}
+
+.settings-view button:not([data-slot]):not([role="combobox"]):not(:disabled):hover {
+  background: var(--interactive-hover);
+}
+
+.settings-view button:not([data-slot]):not([role="combobox"]):not(:disabled):active {
+  background: var(--interactive-active);
+}
+
+.settings-view :is(input, select, button):not([data-slot]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.settings-view :is(input, select, button):disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.settings-view :is(input, select)[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+.settings-view :is(code, pre, .font-mono) {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-size: 0.75rem;
+}
+
+.settings-view #settings-section-external-api input:not([type="radio"]),
+.settings-view #directory-maps input:not([type="checkbox"]) {
+  font-family: var(--font-mono);
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.settings-view .flex > *,
+.settings-view .grid > * {
+  min-width: 0;
+}
+
+.settings-view table {
+  overflow-wrap: normal;
+}
