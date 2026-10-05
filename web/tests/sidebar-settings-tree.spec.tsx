@@ -74,7 +74,7 @@ it("names every settings card once, with a unique anchor", () => {
   const ids = SETTINGS_SECTIONS.map((section) => section.id);
   expect(new Set(ids).size).toBe(ids.length);
   expect(SETTINGS_SECTIONS.map((section) => section.title)).toContain("Keys and access");
-  expect(SETTINGS_SECTIONS.length).toBe(13);
+  expect(SETTINGS_SECTIONS.length).toBe(14);
 });
 
 it("shows Settings in the main menu, opened on the settings page", () => {
@@ -98,6 +98,6 @@ it("starts closed on other pages, and the toggle opens it and remembers the choi
   (toggle(tree).props.onClick as () => void)();
   tree = render("project");
   expect(toggle(tree).props["aria-expanded"]).toBe(true);
-  expect(links(tree)).toHaveLength(13);
+  expect(links(tree)).toHaveLength(14);
   expect(store.get("omms-sidebar-settings-open")).toBe("1");
 });

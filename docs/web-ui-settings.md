@@ -12,7 +12,7 @@ Every section saves to the global config file, `~/.config/omms/omms.jsonc`.
 - The page never writes a project's `.opencode/omms.jsonc`. When a project file overrides a value, the page says so.
 - If the file changed after the page loaded it, the save is refused. The page reloads the current values. Check them, then save again.
 - If OMMS still reads the old `~/.config/opencode/opencode-mem.jsonc`, the first save copies it, comments included, to `~/.config/omms/omms.jsonc`. The old file is not changed. From then on OMMS reads the new file.
-- Running Pi and OpenCode use the saved values from their next capture. You do not need to restart them.
+- Running hosts use saved memory limits at the next relevant search, injection, capture, or OpenCode profile-learning operation. You do not need to restart them. An operation already running keeps its original limits.
 - A value that fails OMMS's startup checks is refused, and the file stays unchanged.
 - The general save refuses the embedding keys and the browser password. Change them on the **Embedding** card and the **Keys and access** card.
 
@@ -112,6 +112,34 @@ When a list is not available, the card and the Automatic import section show why
 | OpenCode model list unavailable                          | The OpenCode session could not give its list.                       | Type `provider/model`, or reload the page.                              |
 
 Health checks, test calls, and history imports that use an OpenCode model still need an OpenCode session.
+
+## Memory
+
+Select **Memory** after **Models** in the Settings tree, or open `/settings#settings-section-memory`. Direct links and reloads bring the card into view.
+
+The table has **Setting**, **Value**, **Default**, **Unit**, and **Affects** columns. Effects stay visible beside each numeric input.
+
+| Setting                      | Default | Unit               | Accepted values          | Affects                                                                                                               |
+| ---------------------------- | ------- | ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `maxMemories`                | 10      | Results            | Positive safe integers   | Maximum search results; a manual search can request fewer.                                                            |
+| `chatMessage.maxMemories`    | 3       | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 search each prompt.               |
+| `autoCaptureMaxContextBytes` | 131072  | Bytes              | 16384–16777216 inclusive | Conversation input sent through the shared memory-summary pipeline.                                                   |
+| `userProfileMaxContextBytes` | 32768   | Bytes              | 1024–16777216 inclusive  | OpenCode profile-learning input, including its truncation marker. Other hosts' profile input is outside this control. |
+| `retrievalMaxTokens`         | 2000    | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text, formatting, and retrieval wrappers.                |
+
+Bytes mean UTF-8 bytes. Approximate tokens use `ceil(bytes / 4)`, which can differ from the model's count. Count limits accept up to 9007199254740991. Smaller values can omit conversation input or inject fewer or shorter memories. Stored data and manual search content remain unchanged. These controls do not set a spending limit, limit model replies, or control Graphify output.
+
+1. Change the global values you need.
+2. Correct any validation messages beside the inputs.
+3. Select **Save** when a valid draft differs from the loaded values.
+
+**Cancel** restores the loaded values without writing. During a save, the card prevents duplicate submissions and shows the outcome. A successful save refreshes the shared Settings revision, so another card can save afterwards.
+
+A row with a project override shows its effective value and source. The input still edits the global value; the override stays in force. Project files remain unchanged. The existing shallow merge also applies to `chatMessage`: a project object replaces the global object, with defaults for omitted siblings.
+
+Saving `chatMessage.maxMemories` edits only the leaf inside `chatMessage`. Siblings such as `enabled` and `injectOn`, their comments, and unrelated keys keep their values and order. Unsupported nested edits are refused. An invalid save writes nothing. If another editor changed the file, review the refreshed values and save again.
+
+You can configure every row without the web UI by editing `~/.config/omms/omms.jsonc`. See [Configuration: Memory limits](configuration.md#memory-limits) for a file-only example, packing rules, and host coverage. Valid edits apply at the next relevant operation; invalid live edits retain the last valid settings.
 
 ## Embedding
 

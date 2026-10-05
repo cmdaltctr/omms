@@ -4,6 +4,9 @@ import type { V2MemoryBridge } from "../src/v2/memory-bridge.js";
 
 type SystemPart = { type: string; text: string };
 
+const RESTORED_MEMORIES = [{ memory: "Use WAL mode", tags: [] }];
+const RESTORED_SECTION = "## Restored Session Memory\n\n### Memory 1\nUse WAL mode\n\n";
+
 function createHarness(
   options: {
     events?: any[];
@@ -21,6 +24,7 @@ function createHarness(
     synthetic: 0,
     prompt: 0,
   };
+  let requestBudget = 8_000;
   let tool: any;
   let aborted = false;
   let disposed = false;
@@ -78,14 +82,17 @@ function createHarness(
     recordPrompt: async (sessionID, messageID, text) => {
       calls.record.push([sessionID, messageID, text]);
     },
+    snapshotRequestBudget: () => requestBudget,
     retrieve: async (prompt, sessionID) => {
       calls.retrieve.push([prompt, sessionID]);
       return `<omms-retrieval>\nfor: ${prompt}\n</omms-retrieval>`;
     },
     restoreSession: async (sessionID) => {
       calls.restore.push(sessionID);
-      return "## Restored Session Memory\n\n### Memory 1\nUse WAL mode\n\n";
+      return RESTORED_MEMORIES;
     },
+    formatRestoredSession: (memories, budgetBytes) =>
+      RESTORED_SECTION.length <= budgetBytes ? RESTORED_SECTION : null,
     ...options.memory,
   };
 
@@ -154,6 +161,9 @@ function createHarness(
     getTool: () => tool,
     isAborted: () => aborted,
     isDisposed: () => disposed,
+    setRequestBudget: (bytes: number) => {
+      requestBudget = bytes;
+    },
     register: () => registerV2Adapter(ctx, legacy, memory),
   };
 }

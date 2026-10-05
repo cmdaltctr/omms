@@ -762,6 +762,94 @@ const text = {
   ],
   "Used for": ["用途", "الاستخدام"],
   Workflows: ["工作流", "سير العمل"],
+  // Memory card
+  Memory: ["记忆", "الذاكرة"],
+  Setting: ["设置", "الإعداد"],
+  Value: ["数值", "القيمة"],
+  Default: ["默认值", "القيمة الافتراضية"],
+  Unit: ["单位", "الوحدة"],
+  Affects: ["影响", "التأثير"],
+  Results: ["条结果", "نتائج"],
+  Memories: ["条记忆", "ذكريات"],
+  Bytes: ["字节", "بايت"],
+  "Approximate tokens": ["约计令牌", "رموز تقريبية"],
+  "Maximum memory search results. Manual searches can request fewer; prompt retrieval uses this ceiling.":
+    [
+      "记忆搜索结果的最大数量。手动搜索可以请求更少；提示词检索使用此上限。",
+      "الحد الأقصى لنتائج بحث الذاكرة. يمكن للبحث اليدوي طلب عدد أقل؛ ويستخدم استرجاع الطلب هذا السقف.",
+    ],
+  "Recent memories added at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 use prompt-based search instead.":
+    [
+      "会话开始时在 OpenCode V1 和 Claude Code 中加入的近期记忆。Pi 和 OpenCode V2 改用基于提示词的搜索。",
+      "الذكريات الحديثة التي تُضاف عند بدء الجلسة في OpenCode V1 و Claude Code. أما Pi و OpenCode V2 فيستخدمان البحث عبر الطلب بدلاً منها.",
+    ],
+  "Conversation input sent to the memory-summary model through the shared capture pipeline. Smaller values can omit conversation text.":
+    [
+      "通过共享捕获管道发送给记忆摘要模型的对话输入。数值较小时可能省略部分对话文本。",
+      "مدخلات المحادثة التي تُرسل إلى نموذج تلخيص الذاكرة عبر مسار الالتقاط المشترك. القيم الأصغر قد تحذف نصاً من المحادثة.",
+    ],
+  "OpenCode profile-learning input. Smaller values can omit prompts from that input. This control does not limit the other hosts' profile input.":
+    [
+      "OpenCode 画像学习的输入。数值较小时可能从该输入中省略部分提示词。此设置不限制其他主机的画像输入。",
+      "مدخلات تعلّم الملف الشخصي في OpenCode. القيم الأصغر قد تحذف مطالبات من هذه المدخلات. لا يقيّد هذا الإعداد مدخلات الملف الشخصي في المضيفات الأخرى.",
+    ],
+  "Automatic memory context, including profile text and formatting, added to agent requests across all hosts. Smaller values can show fewer or shorter memories.":
+    [
+      "自动加入各主机代理请求的记忆上下文，包括画像文本和格式化内容。数值较小时会显示更少或更短的记忆。",
+      "سياق الذاكرة المُضاف تلقائياً إلى طلبات الوكيل في كل المضيفات، بما في ذلك نص الملف الشخصي والتنسيق. القيم الأصغر قد تعرض ذكريات أقل أو أقصر.",
+    ],
+  "Enter a positive whole number.": ["请输入正整数。", "أدخل رقماً صحيحاً موجباً."],
+  "Enter a whole number from 16,384 to 16,777,216.": [
+    "请输入 16,384 到 16,777,216 之间的整数。",
+    "أدخل رقماً صحيحاً من 16,384 إلى 16,777,216.",
+  ],
+  "Enter a whole number from 1,024 to 16,777,216.": [
+    "请输入 1,024 到 16,777,216 之间的整数。",
+    "أدخل رقماً صحيحاً من 1,024 إلى 16,777,216.",
+  ],
+  "Enter a whole number from 256 to 65,536.": [
+    "请输入 256 到 65,536 之间的整数。",
+    "أدخل رقماً صحيحاً من 256 إلى 65,536.",
+  ],
+  "Byte limits count UTF-8 bytes.": [
+    "字节限制按 UTF-8 字节计数。",
+    "تُحتسب حدود البايت بوحدات بايت UTF-8.",
+  ],
+  "Approximate tokens are estimated as ceil(UTF-8 bytes / 4). A provider can count more or fewer tokens for the same text.":
+    [
+      "约计令牌按 ceil(UTF-8 字节数 / 4) 估算。同一文本，提供商统计的令牌数可能更多或更少。",
+      "تُقدَّر الرموز التقريبية بالصيغة ceil(بايتات UTF-8 / 4). قد يحسب المزوّد للنص نفسه رموزاً أكثر أو أقل.",
+    ],
+  "These controls do not delete stored data, set a spending limit, limit model replies, or control Graphify output.":
+    [
+      "这些设置不会删除已存储的数据、设定消费限额、限制模型回复，也不会控制 Graphify 输出。",
+      "لا تحذف هذه الإعدادات البيانات المخزنة، ولا تضع حد إنفاق، ولا تحدّ من ردود النموذج، ولا تتحكم في خرج Graphify.",
+    ],
+  "Edit ~/.config/omms/omms.jsonc directly to set these limits without the web UI.": [
+    "也可以直接编辑 ~/.config/omms/omms.jsonc 来设置这些限制，无需网页界面。",
+    "عدّل الملف ~/.config/omms/omms.jsonc مباشرة لضبط هذه الحدود دون واجهة الويب.",
+  ],
+  "Save memory limits": ["保存记忆限制", "حفظ حدود الذاكرة"],
+  "Saved. New memory operations use these limits.": [
+    "已保存。新的记忆操作将使用这些限制。",
+    "تم الحفظ. ستستخدم عمليات الذاكرة الجديدة هذه الحدود.",
+  ],
+  "Invalid setting": ["无效的设置", "إعداد غير صالح"],
+  "Config changed. Reload settings and save again.": [
+    "设置文件已更改。请重新加载设置后再次保存。",
+    "تغيّر ملف الإعدادات. أعد تحميل الإعدادات ثم احفظ مجدداً.",
+  ],
+  "The memory settings could not be loaded. Reload the page to try again.": [
+    "无法加载记忆设置。请重新加载页面重试。",
+    "تعذّر تحميل إعدادات الذاكرة. أعد تحميل الصفحة للمحاولة مجدداً.",
+  ],
+  "The memory settings could not be saved.": ["无法保存记忆设置。", "تعذّر حفظ إعدادات الذاكرة."],
+  "Effective value": ["生效值", "القيمة السارية"],
+  project: ["项目", "المشروع"],
+  "The project value stays in force. Saving edits the global file only.": [
+    "项目值仍然生效。保存只修改全局文件。",
+    "تبقى قيمة المشروع سارية، والحفظ يعدّل الملف العام فقط.",
+  ],
 } as const;
 
 export function translateSettings(message: string, language: "en" | "zh" | "ar"): string {

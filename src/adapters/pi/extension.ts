@@ -18,7 +18,12 @@ import type { PiSessionEntry } from "../../importer/pi-conversation.js";
 import { createPiLiveModels } from "./live-model.js";
 import { registerPiHistoryImportCommand } from "./import-command.js";
 import { performPiProfileLearning } from "./profile.js";
-import { buildRetrievalSection, wrapRetrievalSection } from "../../core/retrieval.js";
+import {
+  buildRetrievalSection,
+  retrievalWrapperBytes,
+  wrapRetrievalSection,
+} from "../../core/retrieval.js";
+import { DEFAULT_RETRIEVAL_MAX_TOKENS, tokensToByteCeiling } from "../../core/context-budget.js";
 
 const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("omms.plugin.warmedup");
 const GLOBAL_PI_BACKFILL_KEY = Symbol.for("omms.pi.backfill.scheduled");
@@ -261,14 +266,25 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
   });
 
   pi.on("before_agent_start", async (event, ctx) => {
+    // Refresh first so the enabled check reads the current file, then capture
+    // this retrieval's allowance before the async search starts: a later
+    // config edit must not change an operation already in progress.
+    refreshConfigIfChanged(ctx.cwd);
+    // The default guards partial CONFIG stubs in tests.
+    const budgetBytes = tokensToByteCeiling(
+      CONFIG.retrievalMaxTokens ?? DEFAULT_RETRIEVAL_MAX_TOKENS
+    );
     if (!isConfigured() || !CONFIG.chatMessage.enabled) return;
 
     const status = startStatus(ctx, "recalling");
     try {
+      // The wrapper counts against the captured allowance, so the packed
+      // section reserves its bytes.
       const section = await buildRetrievalSection(
         event.prompt,
         ctx.cwd,
-        ctx.sessionManager.getSessionId()
+        ctx.sessionManager.getSessionId(),
+        { maxBytes: budgetBytes, wrapperBytes: retrievalWrapperBytes() }
       );
       finishStatus(ctx, status, "connected");
       if (!section) return;

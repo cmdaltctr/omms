@@ -6,6 +6,7 @@ import {
 } from "../adapters/opencode/import-command.js";
 import { addPackageSkill } from "../adapters/opencode/package-skills.js";
 import { log } from "../services/logger.js";
+import { utf8ByteLength } from "../utils/context-limit.js";
 import { eventBelongsToLocation, legacyToolResult, toLegacyEvent } from "./legacy-client.js";
 import type { V2MemoryBridge } from "./memory-bridge.js";
 
@@ -53,7 +54,12 @@ const MAX_PENDING_PROMPTS = 16;
 /** Compaction is restored natively through the `compaction` hook, never via the V1 event path. */
 const COMPACTION_EVENT_TYPES = new Set(["session.compacted", "session.compaction.ended"]);
 
-type Retrieval = { readonly promise: Promise<string | null>; settled?: { value: string | null } };
+type Retrieval = {
+  readonly promise: Promise<string | null>;
+  /** The request's captured byte allowance, taken before the search started. */
+  readonly budgetBytes: number;
+  settled?: { value: string | null };
+};
 type PendingPrompt = { readonly messageID: string; readonly text: string };
 
 function setBounded<V>(map: Map<string, V>, key: string, value: V): void {
@@ -82,7 +88,7 @@ function deletedSessionID(event: { type: string; properties?: any }): string | u
 
 export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2MemoryBridge) {
   const retrievals = new Map<string, Retrieval>();
-  const restored = new Map<string, string>();
+  const restored = new Map<string, unknown[]>();
   const messageIDs = new Map<string, string>();
   // The prompt hook runs before OpenCode admits a prompt, so prompts wait here
   // until their message appears in a model request's history (the context
@@ -185,6 +191,7 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
   );
 
   await ctx.session.hook("prompt", async (event) => {
+    const budgetBytes = memory.snapshotRequestBudget();
     const sessionID = event.sessionID;
     const text = event.prompt.text ?? "";
     setBounded(messageIDs, sessionID, event.messageID);
@@ -202,28 +209,40 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
 
     if (!memory.isInjectionEnabled() || !text.trim()) return;
 
-    // Start the search now so it overlaps prompt admission; `context` awaits it.
-    const promise = memory.retrieve(text, sessionID).catch((error) => {
+    // Start the search now with the entry snapshot, so it overlaps prompt admission.
+    // An edit during retrieval must not change this request's allowance.
+    const promise = memory.retrieve(text, sessionID, budgetBytes).catch((error) => {
       log("v2 prompt: memory retrieval failed", { sessionID, error: String(error) });
       return null;
     });
-    setBounded(retrievals, sessionID, { promise });
+    setBounded(retrievals, sessionID, { promise, budgetBytes });
   });
 
   await ctx.session.hook("context", async (event) => {
     const sessionID = event.sessionID;
+    const retrieval = retrievals.get(sessionID);
+    const budgetBytes = retrieval?.budgetBytes ?? memory.snapshotRequestBudget();
 
     // Before chat.params, which stores the model on the recorded prompt row.
     await recordAdmittedPrompts(sessionID, event.messages);
-
-    const retrieval = retrievals.get(sessionID);
+    // The retrieval and the restored section share one request budget: the
+    // restored section is formatted here, within what the retrieval left.
+    let remainingBytes: number | null = null;
     if (retrieval) {
       const section = await settledRetrieval(retrieval);
-      if (section) event.system.push({ type: "text", text: section });
+      if (section) {
+        event.system.push({ type: "text", text: section });
+        remainingBytes = retrieval.budgetBytes - utf8ByteLength(section);
+      } else {
+        remainingBytes = retrieval.budgetBytes;
+      }
     }
 
-    const restoredSection = restored.get(sessionID);
-    if (restoredSection) event.system.push({ type: "text", text: restoredSection });
+    const restoredMemories = restored.get(sessionID);
+    if (restoredMemories) {
+      const section = memory.formatRestoredSession(restoredMemories, remainingBytes ?? budgetBytes);
+      if (section) event.system.push({ type: "text", text: section });
+    }
 
     if (legacy["chat.params"]) {
       await legacy["chat.params"]({
@@ -234,11 +253,14 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
   });
 
   await ctx.session.hook("compaction", async (event) => {
+    memory.snapshotRequestBudget();
     if (!memory.isCompactionEnabled()) return;
     const sessionID = event.sessionID;
     try {
-      const section = await memory.restoreSession(sessionID);
-      if (section) setBounded(restored, sessionID, section);
+      // Load once here; the restored section is formatted when a request
+      // emits it, against that request's captured budget.
+      const memories = await memory.restoreSession(sessionID);
+      if (memories) setBounded(restored, sessionID, memories);
       else restored.delete(sessionID);
     } catch (error) {
       log("v2 compaction: failed to load session memories", { sessionID, error: String(error) });

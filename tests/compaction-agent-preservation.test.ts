@@ -126,6 +126,8 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
   },
   initConfig: () => {},
   initConfigWithLegacyMigration: () => {},
+  refreshConfigIfChanged: () => {},
+  retrievalMaxTokens: 2000,
   getExplicitContainerTagPrefix: () => undefined,
   isConfigured: () => true,
 }));

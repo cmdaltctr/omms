@@ -1,4 +1,4 @@
-import { CONFIG, isConfigured } from "../config.js";
+import { CONFIG, isConfigured, refreshConfigIfChanged } from "../config.js";
 import { memoryClient, type MemoryScope } from "../services/client.js";
 import { getLanguageName } from "../services/language-detector.js";
 import { stripPrivateContent, isFullyPrivate } from "../services/privacy.js";
@@ -60,6 +60,9 @@ export async function executeMemoryOperation(
   args: MemoryOperationArgs,
   context: MemoryOperationContext
 ): Promise<Record<string, unknown>> {
+  // The next operation sees a changed config file: manual tool and CLI calls
+  // happen outside the hosts' injection and capture boundaries.
+  refreshConfigIfChanged(context.directory);
   if (!isConfigured()) {
     return {
       success: false,

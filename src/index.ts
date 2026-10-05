@@ -26,7 +26,13 @@ import { pruneTraces } from "./services/capture-diagnostics.js";
 import { ensureTursoReady } from "./services/turso/ready.js";
 import { tursoConnectionManager } from "./services/turso/connection-manager.js";
 
-import { isConfigured, CONFIG, initConfigWithLegacyMigration } from "./config.js";
+import {
+  isConfigured,
+  CONFIG,
+  initConfigWithLegacyMigration,
+  refreshConfigIfChanged,
+} from "./config.js";
+import { DEFAULT_RETRIEVAL_MAX_TOKENS, tokensToByteCeiling } from "./core/context-budget.js";
 import { resolveOpencodeHostModel } from "./services/ai/live-model-choice.js";
 import { log } from "./services/logger.js";
 import { getLanguageName } from "./services/language-detector.js";
@@ -252,6 +258,14 @@ function logAutoCaptureProviderStatus(): void {
 export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
   const { directory } = ctx;
   initConfigWithLegacyMigration(directory);
+
+  /** One injection operation's byte allowance, read after a config refresh. */
+  const currentRetrievalBudgetBytes = (): number => {
+    refreshConfigIfChanged(directory);
+    // The default guards partial CONFIG stubs in tests.
+    return tokensToByteCeiling(CONFIG.retrievalMaxTokens ?? DEFAULT_RETRIEVAL_MAX_TOKENS);
+  };
+
   // Runs even with tracing off, so turning it off does not leave old traces behind.
   pruneTraces(CONFIG);
   // Record this copy first: the login item and the other hosts run the newest recorded copy.
@@ -505,6 +519,15 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
     },
 
     "chat.message": async (input, output) => {
+      // Refresh first so the enabled checks read the current file, then capture
+      // this injection's limits before the first await: a later config edit
+      // must not change an operation already in progress.
+      const budgetBytes = currentRetrievalBudgetBytes();
+      const chatLimits = {
+        maxMemories: CONFIG.chatMessage.maxMemories,
+        excludeCurrentSession: CONFIG.chatMessage.excludeCurrentSession,
+        maxAgeDays: CONFIG.chatMessage.maxAgeDays,
+      };
       if (!isConfigured() || !CONFIG.chatMessage.enabled) return;
 
       try {
@@ -546,13 +569,14 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
 
         if (!shouldInject) return;
 
+        // The section is injected as a plain synthetic part, so no retrieval
+        // wrapper is reserved.
         const memoryContext = await buildRecentMemoriesSection({
           projectTag: tags.project.tag,
           userEmail: tags.user.userEmail,
           sessionId: input.sessionID,
-          maxMemories: CONFIG.chatMessage.maxMemories,
-          excludeCurrentSession: CONFIG.chatMessage.excludeCurrentSession,
-          maxAgeDays: CONFIG.chatMessage.maxAgeDays,
+          ...chatLimits,
+          budget: { maxBytes: budgetBytes },
         });
 
         if (memoryContext) {
@@ -682,6 +706,9 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
       }
 
       if (event.type === "session.compacted") {
+        // Refresh first so the enabled checks read the current file, then keep
+        // one captured allowance for the whole restore operation.
+        const budgetBytes = currentRetrievalBudgetBytes();
         if (!isConfigured() || !CONFIG.compaction.enabled) return;
 
         const sessionID = event.properties?.sessionID;
@@ -700,7 +727,9 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
             return;
           }
 
-          const memoryContext = formatMemoriesForCompaction(memoriesResult.results);
+          const memoryContext = formatMemoriesForCompaction(memoriesResult.results, {
+            maxBytes: budgetBytes,
+          });
           const agent = await resolveSessionAgent(ctx.client, sessionID);
           if (!agent) {
             log(

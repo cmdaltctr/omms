@@ -9,6 +9,7 @@ import { isPlaceholderApiKey } from "./services/ai/api-key-placeholder.js";
 import { getAutoCaptureProviderStatus } from "./services/ai/live-model-choice.js";
 import { parseBackfillModel } from "./importer/backfill-model.js";
 import { parseImportPathMaps } from "./importer/import-path-maps.js";
+import { checkedMemoryLimit, MEMORY_LIMITS, type MemoryLimitRule } from "./utils/memory-limits.js";
 import {
   resolveDefaultStoragePath,
   runLegacyStoreMigration,
@@ -53,6 +54,8 @@ interface OmmsConfig {
   embeddingUseTaskPrefixes?: boolean;
   similarityThreshold?: number;
   maxMemories?: number;
+  /** Shared budget for automatic memory context in approximate tokens (ceil(UTF-8 bytes / 4)). */
+  retrievalMaxTokens?: number;
   maxProfileItems?: number;
   injectProfile?: boolean;
   containerTagPrefix?: string;
@@ -194,6 +197,7 @@ const DEFAULTS: Required<
   embeddingUseTaskPrefixes: false,
   similarityThreshold: 0.6,
   maxMemories: 10,
+  retrievalMaxTokens: 2000,
   maxProfileItems: 5,
   injectProfile: true,
   // omms since the tag prefix migration: new memories carry the fork's
@@ -655,8 +659,34 @@ export const CONFIG_TEMPLATE = `{
   // Minimum similarity score (0-1) for memory search results
   "similarityThreshold": 0.6,
 
-  // Maximum number of memories to return in search results
+  // Maximum number of memories to return in search results.
+  // Manual searches can ask for fewer; prompt retrieval uses this ceiling.
   "maxMemories": 10,
+
+  // ============================================
+  // Memory Context Controls
+  // ============================================
+
+  // Recent memories added at fresh session start (OpenCode V1 and Claude Code).
+  // Pi and OpenCode V2 search the store with each prompt instead.
+  "chatMessage": {
+    "enabled": true,
+    // Recent memories injected at session start.
+    "maxMemories": 3,
+    "excludeCurrentSession": true,
+    // When to inject: "first" message of a session or "always".
+    // "injectOn": "first",
+  },
+
+  // OpenCode profile-learning input limit, in UTF-8 bytes. Smaller values can
+  // omit prompts from that input. Does not limit Pi or Claude Code profile input.
+  "userProfileMaxContextBytes": 32768,
+
+  // Shared budget for automatic memory context (profile text, memories, and
+  // formatting) across all hosts, in approximate tokens: ceil(UTF-8 bytes / 4).
+  // Covers prompt retrieval, recent-memory injection, and session-memory
+  // restoration. Not an exact provider token limit or a spending limit.
+  "retrievalMaxTokens": 2000,
 
   // ============================================
   // Advanced Settings
@@ -734,10 +764,24 @@ function getEmbeddingDimensions(model: string): number {
 }
 
 export function normalizeAutoCaptureMaxContextBytes(value: number): number {
-  if (!Number.isInteger(value) || value < 16384 || value > 16 * 1024 * 1024) {
-    throw new Error(`Invalid autoCaptureMaxContextBytes config: ${value}`);
-  }
-  return value;
+  return checkedMemoryLimit(MEMORY_LIMITS.autoCaptureMaxContextBytes, value);
+}
+
+/**
+ * Validate a top-level memory limit that is present in the file. A missing
+ * key uses the default, so only own properties reach the check and a null
+ * value is rejected instead of silently becoming the default.
+ */
+function checkedOwnMemoryLimit(
+  rule: MemoryLimitRule,
+  container: object,
+  key: string,
+  fallback: number
+): number {
+  const value = Object.hasOwn(container, key)
+    ? (container as Record<string, unknown>)[key]
+    : fallback;
+  return checkedMemoryLimit(rule, value);
 }
 
 /** Whole hours from 0 to 720. A value that is not a number gives the default. */
@@ -774,8 +818,35 @@ function buildConfig(fileConfig: OmmsConfig) {
   const embeddingDimensions =
     fileConfig.embeddingDimensions ??
     getEmbeddingDimensions(fileConfig.embeddingModel ?? DEFAULTS.embeddingModel);
-  const autoCaptureMaxContextBytes = normalizeAutoCaptureMaxContextBytes(
-    fileConfig.autoCaptureMaxContextBytes ?? DEFAULTS.autoCaptureMaxContextBytes
+  const autoCaptureMaxContextBytes = checkedOwnMemoryLimit(
+    MEMORY_LIMITS.autoCaptureMaxContextBytes,
+    fileConfig,
+    "autoCaptureMaxContextBytes",
+    DEFAULTS.autoCaptureMaxContextBytes
+  );
+  const maxMemories = checkedOwnMemoryLimit(
+    MEMORY_LIMITS.maxMemories,
+    fileConfig,
+    "maxMemories",
+    DEFAULTS.maxMemories
+  );
+  const retrievalMaxTokens = checkedOwnMemoryLimit(
+    MEMORY_LIMITS.retrievalMaxTokens,
+    fileConfig,
+    "retrievalMaxTokens",
+    DEFAULTS.retrievalMaxTokens
+  );
+  const userProfileMaxContextBytes = checkedOwnMemoryLimit(
+    MEMORY_LIMITS.userProfileMaxContextBytes,
+    fileConfig,
+    "userProfileMaxContextBytes",
+    DEFAULTS.userProfileMaxContextBytes
+  );
+  const chatMessageMaxMemories = checkedMemoryLimit(
+    MEMORY_LIMITS["chatMessage.maxMemories"],
+    fileConfig.chatMessage && Object.hasOwn(fileConfig.chatMessage, "maxMemories")
+      ? fileConfig.chatMessage.maxMemories
+      : DEFAULTS.chatMessage.maxMemories
   );
   const userProfileAutoCleanupInterval =
     fileConfig.userProfileAutoCleanupInterval ?? DEFAULTS.userProfileAutoCleanupInterval;
@@ -823,7 +894,8 @@ function buildConfig(fileConfig: OmmsConfig) {
         resolveSecretValue(fileConfig.embeddingApiKey)
       : undefined,
     similarityThreshold: fileConfig.similarityThreshold ?? DEFAULTS.similarityThreshold,
-    maxMemories: fileConfig.maxMemories ?? DEFAULTS.maxMemories,
+    maxMemories,
+    retrievalMaxTokens,
     maxProfileItems: fileConfig.maxProfileItems ?? DEFAULTS.maxProfileItems,
     injectProfile: fileConfig.injectProfile ?? DEFAULTS.injectProfile,
     containerTagPrefix: fileConfig.containerTagPrefix ?? DEFAULTS.containerTagPrefix,
@@ -890,8 +962,7 @@ function buildConfig(fileConfig: OmmsConfig) {
       fileConfig.deduplicationSimilarityThreshold ?? DEFAULTS.deduplicationSimilarityThreshold,
     userProfileAnalysisInterval:
       fileConfig.userProfileAnalysisInterval ?? DEFAULTS.userProfileAnalysisInterval,
-    userProfileMaxContextBytes:
-      fileConfig.userProfileMaxContextBytes ?? DEFAULTS.userProfileMaxContextBytes,
+    userProfileMaxContextBytes,
     userProfileDisplayPreferences:
       fileConfig.userProfileDisplayPreferences ?? DEFAULTS.userProfileDisplayPreferences,
     userProfileDisplayPatterns:
@@ -945,7 +1016,7 @@ function buildConfig(fileConfig: OmmsConfig) {
     },
     chatMessage: {
       enabled: fileConfig.chatMessage?.enabled ?? DEFAULTS.chatMessage.enabled,
-      maxMemories: fileConfig.chatMessage?.maxMemories ?? DEFAULTS.chatMessage.maxMemories,
+      maxMemories: chatMessageMaxMemories,
       excludeCurrentSession:
         fileConfig.chatMessage?.excludeCurrentSession ?? DEFAULTS.chatMessage.excludeCurrentSession,
       maxAgeDays: fileConfig.chatMessage?.maxAgeDays,

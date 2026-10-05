@@ -16,6 +16,18 @@ const values: Record<string, unknown> = {
   importPathMaps: [{ from: "/synthetic/old-project", to: "/synthetic/preview-project" }],
   claudeConfigDir: "/synthetic/claude",
   webServerAutoStart: false,
+  maxMemories: 10,
+  "chatMessage.maxMemories": 3,
+  autoCaptureMaxContextBytes: 131072,
+  userProfileMaxContextBytes: 32768,
+  retrievalMaxTokens: 2000,
+};
+const memoryDefaults: Record<string, number> = {
+  maxMemories: 10,
+  "chatMessage.maxMemories": 3,
+  autoCaptureMaxContextBytes: 131072,
+  userProfileMaxContextBytes: 32768,
+  retrievalMaxTokens: 2000,
 };
 const unset = { set: false, source: null, reference: null };
 let revision = 1;
@@ -26,7 +38,12 @@ function snapshot() {
     settings: Object.fromEntries(
       Object.entries(values).map(([key, value]) => [
         key,
-        { value, globalValue: value, source: "global" },
+        {
+          value,
+          globalValue: value,
+          source: "global",
+          ...(Object.hasOwn(memoryDefaults, key) ? { default: memoryDefaults[key] } : {}),
+        },
       ])
     ),
     secrets: {

@@ -6,6 +6,11 @@ import { hasUnexpiredApiToken } from "./api-tokens.js";
 import { resolveClaudeFolder } from "./claude-folder.js";
 import { readGlobalConfigRevision } from "./global-config-writer.js";
 import {
+  getMemoryLimitRule,
+  MEMORY_LIMIT_SETTINGS,
+  type MemoryLimitRule,
+} from "../utils/memory-limits.js";
+import {
   getAutoCaptureProviderStatus,
   isExternalModelReady,
   resolveClaudeCodeLiveModel,
@@ -30,6 +35,7 @@ const editable = [
   "memoryModel",
   "importPathMaps",
   "claudeConfigDir",
+  ...MEMORY_LIMIT_SETTINGS,
 ] as const;
 
 /** Keys a project config cannot override, so the page always shows the global value. */
@@ -60,11 +66,51 @@ function projectFile(directory: string): string | undefined {
     .map((name) => join(directory, ".opencode", name))
     .find((path) => existsSync(path));
 }
+
+/**
+ * Snapshot entry for a nested limit (chatMessage.maxMemories). The runtime
+ * merge is shallow, so a project chatMessage object replaces the global one:
+ * a missing count means the default even when the global file sets a value,
+ * and the source must not be inferred from dotted-key presence alone.
+ */
+function nestedMemorySetting(
+  rule: MemoryLimitRule,
+  global: Record<string, unknown>,
+  project: Record<string, unknown>
+) {
+  const parent = rule.path[0]!;
+  const leaf = rule.path[1]!;
+  const container = (source: Record<string, unknown>): Record<string, unknown> | undefined => {
+    const raw = source[parent];
+    return raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : undefined;
+  };
+  const projectHasParent = Object.hasOwn(project, parent);
+  const effective = projectHasParent ? container(project) : container(global);
+  const globalContainer = container(global);
+  const hasValue = effective !== undefined && Object.hasOwn(effective, leaf);
+  const hasGlobal = globalContainer !== undefined && Object.hasOwn(globalContainer, leaf);
+  return {
+    value: hasValue ? effective![leaf] : rule.default,
+    source: hasValue ? (projectHasParent ? "project" : "global") : "default",
+    globalValue: hasGlobal ? globalContainer![leaf] : rule.default,
+    default: rule.default,
+  };
+}
+
 export function getSettingsSnapshot(directory: string) {
   const global = readSettingsFile(getGlobalConfigSourcePath());
   const project = readSettingsFile(projectFile(directory));
+  // Dotted limit identifiers (chatMessage.maxMemories) are resolved by the
+  // nested rule above, so the runtime lookup only handles flat keys.
+  const runtime = CONFIG as unknown as Record<string, unknown>;
   const settings = Object.fromEntries(
     editable.map((key) => {
+      const limitRule = getMemoryLimitRule(key);
+      if (limitRule && limitRule.path.length > 1) {
+        return [key, nestedMemorySetting(limitRule, global, project)];
+      }
       const projectOverrides =
         Object.hasOwn(project, key) &&
         (key === "captureTrace"
@@ -75,8 +121,19 @@ export function getSettingsSnapshot(directory: string) {
         : Object.hasOwn(global, key)
           ? "global"
           : "default";
-      const value = projectOverrides ? project[key] : (global[key] ?? CONFIG[key]);
-      return [key, { value, source, globalValue: global[key] ?? CONFIG[key] }];
+      const value = projectOverrides ? project[key] : (global[key] ?? runtime[key]);
+      // The five memory limits also carry their documented default for the UI.
+      return [
+        key,
+        limitRule
+          ? {
+              value,
+              source,
+              globalValue: global[key] ?? limitRule.default,
+              default: limitRule.default,
+            }
+          : { value, source, globalValue: global[key] ?? runtime[key] },
+      ];
     })
   );
   const secrets = Object.fromEntries(
