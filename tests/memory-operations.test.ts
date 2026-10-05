@@ -49,6 +49,7 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
     memory: { defaultScope: "project" },
     autoCaptureLanguage: "en",
   },
+  refreshConfigIfChanged: () => {},
   isConfigured: () => ${overrides.configured === false ? "false" : "true"},
 }));
 

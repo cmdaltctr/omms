@@ -114,7 +114,7 @@ export function ModelsSection() {
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("Models")}
     >
-      <h2 className="text-lg font-medium">{s("Models")}</h2>
+      <h2 className="text-section-title font-semibold">{s("Models")}</h2>
       <p className="text-sm text-muted-foreground">
         {s("External API fallback")}: {snapshot?.fallback.model ?? s("none")} (
         {s(snapshot?.fallback.configured ? "ready" : "not ready")}).
@@ -185,7 +185,7 @@ function ModelCard({
   const typed = manual ?? savedModel;
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
-      <h3 className="font-medium">{hostLabel(host)}</h3>
+      <h3 className="text-subsection-title font-semibold">{hostLabel(host)}</h3>
       <p className="text-xs text-muted-foreground">
         {s("Effective model")}:{" "}
         {model?.value === "external" && effective === "manual"

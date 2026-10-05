@@ -242,7 +242,7 @@ export function EmbeddingSection() {
       aria-label={s("Embedding")}
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium">{s("Embedding")}</h2>
+        <h2 className="text-section-title font-semibold">{s("Embedding")}</h2>
         {local && (
           <button
             type="button"

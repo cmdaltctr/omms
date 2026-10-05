@@ -133,7 +133,7 @@ export function PowerButton() {
             <p>{t("power-restarting")}</p>
           ) : (
             <>
-              <h2 className="text-lg">{t("power-stopped-title")}</h2>
+              <h2 className="text-section-title font-semibold">{t("power-stopped-title")}</h2>
               {message ? <p>{t(message)}</p> : null}
               <p>{t("power-stopped-command")}</p>
               <code className="rounded-md bg-muted px-2 py-1">{START_COMMAND}</code>

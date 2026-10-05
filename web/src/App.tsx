@@ -343,7 +343,9 @@ export default function App() {
                 />
 
                 <section className="rounded-xl border border-border bg-card p-4 space-y-3">
-                  <h2 className="text-sm text-muted-foreground">{t("section-add")}</h2>
+                  <h2 className="text-section-title font-semibold text-muted-foreground">
+                    {t("section-add")}
+                  </h2>
                   <form className="space-y-3" onSubmit={explorer.addMemory}>
                     <div className="grid gap-3 md:grid-cols-3">
                       <div className="space-y-1">

@@ -124,13 +124,24 @@ export const nodeLockFs: LockFs = {
     rmSync(path, { force: true });
   },
   link(from, to) {
-    try {
-      linkSync(from, to);
-      return true;
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code === "EEXIST" || code === "ENOENT") return false;
-      throw error;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        linkSync(from, to);
+        return true;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === "EEXIST" || code === "ENOENT") return false;
+        const waitMs = WINDOWS_FILE_RETRY_WAITS_MS[attempt];
+        if (
+          process.platform !== "win32" ||
+          !code ||
+          !WINDOWS_FILE_BUSY_CODES.has(code) ||
+          waitMs === undefined
+        ) {
+          throw error;
+        }
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, waitMs);
+      }
     }
   },
   ageMs(path) {
@@ -148,10 +159,10 @@ export const nodeLockFs: LockFs = {
   },
 };
 
-// Windows refuses to rename over a file another process has open, even for a
-// moment. Readers hold the lock only while they read it, so a short retry wins.
-const RENAME_RETRY_WAITS_MS = [1, 2, 5, 10, 20, 50, 100, 200];
-const RENAME_BUSY_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
+// Windows can refuse a link or rename while another process has the file open.
+// Bound retries so a permanent permission error still reaches the caller.
+const WINDOWS_FILE_RETRY_WAITS_MS = [1, 2, 5, 10, 20, 50, 100, 200];
+const WINDOWS_FILE_BUSY_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
 
 /** `renameSync` that retries while Windows reports the target busy. */
 export function renameRetrying(
@@ -168,8 +179,13 @@ export function renameRetrying(
       return;
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
-      const waitMs = RENAME_RETRY_WAITS_MS[attempt];
-      if (platform !== "win32" || !code || !RENAME_BUSY_CODES.has(code) || waitMs === undefined) {
+      const waitMs = WINDOWS_FILE_RETRY_WAITS_MS[attempt];
+      if (
+        platform !== "win32" ||
+        !code ||
+        !WINDOWS_FILE_BUSY_CODES.has(code) ||
+        waitMs === undefined
+      ) {
         throw error;
       }
       wait(waitMs);

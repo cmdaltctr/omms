@@ -64,11 +64,15 @@ export async function captureConversation(
   provider: CaptureSummaryProvider
 ): Promise<CaptureResult> {
   refreshConfigIfChanged(workUnit.projectDirectory);
+  // Snapshot the markdown budget after the refresh and before the first
+  // await: a config edit during the memory read must not change this
+  // capture's input limit. The budget keeps its built-in request reserve.
+  const markdownBudget = getAutoCaptureMarkdownBudget();
   const diagnostics: CaptureAttemptDiagnostics = {};
   const startedAt = Date.now();
   let outcome: CaptureAttemptOutcome = "failed";
   try {
-    const result = await runCapture(workUnit, provider, diagnostics);
+    const result = await runCapture(workUnit, provider, diagnostics, markdownBudget);
     outcome = result.status === "captured" ? "saved" : "skipped";
     return result;
   } catch (error) {
@@ -95,7 +99,8 @@ export async function captureConversation(
 async function runCapture(
   workUnit: CaptureWorkUnit,
   provider: CaptureSummaryProvider,
-  diagnostics: CaptureAttemptDiagnostics
+  diagnostics: CaptureAttemptDiagnostics,
+  markdownBudget: number
 ): Promise<CaptureResult> {
   const tags = getTags(workUnit.projectDirectory);
   const latestMemory = await getLatestProjectMemory(tags.project.tag);
@@ -104,7 +109,7 @@ async function runCapture(
     workUnit.textResponses,
     workUnit.toolCalls,
     latestMemory,
-    getAutoCaptureMarkdownBudget()
+    markdownBudget
   );
 
   let summaryResult;

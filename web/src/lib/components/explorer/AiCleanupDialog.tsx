@@ -250,7 +250,9 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
         ) : phase === "select" ? (
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-medium">{t("label-ai-cleanup-select")}</h3>
+              <h3 className="text-subsection-title font-semibold">
+                {t("label-ai-cleanup-select")}
+              </h3>
               <div className="flex flex-wrap gap-1.5">
                 <Button variant="secondary" size="xs" onClick={selectAll}>
                   {t("label-ai-cleanup-select-all")}
@@ -341,12 +343,12 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               {(pendingCleanup.changes.merged || []).length > 0 ? (
                 <div className="space-y-2">
-                  <h4 className="flex items-center gap-1.5 text-sm font-medium">
+                  <h3 className="flex items-center gap-1.5 text-subsection-title font-semibold">
                     <GitMerge className="size-3.5" />
                     {t("label-ai-cleanup-merged-header", {
                       count: pendingCleanup.changes.merged?.length || 0,
                     })}
-                  </h4>
+                  </h3>
                   {(pendingCleanup.changes.merged || []).map((m, mi) => {
                     const mergedFrom = m.ids.slice(1);
                     const mainDesc = m.result || "";
@@ -433,12 +435,12 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
 
               {(pendingCleanup.changes.removed || []).length > 0 ? (
                 <div className="space-y-2">
-                  <h4 className="flex items-center gap-1.5 text-sm font-medium">
+                  <h3 className="flex items-center gap-1.5 text-subsection-title font-semibold">
                     <Trash2 className="size-3.5" />
                     {t("label-ai-cleanup-removed-header", {
                       count: pendingCleanup.changes.removed?.length || 0,
                     })}
-                  </h4>
+                  </h3>
                   {(pendingCleanup.changes.removed || []).map((r, ri) => {
                     const desc = findDescById(r.id, pendingCleanup.old);
                     const steps = findStepsById(r.id, pendingCleanup.old);

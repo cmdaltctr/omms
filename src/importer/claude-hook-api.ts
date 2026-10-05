@@ -10,9 +10,11 @@ import {
   buildRecentMemoriesSection,
   buildRetrievalSection,
   formatMemoriesForCompaction,
+  retrievalWrapperBytes,
   stripRetrievalSections,
   wrapRetrievalSection,
 } from "../core/retrieval.js";
+import { DEFAULT_RETRIEVAL_MAX_TOKENS, tokensToByteCeiling } from "../core/context-budget.js";
 import { resolveClaudeCodeLiveModel } from "../services/ai/live-model-choice.js";
 import {
   captureFailureOf,
@@ -197,13 +199,19 @@ function maybeStartBackfill(deps: ClaudeHookDeps): void {
     );
 }
 
-async function retrievalSection(request: RetrieveRequest): Promise<string | null> {
+async function retrievalSection(
+  request: RetrieveRequest,
+  budgetBytes: number
+): Promise<string | null> {
+  // Every section this api returns is wrapped in the retrieval tag, so each
+  // packed section reserves the wrapper bytes.
+  const budget = { maxBytes: budgetBytes, wrapperBytes: retrievalWrapperBytes() };
   if (request.event === "user-prompt-submit") {
     const prompt = stripPrivateContent(request.prompt ?? "").trim();
     if (!CONFIG.chatMessage.enabled || !prompt || isFullyPrivate(request.prompt ?? "")) {
       return null;
     }
-    return buildRetrievalSection(prompt, request.cwd, request.sessionId);
+    return buildRetrievalSection(prompt, request.cwd, request.sessionId, budget);
   }
 
   const tags = getTags(request.cwd);
@@ -217,7 +225,7 @@ async function retrievalSection(request: RetrieveRequest): Promise<string | null
     const own = result.success
       ? result.results.filter((memory: any) => memory.metadata?.host === HOST)
       : [];
-    return own.length > 0 ? formatMemoriesForCompaction(own) : null;
+    return own.length > 0 ? formatMemoriesForCompaction(own, budget) : null;
   }
 
   if (!CONFIG.chatMessage.enabled) return null;
@@ -228,6 +236,7 @@ async function retrievalSection(request: RetrieveRequest): Promise<string | null
     maxMemories: CONFIG.chatMessage.maxMemories,
     excludeCurrentSession: CONFIG.chatMessage.excludeCurrentSession,
     maxAgeDays: CONFIG.chatMessage.maxAgeDays,
+    budget,
   });
 }
 
@@ -243,9 +252,15 @@ export async function handleClaudeRetrieve(
 ): Promise<{ additionalContext: string }> {
   const request = parseRetrieveRequest(body);
   refreshConfigIfChanged(request.cwd);
+  // Captured after the refresh, before the async retrieval: one allowance
+  // for this hook request even if the config file changes mid-flight.
+  // The default guards partial CONFIG stubs in tests.
+  const budgetBytes = tokensToByteCeiling(
+    CONFIG.retrievalMaxTokens ?? DEFAULT_RETRIEVAL_MAX_TOKENS
+  );
   if (request.event === "session-start") maybeStartBackfill(deps);
   try {
-    const section = await retrievalSection(request);
+    const section = await retrievalSection(request, budgetBytes);
     return { additionalContext: section ? wrapRetrievalSection(section) : "" };
   } catch (error) {
     log("Claude Code retrieval failed", {

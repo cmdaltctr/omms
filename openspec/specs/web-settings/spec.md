@@ -412,7 +412,9 @@ Every Settings endpoint that changes config, saves a key file, deletes trace fil
 
 ### Requirement: The page controls automatic import
 
-The Settings page SHALL have an **Automatic import** section with a switch for `autoBackfill` and, for each host, a model choice for `opencodeBackfillModel` or `piBackfillModel`: **Same as live capture** (saves `inherit`), **External API** (saves `external`), or a manual `provider/model` chosen the same way as the host's capture model. For each host the section SHALL show the backfill state, including paused, the counts of imported, skipped, failed, and pending exchanges, the number of sessions whose project cannot be resolved with a link to the Directory maps section, the model used, the cutoff, the last error, and the progress bar, percentage, and time left defined by the import progress capability. It SHALL offer Run now, Pause, and Resume for each host. The counts SHALL refresh while a run is active. It SHALL say that a model change takes effect at the next run, except that turning the switch off also stops a running backfill after its current exchange. It SHALL say that automatic import makes model calls.
+The Settings page SHALL have an **Automatic import** section with a switch for `autoBackfill` and, for each host, a model choice for `opencodeBackfillModel` or `piBackfillModel`: **Same as live capture** (saves `inherit`), **External API** (saves `external`), or a manual `provider/model` chosen the same way as the host's capture model. For each host the section SHALL show the backfill state, including paused, the counts of imported, skipped, failed, and pending exchanges, the number of sessions whose project cannot be resolved with a link to that host's Directory maps list, the model used, the cutoff, the last error, and the progress bar, percentage, and time left defined by the import progress capability. It SHALL offer Run now, Pause, and Resume for each host. The counts SHALL refresh while a run is active. It SHALL say that a model change takes effect at the next run, except that turning the switch off also stops a running backfill after its current exchange. It SHALL say that automatic import makes model calls.
+
+The Automatic import host headings SHALL NOT repeat the overall import-status pills shown in Import and backfill. Removing these pills SHALL NOT remove the operational state, last-run summary, unresolved counts, errors, or controls.
 
 #### Scenario: Turning automatic import off
 
@@ -435,6 +437,18 @@ The Settings page SHALL have an **Automatic import** section with a switch for `
 
 - **WHEN** a backfill runs while the section is open
 - **THEN** the counts, progress bar, percentage, and time left SHALL update without a page reload
+
+#### Scenario: Reading automatic import without duplicate pills
+
+- **WHEN** the user opens Automatic import for Pi, OpenCode, or Claude Code
+- **THEN** its host heading SHALL show the host name without an overall import-status pill
+- **AND** the card SHALL retain its operational state and existing actions
+
+#### Scenario: Following the automatic import directory link
+
+- **WHEN** the user activates OpenCode's unresolved-directory link in Automatic import
+- **THEN** OpenCode's Directory maps list SHALL open and its summary SHALL receive focus
+- **AND** other hosts' drafts and disclosure states SHALL remain unchanged
 
 ### Requirement: The page controls starting the web app at login
 
@@ -669,6 +683,8 @@ The Import and backfill section SHALL show a status badge for each host, derived
 - **Running** while a run is active, and **Learning profile** while a finished run's profile step is active.
 - **Paused**, **Failed** with the last error, or **Not started**, from the backfill state. A run that finished with some failed exchanges SHALL NOT show Failed, because those exchanges are retried at the next run.
 
+A Partly imported badge SHALL be a keyboard-accessible link to that host's unresolved Directory maps list. Its visible wording and count SHALL remain present. Its accessible name SHALL identify the host and destination in the current page language. Activating it SHALL reveal the matching host list, scroll to it, and focus its summary without saving settings or starting an import. Other status badges SHALL remain informational.
+
 #### Scenario: All Claude Code history is in
 
 - **WHEN** the latest Claude Code run finished with 0 pending exchanges and 0 unresolved sessions
@@ -678,6 +694,18 @@ The Import and backfill section SHALL show a status badge for each host, derived
 
 - **WHEN** the latest OpenCode run finished and 6 sessions are unresolved
 - **THEN** the OpenCode badge SHALL show Partly imported with 6 unresolved
+
+#### Scenario: Following an unresolved badge
+
+- **WHEN** the user activates Pi's Partly imported badge by pointer or keyboard
+- **THEN** Pi's Directory maps list SHALL open and its summary SHALL receive focus
+- **AND** the browser SHALL scroll to that list without reloading the page
+- **AND** the badge SHALL retain its wording and unresolved count
+
+#### Scenario: A badge without unresolved sessions
+
+- **WHEN** a host's badge shows Imported, Running, Learning profile, Paused, Failed, or Not started
+- **THEN** it SHALL NOT become a link to unresolved directories solely because it is a status badge
 
 ### Requirement: Automatic import shows the last run when no run is active
 
@@ -702,3 +730,117 @@ The Settings page SHALL say "1 session" for one session and "sessions" for any o
 
 - **WHEN** an item's confidence is 0.969
 - **THEN** the badge SHALL show "97%"
+
+### Requirement: The Memory card shows editable limits and their effects
+
+The Settings page SHALL show one **Memory** card with an editable table. Its headings SHALL be **Setting**, **Value**, **Default**, **Unit**, and **Affects**. Each row SHALL show the exact config identifier, an accessible numeric input for the saved global value, the default, its unit, and a visible explanation of what it changes.
+
+The rows SHALL cover:
+
+| Setting                      | Default | Unit               | Affects                                                                                                                                                       |
+| ---------------------------- | ------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maxMemories`                | 10      | Results            | Maximum memory search results. Manual searches can request fewer; prompt retrieval uses this ceiling.                                                         |
+| `chatMessage.maxMemories`    | 3       | Memories           | Recent memories added at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 use prompt-based search instead.                                    |
+| `autoCaptureMaxContextBytes` | 131072  | Bytes              | Conversation input sent to the memory-summary model through the shared capture pipeline. Smaller values can omit conversation text.                           |
+| `userProfileMaxContextBytes` | 32768   | Bytes              | OpenCode profile-learning input. Smaller values can omit prompts from that input. This control does not limit the other hosts' profile input.                 |
+| `retrievalMaxTokens`         | 2000    | Approximate tokens | Automatic memory context, including profile text and formatting, added to agent requests across all hosts. Smaller values can show fewer or shorter memories. |
+
+The **Affects** text SHALL stay visible, rather than being available only through a tooltip. The card SHALL explain that the byte controls count UTF-8 bytes, and that approximate tokens use `ceil(bytes / 4)` and can differ from the model's count. It SHALL state that these controls do not delete stored data, set a spending limit, limit model replies, or control Graphify output. It SHALL name `~/.config/omms/omms.jsonc` as the file users can edit without the web UI.
+
+The card SHALL use the existing table appearance and support horizontal scrolling within the card on narrow screens. Its title SHALL be H2 using the shared section-title role; any subsection headings SHALL use H3 and the shared subsection-title role. The application SHALL retain its single H1, and table labels and effect text SHALL remain table content. Every input SHALL have a label and associated validation message. Headings, effects, help, feedback, and accessible names SHALL be translated into English, Chinese, and Arabic; config identifiers SHALL remain literal and readable left-to-right.
+
+#### Scenario: Reading the default limits
+
+- **WHEN** the user opens Memory with no saved overrides
+- **THEN** the five rows SHALL show defaults of 10, 3, 131072, 32768, and 2000
+- **AND** each input SHALL have its effect and unit visible beside it
+
+#### Scenario: Reading host-specific effects
+
+- **WHEN** a Pi user reads the recent-memory and profile-input rows
+- **THEN** the page SHALL explain their existing host coverage
+- **AND** it SHALL NOT suggest that either setting limits Pi's profile-learning input
+
+#### Scenario: Viewing a narrow Arabic layout
+
+- **WHEN** the user opens Memory in Arabic on a narrow screen
+- **THEN** the table SHALL remain usable without forcing the whole page wider
+- **AND** the config identifiers SHALL retain their technical order
+- **AND** the effect explanations and input labels SHALL appear in Arabic
+
+### Requirement: The Memory card saves limits through the existing safe config flow
+
+The Memory card SHALL offer **Save** and **Cancel**. Save SHALL be available only when a valid draft differs from the loaded global values. Cancel SHALL restore the loaded values without writing. While a save runs, the card SHALL prevent duplicate submissions and show its result. Successful saves SHALL refresh the shared Settings revision.
+
+The save SHALL use the existing Settings authentication, origin, JSON request, validation, conflict, and legacy-file rules. It SHALL change only edited values in the global config. Saving `chatMessage.maxMemories` SHALL update that nested property while preserving the other `chatMessage` properties, their comments, and every unrelated key. A save SHALL NOT create a literal `chatMessage.maxMemories` key or allow arbitrary nested settings to be edited.
+
+The card SHALL show the effective value and the source when the selected project's config overrides a row. It SHALL still edit the global value and SHALL say that the project override remains in force. Values SHALL follow the validation and next-operation behaviour of the memory-context-controls capability. A rejected save SHALL leave the file unchanged and show the setting's accepted values, or the stale-file recovery action.
+
+#### Scenario: Saving one nested value
+
+- **WHEN** the user changes `chatMessage.maxMemories` from 3 to 2 and saves
+- **THEN** the global file SHALL contain `"maxMemories": 2` inside its `chatMessage` object
+- **AND** `enabled`, `injectOn`, `excludeCurrentSession`, `maxAgeDays`, and their comments SHALL be unchanged
+- **AND** the top-level `maxMemories` SHALL be unchanged
+
+#### Scenario: Rejecting an unrelated nested edit
+
+- **WHEN** a request to save Memory values also tries to edit `chatMessage.enabled`
+- **THEN** the server SHALL reject that unsupported edit without writing any part of the request
+
+#### Scenario: Invalid numeric input
+
+- **WHEN** the user enters a blank value, negative value, fractional value, or value outside the accepted range
+- **THEN** the input SHALL show an associated validation message
+- **AND** Save SHALL be disabled
+- **AND** the server SHALL also reject the invalid value if submitted directly
+
+#### Scenario: Cancelling a draft
+
+- **WHEN** the user edits two values and selects Cancel
+- **THEN** both inputs SHALL return to their loaded values
+- **AND** the config file SHALL remain unchanged
+
+#### Scenario: Another editor changes the file
+
+- **WHEN** another process changes `omms.jsonc` before the card saves its draft
+- **THEN** the save SHALL be refused without writing
+- **AND** the card SHALL load the current values and ask the user to review and save again
+
+#### Scenario: The project overrides the global budget
+
+- **WHEN** the project budget is 1000 and the user saves a global budget of 3000
+- **THEN** the card SHALL show global 3000 and effective project 1000
+- **AND** the project file SHALL remain unchanged
+
+#### Scenario: Saving another card after Memory
+
+- **WHEN** Memory saves successfully and the user then saves a model choice on another card
+- **THEN** the other card SHALL use the refreshed Settings revision
+- **AND** its save SHALL NOT fail solely because Memory changed the revision
+
+### Requirement: The Settings sidebar navigates to the Memory card
+
+The Settings sidebar tree SHALL contain one **Memory** child linked to `/settings#settings-section-memory`. Selecting it SHALL open Settings when necessary and bring the Memory card into view. Direct navigation and reload at that URL SHALL reveal the same card. Desktop collapse and mobile drawer behaviour SHALL remain consistent with the existing Settings children. Other Settings cards SHALL keep their existing anchors. Host-specific Directory maps links SHALL still reveal and focus the matching host disclosure without resetting unsaved map targets or selections.
+
+#### Scenario: Opening Memory from the project view
+
+- **WHEN** the user selects Memory in the Settings tree while viewing project memories
+- **THEN** Settings SHALL open with the Memory card in view
+
+#### Scenario: Following a saved link
+
+- **WHEN** the user opens or reloads `/settings#settings-section-memory`
+- **THEN** the Memory card SHALL be brought into view after the page mounts
+
+#### Scenario: Directory maps navigation remains available
+
+- **WHEN** the user opens Memory and then follows a Pi, OpenCode, or Claude Code unresolved-import link
+- **THEN** the matching host's Directory maps disclosure SHALL open and receive focus
+- **AND** unsaved map targets and selections SHALL remain unchanged
+
+#### Scenario: Finding Memory in the sidebar
+
+- **WHEN** the Settings tree is expanded on desktop or in the mobile drawer
+- **THEN** Memory SHALL appear once as a child of Settings
+- **AND** its accessible label SHALL use the page's language

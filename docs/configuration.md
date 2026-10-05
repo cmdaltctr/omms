@@ -95,6 +95,56 @@ Open the Settings page in the login web app, in OpenCode, or with `om-memory-sys
 - OpenCode, Pi, and the web app that serves Claude Code reload changed config files at the next capture or profile-learning run. You do not need to restart.
 - On a legacy-only install, the first save copies the old config and its comments to `~/.config/omms/omms.jsonc`. OMMS reads the new file from then on. The old file stays unchanged.
 - The page rejects a save if the file changed since the page loaded it. Check the refreshed values, then save again.
+- The **Memory** card edits the five [memory limits](#memory-limits) below, including the nested `chatMessage.maxMemories` leaf.
+
+## Memory limits
+
+Edit `~/.config/omms/omms.jsonc` directly, or use **Settings → Memory**. File configuration needs no web server.
+
+| Setting                      | Default | Unit               | Accepted values          | Affects                                                                                                               |
+| ---------------------------- | ------- | ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `maxMemories`                | 10      | Results            | Positive safe integers   | Maximum memory search results. Manual searches can request fewer.                                                     |
+| `chatMessage.maxMemories`    | 3       | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 search each prompt.               |
+| `autoCaptureMaxContextBytes` | 131072  | UTF-8 bytes        | 16384–16777216 inclusive | Conversation input to the shared memory-summary pipeline.                                                             |
+| `userProfileMaxContextBytes` | 32768   | UTF-8 bytes        | 1024–16777216 inclusive  | OpenCode profile-learning input, including the truncation marker. Other hosts' profile input is outside this control. |
+| `retrievalMaxTokens`         | 2000    | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text and formatting.                                     |
+
+All values must be integers. Count limits accept up to `Number.MAX_SAFE_INTEGER` (9007199254740991). Missing values use defaults. Invalid types, fractions, and values outside the ranges are refused.
+
+```jsonc
+{
+  // Maximum search results.
+  "maxMemories": 10,
+  "chatMessage": {
+    // Recent memories at session start in OpenCode V1 and Claude Code.
+    "maxMemories": 3,
+  },
+  // Memory-summary conversation input, in UTF-8 bytes.
+  "autoCaptureMaxContextBytes": 131072,
+  // OpenCode profile-learning input, in UTF-8 bytes.
+  "userProfileMaxContextBytes": 32768,
+  // Approximate tokens = ceil(UTF-8 bytes / 4).
+  "retrievalMaxTokens": 2000,
+}
+```
+
+Keep `chatMessage.maxMemories` inside the `chatMessage` object. A literal dotted key does not configure that leaf.
+
+Project files at `<project>/.opencode/omms.jsonc` can override these limits. The existing merge is shallow: a project's `chatMessage` object replaces the global object, and missing siblings use defaults.
+
+### Automatic context packing
+
+OMMS estimates tokens as `Math.ceil(utf8ByteLength(text) / 4)`. The final emitted memory text fits within `retrievalMaxTokens * 4` UTF-8 bytes. This includes headings, explanatory text, omission markers, delimiters, and retrieval wrappers. Host prompts are outside this allowance. A provider can count more or fewer tokens.
+
+- The allowance covers supported prompt retrieval, recent-memory injection, and memory restoration after compaction or resume.
+- Sections added in one host request share one allowance. Claude Code also keeps its existing 9500-character hook limit.
+- Profile text uses at most one quarter of the payload space after fixed formatting. Unused profile space goes to memories.
+- Memories keep their incoming order. OMMS shortens the first entry that exceeds the remaining space, marks it, and stops.
+- Packing preserves valid Unicode and closes generated delimiters. When useful content cannot fit, OMMS emits no section.
+
+Smaller limits can omit conversation input or show fewer or shorter injected memories. Stored memories, profiles, prompts, and manual tool or CLI search content remain complete. These controls do not set a spending limit, limit model replies, or control Graphify output.
+
+Valid edits apply at the next relevant search, injection, capture, or OpenCode profile-learning operation without a restart. An operation already running keeps its original limits. Invalid live edits retain the last valid settings and log a metadata-only error.
 
 ## Automatic history import and login web app
 

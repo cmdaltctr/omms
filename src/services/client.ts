@@ -111,6 +111,10 @@ export class LocalMemoryClient {
   }
 
   async searchMemories(query: string, containerTag: string, scope: MemoryScope = "project") {
+    // Capture the result count at entry: initialize, embedding, and shard
+    // reads all await, and a config edit during them must not change this
+    // search's limit.
+    const maxMemories = CONFIG.maxMemories;
     try {
       await this.initialize();
 
@@ -130,7 +134,7 @@ export class LocalMemoryClient {
         shards,
         queryVector,
         scope === "all-projects" ? "" : containerTag,
-        CONFIG.maxMemories,
+        maxMemories,
         CONFIG.similarityThreshold,
         query
       );

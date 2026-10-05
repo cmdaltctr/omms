@@ -68,6 +68,19 @@ Keep the installed JetBrains Mono font for code, commands, identifiers, and file
 | Code                 | `0.75rem`, 12px                  | 400                         | Keep code blocks readable    |
 | Body/memory prose    | `0.875rem`, 14px                 | 400                         | Preserve OMMS markdown's 1.6 |
 
+### OMMS heading adaptation
+
+OMMS uses the following approved application scale. The source values above remain the attributed OpenChamber defaults.
+
+| Application role                 | Relative size | Size at a 16px root | Weight | Line height |
+| -------------------------------- | ------------- | ------------------- | ------ | ----------- |
+| Page H1                          | `1.5rem`      | 24px                | 600    | 1.25        |
+| Section/card H2 and dialog title | `1.125rem`    | 18px                | 600    | 1.4         |
+| Nested H3                        | `0.9375rem`   | 15px                | 600    | 1.4         |
+| Normal UI text                   | `0.875rem`    | 14px                | 400    | 1.45        |
+
+Use `text-page-title`, `text-section-title`, `text-subsection-title`, and `text-ui` from `app.css`. Keep heading levels in order. Profile identity and its main sections use H2. Counts, category badges, and technical identifiers keep their metadata roles. Scope application styles to their owners so stored memory Markdown keeps its rendering. Dialog titles use the section role.
+
 These sizes assume the normal root font size. Preserve browser zoom and wrapping. Define reusable typography roles in `app.css` when several components need them. Keep existing text casing and wording; OpenChamber's lowercase button treatment does not authorise a copy change in OMMS.
 
 ## Spacing and geometry

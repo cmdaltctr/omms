@@ -12,7 +12,7 @@ export function ClaudeCaptureStatus({ status }: { status?: ClaudeCaptureState })
   const s = useSettingsText();
   return (
     <div className="space-y-1 rounded-lg border border-border p-3">
-      <h3 className="font-medium">{hostLabel("claude-code")}</h3>
+      <h3 className="text-subsection-title font-semibold">{hostLabel("claude-code")}</h3>
       {status?.ready === true && (
         <p className="text-xs text-muted-foreground">
           {s("Claude Code capture uses the external API.")}

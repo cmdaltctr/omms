@@ -81,7 +81,7 @@ export function ProfilesSection() {
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("Profiles")}
     >
-      <h2 className="text-lg font-medium">{s("Profiles")}</h2>
+      <h2 className="text-section-title font-semibold">{s("Profiles")}</h2>
       <p className="text-sm text-muted-foreground">
         {s(
           "OMMS keeps one profile for each git email. A folder whose repository has its own email starts a second profile. Choose the profile that is yours, or merge the extra one into it."

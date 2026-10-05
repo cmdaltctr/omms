@@ -303,8 +303,9 @@ Versions come from commit messages. Use `feat:` (minor), `fix:` (patch),
    install the tarball.
 6. In the main checkout, run `bun run release:approve` and enter your 2FA code.
    The script approves the version, waits for npm `latest`, dispatches the
-   Claude plugin channel, and checks that `stable` is at the release tag. It
-   reads the stage ID from the newest GitHub Release note.
+   Claude plugin channel, and checks that `stable` is at the release tag. Each
+   npm version check uses `--prefer-online` to recheck cached data against the
+   registry. It reads the stage ID from the newest GitHub Release note.
 7. Users with marketplace auto-update get the plugin at their next check. Users
    on an unpinned npm install get an update notice.
 

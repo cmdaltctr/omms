@@ -2,14 +2,8 @@
 .settings-view {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 0.84375rem;
-  line-height: 1.45;
-}
-
-.settings-view h2 {
   font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .settings-view input:not([type="checkbox"]):not([type="radio"]):not([data-slot]),
@@ -22,7 +16,7 @@
   background: var(--card);
   color: var(--foreground);
   padding: 4px 10px;
-  font-size: 0.84375rem;
+  font-size: 0.875rem;
   transition: background-color 150ms;
 }
 

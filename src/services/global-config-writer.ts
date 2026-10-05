@@ -9,6 +9,7 @@ import {
   validateGlobalConfig,
 } from "../config.js";
 import { isValidClaudeConfigDir } from "./claude-folder.js";
+import { getMemoryLimitRule } from "../utils/memory-limits.js";
 
 const keys = new Set([
   "opencodeProvider",
@@ -29,6 +30,11 @@ const keys = new Set([
   "memoryApiKey",
   "importPathMaps",
   "claudeConfigDir",
+  "maxMemories",
+  "chatMessage.maxMemories",
+  "autoCaptureMaxContextBytes",
+  "userProfileMaxContextBytes",
+  "retrievalMaxTokens",
 ]);
 
 /**
@@ -86,6 +92,9 @@ function isValidEdit(key: string, value: unknown): boolean {
   if (key === "memoryProvider") return MEMORY_PROVIDERS.includes(value as string);
   // Entries are checked by the startup validation below.
   if (key === "importPathMaps") return Array.isArray(value);
+  // The five memory limits share one validation rule set.
+  const memoryLimit = getMemoryLimitRule(key);
+  if (memoryLimit) return memoryLimit.isValid(value);
   // An empty value clears the field.
   if (key === "claudeConfigDir") return isValidClaudeConfigDir(value);
   return typeof value === "string" && value.trim().length > 0;
@@ -134,10 +143,13 @@ export async function writeGlobalConfigKeys(
     if (!allowed) throw new Error(`Setting ${key} cannot be edited here`);
     if (!isValidEdit(key, value)) {
       // Never echo the value: a rejected memoryApiKey may be a literal key.
+      const memoryRule = getMemoryLimitRule(key);
       throw new Error(
         ["memoryApiKey", "embeddingApiKey", "webServerAuthPassword"].includes(key)
           ? `${key} must be an env:// or file:// reference`
-          : `Invalid ${key} setting`
+          : memoryRule
+            ? `Invalid ${key} setting: accepted ${memoryRule.accepted}`
+            : `Invalid ${key} setting`
       );
     }
   }
@@ -161,9 +173,12 @@ export async function writeGlobalConfigKeys(
     }
     let content = original.content;
     for (const [key, value] of Object.entries(edits)) {
+      // A nested limit identifier maps to its JSONC leaf path, so
+      // chatMessage.maxMemories writes the leaf, never a literal dotted key.
+      const jsoncPath = (getMemoryLimitRule(key)?.path ?? [key]) as string[];
       content = applyEdits(
         content,
-        modify(content, [key], value, {
+        modify(content, jsoncPath, value, {
           formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
         })
       );

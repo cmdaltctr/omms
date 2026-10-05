@@ -8,6 +8,7 @@ import { userPromptManager } from "../../services/user-prompt/user-prompt-manage
 import type { UserPrompt } from "../../services/user-prompt/user-prompt-manager.js";
 import { userProfileManager } from "../../services/user-profile/user-profile-manager.js";
 import { sortProfileItems } from "../../utils/profile.js";
+import { truncateToMaxBytes } from "../../utils/context-limit.js";
 import type { UserProfile, UserProfileData } from "../../services/user-profile/types.js";
 import { loadOpencodeProvider } from "./opencode-provider-loader.js";
 
@@ -64,6 +65,10 @@ export async function performUserProfileLearning(
   if (isLearningRunning) return;
   if (!profileBackoff.canRun()) return;
   refreshConfigIfChanged(directory);
+  // Snapshot the byte limit right after the refresh: the prompt and profile
+  // reads below all await, and a config edit during them must not change
+  // this pass's input limit.
+  const profileContextMaxBytes = CONFIG.userProfileMaxContextBytes ?? 32768;
   if (!CONFIG.autoCaptureProviderStatus || !CONFIG.autoCaptureProviderStatus.ready) {
     log("user-profile-learning: skipped (provider not ready)", {
       issues: CONFIG.autoCaptureProviderStatus?.issues ?? ["status undefined"],
@@ -174,7 +179,12 @@ Rules:
       existingProfile = { ...existingProfile, profileData: JSON.stringify(decayed) };
     }
 
-    const context = buildUserAnalysisContext(prompts, existingProfile, validationPrompt);
+    const context = buildUserAnalysisContext(
+      prompts,
+      existingProfile,
+      validationPrompt,
+      profileContextMaxBytes
+    );
 
     const analysisResult = await analyzeUserProfile(context, existingProfile);
     profileBackoff.recordSuccess();
@@ -372,7 +382,8 @@ New observations are matched via embedding cosine similarity — write descripti
 function buildUserAnalysisContext(
   prompts: UserPrompt[],
   existingProfile: UserProfile | null,
-  validationPrompt?: string
+  validationPrompt?: string,
+  maxBytes: number = CONFIG.userProfileMaxContextBytes ?? 32768
 ): string {
   const base = `# User Profile Analysis
 
@@ -428,11 +439,11 @@ CRITICAL: Only output observations grounded in the RECENT PROMPTS above. Write d
 - "User analyzes problems and verifies solutions" (too abstract — not a concrete step sequence)
 - "User writes code and tests it" (too generic — covers everything)`;
 
-  const maxBytes = CONFIG.userProfileMaxContextBytes ?? 32768;
+  // UTF-8 byte limit: the marker counts inside the ceiling and a cut never
+  // splits a multi-byte character (a character count let multibyte input
+  // through oversized and could split surrogate pairs at the cut).
   const truncate = (s: string) =>
-    s.length > maxBytes
-      ? s.substring(0, maxBytes) + "\n[... context truncated to userProfileMaxContextBytes ...]"
-      : s;
+    truncateToMaxBytes(s, maxBytes, "\n[... context truncated to userProfileMaxContextBytes ...]");
   if (validationPrompt) {
     return truncate(base + "\n\n" + validationPrompt);
   }

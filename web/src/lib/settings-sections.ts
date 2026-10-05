@@ -6,6 +6,7 @@
 export const SETTINGS_SECTIONS = [
   { id: "settings-section-external-api", title: "External API" },
   { id: "settings-section-models", title: "Models" },
+  { id: "settings-section-memory", title: "Memory" },
   { id: "settings-section-embedding", title: "Embedding" },
   { id: "settings-section-keys", title: "Keys and access" },
   { id: "settings-section-diagnostics", title: "Capture diagnostics" },

@@ -12,7 +12,7 @@ Every section saves to the global config file, `~/.config/omms/omms.jsonc`.
 - The page never writes a project's `.opencode/omms.jsonc`. When a project file overrides a value, the page says so.
 - If the file changed after the page loaded it, the save is refused. The page reloads the current values. Check them, then save again.
 - If OMMS still reads the old `~/.config/opencode/opencode-mem.jsonc`, the first save copies it, comments included, to `~/.config/omms/omms.jsonc`. The old file is not changed. From then on OMMS reads the new file.
-- Running Pi and OpenCode use the saved values from their next capture. You do not need to restart them.
+- Running hosts use saved memory limits at the next relevant search, injection, capture, or OpenCode profile-learning operation. You do not need to restart them. An operation already running keeps its original limits.
 - A value that fails OMMS's startup checks is refused, and the file stays unchanged.
 - The general save refuses the embedding keys and the browser password. Change them on the **Embedding** card and the **Keys and access** card.
 
@@ -112,6 +112,34 @@ When a list is not available, the card and the Automatic import section show why
 | OpenCode model list unavailable                          | The OpenCode session could not give its list.                       | Type `provider/model`, or reload the page.                              |
 
 Health checks, test calls, and history imports that use an OpenCode model still need an OpenCode session.
+
+## Memory
+
+Select **Memory** after **Models** in the Settings tree, or open `/settings#settings-section-memory`. Direct links and reloads bring the card into view.
+
+The table has **Setting**, **Value**, **Default**, **Unit**, and **Affects** columns. Effects stay visible beside each numeric input.
+
+| Setting                      | Default | Unit               | Accepted values          | Affects                                                                                                               |
+| ---------------------------- | ------- | ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `maxMemories`                | 10      | Results            | Positive safe integers   | Maximum search results; a manual search can request fewer.                                                            |
+| `chatMessage.maxMemories`    | 3       | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 search each prompt.               |
+| `autoCaptureMaxContextBytes` | 131072  | Bytes              | 16384–16777216 inclusive | Conversation input sent through the shared memory-summary pipeline.                                                   |
+| `userProfileMaxContextBytes` | 32768   | Bytes              | 1024–16777216 inclusive  | OpenCode profile-learning input, including its truncation marker. Other hosts' profile input is outside this control. |
+| `retrievalMaxTokens`         | 2000    | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text, formatting, and retrieval wrappers.                |
+
+Bytes mean UTF-8 bytes. Approximate tokens use `ceil(bytes / 4)`, which can differ from the model's count. Count limits accept up to 9007199254740991. Smaller values can omit conversation input or inject fewer or shorter memories. Stored data and manual search content remain unchanged. These controls do not set a spending limit, limit model replies, or control Graphify output.
+
+1. Change the global values you need.
+2. Correct any validation messages beside the inputs.
+3. Select **Save** when a valid draft differs from the loaded values.
+
+**Cancel** restores the loaded values without writing. During a save, the card prevents duplicate submissions and shows the outcome. A successful save refreshes the shared Settings revision, so another card can save afterwards.
+
+A row with a project override shows its effective value and source. The input still edits the global value; the override stays in force. Project files remain unchanged. The existing shallow merge also applies to `chatMessage`: a project object replaces the global object, with defaults for omitted siblings.
+
+Saving `chatMessage.maxMemories` edits only the leaf inside `chatMessage`. Siblings such as `enabled` and `injectOn`, their comments, and unrelated keys keep their values and order. Unsupported nested edits are refused. An invalid save writes nothing. If another editor changed the file, review the refreshed values and save again.
+
+You can configure every row without the web UI by editing `~/.config/omms/omms.jsonc`. See [Configuration: Memory limits](configuration.md#memory-limits) for a file-only example, packing rules, and host coverage. Valid edits apply at the next relevant operation; invalid live edits retain the last valid settings.
 
 ## Embedding
 
@@ -312,7 +340,7 @@ Use this section to import past chats by hand. A backfill is an import of old ch
 At the top, one box for each host shows its import status:
 
 - **Imported ✅:** the latest run finished, nothing is pending, and no session is unresolved.
-- **Partly imported (N unresolved):** the latest run finished, but N sessions have no folder. Fix them in [Directory maps](#directory-maps).
+- **Partly imported (N unresolved):** the latest run finished, but N sessions have no folder. Select the badge to open that host's Directory maps list. Focus moves to its summary. The visible count stays unchanged; other status badges are informational.
 - **Running**, or **Learning profile** while a finished run learns the profile from the imported prompts.
 - **Stopped (N pending)**, **Paused**, **Failed ⛔️**, or **Not started**.
 
@@ -374,12 +402,11 @@ For each host:
   - **Same as live capture** uses the model from the Models section. Saves `inherit`.
   - **External API** uses the External API card. Saves `external`. It can run from the web app with no host open.
   - A listed or typed `provider/model` uses another model from the host's sign-in, for example a cheaper one. Live capture keeps its own model.
-- **Status badge.** The same badge as in Import and backfill, next to the host name.
 - **State.** Not started, running, paused, stopped, done, or failed. For a running import it also shows where it started: automatically, from the web page, from the terminal, or from a slash command.
 - **Progress.** A bar, the percentage, done out of total, and the minutes left, only while exchanges are imported. Minutes left comes from the recent rate. It shows as unknown until about a minute of progress.
 - **Learning profile.** After the last exchange, a run learns the profile from the imported prompts, 50 prompts for each model call. The card shows the batches done out of the total in place of the bar.
 - **Last run.** When no run is active, the card shows when the latest run finished, how it started, and its imported, skipped, and failed counts.
-- **Counts.** Pending exchanges, and sessions whose folder cannot be found. When there are any, a link goes to [Directory maps](#directory-maps). The unresolved count is a number of sessions, and it matches the session counts in Directory maps.
+- **Counts.** Pending exchanges, and sessions whose folder cannot be found. When there are any, a link opens that host's Directory maps list and focuses its summary. The unresolved count is a number of sessions, and it matches the session counts in Directory maps.
 - **Model**, **Cutoff**, and the last error. The cutoff is fixed at the first backfill. Later turns are saved by live capture instead.
 
 The Claude Code card has no **Backfill model** choice. It shows "Claude Code backfill always uses the external API. It has no backfill model setting." When the external API is not fully configured, **Run now** and **Resume** name the missing setting. See [Claude Code history import](claude-code-history-import.md#automatic-import).
@@ -438,8 +465,13 @@ To use another model, or to run the catch-up from a terminal, see [CLI: Profile 
 A directory map tells OMMS which project a folder belongs to. Use it when chats were recorded in a folder that no longer exists, such as a deleted git worktree.
 
 - **Saved maps** lists the maps in `importPathMaps`. They apply to every host. **Remove** marks one for removal, and **Keep** undoes that.
-- One card for each host lists its **Unresolved directories**: the folders the latest session listing or full import could not find, with a session count. Sessions that recorded no folder are counted under **No directory recorded**. They cannot be mapped.
-- **Smart resolve directories** fills the suggested target into every row of that host that has one and ticks **Use this map**. It says how many rows it filled and how many have no suggestion. It saves nothing. Check the rows, then select **Save maps**.
+- Each host's **Unresolved directories** starts collapsed. Its summary shows directory, unresolved session, and selected map counts. Expand a host to review its compact rows. Expand a row to edit its target. Collapsing either keeps unsaved targets and selections.
+- A **Partly imported** badge or an Automatic import directory link opens only the matching host and focuses its summary. Repeating the link opens it again after collapse. Other disclosures, target editors, and unsaved maps keep their state. An empty latest list shows that host's empty message. Navigation saves nothing and starts no import.
+- Sessions that recorded no folder appear under **No directory recorded**. They cannot be mapped and are excluded from bulk selection.
+- **Select all with targets** selects that host's rows with a non-empty target. It uses edited text when present, including an explicitly cleared target, otherwise the suggestion. It does not check that a typed folder exists.
+- **Clear selection** unticks that host's rows and keeps target text. A source shared across hosts has one map, so selecting or clearing it updates every host.
+- **Smart resolve directories** selects suggested targets while keeping accepted choices. Its result shows newly selected suggestions, already selected rows, and rows without suggestions. An empty result explains whether suggestions are already selected or targets need choosing manually. Review the rows, then press **Save maps**.
+- Bulk actions save nothing and start no import. **Save maps** stays outside the host lists and remains reachable when they are collapsed.
 - Where OMMS can find one, the target box holds a suggested existing folder:
   1. The main repository of a deleted worktree. For `~/code/app-feat-x` or `~/workspaces/app/feat-x`, it suggests `~/code/app`.
   2. For OpenCode, the project folder that OpenCode recorded for the session. OMMS reads OpenCode's database without writing to it.
@@ -447,9 +479,10 @@ A directory map tells OMMS which project a folder belongs to. Use it when chats 
 
 To save maps:
 
-1. Check or edit the target folder.
-2. Tick **Use this map**.
-3. Select **Save maps**.
+1. Expand the host and check the target summaries.
+2. Expand a row to edit its target folder when needed.
+3. Tick **Use this map**, or select **Select all with targets** and review the selections.
+4. Select **Save maps**.
 
 Maps apply to the next import or backfill run, on every surface. A terminal `--map` for the same folder wins for that run. A map to a folder that does not exist leaves its sessions unresolved. Memories already imported through a map stay when you remove it.
 
