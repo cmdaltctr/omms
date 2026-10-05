@@ -55,6 +55,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [031](./031-pause-catch-up-test-after-first-model-call.md)   | Pause the catch-up test after the first model call                      | Accepted              | 2026-10-04 |
 | [032](./032-recheck-npm-after-release-approval.md)           | Recheck npm after release approval                                      | Accepted              | 2026-10-04 |
 | [033](./033-limit-opencode-profile-input-by-utf8-bytes.md)   | Limit OpenCode profile input by UTF-8 bytes                             | Accepted              | 2026-10-04 |
+| [034](./034-retry-windows-start-lock-hard-links.md)          | Retry Windows start-lock hard links                                     | Accepted              | 2026-10-05 |
 
 ## Status values
 
