@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.8.0](https://github.com/cmdaltctr/omms/compare/v4.7.0...v4.8.0) (2026-10-05)
+
+
+### Features
+
+* **web:** add directory map review and coloured memory badges ([9e6e9b5](https://github.com/cmdaltctr/omms/commit/9e6e9b514372998ca7911866bc439a754237e164))
+* **web:** add directory map review and coloured memory badges ([2653d8f](https://github.com/cmdaltctr/omms/commit/2653d8f98b17e1d201e6641109c02a0e2d0e71de))
+
+
+### Documentation
+
+* **openspec:** plan smart resolve and memory badges ([a9422bd](https://github.com/cmdaltctr/omms/commit/a9422bdff6a5167491e3c3beb1cf69f63cc2d261))
+
 ## [4.7.0](https://github.com/cmdaltctr/omms/compare/v4.6.0...v4.7.0) (2026-10-05)
 
 
