@@ -4,3 +4,4 @@ The [project README](../README.md#documentation) lists the user and developer gu
 
 - [Design preview evidence](design-preview/README.md) records the approved web appearance trial and its isolated browser evidence.
 - [Design preview verification](design-preview/verification.md) maps the approved requirements and records the user-approved browser checks and device-test waiver.
+- [Claude budget test deadlines](tdr/035-bound-claude-budget-test-processes.md) records the Intel smoke timeout and bounded subprocess correction.
