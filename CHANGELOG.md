@@ -2,6 +2,13 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.7.0](https://github.com/cmdaltctr/omms/compare/v4.6.0...v4.7.0) (2026-10-05)
+
+
+### Features
+
+* add memory context controls ([#95](https://github.com/cmdaltctr/omms/issues/95)) ([78f2a70](https://github.com/cmdaltctr/omms/commit/78f2a705551875b9159ac43dda9625d88dccfd1c))
+
 ## [4.6.0](https://github.com/cmdaltctr/omms/compare/v4.5.0...v4.6.0) (2026-10-04)
 
 
