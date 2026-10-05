@@ -6,13 +6,13 @@ export const NESTED_TEST_TIMEOUT_MS = 30_000;
 export const TEST_PROCESS_TIMEOUT_MS = 45_000;
 export const TEST_PARENT_TIMEOUT_MS = 60_000;
 
-/** Run nested Bun tests with explicit deadlines and drain both output pipes. */
-export async function runBunTest(
+/** Run a Bun child with a bounded deadline, both output streams, and its exit code. */
+export async function runBunProcess(
   args: string[],
   options: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number } = {}
-): Promise<{ exitCode: number; output: string }> {
+): Promise<{ exitCode: number; stdout: string; output: string }> {
   const child = Bun.spawn({
-    cmd: [process.execPath, "test", "--timeout", String(NESTED_TEST_TIMEOUT_MS), ...args],
+    cmd: [process.execPath, ...args],
     cwd: options.cwd ?? join(import.meta.dir, ".."),
     env: options.env ?? process.env,
     stdout: "pipe",
@@ -24,5 +24,17 @@ export async function runBunTest(
     new Response(child.stderr).text(),
     child.exited,
   ]);
-  return { exitCode, output: `${stdout}\n${stderr}` };
+  return { exitCode, stdout, output: `${stdout}\n${stderr}` };
+}
+
+/** Run nested Bun tests with explicit deadlines and drain both output pipes. */
+export async function runBunTest(
+  args: string[],
+  options: { cwd?: string; env?: NodeJS.ProcessEnv; timeout?: number } = {}
+): Promise<{ exitCode: number; output: string }> {
+  const { exitCode, output } = await runBunProcess(
+    ["test", "--timeout", String(NESTED_TEST_TIMEOUT_MS), ...args],
+    options
+  );
+  return { exitCode, output };
 }

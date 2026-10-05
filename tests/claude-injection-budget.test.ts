@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { runBunProcess, TEST_PARENT_TIMEOUT_MS } from "./test-process.js";
 
 // Task 4.3 for Claude Code: every section the hook api returns (prompt
 // retrieval, session-start recent memories, compaction/resume restore) is
@@ -107,7 +108,7 @@ console.log("RESULT:" + JSON.stringify(scenario ?? null));
 `;
     const scriptPath = join(home, `scenario-${Date.now()}.mjs`);
     writeFileSync(scriptPath, script);
-    const proc = Bun.spawn(["bun", "run", scriptPath], {
+    const { exitCode, stdout, output } = await runBunProcess(["run", scriptPath], {
       cwd: home,
       env: {
         ...process.env,
@@ -117,10 +118,9 @@ console.log("RESULT:" + JSON.stringify(scenario ?? null));
         OMMS_DISABLE_AUTO_BACKFILL: "1",
       },
     });
-    const stdout = await new Response(proc.stdout).text();
-    const stderr = await new Response(proc.stderr).text();
-    const match = stdout.match(/RESULT:(.*)$/m);
-    if (!match) throw new Error(`scenario produced no result: ${stdout}\n${stderr}`);
+    if (exitCode !== 0) throw new Error(`scenario exited with code ${exitCode}: ${output}`);
+    const match = stdout.match(/^RESULT:(.*)$/m);
+    if (!match) throw new Error(`scenario produced no result: ${output}`);
     return JSON.parse(match[1]!);
   };
 
@@ -128,9 +128,11 @@ console.log("RESULT:" + JSON.stringify(scenario ?? null));
 }
 
 describe("Claude Code shared budget and transport cap (memory-context-controls 4.1-4.3)", () => {
-  it("packs every hook section within the configured budget", async () => {
-    const h = createHarness(300);
-    const output = await h.run(`
+  it(
+    "packs every hook section within the configured budget",
+    async () => {
+      const h = createHarness(300);
+      const output = await h.run(`
 const budget = tokensOf() * 4;
 const prompt = await sectionOf({
   event: "user-prompt-submit", session_id: "ses-1", cwd: projectDir,
@@ -150,22 +152,26 @@ scenario = {
 };
 `);
 
-    expect(output.prompt.closed).toBe(true);
-    expect(output.prompt.hasMemory).toBe(true);
-    expect(output.prompt.bytes).toBeLessThanOrEqual(output.budget);
+      expect(output.prompt.closed).toBe(true);
+      expect(output.prompt.hasMemory).toBe(true);
+      expect(output.prompt.bytes).toBeLessThanOrEqual(output.budget);
 
-    expect(output.recent.closed).toBe(true);
-    expect(output.recent.hasMemory).toBe(true);
-    expect(output.recent.bytes).toBeLessThanOrEqual(output.budget);
+      expect(output.recent.closed).toBe(true);
+      expect(output.recent.hasMemory).toBe(true);
+      expect(output.recent.bytes).toBeLessThanOrEqual(output.budget);
 
-    expect(output.restored.closed).toBe(true);
-    expect(output.restored.hasMemory).toBe(true);
-    expect(output.restored.bytes).toBeLessThanOrEqual(output.budget);
-  });
+      expect(output.restored.closed).toBe(true);
+      expect(output.restored.hasMemory).toBe(true);
+      expect(output.restored.bytes).toBeLessThanOrEqual(output.budget);
+    },
+    TEST_PARENT_TIMEOUT_MS
+  );
 
-  it("applies a config edit to the next request", async () => {
-    const h = createHarness(2000);
-    const output = await h.run(`
+  it(
+    "applies a config edit to the next request",
+    async () => {
+      const h = createHarness(2000);
+      const output = await h.run(`
 const before = await sectionOf({
   event: "user-prompt-submit", session_id: "ses-1", cwd: projectDir,
   prompt: "how should answers be formatted?",
@@ -183,14 +189,18 @@ scenario = {
 };
 `);
 
-    expect(output.beforeBytes).toBeLessThanOrEqual(2000 * 4);
-    expect(output.afterBytes).toBeLessThanOrEqual(output.newBudget);
-    expect(output.afterClosed).toBe(true);
-  });
+      expect(output.beforeBytes).toBeLessThanOrEqual(2000 * 4);
+      expect(output.afterBytes).toBeLessThanOrEqual(output.newBudget);
+      expect(output.afterClosed).toBe(true);
+    },
+    TEST_PARENT_TIMEOUT_MS
+  );
 
-  it("keeps the hook client transport cap with a closed wrapper above the budget", async () => {
-    const h = createHarness(65536);
-    const output = await h.run(`
+  it(
+    "keeps the hook client transport cap with a closed wrapper above the budget",
+    async () => {
+      const h = createHarness(65536);
+      const output = await h.run(`
 const section = await sectionOf({
   event: "user-prompt-submit", session_id: "ses-1", cwd: projectDir,
   prompt: "how should answers be formatted?",
@@ -206,11 +216,13 @@ scenario = {
 };
 `);
 
-    // The shared budget allowed a large section...
-    expect(output.sectionClosed).toBe(true);
-    expect(output.sectionBytes).toBeGreaterThan(9500);
-    // ...and the fixed transport cap still applies with the wrapper closed.
-    expect(output.transportChars).toBeLessThanOrEqual(output.limit);
-    expect(output.transportClosed).toBe(true);
-  });
+      // The shared budget allowed a large section...
+      expect(output.sectionClosed).toBe(true);
+      expect(output.sectionBytes).toBeGreaterThan(9500);
+      // ...and the fixed transport cap still applies with the wrapper closed.
+      expect(output.transportChars).toBeLessThanOrEqual(output.limit);
+      expect(output.transportClosed).toBe(true);
+    },
+    TEST_PARENT_TIMEOUT_MS
+  );
 });
