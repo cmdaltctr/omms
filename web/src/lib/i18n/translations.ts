@@ -35,6 +35,8 @@ export const translations = {
     "btn-cleanup": "Cleanup",
     "btn-deduplicate": "Deduplicate",
     "tooltip-filter-keyword": "Show all memories with this keyword",
+    "tooltip-memory-type": "Memory type",
+    "tooltip-tags": "Tags",
     "label-keyword": "Keyword",
     "btn-clear-keyword": "Clear keyword filter",
     "tooltip-cleanup":
@@ -214,6 +216,8 @@ export const translations = {
     "btn-cleanup": "清理",
     "btn-deduplicate": "去重",
     "tooltip-filter-keyword": "显示带有此关键词的所有记忆",
+    "tooltip-memory-type": "记忆类型",
+    "tooltip-tags": "标签",
     "label-keyword": "关键词",
     "btn-clear-keyword": "清除关键词筛选",
     "tooltip-cleanup": "删除在保留期内（默认 30 天）未更新的记忆和提示词。已置顶的记忆会保留。",
@@ -392,6 +396,8 @@ export const translations = {
     "btn-cleanup": "تنظيف",
     "btn-deduplicate": "إزالة التكرار",
     "tooltip-filter-keyword": "عرض كل الذكريات التي تحمل هذه الكلمة المفتاحية",
+    "tooltip-memory-type": "نوع الذاكرة",
+    "tooltip-tags": "الوسوم",
     "label-keyword": "الكلمة المفتاحية",
     "btn-clear-keyword": "مسح تصفية الكلمة المفتاحية",
     "tooltip-cleanup":

@@ -1,4 +1,5 @@
 import { KeywordBadge } from "./KeywordBadge";
+import { MemoryTypeBadge } from "./MemoryTypeBadge";
 import { Tooltip } from "$lib/components/ui/tooltip";
 import {
   ArrowDown,
@@ -104,7 +105,7 @@ export function MemoryCard({
                 onCheckedChange={(v) => onSelect?.(memory.id, v === true)}
               />
               <Badge>{t("badge-memory")}</Badge>
-              {memory.memoryType ? <Badge variant="outline">{memory.memoryType}</Badge> : null}
+              {memory.memoryType ? <MemoryTypeBadge type={memory.memoryType} /> : null}
               {sim ? <span className="text-xs text-primary">{sim}</span> : null}
               {pinned ? <Badge variant="secondary">{t("badge-pinned")}</Badge> : null}
               <span
@@ -152,13 +153,14 @@ export function MemoryCard({
           {memory.tags?.length ? (
             <div className="flex flex-wrap gap-1">
               {memory.tags.map((tag) => (
-                <KeywordBadge
-                  key={tag}
-                  keyword={tag}
-                  active={activeKeyword?.toLowerCase() === tag.toLowerCase()}
-                  title={t("tooltip-filter-keyword")}
-                  onClick={onKeywordClick}
-                />
+                <Tooltip key={tag} content={t("tooltip-tags")} className="min-w-0 max-w-full">
+                  <KeywordBadge
+                    keyword={tag}
+                    active={activeKeyword?.toLowerCase() === tag.toLowerCase()}
+                    aria-label={`${t("tooltip-filter-keyword")}: ${tag}`}
+                    onClick={onKeywordClick}
+                  />
+                </Tooltip>
               ))}
             </div>
           ) : null}
@@ -199,7 +201,10 @@ export function MemoryCard({
             <MessageCircle className="size-3.5 text-muted-foreground" />
             <Badge variant="secondary">{t("badge-prompt")}</Badge>
             {isLinked ? (
-              <Badge variant="outline">
+              <Badge
+                variant="outline"
+                className="border-status-success text-status-success bg-transparent"
+              >
                 <LinkIcon className="size-3" />
                 {t("badge-linked")}
               </Badge>
@@ -256,9 +261,12 @@ export function MemoryCard({
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5 min-w-0">
             <Checkbox checked={selected} onCheckedChange={(v) => onSelect?.(item.id, v === true)} />
-            {item.memoryType ? <Badge variant="outline">{item.memoryType}</Badge> : null}
+            {item.memoryType ? <MemoryTypeBadge type={item.memoryType} /> : null}
             {isLinked ? (
-              <Badge variant="outline">
+              <Badge
+                variant="outline"
+                className="border-status-success text-status-success bg-transparent"
+              >
                 <LinkIcon className="size-3" />
                 {t("badge-linked")}
               </Badge>
@@ -322,13 +330,14 @@ export function MemoryCard({
         {item.tags?.length ? (
           <div className="flex flex-wrap gap-1">
             {item.tags.map((tag) => (
-              <KeywordBadge
-                key={tag}
-                keyword={tag}
-                active={activeKeyword?.toLowerCase() === tag.toLowerCase()}
-                title={t("tooltip-filter-keyword")}
-                onClick={onKeywordClick}
-              />
+              <Tooltip key={tag} content={t("tooltip-tags")} className="min-w-0 max-w-full">
+                <KeywordBadge
+                  keyword={tag}
+                  active={activeKeyword?.toLowerCase() === tag.toLowerCase()}
+                  aria-label={`${t("tooltip-filter-keyword")}: ${tag}`}
+                  onClick={onKeywordClick}
+                />
+              </Tooltip>
             ))}
           </div>
         ) : null}

@@ -1,3 +1,14 @@
+/** An HTTP failure, with its status available for revision-conflict handling. */
+export class SettingsRequestError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "SettingsRequestError";
+    this.status = status;
+  }
+}
+
 export async function settingsRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   // The server accepts a change only as JSON, including a body-less DELETE.
   const method = (options.method ?? "GET").toUpperCase();
@@ -13,7 +24,10 @@ export async function settingsRequest<T>(path: string, options: RequestInit = {}
   const result: unknown = await response.json();
   if (!response.ok) {
     const error = result as { error?: string };
-    throw new Error(error.error ?? `Request failed (${response.status})`);
+    throw new SettingsRequestError(
+      error.error ?? `Request failed (${response.status})`,
+      response.status
+    );
   }
   return result as T;
 }

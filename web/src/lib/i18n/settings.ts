@@ -748,6 +748,48 @@ const text = {
       "تحديد مجلد مشترك أو إلغاء تحديده يُحدّث كل المضيفات. يحتفظ إلغاء التحديد بنص المجلد المستهدف. راجع المجلدات المستهدفة، ثم اضغط حفظ الخرائط.",
     ],
   "Smart resolve directories": ["智能解析目录", "حلّ المجلدات تلقائياً"],
+  "Review directory maps": ["检查目录映射", "مراجعة خرائط المجلدات"],
+  "Proposed maps": ["建议映射数", "عدد الخرائط المقترحة"],
+  "Unmapped rows": ["未映射行数", "عدد الصفوف غير المرتبطة"],
+  Sessions: ["会话数", "عدد الجلسات"],
+  Confirm: ["确认", "تأكيد"],
+  "Saving…": ["正在保存…", "جارٍ الحفظ…"],
+  "No maps to save.": ["没有可保存的映射。", "لا توجد خرائط لحفظها."],
+  "Settings refreshed. No maps were saved.": [
+    "设置已刷新。未保存任何映射。",
+    "حُدّثت الإعدادات. لم تُحفظ أي خرائط.",
+  ],
+  "Settings could not be refreshed. Try Refresh list again.": [
+    "无法刷新设置。请再次点击刷新列表。",
+    "تعذّر تحديث الإعدادات. حاول تحديث القائمة مجدداً.",
+  ],
+  "Review these maps, then press Confirm to save. Saved maps apply to every host on the next import or backfill run.":
+    [
+      "请检查这些映射，然后点击确认保存。保存的映射将在所有主机的下一次导入或回填时生效。",
+      "راجع هذه الخرائط، ثم اضغط تأكيد لحفظها. تسري الخرائط المحفوظة على كل المضيفات في عملية الاستيراد أو الاستكمال التالية.",
+    ],
+  "Review suggested directory maps in a dialog. Nothing is saved until you press Confirm. Save maps remains available for manual selections.":
+    [
+      "在对话框中检查建议的目录映射。点击确认后才会保存。手动选择仍可通过保存映射按钮保存。",
+      "راجع خرائط المجلدات المقترحة في مربع حوار. لا تُحفظ حتى تضغط تأكيد. يبقى زر حفظ الخرائط متاحاً للتحديدات اليدوية.",
+    ],
+  "Maps could not be saved. Review the targets and confirm again.": [
+    "无法保存映射。请检查目标后再次确认。",
+    "تعذّر حفظ الخرائط. راجع المجلدات المستهدفة، ثم أكّد مجدداً.",
+  ],
+  "Settings changed elsewhere. Review these maps and confirm again.": [
+    "设置已在其他位置更改。请检查这些映射后再次确认。",
+    "تغيّرت الإعدادات في مكان آخر. راجع هذه الخرائط، ثم أكّد مجدداً.",
+  ],
+  "Settings changed elsewhere and could not be refreshed. Refresh the list before confirming again.":
+    [
+      "设置已在其他位置更改，且无法刷新。请刷新列表后再次确认。",
+      "تغيّرت الإعدادات في مكان آخر وتعذّر تحديثها. حدّث القائمة قبل التأكيد مجدداً.",
+    ],
+  "Maps were saved, but the list could not be refreshed. Refresh the list without saving again.": [
+    "映射已保存，但无法刷新列表。请刷新列表，无需再次保存。",
+    "حُفظت الخرائط، لكن تعذّر تحديث القائمة. حدّث القائمة دون الحفظ مجدداً.",
+  ],
   "No model was recorded for these attempts. This happens with records written by older OMMS versions, and when an attempt stops before a model is chosen.":
     [
       "这些尝试没有记录模型。旧版 OMMS 写入的记录，以及在选定模型之前就停止的尝试，会出现这种情况。",

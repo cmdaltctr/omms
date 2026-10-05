@@ -1,9 +1,34 @@
-import type { MapDecision } from "$lib/external-api-settings";
+import type { MapDecision, PathMap } from "$lib/external-api-settings";
 
 /** The entry the server uses for sessions that recorded no directory. */
 export const NO_DIRECTORY = "";
 
 export type SuggestedDirectory = { directory: string; sessions: number; suggestion: string | null };
+export type ReviewedMap = { from: string; to: string; sessions: number };
+export type DirectoryMapReview = { maps: ReviewedMap[]; unmapped: SuggestedDirectory[] };
+
+/** Build a host's review without changing drafts; an explicitly cleared target stays empty. */
+export function reviewDirectoryMaps(
+  rows: readonly SuggestedDirectory[],
+  decisions: Readonly<Record<string, MapDecision>>
+): DirectoryMapReview {
+  const maps = new Map<string, ReviewedMap>();
+  const unmapped: SuggestedDirectory[] = [];
+  for (const row of rows) {
+    const target = (decisions[row.directory]?.target ?? row.suggestion ?? "").trim();
+    if (row.directory === NO_DIRECTORY || !target) {
+      unmapped.push({ ...row });
+      continue;
+    }
+    const previous = maps.get(row.directory);
+    maps.set(row.directory, {
+      from: row.directory,
+      to: target,
+      sessions: (previous?.sessions ?? 0) + row.sessions,
+    });
+  }
+  return { maps: [...maps.values()], unmapped };
+}
 
 /**
  * Smart resolve: accept the suggested target of every mappable row that has
@@ -35,6 +60,19 @@ export function applySuggestions(
     filled++;
   }
   return { decisions: next, filled, alreadySelected, notFilled };
+}
+
+/**
+ * Build a confirmation payload from saved maps and the displayed review only.
+ * Page selections and pending removals belong to manual Save maps, never this boundary.
+ */
+export function confirmedMapsToSave(
+  saved: readonly PathMap[],
+  reviewed: readonly ReviewedMap[]
+): PathMap[] {
+  const byFrom = new Map(saved.map((map) => [map.from, { ...map }]));
+  for (const map of reviewed) byFrom.set(map.from, { from: map.from, to: map.to });
+  return [...byFrom.values()];
 }
 
 /** Select rows with a target, retaining user edits and global source keys. */

@@ -1,11 +1,27 @@
-import { useEffect, useState } from "react";
-import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
+import { useEffect, useRef, useState } from "react";
+import {
+  onSettingsSnapshot,
+  publishSettingsSnapshot,
+  reloadSettingsSnapshot,
+  settingsRequest,
+  SettingsRequestError,
+} from "$lib/settings-api";
 import { mapsToSave, type MapDecision, type PathMap } from "$lib/external-api-settings";
 import { useSettingsText } from "$lib/i18n/settings";
-import { applySuggestions, selectWithTargets, clearSelection } from "$lib/directory-maps";
+import {
+  reviewDirectoryMaps,
+  confirmedMapsToSave,
+  selectWithTargets,
+  clearSelection,
+  type DirectoryMapReview,
+} from "$lib/directory-maps";
 import { DirectoryMapHost } from "./DirectoryMapHost";
+import { DirectoryMapReviewDialog } from "./DirectoryMapReviewDialog";
 
-type Snapshot = { revision: string };
+type Snapshot = {
+  revision: string;
+  settings?: { importPathMaps?: { globalValue?: PathMap[] } };
+};
 type Host = "pi" | "opencode" | "claude-code";
 type Suggested = { directory: string; sessions: number; suggestion: string | null };
 type View = {
@@ -23,9 +39,10 @@ export function DirectoryMapsSection() {
   const [decisions, setDecisions] = useState<Record<string, MapDecision>>({});
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [resolveNotes, setResolveNotes] = useState<
-    Partial<Record<Host, { filled: number; alreadySelected: number; notFilled: number }>>
-  >({});
+  const [pending, setPending] = useState<{ host: Host; review: DirectoryMapReview }>();
+  const [reviewError, setReviewError] = useState("");
+  const [refreshNeeded, setRefreshNeeded] = useState<"saved" | "conflict">();
+  const saving = useRef(false);
   const load = () =>
     settingsRequest<View>("/api/settings/import-maps")
       .then((value) => {
@@ -54,16 +71,9 @@ export function DirectoryMapsSection() {
   }, []);
 
   function smartResolve(host: Host, rows: Suggested[]) {
-    const result = applySuggestions(rows, decisions);
-    setDecisions(result.decisions);
-    setResolveNotes((notes) => ({
-      ...notes,
-      [host]: {
-        filled: result.filled,
-        alreadySelected: result.alreadySelected,
-        notFilled: result.notFilled,
-      },
-    }));
+    if (saving.current || refreshNeeded) return;
+    setReviewError("");
+    setPending({ host, review: reviewDirectoryMaps(rows, decisions) });
   }
 
   function decide(row: Suggested, change: Partial<MapDecision>) {
@@ -93,6 +103,102 @@ export function DirectoryMapsSection() {
     await reloadSettingsSnapshot<Snapshot>();
     await load();
     setBusy(false);
+  }
+
+  async function refreshReview() {
+    const [nextSnapshot, nextView] = await Promise.all([
+      settingsRequest<Snapshot>("/api/settings"),
+      settingsRequest<View>("/api/settings/import-maps"),
+    ]);
+    publishSettingsSnapshot(nextSnapshot);
+    setView(nextView);
+    setRefreshNeeded(undefined);
+  }
+
+  async function recoverRefresh() {
+    if (saving.current) return;
+    saving.current = true;
+    setBusy(true);
+    const wasSaved = refreshNeeded === "saved";
+    try {
+      await refreshReview();
+      if (wasSaved) setMessage("Saved. Maps apply to the next import or backfill run.");
+      else if (pending)
+        setReviewError("Settings changed elsewhere. Review these maps and confirm again.");
+      else setMessage("Settings refreshed. No maps were saved.");
+    } catch {
+      if (wasSaved)
+        setMessage(
+          "Maps were saved, but the list could not be refreshed. Refresh the list without saving again."
+        );
+      else if (pending)
+        setReviewError(
+          "Settings changed elsewhere and could not be refreshed. Refresh the list before confirming again."
+        );
+      else setMessage("Settings could not be refreshed. Try Refresh list again.");
+    } finally {
+      saving.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function confirm() {
+    if (!snapshot || !view || !pending?.review.maps.length || saving.current || refreshNeeded)
+      return;
+    saving.current = true;
+    setBusy(true);
+    setReviewError("");
+    const reviewed = pending.review.maps;
+    const importPathMaps = confirmedMapsToSave(
+      snapshot.settings?.importPathMaps?.globalValue ?? view.saved,
+      reviewed
+    );
+    try {
+      await settingsRequest("/api/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ edits: { importPathMaps }, revision: snapshot.revision }),
+      });
+    } catch (error) {
+      const conflict = error instanceof SettingsRequestError && error.status === 409;
+      setReviewError(
+        conflict
+          ? "Settings changed elsewhere. Review these maps and confirm again."
+          : "Maps could not be saved. Review the targets and confirm again."
+      );
+      if (conflict) {
+        try {
+          await refreshReview();
+        } catch {
+          setRefreshNeeded("conflict");
+          setReviewError(
+            "Settings changed elsewhere and could not be refreshed. Refresh the list before confirming again."
+          );
+        }
+      }
+      saving.current = false;
+      setBusy(false);
+      return;
+    }
+    // Retire global source decisions only after persistence succeeds.
+    const sources = new Set(reviewed.map((map) => map.from));
+    setDecisions((previous) =>
+      Object.fromEntries(Object.entries(previous).filter(([source]) => !sources.has(source)))
+    );
+    setRemoved((previous) => new Set([...previous].filter((source) => !sources.has(source))));
+    setView((previous) => (previous ? { ...previous, saved: importPathMaps } : previous));
+    setPending(undefined);
+    setMessage("Saved. Maps apply to the next import or backfill run.");
+    try {
+      await refreshReview();
+    } catch {
+      setRefreshNeeded("saved");
+      setMessage(
+        "Maps were saved, but the list could not be refreshed. Refresh the list without saving again."
+      );
+    } finally {
+      saving.current = false;
+      setBusy(false);
+    }
   }
 
   return (
@@ -147,8 +253,7 @@ export function DirectoryMapsSection() {
             host={host}
             rows={rows}
             decisions={decisions}
-            busy={busy}
-            note={resolveNotes[host]}
+            busy={busy || !!refreshNeeded || !snapshot || !view}
             onDecide={decide}
             onResolve={() => smartResolve(host, rows)}
             onSelect={() => setDecisions((previous) => selectWithTargets(rows, previous))}
@@ -159,14 +264,38 @@ export function DirectoryMapsSection() {
       <button
         type="button"
         className="rounded border border-border px-3 py-1.5 text-sm"
-        disabled={busy || !snapshot || !view}
+        disabled={busy || !!refreshNeeded || !snapshot || !view}
         onClick={() => void save()}
       >
         {s("Save maps")}
       </button>
+      {pending && (
+        <DirectoryMapReviewDialog
+          host={pending.host}
+          review={pending.review}
+          busy={busy}
+          canConfirm={!refreshNeeded}
+          error={s(reviewError)}
+          onRefresh={() => void recoverRefresh()}
+          onClose={() => {
+            if (!saving.current) setPending(undefined);
+          }}
+          onConfirm={() => void confirm()}
+        />
+      )}
+      {refreshNeeded && !pending && (
+        <button
+          type="button"
+          className="rounded border border-border px-3 py-1.5 text-sm"
+          disabled={busy}
+          onClick={() => void recoverRefresh()}
+        >
+          {s("Refresh list")}
+        </button>
+      )}
       {message && (
         <p role="status" className="text-sm">
-          {message}
+          {s(message)}
         </p>
       )}
     </section>

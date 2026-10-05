@@ -8,14 +8,13 @@ const rows = [
   { directory: "", sessions: 4, suggestion: null },
 ];
 const noop = () => {};
-const render = (note?: { filled: number; alreadySelected: number; notFilled: number }) =>
+const render = () =>
   renderToStaticMarkup(
     <DirectoryMapHost
       host="pi"
       rows={rows}
       decisions={{ "/old/shared": { directory: "/old/shared", target: "/edited", accepted: true } }}
       busy={false}
-      note={note}
       onDecide={noop}
       onSelect={noop}
       onClear={noop}
@@ -41,18 +40,11 @@ it("renders collapsed host and row disclosures, with controls outside summaries"
   expect(html.match(/type="checkbox"/g)?.length).toBe(2);
 });
 
-it("explains missing suggestions in an accessible result", () => {
-  const html = render({ filled: 0, alreadySelected: 0, notFilled: 2 });
-  expect(html).toContain('role="status"');
-  expect(html).toContain("Newly selected: 0");
-  expect(html).toContain("Already selected: 0");
-  expect(html).toContain("No suggestion: 2");
-  expect(html).toContain("No suggested targets were selected.");
-  expect(html).toContain("Choose targets for rows without suggestions.");
-});
-
-it("explains repeated Smart resolve and explicit saving", () => {
-  const html = render({ filled: 0, alreadySelected: 1, notFilled: 1 });
-  expect(html).toContain("Maps are already selected.");
-  expect(html).toContain("Check them, then press Save maps.");
+it("explains review and confirmation while retaining manual selection controls", () => {
+  const html = render();
+  expect(html).toContain("Review suggested directory maps in a dialog.");
+  expect(html).toContain("Nothing is saved until you press Confirm.");
+  expect(html).toContain("Save maps remains available for manual selections.");
+  expect(html).toContain("No target chosen");
+  expect(html).toContain("These sessions cannot be mapped.");
 });

@@ -72,6 +72,19 @@ function snapshot() {
   };
 }
 
+function filteredMaps(view: {
+  saved: unknown;
+  pi: { directory: string; sessions: number; suggestion: string | null }[];
+  opencode: { directory: string; sessions: number; suggestion: string | null }[];
+  "claude-code": { directory: string; sessions: number; suggestion: string | null }[];
+}) {
+  const sources = new Set((view.saved as { from: string }[]).map((map) => map.from));
+  for (const host of ["pi", "opencode", "claude-code"] as const) {
+    view[host] = view[host].filter((row) => !sources.has(row.directory));
+  }
+  return view;
+}
+
 /** Settings-shaped examples. Only the declared PATCH changes in-memory fixture values. */
 export function settingsResponse(
   method: string,
@@ -81,6 +94,10 @@ export function settingsResponse(
   if (!path.startsWith("/api/settings")) return;
   const ok = (data: unknown) => ({ status: 200, body: data });
   if (method === "PATCH" && path === "/api/settings") {
+    const requestedRevision = (body as { revision?: string })?.revision;
+    if (requestedRevision && requestedRevision !== `fixture-${revision}`) {
+      return { status: 409, body: { error: "Synthetic settings changed" } };
+    }
     const edits = (body as { edits?: Record<string, unknown> })?.edits ?? {};
     for (const [key, value] of Object.entries(edits)) {
       if (Object.hasOwn(values, key)) values[key] = value;
@@ -142,31 +159,38 @@ export function settingsResponse(
         ],
       });
     case "/api/settings/import-maps":
-      return ok({
-        saved: values.importPathMaps,
-        pi: [
-          {
-            directory: "/synthetic/old-project",
-            sessions: 2,
-            suggestion: "/synthetic/preview-project",
-          },
-          { directory: "/synthetic/manual", sessions: 3, suggestion: null },
-          { directory: "", sessions: 4, suggestion: null },
-          ...Array.from({ length: 30 }, (_, index) => ({
-            directory: `/synthetic/a-long-project-path-for-directory-map-review/deleted-worktree-${index}/src`,
-            sessions: 1,
-            suggestion: "/synthetic/preview-project",
-          })),
-        ],
-        opencode: [
-          {
-            directory: "/synthetic/old-project",
-            sessions: 1,
-            suggestion: "/synthetic/preview-project",
-          },
-        ],
-        "claude-code": [{ directory: "/synthetic/no-suggestion", sessions: 2, suggestion: null }],
-      });
+      return ok(
+        filteredMaps({
+          saved: values.importPathMaps,
+          pi: [
+            {
+              directory: "/synthetic/shared-old",
+              sessions: 2,
+              suggestion: "/synthetic/preview-project",
+            },
+            { directory: "/synthetic/manual", sessions: 3, suggestion: null },
+            { directory: "", sessions: 4, suggestion: null },
+            ...Array.from({ length: 30 }, (_, index) => ({
+              directory: `/synthetic/a-long-project-path-for-directory-map-review/deleted-worktree-${index}/src`,
+              sessions: 1,
+              suggestion: "/synthetic/preview-project",
+            })),
+          ],
+          opencode: [
+            {
+              directory: "/synthetic/shared-old",
+              sessions: 1,
+              suggestion: "/synthetic/preview-project",
+            },
+            {
+              directory: "/synthetic/other-draft",
+              sessions: 1,
+              suggestion: "/synthetic/preview-project",
+            },
+          ],
+          "claude-code": [{ directory: "/synthetic/no-suggestion", sessions: 2, suggestion: null }],
+        })
+      );
     case "/api/settings/diagnostics":
       return ok({
         byModel: [

@@ -5,13 +5,11 @@ import { useSettingsText } from "$lib/i18n/settings";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 
-type ResolveNote = { filled: number; alreadySelected: number; notFilled: number };
 type Props = {
   host: WebHost;
   rows: SuggestedDirectory[];
   decisions: Record<string, MapDecision>;
   busy: boolean;
-  note?: ResolveNote;
   onDecide: (row: SuggestedDirectory, change: Partial<MapDecision>) => void;
   onSelect: () => void;
   onClear: () => void;
@@ -24,7 +22,6 @@ export function DirectoryMapHost({
   rows,
   decisions,
   busy,
-  note,
   onDecide,
   onSelect,
   onClear,
@@ -83,19 +80,9 @@ export function DirectoryMapHost({
                 {s("Clear selection")}
               </Button>
             </div>
-            {note && (
-              <p role="status" aria-live="polite" className="text-xs">
-                {s("Newly selected")}: {note.filled} · {s("Already selected")}:{" "}
-                {note.alreadySelected} · {s("No suggestion")}: {note.notFilled}.{" "}
-                {note.filled === 0 && s("No suggested targets were selected.")}{" "}
-                {note.filled === 0 && note.alreadySelected > 0 && s("Maps are already selected.")}{" "}
-                {note.notFilled > 0 && s("Choose targets for rows without suggestions.")}{" "}
-                {selected > 0 && s("Check them, then press Save maps.")}
-              </p>
-            )}
             <p className="text-xs text-muted-foreground">
               {s(
-                "Finds the project each missing directory belongs to, mostly the main repository of a deleted worktree, and fills it in for you to check. Nothing is saved until you press Save maps."
+                "Review suggested directory maps in a dialog. Nothing is saved until you press Confirm. Save maps remains available for manual selections."
               )}
             </p>
             <p className="text-xs text-muted-foreground">

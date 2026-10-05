@@ -65,6 +65,15 @@ npm i -g om-memory-system      # or: bun add -g om-memory-system
 om-memory-system --version
 ```
 
+## Memory badges
+
+- **Memory type** identifies the stored category, such as `analysis` or `bug-fix`. Its pill uses coloured text and an outline with no coloured fill. Each type keeps its colour across cards and reloads. Unknown stored types keep their literal names.
+- **Tags** identifies keyword pills. Their existing colours stay unchanged. Select a keyword to filter memories by it.
+- Hover or focus a type or tag to show its role tooltip. Tooltip text follows the selected language. Type names and keyword values stay unchanged.
+- **LINKED** uses green text and an outline beside the existing link icon. It marks an existing prompt-memory relationship. Unlinked items have no LINKED pill.
+
+Types remain separate from keyword tags. Displaying a badge writes no labels, tags, or relationships to the memory store.
+
 ## Language
 
 The sidebar footer shows the current language: EN, ZH, or AR. Select it to choose English, Chinese, or Arabic. The page remembers your choice for the next visit.
