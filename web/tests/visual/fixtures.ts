@@ -7,7 +7,8 @@ const memories = [
     type: "memory",
     content:
       '## Synthetic project note\n\nKeep configuration in the shared owner.\n\n```ts\nconst model = "example/model-preview";\n```\n\nمسودة تجريبية مع example/model-preview.\n中文内容用于检查换行。',
-    memoryType: "decision",
+    memoryType: "analysis",
+    linkedPromptId: "preview-external-prompt",
     containerTag: "omms_preview_project",
     displayName: "Design preview",
     projectPath:
@@ -22,12 +23,57 @@ const memories = [
     type: "memory",
     content:
       "A synthetic warning state stays visible while controls are disabled. This record contains no private user data.",
-    memoryType: "pattern",
+    memoryType: "bug-fix",
+    linkedPromptId: "preview-paired-prompt",
     containerTag: "omms_preview_project",
     createdAt: timestamp,
     updatedAt: timestamp,
     tags: ["preview"],
     isPinned: true,
+  },
+  {
+    id: "preview-memory-3",
+    type: "memory",
+    content: "Repeated analysis type uses the same outline colour.",
+    memoryType: "analysis",
+    containerTag: "omms_preview_project",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    tags: ["directory-maps", "ui-ux"],
+    isPinned: false,
+  },
+  {
+    id: "preview-memory-4",
+    type: "memory",
+    content: "Unknown stored types retain their literal label.",
+    memoryType: "unknown-stored-type-with-a-long-label",
+    containerTag: "omms_preview_project",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    tags: ["中文标签", "وسم عربي"],
+    isPinned: false,
+  },
+  {
+    id: "preview-linked-prompt",
+    type: "prompt",
+    content: "Synthetic linked prompt with an off-page memory.",
+    linkedMemoryId: "preview-external-memory",
+    containerTag: "omms_preview_project",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    tags: [],
+    isPinned: false,
+  },
+  {
+    id: "preview-paired-prompt",
+    type: "prompt",
+    content: "Synthetic prompt paired with bug-fix memory.",
+    linkedMemoryId: "preview-memory-2",
+    containerTag: "omms_preview_project",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    tags: [],
+    isPinned: false,
   },
 ];
 
@@ -95,7 +141,7 @@ export function fixtureResponse(
     case "/api/tags":
       return ok({
         project: [
-          { tag: "omms_preview_project", displayName: "Synthetic preview project", count: 2 },
+          { tag: "omms_preview_project", displayName: "Synthetic preview project", count: 4 },
         ],
       });
     case "/api/stats":

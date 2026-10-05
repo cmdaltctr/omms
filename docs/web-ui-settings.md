@@ -470,14 +470,27 @@ A directory map tells OMMS which project a folder belongs to. Use it when chats 
 - Sessions that recorded no folder appear under **No directory recorded**. They cannot be mapped and are excluded from bulk selection.
 - **Select all with targets** selects that host's rows with a non-empty target. It uses edited text when present, including an explicitly cleared target, otherwise the suggestion. It does not check that a typed folder exists.
 - **Clear selection** unticks that host's rows and keeps target text. A source shared across hosts has one map, so selecting or clearing it updates every host.
-- **Smart resolve directories** selects suggested targets while keeping accepted choices. Its result shows newly selected suggestions, already selected rows, and rows without suggestions. An empty result explains whether suggestions are already selected or targets need choosing manually. Review the rows, then press **Save maps**.
-- Bulk actions save nothing and start no import. **Save maps** stays outside the host lists and remains reachable when they are collapsed.
+- **Smart resolve directories** opens a review dialog for that host. It shows proposed source-to-target maps and session counts. Edited targets take precedence over suggestions. Cleared targets stay unmapped. Already selected maps remain available for review.
+- **Confirm** saves only the displayed maps. Existing saved maps stay, while unrelated target edits, selections, and pending removals remain unsaved. A confirmed source has one global map across hosts.
+- **Cancel**, Escape, and the dialog close button leave drafts and saved maps unchanged. When no target is available, Confirm is disabled. Choose targets in the host list first.
+- A rejected save keeps the review open with an error. If settings changed elsewhere, review again before confirming. The page prevents duplicate saves and dismissal while saving.
+- If saving succeeds but refresh fails, select **Refresh list**. This reloads the saved result without sending another save.
+- **Select all with targets** and **Clear selection** change drafts only. **Save maps** stays outside the host lists and saves manual selections and removals. Opening a review, confirming maps, and changing selections start no import.
 - Where OMMS can find one, the target box holds a suggested existing folder:
   1. The main repository of a deleted worktree. For `~/code/app-feat-x` or `~/workspaces/app/feat-x`, it suggests `~/code/app`.
   2. For OpenCode, the project folder that OpenCode recorded for the session. OMMS reads OpenCode's database without writing to it.
 - `No suggestion found.` means there is no candidate, for example for an old temporary folder. Type a target, or leave the folder unmapped.
 
-To save maps:
+To save suggested maps:
+
+1. Expand the host.
+2. Select **Smart resolve directories**.
+3. Review the paths, session counts, and unmapped rows.
+4. Select **Confirm**.
+
+The dialog supports keyboard focus and long paths. Its text follows the selected language. Saving does not recreate folders or import sessions.
+
+To save manual selections and removals:
 
 1. Expand the host and check the target summaries.
 2. Expand a row to edit its target folder when needed.

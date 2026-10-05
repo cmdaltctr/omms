@@ -4,16 +4,79 @@ import {
   selectWithTargets,
   clearSelection,
   NO_DIRECTORY,
+  reviewDirectoryMaps,
+  confirmedMapsToSave,
 } from "../web/src/lib/directory-maps.js";
 import { mapsToSave } from "../web/src/lib/external-api-settings.js";
 
-describe("Smart resolve directories", () => {
+describe("Directory map selection helpers", () => {
   const rows = [
     { directory: "/code/app-feat-x", sessions: 3, suggestion: "/code/app" },
     { directory: "/code/app-feat-y", sessions: 1, suggestion: "/code/app" },
     { directory: "/tmp/scratch", sessions: 2, suggestion: null },
     { directory: NO_DIRECTORY, sessions: 4, suggestion: null },
   ];
+
+  it("reviews suggestions and session counts without selecting or mutating rows", () => {
+    const before = structuredClone(rows);
+    const drafts = {};
+    const review = reviewDirectoryMaps(rows, drafts);
+    expect(review.maps).toEqual([
+      { from: "/code/app-feat-x", to: "/code/app", sessions: 3 },
+      { from: "/code/app-feat-y", to: "/code/app", sessions: 1 },
+    ]);
+    expect(review.unmapped).toEqual(rows.slice(2));
+    expect(drafts).toEqual({});
+    expect(rows).toEqual(before);
+  });
+
+  it("reviews edited, cleared and already selected targets using global source keys", () => {
+    const drafts = {
+      "/code/app-feat-x": { directory: "/code/app-feat-x", target: "", accepted: true },
+      "/code/app-feat-y": { directory: "/code/app-feat-y", target: " /edited ", accepted: false },
+      "/tmp/scratch": { directory: "/tmp/scratch", target: "/manual", accepted: true },
+      "/unrelated": { directory: "/unrelated", target: "/other", accepted: true },
+    };
+    const before = structuredClone(drafts);
+    const review = reviewDirectoryMaps(rows, drafts);
+    expect(review.maps).toEqual([
+      { from: "/code/app-feat-y", to: "/edited", sessions: 1 },
+      { from: "/tmp/scratch", to: "/manual", sessions: 2 },
+    ]);
+    expect(review.unmapped.map((row) => row.directory)).toEqual(["/code/app-feat-x", ""]);
+    expect(drafts).toEqual(before);
+    expect(reviewDirectoryMaps([rows[1]], drafts).maps[0].to).toBe("/edited");
+  });
+
+  it("keeps whitespace targets unmapped and combines repeated sources", () => {
+    const review = reviewDirectoryMaps([rows[0], rows[0], rows[1]], {
+      "/code/app-feat-y": { directory: "/code/app-feat-y", target: "  ", accepted: false },
+    });
+    expect(review.maps).toEqual([{ from: rows[0].directory, to: "/code/app", sessions: 6 }]);
+    expect(review.unmapped).toEqual([rows[1]]);
+    expect(reviewDirectoryMaps([], {}).maps).toEqual([]);
+  });
+
+  it("confirmation retains saved maps and excludes unrelated decisions and removals", () => {
+    const saved = [
+      { from: "/saved", to: "/keep" },
+      { from: rows[0].directory, to: "/old" },
+    ];
+    const unrelated = { directory: "/other-host", target: "/other", accepted: true };
+    const decisions = { [unrelated.directory]: unrelated };
+    const review = reviewDirectoryMaps([rows[0]], decisions);
+    const before = structuredClone(saved);
+    const payload = confirmedMapsToSave(saved, review.maps);
+    expect(payload).toEqual([
+      { from: "/saved", to: "/keep" },
+      { from: rows[0].directory, to: "/code/app" },
+    ]);
+    // The ordinary Save maps payload commits changes outside the reviewed host.
+    expect(mapsToSave(saved, new Set(["/saved"]), [unrelated])).not.toEqual(payload);
+    expect(saved).toEqual(before);
+    expect(decisions).toEqual({ [unrelated.directory]: unrelated });
+    expect(confirmedMapsToSave(saved, [])).toEqual(saved);
+  });
 
   it("fills every suggestion, leaves the rest, and counts both", () => {
     const result = applySuggestions(rows, {});

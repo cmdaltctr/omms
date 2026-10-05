@@ -14,17 +14,23 @@ export function KeywordBadge({
   active = false,
   title,
   onClick,
+  "aria-describedby": describedBy,
+  "aria-label": label,
 }: {
   keyword: string;
   active?: boolean;
   title?: string;
   onClick?: (keyword: string) => void;
+  "aria-describedby"?: string;
+  "aria-label"?: string;
 }) {
   const hue = keywordHue(keyword);
   return (
     <button
       type="button"
       title={title}
+      aria-describedby={describedBy}
+      aria-label={label}
       aria-pressed={active}
       onClick={() => onClick?.(keyword)}
       className={cn(
