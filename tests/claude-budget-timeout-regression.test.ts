@@ -53,7 +53,10 @@ await Bun.sleep(5500);
       "applies a config edit to the next request",
       join(import.meta.dir, "claude-injection-budget.test.ts"),
     ]);
-    expect(output).toContain("applies a config edit to the next request");
+    // Bun hides passing test names when an agent such as Claude Code sets
+    // CLAUDECODE=1, so the name is not checked. The name pattern plus "1 pass"
+    // below proves the config-edit test ran, and the marker proves its scenario
+    // went through the slow child.
     expect(output).toContain("CLAUDE_SCENARIO_PRELOAD_INJECTED");
     expect(output).not.toContain("timed out after 5000ms");
     if (exitCode !== 0) throw new Error(output);

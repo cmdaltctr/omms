@@ -258,6 +258,11 @@ export class WebServer {
   private readonly maxFallbackPort: number;
   private settingsImportJobs?: import("../importer/web-import-jobs.js").SettingsImportJobs;
   private backfillControlsInstance?: import("../importer/web-import-api.js").BackfillControls;
+  /** The memory store's projects for Directory maps suggestions, read at most once a minute. */
+  private storeProjects?: {
+    readAt: number;
+    projects: Promise<import("../importer/web-import-api.js").KnownProject[]>;
+  };
 
   /** Run an import-page action; errors carry their own status and never file contents. */
   private async importResponse(action: () => unknown, status = 200): Promise<Response> {
@@ -960,12 +965,32 @@ export class WebServer {
       }
 
       if (path === "/api/settings/backfill" && method === "GET") {
-        const { readBackfillStatus } = await import("./backfill-state.js");
-        return this.jsonResponse({
-          pi: await readBackfillStatus("pi"),
-          opencode: await readBackfillStatus("opencode"),
-          "claude-code": await readBackfillStatus("claude-code"),
-        });
+        const [
+          { CONFIG },
+          { readBackfillStatus, readUnresolvedDirectories, visibleUnresolvedCount },
+        ] = await Promise.all([import("../config.js"), import("./backfill-state.js")]);
+        // Read at request time from the Directory maps list, so the badge and the
+        // list agree and an Ignore click changes every badge at once. The list
+        // hides ignored directories and directories with a saved map.
+        const hidden = [
+          ...(CONFIG.importIgnoredDirectories ?? []),
+          ...CONFIG.importPathMaps.map((map) => map.from),
+        ];
+        const status = async (host: "pi" | "opencode" | "claude-code") => {
+          const current = await readBackfillStatus(host);
+          if (!current) return current;
+          // A damaged list must not hide the host's status: keep the run's count.
+          const directories = await readUnresolvedDirectories(host).catch(() => null);
+          if (!directories) return current;
+          const unresolved = visibleUnresolvedCount(current.counts.unresolved, directories, hidden);
+          return { ...current, counts: { ...current.counts, unresolved } };
+        };
+        const [pi, opencode, claudeCode] = await Promise.all([
+          status("pi"),
+          status("opencode"),
+          status("claude-code"),
+        ]);
+        return this.jsonResponse({ pi, opencode, "claude-code": claudeCode });
       }
 
       if (path === "/api/settings/backfill/runs" && method === "GET") {
@@ -1156,8 +1181,19 @@ export class WebServer {
       }
 
       if (path === "/api/settings/import-maps" && method === "GET") {
-        const { directoryMapsView } = await import("../importer/web-import-api.js");
-        return this.jsonResponse(await directoryMapsView());
+        const { directoryMapsView, readStoreProjects } =
+          await import("../importer/web-import-api.js");
+        // Every save on the page reloads this list; the store's projects rarely change.
+        if (!this.storeProjects || Date.now() - this.storeProjects.readAt > 60_000) {
+          this.storeProjects = {
+            readAt: Date.now(),
+            projects: readStoreProjects(this.config.directory ?? process.cwd()),
+          };
+        }
+        const knownProjects = await this.storeProjects.projects;
+        // An empty result is a failed read or no store yet; try again next time.
+        if (!knownProjects.length) this.storeProjects = undefined;
+        return this.jsonResponse(await directoryMapsView({ knownProjects }));
       }
 
       if (path === "/api/settings/models" && method === "GET") {

@@ -30,6 +30,28 @@ export function parseImportPathMaps(value: unknown): ImportPathMap[] {
   });
 }
 
+/**
+ * Validate and normalise `importIgnoredDirectories` from the global config:
+ * absolute directories after `~` expansion. Throws on the first invalid entry.
+ */
+export function parseIgnoredDirectories(value: unknown): string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) {
+    throw new Error("Invalid importIgnoredDirectories config: must be a list");
+  }
+  const paths = value.map((entry, index) => {
+    const expanded = typeof entry === "string" ? expandHome(entry.trim()) : "";
+    if (!expanded || !isAbsolute(expanded)) {
+      throw new Error(
+        `Invalid importIgnoredDirectories config: entry ${index} needs an absolute path`
+      );
+    }
+    return resolve(expanded);
+  });
+  // One folder written in two forms is one entry.
+  return [...new Set(paths)];
+}
+
 /** Saved maps with the run's own maps on top; a run map wins for the same `from`. */
 export function mergeImportPathMaps(
   saved: readonly ImportPathMap[],

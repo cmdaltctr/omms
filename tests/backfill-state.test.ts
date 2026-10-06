@@ -9,11 +9,13 @@ import {
   readBackfillStatus,
   readUnresolvedDirectories,
   recordUnresolvedDirectories,
+  MAX_UNRESOLVED_DIRECTORIES,
   NO_DIRECTORY,
   summarizeUnresolvedDirectories,
   unresolvedDirectoriesOf,
   unresolvedSessionCount,
   updateBackfillStatus,
+  visibleUnresolvedCount,
 } from "../src/services/backfill-state.js";
 import { tursoConnectionManager } from "../src/services/turso/connection-manager.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
@@ -98,4 +100,35 @@ it("counts sessions with no directory under one entry so the list adds up to the
   ]);
   expect(unresolvedSessionCount(report)).toBe(27);
   expect(list.reduce((sum, item) => sum + item.sessions, 0)).toBe(unresolvedSessionCount(report));
+});
+
+it("counts unresolved sessions from the directory list, without ignored directories", () => {
+  const directories = [
+    { directory: "/x/scratch", sessions: 6 },
+    { directory: "/x/kept", sessions: 2 },
+    { directory: NO_DIRECTORY, sessions: 2 },
+  ];
+  expect(visibleUnresolvedCount(10, directories, [])).toBe(10);
+  expect(visibleUnresolvedCount(10, directories, ["/x/scratch"])).toBe(4);
+  // No directory recorded sessions cannot be ignored, even by an empty path.
+  expect(visibleUnresolvedCount(10, directories, ["/x/scratch", NO_DIRECTORY])).toBe(4);
+  // A recorded path is compared in its resolved form.
+  const trailing = [{ directory: "/x/scratch/", sessions: 6 }, ...directories.slice(1)];
+  expect(visibleUnresolvedCount(10, trailing, ["/x/scratch"])).toBe(4);
+  // A later listing replaced the list: the list wins over the older run's count,
+  // so the badge and the Directory maps list show the same number.
+  expect(visibleUnresolvedCount(3, directories, ["/x/scratch"])).toBe(4);
+  expect(visibleUnresolvedCount(50, directories, [])).toBe(10);
+  // No list yet: the run's count stands.
+  expect(visibleUnresolvedCount(5, [], ["/x/scratch"])).toBe(5);
+});
+
+it("falls back to the run's count when the directory list is full", () => {
+  const full = Array.from({ length: MAX_UNRESOLVED_DIRECTORIES }, (_, i) => ({
+    directory: `/x/d${i}`,
+    sessions: 1,
+  }));
+  // Directories past the cap are not in the list, so its sum is too low.
+  expect(visibleUnresolvedCount(500, full, ["/x/d0"])).toBe(499);
+  expect(visibleUnresolvedCount(0, full, ["/x/d0"])).toBe(0);
 });

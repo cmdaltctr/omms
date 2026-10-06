@@ -5,13 +5,21 @@ import { readFileSync } from "node:fs";
 
 let states: unknown[] = [];
 let cursor = 0;
+let effects: (() => unknown)[] = [];
+let refs: { current: unknown }[] = [];
+let refCursor = 0;
+const sets: [number, unknown][] = [];
 mock.module("react", () => ({
   ...react,
-  useEffect: () => {},
-  useState: (initial: unknown) => [
-    states[cursor++] ?? (typeof initial === "function" ? initial() : initial),
-    () => {},
-  ],
+  useEffect: (effect: () => unknown) => effects.push(effect),
+  useRef: (value: unknown) => (refs[refCursor++] ??= { current: value }),
+  useState: (initial: unknown) => {
+    const index = cursor++;
+    return [
+      states[index] ?? (typeof initial === "function" ? initial() : initial),
+      (value: unknown) => sets.push([index, value]),
+    ];
+  },
 }));
 const { AutoImportSection } = await import("../src/lib/components/settings/AutoImportSection.tsx");
 const hosts = ["pi", "opencode", "claude-code"] as const;
@@ -53,10 +61,15 @@ function render(phase: "exchanges" | "profile" | "done" = "done") {
       },
     ])
   );
-  states = [{ revision: "fixture", settings: {} }, rows, runs, {}, {}, {}, "", false];
+  states = [{ revision: "fixture", settings: {} }, rows, runs, {}, {}, {}, "", false, open];
   cursor = 0;
+  refCursor = 0;
+  effects = [];
   return renderToStaticMarkup(<AutoImportSection />);
 }
+// The host cards' open state, index 8 of the section's useState calls.
+const OPEN_STATE = 8;
+let open: Record<string, boolean> = {};
 
 it("keeps operational information and host links without duplicate overall pills", () => {
   const html = render();
@@ -100,4 +113,44 @@ it("keeps exchange progress, profile progress, and polling", () => {
   expect(source).toContain("setInterval(");
   expect(source).toContain("3000");
   expect(source).toContain("onClick={() => revealDirectoryMaps(host)}");
+  // Polls and control-action refreshes overlap: only the newest reply sets state.
+  expect(source).toContain("latestReply<Rows>(");
+  expect(source).toContain("latestReply<Runs>(");
+  expect(source).not.toMatch(/\.then\(setRuns\)/);
+});
+
+it("puts each host card in a collapsed disclosure with a one-line status", () => {
+  open = {};
+  const html = render();
+  expect(html.match(/<details/g)?.length).toBe(3);
+  expect(html).not.toMatch(/<details[^>]*\bopen[= >]/);
+  expect(html).toContain("State: done · Pending: 0 · Unresolved sessions: 2");
+  for (const summary of html.matchAll(/<summary[^>]*>([\s\S]*?)<\/summary>/g)) {
+    expect(summary[1]).not.toMatch(/<a |<button|<input/);
+  }
+  // The switch stays above the cards.
+  expect(html.indexOf("Import past chats automatically")).toBeLessThan(html.indexOf("<details"));
+  open = { pi: true };
+  expect(render().match(/<details[^>]*\bopen[= >]/g)?.length).toBe(1);
+  open = {};
+});
+
+it("opens running or paused hosts once, then leaves the cards to the user", async () => {
+  const { initialCardsOpen } = await import("../src/lib/auto-import-settings.ts");
+  const run = (state: string, paused = false) => ({ run: { state, paused } as never });
+  expect(
+    initialCardsOpen({
+      pi: run("running"),
+      opencode: run("done", true),
+      "claude-code": run("done"),
+    })
+  ).toEqual({ pi: true, opencode: true, "claude-code": false });
+  refs = [];
+  sets.length = 0;
+  render("exchanges");
+  for (const effect of effects) effect();
+  render("exchanges");
+  for (const effect of effects) effect();
+  const opened = sets.filter(([index]) => index === OPEN_STATE);
+  expect(opened).toEqual([[OPEN_STATE, { pi: true, opencode: true, "claude-code": true }]]);
 });

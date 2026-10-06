@@ -96,7 +96,7 @@ import { EditMemoryDialog } from "$lib/components/explorer/EditMemoryDialog";
 
 `editOpen`, `editContent`, `setEditOpen`, and `saveEditedMemory` represent the existing owner's values and callbacks. This usage example does not introduce a new save implementation.
 
-Style the shared dialog with elevated background, restrained border/shadow, and capped width. Keep its body scrollable when content exceeds the available height. Verify actions stay reachable with a mobile keyboard and at 200% zoom.
+Style the shared dialog with elevated background, restrained border/shadow, and capped width. Keep its body scrollable when content exceeds the available height. Verify actions stay reachable in a mobile browser viewport and at 200% zoom.
 
 The current shared close button contains English `Close` and physical `right-4` positioning. When touching this primitive, route its accessible label through OMMS i18n and check logical end positioning for Arabic. This is an implementation requirement to verify, not a claim that the current dialog already satisfies it.
 

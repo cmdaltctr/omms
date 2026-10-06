@@ -55,6 +55,17 @@ export function backfillActions(
   };
 }
 
+/** Which Automatic import host cards open on the first status load: a running or paused run. */
+export function initialCardsOpen(
+  runs: Partial<Record<BackfillHost, { run: ImportRunView | null }>>
+): Record<BackfillHost, boolean> {
+  const open = (host: BackfillHost) => {
+    const run = runs[host]?.run;
+    return run?.state === "running" || run?.paused === true;
+  };
+  return { pi: open("pi"), opencode: open("opencode"), "claude-code": open("claude-code") };
+}
+
 export function manualModelFieldVisible(typedMode: boolean | undefined, known: boolean): boolean {
   return typedMode ?? !known;
 }

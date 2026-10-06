@@ -1,159 +1,151 @@
 import { describe, expect, it } from "bun:test";
 import {
-  applySuggestions,
-  selectWithTargets,
-  clearSelection,
   NO_DIRECTORY,
+  confirmedEdits,
+  defaultTicks,
+  groupSavedMaps,
   reviewDirectoryMaps,
-  confirmedMapsToSave,
+  type SuggestedDirectory,
 } from "../web/src/lib/directory-maps.js";
 import { mapsToSave } from "../web/src/lib/external-api-settings.js";
 
-describe("Directory map selection helpers", () => {
-  const rows = [
-    { directory: "/code/app-feat-x", sessions: 3, suggestion: "/code/app" },
-    { directory: "/code/app-feat-y", sessions: 1, suggestion: "/code/app" },
-    { directory: "/tmp/scratch", sessions: 2, suggestion: null },
+describe("Directory map review helpers", () => {
+  const rows: SuggestedDirectory[] = [
+    {
+      directory: "/code/app-feat-x",
+      sessions: 3,
+      suggestion: { kind: "map", target: "/code/app", confidence: "name" },
+    },
+    {
+      directory: "/old/tool",
+      sessions: 1,
+      suggestion: { kind: "map", target: "/new/tool", confidence: "exact" },
+    },
+    {
+      directory: "/ext/long-name",
+      sessions: 2,
+      suggestion: { kind: "map", target: "/ext/ln", confidence: "guess" },
+    },
+    { directory: "/tmp/scratch", sessions: 2, suggestion: { kind: "ignore", reason: "temporary" } },
+    { directory: "/old/notes", sessions: 5, suggestion: null },
     { directory: NO_DIRECTORY, sessions: 4, suggestion: null },
   ];
 
-  it("reviews suggestions and session counts without selecting or mutating rows", () => {
+  it("splits rows into maps with confidence, ignore proposals, and rows without a target", () => {
     const before = structuredClone(rows);
     const drafts = {};
     const review = reviewDirectoryMaps(rows, drafts);
     expect(review.maps).toEqual([
-      { from: "/code/app-feat-x", to: "/code/app", sessions: 3 },
-      { from: "/code/app-feat-y", to: "/code/app", sessions: 1 },
+      { from: "/code/app-feat-x", to: "/code/app", sessions: 3, confidence: "name" },
+      { from: "/old/tool", to: "/new/tool", sessions: 1, confidence: "exact" },
+      { from: "/ext/long-name", to: "/ext/ln", sessions: 2, confidence: "guess" },
     ]);
-    expect(review.unmapped).toEqual(rows.slice(2));
+    expect(review.ignores).toEqual([
+      { directory: "/tmp/scratch", sessions: 2, reason: "temporary" },
+    ]);
+    expect(review.unmapped).toEqual(rows.slice(4));
     expect(drafts).toEqual({});
     expect(rows).toEqual(before);
   });
 
-  it("reviews edited, cleared and already selected targets using global source keys", () => {
+  it("ticks exact and name maps and every ignore proposal, never a guess", () => {
+    const ticks = defaultTicks(reviewDirectoryMaps(rows, {}));
+    expect([...ticks].sort()).toEqual(["/code/app-feat-x", "/old/tool", "/tmp/scratch"]);
+  });
+
+  it("counts an edited target as exact and keeps a cleared target unmapped", () => {
     const drafts = {
-      "/code/app-feat-x": { directory: "/code/app-feat-x", target: "", accepted: true },
-      "/code/app-feat-y": { directory: "/code/app-feat-y", target: " /edited ", accepted: false },
-      "/tmp/scratch": { directory: "/tmp/scratch", target: "/manual", accepted: true },
-      "/unrelated": { directory: "/unrelated", target: "/other", accepted: true },
+      "/ext/long-name": { directory: "/ext/long-name", target: " /ext/edited " },
+      "/code/app-feat-x": { directory: "/code/app-feat-x", target: "" },
+      "/tmp/scratch": { directory: "/tmp/scratch", target: "/manual" },
+      "/unrelated": { directory: "/unrelated", target: "/other" },
     };
     const before = structuredClone(drafts);
     const review = reviewDirectoryMaps(rows, drafts);
     expect(review.maps).toEqual([
-      { from: "/code/app-feat-y", to: "/edited", sessions: 1 },
-      { from: "/tmp/scratch", to: "/manual", sessions: 2 },
+      { from: "/old/tool", to: "/new/tool", sessions: 1, confidence: "exact" },
+      { from: "/ext/long-name", to: "/ext/edited", sessions: 2, confidence: "exact" },
+      { from: "/tmp/scratch", to: "/manual", sessions: 2, confidence: "exact" },
     ]);
-    expect(review.unmapped.map((row) => row.directory)).toEqual(["/code/app-feat-x", ""]);
+    expect(review.ignores).toEqual([]);
+    expect(review.unmapped.map((row) => row.directory)).toEqual([
+      "/code/app-feat-x",
+      "/old/notes",
+      NO_DIRECTORY,
+    ]);
+    expect(defaultTicks(review).has("/ext/long-name")).toBe(true);
     expect(drafts).toEqual(before);
-    expect(reviewDirectoryMaps([rows[1]], drafts).maps[0].to).toBe("/edited");
   });
 
-  it("keeps whitespace targets unmapped and combines repeated sources", () => {
-    const review = reviewDirectoryMaps([rows[0], rows[0], rows[1]], {
-      "/code/app-feat-y": { directory: "/code/app-feat-y", target: "  ", accepted: false },
-    });
-    expect(review.maps).toEqual([{ from: rows[0].directory, to: "/code/app", sessions: 6 }]);
-    expect(review.unmapped).toEqual([rows[1]]);
-    expect(reviewDirectoryMaps([], {}).maps).toEqual([]);
+  it("combines repeated sources", () => {
+    const review = reviewDirectoryMaps([rows[0], rows[0], rows[3], rows[3]], {});
+    expect(review.maps).toEqual([
+      { from: rows[0].directory, to: "/code/app", sessions: 6, confidence: "name" },
+    ]);
+    expect(review.ignores).toEqual([
+      { directory: "/tmp/scratch", sessions: 4, reason: "temporary" },
+    ]);
+    expect(reviewDirectoryMaps([], {})).toEqual({ maps: [], ignores: [], unmapped: [] });
   });
 
-  it("confirmation retains saved maps and excludes unrelated decisions and removals", () => {
+  it("saves only ticked maps and ignores, keeping saved maps and ignored directories", () => {
     const saved = [
       { from: "/saved", to: "/keep" },
-      { from: rows[0].directory, to: "/old" },
+      { from: "/code/app-feat-x", to: "/old" },
     ];
-    const unrelated = { directory: "/other-host", target: "/other", accepted: true };
-    const decisions = { [unrelated.directory]: unrelated };
-    const review = reviewDirectoryMaps([rows[0]], decisions);
-    const before = structuredClone(saved);
-    const payload = confirmedMapsToSave(saved, review.maps);
-    expect(payload).toEqual([
-      { from: "/saved", to: "/keep" },
-      { from: rows[0].directory, to: "/code/app" },
-    ]);
-    // The ordinary Save maps payload commits changes outside the reviewed host.
-    expect(mapsToSave(saved, new Set(["/saved"]), [unrelated])).not.toEqual(payload);
-    expect(saved).toEqual(before);
-    expect(decisions).toEqual({ [unrelated.directory]: unrelated });
-    expect(confirmedMapsToSave(saved, [])).toEqual(saved);
-  });
-
-  it("fills every suggestion, leaves the rest, and counts both", () => {
-    const result = applySuggestions(rows, {});
-    expect(result.filled).toBe(2);
-    expect(result.notFilled).toBe(1);
-    expect(Object.keys(result.decisions).sort()).toEqual(["/code/app-feat-x", "/code/app-feat-y"]);
-    expect(result.decisions["/code/app-feat-x"]).toEqual({
-      directory: "/code/app-feat-x",
-      target: "/code/app",
-      accepted: true,
+    const ignored = ["/already/ignored"];
+    const review = reviewDirectoryMaps(rows, {});
+    const before = structuredClone({ saved, ignored });
+    const edits = confirmedEdits(
+      saved,
+      ignored,
+      review,
+      new Set(["/code/app-feat-x", "/tmp/scratch"])
+    );
+    expect(edits).toEqual({
+      importPathMaps: [
+        { from: "/saved", to: "/keep" },
+        { from: "/code/app-feat-x", to: "/code/app" },
+      ],
+      importIgnoredDirectories: ["/already/ignored", "/tmp/scratch"],
     });
-  });
-
-  it("keeps a target the user already accepted", () => {
-    const mine = { directory: "/code/app-feat-x", target: "/code/other", accepted: true };
-    const result = applySuggestions(rows, { "/code/app-feat-x": mine });
-    expect(result.decisions["/code/app-feat-x"]).toEqual(mine);
-    expect(result.filled).toBe(1);
-  });
-
-  it("reports already selected suggestions on repeated clicks", () => {
-    const first = applySuggestions(rows, {});
-    const second = applySuggestions(rows, first.decisions);
-    expect(second.filled).toBe(0);
-    expect(second.alreadySelected).toBe(2);
-    expect(second.notFilled).toBe(1);
-    expect(second.decisions).toEqual(first.decisions);
-  });
-
-  it("counts accepted rows without suggestions as missing suggestions", () => {
-    const result = applySuggestions(rows, {
-      "/tmp/scratch": { directory: "/tmp/scratch", target: "/manual", accepted: true },
+    expect({ saved, ignored }).toEqual(before);
+    // A key with nothing ticked is left out of the save.
+    expect(confirmedEdits(saved, ignored, review, new Set(["/old/tool"]))).toEqual({
+      importPathMaps: [...saved, { from: "/old/tool", to: "/new/tool" }],
     });
-    expect(result.notFilled).toBe(1);
-    expect(result.alreadySelected).toBe(1);
-    expect(result.decisions["/tmp/scratch"].target).toBe("/manual");
+    expect(confirmedEdits(saved, ignored, review, new Set(["/tmp/scratch"]))).toEqual({
+      importIgnoredDirectories: ["/already/ignored", "/tmp/scratch"],
+    });
+    expect(confirmedEdits(saved, ignored, review, new Set())).toEqual({});
   });
 
-  it("selects only existing targets, preserving edits including an emptied target", () => {
-    const original = {
-      "/code/app-feat-x": { directory: "/code/app-feat-x", target: "", accepted: false },
-      "/tmp/scratch": { directory: "/tmp/scratch", target: "/manual", accepted: false },
-    };
-    const result = selectWithTargets(rows, original);
-    expect(result["/code/app-feat-x"]).toEqual(original["/code/app-feat-x"]);
-    expect(result["/code/app-feat-y"].accepted).toBe(true);
-    expect(result["/tmp/scratch"]).toEqual({ ...original["/tmp/scratch"], accepted: true });
-    expect(result[NO_DIRECTORY]).toBeUndefined();
-    expect(original["/tmp/scratch"].accepted).toBe(false);
-    expect(selectWithTargets(rows, result)).toEqual(result);
-  });
-
-  it("excludes whitespace targets and never invents a missing target", () => {
-    expect(selectWithTargets(rows.slice(2), {})).toEqual({});
-    const blank = { directory: "/code/app-feat-x", target: "  ", accepted: false };
-    expect(selectWithTargets(rows, { [blank.directory]: blank })[blank.directory]).toEqual(blank);
-  });
-
-  it("clears a host's selections while retaining targets and shared source decisions", () => {
-    const selected = selectWithTargets(rows, {});
-    const other = { directory: "/other", target: "/other-main", accepted: true };
-    const all = { ...selected, [other.directory]: other };
-    const cleared = clearSelection([rows[0]], all);
-    expect(cleared[rows[0].directory]).toEqual({ ...selected[rows[0].directory], accepted: false });
-    expect(cleared[rows[1].directory].accepted).toBe(true);
-    expect(cleared[other.directory]).toEqual(other);
-    expect(all[rows[0].directory].accepted).toBe(true);
-    const shared = selectWithTargets([rows[0]], cleared);
-    expect(shared[rows[0].directory].accepted).toBe(true);
-    expect(clearSelection(rows, {})).toEqual({});
-  });
-
-  it("saves nothing by itself: only Save maps turns decisions into maps", () => {
-    const { decisions } = applySuggestions(rows, {});
-    expect(mapsToSave([], new Set(), Object.values(decisions))).toEqual([
-      { from: "/code/app-feat-x", to: "/code/app" },
-      { from: "/code/app-feat-y", to: "/code/app" },
+  it("groups saved maps by target, largest group first, then by path", () => {
+    const groups = groupSavedMaps([
+      { from: "/b-2", to: "/b" },
+      { from: "/a-1", to: "/a" },
+      { from: "/b-1", to: "/b" },
+      { from: "/c-1", to: "/c" },
     ]);
+    expect(groups).toEqual([
+      {
+        target: "/b",
+        maps: [
+          { from: "/b-1", to: "/b" },
+          { from: "/b-2", to: "/b" },
+        ],
+      },
+      { target: "/a", maps: [{ from: "/a-1", to: "/a" }] },
+      { target: "/c", maps: [{ from: "/c-1", to: "/c" }] },
+    ]);
+  });
+
+  it("saves removals only: saved maps minus the ones marked for removal", () => {
+    const saved = [
+      { from: "/a", to: "/x" },
+      { from: "/b", to: "/y" },
+    ];
+    expect(mapsToSave(saved, new Set(["/a"]))).toEqual([{ from: "/b", to: "/y" }]);
+    expect(mapsToSave(saved, new Set())).toEqual(saved);
   });
 });

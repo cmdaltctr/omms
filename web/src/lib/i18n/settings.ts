@@ -473,8 +473,6 @@ const text = {
   ],
   "No suggestion found.": ["未找到建议。", "لم يُعثر على اقتراح."],
   "Target directory": ["目标目录", "المجلد الهدف"],
-  "Use this map": ["使用此映射", "استخدام هذه الخريطة"],
-  "Save maps": ["保存映射", "حفظ الخرائط"],
   "Saved. Maps apply to the next import or backfill run.": [
     "已保存。映射在下次导入或回填时生效。",
     "تم الحفظ. تسري الخرائط في الاستيراد التالي.",
@@ -724,37 +722,93 @@ const text = {
     "已保存。OMMS 现在在所有文件夹中使用此画像。",
     "تم الحفظ. يستخدم OMMS هذا الملف الشخصي الآن في كل المجلدات.",
   ],
-  "Select all with targets": [
-    "选择所有已指定目标的映射",
-    "تحديد كل الخرائط ذات المجلدات المستهدفة",
-  ],
   Directories: ["目录数", "عدد المجلدات"],
-  "Selected maps": ["已选择映射数", "عدد الخرائط المحددة"],
-  "Newly selected": ["新选择", "المحدد حديثاً"],
-  "Already selected": ["已选择", "المحدد سابقاً"],
   "No target chosen": ["尚未选择目标", "لم يُختر مجلد مستهدف"],
-  "No suggested targets were selected.": [
-    "未选择任何建议目标。",
-    "لم تُحدد أي مجلدات مستهدفة مقترحة.",
-  ],
-  "Maps are already selected.": ["映射已被选择。", "الخرائط محددة بالفعل."],
-  "Choose targets for rows without suggestions.": [
-    "请为没有建议的行选择目标。",
-    "اختر مجلدات مستهدفة للصفوف التي لا تحتوي على اقتراحات.",
-  ],
-  "Selecting or clearing a shared directory updates every host. Clear selection keeps target text. Review targets, then press Save maps.":
-    [
-      "选择或取消选择共享目录会同步更新所有主机。清除选择会保留目标文本。请检查目标，然后点击保存映射。",
-      "تحديد مجلد مشترك أو إلغاء تحديده يُحدّث كل المضيفات. يحتفظ إلغاء التحديد بنص المجلد المستهدف. راجع المجلدات المستهدفة، ثم اضغط حفظ الخرائط.",
-    ],
   "Smart resolve directories": ["智能解析目录", "حلّ المجلدات تلقائياً"],
+  Exact: ["精确", "مطابقة تامة"],
+  "Name match": ["名称匹配", "مطابقة بالاسم"],
+  Guess: ["猜测", "تخمين"],
+  Confidence: ["可信度", "درجة الثقة"],
+  "Temporary folder": ["临时文件夹", "مجلد مؤقت"],
+  "node_modules folder": ["node_modules 文件夹", "مجلد node_modules"],
+  "App data folder": ["应用数据文件夹", "مجلد بيانات التطبيقات"],
+  "Skills folder": ["技能文件夹", "مجلد المهارات"],
+  "Rows with a target": ["已有目标的行数", "عدد الصفوف ذات المجلد المستهدف"],
+  "Smart resolve shows each proposed map and ignore in a dialog. Tick the ones to keep, then press Confirm. Nothing is saved before that.":
+    [
+      "智能解析会在对话框中列出每个建议的映射和忽略项。勾选要保留的项，然后点击确认。在此之前不会保存任何内容。",
+      "يعرض الحلّ التلقائي كل خريطة مقترحة وكل تجاهل مقترح في مربع حوار. حدّد ما تريد الاحتفاظ به، ثم اضغط تأكيد. لا يُحفظ شيء قبل ذلك.",
+    ],
+  "Suggested to ignore": ["建议忽略", "مقترح للتجاهل"],
+  Ignore: ["忽略", "تجاهل"],
+  Restore: ["恢复", "استعادة"],
+  "No target": ["无目标", "بلا مجلد مستهدف"],
+  "Save this map": ["保存此映射", "حفظ هذه الخريطة"],
+  "Tick the maps and ignores to keep, then press Confirm to save them. Saved maps apply to every host on the next import or backfill run.":
+    [
+      "勾选要保留的映射和忽略项，然后点击确认保存。保存的映射将在所有主机的下一次导入或回填时生效。",
+      "حدّد الخرائط وعناصر التجاهل التي تريد الاحتفاظ بها، ثم اضغط تأكيد لحفظها. تسري الخرائط المحفوظة على كل المضيفات في عملية الاستيراد أو الاستكمال التالية.",
+    ],
+  "Nothing to save. Type a target in a row, or press Ignore for folders that are not projects.": [
+    "没有可保存的内容。请在行中输入目标，或对不是项目的文件夹点击忽略。",
+    "لا يوجد ما يُحفظ. اكتب مجلداً مستهدفاً في صف، أو اضغط تجاهل للمجلدات التي ليست مشاريع.",
+  ],
+  "Ignored directories": ["已忽略的目录", "المجلدات المتجاهَلة"],
+  "Ignored directories stay unimported and leave the unresolved counts.": [
+    "已忽略的目录保持未导入，并且不计入未解析数量。",
+    "تبقى المجلدات المتجاهَلة دون استيراد، ولا تُحسب ضمن الأعداد غير المحلولة.",
+  ],
+  "They apply to the next import or backfill run. No sessions were imported.": [
+    "它们将在下一次导入或回填时生效。未导入任何会话。",
+    "تسري في عملية الاستيراد أو الاستكمال التالية. لم تُستورد أي جلسات.",
+  ],
+  "Keep a map after its sessions import. Every import checks the map before it skips a session, so removing a map makes its sessions unresolved again on the next run.":
+    [
+      "会话导入后请保留映射。每次导入在跳过会话之前都会先检查映射，因此删除映射会使其会话在下次运行时重新变为未解析。",
+      "احتفظ بالخريطة بعد استيراد جلساتها. يفحص كل استيراد الخريطة قبل أن يتجاوز جلسة، لذا فإن حذف الخريطة يجعل جلساتها غير محلولة مجدداً في التشغيل التالي.",
+    ],
+  "Save removals": ["保存删除", "حفظ عمليات الحذف"],
+  "Settings changed elsewhere. Check the list and try again.": [
+    "设置已在其他位置更改。请检查列表后再试。",
+    "تغيّرت الإعدادات في مكان آخر. راجع القائمة، ثم حاول مجدداً.",
+  ],
+  "Settings changed elsewhere and could not be refreshed. Refresh the list, then try again.": [
+    "设置已在其他位置更改，且无法刷新。请刷新列表后再试。",
+    "تغيّرت الإعدادات في مكان آخر وتعذّر تحديثها. حدّث القائمة، ثم حاول مجدداً.",
+  ],
+  "Saved. Removed maps stop applying at the next import or backfill run.": [
+    "已保存。删除的映射将从下一次导入或回填起不再生效。",
+    "تم الحفظ. تتوقف الخرائط المحذوفة عن السريان في عملية الاستيراد أو الاستكمال التالية.",
+  ],
+  "Removals could not be saved. Try again.": [
+    "无法保存删除。请重试。",
+    "تعذّر حفظ عمليات الحذف. حاول مجدداً.",
+  ],
+  "Ignored. The directory stays unimported.": [
+    "已忽略。该目录保持未导入。",
+    "تم التجاهل. يبقى المجلد دون استيراد.",
+  ],
+  "The directory could not be ignored. Try again.": [
+    "无法忽略该目录。请重试。",
+    "تعذّر تجاهل المجلد. حاول مجدداً.",
+  ],
+  "Restored. The directory shows again in each host list that reported it.": [
+    "已恢复。该目录会重新出现在报告它的每个主机列表中。",
+    "تمت الاستعادة. يظهر المجلد مجدداً في قائمة كل مضيف أبلغ عنه.",
+  ],
+  "The directory could not be restored. Try again.": [
+    "无法恢复该目录。请重试。",
+    "تعذّرت استعادة المجلد. حاول مجدداً.",
+  ],
+  "Saved, but the list could not be refreshed. Refresh the list without saving again.": [
+    "已保存，但无法刷新列表。请刷新列表，无需再次保存。",
+    "تم الحفظ، لكن تعذّر تحديث القائمة. حدّث القائمة دون الحفظ مجدداً.",
+  ],
   "Review directory maps": ["检查目录映射", "مراجعة خرائط المجلدات"],
   "Proposed maps": ["建议映射数", "عدد الخرائط المقترحة"],
-  "Unmapped rows": ["未映射行数", "عدد الصفوف غير المرتبطة"],
   Sessions: ["会话数", "عدد الجلسات"],
   Confirm: ["确认", "تأكيد"],
   "Saving…": ["正在保存…", "جارٍ الحفظ…"],
-  "No maps to save.": ["没有可保存的映射。", "لا توجد خرائط لحفظها."],
   "Settings refreshed. No maps were saved.": [
     "设置已刷新。未保存任何映射。",
     "حُدّثت الإعدادات. لم تُحفظ أي خرائط.",
@@ -763,16 +817,6 @@ const text = {
     "无法刷新设置。请再次点击刷新列表。",
     "تعذّر تحديث الإعدادات. حاول تحديث القائمة مجدداً.",
   ],
-  "Review these maps, then press Confirm to save. Saved maps apply to every host on the next import or backfill run.":
-    [
-      "请检查这些映射，然后点击确认保存。保存的映射将在所有主机的下一次导入或回填时生效。",
-      "راجع هذه الخرائط، ثم اضغط تأكيد لحفظها. تسري الخرائط المحفوظة على كل المضيفات في عملية الاستيراد أو الاستكمال التالية.",
-    ],
-  "Review suggested directory maps in a dialog. Nothing is saved until you press Confirm. Save maps remains available for manual selections.":
-    [
-      "在对话框中检查建议的目录映射。点击确认后才会保存。手动选择仍可通过保存映射按钮保存。",
-      "راجع خرائط المجلدات المقترحة في مربع حوار. لا تُحفظ حتى تضغط تأكيد. يبقى زر حفظ الخرائط متاحاً للتحديدات اليدوية.",
-    ],
   "Maps could not be saved. Review the targets and confirm again.": [
     "无法保存映射。请检查目标后再次确认。",
     "تعذّر حفظ الخرائط. راجع المجلدات المستهدفة، ثم أكّد مجدداً.",

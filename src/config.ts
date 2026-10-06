@@ -8,7 +8,7 @@ import { resolveSecretValue } from "./services/secret-resolver.js";
 import { isPlaceholderApiKey } from "./services/ai/api-key-placeholder.js";
 import { getAutoCaptureProviderStatus } from "./services/ai/live-model-choice.js";
 import { parseBackfillModel } from "./importer/backfill-model.js";
-import { parseImportPathMaps } from "./importer/import-path-maps.js";
+import { parseIgnoredDirectories, parseImportPathMaps } from "./importer/import-path-maps.js";
 import { checkedMemoryLimit, MEMORY_LIMITS, type MemoryLimitRule } from "./utils/memory-limits.js";
 import {
   resolveDefaultStoragePath,
@@ -92,6 +92,8 @@ interface OmmsConfig {
   piBackfillModel?: string;
   /** Saved directory maps for every history import. Global config only. */
   importPathMaps?: Array<{ from: string; to: string }>;
+  /** Unresolved directories the Directory maps page hides. Display only. Global config only. */
+  importIgnoredDirectories?: string[];
   /** Claude Code's folder (its transcripts are in `<folder>/projects`). Empty means `CLAUDE_CONFIG_DIR`, then `~/.claude`. Global config only. */
   claudeConfigDir?: string;
   webServerAutoStart?: boolean;
@@ -218,6 +220,7 @@ const DEFAULTS: Required<
   opencodeBackfillModel: "inherit",
   piBackfillModel: "inherit",
   importPathMaps: [],
+  importIgnoredDirectories: [],
   claudeConfigDir: "",
   webServerAutoStart: true,
   webServerEnabled: true,
@@ -373,6 +376,8 @@ export const CONFIG_TEMPLATE = `{
   // "opencodeBackfillModel": "inherit", // or "external", or "provider/model"
   // Directory maps for history recorded in moved or deleted directories.
   // "importPathMaps": [{ "from": "~/code/app-feat-x", "to": "~/code/app" }],
+  // Unresolved directories to hide on the Directory maps page. They stay unimported.
+  // "importIgnoredDirectories": ["/private/tmp/scratch"],
   // Claude Code's folder, when it is not ~/.claude (like CLAUDE_CONFIG_DIR).
   // "claudeConfigDir": "~/.claude-work",
 
@@ -853,6 +858,7 @@ function buildConfig(fileConfig: OmmsConfig) {
   parseBackfillModel(fileConfig, "pi");
   parseBackfillModel(fileConfig, "opencode");
   const importPathMaps = parseImportPathMaps(fileConfig.importPathMaps);
+  const importIgnoredDirectories = parseIgnoredDirectories(fileConfig.importIgnoredDirectories);
   if (
     fileConfig.claudeConfigDir !== undefined &&
     !isValidClaudeConfigDir(fileConfig.claudeConfigDir)
@@ -942,6 +948,7 @@ function buildConfig(fileConfig: OmmsConfig) {
     opencodeBackfillModel: fileConfig.opencodeBackfillModel ?? DEFAULTS.opencodeBackfillModel,
     piBackfillModel: fileConfig.piBackfillModel ?? DEFAULTS.piBackfillModel,
     importPathMaps,
+    importIgnoredDirectories,
     claudeConfigDir: expandPath(fileConfig.claudeConfigDir?.trim() ?? DEFAULTS.claudeConfigDir),
     webServerAutoStart: fileConfig.webServerAutoStart ?? DEFAULTS.webServerAutoStart,
     webServerEnabled: fileConfig.webServerEnabled ?? DEFAULTS.webServerEnabled,
@@ -1133,6 +1140,7 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   delete projectOverrides.opencodeBackfillModel;
   delete projectOverrides.piBackfillModel;
   delete projectOverrides.importPathMaps;
+  delete projectOverrides.importIgnoredDirectories;
   // A checked-in project file must not point the web app at another folder.
   delete projectOverrides.claudeConfigDir;
   delete projectOverrides.webServerAutoStart;

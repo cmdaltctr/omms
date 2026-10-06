@@ -69,23 +69,9 @@ export function versionNotice(info: VersionInfo): {
 }
 
 export type PathMap = { from: string; to: string };
-export type MapDecision = { directory: string; target: string; accepted: boolean };
+export type MapDecision = { directory: string; target: string };
 
-/**
- * The `importPathMaps` to save: kept saved maps plus each accepted directory
- * with a typed or suggested target. A rejected or empty row is left out.
- */
-export function mapsToSave(
-  saved: PathMap[],
-  removed: Set<string>,
-  decisions: MapDecision[]
-): PathMap[] {
-  const byFrom = new Map<string, PathMap>();
-  for (const map of saved) if (!removed.has(map.from)) byFrom.set(map.from, map);
-  for (const decision of decisions) {
-    const target = decision.target.trim();
-    if (decision.accepted && target)
-      byFrom.set(decision.directory, { from: decision.directory, to: target });
-  }
-  return [...byFrom.values()];
+/** The `importPathMaps` for Save removals: saved maps minus those marked for removal. */
+export function mapsToSave(saved: readonly PathMap[], removed: ReadonlySet<string>): PathMap[] {
+  return saved.filter((map) => !removed.has(map.from));
 }

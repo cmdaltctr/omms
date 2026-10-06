@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { CONFIG } from "../config.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { safeHealthError } from "./safe-health-error.js";
@@ -117,6 +117,31 @@ export function unresolvedSessionCount(report: {
 }): number {
   const mapped = (report.unresolvedProjects ?? []).reduce((sum, item) => sum + item.sessions, 0);
   return mapped + report.unresolvableSessions.length;
+}
+
+/**
+ * A host's unresolved session count without the sessions in ignored
+ * directories. It comes from the saved directory list, the same list the
+ * Directory maps page shows, because a later listing or CLI run can replace
+ * that list after the run that set `count`. With no list, or a list cut at
+ * {@link MAX_UNRESOLVED_DIRECTORIES}, it subtracts from `count` instead and
+ * stops at 0. Sessions with no recorded directory always count. Paths are
+ * compared in resolved form.
+ */
+export function visibleUnresolvedCount(
+  count: number,
+  directories: readonly UnresolvedDirectory[],
+  ignored: readonly string[]
+): number {
+  const skip = new Set(ignored.map((path) => resolve(path)));
+  const isIgnored = (item: UnresolvedDirectory) =>
+    item.directory !== NO_DIRECTORY && skip.has(resolve(item.directory));
+  const sum = (items: readonly UnresolvedDirectory[]) =>
+    items.reduce((total, item) => total + item.sessions, 0);
+  if (directories.length > 0 && directories.length < MAX_UNRESOLVED_DIRECTORIES) {
+    return sum(directories.filter((item) => !isIgnored(item)));
+  }
+  return Math.max(0, count - sum(directories.filter(isIgnored)));
 }
 
 /**

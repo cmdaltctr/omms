@@ -1,35 +1,99 @@
-# import-directory-maps Specification
+## ADDED Requirements
 
-## Purpose
+### Requirement: Users can ignore directories that are not projects
 
-Let the user save directory maps once, so that history recorded in deleted or moved directories is imported into the right project by automatic backfill, web imports, and CLI and slash-command imports alike.
+Each unresolved directory row with a recorded source directory SHALL offer **Ignore**. Ignore SHALL save the source directory at once to the global `importIgnoredDirectories` list, with the same validation and revision checks as other settings saves. A ticked ignore proposal confirmed in the Smart resolve dialog SHALL be saved to the same list. `importIgnoredDirectories` SHALL be read from the global config only, SHALL accept absolute paths after `~` expansion, and SHALL reject invalid entries with the same startup validation as other settings. An ignored directory SHALL leave every host list and SHALL NOT count as unresolved on the page. The page SHALL list ignored directories in a collapsed **Ignored directories** disclosure with a count. Each entry SHALL offer **Restore**, which removes it from `importIgnoredDirectories` and returns the directory to the host lists that report it. Ignore and Restore SHALL NOT change `importPathMaps`, the import ledger, or history files, and SHALL NOT start an import. The **No directory recorded** entry SHALL NOT offer Ignore.
 
-## Requirements
+#### Scenario: Ignoring a temporary folder
 
-### Requirement: Saved directory maps apply to every import
+- **WHEN** the Pi list shows `/private/tmp/pi-verify-repo` with 6 sessions and the user presses Ignore
+- **THEN** the global config SHALL have `/private/tmp/pi-verify-repo` in `importIgnoredDirectories`
+- **AND** the Pi list SHALL no longer show it
+- **AND** the Pi unresolved session count SHALL drop by 6
 
-The global config SHALL accept `importPathMaps`, a list of maps, each with a source directory `from` and a target directory `to`. Automatic backfill, web imports, and CLI and slash-command imports on both hosts SHALL resolve project directories with these maps, using the existing resolution order: an exact directory map first, then the recorded directory, then, for OpenCode only, the project worktree. A `--map` flag or a web import's own map SHALL add to the saved maps for that run, and SHALL win over a saved map with the same source directory. A map whose target directory does not exist SHALL leave its sessions unresolved. `importPathMaps` SHALL be read from the global config only. Invalid entries SHALL be rejected by the same validation used at startup.
+#### Scenario: Restoring an ignored directory
 
-#### Scenario: Automatic backfill uses a saved map
+- **WHEN** the user opens Ignored directories and presses Restore for `/private/tmp/pi-verify-repo`
+- **THEN** the directory SHALL leave `importIgnoredDirectories`
+- **AND** it SHALL appear again in each host list whose latest run reported it
 
-- **WHEN** `importPathMaps` maps `/Users/me/code/app-feat-x` to `/Users/me/code/app` and Pi's backfill finds sessions recorded in `/Users/me/code/app-feat-x`, which no longer exists
-- **THEN** those sessions SHALL be imported into the project of `/Users/me/code/app`
+#### Scenario: Ignoring does not import or map
 
-#### Scenario: A CLI map overrides a saved map
+- **WHEN** the user ignores a directory
+- **THEN** its sessions SHALL stay unimported
+- **AND** the next import SHALL still report them unresolved to the importer
 
-- **WHEN** a saved map sends `/old` to `/a` and the user runs an import with `--map /old=/b`
-- **THEN** that run SHALL use `/b` for sessions recorded in `/old`
-- **AND** the saved map SHALL be unchanged
+#### Scenario: Ignore fails to save
 
-#### Scenario: The target directory is missing
+- **WHEN** the save is rejected, including because settings changed elsewhere
+- **THEN** the row SHALL stay in the list
+- **AND** the page SHALL show an accessible error and SHALL NOT retry by itself
 
-- **WHEN** a saved map points at a directory that does not exist
-- **THEN** its sessions SHALL be reported as unresolved and SHALL NOT be assigned to any project
+### Requirement: Saved maps stay after their sessions import
 
-#### Scenario: A project config sets maps
+Saved maps SHALL keep applying after their sessions import, because every host resolves a session's directory before it checks the import ledger. The page SHALL say, next to the saved maps, that a map should stay after import and that removing it makes its sessions unresolved again on the next run.
 
-- **WHEN** a project config sets `importPathMaps`
-- **THEN** the value SHALL be ignored and the global value SHALL apply
+#### Scenario: Removing a used map
+
+- **WHEN** a saved map's sessions are already imported and the user removes the map and saves the removal
+- **THEN** the next full run SHALL report those sessions unresolved again
+- **AND** memories already imported through that map SHALL remain
+
+### Requirement: Suggestions follow known projects, moves, and renames
+
+Each suggestion SHALL be either a map to an existing target directory or an ignore proposal. Each map suggestion SHALL carry a confidence: **exact**, **name**, or **guess**. For a missing directory, the page SHALL apply these rules in order and use the first that gives a result:
+
+1. **Not a project**: a directory inside a system temporary folder (`/tmp`, `/private/tmp`, `/private/var/folders`, or the operating system's temporary folder), with a `node_modules` part in its path, inside `~/Library/Application Support`, or inside a skills folder (`~/.agents/skills`, `~/.claude/skills`) SHALL get an ignore proposal with a reason.
+2. **Same remote**: when the memory store records the missing directory as a path of a project whose stored git remote equals the stored git remote of exactly one existing known project, the page SHALL suggest that project with exact confidence.
+3. **OpenCode record**: for OpenCode sessions, the project folder OpenCode recorded for the session's project, read without writing OpenCode's database, SHALL be suggested with exact confidence when it exists. When it does not exist, the page SHALL apply rules 2 to 6 to that recorded folder, and SHALL use the result with that rule's confidence.
+4. **Deleted worktree**: the existing directory whose name is the longest leading part of the missing directory's name or of one of its parent directories' names (for example `app` for `app-feat-x` or for `workspaces/app/feat-x`) SHALL be suggested with name confidence. When that candidate is a linked Git worktree, the page SHALL suggest its main working tree instead.
+5. **Moved folder**: when exactly one existing known project has the same folder name as the missing directory, it SHALL be suggested with name confidence. When more than one has that name, this rule SHALL give no suggestion.
+6. **Rename guess**: when exactly one existing project directory beside the missing directory or beside a known project has a name whose parts each match, in order, either one part of the missing name or the initials of consecutive parts, with at least two parts matching exactly, it SHALL be suggested with guess confidence.
+
+Known projects SHALL include existing project directories recorded in the memory store, saved map targets, and OpenCode's recorded project folders. The page SHALL read them without writing to the store, OpenCode's database, or Git, and SHALL NOT make network requests. When no rule gives a result, the page SHALL show no suggestion.
+
+#### Scenario: A live linked worktree is not a target
+
+- **WHEN** `/code/app` is a Git repository, `/code/app-feat-x` is its live linked worktree, and sessions were recorded in the deleted `/code/app-feat-x-2`
+- **THEN** the page SHALL suggest `/code/app` with name confidence
+
+#### Scenario: A moved repository
+
+- **WHEN** sessions were recorded in the deleted `/clients/shop-2025` and the memory store records an existing project at `/projects/templates/shop-2025`
+- **THEN** the page SHALL suggest `/projects/templates/shop-2025` with name confidence
+
+#### Scenario: Two projects with the same folder name
+
+- **WHEN** two existing known projects are named `shop-2025` and no earlier rule gives a result
+- **THEN** the page SHALL show no suggestion for `/clients/shop-2025`
+
+#### Scenario: OpenCode's recorded folder is also missing
+
+- **WHEN** OpenCode sessions were recorded in a deleted OpenCode worktree folder, OpenCode records the project folder `/clients/team/shop-2025`, which is also missing, and the store records an existing project at `/projects/templates/shop-2025`
+- **THEN** the page SHALL suggest `/projects/templates/shop-2025` with name confidence
+
+#### Scenario: Same stored remote
+
+- **WHEN** the memory store records `/old/tool` and the existing `/new/tool-renamed` with the same git remote
+- **THEN** the page SHALL suggest `/new/tool-renamed` for `/old/tool` with exact confidence
+
+#### Scenario: A renamed repository
+
+- **WHEN** sessions were recorded in the deleted `/ext/opinionated-modular-pi-subagents-system-ompss` and `/ext/om-pi-subagents` is the only matching Git repository
+- **THEN** the page SHALL suggest `/ext/om-pi-subagents` with guess confidence
+
+#### Scenario: A folder that is not a project
+
+- **WHEN** sessions were recorded in `~/.pi/agent/npm/node_modules/pi-mcp-adapter`
+- **THEN** the page SHALL propose ignoring it, with a reason that names the `node_modules` folder
+- **AND** it SHALL NOT suggest a map for it
+
+#### Scenario: Suggestions never write
+
+- **WHEN** the page builds suggestions
+- **THEN** the memory store, OpenCode's database, Git metadata, and history files SHALL be unchanged
+
+## MODIFIED Requirements
 
 ### Requirement: The Settings page manages directory maps
 
@@ -229,116 +293,10 @@ Cancel, Escape, and closing the dialog before confirmation SHALL change nothing.
 - **THEN** feedback SHALL say the items were saved and the list could not be refreshed
 - **AND** the page SHALL offer a refresh without resubmitting the completed save
 
-### Requirement: Every host has an accessible mapping review
+## REMOVED Requirements
 
-Pi, OpenCode, and Claude Code SHALL use the same review-and-confirm flow. The dialog SHALL have a translated title and actions, trap keyboard focus, return focus on close, and keep long lists and paths usable at narrow widths and 200% zoom. It SHALL show paths and counts only, without conversation content.
+### Requirement: Users can select maps in bulk per host
 
-#### Scenario: Reviewing each host
+**Reason**: The per-row checkbox, Select all with targets, Clear selection, and the bottom Save maps button formed a second save path. Its only save button sat far below the rows, so users could tick rows and find no action. Per-item ticks in the Smart resolve dialog replace it.
 
-- **WHEN** the user opens Smart resolve for Pi, OpenCode, or Claude Code
-- **THEN** the dialog SHALL show only the chosen host's proposed maps and explain that saved maps apply globally
-- **AND** each host SHALL have the same confirmation, cancellation, and error behaviour
-
-#### Scenario: Keyboard and translated review
-
-- **WHEN** the dialog is used by keyboard in English, Chinese, or Arabic
-- **THEN** its title and actions SHALL be translated and reachable without focus leaving the dialog
-- **AND** long technical paths SHALL remain readable left-to-right, with focus returned to the opener after closing
-
-### Requirement: Users can ignore directories that are not projects
-
-Each unresolved directory row with a recorded source directory SHALL offer **Ignore**. Ignore SHALL save the source directory at once to the global `importIgnoredDirectories` list, with the same validation and revision checks as other settings saves. A ticked ignore proposal confirmed in the Smart resolve dialog SHALL be saved to the same list. `importIgnoredDirectories` SHALL be read from the global config only, SHALL accept absolute paths after `~` expansion, and SHALL reject invalid entries with the same startup validation as other settings. An ignored directory SHALL leave every host list and SHALL NOT count as unresolved on the page. The page SHALL list ignored directories in a collapsed **Ignored directories** disclosure with a count. Each entry SHALL offer **Restore**, which removes it from `importIgnoredDirectories` and returns the directory to the host lists that report it. Ignore and Restore SHALL NOT change `importPathMaps`, the import ledger, or history files, and SHALL NOT start an import. The **No directory recorded** entry SHALL NOT offer Ignore.
-
-#### Scenario: Ignoring a temporary folder
-
-- **WHEN** the Pi list shows `/private/tmp/pi-verify-repo` with 6 sessions and the user presses Ignore
-- **THEN** the global config SHALL have `/private/tmp/pi-verify-repo` in `importIgnoredDirectories`
-- **AND** the Pi list SHALL no longer show it
-- **AND** the Pi unresolved session count SHALL drop by 6
-
-#### Scenario: Restoring an ignored directory
-
-- **WHEN** the user opens Ignored directories and presses Restore for `/private/tmp/pi-verify-repo`
-- **THEN** the directory SHALL leave `importIgnoredDirectories`
-- **AND** it SHALL appear again in each host list whose latest run reported it
-
-#### Scenario: Ignoring does not import or map
-
-- **WHEN** the user ignores a directory
-- **THEN** its sessions SHALL stay unimported
-- **AND** the next import SHALL still report them unresolved to the importer
-
-#### Scenario: Ignore fails to save
-
-- **WHEN** the save is rejected, including because settings changed elsewhere
-- **THEN** the row SHALL stay in the list
-- **AND** the page SHALL show an accessible error and SHALL NOT retry by itself
-
-### Requirement: Saved maps stay after their sessions import
-
-Saved maps SHALL keep applying after their sessions import, because every host resolves a session's directory before it checks the import ledger. The page SHALL say, next to the saved maps, that a map should stay after import and that removing it makes its sessions unresolved again on the next run.
-
-#### Scenario: Removing a used map
-
-- **WHEN** a saved map's sessions are already imported and the user removes the map and saves the removal
-- **THEN** the next full run SHALL report those sessions unresolved again
-- **AND** memories already imported through that map SHALL remain
-
-### Requirement: Suggestions follow known projects, moves, and renames
-
-Each suggestion SHALL be either a map to an existing target directory or an ignore proposal. Each map suggestion SHALL carry a confidence: **exact**, **name**, or **guess**. For a missing directory, the page SHALL apply these rules in order and use the first that gives a result:
-
-1. **Not a project**: a directory inside a system temporary folder (`/tmp`, `/private/tmp`, `/private/var/folders`, or the operating system's temporary folder), with a `node_modules` part in its path, inside `~/Library/Application Support`, or inside a skills folder (`~/.agents/skills`, or `skills` in Claude Code's folder: the `claudeConfigDir` setting, then `CLAUDE_CONFIG_DIR`, then `~/.claude`) SHALL get an ignore proposal with a reason.
-2. **Same remote**: when the memory store records the missing directory as a path of a project whose stored git remote equals the stored git remote of exactly one existing known project, the page SHALL suggest that project with exact confidence.
-3. **OpenCode record**: for OpenCode sessions, the project folder OpenCode recorded for the session's project, read without writing OpenCode's database, SHALL be suggested with exact confidence when it exists. When it does not exist, the page SHALL apply rules 2 to 6 to that recorded folder, and SHALL use the result with that rule's confidence.
-4. **Deleted worktree**: the existing directory whose name is the longest leading part of the missing directory's name or of one of its parent directories' names (for example `app` for `app-feat-x` or for `workspaces/app/feat-x`) SHALL be suggested with name confidence. When that candidate is a linked Git worktree, the page SHALL suggest its main working tree instead.
-5. **Moved folder**: when exactly one existing known project has the same folder name as the missing directory, it SHALL be suggested with name confidence. When more than one has that name, this rule SHALL give no suggestion.
-6. **Rename guess**: when exactly one existing project directory beside the missing directory or beside a known project has a name whose parts each match, in order, either one part of the missing name or the initials of consecutive parts, with at least two parts matching exactly, it SHALL be suggested with guess confidence.
-
-Known projects SHALL include existing project directories recorded in the memory store, saved map targets, and OpenCode's recorded project folders. The page SHALL read them without writing to the store, OpenCode's database, or Git, and SHALL NOT make network requests. When no rule gives a result, the page SHALL show no suggestion.
-
-#### Scenario: A live linked worktree is not a target
-
-- **WHEN** `/code/app` is a Git repository, `/code/app-feat-x` is its live linked worktree, and sessions were recorded in the deleted `/code/app-feat-x-2`
-- **THEN** the page SHALL suggest `/code/app` with name confidence
-
-#### Scenario: A moved repository
-
-- **WHEN** sessions were recorded in the deleted `/clients/shop-2025` and the memory store records an existing project at `/projects/templates/shop-2025`
-- **THEN** the page SHALL suggest `/projects/templates/shop-2025` with name confidence
-
-#### Scenario: Two projects with the same folder name
-
-- **WHEN** two existing known projects are named `shop-2025` and no earlier rule gives a result
-- **THEN** the page SHALL show no suggestion for `/clients/shop-2025`
-
-#### Scenario: OpenCode's recorded folder is also missing
-
-- **WHEN** OpenCode sessions were recorded in a deleted OpenCode worktree folder, OpenCode records the project folder `/clients/team/shop-2025`, which is also missing, and the store records an existing project at `/projects/templates/shop-2025`
-- **THEN** the page SHALL suggest `/projects/templates/shop-2025` with name confidence
-
-#### Scenario: Same stored remote
-
-- **WHEN** the memory store records `/old/tool` and the existing `/new/tool-renamed` with the same git remote
-- **THEN** the page SHALL suggest `/new/tool-renamed` for `/old/tool` with exact confidence
-
-#### Scenario: A renamed repository
-
-- **WHEN** sessions were recorded in the deleted `/ext/opinionated-modular-pi-subagents-system-ompss` and `/ext/om-pi-subagents` is the only matching Git repository
-- **THEN** the page SHALL suggest `/ext/om-pi-subagents` with guess confidence
-
-#### Scenario: A folder that is not a project
-
-- **WHEN** sessions were recorded in `~/.pi/agent/npm/node_modules/pi-mcp-adapter`
-- **THEN** the page SHALL propose ignoring it, with a reason that names the `node_modules` folder
-- **AND** it SHALL NOT suggest a map for it
-
-#### Scenario: Suggestions never write
-
-- **WHEN** the page builds suggestions
-- **THEN** the memory store, OpenCode's database, Git metadata, and history files SHALL be unchanged
-
-#### Scenario: Skills in a moved Claude Code folder
-
-- **WHEN** `claudeConfigDir` is `~/.claude-work` and sessions were recorded in `~/.claude-work/skills/s-x`
-- **THEN** the page SHALL propose ignoring it, with a reason that names the skills folder
+**Migration**: Edit targets in the host rows, press Smart resolve directories, change the ticks, and press Confirm. Use Ignore for rows that are not projects.

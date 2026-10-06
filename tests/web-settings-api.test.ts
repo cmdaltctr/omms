@@ -89,6 +89,61 @@ describe("settings API", () => {
     expect(result.login.state).toBe("not-installed");
     expect(JSON.stringify(result.rows)).not.toContain("private-test-value");
   });
+  it("reads the memory store's projects at most once a minute for the Directory maps list", async () => {
+    const result = await scenario(`
+      const { join } = await import("node:path");
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "isolated-store");
+      const apiUrl = ${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/importer/web-import-api.ts")).href)};
+      const real = await import(apiUrl);
+      let reads = 0;
+      // The first read finds nothing (a failure or no store yet), later reads find a project.
+      mock.module(apiUrl, () => ({ ...real, readStoreProjects: async () => (reads++ ? [{ path: "/p" }] : []) }));
+      const statuses = [];
+      for (let i = 0; i < 4; i++) statuses.push((await send("/api/settings/import-maps")).status);
+      return { reads, statuses };
+    `);
+    expect(result.statuses).toEqual([200, 200, 200, 200]);
+    // An empty result is not kept; the first non-empty one is kept for a minute.
+    expect(result.reads).toBe(2);
+  });
+
+  it("leaves ignored directories out of the backfill count and the Directory maps list alike", async () => {
+    const result = await scenario(`
+      const { join } = await import("node:path");
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "isolated-store");
+      CONFIG.importIgnoredDirectories = ["/x/scratch"];
+      // A saved map also takes its directory off the list, so off the count too.
+      CONFIG.importPathMaps = [{ from: "/x/mapped", to: "/x/kept" }];
+      const state = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/backfill-state.ts")).href)});
+      await state.getBackfillCutoff("pi", 1);
+      await state.updateBackfillStatus("pi", { state: "done", model: null,
+        counts: { imported: 0, skipped: 0, failed: 0, pending: 0, unresolved: 10 } });
+      await state.recordUnresolvedDirectories("pi", [
+        { directory: "/x/scratch", sessions: 6 },
+        { directory: "/x/kept", sessions: 2 },
+        { directory: "/x/mapped", sessions: 3 },
+        { directory: "", sessions: 2 },
+      ]);
+      const backfill = await (await send("/api/settings/backfill")).json();
+      const maps = await (await send("/api/settings/import-maps")).json();
+      // A damaged directory list must not take the whole status endpoint down.
+      const { tursoConnectionManager } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/turso/connection-manager.ts")).href)});
+      const db = await tursoConnectionManager.getConnection(join(CONFIG.storagePath, "import-ledger.db"));
+      await db.run("UPDATE unresolved_directories SET directories = 'not json' WHERE host = 'pi'");
+      const damaged = await send("/api/settings/backfill");
+      return { unresolved: backfill.pi.counts.unresolved, listed: maps.pi, ignored: maps.ignored,
+        damagedStatus: damaged.status, damagedCount: (await damaged.json()).pi?.counts.unresolved };
+    `);
+    expect(result.ignored).toEqual(["/x/scratch"]);
+    expect(result.unresolved).toBe(4);
+    const listed = result.listed as Array<{ directory: string; sessions: number }>;
+    expect(listed.map((row) => row.directory)).toEqual(["/x/kept", ""]);
+    expect(listed.reduce((sum, row) => sum + row.sessions, 0)).toBe(result.unresolved);
+    expect(result.damagedStatus).toBe(200);
+    expect(result.damagedCount).toBe(10);
+  });
   // Builds a POSIX install with a symlink on PATH. Windows finds `.cmd` wrappers instead,
   // and a symlink needs extra rights there; `global-version.test.ts` covers that layout.
   it.skipIf(process.platform === "win32")(
@@ -503,7 +558,11 @@ describe("settings API", () => {
       {
         directory: expect.stringContaining("code/app-feat-x"),
         sessions: 1,
-        suggestion: expect.stringMatching(/code[\\/]app$/),
+        suggestion: {
+          kind: "map",
+          target: expect.stringMatching(/code[\\/]app$/),
+          confidence: "name",
+        },
       },
     ]);
     expect(JSON.stringify(result.maps)).not.toContain("other prompt");
@@ -591,7 +650,7 @@ describe("settings API", () => {
     expect(result.browsePath).toContain(".claude");
     expect(result.unknown).toBe(400);
     // The Directory maps section lists Claude Code's unresolved directories too.
-    expect(result.mapHosts).toEqual(["claude-code", "opencode", "pi", "saved"]);
+    expect(result.mapHosts).toEqual(["claude-code", "ignored", "opencode", "pi", "saved"]);
     expect(result.started).toBe(202);
     // One slot: the second request is refused, either as busy or for its model.
     expect([400, 409]).toContain(result.other);

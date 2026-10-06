@@ -192,7 +192,7 @@ describe("global config writer", () => {
     expect(result.setting).toMatchObject({ value: 0, source: "global", globalValue: 0 });
   });
 
-  it("saves external API settings and maps, and refuses a literal key without writing", async () => {
+  it("saves external API settings, maps, and ignored directories, and refuses a literal key without writing", async () => {
     const seed = '{\n  // keep me\n  "piModel": "a"\n}\n';
     const result = await scenario(
       `
@@ -202,8 +202,15 @@ describe("global config writer", () => {
         memoryModel: "glm-5-turbo",
         memoryApiKey: "env://ZAI_API_KEY",
         importPathMaps: [{ from: "/old", to: "/new" }],
+        importIgnoredDirectories: ["/private/tmp/scratch"],
       }, readGlobalConfigRevision());
       const afterSave = readFileSync(target, "utf8");
+      const ignored = [];
+      for (const value of ["/tmp/x", ["relative/dir"]]) {
+        try {
+          await writeGlobalConfigKeys({ importIgnoredDirectories: value }, saved.revision);
+        } catch (error) { ignored.push(error.message); }
+      }
       let literal = "";
       try {
         await writeGlobalConfigKeys({ memoryApiKey: "sk-literal-secret" }, saved.revision);
@@ -212,13 +219,19 @@ describe("global config writer", () => {
       try {
         await writeGlobalConfigKeys({ memoryProvider: "nope" }, saved.revision);
       } catch (error) { provider = error.message; }
-      return { afterSave, unchanged: readFileSync(target, "utf8") === afterSave, literal, provider };
+      return { afterSave, unchanged: readFileSync(target, "utf8") === afterSave, literal, provider, ignored };
     `,
       seed
     );
     expect(result.afterSave).toContain("// keep me");
     expect(result.afterSave).toContain('"memoryApiKey": "env://ZAI_API_KEY"');
     expect(result.afterSave).toContain('"from": "/old"');
+    expect(result.afterSave).toContain('"importIgnoredDirectories": [');
+    expect(result.afterSave).toContain('"/private/tmp/scratch"');
+    expect(result.ignored).toEqual([
+      "Invalid importIgnoredDirectories setting",
+      "Invalid importIgnoredDirectories config: entry 0 needs an absolute path",
+    ]);
     expect(result.unchanged).toBe(true);
     expect(result.literal).toBe("memoryApiKey must be an env:// or file:// reference");
     expect(result.literal).not.toContain("sk-literal-secret");
