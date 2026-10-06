@@ -361,7 +361,7 @@ export async function directoryMapsView(
   const saved = new Set(CONFIG.importPathMaps.map((map) => map.from));
   // Older config stubs in tests have no list.
   const ignored = CONFIG.importIgnoredDirectories ?? [];
-  const hidden = new Set([...saved, ...ignored]);
+  const hidden = new Set([...saved, ...ignored].map((path) => resolve(path)));
   let worktrees = new Map<string, string>();
   const dbPath = options.opencodeDbPath ?? DEFAULT_OPENCODE_DB;
   if (existsSync(dbPath)) {

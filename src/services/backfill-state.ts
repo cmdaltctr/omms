@@ -122,14 +122,14 @@ export function unresolvedSessionCount(report: {
 /**
  * A host's unresolved session count without the sessions in ignored
  * directories, clamped at 0. Sessions with no recorded directory always count.
- * `ignored` holds resolved paths, as the config loader returns them.
+ * Both sides are compared in resolved form.
  */
 export function visibleUnresolvedCount(
   count: number,
   directories: readonly UnresolvedDirectory[],
   ignored: readonly string[]
 ): number {
-  const skip = new Set(ignored);
+  const skip = new Set(ignored.map((path) => resolve(path)));
   const hidden = directories
     .filter((item) => item.directory !== NO_DIRECTORY && skip.has(resolve(item.directory)))
     .reduce((sum, item) => sum + item.sessions, 0);
