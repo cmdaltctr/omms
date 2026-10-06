@@ -1,5 +1,6 @@
 import { expect, it } from "bun:test";
 import { EventEmitter } from "node:events";
+import { join } from "node:path";
 import {
   INSTALL_TIMEOUT_MS,
   npmFailureCode,
@@ -91,7 +92,8 @@ it("installs with the npm beside Node.js and restarts onto the new copy", async 
   await settle();
   expect(f.spawns).toEqual([
     {
-      command: "/opt/node/bin/npm",
+      // The runner joins with the platform separator; Windows uses `\\`.
+      command: join("/opt/node/bin", "npm"),
       args: ["install", "-g", "om-memory-system@4.10.0"],
       shell: false,
     },
