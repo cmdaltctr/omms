@@ -288,7 +288,7 @@ Saved maps SHALL keep applying after their sessions import, because every host r
 
 Each suggestion SHALL be either a map to an existing target directory or an ignore proposal. Each map suggestion SHALL carry a confidence: **exact**, **name**, or **guess**. For a missing directory, the page SHALL apply these rules in order and use the first that gives a result:
 
-1. **Not a project**: a directory inside a system temporary folder (`/tmp`, `/private/tmp`, `/private/var/folders`, or the operating system's temporary folder), with a `node_modules` part in its path, inside `~/Library/Application Support`, or inside a skills folder (`~/.agents/skills`, `~/.claude/skills`) SHALL get an ignore proposal with a reason.
+1. **Not a project**: a directory inside a system temporary folder (`/tmp`, `/private/tmp`, `/private/var/folders`, or the operating system's temporary folder), with a `node_modules` part in its path, inside `~/Library/Application Support`, or inside a skills folder (`~/.agents/skills`, or `skills` in Claude Code's folder: the `claudeConfigDir` setting, then `CLAUDE_CONFIG_DIR`, then `~/.claude`) SHALL get an ignore proposal with a reason.
 2. **Same remote**: when the memory store records the missing directory as a path of a project whose stored git remote equals the stored git remote of exactly one existing known project, the page SHALL suggest that project with exact confidence.
 3. **OpenCode record**: for OpenCode sessions, the project folder OpenCode recorded for the session's project, read without writing OpenCode's database, SHALL be suggested with exact confidence when it exists. When it does not exist, the page SHALL apply rules 2 to 6 to that recorded folder, and SHALL use the result with that rule's confidence.
 4. **Deleted worktree**: the existing directory whose name is the longest leading part of the missing directory's name or of one of its parent directories' names (for example `app` for `app-feat-x` or for `workspaces/app/feat-x`) SHALL be suggested with name confidence. When that candidate is a linked Git worktree, the page SHALL suggest its main working tree instead.
@@ -337,3 +337,8 @@ Known projects SHALL include existing project directories recorded in the memory
 
 - **WHEN** the page builds suggestions
 - **THEN** the memory store, OpenCode's database, Git metadata, and history files SHALL be unchanged
+
+#### Scenario: Skills in a moved Claude Code folder
+
+- **WHEN** `claudeConfigDir` is `~/.claude-work` and sessions were recorded in `~/.claude-work/skills/s-x`
+- **THEN** the page SHALL propose ignoring it, with a reason that names the skills folder

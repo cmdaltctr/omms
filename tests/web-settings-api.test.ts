@@ -89,6 +89,23 @@ describe("settings API", () => {
     expect(result.login.state).toBe("not-installed");
     expect(JSON.stringify(result.rows)).not.toContain("private-test-value");
   });
+  it("reads the memory store's projects at most once a minute for the Directory maps list", async () => {
+    const result = await scenario(`
+      const { join } = await import("node:path");
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "isolated-store");
+      const apiUrl = ${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/importer/web-import-api.ts")).href)};
+      const real = await import(apiUrl);
+      let reads = 0;
+      mock.module(apiUrl, () => ({ ...real, readStoreProjects: async () => { reads++; return []; } }));
+      const statuses = [];
+      for (let i = 0; i < 3; i++) statuses.push((await send("/api/settings/import-maps")).status);
+      return { reads, statuses };
+    `);
+    expect(result.statuses).toEqual([200, 200, 200]);
+    expect(result.reads).toBe(1);
+  });
+
   it("leaves ignored directories out of the backfill count and the Directory maps list alike", async () => {
     const result = await scenario(`
       const { join } = await import("node:path");

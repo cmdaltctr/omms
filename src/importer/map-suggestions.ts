@@ -28,8 +28,12 @@ function isDirectory(path: string): boolean {
   }
 }
 
-function isProject(path: string): boolean {
-  return PROJECT_MARKERS.some((marker) => existsSync(join(path, marker)));
+function isProject(path: string, projects?: Map<string, boolean>): boolean {
+  const cached = projects?.get(path);
+  if (cached !== undefined) return cached;
+  const found = PROJECT_MARKERS.some((marker) => existsSync(join(path, marker)));
+  projects?.set(path, found);
+  return found;
 }
 
 /** Windows paths can mix `\` and `/`, so both count as a separator here. */
@@ -124,10 +128,14 @@ function isRenameOf(candidate: string, missing: string): boolean {
 }
 
 /** Folders that never hold a project worth mapping. Pure path checks. */
-function notProjectReason(missing: string, home: string): IgnoreReason | null {
+function notProjectReason(
+  missing: string,
+  home: string,
+  claudeFolder = join(home, ".claude")
+): IgnoreReason | null {
   if (missing.split(/[\\/]/).includes("node_modules")) return "node_modules";
   if (isInside(missing, join(home, "Library", "Application Support"))) return "app-data";
-  const skills = [join(home, ".agents", "skills"), join(home, ".claude", "skills")];
+  const skills = [join(home, ".agents", "skills"), join(claudeFolder, "skills")];
   if (skills.some((folder) => isInside(missing, folder))) return "skills";
   const temporary = ["/tmp", "/private/tmp", "/private/var/folders", tmpdir()];
   if (!temporary.some((folder) => isInside(missing, folder))) return null;
@@ -144,8 +152,14 @@ export interface MapSuggestionContext {
   opencodeWorktree?: (directory: string) => string | null | undefined;
   /** The user's home folder; the search never climbs above it. Defaults to `homedir()`. */
   home?: string;
+  /** Claude Code's folder, from `resolveClaudeFolder`. Defaults to `<home>/.claude`. */
+  claudeFolder?: string;
   /** Folder listings already read in this request. */
   cache?: Map<string, string[]>;
+  /** Project-marker checks already made in this request. */
+  projects?: Map<string, boolean>;
+  /** Parent folders of the known projects, worked out once per request. */
+  searchRoots?: ReadonlySet<string>;
 }
 
 /** The one distinct target in `targets`, after resolving linked worktrees; null otherwise. */
@@ -202,7 +216,8 @@ function deletedWorktree(
   searchRoots: ReadonlySet<string>,
   blocked: ReadonlySet<string>,
   home: string,
-  cache?: Map<string, string[]>
+  cache?: Map<string, string[]>,
+  projects?: Map<string, boolean>
 ): string | null {
   let ancestor = missing;
   while (dirname(ancestor) !== ancestor && ancestor !== home) {
@@ -213,7 +228,7 @@ function deletedWorktree(
       if (blocked.has(parent)) continue;
       for (const candidate of childDirectories(parent, cache)) {
         if (candidate === ancestor || !isLeadingPart(basename(candidate), name)) continue;
-        if (!isProject(candidate)) continue;
+        if (!isProject(candidate, projects)) continue;
         const root = projectRoot(candidate);
         if (!root) continue;
         if (!best || basename(candidate).length > best.name.length) {
@@ -232,20 +247,32 @@ function renameGuess(
   missing: string,
   searchRoots: ReadonlySet<string>,
   blocked: ReadonlySet<string>,
-  cache?: Map<string, string[]>
+  cache?: Map<string, string[]>,
+  projects?: Map<string, boolean>
 ): string | null {
   const name = basename(missing);
   const candidates: string[] = [];
   for (const parent of new Set([dirname(missing), ...searchRoots])) {
     if (blocked.has(parent)) continue;
     for (const candidate of childDirectories(parent, cache)) {
-      if (isRenameOf(basename(candidate), name) && isProject(candidate)) candidates.push(candidate);
+      if (isRenameOf(basename(candidate), name) && isProject(candidate, projects)) {
+        candidates.push(candidate);
+      }
     }
   }
   return onlyTarget(candidates, missing);
 }
 
 type MapResult = Extract<MapSuggestion, { kind: "map" }>;
+
+/** The parent folders of existing known projects, searched for siblings. */
+function searchRootsOf(known: readonly KnownProject[]): Set<string> {
+  const roots = new Set<string>();
+  for (const project of known) {
+    if (isDirectory(project.path)) roots.add(dirname(project.path));
+  }
+  return roots;
+}
 
 /** Rules 4 to 6 for one missing directory, first result wins. */
 function suggestByName(
@@ -254,14 +281,18 @@ function suggestByName(
   home: string
 ): MapResult | null {
   const known = context.knownProjects ?? [];
-  const searchRoots = new Set<string>();
-  for (const project of known) {
-    if (isDirectory(project.path)) searchRoots.add(dirname(project.path));
-  }
+  const searchRoots = context.searchRoots ?? searchRootsOf(known);
   // Never list the filesystem root or the folder that holds every home folder,
   // and stop at the home folder itself: broad scans suggest unrelated folders.
   const blocked = new Set([parse(missing).root, dirname(home)]);
-  const worktree = deletedWorktree(missing, searchRoots, blocked, home, context.cache);
+  const worktree = deletedWorktree(
+    missing,
+    searchRoots,
+    blocked,
+    home,
+    context.cache,
+    context.projects
+  );
   if (worktree) return { kind: "map", target: worktree, confidence: "name" };
   const moved = onlyTarget(
     known
@@ -270,7 +301,7 @@ function suggestByName(
     missing
   );
   if (moved) return { kind: "map", target: moved, confidence: "name" };
-  const renamed = renameGuess(missing, searchRoots, blocked, context.cache);
+  const renamed = renameGuess(missing, searchRoots, blocked, context.cache, context.projects);
   if (renamed) return { kind: "map", target: renamed, confidence: "guess" };
   return null;
 }
@@ -289,7 +320,7 @@ export function suggestMapTarget(
   context: MapSuggestionContext = {}
 ): MapSuggestion | null {
   const home = context.home ?? homedir();
-  const reason = notProjectReason(missing, home);
+  const reason = notProjectReason(missing, home, context.claudeFolder);
   if (reason) return { kind: "ignore", reason };
   const known = context.knownProjects ?? [];
   const byRemote = (path: string): MapResult | null => {
@@ -316,7 +347,12 @@ export function suggestMapTargets(
   directories: readonly UnresolvedDirectory[],
   context: MapSuggestionContext = {}
 ): SuggestedDirectory[] {
-  const withCache = { ...context, cache: context.cache ?? new Map<string, string[]>() };
+  const withCache = {
+    ...context,
+    cache: context.cache ?? new Map<string, string[]>(),
+    projects: context.projects ?? new Map<string, boolean>(),
+    searchRoots: context.searchRoots ?? searchRootsOf(context.knownProjects ?? []),
+  };
   return directories.map((item) => ({
     ...item,
     // Sessions with no recorded directory have nothing to map.
@@ -376,6 +412,8 @@ export async function directoryMapsView(
   const { CONFIG } = await import("../config.js");
   const { readUnresolvedDirectories } = await import("../services/backfill-state.js");
   const { DEFAULT_OPENCODE_DB } = await import("./opencode-reader.js");
+  const { resolveClaudeFolder } = await import("../services/claude-folder.js");
+  const claudeFolder = resolveClaudeFolder(CONFIG.claudeConfigDir).folder;
   const saved = new Set(CONFIG.importPathMaps.map((map) => map.from));
   // Older config stubs in tests have no list.
   const ignored = CONFIG.importIgnoredDirectories ?? [];
@@ -397,6 +435,7 @@ export async function directoryMapsView(
     );
     return suggestMapTargets(pending, {
       knownProjects,
+      claudeFolder,
       ...(name === "opencode" ? { opencodeWorktree: (dir: string) => worktrees.get(dir) } : {}),
     });
   };

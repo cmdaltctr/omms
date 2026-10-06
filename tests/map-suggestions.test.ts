@@ -158,6 +158,28 @@ describe("the suggestion rules", () => {
     expect(reason(join(home, "code", "notes"))).toBeNull();
   });
 
+  it("treats skills in Claude Code's configured folder as not a project", () => {
+    const home = root();
+    const claudeFolder = join(home, ".claude-work");
+    const skills = { kind: "ignore", reason: "skills" };
+    expect(suggestMapTarget(join(claudeFolder, "skills", "s-x"), { home, claudeFolder })).toEqual(
+      skills
+    );
+    // Without a configured folder, the default ~/.claude still counts.
+    expect(suggestMapTarget(join(home, ".claude", "skills", "s-x"), { home })).toEqual(skills);
+    expect(suggestMapTarget(join(claudeFolder, "skills", "s-x"), { home })).toBeNull();
+  });
+
+  it("reuses project checks within one request", () => {
+    const home = root();
+    const app = repo(join(home, "code", "app"));
+    const rows = [{ directory: join(home, "code", "app-feat-x"), sessions: 1 }];
+    expect(suggestMapTargets(rows, { home })[0].suggestion).toEqual(map(app, "name"));
+    // A folder already checked in this request is not read from disk again.
+    const projects = new Map([[app, false]]);
+    expect(suggestMapTargets(rows, { home, projects })[0].suggestion).toBeNull();
+  });
+
   it("matches folders whatever separator a recorded path uses", () => {
     // Windows paths can mix separators, such as `C:\\Users\\me/.agents/skills/x`.
     const home = "C:\\Users\\me";

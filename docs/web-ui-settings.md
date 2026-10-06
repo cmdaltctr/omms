@@ -479,7 +479,7 @@ A directory map tells OMMS which project a folder belongs to. Use it when chats 
 
 For each missing folder, OMMS tries these rules in order. The first rule with a result wins.
 
-1. **Not a project.** A folder under `/tmp`, `/private/tmp`, `/private/var/folders`, or the system temporary folder, a path with a `node_modules` part, a folder under `~/Library/Application Support`, or a folder under `~/.agents/skills` or `~/.claude/skills` gets an ignore proposal with its reason.
+1. **Not a project.** A folder under `/tmp`, `/private/tmp`, `/private/var/folders`, or the system temporary folder, a path with a `node_modules` part, a folder under `~/Library/Application Support`, or a folder under `~/.agents/skills` or the `skills` folder of Claude Code's folder gets an ignore proposal with its reason. Claude Code's folder is the `claudeConfigDir` setting, then `CLAUDE_CONFIG_DIR`, then `~/.claude`.
 2. **Same remote.** The memory store records the missing folder for a project with a git remote. When exactly one existing project has the same remote, OMMS suggests it. Confidence: **Exact**.
 3. **OpenCode record.** For OpenCode, the project folder that OpenCode recorded for the session. Confidence: **Exact**. When that folder is also missing, OMMS applies rules 2 to 6 to it.
 4. **Deleted worktree.** The main repository of a deleted worktree. For `~/code/app-feat-x` or `~/workspaces/app/feat-x`, it suggests `~/code/app`. A live linked worktree is never the target: OMMS reads its `.git` file and suggests the main repository. Confidence: **Name match**.

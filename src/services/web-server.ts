@@ -258,6 +258,11 @@ export class WebServer {
   private readonly maxFallbackPort: number;
   private settingsImportJobs?: import("../importer/web-import-jobs.js").SettingsImportJobs;
   private backfillControlsInstance?: import("../importer/web-import-api.js").BackfillControls;
+  /** The memory store's projects for Directory maps suggestions, read at most once a minute. */
+  private storeProjects?: {
+    readAt: number;
+    projects: Promise<import("../importer/web-import-api.js").KnownProject[]>;
+  };
 
   /** Run an import-page action; errors carry their own status and never file contents. */
   private async importResponse(action: () => unknown, status = 200): Promise<Response> {
@@ -964,11 +969,12 @@ export class WebServer {
           { CONFIG },
           { readBackfillStatus, readUnresolvedDirectories, visibleUnresolvedCount },
         ] = await Promise.all([import("../config.js"), import("./backfill-state.js")]);
-        // Read at request time, so an Ignore click changes every badge at once.
+        // Read at request time from the Directory maps list, so the badge and the
+        // list agree and an Ignore click changes every badge at once.
         const ignored = CONFIG.importIgnoredDirectories ?? [];
         const status = async (host: "pi" | "opencode" | "claude-code") => {
           const current = await readBackfillStatus(host);
-          if (!current || !ignored.length) return current;
+          if (!current) return current;
           const directories = await readUnresolvedDirectories(host);
           const unresolved = visibleUnresolvedCount(
             current.counts.unresolved,
@@ -1174,7 +1180,14 @@ export class WebServer {
       if (path === "/api/settings/import-maps" && method === "GET") {
         const { directoryMapsView, readStoreProjects } =
           await import("../importer/web-import-api.js");
-        const knownProjects = await readStoreProjects(this.config.directory ?? process.cwd());
+        // Every save on the page reloads this list; the store's projects rarely change.
+        if (!this.storeProjects || Date.now() - this.storeProjects.readAt > 60_000) {
+          this.storeProjects = {
+            readAt: Date.now(),
+            projects: readStoreProjects(this.config.directory ?? process.cwd()),
+          };
+        }
+        const knownProjects = await this.storeProjects.projects;
         return this.jsonResponse(await directoryMapsView({ knownProjects }));
       }
 

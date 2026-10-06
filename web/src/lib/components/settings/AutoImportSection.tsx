@@ -19,6 +19,7 @@ import { hostLabel } from "$lib/host-label";
 import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import { revealDirectoryMaps } from "$lib/directory-map-navigation";
+import { latestReply } from "$lib/latest-reply";
 
 type Snapshot = {
   revision: string;
@@ -63,6 +64,9 @@ export function AutoImportSection() {
   const openSet = useRef(false);
   const polling =
     shouldPollBackfill(rows) || HOSTS.some((host) => runs?.[host]?.run?.state === "running");
+  // Mount, snapshot, and poll reads overlap; only the newest reply counts.
+  const rowsReply = useRef(latestReply<Rows>(setRows, (error) => setMessage(error.message)));
+  const loadRows = () => rowsReply.current(settingsRequest<Rows>("/api/settings/backfill"));
   const loadRuns = () =>
     settingsRequest<Runs>("/api/settings/backfill/runs")
       .then(setRuns)
@@ -76,13 +80,7 @@ export function AutoImportSection() {
       .catch((error: Error) => {
         if (active) setMessage(error.message);
       });
-    void settingsRequest<Rows>("/api/settings/backfill")
-      .then((value) => {
-        if (active) setRows(value);
-      })
-      .catch((error: Error) => {
-        if (active) setMessage(error.message);
-      });
+    void loadRows();
     void loadRuns();
     // Claude Code has no backfill model setting, so it has no model list.
     for (const host of ["pi", "opencode"] as const) {
@@ -98,11 +96,7 @@ export function AutoImportSection() {
       if (!active) return;
       setSnapshot(value as Snapshot);
       // A save such as Ignore can change the unresolved counts the server reports.
-      void settingsRequest<Rows>("/api/settings/backfill")
-        .then((next) => {
-          if (active) setRows(next);
-        })
-        .catch(() => {});
+      void loadRows();
     });
     return () => {
       active = false;
@@ -114,14 +108,9 @@ export function AutoImportSection() {
     if (!polling) return;
     let active = true;
     const timer = setInterval(() => {
-      void settingsRequest<Rows>("/api/settings/backfill")
-        .then((value) => {
-          if (active) setRows(value);
-        })
-        .catch((error: Error) => {
-          if (active) setMessage(error.message);
-        });
-      if (active) void loadRuns();
+      if (!active) return;
+      void loadRows();
+      void loadRuns();
     }, 3000);
     return () => {
       active = false;

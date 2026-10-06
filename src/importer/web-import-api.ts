@@ -8,6 +8,6 @@ export { listImportSessions, validateSessionListRequest } from "./import-session
 export { opencodeSnapshots, sweepOrphanSnapshots } from "./opencode-snapshot.js";
 export { stopStandaloneOpencodeReads } from "./opencode-standalone-models.js";
 export { BackfillControls } from "./backfill-controls.js";
-export { directoryMapsView, readStoreProjects } from "./map-suggestions.js";
+export { directoryMapsView, readStoreProjects, type KnownProject } from "./map-suggestions.js";
 export { testExternalApi } from "./external-api-test.js";
 export { catchUpState, pauseCatchUp, previewCatchUp, startCatchUp } from "./profile-catch-up.js";
