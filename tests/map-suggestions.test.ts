@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { CONFIG } from "../src/config.js";
 import {
   directoryMapsView,
@@ -158,6 +158,42 @@ describe("the suggestion rules", () => {
     expect(reason(join(home, "code", "notes"))).toBeNull();
   });
 
+  it("matches folders whatever separator a recorded path uses", () => {
+    // Windows paths can mix separators, such as `C:\\Users\\me/.agents/skills/x`.
+    const home = "C:\\Users\\me";
+    expect(suggestMapTarget("C:\\Users\\me\\.agents\\skills\\s-x", { home })).toEqual({
+      kind: "ignore",
+      reason: "skills",
+    });
+    expect(suggestMapTarget("C:\\Users\\me/.claude/skills/s-x", { home })).toEqual({
+      kind: "ignore",
+      reason: "skills",
+    });
+    expect(suggestMapTarget("/private/tmp\\pi-verify-repo", { home })).toEqual({
+      kind: "ignore",
+      reason: "temporary",
+    });
+  });
+
+  it("flags a temporary folder inside the home folder, as on Windows", () => {
+    // Windows keeps its temporary folder under the home folder (AppData\\Local\\Temp).
+    const temp = tmpdir();
+    const home = dirname(dirname(temp));
+    expect(suggestMapTarget(join(temp, "scratch-123"), { home })).toEqual({
+      kind: "ignore",
+      reason: "temporary",
+    });
+  });
+
+  it("maps to a new location the store recorded for the same project", () => {
+    const home = root();
+    const old = join(home, "old", "app");
+    const renamed = repo(join(home, "new", "app-renamed"));
+    const remote = "git@example.com:me/app.git";
+    const knownProjects = [{ path: old, candidates: [old, renamed], remote }];
+    expect(suggestMapTarget(old, { home, knownProjects })).toEqual(map(renamed, "exact"));
+  });
+
   it("maps to the one existing project with the same stored remote", () => {
     const home = root();
     const old = join(home, "old", "tool");
@@ -270,7 +306,8 @@ describe("the Directory maps view", () => {
         { directory: "/x/scratch", sessions: 6 },
         { directory: "/x/kept", sessions: 4 },
       ]);
-      await recordUnresolvedDirectories("claude-code", [{ directory: "/x/scratch", sessions: 1 }]);
+      // A recorded path with a trailing separator is the same folder.
+      await recordUnresolvedDirectories("claude-code", [{ directory: "/x/scratch/", sessions: 1 }]);
       const view = await directoryMapsView({ opencodeDbPath: join(storage, "none.db") });
       expect(view.ignored).toEqual(["/x/scratch"]);
       expect(view.pi.map((item) => item.directory)).toEqual(["/x/kept"]);

@@ -505,3 +505,16 @@ it("saves removals only through Save removals", async () => {
   expect(decisions()["/pi-old"]).toEqual({ directory: "/pi-old", target: "/unsaved" });
   expect(tree().some((node) => text(node.props.children) === "Save maps")).toBe(false);
 });
+
+it("restores an ignored directory written in another form in the config file", async () => {
+  ignored = ["/scratch"];
+  await mount();
+  // The file holds "/scratch/"; the server shows the resolved "/scratch".
+  publishSettingsSnapshot({
+    revision: "rev-1",
+    settings: { importIgnoredDirectories: { globalValue: ["/scratch/"] } },
+  });
+  click(button("Restore"));
+  await flush();
+  expect(patches()[0].body!.edits).toEqual({ importIgnoredDirectories: [] });
+});

@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { CONFIG } from "../config.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { safeHealthError } from "./safe-health-error.js";
@@ -122,6 +122,7 @@ export function unresolvedSessionCount(report: {
 /**
  * A host's unresolved session count without the sessions in ignored
  * directories, clamped at 0. Sessions with no recorded directory always count.
+ * `ignored` holds resolved paths, as the config loader returns them.
  */
 export function visibleUnresolvedCount(
   count: number,
@@ -130,7 +131,7 @@ export function visibleUnresolvedCount(
 ): number {
   const skip = new Set(ignored);
   const hidden = directories
-    .filter((item) => item.directory !== NO_DIRECTORY && skip.has(item.directory))
+    .filter((item) => item.directory !== NO_DIRECTORY && skip.has(resolve(item.directory)))
     .reduce((sum, item) => sum + item.sessions, 0);
   return Math.max(0, count - hidden);
 }

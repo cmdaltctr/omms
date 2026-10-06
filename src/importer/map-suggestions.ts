@@ -32,8 +32,12 @@ function isProject(path: string): boolean {
   return PROJECT_MARKERS.some((marker) => existsSync(join(path, marker)));
 }
 
+/** Windows paths can mix `\` and `/`, so both count as a separator here. */
 function isInside(path: string, folder: string): boolean {
-  return path === folder || path.startsWith(folder.endsWith(sep) ? folder : `${folder}${sep}`);
+  const slashes = (value: string) => value.replace(/\\/g, "/").replace(/\/+$/, "");
+  const inner = slashes(path);
+  const outer = slashes(folder);
+  return inner === outer || inner.startsWith(`${outer}/`);
 }
 
 /**
@@ -125,11 +129,12 @@ function notProjectReason(missing: string, home: string): IgnoreReason | null {
   if (isInside(missing, join(home, "Library", "Application Support"))) return "app-data";
   const skills = [join(home, ".agents", "skills"), join(home, ".claude", "skills")];
   if (skills.some((folder) => isInside(missing, folder))) return "skills";
-  // A home folder never sits in a temporary folder outside tests, so a path
-  // inside it is never temporary.
-  if (isInside(missing, home)) return null;
   const temporary = ["/tmp", "/private/tmp", "/private/var/folders", tmpdir()];
-  return temporary.some((folder) => isInside(missing, folder)) ? "temporary" : null;
+  if (!temporary.some((folder) => isInside(missing, folder))) return null;
+  // A test home sits in a temporary folder; its projects are not temporary.
+  // Windows is the other way round: its temporary folder sits in the home folder.
+  const homeIsTemporary = temporary.some((folder) => isInside(home, folder));
+  return homeIsTemporary && isInside(missing, home) ? null : "temporary";
 }
 
 export interface MapSuggestionContext {
@@ -165,7 +170,7 @@ function sameRemote(missing: string, known: readonly KnownProject[]): string | n
   if (!remotes.size) return null;
   const matches = known.filter((project) => project.remote && remotes.has(project.remote));
   return onlyTarget(
-    matches.map((project) => project.path),
+    matches.flatMap((project) => [project.path, ...(project.candidates ?? [])]),
     missing
   );
 }
@@ -276,7 +281,7 @@ export function suggestMapTarget(
   const remote = byRemote(missing);
   if (remote) return remote;
   const recorded = context.opencodeWorktree?.(missing);
-  if (recorded && recorded !== "/") {
+  if (recorded && recorded !== "/" && recorded !== missing) {
     if (isDirectory(recorded)) return { kind: "map", target: recorded, confidence: "exact" };
     // One level deep: the recorded folder is gone too.
     const followed = byRemote(recorded) ?? suggestByName(recorded, context, home);
@@ -369,7 +374,8 @@ export async function directoryMapsView(
   ];
   const host = async (name: "pi" | "opencode" | "claude-code") => {
     const pending = (await readUnresolvedDirectories(name)).filter(
-      (item) => !hidden.has(item.directory)
+      // Config paths are resolved; a recorded path may carry a trailing separator.
+      (item) => !item.directory || !hidden.has(resolve(item.directory))
     );
     return suggestMapTargets(pending, {
       knownProjects,

@@ -111,6 +111,10 @@ it("leaves ignored directories out of the unresolved count", () => {
   expect(visibleUnresolvedCount(10, directories, ["/x/scratch"])).toBe(4);
   // No directory recorded sessions cannot be ignored, even by an empty path.
   expect(visibleUnresolvedCount(10, directories, ["/x/scratch", NO_DIRECTORY])).toBe(4);
+  // A recorded path is compared in its resolved form.
+  expect(
+    visibleUnresolvedCount(10, [{ directory: "/x/scratch/", sessions: 6 }], ["/x/scratch"])
+  ).toBe(4);
   // A stale count never goes below zero.
   expect(visibleUnresolvedCount(3, directories, ["/x/scratch"])).toBe(0);
 });

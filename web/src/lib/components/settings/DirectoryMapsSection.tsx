@@ -21,10 +21,7 @@ import { Button } from "$lib/components/ui/button";
 
 type Snapshot = {
   revision: string;
-  settings?: {
-    importPathMaps?: { globalValue?: PathMap[] };
-    importIgnoredDirectories?: { globalValue?: string[] };
-  };
+  settings?: { importPathMaps?: { globalValue?: PathMap[] } };
 };
 type Host = "pi" | "opencode" | "claude-code";
 type Suggested = SuggestedDirectory;
@@ -89,8 +86,9 @@ export function DirectoryMapsSection() {
   }
 
   const savedMaps = () => snapshot?.settings?.importPathMaps?.globalValue ?? view?.saved ?? [];
-  const ignoredList = () =>
-    snapshot?.settings?.importIgnoredDirectories?.globalValue ?? view?.ignored ?? [];
+  // The server's list holds resolved paths, the same form as the rows and
+  // Restore use; the raw file may hold "~/x" or a trailing separator.
+  const ignoredList = () => view?.ignored ?? [];
 
   /** Save removals, Ignore, and Restore: one immediate save, then a fresh list. */
   async function saveNow(
