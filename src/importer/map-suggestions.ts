@@ -170,9 +170,27 @@ function sameRemote(missing: string, known: readonly KnownProject[]): string | n
   if (!remotes.size) return null;
   const matches = known.filter((project) => project.remote && remotes.has(project.remote));
   return onlyTarget(
-    matches.flatMap((project) => [project.path, ...(project.candidates ?? [])]),
+    matches.flatMap((project) => [
+      project.path,
+      // An older recorded folder may now hold another project, so it must still have the remote.
+      ...(project.candidates ?? []).filter((path) => {
+        const root = isDirectory(path) ? projectRoot(path) : null;
+        return root !== null && originUrl(root) === project.remote;
+      }),
+    ]),
     missing
   );
+}
+
+/** `remote.origin.url` from a repository's `.git/config`, read without starting `git`. */
+function originUrl(root: string): string | null {
+  try {
+    const config = readFileSync(join(root, ".git", "config"), "utf8");
+    const origin = /\[remote "origin"\]([^[]*)/.exec(config)?.[1] ?? "";
+    return /^\s*url\s*=\s*(.+?)\s*$/m.exec(origin)?.[1] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**

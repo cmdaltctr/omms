@@ -185,13 +185,19 @@ describe("the suggestion rules", () => {
     });
   });
 
-  it("maps to a new location the store recorded for the same project", () => {
+  it("maps to a new location the store recorded, only while its remote still matches", () => {
     const home = root();
     const old = join(home, "old", "app");
     const renamed = repo(join(home, "new", "app-renamed"));
     const remote = "git@example.com:me/app.git";
+    const origin = (url: string) =>
+      writeFileSync(join(renamed, ".git", "config"), `[remote "origin"]\n\turl = ${url}\n`);
     const knownProjects = [{ path: old, candidates: [old, renamed], remote }];
+    origin(remote);
     expect(suggestMapTarget(old, { home, knownProjects })).toEqual(map(renamed, "exact"));
+    // Another project now uses the recorded folder: no exact map to it.
+    origin("git@example.com:someone/other.git");
+    expect(suggestMapTarget(old, { home, knownProjects })?.kind).not.toBe("map");
   });
 
   it("maps to the one existing project with the same stored remote", () => {

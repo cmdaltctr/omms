@@ -106,11 +106,27 @@ export function DirectoryMapsSection() {
       });
     } catch (error) {
       const conflict = error instanceof SettingsRequestError && error.status === 409;
-      setMessage(conflict ? "Settings changed elsewhere. Reload settings and try again." : failed);
-      await reloadSettingsSnapshot<Snapshot>();
-      saving.current = false;
-      setBusy(false);
-      return false;
+      try {
+        if (!conflict) {
+          setMessage(failed);
+          await reloadSettingsSnapshot<Snapshot>();
+          return false;
+        }
+        setMessage("Settings changed elsewhere. Check the list and try again.");
+        // The next save builds on the server's list, so it must be the newer one.
+        try {
+          await refreshReview();
+        } catch {
+          setRefreshNeeded("conflict");
+          setMessage(
+            "Settings changed elsewhere and could not be refreshed. Refresh the list, then try again."
+          );
+        }
+        return false;
+      } finally {
+        saving.current = false;
+        setBusy(false);
+      }
     }
     setMessage(done);
     try {

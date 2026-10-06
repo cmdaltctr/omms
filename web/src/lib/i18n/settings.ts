@@ -768,9 +768,13 @@ const text = {
       "احتفظ بالخريطة بعد استيراد جلساتها. يفحص كل استيراد الخريطة قبل أن يتجاوز جلسة، لذا فإن حذف الخريطة يجعل جلساتها غير محلولة مجدداً في التشغيل التالي.",
     ],
   "Save removals": ["保存删除", "حفظ عمليات الحذف"],
-  "Settings changed elsewhere. Reload settings and try again.": [
-    "设置已在其他位置更改。请重新加载设置后再试。",
-    "تغيّرت الإعدادات في مكان آخر. أعد تحميل الإعدادات، ثم حاول مجدداً.",
+  "Settings changed elsewhere. Check the list and try again.": [
+    "设置已在其他位置更改。请检查列表后再试。",
+    "تغيّرت الإعدادات في مكان آخر. راجع القائمة، ثم حاول مجدداً.",
+  ],
+  "Settings changed elsewhere and could not be refreshed. Refresh the list, then try again.": [
+    "设置已在其他位置更改，且无法刷新。请刷新列表后再试。",
+    "تغيّرت الإعدادات في مكان آخر وتعذّر تحديثها. حدّث القائمة، ثم حاول مجدداً.",
   ],
   "Saved. Removed maps stop applying at the next import or backfill run.": [
     "已保存。删除的映射将从下一次导入或回填起不再生效。",

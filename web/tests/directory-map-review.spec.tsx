@@ -518,3 +518,51 @@ it("restores an ignored directory written in another form in the config file", a
   await flush();
   expect(patches()[0].body!.edits).toEqual({ importIgnoredDirectories: [] });
 });
+
+it("refreshes the list after a conflicting Ignore, so a retry keeps ignores saved elsewhere", async () => {
+  await mount();
+  let conflict = true;
+  reply = (call) => {
+    if (call.method === "PATCH" && conflict) {
+      conflict = false;
+      revision = "rev-newer";
+      ignored = ["/elsewhere"];
+      return Response.json({ error: "Changed elsewhere" }, { status: 409 });
+    }
+    return defaultReply(call);
+  };
+  (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
+  await flush();
+  (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
+  await flush();
+  expect(patches()).toHaveLength(2);
+  expect(patches()[1].body).toEqual({
+    revision: "rev-newer",
+    edits: { importIgnoredDirectories: ["/elsewhere", "/missing"] },
+  });
+});
+
+it("blocks Ignore after a conflict until the list is refreshed", async () => {
+  await mount();
+  let offline = false;
+  reply = (call) => {
+    if (call.method === "PATCH") {
+      offline = true;
+      return Response.json({ error: "Changed elsewhere" }, { status: 409 });
+    }
+    if (offline && call.url === "/api/settings/import-maps")
+      return Response.json({ error: "Offline" }, { status: 503 });
+    return defaultReply(call);
+  };
+  (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
+  await flush();
+  expect(host("pi").props.busy).toBe(true);
+  (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
+  await flush();
+  expect(patches()).toHaveLength(1);
+  offline = false;
+  reply = defaultReply;
+  click(button("Refresh list"));
+  await flush();
+  expect(host("pi").props.busy).toBe(false);
+});
