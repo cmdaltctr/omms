@@ -67,10 +67,8 @@ export function AutoImportSection() {
   // Mount, snapshot, and poll reads overlap; only the newest reply counts.
   const rowsReply = useRef(latestReply<Rows>(setRows, (error) => setMessage(error.message)));
   const loadRows = () => rowsReply.current(settingsRequest<Rows>("/api/settings/backfill"));
-  const loadRuns = () =>
-    settingsRequest<Runs>("/api/settings/backfill/runs")
-      .then(setRuns)
-      .catch((error: Error) => setMessage(error.message));
+  const runsReply = useRef(latestReply<Runs>(setRuns, (error) => setMessage(error.message)));
+  const loadRuns = () => runsReply.current(settingsRequest<Runs>("/api/settings/backfill/runs"));
   useEffect(() => {
     let active = true;
     void settingsRequest<Snapshot>("/api/settings")

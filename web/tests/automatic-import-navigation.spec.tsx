@@ -113,6 +113,10 @@ it("keeps exchange progress, profile progress, and polling", () => {
   expect(source).toContain("setInterval(");
   expect(source).toContain("3000");
   expect(source).toContain("onClick={() => revealDirectoryMaps(host)}");
+  // Polls and control-action refreshes overlap: only the newest reply sets state.
+  expect(source).toContain("latestReply<Rows>(");
+  expect(source).toContain("latestReply<Runs>(");
+  expect(source).not.toMatch(/\.then\(setRuns\)/);
 });
 
 it("puts each host card in a collapsed disclosure with a one-line status", () => {
