@@ -21,8 +21,10 @@ The restart check accepted any OMMS web app on the port as its copy. An older st
 
 ## Decision
 
-- `createPowerAction` gives the copy an instance ID through `OMMS_WEB_INSTANCE`. The web server reports it as `instance` on `/api/web/status` and removes the variable from its environment.
-- The handoff exits only when `/api/web/status` reports that ID. It asks an older owner to step aside once, and then gives the copy a new 15 seconds. For a same or newer owner, it stops the copy, logs `other-owner`, and exits.
+- `createPowerAction` gives the copy an instance ID through `OMMS_WEB_INSTANCE`. The web server reports it as `instance` on `/api/health` and `/api/web/status`, and removes the variable from its environment.
+- The handoff exits only when `/api/health` reports that ID. Health skips basic auth, so this works with `webServerAuth` on. The version comes from `/api/web/status`.
+- It asks each older owner to step aside once, by instance, and then gives the copy a new 15 seconds. For a same or newer owner, or one whose version it cannot read, it stops the copy, logs `other-owner`, and exits.
+- It reads its own version from disk at restart time, so an in-place upgrade compares as the new version.
 - A standalone waiter reads the owner version on each 5-second check. When the owner is newer, it runs its step-aside callback and exits with code `0`.
 
 ## Consequences
@@ -31,11 +33,11 @@ A restart ends with its own copy or a web app of the same or a newer version on 
 
 ## Alternatives Considered
 
-| Option                               | Rejected Because                                                                 |
-| ------------------------------------ | -------------------------------------------------------------------------------- |
-| Kill every OMMS process on restart   | Needs a process registry. A web app inside OpenCode would take the session down. |
-| Add the instance to `/api/health`    | Health has no auth. The status route already reports the instance.               |
-| Keep the health probe, add a version | A same-version waiter would still pass as the copy.                              |
+| Option                                        | Rejected Because                                                                                                                                                               |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Kill every OMMS process on restart            | Needs a process registry. A web app inside OpenCode would take the session down.                                                                                               |
+| Read the instance only from `/api/web/status` | Basic auth blocks it for a token-only caller, so every restart would fail with `webServerAuth` on. The instance is opaque, so health carries it; the version stays off health. |
+| Keep the health probe, add a version          | A same-version waiter would still pass as the copy.                                                                                                                            |
 
 ## How to Recognise / Handle This Again
 

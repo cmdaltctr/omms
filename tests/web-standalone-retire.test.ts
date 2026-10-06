@@ -14,7 +14,7 @@ async function waiterOutcome(version: string): Promise<number | string> {
   const home = mkdtempSync(join(tmpdir(), "omms-web-retire-"));
   const owner = createServer((req, res) => {
     res.setHeader("Content-Type", "application/json");
-    if (req.url === "/api/settings/version") res.end(JSON.stringify({ running: version }));
+    if (req.url === "/api/web/status") res.end(JSON.stringify({ version, canControl: false }));
     else res.end(JSON.stringify({ success: true, status: "ok" }));
   });
   await new Promise<void>((resolve) => owner.listen(0, "127.0.0.1", resolve));

@@ -735,10 +735,17 @@ export class WebServer {
   }
 
   private async ownerIsNewer(): Promise<boolean> {
-    const { readWebVersion } = await import("./web-handover.js");
-    const headers = { [AUTH_HEADER]: getOrCreateAuthToken() };
-    const owner = await readWebVersion(fetch, this.getUrl(), headers);
-    return owner !== null && isOlderVersion(packageVersion(), owner);
+    try {
+      const response = await fetch(`${this.getUrl()}/api/web/status`, {
+        headers: { [AUTH_HEADER]: getOrCreateAuthToken() },
+        signal: AbortSignal.timeout(2_000),
+      });
+      if (!response.ok) return false;
+      const { version } = (await response.json()) as { version?: unknown };
+      return typeof version === "string" && isOlderVersion(packageVersion(), version);
+    } catch {
+      return false;
+    }
   }
 
   private stopHealthCheckLoop(): void {
@@ -948,6 +955,8 @@ export class WebServer {
           success: true,
           status: "ok",
           authEnabled: auth?.isEnabled() ?? false,
+          // Opaque per process; a restart finds its copy by it even behind basic auth.
+          instance: PROCESS_INSTANCE,
         });
       }
 

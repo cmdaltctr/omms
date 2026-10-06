@@ -42,14 +42,17 @@ export interface PowerDeps {
   writeStartLock: (pid: number) => void | Promise<void>;
   /** Remove the start lock when it names `pid`. */
   removeStartLock: (pid: number) => void | Promise<void>;
-  /** The OMMS web app that answers at `baseUrl`, or null when none does. */
-  readOwner: (baseUrl: string) => Promise<{ instance: string; version: string } | null>;
+  /**
+   * The OMMS web app that answers at `baseUrl`, or null when none does. The
+   * version is null when this process may not read it, for example behind basic auth.
+   */
+  readOwner: (baseUrl: string) => Promise<{ instance: string; version: string | null } | null>;
   /** Ask the web app at `baseUrl` to step aside for `version`. True when it agrees. */
   stepAside: (baseUrl: string, version: string) => Promise<boolean>;
   /** The instance id the copy reports, so the handoff knows its own copy. */
   newInstance: () => string;
-  /** The version of this web app. */
-  version: string;
+  /** The version on disk now; an in-place upgrade changes it after this process started. */
+  version: () => string;
   env: NodeJS.ProcessEnv;
   sleep: (ms: number) => Promise<void>;
   now: () => number;
@@ -62,10 +65,15 @@ export interface PowerDeps {
   log: (message: string, data: Record<string, unknown>) => void | Promise<void>;
 }
 
-/** The web app runs on this machine, so the local token file is enough. */
-async function localTokenHeader(): Promise<Record<string, string>> {
-  const { AUTH_HEADER, getOrCreateAuthToken } = await import("../services/auth-token.js");
-  return { [AUTH_HEADER]: getOrCreateAuthToken() };
+let tokenHeader: Promise<Record<string, string>> | null = null;
+/** The web app runs on this machine, so the local token file is enough. Read once. */
+function localTokenHeader(): Promise<Record<string, string>> {
+  tokenHeader ??= import("../services/auth-token.js").then(
+    ({ AUTH_HEADER, getOrCreateAuthToken }) => ({
+      [AUTH_HEADER]: getOrCreateAuthToken(),
+    })
+  );
+  return tokenHeader;
 }
 
 function productionDeps(options: WebAutostartOptions): PowerDeps {
@@ -80,17 +88,26 @@ function productionDeps(options: WebAutostartOptions): PowerDeps {
     removeStartLock: async (pid) =>
       (await import("../services/web-ensure.js")).removeStartLockFor(pid),
     readOwner: async (baseUrl) => {
+      // Health skips basic auth, so a restart can find its copy with basic auth on.
+      let instance: string;
+      try {
+        const health = await fetch(`${baseUrl}/api/health`, { signal: AbortSignal.timeout(1_000) });
+        const body = (await health.json()) as { instance?: unknown };
+        if (!health.ok || typeof body.instance !== "string") return null;
+        instance = body.instance;
+      } catch {
+        return null;
+      }
       try {
         const response = await fetch(`${baseUrl}/api/web/status`, {
           headers: await localTokenHeader(),
           signal: AbortSignal.timeout(1_000),
         });
-        if (!response.ok) return null;
-        const body = (await response.json()) as { instance?: unknown; version?: unknown };
-        if (typeof body.instance !== "string" || typeof body.version !== "string") return null;
-        return { instance: body.instance, version: body.version };
+        const body = (await response.json()) as { version?: unknown };
+        const version = response.ok && typeof body.version === "string" ? body.version : null;
+        return { instance, version };
       } catch {
-        return null;
+        return { instance, version: null };
       }
     },
     stepAside: async (baseUrl, version) => {
@@ -107,7 +124,7 @@ function productionDeps(options: WebAutostartOptions): PowerDeps {
       }
     },
     newInstance: () => randomUUID(),
-    version: packageVersion(),
+    version: () => packageVersion(),
     env: process.env,
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     now: () => Date.now(),
@@ -176,19 +193,21 @@ export function createPowerAction(options: {
     }
     // The copy waits as a non-owner and takes the port within about 7 seconds.
     let began = deps.now();
-    let askedAside = false;
+    // Each older owner is asked once; another older waiter can take the port after it.
+    const askedAside = new Set<string>();
     while (deps.now() - began < HANDOFF_WAIT_MS) {
       if (exited) return giveUp("copy-exit", copyPid);
       const owner = await deps.readOwner(options.baseUrl);
       if (owner?.instance === instance) return deps.exit(0);
       // Another web app that waited for the port took it first.
       if (owner) {
-        const order = compareVersions(owner.version, deps.version);
+        const ownVersion = deps.version();
+        const order = owner.version === null ? null : compareVersions(owner.version, ownVersion);
         if (order === null || order >= 0) return yieldTo(child, copyPid);
-        if (!askedAside) {
-          askedAside = true;
+        if (!askedAside.has(owner.instance)) {
+          askedAside.add(owner.instance);
           // The copy needs a fresh wait once the older web app leaves.
-          if (await deps.stepAside(options.baseUrl, deps.version)) began = deps.now();
+          if (await deps.stepAside(options.baseUrl, ownVersion)) began = deps.now();
         }
       }
       await deps.sleep(HANDOFF_POLL_MS);

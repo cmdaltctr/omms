@@ -38,10 +38,10 @@ How Restart works:
 
 The copy takes the port through the 5-second check in "Port ownership and step-aside" below, so a restart takes up to about 7 seconds.
 
-The old web app gives its copy an instance ID. It exits only when `GET /api/web/status` on the port reports that ID. Another web app that waits for the port can take it first:
+The old web app gives its copy an instance ID. It exits only when `GET /api/health` on the port reports that ID. Health needs no credentials, so this works with HTTP Basic Auth on. Another web app that waits for the port can take it first:
 
-- If that web app is older, the old web app asks it to step aside. The copy then gets a new 15 seconds to take the port.
-- If that web app has the same or a newer version, the old web app stops the copy and exits.
+- If that web app is older, the old web app asks it to step aside. It asks each older web app once. The copy then gets a new 15 seconds to take the port.
+- If that web app has the same or a newer version, or its version cannot be read, the old web app stops the copy and exits.
 
 A restart does not leave the port empty when the copy fails:
 

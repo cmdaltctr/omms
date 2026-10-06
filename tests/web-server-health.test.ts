@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { createServer } from "node:http";
 import { getOrCreateAuthToken } from "../src/services/auth-token.js";
+import { WebAuth } from "../src/services/web-auth.js";
 import { WebServer, nextFallbackPort } from "../src/services/web-server.js";
 
 describe("web server health check", () => {
@@ -52,6 +53,33 @@ describe("web server health check", () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+
+  it("reports the process instance on health even behind basic auth", async () => {
+    const server = new WebServer({
+      enabled: true,
+      host: "127.0.0.1",
+      port: 4747,
+      auth: new WebAuth({ password: "secret-pass" }),
+    });
+    const call = (path: string) =>
+      (
+        server as unknown as {
+          handleRequest(req: Request, address?: string): Promise<Response>;
+        }
+      ).handleRequest(
+        new Request(`http://127.0.0.1:4747${path}`, {
+          headers: { "x-omms-token": getOrCreateAuthToken() },
+        }),
+        "127.0.0.1"
+      );
+    const health = await call("/api/health");
+    expect(health.status).toBe(200);
+    const body = (await health.json()) as { instance?: unknown; version?: unknown };
+    expect(typeof body.instance).toBe("string");
+    // The version stays off the route that needs no credentials.
+    expect(body.version).toBeUndefined();
+    expect((await call("/api/web/status")).status).toBe(401);
   });
 
   it("falls back to the next port only after repeated failed takeovers", () => {
