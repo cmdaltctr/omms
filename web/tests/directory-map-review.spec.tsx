@@ -566,3 +566,31 @@ it("blocks Ignore after a conflict until the list is refreshed", async () => {
   await flush();
   expect(host("pi").props.busy).toBe(false);
 });
+
+it("removes a saved map written as ~/x in the config file", async () => {
+  await mount();
+  // The file holds "~/saved"; the server shows the resolved "/saved".
+  publishSettingsSnapshot({
+    revision: "rev-1",
+    settings: { importPathMaps: { globalValue: [{ from: "~/saved", to: "/keep" }] } },
+  });
+  click(button("Remove"));
+  click(button("Save removals"));
+  await flush();
+  expect(patches()[0].body!.edits).toEqual({ importPathMaps: [] });
+});
+
+it("reloads the list when another section saves, so Ignore keeps newer ignores", async () => {
+  await mount();
+  // Another tab or section saved: the server now holds a newer ignored list.
+  ignored = ["/elsewhere"];
+  revision = "rev-newer";
+  publishSettingsSnapshot({ revision: "rev-newer" });
+  await flush();
+  (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
+  await flush();
+  expect(patches()[0].body).toEqual({
+    revision: "rev-newer",
+    edits: { importIgnoredDirectories: ["/elsewhere", "/missing"] },
+  });
+});

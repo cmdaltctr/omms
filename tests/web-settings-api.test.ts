@@ -97,13 +97,15 @@ describe("settings API", () => {
       const apiUrl = ${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/importer/web-import-api.ts")).href)};
       const real = await import(apiUrl);
       let reads = 0;
-      mock.module(apiUrl, () => ({ ...real, readStoreProjects: async () => { reads++; return []; } }));
+      // The first read finds nothing (a failure or no store yet), later reads find a project.
+      mock.module(apiUrl, () => ({ ...real, readStoreProjects: async () => (reads++ ? [{ path: "/p" }] : []) }));
       const statuses = [];
-      for (let i = 0; i < 3; i++) statuses.push((await send("/api/settings/import-maps")).status);
+      for (let i = 0; i < 4; i++) statuses.push((await send("/api/settings/import-maps")).status);
       return { reads, statuses };
     `);
-    expect(result.statuses).toEqual([200, 200, 200]);
-    expect(result.reads).toBe(1);
+    expect(result.statuses).toEqual([200, 200, 200, 200]);
+    // An empty result is not kept; the first non-empty one is kept for a minute.
+    expect(result.reads).toBe(2);
   });
 
   it("leaves ignored directories out of the backfill count and the Directory maps list alike", async () => {
@@ -112,6 +114,8 @@ describe("settings API", () => {
       const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
       CONFIG.storagePath = join(process.env.HOME, "isolated-store");
       CONFIG.importIgnoredDirectories = ["/x/scratch"];
+      // A saved map also takes its directory off the list, so off the count too.
+      CONFIG.importPathMaps = [{ from: "/x/mapped", to: "/x/kept" }];
       const state = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/backfill-state.ts")).href)});
       await state.getBackfillCutoff("pi", 1);
       await state.updateBackfillStatus("pi", { state: "done", model: null,
@@ -119,17 +123,26 @@ describe("settings API", () => {
       await state.recordUnresolvedDirectories("pi", [
         { directory: "/x/scratch", sessions: 6 },
         { directory: "/x/kept", sessions: 2 },
+        { directory: "/x/mapped", sessions: 3 },
         { directory: "", sessions: 2 },
       ]);
       const backfill = await (await send("/api/settings/backfill")).json();
       const maps = await (await send("/api/settings/import-maps")).json();
-      return { unresolved: backfill.pi.counts.unresolved, listed: maps.pi, ignored: maps.ignored };
+      // A damaged directory list must not take the whole status endpoint down.
+      const { tursoConnectionManager } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/turso/connection-manager.ts")).href)});
+      const db = await tursoConnectionManager.getConnection(join(CONFIG.storagePath, "import-ledger.db"));
+      await db.run("UPDATE unresolved_directories SET directories = 'not json' WHERE host = 'pi'");
+      const damaged = await send("/api/settings/backfill");
+      return { unresolved: backfill.pi.counts.unresolved, listed: maps.pi, ignored: maps.ignored,
+        damagedStatus: damaged.status, damagedCount: (await damaged.json()).pi?.counts.unresolved };
     `);
     expect(result.ignored).toEqual(["/x/scratch"]);
     expect(result.unresolved).toBe(4);
     const listed = result.listed as Array<{ directory: string; sessions: number }>;
     expect(listed.map((row) => row.directory)).toEqual(["/x/kept", ""]);
     expect(listed.reduce((sum, row) => sum + row.sessions, 0)).toBe(result.unresolved);
+    expect(result.damagedStatus).toBe(200);
+    expect(result.damagedCount).toBe(10);
   });
   // Builds a POSIX install with a symlink on PATH. Windows finds `.cmd` wrappers instead,
   // and a symlink needs extra rights there; `global-version.test.ts` covers that layout.

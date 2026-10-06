@@ -68,6 +68,12 @@ describe("ignored directories", () => {
     expect(() => parseIgnoredDirectories([42])).toThrow("importIgnoredDirectories");
   });
 
+  it("keeps one entry for a folder written in two forms", () => {
+    expect(parseIgnoredDirectories(["~/scratch", join(homedir(), "scratch/")])).toEqual([
+      join(homedir(), "scratch"),
+    ]);
+  });
+
   it("expands the home folder and resolves each path", () => {
     expect(parseIgnoredDirectories(["~/scratch", "/a/b/../c/"])).toEqual([
       join(homedir(), "scratch"),

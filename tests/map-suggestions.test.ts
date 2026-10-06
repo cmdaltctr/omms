@@ -170,6 +170,30 @@ describe("the suggestion rules", () => {
     expect(suggestMapTarget(join(claudeFolder, "skills", "s-x"), { home })).toBeNull();
   });
 
+  it("matches the stored remote for a recorded path with a trailing separator", () => {
+    const home = root();
+    const old = join(home, "old", "tool");
+    const renamed = repo(join(home, "new", "tool-renamed"));
+    const remote = "git@example.com:me/tool.git";
+    const knownProjects = [
+      { path: old, candidates: [old], remote },
+      { path: renamed, candidates: [renamed], remote },
+    ];
+    expect(suggestMapTarget(`${old}/`, { home, knownProjects })).toEqual(map(renamed, "exact"));
+  });
+
+  it("never searches the home folder or a non-project folder for name matches", () => {
+    const home = root();
+    repo(join(home, "foo"));
+    const modules = join(home, "x", "node_modules");
+    repo(join(modules, "foo"));
+    // Store projects directly in the home folder and inside node_modules.
+    mkdirSync(join(home, "scratch"));
+    mkdirSync(join(modules, "pkg"));
+    const knownProjects = [{ path: join(home, "scratch") }, { path: join(modules, "pkg") }];
+    expect(suggestMapTarget(join(home, "code", "foo-bar"), { home, knownProjects })).toBeNull();
+  });
+
   it("reuses project checks within one request", () => {
     const home = root();
     const app = repo(join(home, "code", "app"));

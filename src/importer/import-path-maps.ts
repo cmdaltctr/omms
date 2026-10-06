@@ -39,7 +39,7 @@ export function parseIgnoredDirectories(value: unknown): string[] {
   if (!Array.isArray(value)) {
     throw new Error("Invalid importIgnoredDirectories config: must be a list");
   }
-  return value.map((entry, index) => {
+  const paths = value.map((entry, index) => {
     const expanded = typeof entry === "string" ? expandHome(entry.trim()) : "";
     if (!expanded || !isAbsolute(expanded)) {
       throw new Error(
@@ -48,6 +48,8 @@ export function parseIgnoredDirectories(value: unknown): string[] {
     }
     return resolve(expanded);
   });
+  // One folder written in two forms is one entry.
+  return [...new Set(paths)];
 }
 
 /** Saved maps with the run's own maps on top; a run map wins for the same `from`. */

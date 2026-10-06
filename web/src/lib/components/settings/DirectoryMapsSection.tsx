@@ -45,6 +45,9 @@ export function DirectoryMapsSection() {
   const [reviewError, setReviewError] = useState("");
   const [refreshNeeded, setRefreshNeeded] = useState<"saved" | "conflict">();
   const saving = useRef(false);
+  // The settings revision the maps list was read at. Another section's save
+  // publishes a newer one, and the list is read again before it is built on.
+  const viewRevision = useRef<string | undefined>(undefined);
   const load = () =>
     settingsRequest<View>("/api/settings/import-maps")
       .then((value) => {
@@ -57,14 +60,26 @@ export function DirectoryMapsSection() {
     let active = true;
     void settingsRequest<Snapshot>("/api/settings")
       .then((value) => {
-        if (active) setSnapshot(value);
+        if (!active) return;
+        viewRevision.current = value.revision;
+        setSnapshot(value);
       })
       .catch((error: Error) => {
         if (active) setMessage(error.message);
       });
     void load();
     const unsubscribe = onSettingsSnapshot((value) => {
-      if (active) setSnapshot(value as Snapshot);
+      if (!active) return;
+      const next = value as Snapshot;
+      setSnapshot(next);
+      if (next.revision === viewRevision.current) return;
+      viewRevision.current = next.revision;
+      // Keep drafts and pending removals; only the server's lists change.
+      void settingsRequest<View>("/api/settings/import-maps")
+        .then((nextView) => {
+          if (active && viewRevision.current === next.revision) setView(nextView);
+        })
+        .catch(() => {});
     });
     return () => {
       active = false;
@@ -145,7 +160,8 @@ export function DirectoryMapsSection() {
 
   function saveRemovals() {
     void saveNow(
-      { importPathMaps: mapsToSave(savedMaps(), removed) },
+      // Removals match the server's resolved paths, so filter that list.
+      { importPathMaps: mapsToSave(view?.saved ?? [], removed) },
       "Saved. Removed maps stop applying at the next import or backfill run.",
       "Removals could not be saved. Try again."
     ).then((saved) => {
@@ -174,6 +190,7 @@ export function DirectoryMapsSection() {
       settingsRequest<Snapshot>("/api/settings"),
       settingsRequest<View>("/api/settings/import-maps"),
     ]);
+    viewRevision.current = nextSnapshot.revision;
     publishSettingsSnapshot(nextSnapshot);
     setView(nextView);
     setRefreshNeeded(undefined);

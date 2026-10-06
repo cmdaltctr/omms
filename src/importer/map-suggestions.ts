@@ -174,7 +174,9 @@ function onlyTarget(targets: Iterable<string>, missing: string): string | null {
 }
 
 /** Rule 2: the one existing project with the git remote the store recorded for `missing`. */
-function sameRemote(missing: string, known: readonly KnownProject[]): string | null {
+function sameRemote(recorded: string, known: readonly KnownProject[]): string | null {
+  // Store paths are resolved; a recorded path may carry a trailing separator.
+  const missing = resolve(recorded);
   const remotes = new Set(
     known
       .filter((project) => project.path === missing || project.candidates?.includes(missing))
@@ -265,11 +267,22 @@ function renameGuess(
 
 type MapResult = Extract<MapSuggestion, { kind: "map" }>;
 
-/** The parent folders of existing known projects, searched for siblings. */
-function searchRootsOf(known: readonly KnownProject[]): Set<string> {
+/**
+ * The parent folders of existing known projects, searched for siblings. The
+ * home folder and folders that are not projects (temporary, `node_modules`,
+ * app data, skills) are left out: their other children are rarely related.
+ */
+function searchRootsOf(
+  known: readonly KnownProject[],
+  home: string,
+  claudeFolder?: string
+): Set<string> {
   const roots = new Set<string>();
   for (const project of known) {
-    if (isDirectory(project.path)) roots.add(dirname(project.path));
+    if (!isDirectory(project.path)) continue;
+    const parent = dirname(project.path);
+    if (parent === home || notProjectReason(parent, home, claudeFolder)) continue;
+    roots.add(parent);
   }
   return roots;
 }
@@ -281,7 +294,7 @@ function suggestByName(
   home: string
 ): MapResult | null {
   const known = context.knownProjects ?? [];
-  const searchRoots = context.searchRoots ?? searchRootsOf(known);
+  const searchRoots = context.searchRoots ?? searchRootsOf(known, home, context.claudeFolder);
   // Never list the filesystem root or the folder that holds every home folder,
   // and stop at the home folder itself: broad scans suggest unrelated folders.
   const blocked = new Set([parse(missing).root, dirname(home)]);
@@ -351,7 +364,9 @@ export function suggestMapTargets(
     ...context,
     cache: context.cache ?? new Map<string, string[]>(),
     projects: context.projects ?? new Map<string, boolean>(),
-    searchRoots: context.searchRoots ?? searchRootsOf(context.knownProjects ?? []),
+    searchRoots:
+      context.searchRoots ??
+      searchRootsOf(context.knownProjects ?? [], context.home ?? homedir(), context.claudeFolder),
   };
   return directories.map((item) => ({
     ...item,

@@ -970,24 +970,27 @@ export class WebServer {
           { readBackfillStatus, readUnresolvedDirectories, visibleUnresolvedCount },
         ] = await Promise.all([import("../config.js"), import("./backfill-state.js")]);
         // Read at request time from the Directory maps list, so the badge and the
-        // list agree and an Ignore click changes every badge at once.
-        const ignored = CONFIG.importIgnoredDirectories ?? [];
+        // list agree and an Ignore click changes every badge at once. The list
+        // hides ignored directories and directories with a saved map.
+        const hidden = [
+          ...(CONFIG.importIgnoredDirectories ?? []),
+          ...CONFIG.importPathMaps.map((map) => map.from),
+        ];
         const status = async (host: "pi" | "opencode" | "claude-code") => {
           const current = await readBackfillStatus(host);
           if (!current) return current;
-          const directories = await readUnresolvedDirectories(host);
-          const unresolved = visibleUnresolvedCount(
-            current.counts.unresolved,
-            directories,
-            ignored
-          );
+          // A damaged list must not hide the host's status: keep the run's count.
+          const directories = await readUnresolvedDirectories(host).catch(() => null);
+          if (!directories) return current;
+          const unresolved = visibleUnresolvedCount(current.counts.unresolved, directories, hidden);
           return { ...current, counts: { ...current.counts, unresolved } };
         };
-        return this.jsonResponse({
-          pi: await status("pi"),
-          opencode: await status("opencode"),
-          "claude-code": await status("claude-code"),
-        });
+        const [pi, opencode, claudeCode] = await Promise.all([
+          status("pi"),
+          status("opencode"),
+          status("claude-code"),
+        ]);
+        return this.jsonResponse({ pi, opencode, "claude-code": claudeCode });
       }
 
       if (path === "/api/settings/backfill/runs" && method === "GET") {
@@ -1188,6 +1191,8 @@ export class WebServer {
           };
         }
         const knownProjects = await this.storeProjects.projects;
+        // An empty result is a failed read or no store yet; try again next time.
+        if (!knownProjects.length) this.storeProjects = undefined;
         return this.jsonResponse(await directoryMapsView({ knownProjects }));
       }
 
