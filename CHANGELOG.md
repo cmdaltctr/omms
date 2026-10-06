@@ -2,6 +2,15 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.9.1](https://github.com/cmdaltctr/omms/compare/v4.9.0...v4.9.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* close restart handoff review findings ([e888ed7](https://github.com/cmdaltctr/omms/commit/e888ed758059ab9a55ee56d630aca73a7e835c27))
+* restart waits for its own web app copy ([eda93de](https://github.com/cmdaltctr/omms/commit/eda93dee21ac881badddcc0b170bacb9d79899d9))
+* restart waits for its own web app copy ([afd7b5a](https://github.com/cmdaltctr/omms/commit/afd7b5a55887fc3f6b08857a01c0240a403d917f))
+
 ## [4.9.0](https://github.com/cmdaltctr/omms/compare/v4.8.0...v4.9.0) (2026-10-06)
 
 
