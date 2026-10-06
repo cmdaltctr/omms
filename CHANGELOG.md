@@ -2,6 +2,24 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.9.0](https://github.com/cmdaltctr/omms/compare/v4.8.0...v4.9.0) (2026-10-06)
+
+
+### Features
+
+* **web:** clean up directory maps with smarter suggestions and ignore ([0c25f95](https://github.com/cmdaltctr/omms/commit/0c25f950c7a0a19f529c0f2bc6b114c1c40ddc96))
+* **web:** clean up directory maps with smarter suggestions and ignore ([f89a479](https://github.com/cmdaltctr/omms/commit/f89a4790aacf5cd098e0c0f4d702484d49519bc1))
+
+
+### Bug Fixes
+
+* address CodeRabbit review on directory maps ([ba2b7e2](https://github.com/cmdaltctr/omms/commit/ba2b7e2cc595cef508d5239ef97f1db69560428d))
+* apply only the newest backfill run reply ([b6061d4](https://github.com/cmdaltctr/omms/commit/b6061d4d335cb55ff64e35bb4f763405fd7543e9))
+* close remaining directory maps review findings ([2c26b40](https://github.com/cmdaltctr/omms/commit/2c26b40f08e4a5470c8c5c0a18e2424d2a31c87e))
+* close second directory maps review ([b3a094f](https://github.com/cmdaltctr/omms/commit/b3a094f8bd3aa3ec8c3ee41b65d5d9cdcc1e2d67))
+* match directory paths across forms and Windows separators ([6af1b9d](https://github.com/cmdaltctr/omms/commit/6af1b9d1d5b9920d974d39c206f8947840e5c911))
+* resolve both sides when matching ignored directories ([d11628d](https://github.com/cmdaltctr/omms/commit/d11628ddf1b526d7ceeb89a69bef24d2dbcafe09))
+
 ## [4.8.0](https://github.com/cmdaltctr/omms/compare/v4.7.0...v4.8.0) (2026-10-05)
 
 
