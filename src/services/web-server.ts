@@ -237,8 +237,15 @@ type PowerAction = "stop" | "restart";
 const STEP_ASIDE_HOLD_OFF_MS = 60_000;
 /** Lets the 202 reply reach the caller before the server stops. */
 const STEP_ASIDE_REPLY_GRACE_MS = 100;
-/** Differs between processes, so the page can tell a restarted web app from the old one. */
-const PROCESS_INSTANCE = randomUUID();
+/**
+ * Differs between processes, so the page can tell a restarted web app from the old one.
+ * A restart names its copy's instance, so it can tell its copy from another web app.
+ */
+const PROCESS_INSTANCE = /^[0-9a-f-]{36}$/.test(process.env.OMMS_WEB_INSTANCE ?? "")
+  ? process.env.OMMS_WEB_INSTANCE!
+  : randomUUID();
+// Child processes, such as an OpenCode model list, must not report the same instance.
+delete process.env.OMMS_WEB_INSTANCE;
 
 export class WebServer {
   private server: PortableServerHandle | null = null;
@@ -714,8 +721,24 @@ export class WebServer {
       if (!isAvailable) {
         this.stopHealthCheckLoop();
         await this.attemptTakeover();
+      } else if (this.onStepAsideCallback && (await this.ownerIsNewer())) {
+        // A standalone web app behind a newer one would serve old code after a restart.
+        this.stopHealthCheckLoop();
+        log("Web server waiter retired", { ownVersion: packageVersion() });
+        try {
+          await this.onStepAsideCallback();
+        } catch (error) {
+          log("Step-aside callback error", { error: String(error) });
+        }
       }
     }, 5000);
+  }
+
+  private async ownerIsNewer(): Promise<boolean> {
+    const { readWebVersion } = await import("./web-handover.js");
+    const headers = { [AUTH_HEADER]: getOrCreateAuthToken() };
+    const owner = await readWebVersion(fetch, this.getUrl(), headers);
+    return owner !== null && isOlderVersion(packageVersion(), owner);
   }
 
   private stopHealthCheckLoop(): void {
