@@ -1,6 +1,9 @@
 import { spawn as nodeSpawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import type { WebAutostartOptions } from "../services/web-autostart.js";
+import { packageVersion } from "../services/package-version.js";
+import { compareVersions } from "../services/version-compare.js";
 
 // Stop and Restart for the standalone `om-memory-system web` command.
 
@@ -25,7 +28,13 @@ export interface PowerDeps {
   spawn: (
     command: string,
     args: string[],
-    options: { detached: true; stdio: "ignore"; cwd: string; windowsHide: true }
+    options: {
+      detached: true;
+      stdio: "ignore";
+      cwd: string;
+      windowsHide: true;
+      env: NodeJS.ProcessEnv;
+    }
   ) => SpawnedChild;
   /** Restart the login item through the service manager. False when it cannot. */
   restartLoginItem: () => boolean | Promise<boolean>;
@@ -33,8 +42,18 @@ export interface PowerDeps {
   writeStartLock: (pid: number) => void | Promise<void>;
   /** Remove the start lock when it names `pid`. */
   removeStartLock: (pid: number) => void | Promise<void>;
-  /** True when an OMMS web app answers health at `baseUrl`. */
-  probe: (baseUrl: string) => Promise<boolean>;
+  /**
+   * The OMMS web app that answers at `baseUrl`, or null when none does. The
+   * version is null when this process may not read it, for example behind basic auth.
+   */
+  readOwner: (baseUrl: string) => Promise<{ instance: string; version: string | null } | null>;
+  /** Ask the web app at `baseUrl` to step aside for `version`. True when it agrees. */
+  stepAside: (baseUrl: string, version: string) => Promise<boolean>;
+  /** The instance id the copy reports, so the handoff knows its own copy. */
+  newInstance: () => string;
+  /** The version on disk now; an in-place upgrade changes it after this process started. */
+  version: () => string;
+  env: NodeJS.ProcessEnv;
   sleep: (ms: number) => Promise<void>;
   now: () => number;
   exit: (code: number) => void;
@@ -44,6 +63,17 @@ export interface PowerDeps {
   cwd: string;
   pid: number;
   log: (message: string, data: Record<string, unknown>) => void | Promise<void>;
+}
+
+let tokenHeader: Promise<Record<string, string>> | null = null;
+/** The web app runs on this machine, so the local token file is enough. Read once. */
+function localTokenHeader(): Promise<Record<string, string>> {
+  tokenHeader ??= import("../services/auth-token.js").then(
+    ({ AUTH_HEADER, getOrCreateAuthToken }) => ({
+      [AUTH_HEADER]: getOrCreateAuthToken(),
+    })
+  );
+  return tokenHeader;
 }
 
 function productionDeps(options: WebAutostartOptions): PowerDeps {
@@ -57,17 +87,45 @@ function productionDeps(options: WebAutostartOptions): PowerDeps {
     },
     removeStartLock: async (pid) =>
       (await import("../services/web-ensure.js")).removeStartLockFor(pid),
-    probe: async (baseUrl) => {
+    readOwner: async (baseUrl) => {
+      // Health skips basic auth, so a restart can find its copy with basic auth on.
+      let instance: string;
       try {
-        const response = await fetch(`${baseUrl}/api/health`, {
+        const health = await fetch(`${baseUrl}/api/health`, { signal: AbortSignal.timeout(1_000) });
+        const body = (await health.json()) as { instance?: unknown };
+        if (!health.ok || typeof body.instance !== "string") return null;
+        instance = body.instance;
+      } catch {
+        return null;
+      }
+      try {
+        const response = await fetch(`${baseUrl}/api/web/status`, {
+          headers: await localTokenHeader(),
           signal: AbortSignal.timeout(1_000),
         });
-        const body = (await response.json()) as { success?: unknown; status?: unknown };
-        return response.ok && body.success === true && body.status === "ok";
+        const body = (await response.json()) as { version?: unknown };
+        const version = response.ok && typeof body.version === "string" ? body.version : null;
+        return { instance, version };
+      } catch {
+        return { instance, version: null };
+      }
+    },
+    stepAside: async (baseUrl, version) => {
+      try {
+        const response = await fetch(`${baseUrl}/api/web/step-aside`, {
+          method: "POST",
+          headers: { ...(await localTokenHeader()), "content-type": "application/json" },
+          body: JSON.stringify({ version }),
+          signal: AbortSignal.timeout(1_000),
+        });
+        return response.status === 202;
       } catch {
         return false;
       }
     },
+    newInstance: () => randomUUID(),
+    version: () => packageVersion(),
+    env: process.env,
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     now: () => Date.now(),
     exit: (code) => process.exit(code),
@@ -104,12 +162,14 @@ export function createPowerAction(options: {
   /** Start the copy, check it, stop serving, and wait until the copy answers. */
   async function handOff(): Promise<void> {
     let child: SpawnedChild;
+    const instance = deps.newInstance();
     try {
       child = deps.spawn(deps.execPath, deps.args, {
         detached: true,
         stdio: "ignore",
         cwd: deps.cwd,
         windowsHide: true,
+        env: { ...deps.env, OMMS_WEB_INSTANCE: instance },
       });
     } catch {
       return giveUp("spawn-error");
@@ -132,16 +192,38 @@ export function createPowerAction(options: {
       stopped = true;
     }
     // The copy waits as a non-owner and takes the port within about 7 seconds.
-    const began = deps.now();
+    let began = deps.now();
+    // Each older owner is asked once; another older waiter can take the port after it.
+    const askedAside = new Set<string>();
     while (deps.now() - began < HANDOFF_WAIT_MS) {
       if (exited) return giveUp("copy-exit", copyPid);
-      if (await deps.probe(options.baseUrl)) return deps.exit(0);
+      const owner = await deps.readOwner(options.baseUrl);
+      if (owner?.instance === instance) return deps.exit(0);
+      // Another web app that waited for the port took it first.
+      if (owner) {
+        const ownVersion = deps.version();
+        const order = owner.version === null ? null : compareVersions(owner.version, ownVersion);
+        if (order === null || order >= 0) return yieldTo(child, copyPid);
+        if (!askedAside.has(owner.instance)) {
+          askedAside.add(owner.instance);
+          // The copy needs a fresh wait once the older web app leaves.
+          if (await deps.stepAside(options.baseUrl, ownVersion)) began = deps.now();
+        }
+      }
       await deps.sleep(HANDOFF_POLL_MS);
     }
     if (exited) return giveUp("copy-exit", copyPid);
     // A copy that never answers would wait as a non-owner for ever.
     child.kill("SIGTERM");
     return giveUp("handoff", copyPid);
+  }
+
+  /** A web app of the same or a newer version serves, so the copy would only wait. */
+  async function yieldTo(child: SpawnedChild, copyPid: number): Promise<void> {
+    child.kill("SIGTERM");
+    await deps.removeStartLock(copyPid);
+    await logFailure("other-owner");
+    deps.exit(0);
   }
 
   /** Keep or resume serving on the old process, and release the lock it wrote. */

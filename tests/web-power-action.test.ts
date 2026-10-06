@@ -8,6 +8,9 @@ type CopyFate =
   | "exit-after-stop" // the copy exits after the old process stopped serving
   | "silent"; // the copy runs but never answers
 
+/** The version of the web app that restarts. */
+const OWN_VERSION = "4.9.0";
+
 /** Records what happens, in order, so the tests can check the sequence. */
 function fake(
   config: {
@@ -15,9 +18,20 @@ function fake(
     spawnFails?: boolean;
     noPid?: boolean;
     copy?: CopyFate;
+    /** Another web app that takes the port before the copy, and its version. */
+    intruder?: string;
+    /** Older waiters that take the port in turn, each after the previous one steps aside. */
+    intruders?: string[];
+    /** The intruder answers but this process may not read its version (basic auth). */
+    hiddenVersion?: boolean;
   } = {}
 ) {
   const fate = config.copy ?? "serves";
+  const ownVersion = { current: OWN_VERSION };
+  // The intruder serves until it is asked to step aside.
+  let intruder = config.intruder;
+  const queue = [...(config.intruders ?? [])];
+  intruder ??= queue.shift();
   const events: string[] = [];
   const logs: Record<string, unknown>[] = [];
   const spawns: { command: string; args: string[]; options: any; unref: number }[] = [];
@@ -52,7 +66,21 @@ function fake(
     },
     writeStartLock: (pid) => void events.push(`lock:${pid}`),
     removeStartLock: (pid) => void events.push(`unlock:${pid}`),
-    probe: async () => stopped && fate === "serves",
+    readOwner: async () => {
+      if (!stopped) return null;
+      if (intruder)
+        return { instance: `owner-${intruder}`, version: config.hiddenVersion ? null : intruder };
+      if (fate !== "serves") return null;
+      return { instance: spawns[0]?.options.env.OMMS_WEB_INSTANCE, version: OWN_VERSION };
+    },
+    stepAside: async (_baseUrl, version) => {
+      events.push(`step-aside:${version}`);
+      intruder = queue.shift();
+      return true;
+    },
+    newInstance: () => "copy-instance",
+    version: () => ownVersion.current,
+    env: { PATH: "/usr/bin" },
     sleep: async (ms) => {
       // The copy's fate plays out while the old process waits.
       if (fate === "error-at-spawn" && clock.t === 0) emit("error");
@@ -84,7 +112,7 @@ function fake(
       loginItem,
       deps,
     });
-  return { deps, events, logs, spawns, clock, action };
+  return { deps, events, logs, spawns, clock, action, ownVersion };
 }
 
 describe("web power action", () => {
@@ -125,6 +153,76 @@ describe("web power action", () => {
     expect(copy?.args).toEqual(["/pkg/dist/cli/index.js", "web"]);
     expect(copy?.options).toMatchObject({ detached: true, stdio: "ignore", cwd: "/home/test" });
     expect(copy?.unref).toBe(1);
+  });
+
+  it("gives the copy an instance id and keeps the rest of the environment", async () => {
+    const f = fake();
+    await f.action(false)("restart");
+    expect(f.spawns[0]?.options.env).toEqual({
+      PATH: "/usr/bin",
+      OMMS_WEB_INSTANCE: "copy-instance",
+    });
+  });
+});
+
+describe("web power action: another web app takes the port", () => {
+  it("asks an older web app to step aside, then exits once the copy answers", async () => {
+    const f = fake({ intruder: "4.8.0" });
+    await f.action(false)("restart");
+    expect(f.events).toEqual([
+      "lock:100",
+      "spawn",
+      "lock:4242",
+      "stop",
+      `step-aside:${OWN_VERSION}`,
+      "exit:0",
+    ]);
+    expect(f.logs).toEqual([]);
+  });
+
+  it("asks each older web app that takes the port in turn to step aside", async () => {
+    const f = fake({ intruders: ["4.8.0", "4.7.0"] });
+    await f.action(false)("restart");
+    expect(f.events).toEqual([
+      "lock:100",
+      "spawn",
+      "lock:4242",
+      "stop",
+      `step-aside:${OWN_VERSION}`,
+      `step-aside:${OWN_VERSION}`,
+      "exit:0",
+    ]);
+    expect(f.logs).toEqual([]);
+  });
+
+  it("stops the copy and exits when a web app of the same version took the port", async () => {
+    const f = fake({ intruder: OWN_VERSION });
+    await f.action(false)("restart");
+    expect(f.events).toEqual([
+      "lock:100",
+      "spawn",
+      "lock:4242",
+      "stop",
+      "copy-killed",
+      "unlock:4242",
+      "exit:0",
+    ]);
+    expect(f.logs).toEqual([{ code: "other-owner" }]);
+  });
+
+  it("stops the copy and exits when a newer web app took the port", async () => {
+    const f = fake({ intruder: "5.0.0" });
+    await f.action(false)("restart");
+    expect(f.events).toEqual([
+      "lock:100",
+      "spawn",
+      "lock:4242",
+      "stop",
+      "copy-killed",
+      "unlock:4242",
+      "exit:0",
+    ]);
+    expect(f.logs).toEqual([{ code: "other-owner" }]);
   });
 });
 
@@ -203,5 +301,24 @@ describe("web power action: failed restart, login item", () => {
     await f.action(true)("restart");
     expect(f.events).toEqual(["stop", "login-item-restart", "spawn", "copy-exit", "resume"]);
     expect(f.logs).toEqual([{ code: "copy-exit" }]);
+  });
+});
+
+describe("web power action: review fixes", () => {
+  it("stops the copy when another web app hides its version", async () => {
+    const f = fake({ intruder: "4.8.0", hiddenVersion: true });
+    await f.action(false)("restart");
+    expect(f.events).toContain("copy-killed");
+    expect(f.logs).toEqual([{ code: "other-owner" }]);
+  });
+
+  it("reads its own version at restart time, after an in-place upgrade", async () => {
+    const f = fake({ intruder: "4.9.5" });
+    const restart = f.action(false);
+    f.ownVersion.current = "4.10.0";
+    await restart("restart");
+    expect(f.events).toContain("step-aside:4.10.0");
+    expect(f.events).toContain("exit:0");
+    expect(f.events).not.toContain("copy-killed");
   });
 });
