@@ -14,6 +14,7 @@ import {
   unresolvedDirectoriesOf,
   unresolvedSessionCount,
   updateBackfillStatus,
+  visibleUnresolvedCount,
 } from "../src/services/backfill-state.js";
 import { tursoConnectionManager } from "../src/services/turso/connection-manager.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
@@ -98,4 +99,18 @@ it("counts sessions with no directory under one entry so the list adds up to the
   ]);
   expect(unresolvedSessionCount(report)).toBe(27);
   expect(list.reduce((sum, item) => sum + item.sessions, 0)).toBe(unresolvedSessionCount(report));
+});
+
+it("leaves ignored directories out of the unresolved count", () => {
+  const directories = [
+    { directory: "/x/scratch", sessions: 6 },
+    { directory: "/x/kept", sessions: 2 },
+    { directory: NO_DIRECTORY, sessions: 2 },
+  ];
+  expect(visibleUnresolvedCount(10, directories, [])).toBe(10);
+  expect(visibleUnresolvedCount(10, directories, ["/x/scratch"])).toBe(4);
+  // No directory recorded sessions cannot be ignored, even by an empty path.
+  expect(visibleUnresolvedCount(10, directories, ["/x/scratch", NO_DIRECTORY])).toBe(4);
+  // A stale count never goes below zero.
+  expect(visibleUnresolvedCount(3, directories, ["/x/scratch"])).toBe(0);
 });

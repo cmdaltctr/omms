@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { mergeImportPathMaps, runPathMaps } from "../src/importer/import-path-maps.js";
+import {
+  mergeImportPathMaps,
+  parseIgnoredDirectories,
+  runPathMaps,
+} from "../src/importer/import-path-maps.js";
 import { resolveImportProject } from "../src/importer/import-project.js";
 
 const dirs: string[] = [];
@@ -49,5 +53,25 @@ describe("saved directory maps", () => {
       via: "mapped",
     });
     expect(resolveImportProject(join(root, "gone"), maps).via).toBe("unresolved");
+  });
+});
+
+describe("ignored directories", () => {
+  it("gives an empty list when the setting is missing", () => {
+    expect(parseIgnoredDirectories(undefined)).toEqual([]);
+  });
+
+  it("refuses a value that is not a list of absolute paths", () => {
+    expect(() => parseIgnoredDirectories("/tmp/x")).toThrow("importIgnoredDirectories");
+    expect(() => parseIgnoredDirectories(["relative/dir"])).toThrow("importIgnoredDirectories");
+    expect(() => parseIgnoredDirectories([" "])).toThrow("importIgnoredDirectories");
+    expect(() => parseIgnoredDirectories([42])).toThrow("importIgnoredDirectories");
+  });
+
+  it("expands the home folder and resolves each path", () => {
+    expect(parseIgnoredDirectories(["~/scratch", "/a/b/../c/"])).toEqual([
+      join(homedir(), "scratch"),
+      resolve("/a/c"),
+    ]);
   });
 });

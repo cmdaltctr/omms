@@ -340,7 +340,7 @@ Use this section to import past chats by hand. A backfill is an import of old ch
 At the top, one box for each host shows its import status:
 
 - **Imported ✅:** the latest run finished, nothing is pending, and no session is unresolved.
-- **Partly imported (N unresolved):** the latest run finished, but N sessions have no folder. Select the badge to open that host's Directory maps list. Focus moves to its summary. The visible count stays unchanged; other status badges are informational.
+- **Partly imported (N unresolved):** the latest run finished, but N sessions have no folder. Sessions in ignored folders are not counted, so ignoring every unresolved folder shows **Imported ✅**. Select the badge to open that host's Directory maps list. Focus moves to its summary. The visible count stays unchanged; other status badges are informational.
 - **Running**, or **Learning profile** while a finished run learns the profile from the imported prompts.
 - **Stopped (N pending)**, **Paused**, **Failed ⛔️**, or **Not started**.
 
@@ -396,6 +396,8 @@ An automatic import, or backfill, imports each host's old chats in the backgroun
 
 - **Import past chats automatically** turns backfill on or off for every host (`autoBackfill`). Turning it off stops a running backfill after its current exchange.
 
+Each host has a collapsed card. Its summary shows the state, pending exchanges, and unresolved sessions. A card opens by default when its host has a running or paused run. A card you open or close keeps that state while the counts refresh.
+
 For each host:
 
 - **Backfill model.** The model that imports old chats.
@@ -406,7 +408,7 @@ For each host:
 - **Progress.** A bar, the percentage, done out of total, and the minutes left, only while exchanges are imported. Minutes left comes from the recent rate. It shows as unknown until about a minute of progress.
 - **Learning profile.** After the last exchange, a run learns the profile from the imported prompts, 50 prompts for each model call. The card shows the batches done out of the total in place of the bar.
 - **Last run.** When no run is active, the card shows when the latest run finished, how it started, and its imported, skipped, and failed counts.
-- **Counts.** Pending exchanges, and sessions whose folder cannot be found. When there are any, a link opens that host's Directory maps list and focuses its summary. The unresolved count is a number of sessions, and it matches the session counts in Directory maps.
+- **Counts.** Pending exchanges, and sessions whose folder cannot be found. When there are any, a link opens that host's Directory maps list and focuses its summary. The unresolved count is a number of sessions, and it matches the session counts in Directory maps. Sessions in ignored folders are not counted.
 - **Model**, **Cutoff**, and the last error. The cutoff is fixed at the first backfill. Later turns are saved by live capture instead.
 
 The Claude Code card has no **Backfill model** choice. It shows "Claude Code backfill always uses the external API. It has no backfill model setting." When the external API is not fully configured, **Run now** and **Resume** name the missing setting. See [Claude Code history import](claude-code-history-import.md#automatic-import).
@@ -464,38 +466,53 @@ To use another model, or to run the catch-up from a terminal, see [CLI: Profile 
 
 A directory map tells OMMS which project a folder belongs to. Use it when chats were recorded in a folder that no longer exists, such as a deleted git worktree.
 
-- **Saved maps** lists the maps in `importPathMaps`. They apply to every host. **Remove** marks one for removal, and **Keep** undoes that.
-- Each host's **Unresolved directories** starts collapsed. Its summary shows directory, unresolved session, and selected map counts. Expand a host to review its compact rows. Expand a row to edit its target. Collapsing either keeps unsaved targets and selections.
+- **Saved maps** is collapsed. Its summary shows the number of maps in `importPathMaps`. Maps apply to every host. Inside, the maps are grouped by target folder, largest group first. Each group is collapsed and shows its target and map count.
+- **Remove** marks a map for removal, and **Keep** undoes that. **Save removals** saves the removals. It is available only while a removal is pending.
+- Keep a map after its sessions import. Every host checks the map before it checks the import ledger. If you remove a map, its sessions are unresolved again at the next run.
+- **Ignored directories** is collapsed. It lists the folders in `importIgnoredDirectories`. **Restore** removes a folder from the list at once. The folder then shows again in each host list that reported it.
+- Each host's **Unresolved directories** starts collapsed. Its summary shows the directory count, the unresolved session count, and the number of rows with a target. Expand a host to see **Smart resolve directories** and the compact rows. Expand a row to edit its target. Collapsing keeps unsaved targets.
+- **Ignore** on a row adds its folder to `importIgnoredDirectories` at once. The row leaves the host list, and its sessions leave every unresolved count. The sessions stay unimported. Ignore does not change `importPathMaps`, the ledger, or history files.
 - A **Partly imported** badge or an Automatic import directory link opens only the matching host and focuses its summary. Repeating the link opens it again after collapse. Other disclosures, target editors, and unsaved maps keep their state. An empty latest list shows that host's empty message. Navigation saves nothing and starts no import.
-- Sessions that recorded no folder appear under **No directory recorded**. They cannot be mapped and are excluded from bulk selection.
-- **Select all with targets** selects that host's rows with a non-empty target. It uses edited text when present, including an explicitly cleared target, otherwise the suggestion. It does not check that a typed folder exists.
-- **Clear selection** unticks that host's rows and keeps target text. A source shared across hosts has one map, so selecting or clearing it updates every host.
-- **Smart resolve directories** opens a review dialog for that host. It shows proposed source-to-target maps and session counts. Edited targets take precedence over suggestions. Cleared targets stay unmapped. Already selected maps remain available for review.
-- **Confirm** saves only the displayed maps. Existing saved maps stay, while unrelated target edits, selections, and pending removals remain unsaved. A confirmed source has one global map across hosts.
-- **Cancel**, Escape, and the dialog close button leave drafts and saved maps unchanged. When no target is available, Confirm is disabled. Choose targets in the host list first.
-- A rejected save keeps the review open with an error. If settings changed elsewhere, review again before confirming. The page prevents duplicate saves and dismissal while saving.
-- If saving succeeds but refresh fails, select **Refresh list**. This reloads the saved result without sending another save.
-- **Select all with targets** and **Clear selection** change drafts only. **Save maps** stays outside the host lists and saves manual selections and removals. Opening a review, confirming maps, and changing selections start no import.
-- Where OMMS can find one, the target box holds a suggested existing folder:
-  1. The main repository of a deleted worktree. For `~/code/app-feat-x` or `~/workspaces/app/feat-x`, it suggests `~/code/app`.
-  2. For OpenCode, the project folder that OpenCode recorded for the session. OMMS reads OpenCode's database without writing to it.
-- `No suggestion found.` means there is no candidate, for example for an old temporary folder. Type a target, or leave the folder unmapped.
+- Sessions that recorded no folder appear under **No directory recorded**. They cannot be mapped or ignored.
+
+### Suggestions
+
+For each missing folder, OMMS tries these rules in order. The first rule with a result wins.
+
+1. **Not a project.** A folder under `/tmp`, `/private/tmp`, `/private/var/folders`, or the system temporary folder, a path with a `node_modules` part, a folder under `~/Library/Application Support`, or a folder under `~/.agents/skills` or `~/.claude/skills` gets an ignore proposal with its reason.
+2. **Same remote.** The memory store records the missing folder for a project with a git remote. When exactly one existing project has the same remote, OMMS suggests it. Confidence: **Exact**.
+3. **OpenCode record.** For OpenCode, the project folder that OpenCode recorded for the session. Confidence: **Exact**. When that folder is also missing, OMMS applies rules 2 to 6 to it.
+4. **Deleted worktree.** The main repository of a deleted worktree. For `~/code/app-feat-x` or `~/workspaces/app/feat-x`, it suggests `~/code/app`. A live linked worktree is never the target: OMMS reads its `.git` file and suggests the main repository. Confidence: **Name match**.
+5. **Moved folder.** Exactly one known project has the same folder name. Two or more give no suggestion. Confidence: **Name match**.
+6. **Rename guess.** Exactly one project beside the missing folder, or beside a known project, has a name whose parts match the old name. Each part must equal an old part, or the initials of several old parts, in order. At least two parts must match exactly. For example, `om-pi-subagents` for `opinionated-modular-pi-subagents-system-ompss`. Confidence: **Guess**.
+
+Known projects are the memory store's projects, the saved map targets, and OpenCode's recorded project folders. OMMS reads them without writing the store, OpenCode's database, or Git, and makes no network requests. `No suggestion found.` means no rule gave a result. Type a target, ignore the folder, or leave it unmapped.
+
+### Smart resolve
+
+**Smart resolve directories** is the only way to save maps for unresolved folders. It opens a review dialog for that host with three groups:
+
+- **Proposed maps**, each with its target, session count, and confidence. An edited target counts as **Exact**. A cleared target stays without a target.
+- **Suggested to ignore**, each with its reason and session count.
+- **No target**, for rows with nothing to save.
+
+Each map and each ignore proposal has a tick box. When the dialog opens, **Exact** and **Name match** maps and every ignore proposal are ticked. **Guess** maps are not ticked. **Confirm** saves the ticked maps to `importPathMaps` and the ticked folders to `importIgnoredDirectories` in one save. It is disabled when nothing is ticked. When there is nothing to propose, the dialog tells you to type a target in a row, or to press **Ignore** for folders that are not projects.
+
+- Existing saved maps and ignored folders stay. Unrelated target edits and pending removals stay unsaved. A confirmed source has one global map across hosts.
+- **Cancel**, Escape, and the dialog close button change nothing.
+- A rejected save keeps the review, its ticks, and an error. If settings changed elsewhere, review again before you confirm. The page prevents duplicate saves and dismissal while saving.
+- If saving succeeds but the refresh fails, select **Refresh list**. This reloads the saved result without another save.
+- Opening a review, confirming, ignoring, and restoring start no import.
 
 To save suggested maps:
 
 1. Expand the host.
-2. Select **Smart resolve directories**.
-3. Review the paths, session counts, and unmapped rows.
-4. Select **Confirm**.
+2. Optional: expand a row and type a target.
+3. Select **Smart resolve directories**.
+4. Check the ticks. Tick a **Guess** only after you check its target.
+5. Select **Confirm**.
 
 The dialog supports keyboard focus and long paths. Its text follows the selected language. Saving does not recreate folders or import sessions.
-
-To save manual selections and removals:
-
-1. Expand the host and check the target summaries.
-2. Expand a row to edit its target folder when needed.
-3. Tick **Use this map**, or select **Select all with targets** and review the selections.
-4. Select **Save maps**.
 
 Maps apply to the next import or backfill run, on every surface. A terminal `--map` for the same folder wins for that run. A map to a folder that does not exist leaves its sessions unresolved. Memories already imported through a map stay when you remove it.
 

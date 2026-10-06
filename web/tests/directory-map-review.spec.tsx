@@ -29,39 +29,61 @@ const { DirectoryMapsSection } =
   await import("../src/lib/components/settings/DirectoryMapsSection.tsx");
 const { publishSettingsSnapshot } = await import("../src/lib/settings-api.ts");
 type Node = ReactElement<{ children?: ReactNode; [key: string]: unknown }>;
+type PathMap = { from: string; to: string };
 type Call = {
   url: string;
   method: string;
-  body?: { revision: string; edits: { importPathMaps: { from: string; to: string }[] } };
+  body?: {
+    revision: string;
+    edits: { importPathMaps?: PathMap[]; importIgnoredDirectories?: string[] };
+  };
 };
 const originalFetch = globalThis.fetch;
 let calls: Call[] = [];
-let saved: { from: string; to: string }[];
+let saved: PathMap[];
+let ignored: string[];
 let revision: string;
 let cleans: (() => void)[] = [];
+const toMain = { kind: "map", target: "/main", confidence: "name" } as const;
 const hostRows = {
   pi: [
-    { directory: "/pi-old", sessions: 3, suggestion: "/main" },
+    { directory: "/pi-old", sessions: 3, suggestion: toMain },
+    { directory: "/tmp/scratch", sessions: 6, suggestion: { kind: "ignore", reason: "temporary" } },
     { directory: "/missing", sessions: 2, suggestion: null },
     { directory: "", sessions: 4, suggestion: null },
   ],
-  opencode: [{ directory: "/opencode-old", sessions: 1, suggestion: "/main" }],
-  "claude-code": [{ directory: "/claude-old", sessions: 1, suggestion: "/main" }],
-};
+  opencode: [{ directory: "/opencode-old", sessions: 1, suggestion: toMain }],
+  "claude-code": [
+    { directory: "/claude-old", sessions: 1, suggestion: toMain },
+    {
+      directory: "/ext/long-name",
+      sessions: 1,
+      suggestion: { kind: "map", target: "/ext/ln", confidence: "guess" },
+    },
+  ],
+} as Record<string, unknown[]> as Record<
+  "pi" | "opencode" | "claude-code",
+  { directory: string; sessions: number; suggestion: unknown }[]
+>;
 let reply: (call: Call) => Response | Promise<Response>;
 function defaultReply(call: Call) {
   if (call.method === "PATCH") {
-    saved = call.body!.edits.importPathMaps;
+    saved = call.body!.edits.importPathMaps ?? saved;
+    ignored = call.body!.edits.importIgnoredDirectories ?? ignored;
     revision = "rev-2";
     return Response.json({ migratedLegacy: false });
   }
   if (call.url === "/api/settings") return Response.json({ revision });
   return Response.json({
     saved,
+    ignored,
     ...Object.fromEntries(
       Object.entries(hostRows).map(([host, rows]) => [
         host,
-        rows.filter((row) => !saved.some((map) => map.from === row.directory)),
+        rows.filter(
+          (row) =>
+            !saved.some((map) => map.from === row.directory) && !ignored.includes(row.directory)
+        ),
       ])
     ),
   });
@@ -123,14 +145,16 @@ function open(name = "pi") {
   return review();
 }
 function decisions(name = "pi") {
-  return host(name).props.decisions as Record<string, { target: string; accepted: boolean }>;
+  return host(name).props.decisions as Record<string, { target: string }>;
 }
-function edit(name: keyof typeof hostRows, target: string, accepted = false) {
+function edit(name: keyof typeof hostRows, target: string) {
   const node = host(name);
-  (node.props.onDecide as (row: unknown, change: unknown) => void)(hostRows[name][0], {
-    target,
-    accepted,
-  });
+  (node.props.onDecide as (row: unknown, target: string) => void)(hostRows[name][0], target);
+}
+function tick(label: string, checked: boolean) {
+  const box = tree().find((node) => node.props["aria-label"] === label);
+  expect(box).toBeDefined();
+  (box!.props.onChange as (event: unknown) => void)({ target: { checked } });
 }
 function patches() {
   return calls.filter((call) => call.method === "PATCH");
@@ -143,6 +167,7 @@ beforeEach(() => {
   cleans = [];
   revision = "rev-1";
   saved = [{ from: "/saved", to: "/keep" }];
+  ignored = [];
   reply = defaultReply;
   Object.assign(globalThis, { window: { __OMMS_TOKEN__: "synthetic" } });
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
@@ -172,6 +197,7 @@ for (const name of ["pi", "opencode", "claude-code"] as const) {
     click(button("Confirm"));
     await flush();
     expect(patches()).toHaveLength(1);
+    // One save holds the ticked maps and, for Pi, the ticked ignore proposal; the guess stays out.
     expect(patches()[0].body).toEqual({
       revision: "rev-1",
       edits: {
@@ -179,6 +205,7 @@ for (const name of ["pi", "opencode", "claude-code"] as const) {
           { from: "/saved", to: "/keep" },
           { from: hostRows[name][0].directory, to: "/main" },
         ],
+        ...(name === "pi" ? { importIgnoredDirectories: ["/tmp/scratch"] } : {}),
       },
     });
     expect(host(name).props.rows).not.toContainEqual(hostRows[name][0]);
@@ -192,7 +219,7 @@ for (const name of ["pi", "opencode", "claude-code"] as const) {
 }
 it("Cancel and Escape keep selections, edited targets and pending removals", async () => {
   await mount();
-  edit("pi", "/edited", true);
+  edit("pi", "/edited");
   click(button("Remove"));
   const before = structuredClone(decisions());
   open();
@@ -208,21 +235,21 @@ it("Cancel and Escape keep selections, edited targets and pending removals", asy
 });
 it("shows edited targets and disables Confirm when all targets are cleared", async () => {
   await mount();
-  edit("pi", "/edited");
-  expect(JSON.stringify(open().props.review)).toContain("/edited");
+  edit("opencode", "/edited");
+  expect(JSON.stringify(open("opencode").props.review)).toContain("/edited");
   click(button("Cancel"));
-  edit("pi", "");
-  open();
+  edit("opencode", "");
+  open("opencode");
   expect(button("Confirm").props.disabled).toBe(true);
-  expect(tree().some((node) => text(node.props.children).includes("No maps to save."))).toBe(true);
+  expect(tree().some((node) => text(node.props.children).includes("Nothing to save."))).toBe(true);
   click(button("Confirm"));
   await flush();
   expect(patches()).toHaveLength(0);
 });
 it("retains unrelated drafts and pending removals, retiring confirmed shared sources", async () => {
   await mount();
-  edit("opencode", "/edited-other", true);
-  edit("pi", "/reviewed", true);
+  edit("opencode", "/edited-other");
+  edit("pi", "/reviewed");
   click(button("Remove"));
   open();
   click(button("Confirm"));
@@ -234,7 +261,6 @@ it("retains unrelated drafts and pending removals, retiring confirmed shared sou
   expect(decisions()["/opencode-old"]).toEqual({
     directory: "/opencode-old",
     target: "/edited-other",
-    accepted: true,
   });
   expect(decisions()["/pi-old"]).toBeUndefined();
   expect(button("Keep")).toBeDefined();
@@ -262,7 +288,7 @@ it("blocks duplicate confirmation and dismissal while a save is pending", async 
 });
 it("retains the review and drafts after a rejected save until explicit retry", async () => {
   await mount();
-  edit("opencode", "/unsaved", true);
+  edit("opencode", "/unsaved");
   reply = (call) =>
     call.method === "PATCH"
       ? Response.json({ error: "Target unavailable" }, { status: 400 })
@@ -408,7 +434,7 @@ it("shared source confirmation removes its drafts and unresolved rows for every 
   hostRows.opencode = [hostRows.pi[0]];
   try {
     await mount();
-    edit("opencode", "/shared", true);
+    edit("opencode", "/shared");
     open();
     click(button("Confirm"));
     await flush();
@@ -420,13 +446,62 @@ it("shared source confirmation removes its drafts and unresolved rows for every 
   }
 });
 
-it("reviews already selected maps and keeps manual Save maps", async () => {
+it("starts guesses unticked and saves only the items left ticked", async () => {
   await mount();
-  (host("pi").props.onSelect as () => void)();
-  open();
-  expect(JSON.stringify(review().props.review)).toContain("/pi-old");
-  click(button("Cancel"));
-  click(button("Save maps"));
+  open("claude-code");
+  expect(button("Confirm").props.disabled).toBe(false);
+  tick("Save this map /claude-old", false);
+  expect(button("Confirm").props.disabled).toBe(true);
+  tick("Save this map /ext/long-name", true);
+  click(button("Confirm"));
   await flush();
-  expect(patches()[0].body!.edits.importPathMaps).toContainEqual({ from: "/pi-old", to: "/main" });
+  expect(patches()[0].body!.edits).toEqual({
+    importPathMaps: [
+      { from: "/saved", to: "/keep" },
+      { from: "/ext/long-name", to: "/ext/ln" },
+    ],
+  });
+  expect(host("claude-code").props.rows).toContainEqual(hostRows["claude-code"][0]);
+});
+
+it("ignores a row at once and restores it from Ignored directories", async () => {
+  await mount();
+  (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
+  await flush();
+  expect(patches()[0].body).toEqual({
+    revision: "rev-1",
+    edits: { importIgnoredDirectories: ["/missing"] },
+  });
+  expect(host("pi").props.rows).not.toContainEqual(hostRows.pi[2]);
+  click(button("Restore"));
+  await flush();
+  expect(patches()[1].body).toEqual({ revision: "rev-2", edits: { importIgnoredDirectories: [] } });
+  expect(host("pi").props.rows).toContainEqual(hostRows.pi[2]);
+  expect(patches().every((call) => !call.body!.edits.importPathMaps)).toBe(true);
+});
+
+it("keeps the row after a failed Ignore and does not retry", async () => {
+  await mount();
+  reply = (call) =>
+    call.method === "PATCH"
+      ? Response.json({ error: "Changed elsewhere" }, { status: 409 })
+      : defaultReply(call);
+  (host("pi").props.onIgnore as (row: unknown) => void)(hostRows.pi[2]);
+  await flush();
+  expect(patches()).toHaveLength(1);
+  expect(host("pi").props.rows).toContainEqual(hostRows.pi[2]);
+  const status = tree().find((node) => node.props.role === "status");
+  expect(text(status?.props.children)).toContain("Settings changed elsewhere");
+});
+
+it("saves removals only through Save removals", async () => {
+  await mount();
+  expect(button("Save removals").props.disabled).toBe(true);
+  click(button("Remove"));
+  edit("pi", "/unsaved");
+  click(button("Save removals"));
+  await flush();
+  expect(patches()[0].body!.edits).toEqual({ importPathMaps: [] });
+  expect(decisions()["/pi-old"]).toEqual({ directory: "/pi-old", target: "/unsaved" });
+  expect(tree().some((node) => text(node.props.children) === "Save maps")).toBe(false);
 });

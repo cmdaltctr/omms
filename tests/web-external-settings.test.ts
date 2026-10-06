@@ -86,21 +86,13 @@ describe("Web app version notice", () => {
 });
 
 describe("Directory maps", () => {
-  it("saves kept maps and accepted rows, and leaves out removed or rejected ones", () => {
+  it("saves kept maps and leaves out removed ones; row targets save only through Smart resolve", () => {
     const saved = [
       { from: "/a", to: "/x" },
       { from: "/b", to: "/y" },
     ];
-    expect(
-      mapsToSave(saved, new Set(["/b"]), [
-        { directory: "/code/app-feat-x", target: "/code/app", accepted: true },
-        { directory: "/tmp/gone", target: "/tmp", accepted: false },
-        { directory: "/empty", target: " ", accepted: true },
-      ])
-    ).toEqual([
-      { from: "/a", to: "/x" },
-      { from: "/code/app-feat-x", to: "/code/app" },
-    ]);
+    expect(mapsToSave(saved, new Set(["/b"]))).toEqual([{ from: "/a", to: "/x" }]);
+    expect(saved).toHaveLength(2);
   });
 });
 

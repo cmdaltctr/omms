@@ -34,6 +34,7 @@ const editable = [
   "memoryApiUrl",
   "memoryModel",
   "importPathMaps",
+  "importIgnoredDirectories",
   "claudeConfigDir",
   ...MEMORY_LIMIT_SETTINGS,
 ] as const;
@@ -48,6 +49,7 @@ const globalOnly = [
   "memoryProvider",
   "memoryApiUrl",
   "importPathMaps",
+  "importIgnoredDirectories",
   "claudeConfigDir",
 ];
 

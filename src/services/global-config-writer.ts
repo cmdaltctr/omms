@@ -29,6 +29,7 @@ const keys = new Set([
   "memoryModel",
   "memoryApiKey",
   "importPathMaps",
+  "importIgnoredDirectories",
   "claudeConfigDir",
   "maxMemories",
   "chatMessage.maxMemories",
@@ -91,7 +92,7 @@ function isValidEdit(key: string, value: unknown): boolean {
   if (key === "memoryApiKey") return isSecretReference(value);
   if (key === "memoryProvider") return MEMORY_PROVIDERS.includes(value as string);
   // Entries are checked by the startup validation below.
-  if (key === "importPathMaps") return Array.isArray(value);
+  if (key === "importPathMaps" || key === "importIgnoredDirectories") return Array.isArray(value);
   // The five memory limits share one validation rule set.
   const memoryLimit = getMemoryLimitRule(key);
   if (memoryLimit) return memoryLimit.isValid(value);

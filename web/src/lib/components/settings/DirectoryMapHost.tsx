@@ -1,19 +1,19 @@
 import type { MapDecision } from "$lib/external-api-settings";
-import { NO_DIRECTORY, type SuggestedDirectory } from "$lib/directory-maps";
+import { NO_DIRECTORY, rowTarget, type SuggestedDirectory } from "$lib/directory-maps";
 import { hostLabel, type WebHost } from "$lib/host-label";
 import { useSettingsText } from "$lib/i18n/settings";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
+import { ignoreReasonLabel } from "./DirectoryMapLabels";
 
 type Props = {
   host: WebHost;
   rows: SuggestedDirectory[];
   decisions: Record<string, MapDecision>;
   busy: boolean;
-  onDecide: (row: SuggestedDirectory, change: Partial<MapDecision>) => void;
-  onSelect: () => void;
-  onClear: () => void;
+  onDecide: (row: SuggestedDirectory, target: string) => void;
   onResolve: () => void;
+  onIgnore: (row: SuggestedDirectory) => void;
 };
 
 /** Compact host review; drafts remain in the owning settings section. */
@@ -23,13 +23,14 @@ export function DirectoryMapHost({
   decisions,
   busy,
   onDecide,
-  onSelect,
-  onClear,
   onResolve,
+  onIgnore,
 }: Props) {
   const s = useSettingsText();
   const mappable = rows.filter((row) => row.directory !== NO_DIRECTORY);
-  const selected = mappable.filter((row) => decisions[row.directory]?.accepted).length;
+  const withTarget = mappable.filter((row) =>
+    rowTarget(row, decisions[row.directory]).trim()
+  ).length;
   return (
     <details className="min-w-0 rounded-lg border border-border p-3">
       <summary
@@ -41,7 +42,8 @@ export function DirectoryMapHost({
         </h3>
         <span className="mt-1 block text-xs font-normal text-muted-foreground">
           {s("Directories")}: {mappable.length} · {s("Unresolved sessions")}:{" "}
-          {rows.reduce((sum, row) => sum + row.sessions, 0)} · {s("Selected maps")}: {selected}
+          {rows.reduce((sum, row) => sum + row.sessions, 0)} · {s("Rows with a target")}:{" "}
+          {withTarget}
         </span>
       </summary>
       <div className="mt-3 space-y-2">
@@ -51,7 +53,7 @@ export function DirectoryMapHost({
           </p>
         ) : (
           <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2 [&_button]:h-auto [&_button]:min-h-8 [&_button]:whitespace-normal [&_button]:py-1.5">
+            <div className="[&_button]:h-auto [&_button]:min-h-8 [&_button]:whitespace-normal [&_button]:py-1.5">
               <Button
                 type="button"
                 variant="outline"
@@ -61,33 +63,10 @@ export function DirectoryMapHost({
               >
                 {s("Smart resolve directories")}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={busy || mappable.length === 0}
-                onClick={onSelect}
-              >
-                {s("Select all with targets")}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={busy || selected === 0}
-                onClick={onClear}
-              >
-                {s("Clear selection")}
-              </Button>
             </div>
             <p className="text-xs text-muted-foreground">
               {s(
-                "Review suggested directory maps in a dialog. Nothing is saved until you press Confirm. Save maps remains available for manual selections."
-              )}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {s(
-                "Selecting or clearing a shared directory updates every host. Clear selection keeps target text. Review targets, then press Save maps."
+                "Smart resolve shows each proposed map and ignore in a dialog. Tick the ones to keep, then press Confirm. Nothing is saved before that."
               )}
             </p>
           </div>
@@ -103,20 +82,14 @@ export function DirectoryMapHost({
             );
           }
           const decision = decisions[row.directory];
-          const target = decision?.target ?? row.suggestion ?? "";
+          const target = rowTarget(row, decision);
+          const ignoreProposal =
+            !decision && row.suggestion?.kind === "ignore" ? row.suggestion : null;
           return (
             <div
               key={row.directory}
               className="flex min-w-0 items-start gap-2 border-t border-border pt-2 text-sm"
             >
-              <input
-                type="checkbox"
-                className="mt-1 shrink-0"
-                aria-label={`${row.directory} ${s("Use this map")}`}
-                checked={decision?.accepted ?? false}
-                disabled={busy}
-                onChange={(event) => onDecide(row, { accepted: event.target.checked })}
-              />
               <details className="min-w-0 flex-1">
                 <summary className="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-ring">
                   <code dir="ltr" className="break-all">
@@ -124,13 +97,21 @@ export function DirectoryMapHost({
                   </code>{" "}
                   · {row.sessions === 1 ? s("1 session") : `${row.sessions} ${s("sessions")}`}
                   <span className="mt-1 block text-xs text-muted-foreground">
-                    {s("Target directory")}:{" "}
-                    {target ? (
-                      <code dir="ltr" className="break-all">
-                        {target}
-                      </code>
+                    {ignoreProposal ? (
+                      <>
+                        {s("Suggested to ignore")}: {ignoreReasonLabel(s, ignoreProposal.reason)}
+                      </>
                     ) : (
-                      s("No target chosen")
+                      <>
+                        {s("Target directory")}:{" "}
+                        {target ? (
+                          <code dir="ltr" className="break-all">
+                            {target}
+                          </code>
+                        ) : (
+                          s("No target chosen")
+                        )}
+                      </>
                     )}
                   </span>
                 </summary>
@@ -144,11 +125,21 @@ export function DirectoryMapHost({
                     placeholder={s("Target directory")}
                     value={target}
                     disabled={busy}
-                    onChange={(event) => onDecide(row, { target: event.target.value })}
+                    onChange={(event) => onDecide(row, event.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground">{s("Use this map")}</p>
                 </div>
               </details>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                aria-label={`${s("Ignore")} ${row.directory}`}
+                disabled={busy}
+                onClick={() => onIgnore(row)}
+              >
+                {s("Ignore")}
+              </Button>
             </div>
           );
         })}

@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Select } from "$lib/components/ui/select";
 import {
   backfillActions,
   backfillModelEdit,
   importStatusBadge,
+  initialCardsOpen,
   lastRunSummary,
   manualModelFieldVisible,
   progressView,
@@ -57,6 +58,9 @@ export function AutoImportSection() {
   const [typedModes, setTypedModes] = useState<Partial<Record<BackfillHost, boolean>>>({});
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  // Each host card's disclosure; set once from the first status load, then only by the user.
+  const [open, setOpen] = useState<Partial<Record<BackfillHost, boolean>>>({});
+  const openSet = useRef(false);
   const polling =
     shouldPollBackfill(rows) || HOSTS.some((host) => runs?.[host]?.run?.state === "running");
   const loadRuns = () =>
@@ -91,7 +95,14 @@ export function AutoImportSection() {
         });
     }
     const unsubscribe = onSettingsSnapshot((value) => {
-      if (active) setSnapshot(value as Snapshot);
+      if (!active) return;
+      setSnapshot(value as Snapshot);
+      // A save such as Ignore can change the unresolved counts the server reports.
+      void settingsRequest<Rows>("/api/settings/backfill")
+        .then((next) => {
+          if (active) setRows(next);
+        })
+        .catch(() => {});
     });
     return () => {
       active = false;
@@ -117,6 +128,12 @@ export function AutoImportSection() {
       clearInterval(timer);
     };
   }, [polling]);
+
+  useEffect(() => {
+    if (openSet.current || !runs) return;
+    openSet.current = true;
+    setOpen(initialCardsOpen(runs));
+  }, [runs]);
 
   async function save(edits: Record<string, unknown>) {
     if (!snapshot) return;
@@ -198,177 +215,197 @@ export function AutoImportSection() {
         const summary = lastRunSummary(run);
         const badge = importStatusBadge(rows[host], run);
         const typed = manualModelFieldVisible(typedModes[host], known);
+        const state = run?.paused
+          ? s("paused")
+          : s(run?.state ?? rows[host]?.state ?? "not started");
         return (
-          <div key={host} className="space-y-2 rounded-lg border border-border p-3 text-sm">
-            <h3 className="text-subsection-title font-semibold">{hostLabel(host)}</h3>
-            {host === "claude-code" ? (
-              <p className="text-muted-foreground">
-                {s(
-                  "Claude Code backfill always uses the external API. It has no backfill model setting."
-                )}
-              </p>
-            ) : (
-              <>
-                <label className="block">
-                  {s("Backfill model")}
-                  <Select
-                    aria-label={`${hostLabel(host)} ${s("Backfill model")}`}
-                    className="mt-1 block w-full rounded border border-border bg-background p-2"
-                    value={typed ? "typed" : current}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setTypedModes((previous) => ({ ...previous, [host]: value === "typed" }));
-                      setChoices((previous) => ({ ...previous, [host]: value }));
-                    }}
-                  >
-                    <option value="inherit">{s("Same as live capture")}</option>
-                    <option value="external" disabled={missing.length > 0}>
-                      {s("External API")}
-                    </option>
-                    {options.map((item) => (
-                      <option
-                        key={`${item.provider}/${item.model}`}
-                        value={`${item.provider}/${item.model}`}
-                      >
-                        {item.name} ({item.provider}/{item.model})
+          <details
+            key={host}
+            className="min-w-0 rounded-lg border border-border p-3 text-sm"
+            open={open[host] ?? false}
+            onToggle={(event) => {
+              const next = event.currentTarget.open;
+              setOpen((previous) => ({ ...previous, [host]: next }));
+            }}
+          >
+            <summary className="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-ring">
+              <h3 className="inline text-subsection-title font-semibold">{hostLabel(host)}</h3>
+              <span className="mt-1 block text-xs text-muted-foreground">
+                {s("State")}: {state} · {s("Pending")}: {rows[host]?.counts.pending ?? 0} ·{" "}
+                {s("Unresolved sessions")}: {rows[host]?.counts.unresolved ?? 0}
+              </span>
+            </summary>
+            <div className="mt-3 space-y-2">
+              {host === "claude-code" ? (
+                <p className="text-muted-foreground">
+                  {s(
+                    "Claude Code backfill always uses the external API. It has no backfill model setting."
+                  )}
+                </p>
+              ) : (
+                <>
+                  <label className="block">
+                    {s("Backfill model")}
+                    <Select
+                      aria-label={`${hostLabel(host)} ${s("Backfill model")}`}
+                      className="mt-1 block w-full rounded border border-border bg-background p-2"
+                      value={typed ? "typed" : current}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setTypedModes((previous) => ({ ...previous, [host]: value === "typed" }));
+                        setChoices((previous) => ({ ...previous, [host]: value }));
+                      }}
+                    >
+                      <option value="inherit">{s("Same as live capture")}</option>
+                      <option value="external" disabled={missing.length > 0}>
+                        {s("External API")}
                       </option>
-                    ))}
-                    <option value="typed">{s("Manual provider/model")}</option>
-                  </Select>
-                </label>
-                {typed && (
-                  <input
-                    aria-label={`${host} ${s("Manual provider/model")}`}
-                    className="w-full rounded border border-border bg-background p-2"
-                    placeholder="provider/model"
-                    value={current === "typed" ? "" : current}
-                    onChange={(event) =>
-                      setChoices((previous) => ({ ...previous, [host]: event.target.value }))
-                    }
-                  />
-                )}
-                {missing.length > 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    {s("External API needs")}: {missing.join(", ")}
+                      {options.map((item) => (
+                        <option
+                          key={`${item.provider}/${item.model}`}
+                          value={`${item.provider}/${item.model}`}
+                        >
+                          {item.name} ({item.provider}/{item.model})
+                        </option>
+                      ))}
+                      <option value="typed">{s("Manual provider/model")}</option>
+                    </Select>
+                  </label>
+                  {typed && (
+                    <input
+                      aria-label={`${host} ${s("Manual provider/model")}`}
+                      className="w-full rounded border border-border bg-background p-2"
+                      placeholder="provider/model"
+                      value={current === "typed" ? "" : current}
+                      onChange={(event) =>
+                        setChoices((previous) => ({ ...previous, [host]: event.target.value }))
+                      }
+                    />
+                  )}
+                  {missing.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {s("External API needs")}: {missing.join(", ")}
+                    </p>
+                  )}
+                  {lists[host]?.available === false && (
+                    <p>
+                      {lists[host].reason
+                        ? s(lists[host].reason)
+                        : s("Model list unavailable. Enter provider/model manually.")}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    className="rounded border border-border px-3 py-1.5"
+                    disabled={busy || !snapshot}
+                    onClick={() => saveModel(host, current)}
+                  >
+                    {s("Save model")}
+                  </button>
+                </>
+              )}
+              <p>
+                {s("State")}: {state}
+                {run?.state === "running" &&
+                  run.surface &&
+                  ` (${s(`started from ${run.surface}`)})`}
+              </p>
+              {badge.kind === "learning-profile" && (
+                <p className="text-muted-foreground">
+                  {s("All exchanges are done. Learning the profile from the imported prompts")}:{" "}
+                  {badge.done} / {badge.total} {s("batches")}
+                </p>
+              )}
+              {progress && (
+                <div className="space-y-1">
+                  <div
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={progress.percent}
+                    className="h-2 w-full overflow-hidden rounded bg-muted"
+                  >
+                    <div className="h-full bg-primary" style={{ width: `${progress.percent}%` }} />
+                  </div>
+                  <p className="text-muted-foreground">
+                    {progress.percent}% · {progress.done} · {s("Minutes left")}:{" "}
+                    {progress.minutesLeft === "unknown"
+                      ? s("unknown")
+                      : progress.minutesLeft.replace("about", s("about"))}
                   </p>
-                )}
-                {lists[host]?.available === false && (
-                  <p>
-                    {lists[host].reason
-                      ? s(lists[host].reason)
-                      : s("Model list unavailable. Enter provider/model manually.")}
-                  </p>
-                )}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   className="rounded border border-border px-3 py-1.5"
-                  disabled={busy || !snapshot}
-                  onClick={() => saveModel(host, current)}
+                  disabled={busy || !actions.runNow}
+                  onClick={() => void control(host, "run")}
                 >
-                  {s("Save model")}
+                  {s("Run now")}
                 </button>
-              </>
-            )}
-            <p>
-              {s("State")}:{" "}
-              {run?.paused ? s("paused") : s(run?.state ?? rows[host]?.state ?? "not started")}
-              {run?.state === "running" && run.surface && ` (${s(`started from ${run.surface}`)})`}
-            </p>
-            {badge.kind === "learning-profile" && (
-              <p className="text-muted-foreground">
-                {s("All exchanges are done. Learning the profile from the imported prompts")}:{" "}
-                {badge.done} / {badge.total} {s("batches")}
-              </p>
-            )}
-            {progress && (
-              <div className="space-y-1">
-                <div
-                  role="progressbar"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={progress.percent}
-                  className="h-2 w-full overflow-hidden rounded bg-muted"
+                <button
+                  type="button"
+                  className="rounded border border-border px-3 py-1.5"
+                  disabled={busy || !actions.pause}
+                  onClick={() => void control(host, "pause")}
                 >
-                  <div className="h-full bg-primary" style={{ width: `${progress.percent}%` }} />
-                </div>
+                  {s("Pause")}
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-border px-3 py-1.5"
+                  disabled={busy || !actions.resume}
+                  onClick={() => void control(host, "resume")}
+                >
+                  {s("Resume")}
+                </button>
+              </div>
+              {unavailable && <p className="text-xs text-muted-foreground">{unavailable}</p>}
+              {summary && (
                 <p className="text-muted-foreground">
-                  {progress.percent}% · {progress.done} · {s("Minutes left")}:{" "}
-                  {progress.minutesLeft === "unknown"
-                    ? s("unknown")
-                    : progress.minutesLeft.replace("about", s("about"))}
+                  {s("Last run")}: {new Date(summary.finishedAt).toLocaleString()} ·{" "}
+                  {s(`started from ${summary.surface}`)} · {s(summary.state)} · {s("Imported")}:{" "}
+                  {summary.imported} · {s("Skipped")}: {summary.skipped} · {s("Failed")}:{" "}
+                  {summary.failed}
                 </p>
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="rounded border border-border px-3 py-1.5"
-                disabled={busy || !actions.runNow}
-                onClick={() => void control(host, "run")}
-              >
-                {s("Run now")}
-              </button>
-              <button
-                type="button"
-                className="rounded border border-border px-3 py-1.5"
-                disabled={busy || !actions.pause}
-                onClick={() => void control(host, "pause")}
-              >
-                {s("Pause")}
-              </button>
-              <button
-                type="button"
-                className="rounded border border-border px-3 py-1.5"
-                disabled={busy || !actions.resume}
-                onClick={() => void control(host, "resume")}
-              >
-                {s("Resume")}
-              </button>
-            </div>
-            {unavailable && <p className="text-xs text-muted-foreground">{unavailable}</p>}
-            {summary && (
-              <p className="text-muted-foreground">
-                {s("Last run")}: {new Date(summary.finishedAt).toLocaleString()} ·{" "}
-                {s(`started from ${summary.surface}`)} · {s(summary.state)} · {s("Imported")}:{" "}
-                {summary.imported} · {s("Skipped")}: {summary.skipped} · {s("Failed")}:{" "}
-                {summary.failed}
-              </p>
-            )}
-            {rows[host] && (
-              <div className="space-y-1 text-muted-foreground">
-                {!summary && (
-                  <p>
-                    {s("Imported")}: {rows[host].counts.imported} · {s("Skipped")}:{" "}
-                    {rows[host].counts.skipped} · {s("Failed")}: {rows[host].counts.failed}
-                  </p>
-                )}
-                <p>
-                  {s("Pending")}: {rows[host].counts.pending} · {s("Unresolved sessions")}:{" "}
-                  {rows[host].counts.unresolved}
-                  {rows[host].counts.unresolved > 0 && (
-                    <>
-                      {" "}
-                      <a
-                        className="underline focus-visible:outline-2 focus-visible:outline-ring"
-                        href={`#directory-maps-${host}`}
-                        aria-label={`${hostLabel(host)}: ${s("Directory maps")}`}
-                        onClick={() => revealDirectoryMaps(host)}
-                      >
-                        {s("Directory maps")}
-                      </a>
-                    </>
+              )}
+              {rows[host] && (
+                <div className="space-y-1 text-muted-foreground">
+                  {!summary && (
+                    <p>
+                      {s("Imported")}: {rows[host].counts.imported} · {s("Skipped")}:{" "}
+                      {rows[host].counts.skipped} · {s("Failed")}: {rows[host].counts.failed}
+                    </p>
                   )}
-                </p>
-                <p>
-                  {s("Model")}: {rows[host].model ?? s("none")}
-                </p>
-                <p>
-                  {s("Cutoff")}: {new Date(rows[host].cutoff).toLocaleString()}
-                </p>
-                {rows[host].error && <p role="alert">{rows[host].error}</p>}
-              </div>
-            )}
-          </div>
+                  <p>
+                    {s("Pending")}: {rows[host].counts.pending} · {s("Unresolved sessions")}:{" "}
+                    {rows[host].counts.unresolved}
+                    {rows[host].counts.unresolved > 0 && (
+                      <>
+                        {" "}
+                        <a
+                          className="underline focus-visible:outline-2 focus-visible:outline-ring"
+                          href={`#directory-maps-${host}`}
+                          aria-label={`${hostLabel(host)}: ${s("Directory maps")}`}
+                          onClick={() => revealDirectoryMaps(host)}
+                        >
+                          {s("Directory maps")}
+                        </a>
+                      </>
+                    )}
+                  </p>
+                  <p>
+                    {s("Model")}: {rows[host].model ?? s("none")}
+                  </p>
+                  <p>
+                    {s("Cutoff")}: {new Date(rows[host].cutoff).toLocaleString()}
+                  </p>
+                  {rows[host].error && <p role="alert">{rows[host].error}</p>}
+                </div>
+              )}
+            </div>
+          </details>
         );
       })}
       {message && (

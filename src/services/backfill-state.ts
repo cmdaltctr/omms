@@ -120,6 +120,22 @@ export function unresolvedSessionCount(report: {
 }
 
 /**
+ * A host's unresolved session count without the sessions in ignored
+ * directories, clamped at 0. Sessions with no recorded directory always count.
+ */
+export function visibleUnresolvedCount(
+  count: number,
+  directories: readonly UnresolvedDirectory[],
+  ignored: readonly string[]
+): number {
+  const skip = new Set(ignored);
+  const hidden = directories
+    .filter((item) => item.directory !== NO_DIRECTORY && skip.has(item.directory))
+    .reduce((sum, item) => sum + item.sessions, 0);
+  return Math.max(0, count - hidden);
+}
+
+/**
  * Save the unresolved directories of a host's latest full run or listing. They
  * live in their own table, so recording them never sets a backfill cutoff.
  */

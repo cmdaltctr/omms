@@ -39,6 +39,7 @@ On first start, if no config exists at all, the plugin creates a full commented 
   "piBackfillModel": "inherit", // or "external", or "provider/model"
   "opencodeBackfillModel": "inherit", // or "external", or "provider/model"
   "importPathMaps": [{ "from": "~/code/app-feat-x", "to": "~/code/app" }],
+  "importIgnoredDirectories": [],
   "claudeConfigDir": "",
   "autoCaptureLanguage": "auto",
 
@@ -82,7 +83,7 @@ On first start, if no config exists at all, the plugin creates a full commented 
 Open the Settings page in the login web app, in OpenCode, or with `om-memory-system web`. [Web UI settings](web-ui-settings.md) explains each part of the page.
 
 - The page writes only to the global file. It does not edit a project's config.
-- It can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `autoBackfill`, `opencodeBackfillModel`, `piBackfillModel`, `importPathMaps`, `claudeConfigDir`, `webServerAutoStart`, `captureTrace`, `captureTraceRetentionDays`, `captureAttemptRetentionDays`, `captureRetryRetentionHours`, `memoryProvider`, `memoryApiUrl`, `memoryModel`, and `memoryApiKey`.
+- It can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `autoBackfill`, `opencodeBackfillModel`, `piBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `captureTrace`, `captureTraceRetentionDays`, `captureAttemptRetentionDays`, `captureRetryRetentionHours`, `memoryProvider`, `memoryApiUrl`, `memoryModel`, and `memoryApiKey`.
 - The general save changes only one credential, `memoryApiKey`. It accepts only an `env://` or `file://` reference and rejects a literal key.
 - The **Embedding** card changes `embeddingApiUrl`, `embeddingModel`, `embeddingDimensions`, and `embeddingApiKey` together, after a passing test. The general save refuses these keys.
 - The **Keys and access** card sets or clears the browser password. It writes `webServerAuthPassword` as a `file://` reference and `webServerAuthUsername`. The general save refuses these keys.
@@ -164,6 +165,13 @@ Valid edits apply at the next relevant search, injection, capture, or OpenCode p
 - A run's own `--map` adds to the list and wins for the same `from`.
 - If the `to` directory does not exist, its sessions stay unresolved.
 
+`importIgnoredDirectories` is a list of folders that the Settings page's **Directory maps** list hides.
+
+- `~` is expanded. After that, each path must be absolute. A bad entry is a config error.
+- An ignored folder leaves the host lists and every unresolved count on the page.
+- Imports do not change. Sessions in an ignored folder stay unimported.
+- **Ignore** and **Restore** on the Settings page edit the list.
+
 On the Settings page you can **Run now**, **Pause**, and **Resume** each host's backfill.
 
 - A paused backfill does not start when the host starts. It waits until you resume it.
@@ -210,7 +218,7 @@ On the Settings page you can **Run now**, **Pause**, and **Resume** each host's 
 
 Some settings are read only from the global file.
 
-- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoCleanupEnabled`, and `autoCleanupRetentionDays`. This stops one project from, for example, turning off the shared web server for another.
+- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoCleanupEnabled`, and `autoCleanupRetentionDays`. This stops one project from, for example, turning off the shared web server for another.
 - A project config cannot turn `captureTrace` on. See [Capture traces](#capture-traces-opt-in).
 - A project config that sets `embeddingApiUrl`, `embeddingApiKey`, `memoryProvider`, `memoryApiUrl`, or `memoryApiKey` is an error. Move those to the global file.
 

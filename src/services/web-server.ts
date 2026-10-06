@@ -960,11 +960,27 @@ export class WebServer {
       }
 
       if (path === "/api/settings/backfill" && method === "GET") {
-        const { readBackfillStatus } = await import("./backfill-state.js");
+        const [
+          { CONFIG },
+          { readBackfillStatus, readUnresolvedDirectories, visibleUnresolvedCount },
+        ] = await Promise.all([import("../config.js"), import("./backfill-state.js")]);
+        // Read at request time, so an Ignore click changes every badge at once.
+        const ignored = CONFIG.importIgnoredDirectories ?? [];
+        const status = async (host: "pi" | "opencode" | "claude-code") => {
+          const current = await readBackfillStatus(host);
+          if (!current || !ignored.length) return current;
+          const directories = await readUnresolvedDirectories(host);
+          const unresolved = visibleUnresolvedCount(
+            current.counts.unresolved,
+            directories,
+            ignored
+          );
+          return { ...current, counts: { ...current.counts, unresolved } };
+        };
         return this.jsonResponse({
-          pi: await readBackfillStatus("pi"),
-          opencode: await readBackfillStatus("opencode"),
-          "claude-code": await readBackfillStatus("claude-code"),
+          pi: await status("pi"),
+          opencode: await status("opencode"),
+          "claude-code": await status("claude-code"),
         });
       }
 
@@ -1156,8 +1172,10 @@ export class WebServer {
       }
 
       if (path === "/api/settings/import-maps" && method === "GET") {
-        const { directoryMapsView } = await import("../importer/web-import-api.js");
-        return this.jsonResponse(await directoryMapsView());
+        const { directoryMapsView, readStoreProjects } =
+          await import("../importer/web-import-api.js");
+        const knownProjects = await readStoreProjects(this.config.directory ?? process.cwd());
+        return this.jsonResponse(await directoryMapsView({ knownProjects }));
       }
 
       if (path === "/api/settings/models" && method === "GET") {

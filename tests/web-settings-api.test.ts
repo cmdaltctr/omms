@@ -89,6 +89,31 @@ describe("settings API", () => {
     expect(result.login.state).toBe("not-installed");
     expect(JSON.stringify(result.rows)).not.toContain("private-test-value");
   });
+  it("leaves ignored directories out of the backfill count and the Directory maps list alike", async () => {
+    const result = await scenario(`
+      const { join } = await import("node:path");
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "isolated-store");
+      CONFIG.importIgnoredDirectories = ["/x/scratch"];
+      const state = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/backfill-state.ts")).href)});
+      await state.getBackfillCutoff("pi", 1);
+      await state.updateBackfillStatus("pi", { state: "done", model: null,
+        counts: { imported: 0, skipped: 0, failed: 0, pending: 0, unresolved: 10 } });
+      await state.recordUnresolvedDirectories("pi", [
+        { directory: "/x/scratch", sessions: 6 },
+        { directory: "/x/kept", sessions: 2 },
+        { directory: "", sessions: 2 },
+      ]);
+      const backfill = await (await send("/api/settings/backfill")).json();
+      const maps = await (await send("/api/settings/import-maps")).json();
+      return { unresolved: backfill.pi.counts.unresolved, listed: maps.pi, ignored: maps.ignored };
+    `);
+    expect(result.ignored).toEqual(["/x/scratch"]);
+    expect(result.unresolved).toBe(4);
+    const listed = result.listed as Array<{ directory: string; sessions: number }>;
+    expect(listed.map((row) => row.directory)).toEqual(["/x/kept", ""]);
+    expect(listed.reduce((sum, row) => sum + row.sessions, 0)).toBe(result.unresolved);
+  });
   // Builds a POSIX install with a symlink on PATH. Windows finds `.cmd` wrappers instead,
   // and a symlink needs extra rights there; `global-version.test.ts` covers that layout.
   it.skipIf(process.platform === "win32")(
@@ -503,7 +528,11 @@ describe("settings API", () => {
       {
         directory: expect.stringContaining("code/app-feat-x"),
         sessions: 1,
-        suggestion: expect.stringMatching(/code[\\/]app$/),
+        suggestion: {
+          kind: "map",
+          target: expect.stringMatching(/code[\\/]app$/),
+          confidence: "name",
+        },
       },
     ]);
     expect(JSON.stringify(result.maps)).not.toContain("other prompt");
@@ -591,7 +620,7 @@ describe("settings API", () => {
     expect(result.browsePath).toContain(".claude");
     expect(result.unknown).toBe(400);
     // The Directory maps section lists Claude Code's unresolved directories too.
-    expect(result.mapHosts).toEqual(["claude-code", "opencode", "pi", "saved"]);
+    expect(result.mapHosts).toEqual(["claude-code", "ignored", "opencode", "pi", "saved"]);
     expect(result.started).toBe(202);
     // One slot: the second request is refused, either as busy or for its model.
     expect([400, 409]).toContain(result.other);

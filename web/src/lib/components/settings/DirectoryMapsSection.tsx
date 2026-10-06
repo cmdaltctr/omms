@@ -9,23 +9,28 @@ import {
 import { mapsToSave, type MapDecision, type PathMap } from "$lib/external-api-settings";
 import { useSettingsText } from "$lib/i18n/settings";
 import {
+  confirmedEdits,
+  groupSavedMaps,
   reviewDirectoryMaps,
-  confirmedMapsToSave,
-  selectWithTargets,
-  clearSelection,
   type DirectoryMapReview,
+  type SuggestedDirectory,
 } from "$lib/directory-maps";
 import { DirectoryMapHost } from "./DirectoryMapHost";
 import { DirectoryMapReviewDialog } from "./DirectoryMapReviewDialog";
+import { Button } from "$lib/components/ui/button";
 
 type Snapshot = {
   revision: string;
-  settings?: { importPathMaps?: { globalValue?: PathMap[] } };
+  settings?: {
+    importPathMaps?: { globalValue?: PathMap[] };
+    importIgnoredDirectories?: { globalValue?: string[] };
+  };
 };
 type Host = "pi" | "opencode" | "claude-code";
-type Suggested = { directory: string; sessions: number; suggestion: string | null };
+type Suggested = SuggestedDirectory;
 type View = {
   saved: PathMap[];
+  ignored?: string[];
   pi: Suggested[];
   opencode: Suggested[];
   "claude-code"?: Suggested[];
@@ -76,33 +81,78 @@ export function DirectoryMapsSection() {
     setPending({ host, review: reviewDirectoryMaps(rows, decisions) });
   }
 
-  function decide(row: Suggested, change: Partial<MapDecision>) {
-    setDecisions((previous) => {
-      const current = previous[row.directory] ?? {
-        directory: row.directory,
-        target: row.suggestion ?? "",
-        accepted: false,
-      };
-      return { ...previous, [row.directory]: { ...current, ...change } };
-    });
+  function decide(row: Suggested, target: string) {
+    setDecisions((previous) => ({
+      ...previous,
+      [row.directory]: { directory: row.directory, target },
+    }));
   }
 
-  async function save() {
-    if (!snapshot || !view) return;
-    const importPathMaps = mapsToSave(view.saved, removed, Object.values(decisions));
+  const savedMaps = () => snapshot?.settings?.importPathMaps?.globalValue ?? view?.saved ?? [];
+  const ignoredList = () =>
+    snapshot?.settings?.importIgnoredDirectories?.globalValue ?? view?.ignored ?? [];
+
+  /** Save removals, Ignore, and Restore: one immediate save, then a fresh list. */
+  async function saveNow(
+    edits: Record<string, unknown>,
+    done: string,
+    failed: string
+  ): Promise<boolean> {
+    if (!snapshot || !view || saving.current || refreshNeeded) return false;
+    saving.current = true;
     setBusy(true);
     try {
       await settingsRequest("/api/settings", {
         method: "PATCH",
-        body: JSON.stringify({ edits: { importPathMaps }, revision: snapshot.revision }),
+        body: JSON.stringify({ edits, revision: snapshot.revision }),
       });
-      setMessage(s("Saved. Maps apply to the next import or backfill run."));
     } catch (error) {
-      setMessage((error as Error).message);
+      const conflict = error instanceof SettingsRequestError && error.status === 409;
+      setMessage(conflict ? "Settings changed elsewhere. Reload settings and try again." : failed);
+      await reloadSettingsSnapshot<Snapshot>();
+      saving.current = false;
+      setBusy(false);
+      return false;
     }
-    await reloadSettingsSnapshot<Snapshot>();
-    await load();
-    setBusy(false);
+    setMessage(done);
+    try {
+      await refreshReview();
+    } catch {
+      setRefreshNeeded("saved");
+      setMessage(
+        "Saved, but the list could not be refreshed. Refresh the list without saving again."
+      );
+    } finally {
+      saving.current = false;
+      setBusy(false);
+    }
+    return true;
+  }
+
+  function saveRemovals() {
+    void saveNow(
+      { importPathMaps: mapsToSave(savedMaps(), removed) },
+      "Saved. Removed maps stop applying at the next import or backfill run.",
+      "Removals could not be saved. Try again."
+    ).then((saved) => {
+      if (saved) setRemoved(new Set());
+    });
+  }
+
+  function ignore(row: Suggested) {
+    void saveNow(
+      { importIgnoredDirectories: [...new Set([...ignoredList(), row.directory])] },
+      "Ignored. The directory stays unimported.",
+      "The directory could not be ignored. Try again."
+    );
+  }
+
+  function restore(directory: string) {
+    void saveNow(
+      { importIgnoredDirectories: ignoredList().filter((item) => item !== directory) },
+      "Restored. The directory shows again in each host list that reported it.",
+      "The directory could not be restored. Try again."
+    );
   }
 
   async function refreshReview() {
@@ -142,21 +192,17 @@ export function DirectoryMapsSection() {
     }
   }
 
-  async function confirm() {
-    if (!snapshot || !view || !pending?.review.maps.length || saving.current || refreshNeeded)
-      return;
+  async function confirm(ticked: Set<string>) {
+    if (!snapshot || !view || !pending || saving.current || refreshNeeded) return;
+    const edits = confirmedEdits(savedMaps(), ignoredList(), pending.review, ticked);
+    if (!edits.importPathMaps && !edits.importIgnoredDirectories) return;
     saving.current = true;
     setBusy(true);
     setReviewError("");
-    const reviewed = pending.review.maps;
-    const importPathMaps = confirmedMapsToSave(
-      snapshot.settings?.importPathMaps?.globalValue ?? view.saved,
-      reviewed
-    );
     try {
       await settingsRequest("/api/settings", {
         method: "PATCH",
-        body: JSON.stringify({ edits: { importPathMaps }, revision: snapshot.revision }),
+        body: JSON.stringify({ edits, revision: snapshot.revision }),
       });
     } catch (error) {
       const conflict = error instanceof SettingsRequestError && error.status === 409;
@@ -180,14 +226,28 @@ export function DirectoryMapsSection() {
       return;
     }
     // Retire global source decisions only after persistence succeeds.
-    const sources = new Set(reviewed.map((map) => map.from));
+    const sources = new Set(ticked);
     setDecisions((previous) =>
       Object.fromEntries(Object.entries(previous).filter(([source]) => !sources.has(source)))
     );
     setRemoved((previous) => new Set([...previous].filter((source) => !sources.has(source))));
-    setView((previous) => (previous ? { ...previous, saved: importPathMaps } : previous));
+    setView((previous) =>
+      previous
+        ? {
+            ...previous,
+            saved: edits.importPathMaps ?? previous.saved,
+            ignored: edits.importIgnoredDirectories ?? previous.ignored,
+          }
+        : previous
+    );
     setPending(undefined);
-    setMessage("Saved. Maps apply to the next import or backfill run.");
+    const mapCount = pending.review.maps.filter((map) => ticked.has(map.from)).length;
+    const ignoreCount = pending.review.ignores.filter((item) => ticked.has(item.directory)).length;
+    setMessage(
+      `${s("Saved maps")}: ${mapCount} · ${s("Ignored directories")}: ${ignoreCount}. ${s(
+        "They apply to the next import or backfill run. No sessions were imported."
+      )}`
+    );
     try {
       await refreshReview();
     } catch {
@@ -213,38 +273,98 @@ export function DirectoryMapsSection() {
           "Map a directory that was moved or deleted to the project it belongs to. A change applies to the next import or backfill run."
         )}
       </p>
-      <h3 className="text-subsection-title font-semibold">{s("Saved maps")}</h3>
-      <p className="text-xs text-muted-foreground">{s("Saved maps apply to every host.")}</p>
-      {!view?.saved.length && <p className="text-sm text-muted-foreground">{s("none")}</p>}
-      <ul className="space-y-1 text-sm">
-        {view?.saved.map((map) => (
-          <li key={map.from} className="flex flex-wrap items-center gap-2">
-            <span className={removed.has(map.from) ? "line-through" : ""}>
-              <code dir="ltr" className="break-all">
-                {map.from}
-              </code>{" "}
-              →{" "}
-              <code dir="ltr" className="break-all">
-                {map.to}
+      <details className="min-w-0 rounded-lg border border-border p-3">
+        <summary className="cursor-pointer rounded font-medium focus-visible:outline-2 focus-visible:outline-ring">
+          <h3 className="inline text-subsection-title font-semibold">{s("Saved maps")}</h3> ·{" "}
+          {view?.saved.length ?? 0}
+          <span className="mt-1 block text-xs font-normal text-muted-foreground">
+            {s("Saved maps apply to every host.")}
+          </span>
+        </summary>
+        <div className="mt-3 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            {s(
+              "Keep a map after its sessions import. Every import checks the map before it skips a session, so removing a map makes its sessions unresolved again on the next run."
+            )}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy || !!refreshNeeded || !snapshot || !view || removed.size === 0}
+            onClick={saveRemovals}
+          >
+            {s("Save removals")}
+          </Button>
+          {!view?.saved.length && <p className="text-sm text-muted-foreground">{s("none")}</p>}
+          {groupSavedMaps(view?.saved ?? []).map((group) => (
+            <details key={group.target} className="min-w-0 border-t border-border pt-2">
+              <summary className="cursor-pointer rounded text-sm focus-visible:outline-2 focus-visible:outline-ring">
+                <code dir="ltr" className="break-all">
+                  {group.target}
+                </code>{" "}
+                · {group.maps.length}
+              </summary>
+              <ul className="mt-2 space-y-1 text-sm">
+                {group.maps.map((map) => (
+                  <li key={map.from} className="flex min-w-0 items-start gap-2">
+                    <code
+                      dir="ltr"
+                      className={`min-w-0 flex-1 break-all ${removed.has(map.from) ? "line-through" : ""}`}
+                    >
+                      {map.from}
+                    </code>
+                    <button
+                      type="button"
+                      className="shrink-0 rounded border border-border px-2 py-0.5 text-xs"
+                      aria-label={`${removed.has(map.from) ? s("Keep") : s("Remove")} ${map.from}`}
+                      disabled={busy}
+                      onClick={() =>
+                        setRemoved((previous) => {
+                          const next = new Set(previous);
+                          if (next.has(map.from)) next.delete(map.from);
+                          else next.add(map.from);
+                          return next;
+                        })
+                      }
+                    >
+                      {removed.has(map.from) ? s("Keep") : s("Remove")}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))}
+        </div>
+      </details>
+      <details className="min-w-0 rounded-lg border border-border p-3">
+        <summary className="cursor-pointer rounded font-medium focus-visible:outline-2 focus-visible:outline-ring">
+          <h3 className="inline text-subsection-title font-semibold">{s("Ignored directories")}</h3>{" "}
+          · {view?.ignored?.length ?? 0}
+          <span className="mt-1 block text-xs font-normal text-muted-foreground">
+            {s("Ignored directories stay unimported and leave the unresolved counts.")}
+          </span>
+        </summary>
+        <ul className="mt-3 space-y-1 text-sm">
+          {!view?.ignored?.length && <li className="text-muted-foreground">{s("none")}</li>}
+          {view?.ignored?.map((directory) => (
+            <li key={directory} className="flex min-w-0 items-start gap-2">
+              <code dir="ltr" className="min-w-0 flex-1 break-all">
+                {directory}
               </code>
-            </span>
-            <button
-              type="button"
-              className="rounded border border-border px-2 py-0.5 text-xs"
-              onClick={() =>
-                setRemoved((previous) => {
-                  const next = new Set(previous);
-                  if (next.has(map.from)) next.delete(map.from);
-                  else next.add(map.from);
-                  return next;
-                })
-              }
-            >
-              {removed.has(map.from) ? s("Keep") : s("Remove")}
-            </button>
-          </li>
-        ))}
-      </ul>
+              <button
+                type="button"
+                className="shrink-0 rounded border border-border px-2 py-0.5 text-xs"
+                aria-label={`${s("Restore")} ${directory}`}
+                disabled={busy || !!refreshNeeded || !snapshot}
+                onClick={() => restore(directory)}
+              >
+                {s("Restore")}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </details>
       {(["pi", "opencode", "claude-code"] as const).map((host) => {
         const rows = view?.[host] ?? [];
         return (
@@ -256,19 +376,10 @@ export function DirectoryMapsSection() {
             busy={busy || !!refreshNeeded || !snapshot || !view}
             onDecide={decide}
             onResolve={() => smartResolve(host, rows)}
-            onSelect={() => setDecisions((previous) => selectWithTargets(rows, previous))}
-            onClear={() => setDecisions((previous) => clearSelection(rows, previous))}
+            onIgnore={ignore}
           />
         );
       })}
-      <button
-        type="button"
-        className="rounded border border-border px-3 py-1.5 text-sm"
-        disabled={busy || !!refreshNeeded || !snapshot || !view}
-        onClick={() => void save()}
-      >
-        {s("Save maps")}
-      </button>
       {pending && (
         <DirectoryMapReviewDialog
           host={pending.host}
@@ -280,7 +391,7 @@ export function DirectoryMapsSection() {
           onClose={() => {
             if (!saving.current) setPending(undefined);
           }}
-          onConfirm={() => void confirm()}
+          onConfirm={(ticked) => void confirm(ticked)}
         />
       )}
       {refreshNeeded && !pending && (

@@ -54,6 +54,10 @@ For shared theme, font, or control changes, inspect every representative screen.
 
 Use 800px viewport height as a repeatable starting point. Check 320px width and 200% browser zoom for the touched controls and dialogs. These dimensions are verification targets, not new app breakpoints.
 
+### Mobile checks
+
+Check mobile layouts in a desktop browser only. Set a mobile viewport with the browser's device mode or the automation tool's viewport setting, for example 390×844 and 320×480 with touch on. Do not use the iOS Simulator, an Android emulator, or a physical device. Software keyboard behaviour is outside this check, so do not list it as a missing step.
+
 For each applicable case:
 
 1. Inspect the default screen and its hovered, focused, selected, disabled, and error states where present.

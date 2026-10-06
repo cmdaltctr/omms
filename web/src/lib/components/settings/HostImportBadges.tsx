@@ -6,7 +6,7 @@ import {
   type ImportRunView,
 } from "$lib/auto-import-settings";
 import { hostLabel } from "$lib/host-label";
-import { settingsRequest } from "$lib/settings-api";
+import { onSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import { ImportStatusBadge } from "./ImportStatusBadge";
 
@@ -30,7 +30,12 @@ export function HostImportBadges() {
     };
     load();
     const timer = setInterval(load, 10_000);
-    return () => clearInterval(timer);
+    // A save such as Ignore can change the unresolved counts the server reports.
+    const unsubscribe = onSettingsSnapshot(load);
+    return () => {
+      clearInterval(timer);
+      unsubscribe();
+    };
   }, []);
   return (
     <div className="flex flex-wrap gap-2" aria-label={s("Import status")}>
