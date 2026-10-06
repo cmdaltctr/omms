@@ -2,7 +2,7 @@
 
 ## 1. Shared status and sidebar header
 
-- [ ] 1.1 Rebase this branch on `fix/restart-handoff` after it merges, and verify `git log` shows the restart fix commit.
+- [x] 1.1 Rebase this branch on `fix/restart-handoff` after it merges, and verify `git log` shows the restart fix commit.
 - [x] 1.2 Move the status poll from `PowerButton.tsx` into a `useWebStatus` hook with one shared 15-second timer, and verify `web/tests/power-button.spec.tsx` still passes and a new test sees one request per interval with two readers mounted.
 - [x] 1.3 Add the `--brand-label` token (`#678D6C`, both themes) to `web/src/app.css`, and verify the built CSS holds the value under both theme selectors.
 - [x] 1.4 Change `brand` to `OMMS` in `en`, `zh`, and `ar`, and render the version after it in a smaller font with the normal text colour. Verify with a new `web/tests/sidebar-header.spec.tsx`: the version shows after a status answer, is absent before one, changes on a new version without reload, and is hidden when the desktop sidebar is collapsed.
