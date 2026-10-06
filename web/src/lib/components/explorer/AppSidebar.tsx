@@ -13,6 +13,8 @@ import {
 import type { Lang } from "$lib/i18n/translations";
 import { GithubIcon } from "$lib/components/icons/GithubIcon";
 import { PowerButton } from "$lib/components/explorer/PowerButton";
+import { SidebarBrand } from "$lib/components/explorer/SidebarBrand";
+import { UpdateButton } from "$lib/components/explorer/UpdateButton";
 import { Button } from "$lib/components/ui/button";
 import { Separator } from "$lib/components/ui/separator";
 import { navigate, ROUTES, type AppView } from "$lib/router";
@@ -238,14 +240,7 @@ export function AppSidebar({
               height={20}
               className="size-5 shrink-0 rounded-sm"
             />
-            <span
-              className={cn(
-                "truncate text-ui font-medium tracking-wide text-primary-label",
-                onDesktop("md:hidden")
-              )}
-            >
-              {brand}
-            </span>
+            <SidebarBrand brand={brand} className={onDesktop("md:hidden")} />
           </a>
           <Button
             variant="ghost"
@@ -385,6 +380,8 @@ export function AppSidebar({
         </nav>
 
         <div className={cn("mt-auto p-3", onDesktop("md:px-2"))}>
+          {/* Phones: 44px touch targets leave no room for the word in the footer row. */}
+          <UpdateButton variant="row" className="md:hidden" />
           <div
             className={cn(
               "flex w-fit items-center rounded-lg border border-sidebar-border/80 bg-card/70",
@@ -477,6 +474,13 @@ export function AppSidebar({
             >
               <GithubIcon className="size-4" />
             </a>
+            <UpdateButton
+              variant={collapsed ? "icon" : "inline"}
+              className={cn(
+                "max-md:hidden",
+                collapsed ? "md:border-t md:border-sidebar-border" : "rounded-e-lg"
+              )}
+            />
           </div>
         </div>
       </aside>

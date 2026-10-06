@@ -159,26 +159,28 @@ export async function runWebCommand(
   process.once("SIGTERM", stop);
   // The page's Stop and Restart buttons reach the same process through this callback.
   const { createPowerAction } = await import("./web-power.js");
-  server.setOnPowerAction(
-    createPowerAction({
-      stopServer: async () => {
-        clearInterval(keeper);
-        process.off("SIGINT", stop);
-        process.off("SIGTERM", stop);
-        await server.stop();
-      },
-      // A restart whose copy failed serves again from this process.
-      resumeServer: async () => {
-        keeper = setInterval(() => {}, 60_000);
-        process.once("SIGINT", stop);
-        process.once("SIGTERM", stop);
-        await server.start();
-      },
-      baseUrl: server.getUrl(),
-      loginItem: action === "--login-item",
-      autostart: options,
-    })
-  );
+  const powerAction = createPowerAction({
+    stopServer: async () => {
+      clearInterval(keeper);
+      process.off("SIGINT", stop);
+      process.off("SIGTERM", stop);
+      await server.stop();
+    },
+    // A restart whose copy failed serves again from this process.
+    resumeServer: async () => {
+      keeper = setInterval(() => {}, 60_000);
+      process.once("SIGINT", stop);
+      process.once("SIGTERM", stop);
+      await server.start();
+    },
+    baseUrl: server.getUrl(),
+    loginItem: action === "--login-item",
+    autostart: options,
+  });
+  server.setOnPowerAction(powerAction);
+  // The update button installs the npm release and restarts onto it through the launcher.
+  const { startWebUpdate } = await import("../services/web-update-runtime.js");
+  server.setWebUpdate(startWebUpdate(() => powerAction("update")));
   // A newer `web install` asked this web app to give up the port.
   server.setOnStepAside(async () => {
     clearInterval(keeper);

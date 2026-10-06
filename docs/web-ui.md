@@ -20,6 +20,10 @@ To keep the web app off, set `webServerEnabled` to `false` in the global config.
 
 OpenCode does not run a web server inside its session. The web app has no OpenCode session, so it cannot use OpenCode's signed-in models. See [Settings page](web-ui-settings.md) for what changes.
 
+## Sidebar header
+
+The sidebar header shows the name **OMMS** in the brand green `#678D6C`. The version of the running web app follows in a smaller font, for example `v4.9.0`. The page reads the version from `GET /api/web/status`. The power button uses the same call every 15 seconds. When a restart brings a new version, the header shows it at the next call, without a page reload. Before the first call answers, the header shows only the name. On a narrow screen, the top bar shows the same name and version. When you collapse the sidebar on a desktop, the header shows only the icon.
+
 ## Power button
 
 When you open the page from the same computer, the sidebar footer shows a power button. It is green while the web app answers, and grey when the last check failed. The page checks every 15 seconds. Select it to open a dialog with two actions:
@@ -71,6 +75,52 @@ A global install of the terminal command is optional. The login item and the hoo
 npm i -g om-memory-system      # or: bun add -g om-memory-system
 om-memory-system --version
 ```
+
+## Update button
+
+When npm has a newer release, the sidebar footer shows an **Update** button. In the open sidebar it sits after the GitHub link. In the collapsed sidebar it shows as an up-arrow icon. On a phone it has its own row above the footer icons. It shows only on this computer, under the same rule as the power button. Select it to open a dialog:
+
+- The running version and the newer release.
+- The update command for each host, each with a **Copy** action. OpenCode and Pi need their own update command and a restart.
+- **Update web app** installs the release globally and restarts the web app on it. The page shows progress, then reloads on the new version. When a step fails, the dialog shows the failure code and the web app keeps running. When no npm sits beside the web app's Node.js, for example under Bun, the action is off and the dialog says so.
+
+A standalone web app (`om-memory-system web` or the login item) checks npm `latest` when it starts and then every 6 hours. A release counts only when it is newer than the running version and is not a prerelease. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn the check off. A failed check keeps the last result and writes `Web app update check failed` with the code `unreachable`.
+
+`GET /api/web/status` reports the result in its `update` field:
+
+| Field        | Meaning                                                        |
+| ------------ | -------------------------------------------------------------- |
+| `available`  | The newer release, or `null`.                                  |
+| `state`      | `idle`, `installing`, `restarting`, or `failed`.               |
+| `code`       | The failure code while `state` is `failed`.                    |
+| `canInstall` | `true` when npm sits beside the Node.js that runs the web app. |
+
+`POST /api/web/update` installs the release and restarts the web app onto it. It has the same guards as Restart:
+
+- Without the local API token it returns `401`. From another address it returns `403`.
+- With no newer release, or with no npm beside Node.js, it returns `409`.
+- Otherwise it returns `202`. A second request while an update runs also gets `202` and starts nothing.
+
+How the update works:
+
+1. The web app runs `npm install -g om-memory-system@<version>` with the npm beside its Node.js, without a shell (Windows runs `npm.cmd` through one). Only a plain `x.y.z` version reaches npm.
+2. The web app reads the version of the install beside its Node.js. It restarts only when that version is the new release.
+3. The restart runs the OMMS launcher (`~/.omms/bin/omms-launch.mjs`), so the newest copy on the machine serves. A login item restarts through the service manager, and the login item runs the launcher too.
+
+The web app keeps serving its current version when a step fails. The `code` names the step:
+
+| Code                                  | Meaning                                                         |
+| ------------------------------------- | --------------------------------------------------------------- |
+| `permission`                          | npm could not write to the global folder (`EACCES` or `EPERM`). |
+| `network`                             | npm could not reach the registry.                               |
+| `npm-exit`                            | npm failed for another reason.                                  |
+| `timeout`                             | npm ran longer than 5 minutes and was stopped.                  |
+| `spawn-error`                         | npm or the restarted copy could not start.                      |
+| `version-mismatch`                    | The install beside Node.js does not report the new release.     |
+| `no-launcher`                         | The launcher is missing.                                        |
+| `copy-exit`, `handoff`, `other-owner` | The restart failed. See [How Restart works](#power-button).     |
+
+Each update writes `Web app update` log records with the outcome, the code, both versions, the npm exit code, and the duration. The log never holds npm output or the token.
 
 ## Memory badges
 

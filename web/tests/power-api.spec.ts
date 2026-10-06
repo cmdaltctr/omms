@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, expect, it } from "bun:test";
-import { readPowerStatus, sendPowerAction, waitForWebApp } from "../src/lib/power.ts";
+import {
+  readPowerStatus,
+  sendPowerAction,
+  sendUpdate,
+  waitForUpdate,
+  waitForWebApp,
+} from "../src/lib/power.ts";
 
 type Call = { url: string; init?: RequestInit };
 const realFetch = globalThis.fetch;
@@ -98,4 +104,73 @@ it("reports the old instance that answers again after a gap as unchanged", async
   // The copy failed and the old process serves again.
   statusReplies(["old", null, null, "old"]);
   expect(await waitForWebApp("old", { sleep: async () => undefined })).toBe("unchanged");
+});
+
+it("reads a valid update field and drops a malformed one", async () => {
+  const update = { available: "4.10.0", state: "installing", code: null, canInstall: true };
+  stubFetch(() => Response.json({ version: "4.9.0", canControl: true, update }));
+  expect((await readPowerStatus())?.update).toEqual(update);
+  stubFetch(() =>
+    Response.json({ version: "4.9.0", canControl: true, update: { state: "rebooting" } })
+  );
+  expect((await readPowerStatus())?.update).toBeUndefined();
+});
+
+it("posts Update web app with the token", async () => {
+  stubFetch(() => Response.json({ success: true }, { status: 202 }));
+  expect(await sendUpdate()).toBe(true);
+  expect(calls[0]?.url).toBe("/api/web/update");
+  expect(calls[0]?.init?.method).toBe("POST");
+  expect(new Headers(calls[0]?.init?.headers).get("x-omms-token")).toBe("page-token");
+  stubFetch(() => Response.json({ success: false }, { status: 409 }));
+  expect(await sendUpdate()).toBe(false);
+});
+
+it("waits through installing and an empty port until a new instance answers", async () => {
+  const replies: (Response | null)[] = [
+    Response.json({
+      version: "4.9.0",
+      canControl: true,
+      instance: "old",
+      update: { state: "installing", available: "4.10.0", code: null, canInstall: true },
+    }),
+    null,
+    Response.json({ version: "4.10.0", canControl: true, instance: "new" }),
+  ];
+  globalThis.fetch = (async () => {
+    const next = replies.shift();
+    if (!next) throw new TypeError("fetch failed");
+    return next;
+  }) as unknown as typeof fetch;
+  expect(await waitForUpdate("old", { sleep: async () => {} })).toEqual({ kind: "restarted" });
+});
+
+it("reports the failure code the old web app shows", async () => {
+  stubFetch(() =>
+    Response.json({
+      version: "4.9.0",
+      canControl: true,
+      instance: "old",
+      update: { state: "failed", available: "4.10.0", code: "network", canInstall: true },
+    })
+  );
+  expect(await waitForUpdate("old", { sleep: async () => {} })).toEqual({
+    kind: "failed",
+    code: "network",
+  });
+});
+
+it("gives up after the update wait", async () => {
+  let slept = 0;
+  stubFetch(() =>
+    Response.json({
+      version: "4.9.0",
+      canControl: true,
+      instance: "old",
+      update: { state: "installing", available: "4.10.0", code: null, canInstall: true },
+    })
+  );
+  const outcome = await waitForUpdate("old", { sleep: async (ms) => void (slept += ms) });
+  expect(outcome).toEqual({ kind: "timeout" });
+  expect(slept).toBeGreaterThanOrEqual(7 * 60_000);
 });

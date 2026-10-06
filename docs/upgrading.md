@@ -13,6 +13,8 @@ installs updates by itself. You choose when to update.
 | Pi          | Pi shows an update notice while you work                                                                                     | `pi update npm:om-memory-system` (or `pi update --extensions` for all)  |
 | OpenCode v2 | The footer shows `omms:connected · <version> available` and a toast names the command. `opencode plugin check` also lists it | `opencode plugin update om-memory-system` (or `opencode plugin update`) |
 
+The web page tells you too. Its sidebar header shows the running version. When npm has a newer release, an **Update** button shows in the sidebar footer on this computer. Its dialog lists the command for each host. **Update web app** installs the release globally with npm and restarts the web app on it. See [Web UI: Update button](web-ui.md#update-button).
+
 Restart the agent after you update. OpenCode resolves "latest" once and keeps that copy in `~/.cache/opencode/npm/`, so it does not update by itself. Set `OMMS_DISABLE_UPDATE_CHECK=1` to stop the npm check. [UPDATES.md](../UPDATES.md) has a one-page summary for every host.
 
 ### Claude Code

@@ -14,6 +14,7 @@ import {
   webServerUrl,
 } from "./web-api-auth.js";
 import { packageVersion } from "./package-version.js";
+import type { UpdateStatus, WebUpdate } from "./web-update.js";
 import { isOlderVersion } from "./version-compare.js";
 import { AUTH_HEADER, getOrCreateAuthToken, isAuthorizedApiRequest } from "./auth-token.js";
 import { WebAuth } from "./web-auth.js";
@@ -235,6 +236,8 @@ interface WebServerConfig {
 type PowerAction = "stop" | "restart";
 
 const STEP_ASIDE_HOLD_OFF_MS = 60_000;
+/** What a web app without an npm check reports, such as one inside a host session. */
+const NO_UPDATE: UpdateStatus = { available: null, state: "idle", code: null, canInstall: false };
 /** Lets the 202 reply reach the caller before the server stops. */
 const STEP_ASIDE_REPLY_GRACE_MS = 100;
 /**
@@ -256,7 +259,8 @@ export class WebServer {
   private onTakeoverCallback: (() => Promise<void>) | null = null;
   private onPortsExhaustedCallback: (() => void) | null = null;
   private onStepAsideCallback: (() => void | Promise<void>) | null = null;
-  private onPowerActionCallback: ((action: PowerAction) => void | Promise<void>) | null = null;
+  private onPowerActionCallback: ((action: PowerAction) => unknown) | null = null;
+  private webUpdate: Pick<WebUpdate, "status" | "requestInstall"> | null = null;
   private powerActionRunning = false;
   private stepAsideTimer: NodeJS.Timeout | null = null;
   private holdOffTimer: NodeJS.Timeout | null = null;
@@ -335,8 +339,13 @@ export class WebServer {
   }
 
   /** Standalone web apps register this to stop or restart from the page. */
-  setOnPowerAction(callback: (action: PowerAction) => void | Promise<void>): void {
+  setOnPowerAction(callback: (action: PowerAction) => unknown): void {
     this.onPowerActionCallback = callback;
+  }
+
+  /** Standalone web apps register this to report and install npm releases. */
+  setWebUpdate(update: Pick<WebUpdate, "status" | "requestInstall">): void {
+    this.webUpdate = update;
   }
 
   /** Only a local caller may stop the web app; the token alone is not enough. */
@@ -370,6 +379,21 @@ export class WebServer {
       }
     }, STEP_ASIDE_REPLY_GRACE_MS).unref();
     return this.jsonResponse({ success: true }, 202);
+  }
+
+  /** Install the npm release and restart onto it. Same guards as Restart. */
+  private handleUpdate(remoteAddress: string | undefined): Response {
+    const record = (outcome: string) =>
+      log("Web server update request", { outcome, ownVersion: packageVersion() });
+    if (!isLoopbackAddress(remoteAddress)) {
+      record("refused_not_loopback");
+      return this.jsonResponse({ success: false, error: "Loopback caller required" }, 403);
+    }
+    const reply = this.webUpdate?.requestInstall() ?? "cannot-install";
+    record(reply);
+    if (reply === "accepted") return this.jsonResponse({ success: true }, 202);
+    const error = reply === "no-update" ? "No newer release" : "This web app cannot install";
+    return this.jsonResponse({ success: false, error }, 409);
   }
 
   /** API token routes. Only a caller on this machine with the local token manages tokens. */
@@ -1052,11 +1076,16 @@ export class WebServer {
           // Keys, tokens, and the embedder can be changed only from this machine.
           isLocal: isLoopbackAddress(remoteAddress),
           instance: PROCESS_INSTANCE,
+          update: this.webUpdate?.status() ?? NO_UPDATE,
         });
       }
 
       if ((path === "/api/web/stop" || path === "/api/web/restart") && method === "POST") {
         return this.handlePowerAction(path === "/api/web/stop" ? "stop" : "restart", remoteAddress);
+      }
+
+      if (path === "/api/web/update" && method === "POST") {
+        return this.handleUpdate(remoteAddress);
       }
 
       if (path === "/api/web/step-aside" && method === "POST") {

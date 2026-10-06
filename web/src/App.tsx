@@ -6,6 +6,7 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { AiCleanupDialog } from "$lib/components/explorer/AiCleanupDialog";
 import { AppSidebar } from "$lib/components/explorer/AppSidebar";
 import { EditMemoryDialog } from "$lib/components/explorer/EditMemoryDialog";
+import { SidebarBrand } from "$lib/components/explorer/SidebarBrand";
 import { KeywordBadge } from "$lib/components/explorer/KeywordBadge";
 import { MemoryList } from "$lib/components/explorer/MemoryList";
 import { ProfileView } from "$lib/components/explorer/ProfileView";
@@ -142,12 +143,8 @@ export default function App() {
             >
               <Menu className="size-4" />
             </Button>
-            <a
-              href={ROUTES.home}
-              className="truncate text-sm tracking-wide text-primary"
-              onClick={onHomeClick}
-            >
-              {t("brand")}
+            <a href={ROUTES.home} className="min-w-0" onClick={onHomeClick}>
+              <SidebarBrand brand={t("brand")} />
             </a>
           </div>
 
