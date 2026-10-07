@@ -2,6 +2,21 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.10.0](https://github.com/cmdaltctr/omms/compare/v4.9.1...v4.10.0) (2026-10-07)
+
+
+### Features
+
+* show the web app version and add a one-click update ([ab4ba53](https://github.com/cmdaltctr/omms/commit/ab4ba53688cee8622f9bad6306e7d87002264205))
+
+
+### Bug Fixes
+
+* close PR 104 review findings ([bf39f5c](https://github.com/cmdaltctr/omms/commit/bf39f5c817a7e728fe06ad9a780b89b7b57f42b0))
+* close second PR 104 review findings ([b28eb13](https://github.com/cmdaltctr/omms/commit/b28eb13172ebcf1189db19e1094348415279a409))
+* match the Windows npm path in the update install test ([e5fafd9](https://github.com/cmdaltctr/omms/commit/e5fafd948e6199f2d525439645ab55783b708928))
+* tolerate EBUSY when removing the real-process test home on Windows ([066dbf4](https://github.com/cmdaltctr/omms/commit/066dbf4bd17496c7545058e6bde07975dbf1cbfb))
+
 ## [4.9.1](https://github.com/cmdaltctr/omms/compare/v4.9.0...v4.9.1) (2026-10-06)
 
 
