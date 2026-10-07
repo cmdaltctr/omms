@@ -130,13 +130,19 @@ Profile decay SHALL keep a workflow unless both of these are true: it was last s
 
 ### Requirement: A forced history import re-analyses profile prompts
 
-When a history import runs with `--force` and without `--skip-profile`, it SHALL also process profile prompts that the ledger records as done. Each such prompt SHALL be recorded as waiting for profile learning, and the run SHALL analyse it with the waiting prompts. A prompt already in the prompt store SHALL be marked as waiting again, and SHALL NOT be stored a second time. Without `--force`, the import SHALL skip profile prompts that the ledger records as done. A dry run with `--force` SHALL count these prompts as prompts it would record, and SHALL make no model calls and no store changes. This SHALL apply to the OpenCode, Pi and Claude Code imports, in the terminal, in every in-session import command, and on the web import page when **force** is on.
+When a history import runs with `--force` and without `--skip-profile`, it SHALL also process profile prompts that the ledger records as done. Each such prompt SHALL be recorded as waiting for profile learning, and the run SHALL analyse it with the waiting prompts. A prompt already in the prompt store SHALL be marked as waiting again, and SHALL NOT be stored a second time. A forced run SHALL re-analyse each prompt at most once: a later forced run SHALL skip prompts that an earlier forced run already re-analysed. Without `--force`, the import SHALL skip profile prompts that the ledger records as done. A dry run with `--force` SHALL count these prompts as prompts it would record, and SHALL make no model calls and no store changes. This SHALL apply to the OpenCode, Pi and Claude Code imports, in the terminal, in every in-session import command, and on the web import page when **force** is on.
 
 #### Scenario: Rebuilding the profile from history
 
 - **WHEN** the ledger records 1,000 profile prompts as done and the user runs `om-memory-system import-pi-history --scope all-projects --force --skip-memories`
 - **THEN** the run SHALL send those 1,000 prompts to profile learning in batches
 - **AND** it SHALL create no memories
+
+#### Scenario: A second forced run
+
+- **WHEN** a forced run re-analysed 1,000 profile prompts and the user runs the same forced import again
+- **THEN** the run SHALL report those 1,000 prompts as already done
+- **AND** it SHALL send none of them to the model
 
 #### Scenario: A rerun without force
 

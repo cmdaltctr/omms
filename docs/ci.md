@@ -47,7 +47,7 @@ bun install --frozen-lockfile
 | `bun run ci:local`      | `bun run check`, then build, then the full test suite.                                                             |
 | `bun run build`         | Clean build of `dist/` and the web UI.                                                                             |
 | `bun run check:package` | Published-package shape: entry points and web UI present (`verify:package`), `publint`, and `attw`. Needs a build. |
-| `bun run test`          | Whole suite in one Bun process. Not reliable for gating.                                                           |
+| `bun run test`          | Every test file through the isolated runner, without check or build.                                               |
 
 `ci:local` (`scripts/local-ci.sh`) runs tests through `scripts/run-tests-isolated.sh`:
 
@@ -57,15 +57,14 @@ bun install --frozen-lockfile
 - The runner runs every file, even after one fails. At the end it lists each failed file and exits 1. In GitHub Actions each failed file is also an error annotation on the job. So one smoke run shows every failure on a platform.
 - The runner also runs each web page spec (`web/tests/*.spec.ts` and `*.spec.tsx`) in its own process. It passes `--tsconfig-override web/tsconfig.app.json`, because Bun does not follow the tsconfig references in `web/tsconfig.json` and cannot resolve the `$lib` alias without it. To run one spec by hand: `bash scripts/run-tests-isolated.sh web/tests/<name>.spec.tsx`.
 - On Windows, each test gets 30 seconds, because process start-up is slow there. Other platforms keep the Bun default of 5 seconds.
-- Do not use `bun test` for the whole suite. About 48 tests fail from shared module state. Those failures are not regressions.
 
 The isolated runner gives each run an empty home folder (`HOME`, `USERPROFILE` and `OMMS_TEST_HOME`). Tests then never open the real `~/.omms` store or `~/.config/omms` config.
 
 - Bun reads the home folder once, when the process starts. A test that changes `process.env.HOME` at run time still opens the real store. Before this runner change, `tests/user-prompt-learning-order.test.ts` deleted every row in the real `user-prompts.db` that way.
 - The runner links `.omms/data/.cache` in the empty home to `~/.cache/omms-test-models`, so the embedding model downloads once per machine.
 - It copies `~/.gitconfig` into the empty home, because some tests read the git identity.
-- `tests/test-home-isolation.test.ts` fails when a run under the runner sees another home folder.
-- To run one file safely, pass it to the runner: `bash scripts/run-tests-isolated.sh tests/<file>.test.ts`. A plain `bun test tests/<file>.test.ts` uses the real home folder.
+- `tests/preload.ts` stops any test process that the runner did not start, or whose home folder is the real one (`OMMS_REAL_HOME`), with a message that names the runner. A test can still start a child with its own temporary home. `tests/test-home-isolation.test.ts` checks the empty home and that guard.
+- To run one file safely, pass it to the runner: `bash scripts/run-tests-isolated.sh tests/<file>.test.ts`. A plain `bun test` refuses to run.
 
 Bun also loads `.env.test` for every test process and its children. It:
 

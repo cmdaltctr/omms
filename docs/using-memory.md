@@ -135,7 +135,7 @@ om-memory-system import-pi-history --scope all-projects --force --skip-memories 
 om-memory-system import-pi-history --scope all-projects --force --skip-memories
 ```
 
-Do the same with `import-opencode-history` and `import-claude-history`. On the Settings page, turn on **Force reimport** and **Skip memories** in the import options. Each rebuild costs one model call for each 50 prompts. A rebuild also raises how often each matched item was seen, so run it once, not on a schedule.
+Do the same with `import-opencode-history` and `import-claude-history`. On the Settings page, turn on **Force reimport** and **Skip memories** in the import options. Each rebuild costs one model call for each 50 prompts. Each history prompt is re-analysed once. A later forced run skips the prompts an earlier forced run already re-analysed, so a repeat does not count the same prompt twice.
 
 ## Web UI
 

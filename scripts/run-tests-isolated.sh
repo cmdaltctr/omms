@@ -21,6 +21,8 @@ fi
 # user-prompts.db that way. The embedding model cache stays outside the run, so
 # the model downloads once per machine, not once per run.
 real_home="$HOME"
+# tests/preload.ts refuses a test process whose home folder is this one.
+export OMMS_REAL_HOME="$real_home"
 export OMMS_TEST_HOME="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/omms-test-home.XXXXXX")" && pwd -P)"
 # Remove the empty home on every exit. rm does not follow the model cache link.
 trap 'rm -rf "$OMMS_TEST_HOME"' EXIT

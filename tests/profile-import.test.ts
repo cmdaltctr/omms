@@ -317,3 +317,28 @@ it("a forced dry run counts done prompts as pending and writes nothing", async (
     state.cleanup();
   }
 });
+
+it("a second forced run skips prompts an earlier forced run re-analysed", async () => {
+  const state = setup();
+  try {
+    await importProfileFromHistory(state.source, state.options as never);
+    await importProfileFromHistory(state.source, { ...state.options, force: true } as never);
+    const again = await importProfileFromHistory(state.source, {
+      ...state.options,
+      force: true,
+    } as never);
+    expect(again.promptsRecorded).toBe(0);
+    expect(again.promptsAlreadyHandled).toBe(1);
+    expect(state.modelCalls()).toBe(2);
+    const dry = await importProfileFromHistory(state.source, {
+      ...state.options,
+      force: true,
+      dryRun: true,
+      model: undefined,
+    } as never);
+    expect(dry.promptsWouldRecord).toBe(0);
+    expect(dry.promptsAlreadyHandled).toBe(1);
+  } finally {
+    state.cleanup();
+  }
+});

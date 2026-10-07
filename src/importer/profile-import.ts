@@ -92,12 +92,19 @@ export async function importProfileFromHistory(
       if (!key) continue;
       directory ??= session.directory;
       const profileKey = `${key}#profile`;
-      const existing = !ledgerReadable
-        ? null
-        : options.dryRun && ledger.peek
-          ? await ledger.peek(profileKey)
-          : await ledger.get(profileKey);
-      const reanalyse = existing?.status === "imported" && Boolean(options.force);
+      // A forced run re-analyses each prompt once; this key records that it did.
+      const rebuildKey = `${key}#profile-rebuild`;
+      const read = async (ledgerKey: string) =>
+        !ledgerReadable
+          ? null
+          : options.dryRun && ledger.peek
+            ? await ledger.peek(ledgerKey)
+            : await ledger.get(ledgerKey);
+      const existing = await read(profileKey);
+      const reanalyse =
+        existing?.status === "imported" &&
+        Boolean(options.force) &&
+        (await read(rebuildKey))?.status !== "imported";
       if (existing?.status === "imported" && !reanalyse) {
         report.promptsAlreadyHandled++;
         continue;
@@ -107,7 +114,7 @@ export async function importProfileFromHistory(
         continue;
       }
       await ledger.begin({
-        key: profileKey,
+        key: reanalyse ? rebuildKey : profileKey,
         sessionId: session.sessionId,
         sourceFile: session.sourceFile,
         projectHash: "profile",
@@ -122,7 +129,7 @@ export async function importProfileFromHistory(
       await prompts.markAsCaptured(promptId);
       // A forced unit may find its prompt still stored and already learned.
       if (reanalyse) await prompts.markForUserLearning(promptId);
-      await ledger.complete(profileKey, promptId);
+      await ledger.complete(reanalyse ? rebuildKey : profileKey, promptId);
       report.promptsRecorded++;
     }
   }
