@@ -58,6 +58,8 @@ Use 800px viewport height as a repeatable starting point. Check 320px width and 
 
 Check mobile layouts in a desktop browser only. Set a mobile viewport with the browser's device mode or the automation tool's viewport setting, for example 390×844 and 320×480 with touch on. Do not use the iOS Simulator, an Android emulator, or a physical device. Software keyboard behaviour is outside this check, so do not list it as a missing step.
 
+Unless the user asks, keep mobile checks simple: look at the layout at the narrow width and check for overflow. Do not simulate keyboard presses, gestures, or other multi-step interactions at mobile widths. Run keyboard and focus checks (items 3 and 5 below) at desktop width only.
+
 For each applicable case:
 
 1. Inspect the default screen and its hovered, focused, selected, disabled, and error states where present.

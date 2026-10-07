@@ -103,6 +103,29 @@ Use this compact scale as an OMMS adaptation of the inspected controls and setti
 | Small / extra-small / large button corner | 9px / 7px / 12px                          |
 | Border                                    | 1px semantic border                       |
 
+### Card and list spacing
+
+Space groups so that the gap grows with the distance between them. Do not use one gap for everything.
+
+| Use                                                      | Target                             |
+| -------------------------------------------------------- | ---------------------------------- |
+| Groups inside one card (header, text, step list, footer) | 12px, `space-y-3`                  |
+| Card padding                                             | 16px, `p-4`                        |
+| Cards in a grid                                          | 12px, `gap-3`, as Project Memories |
+| Section heading to its content                           | 12px, `space-y-3`                  |
+| Sibling page sections                                    | 32px, `gap-8`                      |
+
+Give a list inside a card the same 12px above and below as every other group. Do not add one-off margins. Use `items-start` on a card grid so a short card does not stretch to its taller neighbour.
+
+### Labels and pills
+
+Every category, type, or keyword label gets a colour. This is a standing convention. Do not ship a grey label and wait to be asked.
+
+- Take the hue from `keywordHue(label)` in `web/src/lib/components/explorer/KeywordBadge.tsx`, so one word always has one colour on every screen.
+- Memory type and profile category labels use a coloured outline and coloured text with no fill: `bg-transparent border-current`, text `oklch(0.42 0.13 hue)` in light mode and `oklch(0.8 0.13 hue)` in dark mode.
+- Keyword tags keep a tinted fill and border.
+- Workflow step pills are blue with a lighter blue number circle inside the pill. List steps one per row with no arrows.
+
 Use a conventional rounded fallback. Squircle enhancement with `corner-shape` is optional and must work without browser support. Keep settings rows flat. Dialogs may use a restrained elevation; decorative shadows and nested panels need a clear purpose.
 
 Do not change sidebar widths, breakpoints, or section grouping in the first styling pass. Test controls against the actual available panel width.

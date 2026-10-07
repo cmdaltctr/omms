@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import {
   Activity,
-  ArrowRight,
   Heart,
   RotateCcwClock,
   Info,
@@ -14,6 +13,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { ChangelogDialog } from "./ChangelogDialog";
+import { keywordHue } from "./KeywordBadge";
 import { ProfileItemDialog } from "./ProfileItemDialog";
 import { Badge } from "$lib/components/ui/badge";
 import { Button } from "$lib/components/ui/button";
@@ -156,10 +156,18 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
     const idx = indexOfItem(fullList, item);
     const pct = confidencePct(item);
     return (
-      <div className="min-w-0 rounded-xl border border-border bg-card p-3 space-y-2">
+      <div className="min-w-0 rounded-xl border border-border bg-card p-4 space-y-3">
         <div className="flex flex-wrap items-start gap-2">
           {type !== "workflows" || item.category ? (
-            <Badge variant="outline">{item.category || "General"}</Badge>
+            <Badge
+              variant="outline"
+              className="bg-transparent border-current [color:oklch(0.42_0.13_var(--category-hue))] dark:[color:oklch(0.8_0.13_var(--category-hue))]"
+              style={{
+                ["--category-hue" as string]: String(keywordHue(item.category || "General")),
+              }}
+            >
+              {item.category || "General"}
+            </Badge>
           ) : null}
           <div className="flex items-center gap-0.5 ms-auto">
             <Button
@@ -191,16 +199,16 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
         </div>
         <p className="text-sm break-words">{item.description || ""}</p>
         {item.steps?.length ? (
-          <ol className="flex flex-wrap items-center gap-1.5">
+          <ol className="flex flex-col items-start gap-1.5">
             {item.steps.map((step, i) => (
-              <li key={i} className="contents">
-                <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-blue-600/40 bg-blue-500/15 px-2.5 py-0.5 text-xs text-blue-700 dark:text-blue-400">
-                  <span className="tabular-nums opacity-70">{i + 1}</span>
-                  <span className="break-words">{step}</span>
+              <li
+                key={i}
+                className="flex min-w-0 max-w-full items-center gap-2 rounded-full border border-blue-600/40 bg-blue-500/15 py-0.5 ps-0.5 pe-2.5 text-xs text-blue-700 dark:text-blue-400"
+              >
+                <span className="flex size-5 shrink-0 items-center justify-center self-start rounded-full bg-blue-500/30 text-[11px] font-medium tabular-nums dark:bg-blue-400/30">
+                  {i + 1}
                 </span>
-                {i < (item.steps?.length || 0) - 1 ? (
-                  <ArrowRight className="size-3 text-muted-foreground rtl:rotate-180" />
-                ) : null}
+                <span className="min-w-0 break-words">{step}</span>
               </li>
             ))}
           </ol>
@@ -248,8 +256,8 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="space-y-2">
+      <div className="space-y-8">
+        <div className="space-y-3">
           <h2 dir="auto" className="text-section-title font-semibold break-words">
             {profile.displayName || profile.userId}
           </h2>
@@ -285,7 +293,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
           </div>
         </div>
 
-        <div className="grid gap-6">
+        <div className="grid gap-8">
           <section id="profile-preferences" className="scroll-mt-4 space-y-3">
             <h2 className="flex flex-wrap items-center gap-2 text-section-title font-semibold">
               <Heart className="size-4" />
@@ -298,7 +306,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
               <p className="text-sm text-muted-foreground">{t("empty-preferences")}</p>
             ) : (
               <>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {prefPage.items.map((item) => (
                     <ItemCard
                       key={indexOfItem(preferences, item)}
@@ -323,7 +331,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
               <p className="text-sm text-muted-foreground">{t("empty-patterns")}</p>
             ) : (
               <>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {patPage.items.map((item) => (
                     <ItemCard
                       key={indexOfItem(patterns, item)}
@@ -348,7 +356,7 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
               <p className="text-sm text-muted-foreground">{t("empty-workflows")}</p>
             ) : (
               <>
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid items-start gap-3 lg:grid-cols-2">
                   {wfPage.items.map((entry) => (
                     <ItemCard
                       key={entry.index}

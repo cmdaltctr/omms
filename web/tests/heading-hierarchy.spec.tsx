@@ -56,8 +56,13 @@ it("renders Profile identity and sections at H2 and workflows as pattern-style c
   expect(html).not.toMatch(/<h4\b/);
   expect(html).not.toMatch(/<h3\b/);
   expect(html).toContain("Check the shared visual controls");
-  expect(html).toMatch(/<ol class="[^"]*"><li class="contents"><span class="[^"]*bg-blue-500\/15/);
-  expect(html).toContain("sm:grid-cols-2");
+  expect(html).toMatch(
+    /<ol class="[^"]*flex-col[^"]*"><li class="[^"]*bg-blue-500\/15[^"]*"><span class="[^"]*bg-blue-500\/30[^"]*">1<\/span>/
+  );
+  expect(html).not.toContain("lucide-arrow-right");
+  expect(html).toMatch(/<div class="grid items-start gap-3 lg:grid-cols-2">/);
+  expect(html).toMatch(/--category-hue:\d+[^>]*>UI<\/span>/);
+  expect(html).toMatch(/--category-hue:\d+[^>]*>Preview<\/span>/);
   expect(html).toContain("Keep helper text visible.");
   expect(html).toMatch(/<p class="text-sm break-words">/);
   expect(html).not.toMatch(/<h[23][^>]*>UI<\/h[23]>/);
