@@ -58,6 +58,9 @@ jobs:
 
       - name: Validate source
         run: bun run ci:local
+        env:
+          # A stalled Windows runner times out tests that pass on a second run (ADR-024).
+          OMMS_TEST_RETRY: ${{ runner.os == 'Windows' && '1' || '' }}
 
       - name: Pack and install published package shape
         shell: bash

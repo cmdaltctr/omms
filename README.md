@@ -55,6 +55,12 @@ downloads a small embedding model (the part that makes memories searchable),
 so you need internet access once. The terminal import command also needs
 Node.js 22.14 or later.
 
+> [!NOTE]
+> OMMS is tested mostly on macOS and Linux. Windows runs only in the release
+> check, so it gets less testing. If something breaks on Windows,
+> [open an issue](https://github.com/cmdaltctr/omms/issues). If you fix it,
+> a pull request is welcome.
+
 ## Set up
 
 ### 1. Install
