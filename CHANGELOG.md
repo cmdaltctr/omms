@@ -2,6 +2,15 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.13.2](https://github.com/cmdaltctr/omms/compare/v4.13.1...v4.13.2) (2026-10-07)
+
+
+### Bug Fixes
+
+* finish releases, update every host soon after approval, test Windows before release ([896a2ea](https://github.com/cmdaltctr/omms/commit/896a2eab80ac4a07604172e5d7a92e2ba7719739))
+* resume the release approval after npm shows the version ([c196c78](https://github.com/cmdaltctr/omms/commit/c196c78f779f2864eea5bcb0512ed9d9b3fa864c))
+* update the Claude plugin and the web app notice soon after a release ([661afd1](https://github.com/cmdaltctr/omms/commit/661afd11dd4033c8d530b5c8f386bea7be6fde9b))
+
 ## [4.13.1](https://github.com/cmdaltctr/omms/compare/v4.13.0...v4.13.1) (2026-10-07)
 
 
