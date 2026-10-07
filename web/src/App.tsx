@@ -7,7 +7,6 @@ import { AiCleanupDialog } from "$lib/components/explorer/AiCleanupDialog";
 import { AppSidebar } from "$lib/components/explorer/AppSidebar";
 import { EditMemoryDialog } from "$lib/components/explorer/EditMemoryDialog";
 import { SidebarBrand } from "$lib/components/explorer/SidebarBrand";
-import { KeywordBadge } from "$lib/components/explorer/KeywordBadge";
 import { MemoryList } from "$lib/components/explorer/MemoryList";
 import { ProfileView } from "$lib/components/explorer/ProfileView";
 import { TagMigrationDialog } from "$lib/components/explorer/TagMigrationDialog";
@@ -200,23 +199,31 @@ export default function App() {
                     </Select>
                   </div>
 
-                  {explorer.selectedKeyword ? (
-                    <div className="space-y-1">
-                      <span className="block text-sm font-medium">{t("label-keyword")}</span>
-                      <div className="flex h-9 items-center gap-1">
-                        <KeywordBadge keyword={explorer.selectedKeyword} active />
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          onClick={() => explorer.onKeywordFilterChange("")}
-                          aria-label={t("btn-clear-keyword")}
-                          title={t("btn-clear-keyword")}
-                        >
-                          <X className="size-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
+                  <div className="min-w-0 max-w-full space-y-1">
+                    <Label htmlFor="keyword-filter">{t("label-label-filter")}</Label>
+                    <Select
+                      id="keyword-filter"
+                      className="w-56 max-w-full"
+                      value={explorer.selectedKeyword.toLowerCase()}
+                      onChange={(e) => explorer.onKeywordFilterChange(e.currentTarget.value)}
+                    >
+                      <option value="">{t("opt-all-labels")}</option>
+                      {/* Keep a label picked from a card selectable even when this project has none. */}
+                      {explorer.selectedKeyword &&
+                      !explorer.keywords.some(
+                        (k) => k.keyword === explorer.selectedKeyword.toLowerCase()
+                      ) ? (
+                        <option value={explorer.selectedKeyword.toLowerCase()}>
+                          {explorer.selectedKeyword} (0)
+                        </option>
+                      ) : null}
+                      {explorer.keywords.map((k) => (
+                        <option key={k.keyword} value={k.keyword}>
+                          {k.keyword} ({k.count})
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
 
                   <div className="flex flex-1 items-end gap-1.5 min-w-0 basis-56">
                     <div className="min-w-0 flex-1 space-y-1">

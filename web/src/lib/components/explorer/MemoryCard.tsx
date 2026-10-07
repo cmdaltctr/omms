@@ -1,5 +1,7 @@
+import { CollapsibleContent } from "./CollapsibleContent";
 import { KeywordBadge } from "./KeywordBadge";
 import { MemoryTypeBadge } from "./MemoryTypeBadge";
+import { PromptContent } from "./PromptContent";
 import { Tooltip } from "$lib/components/ui/tooltip";
 import {
   ArrowDown,
@@ -33,6 +35,10 @@ type Props = {
   activeKeyword?: string;
   onKeywordClick?: (keyword: string) => void;
 };
+
+// Collapsed heights in px. Longer content gets a "See more" button.
+const MEMORY_MAX_HEIGHT = 320;
+const PROMPT_MAX_HEIGHT = 240;
 
 function displayInfo(m: MemoryItem): string {
   if (m.projectPath) {
@@ -85,12 +91,16 @@ export function MemoryCard({
         } ${pinned ? "border-primary/40" : ""}`}
         data-id={memory.id}
       >
-        <div className="space-y-2 rounded-lg bg-muted/40 p-3">
+        <div className="space-y-3 rounded-lg border border-border bg-muted p-3">
           <div className="flex items-center justify-between gap-2">
-            <Badge variant="secondary">{t("badge-prompt")}</Badge>
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t("badge-prompt")}
+            </span>
             <span className="text-xs text-muted-foreground">{formatDate(prompt.createdAt)}</span>
           </div>
-          <p className="text-sm whitespace-pre-wrap break-words">{prompt.content}</p>
+          <CollapsibleContent maxHeight={PROMPT_MAX_HEIGHT} fade="var(--muted)">
+            <PromptContent content={prompt.content} />
+          </CollapsibleContent>
         </div>
 
         <div className="flex justify-center text-muted-foreground">
@@ -164,10 +174,14 @@ export function MemoryCard({
               ))}
             </div>
           ) : null}
-          <div
-            className="markdown-content text-sm prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(memory.content) }}
-          />
+          <div className="rounded-lg border border-border bg-muted p-3">
+            <CollapsibleContent maxHeight={MEMORY_MAX_HEIGHT} fade="var(--muted)">
+              <div
+                className="markdown-content text-sm prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(memory.content) }}
+              />
+            </CollapsibleContent>
+          </div>
           <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
             <span>
               {t("date-created")} {dates.createdDate}
@@ -234,7 +248,9 @@ export function MemoryCard({
             </Button>
           )}
         </div>
-        <p className="text-sm whitespace-pre-wrap break-words">{item.content}</p>
+        <CollapsibleContent maxHeight={PROMPT_MAX_HEIGHT}>
+          <PromptContent content={item.content} />
+        </CollapsibleContent>
         {isLinked ? (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <ArrowDown className="size-3" />
@@ -341,10 +357,14 @@ export function MemoryCard({
             ))}
           </div>
         ) : null}
-        <div
-          className="markdown-content text-sm prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content) }}
-        />
+        <div className="rounded-lg border border-border bg-muted p-3">
+          <CollapsibleContent maxHeight={MEMORY_MAX_HEIGHT} fade="var(--muted)">
+            <div
+              className="markdown-content text-sm prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content) }}
+            />
+          </CollapsibleContent>
+        </div>
         {isLinked ? (
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <ArrowUp className="size-3" />

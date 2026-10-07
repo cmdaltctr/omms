@@ -203,9 +203,9 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
             {item.steps.map((step, i) => (
               <li
                 key={i}
-                className="flex min-w-0 max-w-full items-center gap-2 rounded-full border border-blue-600/40 bg-blue-500/15 py-0.5 ps-0.5 pe-2.5 text-xs text-blue-700 dark:text-blue-400"
+                className="flex min-w-0 max-w-full items-start gap-2 rounded-2xl border border-blue-600/40 bg-blue-500/15 py-1 ps-1 pe-3 text-xs leading-5 text-blue-700 dark:text-blue-400"
               >
-                <span className="flex size-5 shrink-0 items-center justify-center self-start rounded-full bg-blue-500/30 text-[11px] font-medium tabular-nums dark:bg-blue-400/30">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-blue-500/30 text-[11px] font-medium tabular-nums dark:bg-blue-400/30">
                   {i + 1}
                 </span>
                 <span className="min-w-0 break-words">{step}</span>
