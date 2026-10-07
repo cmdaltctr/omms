@@ -10,7 +10,21 @@ export interface PowerStatus {
   canControl: boolean;
   /** Differs between web app processes; a restart shows up as a new value. */
   instance?: string;
+  /** The npm release check; absent on an older web app. */
+  update?: UpdateInfo;
 }
+
+/** The `update` field of `/api/web/status`. */
+export interface UpdateInfo {
+  available: string | null;
+  state: "idle" | "installing" | "restarting" | "failed";
+  code: string | null;
+  canInstall: boolean;
+}
+
+/** What the page saw after Update web app. */
+export type UpdateOutcome =
+  { kind: "restarted" } | { kind: "failed"; code: string } | { kind: "timeout" };
 
 /** What the page saw after Restart: a new process, only the old one, or nothing. */
 export type RestartOutcome = "restarted" | "unchanged" | "down";
@@ -22,6 +36,22 @@ const REQUEST_TIMEOUT_MS = 5_000;
 const RESTART_POLL_MS = 500;
 /** Longer than the web app's 15-second handoff, so a failed restart shows as "unchanged". */
 const RESTART_WAIT_MS = 30_000;
+const UPDATE_POLL_MS = 2_000;
+/** Longer than the web app's 5-minute npm limit plus a restart. */
+const UPDATE_WAIT_MS = 7 * 60_000;
+const UPDATE_STATES = new Set(["idle", "installing", "restarting", "failed"]);
+
+function parseUpdate(value: unknown): UpdateInfo | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const update = value as Record<string, unknown>;
+  if (typeof update.state !== "string" || !UPDATE_STATES.has(update.state)) return undefined;
+  return {
+    available: typeof update.available === "string" ? update.available : null,
+    state: update.state as UpdateInfo["state"],
+    code: typeof update.code === "string" ? update.code : null,
+    canInstall: update.canInstall === true,
+  };
+}
 
 const authHeaders = () => ({ "x-omms-token": window.__OMMS_TOKEN__ ?? "" });
 
@@ -35,10 +65,12 @@ export async function readPowerStatus(): Promise<PowerStatus | null> {
     if (!response.ok) return null;
     const body = (await response.json()) as Partial<PowerStatus>;
     if (typeof body.version !== "string" || typeof body.canControl !== "boolean") return null;
+    const update = parseUpdate(body.update);
     return {
       version: body.version,
       canControl: body.canControl,
       ...(typeof body.instance === "string" ? { instance: body.instance } : {}),
+      ...(update ? { update } : {}),
     };
   } catch {
     return null;
@@ -78,4 +110,39 @@ export async function waitForWebApp(
     await sleep(RESTART_POLL_MS);
   }
   return last ? "unchanged" : "down";
+}
+
+/** True when the web app accepted Update web app (`202`). */
+export async function sendUpdate(): Promise<boolean> {
+  try {
+    const response = await fetch("/api/web/update", {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: "{}",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    return response.status === 202;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * After Update web app: poll until a new process answers, or the old one reports
+ * a failure. The port can be empty for a moment while the copy takes over.
+ */
+export async function waitForUpdate(
+  previousInstance: string | null,
+  deps: { sleep?: (ms: number) => Promise<void> } = {}
+): Promise<UpdateOutcome> {
+  const sleep = deps.sleep ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  for (let waited = 0; waited <= UPDATE_WAIT_MS; waited += UPDATE_POLL_MS) {
+    const status = await readPowerStatus();
+    if (status && status.instance !== previousInstance) return { kind: "restarted" };
+    if (status?.update?.state === "failed") {
+      return { kind: "failed", code: status.update.code ?? "unknown" };
+    }
+    await sleep(UPDATE_POLL_MS);
+  }
+  return { kind: "timeout" };
 }

@@ -86,13 +86,20 @@ result.own = own;
 `);
     expect(result.noCallback).toEqual({
       status: 200,
-      body: { version: result.own, canControl: false, isLocal: true, instance: expect.any(String) },
+      body: {
+        version: result.own,
+        canControl: false,
+        isLocal: true,
+        instance: expect.any(String),
+        update: { available: null, state: "idle", code: null, canInstall: false },
+      },
     });
     expect(result.loopback.body).toEqual({
       version: result.own,
       canControl: true,
       isLocal: true,
       instance: expect.any(String),
+      update: { available: null, state: "idle", code: null, canInstall: false },
     });
     expect(result.mapped.body.canControl).toBe(true);
     expect(result.remote).toEqual({
@@ -102,9 +109,28 @@ result.own = own;
         canControl: false,
         isLocal: false,
         instance: expect.any(String),
+        update: { available: null, state: "idle", code: null, canInstall: false },
       },
     });
     expect(result.noToken).toBe(401);
+  });
+
+  it("reports the update state of a registered npm check", async () => {
+    const { result } = await runScenario(`
+const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+server.setWebUpdate({
+  status: () => ({ available: "99.0.0", state: "failed", code: "permission", canInstall: true }),
+  requestInstall: () => "accepted",
+});
+const reply = await call(server, "127.0.0.1", "GET", "/api/web/status");
+result.update = (await reply.json()).update;
+`);
+    expect(result.update).toEqual({
+      available: "99.0.0",
+      state: "failed",
+      code: "permission",
+      canInstall: true,
+    });
   });
 
   it("reports one instance value per process, so the page can tell a restarted web app", async () => {

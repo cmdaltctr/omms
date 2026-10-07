@@ -17,6 +17,7 @@
   --primary-hover: #9a4310;
   --primary-active: #85390c;
   --primary-label: #85390c;
+  --brand-label: #678d6c;
   --secondary: #f7f6f4;
   --secondary-foreground: #393a34;
   --muted: #f7f6f4;
@@ -67,6 +68,7 @@
   --primary-hover: #eb8c57;
   --primary-active: #fd9b66;
   --primary-label: #fd9b66;
+  --brand-label: #678d6c;
   --secondary: #171615;
   --secondary-foreground: #c9c5ba;
   --muted: #171615;
@@ -118,6 +120,7 @@
   --text-subsection-title--line-height: 1.4;
   --text-code: 0.75rem;
   --color-primary-label: var(--primary-label);
+  --color-brand-label: var(--brand-label);
   --color-primary-hover: var(--primary-hover);
   --color-primary-active: var(--primary-active);
   --color-destructive-label: var(--destructive-label);

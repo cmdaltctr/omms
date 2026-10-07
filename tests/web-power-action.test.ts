@@ -24,6 +24,8 @@ function fake(
     intruders?: string[];
     /** The intruder answers but this process may not read its version (basic auth). */
     hiddenVersion?: boolean;
+    /** The launcher path, or null when it is missing. */
+    launcher?: string | null;
   } = {}
 ) {
   const fate = config.copy ?? "serves";
@@ -92,6 +94,8 @@ function fake(
     exit: (code) => void events.push(`exit:${code}`),
     execPath: "/usr/bin/node",
     args: ["/pkg/dist/cli/index.js", "web"],
+    launcher:
+      config.launcher === undefined ? "/home/test/.omms/bin/omms-launch.mjs" : config.launcher,
     cwd: "/home/test",
     pid: 100,
     log: (_message, data) => void logs.push(data),
@@ -320,5 +324,42 @@ describe("web power action: review fixes", () => {
     expect(f.events).toContain("step-aside:4.10.0");
     expect(f.events).toContain("exit:0");
     expect(f.events).not.toContain("copy-killed");
+  });
+});
+
+describe("web power action: restart after an update", () => {
+  it("starts the copy through the launcher and keeps its instance id", async () => {
+    const f = fake();
+    expect(await f.action(false)("update")).toBeUndefined();
+    expect(f.spawns[0]?.command).toBe("/usr/bin/node");
+    expect(f.spawns[0]?.args).toEqual(["/home/test/.omms/bin/omms-launch.mjs", "web"]);
+    expect(f.spawns[0]?.options.env.OMMS_WEB_INSTANCE).toBe("copy-instance");
+    expect(f.events).toEqual(["lock:100", "spawn", "lock:4242", "stop", "exit:0"]);
+  });
+
+  it("keeps serving and reports no-launcher when the launcher is missing", async () => {
+    const f = fake({ launcher: null });
+    expect(await f.action(false)("update")).toBe("no-launcher");
+    expect(f.events).toEqual([]);
+    expect(f.logs).toEqual([{ code: "no-launcher" }]);
+  });
+
+  it("restarts the login item through the service manager", async () => {
+    const f = fake();
+    await f.action(true)("update");
+    expect(f.events).toEqual(["stop", "login-item-restart", "exit:0"]);
+  });
+
+  it("returns the failure code when the copy cannot start", async () => {
+    const f = fake({ spawnFails: true });
+    expect(await f.action(false)("update")).toBe("spawn-error");
+  });
+});
+
+describe("web power action: launcher rule", () => {
+  it("refuses an update for the login item too when the launcher is missing", async () => {
+    const f = fake({ launcher: null });
+    expect(await f.action(true)("update")).toBe("no-launcher");
+    expect(f.events).toEqual([]);
   });
 });

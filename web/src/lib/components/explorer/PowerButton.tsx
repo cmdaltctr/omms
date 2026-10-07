@@ -1,15 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Power } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "$lib/components/ui/dialog";
 import { useI18n } from "$lib/i18n";
-import {
-  readPowerStatus,
-  sendPowerAction,
-  STATUS_POLL_MS,
-  waitForWebApp,
-  type PowerAction,
-} from "$lib/power";
+import { sendPowerAction, waitForWebApp, type PowerAction } from "$lib/power";
+import { useWebStatus } from "$lib/web-status";
 import { cn } from "$lib/utils";
 
 type Phase = "idle" | "working" | "restarting" | "stopped";
@@ -20,32 +15,14 @@ const START_COMMAND = "om-memory-system web";
 /** Sidebar power button. It renders only for a local caller that may stop or restart the web app. */
 export function PowerButton() {
   const { t } = useI18n();
-  const [canControl, setCanControl] = useState(false);
   // Green while the last status call worked, grey when it failed.
-  const [ok, setOk] = useState(true);
+  const { ok, status } = useWebStatus();
+  const canControl = status?.canControl ?? false;
+  // The process that served the last status call; Restart waits for another one.
+  const instance = status?.instance ?? null;
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
   const [message, setMessage] = useState("");
-  // The process that served the last status call; Restart waits for another one.
-  const [instance, setInstance] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = () =>
-      void readPowerStatus().then((status) => {
-        if (cancelled) return;
-        setOk(status !== null);
-        if (!status) return;
-        setCanControl(status.canControl);
-        setInstance(status.instance ?? null);
-      });
-    load();
-    const timer = setInterval(load, STATUS_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, []);
 
   async function choose(action: PowerAction) {
     if (phase !== "idle") return;

@@ -1,14 +1,19 @@
 import { spawn as nodeSpawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import type { WebAutostartOptions } from "../services/web-autostart.js";
 import { packageVersion } from "../services/package-version.js";
+import { ommsDir } from "../services/runtime-handoff.js";
+import { launcherPath } from "../services/runtime-record.js";
 import { compareVersions } from "../services/version-compare.js";
 
 // Stop and Restart for the standalone `om-memory-system web` command.
 
 /** The two choices the page offers; the web server passes them through unchanged. */
 export type PowerAction = "stop" | "restart";
+/** A restart through the launcher, so the newest copy on the machine serves after an update. */
+export type ProcessAction = PowerAction | "update";
 
 interface SpawnedChild {
   pid?: number;
@@ -60,6 +65,8 @@ export interface PowerDeps {
   /** The runtime and arguments of this process, for a detached copy. */
   execPath: string;
   args: string[];
+  /** The launcher at `~/.omms/bin`, or null when it is missing. */
+  launcher: string | null;
   cwd: string;
   pid: number;
   log: (message: string, data: Record<string, unknown>) => void | Promise<void>;
@@ -131,6 +138,7 @@ function productionDeps(options: WebAutostartOptions): PowerDeps {
     exit: (code) => process.exit(code),
     execPath: process.execPath,
     args: process.argv.slice(1),
+    launcher: existsSync(launcherPath(ommsDir())) ? launcherPath(ommsDir()) : null,
     cwd: homedir(),
     pid: process.pid,
     log: async (message, data) => (await import("../services/logger.js")).log(message, data),
@@ -153,18 +161,18 @@ export function createPowerAction(options: {
   loginItem: boolean;
   autostart?: WebAutostartOptions;
   deps?: Partial<PowerDeps>;
-}): (action: PowerAction) => Promise<void> {
+}): (action: ProcessAction) => Promise<string | undefined> {
   const deps: PowerDeps = { ...productionDeps(options.autostart ?? {}), ...options.deps };
   const logFailure = (code: string) =>
     Promise.resolve(deps.log("Web app restart failed", { code })).catch(() => undefined);
   let stopped = false;
 
   /** Start the copy, check it, stop serving, and wait until the copy answers. */
-  async function handOff(): Promise<void> {
+  async function handOff(args: string[]): Promise<string | undefined> {
     let child: SpawnedChild;
     const instance = deps.newInstance();
     try {
-      child = deps.spawn(deps.execPath, deps.args, {
+      child = deps.spawn(deps.execPath, args, {
         detached: true,
         stdio: "ignore",
         cwd: deps.cwd,
@@ -198,7 +206,10 @@ export function createPowerAction(options: {
     while (deps.now() - began < HANDOFF_WAIT_MS) {
       if (exited) return giveUp("copy-exit", copyPid);
       const owner = await deps.readOwner(options.baseUrl);
-      if (owner?.instance === instance) return deps.exit(0);
+      if (owner?.instance === instance) {
+        deps.exit(0);
+        return undefined;
+      }
       // Another web app that waited for the port took it first.
       if (owner) {
         const ownVersion = deps.version();
@@ -219,19 +230,20 @@ export function createPowerAction(options: {
   }
 
   /** A web app of the same or a newer version serves, so the copy would only wait. */
-  async function yieldTo(child: SpawnedChild, copyPid: number): Promise<void> {
+  async function yieldTo(child: SpawnedChild, copyPid: number): Promise<undefined> {
     child.kill("SIGTERM");
     await deps.removeStartLock(copyPid);
     await logFailure("other-owner");
     deps.exit(0);
+    return undefined;
   }
 
-  /** Keep or resume serving on the old process, and release the lock it wrote. */
-  async function giveUp(code: string, copyPid?: number): Promise<void> {
+  /** Keep or resume serving on the old process, and release the lock it wrote. Returns the code. */
+  async function giveUp(code: string, copyPid?: number): Promise<string> {
     if (copyPid !== undefined) await deps.removeStartLock(copyPid);
     else if (!options.loginItem) await deps.removeStartLock(deps.pid);
     await logFailure(code);
-    if (!stopped) return;
+    if (!stopped) return code;
     try {
       await options.resumeServer();
       stopped = false;
@@ -239,27 +251,38 @@ export function createPowerAction(options: {
       await logFailure(error instanceof Error ? error.name : "resume-error");
       deps.exit(1);
     }
+    return code;
   }
 
   return async (action) => {
     if (action === "stop") {
       await options.stopServer();
       deps.exit(0);
-      return;
+      return undefined;
     }
+    // After an update the copy of this process is the old version; the launcher picks the newest.
+    if (action === "update" && !deps.launcher) {
+      await logFailure("no-launcher");
+      return "no-launcher";
+    }
+    const args = action === "update" ? [deps.launcher!, "web"] : deps.args;
     stopped = false;
     try {
       if (options.loginItem) {
+        // The login item runs the launcher, so the service manager restart covers an update too.
         await options.stopServer();
         stopped = true;
-        if (await deps.restartLoginItem()) return deps.exit(0);
+        if (await deps.restartLoginItem()) {
+          deps.exit(0);
+          return undefined;
+        }
       } else {
         // Hold other hosts off until the copy owns the port.
         await deps.writeStartLock(deps.pid);
       }
-      await handOff();
+      return await handOff(args);
     } catch (error) {
-      await giveUp(error instanceof Error ? error.name : "unknown");
+      return giveUp(error instanceof Error ? error.name : "unknown");
     }
   };
 }
