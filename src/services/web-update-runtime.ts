@@ -29,17 +29,20 @@ export function startWebUpdate(
     globalVersion: () => globalCommandVersion({ find: () => null }).version,
     restart,
     canRestart,
-    killTree: (child) => {
-      // `taskkill /T` also stops npm under the cmd.exe wrapper that `shell: true` starts.
-      if (process.platform === "win32" && child.pid) {
-        spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
-          stdio: "ignore",
-          windowsHide: true,
-        });
-      } else {
-        child.kill("SIGTERM");
-      }
-    },
+    // Resolves once npm has stopped. `taskkill /T` also stops npm under the cmd.exe
+    // wrapper that `shell: true` starts; the child's own exit confirms it.
+    killTree: (child) =>
+      new Promise<void>((resolve) => {
+        child.on("exit", () => resolve());
+        if (process.platform === "win32" && child.pid) {
+          spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+            stdio: "ignore",
+            windowsHide: true,
+          }).on("error", () => child.kill("SIGKILL"));
+        } else {
+          child.kill("SIGTERM");
+        }
+      }),
     setTimeout: (callback, ms) => setTimeout(callback, ms),
     clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
     now: () => Date.now(),

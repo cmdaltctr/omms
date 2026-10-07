@@ -98,7 +98,7 @@ A standalone web app (`om-memory-system web` or the login item) checks npm `late
 `POST /api/web/update` installs the release and restarts the web app onto it. It has the same guards as Restart:
 
 - Without the local API token it returns `401`. From another address it returns `403`.
-- With no newer release, with no npm beside Node.js, with no way to restart onto the new copy (no launcher outside a login item), or while a Stop or Restart runs, it returns `409`. Stop and Restart also return `409` while an update runs.
+- With no newer release, with no npm beside Node.js, with no launcher at `~/.omms/bin/omms-launch.mjs` (every restart onto the new copy runs it, the login item's included), or while a Stop or Restart runs, it returns `409`. Stop and Restart also return `409` while an update runs.
 - Otherwise it returns `202`. A second request while an update runs also gets `202` and starts nothing.
 
 How the update works:

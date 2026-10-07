@@ -44,7 +44,7 @@ export interface WebUpdateDeps {
   /** False when no restart could serve the new copy, such as a missing launcher. Checked before npm runs. */
   canRestart: () => boolean;
   /** Stop npm and its children. On Windows the shell wrapper alone would leave npm running. */
-  killTree: (child: InstallChild) => void;
+  killTree: (child: InstallChild) => Promise<void>;
   /** Restart onto the newest copy. Returns a failure code when this web app keeps serving. */
   restart: () => Promise<string | undefined>;
   setTimeout: (callback: () => void, ms: number) => unknown;
@@ -180,17 +180,24 @@ export class WebUpdate {
         this.deps.clearTimeout(timer);
         resolve(result);
       };
+      let timedOut = false;
       const timer = this.deps.setTimeout(() => {
-        this.deps.killTree(child);
-        finish({ code: "timeout" });
+        timedOut = true;
+        // Keep the update running until npm has stopped, so nothing else touches the install.
+        void this.deps
+          .killTree(child)
+          .catch(() => undefined)
+          .then(() => finish({ code: "timeout" }));
       }, INSTALL_TIMEOUT_MS);
       child.stderr?.on("data", (chunk) => {
         errorText = (errorText + String(chunk)).slice(-ERROR_TAIL_BYTES);
       });
       child.on("error", () => finish({ code: "spawn-error" }));
-      child.on("exit", (exitCode) =>
-        finish({ code: exitCode === 0 ? null : npmFailureCode(errorText), exitCode })
-      );
+      child.on("exit", (exitCode) => {
+        // After a timeout the tree is still stopping; the timeout path reports it.
+        if (timedOut) return;
+        finish({ code: exitCode === 0 ? null : npmFailureCode(errorText), exitCode });
+      });
     });
   }
 }

@@ -32,10 +32,10 @@ const VARIANT_CLASSES: Record<UpdateButtonVariant, string> = {
 
 /** The update available on npm, or null when this caller may not update or none exists. */
 function useAvailableUpdate() {
-  const { status } = useWebStatus();
+  const { ok, status } = useWebStatus();
   const update = status?.update;
   if (!status?.canControl || !update?.available) return null;
-  return { status, update, available: update.available };
+  return { ok, status, update, available: update.available };
 }
 
 /** Opens the update dialog. It renders only for a local caller while npm has a newer release. */
@@ -50,7 +50,9 @@ export function UpdateTrigger({
 }) {
   const { t } = useI18n();
   const found = useAvailableUpdate();
-  if (!found) return null;
+  // A failed status read means the web app may be gone, so offer nothing to start.
+  // The dialog keeps the last status, so an update in progress stays on screen.
+  if (!found?.ok) return null;
   return (
     <button
       type="button"

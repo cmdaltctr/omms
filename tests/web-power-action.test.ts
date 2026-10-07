@@ -355,3 +355,11 @@ describe("web power action: restart after an update", () => {
     expect(await f.action(false)("update")).toBe("spawn-error");
   });
 });
+
+describe("web power action: launcher rule", () => {
+  it("refuses an update for the login item too when the launcher is missing", async () => {
+    const f = fake({ launcher: null });
+    expect(await f.action(true)("update")).toBe("no-launcher");
+    expect(f.events).toEqual([]);
+  });
+});

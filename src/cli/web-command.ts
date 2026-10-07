@@ -183,8 +183,8 @@ export async function runWebCommand(
   const { launcherPath } = await import("../services/runtime-record.js");
   const { ommsDir } = await import("../services/runtime-handoff.js");
   const { existsSync } = await import("node:fs");
-  // The login item restarts through the service manager, which runs the launcher itself.
-  const canRestart = () => action === "--login-item" || existsSync(launcherPath(ommsDir()));
+  // Every restart onto the new copy runs the launcher, the login item's included.
+  const canRestart = () => existsSync(launcherPath(ommsDir()));
   server.setWebUpdate(startWebUpdate(() => powerAction("update"), canRestart));
   // A newer `web install` asked this web app to give up the port.
   server.setOnStepAside(async () => {

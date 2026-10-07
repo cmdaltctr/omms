@@ -42,8 +42,9 @@ async function fake(
     log: (message, data) => logs.push({ message, data }),
     execPath: config.execPath ?? "/opt/node/bin/node",
     canRestart: () => config.canRestart ?? true,
-    killTree: (child) => {
+    killTree: async (child) => {
       (child as InstallChild & { killed: boolean }).killed = true;
+      await killDone.promise;
     },
     platform: config.platform ?? "darwin",
     exists: () => config.npmExists ?? true,
@@ -85,6 +86,13 @@ async function fake(
   const update = new WebUpdate(deps);
   await update.check();
   return { update, spawns, logs, children, timeouts, restarts: () => restarts };
+}
+/** Resolves when the fake npm tree has stopped; a test can hold it open. */
+let killDone = { promise: Promise.resolve(), release: () => {} };
+function holdKill() {
+  let release = () => {};
+  const promise = new Promise<void>((resolve) => (release = resolve));
+  killDone = { promise, release };
 }
 const settle = async () => {
   for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
@@ -227,4 +235,23 @@ it("offers no install when the web app could not restart onto the new copy", asy
   expect(f.update.status().canInstall).toBe(false);
   expect(f.update.requestInstall()).toBe("cannot-install");
   expect(f.spawns).toEqual([]);
+});
+
+it("keeps the update running until npm has stopped after a timeout", async () => {
+  holdKill();
+  const f = await fake({ npm: { hang: true } });
+  f.update.requestInstall();
+  await settle();
+  f.timeouts[0]!.callback();
+  await settle();
+  // npm is still stopping, so nothing else may start yet.
+  expect(f.update.status().state).toBe("installing");
+  // npm's own exit from the kill signal must not end the update as a plain npm failure.
+  (f.children[0] as unknown as { emit(event: string, code: number): void }).emit("exit", 1);
+  await settle();
+  expect(f.update.status().state).toBe("installing");
+  killDone.release();
+  await settle();
+  expect(f.update.status()).toMatchObject({ state: "failed", code: "timeout" });
+  killDone = { promise: Promise.resolve(), release: () => {} };
 });

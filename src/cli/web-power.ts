@@ -261,7 +261,7 @@ export function createPowerAction(options: {
       return undefined;
     }
     // After an update the copy of this process is the old version; the launcher picks the newest.
-    if (action === "update" && !deps.launcher && !options.loginItem) {
+    if (action === "update" && !deps.launcher) {
       await logFailure("no-launcher");
       return "no-launcher";
     }

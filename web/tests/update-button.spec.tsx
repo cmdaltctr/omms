@@ -275,3 +275,14 @@ it("opens one shared dialog from either trigger, so progress survives a layout c
   // Only the dialog holds working state; the triggers hold none.
   expect(UpdateTrigger.length).toBe(1);
 });
+
+it("hides the trigger after a failed status read but keeps an open dialog", async () => {
+  await loaded();
+  button(render())?.props.onClick?.();
+  status = null;
+  render();
+  await tick();
+  const after = render();
+  expect(button(after)).toBeUndefined();
+  expect(dialog(after)?.props.open).toBe(true);
+});
