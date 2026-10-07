@@ -2,6 +2,22 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.11.0](https://github.com/cmdaltctr/omms/compare/v4.10.0...v4.11.0) (2026-10-07)
+
+
+### Features
+
+* add web update command ([6234334](https://github.com/cmdaltctr/omms/commit/62343349051ced8090cf8140bee6470937f3699a))
+* add web update command ([4b20da0](https://github.com/cmdaltctr/omms/commit/4b20da027b1d28703da6265dbaf72941750a19d4))
+* restyle profile workflow cards and memory headings ([f67e888](https://github.com/cmdaltctr/omms/commit/f67e8885d2aa4329fb80d2437206fdee70551ad6))
+* restyle profile workflow cards and memory headings ([20efbcf](https://github.com/cmdaltctr/omms/commit/20efbcf2d8d4b6165a2b6065855d8ce1fb9f1947))
+
+
+### Bug Fixes
+
+* tidy web update docs and start lock handling ([268ece0](https://github.com/cmdaltctr/omms/commit/268ece00c7b9328de9565c5bd5401de5b5015d2c))
+* tidy web update docs and start lock handling ([6349e9d](https://github.com/cmdaltctr/omms/commit/6349e9d0eeb8f42ed2c524582cc19354f4988296))
+
 ## [4.10.0](https://github.com/cmdaltctr/omms/compare/v4.9.1...v4.10.0) (2026-10-07)
 
 
