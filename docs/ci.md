@@ -407,6 +407,20 @@ and Linux. OpenCode users install the plugin on all of them.
 - The native matrix runs only when native paths change.
 - The full six-platform matrix runs before a release and every week.
 
+### Tests skipped on Windows
+
+Four tests time out at 30 seconds when a Windows runner stalls. They pass on a rerun and on every other platform. They are skipped on Windows only, through `SKIP_ON_SLOW_WINDOWS` in `tests/test-process.ts`. See [TDR-037](tdr/037-skip-slow-tests-on-windows.md).
+
+| Test file                                      | Skipped on Windows                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `tests/web-profile-catch-up.test.ts`           | `previews, runs one catch-up at a time…` and `stops the page run…`                   |
+| `tests/pi-importer.test.ts`                    | `applies session, date, and scope filters before expensive work`                     |
+| `tests/profile-catch-up-lease-cleanup.test.ts` | The `user-prompt-learning-order` case. The `profile-catch-up-lease` case still runs. |
+
+- Windows still runs every other test: paths, file locks, process handoff, and the package install.
+- The code these tests exercise has no `win32` branch, and the catch-up lease is a database table, not a lock file. If you suspect a Windows problem in profile catch-up or the Pi importer, run these tests on a Windows machine.
+- Do not add a test to this list because it failed once. Add it only after it timed out on a stalled runner and passed on a rerun, and record the runs in the TDR.
+
 Keep the `onnxruntime-node@1.20.1` pin:
 
 - Newer releases can SIGILL when a macOS process exits (#225).
