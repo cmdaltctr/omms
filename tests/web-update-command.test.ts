@@ -14,6 +14,8 @@ interface App {
   noRoute?: boolean;
   /** Requests it still answers after it agreed to step aside. */
   leaving?: number;
+  /** Status requests that report no version, as behind basic auth. -1 hides it for ever. */
+  hideVersion?: number;
 }
 
 function olderThan(a: string, b: string): boolean {
@@ -36,6 +38,10 @@ function fake(
     canStartDetached?: boolean;
     /** False when the fresh web app never answers. */
     freshAnswers?: boolean;
+    /** Status requests the fresh web app answers without a version. -1 for ever. */
+    freshHidesVersion?: number;
+    /** True when another caller holds a fresh start lock. */
+    lockHeld?: boolean;
   } = {}
 ) {
   let port: App | null = config.owner === undefined ? null : config.owner;
@@ -57,7 +63,12 @@ function fake(
     else if (!port && pendingFresh) [port, pendingFresh] = [pendingFresh, null];
     if (!port) throw new Error("ECONNREFUSED");
     if (path === "/api/health") return Response.json({ instance: port.instance });
-    if (path === "/api/web/status") return Response.json({ version: port.version });
+    if (path === "/api/web/status") {
+      const hide = port.hideVersion ?? 0;
+      const hidden = hide !== 0;
+      if (hide > 0) port.hideVersion = hide - 1;
+      return Response.json({ version: hidden ? null : port.version });
+    }
     if (path === "/api/web/step-aside") {
       const body = JSON.parse(String(init?.body)) as { version: string; replace?: boolean };
       stepAsides.push({ instance: port.instance, replace: body.replace === true });
@@ -76,7 +87,12 @@ function fake(
   const startFresh = () => {
     // The launcher runs the newest copy: the global install or the copy this command runs as.
     const newest = global && olderThan("4.10.0", global) ? global : "4.10.0";
-    if (config.freshAnswers !== false) pendingFresh = { instance: "fresh", version: newest };
+    if (config.freshAnswers !== false)
+      pendingFresh = {
+        instance: "fresh",
+        version: newest,
+        hideVersion: config.freshHidesVersion,
+      };
   };
   const deps: WebUpdateCommandDeps = {
     url: "http://127.0.0.1:4747",
@@ -108,7 +124,10 @@ function fake(
       startFresh();
       return true;
     },
-    writeStartLock: () => events.push("lock"),
+    takeStartLock: () => {
+      events.push("lock");
+      return !config.lockHeld;
+    },
     removeStartLock: () => events.push("unlock"),
     writeRetireMarker: (before) => events.push(`retire:${before}`),
     print: (line) => lines.push(line),
@@ -257,4 +276,25 @@ it("logs codes and versions, never the token or npm output", async () => {
   });
   expect(typeof ok.logs[0]!.durationMs).toBe("number");
   expect(JSON.stringify([...f.logs, ...ok.logs])).not.toContain("secret-token");
+});
+
+it("keeps waiting while the fresh web app hides its version, then reports it", async () => {
+  const f = fake({ owner: app("old", "4.10.0"), freshHidesVersion: 3 });
+  expect(await runWebUpdate(f.deps)).toBe(0);
+  expect(f.lines.at(-1)).toBe("OMMS web app: http://127.0.0.1:4747 (version 4.10.0)");
+});
+
+it("does not report success when the fresh web app never shows its version", async () => {
+  const f = fake({ owner: app("old", "4.10.0"), freshHidesVersion: -1 });
+  expect(await runWebUpdate(f.deps)).toBe(1);
+  expect(f.lines.at(-1)).toContain("within 15 seconds");
+});
+
+it("leaves everything alone when another caller holds the start lock", async () => {
+  const f = fake({ owner: app("old", "4.10.0"), lockHeld: true });
+  expect(await runWebUpdate(f.deps)).toBe(1);
+  // It neither retires, steps aside, starts, nor removes the other caller's lock.
+  expect(f.events).toEqual(["npm:4.10.0", "lock"]);
+  expect(f.port()?.instance).toBe("old");
+  expect(f.lines.at(-1)).toContain("Another start is running");
 });
