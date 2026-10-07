@@ -77,6 +77,27 @@ for spec_file in ${spec_files[@]+"${spec_files[@]}"}; do
   fi
 done
 
+# With OMMS_TEST_RETRY=1, run each failed file once more. The release smoke sets it
+# on Windows, where a stalled runner times out tests that pass on a second run.
+# A file that fails twice still fails the run. See ADR-024.
+if [[ "${OMMS_TEST_RETRY:-}" == "1" && ${#failed[@]} -gt 0 ]]; then
+  still_failed=()
+  for file in ${failed[@]+"${failed[@]}"}; do
+    echo ">>> retry $file"
+    tsconfig_args=()
+    case "$file" in
+      *.spec.ts | *.spec.tsx) tsconfig_args=(--tsconfig-override web/tsconfig.app.json) ;;
+    esac
+    if bun test ${tsconfig_args[@]+"${tsconfig_args[@]}"} ${timeout_args[@]+"${timeout_args[@]}"} "$file"; then
+      echo "$file passed on retry"
+      if [[ -n "${GITHUB_ACTIONS:-}" ]]; then echo "::warning file=$file::$file passed on retry"; fi
+    else
+      still_failed+=("$file")
+    fi
+  done
+  failed=(${still_failed[@]+"${still_failed[@]}"})
+fi
+
 # macOS bash 3.2 treats an empty array as unbound under `set -u`, so guard each use.
 if [[ ${#failed[@]} -gt 0 ]]; then
   echo

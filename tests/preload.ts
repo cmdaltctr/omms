@@ -23,5 +23,8 @@ if (!process.env.OMMS_TEST_HOME || homedir() === process.env.OMMS_REAL_HOME) {
   );
 }
 
+// A hook test must never update the real Claude plugin, even when Claude Code started the run.
+delete process.env.CLAUDE_PLUGIN_ROOT;
+
 process.env.OMMS_SKIP_LEGACY_MIGRATION = "1";
 process.env.OMMS_SKIP_TAG_PREFIX_MIGRATION = "1";

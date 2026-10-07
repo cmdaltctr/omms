@@ -1,11 +1,14 @@
 import { posix, win32 } from "node:path";
 import { availableUpdate, latestNpmVersion } from "./update-check.js";
 
-// The web app's npm release check. It reads npm `latest` at start and then every
-// 6 hours, and keeps the result in memory for `GET /api/web/status`. It imports
+// The web app's npm release check. It reads npm `latest` at start, every 10
+// minutes, and when an open page reads the status and the last check is over a
+// minute old. It keeps the result in memory for `GET /api/web/status`. It imports
 // no host adapter and no config, so tests pass every input.
 
-export const UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+export const UPDATE_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+/** An open page triggers a new check once the last one is this old. */
+export const STATUS_RECHECK_AFTER_MS = 60 * 1000;
 /** An install that takes longer is stopped, and the web app keeps serving. */
 export const INSTALL_TIMEOUT_MS = 5 * 60 * 1000;
 /** Only a plain release reaches the npm arguments; the value comes from the registry. */
@@ -75,10 +78,12 @@ export class WebUpdate {
   private state: UpdateState = "idle";
   private code: string | null = null;
   private started = false;
+  private lastCheck = -Infinity;
+  private checking: Promise<void> | null = null;
 
   constructor(private readonly deps: WebUpdateDeps) {}
 
-  /** Check now, then every 6 hours. A second call does nothing. */
+  /** Check now, then every 10 minutes. A second call does nothing. */
   start(): void {
     if (this.started || !this.deps.enabled) return;
     this.started = true;
@@ -86,9 +91,15 @@ export class WebUpdate {
     this.deps.setInterval(() => void this.check(), UPDATE_CHECK_INTERVAL_MS).unref?.();
   }
 
-  /** Read npm `latest`. A failed read keeps the last result. */
-  async check(): Promise<void> {
-    if (!this.deps.enabled) return;
+  /** Read npm `latest`. A failed read keeps the last result. Calls during a read share it. */
+  check(): Promise<void> {
+    if (!this.deps.enabled) return Promise.resolve();
+    this.checking ??= this.read().finally(() => (this.checking = null));
+    return this.checking;
+  }
+
+  private async read(): Promise<void> {
+    this.lastCheck = this.deps.now();
     const latest = await latestNpmVersion(this.deps.fetch);
     if (latest === null) {
       this.deps.log("Web app update check failed", { code: "unreachable" });
@@ -98,6 +109,8 @@ export class WebUpdate {
   }
 
   status(): UpdateStatus {
+    // An open page polls the status, so a release shows within about a minute.
+    if (this.deps.now() - this.lastCheck > STATUS_RECHECK_AFTER_MS) void this.check();
     return {
       available: this.available,
       state: this.state,

@@ -115,10 +115,14 @@ jobs:
   # The same suite on Windows. Tests that assume POSIX paths, a shell-script
   # command, or a symlink pass on macOS and fail only here (4.4.0, ADR-020).
   # A separate job, not a matrix, so the required `test` check keeps its name.
+  # Runs on pushes to main only, not on pull requests: a stalled Windows runner
+  # times out unrelated tests, and a failed Quality run also stops the release
+  # pull request from merging itself. The release smoke still tests Windows
+  # before npm, with one retry for failed files. See ADR-024.
   test-windows:
     name: test-windows
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && github.event_name == 'push' && needs.changes.outputs.code != 'false' }}
     runs-on: windows-latest
     # Git Bash for every step, as the Windows release smoke runs them: the build
     # calls rm and chmod, and a bare `bash` from PowerShell can resolve to WSL.

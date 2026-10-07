@@ -139,15 +139,16 @@ Runs on every pull request and on every push to `main`. Four jobs:
   `scripts/run-tests-isolated.sh`. Skipped when a pull request changes only
   Markdown files or files under `docs/`.
 - `test-windows` on `windows-latest`: the same build and suite, run in Git
-  Bash. Skipped in the same cases as `test`. It catches tests that assume POSIX
-  paths, a shell-script command, or a symlink. Those pass on macOS and used to
-  fail only in the release smoke. See [ADR-020](adr/020-pull-requests-test-on-windows.md).
+  Bash, on pushes to `main` only. Pull requests do not run it, because a stalled
+  Windows runner times out unrelated tests and a failed Quality run also stops
+  the release pull request from merging itself. The release smoke and the weekly
+  smoke still test Windows. See [ADR-024](adr/024-windows-tests-before-release-only.md).
 
 - A skipped `test` job still passes the required status check. So docs-only pull requests can merge.
 - Do not add `paths-ignore` to this workflow. If it does not start, the required checks never report and the pull request stays blocked.
-- If the `changes` job fails, `test` and `test-windows` run anyway.
+- If the `changes` job fails, `test` runs anyway, and so does `test-windows` on a push to `main`.
 - `test-windows` is a separate job, not a matrix entry of `test`. A matrix renames the job to `test (macos-latest)`, so the required `test` check would never report and every pull request would stay blocked.
-- The "Protect main" ruleset requires `check` and `test`. `test-windows` is not required yet: a failure shows on the pull request but does not block the merge. Add it to the ruleset once it runs reliably.
+- The "Protect main" ruleset requires `check` and `test`. Do not add `test-windows`: it does not run on pull requests, so a required check would never report.
 
 Quality is the minimum gate for every pull request. This includes pull
 requests that skip the local hooks, such as Dependabot updates. Pull requests
@@ -261,7 +262,10 @@ maintainer can then try it with `om-memory-system@next`.
 
 ### Claude plugin channel (hourly, manual after approval)
 
-`claude-plugin-channel.yml` runs hourly and on manual dispatch. Its single
+`claude-plugin-channel.yml` has an hourly schedule and runs on manual dispatch.
+GitHub does not run the schedule every hour. From 2026-10-04 to 2026-10-07 the
+scheduled runs came 3 to 9 hours apart. Treat the schedule as a backstop, not as
+the way the channel moves. Its single
 `ubuntu-latest` job runs only from `main` and pins checkout to `main`, with full
 history and tags. A manual dispatch from another ref skips the job. It then runs
 `scripts/sync-claude-plugin-channel.sh`. It installs no packages and needs only
@@ -278,14 +282,14 @@ The Claude Code marketplace installs the plugin from this branch. Create
 `stable` at the commit tagged `v4.4.1` before merging the marketplace change.
 Consider a repository ruleset that limits writes to `stable` to GitHub Actions.
 
-After npm approval, dispatch the channel update:
+`bun run release:approve` dispatches the channel update after the approval. To
+dispatch it by hand:
 
 ```bash
 gh workflow run claude-plugin-channel.yml
 ```
 
-Wait for that run to pass before checking a Claude Code plugin update. The
-hourly schedule covers a missed dispatch.
+Wait for that run to pass before checking a Claude Code plugin update.
 
 #### Claude plugin channel rollout checklist
 
@@ -318,11 +322,15 @@ Versions come from commit messages. Use `feat:` (minor), `fix:` (patch),
    The script approves the version, waits for npm `latest`, dispatches the
    Claude plugin channel, and checks that `stable` is at the release tag. Each
    npm version check uses `--prefer-online` to recheck cached data against the
-   registry. It reads the stage ID from the newest GitHub Release note.
+   registry. It reads the stage ID from the newest GitHub Release note. If npm
+   does not show the version within 150 seconds, the script stops. Wait a few
+   minutes and run it again. It does not approve a second time.
 7. Users with marketplace auto-update get the plugin at their next check. Users
    on an unpinned npm install get an update notice.
 
-If you approve another way, the hourly channel run moves `stable`.
+If you approve another way, run `bun run release:approve` again. It sees the
+version on npm, skips the approval, and moves `stable`. Do not wait for the
+scheduled channel run.
 
 To reject a staged version, run `npm stage reject <stage-id>`.
 
@@ -403,7 +411,7 @@ setting and run the job again.
 Supported platforms: macOS 15 and later on Apple Silicon and Intel, Windows,
 and Linux. OpenCode users install the plugin on all of them.
 
-- Pull requests get one Linux quality job, one macOS test job, and one Windows test job. Windows runs on pull requests because its failures are the ones macOS cannot show.
+- Pull requests get one Linux quality job and one macOS test job. Windows runs on pushes to `main`, in the release smoke, and in the weekly smoke (ADR-024).
 - The native matrix runs only when native paths change.
 - The full six-platform matrix runs before a release and every week.
 
@@ -419,6 +427,7 @@ Four tests time out at 30 seconds when a Windows runner stalls. They pass on a r
 
 - Windows still runs every other test: paths, file locks, process handoff, and the package install.
 - The code these tests exercise has no `win32` branch, and the catch-up lease is a database table, not a lock file. If you suspect a Windows problem in profile catch-up or the Pi importer, run these tests on a Windows machine.
+- In the release and weekly smoke, Windows runs each failed file once more (`OMMS_TEST_RETRY=1`). A file that fails twice fails the smoke. A file that passed on retry is named as a GitHub warning. Check those warnings before you add a test to this list.
 - Do not add a test to this list because it failed once. Add it only after it timed out on a stalled runner and passed on a rerun, and record the runs in the TDR.
 
 Keep the `onnxruntime-node@1.20.1` pin:
@@ -430,9 +439,9 @@ Job counts for each event (hosted runners are free, macOS included):
 
 | Event                    | Ubuntu | Windows | macOS |
 | ------------------------ | ------ | ------- | ----- |
-| Routine pull request     | 2      | 1       | 1     |
+| Routine pull request     | 2      | 0       | 1     |
 | Docs-only pull request   | 2      | 0       | 0     |
-| Native-path pull request | 3      | 2       | 4     |
+| Native-path pull request | 3      | 1       | 4     |
 | Push to `main`           | 4      | 1       | 1     |
 | Release or weekly smoke  | 2      | 1       | 4     |
 

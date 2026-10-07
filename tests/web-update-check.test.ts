@@ -8,6 +8,7 @@ import {
 /** A web app at `version` whose npm reads answer from `latest` in turn. */
 function fake(version: string, latest: (string | null)[], enabled = true) {
   const requests: string[] = [];
+  const clock = { ms: 0 };
   const logs: { message: string; data: Record<string, unknown> }[] = [];
   const timers: { ms: number; callback: () => void }[] = [];
   const deps: WebUpdateDeps = {
@@ -36,9 +37,9 @@ function fake(version: string, latest: (string | null)[], enabled = true) {
     killTree: async () => {},
     setTimeout: () => 0,
     clearTimeout: () => {},
-    now: () => 0,
+    now: () => clock.ms,
   };
-  return { update: new WebUpdate(deps), requests, logs, timers };
+  return { update: new WebUpdate(deps), requests, logs, timers, clock };
 }
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -62,12 +63,13 @@ it("ignores a prerelease", async () => {
   expect(f.update.status().available).toBeNull();
 });
 
-it("checks again every 6 hours", async () => {
+it("checks again every 10 minutes", async () => {
   const f = fake("4.9.0", ["4.9.0", "4.10.0"]);
   f.update.start();
   f.update.start();
   await settle();
   expect(f.timers.map((timer) => timer.ms)).toEqual([UPDATE_CHECK_INTERVAL_MS]);
+  expect(UPDATE_CHECK_INTERVAL_MS).toBe(10 * 60 * 1000);
   expect(f.update.status().available).toBeNull();
   f.timers[0]!.callback();
   await settle();
@@ -91,4 +93,39 @@ it("keeps the last result and logs a code when npm cannot be reached", async () 
   expect(f.logs).toEqual([
     { message: "Web app update check failed", data: { code: "unreachable" } },
   ]);
+});
+
+it("checks again when the page reads the status and the last check is over a minute old", async () => {
+  const f = fake("4.12.0", ["4.12.0", "4.13.0"]);
+  f.update.start();
+  await settle();
+  expect(f.update.status().available).toBeNull();
+  expect(f.requests).toHaveLength(1);
+  f.clock.ms = 30_000;
+  f.update.status();
+  await settle();
+  expect(f.requests).toHaveLength(1);
+  f.clock.ms = 61_000;
+  f.update.status();
+  await settle();
+  expect(f.requests).toHaveLength(2);
+  expect(f.update.status().available).toBe("4.13.0");
+});
+
+it("sends one request when the page reads the status twice during a check", async () => {
+  const f = fake("4.12.0", ["4.12.0", "4.13.0", "4.14.0"]);
+  await f.update.check();
+  f.clock.ms = 61_000;
+  f.update.status();
+  f.update.status();
+  await settle();
+  expect(f.requests).toHaveLength(2);
+});
+
+it("reads no npm version from the status when the check is turned off", async () => {
+  const f = fake("4.12.0", ["4.13.0"], false);
+  f.clock.ms = 120_000;
+  f.update.status();
+  await settle();
+  expect(f.requests).toEqual([]);
 });

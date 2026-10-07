@@ -17,13 +17,27 @@ async function printStatus(io: ClaudeHookOptions & ClaudeStatusOptions): Promise
   (io.writeStdout ?? ((text: string) => process.stdout.write(text)))(`${JSON.stringify(status)}\n`);
 }
 
+/** Update the Claude plugin in the background when npm has a newer release. Never throws. */
+async function selfUpdate(io: ClaudeHookOptions): Promise<void> {
+  try {
+    const { startPluginSelfUpdate, pluginSelfUpdateDeps } = await import("./plugin-self-update.js");
+    const log =
+      io.log ??
+      (async (message: string, data: Record<string, unknown>) =>
+        (await import("../../services/logger.js")).log(message, data));
+    await startPluginSelfUpdate(pluginSelfUpdateDeps(log));
+  } catch {
+    /* The memory hook already ran; a failed update check changes nothing. */
+  }
+}
+
 /**
  * `om-memory-system claude-hook <event>`. Always returns 0: a hook must never
  * block or break a Claude Code session, whatever goes wrong.
  */
 export async function runClaudeHookCommand(
   argv: string[],
-  io: ClaudeHookOptions & ClaudeStatusOptions = {}
+  io: ClaudeHookOptions & ClaudeStatusOptions & { skipSelfUpdate?: boolean } = {}
 ): Promise<number> {
   try {
     const [event] = argv;
@@ -33,6 +47,7 @@ export async function runClaudeHookCommand(
     }
     if (isHookEvent(event)) {
       await runClaudeHook(event, io);
+      if (event === "session-start" && !io.skipSelfUpdate) await selfUpdate(io);
       return 0;
     }
     // Only a known name reaches the log; argv is not trusted text.

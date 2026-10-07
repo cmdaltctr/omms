@@ -84,7 +84,7 @@ When npm has a newer release, the sidebar footer shows an **Update** button. In 
 - The update command for each host, each with a **Copy** action. OpenCode and Pi need their own update command and a restart.
 - **Update web app** installs the release globally and restarts the web app on it. The page shows progress, then reloads on the new version. When a step fails, the dialog shows the failure code and the web app keeps running. When no npm sits beside the web app's Node.js, for example under Bun, the action is off and the dialog says so.
 
-A standalone web app (`om-memory-system web` or the login item) checks npm `latest` when it starts and then every 6 hours. A release counts only when it is newer than the running version and is not a prerelease. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn the check off. A failed check keeps the last result and writes `Web app update check failed` with the code `unreachable`.
+A standalone web app (`om-memory-system web` or the login item) checks npm `latest` when it starts and then every 10 minutes. While a page is open, it checks again when the last check is more than a minute old, so a newly approved release shows within about a minute. A release counts only when it is newer than the running version and is not a prerelease. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn the check off. A failed check keeps the last result and writes `Web app update check failed` with the code `unreachable`.
 
 `GET /api/web/status` reports the result in its `update` field:
 
