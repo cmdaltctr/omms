@@ -27,6 +27,15 @@ async function freePort(): Promise<number> {
   });
 }
 
+/** Windows can hold a just-closed file for a moment (EBUSY). A leftover temp folder is harmless there. */
+function removeHome(home: string) {
+  try {
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  } catch (error) {
+    if (process.platform !== "win32") throw error;
+  }
+}
+
 it("starts exactly one web app for two host processes that start at once", async () => {
   const home = mkdtempSync(join(tmpdir(), "omms-ensure-real-"));
   const port = await freePort();
@@ -90,7 +99,7 @@ it("starts exactly one web app for two host processes that start at once", async
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     for (const pid of await listeners(port)) process.kill(Number(pid), "SIGKILL");
-    rmSync(home, { recursive: true, force: true });
+    removeHome(home);
   }
 });
 
@@ -141,6 +150,6 @@ it("gives a stale start lock to exactly one of several processes that replace it
     expect(JSON.parse(readFileSync(lock, "utf8"))).toMatchObject({ pid: winners[0]?.pid });
     expect(readdirSync(join(home, ".omms")).filter((name) => name.endsWith(".stale"))).toEqual([]);
   } finally {
-    rmSync(home, { recursive: true, force: true });
+    removeHome(home);
   }
 });
