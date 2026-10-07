@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.11.1](https://github.com/cmdaltctr/omms/compare/v4.11.0...v4.11.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* list workflow steps one per row and colour profile category pills ([4c38c38](https://github.com/cmdaltctr/omms/commit/4c38c3826c3b87c5379de197ef2eb149f165cdac))
+* list workflow steps one per row and colour profile category pills ([ca66fd9](https://github.com/cmdaltctr/omms/commit/ca66fd9813723da612e79628eccb70b905205960))
+
 ## [4.11.0](https://github.com/cmdaltctr/omms/compare/v4.10.0...v4.11.0) (2026-10-07)
 
 
