@@ -23,6 +23,7 @@ Commands:
   import-claude-history     Import Claude Code history into omms
   web                       Start the web app in the foreground
   web install|uninstall|status  Manage the web app login item
+  web update                Update the global install and restart the web app
   memory <mode> [options]   Search, add, list, or forget memories (run with --help)
   profile-catch-up          Analyse every prompt waiting for profile learning (run with --help)
   claude-hook <event>       Run a Claude Code hook (used by the Claude Code plugin)

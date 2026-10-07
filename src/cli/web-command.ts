@@ -52,7 +52,8 @@ export async function runWebCommand(
   args: string[],
   options: WebAutostartOptions = {},
   online?: () => Promise<boolean>,
-  handover: WebHandoverDeps = {}
+  handover: WebHandoverDeps = {},
+  update: Partial<import("./web-update-command.js").WebUpdateCommandDeps> = {}
 ): Promise<number> {
   const home = options.home ?? homedir();
   const config = await import("../config.js");
@@ -62,17 +63,24 @@ export async function runWebCommand(
   const [action, ...rest] = args;
   if (
     rest.length ||
-    (action && !["install", "uninstall", "status", "--login-item"].includes(action))
+    (action && !["install", "uninstall", "status", "update", "--login-item"].includes(action))
   ) {
-    console.error("Usage: om-memory-system web [install|uninstall|status]");
+    console.error("Usage: om-memory-system web [install|uninstall|status|update]");
     return 1;
   }
-  if (action === "install" && !config.CONFIG.webServerEnabled) {
+  if ((action === "install" || action === "update") && !config.CONFIG.webServerEnabled) {
     console.error("OMMS web server is disabled (webServerEnabled is false)");
     return 1;
   }
   const { webServerUrl } = await import("../services/web-api-auth.js");
   const url = webServerUrl(config.CONFIG.webServerHost, config.CONFIG.webServerPort);
+  if (action === "update") {
+    const { productionWebUpdateDeps, runWebUpdate } = await import("./web-update-command.js");
+    return runWebUpdate({
+      ...(await productionWebUpdateDeps({ url, home, autostart: options })),
+      ...update,
+    });
+  }
   if (action === "install" || action === "uninstall") {
     const { readGlobalConfigRevision, writeGlobalConfigKeys } =
       await import("../services/global-config-writer.js");
