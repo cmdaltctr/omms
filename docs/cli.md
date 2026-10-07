@@ -194,6 +194,7 @@ Error messages never contain the API key. The key from `--api-key-env` and the s
 - When npm fails, times out after 5 minutes, or leaves another version, it prints a code (`permission`, `network`, `npm-exit`, `timeout`, `version-mismatch`), keeps the web app running, and exits with code `1`.
 - When npm cannot be reached, it says so and still replaces the web app.
 - A web app from OMMS 4.10.0 or earlier of the same version cannot be replaced from the terminal. The command names it and says how to stop it.
+- When a host start or another `web update` holds a fresh start lock, it changes nothing, says so, and exits with code `1`. Run it again after a few seconds.
 - It needs `webServerEnabled: true`.
 
 `web status`, `web install`, and `web update` talk to the web app on this computer with the local token file (`~/.omms/.auth-token`). They do not read `webServerApiToken`.

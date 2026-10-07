@@ -29,7 +29,9 @@ export interface WebUpdateCommandDeps {
   restartLoginItem: () => boolean;
   /** Start a detached web app through the launcher. False when there is nothing to start. */
   startDetached: () => boolean;
-  writeStartLock: () => void;
+  /** Take the start lock. False when another caller holds a fresh one. */
+  takeStartLock: () => boolean;
+  /** Remove the start lock, only when this process holds it. */
   removeStartLock: () => void;
   writeRetireMarker: (before: number) => void;
   print: (line: string) => void;
@@ -126,7 +128,13 @@ export async function runWebUpdate(deps: WebUpdateCommandDeps): Promise<number> 
   }
 
   // 2. Replace every standalone web app. Hosts wait while no web app serves.
-  deps.writeStartLock();
+  // A fresh lock of another caller is left alone, and so is that caller's start.
+  if (!deps.takeStartLock()) {
+    deps.print(
+      "Another start is running (a host start or another web update). Wait a few seconds, then run om-memory-system web update again."
+    );
+    return finish(1, "lock-held", "lock-held");
+  }
   try {
     deps.writeRetireMarker(deps.now());
     const owner = await readOwner(deps);
@@ -153,16 +161,11 @@ export async function runWebUpdate(deps: WebUpdateCommandDeps): Promise<number> 
     const deadline = deps.now() + FRESH_WAIT_MS;
     while (deps.now() < deadline) {
       const current = await readOwner(deps);
-      if (current && !askedAside.has(current.instance)) {
-        const older =
-          current.version !== null && (compareVersions(current.version, deps.version) ?? 0) < 0;
-        if (!older) {
+      // A web app that hides its version cannot be told from an old waiter, so keep waiting.
+      if (current?.version && !askedAside.has(current.instance)) {
+        if ((compareVersions(current.version, deps.version) ?? 0) >= 0) {
           record.served = current.version;
-          deps.print(
-            current.version
-              ? `OMMS web app: ${deps.url} (version ${current.version})`
-              : `OMMS web app: ${deps.url}`
-          );
+          deps.print(`OMMS web app: ${deps.url} (version ${current.version})`);
           return finish(0, "replaced");
         }
         // An older web app that waited for the port took it before the fresh one.
@@ -199,7 +202,7 @@ export async function productionWebUpdateDeps(options: {
     { restartWebAutostart, webAutostartStatus },
     { launcherPath, recordedCopy },
     { ommsDir },
-    { nodeLockFs, removeStartLockFor, startLockPath },
+    { nodeLockFs, processAlive, removeStartLockFor, startLockPath, takeStartLock },
     { writeRetireMarker },
     { log },
   ] = await Promise.all([
@@ -256,8 +259,14 @@ export async function productionWebUpdateDeps(options: {
         return false;
       }
     },
-    writeStartLock: () =>
-      nodeLockFs.replace(lockPath, JSON.stringify({ pid: process.pid, at: Date.now() })),
+    takeStartLock: () =>
+      takeStartLock({
+        lockPath,
+        lockFs: nodeLockFs,
+        pid: process.pid,
+        now: () => Date.now(),
+        pidAlive: processAlive,
+      }),
     removeStartLock: () => removeStartLockFor(process.pid, lockPath),
     writeRetireMarker: (before) => writeRetireMarker(before, { home: options.home }),
     print: (line) => console.log(line),
