@@ -130,6 +130,42 @@ jest.useRealTimers();
     expect(result.steppedAfterReply).toBe(1);
   });
 
+  it("accepts a replace request of any version only with the token on loopback", async () => {
+    const { result, log } = await runScenario(`
+jest.useFakeTimers();
+let stepped = 0;
+const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+server.setOnStepAside(() => { stepped += 1; });
+const replace = (address, version, headers = { "x-omms-token": token }) =>
+  server.handleRequest(
+    new Request("http://127.0.0.1:4747/api/web/step-aside", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({ version, replace: true }),
+    }),
+    address
+  );
+result.noToken = (await replace("127.0.0.1", own, {})).status;
+result.remote = (await replace("10.0.0.5", own)).status;
+result.plainSame = (await stepAside(server, "127.0.0.1", own)).status;
+jest.advanceTimersByTime(400);
+result.steppedAfterRefusals = stepped;
+result.sameVersion = (await replace("127.0.0.1", own)).status;
+jest.advanceTimersByTime(400);
+result.steppedAfterSame = stepped;
+result.olderVersion = (await replace("127.0.0.1", "0.0.1")).status;
+jest.useRealTimers();
+`);
+    expect(result.noToken).toBe(401);
+    expect(result.remote).toBe(403);
+    expect(result.plainSame).toBe(409);
+    expect(result.steppedAfterRefusals).toBe(0);
+    expect(result.sameVersion).toBe(202);
+    expect(result.steppedAfterSame).toBe(1);
+    expect(result.olderVersion).toBe(202);
+    expect(log).toContain('"replace":true');
+  });
+
   it("accepts a real request over the loopback socket", async () => {
     const { result } = await runScenario(`
 let stepped = 0;

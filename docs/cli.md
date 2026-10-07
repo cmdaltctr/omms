@@ -13,6 +13,7 @@ The npm package ships one terminal command, `om-memory-system`. Use it to import
 | `om-memory-system web install`                     | Set `webServerAutoStart` to `true` and install the login item.                                                      |
 | `om-memory-system web uninstall`                   | Set `webServerAutoStart` to `false` and remove the login item.                                                      |
 | `om-memory-system web status`                      | Print the setting, the login item state, the URL, and whether the web app is up.                                    |
+| `om-memory-system web update`                      | Update the global install to npm `latest`, then replace the web app with a fresh one.                               |
 | `om-memory-system --version`, `-v`                 | Print the installed version and exit with code `0`.                                                                 |
 | `om-memory-system --help`, `-h`, or no arguments   | Print the command list.                                                                                             |
 | `om-memory-system <import command> --help`         | Print the flags for that import command.                                                                            |
@@ -182,7 +183,20 @@ Error messages never contain the API key. The key from `--api-key-env` and the s
 
 `om-memory-system web status` prints JSON with the setting, the item state, the web app URL, and whether a web app answers. It changes nothing.
 
-`web status` and `web install` talk to the web app on this computer with the local token file (`~/.omms/.auth-token`). They do not read `webServerApiToken`.
+`om-memory-system web update` brings the global install to npm `latest` and replaces the running web app.
+
+1. It reads npm `latest`. When the global install is missing or older, it runs `npm install -g om-memory-system@<latest>` with the npm beside the Node.js that runs the command. When the global install is already on `latest`, it skips npm.
+2. It stops every standalone OMMS web app: the web app on the port steps aside, and web apps that wait for the port exit. A web app inside an OpenCode session stops serving, and the session keeps running.
+3. It starts one fresh web app through the login item, or through the launcher when no login item is installed. The launcher runs the newest copy on the machine.
+4. It waits up to 15 seconds and prints `OMMS web app: <url> (version <version>)`.
+
+- It works when no web app runs.
+- When npm fails, times out after 5 minutes, or leaves another version, it prints a code (`permission`, `network`, `npm-exit`, `timeout`, `version-mismatch`), keeps the web app running, and exits with code `1`.
+- When npm cannot be reached, it says so and still replaces the web app.
+- A web app from OMMS 4.10.0 or earlier of the same version cannot be replaced from the terminal. The command names it and says how to stop it.
+- It needs `webServerEnabled: true`.
+
+`web status`, `web install`, and `web update` talk to the web app on this computer with the local token file (`~/.omms/.auth-token`). They do not read `webServerApiToken`.
 
 Any other argument after `web` prints the usage and exits with code `1`.
 

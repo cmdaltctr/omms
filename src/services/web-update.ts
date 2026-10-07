@@ -97,14 +97,6 @@ export class WebUpdate {
     this.available = availableUpdate(this.deps.version, latest);
   }
 
-  /** The npm that installs into the prefix the launcher reads. */
-  private npmPath(): string {
-    // Path rules follow the target platform, not the machine that runs this code.
-    const path = this.deps.platform === "win32" ? win32 : posix;
-    const name = this.deps.platform === "win32" ? "npm.cmd" : "npm";
-    return path.join(path.dirname(this.deps.execPath), name);
-  }
-
   status(): UpdateStatus {
     return {
       available: this.available,
@@ -115,7 +107,7 @@ export class WebUpdate {
   }
 
   private canInstall(): boolean {
-    return this.deps.exists(this.npmPath()) && this.deps.canRestart();
+    return this.deps.exists(npmBesideRuntime(this.deps)) && this.deps.canRestart();
   }
 
   /** Start the install and the restart. A request while one runs joins it. */
@@ -145,8 +137,7 @@ export class WebUpdate {
       this.code = code;
       record("failed", code, exitCode);
     };
-    if (!PLAIN_VERSION.test(target)) return fail("bad-version");
-    const { code, exitCode } = await this.runNpm(target);
+    const { code, exitCode } = await runGlobalInstall(this.deps, target);
     if (code) return fail(code, exitCode);
     if (this.deps.globalVersion() !== target) return fail("version-mismatch", exitCode);
     this.state = "restarting";
@@ -156,48 +147,73 @@ export class WebUpdate {
     if (restartCode) fail(restartCode);
     else this.state = "idle";
   }
+}
 
-  private runNpm(target: string): Promise<{ code: string | null; exitCode?: number | null }> {
-    return new Promise((resolve) => {
-      let child: InstallChild;
-      try {
-        // Windows runs `npm.cmd` only through a shell, which splits an unquoted path at a
-        // space (`C:\\Program Files`). The arguments are fixed and the version is checked.
-        const windows = this.deps.platform === "win32";
-        const command = windows ? `"${this.npmPath()}"` : this.npmPath();
-        child = this.deps.spawn(command, ["install", "-g", `om-memory-system@${target}`], {
-          shell: windows,
-        });
-      } catch {
-        resolve({ code: "spawn-error" });
-        return;
-      }
-      let errorText = "";
-      let done = false;
-      const finish = (result: { code: string | null; exitCode?: number | null }) => {
-        if (done) return;
-        done = true;
-        this.deps.clearTimeout(timer);
-        resolve(result);
-      };
-      let timedOut = false;
-      const timer = this.deps.setTimeout(() => {
-        timedOut = true;
-        // Keep the update running until npm has stopped, so nothing else touches the install.
-        void this.deps
-          .killTree(child)
-          .catch(() => undefined)
-          .then(() => finish({ code: "timeout" }));
-      }, INSTALL_TIMEOUT_MS);
-      child.stderr?.on("data", (chunk) => {
-        errorText = (errorText + String(chunk)).slice(-ERROR_TAIL_BYTES);
+/** The parts of the update deps that run npm. */
+export type InstallDeps = Pick<
+  WebUpdateDeps,
+  "execPath" | "platform" | "spawn" | "killTree" | "setTimeout" | "clearTimeout"
+>;
+
+/** A failure code, or null when npm exited with code 0. */
+export interface InstallResult {
+  code: string | null;
+  exitCode?: number | null;
+}
+
+/** The npm that installs into the prefix the launcher reads. */
+export function npmBesideRuntime(deps: Pick<WebUpdateDeps, "execPath" | "platform">): string {
+  // Path rules follow the target platform, not the machine that runs this code.
+  const path = deps.platform === "win32" ? win32 : posix;
+  const name = deps.platform === "win32" ? "npm.cmd" : "npm";
+  return path.join(path.dirname(deps.execPath), name);
+}
+
+/**
+ * Run `npm install -g om-memory-system@<target>` and stop it after 5 minutes.
+ * The web app's update button and `web update` share it.
+ */
+export function runGlobalInstall(deps: InstallDeps, target: string): Promise<InstallResult> {
+  if (!PLAIN_VERSION.test(target)) return Promise.resolve({ code: "bad-version" });
+  return new Promise((resolve) => {
+    let child: InstallChild;
+    try {
+      // Windows runs `npm.cmd` only through a shell, which splits an unquoted path at a
+      // space (`C:\\Program Files`). The arguments are fixed and the version is checked.
+      const windows = deps.platform === "win32";
+      const command = windows ? `"${npmBesideRuntime(deps)}"` : npmBesideRuntime(deps);
+      child = deps.spawn(command, ["install", "-g", `om-memory-system@${target}`], {
+        shell: windows,
       });
-      child.on("error", () => finish({ code: "spawn-error" }));
-      child.on("exit", (exitCode) => {
-        // After a timeout the tree is still stopping; the timeout path reports it.
-        if (timedOut) return;
-        finish({ code: exitCode === 0 ? null : npmFailureCode(errorText), exitCode });
-      });
+    } catch {
+      resolve({ code: "spawn-error" });
+      return;
+    }
+    let errorText = "";
+    let done = false;
+    const finish = (result: InstallResult) => {
+      if (done) return;
+      done = true;
+      deps.clearTimeout(timer);
+      resolve(result);
+    };
+    let timedOut = false;
+    const timer = deps.setTimeout(() => {
+      timedOut = true;
+      // Keep the update running until npm has stopped, so nothing else touches the install.
+      void deps
+        .killTree(child)
+        .catch(() => undefined)
+        .then(() => finish({ code: "timeout" }));
+    }, INSTALL_TIMEOUT_MS);
+    child.stderr?.on("data", (chunk) => {
+      errorText = (errorText + String(chunk)).slice(-ERROR_TAIL_BYTES);
     });
-  }
+    child.on("error", () => finish({ code: "spawn-error" }));
+    child.on("exit", (exitCode) => {
+      // After a timeout the tree is still stopping; the timeout path reports it.
+      if (timedOut) return;
+      finish({ code: exitCode === 0 ? null : npmFailureCode(errorText), exitCode });
+    });
+  });
 }

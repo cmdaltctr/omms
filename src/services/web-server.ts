@@ -231,6 +231,8 @@ interface WebServerConfig {
   apiToken?: string;
   /** How long a stepped-aside server waits before it may take the port back. */
   stepAsideHoldOffMs?: number;
+  /** Test seam: the retire marker's time, or null. Defaults to `~/.omms/web-retire.json`. */
+  readRetireMarker?: () => number | null;
 }
 
 type PowerAction = "stop" | "restart";
@@ -259,6 +261,8 @@ export class WebServer {
   private onTakeoverCallback: (() => Promise<void>) | null = null;
   private onPortsExhaustedCallback: (() => void) | null = null;
   private onStepAsideCallback: (() => void | Promise<void>) | null = null;
+  /** `web update` retires waiting web apps that started before its marker. */
+  private readonly startedAt = Date.now();
   private onPowerActionCallback: ((action: PowerAction) => unknown) | null = null;
   private webUpdate: Pick<WebUpdate, "status" | "requestInstall"> | null = null;
   private powerActionRunning = false;
@@ -655,17 +659,20 @@ export class WebServer {
       body && typeof (body as { version?: unknown }).version === "string"
         ? (body as { version: string }).version.slice(0, 40)
         : "";
+    // `web update` replaces a web app of any version; other callers must be newer.
+    const replace = Boolean(body && (body as { replace?: unknown }).replace === true);
     const record = (outcome: string) =>
       log("Web server step-aside request", {
         outcome,
         ownVersion: packageVersion(),
         callerVersion,
+        replace,
       });
     if (!isLoopbackAddress(remoteAddress)) {
       record("refused_auth");
       return this.jsonResponse({ success: false, error: "Loopback caller required" }, 403);
     }
-    if (!callerVersion || !isOlderVersion(packageVersion(), callerVersion)) {
+    if (!callerVersion || (!replace && !isOlderVersion(packageVersion(), callerVersion))) {
       record("refused_not_newer");
       return this.jsonResponse({ success: false, error: "Caller is not newer" }, 409);
     }
@@ -749,23 +756,45 @@ export class WebServer {
       return;
     }
 
-    this.healthCheckInterval = setInterval(async () => {
-      const isAvailable = await this.checkServerAvailable();
+    this.healthCheckInterval = setInterval(() => void this.waiterTick(), 5000);
+  }
 
-      if (!isAvailable) {
-        this.stopHealthCheckLoop();
-        await this.attemptTakeover();
-      } else if (this.onStepAsideCallback && (await this.ownerIsNewer())) {
-        // A standalone web app behind a newer one would serve old code after a restart.
-        this.stopHealthCheckLoop();
-        log("Web server waiter retired", { ownVersion: packageVersion() });
-        try {
-          await this.onStepAsideCallback();
-        } catch (error) {
-          log("Step-aside callback error", { error: String(error) });
-        }
-      }
-    }, 5000);
+  /** One check of a web app that waits for the port. */
+  private async waiterTick(): Promise<void> {
+    const isAvailable = await this.checkServerAvailable();
+
+    if (!isAvailable) {
+      this.stopHealthCheckLoop();
+      await this.attemptTakeover();
+      return;
+    }
+    if (!this.onStepAsideCallback) return;
+    // A standalone web app behind a newer one would serve old code after a restart.
+    const reason = (await this.retiredByUpdate())
+      ? "update"
+      : (await this.ownerIsNewer())
+        ? "newer-owner"
+        : null;
+    if (!reason) return;
+    this.stopHealthCheckLoop();
+    log("Web server waiter retired", { ownVersion: packageVersion(), reason });
+    try {
+      await this.onStepAsideCallback();
+    } catch (error) {
+      log("Step-aside callback error", { error: String(error) });
+    }
+  }
+
+  /** True when `web update` asked web apps started before this one to retire. */
+  private async retiredByUpdate(): Promise<boolean> {
+    try {
+      const read =
+        this.config.readRetireMarker ?? (await import("./web-retire.js")).readRetireMarker;
+      const before = read();
+      return before !== null && this.startedAt < before;
+    } catch {
+      return false;
+    }
   }
 
   private async ownerIsNewer(): Promise<boolean> {

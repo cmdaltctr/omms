@@ -33,9 +33,25 @@ const ipv6Status = await runWebCommand(["status"], options, async () => false);
 writeFileSync(path, '{ "webServerEnabled": false }');
 const refused = await runWebCommand([], options, async () => false);
 const disabledInstall = await runWebCommand(["install"], options, async () => false);
+const disabledUpdate = await runWebCommand(["update"], options, async () => false);
 const disabledConfig = readFileSync(path, "utf8");
+const bogus = await runWebCommand(["bogus"], options, async () => false);
+writeFileSync(path, "{}");
+let clock = 0;
+const routedUpdate = await runWebCommand(["update"], options, async () => false, {}, {
+  fetchFn: async () => { throw new Error("offline"); },
+  latest: async () => null,
+  sleep: async (ms) => { clock += ms; },
+  now: () => clock,
+  loginItemInstalled: () => false,
+  startDetached: () => true,
+  writeStartLock: () => {},
+  removeStartLock: () => {},
+  writeRetireMarker: () => {},
+  log: () => {},
+});
 console.log("RESULT:" + JSON.stringify({ install, status, uninstall, refused, disabledInstall,
-  disabledConfig, installedConfig, uninstalledConfig, commands }));
+  disabledUpdate, bogus, routedUpdate, disabledConfig, installedConfig, uninstalledConfig, commands }));
 `
     );
     const child = Bun.spawnSync(["bun", "run", script], {
@@ -49,6 +65,13 @@ console.log("RESULT:" + JSON.stringify({ install, status, uninstall, refused, di
     expect([out.install, out.status, out.uninstall, out.refused, out.disabledInstall]).toEqual([
       0, 0, 0, 1, 1,
     ]);
+    expect([out.disabledUpdate, out.bogus, out.routedUpdate]).toEqual([1, 1, 1]);
+    // `web`, `web install`, and `web update` each refuse with the reason.
+    expect(child.stderr.toString().match(/webServerEnabled is false/g)).toHaveLength(3);
+    expect(child.stderr.toString()).toContain(
+      "Usage: om-memory-system web [install|uninstall|status|update]"
+    );
+    expect(text).toContain("No web app answered on http://127.0.0.1:4747 within 15 seconds");
     expect(out.disabledConfig).toBe('{ "webServerEnabled": false }');
     expect(out.installedConfig).toContain('"webServerAutoStart": true');
     expect(out.uninstalledConfig).toContain('"webServerAutoStart": false');

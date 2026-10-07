@@ -60,7 +60,15 @@ npm i -g om-memory-system@latest   # or: bun add -g om-memory-system@latest
 om-memory-system --version
 ```
 
-The **Web app** card on the Settings page shows the running version and the version of the global install. It reads the global version from the install's `package.json`. See [Settings page](web-ui-settings.md).
+The A host update does not update the global install. To update the global install and restart the web app in one step, run:
+
+```bash
+om-memory-system web update
+```
+
+See [Web app commands](cli.md#web-app-commands).
+
+**Web app** card on the Settings page shows the running version and the version of the global install. It reads the global version from the install's `package.json`. See [Settings page](web-ui-settings.md).
 
 To go back to an older version, set `OMMS_NO_HANDOFF=1` for one command. For a full rollback, remove the newer copy, then run `om-memory-system web install` from the copy to keep. When you remove the copy that the record names, the next start writes a valid copy to the record.
 
