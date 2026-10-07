@@ -155,4 +155,47 @@ describe("user profile decay (#237)", () => {
 
     expect(data.preferences[0]?.confidence).toBeGreaterThan(0.98);
   });
+
+  describe("workflow retention", () => {
+    async function decayOne(
+      kind: "preferences" | "workflows",
+      item: { frequency: number; ageDays: number }
+    ) {
+      const { mgr, CONFIG } = await makeManager();
+      CONFIG.userProfileStaleDays = 2;
+      CONFIG.userProfileMinEvidenceForRetention = 3;
+      CONFIG.userProfileWorkflowStaleDays = 30;
+      const entry = {
+        category: "workflow",
+        description: `${kind} seen ${item.frequency}x`,
+        confidence: 0.5,
+        evidence: [],
+        frequency: item.frequency,
+        steps: [],
+        lastSeen: Date.now() - item.ageDays * DAY_MS,
+      };
+      const { data } = mgr.decayInMemory({
+        preferences: kind === "preferences" ? [entry] : [],
+        patterns: [],
+        workflows: kind === "workflows" ? [entry] : [],
+      });
+      return data[kind];
+    }
+
+    it("keeps a workflow seen once, three days ago", async () => {
+      expect(await decayOne("workflows", { frequency: 1, ageDays: 3 })).toHaveLength(1);
+    });
+
+    it("removes a workflow seen once, 31 days ago", async () => {
+      expect(await decayOne("workflows", { frequency: 1, ageDays: 31 })).toHaveLength(0);
+    });
+
+    it("keeps a repeated workflow, 31 days ago", async () => {
+      expect(await decayOne("workflows", { frequency: 3, ageDays: 31 })).toHaveLength(1);
+    });
+
+    it("still removes a preference with no evidence, three days ago", async () => {
+      expect(await decayOne("preferences", { frequency: 5, ageDays: 3 })).toHaveLength(0);
+    });
+  });
 });

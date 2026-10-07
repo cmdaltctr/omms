@@ -255,4 +255,49 @@ scenario = {
       "live-capture",
     ]);
   });
+
+  it("re-analyses done profile prompts only with --force", () => {
+    const out = runScenario(`
+CONFIG.userEmailOverride = "test@example.invalid";
+let profileCalls = 0;
+const profileModel = {
+  provider: "test",
+  modelId: "profile",
+  complete: async () => {
+    profileCalls++;
+    return JSON.stringify({ preferences: [], patterns: [], workflows: [] });
+  },
+};
+async function profileRun(extra) {
+  const args = parseHistoryImportArgs(
+    ["--scope", "all-projects", "--root", root, "--skip-memories",
+     "--map", "/tmp/claude-fixture-project=" + main, "--map", "/tmp/claude-fixture-other=" + other,
+     ...extra],
+    { host: "claude-code", surface: "cli" }
+  );
+  if (args.errors.length) throw new Error(args.errors.join("; "));
+  const report = await runHistoryImport("claude-code", args, {
+    cwd: base,
+    models: { profile: profileModel },
+    savedPathMaps: [],
+  });
+  return { ...report.profile, calls: profileCalls };
+}
+const first = await profileRun([]);
+const rerun = await profileRun([]);
+const forcedDry = await profileRun(["--force", "--dry-run"]);
+const forced = await profileRun(["--force"]);
+scenario = { first, rerun, forcedDry, forced, memories: (await storedMemories()).length };
+`);
+    const done = out.first.promptsRecorded;
+    expect(done).toBeGreaterThan(0);
+    expect(out.first.calls).toBeGreaterThan(0);
+    expect(out.rerun).toMatchObject({ promptsRecorded: 0, promptsAlreadyHandled: done });
+    expect(out.rerun.calls).toBe(out.first.calls);
+    expect(out.forcedDry).toMatchObject({ promptsWouldRecord: done, promptsAlreadyHandled: 0 });
+    expect(out.forcedDry.calls).toBe(out.first.calls);
+    expect(out.forced).toMatchObject({ promptsRecorded: done, promptsAlreadyHandled: 0 });
+    expect(out.forced.calls).toBeGreaterThan(out.first.calls);
+    expect(out.memories).toBe(0);
+  });
 });

@@ -108,7 +108,7 @@ The OpenCode and Pi commands take the same options, in a session or a terminal. 
 | `--skip-memories`                   | Record prompts and build the profile only.                                            |
 | `--skip-profile`                    | Import memories only.                                                                 |
 | `--profile-batch <n>`               | Analyse this many prompts per profile batch. Default: 50.                             |
-| `--force`                           | Reprocess memory work units with final ledger states.                                 |
+| `--force`                           | Reprocess memory work units and profile prompts with final ledger states.             |
 | `--help`                            | Show command help.                                                                    |
 | `--provider <type>`, `--model <id>` | Terminal only: choose an external provider and model id for this run.                 |
 | `--api-url <url>`                   | Terminal only: the endpoint for this run.                                             |

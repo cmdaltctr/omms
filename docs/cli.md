@@ -126,7 +126,7 @@ Before a real import starts, the CLI prints `Import model: provider/model`.
 | `--skip-memories`                  | Record profile prompts only.                                                                                                                                                                                                   |
 | `--skip-profile`                   | Import memories only.                                                                                                                                                                                                          |
 | `--profile-batch <n>`              | Prompts per profile analysis batch. Default: 50. Must be a positive whole number.                                                                                                                                              |
-| `--force`                          | Reprocess memory work units that already finished.                                                                                                                                                                             |
+| `--force`                          | Reprocess memory work units and profile prompts that already finished. Use `--force --skip-memories` to rebuild the profile only.                                                                                              |
 | `--help`, `-h`                     | Show help for the command.                                                                                                                                                                                                     |
 
 - A value may follow its flag or use `--flag=value`.

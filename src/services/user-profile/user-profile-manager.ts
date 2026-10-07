@@ -427,9 +427,9 @@ export class UserProfileManager {
   decayInMemory(data: UserProfileData): { data: UserProfileData; hasChanges: boolean } {
     const now = Date.now();
 
-    const prefResult = this.decayItems(data.preferences, now);
-    const patResult = this.decayItems(data.patterns, now);
-    const wfResult = this.decayItems(data.workflows, now);
+    const prefResult = this.decayItems(data.preferences, now, "preference");
+    const patResult = this.decayItems(data.patterns, now, "pattern");
+    const wfResult = this.decayItems(data.workflows, now, "workflow");
 
     return {
       data: {
@@ -444,7 +444,8 @@ export class UserProfileManager {
 
   private decayItems<T extends Record<string, any>>(
     items: T[],
-    now: number
+    now: number,
+    itemType: "preference" | "pattern" | "workflow"
   ): { items: T[]; hasChanges: boolean; before: number; removed: number } {
     const before = items.length;
     let hasChanges = false;
@@ -461,17 +462,24 @@ export class UserProfileManager {
 
       const age = now - ((item as any).lastSeen || now);
       const ageDays = age / (24 * 60 * 60 * 1000);
-      const staleDays = CONFIG.userProfileStaleDays ?? 2;
+      const isWorkflow = itemType === "workflow";
+      const staleDays = isWorkflow
+        ? (CONFIG.userProfileWorkflowStaleDays ?? 30)
+        : (CONFIG.userProfileStaleDays ?? 2);
       const minEvidence = CONFIG.userProfileMinEvidenceForRetention ?? 3;
       const evidenceCount = Array.isArray((item as any).evidence)
         ? (item as any).evidence.length
         : 0;
+      // The analysis schema gives workflows no evidence, so repeat sightings count instead.
+      const support = isWorkflow
+        ? Math.max(evidenceCount, (item as any).frequency ?? 1)
+        : evidenceCount;
 
       // Remove inactive, low-evidence items using configured retention thresholds.
-      if (ageDays > staleDays && evidenceCount < minEvidence) {
+      if (ageDays > staleDays && support < minEvidence) {
         log("profile decay: removed stale", {
           cat: (item as any).category || (item as any).description?.substring(0, 30),
-          evidenceCount,
+          evidenceCount: support,
           minEvidence,
           ageDays: Math.round(ageDays),
           staleDays,

@@ -114,6 +114,7 @@ interface OmmsConfig {
   userProfileDisplayPatterns?: number;
   userProfileDisplayWorkflows?: number;
   userProfileStaleDays?: number;
+  userProfileWorkflowStaleDays?: number;
   userProfileInjectPreferences?: number;
   userProfileInjectPatterns?: number;
   userProfileInjectWorkflows?: number;
@@ -237,6 +238,7 @@ const DEFAULTS: Required<
   userProfileDisplayPatterns: 15,
   userProfileDisplayWorkflows: 10,
   userProfileStaleDays: 2,
+  userProfileWorkflowStaleDays: 30,
   userProfileInjectPreferences: 5,
   userProfileInjectPatterns: 5,
   userProfileInjectWorkflows: 3,
@@ -615,6 +617,10 @@ export const CONFIG_TEMPLATE = `{
 
   // Days before inactive items (all types) are eligible for removal
   "userProfileStaleDays": 2,
+
+  // Days before an inactive workflow is eligible for removal. A workflow seen
+  // userProfileMinEvidenceForRetention times or more is kept.
+  "userProfileWorkflowStaleDays": 30,
 
   // Number of preferences shown in UI
   "userProfileDisplayPreferences": 20,
@@ -1011,6 +1017,8 @@ function buildConfig(fileConfig: OmmsConfig) {
     userProfileValidationEnabled:
       fileConfig.userProfileValidationEnabled ?? DEFAULTS.userProfileValidationEnabled,
     userProfileStaleDays: fileConfig.userProfileStaleDays ?? DEFAULTS.userProfileStaleDays,
+    userProfileWorkflowStaleDays:
+      fileConfig.userProfileWorkflowStaleDays ?? DEFAULTS.userProfileWorkflowStaleDays,
     showAutoCaptureToasts: fileConfig.showAutoCaptureToasts ?? DEFAULTS.showAutoCaptureToasts,
     showUserProfileToasts: fileConfig.showUserProfileToasts ?? DEFAULTS.showUserProfileToasts,
     showErrorToasts: fileConfig.showErrorToasts ?? DEFAULTS.showErrorToasts,

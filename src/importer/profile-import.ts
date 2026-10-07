@@ -26,6 +26,7 @@ type PromptStore = Pick<
   | "countUnanalyzedForUserLearning"
   | "getPromptsForUserLearning"
   | "markMultipleAsUserLearningCaptured"
+  | "markForUserLearning"
 >;
 type ProfileStore = Pick<
   typeof userProfileManager,
@@ -37,6 +38,8 @@ type Ledger = Pick<ImportLedger, "get" | "begin" | "complete"> &
 export interface ProfileImportOptions {
   host: MemoryHost;
   dryRun?: boolean;
+  /** Re-analyse prompts the ledger already records as done. */
+  force?: boolean;
   signal?: AbortSignal;
   batchSize?: number;
   model?: ModelPort;
@@ -94,7 +97,8 @@ export async function importProfileFromHistory(
         : options.dryRun && ledger.peek
           ? await ledger.peek(profileKey)
           : await ledger.get(profileKey);
-      if (existing?.status === "imported") {
+      const reanalyse = existing?.status === "imported" && Boolean(options.force);
+      if (existing?.status === "imported" && !reanalyse) {
         report.promptsAlreadyHandled++;
         continue;
       }
@@ -116,6 +120,8 @@ export async function importProfileFromHistory(
         prompt
       );
       await prompts.markAsCaptured(promptId);
+      // A forced unit may find its prompt still stored and already learned.
+      if (reanalyse) await prompts.markForUserLearning(promptId);
       await ledger.complete(profileKey, promptId);
       report.promptsRecorded++;
     }
