@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.12.0](https://github.com/cmdaltctr/omms/compare/v4.11.1...v4.12.0) (2026-10-07)
+
+
+### Features
+
+* **web:** label filter, project rename, prompt and memory mini cards with See more ([02273b6](https://github.com/cmdaltctr/omms/commit/02273b60c6cb39a3b89d59875d12afec4382f3cf))
+* **web:** label filter, project rename, prompt and memory mini cards with See more ([f0ffc7b](https://github.com/cmdaltctr/omms/commit/f0ffc7b32092f7b895990873d798daa21a2c1a9f))
+
 ## [4.11.1](https://github.com/cmdaltctr/omms/compare/v4.11.0...v4.11.1) (2026-10-07)
 
 
