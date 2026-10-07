@@ -228,6 +228,18 @@
 .markdown-content p {
   margin: 0.4em 0;
 }
+/* Stored memories use headings such as "Request" and "Outcome" as category labels. */
+.markdown-content :is(h1, h2, h3, h4, h5, h6) {
+  margin: 0.9em 0 0.2em;
+  font-size: var(--text-ui);
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+}
+.markdown-content :is(h1, h2, h3, h4, h5, h6):first-child {
+  margin-top: 0;
+}
 
 .confidence-ring {
   --p: 0;

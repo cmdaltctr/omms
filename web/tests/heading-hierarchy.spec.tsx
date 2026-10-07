@@ -8,7 +8,7 @@ import type { UserProfile } from "../src/lib/types.ts";
 
 const source = (path: string) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
 
-it("defines relative 24/18/15/14px roles without restyling stored Markdown", () => {
+it("defines relative 24/18/15/14px roles and styles stored Markdown headings as bold muted uppercase labels", () => {
   const css = source("app.css");
   for (const [role, size] of [
     ["page-title", "1.5rem"],
@@ -23,6 +23,9 @@ it("defines relative 24/18/15/14px roles without restyling stored Markdown", () 
   expect(settings).toContain("font-size: 0.875rem;");
   expect(css).not.toMatch(/(?:^|\n)\s*h[123]\s*\{/);
   expect(css).toContain(".markdown-content {\n  line-height: 1.6;");
+  expect(css).toMatch(
+    /\.markdown-content :is\(h1, h2, h3, h4, h5, h6\) \{[^}]*font-size: var\(--text-ui\);[^}]*font-weight: 700;[^}]*color: var\(--muted-foreground\);[^}]*text-transform: uppercase;/
+  );
   const card = source("lib/components/explorer/MemoryCard.tsx");
   expect(card).toContain("renderMarkdown(");
   expect(card).not.toContain("text-section-title");
@@ -46,14 +49,15 @@ it("keeps the application page title and gives Settings cards shared section rol
   }
 });
 
-it("renders Profile identity and sections at H2, workflow titles at H3, and metadata as prose", () => {
+it("renders Profile identity and sections at H2 and workflows as pattern-style cards with blue step pills", () => {
   const profile = (fixtureResponse("GET", "/api/user-profile").body as { data: UserProfile }).data;
   const html = renderToStaticMarkup(<ProfileView profile={profile} />);
   expect(html.match(/<h2\b/g)).toHaveLength(4);
   expect(html).not.toMatch(/<h4\b/);
-  expect(html).toMatch(
-    /<h3 class="[^"]*text-subsection-title[^"]*">Check the shared visual controls<\/h3>/
-  );
+  expect(html).not.toMatch(/<h3\b/);
+  expect(html).toContain("Check the shared visual controls");
+  expect(html).toMatch(/<ol class="[^"]*"><li class="contents"><span class="[^"]*bg-blue-500\/15/);
+  expect(html).toContain("sm:grid-cols-2");
   expect(html).toContain("Keep helper text visible.");
   expect(html).toMatch(/<p class="text-sm break-words">/);
   expect(html).not.toMatch(/<h[23][^>]*>UI<\/h[23]>/);
