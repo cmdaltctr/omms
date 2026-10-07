@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.13.1](https://github.com/cmdaltctr/omms/compare/v4.13.0...v4.13.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* skip four slow tests on Windows ([b7e2e2d](https://github.com/cmdaltctr/omms/commit/b7e2e2d5a6340d63888b86fb79b6f46df0c45827))
+* skip four slow tests on Windows ([72f702f](https://github.com/cmdaltctr/omms/commit/72f702f5e5430cf3d44bb52c97b14c96f6ddf904))
+
 ## [4.13.0](https://github.com/cmdaltctr/omms/compare/v4.12.0...v4.13.0) (2026-10-07)
 
 
