@@ -2,6 +2,21 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.13.0](https://github.com/cmdaltctr/omms/compare/v4.12.0...v4.13.0) (2026-10-07)
+
+
+### Features
+
+* keep profile workflows longer and rebuild the profile from history ([46c69d6](https://github.com/cmdaltctr/omms/commit/46c69d613b93b9416c0c18b2b505af0ac5eb4b6a))
+* keep profile workflows longer and rebuild the profile from history ([122a8df](https://github.com/cmdaltctr/omms/commit/122a8df967843b22d0258e02dd99a355b6c0baa1))
+
+
+### Bug Fixes
+
+* address review findings on workflow retention and test isolation ([56adbfd](https://github.com/cmdaltctr/omms/commit/56adbfdd2352bb1dc6f5eae1d6185a9165ae5f1c))
+* re-analyse each history prompt once and block unisolated test runs ([6c05ecd](https://github.com/cmdaltctr/omms/commit/6c05ecd77d456684023dc1adb15ccb912374f961))
+* run tests in an empty home folder ([d0109dc](https://github.com/cmdaltctr/omms/commit/d0109dcd31a8733e8130a2e8f538f0823710783e))
+
 ## [4.12.0](https://github.com/cmdaltctr/omms/compare/v4.11.1...v4.12.0) (2026-10-07)
 
 
