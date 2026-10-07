@@ -332,6 +332,12 @@ export class UserPromptManager {
     await db.run(`UPDATE user_prompts SET user_learning_captured = 1 WHERE id = ?`, [promptId]);
   }
 
+  /** Put a learned prompt back in the profile learning queue. */
+  async markForUserLearning(promptId: string): Promise<void> {
+    const db = await this.ready();
+    await db.run(`UPDATE user_prompts SET user_learning_captured = 0 WHERE id = ?`, [promptId]);
+  }
+
   async markMultipleAsUserLearningCaptured(promptIds: string[]): Promise<void> {
     if (promptIds.length === 0) return;
     const db = await this.ready();

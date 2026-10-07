@@ -36,7 +36,7 @@
     "web:dev": "cd web && bun run dev",
     "web:build": "cd web && bun run build",
     "dev": "tsc --watch",
-    "test": "bun test",
+    "test": "bash scripts/run-tests-isolated.sh",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",

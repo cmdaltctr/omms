@@ -307,7 +307,7 @@ ${source}
   --skip-memories           Record profile prompts only
   --skip-profile            Import memories only
   --profile-batch <n>       Prompts per profile analysis batch (default: 50)
-  --force                   Reprocess already-handled memory work units
+  --force                   Reprocess already-handled memory units and profile prompts
   --help                    Show this help
 
 Values may follow the flag or use --flag=value.`;

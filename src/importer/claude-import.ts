@@ -81,6 +81,7 @@ export async function importClaudeHistory(
       host: "claude-code",
       signal: deps.signal,
       dryRun: Boolean(filters.dryRun),
+      force: Boolean(filters.force),
       model: deps.profile.model,
       batchSize: deps.profile.batchSize,
       ...(deps.profile.onProgress ? { onProgress: deps.profile.onProgress } : {}),

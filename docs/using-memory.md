@@ -119,6 +119,24 @@ Prompts can wait for profile learning, for example after a history import. To an
 
 A run analyses 50 prompts in each model call, oldest first. It costs one model call for each batch. It stops at the first failed batch and keeps the finished batches. The next run continues from there. If you start a second run, from the page or a terminal, the newest run takes over after the current batch, so no batch is paid for twice.
 
+### How long profile items stay
+
+Each profile pass removes old items that have little support:
+
+- A preference or pattern is removed when it was last seen more than `userProfileStaleDays` days ago (default 2) and has fewer than `userProfileMinEvidenceForRetention` evidence entries (default 3).
+- A workflow is removed when it was last seen more than `userProfileWorkflowStaleDays` days ago (default 30, or `userProfileStaleDays` when that is longer) and was seen fewer than `userProfileMinEvidenceForRetention` times. Its evidence count is used when it is larger.
+
+### Rebuild the profile from history
+
+Catch up analyses only prompts that still wait. To analyse imported history again, for example after old workflows were removed, run the history import with `--force --skip-memories`. Start with a dry run to see the number of prompts:
+
+```bash
+om-memory-system import-pi-history --scope all-projects --force --skip-memories --dry-run
+om-memory-system import-pi-history --scope all-projects --force --skip-memories
+```
+
+Do the same with `import-opencode-history` and `import-claude-history`. On the Settings page, turn on **Force reimport** and **Skip memories** in the import options. Each rebuild costs one model call for each 50 prompts. Each history prompt is re-analysed once. A later forced run skips the prompts an earlier forced run already re-analysed, so a repeat does not count the same prompt twice.
+
 ## Web UI
 
 Open `http://127.0.0.1:4747` to browse the memory and prompt timeline, look at

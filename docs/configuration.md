@@ -98,6 +98,16 @@ Open the Settings page in the login web app, in OpenCode, or with `om-memory-sys
 - The page rejects a save if the file changed since the page loaded it. Check the refreshed values, then save again.
 - The **Memory** card edits the five [memory limits](#memory-limits) below, including the nested `chatMessage.maxMemories` leaf.
 
+## Profile retention
+
+| Setting                              | Default | Meaning                                                                        |
+| ------------------------------------ | ------- | ------------------------------------------------------------------------------ |
+| `userProfileStaleDays`               | 2       | Days before an inactive preference or pattern can be removed.                  |
+| `userProfileWorkflowStaleDays`       | 30      | Days before an inactive workflow can be removed.                               |
+| `userProfileMinEvidenceForRetention` | 3       | Evidence entries (or sightings, for a workflow) that keep an item in any case. |
+
+See [Using memory: How long profile items stay](using-memory.md#how-long-profile-items-stay).
+
 ## Memory limits
 
 Edit `~/.config/omms/omms.jsonc` directly, or use **Settings → Memory**. File configuration needs no web server.

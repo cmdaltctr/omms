@@ -93,7 +93,7 @@ The Pi and OpenCode commands take the same options. The full table is in [cli.md
   --skip-memories            Record profile prompts only
   --skip-profile             Import memories without profile learning
   --profile-batch <n>        Prompts per profile analysis batch (default: 50)
-  --force                    Reprocess units with final ledger states
+  --force                    Reprocess units and profile prompts with final ledger states
   --help                     Show this help
 ```
 

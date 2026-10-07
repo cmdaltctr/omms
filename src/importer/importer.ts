@@ -603,6 +603,7 @@ export async function importPiHistory(
       host: "pi",
       signal: deps.signal,
       dryRun,
+      force: Boolean(filters.force),
       model: deps.profile.model,
       batchSize: deps.profile.batchSize,
       ...(deps.profile.onProgress ? { onProgress: deps.profile.onProgress } : {}),

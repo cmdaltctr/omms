@@ -45,6 +45,9 @@ function setup() {
     markMultipleAsUserLearningCaptured: async (ids: string[]) => {
       for (const row of rows) if (ids.includes(row.id)) row.analysed = true;
     },
+    markForUserLearning: async (id: string) => {
+      rows.find((row) => row.id === id)!.analysed = false;
+    },
   };
   let profile: { id: string; profileData: string } | null = null;
   let creations = 0;
@@ -236,6 +239,105 @@ it("reports profile batches done and planned for the run's profile phase", async
       [2, 3],
       [3, 3],
     ]);
+  } finally {
+    state.cleanup();
+  }
+});
+
+it("a forced rerun re-analyses a done prompt and keeps one copy in the store", async () => {
+  const state = setup();
+  try {
+    await importProfileFromHistory(state.source, state.options as never);
+    expect(state.rows[0]?.analysed).toBe(true);
+    const forced = await importProfileFromHistory(state.source, {
+      ...state.options,
+      force: true,
+    } as never);
+    expect(forced.promptsRecorded).toBe(1);
+    expect(forced.promptsAlreadyHandled).toBe(0);
+    expect(forced.batchesBuilt).toBe(1);
+    expect(state.rows).toHaveLength(1);
+    expect(state.rows[0]?.analysed).toBe(true);
+    expect(state.modelCalls()).toBe(2);
+    expect(state.ledgerRows.get("opencode:s:u:a#profile")?.status).toBe("imported");
+  } finally {
+    state.cleanup();
+  }
+});
+
+it("a forced rerun records a done prompt again after the store deleted it", async () => {
+  const state = setup();
+  try {
+    await importProfileFromHistory(state.source, state.options as never);
+    state.rows.length = 0;
+    const forced = await importProfileFromHistory(state.source, {
+      ...state.options,
+      force: true,
+    } as never);
+    expect(forced.promptsRecorded).toBe(1);
+    expect(state.rows).toHaveLength(1);
+    expect(state.rows[0]?.analysed).toBe(true);
+    expect(state.modelCalls()).toBe(2);
+  } finally {
+    state.cleanup();
+  }
+});
+
+it("a forced dry run counts done prompts as pending and writes nothing", async () => {
+  const state = setup();
+  try {
+    const result = await importProfileFromHistory(state.source, {
+      ...state.options,
+      dryRun: true,
+      force: true,
+      model: undefined,
+      ledger: {
+        get: async (key: string) =>
+          key === "opencode:s:u:a#profile" ? { status: "imported" } : null,
+        begin: async () => {
+          throw new Error("ledger written");
+        },
+        complete: async () => {
+          throw new Error("ledger written");
+        },
+      },
+      promptStore: {
+        savePrompt: async () => {
+          throw new Error("prompt store touched");
+        },
+        markForUserLearning: async () => {
+          throw new Error("prompt store touched");
+        },
+      },
+    } as never);
+    expect(result.promptsWouldRecord).toBe(1);
+    expect(result.promptsAlreadyHandled).toBe(0);
+    expect(state.modelCalls()).toBe(0);
+  } finally {
+    state.cleanup();
+  }
+});
+
+it("a second forced run skips prompts an earlier forced run re-analysed", async () => {
+  const state = setup();
+  try {
+    await importProfileFromHistory(state.source, state.options as never);
+    await importProfileFromHistory(state.source, { ...state.options, force: true } as never);
+    const again = await importProfileFromHistory(state.source, {
+      ...state.options,
+      force: true,
+    } as never);
+    expect(again.promptsRecorded).toBe(0);
+    expect(again.promptsAlreadyHandled).toBe(1);
+    expect(state.modelCalls()).toBe(2);
+    const dry = await importProfileFromHistory(state.source, {
+      ...state.options,
+      force: true,
+      dryRun: true,
+      model: undefined,
+    } as never);
+    expect(dry.promptsWouldRecord).toBe(0);
+    expect(dry.promptsAlreadyHandled).toBe(1);
   } finally {
     state.cleanup();
   }

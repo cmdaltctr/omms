@@ -216,6 +216,7 @@ export async function importOpencodeHistory(
         host: "opencode",
         signal: options.signal,
         dryRun: options.dryRun,
+        force: options.force,
         batchSize: options.profileBatch,
         model: options.profileModel,
         ...(options.onProfileProgress ? { onProgress: options.onProfileProgress } : {}),
