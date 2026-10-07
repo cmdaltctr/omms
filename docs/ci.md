@@ -55,11 +55,19 @@ bun install --frozen-lockfile
 - The suite shares module and storage state across files. In one process, results change with file order.
 - One process for each file gives the same result every time.
 - The runner runs every file, even after one fails. At the end it lists each failed file and exits 1. In GitHub Actions each failed file is also an error annotation on the job. So one smoke run shows every failure on a platform.
-- The runner also runs each web page spec (`web/tests/*.spec.ts` and `*.spec.tsx`) in its own process. It passes `--tsconfig-override web/tsconfig.app.json`, because Bun does not follow the tsconfig references in `web/tsconfig.json` and cannot resolve the `$lib` alias without it. To run one spec by hand: `bun test --tsconfig-override web/tsconfig.app.json web/tests/<name>.spec.tsx`.
+- The runner also runs each web page spec (`web/tests/*.spec.ts` and `*.spec.tsx`) in its own process. It passes `--tsconfig-override web/tsconfig.app.json`, because Bun does not follow the tsconfig references in `web/tsconfig.json` and cannot resolve the `$lib` alias without it. To run one spec by hand: `bash scripts/run-tests-isolated.sh web/tests/<name>.spec.tsx`.
 - On Windows, each test gets 30 seconds, because process start-up is slow there. Other platforms keep the Bun default of 5 seconds.
 - Do not use `bun test` for the whole suite. About 48 tests fail from shared module state. Those failures are not regressions.
 
-Tests never write to the real `~/.omms`. Bun loads `.env.test` for every test process and its children. It:
+The isolated runner gives each run an empty home folder (`HOME`, `USERPROFILE` and `OMMS_TEST_HOME`). Tests then never open the real `~/.omms` store or `~/.config/omms` config.
+
+- Bun reads the home folder once, when the process starts. A test that changes `process.env.HOME` at run time still opens the real store. Before this runner change, `tests/user-prompt-learning-order.test.ts` deleted every row in the real `user-prompts.db` that way.
+- The runner links `.omms/data/.cache` in the empty home to `~/.cache/omms-test-models`, so the embedding model downloads once per machine.
+- It copies `~/.gitconfig` into the empty home, because some tests read the git identity.
+- `tests/test-home-isolation.test.ts` fails when a run under the runner sees another home folder.
+- To run one file safely, pass it to the runner: `bash scripts/run-tests-isolated.sh tests/<file>.test.ts`. A plain `bun test tests/<file>.test.ts` uses the real home folder.
+
+Bun also loads `.env.test` for every test process and its children. It:
 
 - points `OMMS_LOG_FILE` (and so the traces directory) at a temporary path
 - turns off the one-time migrations (`OMMS_SKIP_LEGACY_MIGRATION`, `OMMS_SKIP_TAG_PREFIX_MIGRATION`)
@@ -86,7 +94,7 @@ before a push to a pull request and before a merge.
   import in `dist/index.js`. A comment in the test file records this. Check it
   again after a Bun upgrade.
 - Some tests import `dist/`. `ci:local` builds before it tests. For one test
-  file, build first: `bun run build && bun test tests/<file>.test.ts`.
+  file, build first: `bun run build && bash scripts/run-tests-isolated.sh tests/<file>.test.ts`.
 - The Claude Code status line module has its own test, `hooks/omms-status.test.ts`.
   Run it with `bash scripts/test-claude-mod.sh`, which needs the `claude` command.
   `ci:local` and the GitHub workflows do not run it. See [TDR-025](tdr/025-claude-plugin-test-runs-whole-folder.md).
