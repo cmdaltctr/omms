@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { existsSync, linkSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG } from "../../config.js";
 
@@ -58,6 +59,28 @@ function lockFilePath(scope: string, hash: string): string {
   return join(CONFIG.storagePath, WRITE_LOCK_DIR, `${scope}_${hash}.lock`);
 }
 
+async function publishLock(candidate: string, path: string): Promise<void> {
+  // Match the bounded Windows hard-link retries used by the web start lock (TDR-034).
+  const waits = [1, 2, 5, 10, 20, 50, 100, 200];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      linkSync(candidate, path);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (
+        process.platform !== "win32" ||
+        !code ||
+        !["EPERM", "EACCES", "EBUSY"].includes(code) ||
+        waits[attempt] === undefined
+      ) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, waits[attempt]));
+    }
+  }
+}
+
 export async function withCrossProcessWriteLock<T>(
   scope: "user" | "project",
   hash: string,
@@ -71,30 +94,46 @@ export async function withCrossProcessWriteLock<T>(
   const state: LockState = { pid: process.pid, timestamp: new Date().toISOString() };
   const deadline = Date.now() + LOCK_TIMEOUT_MS;
 
-  for (;;) {
-    try {
-      writeFileSync(path, JSON.stringify(state), { flag: "wx" });
-      break;
-    } catch {
-      const holder = readLiveLock(path);
-      if (!holder) continue;
-      if (Date.now() > deadline) {
-        throw new Error(
-          `Timed out acquiring the cross-process write lock for ${scope}/${hash}: ` +
-            `held by pid ${holder.pid} since ${holder.timestamp}`
-        );
-      }
-      await new Promise((resolve) => setTimeout(resolve, LOCK_POLL_MS + Math.random() * 10));
-    }
-  }
+  const candidate = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  let acquired = false;
 
   try {
+    // Exclusive open exposes an empty file before its PID is written. Publish
+    // the complete payload with a hard link, which cannot replace a live lock.
+    writeFileSync(candidate, JSON.stringify(state), { flag: "wx" });
+    for (;;) {
+      try {
+        await publishLock(candidate, path);
+        acquired = true;
+        break;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        const holder = readLiveLock(path);
+        if (!holder) continue;
+        if (Date.now() > deadline) {
+          throw new Error(
+            `Timed out acquiring the cross-process write lock for ${scope}/${hash}: ` +
+              `held by pid ${holder.pid} since ${holder.timestamp}`,
+            { cause: error }
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, LOCK_POLL_MS + Math.random() * 10));
+      }
+    }
+
     return await fn();
   } finally {
+    if (acquired) {
+      try {
+        unlinkSync(path);
+      } catch {
+        // Best effort: a stale file is cleaned up by the next acquirer.
+      }
+    }
     try {
-      unlinkSync(path);
+      unlinkSync(candidate);
     } catch {
-      // Best effort: a stale file is cleaned up by the next acquirer.
+      // A failed publication must not leave its temporary payload behind.
     }
   }
 }

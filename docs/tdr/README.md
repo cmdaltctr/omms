@@ -60,6 +60,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [036](./036-restart-waits-for-its-own-copy.md)               | Restart waits for its own copy                                          | Proposed              | 2026-10-06 |
 | [037](./037-skip-slow-tests-on-windows.md)                   | Skip slow tests on Windows                                              | Proposed              | 2026-10-07 |
 | [038](./038-resume-release-approval-after-npm.md)            | Resume the release approval after npm shows the version                 | Proposed              | 2026-10-07 |
+| [039](./039-publish-complete-cross-process-write-locks.md)   | Publish complete cross-process write locks                              | Proposed              | 2026-10-07 |
 
 ## Status values
 

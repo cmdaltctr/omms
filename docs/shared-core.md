@@ -154,7 +154,9 @@ processes against the same store:
 - Every connection sets `busy_timeout=5000` and uses one pooled handle.
 - Every write goes through `withScopeWriteLock`. It nests a cross-process
   lock for each scope (`src/services/turso/cross-process-write-lock.ts`).
-  That lock checks if the owner PID is alive and takes over stale locks.
+  That lock publishes a complete PID payload through a hard link before
+  entering the write section. It checks if the owner PID is alive and takes
+  over stale locks. See [TDR-039](tdr/039-publish-complete-cross-process-write-locks.md).
 - So shard allocation, vector-count sync, insert, and increment run as one
   critical section for each scope, across processes.
 - Races to create a shard end at the `UNIQUE(scope, scope_hash, shard_index)`
