@@ -122,6 +122,17 @@ The web app keeps serving its current version when a step fails. The `code` name
 
 Each update writes `Web app update` log records with the outcome, the code, both versions, the npm exit code, and the duration. The log never holds npm output or the token.
 
+## Filters and memory cards
+
+The Project memories page has two filters above the search box:
+
+- **Project** lists each project. It filters the page to the memories of one project.
+- **Label** lists each label with the number of memories that carry it, for example `npm (3)`. It filters to memories with that exact label, ignoring case. When you pick a project, the counts cover that project only. Choose **All labels** to clear it. `GET /api/keywords` returns the list, and takes an optional `tag` parameter for the project.
+
+The search box finds memories by meaning. It ranks results and does not filter by label. A text search clears the Label filter.
+
+A memory card with a prompt shows the prompt, then the memory, each in its own bordered card. Commands in backticks show as code. Fenced code and `<pasted_content>` blocks show in their own code cards inside the prompt. A prompt or memory taller than its limit (240 px for a prompt, 320 px for a memory) is cut short with a fade. Select **See more** to show all of it and **See less** to fold it again.
+
 ## Memory badges
 
 - **Memory type** identifies the stored category, such as `analysis` or `bug-fix`. Its pill uses coloured text and an outline with no coloured fill. Each type keeps its colour across cards and reloads. Unknown stored types keep their literal names.

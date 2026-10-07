@@ -5,8 +5,11 @@ import { shouldOpenTagMigration } from "$lib/tag-migration-prompt";
 import { t } from "$lib/i18n";
 import type { MemoryItem, TagInfo } from "$lib/types";
 
+type KeywordCount = { keyword: string; count: number };
+
 export function useMemoriesExplorer() {
   const [tags, setTags] = useState<TagInfo[]>([]);
+  const [keywords, setKeywords] = useState<KeywordCount[]>([]);
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [selectedTag, setSelectedTag] = useState("");
@@ -55,6 +58,13 @@ export function useMemoriesExplorer() {
     }
   }, []);
 
+  // Labels with counts, scoped to the selected project.
+  const loadKeywords = useCallback(async (tag: string) => {
+    const endpoint = tag ? `/api/keywords?tag=${encodeURIComponent(tag)}` : "/api/keywords";
+    const result = await fetchAPI<{ keywords: KeywordCount[] }>(endpoint);
+    if (result.success && result.data) setKeywords(result.data.keywords || []);
+  }, []);
+
   const loadStats = useCallback(async () => {
     const result = await fetchAPI<{ total: number }>("/api/stats");
     if (result.success && result.data) {
@@ -84,6 +94,7 @@ export function useMemoriesExplorer() {
 
       setRefreshing(true);
       setMemoriesError(null);
+      void loadKeywords(tag);
       let endpoint = `/api/memories?page=${page}&pageSize=20&includePrompts=true`;
       if (searching) {
         endpoint = `/api/search?q=${encodeURIComponent(query)}&page=${page}&pageSize=20`;
@@ -111,7 +122,7 @@ export function useMemoriesExplorer() {
         setMemoriesError(result.error || t("toast-update-failed"));
       }
     },
-    []
+    [loadKeywords]
   );
 
   const checkMigrationStatus = useCallback(async () => {
@@ -467,6 +478,7 @@ export function useMemoriesExplorer() {
     addContent,
     setAddContent,
     loadTags,
+    keywords,
     loadStats,
     loadMemories,
     checkMigrationStatus,

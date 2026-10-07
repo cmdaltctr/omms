@@ -168,6 +168,13 @@ export function fixtureResponse(
           { tag: "omms_preview_project", displayName: "Synthetic preview project", count: 4 },
         ],
       });
+    case "/api/keywords":
+      return ok({
+        keywords: [
+          { keyword: "preview", count: 4 },
+          { keyword: "shared-controls", count: 1 },
+        ],
+      });
     case "/api/stats":
       return ok({ total: memories.length });
     case "/api/memories":

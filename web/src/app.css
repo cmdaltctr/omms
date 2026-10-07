@@ -225,6 +225,22 @@
   font-family: var(--font-mono);
   font-size: 0.75rem;
 }
+/* Inline commands read as chips; code inside a fenced block keeps the block's own look. */
+.markdown-content :not(pre) > code,
+.inline-code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.1rem 0.375rem;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  overflow-wrap: anywhere;
+}
+.markdown-content pre code {
+  padding: 0;
+  background: none;
+  border: 0;
+}
 .markdown-content p {
   margin: 0.4em 0;
 }

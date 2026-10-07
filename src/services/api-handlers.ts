@@ -6,6 +6,7 @@ import { ensureTursoReady } from "./turso/ready.js";
 import { formatTagsForEmbedding } from "./turso/vector-utils.js";
 import { extractScopeFromContainerTag, tryExtractScopeFromContainerTag } from "./memory-scope.js";
 import { log } from "./logger.js";
+import { countKeywords, type KeywordCount } from "./keyword-counts.js";
 import { CONFIG } from "../config.js";
 import type { MemoryType } from "../types/index.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
@@ -148,6 +149,55 @@ export async function handleListTags(): Promise<ApiResponse<{ project: TagInfo[]
   }
 }
 
+/** Reads stored memory rows for one project tag, or for every project and user shard. */
+async function loadMemoryRows(tag?: string): Promise<any[]> {
+  const allMemories: any[] = [];
+  if (tag) {
+    const { scope: tagScope, hash } = extractScopeFromTag(tag);
+    const shards = await tursoShardManager.getAllShards(tagScope, hash);
+    for (const shard of shards) {
+      const db = await tursoConnectionManager.getConnection(shard.dbPath);
+      const memories = await tursoVectorSearch.listMemories(db, tag, 10000);
+      allMemories.push(...memories);
+    }
+  } else {
+    // Iterate both project- and user-scoped shards. Previously this only
+    // walked project shards, which silently hid user-scope memories from the
+    // listing endpoint (Web UI navigation, /api/memories without a tag
+    // filter, …). User-scope memories still showed up in /api/search and
+    // /api/stats `byType`, but were invisible in /api/stats `byScope` and
+    // unbrowseable in the UI — a confusing UX gap. The filter keeps the
+    // defense-in-depth check on container_tag, just widens it to both
+    // canonical scope markers.
+    const projectShards = await tursoShardManager.getAllShards("project", "");
+    const userShards = await tursoShardManager.getAllShards("user", "");
+    for (const shard of [...projectShards, ...userShards]) {
+      const db = await tursoConnectionManager.getConnection(shard.dbPath);
+      const memories = await tursoVectorSearch.getAllMemories(db);
+      allMemories.push(
+        ...memories.filter(
+          (m: any) => m.container_tag?.includes("_project_") || m.container_tag?.includes("_user_")
+        )
+      );
+    }
+  }
+  return allMemories;
+}
+
+/** Labels (comma-separated memory tags) with how many memories carry each one. */
+export async function handleListKeywords(
+  tag?: string
+): Promise<ApiResponse<{ keywords: KeywordCount[] }>> {
+  try {
+    await ensureTursoReady();
+    const rows = await loadMemoryRows(tag);
+    return { success: true, data: { keywords: countKeywords(rows.map((r) => r.tags)) } };
+  } catch (error) {
+    log("handleListKeywords: error", { error: String(error) });
+    return { success: false, error: String(error) };
+  }
+}
+
 export async function handleListMemories(
   tag?: string,
   page: number = 1,
@@ -159,37 +209,7 @@ export async function handleListMemories(
     await ensureTursoReady();
     // Listing only reads SQLite rows; no vector ops happen here.
     // See handleListTags comment - keep embedding init out of read paths.
-    const allMemories: any[] = [];
-    if (tag) {
-      const { scope: tagScope, hash } = extractScopeFromTag(tag);
-      const shards = await tursoShardManager.getAllShards(tagScope, hash);
-      for (const shard of shards) {
-        const db = await tursoConnectionManager.getConnection(shard.dbPath);
-        const memories = await tursoVectorSearch.listMemories(db, tag, 10000);
-        allMemories.push(...memories);
-      }
-    } else {
-      // Iterate both project- and user-scoped shards. Previously this only
-      // walked project shards, which silently hid user-scope memories from the
-      // listing endpoint (Web UI navigation, /api/memories without a tag
-      // filter, …). User-scope memories still showed up in /api/search and
-      // /api/stats `byType`, but were invisible in /api/stats `byScope` and
-      // unbrowseable in the UI — a confusing UX gap. The filter keeps the
-      // defense-in-depth check on container_tag, just widens it to both
-      // canonical scope markers.
-      const projectShards = await tursoShardManager.getAllShards("project", "");
-      const userShards = await tursoShardManager.getAllShards("user", "");
-      for (const shard of [...projectShards, ...userShards]) {
-        const db = await tursoConnectionManager.getConnection(shard.dbPath);
-        const memories = await tursoVectorSearch.getAllMemories(db);
-        allMemories.push(
-          ...memories.filter(
-            (m: any) =>
-              m.container_tag?.includes("_project_") || m.container_tag?.includes("_user_")
-          )
-        );
-      }
-    }
+    const allMemories = await loadMemoryRows(tag);
 
     const memoriesWithType = allMemories.map((r: any) => {
       const metadata = safeJSONParse(r.metadata);

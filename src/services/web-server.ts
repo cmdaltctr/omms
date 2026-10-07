@@ -21,6 +21,7 @@ import { WebAuth } from "./web-auth.js";
 import { NODE_HTTP_IDLE_TIMEOUT_MS } from "./request-timeouts.js";
 import {
   handleListTags,
+  handleListKeywords,
   handleListMemories,
   handleAddMemory,
   handleDeleteMemory,
@@ -1462,6 +1463,11 @@ export class WebServer {
 
       if (path === "/api/tags" && method === "GET") {
         const result = await handleListTags();
+        return this.jsonResponse(result);
+      }
+
+      if (path === "/api/keywords" && method === "GET") {
+        const result = await handleListKeywords(url.searchParams.get("tag") || undefined);
         return this.jsonResponse(result);
       }
 
