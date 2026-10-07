@@ -58,6 +58,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [034](./034-retry-windows-start-lock-hard-links.md)          | Retry Windows start-lock hard links                                     | Accepted              | 2026-10-05 |
 | [035](./035-bound-claude-budget-test-processes.md)           | Bound Claude budget test processes                                      | Proposed              | 2026-10-05 |
 | [036](./036-restart-waits-for-its-own-copy.md)               | Restart waits for its own copy                                          | Proposed              | 2026-10-06 |
+| [037](./037-skip-slow-tests-on-windows.md)                   | Skip slow tests on Windows                                              | Proposed              | 2026-10-07 |
 
 ## Status values
 

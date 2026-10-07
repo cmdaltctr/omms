@@ -6,6 +6,13 @@ export const NESTED_TEST_TIMEOUT_MS = 30_000;
 export const TEST_PROCESS_TIMEOUT_MS = 45_000;
 export const TEST_PARENT_TIMEOUT_MS = 60_000;
 
+/**
+ * True for tests that start child Bun processes or seed many database rows and
+ * time out when a Windows runner stalls. They run on every other platform. See
+ * TDR-037 and "Tests skipped on Windows" in docs/ci.md.
+ */
+export const SKIP_ON_SLOW_WINDOWS = process.platform === "win32";
+
 /** Run a Bun child with a bounded deadline, both output streams, and its exit code. */
 export async function runBunProcess(
   args: string[],

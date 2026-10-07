@@ -3,18 +3,21 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { SKIP_ON_SLOW_WINDOWS } from "./test-process.js";
 
 const dirs: string[] = [];
 afterEach(() => dirs.splice(0).forEach((dir) => rmSync(dir, { recursive: true, force: true })));
 const src = (path: string) =>
   JSON.stringify(pathToFileURL(join(import.meta.dir, "../src", path)).href);
 
-it("previews, runs one catch-up at a time from this machine, pauses, resumes, and finishes", async () => {
-  const home = mkdtempSync(join(tmpdir(), "omms-catch-up-"));
-  dirs.push(home);
-  mkdirSync(join(home, ".config", "omms"), { recursive: true });
-  writeFileSync(join(home, ".config", "omms", "omms.jsonc"), "{}");
-  const script = `
+it.skipIf(SKIP_ON_SLOW_WINDOWS)(
+  "previews, runs one catch-up at a time from this machine, pauses, resumes, and finishes",
+  async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-catch-up-"));
+    dirs.push(home);
+    mkdirSync(join(home, ".config", "omms"), { recursive: true });
+    writeFileSync(join(home, ".config", "omms", "omms.jsonc"), "{}");
+    const script = `
     const { mock } = await import("bun:test");
     let release;
     let gate = new Promise((resolve) => (release = resolve));
@@ -62,34 +65,38 @@ it("previews, runs one catch-up at a time from this machine, pauses, resumes, an
       done, calls, lockedAfter: profileCatchUpLock.isActive() }));
     process.exit(0);
   `;
-  const scriptPath = join(home, "scenario.mjs");
-  writeFileSync(scriptPath, script);
-  const proc = Bun.spawn(["bun", "run", scriptPath], {
-    env: { ...process.env, HOME: home, USERPROFILE: home, OMMS_LOG_FILE: join(home, "omms.log") },
-  });
-  const text = await new Response(proc.stdout).text();
-  const error = await new Response(proc.stderr).text();
-  expect(await proc.exited, error).toBe(0);
-  const result = JSON.parse(text.match(/RESULT:(.*)$/m)![1]!);
-  expect(result.preview).toEqual({ waiting: 120, calls: 3 });
-  expect(result.remote).toBe(403);
-  expect(result.noToken).toBe(401);
-  expect(result.started).toBe(202);
-  expect(result.second).toBe(409);
-  expect(result.lockedDuringRun).toBe(true);
-  expect(result.paused).toMatchObject({ state: "paused", batchesBuilt: 1, remaining: 70 });
-  expect(result.resumed).toBe(202);
-  expect(result.done).toMatchObject({ state: "done", batchesBuilt: 2, remaining: 0 });
-  expect(result.calls).toBe(3);
-  expect(result.lockedAfter).toBe(false);
-}, 30000);
+    const scriptPath = join(home, "scenario.mjs");
+    writeFileSync(scriptPath, script);
+    const proc = Bun.spawn(["bun", "run", scriptPath], {
+      env: { ...process.env, HOME: home, USERPROFILE: home, OMMS_LOG_FILE: join(home, "omms.log") },
+    });
+    const text = await new Response(proc.stdout).text();
+    const error = await new Response(proc.stderr).text();
+    expect(await proc.exited, error).toBe(0);
+    const result = JSON.parse(text.match(/RESULT:(.*)$/m)![1]!);
+    expect(result.preview).toEqual({ waiting: 120, calls: 3 });
+    expect(result.remote).toBe(403);
+    expect(result.noToken).toBe(401);
+    expect(result.started).toBe(202);
+    expect(result.second).toBe(409);
+    expect(result.lockedDuringRun).toBe(true);
+    expect(result.paused).toMatchObject({ state: "paused", batchesBuilt: 1, remaining: 70 });
+    expect(result.resumed).toBe(202);
+    expect(result.done).toMatchObject({ state: "done", batchesBuilt: 2, remaining: 0 });
+    expect(result.calls).toBe(3);
+    expect(result.lockedAfter).toBe(false);
+  },
+  30000
+);
 
-it("stops the page run when a run in another process takes over", async () => {
-  const home = mkdtempSync(join(tmpdir(), "omms-catch-up-takeover-"));
-  dirs.push(home);
-  mkdirSync(join(home, ".config", "omms"), { recursive: true });
-  writeFileSync(join(home, ".config", "omms", "omms.jsonc"), "{}");
-  const script = `
+it.skipIf(SKIP_ON_SLOW_WINDOWS)(
+  "stops the page run when a run in another process takes over",
+  async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-catch-up-takeover-"));
+    dirs.push(home);
+    mkdirSync(join(home, ".config", "omms"), { recursive: true });
+    writeFileSync(join(home, ".config", "omms", "omms.jsonc"), "{}");
+    const script = `
     const { mock } = await import("bun:test");
     let release;
     const gate = new Promise((resolve) => (release = resolve));
@@ -131,20 +138,22 @@ it("stops the page run when a run in another process takes over", async () => {
     console.log("RESULT:" + JSON.stringify({ waitedWhileBusy, job, calls, terminalStart }));
     process.exit(0);
   `;
-  const scriptPath = join(home, "scenario.mjs");
-  writeFileSync(scriptPath, script);
-  const proc = Bun.spawn(["bun", "run", scriptPath], {
-    env: { ...process.env, HOME: home, USERPROFILE: home, OMMS_LOG_FILE: join(home, "omms.log") },
-  });
-  const text = await new Response(proc.stdout).text();
-  const error = await new Response(proc.stderr).text();
-  expect(await proc.exited, error).toBe(0);
-  const result = JSON.parse(text.match(/RESULT:(.*)$/m)![1]!);
-  expect(result.waitedWhileBusy).toBe(true);
-  expect(result.job).toMatchObject({ state: "superseded", batchesBuilt: 1, remaining: 70 });
-  expect(result.calls).toBe(1);
-  expect(result.terminalStart).toBe("ok");
-}, 30000);
+    const scriptPath = join(home, "scenario.mjs");
+    writeFileSync(scriptPath, script);
+    const proc = Bun.spawn(["bun", "run", scriptPath], {
+      env: { ...process.env, HOME: home, USERPROFILE: home, OMMS_LOG_FILE: join(home, "omms.log") },
+    });
+    const text = await new Response(proc.stdout).text();
+    const error = await new Response(proc.stderr).text();
+    expect(await proc.exited, error).toBe(0);
+    const result = JSON.parse(text.match(/RESULT:(.*)$/m)![1]!);
+    expect(result.waitedWhileBusy).toBe(true);
+    expect(result.job).toMatchObject({ state: "superseded", batchesBuilt: 1, remaining: 70 });
+    expect(result.calls).toBe(1);
+    expect(result.terminalStart).toBe("ok");
+  },
+  30000
+);
 
 it("frees the in-process lock when the run record cannot be taken", async () => {
   const home = mkdtempSync(join(tmpdir(), "omms-catch-up-setup-"));

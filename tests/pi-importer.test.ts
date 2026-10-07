@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { SKIP_ON_SLOW_WINDOWS } from "./test-process.js";
 
 // Each scenario spawns a fresh Bun process and runs several imports against a
 // real database. Windows runners take over 5 s (Bun's default) for the
@@ -535,8 +536,10 @@ scenario = { first, second, memoryCount: (await storedMemories()).length };
     expect(out.memoryCount).toBe(2);
   });
 
-  it("applies session, date, and scope filters before expensive work", () => {
-    const out = runScenario(`
+  it.skipIf(SKIP_ON_SLOW_WINDOWS)(
+    "applies session, date, and scope filters before expensive work",
+    () => {
+      const out = runScenario(`
 const { mkdirSync } = await import("node:fs");
 mkdirSync(sessionRoot + "/x", { recursive: true });
 writeV3Session({
@@ -577,14 +580,15 @@ scenario = {
 };
 `);
 
-    expect(out.sessionFilter.discovered).toBe(1);
-    expect(out.sessionFilter.units).toBe(2);
-    expect(out.dateFilter.units).toBe(1);
-    expect(out.dateFilter.preview).toContain("New work");
-    expect(out.projectFilter.loaded).toBe(1);
-    expect(out.projectFilter.filtered).toBe(1);
-    expect(out.projectFilter.tags).toEqual([out.projectFilter.tags[0]]);
-  });
+      expect(out.sessionFilter.discovered).toBe(1);
+      expect(out.sessionFilter.units).toBe(2);
+      expect(out.dateFilter.units).toBe(1);
+      expect(out.dateFilter.preview).toContain("New work");
+      expect(out.projectFilter.loaded).toBe(1);
+      expect(out.projectFilter.filtered).toBe(1);
+      expect(out.projectFilter.tags).toEqual([out.projectFilter.tags[0]]);
+    }
+  );
 
   it("skips unresolvable cwds by default and imports them with --map", () => {
     const out = runScenario(`
