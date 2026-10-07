@@ -194,6 +194,28 @@ describe("user profile decay (#237)", () => {
       expect(await decayOne("workflows", { frequency: 3, ageDays: 31 })).toHaveLength(1);
     });
 
+    it("keeps a workflow while a longer userProfileStaleDays still covers it", async () => {
+      const { mgr, CONFIG } = await makeManager();
+      CONFIG.userProfileStaleDays = 90;
+      CONFIG.userProfileMinEvidenceForRetention = 3;
+      CONFIG.userProfileWorkflowStaleDays = 30;
+      const { data } = mgr.decayInMemory({
+        preferences: [],
+        patterns: [],
+        workflows: [
+          {
+            description: "seen once, 60 days ago",
+            steps: [],
+            confidence: 0.5,
+            evidence: [],
+            frequency: 1,
+            lastSeen: Date.now() - 60 * DAY_MS,
+          } as never,
+        ],
+      });
+      expect(data.workflows).toHaveLength(1);
+    });
+
     it("still removes a preference with no evidence, three days ago", async () => {
       expect(await decayOne("preferences", { frequency: 5, ageDays: 3 })).toHaveLength(0);
     });

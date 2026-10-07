@@ -463,9 +463,11 @@ export class UserProfileManager {
       const age = now - ((item as any).lastSeen || now);
       const ageDays = age / (24 * 60 * 60 * 1000);
       const isWorkflow = itemType === "workflow";
+      const itemStaleDays = CONFIG.userProfileStaleDays ?? 2;
+      // A workflow never decays sooner than other items, even with a long userProfileStaleDays.
       const staleDays = isWorkflow
-        ? (CONFIG.userProfileWorkflowStaleDays ?? 30)
-        : (CONFIG.userProfileStaleDays ?? 2);
+        ? Math.max(CONFIG.userProfileWorkflowStaleDays ?? 30, itemStaleDays)
+        : itemStaleDays;
       const minEvidence = CONFIG.userProfileMinEvidenceForRetention ?? 3;
       const evidenceCount = Array.isArray((item as any).evidence)
         ? (item as any).evidence.length

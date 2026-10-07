@@ -124,7 +124,7 @@ A run analyses 50 prompts in each model call, oldest first. It costs one model c
 Each profile pass removes old items that have little support:
 
 - A preference or pattern is removed when it was last seen more than `userProfileStaleDays` days ago (default 2) and has fewer than `userProfileMinEvidenceForRetention` evidence entries (default 3).
-- A workflow is removed when it was last seen more than `userProfileWorkflowStaleDays` days ago (default 30) and was seen fewer than `userProfileMinEvidenceForRetention` times. Its evidence count is used when it is larger.
+- A workflow is removed when it was last seen more than `userProfileWorkflowStaleDays` days ago (default 30, or `userProfileStaleDays` when that is longer) and was seen fewer than `userProfileMinEvidenceForRetention` times. Its evidence count is used when it is larger.
 
 ### Rebuild the profile from history
 

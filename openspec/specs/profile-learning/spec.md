@@ -102,7 +102,7 @@ The Settings page SHALL offer **Catch up profile** and the package SHALL offer `
 
 ### Requirement: Workflows have their own retention rule
 
-Profile decay SHALL keep a workflow unless both of these are true: it was last seen more than `userProfileWorkflowStaleDays` days ago, and its support is below `userProfileMinEvidenceForRetention`. A workflow's support SHALL be the larger of its evidence count and its frequency. `userProfileWorkflowStaleDays` SHALL default to 30. Preferences and patterns SHALL keep the rule that uses `userProfileStaleDays` and their evidence count.
+Profile decay SHALL keep a workflow unless both of these are true: it was last seen more than `userProfileWorkflowStaleDays` days ago, and its support is below `userProfileMinEvidenceForRetention`. A workflow's support SHALL be the larger of its evidence count and its frequency. `userProfileWorkflowStaleDays` SHALL default to 30. When `userProfileStaleDays` is longer, workflows SHALL use `userProfileStaleDays`. Preferences and patterns SHALL keep the rule that uses `userProfileStaleDays` and their evidence count.
 
 #### Scenario: A workflow seen once, three days ago
 
