@@ -61,9 +61,15 @@ npm package. Install the plugin from the repository.
 
 The marketplace installs from the GitHub `stable` branch. That branch holds
 the release commit named by npm `latest`, so Claude Code receives only versions
-approved on npm. The channel workflow moves it within an hour of approval, or
-at once after the maintainer dispatches it. With marketplace auto-update on,
-Claude Code installs that version at its next update check.
+approved on npm. `bun run release:approve` moves it as part of the approval.
+
+When a session starts, OMMS compares the plugin's version with npm `latest`. If
+the plugin is older, OMMS runs `claude plugin marketplace update omms` and
+`claude plugin update omms@omms` in the background. The new version loads in the
+next session, or after `/reload-plugins`. OMMS starts this at most once every 30
+minutes for the same release and writes one `Claude plugin self-update` line to
+the log. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn it off. Claude Code's own
+marketplace auto-update still works, but it runs at its own time.
 
 The plugin source uses an explicit HTTPS Git URL. This avoids Claude's SSH
 selection for the GitHub shorthand source, so a public install needs no SSH
