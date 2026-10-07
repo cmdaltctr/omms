@@ -17,7 +17,14 @@ interface Options {
   latest?: string;
   body?: string;
   approveExit?: number;
+  /** Where stable points before the run. */
   stable?: string;
+  /** The channel workflow moves stable to the release tag. */
+  moves?: boolean;
+  /** npm shows the new version once the approval succeeds. Default true. */
+  publishes?: boolean;
+  /** The dispatched channel run appears in the run list. Default true. */
+  starts?: boolean;
 }
 
 /** Fake gh, npm and git that log every call and keep state in files. */
@@ -28,6 +35,7 @@ function fixture(options: Options = {}) {
   mkdirSync(bin);
   const state = (name: string) => join(folder, name);
   writeFileSync(state("latest"), options.latest ?? "4.4.2");
+  writeFileSync(state("stable"), options.stable ?? TAG_COMMIT);
   const tool = (name: string, body: string) =>
     writeFileSync(
       join(bin, name),
@@ -39,8 +47,8 @@ function fixture(options: Options = {}) {
     "gh",
     `case "$1 $2" in
   "release view") if [ "$3" = --repo ]; then echo v4.5.0; else printf '%s\\n' "${options.body ?? `Approve it, or run \\\`npm stage approve ${STAGE}\\\` (2FA).`}"; fi ;;
-  "run list") if [ -f "${state("dispatched")}" ]; then echo 101; else echo 100; fi ;;
-  "workflow run") touch "${state("dispatched")}" ;;
+  "run list") if [ -f "${state("dispatched")}" ] && [ "${options.starts ?? true}" = true ]; then echo 101; else echo 100; fi ;;
+  "workflow run") touch "${state("dispatched")}"; if [ "${options.moves ?? false}" = true ]; then echo ${TAG_COMMIT} > "${state("stable")}"; fi ;;
   "run watch") exit 0 ;;
 esac`
   );
@@ -48,7 +56,7 @@ esac`
     "npm",
     `case "$1 $2" in
   "stage view") echo "om-memory-system@4.5.0" ;;
-  "stage approve") [ "${options.approveExit ?? 0}" = 0 ] || exit ${options.approveExit ?? 0}; echo 4.5.0 > "${state("latest")}" ;;
+  "stage approve") [ "${options.approveExit ?? 0}" = 0 ] || exit ${options.approveExit ?? 0}; if [ "${options.publishes ?? true}" = true ]; then echo 4.5.0 > "${state("latest")}"; fi ;;
   "view om-memory-system")
     case " $* " in
       *" --prefer-online "*) cat "${state("latest")}" ;;
@@ -59,7 +67,7 @@ esac`
   tool(
     "git",
     `case "$*" in
-  *refs/heads/stable*) printf '%s\\trefs/heads/stable\\n' "${options.stable ?? TAG_COMMIT}" ;;
+  *refs/heads/stable*) printf '%s\\trefs/heads/stable\\n' "$(cat "${state("stable")}")" ;;
   *refs/tags/v4.5.0*) printf '%s\\trefs/tags/v4.5.0\\n' "${TAG_COMMIT}" ;;
 esac`
   );
@@ -137,12 +145,45 @@ describe("release approve script", () => {
     expect(f.calls()).toContain(`npm stage approve ${other}`);
   });
 
-  it("stops when the newest release is already on npm", () => {
+  it("skips the approval and moves the channel when the release is already on npm", () => {
+    // The release was approved another way, or an earlier run stopped before the channel.
+    const f = fixture({ latest: "4.5.0", stable: "b".repeat(40), moves: true });
+    const result = f.run();
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    const calls = f.calls();
+    expect(calls.some((call) => call.startsWith("npm stage"))).toBe(false);
+    expect(calls).toContain(
+      "gh workflow run claude-plugin-channel.yml --repo cmdaltctr/omms --ref main"
+    );
+    expect(result.stdout).toContain("Released om-memory-system@4.5.0");
+  });
+
+  it("does nothing when the release is on npm and stable is already at its tag", () => {
     const f = fixture({ latest: "4.5.0" });
     const result = f.run();
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Nothing to do");
+    const calls = f.calls();
+    expect(calls.some((call) => call.startsWith("npm stage"))).toBe(false);
+    expect(calls.some((call) => call.startsWith("gh workflow run"))).toBe(false);
+  });
+
+  it("tells you to run it again when npm does not show the version after the approval", () => {
+    const f = fixture({ publishes: false });
+    const result = f.run();
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("Nothing is waiting for approval");
-    expect(f.calls().some((call) => call.startsWith("npm stage approve"))).toBe(false);
+    expect(result.stderr).toContain("bun run release:approve");
+    expect(result.stderr).not.toContain("hourly");
+    expect(f.calls().some((call) => call.startsWith("gh workflow run"))).toBe(false);
+  });
+
+  it("tells you to run it again when the channel run does not start", () => {
+    const f = fixture({ starts: false });
+    const result = f.run();
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("bun run release:approve");
+    expect(result.stderr).not.toContain("hourly");
   });
 
   it("stops when the release note has no stage ID", () => {

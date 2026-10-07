@@ -261,7 +261,10 @@ maintainer can then try it with `om-memory-system@next`.
 
 ### Claude plugin channel (hourly, manual after approval)
 
-`claude-plugin-channel.yml` runs hourly and on manual dispatch. Its single
+`claude-plugin-channel.yml` has an hourly schedule and runs on manual dispatch.
+GitHub does not run the schedule every hour. From 2026-10-04 to 2026-10-07 the
+scheduled runs came 3 to 9 hours apart. Treat the schedule as a backstop, not as
+the way the channel moves. Its single
 `ubuntu-latest` job runs only from `main` and pins checkout to `main`, with full
 history and tags. A manual dispatch from another ref skips the job. It then runs
 `scripts/sync-claude-plugin-channel.sh`. It installs no packages and needs only
@@ -278,14 +281,14 @@ The Claude Code marketplace installs the plugin from this branch. Create
 `stable` at the commit tagged `v4.4.1` before merging the marketplace change.
 Consider a repository ruleset that limits writes to `stable` to GitHub Actions.
 
-After npm approval, dispatch the channel update:
+`bun run release:approve` dispatches the channel update after the approval. To
+dispatch it by hand:
 
 ```bash
 gh workflow run claude-plugin-channel.yml
 ```
 
-Wait for that run to pass before checking a Claude Code plugin update. The
-hourly schedule covers a missed dispatch.
+Wait for that run to pass before checking a Claude Code plugin update.
 
 #### Claude plugin channel rollout checklist
 
@@ -318,11 +321,15 @@ Versions come from commit messages. Use `feat:` (minor), `fix:` (patch),
    The script approves the version, waits for npm `latest`, dispatches the
    Claude plugin channel, and checks that `stable` is at the release tag. Each
    npm version check uses `--prefer-online` to recheck cached data against the
-   registry. It reads the stage ID from the newest GitHub Release note.
+   registry. It reads the stage ID from the newest GitHub Release note. If npm
+   does not show the version within 150 seconds, the script stops. Wait a few
+   minutes and run it again. It does not approve a second time.
 7. Users with marketplace auto-update get the plugin at their next check. Users
    on an unpinned npm install get an update notice.
 
-If you approve another way, the hourly channel run moves `stable`.
+If you approve another way, run `bun run release:approve` again. It sees the
+version on npm, skips the approval, and moves `stable`. Do not wait for the
+scheduled channel run.
 
 To reject a staged version, run `npm stage reject <stage-id>`.
 
