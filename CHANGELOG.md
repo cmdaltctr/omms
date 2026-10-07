@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.13.3](https://github.com/cmdaltctr/omms/compare/v4.13.2...v4.13.3) (2026-10-07)
+
+
+### Bug Fixes
+
+* publish complete cross-process write locks ([beae596](https://github.com/cmdaltctr/omms/commit/beae59683ccedcb11d3edfda61114374168f1498))
+* publish complete cross-process write locks ([7892a55](https://github.com/cmdaltctr/omms/commit/7892a554078a312a19af51ff4eef50940c4c9f70))
+
 ## [4.13.2](https://github.com/cmdaltctr/omms/compare/v4.13.1...v4.13.2) (2026-10-07)
 
 
