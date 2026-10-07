@@ -19,6 +19,19 @@ const memories = [
     isPinned: false,
   },
   {
+    id: "preview-memory-request-outcome",
+    type: "memory",
+    content:
+      "## Request\n\nUser reported that updating the package does not trigger an auto-update, so requested a `web update` subcommand that restarts a fresh web app.\n\n## Outcome\n\nDiagnosed the machine and authored a synthetic proposal. Design: (1) check `latest` and install when older; (2) stop standalone web apps via a flag. Known limit: older apps ignore the retire file.",
+    memoryType: "feature",
+    containerTag: "omms_preview_project",
+    displayName: "Request and outcome preview",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    tags: ["preview"],
+    isPinned: false,
+  },
+  {
     id: "preview-memory-2",
     type: "memory",
     content:
@@ -107,6 +120,17 @@ const profile = {
         steps: ["Open the preview", "Inspect the draft", "Keep changes isolated"],
         confidence: 0.92,
         frequency: 4,
+      },
+      {
+        description:
+          "Review every long synthetic workflow description so wrapped text stays inside its card at narrow widths.",
+        steps: [
+          "Pull latest changes",
+          "Run focused checks in priority order",
+          "Clean up worktrees",
+        ],
+        confidence: 0.64,
+        frequency: 2,
       },
     ],
   },

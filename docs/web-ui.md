@@ -139,7 +139,7 @@ The sidebar footer shows the current language: EN, ZH, or AR. Select it to choos
 
 The approved appearance preview uses warm light and dark themes. Interface text uses the system sans-serif font. Technical values use JetBrains Mono. Shared fields and default buttons are 36px high; small and large buttons are 32px and 40px. The mobile navigation target is 44px high. Selected rows use a neutral colour.
 
-Application page titles use H1 at 24px. Main sections use H2 at 18px, with nested H3 titles at 15px. Normal UI text is 14px. These sizes use relative units and follow browser font preferences and zoom. Dialog titles use the 18px section role. Stored memory Markdown keeps its existing styles.
+Application page titles use H1 at 24px. Main sections use H2 at 18px, with nested H3 titles at 15px. Normal UI text is 14px. These sizes use relative units and follow browser font preferences and zoom. Dialog titles use the 18px section role. Headings inside stored memory Markdown, such as "Request" and "Outcome", render as bold, muted, uppercase 14px labels. Workflow cards in the profile use the same card layout as patterns, with numbered blue step pills, in two columns from 640px.
 
 The preview keeps the existing routes, features, preference keys, legacy migration, right-to-left layout, and save timing. Dialog close labels are translated in English, Chinese, and Arabic. The separately approved dialog correction returns focus only to a connected opener and respects a consumer focus handler.
 

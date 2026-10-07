@@ -158,7 +158,9 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
     return (
       <div className="min-w-0 rounded-xl border border-border bg-card p-3 space-y-2">
         <div className="flex flex-wrap items-start gap-2">
-          <Badge variant="outline">{item.category || "General"}</Badge>
+          {type !== "workflows" || item.category ? (
+            <Badge variant="outline">{item.category || "General"}</Badge>
+          ) : null}
           <div className="flex items-center gap-0.5 ms-auto">
             <Button
               variant="ghost"
@@ -188,6 +190,21 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
           </div>
         </div>
         <p className="text-sm break-words">{item.description || ""}</p>
+        {item.steps?.length ? (
+          <ol className="flex flex-wrap items-center gap-1.5">
+            {item.steps.map((step, i) => (
+              <li key={i} className="contents">
+                <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-blue-600/40 bg-blue-500/15 px-2.5 py-0.5 text-xs text-blue-700 dark:text-blue-400">
+                  <span className="tabular-nums opacity-70">{i + 1}</span>
+                  <span className="break-words">{step}</span>
+                </span>
+                {i < (item.steps?.length || 0) - 1 ? (
+                  <ArrowRight className="size-3 text-muted-foreground rtl:rotate-180" />
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        ) : null}
         {item.evidence || item.frequency ? (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span
@@ -331,83 +348,15 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
               <p className="text-sm text-muted-foreground">{t("empty-workflows")}</p>
             ) : (
               <>
-                <div className="space-y-2">
-                  {wfPage.items.map((entry) => {
-                    const item = entry.item;
-                    const idx = entry.index;
-                    const pct = confidencePct(item);
-                    return (
-                      <div
-                        key={entry.index}
-                        className="min-w-0 rounded-xl border border-border bg-card p-3 space-y-2"
-                      >
-                        <div className="flex items-start gap-2">
-                          <h3 className="text-subsection-title font-semibold min-w-0 break-words flex-1">
-                            {item.description || ""}
-                          </h3>
-                          <div className="flex items-center gap-0.5">
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              onClick={() => openItem("workflows", idx, "edit")}
-                            >
-                              <Pencil className="size-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-xs"
-                              onClick={() => openItem("workflows", idx, "delete")}
-                            >
-                              <Trash2 className="size-3" />
-                            </Button>
-                          </div>
-                          <div className="size-9 rounded-full border border-border grid place-items-center text-xs tabular-nums shrink-0">
-                            {pct}%
-                          </div>
-                        </div>
-                        {item.steps?.length ? (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {item.steps.map((step, i) => (
-                              <div key={i} className="contents">
-                                <div className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1 text-xs">
-                                  <span className="text-muted-foreground tabular-nums">
-                                    {i + 1}
-                                  </span>
-                                  <span>{step}</span>
-                                </div>
-                                {i < (item.steps?.length || 0) - 1 ? (
-                                  <ArrowRight className="size-3 text-muted-foreground" />
-                                ) : null}
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <span
-                            className="inline-flex items-center gap-1"
-                            title={t("label-evidence-tooltip", {
-                              count: item.frequency || 1,
-                            })}
-                          >
-                            <Target className="size-3" />
-                            {item.frequency || 1}
-                          </span>
-                          {evidenceCount(item) > 0 ? (
-                            <>
-                              <span>·</span>
-                              <span
-                                className="inline-flex items-center gap-1"
-                                title={evidenceTitle(item)}
-                              >
-                                <Info className="size-3" />
-                                {evidenceCount(item)} evidence
-                              </span>
-                            </>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {wfPage.items.map((entry) => (
+                    <ItemCard
+                      key={entry.index}
+                      item={entry.item}
+                      type="workflows"
+                      fullList={workflowsRaw}
+                    />
+                  ))}
                 </div>
                 <Pager page={wfPage} pageKey="wf" />
               </>
