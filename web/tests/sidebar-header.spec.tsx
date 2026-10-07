@@ -21,6 +21,11 @@ mock.module("react", () => ({
     effect();
   },
   useRef: (value: unknown) => ({ current: value }),
+  // Subscribe on each render as the effect mock does; the store keeps one timer.
+  useSyncExternalStore: (subscribe: (cb: () => void) => () => void, snapshot: () => unknown) => {
+    subscribe(() => {});
+    return snapshot();
+  },
 }));
 
 let status: { version: string; canControl: boolean; instance?: string } | null = null;

@@ -1,7 +1,7 @@
 // One status poll for the whole page. The sidebar header, the power button, and
 // the update button read the same `/api/web/status` reply, so the page sends one
-// request per interval however many readers are mounted. A new reader reads once.
-import { useEffect, useState } from "react";
+// request per interval however many readers are mounted.
+import { useSyncExternalStore } from "react";
 import { readPowerStatus, STATUS_POLL_MS, type PowerStatus } from "./power";
 
 export interface WebStatus {
@@ -14,9 +14,18 @@ export interface WebStatus {
 let snapshot: WebStatus = { ok: true, status: null };
 const listeners = new Set<(status: WebStatus) => void>();
 let timer: ReturnType<typeof setInterval> | null = null;
-/** Read the status now and tell every reader. */
+let sent = 0;
+let applied = 0;
+
+/**
+ * Read the status and tell every reader. Requests can finish out of order, so a
+ * reply older than one already applied is dropped.
+ */
 export async function refreshWebStatus(): Promise<void> {
+  const id = ++sent;
   const status = await readPowerStatus();
+  if (id < applied) return;
+  applied = id;
   snapshot = status ? { ok: true, status } : { ...snapshot, ok: false };
   for (const listener of listeners) listener(snapshot);
 }
@@ -36,8 +45,9 @@ export function subscribeWebStatus(listener: (status: WebStatus) => void): () =>
   };
 }
 
+const getSnapshot = () => snapshot;
+
+/** The shared status. React re-renders a reader when the snapshot changes. */
 export function useWebStatus(): WebStatus {
-  const [value, setValue] = useState<WebStatus>(snapshot);
-  useEffect(() => subscribeWebStatus(setValue), []);
-  return value;
+  return useSyncExternalStore(subscribeWebStatus, getSnapshot, getSnapshot);
 }

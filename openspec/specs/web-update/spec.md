@@ -65,7 +65,7 @@ Each command SHALL have a copy action. The dialog SHALL say that OpenCode and Pi
 
 ### Requirement: The web app updates its global install and restarts onto it
 
-The dialog SHALL offer an **Update web app** action. The web app SHALL accept `POST /api/web/update` only from a loopback caller that sends the local API token. It SHALL refuse a request without the token with `401`, a request from another address with `403`, and a request when there is no update with `409`. On success it SHALL answer `202` and then run `npm install -g om-memory-system@<new version>` with the npm that sits beside the Node.js that runs the web app. When that npm does not exist, the dialog SHALL disable the action and say why, and the route SHALL answer `409`. A second request while an update runs SHALL get `202` and SHALL NOT start another install.
+The dialog SHALL offer an **Update web app** action. The web app SHALL accept `POST /api/web/update` only from a loopback caller that sends the local API token. It SHALL refuse a request without the token with `401`, a request from another address with `403`, and a request when there is no update with `409`. On success it SHALL answer `202` and then run `npm install -g om-memory-system@<new version>` with the npm that sits beside the Node.js that runs the web app. When that npm does not exist, the dialog SHALL disable the action and say why, and the route SHALL answer `409`. A second request while an update runs SHALL get `202` and SHALL NOT start another install. An update request while a Stop or Restart runs SHALL get `409`, and a Stop or Restart request while an update installs or restarts SHALL get `409`. The action SHALL be unavailable when the web app has no way to restart onto the new copy, checked before npm runs.
 
 When the install succeeds and the global install reports the new version, the web app SHALL restart through the OMMS launcher, so the restart runs the newest copy on the machine. When the install fails, times out after 5 minutes, or leaves the global install on another version, the web app SHALL keep serving on its current version. `GET /api/web/status` SHALL report the update state: idle, installing, restarting, or failed with a code. The page SHALL show progress while the state is installing or restarting, SHALL reload when a web app with a new instance answers, and SHALL show the failure code when the state is failed. Each update SHALL write log records with codes, versions, and durations. The log SHALL NOT hold npm output or the token.
 
@@ -107,3 +107,8 @@ When the install succeeds and the global install reports the new version, the we
 
 - **WHEN** an update request arrives while an install runs
 - **THEN** the web app SHALL reply `202` and SHALL NOT start a second install
+
+#### Scenario: Restart during an update
+
+- **WHEN** an update installs and the user selects Restart or Stop
+- **THEN** the web app SHALL refuse it with `409` and SHALL keep installing

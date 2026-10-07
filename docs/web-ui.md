@@ -98,7 +98,7 @@ A standalone web app (`om-memory-system web` or the login item) checks npm `late
 `POST /api/web/update` installs the release and restarts the web app onto it. It has the same guards as Restart:
 
 - Without the local API token it returns `401`. From another address it returns `403`.
-- With no newer release, or with no npm beside Node.js, it returns `409`.
+- With no newer release, with no npm beside Node.js, with no way to restart onto the new copy (no launcher outside a login item), or while a Stop or Restart runs, it returns `409`. Stop and Restart also return `409` while an update runs.
 - Otherwise it returns `202`. A second request while an update runs also gets `202` and starts nothing.
 
 How the update works:
@@ -109,16 +109,16 @@ How the update works:
 
 The web app keeps serving its current version when a step fails. The `code` names the step:
 
-| Code                                  | Meaning                                                         |
-| ------------------------------------- | --------------------------------------------------------------- |
-| `permission`                          | npm could not write to the global folder (`EACCES` or `EPERM`). |
-| `network`                             | npm could not reach the registry.                               |
-| `npm-exit`                            | npm failed for another reason.                                  |
-| `timeout`                             | npm ran longer than 5 minutes and was stopped.                  |
-| `spawn-error`                         | npm or the restarted copy could not start.                      |
-| `version-mismatch`                    | The install beside Node.js does not report the new release.     |
-| `no-launcher`                         | The launcher is missing.                                        |
-| `copy-exit`, `handoff`, `other-owner` | The restart failed. See [How Restart works](#power-button).     |
+| Code                                  | Meaning                                                                                                                                                                                         |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `permission`                          | npm could not write to the global folder (`EACCES` or `EPERM`).                                                                                                                                 |
+| `network`                             | npm could not reach the registry.                                                                                                                                                               |
+| `npm-exit`                            | npm failed for another reason.                                                                                                                                                                  |
+| `timeout`                             | npm ran longer than 5 minutes and was stopped.                                                                                                                                                  |
+| `spawn-error`                         | npm or the restarted copy could not start.                                                                                                                                                      |
+| `version-mismatch`                    | The install beside Node.js does not report the new release. A custom npm prefix (`prefix` in `.npmrc`) installs where the launcher does not look. Use the global command in the dialog instead. |
+| `no-launcher`                         | The launcher is missing.                                                                                                                                                                        |
+| `copy-exit`, `handoff`, `other-owner` | The restart failed. See [How Restart works](#power-button).                                                                                                                                     |
 
 Each update writes `Web app update` log records with the outcome, the code, both versions, the npm exit code, and the duration. The log never holds npm output or the token.
 

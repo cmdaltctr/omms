@@ -14,7 +14,7 @@ import type { Lang } from "$lib/i18n/translations";
 import { GithubIcon } from "$lib/components/icons/GithubIcon";
 import { PowerButton } from "$lib/components/explorer/PowerButton";
 import { SidebarBrand } from "$lib/components/explorer/SidebarBrand";
-import { UpdateButton } from "$lib/components/explorer/UpdateButton";
+import { UpdateDialog, UpdateTrigger } from "$lib/components/explorer/UpdateButton";
 import { Button } from "$lib/components/ui/button";
 import { Separator } from "$lib/components/ui/separator";
 import { navigate, ROUTES, type AppView } from "$lib/router";
@@ -93,6 +93,8 @@ export function AppSidebar({
   const theme = useTheme();
   const isDark = theme === "dark";
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  // Two triggers (phone row, desktop footer) share one dialog and its progress.
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const languageContainer = useRef<HTMLDivElement>(null);
   const languageTrigger = useRef<HTMLButtonElement>(null);
   // Collapsing only applies on desktop; the mobile drawer always shows the full sidebar.
@@ -381,7 +383,11 @@ export function AppSidebar({
 
         <div className={cn("mt-auto p-3", onDesktop("md:px-2"))}>
           {/* Phones: 44px touch targets leave no room for the word in the footer row. */}
-          <UpdateButton variant="row" className="md:hidden" />
+          <UpdateTrigger
+            variant="row"
+            className="md:hidden"
+            onOpen={() => setUpdateDialogOpen(true)}
+          />
           <div
             className={cn(
               "flex w-fit items-center rounded-lg border border-sidebar-border/80 bg-card/70",
@@ -474,7 +480,8 @@ export function AppSidebar({
             >
               <GithubIcon className="size-4" />
             </a>
-            <UpdateButton
+            <UpdateTrigger
+              onOpen={() => setUpdateDialogOpen(true)}
               variant={collapsed ? "icon" : "inline"}
               className={cn(
                 "max-md:hidden",
@@ -482,6 +489,7 @@ export function AppSidebar({
               )}
             />
           </div>
+          <UpdateDialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen} />
         </div>
       </aside>
     </>

@@ -180,7 +180,12 @@ export async function runWebCommand(
   server.setOnPowerAction(powerAction);
   // The update button installs the npm release and restarts onto it through the launcher.
   const { startWebUpdate } = await import("../services/web-update-runtime.js");
-  server.setWebUpdate(startWebUpdate(() => powerAction("update")));
+  const { launcherPath } = await import("../services/runtime-record.js");
+  const { ommsDir } = await import("../services/runtime-handoff.js");
+  const { existsSync } = await import("node:fs");
+  // The login item restarts through the service manager, which runs the launcher itself.
+  const canRestart = () => action === "--login-item" || existsSync(launcherPath(ommsDir()));
+  server.setWebUpdate(startWebUpdate(() => powerAction("update"), canRestart));
   // A newer `web install` asked this web app to give up the port.
   server.setOnStepAside(async () => {
     clearInterval(keeper);

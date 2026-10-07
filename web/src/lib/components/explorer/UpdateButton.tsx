@@ -30,21 +30,64 @@ const VARIANT_CLASSES: Record<UpdateButtonVariant, string> = {
   icon: "inline-flex min-h-8 min-w-7 self-stretch px-1.5 py-1.5",
 };
 
-/** Sidebar update button. It renders only for a local caller while npm has a newer release. */
-export function UpdateButton({
+/** The update available on npm, or null when this caller may not update or none exists. */
+function useAvailableUpdate() {
+  const { status } = useWebStatus();
+  const update = status?.update;
+  if (!status?.canControl || !update?.available) return null;
+  return { status, update, available: update.available };
+}
+
+/** Opens the update dialog. It renders only for a local caller while npm has a newer release. */
+export function UpdateTrigger({
   variant = "row",
   className,
-}: { variant?: UpdateButtonVariant; className?: string } = {}) {
+  onOpen,
+}: {
+  variant?: UpdateButtonVariant;
+  className?: string;
+  onOpen: () => void;
+}) {
   const { t } = useI18n();
-  const { status } = useWebStatus();
-  const [open, setOpen] = useState(false);
+  const found = useAvailableUpdate();
+  if (!found) return null;
+  return (
+    <button
+      type="button"
+      data-update={found.available}
+      data-variant={variant}
+      className={cn(
+        "items-center justify-center text-xs font-medium text-brand-label transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
+        VARIANT_CLASSES[variant],
+        className
+      )}
+      onClick={onOpen}
+      aria-label={t("update-button", { version: found.available })}
+      title={t("update-button", { version: found.available })}
+    >
+      {variant === "icon" ? <CircleArrowUp className="size-4" /> : t("update-label")}
+    </button>
+  );
+}
+
+/**
+ * The one update dialog for the page. Every trigger opens this dialog, so its
+ * progress survives a change between the phone and desktop layouts.
+ */
+export function UpdateDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { t } = useI18n();
+  const found = useAvailableUpdate();
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
-
-  const update = status?.update;
-  const available = update?.available;
-  if (!status?.canControl || !available) return null;
+  if (!found) return null;
+  const { status, update, available } = found;
   // A failure found by the status poll shows even when this page did not start the update.
   const failedCode = update.state === "failed" ? update.code : null;
   const busy = working || update.state === "installing" || update.state === "restarting";
@@ -78,22 +121,7 @@ export function UpdateButton({
 
   return (
     <>
-      <button
-        type="button"
-        data-update={available}
-        data-variant={variant}
-        className={cn(
-          "items-center justify-center text-xs font-medium text-brand-label transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
-          VARIANT_CLASSES[variant],
-          className
-        )}
-        onClick={() => setOpen(true)}
-        aria-label={t("update-button", { version: available })}
-        title={t("update-button", { version: available })}
-      >
-        {variant === "icon" ? <CircleArrowUp className="size-4" /> : t("update-label")}
-      </button>
-      <Dialog open={open} onOpenChange={(next) => !busy && setOpen(next)}>
+      <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>{t("update-dialog-title")}</DialogTitle>
@@ -136,7 +164,7 @@ export function UpdateButton({
             </p>
           ) : null}
           <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="ghost" disabled={busy} onClick={() => setOpen(false)}>
+            <Button variant="ghost" disabled={busy} onClick={() => onOpenChange(false)}>
               {t("update-close")}
             </Button>
             <Button autoFocus disabled={busy || !update.canInstall} onClick={() => void install()}>

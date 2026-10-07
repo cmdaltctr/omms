@@ -32,7 +32,8 @@ function removeHome(home: string) {
   try {
     rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   } catch (error) {
-    if (process.platform !== "win32") throw error;
+    const locked = (error as NodeJS.ErrnoException).code === "EBUSY";
+    if (process.platform !== "win32" || !locked) throw error;
   }
 }
 

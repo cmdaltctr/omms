@@ -32,6 +32,8 @@ function fake(version: string, latest: (string | null)[], enabled = true) {
     },
     globalVersion: () => null,
     restart: async () => undefined,
+    canRestart: () => true,
+    killTree: () => {},
     setTimeout: () => 0,
     clearTimeout: () => {},
     now: () => 0,

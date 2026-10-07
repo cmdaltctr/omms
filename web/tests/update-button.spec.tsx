@@ -21,6 +21,11 @@ mock.module("react", () => ({
     effect();
   },
   useRef: (value: unknown) => ({ current: value }),
+  // Subscribe on each render as the effect mock does; the store keeps one timer.
+  useSyncExternalStore: (subscribe: (cb: () => void) => () => void, snapshot: () => unknown) => {
+    subscribe(() => {});
+    return snapshot();
+  },
 }));
 mock.module("../src/lib/i18n/index.ts", () => ({
   useI18n: () => ({
@@ -65,7 +70,7 @@ mock.module("../src/lib/power.ts", () => ({
   },
 }));
 
-const { UpdateButton, UPDATE_COMMANDS } =
+const { UpdateDialog, UpdateTrigger, UPDATE_COMMANDS } =
   await import("../src/lib/components/explorer/UpdateButton.tsx");
 
 type Node = ReactElement<{ children?: ReactNode; [key: string]: unknown }>;
@@ -86,9 +91,14 @@ const tick = async () => {
   await flush();
   await flush();
 };
-function render() {
+// The sidebar owns the open state; the trigger opens the one dialog.
+let dialogOpen = false;
+function render(variant: "row" | "inline" | "icon" = "inline") {
   cursor = 0;
-  return UpdateButton();
+  return [
+    UpdateTrigger({ variant, onOpen: () => (dialogOpen = true) }),
+    UpdateDialog({ open: dialogOpen, onOpenChange: (next) => (dialogOpen = next) }),
+  ];
 }
 async function loaded() {
   render();
@@ -106,6 +116,7 @@ const en = translations.en as Record<string, string>;
 let reloads = 0;
 let clipboard: string[] = [];
 beforeEach(() => {
+  dialogOpen = false;
   state = [];
   cursor = 0;
   sends = 0;
@@ -137,17 +148,23 @@ it("shows the button with the new version for a local caller", async () => {
 
 it("shows no button when there is no update", async () => {
   status = { ...status!, update: { available: null, state: "idle", code: null, canInstall: true } };
-  expect(await loaded()).toBeNull();
+  const tree = await loaded();
+  expect(button(tree)).toBeUndefined();
+  expect(dialog(tree)).toBeUndefined();
 });
 
 it("shows no button to a caller that may not control the web app", async () => {
   status = { ...status!, canControl: false };
-  expect(await loaded()).toBeNull();
+  const tree = await loaded();
+  expect(button(tree)).toBeUndefined();
+  expect(dialog(tree)).toBeUndefined();
 });
 
 it("shows no button when an older web app reports no update field", async () => {
   status = { version: "4.9.0", canControl: true, instance: "first" };
-  expect(await loaded()).toBeNull();
+  const tree = await loaded();
+  expect(button(tree)).toBeUndefined();
+  expect(dialog(tree)).toBeUndefined();
 });
 
 it("lists both versions and every host command with a copy action", async () => {
@@ -236,12 +253,25 @@ it("has every update string in English, Chinese, and Arabic", () => {
 it("shows the word in the row and inline variants, and an icon when the sidebar is collapsed", async () => {
   await loaded();
   for (const variant of ["row", "inline"] as const) {
-    cursor = 0;
-    expect(textOf(button(UpdateButton({ variant })))).toBe("Update");
+    expect(textOf(button(render(variant)))).toBe("Update");
   }
-  cursor = 0;
-  const icon = button(UpdateButton({ variant: "icon" }));
+  const icon = button(render("icon"));
   expect(textOf(icon)).toBe("");
   // The icon keeps the version in its accessible name.
   expect(icon?.props["aria-label"]).toBe("Update available: 4.10.0");
+});
+
+it("opens one shared dialog from either trigger, so progress survives a layout change", async () => {
+  await loaded();
+  cursor = 0;
+  const row = UpdateTrigger({ variant: "row", onOpen: () => (dialogOpen = true) });
+  (row as Node).props.onClick?.();
+  expect(dialogOpen).toBe(true);
+  dialogOpen = false;
+  cursor = 0;
+  const inline = UpdateTrigger({ variant: "inline", onOpen: () => (dialogOpen = true) });
+  (inline as Node).props.onClick?.();
+  expect(dialogOpen).toBe(true);
+  // Only the dialog holds working state; the triggers hold none.
+  expect(UpdateTrigger.length).toBe(1);
 });

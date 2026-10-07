@@ -1,4 +1,4 @@
-import { dirname, join } from "node:path";
+import { posix, win32 } from "node:path";
 import { availableUpdate, latestNpmVersion } from "./update-check.js";
 
 // The web app's npm release check. It reads npm `latest` at start and then every
@@ -41,6 +41,10 @@ export interface WebUpdateDeps {
   spawn: (command: string, args: string[], options: { shell: boolean }) => InstallChild;
   /** The version of the global install after npm ran, or null. */
   globalVersion: () => string | null;
+  /** False when no restart could serve the new copy, such as a missing launcher. Checked before npm runs. */
+  canRestart: () => boolean;
+  /** Stop npm and its children. On Windows the shell wrapper alone would leave npm running. */
+  killTree: (child: InstallChild) => void;
   /** Restart onto the newest copy. Returns a failure code when this web app keeps serving. */
   restart: () => Promise<string | undefined>;
   setTimeout: (callback: () => void, ms: number) => unknown;
@@ -50,6 +54,7 @@ export interface WebUpdateDeps {
 
 /** The parts of a child process the install runner uses. */
 export interface InstallChild {
+  pid?: number;
   stderr: { on(event: "data", listener: (chunk: Buffer | string) => void): unknown } | null;
   on(event: "error", listener: () => void): unknown;
   on(event: "exit", listener: (code: number | null) => void): unknown;
@@ -94,8 +99,10 @@ export class WebUpdate {
 
   /** The npm that installs into the prefix the launcher reads. */
   private npmPath(): string {
+    // Path rules follow the target platform, not the machine that runs this code.
+    const path = this.deps.platform === "win32" ? win32 : posix;
     const name = this.deps.platform === "win32" ? "npm.cmd" : "npm";
-    return join(dirname(this.deps.execPath), name);
+    return path.join(path.dirname(this.deps.execPath), name);
   }
 
   status(): UpdateStatus {
@@ -103,15 +110,19 @@ export class WebUpdate {
       available: this.available,
       state: this.state,
       code: this.code,
-      canInstall: this.deps.exists(this.npmPath()),
+      canInstall: this.canInstall(),
     };
+  }
+
+  private canInstall(): boolean {
+    return this.deps.exists(this.npmPath()) && this.deps.canRestart();
   }
 
   /** Start the install and the restart. A request while one runs joins it. */
   requestInstall(): InstallRequest {
     if (this.state === "installing" || this.state === "restarting") return "accepted";
     if (!this.available) return "no-update";
-    if (!this.deps.exists(this.npmPath())) return "cannot-install";
+    if (!this.canInstall()) return "cannot-install";
     this.state = "installing";
     this.code = null;
     void this.install(this.available);
@@ -150,9 +161,12 @@ export class WebUpdate {
     return new Promise((resolve) => {
       let child: InstallChild;
       try {
-        // Windows runs `npm.cmd` only through a shell; the arguments are fixed and checked.
-        child = this.deps.spawn(this.npmPath(), ["install", "-g", `om-memory-system@${target}`], {
-          shell: this.deps.platform === "win32",
+        // Windows runs `npm.cmd` only through a shell, which splits an unquoted path at a
+        // space (`C:\\Program Files`). The arguments are fixed and the version is checked.
+        const windows = this.deps.platform === "win32";
+        const command = windows ? `"${this.npmPath()}"` : this.npmPath();
+        child = this.deps.spawn(command, ["install", "-g", `om-memory-system@${target}`], {
+          shell: windows,
         });
       } catch {
         resolve({ code: "spawn-error" });
@@ -167,7 +181,7 @@ export class WebUpdate {
         resolve(result);
       };
       const timer = this.deps.setTimeout(() => {
-        child.kill("SIGTERM");
+        this.deps.killTree(child);
         finish({ code: "timeout" });
       }, INSTALL_TIMEOUT_MS);
       child.stderr?.on("data", (chunk) => {

@@ -361,6 +361,12 @@ export class WebServer {
       record("unsupported");
       return this.jsonResponse({ success: false, error: "Not supported by this web app" }, 409);
     }
+    // An update restarts through the same callback; a Stop or Restart now would cut npm off.
+    const updateState = this.webUpdate?.status().state;
+    if (updateState === "installing" || updateState === "restarting") {
+      record("refused_update_running");
+      return this.jsonResponse({ success: false, error: "An update is running" }, 409);
+    }
     // A repeated request must not start a second stop or restart while one runs.
     if (this.powerActionRunning) {
       record("already_running");
@@ -388,6 +394,10 @@ export class WebServer {
     if (!isLoopbackAddress(remoteAddress)) {
       record("refused_not_loopback");
       return this.jsonResponse({ success: false, error: "Loopback caller required" }, 403);
+    }
+    if (this.powerActionRunning) {
+      record("refused_power_running");
+      return this.jsonResponse({ success: false, error: "A stop or restart is running" }, 409);
     }
     const reply = this.webUpdate?.requestInstall() ?? "cannot-install";
     record(reply);

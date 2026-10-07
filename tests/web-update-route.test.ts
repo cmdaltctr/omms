@@ -118,4 +118,41 @@ result.status = (await call(server, "127.0.0.1", "POST", "/api/web/update")).sta
 `);
     expect(result.status).toBe(409);
   });
+
+  it("refuses Restart while an update runs, and an update while Restart runs", async () => {
+    const { result } = await runScenario(`
+const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+let state = "idle";
+let installs = 0;
+server.setWebUpdate({
+  status: () => ({ available: "99.0.0", state, code: null, canInstall: true }),
+  requestInstall: () => {
+    installs++;
+    state = "installing";
+    return "accepted";
+  },
+});
+let actions = 0;
+server.setOnPowerAction(() => new Promise((resolve) => {
+  actions++;
+  setTimeout(resolve, 300);
+}));
+result.update = (await call(server, "127.0.0.1", "POST", "/api/web/update")).status;
+result.restartDuringUpdate = (await call(server, "127.0.0.1", "POST", "/api/web/restart")).status;
+result.stopDuringUpdate = (await call(server, "127.0.0.1", "POST", "/api/web/stop")).status;
+state = "idle";
+result.restart = (await call(server, "127.0.0.1", "POST", "/api/web/restart")).status;
+result.updateDuringRestart = (await call(server, "127.0.0.1", "POST", "/api/web/update")).status;
+await sleep(400);
+result.installs = installs;
+result.actions = actions;
+`);
+    expect(result.update).toBe(202);
+    expect(result.restartDuringUpdate).toBe(409);
+    expect(result.stopDuringUpdate).toBe(409);
+    expect(result.restart).toBe(202);
+    expect(result.updateDuringRestart).toBe(409);
+    expect(result.installs).toBe(1);
+    expect(result.actions).toBe(1);
+  });
 });

@@ -1,6 +1,5 @@
 import { expect, it } from "bun:test";
 import { EventEmitter } from "node:events";
-import { join } from "node:path";
 import {
   INSTALL_TIMEOUT_MS,
   npmFailureCode,
@@ -22,6 +21,8 @@ async function fake(
     globalAfter?: string | null;
     restartCode?: string;
     platform?: NodeJS.Platform;
+    execPath?: string;
+    canRestart?: boolean;
   } = {}
 ) {
   const spawns: { command: string; args: string[]; shell: boolean }[] = [];
@@ -39,7 +40,11 @@ async function fake(
       })) as unknown as typeof fetch,
     setInterval: () => ({}),
     log: (message, data) => logs.push({ message, data }),
-    execPath: "/opt/node/bin/node",
+    execPath: config.execPath ?? "/opt/node/bin/node",
+    canRestart: () => config.canRestart ?? true,
+    killTree: (child) => {
+      (child as InstallChild & { killed: boolean }).killed = true;
+    },
     platform: config.platform ?? "darwin",
     exists: () => config.npmExists ?? true,
     spawn: (command, args, options) => {
@@ -92,8 +97,7 @@ it("installs with the npm beside Node.js and restarts onto the new copy", async 
   await settle();
   expect(f.spawns).toEqual([
     {
-      // The runner joins with the platform separator; Windows uses `\\`.
-      command: join("/opt/node/bin", "npm"),
+      command: "/opt/node/bin/npm",
       args: ["install", "-g", "om-memory-system@4.10.0"],
       shell: false,
     },
@@ -118,7 +122,7 @@ it("uses npm.cmd through a shell on Windows", async () => {
   const f = await fake({ platform: "win32" });
   f.update.requestInstall();
   await settle();
-  expect(f.spawns[0]?.command.endsWith("npm.cmd")).toBe(true);
+  expect(f.spawns[0]?.command.endsWith('npm.cmd"')).toBe(true);
   expect(f.spawns[0]?.shell).toBe(true);
 });
 
@@ -206,4 +210,21 @@ it("maps npm error text to a code", () => {
   expect(npmFailureCode("EPERM: operation not permitted")).toBe("permission");
   expect(npmFailureCode("getaddrinfo EAI_AGAIN")).toBe("network");
   expect(npmFailureCode("")).toBe("npm-exit");
+});
+
+it("quotes the npm.cmd path on Windows, so a path with a space stays one command", async () => {
+  const f = await fake({ platform: "win32", execPath: "C:\\Program Files\\nodejs\\node.exe" });
+  f.update.requestInstall();
+  await settle();
+  const command = f.spawns[0]!.command;
+  expect(command.startsWith('"')).toBe(true);
+  expect(command.endsWith('npm.cmd"')).toBe(true);
+  expect(command).toContain("Program Files");
+});
+
+it("offers no install when the web app could not restart onto the new copy", async () => {
+  const f = await fake({ canRestart: false });
+  expect(f.update.status().canInstall).toBe(false);
+  expect(f.update.requestInstall()).toBe("cannot-install");
+  expect(f.spawns).toEqual([]);
 });
