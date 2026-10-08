@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.14.1](https://github.com/cmdaltctr/omms/compare/v4.14.0...v4.14.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* escape JSON paths in unresolved preview test ([edf47cd](https://github.com/cmdaltctr/omms/commit/edf47cd9042ddcb170b67b39984c259fd9eb8a98))
+* escape JSON paths in unresolved preview test ([46d7cbd](https://github.com/cmdaltctr/omms/commit/46d7cbdeb51c12784f1c46cb622d4648d7b2e3f7))
+
 ## [4.14.0](https://github.com/cmdaltctr/omms/compare/v4.13.3...v4.14.0) (2026-10-08)
 
 
