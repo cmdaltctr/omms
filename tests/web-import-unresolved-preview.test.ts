@@ -82,8 +82,13 @@ for (const entirelyUnresolved of [false, true])
       );
     }
     if (entirelyUnresolved) {
+      // The session files hold paths as JSON, where Windows backslashes are doubled.
+      const jsonPath = (path: string) => JSON.stringify(path).slice(1, -1);
       for (const file of data.files.slice(0, 2))
-        writeFileSync(file, readFileSync(file, "utf8").replaceAll(data.project, missing));
+        writeFileSync(
+          file,
+          readFileSync(file, "utf8").replaceAll(jsonPath(data.project), jsonPath(missing))
+        );
       db.prepare("UPDATE project SET worktree = ? WHERE id = 'p'").run(missing);
       db.prepare("UPDATE session SET directory = ? WHERE id = 'same'").run(missing);
     }
