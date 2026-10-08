@@ -8,11 +8,11 @@ Show how far every history import has progressed and how long it has left, wheth
 
 ### Requirement: Every import run records its progress
 
-Each import run that makes model calls, whether an automatic backfill, a web import, or a CLI or slash-command import, SHALL record a progress entry in the memory store. The entry SHALL hold the host, the surface that started it, the state (running, paused, stopped, done, or failed), the start time, the total number of memory units and profile batches to process, the number processed so far with imported, skipped, and failed counts, the last update time, and the last error with secrets removed. The total SHALL count only units that need a model call, not units already in the ledger. For an automatic backfill, and for Run now and Resume, the total SHALL be the backfill's dry-run count, known before the first model call. For a CLI, slash-command, or web import, which has no dry run, the total SHALL start from the units found and SHALL be refined as the run passes units already in the ledger. The entry SHALL NOT contain prompts, replies, or other conversation content. Dry runs SHALL NOT record progress entries. A run that stops without updating its entry SHALL be shown as stopped once its owning process is gone.
+Each import run that makes model calls, whether an automatic backfill, a web import, or a CLI or slash-command import, SHALL record a progress entry in the memory store. The entry SHALL hold the host, the surface that started it, the state (running, paused, stopped, done, or failed), the start time, the total number of memory units and profile batches to process, the number processed so far with imported, skipped, and failed counts, the last update time, and the last error with secrets removed. The total SHALL count only units that need a model call, not units already in the ledger. For an automatic backfill, and for Run now and Resume, the total SHALL be the backfill's dry-run count, known before the first model call. For a CLI, slash-command, or web import, which has no dry run, the total SHALL start from the units found and SHALL be refined as the run passes units already in the ledger. The entry SHALL NOT contain prompts, replies, or other conversation content. Dry runs SHALL NOT record progress entries. A run that stops without updating its entry SHALL be shown as stopped once its owning process is gone. The Memory page SHALL display these records; grouped web imports SHALL retain one such record for each child rather than inventing an All hosts identity in the store.
 
 #### Scenario: A CLI import is visible on the page
 
-- **WHEN** the user runs `om-memory-system import-pi-history` in a terminal and opens the Settings page
+- **WHEN** the user runs `om-memory-system import-pi-history` in a terminal and opens Memory
 - **THEN** the page SHALL show that Pi import as running, started from the CLI, with its counts
 
 #### Scenario: Most units are already imported
@@ -28,7 +28,7 @@ Each import run that makes model calls, whether an automatic backfill, a web imp
 
 ### Requirement: Progress shows percentage and time left
 
-For a running import, the Settings page SHALL show a progress bar, the percentage done, the number done out of the total, and the estimated minutes left. The estimate SHALL be computed from the processing rate over the recent part of the run, not from the whole run, and SHALL be shown as unknown until enough units have finished to measure a rate. The values SHALL refresh without a page reload while the run is active.
+For a running import, the Memory page SHALL show a progress bar, the percentage done, the number done out of the total, and the estimated minutes left. The estimate SHALL be computed from the processing rate over the recent part of the run, not from the whole run, and SHALL be shown as unknown until enough units have finished to measure a rate. The values SHALL refresh without a page reload while the run is active.
 
 #### Scenario: Watching a long import
 
@@ -42,7 +42,7 @@ For a running import, the Settings page SHALL show a progress bar, the percentag
 
 ### Requirement: The user can run, pause, and resume a host's backfill
 
-The Settings page SHALL offer **Run now**, **Pause**, and **Resume** for each host's backfill. Run now SHALL start that host's backfill at once, with the same cutoff, maps, model rule, ledger, and one-run-per-host lock as an automatic backfill. It SHALL be available in the login web app and in `om-memory-system web` without Pi or OpenCode open when the host's backfill model resolves to the external API, and SHALL otherwise say which model setting it needs. Pause SHALL stop the run after its current exchange and record the paused state. A paused backfill SHALL NOT start automatically at a host start until the user resumes it. Resume SHALL clear the paused state and start the run, continuing from the ledger. Run now SHALL be refused, with the reason, while another import for the same host runs. These controls SHALL follow the same origin and authentication rules as other Settings changes.
+The Memory page SHALL offer **Run now**, **Pause**, and **Resume** for each host's backfill. Run now SHALL start that host's backfill at once, with the same cutoff, maps, model rule, ledger, and one-run-per-host lock as an automatic backfill. It SHALL be available in the login web app and in `om-memory-system web` without Pi or OpenCode open when the host's backfill model resolves to the external API, and SHALL otherwise say which model setting it needs. Pause SHALL stop the run after its current exchange and record the paused state. A paused backfill SHALL NOT start automatically at a host start until the user resumes it. Resume SHALL clear the paused state and start the run, continuing from the ledger. Run now SHALL be refused, with the reason, while another import for the same host runs. These controls SHALL follow the same origin and authentication rules as other Settings changes.
 
 #### Scenario: Running a backfill with no host open
 
@@ -68,7 +68,7 @@ The Settings page SHALL offer **Run now**, **Pause**, and **Resume** for each ho
 
 ### Requirement: The profile step of a run is shown as its own phase
 
-When every exchange of a running import is done and the run is still learning the profile from imported prompts, the run record SHALL say so, and the Settings page SHALL show **Learning profile** with the number of profile batches done out of the total in place of the exchange progress bar. When the profile step ends, the run SHALL be recorded as done or failed as before.
+When every exchange of a running import is done and the run is still learning the profile from imported prompts, the run record SHALL say so, and the Memory page SHALL show **Learning profile** with the number of profile batches done out of the total in place of the exchange progress bar. When the profile step ends, the run SHALL be recorded as done or failed as before. A grouped import SHALL show the active child's phase and SHALL not mark it complete while its profile step still runs.
 
 #### Scenario: Profile step after the last exchange
 
@@ -80,3 +80,25 @@ When every exchange of a running import is done and the run is still learning th
 
 - **WHEN** the last profile batch of that run finishes
 - **THEN** the run SHALL be recorded as done and the page SHALL show the last run summary
+
+### Requirement: A grouped import shows the current host and separate results
+
+A grouped import SHALL show queued, active, completed, failed, cancelled, no-work, and not-run hosts as applicable, the current host and phase, and separate results plus combined counts. Memory units and profile batches SHALL be labelled separately. A memory-extraction percentage SHALL not imply the group's profile work is complete.
+
+#### Scenario: Progress through three hosts
+
+- **WHEN** Pi is complete, OpenCode is learning the profile, and Claude Code has not started
+- **THEN** the page SHALL show Pi complete, OpenCode active in profile learning, and Claude Code queued
+- **AND** it SHALL show OpenCode's profile batch progress
+
+#### Scenario: One host failed
+
+- **WHEN** OpenCode fails after Pi completed
+- **THEN** Pi's result SHALL remain visible and Claude Code SHALL be shown as not run
+- **AND** the combined result SHALL be unsuccessful with OpenCode's reason
+
+#### Scenario: A grouped preview
+
+- **WHEN** preview succeeds for selected hosts
+- **THEN** the page SHALL show each host's session and pending-work counts plus combined totals
+- **AND** memory work and profile analysis estimates SHALL remain distinct

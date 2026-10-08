@@ -1,197 +1,148 @@
+<p align="center">
+  <img src=".github/screenshots/omms-logo.png" alt="OMMS logo" width="96" height="96" />
+</p>
+
 # OMMS: Opinionated Modular Memory System
 
 [![npm version](https://img.shields.io/npm/v/om-memory-system.svg)](https://www.npmjs.com/package/om-memory-system)
 [![npm downloads](https://img.shields.io/npm/dm/om-memory-system.svg)](https://www.npmjs.com/package/om-memory-system)
-[![license](https://img.shields.io/npm/l/om-memory-system.svg)](https://www.npmjs.com/package/om-memory-system)
+[![MIT licence](https://img.shields.io/npm/l/om-memory-system.svg)](LICENSE.md)
 
-![OMMS banner](.github/banner.png)
+OMMS gives AI coding agents long-term project memory. It captures technical
+work, recalls relevant notes in later sessions and learns your working
+preferences. One shared engine serves **OpenCode**, **Pi** and **Claude Code**,
+so each host can retrieve memories captured by the others in the same project.
 
-OMMS gives your AI coding agent a long-term memory. As you work, it writes
-short notes about what was done and decided in each project: fixes, design
-choices, things that did not work. It brings the relevant notes back in later
-sessions, so the agent does not start from zero every time. It also learns how
-you like to work and keeps that as a user profile.
-
-It runs inside [OpenCode](https://opencode.ai) and the
-[Pi coding agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent).
-Both share one memory per project, so a note written in one is available in
-the other. Everything is stored locally on your machine.
-
-Claude Code is also supported, through a plugin of hooks. It needs Node.js and
-your own external API for capture. A global install is optional. See the
-[Claude Code adapter](docs/claude-code-adapter.md) guide.
-
-## What it does
-
-- **Remembers automatically.** After each piece of work, a background model
-  call summarises it into a memory. You do not have to ask.
-- **Recalls when relevant.** Matching memories are added to the agent's
-  context: on every prompt in OpenCode v2 and Pi, at the start of a session in
-  OpenCode v1.
-- **Learns your preferences.** A user profile of your habits builds up over
-  time and follows you across projects.
-- **Imports your past sessions.** Pi and OpenCode import older history after
-  startup. A command gives you a preview and manual control.
-- **Lets you look and edit.** A local web page shows every memory and your
-  profile.
-- **Keeps private things private.** Text inside `<private>` tags is never
-  stored.
-
-![Project memory timeline](.github/screenshot-project-memory.png)
-
-![User profile viewer](.github/screenshot-user-profile.png)
-
-## Before you start
-
-You need one of:
-
-- **OpenCode** 1.18.29 or later (v1 plugin API) or OpenCode v2
-- **Pi coding agent**
-- **Claude Code**, through a plugin of hooks. Capture needs your own external API. See
-  the [Claude Code adapter](docs/claude-code-adapter.md) guide for setup.
-
-Nothing else is required. OMMS brings its own database. On first use it
-downloads a small embedding model (the part that makes memories searchable),
-so you need internet access once. The terminal import command also needs
-Node.js 22.14 or later.
-
-> [!NOTE]
-> OMMS is tested mostly on macOS and Linux. Windows runs only in the release
-> check, so it gets less testing. If something breaks on Windows,
-> [open an issue](https://github.com/cmdaltctr/omms/issues). If you fix it,
-> a pull request is welcome.
+Memories are stored locally, by default in `~/.omms/data`. Embeddings run
+locally by default; the first use downloads a search model. Capture and profile
+learning make additional model calls that can send conversation content to your
+chosen provider and incur costs. Remote embeddings are optional. OMMS removes
+text inside `<private>` tags before storage. See [Configuration](docs/configuration.md)
+for model choices and privacy controls.
 
 ## Set up
 
-### 1. Install
+Use Node.js **22.14 or later** for the terminal command and Claude Code hooks.
+OpenCode v1 needs **1.18.29 or later**. OMMS also supports OpenCode v2 and the
+[Pi coding agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent).
 
-**OpenCode.** Add `om-memory-system` to `~/.config/opencode/opencode.json`
-(on Windows, `%USERPROFILE%\.config\opencode\opencode.json`):
+> Automatic history import is enabled by default and makes model calls.
+> To disable it before your first session, set `"autoBackfill": false` in
+> `~/.config/omms/omms.jsonc`. See [Automatic import](docs/web-ui-memory.md#automatic-import).
 
-```jsonc
-// OpenCode v2
+### OpenCode
+
+Add the package to `~/.config/opencode/opencode.json`. Keep your existing settings.
+On Windows, use `%USERPROFILE%\.config\opencode\opencode.json`.
+
+**OpenCode v2:**
+
+```json
 { "plugins": ["om-memory-system"] }
+```
 
-// OpenCode v1
+**OpenCode v1:**
+
+```json
 { "plugin": ["om-memory-system"] }
 ```
 
-On OpenCode v2 you can run `opencode plugin add om-memory-system` instead.
-Restart OpenCode.
+OpenCode v2 also supports:
 
-**Pi.** Run:
+```bash
+opencode plugin add om-memory-system
+```
+
+Restart OpenCode. The [OpenCode guide](docs/opencode-adapter.md#installation)
+covers plugin management and its additional `cli.json` configuration.
+
+### Pi
 
 ```bash
 pi install npm:om-memory-system
 ```
 
-Restart Pi. You can install OMMS in both agents; they share the same memory.
+Restart Pi. See the [Pi guide](docs/pi-adapter.md).
 
-**Terminal command (optional).** A global install puts the `om-memory-system`
-command on your `PATH`. You do not need it. OMMS runs the newest copy it finds on
-the machine, so updating one host is enough. A global install from 4.3 or earlier
-needs one update. See
-[Updating and upgrading](docs/upgrading.md#one-update-updates-every-host).
-To install it:
+### Claude Code
+
+Install the OMMS plugin using the [Claude Code guide](docs/claude-code-adapter.md#installation).
+Capture and profile learning require a configured external API; retrieval and
+manual memory operations remain available without it. A global npm install is optional.
+
+### Model and web app
+
+With no model settings, OpenCode and Pi use the session model. You can choose a
+host model or configure an external API under **Settings**. Claude Code uses
+only the external API. See [Choosing the model](docs/configuration.md#choosing-the-model)
+for the selection order and credentials.
+
+Start a host session, then open [http://127.0.0.1:4747](http://127.0.0.1:4747).
+Each host starts the shared web app when needed, unless it is disabled. Browse
+captured notes on **Project memories**, or ask your agent to search memory for
+an earlier decision.
+
+### Terminal command (optional)
+
+A global install puts `om-memory-system` on your `PATH`:
 
 ```bash
-npm i -g om-memory-system      # or: bun add -g om-memory-system
+npm install -g om-memory-system
 om-memory-system --version
 ```
 
-### 2. Choose which model writes memories (optional)
+See the [CLI reference](docs/cli.md) for manual memory operations and history imports.
 
-With no settings, OMMS uses the model of the session you are working in. To
-use a different one, add it to `~/.config/omms/omms.jsonc`. If you have no
-config file yet, OMMS creates this one with comments on first start.
+## Inside OMMS
 
-```jsonc
-{
-  // A model you are already signed in to in OpenCode or Pi.
-  // Use "inherit" to always follow the session's model.
-  "opencodeProvider": "openai",
-  "opencodeModel": "gpt-5.6-luna",
-  "piProvider": "openai-codex",
-  "piModel": "gpt-5.6-luna",
-}
-```
+These screenshots use synthetic examples and configuration. All visible prompts,
+code snippets and outcomes are made up for the demonstration.
 
-You can also use any OpenAI-compatible or Anthropic API with your own key, set
-up on the Settings page's **External API** card, and choose `"external"` as a
-host's model. See [Configuration](docs/configuration.md#choosing-the-model).
+### Project memories
 
-### 3. Check it works
+Browse captured notes alongside example user input and technical outcomes.
 
-Work normally for a few turns, then open `http://127.0.0.1:4747` in your
-browser. OpenCode or the login web app serves this page. New memories appear
-on the timeline. You can also ask the agent: "search memory for what we changed today".
+![Project memories with synthetic English prompts, code and outcomes](.github/screenshots/project-memories.png)
 
-## Import your past history
+### Memory
 
-Older sessions import automatically after a host starts. This makes model
-calls. To turn it off, set `"autoBackfill": false` in
-`~/.config/omms/omms.jsonc` before you start the agent. For a manual import or
-a custom source, preview it inside the agent:
+Review history imports, manage profile learning and set memory limits. This page
+also helps resolve missing project folders.
 
-```text
-/memory-import-opencode-history --dry-run
-/memory-import-pi-history --dry-run
-```
+![Memory page with synthetic import and profile examples](.github/screenshots/memory.png)
 
-The preview shows how many model calls a real import needs. It uses the
-session's model; add `--model provider/id` for a cheaper one. There is also a
-terminal version, `npx om-memory-system`, that uses an API key. See the
-[OpenCode](docs/opencode-history-import.md) and [Pi](docs/pi-history-import.md)
-import guides, and the [CLI reference](docs/cli.md).
+### Settings
 
-## Keeping OMMS up to date
+Choose models and manage access. Diagnostics show capture outcomes and component health.
 
-Pi shows a notice when a new version is out; update with
-`pi update npm:om-memory-system`. On OpenCode v2, the footer shows when a new version is out;
-run `opencode plugin update om-memory-system`. Restart the agent afterwards.
-[UPDATES.md](UPDATES.md) explains how updates work on every host.
-To stay on one version, install it with the number, for example
-`pi install npm:om-memory-system@3.1.1` or
-`opencode plugin add om-memory-system@3.1.1`; a pinned install is never
-updated. Coming from `opencode-mem`? Your memories move over automatically, with a
-backup first. See [Updating and upgrading](docs/upgrading.md) and
-[CHANGELOG.md](CHANGELOG.md).
+![Settings page with synthetic model configuration](.github/screenshots/settings.png)
 
 ## Documentation
 
-| Read this                                                        | To learn about                                                   |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------- |
-| [Using memory day to day](docs/using-memory.md)                  | How capture and recall work, the `memory` tool, the user profile |
-| [Configuration](docs/configuration.md)                           | Settings, choosing the model, embeddings, troubleshooting        |
-| [Web UI](docs/web-ui.md)                                         | The memory explorer, opening it on a network safely              |
-| [Settings page](docs/web-ui-settings.md)                         | Every card and control on the web Settings page                  |
-| [Moving projects](docs/moving-projects.md)                       | Nested repositories, moved folders, backup and restore           |
-| [Updating and upgrading](docs/upgrading.md)                      | Updates, pinning a version, older stores                         |
-| [OpenCode adapter](docs/opencode-adapter.md)                     | How the OpenCode plugin hooks in                                 |
-| [Pi adapter](docs/pi-adapter.md)                                 | How the Pi extension hooks in                                    |
-| [Claude Code adapter](docs/claude-code-adapter.md)               | Installing the Claude Code plugin, hooks, the `memory` command   |
-| [OpenCode history import](docs/opencode-history-import.md)       | Importing past OpenCode sessions                                 |
-| [Pi history import](docs/pi-history-import.md)                   | Importing past Pi sessions, moving machines                      |
-| [Claude Code history import](docs/claude-code-history-import.md) | Importing past Claude Code transcripts                           |
-| [CLI reference](docs/cli.md)                                     | The `om-memory-system` terminal command                          |
-| [Migrating from opencode-mem](docs/omms-migration.md)            | What changes when upgrading from the original plugin             |
-| [For developers](docs/developers.md)                             | Building, testing, the public `tags` export, architecture        |
-| [Contributing](CONTRIBUTING.md)                                  | How to set up, test, and send a pull request                     |
+| Guide                                       | Covers                                                       |
+| ------------------------------------------- | ------------------------------------------------------------ |
+| [Using memory](docs/using-memory.md)        | Daily use, capture, recall and the user profile              |
+| [Web UI](docs/web-ui.md)                    | Starting the app, browsing memories and safe network access  |
+| [Memory page](docs/web-ui-memory.md)        | History imports, profile actions, limits and missing folders |
+| [Settings page](docs/web-ui-settings.md)    | Models, credentials, diagnostics and profile identities      |
+| [Configuration](docs/configuration.md)      | Config files, model selection, privacy and embeddings        |
+| [Moving projects](docs/moving-projects.md)  | Folder moves, backup and restore                             |
+| [Updating and upgrading](docs/upgrading.md) | Updates, version pinning and older stores                    |
+| [CLI reference](docs/cli.md)                | Terminal commands                                            |
+| [For developers](docs/developers.md)        | Building, testing and architecture                           |
+| [Contributing](CONTRIBUTING.md)             | Development workflow and pull requests                       |
 
-## About this fork
+History import guides: [OpenCode](docs/opencode-history-import.md),
+[Pi](docs/pi-history-import.md) and [Claude Code](docs/claude-code-history-import.md).
+See [UPDATES.md](UPDATES.md) for host update commands and
+[CHANGELOG.md](CHANGELOG.md) for release changes. Existing `opencode-mem` users
+can follow the [migration guide](docs/omms-migration.md).
 
-OMMS is [`cmdaltctr/omms`](https://github.com/cmdaltctr/omms), a fork of
-[`tickernelz/opencode-mem`](https://github.com/tickernelz/opencode-mem),
-published on npm as `om-memory-system`. The fork runs the memory engine as a
-shared core for both OpenCode and Pi (see [shared core](docs/shared-core.md)).
-Existing OpenCode memories and settings keep working.
+## Licence
 
-## License and links
+MIT. See [LICENSE.md](LICENSE.md) for copyright and attribution, and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for bundled dependencies.
 
-MIT License. See [LICENSE.md](LICENSE.md).
-
-- Repository: https://github.com/cmdaltctr/omms
-- Upstream: https://github.com/tickernelz/opencode-mem
-- Issues: https://github.com/cmdaltctr/omms/issues
-
-Inspired by [opencode-supermemory](https://github.com/supermemoryai/opencode-supermemory).
+[Repository](https://github.com/cmdaltctr/omms) ·
+[Issues](https://github.com/cmdaltctr/omms/issues) ·
+[Documentation index](docs/README.md)

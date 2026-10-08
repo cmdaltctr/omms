@@ -6,16 +6,12 @@
 export const SETTINGS_SECTIONS = [
   { id: "settings-section-external-api", title: "External API" },
   { id: "settings-section-models", title: "Models" },
-  { id: "settings-section-memory", title: "Memory" },
   { id: "settings-section-embedding", title: "Embedding" },
   { id: "settings-section-keys", title: "Keys and access" },
   { id: "settings-section-diagnostics", title: "Capture diagnostics" },
   { id: "settings-section-health", title: "Health" },
   { id: "settings-section-claude-folder", title: "Claude Code folder" },
-  { id: "settings-section-import", title: "Import and backfill" },
-  { id: "settings-section-auto-import", title: "Automatic import" },
-  { id: "settings-section-profile", title: "Profile learning" },
-  { id: "settings-section-directory-maps", title: "Directory maps" },
+  { id: "settings-section-profiles", title: "Profiles" },
   { id: "settings-section-web-app", title: "Web app" },
   { id: "settings-section-log", title: "Log" },
 ] as const;

@@ -54,17 +54,27 @@ By default, OMMS waits about 30 seconds after OpenCode starts. It then saves a c
 - `provider/model` uses another signed-in model for backfill only. The provider must be connected.
 - A missing model records an error. It does not change the live-capture model.
 
-On the Settings page you can:
+On the Memory page you can:
 
 - See the cutoff, progress, and errors.
 - **Run now**, **Pause**, and **Resume** the backfill, and watch its progress bar and minutes left.
-- Manage saved directory maps (`importPathMaps`) in **Directory maps**. The page suggests targets for unresolved directories. Saved maps also apply to the automatic import.
+- Manage saved directory maps (`importPathMaps`) in **Resolve missing project folders**. Review suggestions before saving. Global maps apply to every host's next import.
 
-See [Web UI settings](web-ui-settings.md) for details.
+See [Memory: Automatic import](web-ui-memory.md#automatic-import) for details.
 
 - With `opencodeBackfillModel` set to `"external"`, **Run now** works in the login web app with no host open.
 - A paused backfill stays paused across OpenCode starts until you resume it.
 - One OpenCode import runs at a time, whether from a backfill, the page, a slash command, or the CLI.
+
+## Web import
+
+Open **Memory → Import chat history** at `/memory#memory-section-import`. Select OpenCode; Pi is the initial host. Both **Project memories** and **User profile** start selected, with Current project scope. User profile learns preferences, patterns and workflows. Deselect an output to skip it; at least one must remain selected.
+
+**All hosts** explicitly includes Pi, OpenCode and Claude Code. Choose **All projects** separately to widen scope. Each host retains its source and pinned selection. List sessions, choose each import model, preview the current draft, then confirm **Start import** and its model calls. Standalone web imports use **Saved external API**; connected OpenCode web models retain their existing availability rules.
+
+The server runs Pi, OpenCode, then Claude Code, waiting for each host's memory and profile phases. A failed child stops later hosts. Safe cancellation preserves completed results and prevents queued work. Refresh lists and preview before retrying. Existing ledgers skip completed work; after a server restart the group requires a fresh preview and confirmation.
+
+Historical host badges describe latest coverage separately from grouped results. A badge alone does not establish group success. See [Memory: Import chat history](web-ui-memory.md#import-chat-history) for estimates, progress and source snapshots. CLI and in-session commands remain unchanged.
 
 ## From a terminal
 

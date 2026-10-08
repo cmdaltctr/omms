@@ -42,6 +42,9 @@ export interface ImportMatchOptions {
   project?: string;
   pathMaps: ImportPathMap[];
   cwd: string;
+  /** Grouped imports can retain a valid source with no matching sessions as no-work. */
+  allowEmpty?: boolean;
+  signal?: AbortSignal;
 }
 
 export class StaleSelectionError extends Error {
@@ -90,7 +93,10 @@ async function readRows(
   const history = await openOpencodeHistory(
     identity.realPath,
     {},
-    { shared: { key: importSourceKey(identity), mode: snapshotMode } }
+    {
+      shared: { key: importSourceKey(identity), mode: snapshotMode },
+      ...(options.signal ? { signal: options.signal } : {}),
+    }
   );
   try {
     return history.sessions.map((session) => ({
@@ -135,6 +141,7 @@ export async function matchImportSessions(
   options: ImportMatchOptions,
   snapshotMode: "fresh" | "reuse" | "any"
 ): Promise<Matched> {
+  options.signal?.throwIfAborted();
   assertImportSourceUnchanged(identity);
   const { projectFilterTag } = await import("./importer.js");
   const projectTag =
@@ -331,6 +338,8 @@ export interface ResolvedImportSelection {
   identity: ImportSourceIdentity;
   keys: string[];
   cutoff: number;
+  /** Source sessions still missing a project, excluding ignored directories; never import keys. */
+  unresolvedCount?: number;
 }
 
 /**
@@ -343,6 +352,7 @@ export async function resolveImportSelection(
   selection: ImportSelection,
   options: ImportMatchOptions
 ): Promise<ResolvedImportSelection> {
+  options.signal?.throwIfAborted();
   const identity = readImportSourceToken(sourceToken, options.host);
   const matched = await matchImportSessions(identity, options, "reuse").catch((error: unknown) => {
     if ((error as { code?: string }).code === "expired") throw new StaleSelectionError();
@@ -360,6 +370,17 @@ export async function resolveImportSelection(
     }
     keys = selection.sessions.map((item) => item.key);
   }
-  if (keys.length === 0) throw new Error("Choose sessions to import");
-  return { identity, keys, cutoff: selection.listedAt };
+  if (keys.length === 0 && !options.allowEmpty) throw new Error("Choose sessions to import");
+  const { CONFIG } = await import("../config.js");
+  const { visibleUnresolvedCount } = await import("../services/backfill-state.js");
+  return {
+    identity,
+    keys,
+    cutoff: selection.listedAt,
+    unresolvedCount: visibleUnresolvedCount(
+      matched.unresolved.length,
+      matched.unresolved.map((row) => ({ directory: row.recordedDirectory ?? "", sessions: 1 })),
+      CONFIG.importIgnoredDirectories ?? []
+    ),
+  };
 }

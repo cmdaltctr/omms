@@ -39,7 +39,7 @@ it("renders one real Partly imported link per host with the unchanged visible co
   cursor = 0;
   const html = renderToStaticMarkup(<HostImportBadges />);
   hosts.forEach((host, i) => {
-    expect(html).toContain(`href="#directory-maps-${host}"`);
+    expect(html).toContain(`href="/memory#directory-maps-${host}"`);
     expect(html).toContain(`Partly imported (${counts[i]} unresolved)`);
   });
   expect(html.match(/<a /g)).toHaveLength(3);
@@ -64,9 +64,9 @@ it("keeps every other badge informational", () => {
 
 it("names the host and destination in each language without changing visible status wording", () => {
   for (const [language, destination] of [
-    ["en", "Directory maps"],
-    ["zh", "目录映射"],
-    ["ar", "خرائط المجلدات"],
+    ["en", "Resolve missing project folders"],
+    ["zh", "解析缺失的项目文件夹"],
+    ["ar", "حل مجلدات المشاريع المفقودة"],
   ] as const) {
     setLanguage(language);
     const status = {
@@ -112,11 +112,8 @@ it("retains both general Directory maps anchors", async () => {
   states = [];
   cursor = 0;
   expect(renderToStaticMarkup(<DirectoryMapsSection />)).toContain('id="directory-maps"');
-  const sections = readFileSync(
-    new URL("../src/lib/settings-sections.ts", import.meta.url),
-    "utf8"
-  );
-  expect(sections).toContain('id: "settings-section-directory-maps"');
+  const sections = readFileSync(new URL("../src/lib/memory-sections.ts", import.meta.url), "utf8");
+  expect(sections).toContain('id: "memory-section-project-folders"');
 });
 
 it("reveals and focuses on every activation while preserving other hosts and drafts", async () => {

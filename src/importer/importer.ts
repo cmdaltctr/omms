@@ -118,6 +118,7 @@ export interface ImporterDeps {
     model?: ModelPort;
     batchSize?: number;
     onProgress?: (done: number, total: number) => void;
+    onEligiblePrompt?: (identity: string) => void;
   };
 }
 
@@ -607,6 +608,7 @@ export async function importPiHistory(
       model: deps.profile.model,
       batchSize: deps.profile.batchSize,
       ...(deps.profile.onProgress ? { onProgress: deps.profile.onProgress } : {}),
+      ...(deps.profile.onEligiblePrompt ? { onEligiblePrompt: deps.profile.onEligiblePrompt } : {}),
     });
   }
 

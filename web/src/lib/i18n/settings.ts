@@ -1,6 +1,133 @@
 import { useI18n } from "./index";
 
 const text = {
+  "Import chat history": ["导入聊天记录", "استيراد سجل المحادثات"],
+  "Memory limits": ["记忆限制", "حدود الذاكرة"],
+  "Resolve missing project folders": ["解析缺失的项目文件夹", "حل مجلدات المشاريع المفقودة"],
+  "Project memories": ["项目记忆", "ذاكرة المشروع"],
+  "User profile": ["用户画像", "الملف الشخصي للمستخدم"],
+  "(preferences, patterns, and workflows)": [
+    "（偏好、模式和工作流程）",
+    "(التفضيلات والأنماط وسير العمل)",
+  ],
+  "All hosts": ["所有宿主", "جميع المضيفين"],
+  "Selected hosts": ["已选宿主", "المضيفون المحددون"],
+  "Choose at least one output.": ["请至少选择一项输出。", "اختر مخرجاً واحداً على الأقل."],
+  "Choose at least one host.": ["请至少选择一个宿主。", "اختر مضيفاً واحداً على الأقل."],
+  "Re-analyse handled history": ["重新分析已处理的记录", "إعادة تحليل السجل المعالج"],
+  "Re-analysis applies to the selected outputs. Each profile prompt can be forcibly re-analysed once. Findings merge into the existing profile.":
+    [
+      "重新分析适用于所选输出。每条画像提示只能强制重新分析一次。结果合并到现有画像中。",
+      "تنطبق إعادة التحليل على المخرجات المحددة. يمكن إعادة تحليل كل مطالبة للملف الشخصي بالقوة مرة واحدة. تُدمج النتائج في الملف الحالي.",
+    ],
+  "Preview the current selection before starting an import.": [
+    "开始导入前，请预览当前选择。",
+    "عاين الاختيار الحالي قبل بدء الاستيراد.",
+  ],
+  "This import makes model calls. Continue?": [
+    "此次导入会调用模型。是否继续？",
+    "سيجري هذا الاستيراد اتصالات بالنموذج. هل تريد المتابعة؟",
+  ],
+  "Conversations populate project facts. User prompts populate personal preferences, recurring patterns, and workflow steps.":
+    [
+      "对话生成项目事实。用户提示生成个人偏好、重复模式和工作流程步骤。",
+      "تضيف المحادثات حقائق المشروع. وتضيف مطالبات المستخدم التفضيلات الشخصية والأنماط المتكررة وخطوات سير العمل.",
+    ],
+  "Profile identity in Settings": ["设置中的画像身份", "هوية الملف الشخصي في الإعدادات"],
+  "Hosts keep their existing user identities. All hosts does not merge profiles with different identities.":
+    [
+      "各宿主保留现有用户身份。选择所有宿主不会合并不同身份的画像。",
+      "يحتفظ المضيفون بهويات المستخدم الحالية. اختيار جميع المضيفين لا يدمج ملفات الهويات المختلفة.",
+    ],
+  "Pi session reader is unavailable. Fix the reader or deselect Pi.": [
+    "Pi 会话读取器不可用。请修复读取器或取消选择 Pi。",
+    "قارئ جلسات Pi غير متاح. أصلح القارئ أو ألغِ تحديد Pi.",
+  ],
+  "Import results": ["导入结果", "نتائج الاستيراد"],
+  "Memory work failed.": ["记忆处理失败。", "فشلت معالجة الذاكرة."],
+  "Profile learning failed.": ["画像学习失败。", "فشل تعلّم الملف الشخصي."],
+  "Import preparation failed.": ["导入准备失败。", "فشل تحضير الاستيراد."],
+  "Refresh the preview and retry.": ["请刷新预览后重试。", "حدّث المعاينة ثم أعد المحاولة."],
+  "The session list is out of date. Refresh the list and try again.": [
+    "会话列表已过期。请刷新列表后重试。",
+    "قائمة الجلسات قديمة. حدّث القائمة ثم أعد المحاولة.",
+  ],
+  "The history source changed. Choose it again.": [
+    "历史记录来源已更改。请重新选择。",
+    "تغيّر مصدر السجل. اختره مجدداً.",
+  ],
+  "The history source is no longer valid. Choose it again.": [
+    "历史记录来源已失效。请重新选择。",
+    "لم يعد مصدر السجل صالحاً. اختره مجدداً.",
+  ],
+  "A Pi import is already running": ["已有 Pi 导入正在运行", "استيراد Pi قيد التشغيل بالفعل"],
+  "An OpenCode import is already running": [
+    "已有 OpenCode 导入正在运行",
+    "استيراد OpenCode قيد التشغيل بالفعل",
+  ],
+  "A Claude Code import is already running": [
+    "已有 Claude Code 导入正在运行",
+    "استيراد Claude Code قيد التشغيل بالفعل",
+  ],
+  "Combined counts": ["合计数量", "الأعداد المجمعة"],
+  "Current host": ["当前宿主", "المضيف الحالي"],
+  "Memory extraction": ["提取记忆", "استخراج الذاكرة"],
+  "Memory units": ["记忆单元", "وحدات الذاكرة"],
+  "Pending memory units": ["待处理记忆单元", "وحدات الذاكرة المعلقة"],
+  "Imported memory units": ["已导入记忆单元", "وحدات الذاكرة المستوردة"],
+  "Already handled memory units": ["已处理记忆单元", "وحدات الذاكرة المعالجة سابقاً"],
+  "Skipped memory units": ["已跳过记忆单元", "وحدات الذاكرة المتخطاة"],
+  "Failed memory units": ["失败的记忆单元", "وحدات الذاكرة التي فشلت"],
+  "Held-back turns": ["暂缓处理的轮次", "الرسائل المؤجلة"],
+  "Untimed turns": ["无时间戳的轮次", "الرسائل بلا طابع زمني"],
+  "Load errors": ["加载错误", "أخطاء التحميل"],
+  "Already handled profile prompts": ["已处理画像提示", "مطالبات الملف الشخصي المعالجة سابقاً"],
+  "Profile prompts": ["画像提示", "مطالبات الملف الشخصي"],
+  "Profile batches": ["画像批次", "دفعات الملف الشخصي"],
+  "Estimated profile analysis calls": [
+    "预计画像分析调用次数",
+    "اتصالات تحليل الملف الشخصي المقدّرة",
+  ],
+  "Waiting prompts inside OMMS": ["OMMS 内等待处理的提示", "المطالبات المنتظرة داخل OMMS"],
+  "No work to process": ["没有待处理工作", "لا يوجد عمل للمعالجة"],
+  queued: ["排队中", "في الانتظار"],
+  preparing: ["准备中", "جارٍ التحضير"],
+  "not-run": ["未运行", "لم يُشغّل"],
+  "Analyse waiting prompts": ["分析等待处理的提示", "تحليل المطالبات المنتظرة"],
+  "Re-analyse chat history": ["重新分析聊天记录", "إعادة تحليل سجل المحادثات"],
+  "Analyse waiting prompts reads prompts already inside OMMS with the saved external API, 50 eligible prompts per analysis call. Completed history is not re-analysed. Preferences, patterns, and workflows are the outputs.":
+    [
+      "分析等待处理的提示使用已保存的外部 API，读取 OMMS 内已有的提示，每次分析调用处理 50 条符合条件的提示。不会重新分析已完成的历史记录。输出包括偏好、模式和工作流程。",
+      "يقرأ تحليل المطالبات المنتظرة المطالبات الموجودة داخل OMMS عبر واجهة API الخارجية المحفوظة، بمعدل 50 مطالبة مؤهلة لكل اتصال تحليل. لا يُعاد تحليل السجل المكتمل. المخرجات هي التفضيلات والأنماط وسير العمل.",
+    ],
+  "Analysis calls are an estimate. Matching, deduplication, retries, and newly waiting prompts can add calls.":
+    [
+      "分析调用次数为估计值。匹配、去重、重试和新增的等待提示可能增加调用次数。",
+      "اتصالات التحليل تقديرية. قد تضيف المطابقة وإزالة التكرار وإعادة المحاولة والمطالبات المنتظرة الجديدة اتصالات أخرى.",
+    ],
+  "Re-analyse chat history opens a forced profile-only import. It preserves your profile and project memories. Preview and confirmation are required. Each profile prompt can be forcibly re-analysed once.":
+    [
+      "重新分析聊天记录会打开强制仅导入画像的流程。现有画像和项目记忆将保留。必须先预览并确认。每条画像提示只能强制重新分析一次。",
+      "تفتح إعادة تحليل سجل المحادثات استيراداً قسرياً للملف الشخصي فقط. تُحفظ ذاكرة المشروع وملفك الشخصي. تلزم المعاينة والتأكيد. يمكن إعادة تحليل كل مطالبة للملف الشخصي بالقوة مرة واحدة.",
+    ],
+  "Automatic import reads older conversations when a host starts. It populates project memories and user profile input. The first backfill fixes a cutoff; later turns use live capture.":
+    [
+      "自动导入在宿主启动时读取较早的对话，填充项目记忆和用户画像输入。首次回填固定截止时间，之后的轮次使用实时捕获。",
+      "يقرأ الاستيراد التلقائي المحادثات الأقدم عند بدء المضيف. ويضيف ذاكرة المشروع ومدخلات الملف الشخصي. يثبت أول استيراد تاريخاً فاصلاً؛ وتستخدم الرسائل اللاحقة الالتقاط المباشر.",
+    ],
+  "A directory map links a recorded project folder to its current folder. Saved maps apply globally to every host at the next import or backfill run. Review changes before saving.":
+    [
+      "目录映射将记录的项目文件夹链接到当前文件夹。保存的映射在下次导入或回填时全局应用于所有宿主。保存前请检查更改。",
+      "تربط خريطة المجلدات مجلد المشروع المسجل بمجلده الحالي. تنطبق الخرائط المحفوظة على جميع المضيفين في الاستيراد التالي. راجع التغييرات قبل الحفظ.",
+    ],
+  "Prompt date from must not be after Prompt date to.": [
+    "提示开始日期不能晚于结束日期。",
+    "يجب ألا يأتي تاريخ بدء المطالبات بعد تاريخ انتهائها.",
+  ],
+  "Profile batch size must be a positive integer.": [
+    "画像批次大小必须为正整数。",
+    "يجب أن يكون حجم دفعة الملف الشخصي عدداً صحيحاً موجباً.",
+  ],
   Models: ["模型", "النماذج"],
   "External API fallback": ["外部 API 备用模型", "النموذج الاحتياطي عبر واجهة API الخارجية"],
   none: ["无", "لا يوجد"],

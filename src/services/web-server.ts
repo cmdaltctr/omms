@@ -1024,7 +1024,7 @@ export class WebServer {
         });
       }
 
-      if (path === "/" || path === "/index.html" || path === "/settings") {
+      if (path === "/" || path === "/index.html" || path === "/settings" || path === "/memory") {
         return this.serveStaticFile("index.html", "text/html");
       }
 

@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import type { CaptureSummaryProvider } from "../core/host.js";
 import type { ModelPort } from "../core/profile-analysis.js";
+import { profileFailureCode } from "../core/profile-failure.js";
 import type { HistoryImportArgs, ImportHost } from "./import-args.js";
 import type { ImportPathMap, ImportReport } from "./importer.js";
 import type { UnresolvedProject } from "./opencode-project.js";
@@ -27,6 +28,8 @@ export interface HistoryImportRun {
   signal?: AbortSignal;
   /** Profile batches done and planned, during the profile step after the exchanges. */
   onProfileProgress?: (done: number, total: number) => void;
+  /** Eligible dry-run profile prompt identities, kept out of public reports. */
+  onProfilePrompt?: (identity: string) => void;
   /** Record progress and take the host's lock for a run that calls models. */
   track?: { surface: ImportSurface; lockHeld?: boolean; expectedTotal?: number };
   /** Saved directory maps; defaults to the global `importPathMaps`. */
@@ -104,7 +107,13 @@ export async function runHistoryImport(
       });
       const handled = report.unitsImported + report.unitsSkipped + report.unitsFailed;
       await recorder.finish(
-        recorder.pauseRequested ? "paused" : controller.signal.aborted ? "stopped" : "done",
+        recorder.pauseRequested
+          ? "paused"
+          : controller.signal.aborted
+            ? "stopped"
+            : report.profile?.error
+              ? "failed"
+              : "done",
         {
           // The total stays the one progress last reported; a real run has no
           // "would import" count of its own.
@@ -112,7 +121,8 @@ export async function runHistoryImport(
           imported: report.unitsImported,
           skipped: report.unitsSkipped,
           failed: report.unitsFailed,
-        }
+        },
+        report.profile?.error ? profileFailureCode(report.profile.error) : undefined
       );
       // Only a run over every project and every session sees the full list.
       if (args.scope === "all-projects" && !run.selection) await recordUnresolved(host, report);
@@ -184,6 +194,7 @@ async function runUntracked(
       ...(run.models.capture ? { provider: capture } : {}),
       ...(run.models.profile ? { profileModel: run.models.profile } : {}),
       ...(run.onProfileProgress ? { onProfileProgress: run.onProfileProgress } : {}),
+      ...(run.onProfilePrompt ? { onProfilePrompt: run.onProfilePrompt } : {}),
     });
   }
 
@@ -197,6 +208,7 @@ async function runUntracked(
             ...(run.models.profile ? { model: run.models.profile } : {}),
             ...(args.profileBatch ? { batchSize: args.profileBatch } : {}),
             ...(run.onProfileProgress ? { onProgress: run.onProfileProgress } : {}),
+            ...(run.onProfilePrompt ? { onEligiblePrompt: run.onProfilePrompt } : {}),
           },
         }
       : {}),

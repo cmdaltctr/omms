@@ -9,6 +9,8 @@ import { buildImportKey, type ImportSourceSession } from "./importer.js";
 import { existsSync } from "node:fs";
 import { ImportLedger, importLedgerDbPath } from "./ledger.js";
 import { drainProfileBacklog } from "./profile-backlog.js";
+import { isTrivialPrompt } from "../core/trivial-prompt.js";
+import { profilePromptIdentity } from "./web-import-profile-estimate.js";
 
 export interface ProfileImportReport {
   promptsRecorded: number;
@@ -48,6 +50,8 @@ export interface ProfileImportOptions {
   profileStore?: ProfileStore;
   /** Profile batches done and planned; called before the first batch and after each one. */
   onProgress?: (done: number, total: number) => void;
+  /** Dry-run estimate input only; no prompt content leaves this pipeline. */
+  onEligiblePrompt?: (identity: string) => void;
 }
 
 /** Record historical prompts and build or update the user profile in batches. */
@@ -110,6 +114,8 @@ export async function importProfileFromHistory(
         continue;
       }
       if (options.dryRun) {
+        if (!isTrivialPrompt(prompt))
+          options.onEligiblePrompt?.(profilePromptIdentity(session.sessionId, unit.userEntryId));
         report.promptsWouldRecord++;
         continue;
       }

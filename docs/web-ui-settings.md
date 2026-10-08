@@ -1,12 +1,12 @@
 # Settings page
 
-This guide explains each part of the web app's Settings page, in the order the page shows them.
+Settings holds API and model configuration, embedding, access controls, diagnostics, health, Claude Code's folder, profile identities, web app controls and logs. Memory operations live on the [Memory page](web-ui-memory.md).
 
 Open `http://127.0.0.1:4747/settings`, select **Settings** in the sidebar, or select the cogwheel at the bottom of the sidebar. The arrow next to **Settings** opens a list of the page cards. Select a card to go straight to it. The sidebar remembers whether the list is open. One shared web app serves the page. OpenCode, Pi, and Claude Code start it when none runs, and the login item starts it at sign-in. See [Web UI](web-ui.md) for starting the web app, ports, and access control.
 
 ## How saving works
 
-Every section saves to the global config file, `~/.config/omms/omms.jsonc`.
+Configuration sections on Settings and Memory share one safe save flow to `~/.config/omms/omms.jsonc`. A save refreshes their shared revision; opening the other page reads the current settings.
 
 - A save changes only the keys you changed. Comments, key order, and other keys stay as they are.
 - The page never writes a project's `.opencode/omms.jsonc`. When a project file overrides a value, the page says so.
@@ -115,31 +115,7 @@ Health checks, test calls, and history imports that use an OpenCode model still 
 
 ## Memory
 
-Select **Memory** after **Models** in the Settings tree, or open `/settings#settings-section-memory`. Direct links and reloads bring the card into view.
-
-The table has **Setting**, **Value**, **Default**, **Unit**, and **Affects** columns. Effects stay visible beside each numeric input.
-
-| Setting                      | Default | Unit               | Accepted values          | Affects                                                                                                               |
-| ---------------------------- | ------- | ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `maxMemories`                | 10      | Results            | Positive safe integers   | Maximum search results; a manual search can request fewer.                                                            |
-| `chatMessage.maxMemories`    | 3       | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 search each prompt.               |
-| `autoCaptureMaxContextBytes` | 131072  | Bytes              | 16384–16777216 inclusive | Conversation input sent through the shared memory-summary pipeline.                                                   |
-| `userProfileMaxContextBytes` | 32768   | Bytes              | 1024–16777216 inclusive  | OpenCode profile-learning input, including its truncation marker. Other hosts' profile input is outside this control. |
-| `retrievalMaxTokens`         | 2000    | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text, formatting, and retrieval wrappers.                |
-
-Bytes mean UTF-8 bytes. Approximate tokens use `ceil(bytes / 4)`, which can differ from the model's count. Count limits accept up to 9007199254740991. Smaller values can omit conversation input or inject fewer or shorter memories. Stored data and manual search content remain unchanged. These controls do not set a spending limit, limit model replies, or control Graphify output.
-
-1. Change the global values you need.
-2. Correct any validation messages beside the inputs.
-3. Select **Save** when a valid draft differs from the loaded values.
-
-**Cancel** restores the loaded values without writing. During a save, the card prevents duplicate submissions and shows the outcome. A successful save refreshes the shared Settings revision, so another card can save afterwards.
-
-A row with a project override shows its effective value and source. The input still edits the global value; the override stays in force. Project files remain unchanged. The existing shallow merge also applies to `chatMessage`: a project object replaces the global object, with defaults for omitted siblings.
-
-Saving `chatMessage.maxMemories` edits only the leaf inside `chatMessage`. Siblings such as `enabled` and `injectOn`, their comments, and unrelated keys keep their values and order. Unsupported nested edits are refused. An invalid save writes nothing. If another editor changed the file, review the refreshed values and save again.
-
-You can configure every row without the web UI by editing `~/.config/omms/omms.jsonc`. See [Configuration: Memory limits](configuration.md#memory-limits) for a file-only example, packing rules, and host coverage. Valid edits apply at the next relevant operation; invalid live edits retain the last valid settings.
+Moved to [Memory limits](web-ui-memory.md#memory-limits). `/settings#settings-section-memory` redirects to `/memory#memory-section-limits`. Defaults, units, host coverage and safe-save rules remain unchanged.
 
 ## Embedding
 
@@ -335,99 +311,25 @@ Use this section when Claude Code does not keep its data in `~/.claude`, for exa
 
 ## Import and backfill
 
-Use this section to import past chats by hand. A backfill is an import of old chats; the next section runs one automatically.
-
-At the top, one box for each host shows its import status:
-
-- **Imported ✅:** the latest run finished, nothing is pending, and no session is unresolved.
-- **Partly imported (N unresolved):** the latest run finished, but N sessions have no folder. Sessions in ignored folders are not counted, so ignoring every unresolved folder shows **Imported ✅**. Select the badge to open that host's Directory maps list. Focus moves to its summary. The visible count stays unchanged; other status badges are informational.
-- **Running**, or **Learning profile** while a finished run learns the profile from the imported prompts.
-- **Stopped (N pending)**, **Paused**, **Failed ⛔️**, or **Not started**.
-
-1. Choose the **History host**: Pi, OpenCode, or Claude Code.
-2. Select **List sessions**. The list shows each session's date, ID, project folder, and how the folder was found. It never shows prompts or replies.
-3. Tick sessions, or select **Select all matching** to include every page.
-4. Select **Preview (dry run)**. It counts the exchanges that would be imported. It makes no model calls and writes nothing.
-5. Choose the **Import model**: **Saved external API**. The web app has no OpenCode session, so it offers no OpenCode signed-in model. The page says an import with an OpenCode signed-in model runs from the terminal or with `/import` in OpenCode. A Claude Code import always uses the saved external API.
-   - The option reads **Saved external API**, without the model name. It adds **not ready** when the external API is not fully set up.
-   - After any save on the page, the section reads the import readiness again. A new external API model applies to the next import without a page reload.
-6. Select **Start import**.
-
-While an import runs, progress updates every second. **Cancel after current unit** stops at a safe point. A later run imports the rest. The page, the terminal commands, and the automatic backfill share one record of finished work, called the ledger, so nothing is imported twice.
-
-How the folder was found (**Resolved by**):
-
-- **recorded.** The folder the session was recorded in still exists.
-- **mapped.** A directory map sends the session to another folder.
-- **project root.** OpenCode only. The recorded folder is gone, so OMMS uses the project folder OpenCode recorded.
-- **missing.** No folder could be found. The session cannot be imported until a directory map resolves it.
-
-The page keeps the preview and the import on the same sessions:
-
-- If a session appears or disappears after you list them, the page asks you to refresh the list.
-- Turns written after you listed the sessions wait for the next run. The report says how many.
-- If you change the scope, project, source, or directory maps, the page asks you to refresh the list first.
+Moved and renamed to [Import chat history](web-ui-memory.md#import-chat-history). `/settings#settings-section-import` redirects to `/memory#memory-section-import`.
 
 ### Advanced options
 
-Select **Advanced options** to see these fields.
-
-| Option                                      | Effect                                                                                                                                                                         |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Source                                      | Pi: a sessions folder or one `.jsonl` file. OpenCode: a database file. Claude Code: a transcripts folder (source kind `claude-projects`). The default is the host's own store. |
-| Scope                                       | **Current project** or **All projects**.                                                                                                                                       |
-| Project directory                           | The project for the current-project scope.                                                                                                                                     |
-| Prompt date from, Prompt date to            | Import only turns from these whole days, in your browser's time zone.                                                                                                          |
-| Directory maps                              | `old=new`, one per line. They apply to this import and win over saved maps for the same folder.                                                                                |
-| Profile batch size                          | Prompts per profile analysis request.                                                                                                                                          |
-| Force reimport, Skip memories, Skip profile | Import finished units again, or skip one of the two import steps (memories or the user profile).                                                                               |
-
-Other details:
-
-- **Browse** lists one folder at a time. It works only when the server is bound to `127.0.0.1`. On a network address, type the path instead.
-- The server reads files in place and never changes them.
-- While OpenCode runs, the server reads a private copy of its database. It first checks that the temporary folder has space for the copy.
-
-**Model readiness.** A real import needs a connected OpenCode model, when OpenCode serves the page, or a fully set up external API. A web import cannot use a Pi sign-in. A Claude Code import needs the external API. Import readiness has a `claudeCode` entry: it shows the default folder `~/.claude/projects` and whether it exists. `Configured, not tested.` means the settings are present. Use **Test models in Health** to try a call.
+See [Memory: Advanced options](web-ui-memory.md#advanced-options) for sources, dates, maps, batch size and re-analysis.
 
 ## Automatic import
 
-An automatic import, or backfill, imports each host's old chats in the background. It starts about 30 seconds after Pi or OpenCode starts. For Claude Code, it starts about 30 seconds after the first Claude Code session start that reaches the web app. It makes model calls, so it costs what your model costs.
-
-- **Import past chats automatically** turns backfill on or off for every host (`autoBackfill`). Turning it off stops a running backfill after its current exchange.
-
-Each host has a collapsed card. Its summary shows the state, pending exchanges, and unresolved sessions. A card opens by default when its host has a running or paused run. A card you open or close keeps that state while the counts refresh.
-
-For each host:
-
-- **Backfill model.** The model that imports old chats.
-  - **Same as live capture** uses the model from the Models section. Saves `inherit`.
-  - **External API** uses the External API card. Saves `external`. It can run from the web app with no host open.
-  - A listed or typed `provider/model` uses another model from the host's sign-in, for example a cheaper one. Live capture keeps its own model.
-- **State.** Not started, running, paused, stopped, done, or failed. For a running import it also shows where it started: automatically, from the web page, from the terminal, or from a slash command.
-- **Progress.** A bar, the percentage, done out of total, and the minutes left, only while exchanges are imported. Minutes left comes from the recent rate. It shows as unknown until about a minute of progress.
-- **Learning profile.** After the last exchange, a run learns the profile from the imported prompts, 50 prompts for each model call. The card shows the batches done out of the total in place of the bar.
-- **Last run.** When no run is active, the card shows when the latest run finished, how it started, and its imported, skipped, and failed counts.
-- **Counts.** Pending exchanges, and sessions whose folder cannot be found. When there are any, a link opens that host's Directory maps list and focuses its summary. The unresolved count is a number of sessions, and it matches the session counts in Directory maps. Sessions in ignored folders are not counted.
-- **Model**, **Cutoff**, and the last error. The cutoff is fixed at the first backfill. Later turns are saved by live capture instead.
-
-The Claude Code card has no **Backfill model** choice. It shows "Claude Code backfill always uses the external API. It has no backfill model setting." When the external API is not fully configured, **Run now** and **Resume** name the missing setting. See [Claude Code history import](claude-code-history-import.md#automatic-import).
-
-The page refreshes these values every 3 seconds while an import runs. Progress counts only exchanges that need a model call. Exchanges already in the ledger are left out.
-
-Only one import runs for each host at a time. This includes a backfill, a page import, a terminal import, and a slash command. A second one is refused with `A Pi import is already running`.
+See [Memory: Automatic import](web-ui-memory.md#automatic-import). `/settings#settings-section-auto-import` redirects to `/memory#memory-section-auto-import`.
 
 ### Run now, Pause, and Resume
 
-- **Run now** starts the host's backfill at once. It uses the same cutoff, maps, model rule, and ledger as the automatic run.
-- **Pause** stops the run after its current exchange, including a run in another process. A paused backfill does not start again when the host starts.
-- **Resume** clears the pause and starts the run. It continues from the ledger.
-
-Run now and Resume run inside the web app. The Claude Code backfill always runs in the web app with the external API. Without Pi or OpenCode open, they need the host's backfill model to use the external API. Otherwise the page says: `Open Pi, or choose the external API for Pi's backfill`. The web app has no OpenCode session, so OpenCode's backfill from the page needs the external API. A backfill with an OpenCode signed-in model runs inside OpenCode, from the terminal, or with `/import`.
+See [Memory: Run now, Pause and Resume](web-ui-memory.md#run-now-pause-and-resume).
 
 ## Profiles
 
-OMMS keeps one user profile for each git email. A folder whose repository sets its own `user.email` starts a second profile. When more than one profile is active, a **Profiles** card appears above Profile learning. It is hidden with one profile.
+Profile identity controls remain in Settings at `/settings#settings-section-profiles`. OMMS keeps one user profile for each git email. A repository with its own `user.email` can start a second profile. The **Profiles** card appears only when more than one active profile exists.
+
+Choosing **All hosts** on Memory preserves those identity rules and does not merge different emails. [Profile learning](web-ui-memory.md#profile-learning) operates on prompts; choosing and merging identities stays here.
 
 - The table lists each profile's email, its numbers of preferences, patterns, and workflows, the prompts analysed, and its last update. ✅ **in use** marks the profile OMMS uses now.
 - **Use this profile** saves its email as `userEmailOverride` in the global config. Every folder then uses that profile.
@@ -437,86 +339,19 @@ The routes are `GET /api/settings/profiles`, `POST /api/settings/profiles/use` w
 
 ## Profile learning
 
-Profile learning reads your prompts and updates the user profile. Each host runs a live pass after `userProfileAnalysisInterval` new prompts. See [Using memory: User profile](using-memory.md#user-profile).
-
-A backlog can build up, for example after a history import or after failed passes. This card clears it.
-
-- **Prompts waiting for profile learning** shows the number of waiting prompts.
-- **Model calls** shows how many calls a run makes. One call analyses 50 prompts.
-- **Catch up profile** starts a run with the saved external API. The page first asks you to confirm, and shows the number of model calls.
-- While the run works, the card shows the batches done and the prompts that still wait.
-- **Pause** stops the run after the current batch. **Resume** continues it.
-- A failed batch stops the run. The card shows its reason code, for example `timeout` or `http-429`. Finished batches stay learned. The next run continues from there.
-
-Rules for a run:
-
-- The run takes the oldest prompts first.
-- Only one run works at a time, across the page and the terminal. A second start on the page gets `409`.
-- The newest run takes over. When you start a terminal run while the page run works, the page run stops before its next batch and shows **A newer catch-up run took over.** The terminal run waits until the page run finishes its current batch, so no batch is sent twice.
-- A run that stops without clearing its record, for example after a crash, blocks nothing after 10 minutes.
-- The web app runs no live Claude Code profile pass while a catch-up run works.
-- The run ignores the 10-minute wait that follows a failed live pass, because you started it.
-- Open the page on the computer that runs OMMS to start, pause, or resume a run. From another computer, the card shows the counts only.
-
-The routes are `GET /api/settings/profile/catch-up` and `POST /api/settings/profile/catch-up/start`, `.../pause`, and `.../resume`. The `POST` routes need a caller on this machine and the local token file (`~/.omms/.auth-token`). Other callers get `403`.
-
-To use another model, or to run the catch-up from a terminal, see [CLI: Profile catch-up](cli.md#profile-catch-up).
+See [Memory: Profile learning](web-ui-memory.md#profile-learning) for **Analyse waiting prompts** and **Re-analyse chat history**. `/settings#settings-section-profile` redirects to `/memory#memory-section-profile`. Identity controls stay in [Profiles](#profiles).
 
 ## Directory maps
 
-A directory map tells OMMS which project a folder belongs to. Use it when chats were recorded in a folder that no longer exists, such as a deleted git worktree.
-
-- **Saved maps** is collapsed. Its summary shows the number of maps in `importPathMaps`. Maps apply to every host. Inside, the maps are grouped by target folder, largest group first. Each group is collapsed and shows its target and map count.
-- **Remove** marks a map for removal, and **Keep** undoes that. **Save removals** saves the removals. It is available only while a removal is pending.
-- Keep a map after its sessions import. Every host checks the map before it checks the import ledger. If you remove a map, its sessions are unresolved again at the next run.
-- **Ignored directories** is collapsed. It lists the folders in `importIgnoredDirectories`. **Restore** removes a folder from the list at once. The folder then shows again in each host list that reported it.
-- Each host's **Unresolved directories** starts collapsed. Its summary shows the directory count, the unresolved session count, and the number of rows with a target. Expand a host to see **Smart resolve directories** and the compact rows. Expand a row to edit its target. Collapsing keeps unsaved targets.
-- **Ignore** on a row adds its folder to `importIgnoredDirectories` at once. The row leaves the host list, and its sessions leave every unresolved count. The sessions stay unimported. Ignore does not change `importPathMaps`, the ledger, or history files.
-- A **Partly imported** badge or an Automatic import directory link opens only the matching host and focuses its summary. Repeating the link opens it again after collapse. Other disclosures, target editors, and unsaved maps keep their state. An empty latest list shows that host's empty message. Navigation saves nothing and starts no import.
-- Sessions that recorded no folder appear under **No directory recorded**. They cannot be mapped or ignored.
+Moved and renamed to [Resolve missing project folders](web-ui-memory.md#resolve-missing-project-folders). `/settings#settings-section-directory-maps` redirects to `/memory#memory-section-project-folders`. Old `/settings#directory-maps-pi`, `...-opencode` and `...-claude-code` links redirect to the matching host disclosure on Memory.
 
 ### Suggestions
 
-For each missing folder, OMMS tries these rules in order. The first rule with a result wins.
-
-1. **Not a project.** A folder under `/tmp`, `/private/tmp`, `/private/var/folders`, or the system temporary folder, a path with a `node_modules` part, a folder under `~/Library/Application Support`, or a folder under `~/.agents/skills` or the `skills` folder of Claude Code's folder gets an ignore proposal with its reason. Claude Code's folder is the `claudeConfigDir` setting, then `CLAUDE_CONFIG_DIR`, then `~/.claude`.
-2. **Same remote.** The memory store records the missing folder for a project with a git remote. When exactly one existing project has the same remote, OMMS suggests it. Confidence: **Exact**.
-3. **OpenCode record.** For OpenCode, the project folder that OpenCode recorded for the session. Confidence: **Exact**. When that folder is also missing, OMMS applies rules 2 to 6 to it.
-4. **Deleted worktree.** The main repository of a deleted worktree. For `~/code/app-feat-x` or `~/workspaces/app/feat-x`, it suggests `~/code/app`. A live linked worktree is never the target: OMMS reads its `.git` file and suggests the main repository. Confidence: **Name match**.
-5. **Moved folder.** Exactly one known project has the same folder name. Two or more give no suggestion. Confidence: **Name match**.
-6. **Rename guess.** Exactly one project beside the missing folder, or beside a known project, has a name whose parts match the old name. Each part must equal an old part, or the initials of several old parts, in order. At least two parts must match exactly. For example, `om-pi-subagents` for `opinionated-modular-pi-subagents-system-ompss`. Confidence: **Guess**.
-
-Known projects are the memory store's projects, the saved map targets, and OpenCode's recorded project folders. OMMS reads them without writing the store, OpenCode's database, or Git, and makes no network requests. `No suggestion found.` means no rule gave a result. Type a target, ignore the folder, or leave it unmapped.
+See [Memory: Suggestions](web-ui-memory.md#suggestions).
 
 ### Smart resolve
 
-**Smart resolve directories** is the only way to save maps for unresolved folders. It opens a review dialog for that host with three groups:
-
-- **Proposed maps**, each with its target, session count, and confidence. An edited target counts as **Exact**. A cleared target stays without a target.
-- **Suggested to ignore**, each with its reason and session count.
-- **No target**, for rows with nothing to save.
-
-Each map and each ignore proposal has a tick box. When the dialog opens, **Exact** and **Name match** maps and every ignore proposal are ticked. **Guess** maps are not ticked. **Confirm** saves the ticked maps to `importPathMaps` and the ticked folders to `importIgnoredDirectories` in one save. It is disabled when nothing is ticked. When there is nothing to propose, the dialog tells you to type a target in a row, or to press **Ignore** for folders that are not projects.
-
-- Existing saved maps and ignored folders stay. Unrelated target edits and pending removals stay unsaved. A confirmed source has one global map across hosts.
-- **Cancel**, Escape, and the dialog close button change nothing.
-- A rejected save keeps the review, its ticks, and an error. If settings changed elsewhere, review again before you confirm. The page prevents duplicate saves and dismissal while saving.
-- If saving succeeds but the refresh fails, select **Refresh list**. This reloads the saved result without another save.
-- Opening a review, confirming, ignoring, and restoring start no import.
-
-To save suggested maps:
-
-1. Expand the host.
-2. Optional: expand a row and type a target.
-3. Select **Smart resolve directories**.
-4. Check the ticks. Tick a **Guess** only after you check its target.
-5. Select **Confirm**.
-
-The dialog supports keyboard focus and long paths. Its text follows the selected language. Saving does not recreate folders or import sessions.
-
-Maps apply to the next import or backfill run, on every surface. A terminal `--map` for the same folder wins for that run. A map to a folder that does not exist leaves its sessions unresolved. Memories already imported through a map stay when you remove it.
-
-The list fills when you list sessions under Import and backfill, or when an import or backfill runs over all projects. An import of one project, or of sessions you ticked, does not replace the list.
+See [Memory: Smart resolve](web-ui-memory.md#smart-resolve).
 
 ## Web app
 

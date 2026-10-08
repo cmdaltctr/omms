@@ -22,6 +22,8 @@ export type ImportRunView = {
   profileTotal?: number;
   startedAt?: number | null;
   updatedAt?: number | null;
+  /** Stored run error with secrets removed. */
+  error?: string | null;
   imported?: number;
   skipped?: number;
   failed?: number;
@@ -83,6 +85,7 @@ export type BackfillStatusView = {
   state: string;
   counts: { pending: number; unresolved: number; failed?: number };
   error: string | null;
+  updatedAt?: number | null;
 } | null;
 
 export type ImportBadge =
@@ -103,6 +106,12 @@ export function importStatusBadge(status: BackfillStatusView, run: ImportRunView
       : { kind: "running" };
   }
   if (run?.paused) return { kind: "paused" };
+  if (
+    run?.state === "failed" &&
+    (run.updatedAt ?? run.startedAt ?? 0) >= (status?.updatedAt ?? 0)
+  ) {
+    return { kind: "failed", error: run.error ?? status?.error ?? null };
+  }
   if (!status || status.state === "not-started") {
     return run?.state === "done" ? { kind: "imported" } : { kind: "not-started" };
   }

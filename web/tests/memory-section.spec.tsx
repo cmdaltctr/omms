@@ -6,6 +6,7 @@ import * as react from "react";
 import { setLanguage } from "../src/lib/i18n/index.ts";
 import { translateSettings } from "../src/lib/i18n/settings.ts";
 import { SETTINGS_SECTIONS } from "../src/lib/settings-sections.ts";
+import { MEMORY_SECTIONS } from "../src/lib/memory-sections.ts";
 
 // The Memory card keeps its snapshot, draft, busy, and status in this order,
 // so the tests can inject each state through the shared mock. The status is
@@ -33,7 +34,7 @@ mock.module("react", () => ({
     ];
   },
 }));
-const { MemorySection } = await import("../src/lib/components/settings/MemorySection.tsx");
+const { MemorySection } = await import("../src/lib/components/memory/MemorySection.tsx");
 const controls = await import("../src/lib/memory-controls.ts");
 /** Run the recorded mount effects once, so load failures happen for real. */
 const runEffects = () => {
@@ -200,8 +201,10 @@ it("renders one Memory card with an H2 section title and five labelled rows", ()
   expect(html.match(/<section/g)).toHaveLength(1);
   // One form holds the five rows and the Save/Cancel controls (design 7).
   expect(html.match(/<form/g)).toHaveLength(1);
-  expect(html).toMatch(/<h2 class="[^"]*text-section-title[^"]*font-semibold[^"]*">Memory<\/h2>/);
-  expect(html).toContain('aria-label="Memory"');
+  expect(html).toMatch(
+    /<h2 class="[^"]*text-section-title[^"]*font-semibold[^"]*">Memory limits<\/h2>/
+  );
+  expect(html).toContain('aria-label="Memory limits"');
   expect(html).not.toMatch(/<h[34]\b/);
   for (const header of ["Setting", "Value", "Default", "Unit", "Affects"]) {
     expect(html).toContain(`>${header}</th>`);
@@ -242,8 +245,8 @@ it("explains UTF-8 bytes, the approximate-token estimate, and the limits' scope"
   expect(html).toContain(
     "These controls do not delete stored data, set a spending limit, limit model replies, or control Graphify output."
   );
-  expect(html).toContain("~/.config/omms/omms.jsonc");
-  expect(html).toContain(
+  expect(html).toContain('<code dir="ltr">~/.config/omms/omms.jsonc</code>');
+  expect(html.replace(/<[^>]+>/g, "")).toContain(
     "Edit ~/.config/omms/omms.jsonc directly to set these limits without the web UI."
   );
 });
@@ -561,8 +564,8 @@ it("translates every visible and accessible message into Chinese and Arabic", ()
     expect(translateSettings(message, "ar").length).toBeGreaterThan(0);
   }
   for (const [language, title] of [
-    ["zh", "记忆"],
-    ["ar", "الذاكرة"],
+    ["zh", "记忆限制"],
+    ["ar", "حدود الذاكرة"],
   ] as const) {
     setLanguage(language);
     const html = render({ retrievalMaxTokens: "255" });
@@ -611,7 +614,7 @@ it("translates every visible and accessible message into Chinese and Arabic", ()
 
 it("uses the shared snapshot protection and revision flow", () => {
   const source = readFileSync(
-    new URL("../src/lib/components/settings/MemorySection.tsx", import.meta.url),
+    new URL("../src/lib/components/memory/MemorySection.tsx", import.meta.url),
     "utf8"
   );
   expect(source).toContain("beginSettingsRead");
@@ -622,7 +625,11 @@ it("uses the shared snapshot protection and revision flow", () => {
   expect(source).not.toContain("revealDirectoryMaps");
 });
 
-it("sits after Models in the settings page order", () => {
-  const ids = SETTINGS_SECTIONS.map((section) => section.id);
-  expect(ids.indexOf("settings-section-memory")).toBe(ids.indexOf("settings-section-models") + 1);
+it("belongs once to Memory after Profile learning and is absent from Settings", () => {
+  const ids = MEMORY_SECTIONS.map((section) => section.id);
+  expect(ids.indexOf("memory-section-limits")).toBe(ids.indexOf("memory-section-profile") + 1);
+  expect(ids.filter((id) => id === "memory-section-limits")).toHaveLength(1);
+  expect(
+    SETTINGS_SECTIONS.some((section) => String(section.id) === "settings-section-memory")
+  ).toBe(false);
 });

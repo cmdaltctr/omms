@@ -56,7 +56,7 @@ it("keeps the manual field visible when typed text matches a listed model", () =
   expect(manualModelFieldVisible(undefined, true)).toBe(false);
 });
 
-it("polls only while a host is running", () => {
+it("identifies running hosts for progress callers", () => {
   expect(shouldPollBackfill({ pi: { state: "running" }, opencode: null })).toBe(true);
   expect(shouldPollBackfill({ pi: { state: "done" }, opencode: { state: "failed" } })).toBe(false);
   expect(
@@ -64,9 +64,11 @@ it("polls only while a host is running", () => {
   ).toBe(true);
 });
 
-it("renders both Settings sections with the global switches and the running poll", () => {
+it("renders automatic import in Memory and web controls in Settings with unchanged switches", () => {
   const folder = join(import.meta.dir, "../web/src/lib/components/settings");
-  const automatic = readFileSync(join(folder, "AutoImportSection.tsx"), "utf8");
+  const memoryFolder = join(import.meta.dir, "../web/src/lib/components/memory");
+  const automatic = readFileSync(join(memoryFolder, "AutoImportSection.tsx"), "utf8");
+  const memoryView = readFileSync(join(memoryFolder, "MemoryView.tsx"), "utf8");
   const web = readFileSync(join(folder, "WebAppSection.tsx"), "utf8");
   const view = readFileSync(join(folder, "SettingsView.tsx"), "utf8");
   expect(automatic).toContain("autoBackfill");
@@ -74,7 +76,11 @@ it("renders both Settings sections with the global switches and the running poll
   expect(automatic).toContain("3000");
   expect(automatic).toContain("backfillModelEdit");
   expect(web).toContain("webServerAutoStart");
-  expect(view).toContain(": AutoImportSection,");
+  expect(memoryView).toContain('"memory-section-auto-import": <AutoImportSection />');
+  expect(view).not.toContain("AutoImportSection");
+  expect(readFileSync(join(folder, "AutoImportSection.tsx"), "utf8")).toContain(
+    'from "../memory/AutoImportSection"'
+  );
   expect(view).toContain(": WebAppSection,");
   // The Claude Code folder: a field, the folder in use, its source, and a missing folder warning.
   const claude = readFileSync(join(folder, "ClaudeFolderSection.tsx"), "utf8");
@@ -153,6 +159,59 @@ describe("import status badge", () => {
       kind: "stopped",
       pending: 5,
     });
+  });
+
+  it("shows a latest profile failure instead of an older successful backfill", () => {
+    const failedRun = run({
+      state: "failed",
+      phase: "profile",
+      startedAt: 200,
+      updatedAt: 300,
+      error: "Profile analysis failed: invalid_response [REDACTED]",
+      rawReply: "private model reply",
+    });
+    expect(importStatusBadge({ ...status("done"), updatedAt: 100 }, failedRun)).toEqual({
+      kind: "failed",
+      error: "Profile analysis failed: invalid_response [REDACTED]",
+    });
+  });
+
+  it("shows a latest profile failure when no backfill exists", () => {
+    expect(
+      importStatusBadge(
+        null,
+        run({ state: "failed", phase: "profile", updatedAt: 300, error: "timeout" })
+      )
+    ).toEqual({ kind: "failed", error: "timeout" });
+  });
+
+  it("keeps a newer successful backfill ahead of an older failed run", () => {
+    for (const timestamps of [
+      { startedAt: 50, updatedAt: 100 },
+      { startedAt: 100, updatedAt: null },
+    ]) {
+      expect(
+        importStatusBadge(
+          { ...status("done"), updatedAt: 200 },
+          run({ state: "failed", error: "old failure", ...timestamps })
+        )
+      ).toEqual({ kind: "imported" });
+    }
+  });
+
+  it("keeps completed runs with failed memory units Imported or Partly imported", () => {
+    for (const unresolved of [0, 27]) {
+      expect(
+        importStatusBadge(
+          {
+            state: "failed",
+            counts: { pending: 0, unresolved, failed: 1 },
+            error: "call failed",
+          },
+          run({ state: "done", failed: 1, error: "call failed" })
+        )
+      ).toEqual(unresolved ? { kind: "partly", unresolved } : { kind: "imported" });
+    }
   });
 
   it("draws the exchange bar only during the exchange phase of an active run", () => {
