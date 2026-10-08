@@ -17,7 +17,8 @@ it("shows the waiting count and the call count before a run", () => {
   );
   expect(html).toContain("2600");
   expect(html).toContain("52");
-  expect(html).toContain("Catch up profile");
+  expect(html).toContain("Analyse waiting prompts");
+  expect(html).toContain("Estimated profile analysis calls");
 });
 
 it("shows progress and Pause while running, and Resume after a pause", () => {

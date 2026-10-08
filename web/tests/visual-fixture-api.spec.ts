@@ -77,6 +77,60 @@ it("keeps declared memory and settings mutations in synthetic fixture memory", a
   }
 });
 
+it("keeps selected-host imports and profile controls inside synthetic fixture memory", async () => {
+  const readiness = await fixtureResponse("GET", "/api/settings/imports/readiness");
+  expect(readiness.body).toMatchObject({ external: { state: "ready" } });
+  const listing = await fixtureResponse("POST", "/api/settings/imports/sessions", { host: "pi" });
+  expect(listing.body).toMatchObject({ total: 2, source: { sourceToken: "synthetic-pi" } });
+  const preview = await fixtureResponse("POST", "/api/settings/imports", {
+    hosts: ["pi", "opencode", "claude-code"].map((host) => ({ host })),
+    options: { dryRun: true },
+  });
+  expect(preview).toMatchObject({
+    status: 202,
+    body: {
+      dryRun: true,
+      state: "done",
+      hosts: [{ host: "pi" }, { host: "opencode" }, { host: "claude-code" }],
+      profileEstimate: { waitingPrompts: 9 },
+      summary: { unitsAlreadyHandled: 3, unresolved: 3, profile: { promptsWouldRecord: 18 } },
+    },
+  });
+  const profileOnly = await fixtureResponse("POST", "/api/settings/imports", {
+    hosts: [{ host: "pi" }],
+    options: { dryRun: true, skipMemories: true },
+  });
+  expect(profileOnly.body).toMatchObject({
+    summary: { unitsTotal: 0, unitsWouldImport: 0, profile: { promptsWouldRecord: 6 } },
+  });
+  const memoryOnly = await fixtureResponse("POST", "/api/settings/imports", {
+    hosts: [{ host: "pi" }],
+    options: { dryRun: true, skipProfile: true },
+  });
+  expect(memoryOnly.body).not.toHaveProperty("profileEstimate");
+  expect((memoryOnly.body as { summary: unknown }).summary).not.toHaveProperty("profile");
+  const counts = await fixtureResponse("POST", "/api/visual/memory-state", { stage: "profile" });
+  expect(counts.body).toMatchObject({ starts: 0 });
+  const current = await fixtureResponse("GET", "/api/settings/imports/current");
+  expect(current.body).toMatchObject({
+    job: {
+      activeHost: "opencode",
+      hosts: [
+        { state: "done" },
+        { phase: "profile", profileProcessed: 2, profileTotal: 4 },
+        { state: "queued" },
+      ],
+    },
+  });
+  expect(
+    (await fixtureResponse("POST", "/api/settings/imports/current/cancel", {})).body
+  ).toMatchObject({ job: { state: "cancelled" } });
+  expect(
+    (await fixtureResponse("POST", "/api/settings/profile/catch-up/start", {})).body
+  ).toMatchObject({ state: "running" });
+  await fixtureResponse("POST", "/api/visual/memory-state", { stage: "reset" });
+});
+
 it("uses fixture middleware for both Vite server modes with no live API proxy", () => {
   const configPath = join(visualRoot, "vite.config.ts");
   expect(existsSync(configPath)).toBe(true);

@@ -1,4 +1,5 @@
 import { settingsResponse } from "./settings-fixtures";
+import { memoryResponse } from "./memory-fixtures";
 
 const timestamp = "2026-10-03T12:00:00.000Z";
 const memories = [
@@ -144,6 +145,8 @@ export function fixtureResponse(
 ): { status: number; body: unknown } {
   const path = new URL(url, "http://synthetic.invalid").pathname;
   const ok = (data: unknown) => ({ status: 200, body: { success: true, data } });
+  const memory = memoryResponse(method, path, body);
+  if (memory) return memory;
   const settings = settingsResponse(method, path, body);
   if (settings) return settings;
 

@@ -112,12 +112,14 @@ grep -E 'profile learning failed|profile learning: aborted|user-profile-learning
 
 ### Catch up the profile
 
-Prompts can wait for profile learning, for example after a history import. To analyse all of them at once:
+Prompts can wait inside OMMS after an import or failed profile pass. To analyse them:
 
-- On the Settings page, select **Catch up profile** in the **Profile learning** card. See [Settings page: Profile learning](web-ui-settings.md#profile-learning).
+- On **Memory**, select **Analyse waiting prompts** under **Profile learning**. Check the estimate and confirm. See [Memory: Analyse waiting prompts](web-ui-memory.md#analyse-waiting-prompts).
 - In a terminal, run `om-memory-system profile-catch-up`. See [CLI: Profile catch-up](cli.md#profile-catch-up).
 
-A run analyses 50 prompts in each model call, oldest first. It costs one model call for each batch. It stops at the first failed batch and keeps the finished batches. The next run continues from there. If you start a second run, from the page or a terminal, the newest run takes over after the current batch, so no batch is paid for twice.
+Catch-up reads waiting prompts oldest first, with 50 eligible prompts per analysis call. It leaves completed history handled. Trivial prompts need no model call. Matching, deduplication and retries can add calls beyond the analysis estimate.
+
+A failed batch stops the run; completed batches stay learned. Resume continues from waiting prompts. A terminal run can take over after the active batch. A second start in the same web app is refused.
 
 ### How long profile items stay
 
@@ -128,20 +130,25 @@ Each profile pass removes old items that have little support:
 
 ### Rebuild the profile from history
 
-Catch up analyses only prompts that still wait. To analyse imported history again, for example after old workflows were removed, run the history import with `--force --skip-memories`. Start with a dry run to see the number of prompts:
+On **Memory**, select **Re-analyse chat history**. It opens a forced profile-only import with User profile selected and Project memories deselected. Choose hosts and scope, list sessions, preview and confirm before model calls. The preset preserves your profile and leaves project memories unchanged.
+
+From a terminal, run the history import with `--force --skip-memories`. Start with a dry run:
 
 ```bash
 om-memory-system import-pi-history --scope all-projects --force --skip-memories --dry-run
 om-memory-system import-pi-history --scope all-projects --force --skip-memories
 ```
 
-Do the same with `import-opencode-history` and `import-claude-history`. On the Settings page, turn on **Force reimport** and **Skip memories** in the import options. Each rebuild costs one model call for each 50 prompts. Each history prompt is re-analysed once. A later forced run skips the prompts an earlier forced run already re-analysed, so a repeat does not count the same prompt twice.
+Do the same with `import-opencode-history` and `import-claude-history`. Commands and flags stay unchanged. Each history prompt can be forcibly re-analysed once; later forced runs skip earlier replays. Findings use existing matching and retention rules and can merge into existing items. Re-analysis preserves the profile and does not guarantee more workflows.
+
+[Memory's preview](web-ui-memory.md#analysis-call-estimates) counts eligible non-trivial history and the shared waiting backlog once. Additional matching, deduplication, retries or newly waiting prompts can add calls.
+
+Profile identities still follow git emails. **All hosts** does not merge different emails. Use [Profiles in Settings](web-ui-settings.md#profiles) to choose or merge identities when more than one active profile exists.
 
 ## Web UI
 
 Open `http://127.0.0.1:4747` to browse the memory and prompt timeline, look at
-captures, and manage the user profile. For the Settings page, see
-[Settings page](web-ui-settings.md). If you open the server beyond loopback,
+captures, and manage the user profile. Use [Memory](web-ui-memory.md) for history imports, profile actions, memory limits and missing project folders. Settings retains [models and profile identities](web-ui-settings.md). If you open the server beyond loopback,
 see [Web UI HTTP Basic Auth](web-ui.md#http-basic-auth).
 
 ## The memory tool

@@ -1,6 +1,12 @@
 import { expect, it } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
+import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import ts from "typescript";
+import { t } from "../src/lib/i18n/index.ts";
+import { translateSettings } from "../src/lib/i18n/settings.ts";
+import type { Lang } from "../src/lib/i18n/translations.ts";
+import type { AppView } from "../src/lib/routes.ts";
 import { ProfileView } from "../src/lib/components/explorer/ProfileView.tsx";
 import { DirectoryMapHost } from "../src/lib/components/settings/DirectoryMapHost.tsx";
 import { fixtureResponse } from "./visual/fixtures.ts";
@@ -35,7 +41,7 @@ it("defines relative 24/18/15/14px roles and styles stored Markdown headings as 
 it("keeps the application page title and gives Settings cards shared section roles", () => {
   const app = source("App.tsx");
   expect(app.match(/<h1\b/g)).toHaveLength(1);
-  expect(app).toContain('<h1 className="text-page-title font-semibold text-foreground">');
+  expect(app).toMatch(/<h1\b[\s\S]*?text-page-title font-semibold text-foreground/);
   expect(app).toContain('<h2 className="text-section-title font-semibold');
   const folder = new URL("../src/lib/components/settings/", import.meta.url);
   for (const file of readdirSync(folder).filter((name) => name.endsWith(".tsx"))) {
@@ -48,6 +54,73 @@ it("keeps the application page title and gives Settings cards shared section rol
     }
   }
 });
+
+// Render the owning H1 without mounting unrelated data-loading views or mocking translations.
+function pageHeading(currentView: AppView, language: Lang) {
+  const heading = source("App.tsx").match(/<h1\b[\s\S]*?<\/h1>/)?.[0];
+  expect(heading).toBeDefined();
+  const { outputText } = ts.transpileModule(`return (${heading});`, {
+    compilerOptions: { jsx: ts.JsxEmit.React },
+    fileName: "heading.tsx",
+  });
+  const render = new Function(
+    "React",
+    "currentView",
+    "language",
+    "t",
+    "translateSettings",
+    outputText
+  );
+  const element = render(
+    React,
+    currentView,
+    language,
+    (key: string) => t(key, {}, language),
+    translateSettings
+  ) as React.ReactElement<{ className: string; children: string }>;
+  expect(element.type).toBe("h1");
+  expect(element.props.className.split(/\s+/)).toEqual(
+    expect.arrayContaining(["text-page-title", "font-semibold", "text-foreground"])
+  );
+  expect(renderToStaticMarkup(element)).toContain("<h1");
+  return element.props;
+}
+
+for (const [view, label] of [
+  ["memory", "Memory"],
+  ["settings", "Settings"],
+] as const) {
+  it(`presents the English ${view} H1 in uppercase while keeping semantic text`, () => {
+    const heading = pageHeading(view, "en");
+    expect(heading.children).toBe(label);
+    expect(heading.className.split(/\s+/)).toContain("uppercase");
+  });
+}
+
+for (const [view, key] of [
+  ["project", "tab-project"],
+  ["profile", "tab-profile"],
+] as const) {
+  it(`keeps the ${view} H1 casing unchanged in every language`, () => {
+    for (const language of ["en", "zh", "ar"] as const) {
+      const heading = pageHeading(view, language);
+      expect(heading.children).toBe(t(key, {}, language));
+      expect(heading.className.split(/\s+/)).not.toContain("uppercase");
+    }
+  });
+}
+
+for (const language of ["zh", "ar"] as const) {
+  for (const view of ["memory", "settings"] as const) {
+    it(`keeps the ${language} ${view} H1 translation and casing unchanged`, () => {
+      const heading = pageHeading(view, language);
+      expect(heading.children).toBe(
+        view === "memory" ? translateSettings("Memory", language) : t("nav-settings", {}, language)
+      );
+      expect(heading.className.split(/\s+/)).not.toContain("uppercase");
+    });
+  }
+}
 
 it("renders Profile identity and sections at H2 and workflows as pattern-style cards with blue step pills", () => {
   const profile = (fixtureResponse("GET", "/api/user-profile").body as { data: UserProfile }).data;

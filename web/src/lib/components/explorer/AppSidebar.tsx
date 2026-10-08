@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import {
   ChevronRight,
+  Brain,
   Folder,
   Moon,
   PanelLeftClose,
@@ -30,6 +31,8 @@ type Props = {
   profileSections: { id: string; label: string }[];
   /** The Settings page cards, shown as a collapsible tree under Settings. */
   settingsSections?: { id: string; label: string }[];
+  memoryLabel?: string;
+  memorySections?: { id: string; label: string }[];
   langLabel: string;
   languageLabel: string;
   themeLabel: string;
@@ -49,6 +52,7 @@ const LANGUAGE_OPTIONS: { code: Lang; label: string }[] = [
 
 const COLLAPSED_KEY = "omms-sidebar-collapsed";
 const SETTINGS_TREE_KEY = "omms-sidebar-settings-open";
+const MEMORY_TREE_KEY = "omms-sidebar-memory-open";
 
 /** Shared base for the sidebar footer icon controls; each call site adds its own shape and edges. */
 const FOOTER_ICON_BUTTON =
@@ -80,6 +84,8 @@ export function AppSidebar({
   profileLabel,
   profileSections,
   settingsSections = [],
+  memoryLabel = "Memory",
+  memorySections = [],
   langLabel,
   languageLabel,
   themeLabel,
@@ -104,6 +110,25 @@ export function AppSidebar({
   const [settingsTreeOpen, setSettingsTreeOpen] = useState(
     () => readSettingsTreeOpen() ?? currentView === "settings"
   );
+
+  const [memoryTreeOpen, setMemoryTreeOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem(MEMORY_TREE_KEY);
+      return saved === null ? currentView === "memory" : saved === "1";
+    } catch {
+      return currentView === "memory";
+    }
+  });
+
+  function toggleMemoryTree() {
+    const next = !memoryTreeOpen;
+    setMemoryTreeOpen(next);
+    try {
+      localStorage.setItem(MEMORY_TREE_KEY, next ? "1" : "0");
+    } catch {
+      // Navigation remains available when storage is blocked.
+    }
+  }
 
   function toggleSettingsTree() {
     const next = !settingsTreeOpen;
@@ -178,25 +203,16 @@ export function AppSidebar({
     setOpen(false);
   }
 
-  function onSectionClick(event: MouseEvent, id: string, view: "profile" | "settings" = "profile") {
+  function onSectionClick(
+    event: MouseEvent,
+    id: string,
+    view: "profile" | "settings" | "memory" = "profile"
+  ) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
     }
     event.preventDefault();
-    const scroll = () =>
-      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (currentView === view) {
-      scroll();
-    } else {
-      navigate(view === "settings" ? ROUTES.settings : ROUTES.profile);
-      // The profile view renders after navigation; wait for its sections to appear.
-      let tries = 0;
-      const wait = () => {
-        if (document.getElementById(id)) scroll();
-        else if (tries++ < 50) requestAnimationFrame(wait);
-      };
-      requestAnimationFrame(wait);
-    }
+    navigate(`${ROUTES[view]}#${id}`);
     setOpen(false);
   }
 
@@ -323,6 +339,64 @@ export function AppSidebar({
           </ul>
           <div className="flex items-center gap-0.5">
             <a
+              href={ROUTES.memory}
+              className={navClass(currentView === "memory")}
+              aria-current={currentView === "memory" ? "page" : undefined}
+              title={collapsed ? memoryLabel : undefined}
+              onClick={(e) => onNavClick(e, ROUTES.memory)}
+            >
+              <Brain className="size-4 shrink-0" aria-hidden="true" />
+              <span
+                className={cn("min-w-0 break-words text-start uppercase", onDesktop("md:sr-only"))}
+              >
+                {memoryLabel}
+              </span>
+            </a>
+            {memorySections.length > 0 ? (
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex min-h-11 min-w-11 md:min-h-7 md:min-w-7 shrink-0 items-center justify-center rounded-lg p-1.5 text-muted-foreground hover:bg-interactive-hover focus-visible:outline-2 focus-visible:outline-ring",
+                  onDesktop("md:hidden")
+                )}
+                onClick={toggleMemoryTree}
+                aria-expanded={memoryTreeOpen}
+                aria-controls="sidebar-memory-tree"
+                aria-label={memoryLabel}
+                title={memoryLabel}
+              >
+                <ChevronRight
+                  className={cn(
+                    "size-4 transition-transform rtl:-scale-x-100",
+                    memoryTreeOpen && "rotate-90 rtl:rotate-90"
+                  )}
+                />
+              </button>
+            ) : null}
+          </div>
+          {memoryTreeOpen && memorySections.length > 0 ? (
+            <ul
+              id="sidebar-memory-tree"
+              className={cn(
+                "ms-5 space-y-0.5 border-s border-sidebar-border ps-2",
+                onDesktop("md:hidden")
+              )}
+            >
+              {memorySections.map((section) => (
+                <li key={section.id}>
+                  <a
+                    href={`${ROUTES.memory}#${section.id}`}
+                    className="flex min-h-11 md:min-h-7 items-center break-words rounded-lg px-2.5 py-1 text-xs text-muted-foreground hover:bg-interactive-hover focus-visible:outline-2 focus-visible:outline-ring"
+                    onClick={(e) => onSectionClick(e, section.id, "memory")}
+                  >
+                    {section.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="flex items-center gap-0.5">
+            <a
               href={ROUTES.settings}
               className={navClass(currentView === "settings")}
               aria-current={currentView === "settings" ? "page" : undefined}
@@ -370,7 +444,7 @@ export function AppSidebar({
                 <li key={section.id}>
                   <a
                     href={`${ROUTES.settings}#${section.id}`}
-                    className="flex min-h-11 md:min-h-7 items-center break-words rounded-lg px-2.5 py-1 text-xs uppercase text-muted-foreground transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                    className="flex min-h-11 md:min-h-7 items-center break-words rounded-lg px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
                     onClick={(e) => onSectionClick(e, section.id, "settings")}
                   >
                     {section.label}

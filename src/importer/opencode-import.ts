@@ -47,6 +47,7 @@ export interface OpencodeImportOptions {
   profileModel?: ModelPort;
   /** Profile batches done and planned, during the profile step. */
   onProfileProgress?: (done: number, total: number) => void;
+  onProfilePrompt?: (identity: string) => void;
   /** `alreadyHandled`: units found already done so far, which need no model call. */
   onProgress?: (
     processed: number,
@@ -220,6 +221,7 @@ export async function importOpencodeHistory(
         batchSize: options.profileBatch,
         model: options.profileModel,
         ...(options.onProfileProgress ? { onProgress: options.onProfileProgress } : {}),
+        ...(options.onProfilePrompt ? { onEligiblePrompt: options.onProfilePrompt } : {}),
       });
     }
     return report;

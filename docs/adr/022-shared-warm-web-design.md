@@ -78,7 +78,6 @@ skill and `THIRD_PARTY_NOTICES.md`.
 
 - [Visual specification](../../openspec/specs/web-visual-design/spec.md)
 - [Archived design](../../openspec/changes/archive/2026-10-04-omms-design-preview/design.md)
-- [Verification record](../design-preview/verification.md)
 - [Shared foundations](../../web/src/app.css)
 - [Dialog owner](../../web/src/lib/components/ui/dialog.tsx)
 - [Synthetic Vite configuration](../../web/tests/visual/vite.config.ts)

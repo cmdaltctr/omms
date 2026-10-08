@@ -154,27 +154,34 @@ Application page titles use H1 at 24px. Main sections use H2 at 18px, with neste
 
 The preview keeps the existing routes, features, preference keys, legacy migration, right-to-left layout, and save timing. Dialog close labels are translated in English, Chinese, and Arabic. The separately approved dialog correction returns focus only to a connected opener and respects a consumer focus handler.
 
-The preview used synthetic data on loopback port 5179. It did not use the normal web backend. Read [Design preview evidence](design-preview/README.md) for the trial scope, checks, and limits.
+The preview used synthetic data on loopback port 5179. It did not use the normal web backend.
+
+## Memory page
+
+Select **Memory** or open `http://127.0.0.1:4747/memory`. Its five sections are **Import chat history**, **Automatic import**, **Profile learning**, **Memory limits** and **Resolve missing project folders**.
+
+Import chat history defaults to Pi, Current project and both outputs: Project memories and User profile. **All hosts** explicitly includes Pi, OpenCode and Claude Code without widening project scope. A reviewed preview and confirmation precede model calls. The server runs the selected hosts sequentially and retains completed work after failure or cancellation.
+
+Profile learning separates **Analyse waiting prompts** inside OMMS from **Re-analyse chat history**, a reviewed forced profile-only import. The [Memory page guide](web-ui-memory.md) covers operations, estimates, limits, maps and [old Settings redirects](web-ui-memory.md#old-settings-links).
+
+Browse results on `/project-memories` and `/user-profile`. `/` resolves to Project memories. Memory and Settings each remember their section tree; both remain reachable through desktop collapse and the mobile drawer.
 
 ## Settings page
 
-Open `http://127.0.0.1:4747/settings`, select **Settings** in the sidebar, or select the cogwheel at the bottom of the sidebar. The arrow next to **Settings** opens a list of the page cards. Select a card to go straight to it. The sidebar remembers whether the list is open. The page has these sections:
+Open `http://127.0.0.1:4747/settings`, select **Settings**, or select the sidebar cogwheel. Its arrow opens the section list.
 
-- **External API.** Set up your own OpenAI- or Anthropic-compatible endpoint and its key, and test it.
-- **Models.** Choose the capture model for each host.
-- **Embedding.** See and change the embedder, test it, and re-embed every memory.
-- **Keys and access.** See which credentials are set, manage API tokens, and set the browser password.
-- **Capture diagnostics.** See capture outcomes and failures, and manage debug traces.
-- **Health.** Check that each part of OMMS works.
-- **Import and backfill.** Import past chats by hand. Select a **Partly imported** badge to reveal and focus that host's unresolved directory list.
-- **Automatic import.** Control the background import of past chats, watch its progress, and run, pause, or resume it. Its unresolved-directory links reach the matching host. Overall status badges appear in Import and backfill.
-- **Profiles.** Choose or merge profiles. It shows only when more than one profile exists.
-- **Profile learning.** Clear the backlog of prompts that wait for profile learning.
-- **Directory maps.** Tell OMMS where chats from deleted folders belong.
-- **Web app.** Control the login item and check the installed version.
-- **Log.** Read the latest OMMS log lines.
+- **External API.** Configure and test your endpoint and key.
+- **Models.** Choose live capture and profile-learning models.
+- **Embedding.** Change and test the embedder, then re-embed stored memories.
+- **Keys and access.** Manage API tokens and the browser password.
+- **Capture diagnostics.** Inspect outcomes, retries and debug traces.
+- **Health.** Check OMMS components.
+- **Claude Code folder.** Configure the host's data folder.
+- **Profiles.** Choose or merge profile identities. The card appears with more than one active profile.
+- **Web app.** Control the login item and check versions.
+- **Log.** Read metadata logs.
 
-[Settings page](web-ui-settings.md) explains every part in detail.
+[Settings page](web-ui-settings.md) explains these controls. The moved memory operations appear only on Memory. Their existing API paths under `/api/settings` stay valid.
 
 ## Opening the page through a terminal proxy
 

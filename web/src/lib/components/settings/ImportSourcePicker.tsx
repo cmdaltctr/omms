@@ -80,6 +80,7 @@ export function ImportSourcePicker(props: {
             : s("OpenCode database file")}
         <input
           className="mt-1 block w-full rounded border border-border bg-background p-2 font-mono"
+          dir="ltr"
           value={path}
           placeholder={s("Absolute path, for example on a mounted volume")}
           onChange={(event) => setPath(event.target.value)}
@@ -107,13 +108,18 @@ export function ImportSourcePicker(props: {
       </div>
       {chosen && (
         <p role="status">
-          {s("Chosen source")}: <span className="font-mono">{chosen.displayPath}</span>
+          {s("Chosen source")}:{" "}
+          <bdi dir="ltr" className="font-mono break-all">
+            {chosen.displayPath}
+          </bdi>
         </p>
       )}
       {error && <p role="alert">{error}</p>}
       {browse && (
         <div className="rounded border border-border p-2">
-          <p className="font-mono text-xs break-all">{browse.path}</p>
+          <p dir="ltr" className="font-mono text-xs break-all">
+            {browse.path}
+          </p>
           <ul className="max-h-60 overflow-auto">
             {browse.parent && (
               <li>
@@ -130,10 +136,12 @@ export function ImportSourcePicker(props: {
               <li key={entry.path} className="flex items-center gap-2">
                 {entry.kind === "folder" ? (
                   <button type="button" className="underline" onClick={() => void open(entry.path)}>
-                    {entry.name}/
+                    <bdi dir="ltr">{entry.name}/</bdi>
                   </button>
                 ) : (
-                  <span className="font-mono text-xs">{entry.name}</span>
+                  <bdi dir="ltr" className="font-mono text-xs">
+                    {entry.name}
+                  </bdi>
                 )}
                 {/* Pi and Claude Code read a folder; OpenCode reads one database file. */}
                 {(entry.kind !== "folder" || props.host !== "opencode") && (

@@ -22,6 +22,7 @@ import {
   type HistoryImportRun,
 } from "./run-import.js";
 import { safeHealthError } from "./settings-health.js";
+import { startImportGroup, type GroupImportJob, type GroupImportDeps } from "./web-import-group.js";
 
 type JobState = "running" | "cancelling" | "cancelled" | "done" | "failed";
 type Job = {
@@ -37,7 +38,7 @@ type Job = {
   summary?: ReturnType<typeof summarizeHistoryImportReport>;
   error?: string;
 };
-type Request = {
+export type WebImportRequest = {
   host: ImportHost;
   source: unknown;
   selection: ImportSelection;
@@ -45,6 +46,11 @@ type Request = {
   modelChoice?: string;
 };
 type Runner = typeof runHistoryImport;
+
+export type GroupImportRequest = {
+  hosts: Omit<WebImportRequest, "options">[];
+  options: WebImportOptions;
+};
 
 /** A refused job; `status` is the HTTP status the page receives. */
 export class ImportJobError extends Error {
@@ -71,10 +77,36 @@ const fields = new Set([
   "pathMaps",
 ]);
 
-export function validateWebImportRequest(value: unknown): Request {
+export function validateWebImportRequest(value: unknown): WebImportRequest | GroupImportRequest {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Invalid import request");
   const input = value as Record<string, unknown>;
+  if ("hosts" in input) {
+    if (Object.keys(input).some((key) => key !== "hosts" && key !== "options"))
+      throw new Error("Grouped imports accept hosts and shared options only");
+    if (!Array.isArray(input.hosts) || input.hosts.length === 0 || input.hosts.length > 3)
+      throw new Error("Choose one or more distinct hosts");
+    const hosts = input.hosts.map((child: unknown) => {
+      if (
+        !child ||
+        typeof child !== "object" ||
+        Array.isArray(child) ||
+        Object.keys(child).some(
+          (key) => !["host", "source", "selection", "modelChoice"].includes(key)
+        )
+      )
+        throw new Error("Invalid host import options; use shared options");
+      return validateWebImportRequest({ ...child, options: input.options }) as WebImportRequest;
+    });
+    if (new Set(hosts.map((child) => child.host)).size !== hosts.length)
+      throw new Error("Choose distinct hosts");
+    const order = ["pi", "opencode", "claude-code"];
+    hosts.sort((a, b) => order.indexOf(a.host) - order.indexOf(b.host));
+    return {
+      hosts: hosts.map(({ options: _options, ...child }) => child),
+      options: hosts[0]!.options,
+    };
+  }
   if (input.host !== "pi" && input.host !== "opencode" && input.host !== "claude-code") {
     throw new Error("Choose Pi, OpenCode, or Claude Code");
   }
@@ -109,6 +141,8 @@ export function validateWebImportRequest(value: unknown): Request {
       throw new Error("The project must be an absolute path");
     }
   }
+  if (options.skipMemories === true && options.skipProfile === true)
+    throw new Error("Choose Project memories or User profile");
   if (
     input.modelChoice !== undefined &&
     (typeof input.modelChoice !== "string" ||
@@ -133,7 +167,7 @@ export function validateWebImportRequest(value: unknown): Request {
   };
 }
 
-export interface ImportJobDeps {
+export interface ImportJobDeps extends GroupImportDeps {
   runner?: Runner;
   resolveSelection?: typeof resolveImportSelection;
   readiness?: () => Promise<ImportReadiness>;
@@ -141,7 +175,8 @@ export interface ImportJobDeps {
 
 /** One in-memory slot per web server, shared by previews and imports. */
 export class SettingsImportJobs {
-  private job?: Job;
+  private job?: Job | GroupImportJob;
+  private readonly deps: ImportJobDeps;
   private controller?: AbortController;
   private starting = false;
   private readonly runner: Runner;
@@ -149,20 +184,21 @@ export class SettingsImportJobs {
   private readonly readiness: () => Promise<ImportReadiness>;
 
   constructor(deps: ImportJobDeps = {}) {
+    this.deps = deps;
     this.runner = deps.runner ?? runHistoryImport;
     this.resolveSelection = deps.resolveSelection ?? resolveImportSelection;
     this.readiness = deps.readiness ?? (() => importReadiness());
   }
 
-  current(): Job | null {
-    return this.job ? { ...this.job } : null;
+  current(): Job | GroupImportJob | null {
+    return this.job ? structuredClone(this.job) : null;
   }
 
   private busy(): boolean {
     return this.starting || this.job?.state === "running" || this.job?.state === "cancelling";
   }
 
-  async start(request: unknown, directory: string): Promise<Job> {
+  async start(request: unknown, directory: string): Promise<Job | GroupImportJob> {
     if (this.busy()) throw new ImportJobError("An import is already running", 409);
     this.starting = true;
     try {
@@ -172,12 +208,35 @@ export class SettingsImportJobs {
     }
   }
 
-  private async begin(request: unknown, directory: string): Promise<Job> {
-    let input: Request;
+  private async begin(request: unknown, directory: string): Promise<Job | GroupImportJob> {
+    let input: WebImportRequest | GroupImportRequest;
     try {
       input = validateWebImportRequest(request);
     } catch (error) {
       throw new ImportJobError((error as Error).message);
+    }
+    if ("hosts" in input) {
+      const previous = this.job;
+      try {
+        return await startImportGroup(
+          input,
+          directory,
+          {
+            ...this.deps,
+            runner: this.runner,
+            resolveSelection: this.resolveSelection,
+            readiness: this.readiness,
+          },
+          (job, controller) => {
+            this.job = job;
+            this.controller = controller;
+          }
+        );
+      } catch (error) {
+        this.job = previous;
+        this.controller = undefined;
+        throw error;
+      }
     }
     const options = { ...input.options };
     if (input.modelChoice && input.modelChoice !== "external") options.model = input.modelChoice;
@@ -280,11 +339,11 @@ export class SettingsImportJobs {
     return { ...job };
   }
 
-  cancel(): Job {
+  cancel(): Job | GroupImportJob {
     if (!this.job || !this.controller || this.job.state !== "running")
       throw new Error("No running import");
     this.controller.abort();
     this.job.state = "cancelling";
-    return { ...this.job };
+    return structuredClone(this.job);
   }
 }

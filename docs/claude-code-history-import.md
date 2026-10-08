@@ -5,7 +5,7 @@ OMMS only reads the transcript files. It never changes them.
 
 - By default, OMMS also imports older sessions automatically after a Claude Code session starts. See [Automatic import](#automatic-import).
 - The terminal command below gives you a manual preview and control over scope and maps.
-- The Settings page has the same import. See [Web import](#web-import).
+- The Memory page offers reviewed single-host and selected-host imports. See [Web import](#web-import).
 
 Claude Code has no in-session command surface, so there is no slash command.
 Every Claude Code import uses the external API. See
@@ -122,28 +122,32 @@ The Claude Code backfill always uses the external API. There is no
 - When the external API is not fully configured, the run does not start. The status names the missing setting, for example `memoryApiUrl`.
 - The web app does not try again by itself. Set up the external API, then select **Run now**, or restart the web app.
 
-On the Settings page you can:
+On the Memory page you can:
 
 - See the Claude Code backfill state, pending counts, cutoff, and errors.
 - **Run now**, **Pause**, and **Resume** the backfill. The routes are `POST /api/settings/backfill/claude-code/run`, `/pause`, and `/resume`.
-- Manage saved directory maps (`importPathMaps`) in **Directory maps**. Saved maps also apply to the automatic import.
+- Manage saved directory maps (`importPathMaps`) in **Resolve missing project folders**. Review suggestions before saving. Global maps apply to every host's next import.
 
 A paused backfill stays paused across Claude Code sessions until you resume
 it. One Claude Code import runs at a time, whether from a backfill, the page,
 or the terminal. A second one stops with `A Claude Code import is already running`.
 
-See [Web UI settings](web-ui-settings.md) for details.
+See [Memory: Automatic import](web-ui-memory.md#automatic-import) for details.
 
 ## Web import
 
-The Settings page's **Import and backfill** section can import Claude Code
-history. See [Web UI settings: Import and backfill](web-ui-settings.md#import-and-backfill).
+Open **Memory → Import chat history** at `/memory#memory-section-import`. Select **Claude Code**; Pi is the initial host. Both **Project memories** and **User profile** start selected, with Current project scope. User profile learns preferences, patterns and workflows. Deselect an output to skip it; at least one must remain selected.
 
-- Choose **Claude Code** as the history host.
-- The default source is the projects folder that live capture uses: from the **Claude Code folder** setting, then `CLAUDE_CONFIG_DIR`, then `~/.claude`. The folder picker opens there. The source kind is `claude-projects`. A Claude Code source must be a folder.
-- **List sessions** shows each session's date, ID, and project folder.
-- The import model is always the saved external API. A request for any other model is refused with `Claude Code imports use the external API`.
-- Import readiness has a `claudeCode` entry. It shows the default folder and whether it exists. The reader ships with OMMS, so it is always available.
+- The default source is the projects folder used by live capture: **Claude Code folder** in Settings, then `CLAUDE_CONFIG_DIR`, then `~/.claude`, with `/projects` appended. The picker opens there. The source kind is `claude-projects`; a web source must be a folder.
+- **List sessions** shows dates, IDs and project folders without conversation content.
+- The model remains **Saved external API**. Another model is refused with `Claude Code imports use the external API`.
+- Readiness's `claudeCode` entry reports the default folder and whether it exists. The reader ships with OMMS.
+
+**All hosts** explicitly selects Pi, OpenCode and Claude Code. It leaves project scope unchanged. Choose **All projects** separately. List and select sessions for each host, preview the current draft, then confirm **Start import** and its model calls.
+
+The server finishes each host's memory and profile phases in Pi, OpenCode, Claude Code order. A failure stops later hosts. Cancellation keeps completed results and prevents queued work. Retry with refreshed lists and a fresh preview; existing ledgers skip completed work. A server restart ends the group and requires a new preview and confirmation.
+
+Historical host badges describe latest import coverage separately from current grouped outcomes. Check the group's results for failures. See [Memory: Import chat history](web-ui-memory.md#import-chat-history) for call estimates and safe retries. Terminal commands and flags remain unchanged.
 
 ## How windows are built
 
@@ -212,7 +216,7 @@ the report. To import them into the project they belonged to:
 
 - The map target must exist.
 - Repeat `--map` for more paths.
-- To keep a map for later imports and the automatic backfill, save it in `importPathMaps` or on the Settings page.
+- To keep a map for later imports and automatic backfill, save it in `importPathMaps` or Memory's **Resolve missing project folders**.
 
 ## Cost
 

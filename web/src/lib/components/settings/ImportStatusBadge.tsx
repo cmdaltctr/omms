@@ -40,9 +40,12 @@ export function ImportStatusBadge({ badge, host }: { badge: ImportBadge; host: W
   if (badge.kind === "partly") {
     return (
       <a
-        href={`#directory-maps-${host}`}
-        onClick={() => revealDirectoryMaps(host)}
-        aria-label={`${hostLabel(host)}: ${s("Directory maps")}. ${text}`}
+        href={`/memory#directory-maps-${host}`}
+        onClick={(event) => {
+          event.preventDefault();
+          revealDirectoryMaps(host);
+        }}
+        aria-label={`${hostLabel(host)}: ${s("Resolve missing project folders")}. ${text}`}
         className={cn(className, "underline focus-visible:outline-2 focus-visible:outline-ring")}
       >
         {text}

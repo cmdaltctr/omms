@@ -74,7 +74,7 @@ it("names every settings card once, with a unique anchor", () => {
   const ids = SETTINGS_SECTIONS.map((section) => section.id);
   expect(new Set(ids).size).toBe(ids.length);
   expect(SETTINGS_SECTIONS.map((section) => section.title)).toContain("Keys and access");
-  expect(SETTINGS_SECTIONS.length).toBe(14);
+  expect(SETTINGS_SECTIONS.length).toBe(10);
 });
 
 it("shows Settings in the main menu, opened on the settings page", () => {
@@ -91,6 +91,22 @@ it("shows Settings in the main menu, opened on the settings page", () => {
   );
 });
 
+it("displays the Memory parent in uppercase without changing its translated label", () => {
+  const tree = render("settings");
+  const memory = find(tree, (node) => node.type === "a" && node.props.href === "/memory")[0]!;
+  const label = find(memory, (node) => node.type === "span")[0]!;
+  expect(label.props.children).toBe("Memory");
+  expect(String(label.props.className).split(/\s+/)).toContain("uppercase");
+});
+
+it("keeps Settings children in their natural title case", () => {
+  const children = links(render("settings"));
+  expect(children.map((link) => link.props.children)).toContain("External API");
+  expect(children.map((link) => link.props.children)).toContain("Models");
+  for (const link of children)
+    expect(String(link.props.className).split(/\s+/)).not.toContain("uppercase");
+});
+
 it("starts closed on other pages, and the toggle opens it and remembers the choice", () => {
   let tree = render("project");
   expect(toggle(tree).props["aria-expanded"]).toBe(false);
@@ -98,6 +114,6 @@ it("starts closed on other pages, and the toggle opens it and remembers the choi
   (toggle(tree).props.onClick as () => void)();
   tree = render("project");
   expect(toggle(tree).props["aria-expanded"]).toBe(true);
-  expect(links(tree)).toHaveLength(14);
+  expect(links(tree)).toHaveLength(10);
   expect(store.get("omms-sidebar-settings-open")).toBe("1");
 });

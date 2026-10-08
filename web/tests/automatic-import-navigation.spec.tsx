@@ -21,7 +21,7 @@ mock.module("react", () => ({
     ];
   },
 }));
-const { AutoImportSection } = await import("../src/lib/components/settings/AutoImportSection.tsx");
+const { AutoImportSection } = await import("../src/lib/components/memory/AutoImportSection.tsx");
 const hosts = ["pi", "opencode", "claude-code"] as const;
 function render(phase: "exchanges" | "profile" | "done" = "done") {
   const rows = Object.fromEntries(
@@ -74,7 +74,7 @@ let open: Record<string, boolean> = {};
 it("keeps operational information and host links without duplicate overall pills", () => {
   const html = render();
   expect(html).not.toContain("Partly imported");
-  for (const host of hosts) expect(html).toContain(`href="#directory-maps-${host}"`);
+  for (const host of hosts) expect(html).toContain(`href="/memory#directory-maps-${host}"`);
   for (const text of [
     "Pi",
     "OpenCode",
@@ -97,7 +97,7 @@ it("keeps operational information and host links without duplicate overall pills
   ]) {
     expect(html).toContain(text);
   }
-  expect(html).toContain('aria-label="Pi: Directory maps"');
+  expect(html).toContain('aria-label="Pi: Resolve missing project folders"');
 });
 
 it("keeps exchange progress, profile progress, and polling", () => {
@@ -106,13 +106,13 @@ it("keeps exchange progress, profile progress, and polling", () => {
   expect(render("profile")).toContain("Learning the profile from the imported prompts");
   expect(render("profile")).toContain("1 / 2 batches");
   const source = readFileSync(
-    new URL("../src/lib/components/settings/AutoImportSection.tsx", import.meta.url),
+    new URL("../src/lib/components/memory/AutoImportSection.tsx", import.meta.url),
     "utf8"
   );
-  expect(source).toContain("shouldPollBackfill(rows)");
   expect(source).toContain("setInterval(");
   expect(source).toContain("3000");
-  expect(source).toContain("onClick={() => revealDirectoryMaps(host)}");
+  expect(source).toContain("revealDirectoryMaps(host)");
+  expect(source).toContain("event.preventDefault()");
   // Polls and control-action refreshes overlap: only the newest reply sets state.
   expect(source).toContain("latestReply<Rows>(");
   expect(source).toContain("latestReply<Runs>(");

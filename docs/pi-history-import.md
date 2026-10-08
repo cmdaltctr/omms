@@ -58,17 +58,27 @@ On the first Pi start, OMMS waits about 30 seconds. It then saves a cutoff for P
 - `provider/model` chooses a signed-in Pi model for backfill only.
 - The setting does not change the slash command's model.
 
-On the Settings page you can:
+On the Memory page you can:
 
 - See the state, pending counts, cutoff, and errors.
 - **Run now**, **Pause**, and **Resume** the backfill, and watch its progress bar and minutes left.
-- Manage saved directory maps (`importPathMaps`) in **Directory maps**. The page suggests targets for unresolved directories. Saved maps also apply to the automatic import.
+- Manage saved directory maps (`importPathMaps`) in **Resolve missing project folders**. Suggestions need review before saving. Global maps apply to every host's next import.
 
-See [Web UI settings](web-ui-settings.md) for details.
+See [Memory: Automatic import](web-ui-memory.md#automatic-import) for details.
 
 - With `piBackfillModel` set to `"external"`, **Run now** works in the login web app with no host open.
 - A paused backfill stays paused across Pi starts until you resume it.
 - One Pi import runs at a time, whether from a backfill, the page, a slash command, or the CLI.
+
+## Web import
+
+Open **Memory → Import chat history** at `/memory#memory-section-import`. A new form selects Pi, Current project and both **Project memories** and **User profile**. Profile learning finds preferences, patterns and workflows. Deselect either output to skip it; at least one must remain selected.
+
+Choose additional hosts or select **All hosts** explicitly. Project scope remains separate. List and select sessions for each host, choose models, preview the current draft, then confirm **Start import** and its model calls. Web imports use the saved external API or an available connected OpenCode model; Pi sign-in alone supplies no web model.
+
+The server completes Pi's memory and profile phases before OpenCode, then Claude Code. Failure stops later hosts. Cancellation keeps completed work and prevents queued hosts from starting. Retry with refreshed lists and a fresh preview; existing ledgers skip completed work. A server restart ends the group and requires another preview and confirmation.
+
+Historical host badges describe latest import coverage. They remain separate from the current group's success or failure. See [Memory: Import chat history](web-ui-memory.md#import-chat-history) for pinned selections, call estimates and results. CLI and in-session commands below remain unchanged.
 
 ## Command reference
 
@@ -139,7 +149,7 @@ Sessions recorded in directories that no longer exist (deleted worktrees, temp f
 
 - The map target must exist.
 - Repeat `--map` for more paths.
-- To keep a map for every later import and the automatic backfill, save it in `importPathMaps` or in the Settings page's **Directory maps**.
+- To keep a map for every later import and automatic backfill, save it in `importPathMaps` or Memory's **Resolve missing project folders**.
 - A `--map` for the same directory wins for that run.
 
 ## Cost
