@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.14.0](https://github.com/cmdaltctr/omms/compare/v4.13.3...v4.14.0) (2026-10-08)
+
+
+### Features
+
+* **web:** add memory workspace and sequential history imports ([96c1e94](https://github.com/cmdaltctr/omms/commit/96c1e9483da0b007b39ba839a873079baf18cf9d))
+* **web:** add memory workspace and sequential history imports ([25e3c29](https://github.com/cmdaltctr/omms/commit/25e3c29635c21f7e580158d1dc05e92462b9c4f8))
+
 ## [4.13.3](https://github.com/cmdaltctr/omms/compare/v4.13.2...v4.13.3) (2026-10-07)
 
 
