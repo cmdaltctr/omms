@@ -13,6 +13,8 @@ import type {
   UserProfileWorkflow,
 } from "./types.js";
 import { safeArray } from "./profile-utils.js";
+import { rankProfileCandidates } from "./profile-candidate-matching.js";
+import { canonicaliseCategories, categoryKey } from "./profile-category.js";
 import { EmbeddingService } from "../embedding.js";
 import { log } from "../logger.js";
 import { cosineSimilarityNumbers, l2Normalize } from "../../utils/math.js";
@@ -282,14 +284,14 @@ export class UserProfileManager {
     const now = Date.now();
 
     // A first profile skips mergeProfileData, so the step minimum is applied here.
-    const cleanedData: UserProfileData = {
+    const cleanedData: UserProfileData = canonicaliseCategories({
       preferences: safeArray(profileData.preferences),
       patterns: safeArray(profileData.patterns),
       workflows: safeArray<UserProfileWorkflow>(profileData.workflows).filter(
         hasEnoughWorkflowSteps
       ),
       ...(profileData.learning_paths ? { learning_paths: profileData.learning_paths } : {}),
-    };
+    });
 
     await db.run(
       `
@@ -327,12 +329,12 @@ export class UserProfileManager {
     const db = await this.ready();
     const now = Date.now();
 
-    const cleanedData: UserProfileData = {
+    const cleanedData: UserProfileData = canonicaliseCategories({
       preferences: safeArray(profileData.preferences),
       patterns: safeArray(profileData.patterns),
       workflows: safeArray(profileData.workflows),
       ...(profileData.learning_paths ? { learning_paths: profileData.learning_paths } : {}),
-    };
+    });
 
     const versionRow = await db.get(`SELECT version FROM user_profiles WHERE id = ?`, [profileId]);
     const currentVersion = Number(versionRow?.version ?? 0);
@@ -634,9 +636,6 @@ export class UserProfileManager {
     const useEmbedding = embed.isWarmedUp;
     const minDescLen = CONFIG.userProfileEmbeddingMinDescriptionLength;
     const sameCatStrong = CONFIG.userProfileEmbeddingThresholdSameCat;
-    const sameCatWeak = CONFIG.userProfileEmbeddingThresholdSameCatWeak;
-    const crossCatStrong = CONFIG.userProfileEmbeddingThresholdCrossCat;
-    const crossCatWeak = CONFIG.userProfileEmbeddingThresholdCrossCatWeak;
     const driftThreshold = CONFIG.userProfileCentroidDriftThreshold;
     // Workflows have no category, so the same-category rules below would apply to every
     // pair. They match only in the strong band and never absorb other workflows.
@@ -695,7 +694,11 @@ export class UserProfileManager {
 
     for (const newItem of incoming) {
       const exactIdx = existing.findIndex(
-        (e) => e.category === newItem.category && e.description === newItem.description
+        (e) =>
+          (isWorkflow
+            ? e.category === newItem.category
+            : categoryKey(e.category ?? "") === categoryKey(newItem.category ?? "")) &&
+          e.description === newItem.description
       );
 
       if (exactIdx >= 0) {
@@ -712,57 +715,25 @@ export class UserProfileManager {
       }
 
       if (useEmbedding && newItem.description.length >= minDescLen) {
-        let top1Score = 0;
-        let top1Idx = -1;
-        let top1SameCat = false;
-        let top1Band: "strong" | "weak" | null = null;
-        let top2Score = 0;
-        let top2Idx = -1;
-        let top2SameCat = false;
-        let top2Band: "strong" | "weak" | null = null;
-
         const newEmb = await embed.embed(normalizeDescription(newItem.description), {
           task: "document",
         });
-
-        for (let i = 0; i < existing.length; i++) {
-          const existingItem = existing[i];
-          if (!existingItem) continue;
-
-          const centroid = (existingItem as any).centroid as number[] | undefined;
-          if (!centroid) continue;
-
-          const score = cosineSimilarityNumbers(Array.from(newEmb), centroid);
-          const sameCat = existingItem.category === newItem.category;
-
-          const strongThreshold = sameCat ? sameCatStrong : crossCatStrong;
-          const weakThreshold = sameCat ? sameCatWeak : crossCatWeak;
-
-          let band: "strong" | "weak";
-          if (score >= strongThreshold) {
-            band = "strong";
-          } else if (score >= weakThreshold && !isWorkflow) {
-            band = "weak";
-          } else {
-            continue;
-          }
-
-          if (score > top1Score) {
-            top2Score = top1Score;
-            top2Idx = top1Idx;
-            top2SameCat = top1SameCat;
-            top2Band = top1Band;
-            top1Score = score;
-            top1Idx = i;
-            top1SameCat = sameCat;
-            top1Band = band;
-          } else if (score > top2Score) {
-            top2Score = score;
-            top2Idx = i;
-            top2SameCat = sameCat;
-            top2Band = band;
-          }
-        }
+        const {
+          top1Score,
+          top1Idx,
+          top1SameCat,
+          top1Band,
+          top2Score,
+          top2Idx,
+          top2SameCat,
+          top2Band,
+        } = rankProfileCandidates(
+          existing,
+          newItem.category,
+          Array.from(newEmb),
+          isWorkflow,
+          CONFIG
+        );
 
         if (
           top1Idx >= 0 &&
@@ -880,7 +851,11 @@ export class UserProfileManager {
             for (let j = 0; j < existing.length; j++) {
               if (j === top1Idx) continue;
               const other = existing[j];
-              if (!other || other.category !== existingItem.category) continue;
+              if (
+                !other ||
+                categoryKey(other.category ?? "") !== categoryKey(existingItem.category ?? "")
+              )
+                continue;
               const otherCentroid = (other as any).centroid as number[] | undefined;
               if (!otherCentroid) continue;
               const crossScore = cosineSimilarityNumbers(Array.from(newEmb), otherCentroid);
@@ -1409,9 +1384,9 @@ export class UserProfileManager {
       if (checked >= maxChecks) break;
       if (removeIndices.includes(items.indexOf(a)) || removeIndices.includes(items.indexOf(b)))
         continue;
+      checked++;
       const conflict = await this.checkConflict(a.description, b.description);
       if (conflict) {
-        checked++;
         const keeper = (a.frequency || 0) >= (b.frequency || 0) ? a : b;
         const removed = keeper === a ? b : a;
         this.lazyMigrateAlpha(keeper);

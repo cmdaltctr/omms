@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { CaptureFailureReason, CaptureSummary } from "./host.js";
+import { canonicaliseCategories } from "../services/user-profile/profile-category.js";
 
 /**
  * Shared structured-extraction contract for automatic capture.
@@ -97,6 +98,31 @@ export function hasEnoughWorkflowSteps(workflow: unknown): boolean {
   if (!Array.isArray(steps)) return false;
   const filled = steps.filter((s) => typeof s === "string" && s.trim().length > 0);
   return filled.length >= MIN_WORKFLOW_STEPS;
+}
+
+/** The same bounded category list for every host's profile analysis prompt. */
+export function buildCategoryList(profile: {
+  preferences: { category: string }[];
+  patterns: { category: string }[];
+}): string {
+  const canonical = canonicaliseCategories(profile);
+  const sections: string[] = [];
+  for (const [type, heading] of [
+    ["preferences", "Preference"],
+    ["patterns", "Pattern"],
+  ] as const) {
+    const counts = new Map<string, number>();
+    for (const item of canonical[type]) {
+      counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
+    }
+    if (counts.size === 0) continue;
+    const labels = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 40);
+    sections.push(
+      `${heading} categories: ${labels.map(([label, count]) => `${label} (${count})`).join(", ")}`
+    );
+  }
+  if (sections.length === 0) return "";
+  return `## Existing Categories\nUse these exact category names when your observation fits:\n\n${sections.join("\n")}\n`;
 }
 
 /**

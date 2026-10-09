@@ -210,14 +210,21 @@ export async function startImportRun(
     profileProgress(done, total) {
       const now = clock();
       writing = writing
-        .then(() =>
-          db.run(
+        .then(async () => {
+          await db.run(
             `UPDATE import_runs SET phase = 'profile', profile_done = ?, profile_total = ?,
                updated_at = ? WHERE host = ?`,
             [count(done), count(total), now, host]
-          )
-        )
-        .then(() => {})
+          );
+          const row = await db.get<{ paused: number }>(
+            "SELECT paused FROM import_runs WHERE host = ?",
+            [host]
+          );
+          if (Number(row?.paused) === 1 && !pauseRequested) {
+            pauseRequested = true;
+            options.onPause?.();
+          }
+        })
         .catch(() => {});
     },
     get pauseRequested() {

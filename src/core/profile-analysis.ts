@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  buildCategoryList,
   createUserProfileAnalysisSchema,
   extractJsonObject,
   WORKFLOW_PROMPT_RULES,
@@ -29,10 +30,10 @@ export interface ProfileAnalysisResult {
   merged: UserProfileData | null;
 }
 
-function buildProfileAnalysisSystemPrompt(existingProfile: boolean): string {
+function buildProfileAnalysisSystemPrompt(existingData: UserProfileData | null): string {
   return `You are a user behavior analyst for a coding assistant.
 
-Your task is to analyze user prompts and ${existingProfile ? "update" : "create"} a comprehensive user profile.
+Your task is to analyze user prompts and ${existingData ? "update" : "create"} a comprehensive user profile.
 
 CRITICAL: Detect the language used by the user in their prompts. You MUST output all descriptions, categories, and text in the SAME language as the user's prompts.
 
@@ -45,6 +46,7 @@ Respond with one JSON object. It must have these required fields:
   "workflows": [{ "description": "string", "steps": ["string"] }]
 }
 ${WORKFLOW_PROMPT_RULES}
+${existingData ? buildCategoryList(existingData) : ""}
 Use an empty array for a field with no findings. Confidence must be a number from 0 to 1.
 If you include "validations", each entry needs a numeric "index", a string "reason", and a "verdict" of "confirmed", "contradicted", "no_evidence", "inaccurate", or "oversimplified".
 Return JSON only, without Markdown or other text.`;
@@ -59,8 +61,11 @@ export async function analyzeProfile(
 ): Promise<ProfileAnalysisResult> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
+    const existingData: UserProfileData | null = existingProfile
+      ? JSON.parse(existingProfile.profileData)
+      : null;
     const reply = await Promise.race([
-      model.complete(buildProfileAnalysisSystemPrompt(Boolean(existingProfile)), context),
+      model.complete(buildProfileAnalysisSystemPrompt(existingData), context),
       new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => reject(new Error("pi profile analysis: timeout")), timeoutMs);
         timeoutId?.unref?.();
@@ -78,9 +83,8 @@ export async function analyzeProfile(
     const raw = parsed.data as UserProfileData;
     if (!existingProfile) return { raw, merged: null };
     const { userProfileManager } = await import("../services/user-profile/user-profile-manager.js");
-    const existingData: UserProfileData = JSON.parse(existingProfile.profileData);
     const merged = await userProfileManager.mergeProfileData(
-      existingData,
+      existingData!,
       raw,
       undefined,
       existingProfile.id

@@ -20,48 +20,51 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 
 ## Index
 
-| ID                                                           | Title                                                                   | Status                | Date       |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------- | --------------------- | ---------- |
-| [001](./001-read-opencode-live-sqlite.md)                    | Read OpenCode's live SQLite database with immutable node:sqlite         | Superseded by TDR-003 | 2026-09-25 |
-| [002](./002-accept-bare-skip-replies.md)                     | Accept bare skip replies and log unparseable capture output             | Accepted              | 2026-09-25 |
-| [003](./003-snapshot-opencode-wal-database.md)               | Read WAL-mode OpenCode databases through a consistent temporary copy    | Superseded by TDR-008 | 2026-09-26 |
-| [004](./004-exclude-omms-internal-sessions-from-import.md)   | Exclude OMMS's own capture sessions from OpenCode history               | Accepted              | 2026-09-26 |
-| [005](./005-two-tier-capture-diagnostics.md)                 | Log capture metadata always and full traces only on opt-in              | Accepted              | 2026-09-27 |
-| [006](./006-fix-silent-capture-failures.md)                  | Fix silent capture failures on Pi and on OpenCode v2                    | Accepted              | 2026-09-27 |
-| [007](./007-directory-maps-take-precedence.md)               | Directory maps take precedence on both hosts; a Pi root may be one file | Accepted              | 2026-09-27 |
-| [008](./008-shared-async-opencode-snapshot.md)               | Copy OpenCode databases asynchronously and share one copy per source    | Accepted              | 2026-09-27 |
-| [009](./009-protect-capture-traces-on-windows.md)            | Protect capture traces with Windows access-control lists                | Accepted              | 2026-09-27 |
-| [010](./010-match-windows-native-import-source-paths.md)     | Match Windows import-source tests to native canonical paths             | Proposed              | 2026-09-27 |
-| [011](./011-use-execfilesync-in-windows-git-wrapper-test.md) | Use execFileSync in the Windows Git wrapper test                        | Proposed              | 2026-09-27 |
-| [012](./012-tag-migration-touches-only-untagged-memories.md) | Tag migration touches only untagged memories                            | Proposed              | 2026-09-28 |
-| [013](./013-stable-homebrew-runtime-for-login-item.md)       | Store a stable Homebrew runtime path in the login item                  | Proposed              | 2026-09-28 |
-| [014](./014-read-opencode-v2-models-over-http.md)            | Read OpenCode v2 models through a private `opencode serve`              | Proposed              | 2026-09-28 |
-| [015](./015-wait-for-node-listen-outcome.md)                 | Wait for the Node listen outcome before claiming the web port           | Proposed              | 2026-09-29 |
-| [016](./016-atomic-stale-start-lock-takeover.md)             | Atomic takeover of a stale web start lock                               | Proposed              | 2026-09-30 |
-| [017](./017-profile-calls-need-their-own-time-limit.md)      | Profile calls need their own time limit                                 | Proposed              | 2026-09-30 |
-| [018](./018-close-catch-up-lease-test-databases.md)          | Close catch-up lease test databases before cleanup                      | Proposed              | 2026-10-01 |
-| [019](./019-stabilise-release-smoke-test-assertions.md)      | Stabilise release smoke test assertions                                 | Proposed              | 2026-10-01 |
-| [020](./020-trust-git-outside-a-project.md)                  | Trust git on PATH outside a project                                     | Proposed              | 2026-10-01 |
-| [021](./021-load-pi-sdk-from-pi-install.md)                  | Load the Pi SDK from Pi's install outside Pi                            | Proposed              | 2026-10-01 |
-| [022](./022-login-item-keeps-newest-copy.md)                 | The login item keeps the newest OMMS copy                               | Superseded by ADR-018 | 2026-10-02 |
-| [023](./023-wait-for-pi-test-background-calls.md)            | Wait for Pi test background calls                                       | Proposed              | 2026-10-02 |
-| [024](./024-status-command-stdout-first-run.md)              | Keep the first-run config message off the status command's stdout       | Proposed              | 2026-10-02 |
-| [025](./025-claude-plugin-test-runs-whole-folder.md)         | Run the Claude Code mod test from a small plugin folder                 | Proposed              | 2026-10-02 |
-| [026](./026-windows-test-failures-reached-the-release.md)    | Windows test failures reached the release smoke                         | Proposed              | 2026-10-03 |
-| [027](./027-claude-plugin-uses-explicit-https.md)            | Fetch the Claude plugin through explicit HTTPS                          | Accepted              | 2026-10-04 |
-| [028](./028-test-shutdown-state-and-child-deadlines.md)      | Test shutdown state and give nested tests separate deadlines            | Proposed              | 2026-10-04 |
-| [029](./029-wait-for-backfill-test-child-cleanup.md)         | Wait for backfill test children to finish cleanup                       | Accepted              | 2026-10-04 |
-| [030](./030-intermittent-bun-rename-failure.md)              | Investigate an intermittent Bun rename failure                          | Proposed              | 2026-10-04 |
-| [031](./031-pause-catch-up-test-after-first-model-call.md)   | Pause the catch-up test after the first model call                      | Accepted              | 2026-10-04 |
-| [032](./032-recheck-npm-after-release-approval.md)           | Recheck npm after release approval                                      | Accepted              | 2026-10-04 |
-| [033](./033-limit-opencode-profile-input-by-utf8-bytes.md)   | Limit OpenCode profile input by UTF-8 bytes                             | Accepted              | 2026-10-04 |
-| [034](./034-retry-windows-start-lock-hard-links.md)          | Retry Windows start-lock hard links                                     | Accepted              | 2026-10-05 |
-| [035](./035-bound-claude-budget-test-processes.md)           | Bound Claude budget test processes                                      | Proposed              | 2026-10-05 |
-| [036](./036-restart-waits-for-its-own-copy.md)               | Restart waits for its own copy                                          | Proposed              | 2026-10-06 |
-| [037](./037-skip-slow-tests-on-windows.md)                   | Skip slow tests on Windows                                              | Proposed              | 2026-10-07 |
-| [038](./038-resume-release-approval-after-npm.md)            | Resume the release approval after npm shows the version                 | Proposed              | 2026-10-07 |
-| [039](./039-publish-complete-cross-process-write-locks.md)   | Publish complete cross-process write locks                              | Proposed              | 2026-10-07 |
-| [040](./040-workflows-collapse-into-one-entry.md)            | Workflows collapsed into one entry                                      | Proposed              | 2026-10-09 |
+| ID                                                             | Title                                                                   | Status                | Date       |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------- | ---------- |
+| [001](./001-read-opencode-live-sqlite.md)                      | Read OpenCode's live SQLite database with immutable node:sqlite         | Superseded by TDR-003 | 2026-09-25 |
+| [002](./002-accept-bare-skip-replies.md)                       | Accept bare skip replies and log unparseable capture output             | Accepted              | 2026-09-25 |
+| [003](./003-snapshot-opencode-wal-database.md)                 | Read WAL-mode OpenCode databases through a consistent temporary copy    | Superseded by TDR-008 | 2026-09-26 |
+| [004](./004-exclude-omms-internal-sessions-from-import.md)     | Exclude OMMS's own capture sessions from OpenCode history               | Accepted              | 2026-09-26 |
+| [005](./005-two-tier-capture-diagnostics.md)                   | Log capture metadata always and full traces only on opt-in              | Accepted              | 2026-09-27 |
+| [006](./006-fix-silent-capture-failures.md)                    | Fix silent capture failures on Pi and on OpenCode v2                    | Accepted              | 2026-09-27 |
+| [007](./007-directory-maps-take-precedence.md)                 | Directory maps take precedence on both hosts; a Pi root may be one file | Accepted              | 2026-09-27 |
+| [008](./008-shared-async-opencode-snapshot.md)                 | Copy OpenCode databases asynchronously and share one copy per source    | Accepted              | 2026-09-27 |
+| [009](./009-protect-capture-traces-on-windows.md)              | Protect capture traces with Windows access-control lists                | Accepted              | 2026-09-27 |
+| [010](./010-match-windows-native-import-source-paths.md)       | Match Windows import-source tests to native canonical paths             | Proposed              | 2026-09-27 |
+| [011](./011-use-execfilesync-in-windows-git-wrapper-test.md)   | Use execFileSync in the Windows Git wrapper test                        | Proposed              | 2026-09-27 |
+| [012](./012-tag-migration-touches-only-untagged-memories.md)   | Tag migration touches only untagged memories                            | Proposed              | 2026-09-28 |
+| [013](./013-stable-homebrew-runtime-for-login-item.md)         | Store a stable Homebrew runtime path in the login item                  | Proposed              | 2026-09-28 |
+| [014](./014-read-opencode-v2-models-over-http.md)              | Read OpenCode v2 models through a private `opencode serve`              | Proposed              | 2026-09-28 |
+| [015](./015-wait-for-node-listen-outcome.md)                   | Wait for the Node listen outcome before claiming the web port           | Proposed              | 2026-09-29 |
+| [016](./016-atomic-stale-start-lock-takeover.md)               | Atomic takeover of a stale web start lock                               | Proposed              | 2026-09-30 |
+| [017](./017-profile-calls-need-their-own-time-limit.md)        | Profile calls need their own time limit                                 | Proposed              | 2026-09-30 |
+| [018](./018-close-catch-up-lease-test-databases.md)            | Close catch-up lease test databases before cleanup                      | Proposed              | 2026-10-01 |
+| [019](./019-stabilise-release-smoke-test-assertions.md)        | Stabilise release smoke test assertions                                 | Proposed              | 2026-10-01 |
+| [020](./020-trust-git-outside-a-project.md)                    | Trust git on PATH outside a project                                     | Proposed              | 2026-10-01 |
+| [021](./021-load-pi-sdk-from-pi-install.md)                    | Load the Pi SDK from Pi's install outside Pi                            | Proposed              | 2026-10-01 |
+| [022](./022-login-item-keeps-newest-copy.md)                   | The login item keeps the newest OMMS copy                               | Superseded by ADR-018 | 2026-10-02 |
+| [023](./023-wait-for-pi-test-background-calls.md)              | Wait for Pi test background calls                                       | Proposed              | 2026-10-02 |
+| [024](./024-status-command-stdout-first-run.md)                | Keep the first-run config message off the status command's stdout       | Proposed              | 2026-10-02 |
+| [025](./025-claude-plugin-test-runs-whole-folder.md)           | Run the Claude Code mod test from a small plugin folder                 | Proposed              | 2026-10-02 |
+| [026](./026-windows-test-failures-reached-the-release.md)      | Windows test failures reached the release smoke                         | Proposed              | 2026-10-03 |
+| [027](./027-claude-plugin-uses-explicit-https.md)              | Fetch the Claude plugin through explicit HTTPS                          | Accepted              | 2026-10-04 |
+| [028](./028-test-shutdown-state-and-child-deadlines.md)        | Test shutdown state and give nested tests separate deadlines            | Proposed              | 2026-10-04 |
+| [029](./029-wait-for-backfill-test-child-cleanup.md)           | Wait for backfill test children to finish cleanup                       | Accepted              | 2026-10-04 |
+| [030](./030-intermittent-bun-rename-failure.md)                | Investigate an intermittent Bun rename failure                          | Proposed              | 2026-10-04 |
+| [031](./031-pause-catch-up-test-after-first-model-call.md)     | Pause the catch-up test after the first model call                      | Accepted              | 2026-10-04 |
+| [032](./032-recheck-npm-after-release-approval.md)             | Recheck npm after release approval                                      | Accepted              | 2026-10-04 |
+| [033](./033-limit-opencode-profile-input-by-utf8-bytes.md)     | Limit OpenCode profile input by UTF-8 bytes                             | Accepted              | 2026-10-04 |
+| [034](./034-retry-windows-start-lock-hard-links.md)            | Retry Windows start-lock hard links                                     | Accepted              | 2026-10-05 |
+| [035](./035-bound-claude-budget-test-processes.md)             | Bound Claude budget test processes                                      | Proposed              | 2026-10-05 |
+| [036](./036-restart-waits-for-its-own-copy.md)                 | Restart waits for its own copy                                          | Proposed              | 2026-10-06 |
+| [037](./037-skip-slow-tests-on-windows.md)                     | Skip slow tests on Windows                                              | Proposed              | 2026-10-07 |
+| [038](./038-resume-release-approval-after-npm.md)              | Resume the release approval after npm shows the version                 | Proposed              | 2026-10-07 |
+| [039](./039-publish-complete-cross-process-write-locks.md)     | Publish complete cross-process write locks                              | Proposed              | 2026-10-07 |
+| [040](./040-workflows-collapse-into-one-entry.md)              | Workflows collapsed into one entry                                      | Proposed              | 2026-10-09 |
+| [041](./041-normalise-profile-category-spellings.md)           | Normalise profile category spellings                                    | Superseded by TDR-042 | 2026-10-09 |
+| [042](./042-prefer-readable-profile-category-labels.md)        | Prefer readable profile category labels                                 | Accepted              | 2026-10-09 |
+| [043](./043-honour-profile-pause-and-bound-conflict-checks.md) | Honour profile pause and bound conflict checks                          | Accepted              | 2026-10-09 |
 
 ## Status values
 

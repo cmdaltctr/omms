@@ -328,33 +328,7 @@ function generateChangeSummary(oldProfile: UserProfileData, newProfile: UserProf
 }
 
 function buildCategorySummary(profileData: UserProfileData): string {
-  const prefCats = [...new Set(profileData.preferences.map((p) => p.category))];
-  const patCats = [...new Set(profileData.patterns.map((p) => p.category))];
-
-  const catParts: string[] = [];
-  if (prefCats.length > 0) {
-    const catCounts = prefCats
-      .map((cat) => {
-        const cnt = profileData.preferences.filter((p) => p.category === cat).length;
-        return `${cat} (${cnt})`;
-      })
-      .join(", ");
-    catParts.push(`Preference categories: ${catCounts}`);
-  }
-  if (patCats.length > 0) {
-    const catCounts = patCats
-      .map((cat) => {
-        const cnt = profileData.patterns.filter((p) => p.category === cat).length;
-        return `${cat} (${cnt})`;
-      })
-      .join(", ");
-    catParts.push(`Pattern categories: ${catCounts}`);
-  }
-
-  const catSection =
-    catParts.length > 0
-      ? `## Existing Categories\nUse these exact category names when your observation fits:\n\n${catParts.join("\n")}\n`
-      : "";
+  const catSection = buildCategoryList(profileData);
 
   const prefCount = profileData.preferences.length;
   const patCount = profileData.patterns.length;
@@ -451,6 +425,7 @@ CRITICAL: Only output observations grounded in the RECENT PROMPTS above. Write d
 }
 
 import {
+  buildCategoryList,
   createUserProfileAnalysisSchema,
   USER_PROFILE_LLM_CONFIDENCE_MAX,
   WORKFLOW_PROMPT_RULES,
