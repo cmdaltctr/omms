@@ -3,8 +3,10 @@ import { beforeEach, expect, it, mock } from "bun:test";
 const selected: unknown[] = [];
 const drained: unknown[] = [];
 const lease: string[] = [];
+const order: string[] = [];
 let superseded = false;
 let drainThrows = false;
+let warmupError: Error | null = null;
 mock.module("../src/config.js", () => ({
   CONFIG: { memoryApiKey: "saved-key" },
   initConfig: () => {},
@@ -34,11 +36,20 @@ mock.module("../src/importer/model-selection.js", () => ({
 }));
 mock.module("../src/importer/profile-backlog.js", () => ({
   drainProfileBacklog: async (options: unknown) => {
+    order.push("drain");
     drained.push(options);
     if (drainThrows) throw new Error("store unavailable");
     return superseded
       ? { batchesBuilt: 3, remaining: 2450, superseded: true }
       : { batchesBuilt: 52, remaining: 0 };
+  },
+}));
+mock.module("../src/services/client.js", () => ({
+  memoryClient: {
+    warmup: async () => {
+      order.push("warmup");
+      if (warmupError) throw warmupError;
+    },
   },
 }));
 mock.module("../src/services/tags.js", () => ({
@@ -54,6 +65,8 @@ beforeEach(() => {
   lease.length = 0;
   superseded = false;
   drainThrows = false;
+  warmupError = null;
+  order.length = 0;
   output = [];
 });
 
@@ -115,4 +128,22 @@ it("releases the run record when the run throws", async () => {
   drainThrows = true;
   expect(await runProfileCatchUpCommand(["--yes"], print)).toBe(1);
   expect(lease).toEqual(["take", "release"]);
+});
+
+it("warms the embedding service before it drains the backlog", async () => {
+  expect(await runProfileCatchUpCommand(["--yes"], print)).toBe(0);
+  expect(order).toEqual(["warmup", "drain"]);
+});
+
+it("does not warm the embedding service when it makes no model call", async () => {
+  await runProfileCatchUpCommand([], print);
+  await runProfileCatchUpCommand(["--dry-run", "--yes"], print);
+  expect(order).toEqual([]);
+});
+
+it("still drains the backlog when the warm-up fails, and says why", async () => {
+  warmupError = new Error("embedding server unreachable");
+  expect(await runProfileCatchUpCommand(["--yes"], print)).toBe(0);
+  expect(order).toEqual(["warmup", "drain"]);
+  expect(output.join("\n")).toContain("embedding server unreachable");
 });

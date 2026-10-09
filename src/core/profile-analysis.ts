@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { createUserProfileAnalysisSchema, extractJsonObject } from "./extraction.js";
+import {
+  createUserProfileAnalysisSchema,
+  extractJsonObject,
+  WORKFLOW_PROMPT_RULES,
+} from "./extraction.js";
 import { log } from "../services/logger.js";
 import type { UserProfileData } from "../services/user-profile/types.js";
 
@@ -40,6 +44,7 @@ Respond with one JSON object. It must have these required fields:
   "patterns": [{ "category": "string", "description": "string" }],
   "workflows": [{ "description": "string", "steps": ["string"] }]
 }
+${WORKFLOW_PROMPT_RULES}
 Use an empty array for a field with no findings. Confidence must be a number from 0 to 1.
 If you include "validations", each entry needs a numeric "index", a string "reason", and a "verdict" of "confirmed", "contradicted", "no_evidence", "inaccurate", or "oversimplified".
 Return JSON only, without Markdown or other text.`;

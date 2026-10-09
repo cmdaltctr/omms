@@ -453,6 +453,7 @@ CRITICAL: Only output observations grounded in the RECENT PROMPTS above. Write d
 import {
   createUserProfileAnalysisSchema,
   USER_PROFILE_LLM_CONFIDENCE_MAX,
+  WORKFLOW_PROMPT_RULES,
 } from "../../core/extraction.js";
 
 export { createUserProfileAnalysisSchema, USER_PROFILE_LLM_CONFIDENCE_MAX };
@@ -649,6 +650,8 @@ CRITICAL: Detect the language used by the user in their prompts. You MUST output
 
 CRITICAL: All JSON string values MUST escape double quotes with backslash. Do NOT use unescaped quotation marks inside string values.
 
+${WORKFLOW_PROMPT_RULES}
+
 Use the update_user_profile tool to save the ${existingProfile ? "updated" : "new"} profile.`;
 
       const { z } = await import("zod");
@@ -722,6 +725,8 @@ Your task is to analyze user prompts and ${existingProfile ? "update" : "create"
 CRITICAL: Detect the language used by the user in their prompts. You MUST output all descriptions, categories, and text in the SAME language as the user's prompts.
 
 CRITICAL: All JSON string values MUST escape double quotes with backslash. Do NOT use unescaped quotation marks inside string values.
+
+${WORKFLOW_PROMPT_RULES}
 
 Use the update_user_profile tool to save the ${existingProfile ? "updated" : "new"} profile.`;
 

@@ -83,6 +83,22 @@ CAPTURE if: code changed, bug fixed, feature added, decision made`;
 /** Upper bound for LLM-inferred preference confidence (0–1 scale). */
 export const USER_PROFILE_LLM_CONFIDENCE_MAX = 1;
 
+/** A workflow needs this many non-empty steps to count as a repeatable sequence. */
+export const MIN_WORKFLOW_STEPS = 3;
+
+/** Shared by every host's profile prompt, so a workflow means the same thing everywhere. */
+export const WORKFLOW_PROMPT_RULES = `A workflow is a sequence of at least ${MIN_WORKFLOW_STEPS} concrete steps that the user repeats across tasks, such as "create a branch, write a failing test, fix, run CI, open a PR".
+Each step is one action. Do not describe the user's personality, style, or general habits as a workflow; those belong in preferences and patterns.
+Leave "workflows" empty when the prompts show no repeated sequence of steps.`;
+
+/** True when a workflow has enough non-empty steps to be kept. */
+export function hasEnoughWorkflowSteps(workflow: unknown): boolean {
+  const steps = (workflow as { steps?: unknown } | null | undefined)?.steps;
+  if (!Array.isArray(steps)) return false;
+  const filled = steps.filter((s) => typeof s === "string" && s.trim().length > 0);
+  return filled.length >= MIN_WORKFLOW_STEPS;
+}
+
 /**
  * Shared user-profile analysis schema used by OpenCode structured output,
  * the external fallback provider, and the Pi model bridge.

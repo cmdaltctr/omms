@@ -117,6 +117,19 @@ export async function runCli(argv: string[]): Promise<number> {
       model = `${selected.provider}/${selected.modelId}`;
       console.log(`Import model: ${model}`);
     }
+    // Profile merging buffers findings (capped at 50 per type) while the embedding service is
+    // cold, and a profile-only import never embeds through the memory store. Warm it first.
+    if (!args.dryRun && !args.skipProfile) {
+      try {
+        const { memoryClient } = await import("../services/client.js");
+        await memoryClient.warmup();
+      } catch (error) {
+        console.warn(
+          `Embedding warm-up failed: ${error instanceof Error ? error.message : String(error)}. ` +
+            "Profile findings may be held back until it works."
+        );
+      }
+    }
     const { formatHistoryImportReport, historyImportFailed, runHistoryImport } =
       await import("../importer/run-import.js");
     const report = await runHistoryImport(host, args, {

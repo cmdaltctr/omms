@@ -128,6 +128,12 @@ Each profile pass removes old items that have little support:
 - A preference or pattern is removed when it was last seen more than `userProfileStaleDays` days ago (default 2) and has fewer than `userProfileMinEvidenceForRetention` evidence entries (default 3).
 - A workflow is removed when it was last seen more than `userProfileWorkflowStaleDays` days ago (default 30, or `userProfileStaleDays` when that is longer) and was seen fewer than `userProfileMinEvidenceForRetention` times. Its evidence count is used when it is larger.
 
+### How workflows are learned
+
+A workflow is a repeatable sequence of at least 3 concrete steps, for example "create a branch, write a failing test, fix, run CI, open a PR". The profile prompt asks every host for this and says that a personality or style summary is not a workflow. A workflow with fewer than 3 non-empty steps is dropped before it is stored. Preferences and patterns in the same reply are kept.
+
+A new workflow joins an existing one only when the two are very similar. Otherwise it is stored as a separate workflow. A match keeps the longer list of steps, and a workflow description is never rewritten into a general summary.
+
 ### Rebuild the profile from history
 
 On **Memory**, select **Re-analyse chat history**. It opens a forced profile-only import with User profile selected and Project memories deselected. Choose hosts and scope, list sessions, preview and confirm before model calls. The preset preserves your profile and leaves project memories unchanged.
