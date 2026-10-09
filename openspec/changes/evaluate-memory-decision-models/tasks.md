@@ -50,9 +50,19 @@ These tasks cover implementation and evaluation after proposal approval. Plannin
 - [ ] 6.4 Run the 70-request retrieval test with paired latency records; verify final packed evidence, errors, scope checks and checkpoint/resume records are complete.
 - [ ] 6.5 Write the retrieval `report.md`, summary JSON and read-only `analysis.py`; verify per-channel gates reproduce from raw data and report the separate effects of profile embeddings and model decisions.
 
-## 7. Verify the complete change
+## 7. Prepare and run the pair-decision pilot
 
-- [ ] 7.1 Update `experiments/EXP_README.md` and both protocol statuses from the reports; verify all links resolve and no real corpus or result files are tracked.
-- [ ] 7.2 Run the focused experiment tests and broader integration checks after approval for the full suite, including `bun run ci:local`; verify the production package, host boundaries and existing behaviour pass unchanged.
-- [ ] 7.3 Run `/opsx-verify evaluate-memory-decision-models` and `openspec validate evaluate-memory-decision-models --strict`; verify all implementation findings are resolved and report actual commands and outcomes.
-- [ ] 7.4 Record separate follow-up recommendations and any approved local cleanup in the reports; verify no pilot verdict changes a production setting or removes live data.
+- [ ] 7.1 Implement pair candidate generation from a read-only snapshot using the production rules (same category; duplicate similarity 0.5 or more; conflict similarity 0.65 up to 0.9) and a blind review file export; verify synthetic fixtures cover band edges, cross-category exclusion, shared-entry grouping, and a review file that holds no model answer, score or similarity.
+- [ ] 7.2 Implement `03-pair-decisions-2026-10-10/run_eval.py` with arms `P0` to `P3`, a pinned copy of the production prompts, A/B swap checks and checkpoint/resume; verify mocked tests count timeouts and invalid answers as wrong, route hybrid fallback correctly, repeat the current-model control, and keep test pairs out of development tuning.
+- [ ] 7.3 Implement the pair summariser and gates `P-G1` through `P-G6`, then update the pair protocol with the implemented interface; verify hand-calculated fixtures cover exact boundaries, undefined false-merge rates, too few contradictions, incomplete cells and decision time per 60 pairs.
+- [ ] 7.4 Obtain corpus approval and prepare 200 duplicate pairs (60/140 grouped split) and 150 conflict pairs (45/105 grouped split), each reviewed blind; verify reasons, redaction, the number of pairs scanned and at least 30 reviewed contradictions in the conflict test split, or record INCONCLUSIVE.
+- [ ] 7.5 Approve the pair gates (including the speed-up factor and fallback limit), model-call scope and spending limit; verify the manifest records these approvals and rejects an unapproved hosted arm.
+- [ ] 7.6 Run pair development cells, freeze question wording, thresholds and the hybrid band, then run the test split with checkpoint/resume; verify frozen hashes are saved before test results are opened and all required records are accounted for.
+- [ ] 7.7 Write the pair `report.md`, summary JSON and read-only `analysis.py`; verify metrics reproduce from raw JSON, the report records PASS, FAIL or INCONCLUSIVE per decision, and the duplicate-cache key finding is recorded as a separate follow-up.
+
+## 8. Verify the complete change
+
+- [ ] 8.1 Update `experiments/EXP_README.md` and all three protocol statuses from the reports; verify all links resolve and no real corpus or result files are tracked.
+- [ ] 8.2 Run the focused experiment tests and broader integration checks after approval for the full suite, including `bun run ci:local`; verify the production package, host boundaries and existing behaviour pass unchanged.
+- [ ] 8.3 Run `/opsx-verify evaluate-memory-decision-models` and `openspec validate evaluate-memory-decision-models --strict`; verify all implementation findings are resolved and report actual commands and outcomes.
+- [ ] 8.4 Record separate follow-up recommendations and any approved local cleanup in the reports; verify no pilot verdict changes a production setting, integrates Jev or removes live data.

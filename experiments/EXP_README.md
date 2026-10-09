@@ -2,12 +2,13 @@
 
 Experiments test proposed changes against reviewed data before production behaviour changes. Each experiment has its own dated folder and a complete `protocol.md`.
 
-| ID  | Question                                                     | Status  | Protocol                                                             | Report             |
-| --- | ------------------------------------------------------------ | ------- | -------------------------------------------------------------------- | ------------------ |
-| 01  | Can bounded decisions reuse profile categories safely?       | PLANNED | [Label decisions](01-label-decisions-2026-10-07/protocol.md)         | Pending evaluation |
-| 02  | Can decisions select more useful memory and profile context? | PLANNED | [Retrieval decisions](02-retrieval-decisions-2026-10-07/protocol.md) | Pending evaluation |
+| ID  | Question                                                                   | Status  | Protocol                                                             | Report             |
+| --- | -------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------- | ------------------ |
+| 01  | Can bounded decisions reuse profile categories safely?                     | PLANNED | [Label decisions](01-label-decisions-2026-10-07/protocol.md)         | Pending evaluation |
+| 02  | Can decisions select more useful memory and profile context?               | PLANNED | [Retrieval decisions](02-retrieval-decisions-2026-10-07/protocol.md) | Pending evaluation |
+| 03  | Can a decision model make duplicate and conflict checks safely and faster? | PLANNED | [Pair decisions](03-pair-decisions-2026-10-10/protocol.md)           | Pending evaluation |
 
-Both experiments belong to the [evaluate-memory-decision-models proposal](../openspec/changes/evaluate-memory-decision-models/proposal.md). One change covers their evaluation setup. Results are judged separately.
+All three experiments belong to the [evaluate-memory-decision-models proposal](../openspec/changes/evaluate-memory-decision-models/proposal.md). One change covers their evaluation setup. Results are judged separately.
 
 ## Approval and run status
 
@@ -37,4 +38,4 @@ A result supports a later production proposal. It cannot authorise a production 
 
 The pilot compares the current language model, Jev and Julia-1 against simpler controls. OpenJev is optional until its exact repository and backend are selected.
 
-The experiments leave production stores, host sessions and live configuration unchanged. Profile translation, entry merging and coloured category badges need separate changes.
+The experiments leave production stores, host sessions and live configuration unchanged. Profile translation, performing entry merges, Jev integration and coloured category badges need separate changes.

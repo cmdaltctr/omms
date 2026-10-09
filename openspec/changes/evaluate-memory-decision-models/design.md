@@ -2,7 +2,7 @@
 
 ## Context
 
-See [proposal.md](proposal.md) for the motivation and scope. The protocols define independent label and retrieval questions, their controls and pilot gates.
+See [proposal.md](proposal.md) for the motivation and scope. The protocols define independent label, retrieval and pair-decision questions, their controls and pilot gates.
 
 OMMS is a TypeScript package with Bun tests and libSQL storage. Julia-1's documented runtime is Python. The `s-experiment` workflow supplies the experiment structure, checkpoint rules and report format; its Chroma and `rag_mcp` examples do not apply to this repository.
 
@@ -24,12 +24,13 @@ The relevant existing specs are `profile-learning`, `memory-context-controls` an
 
 - Choose a production provider or alter host model precedence.
 - Write model decisions back to the profile or memory stores.
-- Evaluate description translation, entry merging, workflows or badge styling.
+- Evaluate description translation, performing entry merges, workflows or badge styling.
+- Integrate Jev or change the import. A pair-decision result supports a later proposal only.
 - Add a general experiment framework, a new web review app or cloud deployment.
 
 ## Decisions
 
-### 1. Use one change with two independent experiment folders
+### 1. Use one change with three independent experiment folders
 
 Use these roots:
 
@@ -40,11 +41,13 @@ experiments/
     protocol.md
   02-retrieval-decisions-2026-10-07/
     protocol.md
+  03-pair-decisions-2026-10-10/
+    protocol.md
 ```
 
-One proposal owns preparation and the run safeguards. Each experiment owns its corpus, checkpoints, metrics and report. Passing one experiment cannot pass the other.
+One proposal owns preparation and the run safeguards. Each experiment owns its corpus, checkpoints, metrics and report. Passing one experiment cannot pass another.
 
-A combined quality score would hide whether an improvement came from category assignment or retrieval. Two unrelated changes would duplicate approval and isolation work. Keep the common setup small; do not introduce base classes or a plugin registry.
+A combined quality score would hide whether an improvement came from category assignment, retrieval or pair decisions. Two unrelated changes would duplicate approval and isolation work. Keep the common setup small; do not introduce base classes or a plugin registry.
 
 ### 2. Keep dependencies and runners outside the published package
 
@@ -84,7 +87,7 @@ Running extraction and relabelling together would change several variables. Use 
 
 ### 5. Use bounded outputs with per-method thresholds
 
-Label models return an existing candidate ID or `none_fit`. Retrieval models judge one explicit query-candidate relationship. Jev and Julia-1 use Choice for labels and Noul for retrieval.
+Label models return an existing candidate ID or `none_fit`. Retrieval models judge one explicit query-candidate relationship. Jev and Julia-1 use Choice for labels and Noul for retrieval and pair decisions.
 
 The current language model returns a constrained label or relevance score. Its self-reported score is not an established probability. Preserve provider fields, raw scores and threshold decisions separately.
 
@@ -124,6 +127,18 @@ Measure the full added decision path, including encoding, batching, network dela
 
 Report paired confidence intervals and small-sample limits. If a baseline leaves less than 10 points of possible improvement, mark the lift question INCONCLUSIVE. Freeze all gates before inference. A failed or inconclusive pilot keeps production behaviour unchanged.
 
+### 9. Judge pair decisions on reviewed pairs, with false merges first
+
+Production merges two entries when a duplicate or conflict check answers yes. A wrong yes destroys a distinct fact. A wrong no keeps two entries. The pair experiment therefore ranks the false-merge rate above agreement and speed.
+
+Take a read-only snapshot after the category repair. Build pairs with the production rules: same category, cosine similarity of 0.5 or more for duplicates, and 0.65 up to 0.9 for conflicts. Do not tune these bands. Group pairs that share an entry and keep each group in one split. The user reviews every pair blind: no model answer, score or similarity is shown. Import logs hold sizes and identifiers only, so they supply call counts and latency and never pair text or labels. A model answer, including the current model's, cannot define ground truth.
+
+Compare an embedding threshold, the current model with its exact production prompt (run twice to measure noise), Jev Noul, and a hybrid. The hybrid keeps Jev answers outside a probability band and sends the rest to the current model. Julia-1 is optional and stays BLOCKED unless its pinned weights give a yes/no probability. Check A/B order swaps on development pairs.
+
+The proposed gates are `P-G1` to `P-G6`: false merges no worse than the current model with a 95% upper bound below 5%, agreement within 3 points, at least 5 times lower decision time, at most 30% fallback for the hybrid, validity, and zero production writes. The 5 times and 30% limits are placeholders for the user to set before inference. An undefined rate, or too few reviewed contradictions, is INCONCLUSIVE for that decision. Speed never offsets wrong merges.
+
+A pass supports a later integration proposal. It does not integrate Jev or change the import.
+
 ## Risks / Trade-offs
 
 | Risk                                                   | Mitigation                                                                       |
@@ -138,6 +153,8 @@ Report paired confidence intervals and small-sample limits. If a baseline leaves
 | Local model load time dominates a short benchmark      | Report cold-start and warmed timing separately                                   |
 | A pilot meets a numeric gate with weak evidence        | Publish uncertainty and require a later production validation plan               |
 | An optional provider blocks all progress               | Mark that arm BLOCKED while complete mandatory arms retain their own results     |
+| A faster model merges distinct facts                   | Gate the false-merge rate first; speed never offsets wrong merges                |
+| Too few contradictions exist for a conflict verdict    | Search the conflict band, record pairs scanned, report INCONCLUSIVE if short     |
 
 ## Migration Plan
 
@@ -158,5 +175,7 @@ Rollback means stopping experiment processes and retaining the recorded evidence
 - Which exact OpenJev repository and backend should form the optional arm? It can remain BLOCKED.
 - Which project-memory corpus and current model should be pinned for retrieval? Preparation stops until both are recorded.
 - What spending limit and hosted transfer scope will the user approve? Hosted execution stays blocked until approval.
+
+- Which pair counts (200 duplicate, 150 conflict), speed-up factor (proposed 5 times) and fallback limit (proposed 30%) will the user approve?
 
 These choices populate the frozen run manifests. They do not change the pilot questions or permit production changes.
