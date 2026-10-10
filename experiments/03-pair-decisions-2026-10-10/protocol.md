@@ -41,16 +41,16 @@ The hybrid uses Jev for pairs that clear a confidence band and sends the remaini
 
 ## Variables
 
-| Type        | Variable         | Values / treatment                                                                  |
-| ----------- | ---------------- | ----------------------------------------------------------------------------------- |
-| Independent | Decision method  | Embedding threshold, DeepSeek (production), Jev Noul, hybrid; optional Julia-1      |
-| Dependent   | False-merge rate | Wrong `yes` answers among all accepted `yes` answers                                |
-| Dependent   | Agreement        | Correct answers among decided pairs, with `uncertain` reviewed pairs reported apart |
-| Dependent   | Decision time    | Mean, P95 and total seconds per pair, and per 60-pair import batch                  |
-| Controlled  | Pair set         | Same pairs, same A/B order and same redacted text for every arm                     |
-| Controlled  | Candidate rules  | Production similarity bands and same-category rule, not tuned                       |
-| Controlled  | Embeddings       | The pinned OMMS embedding model                                                     |
-| Controlled  | Data split       | Pairs that share an entry stay in one split                                         |
+| Type        | Variable         | Values / treatment                                                                     |
+| ----------- | ---------------- | -------------------------------------------------------------------------------------- |
+| Independent | Decision method  | Embedding threshold, DeepSeek (production), Jev Noul, hybrid; optional Julia-1, Needle |
+| Dependent   | False-merge rate | Wrong `yes` answers among all accepted `yes` answers                                   |
+| Dependent   | Agreement        | Correct answers among decided pairs, with `uncertain` reviewed pairs reported apart    |
+| Dependent   | Decision time    | Mean, P95 and total seconds per pair, and per 60-pair import batch                     |
+| Controlled  | Pair set         | Same pairs, same A/B order and same redacted text for every arm                        |
+| Controlled  | Candidate rules  | Production similarity bands and same-category rule, not tuned                          |
+| Controlled  | Embeddings       | The pinned OMMS embedding model                                                        |
+| Controlled  | Data split       | Pairs that share an entry stay in one split                                            |
 
 ## Corpus and ground truth
 
@@ -78,34 +78,38 @@ Strip `<private>` content and redact secrets before building corpus files. Prese
 
 ## Environment and prerequisites
 
-| Requirement        | Version / value                                                                         |
-| ------------------ | --------------------------------------------------------------------------------------- |
-| OMMS source        | Record the exact commit. The category work is `63f6b32` on `fix/workflow-merge`         |
-| Runtime            | Bun for fixtures; Python 3.11 or later with `uv`, scoped to `experiments/`              |
-| DeepSeek control   | Pin the provider, model ID and request parameters. Reuse the exact production prompts   |
-| Jev                | `jev-1.13.0`; verify availability and pin the returned model ID                         |
-| Embedding model    | The configured OMMS model and preprocessing                                             |
-| Julia-1 (optional) | Only if the pinned weights support a yes/no probability. Otherwise mark the arm BLOCKED |
-| Credentials        | Environment or file references. Keep values out of manifests and logs                   |
-| Run approval       | Separate approval for installs, downloads, hosted data transfer and a spending limit    |
+| Requirement        | Version / value                                                                                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OMMS source        | Record the exact commit. The category work is `63f6b32` on `fix/workflow-merge`                                                                                      |
+| Runtime            | Bun for fixtures; Python 3.11 or later with `uv`, scoped to `experiments/`                                                                                           |
+| DeepSeek control   | Pin the provider, model ID and request parameters. Reuse the exact production prompts                                                                                |
+| Jev                | `jev-1.13.0`; verify availability and pin the returned model ID                                                                                                      |
+| Embedding model    | The configured OMMS model and preprocessing                                                                                                                          |
+| Julia-1 (optional) | Only if the pinned weights support a yes/no probability. Otherwise mark the arm BLOCKED                                                                              |
+| Needle (optional)  | `cactus-compute/needle`, Apache-2.0. Pin the repository revision and weight checksum. Run local only, with `NEEDLE_TELEMETRY=0` and `DO_NOT_TRACK=1`. No fine-tuning |
+| Credentials        | Environment or file references. Keep values out of manifests and logs                                                                                                |
+| Run approval       | Separate approval for installs, downloads, hosted data transfer and a spending limit                                                                                 |
 
 Hosted calls send profile text to Jev. Use only approved redacted pairs. Estimate the spend before any call. At 350 pairs and a few hundred tokens each, the input is well under one million tokens, so the cost is cents. Record the estimate and the actual billed amount.
 
 ## Experimental design / cell matrix
 
-| Run ID         | Purpose                  | Role      | Key settings                                                                       |
-| -------------- | ------------------------ | --------- | ---------------------------------------------------------------------------------- |
-| `P0-embedding` | Cheap control            | Baseline  | Cosine threshold chosen on development pairs; no model call                        |
-| `P1-deepseek`  | Production control       | Baseline  | Exact production prompt, temperature 0, 30 s timeout; two repeats to measure noise |
-| `P2-jev-noul`  | Candidate                | Candidate | One Noul question per pair; wording and threshold fixed on development pairs       |
-| `P3-hybrid`    | Candidate                | Candidate | Jev answers outside a probability band; DeepSeek answers inside it                 |
-| `P4-julia`     | Optional local candidate | Candidate | Same question, pinned weights; BLOCKED without a documented yes/no output          |
+| Run ID         | Purpose                  | Role      | Key settings                                                                                                                                                                                                                                                 |
+| -------------- | ------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `P0-embedding` | Cheap control            | Baseline  | Cosine threshold chosen on development pairs; no model call                                                                                                                                                                                                  |
+| `P1-deepseek`  | Production control       | Baseline  | Exact production prompt, temperature 0, 30 s timeout; two repeats to measure noise                                                                                                                                                                           |
+| `P2-jev-noul`  | Candidate                | Candidate | One Noul question per pair; wording and threshold fixed on development pairs                                                                                                                                                                                 |
+| `P3-hybrid`    | Candidate                | Candidate | Jev answers outside a probability band; DeepSeek answers inside it                                                                                                                                                                                           |
+| `P4-julia`     | Optional local candidate | Candidate | Same question, pinned weights; BLOCKED without a documented yes/no output                                                                                                                                                                                    |
+| `P5-needle`    | Optional local candidate | Candidate | Pair posed as one enum field (`same` or `different`; `contradict` or `compatible`) read from the extraction output; Needle confidence kept apart from calibrated probability; BLOCKED if the enum field cannot be forced or telemetry cannot be switched off |
 
 Run each arm on both decisions. A and B are symmetric in meaning. Production orders a pair by similarity. Run a swapped-order check on development pairs and report any answer that flips. Do not change the primary test order after seeing test results.
 
 Tune the Jev question wording, the decision threshold and the hybrid band on development pairs only. Freeze them, with a hash, before the test run. Keep raw Jev probabilities separate from any provider confidence field.
 
-Stop before test inference if review, model pins, isolation, spending limit or approvals are incomplete. The optional arm can be BLOCKED without stopping the others.
+Stop before test inference if review, model pins, isolation, spending limit or approvals are incomplete. An optional arm (`P4-julia`, `P5-needle`) can be BLOCKED without stopping the others.
+
+Needle is a structured-output model for tool calls and extraction. It is not a yes/no decision model, and its README tests no pair-comparison task. `P5-needle` therefore uses the documented enum-classification route as a workaround and the arm judges whether that works on pairs. Its confidence score is built for act-or-refuse routing. Report it separately, and do not transfer a Jev or hybrid threshold to it. Run it with telemetry off and without `needle finetune` or `needle platform finetune`: fine-tuning would need labelled pairs, which must stay out of training, and the platform variant uploads data.
 
 ## Metrics
 
