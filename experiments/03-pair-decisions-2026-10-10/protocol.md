@@ -3,7 +3,7 @@
 - **ID**: `03-pair-decisions-2026-10-10`
 - **Date planned**: 2026-10-10
 - **Operator**: Dr Muhammad Aizat Bin Md Hawari with Claude Code
-- **Status**: PLANNED (draft approved by the user on 2026-10-10; no runner, corpus or result exists)
+- **Status**: ACTIVE (human-reviewed benchmark: corpus v2 prepared, blind review pending; the separately approved AI-labelled diagnostic pilot and standalone local Clef run are FINISHED, see [output/ai-pilot/report.md](output/ai-pilot/report.md))
 - **Relation**: [evaluate-memory-decision-models](../../openspec/changes/evaluate-memory-decision-models/proposal.md), design decision 9 and tasks 7.1 to 7.7.
 
 ## Why this experiment exists
@@ -76,6 +76,14 @@ The sizes are proposals. Approve or change them before review starts.
 
 Strip `<private>` content and redact secrets before building corpus files. Preserve the remaining wording. Create ignore rules before export. Commit only the protocol, code and reviewed synthetic fixtures.
 
+**Corpus v2 (prepared 2026-10-10, awaiting review).** The approved reduced selection produced 213 pairs but placed almost every likely duplicate in the lower cosine bands, leaving development without positive examples. The v2 corpus keeps all 213 pairs and their splits unchanged and adds the 69 unused duplicate candidates at cosine 0.75 or above (65 inherit their group's split, 4 new groups join development), giving 129 development and 105 test duplicate pairs plus the unchanged 12/36 conflict pairs: 282 pairs for blind review. The whole conflict band was already selected, so no fresh conflict pairs exist. Production bands are untouched.
+
+**Supplemental challenge set (user-approved 2026-10-10, awaiting review).** Because the snapshot cannot supply conflict positives, `challenge_cases.py` writes 80 clearly-marked synthetic cases (20 clear duplicates, 20 related-but-distinct facts, 24 contradictions, 16 compatible preferences) into `corpus/challenge-blind-review.json`, with intended outcomes kept separately in `corpus/challenge-design.json`. The blind reviewer's outcomes are the ground truth. Challenge cases carry no cosine scores, never join the production-band pairs or gates, and are reported as a separate diagnostic. This round's arms are restricted by user decision to `P1-deepseek` and the standalone local `P6-clef`; Jev and the hybrid are dropped and make no calls.
+
+**Review status (2026-10-10): AI labels, not human review.** By user decision the 362 pairs were labelled by an AI from pair text only. The labels are in `corpus/ai-review-export.json` and `corpus/ai-challenge-export.json`, with `human_reviewed: false` in `corpus/ai-review-provenance.json`. Both pass `validate_review.py`. They are a diagnostic reference, not ground truth: `approvals.review` stays false and every merge-safety verdict stays INCONCLUSIVE. Production-band counts: development 9 `same`, 35 `uncertain`, 85 `different` duplicates and 12 `compatible` conflicts; test 10 `same`, 30 `uncertain`, 65 `different` duplicates and 36 `compatible` conflicts, with zero `contradict`. A zero-error Wilson 95% upper bound below 5% needs at least 73 accepted YES answers. The test split cannot supply that many correct YES answers, so `P-G1` can end FAIL or INCONCLUSIVE but not PASS. The conflict test split has fewer than 30 contradictions, so conflicts stay INCONCLUSIVE.
+
+**Result of the AI-labelled diagnostic (2026-10-10): INCONCLUSIVE.** See `report.md` in this folder. Clef at 0.8 matched or beat DeepSeek at about 7x the speed and no API cost. The labels are AI-made and 0.8 was chosen after the test.
+
 ## Environment and prerequisites
 
 | Requirement        | Version / value                                                                                                                                                      |
@@ -134,21 +142,46 @@ A zero denominator makes a rate undefined. Mark that gate INCONCLUSIVE. A small 
 
 ## Procedure / reproduction commands
 
-These commands describe the planned runner. The scripts and corpus do not exist yet. Build them only after approval of the OpenSpec update.
+The runner, summariser and corpus tooling are implemented. The commands below are the actual interfaces. The human-reviewed benchmark still requires the blind review and the run approvals before inference; the AI-labelled diagnostic pilot and local Clef add-on have separate manifests and finished earlier.
 
 ### Step 1: Prepare data
 
-1. Verify the worktree and branch. Add ignore rules for corpus, output, weights and notebooks.
-2. Open the source database read-only and take a consistent snapshot. Record the snapshot date and item counts.
-3. Redact the snapshot, generate candidate pairs, and give the user the blind review file.
-4. Write ground truth and a checksummed manifest.
+1. Snapshot the approved source read-only with `experiments/tooling.py snapshot` (see the experiment index for the exact command).
+2. Export redacted candidate pairs and the blind review file from the copied snapshot through `prepare_copy(source, root, seed)` in `prepare.py`.
+3. Enrich the corpus with likely positives without touching the original selection:
+
+```bash
+uv run --project experiments --no-sync python \
+  experiments/03-pair-decisions-2026-10-10/prepare_v2.py \
+  --root experiments/03-pair-decisions-2026-10-10
+```
+
+This keeps every original pair and split, adds each unused duplicate candidate at cosine 0.75 or above (inheriting its group's split; new groups join development), and refuses snapshot drift or fresh conflict candidates. It writes `corpus/pairs-v2.json`, `corpus/blind-review-v2.json`, `corpus/preparation-v2.json`, `corpus/manifest-v2.json` and `output/preparation-v2-result.json`, and makes no model calls.
+
+4. Build the local blind review page and hand it to the reviewer:
+
+```bash
+uv run --project experiments --no-sync python \
+  experiments/03-pair-decisions-2026-10-10/build_review_page.py \
+  --review experiments/03-pair-decisions-2026-10-10/corpus/blind-review-v2.json \
+  --out experiments/03-pair-decisions-2026-10-10/corpus/review.html
+```
+
+The page shows one pair at a time, hides every score and model answer, saves progress locally and exports `review-export.json`. Validate the completed export before writing ground truth:
+
+```bash
+uv run --project experiments --no-sync python \
+  experiments/03-pair-decisions-2026-10-10/validate_review.py \
+  --review experiments/03-pair-decisions-2026-10-10/corpus/blind-review-v2.json \
+  --file review-export.json
+```
 
 ### Step 2: Run evaluation
 
 ```bash
 PYTHONUNBUFFERED=1 uv run --project experiments python -u \
   experiments/03-pair-decisions-2026-10-10/run_eval.py \
-  --manifest experiments/03-pair-decisions-2026-10-10/corpus/manifest.json \
+  --manifest experiments/03-pair-decisions-2026-10-10/corpus/manifest-v2.json \
   --split development --resume
 ```
 
@@ -167,7 +200,7 @@ Write raw JSON and one `report.md`. List blocked arms, missing calls and confide
 
 ## Success criteria / pass gates
 
-These are proposed gates. Approve and freeze them before inference. Judge each candidate on each decision separately.
+These gates were approved and frozen before inference (task 7.5): 5 times speed-up, 30% fallback limit, 5% false-merge upper bound, 3-point agreement tolerance. Judge each candidate on each decision separately.
 
 | Criterion                     | Threshold                                                                                    | Why it matters                               |
 | ----------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------- |
@@ -214,8 +247,11 @@ Keep redacted raw results, manifests, checkpoints and the report in ignored loca
 | ------------------------------------- | ----------------------------------------- | :----------------------: |
 | `protocol.md`                         | This plan                                 |     Yes, created now     |
 | `report.md`                           | Results, discussion and conclusion        |  Yes, after evaluation   |
-| `run_eval.py`                         | Arms, checkpoint and resume               |   Yes, after approval    |
-| `summarise_eval.py`                   | Metrics and gate verdicts                 |   Yes, after approval    |
+| `run_eval.py`                         | Arms, checkpoint and resume               |      Yes, implemented    |
+| `summarise_eval.py`                   | Metrics and gate verdicts                 |      Yes, implemented    |
+| `prepare_v2.py`                       | Positive-example corpus enrichment        |      Yes, implemented    |
+| `build_review_page.py`                | Local blind review page builder           |      Yes, implemented    |
+| `validate_review.py`                  | Review export validation                  |      Yes, implemented    |
 | `corpus/`                             | Redacted pairs, ground truth and manifest |  Yes, local and ignored  |
 | `output/eval_results.json`            | Raw decision records                      |  Yes, after evaluation   |
 | `output/eval_results_checkpoint.json` | Resume state                              |  Yes, during evaluation  |

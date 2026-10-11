@@ -41,3 +41,13 @@ docs/plans/
 .opencode
 .omo
 package/
+
+# experiment-only environments and local evidence
+experiments/**/corpus/
+experiments/**/output/
+experiments/**/models/
+experiments/**/weights/
+experiments/**/.venv/
+experiments/**/.pytest_cache/
+experiments/**/__pycache__/
+experiments/**/*.ipynb
