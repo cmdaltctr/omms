@@ -22,6 +22,9 @@ import { NODE_HTTP_IDLE_TIMEOUT_MS } from "./request-timeouts.js";
 import {
   handleListTags,
   handleListMemories,
+  handleListLabelAssignments,
+  handleResolveLabelAssignment,
+  parseResolveLabelAssignmentPath,
   handleAddMemory,
   handleDeleteMemory,
   handleBulkDelete,
@@ -1506,6 +1509,27 @@ export class WebServer {
         const body = (await req.json()) as any;
         const cascade = body.cascade !== false;
         const result = await handleBulkDelete(body.ids || [], cascade);
+        return this.jsonResponse(result);
+      }
+
+      if (path === "/api/label-assignments" && method === "GET") {
+        const status = url.searchParams.get("status") === "resolved" ? "resolved" : "pending";
+        const limit = parseInt(url.searchParams.get("limit") || "100");
+        const result = await handleListLabelAssignments(status, limit);
+        return this.jsonResponse(result);
+      }
+
+      if (
+        path.startsWith("/api/label-assignments/") &&
+        path.endsWith("/resolve") &&
+        method === "POST"
+      ) {
+        const id = parseResolveLabelAssignmentPath(path);
+        if (id === null) {
+          return this.jsonResponse({ success: false, error: "Invalid ID" }, 400);
+        }
+        const body = (await req.json()) as any;
+        const result = await handleResolveLabelAssignment(id, body);
         return this.jsonResponse(result);
       }
 

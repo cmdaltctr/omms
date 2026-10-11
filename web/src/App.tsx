@@ -2,12 +2,14 @@ import { useEffect, useState, type MouseEvent } from "react";
 import { Select } from "$lib/components/ui/select";
 import { Loader, Menu, Plus, RefreshCw, Search, Trash, TriangleAlert, X } from "lucide-react";
 import { useMemoriesExplorer } from "@/hooks/useMemoriesExplorer";
+import { useLabelReview } from "@/hooks/useLabelReview";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { AiCleanupDialog } from "$lib/components/explorer/AiCleanupDialog";
 import { AppSidebar } from "$lib/components/explorer/AppSidebar";
 import { EditMemoryDialog } from "$lib/components/explorer/EditMemoryDialog";
 import { SidebarBrand } from "$lib/components/explorer/SidebarBrand";
 import { KeywordBadge } from "$lib/components/explorer/KeywordBadge";
+import { LabelReviewList } from "$lib/components/explorer/LabelReviewList";
 import { MemoryList } from "$lib/components/explorer/MemoryList";
 import { ProfileView } from "$lib/components/explorer/ProfileView";
 import { TagMigrationDialog } from "$lib/components/explorer/TagMigrationDialog";
@@ -48,6 +50,7 @@ export default function App() {
 
   const explorer = useMemoriesExplorer();
   const profile = useUserProfile();
+  const labelReview = useLabelReview();
 
   useEffect(() => {
     const stopRouter = initRouter();
@@ -337,6 +340,15 @@ export default function App() {
                         : keyword
                     )
                   }
+                />
+
+                <LabelReviewList
+                  assignments={labelReview.assignments}
+                  loading={labelReview.loading}
+                  error={labelReview.error}
+                  resolvingIds={labelReview.resolvingIds}
+                  onResolve={labelReview.resolve}
+                  onReload={() => void labelReview.reload()}
                 />
 
                 <section className="rounded-xl border border-border bg-card p-4 space-y-3">

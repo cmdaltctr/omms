@@ -131,6 +131,16 @@ Each update writes `Web app update` log records with the outcome, the code, both
 
 Types remain separate from keyword tags. Displaying a badge writes no labels, tags, or relationships to the memory store.
 
+## Label review
+
+The memories page shows a **Label review** section above the add form when any label assignments wait for a decision. Each card shows the observation, its section, the source that proposed it, and the classifier's suggested label.
+
+- **Confirm** stores the suggested (or typed) label as the reviewed outcome.
+- **No label fits** stores `none_fit`.
+- **Uncertain** records the doubt and keeps the case in the queue for another pass.
+
+Only reviewed outcomes are reused automatically later. Nothing is reused from the suggestion alone. The queue is empty until a producer (history import or category-reuse capture) starts proposing labels.
+
 ## Language
 
 The sidebar footer shows the current language: EN, ZH, or AR. Select it to choose English, Chinese, or Arabic. The page remembers your choice for the next visit.

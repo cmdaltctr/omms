@@ -1,0 +1,22 @@
+# Tasks
+
+- [x] 1. Shared core: review-gated first assignment
+  - [x] 1.1 Add the routing rule (`src/core/label-assignment.ts`): no automatic label reuse on first assignment; reviewed label and `none_fit` outcomes reuse automatically
+  - [x] 1.2 Store `suggested_label` with each pending review item (`label_assignments` table); never store it as the outcome
+  - [x] 1.3 Add review outcome states `label`, `none_fit`, `uncertain` with reviewer identity and timestamp; `uncertain` keeps the item pending
+  - [x] 1.4 Router takes duplicate and conflict matches ahead of review routing; conflicts route back to review
+  - [x] 1.5 Unit tests (`tests/label-assignment.test.ts`, 8 passing): routing cases, outcome validation, store round-trip, uncertain stays pending
+- [x] 2. Review queue surface
+  - [x] 2.1 Shared web API: `GET /api/label-assignments?status=`, `POST /api/label-assignments/:id/resolve`
+  - [x] 2.2 Queue view (`LabelReviewList`): observation, suggested label, typed override, Confirm / No label fits / Uncertain; three languages
+  - [x] 2.3 Verified through `tsc`, production build and the hook logic; this web app has no component-test runner, so no component test was added
+- [x] 3. Host-neutral core
+  - [x] 3.1 Routing and storage live in `src/core` and `src/services` with no host imports; the existing boundary tests keep enforcing that
+  - [ ] 3.2 Producer wiring (capture or profile learning creating review items) lands with the category-reuse producer after catalogue consolidation; no production flow proposes labels yet, so no host can be exercised end to end
+- [x] 4. Documentation
+  - [x] 4.1 `docs/web-ui.md` gains the Label review section with reviewer instructions
+  - [x] 4.2 Review-load expectation noted: the queue starts empty and grows with producers; consolidation keeps it workable
+- [ ] 5. Verification
+  - [x] 5.1 `bun test tests/label-assignment.test.ts`, `bun run lint`, `bun run typecheck`, `bun run build` all pass
+  - [ ] 5.2 `bun run ci:local` is blocked by pre-existing unformatted experiment evidence files (Experiments 01 to 08 reports and JSON, hash-pinned by Experiment 09's manifest); formatting them would break Experiment 09's read-only verification, so they are left for the change that owns them
+  - [ ] 5.3 Manual pass on each host: pending until task 3.2 wires a producer

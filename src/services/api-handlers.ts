@@ -1550,3 +1550,65 @@ export async function handleRunTagMigrationBatch(
     return { success: false, error: String(error) };
   }
 }
+
+/** Review-gated label assignments (spec: label-assignment-review). */
+export async function handleListLabelAssignments(
+  status: "pending" | "resolved",
+  limit: number
+): Promise<ApiResponse<{ assignments: unknown[] }>> {
+  try {
+    const { listPendingLabelAssignments, listResolvedLabelAssignments } =
+      await import("./label-assignment-store.js");
+    const assignments =
+      status === "pending"
+        ? await listPendingLabelAssignments(Math.min(Math.max(limit, 1), 500))
+        : await listResolvedLabelAssignments(undefined, Math.min(Math.max(limit, 1), 500));
+    return { success: true, data: { assignments } };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
+export async function handleResolveLabelAssignment(
+  id: number,
+  body: { outcome?: unknown; reviewer?: unknown; note?: unknown }
+): Promise<ApiResponse<{ resolved: boolean; pending: boolean }>> {
+  try {
+    const { isValidLabelOutcome } = await import("../core/label-assignment.js");
+    const { resolveLabelAssignment } = await import("./label-assignment-store.js");
+    if (!isValidLabelOutcome(body.outcome)) {
+      return { success: false, error: "outcome must be label, none_fit or uncertain" };
+    }
+    const reviewer =
+      typeof body.reviewer === "string" && body.reviewer.trim()
+        ? body.reviewer.trim().slice(0, 200)
+        : "web-operator";
+    const note = typeof body.note === "string" ? body.note : undefined;
+    const result = await resolveLabelAssignment(id, body.outcome, reviewer, note);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
+/**
+ * Strict parser for `/api/label-assignments/:id/resolve`. Returns null for
+ * anything but a positive safe-integer id on the exact route shape, so a
+ * malformed path such as `/api/label-assignments/1junk/resolve` can never fall
+ * through `parseInt` and modify a valid assignment.
+ */
+export function parseResolveLabelAssignmentPath(path: string): number | null {
+  const segments = path.split("/").slice(1);
+  if (segments.length !== 4) {
+    return null;
+  }
+  const [api = "", resource = "", idSegment = "", action = ""] = segments;
+  if (api !== "api" || resource !== "label-assignments" || action !== "resolve") {
+    return null;
+  }
+  if (!/^\d+$/.test(idSegment)) {
+    return null;
+  }
+  const id = Number(idSegment);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
