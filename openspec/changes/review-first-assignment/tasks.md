@@ -12,10 +12,10 @@
   - [x] 2.3 Verified through `tsc`, production build and the hook logic; this web app has no component-test runner, so no component test was added
 - [x] 3. Host-neutral core
   - [x] 3.1 Routing and storage live in `src/core` and `src/services` with no host imports; the existing boundary tests keep enforcing that
-  - [ ] 3.2 Producer wiring (capture or profile learning creating review items) lands with the category-reuse producer after catalogue consolidation; no production flow proposes labels yet, so no host can be exercised end to end
+  - [ ] 3.2 Producer wiring (capture or profile learning creating review items) is the next step. It no longer waits for catalogue consolidation: Experiment 11 showed merging labels is not the fix (ADR-024). No production flow creates review items yet, so no host can be exercised end to end
 - [x] 4. Documentation
   - [x] 4.1 `docs/web-ui.md` gains the Label review section with reviewer instructions
-  - [x] 4.2 Review-load expectation noted: the queue starts empty and grows with producers; consolidation keeps it workable
+  - [x] 4.2 Review-load expectation noted: the queue starts empty and grows with producers; approved repeats are reused automatically, so the load falls as repeats grow (ADR-024)
 - [ ] 5. Verification
   - [x] 5.1 `bun test tests/label-assignment.test.ts`, `bun run lint`, `bun run typecheck`, `bun run build` all pass
   - [ ] 5.2 `bun run ci:local` is blocked by pre-existing unformatted experiment evidence files (Experiments 01 to 08 reports and JSON, hash-pinned by Experiment 09's manifest); formatting them would break Experiment 09's read-only verification, so they are left for the change that owns them

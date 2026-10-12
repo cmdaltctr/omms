@@ -13,7 +13,7 @@ We need a production design that is safe by construction today and improves only
 - First assignment of a memory label to an observation SHALL route to review instead of being reused automatically. The classifier's suggestion travels with the case as a pre-selected option, never as the stored outcome.
 - Reuse of an assignment that a human previously reviewed SHALL stay automatic, subject to the existing duplicate and conflict checks.
 - The review queue SHALL show the observation, the suggested label and its neighbouring definitions, and SHALL accept one of: a label, `none_fit`, or an explicit uncertain marker that leaves the case unlabelled.
-- Review outcomes SHALL feed the future catalogue consolidation and any later verifier experiments; nothing in this change retrains or retunes a model.
+- Review outcomes SHALL become reviewed examples for any later experiment; ADR-024 sets when automatic first assignment may be tested again; nothing in this change retrains or retunes a model.
 - The change applies to every host through the shared core; no host-specific assignment logic is added.
 
 ## Capabilities
@@ -30,6 +30,6 @@ None. `profile-learning`, `capture-diagnostics` and the host contracts keep thei
 
 - Shared core (`src/core/`, `src/services/`) gains the routing rule and review outcome storage; adapters stay thin and host-neutral.
 - The web review UI gains or extends a queue view for first-assignment cases.
-- Users see more review items until the reviewed catalogue grows; the experiments put the ceiling for this design at 70% review load, and the first-assignment phase will start above that until consolidation lands.
+- Users see more review items until the reviewed catalogue grows. First-assignment review load starts high and falls as approved repeats grow. Experiments 12 and 14 report it; parked items can be decided in groups.
 - No new dependencies, no model changes, no hosted calls.
 - Validity note: the evidence behind this proposal comes from AI-authored reference labels; Experiment 10's human adjudication may shift the measured rates, but the design decision (review before first reuse) does not depend on those rates being precise.

@@ -25,7 +25,7 @@ The capture pipeline stores observations and assigns them to existing labels (ca
 
 ## Risks and trade-offs
 
-- Review load starts high (the experiments cap it at 70% for a shippable design; first rollout will exceed that until catalogue consolidation lands). Mitigation: the queue is ordered, the suggestion is pre-selected, and consolidation (Experiment 10 follow-up) is planned.
+- Review load starts high and falls as approved repeats grow. Experiments 12 and 14 report it rather than gate it. Mitigation: the queue is ordered, the suggestion is pre-selected, and repeats of approved items reduce the load over time (ADR-024).
 - Reviewer disagreement: two humans may label one observation differently. Mitigation: `uncertain` state and the adjudicated reference from Experiment 10 as the shared baseline.
 - A stale reviewed assignment may be wrong for a changed observation. Mitigation: existing duplicate and conflict checks still run on reuse; conflicts route back to review.
 
