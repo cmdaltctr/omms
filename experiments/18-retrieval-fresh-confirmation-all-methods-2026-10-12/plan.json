@@ -1,0 +1,104 @@
+{
+  "experiment_id": "18-retrieval-fresh-confirmation-all-methods-2026-10-12",
+  "category": "retrieval",
+  "size": "Confirmatory",
+  "status": "PLANNED",
+  "question": "Do the Experiment 17 findings hold on 400 fresh observations: three methods' picks together contain the right label, and their agreement marks a right label?",
+  "decision": "What the review queue shows, and whether 'all agree' can ever assign a label automatically.",
+  "approval": "Operator chose on 2026-10-12: 18 fresh test plus 19 summary; 400 observations; two AI labelling passes; Confirmatory with the plan committed before running.",
+  "hypotheses": {
+    "H1": {
+      "role": "primary",
+      "statement": "Union of cosine, reranker and Clef picks contains the reference label for >= 85% of labelled fresh cases."
+    },
+    "H2": {
+      "role": "secondary",
+      "statement": "When all three picks agree, the agreed label is right >= 90% of the time on labelled cases."
+    },
+    "H3": {
+      "role": "secondary-descriptive",
+      "statement": "First-pick accuracy per method and for a majority vote (ties to Clef), with paired sign tests."
+    },
+    "H4": {
+      "role": "safety",
+      "statement": "'All three agree' as an automatic rule passes Tier 2: exact one-sided 95% upper bound on wrong accepted picks <= 0.05, counting agreements on none_fit cases as wrong."
+    },
+    "H0": "For each hypothesis, its threshold is not met."
+  },
+  "decision_rule": {
+    "H1": "Review queue shows the three methods' picks.",
+    "H2": "Review queue marks 'all agree' picks as likely right.",
+    "H4": "Candidate automatic rule for a later production proposal; otherwise review-first stays unchanged."
+  },
+  "stats": {
+    "level": "expert",
+    "intervals": "exact Clopper-Pearson 95% on every proportion",
+    "paired": "exact two-sided sign test on first-pick disagreements",
+    "tier2": "exact one-sided 95% upper bound <= 0.05"
+  },
+  "gates": {
+    "G1_integrity": "input pins, GGUFs, server binary and reused runners verify before and after",
+    "G2_privacy": "every selected text passes the exclusion rules; injected secrets are excluded in tests",
+    "G3_blindness": "final reference hashed before the first model call; labeller inputs hold no model output",
+    "G4_completeness": "all 400 get a valid answer from each method; errors count as wrong",
+    "G5_label_quality": "passes 1 and 2 agree on >= 75% of the 400 before reconciliation; failure keeps running but validity becomes INCONCLUSIVE"
+  },
+  "frozen": {
+    "inputs": {
+      "experiments/01-label-decisions-2026-10-07/corpus/entries.json": "3bf06ac9b1c710bda1d65b695929a59371516ca459bcd88458f16beca05769d4",
+      "experiments/safety.py": "dd0629b8237eca6455fa580fb49f2815a9f7fbba802d8ebb7c8177d6b04c4628",
+      "experiments/12-retrieval-neighbour-reuse-gate-2026-10-11/run_eval.py": "10a458e9020e07b9b7fca10a41ebb348b8f5f21ce9586faa434291053d98444b",
+      "experiments/15-retrieval-clef-intent-select-2026-10-11/run_eval.py": "bd370edb5cb13123628bb20e23ed99474b95e2304610911e67b0f24ea791ba10",
+      "experiments/16-retrieval-neighbour-gate-qwen3-4b-2026-10-11/run_eval.py": "1ae069a177cf47e2231570103b8287eee5219fbae40c081ad9695788d8b3824c",
+      "experiments/16-retrieval-neighbour-gate-qwen3-4b-2026-10-11/output/vectors-instruct.json": "133623b9b2c3ee8db067b4dfac488cfa362cc17795edada55c5c647b7b588a97",
+      "experiments/17-retrieval-reranker-label-suggestions-2026-10-12/run_eval.py": "3fc38f0fc78227633b2bdaa3133d2c3e5de7741f4f736159626b8032bb34ab38"
+    },
+    "selection": {
+      "pool": "entries not in the Experiment 01 ground truth (1,636)",
+      "exclude": [
+        "safety.redact() changes the text",
+        "email address",
+        "URL (http:// or https:// or www.)",
+        "absolute home path: /Users/, /home/, C:\\Users\\",
+        "IPv4 address",
+        "run of 32 or more hex or base64 characters",
+        "description shorter than 15 characters",
+        "normalised duplicate of a gallery description or an earlier selected one"
+      ],
+      "seed": 20261012,
+      "per_section": { "preferences": 200, "patterns": 200 },
+      "order": "id order, then random.Random(seed).shuffle per section"
+    },
+    "labelling": {
+      "passes": [
+        "drafter (pass 1)",
+        "judge (pass 2), blind to pass 1",
+        "drafter reconciliation on disagreements"
+      ],
+      "answers": "label id, none_fit or uncertain; none_fit may add a proposed new label name",
+      "final": "agreed or conceded answer; remaining disagreement becomes disputed; uncertain and disputed are excluded from H1-H4 and reported",
+      "instruction": "Pick the one label whose definition matches the observation's primary intent. Respect each definition's exclusions. Answer none_fit when no label's intent matches. Answer uncertain only when two labels fit equally."
+    },
+    "methods": {
+      "embedding": "Qwen3-Embedding-4B Q8_0, Experiment 16 intent instruction, Experiment 16 runner and server port 3007",
+      "cosine": "10 most similar same-section gallery observations; pick = first existing label; top three = first three distinct existing labels",
+      "reranker": "Qwen3-Reranker-0.6B, Experiment 17 Route B, plain query, Experiment 17 runner and server port 3008",
+      "clef": "Experiment 15 request and server port 3005 with the batch fix; gallery examples up to 2 per label and 3 none_fit; one option order",
+      "gallery": "old 200 labelled cases: 60 development (AI labels) and 140 test (Experiment 10 reference)"
+    },
+    "thresholds": { "H1": 0.85, "H2": 0.9, "H4_upper_bound": 0.05 },
+    "experiment17_reference_values": {
+      "union": "62/67",
+      "agree_right": "30/31",
+      "agree_on_none_fit": "7/73",
+      "first_pick": { "cosine": 44, "reranker": 46, "clef": 49, "vote": 50 }
+    },
+    "scripts": [
+      "select_cases.py",
+      "finalise_reference.py",
+      "run_eval.py (phases run, verify)",
+      "analysis.py"
+    ]
+  },
+  "amendments": []
+}
