@@ -416,3 +416,11 @@ Completed on 2026-10-12. OMMS cannot safely label new observations on its own ye
 | 22  | retrieval | Quick | If OMMS tags each memory with up to three labels, can a confidence cut-off remove wrong tags without losing right ones? | FAIL   | [Tag cut-off check](22-retrieval-tag-cutoff-check-2026-10-12/report.md) |
 
 Planned and completed 2026-10-12. Offline check on saved Clef probabilities from Experiments 18 and 20: choose the cut-off on Experiment 18, confirm on Experiment 20. No model calls. A new blind AI pass gave up to three valid labels per observation (Amendment 1). Cut-off 0.08, chosen on Experiment 18, lost 6 points of hits on Experiment 20: use plain top three. About 3 in 10 observations fit only a label from the other section, which Clef never sees. Report: [22 report](22-retrieval-tag-cutoff-check-2026-10-12/report.md).
+
+## Retrieval: Experiment 23, all label methods, one section against both sections
+
+| ID  | Category  | Size     | Question                                                                                                                 | Status  | Plan and report                                                                             |
+| --- | --------- | -------- | ------------------------------------------------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------- |
+| 23  | retrieval | Standard | Which method gives the best three tags per memory, and does choosing from both sections (preferences and patterns) help? | PLANNED | [All methods, both sections](23-retrieval-all-methods-both-sections-2026-10-12/protocol.md) |
+
+Planned 2026-10-12. Same 600 observations as Experiments 18 and 20, scored against the Experiment 22 multi-label key. Eight arms: cosine, reranker, Clef and their combination, each with one section and with both. Saved answers are reused; new local calls are about 800 reranker and 600 Clef. Targets: Clef gains at least 10 points with both sections and loses no more than 3 within a section; the best method wins unless a cheaper one is within 3 points.
