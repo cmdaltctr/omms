@@ -2,7 +2,7 @@
   "experiment_id": "23-retrieval-all-methods-both-sections-2026-10-12",
   "category": "retrieval",
   "size": "Standard",
-  "status": "PLANNED",
+  "status": "MIXED",
   "question": "Which method gives the best three tags per memory, and does choosing from both sections (preferences and patterns) help?",
   "decision": "Which method OMMS uses to tag memories, and whether it may pick labels from either section.",
   "approval": "Operator asked on 2026-10-12 to plan Experiment 23 after Experiment 22, chose Standard, then asked to include cosine, reranker and the combination. Running needs separate approval.",

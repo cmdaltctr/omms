@@ -3,7 +3,7 @@
 - **ID**: `23-retrieval-all-methods-both-sections-2026-10-12`
 - **Category**: retrieval
 - **Size**: Standard
-- **Status**: PLANNED
+- **Status**: MIXED (2026-10-12). H1 holds, H2 fails; the operator picks the section setting. See [report.md](report.md).
 - **Operator**: Dr Muhammad Aizat Md Hawari, with an agent session
 - **Related**: [Experiment 22](../22-retrieval-tag-cutoff-check-2026-10-12/report.md); Experiments 17, 18 and 20; [ADR-024](../../docs/adr/024-review-first-label-assignment.md)
 

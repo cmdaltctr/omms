@@ -419,8 +419,8 @@ Planned and completed 2026-10-12. Offline check on saved Clef probabilities from
 
 ## Retrieval: Experiment 23, all label methods, one section against both sections
 
-| ID  | Category  | Size     | Question                                                                                                                 | Status  | Plan and report                                                                             |
-| --- | --------- | -------- | ------------------------------------------------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------- |
-| 23  | retrieval | Standard | Which method gives the best three tags per memory, and does choosing from both sections (preferences and patterns) help? | PLANNED | [All methods, both sections](23-retrieval-all-methods-both-sections-2026-10-12/protocol.md) |
+| ID  | Category  | Size     | Question                                                                                                                 | Status | Plan and report                                                                           |
+| --- | --------- | -------- | ------------------------------------------------------------------------------------------------------------------------ | ------ | ----------------------------------------------------------------------------------------- |
+| 23  | retrieval | Standard | Which method gives the best three tags per memory, and does choosing from both sections (preferences and patterns) help? | MIXED  | [All methods, both sections](23-retrieval-all-methods-both-sections-2026-10-12/report.md) |
 
 Planned 2026-10-12. Same 600 observations as Experiments 18 and 20, scored against the Experiment 22 multi-label key. Eight arms: cosine, reranker, Clef and their combination, each with one section and with both. Saved answers are reused; new local calls are about 800 reranker and 600 Clef. Targets: Clef gains at least 10 points with both sections and loses no more than 3 within a section; the best method wins unless a cheaper one is within 3 points.
