@@ -1,0 +1,85 @@
+{
+  "experiment_id": "12-retrieval-neighbour-reuse-gate-2026-10-11",
+  "category": "retrieval",
+  "size": "Standard",
+  "status": "FAIL",
+  "question": "Can a gate that compares each observation with already-labelled observations reuse labels with zero wrong picks and at least 29 correct on the 140 test cases?",
+  "decision": "Whether the neighbour check becomes the candidate mechanism for first label reuse, and what Experiment 13 must beat.",
+  "hypotheses": {
+    "H1": {
+      "role": "primary",
+      "statement": "The nested-fold neighbour gate passes Tier 1: W == 0 and C >= 29 over the 140 pooled held-out decisions."
+    },
+    "H0": "W > 0, or C < 29."
+  },
+  "decision_rule": {
+    "pass": "H1 holds: candidate mechanism; Tier 2 needs fresh labelled data; Experiment 13 tests whether Clef adds correct matches.",
+    "inconclusive": "H1 fails with W == 0 and a rising learning curve: safe but starved; grow the reviewed set.",
+    "fail": "H1 fails with W > 0: the neighbour check alone is unsafe; Experiment 13 decides whether an agreement gate fixes it."
+  },
+  "stats": {
+    "level": "basic",
+    "test": "Tier 1 rule on pooled held-out decisions; no significance test",
+    "interval": "exact one-sided 95% binomial upper bound on W/E"
+  },
+  "ruler": "Experiment 11 plan.json key ruler; Tier 1 W == 0 and C >= 29; acceptable-label sets from Experiment 11 output/build.json",
+  "gates": {
+    "G1_integrity": "every pinned hash verifies before and after; vector records match their pinned file",
+    "G2_completeness": "every test case gets exactly one held-out decision: accept a label, or park",
+    "G3_fold_hygiene": "no case or same-group case is in its own gallery or inner selection; an injected leak is refused",
+    "G4_tier1": "W == 0 and C >= 29"
+  },
+  "reported_not_gated": {
+    "review_load": "parked count and holding-pen groups; not gated by user decision on 2026-10-11",
+    "paired_vs_experiment06": "Experiment 06 wrong picks on none_fit cases that the gate parks; Experiment 06 correct picks that the gate keeps",
+    "exploratory_grid": "every grid rule applied directly to the 140 cases; exploratory because it looks at test cases"
+  },
+  "frozen": {
+    "git_commit": "fb699eb7c85ee30a12218e5b375f54ba78c5592c",
+    "inputs": {
+      "experiments/01-label-decisions-2026-10-07/output/revision-01-batch8192/output/vectors_checkpoint.json": "fa993420490c14e072b3ca789a42fa26bb76ebb0e579c1f0e6ccffb91cd881c8",
+      "experiments/01-label-decisions-2026-10-07/output/revision-01-batch8192/corpus/ground-truth.json": "8a4771923c458c45aff494839adf932eb42cdd72cf8bd452c44074bba7484f7c",
+      "experiments/01-label-decisions-2026-10-07/output/revision-01-batch8192/corpus/catalogue.json": "3d9af990a51225037e5bca52bcaa28ca0d9486da7166a02d27cbb2366f0d52bc",
+      "experiments/10-review-reference-adjudication-2026-10-11/corpus/adjudicated-reference.json": "b920699250d46d14160bf3edab7e1d161c0bfdc284aa87aa521c9dfb1796ecbe",
+      "experiments/06-retrieval-primary-intent-label-selection-2026-10-10/output/eval_results.json": "89de5774c588343003021abe4ddf1343ee37d453d67aa781946155133ec808e8",
+      "experiments/11-retrieval-catalogue-consolidation-replay-2026-10-11/output/build.json": "c837a2031714516bb9b3a7f40183d451eceda53f8cb241d62a964930ba7c7643",
+      "experiments/11-retrieval-catalogue-consolidation-replay-2026-10-11/plan.json": "29291bc7d10abc8485475bcafd96990b0e9eddd92afc65f82a23d234fdac968d"
+    },
+    "embedding": {
+      "model": "qwen3-embedding:0.6b",
+      "dimensions": 1024,
+      "source": "Experiment 01 cached vectors; no new calls",
+      "similarity": "cosine"
+    },
+    "gate": {
+      "k": 3,
+      "accept": "all k nearest same-section gallery members carry X, X is not none_fit, nearest similarity >= tau, nearest X minus nearest non-X (none_fit included) >= delta",
+      "otherwise": "park; never automatic none_fit",
+      "gallery_labels": "existing labels and none_fit members both kept",
+      "grid": {
+        "tau": [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95],
+        "delta": [0, 0.01, 0.02, 0.03, 0.05, 0.08, 0.12]
+      }
+    },
+    "folds": {
+      "outer": 5,
+      "assignment": "sort the 125 test groups by SHA-256 of the group name; deal round-robin into 5 folds",
+      "outer_gallery": "60 development cases plus test cases outside the fold",
+      "inner_selection": "leave-one-out inside the outer gallery, excluding the query's own group",
+      "choose": "zero inner wrong accepts, most inner correct accepts; ties to larger tau then larger delta; none qualifies means the fold accepts nothing"
+    },
+    "learning_curve": {
+      "fractions": [0.25, 0.5, 0.75, 1.0],
+      "seeds": [0, 1, 2],
+      "unit": "groups within each outer gallery",
+      "rising": "mean C at 1.0 >= mean C at 0.5 + 5, with W == 0 at both",
+      "use": "informs the inconclusive branch only"
+    },
+    "outputs_for_experiment13": [
+      "output/folds.json",
+      "output/predictions.json (decision and 10 nearest same-section gallery members per test case)"
+    ],
+    "scripts": ["run_eval.py (phases run, verify)", "analysis.py (after results)"]
+  },
+  "amendments": []
+}

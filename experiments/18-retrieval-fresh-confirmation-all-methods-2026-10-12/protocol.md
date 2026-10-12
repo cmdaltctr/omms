@@ -3,7 +3,7 @@
 - **ID**: `18-retrieval-fresh-confirmation-all-methods-2026-10-12`
 - **Category**: retrieval
 - **Size**: Confirmatory (this plan is committed before any selection, labelling or model run)
-- **Status**: PLANNED
+- **Status**: PASS on H1 and H2; H4 FAIL as predicted (2026-10-12); see [report](report.md)
 - **Operator**: Dr Muhammad Aizat Md Hawari, with an agent session
 - **Related**: [ADR-024](../../docs/adr/024-review-first-label-assignment.md); Experiments 11, 15, 16 and 17
 

@@ -1,6 +1,6 @@
 # Experiment 18: fresh-data confirmation of cosine, reranker and Clef together
 
-- **Status**: PLANNED (2026-10-12). Confirmatory: the plan is committed before selection, labelling or any model run.
+- **Status**: PASS (2026-10-12). H1 169/197 (85.8%), H2 60/62 (96.8%); H4 fails (19 wrong of 79). Clef best single method; reranker equals cosine.
 - **Category**: retrieval
 - **Size**: Confirmatory; expert statistics
 - **Question**: Do the Experiment 17 findings hold on 400 fresh observations: three methods' picks together contain the right label, and their agreement marks a right label?

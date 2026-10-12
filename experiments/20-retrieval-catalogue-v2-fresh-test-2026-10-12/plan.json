@@ -1,0 +1,64 @@
+{
+  "experiment_id": "20-retrieval-catalogue-v2-fresh-test-2026-10-12",
+  "category": "retrieval",
+  "size": "Standard",
+  "status": "MIXED: H1 PASS, H2 FAIL",
+  "question": "On 200 observations never used before, does catalogue version 2 leave fewer observations without a label, and does Clef's top three still contain the right label?",
+  "decision": "Whether OMMS adopts catalogue version 2, and whether Clef's top three is confirmed as the review-queue suggestion list.",
+  "approval": "Operator chose 'Test catalogue v2' on 2026-10-12.",
+  "hypotheses": {
+    "H1": {
+      "role": "primary",
+      "statement": "Share of scored new observations with final reference none_fit <= 0.35 under catalogue version 2."
+    },
+    "H2": {
+      "role": "primary",
+      "statement": "Clef top three (by probability, none_fit excluded) contains the reference label for >= 0.90 of labelled new observations."
+    },
+    "H3": {
+      "role": "descriptive",
+      "statement": "Clef first-pick accuracy, none_fit recognition, use of the 15 new labels."
+    },
+    "H0": "For H1 and H2, the threshold is not met."
+  },
+  "decision_rule": {
+    "H1": "Catalogue version 2 recommended for OMMS.",
+    "H2": "Clef top three confirmed as the suggestion list in ADR-024.",
+    "fail": "Keep the current choice and report why."
+  },
+  "stats": { "level": "medium", "intervals": "exact Clopper-Pearson 95%" },
+  "gates": {
+    "G1_integrity": "all pins verify before and after",
+    "G2_privacy": "every selected text passes the exclusion rules",
+    "G3_blindness": "reference hashed before the first Clef call; labellers see no model output",
+    "G4_completeness": "200 valid Clef answers; errors count as wrong",
+    "G5_label_quality": "passes agree >= 0.75 before reconciliation; failure makes validity INCONCLUSIVE"
+  },
+  "frozen": {
+    "thresholds": { "H1_max_none_fit_share": 0.35, "H2_min_top3": 0.9 },
+    "selection": {
+      "seed": 20261013,
+      "per_section": { "preferences": 100, "patterns": 100 },
+      "rules": "Experiment 18 select_cases.py exclusion_reason and duplicate rule, pinned",
+      "excluded_ids": "Experiment 01 ground truth (200) and Experiment 18 fresh cases (400)"
+    },
+    "gallery": "Experiment 01 200 labelled cases plus Experiment 18 400 final labels mapped to version 2 (102 accepted-label members relabelled; disputed excluded)",
+    "labelling": "Experiment 18 protocol against catalogue version 2 (56 labels)",
+    "clef": "Experiment 18 clef_payload and Experiment 15 server settings with batch fix; version 2 options; one order",
+    "inputs": {
+      "experiments/18-retrieval-fresh-confirmation-all-methods-2026-10-12/select_cases.py": "57e372bdabb0e49b4a94a759a890f70c96747410301cbe1e80a30b1375ef285d",
+      "experiments/18-retrieval-fresh-confirmation-all-methods-2026-10-12/finalise_reference.py": "eb94121f0277a7dfe87ac95bff1118496dbd24c1bbddf5412fd6b41d432707d8",
+      "experiments/18-retrieval-fresh-confirmation-all-methods-2026-10-12/run_eval.py": "acbe4aa0362757eb4f2963ca31dd1c892d77f7a497dab7ca1595d49309ed8ee6",
+      "experiments/18-retrieval-fresh-confirmation-all-methods-2026-10-12/output/fresh-vectors.json": "17109071e0659155062cb77c179aa4486f04cf96401fcbb92c46fb0cdfb5e544",
+      "experiments/18-retrieval-fresh-confirmation-all-methods-2026-10-12/corpus/fresh-reference.json": "906eb69719c245d7727e58ac7fa858f9bf3f083979e9c0c3a06c57d5d3749925",
+      "experiments/19-review-catalogue-v2-candidates-2026-10-12/output/catalogue-v2.json": "7f393d3c4e989d1dbc40e14200db4119295e913faa38f31b99a539a9920dc45b",
+      "experiments/19-review-catalogue-v2-candidates-2026-10-12/corpus/v2-members.json": "8444c343eb89e0f41b7497a9b5893733264ba11f63f898af25583aa759a935c0"
+    },
+    "scripts": [
+      "prepare.py (phases select, freeze)",
+      "run_eval.py (phases run, verify)",
+      "analysis.py"
+    ]
+  },
+  "amendments": []
+}

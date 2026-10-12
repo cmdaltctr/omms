@@ -314,3 +314,97 @@ The gate verifies each of the 71 saved Experiment 06 existing-label picks once; 
 Two arms share the frozen baseline: an NLI cross-encoder (`cross-encoder/nli-deberta-v3-small`, official int8 ARM64 ONNX) and the Experiment 03-pinned Clef model answering yes or no.
 Both thresholds are calibrated on the 60 development cases, then frozen before test inference.
 Planning authorises no installs, downloads or inference. Cached-repeat routing from Experiments 07 and 08 stays out of scope.
+
+## Retrieval: Experiment 11, catalogue consolidation replay and the new scoring ruler
+
+| ID  | Category  | Size     | Question                                                                                                                                             | Status                      | Plan and report                                                                            |
+| --- | --------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------ |
+| 11  | retrieval | Standard | How much of Experiment 06's wrong label reuse disappears when confusable labels merge into a smaller catalogue built from development evidence only? | FAIL (post-hoc exploratory) | [Consolidation replay](11-retrieval-catalogue-consolidation-replay-2026-10-11/protocol.md) |
+
+Completed on 2026-10-11. FAIL: at 20 labels, 1 of 13 label-versus-label wrong picks became correct (7 needed); wrong reuse 57.75% to 56.34%. The 28 picks on `none_fit` cases cannot change by merging. Experiment 12 keeps 41 labels. Report: [11 report](11-retrieval-catalogue-consolidation-replay-2026-10-11/report.md).
+Post-hoc exploratory: it replays the saved Experiment 06 answers through merge maps built from Experiment 09 development scores, with no model calls. It also freezes the scoring ruler for later experiments: acceptable-label sets, Tier 1 screening (zero wrong and at least 29 correct on the 140 cases) and Tier 2 production evidence (upper bound at most 5% on fresh data). The flat 2% gate is retired.
+
+## Retrieval: Experiment 12, neighbour check against reviewed members
+
+| ID  | Category  | Size     | Question                                                                                                                                                       | Status                  | Plan and report                                                            |
+| --- | --------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------- |
+| 12  | retrieval | Standard | Can a gate that compares each observation with already-labelled observations reuse labels with zero wrong picks and at least 29 correct on the 140 test cases? | FAIL (safe but starved) | [Neighbour gate](12-retrieval-neighbour-reuse-gate-2026-10-11/protocol.md) |
+
+Completed on 2026-10-11. FAIL: 1 correct, 0 wrong, 139 parked; all 28 forced-label errors parked. Exploratory: the nearest neighbour is acceptable for only 32 of 67 labelled cases, so the embeddings do not separate intent labels. Report: [12 report](12-retrieval-neighbour-reuse-gate-2026-10-11/report.md).
+It used the cached Experiment 01 vectors, so it makes no model calls. Thresholds are chosen inside 5 group-based folds, never on the case being scored. The gate parks unsure cases and never writes `none_fit`. Review load is reported, not gated.
+
+## Retrieval: Experiment 13, compare check with Clef
+
+| ID  | Category  | Size     | Question                                                                                                                                                                         | Status              | Plan and report                                                         |
+| --- | --------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------- |
+| 13  | retrieval | Standard | Does asking Clef to choose between the two closest labels, shown with their past examples, keep more correct matches than the neighbour gate alone, still with zero wrong picks? | WITHDRAWN (not run) | [Compare check](13-retrieval-compare-check-gate-2026-10-11/protocol.md) |
+
+Withdrawn on 2026-10-11 without a run: Experiment 12 capped this design at 32 correct, and the operator chose review-first assignment ([ADR-024](../docs/adr/024-review-first-label-assignment.md)). The plan stays for the record. About 280 local Clef calls on an owned loopback server. The cut-off of 0.9 in both A/B orders is fixed before any call.
+
+## Retrieval: Experiment 14, neighbour gate with 1 or 2 neighbours
+
+| ID  | Category  | Size  | Question                                                                                                      | Status                      | Plan and report                                                                       |
+| --- | --------- | ----- | ------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------- |
+| 14  | retrieval | Quick | Does the Experiment 12 neighbour gate pass Tier 1 when it needs only 1 or 2 agreeing neighbours instead of 3? | FAIL (post-hoc exploratory) | [Fewer neighbours](14-retrieval-neighbour-gate-fewer-neighbours-2026-10-11/report.md) |
+
+Completed on 2026-10-11. Reruns Experiment 12's frozen runner with k = 1 and k = 2, using the same fair fold method. Both accepted nothing: 0 correct, 0 wrong, 140 parked. With k = 1, no fold found a threshold with zero wrong picks among its training cases. The Experiment 12 conclusion stands.
+
+## Retrieval: Experiment 15, Clef selects the intent label
+
+| ID  | Category  | Size     | Question                                                                                                                                                                              | Status                  | Plan and report                                                              |
+| --- | --------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ---------------------------------------------------------------------------- |
+| 15  | retrieval | Standard | Can Clef, choosing among every same-section label with its definition and closest past examples, reuse labels with zero wrong picks and at least 29 correct, under two option orders? | FAIL (safe but starved) | [Clef intent select](15-retrieval-clef-intent-select-2026-10-11/protocol.md) |
+
+Completed on 2026-10-11. FAIL: Clef never reached 0.9 confidence across 20 to 23 options, so nothing was accepted. Exploratory: the most confident wrong pick had 0.725, and only 9 correct picks sit above it. Clef recognised `none_fit` in 10 of 73 cases. Its scoring ignores option order, so the shuffle check tested nothing. Attempt 1 failed on the server batch size (amendment 1). Report: [15 report](15-retrieval-clef-intent-select-2026-10-11/report.md). Applies the literature review: select among candidates (ComEM), retrieved examples per option (KATE), order-shuffle consistency and abstention.
+
+## Retrieval: Experiment 16, neighbour gate with the larger Qwen3 4B embedder
+
+| ID  | Category  | Size  | Question                                                                                                        | Status                      | Plan and report                                                                |
+| --- | --------- | ----- | --------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------ |
+| 16  | retrieval | Quick | Does Experiment 12's neighbour gate pass Tier 1 with `qwen3-embedding:4b`, plain or with an intent instruction? | FAIL (post-hoc exploratory) | [Qwen3 4B embedder](16-retrieval-neighbour-gate-qwen3-4b-2026-10-11/report.md) |
+
+Completed on 2026-10-11. FAIL: plain 4B accepted nothing; with the intent instruction it accepted 1 wrong pick. The instruction lifted nearest-neighbour accuracy from 32 to 41 of 67, the best embedding result, but forced labels on `none_fit` cases remain. Report: [16 report](16-retrieval-neighbour-gate-qwen3-4b-2026-10-11/report.md).
+It swaps only the embedder in Experiment 12's frozen gate, and records how often the nearest neighbour has an acceptable label (Experiment 12: 32 of 67). Uses the pinned llama.cpp server and a 4.28 GB Q8_0 GGUF download, approved by the operator.
+
+## Retrieval: Experiment 17, reranker label suggestions for the review queue
+
+| ID  | Category  | Size     | Question                                                                                                                                 | Status             | Plan and report                                                                        |
+| --- | --------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | -------------------------------------------------------------------------------------- |
+| 17  | retrieval | Standard | Does Qwen3-Reranker-0.6B put the right label first more often than cosine similarity, when suggesting a label for a reviewer to confirm? | PASS (weak margin) | [Reranker suggestions](17-retrieval-reranker-label-suggestions-2026-10-12/protocol.md) |
+
+Completed on 2026-10-12. Route B (reranker scores label definitions) got 46 of 67 first suggestions right, meeting the target; cosine on the same shortlist got 44, so the gain is not significant (p = 0.85). Reranking past observations (Route A) did worse, 41. Exploratory: when reranker and cosine agree they are right 31 of 33 times, and showing both methods' suggestions puts the right label on screen for 60 of 67. Safety ceiling 13, so no automatic labelling. Report: [17 report](17-retrieval-reranker-label-suggestions-2026-10-12/report.md).
+Measures suggestion quality for the review queue, not automatic labelling. Target: at least 46 of 67 first suggestions right (best cosine 41; Clef 49).
+
+## Retrieval: Experiment 18, fresh-data confirmation of all methods together
+
+| ID  | Category  | Size         | Question                                                                                                                                                      | Status                 | Plan and report                                                                          |
+| --- | --------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------- |
+| 18  | retrieval | Confirmatory | Do the Experiment 17 findings hold on 400 fresh observations: three methods' picks together contain the right label, and their agreement marks a right label? | PASS (H1, H2); H4 FAIL | [Fresh confirmation](18-retrieval-fresh-confirmation-all-methods-2026-10-12/protocol.md) |
+
+Completed on 2026-10-12. On 400 fresh observations (197 labelled, 195 no label, 8 disputed): the three methods' picks contain the right label for 169 of 197 (85.8%); all three agree on 62 and are right on 60 (96.8%), but also agree on 17 no-label cases, so automatic use fails (H4). First pick: Clef 141, cosine 105, reranker 102; the reranker equals cosine. Exploratory: Clef's own top three contains the right label for 186 of 197 (94.4%). Report: [18 report](18-retrieval-fresh-confirmation-all-methods-2026-10-12/report.md).
+Preregistered in commit `571b393`, before selection, labelling or any model run. 400 fresh, privacy-filtered observations from the Experiment 01 snapshot; two blind AI labelling passes plus reconciliation; cosine, reranker and Clef run together with fixed combination rules (H1 to H4).
+
+## Review: Experiment 19, catalogue version 2 candidates
+
+| ID  | Category | Size  | Question                                                                                           | Status                    | Plan and report                                                                   |
+| --- | -------- | ----- | -------------------------------------------------------------------------------------------------- | ------------------------- | --------------------------------------------------------------------------------- |
+| 19  | review   | Quick | Do the 195 no-label observations from Experiment 18 group into a small set of coherent new labels? | FAIL (count rule, by one) | [Catalogue v2 candidates](19-review-catalogue-v2-candidates-2026-10-12/report.md) |
+
+Completed on 2026-10-12. 147 of 195 no-label observations (75%) group into 26 candidate labels; the frozen limit was 25. Recommended: accept 15 distinct labels and hold 11 thin or overlapping ones. The operator decides. Catalogue version 2 must be tested on observations outside Experiment 18's 400.
+
+## Retrieval: Experiment 20, catalogue version 2 on new observations
+
+| ID  | Category  | Size     | Question                                                                                                                                                           | Status           | Plan and report                                                                  |
+| --- | --------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | -------------------------------------------------------------------------------- |
+| 20  | retrieval | Standard | On 200 observations never used before, does catalogue version 2 leave fewer observations without a label, and does Clef's top three still contain the right label? | H1 PASS; H2 FAIL | [Catalogue v2 test](20-retrieval-catalogue-v2-fresh-test-2026-10-12/protocol.md) |
+
+Completed on 2026-10-12. Under catalogue version 2, 64 of 192 scored observations (33.3%) fit no label, down from 49.7% under version 1: H1 holds. Clef's top three contains the right label for 112 of 128 (87.5%), under the 90% mark: H2 fails. Exploratory: five suggestions reach 91.4%. Adopt version 2; show five suggestions. Report: [20 report](20-retrieval-catalogue-v2-fresh-test-2026-10-12/report.md).
+200 new privacy-filtered observations, outside Experiments 01 and 18. Targets fixed in advance: at most 35% with no label (Experiment 18 under version 1: 49.7%), and Clef's top three right for at least 90%.
+
+## Retrieval: Experiment 21, final summary of Experiments 01 to 20
+
+| ID  | Category  | Size  | Question                                              | Status   | Plan and report                                                  |
+| --- | --------- | ----- | ----------------------------------------------------- | -------- | ---------------------------------------------------------------- |
+| 21  | retrieval | Quick | What do Experiments 01 to 20 mean for OMMS labelling? | COMPLETE | [Final summary](21-retrieval-final-summary-2026-10-12/report.md) |
+
+Completed on 2026-10-12. OMMS cannot safely label new observations on its own yet. Adopt catalogue version 2, show Clef's five best guesses in the review queue, and keep review-first assignment (ADR-024).

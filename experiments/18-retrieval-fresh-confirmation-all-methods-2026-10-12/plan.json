@@ -2,7 +2,7 @@
   "experiment_id": "18-retrieval-fresh-confirmation-all-methods-2026-10-12",
   "category": "retrieval",
   "size": "Confirmatory",
-  "status": "PLANNED",
+  "status": "PASS",
   "question": "Do the Experiment 17 findings hold on 400 fresh observations: three methods' picks together contain the right label, and their agreement marks a right label?",
   "decision": "What the review queue shows, and whether 'all agree' can ever assign a label automatically.",
   "approval": "Operator chose on 2026-10-12: 18 fresh test plus 19 summary; 400 observations; two AI labelling passes; Confirmatory with the plan committed before running.",
