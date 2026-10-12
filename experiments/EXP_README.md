@@ -408,3 +408,11 @@ Completed on 2026-10-12. Under catalogue version 2, 64 of 192 scored observation
 | 21  | retrieval | Quick | What do Experiments 01 to 20 mean for OMMS labelling? | COMPLETE | [Final summary](21-retrieval-final-summary-2026-10-12/report.md) |
 
 Completed on 2026-10-12. OMMS cannot safely label new observations on its own yet. Adopt catalogue version 2, show Clef's five best guesses in the review queue, and keep review-first assignment (ADR-024).
+
+## Retrieval: Experiment 22, confidence cut-off for up to three labels
+
+| ID  | Category  | Size  | Question                                                                                                                | Status | Plan and report                                                         |
+| --- | --------- | ----- | ----------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------- |
+| 22  | retrieval | Quick | If OMMS tags each memory with up to three labels, can a confidence cut-off remove wrong tags without losing right ones? | FAIL   | [Tag cut-off check](22-retrieval-tag-cutoff-check-2026-10-12/report.md) |
+
+Planned and completed 2026-10-12. Offline check on saved Clef probabilities from Experiments 18 and 20: choose the cut-off on Experiment 18, confirm on Experiment 20. No model calls. A new blind AI pass gave up to three valid labels per observation (Amendment 1). Cut-off 0.08, chosen on Experiment 18, lost 6 points of hits on Experiment 20: use plain top three. About 3 in 10 observations fit only a label from the other section, which Clef never sees. Report: [22 report](22-retrieval-tag-cutoff-check-2026-10-12/report.md).
