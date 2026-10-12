@@ -64,7 +64,7 @@ One mechanism works. Reusing a label that a person already approved for the same
 
 - Experiment 13 (Clef confirms the nearest neighbour's label) is withdrawn without a run. Experiment 12 showed its ceiling is 32 correct, against a need of 29 with zero wrong.
 - Catalogue consolidation is no longer a precondition for wiring the producer.
-- Follow-up, not decided: a setting in the web UI's memory section so users can choose the suggestion list (own section only, or own section plus the other section). It needs its own OpenSpec change.
+- Planned in `openspec/changes/review-first-assignment/` (task 3.2): two settings in the web UI's Memory card set how many suggestions come from each section (own 1 to 10, default 3; other 0 to 10, default 2), and a decision model setting chooses where Clef runs (local llama.cpp by default; Cloudflare or TypeSafe opt-in, recorded in ADR-025).
 
 ## Alternatives Considered
 
