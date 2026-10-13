@@ -172,7 +172,7 @@ Open `/user-profile` to see learned preferences, patterns and workflows.
 
 **Clean up categories** shows the number of categories beside its label. It opens a review of category names that mean the same thing:
 
-1. OMMS groups the names and the profile model proposes one name per group. This can take a few minutes on a large profile.
+1. OMMS groups the names and the profile model proposes one name per group. This runs in the background with a progress line, one model call per 20 groups. On a large profile it can take many minutes; you can close the window and open it again later. **Build a new preview** starts over.
 2. Each group lists its names with item counts. Clear a group's box to skip it, or edit its name.
 3. **Apply selected** renames the categories of the selected groups. No memory is changed, merged or removed.
 4. **Undo last cleanup** restores the names the last cleanup changed.

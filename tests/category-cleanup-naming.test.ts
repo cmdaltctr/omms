@@ -94,6 +94,42 @@ describe("checkAndNameGroups", () => {
     expect(prompts[0]).not.toContain("Fourth");
   });
 
+  it("calls the model one batch at a time and reports progress after each", async () => {
+    const groups = Array.from({ length: 45 }, (_, index) =>
+      group(`g${index}`, ["Execution", 5], ["Direct execution", 2])
+    );
+    let inFlight = 0;
+    let most = 0;
+    const progress: [number, number][] = [];
+    const result = await checkAndNameGroups(
+      groups,
+      examples,
+      async (_system, prompt) => {
+        inFlight++;
+        most = Math.max(most, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight--;
+        const ids = [...prompt.matchAll(/"group":"(g\d+)"/g)].map((match) => match[1]);
+        return {
+          groups: ids.map((id) => ({
+            group: id,
+            keep: ["Execution", "Direct execution"],
+            name: id,
+          })),
+        };
+      },
+      (done, total) => progress.push([done, total])
+    );
+    expect(most).toBe(1);
+    expect(progress).toEqual([
+      [0, 3],
+      [1, 3],
+      [2, 3],
+      [3, 3],
+    ]);
+    expect(result.map((entry) => entry.name)).toEqual(groups.map((entry) => entry.id));
+  });
+
   it("logs counts and outcome codes, never names or descriptions", async () => {
     logged.length = 0;
     const groups = [group("g1", ["Execution", 5], ["Direct execution", 2])];

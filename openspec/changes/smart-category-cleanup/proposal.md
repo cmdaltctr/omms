@@ -12,6 +12,7 @@ Fixed label lists were tested in Experiments 01 to 23 and rejected for the produ
   - Grouping uses embeddings of the category names from the configured embedder, across preferences and patterns. Experiment 23 found that about 3 in 10 observations fit a label from the other section.
   - The profile model then checks each group: it moves out names that do not belong and chooses the group's name. Without a model, the most used name in the group is chosen and the group is marked as unchecked.
 - The user sees a **preview** of every group (the names, item counts and proposed name), can reject a group or edit its name, and applies the rest.
+- The web app builds the preview as a **background job** with progress, because the profile model can take many minutes on a large profile (about 110 seconds per call with a reasoning model, one call at a time). Closing the dialog does not stop the job.
 - Applying is **rename only**. Descriptions, evidence, counts and confidence stay unchanged, and no item is removed or merged by the cleanup. The change is saved through the profile changelog.
 - The user can **undo the last cleanup**. Undo restores the old category on every item that the cleanup renamed and that still exists, and reports any item that later learning merged away.
 - The web app Profile page gains a **Clean up categories** button with the current category count, and the CLI gains `om-memory-system profile-cleanup-categories` (preview by default, `--yes` to apply, `--undo`). Both use one shared service, so every host behaves the same.

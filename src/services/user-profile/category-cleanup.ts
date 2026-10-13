@@ -5,7 +5,6 @@
  */
 import { CONFIG } from "../../config.js";
 import { log } from "../logger.js";
-import { EXTERNAL_PROFILE_CLEANUP_TIMEOUT_MS } from "../request-timeouts.js";
 import { applySafeExtraParams } from "../ai/providers/base-provider.js";
 import { completeStructured, resolveHostProfileModel } from "./profile-model.js";
 import {
@@ -25,6 +24,11 @@ import type { UserProfileData } from "./types.js";
 
 export const GROUPS_PER_MODEL_CALL = 20;
 export const MAX_EXAMPLES_PER_LABEL = 3;
+/**
+ * Time limit per model call. A reasoning model took about 110 s per batch on the
+ * live profile (TDR-044), so the 60 s profile cleanup limit timed out every batch.
+ */
+export const CATEGORY_CLEANUP_MODEL_TIMEOUT_MS = 180_000;
 const MAX_NAME_LENGTH = 60;
 
 /** Sends one prompt and returns the parsed JSON reply; throws on any failure. */
@@ -101,17 +105,18 @@ function applyReply(
 export async function checkAndNameGroups(
   groups: CategoryGroup[],
   examples: Map<string, string[]>,
-  model: CleanupModel | null
+  model: CleanupModel | null,
+  /** Called with batches done and the total, before the first batch and after each one. */
+  onProgress?: (done: number, total: number) => void
 ): Promise<NamedGroup[]> {
-  const named: NamedGroup[] = [];
+  const batches: CategoryGroup[][] = [];
+  for (let start = 0; start < groups.length; start += GROUPS_PER_MODEL_CALL) {
+    batches.push(groups.slice(start, start + GROUPS_PER_MODEL_CALL));
+  }
   let failedBatches = 0;
   let dropped = 0;
-  for (let start = 0; start < groups.length; start += GROUPS_PER_MODEL_CALL) {
-    const batch = groups.slice(start, start + GROUPS_PER_MODEL_CALL);
-    if (!model) {
-      named.push(...batch.map(fallback));
-      continue;
-    }
+  const checkBatch = async (batch: CategoryGroup[]): Promise<NamedGroup[]> => {
+    if (!model) return batch.map(fallback);
     let replies: Map<string, { keep: unknown; name: unknown }>;
     try {
       replies = readReply(await model(SYSTEM_PROMPT, buildPrompt(batch, examples)));
@@ -121,14 +126,23 @@ export async function checkAndNameGroups(
         groups: batch.length,
         code: error instanceof Error ? error.name : "unknown",
       });
-      named.push(...batch.map(fallback));
-      continue;
+      return batch.map(fallback);
     }
+    const results: NamedGroup[] = [];
     for (const group of batch) {
       const result = applyReply(group, replies.get(group.id));
-      if (result) named.push(result);
+      if (result) results.push(result);
       else dropped++;
     }
+    return results;
+  };
+
+  // One call at a time: a provider that refuses parallel calls still finishes (TDR-044).
+  const named: NamedGroup[] = [];
+  onProgress?.(0, batches.length);
+  for (const [index, batch] of batches.entries()) {
+    named.push(...(await checkBatch(batch)));
+    onProgress?.(index + 1, batches.length);
   }
   log("category cleanup: groups checked", {
     groups: groups.length,
@@ -155,7 +169,7 @@ export async function resolveCleanupModel(): Promise<CleanupModel | null> {
         new Promise((_, reject) =>
           setTimeout(
             () => reject(new Error("category cleanup timeout")),
-            EXTERNAL_PROFILE_CLEANUP_TIMEOUT_MS
+            CATEGORY_CLEANUP_MODEL_TIMEOUT_MS
           )
         ),
       ]);
@@ -180,7 +194,7 @@ export async function resolveCleanupModel(): Promise<CleanupModel | null> {
           Authorization: `Bearer ${CONFIG.memoryApiKey || ""}`,
         },
         body: JSON.stringify(requestBody),
-        signal: AbortSignal.timeout(EXTERNAL_PROFILE_CLEANUP_TIMEOUT_MS),
+        signal: AbortSignal.timeout(CATEGORY_CLEANUP_MODEL_TIMEOUT_MS),
       });
       if (!response.ok) throw new Error(`API request failed: ${response.status}`);
       const data: any = await response.json();
@@ -199,6 +213,8 @@ export interface CleanupDeps {
   /** Undefined resolves the profile model; null runs without one. */
   model?: CleanupModel | null;
   threshold?: number;
+  /** Reports model batches done and the total while a preview is built. */
+  onProgress?: (done: number, total: number) => void;
 }
 
 export interface CategoryCleanupPreview {
@@ -280,7 +296,7 @@ export async function previewCategoryCleanup(
   for (const entry of labels) vectors.push({ ...entry, vector: await embed(entry.label) });
   const groups = groupCategoryLabels(vectors, deps.threshold ?? CATEGORY_GROUP_THRESHOLD);
   const model = deps.model === undefined ? await resolveCleanupModel() : deps.model;
-  const named = await checkAndNameGroups(groups, examplesByLabel(data), model);
+  const named = await checkAndNameGroups(groups, examplesByLabel(data), model, deps.onProgress);
   log("category cleanup: preview built", {
     labels: labels.length,
     groups: named.length,

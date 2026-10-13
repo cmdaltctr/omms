@@ -51,27 +51,43 @@ async function setup() {
   return import("../src/services/api-handlers.js");
 }
 
-it("previews, applies and undoes through the handlers", async () => {
+it("starts a preview job, reads its state, applies and undoes through the handlers", async () => {
   const api = await setup();
   const deps = { embed, model: null };
-  const preview = await api.handleCategoryCleanupPreview(undefined, deps);
-  expect(preview.success).toBe(true);
-  expect(preview.data!.before).toBe(3);
-  expect(preview.data!.groups).toHaveLength(1);
-  const group = preview.data!.groups[0]!;
+  const started = await api.handleCategoryCleanupStart(undefined, deps);
+  expect(started.success).toBe(true);
+  let status = await api.handleCategoryCleanupStatus(undefined);
+  for (let i = 0; i < 200 && status.data?.status.state !== "done"; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    status = await api.handleCategoryCleanupStatus(undefined);
+  }
+  const preview = status.data!.status.preview;
+  expect(preview.before).toBe(3);
+  expect(preview.groups).toHaveLength(1);
+  const group = preview.groups[0]!;
+  // Equal counts: the fallback name is the first label alphabetically, so one item is renamed.
+  expect(group.name).toBe("Direct execution");
   const applied = await api.handleCategoryCleanupApply(
     undefined,
     {
-      version: preview.data!.version,
+      version: preview.version,
       groups: [{ labels: group.labels.map((entry: any) => entry.label), name: group.name }],
     },
     deps
   );
-  // Equal counts: the fallback name is the first label alphabetically, so one item is renamed.
-  expect(group.name).toBe("Direct execution");
   expect(applied).toEqual({ success: true, data: { renamed: 1 } });
   const undone = await api.handleCategoryCleanupUndo(undefined, deps);
   expect(undone).toEqual({ success: true, data: { restored: 1, notFound: 0 } });
+  // Apply and undo forget the finished preview, so the next open builds a fresh one.
+  expect(await api.handleCategoryCleanupStatus(undefined)).toEqual({ success: true, data: null });
+});
+
+it("reports no job before one is started", async () => {
+  const api = await setup();
+  expect(await api.handleCategoryCleanupStatus("someone-else@example.invalid")).toEqual({
+    success: true,
+    data: null,
+  });
 });
 
 it("refuses a stale apply with a message to build a new preview", async () => {

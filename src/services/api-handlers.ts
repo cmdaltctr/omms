@@ -1316,18 +1316,29 @@ function categoryCleanupError(step: string, error: unknown): ApiResponse<never> 
   return { success: false, error: String(error) };
 }
 
-/** Groups category names for review. Changes nothing in the stored profile. */
-export async function handleCategoryCleanupPreview(
+/** Starts a background preview job, or returns the one already running. Changes nothing in the profile. */
+export async function handleCategoryCleanupStart(
   userId?: string,
   deps?: CategoryCleanupDeps
 ): Promise<ApiResponse<any>> {
   try {
-    const { previewCategoryCleanup } = await import("./user-profile/category-cleanup.js");
-    const preview = await previewCategoryCleanup(await categoryCleanupUser(userId), deps);
-    if (!preview) return { success: false, error: "No profile found to clean up" };
-    return { success: true, data: preview };
+    const { startCategoryCleanupJob } = await import("./user-profile/category-cleanup-job.js");
+    return {
+      success: true,
+      data: startCategoryCleanupJob(await categoryCleanupUser(userId), deps),
+    };
   } catch (error) {
-    return categoryCleanupError("preview", error);
+    return categoryCleanupError("start", error);
+  }
+}
+
+/** The state of the user's preview job, or null when none was started in this process. */
+export async function handleCategoryCleanupStatus(userId?: string): Promise<ApiResponse<any>> {
+  try {
+    const { getCategoryCleanupJob } = await import("./user-profile/category-cleanup-job.js");
+    return { success: true, data: getCategoryCleanupJob(await categoryCleanupUser(userId)) };
+  } catch (error) {
+    return categoryCleanupError("status", error);
   }
 }
 
@@ -1338,12 +1349,18 @@ export async function handleCategoryCleanupApply(
 ): Promise<ApiResponse<any>> {
   try {
     const { applyCategoryCleanup } = await import("./user-profile/category-cleanup.js");
+    const { clearCategoryCleanupJob } = await import("./user-profile/category-cleanup-job.js");
+    const user = await categoryCleanupUser(userId);
     const result = await applyCategoryCleanup(
-      await categoryCleanupUser(userId),
+      user,
       { version: body?.version, groups: body?.groups },
       deps
     );
-    if (result.ok) return { success: true, data: { renamed: result.renamed } };
+    if (result.ok) {
+      // The finished preview no longer matches the profile.
+      clearCategoryCleanupJob(user);
+      return { success: true, data: { renamed: result.renamed } };
+    }
     const messages = {
       stale: "Profile changed since the preview. Build a new preview.",
       no_profile: "No profile found to clean up",
@@ -1361,9 +1378,13 @@ export async function handleCategoryCleanupUndo(
 ): Promise<ApiResponse<any>> {
   try {
     const { undoCategoryCleanup } = await import("./user-profile/category-cleanup.js");
-    const result = await undoCategoryCleanup(await categoryCleanupUser(userId), deps);
-    if (result.ok)
+    const { clearCategoryCleanupJob } = await import("./user-profile/category-cleanup-job.js");
+    const user = await categoryCleanupUser(userId);
+    const result = await undoCategoryCleanup(user, deps);
+    if (result.ok) {
+      clearCategoryCleanupJob(user);
       return { success: true, data: { restored: result.restored, notFound: result.notFound } };
+    }
     return {
       success: false,
       error: result.error === "stale" ? "Profile changed. Try the undo again." : "Nothing to undo.",

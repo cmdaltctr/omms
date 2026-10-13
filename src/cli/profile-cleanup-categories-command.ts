@@ -54,7 +54,12 @@ export async function runProfileCleanupCategoriesCommand(
       throw new Error("Profile changed. Try the undo again.");
     }
 
-    const preview = await cleanup.previewCategoryCleanup(userId, deps);
+    const preview = await cleanup.previewCategoryCleanup(userId, {
+      ...deps,
+      onProgress: (done, total) => {
+        if (total > 0) print(`Checking groups with the profile model: batch ${done} of ${total}`);
+      },
+    });
     if (!preview) {
       print("No active profile found.");
       return 0;

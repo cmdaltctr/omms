@@ -36,8 +36,17 @@ type Props = {
   onApplied?: () => void;
 };
 
-/** Building a preview embeds every category name and asks the profile model, so it can take minutes. */
-const PREVIEW_TIMEOUT_MS = 600_000;
+type CleanupJob = {
+  id: string;
+  status:
+    | { state: "grouping" }
+    | { state: "checking"; done: number; total: number }
+    | { state: "done"; preview: CleanupPreview }
+    | { state: "failed"; error: string };
+};
+
+/** The preview runs as a background job on the server; the dialog polls its state. */
+const POLL_MS = 3000;
 
 function CategoryPill({ label, count }: { label: string; count: number }) {
   return (
@@ -58,30 +67,59 @@ export function CategoryCleanupDialog({ open = false, onOpenChange, onApplied }:
   const [accepted, setAccepted] = useState<Set<number>>(new Set());
   const [names, setNames] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
   const wasOpen = useRef(false);
+  // Each load gets a number; a closed dialog or a newer load stops an older poll.
+  const loadId = useRef(0);
 
   useEffect(() => {
-    if (open && !wasOpen.current) void load();
+    if (open && !wasOpen.current) void load(false);
+    if (!open) loadId.current++;
     wasOpen.current = open;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only load on dialog open edge
   }, [open]);
 
-  async function load() {
+  function show(next: CleanupPreview) {
+    setPreview(next);
+    setAccepted(new Set(next.groups.map((_, index) => index)));
+    setNames(next.groups.map((group) => group.name));
+  }
+
+  /** Shows a finished job, follows a running one, or starts a new one. */
+  async function load(fresh: boolean) {
+    const id = ++loadId.current;
     setPreview(null);
-    const result = await fetchAPI<CleanupPreview>("/api/user-profile/category-cleanup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-      timeout: PREVIEW_TIMEOUT_MS,
-    });
-    if (!result.success || !result.data) {
-      toast.error(result.error || t("toast-category-cleanup-failed"));
-      onOpenChange?.(false);
-      return;
+    setProgress(null);
+    setFailed(null);
+    let job: CleanupJob | null = null;
+    if (!fresh) {
+      const current = await fetchAPI<CleanupJob | null>("/api/user-profile/category-cleanup");
+      job = current.success ? (current.data ?? null) : null;
     }
-    setPreview(result.data);
-    setAccepted(new Set(result.data.groups.map((_, index) => index)));
-    setNames(result.data.groups.map((group) => group.name));
+    if (!job || job.status.state === "failed") {
+      const started = await fetchAPI<CleanupJob>("/api/user-profile/category-cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!started.success || !started.data) {
+        setFailed(started.error || t("toast-category-cleanup-failed"));
+        return;
+      }
+      job = started.data;
+    }
+    while (id === loadId.current) {
+      const status = job!.status;
+      if (status.state === "done") return show(status.preview);
+      if (status.state === "failed") return setFailed(status.error);
+      setProgress(status.state === "checking" ? { done: status.done, total: status.total } : null);
+      await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+      const next = await fetchAPI<CleanupJob | null>("/api/user-profile/category-cleanup");
+      if (!next.success || !next.data)
+        return setFailed(next.error || t("toast-category-cleanup-failed"));
+      job = next.data;
+    }
   }
 
   function toggle(index: number) {
@@ -147,16 +185,33 @@ export function CategoryCleanupDialog({ open = false, onOpenChange, onApplied }:
           <DialogTitle>{t("label-category-cleanup-title")}</DialogTitle>
         </DialogHeader>
 
-        {!preview ? (
-          <div className="flex flex-col items-center gap-3 py-10 text-muted-foreground">
+        {failed ? (
+          <div className="flex flex-col items-center gap-3 py-10 text-sm">
+            <span className="text-destructive">{failed}</span>
+            <Button variant="secondary" size="sm" onClick={() => void load(true)}>
+              {t("btn-category-cleanup-rebuild")}
+            </Button>
+          </div>
+        ) : !preview ? (
+          <div className="flex flex-col items-center gap-3 py-10 text-center text-muted-foreground">
             <Loader className="size-6 animate-spin" />
-            <span className="text-sm">{t("label-category-cleanup-loading")}</span>
+            <span className="text-sm">
+              {progress
+                ? t("label-category-cleanup-progress", progress)
+                : t("label-category-cleanup-loading")}
+            </span>
+            <span className="text-xs">{t("label-category-cleanup-background")}</span>
           </div>
         ) : (
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-            <p className="text-sm">
-              {t("label-category-cleanup-counts", { before: preview.before, after })}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm">
+                {t("label-category-cleanup-counts", { before: preview.before, after })}
+              </p>
+              <Button variant="link" size="xs" onClick={() => void load(true)}>
+                {t("btn-category-cleanup-rebuild")}
+              </Button>
+            </div>
             <p className="text-xs text-muted-foreground">{t("label-category-cleanup-note")}</p>
             {preview.groups.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">

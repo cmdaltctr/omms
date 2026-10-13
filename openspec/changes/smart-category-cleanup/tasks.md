@@ -25,8 +25,11 @@
 - [x] 4.3 Web: a Clean up categories button with the current category count on the Profile page, and a review dialog modelled on `AiCleanupDialog` (labels with counts, editable name, accept switch, not-checked mark, before and after counts, the merge note, an Undo last cleanup action). Strings in English, Chinese and Arabic. Verify with `bun run typecheck`, `bun run build`, and a browser check of the dialog at desktop and mobile widths.
 - [x] 4.4 Docs: `docs/cli.md` (command), `docs/using-memory.md` (how categories are cleaned up and what the merge note means), `docs/web-ui.md` (Profile page button and dialog). Verify `bun run format:check` passes on them.
 
+- [x] 4.5 Background preview job: one model call at a time with a 180-second limit; a per-user job with state (grouping, checking with batches done and total, done, failed); `POST /api/user-profile/category-cleanup` starts or returns the running job, `GET` returns its state; the command line prints progress. Tests first: start returns before the model answers, a second start reuses the job, progress counts each batch, a failure ends in the failed state. Verify the tests pass.
+- [x] 4.6 Dialog polls the job and shows progress; closing and reopening shows the current state. Docs: the background job in `docs/web-ui.md`, the run time and the `memoryExtraParams` thinking switch in `docs/cli.md`. Verify with `bun run build` and a short browser check.
+
 ## 5. Verification
 
 - [ ] 5.1 `bun run ci:local` passes in this worktree.
-- [ ] 5.2 Run a preview (no apply) on the live profile. Record in a new TDR: the number of groups, the categories before and after if every group were accepted, the share of groups the model changed, and the run time. Show the operator a sample of groups before any live apply; apply on the live profile only with operator approval.
+- [x] 5.2 Run a preview (no apply) on the live profile. Record in a new TDR: the number of groups, the categories before and after if every group were accepted, the share of groups the model changed, and the run time. Show the operator a sample of groups before any live apply; apply on the live profile only with operator approval.
 - [ ] 5.3 `openspec validate smart-category-cleanup --strict` passes.

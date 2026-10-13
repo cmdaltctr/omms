@@ -99,6 +99,27 @@ The user SHALL be able to undo the most recent category cleanup. Undo SHALL rest
 - **THEN** undo SHALL report that there is nothing to undo
 - **AND** SHALL NOT write a changelog entry
 
+### Requirement: A long preview runs in the background with progress
+
+The web app SHALL build the cleanup preview as a background job. Starting a preview SHALL return at once with the job's state. The state SHALL say whether the job is grouping names, checking groups (with batches done and the total), done (with the preview) or failed (with an error). Starting a preview while one runs for the same user SHALL return the running job and SHALL NOT start a second one. Profile model calls SHALL run one at a time, each with a limit of 180 seconds. Closing the review dialog SHALL NOT stop the job; opening it again SHALL show the job's current state.
+
+#### Scenario: Starting a preview
+
+- **WHEN** a user starts a cleanup preview on the Profile page
+- **THEN** the request SHALL return before the profile model is called
+- **AND** the dialog SHALL show the progress of the job
+
+#### Scenario: Starting twice
+
+- **WHEN** a user starts a preview while one is running
+- **THEN** the system SHALL return the running job
+- **AND** SHALL make no extra model calls
+
+#### Scenario: Reopening the dialog
+
+- **WHEN** a user closes the dialog during a job and opens it again after the job is done
+- **THEN** the dialog SHALL show the finished groups
+
 ### Requirement: Every host reaches the same cleanup
 
 The cleanup SHALL be available from the web app Profile page and from the command `om-memory-system profile-cleanup-categories`. Both SHALL use the same shared service and SHALL give the same groups for the same profile and model replies. The command SHALL preview by default, SHALL apply every group with `--yes`, and SHALL undo the last cleanup with `--undo`. The Profile page SHALL show the current number of categories beside the cleanup button. All new web text SHALL be available in English, Chinese and Arabic.

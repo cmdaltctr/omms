@@ -47,7 +47,8 @@ import {
   handleAICleanup,
   handleApplyCleanup,
   handleCategoryCleanupApply,
-  handleCategoryCleanupPreview,
+  handleCategoryCleanupStart,
+  handleCategoryCleanupStatus,
   handleCategoryCleanupUndo,
   handleUpdateProfileItem,
 } from "./api-handlers.js";
@@ -1675,7 +1676,13 @@ export class WebServer {
 
       if (path === "/api/user-profile/category-cleanup" && method === "POST") {
         const body = (await req.json().catch(() => ({}))) as any;
-        return this.jsonResponse(await handleCategoryCleanupPreview(body.userId || undefined));
+        return this.jsonResponse(await handleCategoryCleanupStart(body.userId || undefined));
+      }
+
+      if (path === "/api/user-profile/category-cleanup" && method === "GET") {
+        return this.jsonResponse(
+          await handleCategoryCleanupStatus(url.searchParams.get("userId") || undefined)
+        );
       }
 
       if (path === "/api/user-profile/category-cleanup/apply" && method === "POST") {

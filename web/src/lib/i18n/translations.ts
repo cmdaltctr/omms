@@ -189,6 +189,10 @@ export const translations = {
     "label-category-cleanup-unchecked": "Not checked by the AI",
     "btn-category-cleanup-apply": "Apply selected",
     "btn-category-cleanup-undo": "Undo last cleanup",
+    "label-category-cleanup-progress": "Checking groups with the AI: batch {done} of {total}.",
+    "label-category-cleanup-background":
+      "This runs in the background and can take several minutes. You can close this window and come back.",
+    "btn-category-cleanup-rebuild": "Build a new preview",
     "toast-category-cleanup-applied": "Items renamed: {count}",
     "toast-category-cleanup-undone": "Items restored: {restored}. Not found: {notFound}.",
     "toast-category-cleanup-failed": "Category cleanup failed",
@@ -405,6 +409,10 @@ export const translations = {
     "label-category-cleanup-unchecked": "未经 AI 检查",
     "btn-category-cleanup-apply": "应用所选",
     "btn-category-cleanup-undo": "撤销上次整理",
+    "label-category-cleanup-progress": "正在用 AI 检查分组：第 {done} 批，共 {total} 批。",
+    "label-category-cleanup-background":
+      "此任务在后台运行，可能需要几分钟。你可以关闭此窗口，稍后再回来。",
+    "btn-category-cleanup-rebuild": "重新生成预览",
     "toast-category-cleanup-applied": "已重命名的条目：{count}",
     "toast-category-cleanup-undone": "已恢复：{restored}。未找到：{notFound}。",
     "toast-category-cleanup-failed": "分类整理失败",
@@ -662,6 +670,11 @@ export const translations = {
     "label-category-cleanup-unchecked": "لم يتحقق منها الذكاء الاصطناعي",
     "btn-category-cleanup-apply": "تطبيق المحدد",
     "btn-category-cleanup-undo": "تراجع عن آخر تنظيف",
+    "label-category-cleanup-progress":
+      "جارٍ فحص المجموعات بالذكاء الاصطناعي: الدفعة {done} من {total}.",
+    "label-category-cleanup-background":
+      "يعمل هذا في الخلفية وقد يستغرق عدة دقائق. يمكنك إغلاق هذه النافذة والعودة لاحقًا.",
+    "btn-category-cleanup-rebuild": "إنشاء معاينة جديدة",
     "toast-category-cleanup-applied": "العناصر المعاد تسميتها: {count}",
     "toast-category-cleanup-undone": "المستعادة: {restored}. غير الموجودة: {notFound}.",
     "toast-category-cleanup-failed": "فشل تنظيف الفئات",
