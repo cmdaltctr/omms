@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { CaptureFailureReason, CaptureSummary } from "./host.js";
+import { canonicaliseCategories } from "../services/user-profile/profile-category.js";
 
 /**
  * Shared structured-extraction contract for automatic capture.
@@ -82,6 +83,47 @@ CAPTURE if: code changed, bug fixed, feature added, decision made`;
 
 /** Upper bound for LLM-inferred preference confidence (0–1 scale). */
 export const USER_PROFILE_LLM_CONFIDENCE_MAX = 1;
+
+/** A workflow needs this many non-empty steps to count as a repeatable sequence. */
+export const MIN_WORKFLOW_STEPS = 3;
+
+/** Shared by every host's profile prompt, so a workflow means the same thing everywhere. */
+export const WORKFLOW_PROMPT_RULES = `A workflow is a sequence of at least ${MIN_WORKFLOW_STEPS} concrete steps that the user repeats across tasks, such as "create a branch, write a failing test, fix, run CI, open a PR".
+Each step is one action. Do not describe the user's personality, style, or general habits as a workflow; those belong in preferences and patterns.
+Leave "workflows" empty when the prompts show no repeated sequence of steps.`;
+
+/** True when a workflow has enough non-empty steps to be kept. */
+export function hasEnoughWorkflowSteps(workflow: unknown): boolean {
+  const steps = (workflow as { steps?: unknown } | null | undefined)?.steps;
+  if (!Array.isArray(steps)) return false;
+  const filled = steps.filter((s) => typeof s === "string" && s.trim().length > 0);
+  return filled.length >= MIN_WORKFLOW_STEPS;
+}
+
+/** The same bounded category list for every host's profile analysis prompt. */
+export function buildCategoryList(profile: {
+  preferences: { category: string }[];
+  patterns: { category: string }[];
+}): string {
+  const canonical = canonicaliseCategories(profile);
+  const sections: string[] = [];
+  for (const [type, heading] of [
+    ["preferences", "Preference"],
+    ["patterns", "Pattern"],
+  ] as const) {
+    const counts = new Map<string, number>();
+    for (const item of canonical[type]) {
+      counts.set(item.category, (counts.get(item.category) ?? 0) + 1);
+    }
+    if (counts.size === 0) continue;
+    const labels = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 40);
+    sections.push(
+      `${heading} categories: ${labels.map(([label, count]) => `${label} (${count})`).join(", ")}`
+    );
+  }
+  if (sections.length === 0) return "";
+  return `## Existing Categories\nUse these exact category names when your observation fits:\n\n${sections.join("\n")}\n`;
+}
 
 /**
  * Shared user-profile analysis schema used by OpenCode structured output,

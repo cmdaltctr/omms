@@ -3,10 +3,18 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { tursoConnectionManager } from "../turso/connection-manager.js";
 import type { TursoDb } from "../turso/turso-db.js";
 import { CONFIG } from "../../config.js";
+import { hasEnoughWorkflowSteps } from "../../core/extraction.js";
 import type { ModelPort } from "../../core/profile-analysis.js";
 import { completeStructured, resolveHostProfileModel } from "./profile-model.js";
-import type { UserProfile, UserProfileChangelog, UserProfileData } from "./types.js";
+import type {
+  UserProfile,
+  UserProfileChangelog,
+  UserProfileData,
+  UserProfileWorkflow,
+} from "./types.js";
 import { safeArray } from "./profile-utils.js";
+import { rankProfileCandidates } from "./profile-candidate-matching.js";
+import { canonicaliseCategories, categoryKey } from "./profile-category.js";
 import { EmbeddingService } from "../embedding.js";
 import { log } from "../logger.js";
 import { cosineSimilarityNumbers, l2Normalize } from "../../utils/math.js";
@@ -275,12 +283,15 @@ export class UserProfileManager {
     const id = `profile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     const now = Date.now();
 
-    const cleanedData: UserProfileData = {
+    // A first profile skips mergeProfileData, so the step minimum is applied here.
+    const cleanedData: UserProfileData = canonicaliseCategories({
       preferences: safeArray(profileData.preferences),
       patterns: safeArray(profileData.patterns),
-      workflows: safeArray(profileData.workflows),
+      workflows: safeArray<UserProfileWorkflow>(profileData.workflows).filter(
+        hasEnoughWorkflowSteps
+      ),
       ...(profileData.learning_paths ? { learning_paths: profileData.learning_paths } : {}),
-    };
+    });
 
     await db.run(
       `
@@ -318,12 +329,12 @@ export class UserProfileManager {
     const db = await this.ready();
     const now = Date.now();
 
-    const cleanedData: UserProfileData = {
+    const cleanedData: UserProfileData = canonicaliseCategories({
       preferences: safeArray(profileData.preferences),
       patterns: safeArray(profileData.patterns),
       workflows: safeArray(profileData.workflows),
       ...(profileData.learning_paths ? { learning_paths: profileData.learning_paths } : {}),
-    };
+    });
 
     const versionRow = await db.get(`SELECT version FROM user_profiles WHERE id = ?`, [profileId]);
     const currentVersion = Number(versionRow?.version ?? 0);
@@ -589,7 +600,7 @@ export class UserProfileManager {
     if (updates.workflows) {
       merged.workflows = await this.mergeItems(
         merged.workflows,
-        this.ensureArray(updates.workflows),
+        this.ensureArray(updates.workflows).filter(hasEnoughWorkflowSteps),
         "workflow",
         embedService,
         profileId
@@ -625,10 +636,10 @@ export class UserProfileManager {
     const useEmbedding = embed.isWarmedUp;
     const minDescLen = CONFIG.userProfileEmbeddingMinDescriptionLength;
     const sameCatStrong = CONFIG.userProfileEmbeddingThresholdSameCat;
-    const sameCatWeak = CONFIG.userProfileEmbeddingThresholdSameCatWeak;
-    const crossCatStrong = CONFIG.userProfileEmbeddingThresholdCrossCat;
-    const crossCatWeak = CONFIG.userProfileEmbeddingThresholdCrossCatWeak;
     const driftThreshold = CONFIG.userProfileCentroidDriftThreshold;
+    // Workflows have no category, so the same-category rules below would apply to every
+    // pair. They match only in the strong band and never absorb other workflows.
+    const isWorkflow = itemType === "workflow";
 
     if (!useEmbedding) {
       log("profile embedding skipped: model not warmed up");
@@ -683,7 +694,11 @@ export class UserProfileManager {
 
     for (const newItem of incoming) {
       const exactIdx = existing.findIndex(
-        (e) => e.category === newItem.category && e.description === newItem.description
+        (e) =>
+          (isWorkflow
+            ? e.category === newItem.category
+            : categoryKey(e.category ?? "") === categoryKey(newItem.category ?? "")) &&
+          e.description === newItem.description
       );
 
       if (exactIdx >= 0) {
@@ -700,57 +715,25 @@ export class UserProfileManager {
       }
 
       if (useEmbedding && newItem.description.length >= minDescLen) {
-        let top1Score = 0;
-        let top1Idx = -1;
-        let top1SameCat = false;
-        let top1Band: "strong" | "weak" | null = null;
-        let top2Score = 0;
-        let top2Idx = -1;
-        let top2SameCat = false;
-        let top2Band: "strong" | "weak" | null = null;
-
         const newEmb = await embed.embed(normalizeDescription(newItem.description), {
           task: "document",
         });
-
-        for (let i = 0; i < existing.length; i++) {
-          const existingItem = existing[i];
-          if (!existingItem) continue;
-
-          const centroid = (existingItem as any).centroid as number[] | undefined;
-          if (!centroid) continue;
-
-          const score = cosineSimilarityNumbers(Array.from(newEmb), centroid);
-          const sameCat = existingItem.category === newItem.category;
-
-          const strongThreshold = sameCat ? sameCatStrong : crossCatStrong;
-          const weakThreshold = sameCat ? sameCatWeak : crossCatWeak;
-
-          let band: "strong" | "weak";
-          if (score >= strongThreshold) {
-            band = "strong";
-          } else if (score >= weakThreshold) {
-            band = "weak";
-          } else {
-            continue;
-          }
-
-          if (score > top1Score) {
-            top2Score = top1Score;
-            top2Idx = top1Idx;
-            top2SameCat = top1SameCat;
-            top2Band = top1Band;
-            top1Score = score;
-            top1Idx = i;
-            top1SameCat = sameCat;
-            top1Band = band;
-          } else if (score > top2Score) {
-            top2Score = score;
-            top2Idx = i;
-            top2SameCat = sameCat;
-            top2Band = band;
-          }
-        }
+        const {
+          top1Score,
+          top1Idx,
+          top1SameCat,
+          top1Band,
+          top2Score,
+          top2Idx,
+          top2SameCat,
+          top2Band,
+        } = rankProfileCandidates(
+          existing,
+          newItem.category,
+          Array.from(newEmb),
+          isWorkflow,
+          CONFIG
+        );
 
         if (
           top1Idx >= 0 &&
@@ -758,7 +741,8 @@ export class UserProfileManager {
           top2Idx >= 0 &&
           top2Band === "strong" &&
           top1SameCat &&
-          top2SameCat
+          top2SameCat &&
+          !isWorkflow
         ) {
           const item1 = existing[top1Idx]!;
           const item2 = existing[top2Idx]!;
@@ -862,12 +846,16 @@ export class UserProfileManager {
           existing[top1Idx] = combined;
           matchCount++;
 
-          if (top1SameCat) {
+          if (top1SameCat && !isWorkflow) {
             const mergeIndices: number[] = [];
             for (let j = 0; j < existing.length; j++) {
               if (j === top1Idx) continue;
               const other = existing[j];
-              if (!other || other.category !== existingItem.category) continue;
+              if (
+                !other ||
+                categoryKey(other.category ?? "") !== categoryKey(existingItem.category ?? "")
+              )
+                continue;
               const otherCentroid = (other as any).centroid as number[] | undefined;
               if (!otherCentroid) continue;
               const crossScore = cosineSimilarityNumbers(Array.from(newEmb), otherCentroid);
@@ -1200,7 +1188,7 @@ export class UserProfileManager {
         evidence,
         lastSeen: Date.now(),
         lastMatchTime: Date.now(),
-        ...(itemType === "workflow" && newItem.steps?.length ? { steps: newItem.steps } : {}),
+        ...(itemType === "workflow" ? this.longerSteps(existing, newItem) : {}),
       };
       this.syncConfidence(result);
       return result;
@@ -1215,10 +1203,17 @@ export class UserProfileManager {
       evidence,
       lastSeen: Date.now(),
       lastMatchTime: Date.now(),
-      ...(itemType === "workflow" && newItem.steps?.length ? { steps: newItem.steps } : {}),
+      ...(itemType === "workflow" ? this.longerSteps(existing, newItem) : {}),
     };
     this.syncConfidence(result);
     return result;
+  }
+
+  /** A match keeps the fullest known step list: the new steps win only when they are longer. */
+  private longerSteps(existing: any, newItem: any): { steps?: string[] } {
+    const known = Array.isArray(existing.steps) ? existing.steps.length : 0;
+    const incoming = Array.isArray(newItem.steps) ? newItem.steps.length : 0;
+    return incoming > known ? { steps: newItem.steps } : {};
   }
 
   private initItem(newItem: any, itemType: string, centroid?: number[], anchor?: number[]): any {
@@ -1389,9 +1384,9 @@ export class UserProfileManager {
       if (checked >= maxChecks) break;
       if (removeIndices.includes(items.indexOf(a)) || removeIndices.includes(items.indexOf(b)))
         continue;
+      checked++;
       const conflict = await this.checkConflict(a.description, b.description);
       if (conflict) {
-        checked++;
         const keeper = (a.frequency || 0) >= (b.frequency || 0) ? a : b;
         const removed = keeper === a ? b : a;
         this.lazyMigrateAlpha(keeper);
@@ -1771,7 +1766,8 @@ Generate a concise, abstract description of the user's general behavioral tenden
   }
 
   async evolveAndUpdate(item: any, itemType: string, profileId?: string): Promise<void> {
-    if (!profileId) return;
+    // The rewrite describes a general tendency, which turns a workflow into a persona summary.
+    if (!profileId || itemType === "workflow") return;
     try {
       const evolved = await this.evolveDescription(item, itemType as any, profileId);
       if (evolved && evolved !== item.description) {

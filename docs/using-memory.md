@@ -121,12 +121,40 @@ Catch-up reads waiting prompts oldest first, with 50 eligible prompts per analys
 
 A failed batch stops the run; completed batches stay learned. Resume continues from waiting prompts. A terminal run can take over after the active batch. A second start in the same web app is refused.
 
+### Profile check limits
+
+Each learning pass can check up to three candidate pairs for conflicts and five for duplicates per item type. A negative conflict answer uses the same check budget as a positive answer. Extraction and description updates can make additional model calls.
+
+Pausing an import during profile learning stops it at a batch boundary. Completed batches stay learned.
+
 ### How long profile items stay
 
 Each profile pass removes old items that have little support:
 
 - A preference or pattern is removed when it was last seen more than `userProfileStaleDays` days ago (default 2) and has fewer than `userProfileMinEvidenceForRetention` evidence entries (default 3).
 - A workflow is removed when it was last seen more than `userProfileWorkflowStaleDays` days ago (default 30, or `userProfileStaleDays` when that is longer) and was seen fewer than `userProfileMinEvidenceForRetention` times. Its evidence count is used when it is larger.
+
+### How profile categories are matched
+
+Preferences and patterns use a hidden category key: trim the label, lower-case it, replace `_` and `-` with spaces, then collapse spaces. "Communication style", "communication_style" and "Communication Style" share a key. "Communication" and "Communication style" keep different keys. Workflows have no category.
+
+On each save, one visible spelling wins for each key. An existing spelling without `_` or `-` takes priority over separator spellings. OMMS then counts items across preferences and patterns together to choose the most used spelling within that group. If every spelling has separators, the most used wins. Ties prefer a leading capital, then the first seen.
+
+This keeps "Git workflow" when many items use "git-workflow". A lone "Anti-over-engineering" keeps its hyphens because there is no plain alternative.
+
+OMMS replaces `_` with spaces and tidies spacing in the winning label. It capitalises the first letter only when there are no capitals already. "UI/UX" and "OpenSpec conventions" keep their capitals; hyphens stay in the visible label. A blank becomes "General", and `explicit` stays `explicit`.
+
+A manual edit to another spelling of an existing key uses the winning label when saved. This does not support renaming a whole category by editing one item.
+
+Every host's profile prompt lists the 40 most used categories per type, with item counts. The model is asked to reuse those exact names when an observation fits. Rare categories can fall outside this list.
+
+Old spellings are repaired on the next save. To preview a repair at once, run `om-memory-system profile-normalise-categories`. See [CLI: Normalise profile categories](cli.md#normalise-profile-categories).
+
+### How workflows are learned
+
+A workflow is a repeatable sequence of at least 3 concrete steps, for example "create a branch, write a failing test, fix, run CI, open a PR". The profile prompt asks every host for this and says that a personality or style summary is not a workflow. A workflow with fewer than 3 non-empty steps is dropped before it is stored. Preferences and patterns in the same reply are kept.
+
+A new workflow joins an existing one only when the two are very similar. Otherwise it is stored as a separate workflow. A match keeps the longer list of steps, and a workflow description is never rewritten into a general summary.
 
 ### Rebuild the profile from history
 
