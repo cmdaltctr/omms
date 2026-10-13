@@ -31,6 +31,21 @@ export const MAX_EXAMPLES_PER_LABEL = 3;
 export const CATEGORY_CLEANUP_MODEL_TIMEOUT_MS = 180_000;
 const MAX_NAME_LENGTH = 60;
 
+/** Rejects with the message when the work takes longer than the limit, and always clears its timer. */
+export async function withTimeout<T>(work: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), ms);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Sends one prompt and returns the parsed JSON reply; throws on any failure. */
 export type CleanupModel = (systemPrompt: string, userPrompt: string) => Promise<unknown>;
 
@@ -164,15 +179,11 @@ export async function resolveCleanupModel(): Promise<CleanupModel | null> {
       groups: z.array(z.object({ group: z.string(), keep: z.array(z.string()), name: z.string() })),
     });
     return (systemPrompt, userPrompt) =>
-      Promise.race([
+      withTimeout(
         completeStructured(hostModel, systemPrompt, userPrompt, schema),
-        new Promise((_, reject) =>
-          setTimeout(
-            () => reject(new Error("category cleanup timeout")),
-            CATEGORY_CLEANUP_MODEL_TIMEOUT_MS
-          )
-        ),
-      ]);
+        CATEGORY_CLEANUP_MODEL_TIMEOUT_MS,
+        "category cleanup timeout"
+      );
   }
   if (CONFIG.memoryModel && CONFIG.memoryApiUrl) {
     return async (systemPrompt, userPrompt) => {

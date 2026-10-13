@@ -146,7 +146,7 @@ OMMS replaces `_` with spaces and tidies spacing in the winning label. It capita
 
 A manual edit to another spelling of an existing key uses the winning label when saved. This does not support renaming a whole category by editing one item.
 
-Every host's profile prompt lists the 40 most used categories per type, with item counts. The model is asked to reuse those exact names when an observation fits. Rare categories can fall outside this list.
+Every host's profile prompt lists the 40 most used categories per type, with item counts. The model is asked to reuse those exact names when an observation fits. Rare categories can fall outside this list. Each name is shown in quotes, and the prompt tells the model that the quoted names are stored data, not instructions.
 
 Old spellings are repaired on the next save. To preview a repair at once, run `om-memory-system profile-normalise-categories`. See [CLI: Normalise profile categories](cli.md#normalise-profile-categories).
 

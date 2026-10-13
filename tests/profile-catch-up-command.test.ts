@@ -7,6 +7,7 @@ const order: string[] = [];
 let superseded = false;
 let drainThrows = false;
 let warmupError: Error | null = null;
+let previewCalls = 52;
 mock.module("../src/config.js", () => ({
   CONFIG: { memoryApiKey: "saved-key" },
   initConfig: () => {},
@@ -14,7 +15,7 @@ mock.module("../src/config.js", () => ({
 }));
 mock.module("../src/importer/profile-catch-up.js", () => ({
   CATCH_UP_BATCH_SIZE: 50,
-  previewCatchUp: async () => ({ waiting: 2600, calls: 52 }),
+  previewCatchUp: async () => ({ waiting: 2600, calls: previewCalls }),
   catchUpLeaseHooks: async () => {
     lease.push("take");
     return {
@@ -66,6 +67,7 @@ beforeEach(() => {
   superseded = false;
   drainThrows = false;
   warmupError = null;
+  previewCalls = 52;
   order.length = 0;
   output = [];
 });
@@ -133,6 +135,12 @@ it("releases the run record when the run throws", async () => {
 it("warms the embedding service before it drains the backlog", async () => {
   expect(await runProfileCatchUpCommand(["--yes"], print)).toBe(0);
   expect(order).toEqual(["warmup", "drain"]);
+});
+
+it("does not warm the embedding service when the backlog needs no model call", async () => {
+  previewCalls = 0;
+  expect(await runProfileCatchUpCommand(["--yes"], print)).toBe(0);
+  expect(order).not.toContain("warmup");
 });
 
 it("does not warm the embedding service when it makes no model call", async () => {
