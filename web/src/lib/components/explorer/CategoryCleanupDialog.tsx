@@ -181,7 +181,7 @@ export function CategoryCleanupDialog({ open = false, onOpenChange, onApplied }:
                         />
                         <Input
                           dir="auto"
-                          className="h-8 max-w-64 flex-1"
+                          className="h-8 min-w-0 flex-1 sm:max-w-64"
                           value={names[index] ?? ""}
                           aria-label={t("label-category-cleanup-name")}
                           disabled={!accepted.has(index)}
@@ -194,7 +194,7 @@ export function CategoryCleanupDialog({ open = false, onOpenChange, onApplied }:
                           }
                         />
                         {!group.checked ? (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="basis-full text-xs text-muted-foreground sm:basis-auto">
                             {t("label-category-cleanup-unchecked")}
                           </span>
                         ) : null}
