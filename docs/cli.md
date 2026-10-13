@@ -272,6 +272,39 @@ Saving adds one profile changelog entry through `updateProfile`. The earlier sna
 
 The command resolves the user from `userEmailOverride`, git email, or the sole active profile when no email is available. Unknown flags exit with code `1`.
 
+## Clean up profile categories
+
+`om-memory-system profile-cleanup-categories` groups profile category names that mean the same thing, for example "Execution" and "Direct execution", and proposes one name per group. The spelling repair above only joins spellings of one name; this command joins different wordings of one meaning.
+
+1. Preview the groups:
+
+   ```bash
+   om-memory-system profile-cleanup-categories
+   ```
+
+2. Read each group: the proposed name, then each old name with its item count. A group marked `not checked by the model` used the most used name because no profile model answered.
+3. Apply every group:
+
+   ```bash
+   om-memory-system profile-cleanup-categories --yes
+   ```
+
+4. Undo the last cleanup if needed:
+
+   ```bash
+   om-memory-system profile-cleanup-categories --undo
+   ```
+
+| Flag           | Effect                                           |
+| -------------- | ------------------------------------------------ |
+| `--yes`        | Apply every group in the preview.                |
+| `--undo`       | Restore the categories the last cleanup renamed. |
+| `--help`, `-h` | Print help without opening the profile.          |
+
+The preview embeds each distinct category name once with your embedder, then sends groups to the profile model, 20 per call, with up to three example descriptions per name. The model is the host model or the external API, as for the web app's AI Cleanup.
+
+Applying only renames categories. Descriptions, evidence, counts and confidence stay unchanged, and no item is removed or merged. The apply is refused if the profile changed after the preview. Undo restores the old name on every renamed item that still exists, and reports items that later learning merged away. To choose groups one by one, use **Clean up categories** on the user profile page.
+
 ## The memory command
 
 `om-memory-system memory <mode> [options]` runs one shared memory operation

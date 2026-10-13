@@ -166,6 +166,19 @@ Profile learning separates **Analyse waiting prompts** inside OMMS from **Re-ana
 
 Browse results on `/project-memories` and `/user-profile`. `/` resolves to Project memories. Memory and Settings each remember their section tree; both remain reachable through desktop collapse and the mobile drawer.
 
+## User profile page
+
+Open `/user-profile` to see learned preferences, patterns and workflows.
+
+**Clean up categories** shows the number of categories beside its label. It opens a review of category names that mean the same thing:
+
+1. OMMS groups the names and the profile model proposes one name per group. This can take a few minutes on a large profile.
+2. Each group lists its names with item counts. Clear a group's box to skip it, or edit its name.
+3. **Apply selected** renames the categories of the selected groups. No memory is changed, merged or removed.
+4. **Undo last cleanup** restores the names the last cleanup changed.
+
+A group marked **Not checked by the AI** used its most used name because the profile model did not answer.
+
 ## Settings page
 
 Open `http://127.0.0.1:4747/settings`, select **Settings**, or select the sidebar cogwheel. Its arrow opens the section list.

@@ -23,7 +23,7 @@
 - [x] 4.1 Web API: preview, apply and undo endpoints beside `/api/user-profile/ai-cleanup`, with handler tests for success, a refused stale apply, and nothing to undo. Verify the tests pass.
 - [x] 4.2 CLI `om-memory-system profile-cleanup-categories`: preview by default, `--yes` applies every group, `--undo`, `--help`; unknown options refused. Tests modelled on `tests/profile-normalise-categories-command.test.ts`. Verify they pass and that a preview leaves the store unchanged.
 - [ ] 4.3 Web: a Clean up categories button with the current category count on the Profile page, and a review dialog modelled on `AiCleanupDialog` (labels with counts, editable name, accept switch, not-checked mark, before and after counts, the merge note, an Undo last cleanup action). Strings in English, Chinese and Arabic. Verify with `bun run typecheck`, `bun run build`, and a browser check of the dialog at desktop and mobile widths.
-- [ ] 4.4 Docs: `docs/cli.md` (command), `docs/using-memory.md` (how categories are cleaned up and what the merge note means), `docs/web-ui.md` (Profile page button and dialog). Verify `bun run format:check` passes on them.
+- [x] 4.4 Docs: `docs/cli.md` (command), `docs/using-memory.md` (how categories are cleaned up and what the merge note means), `docs/web-ui.md` (Profile page button and dialog). Verify `bun run format:check` passes on them.
 
 ## 5. Verification
 
