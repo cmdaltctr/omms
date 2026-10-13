@@ -75,7 +75,7 @@ function normalizeDescription(text: string): string {
     .trim();
 }
 
-const USER_PROFILES_DB_NAME = "user-profiles.db";
+export const USER_PROFILES_DB_NAME = "user-profiles.db";
 const COLD_BUFFER_DEFAULT_KEY = "__unattributed__";
 
 export class UserProfileManager {
@@ -324,7 +324,9 @@ export class UserProfileManager {
     profileId: string,
     profileData: UserProfileData,
     additionalPromptsAnalyzed: number,
-    changeSummary: string
+    changeSummary: string,
+    /** When given, refuse the save unless the stored version still equals it. */
+    expectedVersion?: number
   ): Promise<boolean> {
     const db = await this.ready();
     const now = Date.now();
@@ -338,6 +340,7 @@ export class UserProfileManager {
 
     const versionRow = await db.get(`SELECT version FROM user_profiles WHERE id = ?`, [profileId]);
     const currentVersion = Number(versionRow?.version ?? 0);
+    if (expectedVersion !== undefined && currentVersion !== expectedVersion) return false;
     const newVersion = currentVersion + 1;
 
     const changes = await db.run(

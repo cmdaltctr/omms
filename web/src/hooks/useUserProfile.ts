@@ -8,6 +8,7 @@ export function useUserProfile() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [aiCleanupOpen, setAiCleanupOpen] = useState(false);
+  const [categoryCleanupOpen, setCategoryCleanupOpen] = useState(false);
 
   const loadUserProfile = useCallback(async () => {
     setLoadingProfile(true);
@@ -40,6 +41,8 @@ export function useUserProfile() {
     loadingProfile,
     aiCleanupOpen,
     setAiCleanupOpen,
+    categoryCleanupOpen,
+    setCategoryCleanupOpen,
     loadUserProfile,
     refreshProfile,
   };

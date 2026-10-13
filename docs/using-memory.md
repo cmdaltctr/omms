@@ -150,6 +150,10 @@ Every host's profile prompt lists the 40 most used categories per type, with ite
 
 Old spellings are repaired on the next save. To preview a repair at once, run `om-memory-system profile-normalise-categories`. See [CLI: Normalise profile categories](cli.md#normalise-profile-categories).
 
+To join different wordings of one meaning, such as "Execution" and "Direct execution", use the category cleanup on the user profile page or `om-memory-system profile-cleanup-categories`. It groups names by meaning, lets you review each group, and only renames categories. See [CLI: Clean up profile categories](cli.md#clean-up-profile-categories).
+
+After a cleanup, more memories share a category. Profile learning merges two memories in one category at a similarity of 0.8, against 0.9 across categories, so near-duplicates merge more readily. Conflict checks also run only inside one category.
+
 ### How workflows are learned
 
 A workflow is a repeatable sequence of at least 3 concrete steps, for example "create a branch, write a failing test, fix, run CI, open a PR". The profile prompt asks every host for this and says that a personality or style summary is not a workflow. A workflow with fewer than 3 non-empty steps is dropped before it is stored. Preferences and patterns in the same reply are kept.

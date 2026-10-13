@@ -7,6 +7,7 @@ import {
   Pencil,
   RefreshCw,
   Sparkles,
+  Tags,
   Target,
   Trash2,
   UserX,
@@ -30,6 +31,7 @@ type Props = {
   loading?: boolean;
   onRefresh?: () => void;
   onCleanup?: () => void;
+  onCategoryCleanup?: () => void;
 };
 
 const PAGE_SIZE = 20;
@@ -62,7 +64,13 @@ function evidenceCount(item: ProfileItem) {
   return Array.isArray(item.evidence) ? item.evidence.length : 1;
 }
 
-export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: Props) {
+export function ProfileView({
+  profile,
+  loading = false,
+  onRefresh,
+  onCleanup,
+  onCategoryCleanup,
+}: Props) {
   const { t } = useI18n();
   const [profilePages, setProfilePages] = useState({ pref: 1, pat: 1, wf: 1 });
   const [changelogOpen, setChangelogOpen] = useState(false);
@@ -84,6 +92,11 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
     }
     return data as NonNullable<UserProfile["profileData"]>;
   }, [profile]);
+
+  const categoryCount = useMemo(() => {
+    const items = [...(profileData?.preferences ?? []), ...(profileData?.patterns ?? [])];
+    return new Set(items.map((item) => item.category || "General")).size;
+  }, [profileData]);
 
   const preferences = useMemo(() => parseProfileField(profileData?.preferences), [profileData]);
   const patterns = useMemo(() => parseProfileField(profileData?.patterns), [profileData]);
@@ -280,6 +293,13 @@ export function ProfileView({ profile, loading = false, onRefresh, onCleanup }: 
               <Button variant="outline" size="sm" onClick={() => onCleanup?.()}>
                 <Sparkles className="size-3.5" />
                 {t("btn-ai-cleanup")}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => onCategoryCleanup?.()}>
+                <Tags className="size-3.5" />
+                {t("btn-category-cleanup")}
+                <span className="font-mono opacity-70" title={t("label-category-count-title")}>
+                  {categoryCount}
+                </span>
               </Button>
               <Button variant="secondary" size="sm" onClick={() => onRefresh?.()}>
                 <RefreshCw className="size-3.5" />
