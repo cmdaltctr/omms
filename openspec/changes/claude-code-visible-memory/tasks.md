@@ -37,7 +37,7 @@
 
 - [ ] 6.3 Add a "Memory tool and recall rows" section to `docs/claude-code-adapter.md`. It covers what the user sees, the modes and refused modes, the launcher route, the new-session note, and the upgrade note to remove the prototype mod from `CLAUDE_CODE_PLUGIN_DIRS`. Note in `docs/using-memory.md` that injected memories now show their ids. Verify: `bun run check` passes its Markdown format check.
 - [ ] 6.4 Write `docs/adr/026-claude-code-memory-tool-from-plugin-module.md`. It records why Claude Code gets a tool from a plugin module rather than an MCP server or the Bash-only route, and how this narrows ADR-016. Add it to `docs/adr/ADR_README.md`. Verify: the index lists it.
-- [ ] 6.5 Write `docs/tdr/040-claude-code-module-loading-and-tool-placement.md` from `docs/tdr/TEMPLATE.md`. It records three findings:
+- [ ] 6.5 Write `docs/tdr/045-claude-code-module-loading-and-tool-placement.md` from `docs/tdr/TEMPLATE.md`. It records three findings:
   - a mod folder in `~/.claude/mods` loads only when listed in `CLAUDE_CODE_PLUGIN_DIRS`, while a plugin's own `modules` entry needs no setting;
   - `/reload-plugins` does not rerun `session.start`, so a registered tool appears only in a new session;
   - a tool behind ToolSearch lost to the skill's Bash route, while `isDeferred: false` plus a "use instead of Bash" description won. The live screen reads are the evidence.
