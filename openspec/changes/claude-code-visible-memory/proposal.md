@@ -28,6 +28,7 @@ A personal mod prototype (`~/.claude/mods/omms-visible`) fixed both on Claude Co
   - not saving the same turn twice, because capture already runs after each reply.
 
   The general "How to call OMMS" text names the Claude Code tool as well.
+
 - **Docs and records:**
   - the Claude Code guide gets a section on the tool and the recall cards;
   - a new ADR records why Claude Code now gets a tool from a plugin module rather than an MCP server;
@@ -70,6 +71,6 @@ None.
   - `docs/claude-code-adapter.md`;
   - `docs/using-memory.md`;
   - a new ADR-026 and the ADR index;
-  - a new TDR-040 and the TDR index.
+  - a new TDR-045 and the TDR index.
 - **Claude Code version:** the minimum stays 2.1.287 if the module APIs used here exist there. Otherwise it rises. Task 1.1 checks this.
 - **Users of the prototype mod:** after upgrading, remove `~/.claude/mods/omms-visible` from `CLAUDE_CODE_PLUGIN_DIRS`. Otherwise two `memory` tools and two sets of cards show.

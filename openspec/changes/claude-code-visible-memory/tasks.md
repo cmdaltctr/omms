@@ -34,6 +34,7 @@
   - add the short "Using OMMS in Claude Code" section that the omms-skill spec requires, in plain English with no Pi or OpenCode steps.
 
   Verify: the test from 6.1 passes. Load the skill with `/omms:omms-memory` in the live check (7.1) and read it on screen.
+
 - [ ] 6.3 Add a "Memory tool and recall rows" section to `docs/claude-code-adapter.md`. It covers what the user sees, the modes and refused modes, the launcher route, the new-session note, and the upgrade note to remove the prototype mod from `CLAUDE_CODE_PLUGIN_DIRS`. Note in `docs/using-memory.md` that injected memories now show their ids. Verify: `bun run check` passes its Markdown format check.
 - [ ] 6.4 Write `docs/adr/026-claude-code-memory-tool-from-plugin-module.md`. It records why Claude Code gets a tool from a plugin module rather than an MCP server or the Bash-only route, and how this narrows ADR-016. Add it to `docs/adr/ADR_README.md`. Verify: the index lists it.
 - [ ] 6.5 Write `docs/tdr/040-claude-code-module-loading-and-tool-placement.md` from `docs/tdr/TEMPLATE.md`. It records three findings:
@@ -42,6 +43,7 @@
   - a tool behind ToolSearch lost to the skill's Bash route, while `isDeferred: false` plus a "use instead of Bash" description won. The live screen reads are the evidence.
 
   Add it to `docs/tdr/README.md`. Verify: the index lists it.
+
 - [ ] 6.6 Check `docs/configuration.md`, `README.md` and `CONTRIBUTING.md` for text that says Claude Code has no `memory` tool or must use Bash, and correct it. Verify: `grep -rn "no memory tool\|has no .memory. tool" docs README.md CONTRIBUTING.md skills` returns nothing stale.
 
 ## 7. Live check and gate
@@ -52,4 +54,5 @@
   - (c) the footer still shows `● omms: connected`.
 
   Verify: screen reads from `orca terminal read`, quoted in the PR description.
+
 - [ ] 7.2 Run `bash scripts/test-claude-mod.sh` and `bun run ci:local`. Verify: both pass, with the output summary recorded in the PR description.
