@@ -1,5 +1,7 @@
 # Tasks
 
+> **On hold (2026-10-13).** Operator decision: labels grow from each user's own categories, not a fixed list. Smart category cleanup and reuse-first category naming come first. Task 3.2 and its sub-tasks wait until that ships and a measurement shows whether categories still sprawl. Do not build them before then.
+
 - [x] 1. Shared core: review-gated first assignment
   - [x] 1.1 Add the routing rule (`src/core/label-assignment.ts`): no automatic label reuse on first assignment; reviewed label and `none_fit` outcomes reuse automatically
   - [x] 1.2 Store `suggested_label` with each pending review item (`label_assignments` table); never store it as the outcome
@@ -12,7 +14,7 @@
   - [x] 2.3 Verified through `tsc`, production build and the hook logic; this web app has no component-test runner, so no component test was added
 - [x] 3. Host-neutral core
   - [x] 3.1 Routing and storage live in `src/core` and `src/services` with no host imports; the existing boundary tests keep enforcing that
-  - [ ] 3.2 Producer wiring: capture creates review items with the Experiment 23 suggestion list (ADR-024 decision 5). It no longer waits for catalogue consolidation (Experiment 11). Build in a sibling worktree off `main`; write each test first and confirm it fails
+  - [ ] 3.2 Producer wiring: capture creates review items with the Experiment 23 suggestion list (ADR-024 decision 5). It no longer waits for catalogue consolidation (Experiment 11). Build in the `feat/evaluate-memory-decision-models` worktree (operator decision 2026-10-13); write each test first and confirm it fails
     - [ ] 3.2.1 Review store: add columns for the item's embedding vector and embedding model; items without a vector are skipped by cosine; store round-trip tests
     - [ ] 3.2.2 Suggestion list builder in its own pure module (pass `CONFIG` in, per the config-stub rule): Clef's top labels from the own section up to the own-section count, then other-section labels by cosine up to the other-section count, no repeats, each marked with its section; tests for 3 and 2, 5 and 0, and 10 and 10; cosine fills Clef's places when the decision model gives nothing; same-embedding-model filter; never pads; unit tests for each case
     - [ ] 3.2.3 Decision model port in `src/services/`: local llama.cpp client with the Experiment 15 request shape, own-section options with two reviewed examples each, 20-second time limit, `<private>` removal, log of provider, size and outcome code only; tests against a fake server, including timeout and refusal
@@ -27,6 +29,6 @@
   - [ ] 4.3 `docs/web-ui-settings.md` Memory section documents the suggestion count and decision model settings; `docs/web-ui.md` Label review section explains the two-section list
 - [ ] 5. Verification
   - [x] 5.1 `bun test tests/label-assignment.test.ts`, `bun run lint`, `bun run typecheck`, `bun run build` all pass
-  - [ ] 5.2 `bun run ci:local` is blocked by pre-existing unformatted experiment evidence files (Experiments 01 to 08 reports and JSON, hash-pinned by Experiment 09's manifest); formatting them would break Experiment 09's read-only verification, so they are left for the change that owns them
+  - [ ] 5.2 `bun run ci:local` passes. `experiments/` is now in `.prettierignore` and the ESLint ignores, because earlier experiments pin their files by SHA-256 and formatting would break their verification
   - [ ] 5.3 Manual pass on each host: pending until task 3.2 wires a producer. Check the default list with a local Clef server, the fallback with the server stopped, and the counts 5 and 0
   - [ ] 5.4 `openspec validate review-first-assignment --strict` passes after every planning update

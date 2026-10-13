@@ -15,6 +15,8 @@ export default ts.config(
       "web/node_modules/**",
       // Claude Code writes type files here when it loads this repo with --plugin-dir
       ".claude-plugin/types/**",
+      // Experiment evidence is pinned by SHA-256; see .prettierignore
+      "experiments/**",
     ],
   },
   js.configs.recommended,

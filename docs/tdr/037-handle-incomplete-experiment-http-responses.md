@@ -48,10 +48,10 @@ Reported validation: 121 focused tests passed, including both referenced test fi
 
 ## Alternatives Considered
 
-| Option | Rejected Because |
-| --- | --- |
-| Automatic retries | Changes repeat accounting and can consume more of the approved budget. |
-| Reset checkpoint or ledger | Discards completed work and unresolved charges. |
+| Option                     | Rejected Because                                                       |
+| -------------------------- | ---------------------------------------------------------------------- |
+| Automatic retries          | Changes repeat accounting and can consume more of the approved budget. |
+| Reset checkpoint or ledger | Discards completed work and unresolved charges.                        |
 
 ## How to Recognise / Handle This Again
 
