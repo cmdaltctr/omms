@@ -30,6 +30,6 @@
 
 ## 5. Verification
 
-- [ ] 5.1 `bun run ci:local` passes in this worktree.
+- [x] 5.1 `bun run ci:local` passes in this worktree.
 - [x] 5.2 Run a preview (no apply) on the live profile. Record in a new TDR: the number of groups, the categories before and after if every group were accepted, the share of groups the model changed, and the run time. Show the operator a sample of groups before any live apply; apply on the live profile only with operator approval.
-- [ ] 5.3 `openspec validate smart-category-cleanup --strict` passes.
+- [x] 5.3 `openspec validate smart-category-cleanup --strict` passes.
