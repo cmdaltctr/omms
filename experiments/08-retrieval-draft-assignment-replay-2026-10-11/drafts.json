@@ -1,0 +1,18 @@
+{
+  "provenance": "AI_draft",
+  "human_reviewed": false,
+  "execution_authorised": true,
+  "individual_labels_human_approved": false,
+  "assignments": {
+    "0170dd69da3fa2576c9b25b3": {"label": "none_fit", "note": "Catalogue gap: concurrent sessions"},
+    "023f21c87c7df03969c06b40": {"label": "none_fit", "note": "Catalogue gap: self-contained skills"},
+    "0428811d4086f89023c77ff0": {"label": "none_fit", "note": "Catalogue gap: status confirmation"},
+    "04830c081b284389ce20c550": {"label": "preference_resource_economy", "note": "Provisional local compute economy interpretation"},
+    "08c8672c3f8f6d530b682553": {"label": "none_fit", "note": "Catalogue gap: cloud experiment capacity"},
+    "08ee5fc19fa9ce070597f188": {"label": "none_fit", "note": "Catalogue gap: numbered options"},
+    "0947dbcb5e6973b40fa87a3f": {"label": "preference_operator_approval", "note": "Compound observation: approval is primary; completion notification is secondary"},
+    "09ed28189f24cd47b63645b7": {"label": "none_fit", "note": "Catalogue gap: task-type interpretation"},
+    "0a53f4a9405c74244e92b361": {"label": "none_fit", "note": "Catalogue gap: recorded deferrals"},
+    "0da8c3e9f70eea04b0d8cf50": {"label": "preference_progress_reporting", "note": "Provisional reporting interpretation"}
+  }
+}

@@ -1,0 +1,2802 @@
+[
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "approved",
+    "id": "approved-0",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "approved-0",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "approved-0-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "approved-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "approved-0-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "approved-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "approved-1-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "approved-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "approved-1-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "approved-1",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "approved",
+    "id": "approved-1",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "approved-1",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "approved-2-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "approved-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "approved-2-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "approved-2",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "approved",
+    "id": "approved-2",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "approved-2",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "approved-3-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "approved-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "approved-3-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "approved-3",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "approved",
+    "id": "approved-3",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "approved-3",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "unseen-0-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "unseen-0-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "unseen-0-model",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-0",
+    "type": "model"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Unseen",
+    "family": "unseen",
+    "id": "unseen-0",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-0",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "unseen-1-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "unseen-1-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "unseen-1-model",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-1",
+    "type": "model"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Unseen",
+    "family": "unseen",
+    "id": "unseen-1",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-1",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "unseen-2-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "unseen-2-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "unseen-2-model",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-2",
+    "type": "model"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Unseen",
+    "family": "unseen",
+    "id": "unseen-2",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-2",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "unseen-3-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "unseen-3-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "unseen-3-model",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-3",
+    "type": "model"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Unseen",
+    "family": "unseen",
+    "id": "unseen-3",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "unseen-3",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "correction-0-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "correction-0-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "correction-0-correction",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-0",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "correction-0-model",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-0",
+    "type": "model"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "correction",
+    "id": "correction-0",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-0",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "correction-1-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "correction-1-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "correction-1-correction",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-1",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "correction-1-model",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-1",
+    "type": "model"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "correction",
+    "id": "correction-1",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-1",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "correction-2-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "correction-2-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "correction-2-correction",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-2",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "correction-2-model",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-2",
+    "type": "model"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "correction",
+    "id": "correction-2",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-2",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "correction-3-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "correction-3-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "correction-3-correction",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-3",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "correction-3-model",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-3",
+    "type": "model"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "correction",
+    "id": "correction-3",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "correction-3",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-0-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "supersession-0-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-0-correction",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-0",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-0-next",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "supersedes": "supersession-0-correction",
+    "trace": "supersession-0",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-0-model",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-0",
+    "type": "model"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "supersession",
+    "id": "supersession-0",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-0",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-1-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "supersession-1-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-1-correction",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-1",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-1-next",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "supersedes": "supersession-1-correction",
+    "trace": "supersession-1",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-1-model",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-1",
+    "type": "model"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "supersession",
+    "id": "supersession-1",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-1",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-2-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "supersession-2-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-2-correction",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-2",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-2-next",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "supersedes": "supersession-2-correction",
+    "trace": "supersession-2",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-2-model",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-2",
+    "type": "model"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "supersession",
+    "id": "supersession-2",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-2",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-3-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "supersession-3-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-3-correction",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-3",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-3-next",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "supersedes": "supersession-3-correction",
+    "trace": "supersession-3",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "supersession-3-model",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-3",
+    "type": "model"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "supersession",
+    "id": "supersession-3",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "supersession-3",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "owner-0-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "owner-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "owner-0-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "owner-0",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "owner",
+    "id": "owner-0",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "different",
+    "project": "project",
+    "section": "preferences",
+    "trace": "owner-0",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "owner-1-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "owner-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "owner-1-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "owner-1",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "owner",
+    "id": "owner-1",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "different",
+    "project": "project",
+    "section": "preferences",
+    "trace": "owner-1",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "owner-2-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "owner-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "owner-2-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "owner-2",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "owner",
+    "id": "owner-2",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "different",
+    "project": "project",
+    "section": "preferences",
+    "trace": "owner-2",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "owner-3-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "owner-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "owner-3-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "owner-3",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "owner",
+    "id": "owner-3",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "different",
+    "project": "project",
+    "section": "preferences",
+    "trace": "owner-3",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "section-0-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "section-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "section-0-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "section-0",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "section",
+    "id": "section-0",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "different",
+    "trace": "section-0",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "section-1-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "section-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "section-1-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "section-1",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "section",
+    "id": "section-1",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "different",
+    "trace": "section-1",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "section-2-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "section-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "section-2-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "section-2",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "section",
+    "id": "section-2",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "different",
+    "trace": "section-2",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "section-3-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "section-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "section-3-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "section-3",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "section",
+    "id": "section-3",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "different",
+    "trace": "section-3",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "project-0-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "project-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "project-0-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "project-0",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "project",
+    "id": "project-0",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "different",
+    "section": "preferences",
+    "trace": "project-0",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "project-1-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "project-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "project-1-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "project-1",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "project",
+    "id": "project-1",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "different",
+    "section": "preferences",
+    "trace": "project-1",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "project-2-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "project-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "project-2-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "project-2",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "project",
+    "id": "project-2",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "different",
+    "section": "preferences",
+    "trace": "project-2",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "project-3-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "project-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "project-3-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "project-3",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "project",
+    "id": "project-3",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "different",
+    "section": "preferences",
+    "trace": "project-3",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "catalogue_revision-0-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue_revision-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "catalogue_revision-0-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue_revision-0",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "different",
+    "description": "Café",
+    "family": "catalogue_revision",
+    "id": "catalogue_revision-0",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue_revision-0",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "catalogue_revision-1-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue_revision-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "catalogue_revision-1-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue_revision-1",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "different",
+    "description": "Café",
+    "family": "catalogue_revision",
+    "id": "catalogue_revision-1",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue_revision-1",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "catalogue_revision-2-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue_revision-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "catalogue_revision-2-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue_revision-2",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "different",
+    "description": "Café",
+    "family": "catalogue_revision",
+    "id": "catalogue_revision-2",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue_revision-2",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "catalogue_revision-3-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue_revision-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "catalogue_revision-3-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue_revision-3",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "different",
+    "description": "Café",
+    "family": "catalogue_revision",
+    "id": "catalogue_revision-3",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue_revision-3",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "catalogue-0-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "catalogue-0-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue-0",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "catalogue",
+    "id": "catalogue-0",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue-0",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "catalogue-1-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "catalogue-1-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue-1",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "catalogue",
+    "id": "catalogue-1",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue-1",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "catalogue-2-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "catalogue-2-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue-2",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "catalogue",
+    "id": "catalogue-2",
+    "options": [
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue-2",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "catalogue-3-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "catalogue-3-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue-3",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "catalogue",
+    "id": "catalogue-3",
+    "options": [
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "catalogue-3",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "conflict-0-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "conflict-0-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "conflict-0-x",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-0",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "conflict-0-y",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-0",
+    "type": "correction"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "conflict",
+    "id": "conflict-0",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-0",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "conflict-1-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "conflict-1-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "conflict-1-x",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-1",
+    "type": "correction"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "conflict-1-y",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-1",
+    "type": "correction"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "conflict",
+    "id": "conflict-1",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-1",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "conflict-2-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "conflict-2-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "conflict-2-x",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "conflict-2-y",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-2",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "conflict",
+    "id": "conflict-2",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-2",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "conflict-3-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "conflict-3-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "conflict-3-x",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "conflict-3-y",
+    "label": "b",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-3",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "conflict",
+    "id": "conflict-3",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "conflict-3",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "near-0-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "near-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "near-0-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "near-0",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "café",
+    "family": "near",
+    "id": "near-0",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "near-0",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "near-1-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "near-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "near-1-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "near-1",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café ",
+    "family": "near",
+    "id": "near-1",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "near-1",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "near-2-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "near-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "near-2-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "near-2",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café!",
+    "family": "near",
+    "id": "near-2",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "near-2",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "near-3-approval",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "near-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "near-3-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "near-3",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "near",
+    "id": "near-3",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "near-3",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "status-0-approval",
+    "label": "none_fit",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "status-0",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "status-0-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "status-0",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "choice": "none_fit",
+      "status": "ok"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "status",
+    "id": "status-0",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "status-0",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "status-1-approval",
+    "label": "invalid",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "status-1",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "status-1-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "status-1",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "code": "invalid",
+      "status": "error"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "status",
+    "id": "status-1",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "status-1",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "status-2-approval",
+    "label": "none_fit",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "status-2",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "status-2-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "status-2",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "code": "abstain",
+      "status": "review"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "status",
+    "id": "status-2",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "status-2",
+    "type": "query"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "id": "status-3-approval",
+    "label": "invalid",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "status-3",
+    "type": "approval"
+  },
+  {
+    "catalogue_revision": "v1",
+    "description": "Unrelated",
+    "id": "status-3-spare",
+    "label": "a",
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "status-3",
+    "type": "approval"
+  },
+  {
+    "baseline": {
+      "code": "transport",
+      "status": "error"
+    },
+    "catalogue": {
+      "patterns": [
+        "p"
+      ],
+      "preferences": [
+        "a",
+        "b"
+      ]
+    },
+    "catalogue_revision": "v1",
+    "description": "Café",
+    "family": "status",
+    "id": "status-3",
+    "options": [
+      "a",
+      "b",
+      "none_fit"
+    ],
+    "owner": "owner",
+    "project": "project",
+    "section": "preferences",
+    "trace": "status-3",
+    "type": "query"
+  }
+]

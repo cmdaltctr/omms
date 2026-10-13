@@ -1,0 +1,37 @@
+[
+  {
+    "test": "test_drafts_and_membership",
+    "fault_detected": true,
+    "fault": "True or (label in labels"
+  },
+  {
+    "test": "test_provenance",
+    "fault_detected": true,
+    "fault": "True"
+  },
+  {
+    "test": "test_phase_order_and_uncached_outcomes",
+    "fault_detected": true,
+    "fault": "if phase == \"unseen\":"
+  },
+  {
+    "test": "test_scope_and_complete_fallback",
+    "fault_detected": true,
+    "fault": "\"description\": case[\"description\"].lower()"
+  },
+  {
+    "test": "test_summary_gate",
+    "fault_detected": true,
+    "fault": "True"
+  },
+  {
+    "test": "test_baseline_missing",
+    "fault_detected": true,
+    "fault": "records.get(case[\"id\"], {\"case_id\": case[\"id\"], \"status\": \"error\"})"
+  },
+  {
+    "test": "test_resume_and_readonly_verify",
+    "fault_detected": true,
+    "fault": "True"
+  }
+]

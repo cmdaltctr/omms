@@ -1,0 +1,67 @@
+[
+  {
+    "test": "test_scope[owner]",
+    "fault_detected": true,
+    "replacement": "return tuple(value[f] for f in FIELDS if f != 'owner')"
+  },
+  {
+    "test": "test_scope[section]",
+    "fault_detected": true,
+    "replacement": "return tuple(value[f] for f in FIELDS if f != 'section')"
+  },
+  {
+    "test": "test_scope[project]",
+    "fault_detected": true,
+    "replacement": "return tuple(value[f] for f in FIELDS if f != 'project')"
+  },
+  {
+    "test": "test_scope[catalogue_revision]",
+    "fault_detected": true,
+    "replacement": "return tuple(value[f] for f in FIELDS if f != 'catalogue_revision')"
+  },
+  {
+    "test": "test_scope[description]",
+    "fault_detected": true,
+    "replacement": "return tuple(value[f] for f in FIELDS if f != 'description')"
+  },
+  {
+    "test": "test_policy_fixture",
+    "fault_detected": true,
+    "replacement": "state = []"
+  },
+  {
+    "test": "test_eligibility_and_conflicts",
+    "fault_detected": true,
+    "replacement": "and row[\"label\"] != \"a\""
+  },
+  {
+    "test": "test_explicit_events_only_and_supersession",
+    "fault_detected": true,
+    "replacement": "if event[\"type\"] not in (\"approval\", \"correction\", \"model\"):"
+  },
+  {
+    "test": "test_fallback_unchanged",
+    "fault_detected": true,
+    "replacement": "\"outcome\": {\"status\": \"ok\", \"choice\": \"none_fit\"}, \"events\": []"
+  },
+  {
+    "test": "test_inputs_and_original_parity",
+    "fault_detected": true,
+    "replacement": "\"avoided_calls\": 0"
+  },
+  {
+    "test": "test_duplicate_ids_and_atomic_json",
+    "fault_detected": true,
+    "replacement": "pass"
+  },
+  {
+    "test": "test_baseline_ids",
+    "fault_detected": true,
+    "replacement": "\"ignored_ids\")"
+  },
+  {
+    "test": "test_checkpoint_resume_and_readonly_verify",
+    "fault_detected": true,
+    "replacement": "\"ignored_drift\")"
+  }
+]

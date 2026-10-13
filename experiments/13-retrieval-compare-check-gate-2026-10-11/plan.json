@@ -1,0 +1,75 @@
+{
+  "experiment_id": "13-retrieval-compare-check-gate-2026-10-11",
+  "category": "retrieval",
+  "size": "Standard",
+  "status": "WITHDRAWN",
+  "depends_on": "12-retrieval-neighbour-reuse-gate-2026-10-11 completed with G1 to G3 passing",
+  "question": "Does asking Clef to choose between the two closest labels, shown with their past examples, keep more correct matches than the neighbour gate alone, still with zero wrong picks?",
+  "decision": "Whether the production candidate is the neighbour gate alone or the neighbour gate plus the Clef compare check.",
+  "hypotheses": {
+    "H1": {
+      "role": "primary",
+      "statement": "The agreement gate passes Tier 1 (W == 0 and C >= 29) and its C is higher than Experiment 12's C on the same 140 cases."
+    },
+    "H0": "W > 0, or C < 29, or C not higher than Experiment 12's."
+  },
+  "decision_rule": {
+    "pass": "H1 holds: agreement gate is the candidate; Tier 2 needs fresh labelled data.",
+    "no_gain": "W == 0 but C not higher than Experiment 12: drop the Clef step.",
+    "unsafe": "W > 0: stop this design at cut-off 0.9; do not retune on these cases."
+  },
+  "stats": {
+    "level": "basic",
+    "test": "Tier 1 rule, then paired count of C against Experiment 12; no significance test",
+    "interval": "exact one-sided 95% binomial upper bound on W/E"
+  },
+  "ruler": "Experiment 11 plan.json key ruler",
+  "gates": {
+    "G1_integrity": "all pins verify, including Experiment 12 outputs and Clef GGUF and server hashes, before and after",
+    "G2_completeness": "280 valid replies, or invalid-reply cases parked and counted as errors",
+    "G3_fold_hygiene": "prompt examples come only from the case's own outer gallery; an injected leak is refused",
+    "G4_tier1": "W == 0 and C >= 29",
+    "G5_gain": "C higher than Experiment 12's C"
+  },
+  "reported_not_gated": {
+    "swap_consistency": "share of cases where both orders agree",
+    "review_load": "parked count and holding-pen groups",
+    "paired_vs_experiment12": "both accept, only one accepts, neither accepts",
+    "exploratory": "cut-offs 0.5, 0.6, 0.7, 0.8, 0.95; Clef without neighbour agreement"
+  },
+  "frozen": {
+    "git_commit": "fb699eb7c85ee30a12218e5b375f54ba78c5592c",
+    "inputs": {
+      "experiments/03-pair-decisions-2026-10-10/corpus/clef-test-manifest.json": "24918e90eea694464e58d6552d1cc4582dfd27f7b37ff664131f500e7fe53db6",
+      "experiments/12-retrieval-neighbour-reuse-gate-2026-10-11/output/folds.json": "pin by amendment 1 after Experiment 12 completes",
+      "experiments/12-retrieval-neighbour-reuse-gate-2026-10-11/output/predictions.json": "pin by amendment 1 after Experiment 12 completes",
+      "experiment12_inputs": "all frozen inputs of Experiment 12 plan.json"
+    },
+    "gate": {
+      "proposal": "label X of the closest same-section gallery member; park if it is none_fit",
+      "rival": "Y, the next different existing label among the neighbours; park if none",
+      "examples": "up to 3 members of each label from the case's outer gallery, closest first",
+      "orders": ["A=X, B=Y", "A=Y, B=X"],
+      "accept": "order 1 chooses A and order 2 chooses B, each with probability >= 0.9",
+      "otherwise": "park, including both and neither; never automatic none_fit",
+      "cutoff": 0.9
+    },
+    "clef": {
+      "endpoint": "/v1/systemone",
+      "model": "clef-flash",
+      "port": 3005,
+      "question": "Which category does the new observation belong with? Compare it with each category's definition and past examples.",
+      "choices": {
+        "A": "The new observation belongs with category A.",
+        "B": "The new observation belongs with category B.",
+        "both": "The new observation fits both categories equally.",
+        "neither": "The new observation fits neither category."
+      },
+      "scoring": "native choice probabilities; temperature 0; no generation",
+      "max_input_tokens": 8192,
+      "calls": 280
+    },
+    "scripts": ["run_eval.py (phases run, verify)", "analysis.py (after results)"]
+  },
+  "amendments": []
+}
