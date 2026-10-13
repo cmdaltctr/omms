@@ -48,4 +48,4 @@
 - [x] 7.2 Run it with `--yes`. Verify the item counts are unchanged and the distinct categories fall to the number shown in the preview.
 - [x] 7.3 Read the profile through the web API. Verify one "Communication style" category remains in preferences and in patterns, and that no category holds `_`.
 - [x] 7.4 Run it with `--yes` a second time. Verify it reports 0 changes.
-- [ ] 7.5 Run one profile rebuild (the OpenCode import is the natural one). Count distinct categories against items again, and record the result in the TDR. This decides whether the experiment in `evaluate-memory-decision-models` is worth running.
+- [x] 7.5 Superseded (2026-10-13). The live profile was measured instead of rebuilt: 884 preference categories for 956 items and 953 pattern categories for 1,010 items; the spelling repair preview leaves 868 and 940 (TDR-041). The forced OpenCode import was not run. The operator decided the follow-up from this result: no fixed label list; the meaning-based cleanup in `smart-category-cleanup` comes next, and its live measurements replace this rebuild.
