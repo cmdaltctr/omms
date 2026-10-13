@@ -60,8 +60,12 @@ After the approved live repair, run the approved forced OpenCode import and reco
 | Measurement                  | Preferences: categories / items | Patterns: categories / items |
 | ---------------------------- | ------------------------------- | ---------------------------- |
 | Earlier recorded sample      | 754 / 760                       | 783 / 790                    |
+| Live profile, 2026-10-13     | 884 / 956                       | 953 / 1010                   |
+| Spelling repair preview      | 868 / 956                       | 940 / 1010                   |
 | After live repair            | Pending approval                | Pending approval             |
 | After forced OpenCode import | Pending approval                | Pending approval             |
+
+The 2026-10-13 preview changes 36 items and removes 16 preference and 13 pattern labels. Spelling explains little of the sprawl: most labels differ in wording, not spelling, for example "Execution" against "Direct execution". A meaning-based cleanup is the next step (operator decision 2026-10-13). The forced import measurement in task 7.5 is still pending.
 
 ## References
 
