@@ -72,6 +72,16 @@ export async function runProfileCatchUpCommand(
     const { selectImportModel } = await import("../importer/model-selection.js");
     const selected = selectImportModel(flags.model);
     print(`Profile model: ${selected.provider}/${selected.modelId}`);
+    // A cold embedding service makes profile merging buffer findings (capped at 50 per type).
+    try {
+      const { memoryClient } = await import("../services/client.js");
+      await memoryClient.warmup();
+    } catch (error) {
+      print(
+        `Embedding warm-up failed: ${error instanceof Error ? error.message : String(error)}. ` +
+          "Profile findings may be held back until it works."
+      );
+    }
     const { drainProfileBacklog } = await import("../importer/profile-backlog.js");
     const { catchUpLeaseHooks } = await import("../importer/profile-catch-up.js");
     const hooks = await catchUpLeaseHooks();

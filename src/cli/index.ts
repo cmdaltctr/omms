@@ -26,6 +26,8 @@ Commands:
   web update                Update the global install and restart the web app
   memory <mode> [options]   Search, add, list, or forget memories (run with --help)
   profile-catch-up          Analyse every prompt waiting for profile learning (run with --help)
+  profile-normalise-categories  Preview or confirm profile category renames (run with --help)
+  profile-cleanup-categories    Group category names by meaning; preview, apply or undo (run with --help)
   claude-hook <event>       Run a Claude Code hook (used by the Claude Code plugin)
 
 Options:
@@ -77,6 +79,16 @@ export async function runCli(argv: string[]): Promise<number> {
     const { runProfileCatchUpCommand } = await import("./profile-catch-up-command.js");
     return await runProfileCatchUpCommand(argv.slice(1));
   }
+  if (argv[0] === "profile-normalise-categories") {
+    const { runProfileNormaliseCategoriesCommand } =
+      await import("./profile-normalise-categories-command.js");
+    return await runProfileNormaliseCategoriesCommand(argv.slice(1));
+  }
+  if (argv[0] === "profile-cleanup-categories") {
+    const { runProfileCleanupCategoriesCommand } =
+      await import("./profile-cleanup-categories-command.js");
+    return await runProfileCleanupCategoriesCommand(argv.slice(1));
+  }
   if (argv[0] === "web") {
     try {
       const { runWebCommand } = await import("./web-command.js");
@@ -116,6 +128,19 @@ export async function runCli(argv: string[]): Promise<number> {
       };
       model = `${selected.provider}/${selected.modelId}`;
       console.log(`Import model: ${model}`);
+    }
+    // Profile merging buffers findings (capped at 50 per type) while the embedding service is
+    // cold, and a profile-only import never embeds through the memory store. Warm it first.
+    if (!args.dryRun && !args.skipProfile) {
+      try {
+        const { memoryClient } = await import("../services/client.js");
+        await memoryClient.warmup();
+      } catch (error) {
+        console.warn(
+          `Embedding warm-up failed: ${error instanceof Error ? error.message : String(error)}. ` +
+            "Profile findings may be held back until it works."
+        );
+      }
     }
     const { formatHistoryImportReport, historyImportFailed, runHistoryImport } =
       await import("../importer/run-import.js");

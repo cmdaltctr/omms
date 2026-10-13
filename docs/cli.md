@@ -4,22 +4,23 @@ The npm package ships one terminal command, `om-memory-system`. Use it to import
 
 ## Command reference
 
-| Command                                            | What it does                                                                                                        |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `om-memory-system import-opencode-history [flags]` | Import OpenCode history with the external API.                                                                      |
-| `om-memory-system import-pi-history [flags]`       | Import Pi history with the external API.                                                                            |
-| `om-memory-system import-claude-history [flags]`   | Import Claude Code history with the external API.                                                                   |
-| `om-memory-system web`                             | Start the web app in the foreground.                                                                                |
-| `om-memory-system web install`                     | Set `webServerAutoStart` to `true` and install the login item.                                                      |
-| `om-memory-system web uninstall`                   | Set `webServerAutoStart` to `false` and remove the login item.                                                      |
-| `om-memory-system web status`                      | Print the setting, the login item state, the URL, and whether the web app is up.                                    |
-| `om-memory-system web update`                      | Update the global install to npm `latest`, then replace the web app with a fresh one.                               |
-| `om-memory-system --version`, `-v`                 | Print the installed version and exit with code `0`.                                                                 |
-| `om-memory-system --help`, `-h`, or no arguments   | Print the command list.                                                                                             |
-| `om-memory-system <import command> --help`         | Print the flags for that import command.                                                                            |
-| `om-memory-system memory <mode> [options]`         | Run one memory operation and print JSON. See [The memory command](#the-memory-command).                             |
-| `om-memory-system claude-hook <event>`             | Run a Claude Code hook. The Claude Code plugin calls it. See [Claude Code hook command](#claude-code-hook-command). |
-| `om-memory-system profile-catch-up [flags]`        | Analyse every prompt that waits for profile learning. See [Profile catch-up](#profile-catch-up).                    |
+| Command                                                 | What it does                                                                                                        |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `om-memory-system import-opencode-history [flags]`      | Import OpenCode history with the external API.                                                                      |
+| `om-memory-system import-pi-history [flags]`            | Import Pi history with the external API.                                                                            |
+| `om-memory-system import-claude-history [flags]`        | Import Claude Code history with the external API.                                                                   |
+| `om-memory-system web`                                  | Start the web app in the foreground.                                                                                |
+| `om-memory-system web install`                          | Set `webServerAutoStart` to `true` and install the login item.                                                      |
+| `om-memory-system web uninstall`                        | Set `webServerAutoStart` to `false` and remove the login item.                                                      |
+| `om-memory-system web status`                           | Print the setting, the login item state, the URL, and whether the web app is up.                                    |
+| `om-memory-system web update`                           | Update the global install to npm `latest`, then replace the web app with a fresh one.                               |
+| `om-memory-system --version`, `-v`                      | Print the installed version and exit with code `0`.                                                                 |
+| `om-memory-system --help`, `-h`, or no arguments        | Print the command list.                                                                                             |
+| `om-memory-system <import command> --help`              | Print the flags for that import command.                                                                            |
+| `om-memory-system memory <mode> [options]`              | Run one memory operation and print JSON. See [The memory command](#the-memory-command).                             |
+| `om-memory-system claude-hook <event>`                  | Run a Claude Code hook. The Claude Code plugin calls it. See [Claude Code hook command](#claude-code-hook-command). |
+| `om-memory-system profile-catch-up [flags]`             | Analyse every prompt that waits for profile learning. See [Profile catch-up](#profile-catch-up).                    |
+| `om-memory-system profile-normalise-categories [flags]` | Preview or confirm category renames. See [Normalise profile categories](#normalise-profile-categories).             |
 
 Slash commands inside a session:
 
@@ -240,6 +241,71 @@ Run again with --yes to start.
 - A failed batch stops the run. The command prints the reason code, for example `Stopped: timeout`, and exits with code `1`. Finished batches stay learned. Run the command again to continue.
 - A run needs a user email. OMMS reads it from git or from `userEmailOverride`.
 - Error messages never contain the API key.
+
+## Normalise profile categories
+
+`om-memory-system profile-normalise-categories` repairs category spellings in the active user's profile. It makes no model calls.
+
+1. Preview the proposed renames:
+
+   ```bash
+   om-memory-system profile-normalise-categories
+   ```
+
+2. Read every old label, new label and item count. Check the distinct category counts before and after.
+3. Back up `~/.omms/data/user-profiles.db` before applying a live repair. Use your configured storage path if it differs.
+4. Confirm the repair:
+
+   ```bash
+   om-memory-system profile-normalise-categories --yes
+   ```
+
+| Flag           | Effect                                  |
+| -------------- | --------------------------------------- |
+| `--yes`        | Save the proposed category renames.     |
+| `--dry-run`    | Preview only, even with `--yes`.        |
+| `--help`, `-h` | Print help without opening the profile. |
+
+Without `--yes`, the profile stays unchanged. `Changes` counts renamed items. The repair preserves item order, item counts and every other item field. Workflows stay unchanged. Labels follow the [profile category rules](using-memory.md#how-profile-categories-are-matched).
+
+Saving adds one profile changelog entry through `updateProfile`. The earlier snapshot remains available under the configured changelog retention limit. Keep the database backup for recovery after old entries expire. A second confirmed run reports `Changes: 0` and writes no entry.
+
+The command resolves the user from `userEmailOverride`, git email, or the sole active profile when no email is available. Unknown flags exit with code `1`.
+
+## Clean up profile categories
+
+`om-memory-system profile-cleanup-categories` groups profile category names that mean the same thing, for example "Execution" and "Direct execution", and proposes one name per group. The spelling repair above only joins spellings of one name; this command joins different wordings of one meaning.
+
+1. Preview the groups:
+
+   ```bash
+   om-memory-system profile-cleanup-categories
+   ```
+
+2. Read each group: the proposed name, then each old name with its item count. A group marked `not checked by the model` used the most used name because no profile model answered.
+3. Apply every group:
+
+   ```bash
+   om-memory-system profile-cleanup-categories --yes
+   ```
+
+4. Undo the last cleanup if needed:
+
+   ```bash
+   om-memory-system profile-cleanup-categories --undo
+   ```
+
+| Flag           | Effect                                           |
+| -------------- | ------------------------------------------------ |
+| `--yes`        | Apply every group in the preview.                |
+| `--undo`       | Restore the categories the last cleanup renamed. |
+| `--help`, `-h` | Print help without opening the profile.          |
+
+The preview embeds each distinct category name once with your embedder, then sends groups to the profile model, 20 per call, one call at a time, with up to three example descriptions per name. The model is the host model or the external API, as for the web app's AI Cleanup. Each call may take up to 180 seconds; a call that fails or times out leaves its groups named by their most used name.
+
+A reasoning model is slow here. On one profile with 291 groups, each call took about 110 seconds, about 27 minutes in all. If your provider can switch reasoning off, `memoryExtraParams` can pass that option; for z.ai GLM models, `"memoryExtraParams": { "thinking": { "type": "disabled" } }` cut a call to about 36 seconds. This setting applies to every external API call, including memory capture, so add it only if you accept that.
+
+Applying only renames categories. Descriptions, evidence, counts and confidence stay unchanged, and no item is removed or merged. The apply is refused if the profile changed after the preview. Undo restores the old name on every renamed item that still exists, and reports items that later learning merged away. To choose groups one by one, use **Clean up categories** on the user profile page.
 
 ## The memory command
 

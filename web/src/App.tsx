@@ -4,6 +4,7 @@ import { Loader, Menu, Plus, RefreshCw, Search, Trash, TriangleAlert, X } from "
 import { useMemoriesExplorer } from "@/hooks/useMemoriesExplorer";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { AiCleanupDialog } from "$lib/components/explorer/AiCleanupDialog";
+import { CategoryCleanupDialog } from "$lib/components/explorer/CategoryCleanupDialog";
 import { AppSidebar } from "$lib/components/explorer/AppSidebar";
 import { EditMemoryDialog } from "$lib/components/explorer/EditMemoryDialog";
 import { SidebarBrand } from "$lib/components/explorer/SidebarBrand";
@@ -437,6 +438,7 @@ export default function App() {
                 loading={profile.loadingProfile}
                 onRefresh={profile.refreshProfile}
                 onCleanup={() => profile.setAiCleanupOpen(true)}
+                onCategoryCleanup={() => profile.setCategoryCleanupOpen(true)}
               />
             )}
           </div>
@@ -467,6 +469,11 @@ export default function App() {
         open={profile.aiCleanupOpen}
         onOpenChange={profile.setAiCleanupOpen}
         profile={profile.userProfile}
+        onApplied={profile.loadUserProfile}
+      />
+      <CategoryCleanupDialog
+        open={profile.categoryCleanupOpen}
+        onOpenChange={profile.setCategoryCleanupOpen}
         onApplied={profile.loadUserProfile}
       />
     </>
