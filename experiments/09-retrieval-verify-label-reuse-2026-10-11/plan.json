@@ -1,0 +1,141 @@
+{
+  "experiment_id": "09-retrieval-verify-label-reuse-2026-10-11",
+  "category": "retrieval",
+  "size": "Standard",
+  "status": "INCONCLUSIVE; functional FAIL (both arms failed calibration, no test inference)",
+  "question": "Can a calibrated binary verification gate on the classifier's chosen label bring wrong reuse below 2% while retaining at least 19 correct matches?",
+  "hypotheses": {
+    "H1": "At least one verifier arm (nli or clef) meets every functional gate on the 140 saved test cases.",
+    "H0": "No verifier arm meets every gate."
+  },
+  "decision_rule": "An arm passing all gates becomes the candidate mechanism for a later production design proposal. If no arm passes, stop and do not propose another prompt or model change from this evidence. Validity stays INCONCLUSIVE because the reference is AI-authored and previously inspected.",
+  "stats": {
+    "level": "basic",
+    "interval": "Exact one-sided 95% binomial upper bound on wrong reuse among accepted reuses, computed by standard-library summation.",
+    "test_for_h1": "Per-arm gate evaluation with counts and rates. No significance test."
+  },
+  "gates": [
+    {
+      "id": "G1",
+      "name": "integrity",
+      "pass_when": "All pinned input hashes verified; both thresholds frozen from development calibration before test inference; every preserved-files entry unchanged after the run."
+    },
+    {
+      "id": "G2",
+      "name": "completeness",
+      "pass_when": "All 140 baseline cases classified per arm as accepted reuse, review or error, with none_fit pass-through accounted for."
+    },
+    {
+      "id": "G3",
+      "name": "safety",
+      "pass_when": "Accepted reuses E > 0 and unrounded W/E < 0.02 among accepted reuses."
+    },
+    {
+      "id": "G4",
+      "name": "retention",
+      "pass_when": "At least 19 correct accepted existing-label matches (C >= 19)."
+    },
+    {
+      "id": "G5",
+      "name": "review_load",
+      "pass_when": "Routed plus error cases at most 70% of 140."
+    }
+  ],
+  "frozen": {
+    "baseline": {
+      "proposer": "Experiment 06 saved Qwen3-0.6B answers; no fresh proposer calls",
+      "eval_results": {
+        "path": "experiments/06-retrieval-primary-intent-label-selection-2026-10-10/output/eval_results.json",
+        "sha256": "89de5774c588343003021abe4ddf1343ee37d453d67aa781946155133ec808e8"
+      },
+      "summary": {
+        "path": "experiments/06-retrieval-primary-intent-label-selection-2026-10-10/output/summary.json",
+        "sha256": "be31ba0664ecc7be3bba09e407ec0cea0618c0a62db8f591a783a6a06f8ac18b"
+      },
+      "run_manifest": {
+        "path": "experiments/06-retrieval-primary-intent-label-selection-2026-10-10/output/run-manifest.json",
+        "sha256": "6f6d4738325d1cf704b39a0d6d4f030e692fd2f71b5dd3a587ffb1e263cb9c5a"
+      },
+      "counts": {
+        "n": 140,
+        "existing": 71,
+        "correct_existing": 23,
+        "wrong_existing": 48,
+        "accepted_none_fit": 69,
+        "correct_none_fit": 49
+      }
+    },
+    "corpus": {
+      "root": "experiments/01-label-decisions-2026-10-07/output/revision-01-batch8192",
+      "ground_truth_sha256": "8a4771923c458c45aff494839adf932eb42cdd72cf8bd452c44074bba7484f7c",
+      "catalogue_sha256": "3d9af990a51225037e5bca52bcaa28ca0d9486da7166a02d27cbb2366f0d52bc",
+      "candidates_sha256": "c783b5522d44e33c86c1b6969790118b875c35f3c6d96c21bbbe151c4c7d9560",
+      "test_manifest_sha256": "9572035106415d4c60d608c7948185fa08b030c18c79fa386f53f2935b8bbefd",
+      "annotation_notes_sha256": "666e54104ce50a6b0eb8eb3bb4e6e94e53debb0718648413e58f64816a252f61",
+      "reference_author": "model AI a-writer, human_reviewed false"
+    },
+    "nli_verifier": {
+      "repo": "cross-encoder/nli-deberta-v3-small",
+      "revision": "fa2804872c3b4bd748f38c0185cc85775361e735",
+      "file": "onnx/model_qint8_arm64.onnx",
+      "sha256_lfs": "a1da6815c8da542d16381c7d84892d409b4b6604d655bb3054ecb15dd8714e6e",
+      "bytes": 172503006,
+      "tokenizer_file": "tokenizer.json",
+      "tokenizer_bytes": 8656624,
+      "label_order": ["contradiction", "entailment", "neutral"],
+      "runtime": "onnxruntime CPU, offline after download"
+    },
+    "clef_verifier": {
+      "model": "Clef-Flash-Q8_0 with the Experiment 03-pinned llama.cpp build",
+      "pins_source": "Experiment 03 recorded run manifest; re-verified at implementation; drift requires an amendment",
+      "server": "experiment-owned on 127.0.0.1:3004",
+      "request": "temperature 0, fixed seed when supported, native choice probabilities over yes and no"
+    },
+    "pair_construction": {
+      "nli_premise": "observation description verbatim after <private> stripping and secret check",
+      "nli_hypothesis": "The primary requirement of this observation is to <definition, first letter lowercased, trailing full stop>",
+      "clef_question": "Does this category definition describe the observation's primary requirement? Answer yes or no."
+    },
+    "calibration": {
+      "split": "development; 60 positive cases, no none_fit cases",
+      "positive_pairs": 60,
+      "negative_pairs": 1170,
+      "grid": [0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 0.95],
+      "selection_rule": "smallest grid threshold with wrong accepts at most 2% of accepted dev pairs and at least 45 of 60 positives retained",
+      "failure_handling": "an arm with no qualifying threshold fails calibration and does not run on test",
+      "known_risk": "dev negatives are same-section definitions, not proposer near-neighbour wrong picks; thresholds may be optimistic on dev"
+    },
+    "accept_rules": {
+      "nli": "argmax label is entailment and P(entailment) >= frozen tau_nli",
+      "clef": "P(yes) >= frozen tau_clef",
+      "routing": "failed verification routes to review; never auto-none_fit; verifier errors route to review and count as errors"
+    },
+    "subgroups": {
+      "omitted_candidates": [
+        "f37f028b607ada53080ffd18",
+        "b1cb9c6fabb574250de3f653",
+        "eab23004788a8de9ea82bc8f"
+      ],
+      "boundary_cases": [
+        "1467cebd77184343247fa302",
+        "188c3c023907447d10523239",
+        "1f9560db54792f236cf58285"
+      ]
+    },
+    "git_commit": "d22b578 (protocol and plan pending commit until the user requests it)"
+  },
+  "amendments": [
+    {
+      "date": "2026-10-11",
+      "recorded_before": "calibration inference",
+      "change": "Corrected calibration negative_pairs from 1470 to 1170 in frozen.calibration.",
+      "reason": "protocol.md section 'Calibration on the development split' states 30 x 28 = 840 preferences and 30 x 21 = 630 patterns negatives, from a belief of 51 catalogue labels. The pinned catalogue (sha256 3d9af990...) contains 41 labels: 22 preferences and 19 patterns. Every other same-section definition therefore gives 30 x 21 + 30 x 18 = 630 + 540 = 1170 negatives. The frozen construction rule, the grid, the selection rule and every gate are unchanged; only the recorded count and the protocol's arithmetic were wrong."
+    },
+    {
+      "date": "2026-10-11",
+      "recorded_before": "re-running calibration after the runner fix",
+      "change": "run_eval.py now writes output/summary.json at the end of the calibrate phase as well as the test phase, so a terminal calibration-failed state still produces the summary that --verify reproduces. Both calibration phases were re-run from empty checkpoints after the edit because the run manifest binds the runner SHA-256.",
+      "reason": "Both arms failed the frozen calibration selection rule, so the test phase is refused and the original runner never wrote summary.json. The scoring, pair construction, selection rule and gates are unchanged; the re-run is deterministic for both arms."
+    }
+  ]
+}

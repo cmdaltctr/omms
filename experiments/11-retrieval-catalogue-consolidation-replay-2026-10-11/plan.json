@@ -1,0 +1,111 @@
+{
+  "experiment_id": "11-retrieval-catalogue-consolidation-replay-2026-10-11",
+  "category": "retrieval",
+  "size": "Standard",
+  "status": "FAIL",
+  "question": "How much of Experiment 06's wrong label reuse disappears when confusable labels merge into a smaller catalogue built from development evidence only?",
+  "decision": "Which catalogue (41 labels or a merged version) and which scoring ruler Experiments 12 and 13 use.",
+  "exploratory": "Post-hoc: Experiment 06 answers were already inspected. Results can choose inputs for later experiments; they cannot approve a production change.",
+  "hypotheses": {
+    "H1": {
+      "role": "primary",
+      "statement": "At L20, at least ceil(N / 2) of the N label-versus-label wrong picks in cell C1 are correct in cell C3."
+    },
+    "H0": "Fewer than ceil(N / 2) become correct at L20.",
+    "known_ceiling": "28 of 42 wrong picks in the Experiment 10 re-score fall on reference none_fit cases; merging cannot change them; best possible W/E is 28/71 = 0.394."
+  },
+  "decision_rule": {
+    "pass": "H1 and G5 hold: the L20 merge map becomes the draft catalogue for Experiments 12 and 13; definitions are rewritten in a separate step.",
+    "fail": "H1 fails: keep 41 labels for Experiment 12 and report the label pairs that stayed confused.",
+    "unclear": "H1 holds but G5 fails: INCONCLUSIVE; do not retune targets; the user decides the catalogue for Experiment 12."
+  },
+  "stats": {
+    "level": "basic",
+    "test": "count comparison at L20; no significance test",
+    "interval": "exact one-sided 95% binomial upper bound on W/E per cell, standard-library summation"
+  },
+  "ruler": {
+    "applies_from": "Experiment 11 onwards",
+    "correct_pick": "the chosen label lies in the case's acceptable-label set; none_fit answers and review routing never count as reuse",
+    "metric": "W/E among accepted reuse picks with exact one-sided 95% upper bound U",
+    "tier1_screening": {
+      "data": "the 140-case test set",
+      "pass_when": "W == 0 and C >= 29",
+      "proves": "U <= 0.098",
+      "replaces": "flat W/E < 0.02 and C >= 19"
+    },
+    "tier2_production": {
+      "data": "a fresh labelled set never used for design or tuning",
+      "pass_when": "U <= 0.05",
+      "minimum_accepts": { "W0": 59, "W1": 93 }
+    },
+    "two_percent": "long-run aim only; no longer a gate (needs 149 accepts with W == 0)"
+  },
+  "gates": {
+    "G1_integrity": "every pinned hash verifies before and after; build outputs are hashed into the manifest before scoring",
+    "G2_completeness": "all 140 cases carry one scored outcome in every cell",
+    "G3_reproduction": "cell C0 gives E 71, C 29, W 42, matching the Experiment 10 summary",
+    "G4_build_blindness": "the build phase reads development records and the catalogue only; an injected test record is refused",
+    "G5_guardrail": "at L20, no merged label holds more than 30% of its section's reference-positive test cases"
+  },
+  "frozen": {
+    "git_commit": "fb699eb7c85ee30a12218e5b375f54ba78c5592c",
+    "inputs": {
+      "experiments/06-retrieval-primary-intent-label-selection-2026-10-10/output/eval_results.json": "89de5774c588343003021abe4ddf1343ee37d453d67aa781946155133ec808e8",
+      "experiments/01-label-decisions-2026-10-07/output/revision-01-batch8192/corpus/ground-truth.json": "8a4771923c458c45aff494839adf932eb42cdd72cf8bd452c44074bba7484f7c",
+      "experiments/01-label-decisions-2026-10-07/output/revision-01-batch8192/corpus/catalogue.json": "3d9af990a51225037e5bca52bcaa28ca0d9486da7166a02d27cbb2366f0d52bc",
+      "experiments/09-retrieval-verify-label-reuse-2026-10-11/output/eval_results.json": "ae2624f90289c3ad9d1b0bf12d29f5fe87f9a1a74919fbe747251d3b7ed780fb",
+      "experiments/09-retrieval-verify-label-reuse-2026-10-11/output/calibration.json": "26eecd08d8513f03ce7030def787c829063887d9cb1ba67d1bf19bd1a29d05f9",
+      "experiments/10-review-reference-adjudication-2026-10-11/corpus/adjudicated-reference.json": "b920699250d46d14160bf3edab7e1d161c0bfdc284aa87aa521c9dfb1796ecbe",
+      "experiments/10-review-reference-adjudication-2026-10-11/corpus/agent-draft-decisions.json": "f100795172d4ef27a32005eec2d095adc3cc4ebd12de66a7b407d1335a12460a",
+      "experiments/10-review-reference-adjudication-2026-10-11/corpus/agent-judge-verdicts.json": "1c81bf1f23c2ff2fde17e79a64d416dbce84807871d13a69f45e9992341cdb53",
+      "experiments/10-review-reference-adjudication-2026-10-11/corpus/agent-draft-response.json": "9a54e6d1c5fd30500b03df34590178e00e738d6bc14753f9016d89db9d040610",
+      "experiments/10-review-reference-adjudication-2026-10-11/output/summary.json": "c0075ee85066cbbc8b3bb65450806b57636d5bfd74b89355fe449abf9da6cbe9"
+    },
+    "baseline_counts": {
+      "n": 140,
+      "existing": 71,
+      "correct_existing": 29,
+      "wrong_existing": 42,
+      "wrong_on_reference_none_fit": 28,
+      "wrong_label_vs_label": 14,
+      "reference_none_fit": 73
+    },
+    "acceptable_sets": {
+      "source": "agent-draft-response.json, positions keep or other",
+      "widen_when": "drafter label and judge label are both existing catalogue labels and differ; add both",
+      "never_widen": ["none_fit", "uncertain"],
+      "known_effect": "9 of 10 remaining disputes set a label against none_fit or uncertain; at most 1 case widens"
+    },
+    "merge_maps": {
+      "signal": "Experiment 09 Clef calibration records (arm clef, phase calibration): p_yes per development case and same-section definition; 60 positive and 1170 negative pairs",
+      "similarity": "mean p_yes over development cases of L scored against M's definition and development cases of M scored against L's definition",
+      "clustering": "average linkage within each section; merge the most similar cluster pair one at a time; ties broken by the lexically smallest pair of sorted member-id lists",
+      "targets": {
+        "L30": { "preferences": 16, "patterns": 14 },
+        "L20": { "preferences": 11, "patterns": 9 },
+        "L12": { "preferences": 6, "patterns": 6 }
+      },
+      "merged_id": "sorted member ids joined by +",
+      "definitions": "not rewritten in this experiment",
+      "nli_arm": "not used"
+    },
+    "cells": {
+      "C0": { "catalogue": "41", "scoring": "single reference label" },
+      "C1": { "catalogue": "41", "scoring": "acceptable-label set" },
+      "C2": { "catalogue": "L30", "scoring": "acceptable-label set" },
+      "C3": { "catalogue": "L20", "scoring": "acceptable-label set" },
+      "C4": { "catalogue": "L12", "scoring": "acceptable-label set" }
+    },
+    "scripts": ["run_eval.py (phases build, score, verify)", "analysis.py (after results)"]
+  },
+  "amendments": [
+    {
+      "id": 1,
+      "date": "2026-10-11",
+      "before_results": true,
+      "reason": "The build phase also writes the acceptable-label sets, which need the Experiment 10 adjudication files. G4 as written forbade that.",
+      "change": "G4 applies to merge-map construction: it reads development records and the catalogue only, and refuses an injected test record. Acceptable-label sets read the Experiment 10 reference and dispute files. Neither part reads Experiment 06 answers; only the score phase does."
+    }
+  ]
+}

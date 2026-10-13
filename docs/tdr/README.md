@@ -66,6 +66,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [042](./042-prefer-readable-profile-category-labels.md)        | Prefer readable profile category labels                                 | Accepted              | 2026-10-09 |
 | [043](./043-honour-profile-pause-and-bound-conflict-checks.md) | Honour profile pause and bound conflict checks                          | Accepted              | 2026-10-09 |
 | [044](./044-category-cleanup-threshold-and-model-pace.md)      | Category cleanup threshold and model pace                               | Accepted              | 2026-10-13 |
+| [046](./046-handle-incomplete-experiment-http-responses.md)    | Handle incomplete experiment HTTP responses                             | Accepted              | 2026-10-10 |
 
 ## Status values
 

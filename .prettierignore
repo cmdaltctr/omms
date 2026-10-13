@@ -18,3 +18,5 @@ CHANGELOG.md
 .claude-plugin/plugin.json
 # Claude Code writes type files here when it loads this repo with --plugin-dir
 .claude-plugin/types
+# Experiment evidence: earlier experiments pin these files by SHA-256, so formatting them breaks their verification
+experiments

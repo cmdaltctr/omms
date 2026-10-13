@@ -1,0 +1,126 @@
+{
+  "amendments": [
+    {
+      "change": "Adjudication mode changed from blind solo human adjudication to AI-drafted, human-confirmed. An independent agent session drafts all 140 cases from blind inputs (descriptions, sections, all same-section definitions; no expected labels, no classifier picks). The operator then confirms or edits every case in the page; a case counts as done only after confirmation.",
+      "date": "2026-10-11",
+      "reason": "The user chose this mode to reduce adjudication effort while keeping a human decision on every case. Provenance will record the draft explicitly: the frozen reference states ai_drafted true with the draft file's SHA-256. Validity is weaker than blind independent human adjudication (confirmation-anchoring risk); the summary says so. Blindness to the original AI reference and to classifier picks is preserved because the drafting session never sees them.",
+      "recorded_before": "agent drafting and operator confirmation"
+    },
+    {
+      "change": "Added a judge round on top of the AI draft: an independent second agent labelled all 140 cases blind; the drafting agent reconsidered the 16 disagreements and issued final positions (9 keep, 6 concede, 1 other). The confirm page now pre-selects the post-reconsideration label, badges the 130 two-agent-agreed cases for fast confirmation, and flags the 10 still-disputed cases for the operator's closest attention. The judge verdicts and reconsideration files are pinned by SHA-256 in the frozen reference.",
+      "date": "2026-10-11",
+      "reason": "The user ran the judge and reconsideration rounds in separate sessions to strengthen the AI draft before confirming. Every case still requires an operator decision; the additional rounds are recorded as agent evidence, never as the outcome.",
+      "recorded_before": "rebuilding the confirm page with the consensus layer"
+    },
+    {
+      "change": "The operator confirmed by in-session instruction instead of the per-case page pass: all 10 still-disputed cases take the judge's label, and the 130 two-agent consensus cases are accepted wholesale. Because the judge agreed with the draft on 124 and the conceded 6 already carry the judge's label, the frozen reference equals the judge's 140 labels. corpus/adjudication-decisions.json was generated from that instruction, not from a page download.",
+      "date": "2026-10-11",
+      "reason": "Operator's explicit choice after reviewing the dispute summary. Provenance records it as batch confirmation: the 10 hardest cases received individual human arbitration; the 124 two-agent-agreed cases carry no individual human review. The validity note states this; it is weaker than the per-case page confirmation the page was built for.",
+      "recorded_before": "freezing the reference"
+    },
+    {
+      "change": "Fixed a verify-path bug in finalise_reference.py (the recomputed summary lacked the manifest_digest key the written summary carries), then re-froze the reference. The decisions, inputs and every recorded value are unchanged; only the runner SHA-256 in the binding manifest moved.",
+      "date": "2026-10-11",
+      "reason": "The first freeze used the pre-fix runner, so the fingerprint no longer matched. Re-freeze reproduces the identical reference content under the fixed runner; agreement and re-score outputs are unchanged.",
+      "recorded_before": "re-freezing the reference"
+    },
+    {
+      "change": "Independent review findings fixed: verify now also checks the frozen reference against plan.json's reference_sha256 pin (metadata tampering fails); the consensus builder derives agreement from draft and judge labels and rejects an agree flag inconsistent with them; the page's confirm handler no longer references an undeclared variable. The reference was re-frozen because finalise_reference.py's runner SHA-256 changed.",
+      "date": "2026-10-11",
+      "reason": "Review hardening. Decisions, inputs and all recorded values are unchanged; agreement and re-score outputs are identical.",
+      "recorded_before": "re-freezing the reference after the review round"
+    }
+  ],
+  "category": "review",
+  "decision_rule": "Freeze the adjudicated file as the trusted reference either way. Use the disagreement rate and the re-scored Experiment 06 metrics to decide whether the Experiment 05, 06 and 09 conclusions need revisiting, and to drive the catalogue consolidation experiment.",
+  "experiment_id": "10-review-reference-adjudication-2026-10-11",
+  "frozen": {
+    "adjudication": {
+      "agent_draft": {
+        "contamination_rule": "the drafting session reads only the blind input file; it must not read ground-truth, experiment outputs or reports",
+        "format": "{\"answers\": [{\"key\", \"label\", \"note\" <= 200 chars}]}",
+        "input": "corpus/agent-input-blind.json (descriptions, sections, all same-section definitions; no expected labels)",
+        "output": "corpus/agent-draft-decisions.json"
+      },
+      "decisions_file": "corpus/adjudication-decisions.json",
+      "judge_round": {
+        "design": "an independent judge labelled all 140 cases blind; the drafter reconsidered the 16 disagreements; the page pre-selects the post-reconsideration label and badges each case as agents-agree (settled) or disputed (needs the operator most)",
+        "response_file": "corpus/agent-draft-response.json",
+        "settled": 130,
+        "still_disputed": 10,
+        "verdicts_file": "corpus/agent-judge-verdicts.json"
+      },
+      "mode": "AI-drafted, human-confirmed: an independent agent session drafts every case from blind inputs; the operator confirms or edits each case in the page; no AI reference, classifier pick or expected label is ever shown",
+      "operator": "Dr Muhammad Aizat Md Hawari",
+      "options": "every same-section label (22 preferences or 19 patterns), none_fit, uncertain",
+      "page": "output/adjudication.html; offline single file; consensus pre-selected per case (draft, revised by the reconsideration round); a case counts as done only after the operator confirms or changes it; autosave in localStorage; one JSON download",
+      "reference_sha256": "b920699250d46d14160bf3edab7e1d161c0bfdc284aa87aa521c9dfb1796ecbe",
+      "uncertain_handling": "kept in the frozen reference; excluded from re-score rates; counted separately"
+    },
+    "baseline": {
+      "counts": {
+        "accepted_none_fit": 69,
+        "correct_existing": 23,
+        "correct_none_fit": 49,
+        "existing": 71,
+        "n": 140,
+        "wrong_existing": 48
+      },
+      "eval_results": {
+        "path": "experiments/06-retrieval-primary-intent-label-selection-2026-10-10/output/eval_results.json",
+        "sha256": "89de5774c588343003021abe4ddf1343ee37d453d67aa781946155133ec808e8"
+      }
+    },
+    "corpus": {
+      "annotation_notes_sha256": "666e54104ce50a6b0eb8eb3bb4e6e94e53debb0718648413e58f64816a252f61",
+      "candidates_sha256": "c783b5522d44e33c86c1b6969790118b875c35f3c6d96c21bbbe151c4c7d9560",
+      "catalogue_sha256": "3d9af990a51225037e5bca52bcaa28ca0d9486da7166a02d27cbb2366f0d52bc",
+      "ground_truth_sha256": "8a4771923c458c45aff494839adf932eb42cdd72cf8bd452c44074bba7484f7c",
+      "preserved_files_verified": true,
+      "root": "experiments/01-label-decisions-2026-10-07/output/revision-01-batch8192",
+      "test_manifest_sha256": "9572035106415d4c60d608c7948185fa08b030c18c79fa386f53f2935b8bbefd"
+    },
+    "git_commit": "d22b578 (protocol and plan pending commit until the user requests it)",
+    "subgroups": {
+      "boundary_cases": [
+        "1467cebd77184343247fa302",
+        "188c3c023907447d10523239",
+        "1f9560db54792f236cf58285"
+      ],
+      "omitted_candidates": [
+        "f37f028b607ada53080ffd18",
+        "b1cb9c6fabb574250de3f653",
+        "eab23004788a8de9ea82bc8f"
+      ]
+    }
+  },
+  "gates": [
+    {
+      "id": "G1",
+      "name": "integrity",
+      "pass_when": "All pinned input hashes verified; the decisions file covers exactly the 140 case IDs with valid choices."
+    },
+    {
+      "id": "G2",
+      "name": "blindness",
+      "pass_when": "The adjudication page embeds no expected, reference or classifier field; focused tests detect a leaked field in a faulty copy."
+    },
+    {
+      "id": "G3",
+      "name": "completeness",
+      "pass_when": "Every case has exactly one outcome: a same-section label ID, none_fit or uncertain."
+    }
+  ],
+  "hypotheses": {
+    "H0": "They disagree on fewer than 10 cases; the AI reference already stands as ground truth.",
+    "H1": "Human and AI references disagree on at least 10 of 140 test cases."
+  },
+  "question": "How often do the AI-authored reference labels for the 140 test cases disagree with blind human adjudication, and does the Experiment 06 classifier verdict change when re-scored against the human reference?",
+  "size": "Standard",
+  "stats": {
+    "interval": "none",
+    "level": "basic",
+    "test_for_h1": "none; the disagreement count is the result"
+  },
+  "status": "COMPLETE (reference frozen; 22/140 disagreement; Experiment 06 verdict unchanged)"
+}
