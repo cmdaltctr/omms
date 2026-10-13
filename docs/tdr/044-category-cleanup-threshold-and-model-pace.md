@@ -34,6 +34,10 @@ The profile model was GLM through the external API. It is a reasoning model.
 
 Where the model answered, it kept 104 of 120 groups, renamed 37 of them (for example "Root cause first" for "Root cause before change" and its variants), and removed stray names from 13.
 
+### Live apply (2026-10-13)
+
+A read-only preview on the live profile took 1,954 seconds: 295 groups, 23 dropped by the model, 232 checked, 40 unchecked after two batches timed out. The operator applied only the 232 checked groups, with "Prioritisation" in British spelling, after a database backup (`user-profiles.db.bak-category-cleanup-20261013`). The apply renamed 510 items: categories fell from 1,738 to 1,292 while items stayed at 1,988. The undo record holds 510 renames.
+
 ## Decision
 
 - Keep the grouping threshold at 0.80. It takes the live profile from 1,724 to about 1,180 categories, keeps groups small, and groups in seconds. Lower thresholds group more names but build larger groups and take minutes.
