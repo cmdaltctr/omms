@@ -1304,6 +1304,75 @@ export async function handleApplyCleanup(userId?: string, body?: any): Promise<A
   }
 }
 
+type CategoryCleanupDeps = import("./user-profile/category-cleanup.js").CleanupDeps;
+
+async function categoryCleanupUser(userId?: string): Promise<string> {
+  return userId || (await resolveWebProfileUserId(CONFIG)) || "unknown";
+}
+
+function categoryCleanupError(step: string, error: unknown): ApiResponse<never> {
+  // The log never holds category names or descriptions, so only the error's kind is kept.
+  log(`category cleanup ${step}: error`, { code: error instanceof Error ? error.name : "unknown" });
+  return { success: false, error: String(error) };
+}
+
+/** Groups category names for review. Changes nothing in the stored profile. */
+export async function handleCategoryCleanupPreview(
+  userId?: string,
+  deps?: CategoryCleanupDeps
+): Promise<ApiResponse<any>> {
+  try {
+    const { previewCategoryCleanup } = await import("./user-profile/category-cleanup.js");
+    const preview = await previewCategoryCleanup(await categoryCleanupUser(userId), deps);
+    if (!preview) return { success: false, error: "No profile found to clean up" };
+    return { success: true, data: preview };
+  } catch (error) {
+    return categoryCleanupError("preview", error);
+  }
+}
+
+export async function handleCategoryCleanupApply(
+  userId?: string,
+  body?: any,
+  deps?: CategoryCleanupDeps
+): Promise<ApiResponse<any>> {
+  try {
+    const { applyCategoryCleanup } = await import("./user-profile/category-cleanup.js");
+    const result = await applyCategoryCleanup(
+      await categoryCleanupUser(userId),
+      { version: body?.version, groups: body?.groups },
+      deps
+    );
+    if (result.ok) return { success: true, data: { renamed: result.renamed } };
+    const messages = {
+      stale: "Profile changed since the preview. Build a new preview.",
+      no_profile: "No profile found to clean up",
+      invalid: "Each group needs at least two labels and a name.",
+    };
+    return { success: false, error: messages[result.error] };
+  } catch (error) {
+    return categoryCleanupError("apply", error);
+  }
+}
+
+export async function handleCategoryCleanupUndo(
+  userId?: string,
+  deps?: CategoryCleanupDeps
+): Promise<ApiResponse<any>> {
+  try {
+    const { undoCategoryCleanup } = await import("./user-profile/category-cleanup.js");
+    const result = await undoCategoryCleanup(await categoryCleanupUser(userId), deps);
+    if (result.ok)
+      return { success: true, data: { restored: result.restored, notFound: result.notFound } };
+    return {
+      success: false,
+      error: result.error === "stale" ? "Profile changed. Try the undo again." : "Nothing to undo.",
+    };
+  } catch (error) {
+    return categoryCleanupError("undo", error);
+  }
+}
+
 function itemTypeFromId(id: string): string {
   if (id.startsWith("pref_")) return "preferences";
   if (id.startsWith("pat_")) return "patterns";

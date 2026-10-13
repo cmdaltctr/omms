@@ -27,6 +27,7 @@ Commands:
   memory <mode> [options]   Search, add, list, or forget memories (run with --help)
   profile-catch-up          Analyse every prompt waiting for profile learning (run with --help)
   profile-normalise-categories  Preview or confirm profile category renames (run with --help)
+  profile-cleanup-categories    Group category names by meaning; preview, apply or undo (run with --help)
   claude-hook <event>       Run a Claude Code hook (used by the Claude Code plugin)
 
 Options:
@@ -82,6 +83,11 @@ export async function runCli(argv: string[]): Promise<number> {
     const { runProfileNormaliseCategoriesCommand } =
       await import("./profile-normalise-categories-command.js");
     return await runProfileNormaliseCategoriesCommand(argv.slice(1));
+  }
+  if (argv[0] === "profile-cleanup-categories") {
+    const { runProfileCleanupCategoriesCommand } =
+      await import("./profile-cleanup-categories-command.js");
+    return await runProfileCleanupCategoriesCommand(argv.slice(1));
   }
   if (argv[0] === "web") {
     try {
