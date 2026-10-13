@@ -328,33 +328,7 @@ function generateChangeSummary(oldProfile: UserProfileData, newProfile: UserProf
 }
 
 function buildCategorySummary(profileData: UserProfileData): string {
-  const prefCats = [...new Set(profileData.preferences.map((p) => p.category))];
-  const patCats = [...new Set(profileData.patterns.map((p) => p.category))];
-
-  const catParts: string[] = [];
-  if (prefCats.length > 0) {
-    const catCounts = prefCats
-      .map((cat) => {
-        const cnt = profileData.preferences.filter((p) => p.category === cat).length;
-        return `${cat} (${cnt})`;
-      })
-      .join(", ");
-    catParts.push(`Preference categories: ${catCounts}`);
-  }
-  if (patCats.length > 0) {
-    const catCounts = patCats
-      .map((cat) => {
-        const cnt = profileData.patterns.filter((p) => p.category === cat).length;
-        return `${cat} (${cnt})`;
-      })
-      .join(", ");
-    catParts.push(`Pattern categories: ${catCounts}`);
-  }
-
-  const catSection =
-    catParts.length > 0
-      ? `## Existing Categories\nUse these exact category names when your observation fits:\n\n${catParts.join("\n")}\n`
-      : "";
+  const catSection = buildCategoryList(profileData);
 
   const prefCount = profileData.preferences.length;
   const patCount = profileData.patterns.length;
@@ -451,8 +425,10 @@ CRITICAL: Only output observations grounded in the RECENT PROMPTS above. Write d
 }
 
 import {
+  buildCategoryList,
   createUserProfileAnalysisSchema,
   USER_PROFILE_LLM_CONFIDENCE_MAX,
+  WORKFLOW_PROMPT_RULES,
 } from "../../core/extraction.js";
 
 export { createUserProfileAnalysisSchema, USER_PROFILE_LLM_CONFIDENCE_MAX };
@@ -649,6 +625,8 @@ CRITICAL: Detect the language used by the user in their prompts. You MUST output
 
 CRITICAL: All JSON string values MUST escape double quotes with backslash. Do NOT use unescaped quotation marks inside string values.
 
+${WORKFLOW_PROMPT_RULES}
+
 Use the update_user_profile tool to save the ${existingProfile ? "updated" : "new"} profile.`;
 
       const { z } = await import("zod");
@@ -722,6 +700,8 @@ Your task is to analyze user prompts and ${existingProfile ? "update" : "create"
 CRITICAL: Detect the language used by the user in their prompts. You MUST output all descriptions, categories, and text in the SAME language as the user's prompts.
 
 CRITICAL: All JSON string values MUST escape double quotes with backslash. Do NOT use unescaped quotation marks inside string values.
+
+${WORKFLOW_PROMPT_RULES}
 
 Use the update_user_profile tool to save the ${existingProfile ? "updated" : "new"} profile.`;
 

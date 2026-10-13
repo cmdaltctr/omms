@@ -46,6 +46,10 @@ import {
   handleRefreshProfile,
   handleAICleanup,
   handleApplyCleanup,
+  handleCategoryCleanupApply,
+  handleCategoryCleanupStart,
+  handleCategoryCleanupStatus,
+  handleCategoryCleanupUndo,
   handleUpdateProfileItem,
 } from "./api-handlers.js";
 
@@ -1668,6 +1672,27 @@ export class WebServer {
         const userId = body.userId || undefined;
         const result = await handleApplyCleanup(userId, body);
         return this.jsonResponse(result);
+      }
+
+      if (path === "/api/user-profile/category-cleanup" && method === "POST") {
+        const body = (await req.json().catch(() => ({}))) as any;
+        return this.jsonResponse(await handleCategoryCleanupStart(body.userId || undefined));
+      }
+
+      if (path === "/api/user-profile/category-cleanup" && method === "GET") {
+        return this.jsonResponse(
+          await handleCategoryCleanupStatus(url.searchParams.get("userId") || undefined)
+        );
+      }
+
+      if (path === "/api/user-profile/category-cleanup/apply" && method === "POST") {
+        const body = (await req.json().catch(() => ({}))) as any;
+        return this.jsonResponse(await handleCategoryCleanupApply(body.userId || undefined, body));
+      }
+
+      if (path === "/api/user-profile/category-cleanup/undo" && method === "POST") {
+        const body = (await req.json().catch(() => ({}))) as any;
+        return this.jsonResponse(await handleCategoryCleanupUndo(body.userId || undefined));
       }
 
       if (path === "/api/user-profile/item" && method === "PATCH") {
