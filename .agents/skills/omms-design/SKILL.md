@@ -9,6 +9,8 @@ Guide visual changes to the OMMS web app using its existing React, Tailwind, Rad
 
 ## Scope
 
+The OMMS web UI stack (inherited from the openmem fork it descends from): React 19, Tailwind CSS v4 via `@tailwindcss/vite` (CSS-first configuration, no `tailwind.config` file), shadcn/ui-style components (`web/components.json`, style `new-york`, CSS variables on) generated into `web/src/lib/components/ui/`, Radix UI primitives (`@radix-ui/react-*`), `class-variance-authority` + `clsx` + `tailwind-merge` for variant styling, and `lucide-react` for icons. Theme values are declared as CSS custom properties in `web/src/app.css` and exposed to Tailwind through `@theme inline` aliases. Treat this stack as the baseline for any OMMS visual work; do not hand-roll replacements for primitives that already exist.
+
 The selected direction is OpenChamber's warm neutral palette, compact system-font UI, and flat tinted controls. The references define the proposed target. OMMS currently has green terminal styling; creating this skill does not apply the target to the app.
 
 Keep navigation, routes, section order, visible wording, save behaviour, and data operations unchanged during a visual-only change. Moving explanations into tooltips, changing defaults, or adding controls requires a separate product decision. Follow the repository's OpenSpec approval process before implementing a UI change.
