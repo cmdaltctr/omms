@@ -93,6 +93,18 @@ describe("Pi adapter boundary", () => {
     }
   });
 
+  it("lists only importer readers that exist and still reach a host SDK", () => {
+    // A reader names an SDK itself or loads it through pi-sdk.ts. A renamed or
+    // unrelated file left in the set would otherwise stay allowed without notice.
+    for (const reader of importerSdkReaders) {
+      const source = readFileSync(join(import.meta.dir, "../src/importer", reader), "utf8");
+      expect(hostSdkSpecifier.test(source) || source.includes("pi-sdk.js")).toBe(true);
+    }
+    for (const reader of staticSdkReaders) {
+      expect(importerSdkReaders.has(reader)).toBe(true);
+    }
+  });
+
   it("keeps the importer and Pi runtime out of the OpenCode entry points", () => {
     const openCodeEntryPaths = ["src/index.ts", "src/v2/adapter.ts", "src/v2/plugin.ts"];
     for (const relative of openCodeEntryPaths) {
