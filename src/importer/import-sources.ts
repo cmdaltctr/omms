@@ -114,6 +114,8 @@ export function defaultClaudeSourcePath(claudeConfigDir?: string): string {
   return claudeProjectsRoot(claudeConfigDir);
 }
 
+// One of about 29 host-name branches outside src/adapters/. A host registry would replace
+// them. Read "Host parity" in AGENTS.md before you add a fourth host.
 export function defaultImportSourcePath(host: ImportHost, claudeConfigDir?: string): string {
   if (host === "pi") return DEFAULT_PI_SESSION_ROOT;
   if (host === "claude-code") return defaultClaudeSourcePath(claudeConfigDir);

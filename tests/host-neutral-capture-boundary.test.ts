@@ -13,7 +13,7 @@ describe("host-neutral capture boundary", () => {
     for (const file of hostNeutralFiles) {
       const source = readFileSync(file, "utf8");
       expect(source).not.toContain("@opencode");
-      expect(source).not.toContain("@mariozechner/pi");
+      expect(source).not.toContain("@earendil-works");
       expect(source).not.toContain("/adapters/opencode");
       expect(source).not.toContain("/adapters/pi");
     }
