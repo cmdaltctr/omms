@@ -207,20 +207,22 @@ See [Moving projects](moving-projects.md) for `list-shards`, `migrate`,
 
 OMMS adds the closest matches to the agent's context. These are not all your memories. The header of that context says so. It tells the agent to search the full store before it investigates a problem, or when you refer to earlier work.
 
+Each added memory shows its id beside its relevance, for example `<memory id="mem_…" relevance="82%">`. After a compaction or a resume, the heading shows it: `### Memory 1 (mem_…)`. The agent can pass that id to `forget` with no search first. In Claude Code, the recall rows at the top of each reply show the same ids. See [Claude Code adapter: Memory tool and recall rows](claude-code-adapter.md#memory-tool-and-recall-rows).
+
 The agent should search the full store:
 
 - before it debugs or investigates a problem;
 - when you refer to earlier work, for example "we fixed this before", "last time", "remember", or "did we";
 - before a decision about project conventions.
 
-The `memory` tool description in Pi and OpenCode gives the same instruction. These texts raise the chance of a search, but a model can still skip it. To make sure, ask the agent to search memory, or start the `omms-memory` skill.
+The `memory` tool description in Pi, OpenCode and Claude Code gives the same instruction. These texts raise the chance of a search, but a model can still skip it. To make sure, ask the agent to search memory, or start the `omms-memory` skill.
 
 ## The omms-memory skill
 
 The `omms-memory` skill tells the agent when and how to search and save memory. One skill file serves every host.
 
-- With a `memory` tool (Pi and OpenCode), the agent uses the tool.
-- Without one (Claude Code), the agent runs `om-memory-system memory` in its shell. See [Claude Code adapter: The memory command](claude-code-adapter.md#the-memory-command).
+- With a `memory` tool, the agent uses the tool. Pi and OpenCode call it `memory`. The Claude Code plugin calls it `mcp__omms__memory`.
+- Without one (Claude Code with hand-written hooks), the agent runs `om-memory-system memory` in its shell. See [Claude Code adapter: The memory command](claude-code-adapter.md#the-memory-command).
 
 Each host loads the skill by itself. You do not copy any files.
 

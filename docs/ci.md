@@ -94,8 +94,8 @@ before a push to a pull request and before a merge.
   again after a Bun upgrade.
 - Some tests import `dist/`. `ci:local` builds before it tests. For one test
   file, build first: `bun run build && bash scripts/run-tests-isolated.sh tests/<file>.test.ts`.
-- The Claude Code status line module has its own test, `hooks/omms-status.test.ts`.
-  Run it with `bash scripts/test-claude-mod.sh`, which needs the `claude` command.
+- The Claude Code module files have their own tests, `hooks/*.test.ts`.
+  Run them with `bash scripts/test-claude-mod.sh`, which needs the `claude` command.
   `ci:local` and the GitHub workflows do not run it. See [TDR-025](tdr/025-claude-plugin-test-runs-whole-folder.md).
 
 ### Timing tests and child processes

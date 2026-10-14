@@ -9,8 +9,17 @@ OMMS keeps memories for each project: earlier fixes, decisions, and conventions.
 
 ## How to call OMMS
 
-- If your tool list has a `memory` tool (Pi and OpenCode), use it.
-- If it does not (Claude Code), run the `om-memory-system memory` command with the Bash tool from the project directory. Each command prints one JSON document. A result with `"success": false` has an `error` field.
+- If your tool list has a `memory` tool, use it. Pi and OpenCode call it `memory`. Claude Code with the OMMS plugin calls it `mcp__omms__memory`.
+- If no `memory` tool is listed, run the `om-memory-system memory` command with the Bash tool from the project directory. Each command prints one JSON document. A result with `"success": false` has an `error` field.
+
+## Using OMMS in Claude Code
+
+- Recall arrives as added context. The user sees it as `▸ ● memory [mode=…]` rows at the top of your reply. The context holds the closest matches only.
+- When `mcp__omms__memory` is listed, call it. Do not run the command through Bash.
+- The tool refuses the `import`, `export`, `migrate` and `list-shards` modes. Tell the user to run them with `om-memory-system memory` in a terminal.
+- With hand-written hooks or an older plugin, no `memory` tool is listed. Then run `om-memory-system memory` through Bash.
+- Each injected memory shows its id. When the user asks you to remove that memory, pass the id to `forget`.
+- Capture runs after each reply in the background. Do not save the same turn again, unless it holds a decision, a fix or a preference that the user asked you to keep.
 
 ## When to search
 

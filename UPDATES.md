@@ -23,7 +23,7 @@ For local plugin testing, run `claude --plugin-dir /absolute/path/to/omms`. Addi
 
 Claude Code updates a marketplace plugin by itself only when that marketplace has auto-update on. Third-party marketplaces, such as `omms`, start with auto-update off. To turn it on, run `/plugin`, open **Marketplaces**, select `omms`, and select **Enable auto-update**. A running session keeps the old copy until you run `/reload-plugins` or start a new session.
 
-Claude Code 2.1.287 or later shows an OMMS status line under the prompt. When npm has a newer stable release than the copy that the hooks run, the line adds `· <version> available` and a toast names `claude plugin update omms@omms`. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn the check off. See [Claude Code adapter: Status line](docs/claude-code-adapter.md#status-line).
+Claude Code 2.1.295 or later shows an OMMS status line under the prompt. When npm has a newer stable release than the copy that the hooks run, the line adds `· <version> available` and a toast names `claude plugin update omms@omms`. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn the check off. See [Claude Code adapter: Status line](docs/claude-code-adapter.md#status-line).
 
 The Claude Code hooks run through the launcher in the plugin. The launcher runs the newest OMMS copy on the machine. When every copy is older than the plugin, it runs `npx --yes om-memory-system@<plugin version>`. A global install is optional. Node.js 22.14 or later is required. See [Updating and upgrading](docs/upgrading.md#claude-code).
 
