@@ -1,7 +1,7 @@
 name: Release
 
 # release-please keeps a release pull request open on main. Merging it tags
-# vX.Y.Z and creates the GitHub Release in this same run; the six-platform
+# vX.Y.Z and creates the GitHub Release in this same run; the five-platform
 # smoke gate then runs and the version is staged on npm for the maintainer to
 # approve. Publishing happens here rather than on a tag-push workflow because
 # tags created by release-please do not trigger other workflows.
@@ -160,7 +160,7 @@ jobs:
             exit 0
           fi
           {
-            echo "@$OWNER \`om-memory-system@$RELEASE_VERSION\` passed the six-platform smoke and is staged on npm."
+            echo "@$OWNER \`om-memory-system@$RELEASE_VERSION\` passed the five-platform smoke and is staged on npm."
             echo
             echo "Approve it with 2FA from the main checkout: \`bun run release:approve\`"
             echo
