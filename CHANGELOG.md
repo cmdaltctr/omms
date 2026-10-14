@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.16.0](https://github.com/cmdaltctr/omms/compare/v4.15.0...v4.16.0) (2026-10-14)
+
+
+### Features
+
+* **claude-code:** show OMMS memory use in the chat ([cb0e7be](https://github.com/cmdaltctr/omms/commit/cb0e7bea1df3f19fc28a33f7034d010796d5ff43))
+* **claude-code:** show OMMS memory use in the chat ([df5e16f](https://github.com/cmdaltctr/omms/commit/df5e16fdee10b47b036b9702ebc230c79cd1cb2f))
+
+
+### Bug Fixes
+
+* **claude-code:** stop a prompt with no memories naming a later recall ([c00d4ab](https://github.com/cmdaltctr/omms/commit/c00d4ab880a09fbc08f8daf8936fa9b5cbdc8bc9))
+
 ## [4.15.0](https://github.com/cmdaltctr/omms/compare/v4.14.1...v4.15.0) (2026-10-13)
 
 
