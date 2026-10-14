@@ -9,7 +9,7 @@ OMMS (npm `om-memory-system`) is a memory plugin for AI coding agents. One share
 - Keep `main` as the integration branch that only receives reviewed changes through pull requests.
 - Do not commit, amend, rebase, or push unless the user explicitly asks for that git action.
 - Write commit messages as Conventional Commits. release-please derives versions from them: `feat:` is minor, `fix:`, `deps:`, `perf:`, and `docs:` are patch, and `!` is major.
-- `ci:`, `chore:`, `refactor:`, and `test:` commits are hidden from the changelog and do not start a release. A `docs:` commit does start a patch release, so use `chore:` when a docs-only change needs no release.
+- `ci:`, `chore:`, `refactor:`, and `test:` commits are hidden from the changelog. On their own they do not start a release, so use `chore:` when a docs-only change needs none. A hidden commit that lands while a release is pending goes out with it. A `docs:` commit does start a patch release.
 - Never edit `version` in `package.json` or `.claude-plugin/plugin.json`. release-please sets both.
 - Before a push to a pull request, run `bun run ci:local` and confirm that it passes. Each push starts GitHub CI.
 - Do not dispatch `gh workflow run` smoke workflows unless the user asks.
