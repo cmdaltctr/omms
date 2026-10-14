@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.16.1](https://github.com/cmdaltctr/omms/compare/v4.16.0...v4.16.1) (2026-10-14)
+
+
+### Documentation
+
+* **skills:** record the web UI stack in the omms-design skill ([96d2340](https://github.com/cmdaltctr/omms/commit/96d2340f1b6e01c362e8f24cc8fc87370560c6bb))
+* **skills:** record the web UI stack in the omms-design skill ([9cb3ed7](https://github.com/cmdaltctr/omms/commit/9cb3ed7f5804ddaa04b430d7e2e7b84557d1bfbb))
+
 ## [4.16.0](https://github.com/cmdaltctr/omms/compare/v4.15.0...v4.16.0) (2026-10-14)
 
 
