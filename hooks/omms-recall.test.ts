@@ -88,6 +88,16 @@ describe("recall row", () => {
     expect(text).toContain("mode=recent, limit=2");
   });
 
+  test("a prompt with no memories is not the query of a later compaction recall", async ($, on) => {
+    world(on);
+    await $.prompt.submit({ text: "unmatched question" } as any);
+    await (await mountReply($, "reply-1")).drawn();
+    await $.session.append(injectRow(RESTORED) as any);
+    const text = textOf(await (await mountReply($, "reply-2")).drawn());
+    expect(text).not.toContain("unmatched question");
+    expect(text).toContain("● memory [mode=recent, limit=1]");
+  });
+
   test("a session recall and a prompt recall draw as two calls on the first reply", async ($, on) => {
     world(on);
     await $.session.append(injectRow(INJECTED) as any);

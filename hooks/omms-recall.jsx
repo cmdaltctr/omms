@@ -59,6 +59,9 @@ export const registerRecall = (on) => {
       claimed.set(e.requestId, pending);
       $.ui.log(`omms: reply ${e.requestId} claimed ${pending.length} recalls`, { to: "debug" });
       pending = [];
+      // A prompt that found no memories must not name a later recall, such as
+      // one after compaction. Its recall, if any, was taken above.
+      lastPrompt = null;
     }
     const calls = claimed.get(e.requestId) ?? [];
     if (calls.length === 0) return inner;
