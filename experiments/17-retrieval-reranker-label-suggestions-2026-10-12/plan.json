@@ -1,0 +1,92 @@
+{
+  "experiment_id": "17-retrieval-reranker-label-suggestions-2026-10-12",
+  "category": "retrieval",
+  "size": "Standard",
+  "status": "PASS",
+  "question": "Does Qwen3-Reranker-0.6B put the right label first more often than cosine similarity, when suggesting a label for a reviewer to confirm?",
+  "decision": "Which method fills the suggested label in the review queue.",
+  "approval": "Operator approved plan, 639 MB download via llama download -hf, and run on 2026-10-12 ('run 17').",
+  "hypotheses": {
+    "H1": {
+      "role": "primary",
+      "statement": "max(Route A, Route B) top-1 correct >= 46 of 67 labelled test cases."
+    },
+    "H0": "Both routes get 45 or fewer right."
+  },
+  "decision_rule": {
+    "pass": "Reranker becomes the recommended suggestion engine for a later production proposal.",
+    "modest": "H1 fails but a route beats the cosine baseline on the same shortlist: operator decides.",
+    "fail": "Keep cosine suggestions."
+  },
+  "baselines": {
+    "cosine_same_shortlist": "computed in-run with Route A's suggestion rule",
+    "experiment16_instruct_nearest": 41,
+    "experiment15_clef_top_pick": 49
+  },
+  "stats": {
+    "level": "basic",
+    "test": "count rule 46 of 67; paired counts against the cosine baseline",
+    "interval": "none"
+  },
+  "gates": {
+    "G1_integrity": "GGUF size and SHA-256, server binary and input pins verify before and after",
+    "G2_completeness": "every case has a valid reranker result in both routes; errors count as wrong",
+    "G3_fold_hygiene": "shortlists come only from the outer gallery; injected leak refused"
+  },
+  "frozen": {
+    "git_commit": "fb699eb7c85ee30a12218e5b375f54ba78c5592c",
+    "inputs": {
+      "experiments/12-retrieval-neighbour-reuse-gate-2026-10-11/run_eval.py": "10a458e9020e07b9b7fca10a41ebb348b8f5f21ce9586faa434291053d98444b",
+      "experiments/16-retrieval-neighbour-gate-qwen3-4b-2026-10-11/output/vectors-instruct.json": "133623b9b2c3ee8db067b4dfac488cfa362cc17795edada55c5c647b7b588a97",
+      "experiments/03-pair-decisions-2026-10-10/corpus/clef-test-manifest.json": "24918e90eea694464e58d6552d1cc4582dfd27f7b37ff664131f500e7fe53db6"
+    },
+    "reranker": {
+      "repo": "ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF",
+      "revision": "a02f48bb4f057028298c21fa033da2b30d7742d5",
+      "file": "qwen3-reranker-0.6b-q8_0.gguf",
+      "bytes": 639153184,
+      "sha256": "22c9979ce4fbcdc5acdc310c6641c32797eff1aa980b8f7a2db8a8ea23429a48",
+      "location": "shared Hugging Face cache via llama download -hf"
+    },
+    "server": {
+      "binary": "llama.cpp b11510 from the Experiment 03 manifest",
+      "port": 3008,
+      "args": [
+        "--reranking",
+        "--ctx-size",
+        "8192",
+        "--batch-size",
+        "8192",
+        "--ubatch-size",
+        "8192",
+        "--parallel",
+        "1",
+        "--gpu-layers",
+        "all",
+        "--offline",
+        "--log-disable",
+        "--host",
+        "127.0.0.1"
+      ]
+    },
+    "routes": {
+      "A": "rerank the 10 nearest outer-gallery observations (Experiment 16 instruct cosine); suggestion = label of the first reranked observation with an existing label",
+      "B": "rerank every same-section label definition; suggestion = top label",
+      "cosine_baseline": "Route A shortlist in cosine order, same suggestion rule"
+    },
+    "shortlist_size": 10,
+    "query": "observation description; built-in model instruction unchanged",
+    "secondary": [
+      "top-3 correct",
+      "Route A none_fit recognition",
+      "seconds per item",
+      "shortlist coverage"
+    ],
+    "exploratory": {
+      "safety_ceiling": "best zero-wrong correct count when ranking Route B suggestions by top score; Tier 1 needs 29",
+      "intent_query_prefix": "Find the one that expresses the same user preference or working pattern as this observation: "
+    },
+    "scripts": ["run_eval.py (phases run, verify)", "analysis.py (after results)"]
+  },
+  "amendments": []
+}

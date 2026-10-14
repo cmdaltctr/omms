@@ -1,0 +1,93 @@
+{
+  "experiment_id": "23-retrieval-all-methods-both-sections-2026-10-12",
+  "category": "retrieval",
+  "size": "Standard",
+  "status": "MIXED",
+  "question": "Which method gives the best three tags per memory, and does choosing from both sections (preferences and patterns) help?",
+  "decision": "Which method OMMS uses to tag memories, and whether it may pick labels from either section.",
+  "approval": "Operator asked on 2026-10-12 to plan Experiment 23 after Experiment 22, chose Standard, then asked to include cosine, reranker and the combination. Running needs separate approval.",
+  "hypotheses": {
+    "H1": {
+      "role": "primary",
+      "statement": "Pooled hit@3 (multi-label key, 561 observations with a valid label): Clef both sections minus Clef one section >= 0.10, exact McNemar p < 0.05."
+    },
+    "H2": {
+      "role": "primary guardrail",
+      "statement": "On observations with a valid label in their own section, Clef both-section hit@3 >= Clef one-section hit@3 minus 0.03."
+    },
+    "H3": {
+      "role": "primary",
+      "statement": "Both sections: Clef against cosine, reranker and combination on hit@3; three exact McNemar tests, Holm-corrected, alpha 0.05."
+    },
+    "H0": "H1: gain < 0.10 or p >= 0.05. H3: no method differs from Clef after correction."
+  },
+  "decision_rule": {
+    "sections": {
+      "H1_and_H2": "use both sections",
+      "H1_only": "report the trade-off; the operator decides",
+      "H1_fails": "keep one section"
+    },
+    "method": "Highest hit@3 in the chosen section setting; a cheaper method within 0.03 of it wins. Cost order: cosine, reranker, Clef, combination."
+  },
+  "stats": {
+    "level": "medium",
+    "test": "exact McNemar (two-sided sign test on discordant pairs, Experiment 18 sign_test); Holm correction for H3",
+    "intervals": "exact Clopper-Pearson 95% per arm (Experiment 18 interval)",
+    "note": "No shared bootstrap helper exists; differences are reported with discordant counts."
+  },
+  "gates": {
+    "G1_integrity": "all pinned inputs and model files match before and after",
+    "G2_baseline_match": "every rebuilt one-section request (Clef 600, reranker 400) matches its saved request_sha256",
+    "G3_fit": "every both-section Clef request <= 8192 input tokens",
+    "G4_completeness": "every arm has 600 valid answers; errors count as misses"
+  },
+  "frozen": {
+    "thresholds": {
+      "H1_min_gain": 0.1,
+      "H1_alpha": 0.05,
+      "H2_max_loss": 0.03,
+      "H3_alpha": 0.05,
+      "method_equivalence": 0.03
+    },
+    "arms": {
+      "methods": ["cosine", "reranker", "clef", "combination"],
+      "sections": ["one", "both"],
+      "tags": "three labels, none_fit never a tag, no cut-off",
+      "cosine": "Experiment 18 first_labels over the ranked gallery shortlist (10)",
+      "reranker": "top three label definitions by Experiment 17 order_by",
+      "clef": "top three labels by probability",
+      "combination": "round robin of ranks: Clef, cosine, reranker at rank 1, then rank 2, then rank 3; duplicates skipped; first three kept"
+    },
+    "change": "section filter removed from Clef option ids, gallery ranking (cosine shortlist and Clef examples) and reranker documents; nothing else",
+    "fixed": "Clef Flash Q8_0 and Experiment 15 server settings (batch 8192), Qwen3 Reranker 0.6B Q8_0 and Experiment 17 settings, saved Qwen3 4B instruct embeddings, Experiment 15 question text, 2 examples per label, 3 for none_fit, one option order",
+    "sets": {
+      "exp18": "400 observations, catalogue version 1 (41 labels); saved one-section Clef and reranker in Experiment 18 output/raw.json",
+      "exp20": "200 observations, catalogue version 2 (56 labels); saved one-section Clef in Experiment 20 output/raw.json"
+    },
+    "new_calls": {
+      "reranker": "Exp 20 one section (200) and both sections for both sets (600)",
+      "clef": "both sections for both sets (600)"
+    },
+    "key": "Experiment 22 corpus/multilabel-18.json and multilabel-20.json",
+    "inputs": {
+      "experiments/15-retrieval-clef-intent-select-2026-10-11/run_eval.py": "bd370edb5cb13123628bb20e23ed99474b95e2304610911e67b0f24ea791ba10",
+      "experiments/17-retrieval-reranker-label-suggestions-2026-10-12/run_eval.py": "3fc38f0fc78227633b2bdaa3133d2c3e5de7741f4f736159626b8032bb34ab38",
+      "experiments/16-retrieval-neighbour-gate-qwen3-4b-2026-10-11/output/vectors-instruct.json": "133623b9b2c3ee8db067b4dfac488cfa362cc17795edada55c5c647b7b588a97",
+      "experiments/18-retrieval-fresh-confirmation-all-methods-2026-10-12/run_eval.py": "acbe4aa0362757eb4f2963ca31dd1c892d77f7a497dab7ca1595d49309ed8ee6",
+      "experiments/18-retrieval-fresh-confirmation-all-methods-2026-10-12/output/raw.json": "f68d0dfbc02a592c44b5654fca04bd178f62f7e506eb8fbb8786013c4a04941e",
+      "experiments/18-retrieval-fresh-confirmation-all-methods-2026-10-12/output/fresh-vectors.json": "17109071e0659155062cb77c179aa4486f04cf96401fcbb92c46fb0cdfb5e544",
+      "experiments/20-retrieval-catalogue-v2-fresh-test-2026-10-12/run_eval.py": "9c8cc5304cdf776305f2286401ae9d5dbad2969ce831a1b585e797461dbb239a",
+      "experiments/20-retrieval-catalogue-v2-fresh-test-2026-10-12/output/raw.json": "23a60989e892760d3c7b754e79a145ae6acf5c802ff8b63360fcad2e558ef7ca",
+      "experiments/20-retrieval-catalogue-v2-fresh-test-2026-10-12/output/new-vectors.json": "4c369afbf078f42174fd5699d21bfc25da403b5d31d05d9ee11b7b751a30f564",
+      "experiments/22-retrieval-tag-cutoff-check-2026-10-12/corpus/multilabel-18.json": "001218924b1463437809ae217ea63f0424c4c8128937027c4077cb9eb8f709fb",
+      "experiments/22-retrieval-tag-cutoff-check-2026-10-12/corpus/multilabel-20.json": "8fb7e1d5129d2754ebab218cb09f4aadba03afc1eb825d6e049436eedabb28c8"
+    },
+    "models": {
+      "reranker_gguf_sha256": "22c9979ce4fbcdc5acdc310c6641c32797eff1aa980b8f7a2db8a8ea23429a48",
+      "clef": "pinned and verified by Experiment 15 verify_clef_runtime"
+    },
+    "git_commit": "5e2477d",
+    "scripts": ["run_eval.py (phases check, run, verify)", "analysis.py"]
+  },
+  "amendments": []
+}

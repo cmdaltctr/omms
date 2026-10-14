@@ -1,0 +1,338 @@
+{
+  "approved-0": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "approved-1": {
+    "outcome": {
+      "choice": "a",
+      "status": "ok"
+    },
+    "source": "assignment"
+  },
+  "approved-2": {
+    "outcome": {
+      "choice": "a",
+      "status": "ok"
+    },
+    "source": "assignment"
+  },
+  "approved-3": {
+    "outcome": {
+      "choice": "a",
+      "status": "ok"
+    },
+    "source": "assignment"
+  },
+  "catalogue-0": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "catalogue-1": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "catalogue-2": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "catalogue-3": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "catalogue_revision-0": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "catalogue_revision-1": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "catalogue_revision-2": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "catalogue_revision-3": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "conflict-0": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "conflict-1": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "conflict-2": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "conflict-3": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "correction-0": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "correction"
+  },
+  "correction-1": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "correction"
+  },
+  "correction-2": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "correction"
+  },
+  "correction-3": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "correction"
+  },
+  "near-0": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "near-1": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "near-2": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "near-3": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "owner-0": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "owner-1": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "owner-2": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "owner-3": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "project-0": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "project-1": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "project-2": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "project-3": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "section-0": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "section-1": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "section-2": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "section-3": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "status-0": {
+    "outcome": {
+      "choice": "none_fit",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "status-1": {
+    "outcome": {
+      "code": "invalid",
+      "status": "error"
+    },
+    "source": "classifier"
+  },
+  "status-2": {
+    "outcome": {
+      "code": "abstain",
+      "status": "review"
+    },
+    "source": "classifier"
+  },
+  "status-3": {
+    "outcome": {
+      "code": "transport",
+      "status": "error"
+    },
+    "source": "classifier"
+  },
+  "supersession-0": {
+    "outcome": {
+      "choice": "a",
+      "status": "ok"
+    },
+    "source": "correction"
+  },
+  "supersession-1": {
+    "outcome": {
+      "choice": "a",
+      "status": "ok"
+    },
+    "source": "correction"
+  },
+  "supersession-2": {
+    "outcome": {
+      "choice": "a",
+      "status": "ok"
+    },
+    "source": "correction"
+  },
+  "supersession-3": {
+    "outcome": {
+      "choice": "a",
+      "status": "ok"
+    },
+    "source": "correction"
+  },
+  "unseen-0": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "unseen-1": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "unseen-2": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  },
+  "unseen-3": {
+    "outcome": {
+      "choice": "b",
+      "status": "ok"
+    },
+    "source": "classifier"
+  }
+}

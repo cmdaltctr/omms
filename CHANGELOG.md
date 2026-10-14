@@ -2,6 +2,36 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.15.0](https://github.com/cmdaltctr/omms/compare/v4.14.1...v4.15.0) (2026-10-13)
+
+
+### Features
+
+* add category cleanup dialog to the user profile page ([1f83542](https://github.com/cmdaltctr/omms/commit/1f8354226bd81f87c10a765fd7878920525644b8))
+* add category cleanup web API and CLI command ([f00f177](https://github.com/cmdaltctr/omms/commit/f00f177bd816520f3f59dce709d133d8af04bf89))
+* add smart category cleanup service ([ea52f5c](https://github.com/cmdaltctr/omms/commit/ea52f5c3e2dfabe29b060d0f9a84ce7f10fcf84c))
+* run category cleanup preview as a background job ([f96c131](https://github.com/cmdaltctr/omms/commit/f96c131f427314420821c90d2c517ff3c18012df))
+* smart profile category cleanup, workflow fix and category spelling repair ([53fa648](https://github.com/cmdaltctr/omms/commit/53fa648cc3755264d7aace6595084a5359596066))
+
+
+### Bug Fixes
+
+* address review on category cleanup and workflow steps ([3c4ffe7](https://github.com/cmdaltctr/omms/commit/3c4ffe7f09d302e11fd958742ebbeeaad6b0dd2d))
+* give the cleanup name field the full row on phones ([2aeef01](https://github.com/cmdaltctr/omms/commit/2aeef01ead4bd43f1f13bb6d78202fcdee5c63b7))
+* normalise profile category spellings ([8979736](https://github.com/cmdaltctr/omms/commit/89797366de144e51842b6cc373d1604edc50fff7))
+* stop workflows collapsing into one profile entry ([1b0a6a3](https://github.com/cmdaltctr/omms/commit/1b0a6a37a314930d931e6e410ef62ef01f0b25d6))
+
+
+### Documentation
+
+* **experiments:** add memory decision experiments 01 to 23 and their records ([60b183a](https://github.com/cmdaltctr/omms/commit/60b183abd9a87ec8cf7e535c5a7645579bd9cd3e))
+* **experiments:** add memory decision experiments 01 to 23 and their records ([423865c](https://github.com/cmdaltctr/omms/commit/423865c24cdff7541c813523c352f92b272e2dbc))
+* **openspec:** archive normalise-profile-categories ([a2f9744](https://github.com/cmdaltctr/omms/commit/a2f9744fdd053db9c5d526ac5e7bd6b665ee11c2))
+* **openspec:** archive smart-category-cleanup ([81f17bf](https://github.com/cmdaltctr/omms/commit/81f17bf7e5462ecb05e2e3e8938073e920a140e0))
+* **openspec:** plan smart category cleanup ([f55ab9d](https://github.com/cmdaltctr/omms/commit/f55ab9d63519ef7ac12d8c9a1772eea9eb1df6fe))
+* **tdr:** record live profile category measurement ([b4121ba](https://github.com/cmdaltctr/omms/commit/b4121ba4f8ee4fe4e1e6cebf1b8713ddc3b42918))
+* **tdr:** record the live category cleanup apply ([c34eec7](https://github.com/cmdaltctr/omms/commit/c34eec7478e959f4e3b9ec5969ab206210511121))
+
 ## [4.14.1](https://github.com/cmdaltctr/omms/compare/v4.14.0...v4.14.1) (2026-10-08)
 
 

@@ -183,6 +183,30 @@ describe("workflow merging", () => {
     expect((merged.workflows[0] as any).steps).toHaveLength(7);
   });
 
+  it("compares concrete steps, so blank entries do not make a list longer", async () => {
+    const mgr = await makeManager();
+    const base = vec(1);
+    const vectors = {
+      "Base workflow for tests": base,
+      "Nearly the same workflow": vec(0.9, 0.436),
+    };
+    const existing = {
+      preferences: [],
+      patterns: [],
+      workflows: [storedWorkflow("Base workflow for tests", steps(4), base)],
+    };
+
+    const merged = await mgr.mergeProfileData(
+      existing as any,
+      {
+        workflows: [{ description: "Nearly the same workflow", steps: [...steps(3), "", "  "] }],
+      } as any,
+      embedFor(vectors)
+    );
+
+    expect((merged.workflows[0] as any).steps).toEqual(steps(4));
+  });
+
   it("replaces the steps of a workflow with a longer list", async () => {
     const mgr = await makeManager();
     const base = vec(1);

@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it, mock, spyOn } from "bun:test";
 
 const logged: unknown[][] = [];
 mock.module("../src/services/logger.js", () => ({
@@ -7,7 +7,7 @@ mock.module("../src/services/logger.js", () => ({
   },
 }));
 
-const { checkAndNameGroups, GROUPS_PER_MODEL_CALL } =
+const { checkAndNameGroups, GROUPS_PER_MODEL_CALL, withTimeout } =
   await import("../src/services/user-profile/category-cleanup.js");
 
 const group = (id: string, ...labels: [string, number][]) => ({
@@ -140,5 +140,31 @@ describe("checkAndNameGroups", () => {
     expect(logged.length).toBeGreaterThan(0);
     expect(text).not.toContain("Execution");
     expect(text).not.toContain("Runs commands");
+  });
+});
+
+describe("withTimeout", () => {
+  it("clears its timer when the work finishes first", async () => {
+    const clear = spyOn(globalThis, "clearTimeout");
+    const before = clear.mock.calls.length;
+    expect(await withTimeout(Promise.resolve("done"), 60_000, "too slow")).toBe("done");
+    expect(clear.mock.calls.length).toBeGreaterThan(before);
+    clear.mockRestore();
+  });
+
+  it("clears its timer when the work fails first", async () => {
+    const clear = spyOn(globalThis, "clearTimeout");
+    const before = clear.mock.calls.length;
+    await expect(
+      withTimeout(Promise.reject(new Error("boom")), 60_000, "too slow")
+    ).rejects.toThrow("boom");
+    expect(clear.mock.calls.length).toBeGreaterThan(before);
+    clear.mockRestore();
+  });
+
+  it("rejects with its message when the work is too slow", async () => {
+    await expect(withTimeout(new Promise(() => {}), 5, "category cleanup timeout")).rejects.toThrow(
+      "category cleanup timeout"
+    );
   });
 });

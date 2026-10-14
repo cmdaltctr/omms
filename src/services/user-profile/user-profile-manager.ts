@@ -1212,11 +1212,18 @@ export class UserProfileManager {
     return result;
   }
 
-  /** A match keeps the fullest known step list: the new steps win only when they are longer. */
+  /**
+   * A match keeps the fullest known step list: the new steps win only when they hold more
+   * concrete (non-blank) steps. Blank entries never count, and a winning list drops them.
+   */
   private longerSteps(existing: any, newItem: any): { steps?: string[] } {
-    const known = Array.isArray(existing.steps) ? existing.steps.length : 0;
-    const incoming = Array.isArray(newItem.steps) ? newItem.steps.length : 0;
-    return incoming > known ? { steps: newItem.steps } : {};
+    const concrete = (steps: unknown): string[] =>
+      Array.isArray(steps)
+        ? steps.filter((step): step is string => typeof step === "string" && step.trim().length > 0)
+        : [];
+    const known = concrete(existing.steps).length;
+    const incoming = concrete(newItem.steps);
+    return incoming.length > known ? { steps: incoming } : {};
   }
 
   private initItem(newItem: any, itemType: string, centroid?: number[], anchor?: number[]): any {
