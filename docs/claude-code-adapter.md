@@ -5,20 +5,21 @@ the OpenCode plugin and the Pi extension. All three hosts read and write one
 store for each project. So Claude Code can find memories that OpenCode or Pi
 captured, and the other hosts can find memories that Claude Code captured.
 
-Claude Code has no in-process plugin API. The plugin is a set of shell hooks,
-one skill, and one small status line module. Each hook runs the launcher in the plugin, which runs the
+The plugin is a set of shell hooks, one skill, and one small module. Each hook
+runs the launcher in the plugin, which runs the
 `om-memory-system claude-hook <event>` command. The command sends the event to
-the OMMS web app, and the web app does the memory work. The plugin has no MCP server, and it never changes
-`CLAUDE.md`.
+the OMMS web app, and the web app does the memory work. The module draws the
+status line and the recall rows, and gives Claude a `memory` tool. The plugin
+has no MCP server, and it never changes `CLAUDE.md`.
 
-The plugin is tested against Claude Code **2.1.288**. The transcript reader
+The plugin is tested against Claude Code **2.1.296**. The transcript reader
 targets **2.1.284**. See [Transcript format](#transcript-format).
 
 ## Before you start
 
 You need:
 
-- Claude Code 2.1.287 or later. The status line module needs it.
+- Claude Code 2.1.295 or later. The plugin module needs it for the status line, the `memory` tool and the recall rows.
 - Node.js 22.14 or later. The hooks run through `node`.
 - An external API for capture. See [The external API is required](#the-external-api-is-required).
 
@@ -46,13 +47,16 @@ When Node.js is missing, or `npx` fails or runs out of time, the hook returns no
 
 The plugin files are in the repository root:
 
-| File                              | Content                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------- |
-| `.claude-plugin/plugin.json`      | The plugin manifest. The plugin name is `omms`.                                       |
-| `.claude-plugin/marketplace.json` | A marketplace named `omms` that lists the plugin.                                     |
-| `hooks/hooks.json`                | The `SessionStart`, `UserPromptSubmit`, and `Stop` hooks, and the status line module. |
-| `hooks/omms-status.jsx`           | The status label module. See [Status line](#status-line).                             |
-| `skills/omms-memory/SKILL.md`     | The `omms-memory` skill. It tells the agent when to search and save memory.           |
+| File                              | Content                                                                             |
+| --------------------------------- | ----------------------------------------------------------------------------------- |
+| `.claude-plugin/plugin.json`      | The plugin manifest. The plugin name is `omms`.                                     |
+| `.claude-plugin/marketplace.json` | A marketplace named `omms` that lists the plugin.                                   |
+| `hooks/hooks.json`                | The `SessionStart`, `UserPromptSubmit`, and `Stop` hooks, and the module entry.     |
+| `hooks/omms.jsx`                  | The module entry. It loads the three module parts below.                            |
+| `hooks/omms-status.jsx`           | The status label. See [Status line](#status-line).                                  |
+| `hooks/omms-memory-tool.jsx`      | The `memory` tool. See [Memory tool and recall rows](#memory-tool-and-recall-rows). |
+| `hooks/omms-recall.jsx`           | The recall rows, with their parser `hooks/omms-recall-parse.js`.                    |
+| `skills/omms-memory/SKILL.md`     | The `omms-memory` skill. It tells the agent when to search and save memory.         |
 
 The same skill file serves Pi and OpenCode. In Claude Code, start it by name
 with `/omms:omms-memory`. See [Using memory: The omms-memory skill](using-memory.md#the-omms-memory-skill).
@@ -348,10 +352,10 @@ app tries this once per process. See
 
 ## Status line
 
-With Claude Code 2.1.287 or later, the plugin shows one OMMS label in the
+With Claude Code 2.1.295 or later, the plugin shows one OMMS label in the
 prompt footer. It sits at the right, after Claude Code's own mode labels such
-as `focus`. A small module draws it: `hooks/omms-status.jsx`, listed under
-`modules` in `hooks/hooks.json`. The module runs beside the command hooks and
+as `focus`. A small module draws it: `hooks/omms-status.jsx`, loaded by the
+module entry `hooks/omms.jsx` that `hooks/hooks.json` lists under `modules`. The module runs beside the command hooks and
 does not change them. The label reads `● omms: <state>`, and the dot and state
 show the state's colour. The colours come from your Claude Code theme.
 
@@ -403,11 +407,52 @@ Notes:
   update notice. That copy writes one `bad-event` line to the log at each
   check. The line stops when a newer copy runs.
 
+## Memory tool and recall rows
+
+With Claude Code 2.1.295 or later, the plugin module does two things that make
+memory visible in the chat.
+
+**The `memory` tool.** Claude sees it as `mcp__omms__memory`. It is in Claude's
+tool list from the first prompt. Each call shows as its own tool row, which you
+can unfold to read the JSON result.
+
+- It offers the modes `search`, `add`, `list`, `profile`, `forget`, and `help`.
+- It refuses `import`, `export`, `migrate`, and `list-shards`, because they
+  move or rewrite whole stores. Run those with
+  [the `memory` command](#the-memory-command) in a terminal.
+- It runs `memory <mode> ...` through the plugin's launcher, the same route as
+  the hooks. It needs no global install. It runs in the session's folder, with
+  a 60 second limit.
+- When OMMS fails, Claude gets an error that starts with `memory failed:`.
+
+**Recall rows.** Each recall that the hooks inject shows as one row at the top
+of the next reply:
+
+```text
+▸ ● memory [mode=search, query="how did we handle om-pi-todo", limit=3]
+```
+
+- `mode=search` is the recall for your prompt. `mode=recent` is the recall at
+  the start of a session, or after a compaction or a resume.
+- Press the row to unfold it. It then lists the query and each memory with its
+  relevance, its id, and a one-line headline. Press it again to fold it.
+- The rows read the context that the hooks already inject. They run no second
+  search, and nothing is sent to Claude.
+
+**New sessions only.** The tool is registered when a session starts.
+`/reload-plugins` does not start the session again, so the tool shows in the
+next new session.
+
+**Upgrading from the `omms-visible` prototype mod.** Remove
+`~/.claude/mods/omms-visible` from `CLAUDE_CODE_PLUGIN_DIRS` in your Claude
+Code settings. Otherwise you get two `memory` tools and two sets of rows.
+
 ## The `memory` command
 
-Claude Code has no in-process `memory` tool. The `omms-memory` skill tells
-Claude to run the `om-memory-system memory` command in its Bash tool instead.
-You can run it too.
+The plugin's [`memory` tool](#memory-tool-and-recall-rows) runs this command
+for Claude. With hand-written hooks or an older plugin, no tool is listed, and
+the `omms-memory` skill tells Claude to run the command in its Bash tool. You
+can run it too.
 
 ```text
 om-memory-system memory <mode> [options]

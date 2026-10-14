@@ -106,7 +106,7 @@ bun run ci:local   # check, build, then every test file in its own process
 
 - Use `bun run ci:local` as the required gate before a merge.
 - For a focused check, run one file through the runner: `bash scripts/run-tests-isolated.sh tests/<file>.test.ts`. A plain `bun test` refuses to run, so tests never touch your real `~/.omms` store.
-- The Claude Code status line module (`hooks/omms-status.jsx`) has its own test, `hooks/omms-status.test.ts`. Bun does not run it. Run `bash scripts/test-claude-mod.sh`. It needs the `claude` command (2.1.287 or later). `ci:local` does not run it.
+- The Claude Code module files (`hooks/*.jsx`, `hooks/*.js`) have their own tests, `hooks/*.test.ts`. Bun does not run them. Run `bash scripts/test-claude-mod.sh`. It needs the `claude` command (2.1.295 or later). `ci:local` does not run it.
 - Some tests import `dist/`. If a focused test fails on missing `dist/` files, run `bun run build` first.
 - The first embedding test downloads a model from Hugging Face. It needs network access once.
 - Many tests replace `../src/config.js` with a partial stub through `mock.module`. A new export from `src/config.ts` is missing in those stubs. Put new pure logic in its own module and pass `CONFIG` as an argument.

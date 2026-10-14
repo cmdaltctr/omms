@@ -34,7 +34,15 @@ See proposal.md for why. These facts shape the approach:
 
 ### 1. One entry module that composes three parts
 
-`hooks/hooks.json` names `./omms.jsx`. That file calls `registerStatus`, `registerMemoryTool` and `registerRecall`, each exported from its own file. Each part keeps its own hooks and state.
+`hooks/hooks.json` names `./omms.jsx`. That file calls `registerStatus`, `registerMemoryTool` and `registerRecall`, each exported from its own file. Each part keeps its own hooks and state, except `session.start`.
+
+**Found during task 5.2.** The module loader refuses three patterns:
+
+- a second `on("session.start")` with no matcher, in any file of the plugin;
+- keeping the return value of a function that receives `on`;
+- passing `$` into a function imported from another file, and writing an atom that another file declares.
+
+A `modules` list with two entries also loads nothing ("names none in modules"). So `omms.jsx` owns the one `session.start` hook. It registers the tool before `next` and starts the status checks after `next`, as the two parts did before. The status file keeps the label drawing and exports its constants and pure helpers. The tool file keeps `tool.call` and exports the tool's name, description and schema. The entry declares the same `{ plugin: "omms", key: "label" }` atom that the status file reads.
 
 Alternative: list three modules. The guide says one path, so this risks a load failure on some versions.
 
@@ -90,6 +98,19 @@ The packer already measures each entry's bytes, so the budget holds. The two Bun
 ### 8. Version floor
 
 Task 1.1 runs the module tests and a live check on 2.1.287 if that build can be installed. If `tool.register`, `session.append` or `ui.render` for `AssistantMessage` is missing there, the minimum in the docs, `README`, and the status requirement rises to the lowest version that has them.
+
+**Outcome (task 1.1, 2026-10-13).** The npm builds were installed in a scratch folder. The prototype's 31 tests were run on each with `claude plugin test`:
+
+| Claude Code | Pass | Fail | What fails                                                                               |
+| ----------- | ---- | ---- | ---------------------------------------------------------------------------------------- |
+| 2.1.287     | 23   | 8    | Every recall-row test that appends hook context: `no implementation for session.append`. |
+| 2.1.291     | 23   | 8    | The same.                                                                                |
+| 2.1.293     | 26   | 5    | `session.append` is answered, but no recall row draws and no `Button` exists to press.   |
+| 2.1.294     | 26   | 5    | The same.                                                                                |
+| 2.1.295     | 31   | 0    | None.                                                                                    |
+| 2.1.296     | 31   | 0    | None.                                                                                    |
+
+The tool tests (`tool.register`, `tool.call`, `process.run`) pass on every version from 2.1.287. The recall rows need 2.1.295. The minimum therefore rises to **2.1.295** in `docs/claude-code-adapter.md`, `docs/upgrading.md`, `UPDATES.md`, `AGENTS.md` and the status requirement. `README.md` names no Claude Code version, so it does not change. The live check (task 7.1) runs on 2.1.296. No live session was run on 2.1.295.
 
 ## Risks / Trade-offs
 

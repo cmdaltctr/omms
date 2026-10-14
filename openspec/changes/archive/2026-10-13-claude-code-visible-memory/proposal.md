@@ -72,5 +72,5 @@ None.
   - `docs/using-memory.md`;
   - a new ADR-026 and the ADR index;
   - a new TDR-045 and the TDR index.
-- **Claude Code version:** the minimum stays 2.1.287 if the module APIs used here exist there. Otherwise it rises. Task 1.1 checks this.
+- **Claude Code version:** the minimum rises from 2.1.287 to 2.1.295. Task 1.1 found that the recall rows need 2.1.295. See design.md Decision 8.
 - **Users of the prototype mod:** after upgrading, remove `~/.claude/mods/omms-visible` from `CLAUDE_CODE_PLUGIN_DIRS`. Otherwise two `memory` tools and two sets of cards show.

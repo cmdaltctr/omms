@@ -62,10 +62,22 @@ describe("Claude Code plugin assets", () => {
     }
   });
 
-  it("loads the status line mod beside the launcher hooks", () => {
+  it("loads one module entry beside the launcher hooks, and every file it imports exists", () => {
     const { modules } = readJson("hooks/hooks.json");
-    expect(modules).toEqual(["./omms-status.jsx"]);
-    expect(existsSync(join(root, "hooks", "omms-status.jsx"))).toBe(true);
+    expect(modules).toEqual(["./omms.jsx"]);
+
+    // Claude Code loads the files the entry imports with it, so a missing one
+    // breaks the status label, the tool and the recall rows together.
+    const seen = new Set<string>();
+    const visit = (file: string) => {
+      if (seen.has(file)) return;
+      seen.add(file);
+      expect(existsSync(join(root, "hooks", file))).toBe(true);
+      const text = readFileSync(join(root, "hooks", file), "utf8");
+      for (const [, path] of text.matchAll(/from\s+["']\.\/([^"']+)["']/g)) visit(path!);
+    };
+    visit("omms.jsx");
+    expect(seen.has("omms-status.jsx")).toBe(true);
   });
 
   it("ships the launcher the hooks run, with no version number in the hook file", () => {
@@ -106,5 +118,29 @@ describe("Claude Code plugin assets", () => {
     expect(skill).toContain("om-memory-system memory search");
     expect(skill).toMatch(/all-projects/);
     expect(skill).toMatch(/Never store secrets/);
+  });
+
+  it("skill names the Claude Code tool in How to call OMMS", () => {
+    const skill = readFileSync(join(root, "skills/omms-memory/SKILL.md"), "utf8");
+    const howTo = skill.match(/## How to call OMMS\n([\s\S]*?)\n## /)?.[1] ?? "";
+    expect(howTo).toContain("`mcp__omms__memory`");
+    expect(howTo).toContain("om-memory-system memory");
+  });
+
+  it("skill has a short Using OMMS in Claude Code section", () => {
+    const skill = readFileSync(join(root, "skills/omms-memory/SKILL.md"), "utf8");
+    expect(skill.match(/^## Using OMMS in Claude Code$/gm)).toHaveLength(1);
+    const section = skill.match(/## Using OMMS in Claude Code\n([\s\S]*?)(?=\n## |$)/)?.[1] ?? "";
+    expect(section).toContain("`mcp__omms__memory`");
+    expect(section).toContain("▸ ● memory [mode=");
+    for (const mode of ["import", "export", "migrate", "list-shards"]) {
+      expect(section).toContain(`\`${mode}\``);
+    }
+    expect(section).toContain("om-memory-system memory");
+    expect(section).toContain("`forget`");
+    expect(section).toMatch(/\bid\b/);
+    expect(section).toMatch(/capture runs/i);
+    expect(section).toMatch(/twice|again/);
+    expect(section).not.toMatch(/\b(Pi|OpenCode)\b/);
   });
 });

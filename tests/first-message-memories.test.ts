@@ -82,19 +82,19 @@ describe("buildRecentMemoriesSection", () => {
     const output = runScenario(`
 const now = new Date().toISOString();
 memories = [
-  { summary: "first", createdAt: now, metadata: { sessionID: "ses-2" } },
-  { summary: "second", createdAt: now, metadata: { sessionID: "ses-3" } },
-  { summary: "third", createdAt: now, metadata: {} },
-  { summary: "fourth", createdAt: now, metadata: {} },
+  { id: "mem_1", summary: "first", createdAt: now, metadata: { sessionID: "ses-2" } },
+  { id: "mem_2", summary: "second", createdAt: now, metadata: { sessionID: "ses-3" } },
+  { id: "mem_3", summary: "third", createdAt: now, metadata: {} },
+  { id: "mem_4", summary: "fourth", createdAt: now, metadata: {} },
 ];
 captured = await buildRecentMemoriesSection(base);
 `);
     expect(output.listCalls).toEqual([["omms_project_test", 3]]);
     expect(output.captured).toBe(
       `<memory_context>\n${HEADER}\n\n<project_knowledge>\n` +
-        `<memory relevance="100%">\nfirst\n</memory>\n` +
-        `<memory relevance="100%">\nsecond\n</memory>\n` +
-        `<memory relevance="100%">\nthird\n</memory>\n` +
+        `<memory id="mem_1" relevance="100%">\nfirst\n</memory>\n` +
+        `<memory id="mem_2" relevance="100%">\nsecond\n</memory>\n` +
+        `<memory id="mem_3" relevance="100%">\nthird\n</memory>\n` +
         `</project_knowledge>\n</memory_context>`
     );
   });

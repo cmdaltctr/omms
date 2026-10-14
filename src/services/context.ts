@@ -7,6 +7,7 @@ import {
 } from "../core/context-budget.js";
 
 interface MemoryResultMinimal {
+  id?: string;
   similarity: number;
   memory?: string;
   chunk?: string;
@@ -59,8 +60,10 @@ export async function formatContextForPrompt(
       entries: projectResults.map((mem) => {
         const similarity = Math.round(mem.similarity * 100);
         const content = mem.memory || mem.chunk || "";
+        // The id lets the agent pass a recalled memory to `forget` with no search first.
+        const id = mem.id ? `id="${mem.id}" ` : "";
         return {
-          prefix: `<memory relevance="${similarity}%">\n`,
+          prefix: `<memory ${id}relevance="${similarity}%">\n`,
           body: content,
           suffix: "\n</memory>",
         };

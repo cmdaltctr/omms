@@ -29,3 +29,4 @@ Local decision records for OMMS maintainers.
 | [023](./023-automate-release-except-npm-approval.md)            | Automate the release except the npm approval                      | 2026-10-04 | Proposed |
 | [024](./024-windows-tests-before-release-only.md)               | Windows tests run before a release, not on pull requests          | 2026-10-07 | Proposed |
 | [025](./025-memory-workspace-sequential-imports.md)             | Memory workspace with sequential web imports                      | 2026-10-08 | Accepted |
+| [026](./026-claude-code-memory-tool-from-plugin-module.md)      | Claude Code gets a memory tool from the plugin module             | 2026-10-13 | Proposed |

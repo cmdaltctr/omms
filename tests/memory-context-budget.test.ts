@@ -121,7 +121,7 @@ console.log(JSON.stringify(out));
 function assertClosedMemoryContext(text: string): void {
   expect(text.startsWith("<memory_context>\n")).toBe(true);
   expect(text.endsWith("\n</memory_context>")).toBe(true);
-  const openMemories = (text.match(/<memory relevance="\d+%">/g) ?? []).length;
+  const openMemories = (text.match(/<memory (?:id="[^"]*" )?relevance="\d+%">/g) ?? []).length;
   const closeMemories = (text.match(/<\/memory>/g) ?? []).length;
   expect(closeMemories).toBe(openMemories);
   expect((text.match(/<project_knowledge>/g) ?? []).length).toBe(1);
@@ -374,13 +374,13 @@ describe("formatContextForPrompt budget", () => {
   it("keeps today's exact output when the content fits", () => {
     const output = runScenario(
       `out.text = await formatContextForPrompt(null, {
-        results: [{ similarity: 0.8, memory: "Fixed the port clash by binding 4748." }],
+        results: [{ id: "mem_port", similarity: 0.8, memory: "Fixed the port clash by binding 4748." }],
       });`,
       { injectProfile: false }
     );
     expect(output.text).toBe(
       `<memory_context>\n${HEADER}\n\n<project_knowledge>\n` +
-        `<memory relevance="80%">\nFixed the port clash by binding 4748.\n</memory>\n` +
+        `<memory id="mem_port" relevance="80%">\nFixed the port clash by binding 4748.\n</memory>\n` +
         `</project_knowledge>\n</memory_context>`
     );
   });
@@ -488,6 +488,18 @@ describe("formatMemoriesForCompaction budget", () => {
     ]);
     expect(text).toBe(
       "## Restored Session Memory\n\n### Memory 1\nUse WAL mode\n\nTags: queue, db\n\n"
+    );
+  });
+
+  it("writes each restored memory's id after its heading", async () => {
+    const { formatMemoriesForCompaction } = await loadRetrieval();
+    const text = formatMemoriesForCompaction([
+      { id: "mem_wal", memory: "Use WAL mode" },
+      { id: "mem_queue", memory: "Retry the queue" },
+    ]);
+    expect(text).toBe(
+      "## Restored Session Memory\n\n### Memory 1 (mem_wal)\nUse WAL mode\n\n" +
+        "### Memory 2 (mem_queue)\nRetry the queue\n\n"
     );
   });
 

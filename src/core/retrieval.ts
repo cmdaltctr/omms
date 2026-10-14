@@ -85,6 +85,7 @@ export async function buildRecentMemoriesSection(
 
   const projectMemories = {
     results: memories.map((m: any) => ({
+      id: m.id,
       similarity: 1.0,
       memory: m.summary,
     })),
@@ -167,7 +168,7 @@ export function formatMemoriesForCompaction(
       tags.length > 0 ? stripMatchingEmbeddedTagsFooter(m.memory ?? "", tags) : (m.memory ?? "");
     const tagsFooter = tags.length > 0 ? `Tags: ${tags.join(", ")}\n\n` : "";
     return {
-      prefix: `### Memory ${i + 1}\n`,
+      prefix: m.id ? `### Memory ${i + 1} (${m.id})\n` : `### Memory ${i + 1}\n`,
       body,
       suffix: `\n\n${tagsFooter}`,
     };
