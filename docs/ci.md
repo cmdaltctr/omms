@@ -20,7 +20,7 @@ concurrency: 20 jobs in total, 5 of them macOS.
 | Build, unit tests                      | GitHub, `windows-latest`          | Quality workflow, PR and `main`         |
 | Native embedding smoke (4 platforms)   | GitHub, PRs touching native paths | Embedding Backend workflow, or manual   |
 | Nested OpenCode fixture, Intel (#225)  | GitHub, PRs touching native paths | Embedding Backend workflow, or manual   |
-| Full gate and pack smoke (6 platforms) | GitHub                            | Before release, weekly (Monday), manual |
+| Full gate and pack smoke (5 platforms) | GitHub                            | Before release, weekly (Monday), manual |
 | Release PR, tag, stage on npm          | GitHub, `ubuntu-latest`           | Release workflow, push to `main`        |
 | Merge the release PR                   | GitHub, `ubuntu-latest`           | Release auto-merge, after Quality on PR |
 | `next` prerelease on npm               | GitHub, `ubuntu-latest`           | Publish next, after Quality on `main`   |
@@ -164,9 +164,10 @@ Runs when a pull request touches `package.json`, `bun.lock`, `bunfig.toml`,
 also start it by hand at any time.
 
 - onnxruntime-node and sharp ship a separate native binary for each platform.
-  So the `verify` job runs on `macos-15`, `macos-15-intel`, `windows-latest`,
+  So the `verify` job runs on `macos-15`, `macos-26-intel`, `windows-latest`,
   and `ubuntu-latest`.
-- `macos-15` is the oldest supported macOS. The Quality `test` job already covers the newest macOS.
+- `macos-15` is the oldest supported macOS on Apple Silicon. The Quality `test` job already covers the newest macOS.
+- Intel macOS runs on `macos-26-intel` only. There is no macOS 15 Intel job.
 - Each job installs without lifecycle scripts and makes real embeddings under Bun and Node 24.
 - The `nested-intel-regression` job copies the OpenCode nested install on
   Intel macOS with Bun 1.3.14 and Node 22. The compiled host must run
@@ -180,8 +181,8 @@ gh workflow run "Embedding Backend Verification" --ref main
 
 ### Platform Package Smoke (release, weekly, manual)
 
-Runs on `macos-15`, `macos-26`, `macos-15-intel`, `macos-26-intel`,
-`windows-latest`, and `ubuntu-latest`. Each job:
+Runs on `macos-15`, `macos-26`, `macos-26-intel`, `windows-latest`, and
+`ubuntu-latest`. Each job:
 
 1. Installs dependencies.
 2. Runs the full local gate.
@@ -310,7 +311,7 @@ Versions come from commit messages. Use `feat:` (minor), `fix:` (patch),
 1. Merge work into `main` as usual. Each merge also appears as `om-memory-system@next`.
 2. release-please updates the release pull request. When its Quality run passes,
    the Release auto-merge workflow merges it.
-3. The Release workflow runs the six-platform smoke, then stages the version on
+3. The Release workflow runs the five-platform smoke, then stages the version on
    npm.
 4. GitHub emails you: the Release workflow mentions you in a comment on the
    release pull request. At <https://github.com/settings/notifications>, turn on
@@ -413,7 +414,7 @@ and Linux. OpenCode users install the plugin on all of them.
 
 - Pull requests get one Linux quality job and one macOS test job. Windows runs on pushes to `main`, in the release smoke, and in the weekly smoke (ADR-024).
 - The native matrix runs only when native paths change.
-- The full six-platform matrix runs before a release and every week.
+- The full five-platform matrix runs before a release and every week.
 
 ### Tests skipped on Windows
 

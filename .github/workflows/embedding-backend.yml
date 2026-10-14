@@ -2,7 +2,7 @@ name: Embedding Backend Verification
 
 # Runs automatically when a pull request touches native dependencies, the
 # embedding service, or this workflow. Also runs on demand. Covers the macOS 15
-# floor on Apple Silicon (macos-15) and Intel (macos-15-intel), Windows, and
+# floor on Apple Silicon (macos-15) and Intel (macos-26-intel), Windows, and
 # Linux, because onnxruntime-node and sharp ship a separate native binary per
 # platform. The Quality test job covers the newest macOS (macos-latest). The
 # onnxruntime-node@1.20.1 pin stays regardless (#225: newer releases can SIGILL
@@ -37,7 +37,7 @@ jobs:
       matrix:
         os:
           - macos-15
-          - macos-15-intel
+          - macos-26-intel
           - windows-latest
           - ubuntu-latest
     runs-on: ${{ matrix.os }}
@@ -79,8 +79,8 @@ jobs:
   # using the reporter's Bun/Node versions. The compiled host must run real
   # inference and exit 0 (no Ort::Env SIGILL).
   nested-intel-regression:
-    name: macos-15-intel / nested OpenCode fixture
-    runs-on: macos-15-intel
+    name: macos-26-intel / nested OpenCode fixture
+    runs-on: macos-26-intel
     steps:
       - uses: actions/checkout@v7
         with:
