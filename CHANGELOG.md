@@ -2,6 +2,15 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.17.1](https://github.com/cmdaltctr/omms/compare/v4.17.0...v4.17.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* clean up category cleanup test folders with the shared Windows helper ([341e8c4](https://github.com/cmdaltctr/omms/commit/341e8c450025fe2fd38a51c7b865d2c868fbac86))
+* clean up category cleanup test folders with the shared Windows helper ([da9c90a](https://github.com/cmdaltctr/omms/commit/da9c90a20fca9775d314915ac33dd134eea89246))
+* make two tests pass on slow Windows and busy Ubuntu runners ([f171c2c](https://github.com/cmdaltctr/omms/commit/f171c2ca726973f938bb8ca4a5adce6ca2222bc5))
+
 ## [4.17.0](https://github.com/cmdaltctr/omms/compare/v4.16.1...v4.17.0) (2026-10-15)
 
 
