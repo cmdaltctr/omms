@@ -19,6 +19,13 @@ Use `cleanupTursoTestDirectory` in the `afterEach` hook of all four files: `serv
 
 Add `tests/category-cleanup-test-hygiene.test.ts`. It fails when one of the four files calls `rmSync` or does not call the helper. It runs on every platform, so a macOS run catches a new file that repeats the mistake.
 
+### Found by the smoke run on this branch
+
+A Platform Package Smoke run on the fix branch passed the cleanup change on Windows, with no `EBUSY`. It found two more faults:
+
+- Windows: "prunes more groups than one delete statement holds" in `tests/category-cleanup-verdicts.test.ts` timed out at 30 seconds. It saved 450 rows with 450 separate writes. The test now saves one row through `saveVerdicts`, which creates the table, and adds 449 rows with one SQL statement. It still deletes in three chunks. Locally the test fell from 162 ms to 3 ms.
+- Ubuntu: "drains both child pipes without losing output" in `tests/test-process.test.ts` failed. The parent received every byte, but a Bun report line landed inside the child's stderr block. The test now counts the `E` characters instead of asking for one unbroken block.
+
 ## Consequences
 
 ### Positive
@@ -45,6 +52,7 @@ Add `tests/category-cleanup-test-hygiene.test.ts`. It fails when one of the four
 2. Check that the file uses `cleanupTursoTestDirectory` and no bare `rmSync`.
 3. Add the file to the hygiene test list.
 4. Run `bun run ci:local`.
+5. Run Platform Package Smoke on the branch before merging.
 
 ## References
 

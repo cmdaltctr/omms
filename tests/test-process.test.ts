@@ -28,7 +28,9 @@ it(
     const { exitCode, output } = await runBunTest([file]);
     expect(exitCode).toBe(0);
     expect(output).toContain("O".repeat(256 * 1024));
-    expect(output).toContain("E".repeat(256 * 1024));
+    // Bun writes its own report to stderr, and on a busy runner a report line can land
+    // inside the child's stderr block. Count every byte instead of one unbroken block.
+    expect(output.replace(/[^E]/g, "").length).toBeGreaterThanOrEqual(256 * 1024);
   },
   TEST_PARENT_TIMEOUT_MS
 );
@@ -67,7 +69,9 @@ await Bun.write(Bun.stdout, "O".repeat(256 * 1024));
     const { exitCode, output } = await runBunProcess(["run", file], { timeout: 5000 });
     expect(exitCode).toBe(0);
     expect(output).toContain("O".repeat(256 * 1024));
-    expect(output).toContain("E".repeat(256 * 1024));
+    // Bun writes its own report to stderr, and on a busy runner a report line can land
+    // inside the child's stderr block. Count every byte instead of one unbroken block.
+    expect(output.replace(/[^E]/g, "").length).toBeGreaterThanOrEqual(256 * 1024);
   },
   TEST_PARENT_TIMEOUT_MS
 );
