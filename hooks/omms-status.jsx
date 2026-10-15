@@ -1,9 +1,10 @@
 import { atom, read } from "claude-code";
+import { ommsStatusLabel } from "./omms-status-glyphs.js";
 
 // OMMS status label for Claude Code 2.1.295 or later, drawn at the right of the
-// prompt footer after Claude Code's own mode labels: `● omms: connecting`
-// (yellow), `connected` (green), `web app off` or `not installed` (red), plus a
-// dim ` · <version> available` when npm has a newer release. It does not use
+// prompt footer after Claude Code's own mode labels: `omms: ⧖` while connecting
+// (yellow), `omms: ✔` (green), `omms: ✘ web app off` or `omms: ✘ not installed`
+// (red), plus a dim ` · <version> available` when npm has a newer release. It does not use
 // `$.ui.status`: Claude Code draws that row with a yellow warning sign.
 //
 // The module holds no OMMS logic. It asks the plugin's own launcher, the one
@@ -73,7 +74,9 @@ export const registerStatus = (on) => {
       <Box flexDirection="row">
         {modes}
         {e.props.modes.length > 0 && <Text dimColor> · </Text>}
-        <Text color={COLOURS[state]}>● omms: {state}</Text>
+        <Text color={COLOURS[state]}>
+          {ommsStatusLabel(state === "connecting" ? "warming" : state)}
+        </Text>
         {newer && <Text dimColor> · {newer} available</Text>}
       </Box>
     );

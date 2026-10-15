@@ -24,13 +24,12 @@ import {
   wrapRetrievalSection,
 } from "../../core/retrieval.js";
 import { DEFAULT_RETRIEVAL_MAX_TOKENS, tokensToByteCeiling } from "../../core/context-budget.js";
+import { ommsStatusLabel, type StatusGlyphState } from "../../services/status-glyphs.js";
 
 const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("omms.plugin.warmedup");
 const GLOBAL_PI_BACKFILL_KEY = Symbol.for("omms.pi.backfill.scheduled");
 const OMMS_STATUS_KEY = "omms";
 type PiBackfillTask = { controller: AbortController; promise: Promise<void> };
-
-type OmmsStatus = "warming" | "connected" | "recalling" | "capturing" | "error";
 
 const MEMORY_TOOL_MODES = [
   "add",
@@ -93,9 +92,9 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
   let backfillSessionId: string | null = null;
   let statusVersion = 0;
 
-  const startStatus = (ctx: ExtensionContext, status: OmmsStatus): number => {
+  const startStatus = (ctx: ExtensionContext, status: StatusGlyphState): number => {
     const version = ++statusVersion;
-    if (ctx.hasUI) ctx.ui.setStatus(OMMS_STATUS_KEY, `omms:${status}`);
+    if (ctx.hasUI) ctx.ui.setStatus(OMMS_STATUS_KEY, ommsStatusLabel(status));
     return version;
   };
 
@@ -105,7 +104,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     status: "connected" | "error"
   ): void => {
     if (version !== statusVersion || !ctx.hasUI) return;
-    ctx.ui.setStatus(OMMS_STATUS_KEY, `omms:${status}`);
+    ctx.ui.setStatus(OMMS_STATUS_KEY, ommsStatusLabel(status));
   };
 
   const clearStatus = (ctx: ExtensionContext): void => {

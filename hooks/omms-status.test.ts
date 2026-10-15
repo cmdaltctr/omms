@@ -116,29 +116,26 @@ function parts(node: any, inherited: Omit<Part, "text"> = {}): Part[] {
   return node.children.flatMap((child: any) => parts(child, style));
 }
 
-/** The OMMS label as the footer shows it, from the dot on. */
+/** The OMMS label as the footer shows it, from `omms: ` on. */
 async function last(w: World) {
   const text = parts(await w.footer.mounted!.drawn())
     .map((part) => part.text)
     .join("");
-  const at = text.indexOf("● omms: ");
-  return at < 0 ? undefined : text.slice(at + "● omms: ".length);
+  const at = text.indexOf("omms: ");
+  return at < 0 ? undefined : text.slice(at + "omms: ".length);
 }
 
-/** The colour of the dot and the state. */
+/** The colour of the glyph and any state words. */
 async function colour(w: World) {
   const runs = parts(await w.footer.mounted!.drawn());
-  const dot = runs.find((part) => part.text.includes("●"));
-  const state = runs.find((part) => /omms: /.test(part.text));
-  expect(state?.color).toBe(dot?.color);
-  return dot?.color;
+  return runs.find((part) => /omms: /.test(part.text))?.color;
 }
 
 describe("omms status line", () => {
   test("reads connected when the health route answers", async ($, on) => {
     const w = world(on, { launcher: { jsonVersion: "4.3.3", latest: null } });
     await begin($, w);
-    expect(await last(w)).toBe("connected");
+    expect(await last(w)).toBe("✔");
     expect(await colour(w)).toBe("success");
   });
 
@@ -157,7 +154,7 @@ describe("omms status line", () => {
   test("reads connecting in yellow until the first health check answers", async ($, on) => {
     const w = world(on, { launcher: { jsonVersion: "4.3.3", latest: null }, health: "hang" });
     await begin($, w);
-    expect(await last(w)).toBe("connecting");
+    expect(await last(w)).toBe("⧖");
     expect(await colour(w)).toBe("warning");
   });
 
@@ -166,7 +163,7 @@ describe("omms status line", () => {
     await begin($, w, ["focus"]);
     const runs = parts(await w.footer.mounted!.drawn());
     expect(runs[0]).toEqual({ text: "focus", color: undefined, dimColor: true });
-    expect(runs.map((part) => part.text).join("")).toBe("focus · ● omms: connected");
+    expect(runs.map((part) => part.text).join("")).toBe("focus · omms: ✔");
   });
 
   test("draws the label alone when the engine shows no mode", async ($, on) => {
@@ -175,20 +172,20 @@ describe("omms status line", () => {
     const text = parts(await w.footer.mounted!.drawn())
       .map((part) => part.text)
       .join("");
-    expect(text).toBe("● omms: connected");
+    expect(text).toBe("omms: ✔");
   });
 
   test("reads connected for a 401, because the server is running", async ($, on) => {
     const w = world(on, { launcher: { jsonVersion: "4.3.3", latest: null }, health: "401" });
     await begin($, w);
-    expect(await last(w)).toBe("connected");
+    expect(await last(w)).toBe("✔");
   });
 
   for (const health of ["down", "500", "no-success"] as const) {
     test(`reads web app off when the health route is ${health}`, async ($, on) => {
       const w = world(on, { launcher: { jsonVersion: "4.3.3", latest: null }, health });
       await begin($, w);
-      expect(await last(w)).toBe("web app off");
+      expect(await last(w)).toBe("✘ web app off");
       expect(await colour(w)).toBe("error");
     });
   }
@@ -196,22 +193,22 @@ describe("omms status line", () => {
   test("reads web app off when the health route does not answer in 3 seconds", async ($, on) => {
     const w = world(on, { launcher: { jsonVersion: "4.3.3", latest: null }, health: "hang" });
     await begin($, w);
-    expect(await last(w)).toBe("connecting");
+    expect(await last(w)).toBe("⧖");
     await w.clock.advance(3_000);
-    expect(await last(w)).toBe("web app off");
+    expect(await last(w)).toBe("✘ web app off");
   });
 
   test("follows the web app within 30 seconds, off and on again", async ($, on) => {
     const w = world(on, { launcher: { jsonVersion: "4.3.3", latest: null } });
     await begin($, w);
-    expect(await last(w)).toBe("connected");
+    expect(await last(w)).toBe("✔");
     w.state.health = "down";
     await w.clock.advance(HEALTH_MS);
-    expect(await last(w)).toBe("web app off");
+    expect(await last(w)).toBe("✘ web app off");
     expect(await colour(w)).toBe("error");
     w.state.health = "ok";
     await w.clock.advance(HEALTH_MS);
-    expect(await last(w)).toBe("connected");
+    expect(await last(w)).toBe("✔");
     expect(await colour(w)).toBe("success");
   });
 
@@ -231,16 +228,16 @@ describe("omms status line", () => {
     const w = world(on, { launcher: { jsonVersion: "4.3.3", latest: null, healthUrl: url } });
     w.state.healthFor[DEFAULT_HEALTH] = "hang";
     await begin($, w);
-    expect(await last(w)).toBe("connected");
+    expect(await last(w)).toBe("✔");
     // The early check on the default URL gives up after 3 seconds.
     await w.clock.advance(3_000);
-    expect(await last(w)).toBe("connected");
+    expect(await last(w)).toBe("✔");
   });
 
   test("shows the web app state while the launcher is still running", async ($, on) => {
     const w = world(on, { launcher: { hang: true } });
     await begin($, w);
-    expect(await last(w)).toBe("connected");
+    expect(await last(w)).toBe("✔");
     expect(w.fetches).toEqual([DEFAULT_HEALTH]);
   });
 
@@ -267,7 +264,7 @@ describe("omms status line", () => {
   test("reads not installed when the launcher exits 1, with no update check", async ($, on) => {
     const w = world(on, { launcher: { exitCode: 1, stdout: "" } });
     await begin($, w);
-    expect(await last(w)).toBe("not installed");
+    expect(await last(w)).toBe("✘ not installed");
     expect(await colour(w)).toBe("error");
     expect(w.toasts).toEqual([]);
   });
@@ -279,7 +276,7 @@ describe("omms status line", () => {
       },
     });
     await begin($, w);
-    expect(await last(w)).toBe("not installed");
+    expect(await last(w)).toBe("✘ not installed");
   });
 
   test("keeps the health-only state when the launcher times out", async ($, on) => {
@@ -287,19 +284,19 @@ describe("omms status line", () => {
       launcher: { reject: "omms: $.process.run(node) aborted: still running after 60000ms" },
     });
     await begin($, w);
-    expect(await last(w)).toBe("connected");
+    expect(await last(w)).toBe("✔");
     expect(w.toasts).toEqual([]);
     expect(w.fetches.every((fetched) => fetched === DEFAULT_HEALTH)).toBe(true);
     // The next 6 hour step tries again and recovers.
     w.state.launcher = { jsonVersion: "4.3.3", latest: "4.4.0" };
     await w.clock.advance(STATUS_MS);
-    expect(await last(w)).toBe("connected · 4.4.0 available");
+    expect(await last(w)).toBe("✔ · 4.4.0 available");
   });
 
   test("falls back to the default health URL when the copy prints no status", async ($, on) => {
     const w = world(on, { launcher: { exitCode: 0, stdout: "" } });
     await begin($, w);
-    expect(await last(w)).toBe("connected");
+    expect(await last(w)).toBe("✔");
     expect(w.fetches.every((fetched) => fetched === DEFAULT_HEALTH)).toBe(true);
     expect(w.toasts).toEqual([]);
   });
@@ -307,7 +304,7 @@ describe("omms status line", () => {
   test("adds the newer release and shows one toast that names the plugin update", async ($, on) => {
     const w = world(on, { launcher: { jsonVersion: "4.3.3", latest: "4.4.0" } });
     await begin($, w);
-    expect(await last(w)).toBe("connected · 4.4.0 available");
+    expect(await last(w)).toBe("✔ · 4.4.0 available");
     expect(await colour(w)).toBe("success");
     const suffix = parts(await w.footer.mounted!.drawn()).find((part) =>
       part.text.includes("available")
@@ -336,7 +333,7 @@ describe("omms status line", () => {
     test(`shows no update when npm latest is ${latest}`, async ($, on) => {
       const w = world(on, { launcher: { jsonVersion: "4.3.3", latest } });
       await begin($, w);
-      expect(await last(w)).toBe("connected");
+      expect(await last(w)).toBe("✔");
       expect(w.toasts).toEqual([]);
     });
   }
@@ -344,7 +341,7 @@ describe("omms status line", () => {
   test("treats a release as newer than the running prerelease of it", async ($, on) => {
     const w = world(on, { launcher: { jsonVersion: "4.4.0-next.1", latest: "4.4.0" } });
     await begin($, w);
-    expect(await last(w)).toBe("connected · 4.4.0 available");
+    expect(await last(w)).toBe("✔ · 4.4.0 available");
   });
 
   test("a second session start does not double the polling or the toast", async ($, on) => {

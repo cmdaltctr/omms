@@ -106,13 +106,13 @@ History backfill (automatic history import) uses `piBackfillModel`. See
 
 ### Footer status
 
-The Pi adapter shows its current state in Pi's footer:
+The Pi adapter shows its current state in Pi's footer as `omms: <glyph>`:
 
-- `omms:warming` while storage and embeddings start
-- `omms:connected` when OMMS is ready
-- `omms:recalling` while relevant memories are retrieved
-- `omms:capturing` while settled work is processed
-- `omms:error` when an OMMS operation fails
+- `omms: ⧖` while storage and embeddings start
+- `omms: ✔` when OMMS is ready
+- `omms: ↻` while relevant memories are retrieved
+- `omms: ✎` while settled work is processed
+- `omms: ✘` when an OMMS operation fails
 
 The adapter clears the status when the Pi session shuts down.
 

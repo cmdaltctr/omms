@@ -8,10 +8,10 @@ Install OMMS without a version number, as the [README](../README.md#set-up)
 shows. Your agent can then tell you when a new release is out. Neither agent
 installs updates by itself. You choose when to update.
 
-| Agent       | How you hear about a new release                                                                                             | Update with                                                             |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Pi          | Pi shows an update notice while you work                                                                                     | `pi update npm:om-memory-system` (or `pi update --extensions` for all)  |
-| OpenCode v2 | The footer shows `omms:connected · <version> available` and a toast names the command. `opencode plugin check` also lists it | `opencode plugin update om-memory-system` (or `opencode plugin update`) |
+| Agent       | How you hear about a new release                                                                                      | Update with                                                             |
+| ----------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Pi          | Pi shows an update notice while you work                                                                              | `pi update npm:om-memory-system` (or `pi update --extensions` for all)  |
+| OpenCode v2 | The footer shows `omms: ✔ · <version> available` and a toast names the command. `opencode plugin check` also lists it | `opencode plugin update om-memory-system` (or `opencode plugin update`) |
 
 The web page tells you too. Its sidebar header shows the running version. When npm has a newer release, an **Update** button shows in the sidebar footer on this computer. Its dialog lists the command for each host. **Update web app** installs the release globally with npm and restarts the web app on it. See [Web UI: Update button](web-ui.md#update-button).
 

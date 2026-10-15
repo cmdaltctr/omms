@@ -28,11 +28,9 @@ describe("OpenCode TUI entry", () => {
 
 describe("OpenCode footer status", () => {
   it("reads like Pi's status, and adds a newer release", () => {
-    expect(tuiStatusText({ web: "connected", update: null })).toBe("omms:connected");
-    expect(tuiStatusText({ web: "offline", update: null })).toBe("omms:web app off");
-    expect(tuiStatusText({ web: "connected", update: "4.3.0" })).toBe(
-      "omms:connected · 4.3.0 available"
-    );
+    expect(tuiStatusText({ web: "connected", update: null })).toBe("omms: ✔");
+    expect(tuiStatusText({ web: "offline", update: null })).toBe("omms: ✘ web app off");
+    expect(tuiStatusText({ web: "connected", update: "4.3.0" })).toBe("omms: ✔ · 4.3.0 available");
   });
 
   it("reports only a newer stable release", () => {
@@ -69,8 +67,8 @@ describe("OpenCode footer status", () => {
     });
     await settle();
     stop();
-    expect(texts[0]).toBe("omms:warming");
-    expect(texts.at(-1)).toBe("omms:connected · 4.3.0 available");
+    expect(texts[0]).toBe("omms: ⧖");
+    expect(texts.at(-1)).toBe("omms: ✔ · 4.3.0 available");
     expect(notes).toHaveLength(1);
     expect(notes[0]).toContain("opencode plugin update om-memory-system");
   });
@@ -92,7 +90,7 @@ describe("OpenCode footer status", () => {
     });
     await settle();
     stop();
-    expect(texts.at(-1)).toBe("omms:web app off");
+    expect(texts.at(-1)).toBe("omms: ✘ web app off");
     expect(calls.every((url) => !url.includes("registry"))).toBe(true);
   });
 });
