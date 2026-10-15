@@ -18,7 +18,15 @@ import {
   type CategoryLabelCount,
 } from "./category-groups.js";
 import { canonicaliseCategories, categoryKey, tidyCategory } from "./profile-category.js";
-import { latestOpenCleanup, markCleanupUndone, recordCleanup } from "./category-cleanup-store.js";
+import {
+  latestOpenCleanup,
+  loadVerdicts,
+  markCleanupUndone,
+  pruneVerdicts,
+  recordCleanup,
+  saveVerdicts,
+  type SavedVerdict,
+} from "./category-cleanup-store.js";
 import type { UserProfileManager } from "./user-profile-manager.js";
 import type { UserProfileData } from "./types.js";
 
@@ -112,26 +120,51 @@ function applyReply(
   return { id: groupId(labels), labels, name, checked: true };
 }
 
+/** The model's saved answers by group id, and where to save new ones. */
+export interface VerdictCache {
+  saved: Map<string, SavedVerdict>;
+  save: (verdicts: Map<string, SavedVerdict>) => Promise<void>;
+}
+
+function verdictOf(answer: { keep: unknown; name: unknown } | undefined): SavedVerdict | null {
+  if (!answer || !Array.isArray(answer.keep)) return null;
+  return {
+    keep: answer.keep.filter((name): name is string => typeof name === "string"),
+    name: typeof answer.name === "string" ? answer.name : null,
+  };
+}
+
 /**
  * The profile model checks each group in batches: it removes names that do not belong
- * and proposes one name. A failed batch, a missing reply, or no model falls back to the
- * most used label and marks the group unchecked. The log holds counts and codes only.
+ * and proposes one name. A group with a saved answer skips the model. A failed batch, a
+ * missing reply, or no model falls back to the most used label, marks the group unchecked
+ * and saves nothing, so a later preview retries it. The log holds counts and codes only.
  */
 export async function checkAndNameGroups(
   groups: CategoryGroup[],
   examples: Map<string, string[]>,
   model: CleanupModel | null,
-  /** Called with batches done and the total, before the first batch and after each one. */
-  onProgress?: (done: number, total: number) => void
+  /** Called with batches to run and the total, before the first batch and after each one. */
+  onProgress?: (done: number, total: number) => void,
+  cache?: VerdictCache
 ): Promise<NamedGroup[]> {
+  const named = new Map<string, NamedGroup | null>();
+  const pending: CategoryGroup[] = [];
+  for (const group of groups) {
+    const saved = cache?.saved.get(group.id);
+    if (saved) named.set(group.id, applyReply(group, saved));
+    else pending.push(group);
+  }
   const batches: CategoryGroup[][] = [];
-  for (let start = 0; start < groups.length; start += GROUPS_PER_MODEL_CALL) {
-    batches.push(groups.slice(start, start + GROUPS_PER_MODEL_CALL));
+  for (let start = 0; start < pending.length; start += GROUPS_PER_MODEL_CALL) {
+    batches.push(pending.slice(start, start + GROUPS_PER_MODEL_CALL));
   }
   let failedBatches = 0;
-  let dropped = 0;
-  const checkBatch = async (batch: CategoryGroup[]): Promise<NamedGroup[]> => {
-    if (!model) return batch.map(fallback);
+  const checkBatch = async (batch: CategoryGroup[]): Promise<void> => {
+    if (!model) {
+      for (const group of batch) named.set(group.id, fallback(group));
+      return;
+    }
     let replies: Map<string, { keep: unknown; name: unknown }>;
     try {
       replies = readReply(await model(SYSTEM_PROMPT, buildPrompt(batch, examples)));
@@ -141,33 +174,48 @@ export async function checkAndNameGroups(
         groups: batch.length,
         code: error instanceof Error ? error.name : "unknown",
       });
-      return batch.map(fallback);
+      for (const group of batch) named.set(group.id, fallback(group));
+      return;
     }
-    const results: NamedGroup[] = [];
+    const verdicts = new Map<string, SavedVerdict>();
     for (const group of batch) {
-      const result = applyReply(group, replies.get(group.id));
-      if (result) results.push(result);
-      else dropped++;
+      const answer = replies.get(group.id);
+      named.set(group.id, applyReply(group, answer));
+      const verdict = verdictOf(answer);
+      if (verdict) verdicts.set(group.id, verdict);
     }
-    return results;
+    if (cache && verdicts.size > 0) {
+      try {
+        await cache.save(verdicts);
+      } catch (error) {
+        log("category cleanup: verdict save failed", {
+          groups: verdicts.size,
+          code: error instanceof Error ? error.name : "unknown",
+        });
+      }
+    }
   };
 
   // One call at a time: a provider that refuses parallel calls still finishes (TDR-044).
-  const named: NamedGroup[] = [];
   onProgress?.(0, batches.length);
   for (const [index, batch] of batches.entries()) {
-    named.push(...(await checkBatch(batch)));
+    await checkBatch(batch);
     onProgress?.(index + 1, batches.length);
   }
+  const result = groups
+    .map((group) => named.get(group.id))
+    .filter((group): group is NamedGroup => !!group);
   log("category cleanup: groups checked", {
     groups: groups.length,
-    named: named.length,
-    dropped,
-    unchecked: named.filter((group) => !group.checked).length,
+    reused: groups.length - pending.length,
+    sent: pending.length,
+    named: result.length,
+    dropped: groups.length - result.length,
+    unchecked: result.filter((group) => !group.checked).length,
     failedBatches,
     model: model ? "available" : "none",
   });
-  return named;
+  return result;
 }
 
 /** The host model when one is registered, else the external API, else none. */
@@ -230,7 +278,6 @@ export interface CleanupDeps {
 
 export interface CategoryCleanupPreview {
   profileId: string;
-  version: number;
   /** Distinct categories now, and if every group were accepted. */
   before: number;
   after: number;
@@ -292,6 +339,25 @@ function countAfter(
   return new Set(labels.map((entry) => categoryKey(rename.get(entry.label) ?? entry.label))).size;
 }
 
+/** Opens the saved model answers for the groups; without the store the preview just asks the model. */
+async function openVerdictCache(
+  profileId: string,
+  groupIds: string[]
+): Promise<VerdictCache | undefined> {
+  try {
+    await pruneVerdicts(profileId, groupIds);
+    return {
+      saved: await loadVerdicts(profileId),
+      save: (verdicts) => saveVerdicts(profileId, verdicts),
+    };
+  } catch (error) {
+    log("category cleanup: verdict store unavailable", {
+      code: error instanceof Error ? error.name : "unknown",
+    });
+    return undefined;
+  }
+}
+
 /** Builds the groups for review. Changes nothing in the stored profile. */
 export async function previewCategoryCleanup(
   userId: string,
@@ -300,21 +366,39 @@ export async function previewCategoryCleanup(
   const manager = await managerOf(deps);
   const profile = await manager.getActiveProfile(userId);
   if (!profile) return null;
+  const started = Date.now();
   const data = readProfile(profile.profileData);
   const labels = collectCategoryLabels(data);
   const embed = deps.embed ?? (await defaultEmbed());
   const vectors = [];
   for (const entry of labels) vectors.push({ ...entry, vector: await embed(entry.label) });
+  const embedded = Date.now();
   const groups = groupCategoryLabels(vectors, deps.threshold ?? CATEGORY_GROUP_THRESHOLD);
+  const grouped = Date.now();
+  const cache = await openVerdictCache(
+    profile.id,
+    groups.map((group) => group.id)
+  );
   const model = deps.model === undefined ? await resolveCleanupModel() : deps.model;
-  const named = await checkAndNameGroups(groups, examplesByLabel(data), model, deps.onProgress);
+  const named = await checkAndNameGroups(
+    groups,
+    examplesByLabel(data),
+    model,
+    deps.onProgress,
+    cache
+  );
+  const reused = groups.filter((group) => cache?.saved.has(group.id)).length;
   log("category cleanup: preview built", {
     labels: labels.length,
     groups: named.length,
+    reusedGroups: reused,
+    sentGroups: groups.length - reused,
+    embedMs: embedded - started,
+    groupMs: grouped - embedded,
+    checkMs: Date.now() - grouped,
   });
   return {
     profileId: profile.id,
-    version: profile.version,
     before: labels.length,
     after: countAfter(labels, named),
     groups: named,
@@ -336,18 +420,20 @@ function validGroups(groups: unknown): groups is AcceptedGroup[] {
   );
 }
 
-/** Renames the categories of the accepted groups; refuses when the profile changed since the preview. */
+/**
+ * Renames the categories of the accepted groups on the profile as stored now. Learning may
+ * have saved newer versions since the preview; the rename goes by label, so that is safe.
+ * It refuses only when a save lands between the read and the write below.
+ */
 export async function applyCategoryCleanup(
   userId: string,
-  input: { version: number; groups: AcceptedGroup[] },
+  input: { groups: AcceptedGroup[] },
   deps: CleanupDeps = {}
 ): Promise<ApplyResult> {
-  if (!Number.isInteger(input?.version) || !validGroups(input.groups))
-    return { ok: false, error: "invalid" };
+  if (!validGroups(input?.groups)) return { ok: false, error: "invalid" };
   const manager = await managerOf(deps);
   const profile = await manager.getActiveProfile(userId);
   if (!profile) return { ok: false, error: "no_profile" };
-  if (profile.version !== input.version) return { ok: false, error: "stale" };
 
   const data = readProfile(profile.profileData);
   const rename = new Map<string, string>();
@@ -367,7 +453,7 @@ export async function applyCategoryCleanup(
   if (renames.length === 0) return { ok: true, renamed: 0 };
 
   const summary = `Category cleanup: ${renames.length} items renamed in ${input.groups.length} groups`;
-  if (!(await manager.updateProfile(profile.id, next, 0, summary, input.version))) {
+  if (!(await manager.updateProfile(profile.id, next, 0, summary, profile.version))) {
     return { ok: false, error: "stale" };
   }
   await recordCleanup(profile.id, renames);

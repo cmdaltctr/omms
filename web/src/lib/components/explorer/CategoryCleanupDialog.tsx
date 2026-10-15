@@ -24,7 +24,6 @@ type CleanupGroup = {
 };
 
 type CleanupPreview = {
-  version: number;
   before: number;
   after: number;
   groups: CleanupGroup[];
@@ -113,7 +112,11 @@ export function CategoryCleanupDialog({ open = false, onOpenChange, onApplied }:
       const status = job!.status;
       if (status.state === "done") return show(status.preview);
       if (status.state === "failed") return setFailed(status.error);
-      setProgress(status.state === "checking" ? { done: status.done, total: status.total } : null);
+      setProgress(
+        status.state === "checking" && status.total > 0
+          ? { done: status.done, total: status.total }
+          : null
+      );
       await new Promise((resolve) => setTimeout(resolve, POLL_MS));
       const next = await fetchAPI<CleanupJob | null>("/api/user-profile/category-cleanup");
       if (!next.success || !next.data)
@@ -150,7 +153,7 @@ export function CategoryCleanupDialog({ open = false, onOpenChange, onApplied }:
     const result = await fetchAPI<{ renamed: number }>("/api/user-profile/category-cleanup/apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ version: preview.version, groups }),
+      body: JSON.stringify({ groups }),
     });
     setBusy(false);
     if (!result.success || !result.data) {

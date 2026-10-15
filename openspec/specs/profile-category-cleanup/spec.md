@@ -68,7 +68,7 @@ Building a cleanup preview SHALL NOT change the stored profile. The preview SHAL
 
 ### Requirement: Applying a cleanup only renames categories
 
-Applying a cleanup SHALL set the category of each item in each accepted group to the group's name, after the label tidying rules. It SHALL NOT change any item's description, evidence, frequency, confidence or vectors, and SHALL NOT add, merge or remove any item. The change SHALL be saved as one profile changelog entry that names it as a category cleanup. Applying SHALL fail without changes when the profile changed after the preview was built.
+Applying a cleanup SHALL set the category of each item in each accepted group to the group's name, after the label tidying rules, on the profile as it is stored when the user applies. It SHALL NOT change any item's description, evidence, frequency, confidence or vectors, and SHALL NOT add, merge or remove any item. The change SHALL be saved as one profile changelog entry that names it as a category cleanup. Applying SHALL NOT require the profile to be unchanged since the preview was built. Applying SHALL fail without changes when another save lands while it writes.
 
 #### Scenario: Items keep their content
 
@@ -79,8 +79,21 @@ Applying a cleanup SHALL set the category of each item in each accepted group to
 #### Scenario: The profile changed after the preview
 
 - **WHEN** profile learning saves a new version between the preview and the apply
-- **THEN** applying SHALL fail with a message to build a new preview
-- **AND** the stored profile SHALL keep the version that learning saved
+- **THEN** applying SHALL succeed
+- **AND** every item in the newer profile whose category is a label of an accepted group SHALL get the group's name
+- **AND** items that learning added or changed SHALL keep everything except that category
+
+#### Scenario: A label no longer exists
+
+- **WHEN** learning removed every item of an accepted group's labels after the preview
+- **THEN** applying SHALL succeed and report 0 items renamed
+- **AND** SHALL NOT write a changelog entry
+
+#### Scenario: A save lands while applying
+
+- **WHEN** another save changes the stored profile between the moment apply reads it and the moment apply writes it
+- **THEN** applying SHALL fail with a message to try again
+- **AND** the stored profile SHALL keep the version that the other save wrote
 
 ### Requirement: The last cleanup can be undone
 
@@ -134,3 +147,46 @@ The cleanup SHALL be available from the web app Profile page and from the comman
 
 - **WHEN** the same profile is previewed from the web app and from the command with the same model replies
 - **THEN** both SHALL show the same groups and proposed names
+
+### Requirement: Model verdicts are reused between previews
+
+The profile model's answer for a group (the labels it kept and the proposed name) SHALL be saved when the model returns it. A later preview SHALL reuse the saved answer for each group whose set of labels is unchanged, and SHALL ask the model only about the other groups. A group the model did not answer, because the call failed, timed out or returned no entry for it, SHALL NOT be saved. A saved answer SHALL be discarded after 30 days and when its group no longer appears in a preview. A saved answer SHALL hold category names only, never item descriptions, prompts or raw model replies.
+
+#### Scenario: A rebuild after learning
+
+- **WHEN** a preview checked 300 groups, learning then changed the labels so that 12 groups are new, and the user builds a new preview
+- **THEN** the model SHALL be asked about the 12 new groups only
+- **AND** the other groups SHALL show the names from the earlier preview
+
+#### Scenario: Retry only what failed
+
+- **WHEN** a preview had 6 batches time out, so their groups were not checked, and the user builds a new preview
+- **THEN** the model SHALL be asked about the groups of those 6 batches only
+- **AND** the groups checked in the earlier preview SHALL NOT be sent again
+
+#### Scenario: A crash during a preview
+
+- **WHEN** the app stops after 8 of 16 batches returned and the user opens the preview again
+- **THEN** the model SHALL be asked about the groups of the 8 batches that did not return
+
+#### Scenario: A changed label set
+
+- **WHEN** a group now holds a label that the earlier group did not
+- **THEN** the model SHALL be asked about that group again
+
+#### Scenario: A saved drop
+
+- **WHEN** the model removed all but one label from a group in an earlier preview, so the group was dropped
+- **THEN** a new preview SHALL NOT ask the model about that label set again
+- **AND** the preview SHALL NOT show the group
+
+#### Scenario: Expiry
+
+- **WHEN** a saved answer is 31 days old
+- **THEN** the next preview SHALL ask the model about that group again
+- **AND** SHALL delete the old answer
+
+#### Scenario: Progress of a rebuild
+
+- **WHEN** 40 of 300 groups need the model
+- **THEN** the progress SHALL count the 2 batches that will run, not the 15 batches of a full check
