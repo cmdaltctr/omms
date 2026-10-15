@@ -69,6 +69,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [045](./045-claude-code-module-loading-and-tool-placement.md)  | Claude Code module loading and tool placement                           | Proposed              | 2026-10-13 |
 | [046](./046-handle-incomplete-experiment-http-responses.md)    | Handle incomplete experiment HTTP responses                             | Accepted              | 2026-10-10 |
 | [047](./047-category-cleanup-apply-after-learning.md)          | Category cleanup applies after profile learning                         | Accepted              | 2026-10-15 |
+| [048](./048-category-cleanup-reuses-model-answers.md)          | Category cleanup reuses model answers between previews                  | Accepted              | 2026-10-15 |
 
 ## Status values
 

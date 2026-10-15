@@ -3,7 +3,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-mock.module("../src/services/logger.js", () => ({ log: () => {} }));
+const logged: unknown[][] = [];
+mock.module("../src/services/logger.js", () => ({
+  log: (...args: unknown[]) => {
+    logged.push(args);
+  },
+}));
 
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
 const { CONFIG } = await import("../src/config.js");
@@ -95,6 +100,123 @@ describe("preview", () => {
     ]);
     expect(preview.before).toBe(6);
     expect(preview.after).toBe(3);
+  });
+});
+
+describe("preview with saved model answers", () => {
+  const FAMILIES = 45;
+  /** Family i uses axis i, so families are far apart and its two names sit close together. */
+  const wideEmbed = async (text: string) => {
+    const match = /^Fam(\d+) ([ab])$/.exec(text);
+    const vector = new Array(2 * FAMILIES + 10).fill(0);
+    if (!match) return vector;
+    vector[Number(match[1])] = 1;
+    if (match[2] === "b") vector[FAMILIES + 5 + Number(match[1])] = 0.1;
+    return vector;
+  };
+  const familyItems = (from: number, to: number) =>
+    Array.from({ length: to - from }, (_, offset) => from + offset).flatMap((family) => [
+      item(`Fam${family} a`, family),
+      item(`Fam${family} b`, family + 100),
+    ]);
+  const wideProfile = (families: number) => ({
+    preferences: familyItems(0, families),
+    patterns: [],
+    workflows: [],
+  });
+  /** A model that keeps every name and counts the groups it is asked about, call by call. */
+  const countingModel = (asked: string[][], failOnCall?: number) => {
+    let call = 0;
+    return async (_system: string, prompt: string) => {
+      const payload = JSON.parse(prompt.split("Groups:\n")[1]!.split("\n\nReturn JSON")[0]!);
+      asked.push(payload.map((entry: any) => entry.group));
+      if (++call === failOnCall) throw new Error("timeout");
+      return {
+        groups: payload.map((entry: any) => ({
+          group: entry.group,
+          keep: entry.labels.map((label: any) => label.name),
+          name: entry.labels[0].name,
+        })),
+      };
+    };
+  };
+
+  it("asks the model only about the groups that learning added", async () => {
+    const { manager, id } = await setup(wideProfile(FAMILIES));
+    const first: string[][] = [];
+    const firstPreview = (await previewCategoryCleanup(USER, {
+      manager,
+      embed: wideEmbed,
+      model: countingModel(first),
+    }))!;
+    expect(firstPreview.groups).toHaveLength(FAMILIES);
+    expect(first.map((batch) => batch.length)).toEqual([20, 20, 5]);
+
+    await manager.updateProfile(id, wideProfile(FAMILIES + 1), 0, "Learning");
+    const second: string[][] = [];
+    const secondPreview = (await previewCategoryCleanup(USER, {
+      manager,
+      embed: wideEmbed,
+      model: countingModel(second),
+    }))!;
+    expect(second).toHaveLength(1);
+    expect(second[0]).toHaveLength(1);
+    expect(secondPreview.groups).toHaveLength(FAMILIES + 1);
+    expect(secondPreview.groups.every((group) => group.checked)).toBe(true);
+  });
+
+  it("retries only the groups of the batch that failed", async () => {
+    const { manager } = await setup(wideProfile(FAMILIES));
+    const first: string[][] = [];
+    const failed = (await previewCategoryCleanup(USER, {
+      manager,
+      embed: wideEmbed,
+      model: countingModel(first, 2),
+    }))!;
+    expect(failed.groups.filter((group) => !group.checked)).toHaveLength(20);
+
+    const second: string[][] = [];
+    const retried = (await previewCategoryCleanup(USER, {
+      manager,
+      embed: wideEmbed,
+      model: countingModel(second),
+    }))!;
+    expect(second).toEqual([first[1]!]);
+    expect(retried.groups.every((group) => group.checked)).toBe(true);
+  });
+
+  it("asks again about answers older than 30 days and deletes the old ones", async () => {
+    const { manager } = await setup(wideProfile(5));
+    await previewCategoryCleanup(USER, { manager, embed: wideEmbed, model: countingModel([]) });
+    const db = await tursoConnectionManager.getConnection(join(directory, "user-profiles.db"));
+    const old = Date.now() - 31 * 24 * 60 * 60 * 1000;
+    await db.execute("UPDATE profile_category_verdicts SET created_at = ?", [old]);
+
+    const asked: string[][] = [];
+    await previewCategoryCleanup(USER, {
+      manager,
+      embed: wideEmbed,
+      model: countingModel(asked),
+    });
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toHaveLength(5);
+    const rows = await db.all("SELECT created_at FROM profile_category_verdicts");
+    expect(rows).toHaveLength(5);
+    expect(rows.every((row) => Number(row.created_at) > old + 1000)).toBe(true);
+  });
+
+  it("logs reuse counts and phase times, never label text", async () => {
+    const { manager } = await setup(wideProfile(5));
+    const deps = { manager, embed: wideEmbed, model: countingModel([]) };
+    await previewCategoryCleanup(USER, deps);
+    logged.length = 0;
+    await previewCategoryCleanup(USER, deps);
+    const built = logged.find((entry) => entry[0] === "category cleanup: preview built")!;
+    expect(built[1]).toMatchObject({ labels: 10, groups: 5, reusedGroups: 5, sentGroups: 0 });
+    for (const key of ["embedMs", "groupMs", "checkMs"]) {
+      expect(typeof (built[1] as Record<string, unknown>)[key]).toBe("number");
+    }
+    expect(JSON.stringify(logged)).not.toContain("Fam");
   });
 });
 
