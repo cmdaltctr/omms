@@ -2,6 +2,20 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.17.0](https://github.com/cmdaltctr/omms/compare/v4.16.1...v4.17.0) (2026-10-15)
+
+
+### Features
+
+* reuse the profile model's answers between category cleanup previews ([092420f](https://github.com/cmdaltctr/omms/commit/092420f62bd706341fec56c97da43fb81ad5bf18))
+
+
+### Bug Fixes
+
+* apply category cleanup after profile learning saved a newer version ([e8b9b8c](https://github.com/cmdaltctr/omms/commit/e8b9b8c227bc92889d267bca9ed71a6fbafba494))
+* category cleanup applies after learning; feat: reuse model answers between previews ([faad018](https://github.com/cmdaltctr/omms/commit/faad0180bfe053bd979a4f0bd4cc9f8d69a1c415))
+* skip corrupt saved model answers when loading the cleanup cache ([ef3911b](https://github.com/cmdaltctr/omms/commit/ef3911bf04871e3b858154c0a2078ba1c180040b))
+
 ## [4.16.1](https://github.com/cmdaltctr/omms/compare/v4.16.0...v4.16.1) (2026-10-14)
 
 
