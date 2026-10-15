@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
 const { CONFIG } = await import("../src/config.js");
@@ -17,9 +18,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await tursoConnectionManager.closeAll();
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  rmSync(directory, { recursive: true, force: true });
+  await cleanupTursoTestDirectory(directory);
 });
 
 it("saves and loads verdicts per profile", async () => {
