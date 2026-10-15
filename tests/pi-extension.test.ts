@@ -481,8 +481,8 @@ captured = statusCalls;
 `);
 
     expect(output.captured).toEqual([
-      ["omms", "omms:warming"],
-      ["omms", "omms:connected"],
+      ["omms", "omms: ⧖"],
+      ["omms", "omms: ✔"],
     ]);
   });
 
@@ -496,8 +496,8 @@ captured = statusCalls;
 `);
 
     expect(output.captured).toEqual([
-      ["omms", "omms:recalling"],
-      ["omms", "omms:connected"],
+      ["omms", "omms: ↻"],
+      ["omms", "omms: ✔"],
     ]);
   });
 
@@ -512,8 +512,8 @@ captured = statusCalls;
 `);
 
     expect(output.captured).toEqual([
-      ["omms", "omms:recalling"],
-      ["omms", "omms:error"],
+      ["omms", "omms: ↻"],
+      ["omms", "omms: ✘"],
     ]);
   });
 
@@ -553,8 +553,8 @@ captured = statusCalls;
 `);
 
     expect(output.captured).toEqual([
-      ["omms", "omms:capturing"],
-      ["omms", "omms:connected"],
+      ["omms", "omms: ✎"],
+      ["omms", "omms: ✔"],
     ]);
   });
 

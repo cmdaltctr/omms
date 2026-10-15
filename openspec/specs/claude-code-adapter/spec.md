@@ -241,51 +241,51 @@ The capture endpoint SHALL accept a transcript path only when the path, after sy
 
 ### Requirement: Claude Code shows OMMS status under the prompt
 
-The OMMS plugin SHALL require Claude Code 2.1.295 or later, and SHALL show one OMMS label in the prompt footer, at the right, after Claude Code's own mode labels. The label SHALL read `● omms: <state>`. The state SHALL be `connecting` from session start until the first health check answers, `connected` when the web app answers its health route, `web app off` when it does not, and `not installed` when the plugin's launcher reports that it can run no OMMS copy: no local copy is new enough and `npx` fails. The dot and state SHALL be green for `connected`, yellow for `connecting`, and red for `web app off` and `not installed`. The colours SHALL come from Claude Code's theme, so they follow the user's light or dark theme. The `connected` label SHALL NOT show a `⚠` sign or a yellow colour. The plugin SHALL NOT use Claude Code's plugin status row, which adds a `⚠` sign. A launcher run that only runs out of time SHALL NOT show `not installed`. The label SHALL then show the health state alone, with no update, and the plugin SHALL try again at its next check. The plugin SHALL get its facts through its own launcher, so the label SHALL NOT depend on a global `om-memory-system` install. The label SHALL update while the session runs. The label SHALL NOT hide or change Claude Code's own mode labels, and SHALL NOT replace or change the user's own `statusLine` setting.
+The OMMS plugin SHALL require Claude Code 2.1.295 or later, and SHALL show one OMMS label in the prompt footer, at the right, after Claude Code's own mode labels. The label SHALL read `omms: <glyph>`. The state SHALL be `connecting` from session start until the first health check answers, `connected` when the web app answers its health route, `web app off` when it does not, and `not installed` when the plugin's launcher reports that it can run no OMMS copy: no local copy is new enough and `npx` fails. The glyph SHALL be `⧖` for `connecting`, and `✔` for `connected`. For `web app off` and `not installed` the glyph SHALL be `✘`, followed by the state's words. Each glyph SHALL be a single-column text symbol, not a colour emoji, and the label SHALL show no `●` dot. The glyph and any state words SHALL be green for `connected`, yellow for `connecting`, and red for `web app off` and `not installed`. The colours SHALL come from Claude Code's theme, so they follow the user's light or dark theme. The `connected` label SHALL NOT show a `⚠` sign or a yellow colour. The plugin SHALL NOT use Claude Code's plugin status row, which adds a `⚠` sign. A launcher run that only runs out of time SHALL NOT show `not installed`. The label SHALL then show the health state alone, with no update, and the plugin SHALL try again at its next check. The plugin SHALL get its facts through its own launcher, so the label SHALL NOT depend on a global `om-memory-system` install. The label SHALL update while the session runs. The label SHALL NOT hide or change Claude Code's own mode labels, and SHALL NOT replace or change the user's own `statusLine` setting.
 
 #### Scenario: Session starts
 
 - **WHEN** a Claude Code session starts and the first health check has not answered yet
-- **THEN** the prompt footer SHALL show a yellow `● omms: connecting`
+- **THEN** the prompt footer SHALL show a yellow `omms: ⧖`
 
 #### Scenario: Web app running
 
 - **WHEN** a Claude Code session starts and the web app answers its health route
-- **THEN** the prompt footer SHALL show a green `● omms: connected`
+- **THEN** the prompt footer SHALL show a green `omms: ✔`
 - **AND** the footer SHALL show no `⚠` sign and no yellow for OMMS
 - **AND** no OMMS row SHALL show in Claude Code's plugin status row
 
 #### Scenario: Web app stopped during a session
 
 - **WHEN** the web app stops answering its health route while a session runs
-- **THEN** within 30 seconds the prompt footer SHALL show a red `● omms: web app off`
+- **THEN** within 30 seconds the prompt footer SHALL show a red `omms: ✘ web app off`
 - **AND** memory capture SHALL continue to use the command hooks as before
 
 #### Scenario: Web app comes back during a session
 
 - **WHEN** the label shows `web app off` and the web app starts answering its health route again
-- **THEN** within 30 seconds the prompt footer SHALL show a green `● omms: connected`
+- **THEN** within 30 seconds the prompt footer SHALL show a green `omms: ✔`
 
 #### Scenario: OMMS cannot run
 
 - **WHEN** no local OMMS copy is at least the plugin's version and `npx` fails
-- **THEN** the prompt footer SHALL show a red `● omms: not installed`
+- **THEN** the prompt footer SHALL show a red `omms: ✘ not installed`
 
 #### Scenario: A slow first download
 
 - **WHEN** no local copy is new enough, `npx` is still downloading when the launcher run times out, and the web app answers its health route
-- **THEN** the label SHALL read `● omms: connected` with no update
-- **AND** the label SHALL NOT read `● omms: not installed`
+- **THEN** the label SHALL read `omms: ✔` with no update
+- **AND** the label SHALL NOT read `omms: ✘ not installed`
 
 #### Scenario: No global install
 
 - **WHEN** `om-memory-system` is not on the `PATH`, the newest-copy record names a valid Pi copy at the plugin's version, and the web app answers its health route
-- **THEN** the label SHALL read `● omms: connected`
+- **THEN** the label SHALL read `omms: ✔`
 
 #### Scenario: Claude Code shows a mode label
 
 - **WHEN** Claude Code shows its own mode label, for example `focus`, and the web app answers its health route
-- **THEN** the prompt footer SHALL show the `focus` label and the `● omms: connected` label
+- **THEN** the prompt footer SHALL show the `focus` label and the `omms: ✔` label
 
 #### Scenario: User has a status line of their own
 
@@ -294,12 +294,12 @@ The OMMS plugin SHALL require Claude Code 2.1.295 or later, and SHALL show one O
 
 ### Requirement: Claude Code tells the user about a newer OMMS release
 
-At session start and every 6 hours, the plugin SHALL compare the version of the OMMS copy that its launcher runs with the `latest` version on the npm registry. When npm's version is newer and is not a prerelease, the OMMS label SHALL add a dim `· <version> available` after the state. The suffix SHALL NOT change the colour of the dot or the state. The plugin SHALL also show one toast per session that names `claude plugin update omms@omms` and `/reload-plugins`. The check SHALL send no session content. `OMMS_DISABLE_UPDATE_CHECK=1` SHALL turn the check off. A failed check SHALL show no notice.
+At session start and every 6 hours, the plugin SHALL compare the version of the OMMS copy that its launcher runs with the `latest` version on the npm registry. When npm's version is newer and is not a prerelease, the OMMS label SHALL add a dim `· <version> available` after the state. The suffix SHALL NOT change the colour of the glyph or the state words. The plugin SHALL also show one toast per session that names `claude plugin update omms@omms` and `/reload-plugins`. The check SHALL send no session content. `OMMS_DISABLE_UPDATE_CHECK=1` SHALL turn the check off. A failed check SHALL show no notice.
 
 #### Scenario: A newer release exists
 
 - **WHEN** the launcher runs OMMS 4.3.3 and npm `latest` is 4.4.0
-- **THEN** the label SHALL read `● omms: connected · 4.4.0 available`, with the dot and `connected` green
+- **THEN** the label SHALL read `omms: ✔ · 4.4.0 available`, with the glyph green
 - **AND** one toast SHALL name `claude plugin update omms@omms`
 
 #### Scenario: A host copy is already newer than the global install

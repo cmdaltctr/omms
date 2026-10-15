@@ -1,5 +1,5 @@
 /**
- * OpenCode TUI entry: shows "omms:connected" in the prompt footer, and a toast
+ * OpenCode TUI entry: shows "omms: ✔" in the prompt footer, and a toast
  * when a newer om-memory-system is on npm. OpenCode compiles this file itself;
  * the logic lives in dist/adapters/opencode/tui-status.js.
  *
@@ -17,7 +17,7 @@ import { jsx } from "opentui:runtime-module:%40opentui%2Fsolid%2Fjsx-runtime";
 export default {
   id: "omms.tui",
   async setup(context: any) {
-    const [text, setText] = createSignal("omms:warming");
+    const [text, setText] = createSignal("omms: ⧖");
     const removeSlot = context.ui.slot({
       append: "prompt.footer.status",
       render: () =>
@@ -39,7 +39,7 @@ export default {
           context.ui.toast.show({ title: "OMMS", message, variant: "info", duration: 10_000 }),
       });
     } catch {
-      setText("omms:error");
+      setText("omms: ✘");
     }
     return () => {
       stop?.();

@@ -1,3 +1,4 @@
+import { ommsStatusLabel } from "../../services/status-glyphs.js";
 import { availableUpdate, latestNpmVersion } from "../../services/update-check.js";
 
 /** What the OpenCode footer shows: the web app's state and a newer release, if any. */
@@ -7,7 +8,7 @@ export interface TuiStatusState {
 }
 
 export function tuiStatusText(state: TuiStatusState): string {
-  const web = state.web === "offline" ? "omms:web app off" : `omms:${state.web}`;
+  const web = ommsStatusLabel(state.web === "offline" ? "web app off" : state.web);
   return state.update ? `${web} · ${state.update} available` : web;
 }
 
