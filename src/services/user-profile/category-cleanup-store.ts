@@ -90,15 +90,22 @@ export async function loadVerdicts(profileId: string): Promise<Map<string, Saved
     "SELECT group_id, keep, name FROM profile_category_verdicts WHERE profile_id = ?",
     [profileId]
   );
-  return new Map(
-    rows.map((row) => [
-      String(row.group_id),
-      {
-        keep: JSON.parse(String(row.keep)) as string[],
-        name: row.name == null ? null : String(row.name),
-      },
-    ])
-  );
+  const verdicts = new Map<string, SavedVerdict>();
+  for (const row of rows) {
+    let keep: unknown;
+    try {
+      keep = JSON.parse(String(row.keep));
+    } catch {
+      continue;
+    }
+    // A row that is not a list of names is skipped, so its group is asked again.
+    if (!Array.isArray(keep)) continue;
+    verdicts.set(String(row.group_id), {
+      keep: keep.filter((label): label is string => typeof label === "string"),
+      name: row.name == null ? null : String(row.name),
+    });
+  }
+  return verdicts;
 }
 
 /** Deletes the profile's answers that are too old or belong to a group that no longer exists. */

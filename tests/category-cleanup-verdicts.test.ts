@@ -79,3 +79,24 @@ it("prunes more groups than one delete statement holds", async () => {
   await pruneVerdicts("p1", ["g0", "g449"]);
   expect([...(await loadVerdicts("p1")).keys()].sort()).toEqual(["g0", "g449"]);
 });
+
+it("skips a row whose keep value is not a JSON array and loads the rest", async () => {
+  await saveVerdicts(
+    "p1",
+    new Map([
+      ["good", { keep: ["A", "B"], name: "A" }],
+      ["bad-json", { keep: ["C", "D"], name: "C" }],
+      ["not-array", { keep: ["E", "F"], name: "E" }],
+      ["mixed", { keep: ["G", "H"], name: "G" }],
+    ])
+  );
+  const db = await tursoConnectionManager.getConnection(join(directory, "user-profiles.db"));
+  const set = (id: string, keep: string) =>
+    db.execute("UPDATE profile_category_verdicts SET keep = ? WHERE group_id = ?", [keep, id]);
+  await set("bad-json", "{not json");
+  await set("not-array", JSON.stringify({ keep: ["E", "F"] }));
+  await set("mixed", JSON.stringify(["G", 7, null, "H"]));
+  const loaded = await loadVerdicts("p1");
+  expect([...loaded.keys()].sort()).toEqual(["good", "mixed"]);
+  expect(loaded.get("mixed")).toEqual({ keep: ["G", "H"], name: "G" });
+});
