@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
 const { CONFIG } = await import("../src/config.js");
@@ -17,9 +18,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await tursoConnectionManager.closeAll();
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  rmSync(directory, { recursive: true, force: true });
+  await cleanupTursoTestDirectory(directory);
 });
 
 it("saves and loads verdicts per profile", async () => {
@@ -69,13 +68,17 @@ it("prunes verdicts older than the limit", async () => {
 });
 
 it("prunes more groups than one delete statement holds", async () => {
-  const verdicts = new Map(
-    Array.from(
-      { length: 450 },
-      (_, index) => [`g${index}`, { keep: ["A", "B"], name: "A" }] as const
-    )
+  // One write creates the table, then one statement adds 449 rows. 450 separate writes
+  // took over 30 seconds on a Windows runner (TDR-049).
+  await saveVerdicts("p1", new Map([["g0", { keep: ["A", "B"], name: "A" }]]));
+  const db = await tursoConnectionManager.getConnection(join(directory, "user-profiles.db"));
+  await db.execute(
+    `INSERT INTO profile_category_verdicts (profile_id, group_id, keep, name, created_at)
+     WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 449)
+     SELECT 'p1', 'g' || i, '["A","B"]', 'A', ? FROM n`,
+    [Date.now()]
   );
-  await saveVerdicts("p1", verdicts);
+  expect((await loadVerdicts("p1")).size).toBe(450);
   await pruneVerdicts("p1", ["g0", "g449"]);
   expect([...(await loadVerdicts("p1")).keys()].sort()).toEqual(["g0", "g449"]);
 });

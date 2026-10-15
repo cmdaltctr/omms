@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, expect, it, mock } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
 mock.module("../src/services/logger.js", () => ({ log: () => {} }));
 
-const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
 const { CONFIG } = await import("../src/config.js");
 const { UserProfileManager } = await import("../src/services/user-profile/user-profile-manager.js");
 const { startCategoryCleanupJob, getCategoryCleanupJob } =
@@ -54,9 +54,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await tursoConnectionManager.closeAll();
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  rmSync(directory, { recursive: true, force: true });
+  await cleanupTursoTestDirectory(directory);
 });
 
 it("returns before the model answers, reuses a running job, and ends with the preview", async () => {

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
 const logged: unknown[][] = [];
 mock.module("../src/services/logger.js", () => ({
@@ -81,9 +82,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await tursoConnectionManager.closeAll();
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  rmSync(directory, { recursive: true, force: true });
+  await cleanupTursoTestDirectory(directory);
 });
 
 describe("preview", () => {
