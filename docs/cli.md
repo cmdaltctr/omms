@@ -305,7 +305,7 @@ The preview embeds each distinct category name once with your embedder, then sen
 
 A reasoning model is slow here. On one profile with 291 groups, each call took about 110 seconds, about 27 minutes in all. If your provider can switch reasoning off, `memoryExtraParams` can pass that option; for z.ai GLM models, `"memoryExtraParams": { "thinking": { "type": "disabled" } }` cut a call to about 36 seconds. This setting applies to every external API call, including memory capture, so add it only if you accept that.
 
-Applying only renames categories. Descriptions, evidence, counts and confidence stay unchanged, and no item is removed or merged. The apply is refused if the profile changed after the preview. Undo restores the old name on every renamed item that still exists, and reports items that later learning merged away. To choose groups one by one, use **Clean up categories** on the user profile page.
+Applying only renames categories. Descriptions, evidence, counts and confidence stay unchanged, and no item is removed or merged. The apply works on the profile as stored when you run it, even when profile learning saved newer versions during the preview. It is refused only when another save lands while it writes. Then run the command again. Undo restores the old name on every renamed item that still exists, and reports items that later learning merged away. To choose groups one by one, use **Clean up categories** on the user profile page.
 
 ## The memory command
 

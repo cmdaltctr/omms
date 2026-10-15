@@ -152,6 +152,8 @@ Old spellings are repaired on the next save. To preview a repair at once, run `o
 
 To join different wordings of one meaning, such as "Execution" and "Direct execution", use the category cleanup on the user profile page or `om-memory-system profile-cleanup-categories`. It groups names by meaning, lets you review each group, and only renames categories. See [CLI: Clean up profile categories](cli.md#clean-up-profile-categories).
 
+Apply works on the profile as it is when you apply, even when learning ran during the preview. A new item that learning added under an accepted name is renamed too. If another save lands at the exact moment of the write, Apply asks you to try again.
+
 After a cleanup, more memories share a category. Profile learning merges two memories in one category at a similarity of 0.8, against 0.9 across categories, so near-duplicates merge more readily. Conflict checks also run only inside one category.
 
 ### How workflows are learned

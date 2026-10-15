@@ -70,7 +70,6 @@ it("starts a preview job, reads its state, applies and undoes through the handle
   const applied = await api.handleCategoryCleanupApply(
     undefined,
     {
-      version: preview.version,
       groups: [{ labels: group.labels.map((entry: any) => entry.label), name: group.name }],
     },
     deps
@@ -90,15 +89,41 @@ it("reports no job before one is started", async () => {
   });
 });
 
-it("refuses a stale apply with a message to build a new preview", async () => {
+it("tells the user to try again when a save lands while applying", async () => {
+  const api = await setup();
+  const { userProfileManager } =
+    await import("../src/services/user-profile/user-profile-manager.js");
+  const racing = Object.create(userProfileManager) as typeof userProfileManager;
+  racing.getActiveProfile = async (user: string) => {
+    const profile = await userProfileManager.getActiveProfile(user);
+    await userProfileManager.updateProfile(
+      profile!.id,
+      JSON.parse(profile!.profileData),
+      0,
+      "Learning during apply"
+    );
+    return profile;
+  };
+  const result = await api.handleCategoryCleanupApply(
+    undefined,
+    { groups: [{ labels: ["Execution", "Direct execution"], name: "Execution" }] },
+    { embed, model: null, manager: racing }
+  );
+  expect(result.success).toBe(false);
+  expect(result.error).toContain("Try Apply again");
+});
+
+it("applies a request that still carries the old version field", async () => {
   const api = await setup();
   const result = await api.handleCategoryCleanupApply(
     undefined,
-    { version: 999, groups: [{ labels: ["Execution", "Direct execution"], name: "Execution" }] },
+    {
+      version: 999,
+      groups: [{ labels: ["Execution", "Direct execution"], name: "Execution" }],
+    },
     { embed, model: null }
   );
-  expect(result.success).toBe(false);
-  expect(result.error).toContain("new preview");
+  expect(result.success).toBe(true);
 });
 
 it("reports nothing to undo", async () => {

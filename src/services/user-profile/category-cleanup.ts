@@ -230,7 +230,6 @@ export interface CleanupDeps {
 
 export interface CategoryCleanupPreview {
   profileId: string;
-  version: number;
   /** Distinct categories now, and if every group were accepted. */
   before: number;
   after: number;
@@ -314,7 +313,6 @@ export async function previewCategoryCleanup(
   });
   return {
     profileId: profile.id,
-    version: profile.version,
     before: labels.length,
     after: countAfter(labels, named),
     groups: named,
@@ -336,18 +334,20 @@ function validGroups(groups: unknown): groups is AcceptedGroup[] {
   );
 }
 
-/** Renames the categories of the accepted groups; refuses when the profile changed since the preview. */
+/**
+ * Renames the categories of the accepted groups on the profile as stored now. Learning may
+ * have saved newer versions since the preview; the rename goes by label, so that is safe.
+ * It refuses only when a save lands between the read and the write below.
+ */
 export async function applyCategoryCleanup(
   userId: string,
-  input: { version: number; groups: AcceptedGroup[] },
+  input: { groups: AcceptedGroup[] },
   deps: CleanupDeps = {}
 ): Promise<ApplyResult> {
-  if (!Number.isInteger(input?.version) || !validGroups(input.groups))
-    return { ok: false, error: "invalid" };
+  if (!validGroups(input?.groups)) return { ok: false, error: "invalid" };
   const manager = await managerOf(deps);
   const profile = await manager.getActiveProfile(userId);
   if (!profile) return { ok: false, error: "no_profile" };
-  if (profile.version !== input.version) return { ok: false, error: "stale" };
 
   const data = readProfile(profile.profileData);
   const rename = new Map<string, string>();
@@ -367,7 +367,7 @@ export async function applyCategoryCleanup(
   if (renames.length === 0) return { ok: true, renamed: 0 };
 
   const summary = `Category cleanup: ${renames.length} items renamed in ${input.groups.length} groups`;
-  if (!(await manager.updateProfile(profile.id, next, 0, summary, input.version))) {
+  if (!(await manager.updateProfile(profile.id, next, 0, summary, profile.version))) {
     return { ok: false, error: "stale" };
   }
   await recordCleanup(profile.id, renames);

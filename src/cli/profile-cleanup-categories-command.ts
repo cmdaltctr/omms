@@ -81,7 +81,6 @@ export async function runProfileCleanupCategoriesCommand(
     const result = await cleanup.applyCategoryCleanup(
       userId,
       {
-        version: preview.version,
         groups: preview.groups.map((group) => ({
           labels: group.labels.map((entry) => entry.label),
           name: group.name,
@@ -90,7 +89,7 @@ export async function runProfileCleanupCategoriesCommand(
       deps
     );
     if (!result.ok)
-      throw new Error(`Cleanup not applied (${result.error}). Run the preview again.`);
+      throw new Error(`Cleanup not applied (${result.error}). Run the command again.`);
     print(`Renamed ${result.renamed} items.`);
     return 0;
   } catch (error) {

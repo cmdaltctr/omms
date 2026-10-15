@@ -24,7 +24,6 @@ type CleanupGroup = {
 };
 
 type CleanupPreview = {
-  version: number;
   before: number;
   after: number;
   groups: CleanupGroup[];
@@ -150,7 +149,7 @@ export function CategoryCleanupDialog({ open = false, onOpenChange, onApplied }:
     const result = await fetchAPI<{ renamed: number }>("/api/user-profile/category-cleanup/apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ version: preview.version, groups }),
+      body: JSON.stringify({ groups }),
     });
     setBusy(false);
     if (!result.success || !result.data) {

@@ -82,14 +82,13 @@ afterEach(async () => {
 });
 
 describe("preview", () => {
-  it("leaves the profile unchanged and returns version, groups and counts", async () => {
+  it("leaves the profile unchanged and returns groups and counts", async () => {
     const { manager, id, deps } = await setup();
     const before = await stored(manager, id);
     const preview = (await previewCategoryCleanup(USER, deps))!;
     const after = await stored(manager, id);
     expect(after.profile.version).toBe(before.profile.version);
     expect(after.data).toEqual(before.data);
-    expect(preview.version).toBe(before.profile.version);
     expect(preview.groups.map((group) => group.labels.map((entry) => entry.label))).toEqual([
       ["Direct execution", "Execution", "Autonomous execution"],
       ["Communication language", "Language"],
@@ -107,7 +106,6 @@ describe("apply", () => {
     const result = await applyCategoryCleanup(
       USER,
       {
-        version: preview.version,
         groups: [{ labels: preview.groups[0]!.labels.map((e) => e.label), name: "working style" }],
       },
       deps
@@ -137,21 +135,76 @@ describe("apply", () => {
     ).toHaveLength(1);
   });
 
-  it("refuses a stale apply and changes nothing", async () => {
+  it("applies after learning saved a new version since the preview", async () => {
     const { manager, id, deps } = await setup();
-    const preview = (await previewCategoryCleanup(USER, deps))!;
+    await previewCategoryCleanup(USER, deps);
+    const versionAtPreview = (await stored(manager, id)).profile.version;
     await manager.updateProfile(id, profileData(), 0, "Learning");
-    const before = await stored(manager, id);
     const result = await applyCategoryCleanup(
       USER,
-      {
-        version: preview.version,
-        groups: [{ labels: ["Execution", "Direct execution"], name: "Execution" }],
-      },
+      { groups: [{ labels: ["Execution", "Direct execution"], name: "Execution" }] },
       deps
     );
+    expect(result).toEqual({ ok: true, renamed: 2 });
+    expect((await stored(manager, id)).profile.version).toBe(versionAtPreview + 2);
+  });
+
+  it("renames an item that learning added after the preview and keeps its content", async () => {
+    const { manager, id, deps } = await setup();
+    await previewCategoryCleanup(USER, deps);
+    const learned = profileData();
+    learned.preferences.push(item("Direct execution", 30));
+    learned.preferences.push(item("New topic", 31));
+    await manager.updateProfile(id, learned, 0, "Learning");
+    const result = await applyCategoryCleanup(
+      USER,
+      { groups: [{ labels: ["Execution", "Direct execution"], name: "Execution" }] },
+      deps
+    );
+    expect(result).toEqual({ ok: true, renamed: 3 });
+    const added = (await stored(manager, id)).data.preferences.filter(
+      (entry: any) => entry.description === "Observation Direct execution 30"
+    );
+    expect(added).toEqual([{ ...item("Direct execution", 30), category: "Execution" }]);
+    const topics = (await stored(manager, id)).data.preferences.map((entry: any) => entry.category);
+    expect(topics).toContain("New topic");
+  });
+
+  it("renames nothing and writes no changelog entry when the labels are gone", async () => {
+    const { manager, id, deps } = await setup();
+    await previewCategoryCleanup(USER, deps);
+    const learned = profileData();
+    learned.preferences = learned.preferences.filter((entry) => entry.category === "Testing");
+    learned.patterns = [];
+    await manager.updateProfile(id, learned, 0, "Learning");
+    const before = await manager.getProfileChangelogs(id);
+    const result = await applyCategoryCleanup(
+      USER,
+      { groups: [{ labels: ["Execution", "Direct execution"], name: "Execution" }] },
+      deps
+    );
+    expect(result).toEqual({ ok: true, renamed: 0 });
+    expect((await manager.getProfileChangelogs(id)).length).toBe(before.length);
+  });
+
+  it("refuses when a save lands between the read and the write, and keeps that save", async () => {
+    const { manager, id, deps } = await setup();
+    const racing = Object.create(manager) as typeof manager;
+    racing.getActiveProfile = async (userId: string) => {
+      const profile = await manager.getActiveProfile(userId);
+      await manager.updateProfile(id, profileData(), 0, "Learning during apply");
+      return profile;
+    };
+    const result = await applyCategoryCleanup(
+      USER,
+      { groups: [{ labels: ["Execution", "Direct execution"], name: "Execution" }] },
+      { ...deps, manager: racing }
+    );
     expect(result).toEqual({ ok: false, error: "stale" });
-    expect((await stored(manager, id)).data).toEqual(before.data);
+    const after = await stored(manager, id);
+    expect(after.profile.version).toBe(2);
+    expect(after.data.preferences[0].category).toBe("Execution");
+    expect(after.data.preferences[2].category).toBe("Direct execution");
   });
 });
 
@@ -163,11 +216,9 @@ describe("undo", () => {
     );
     data.patterns = [];
     const context = await setup(data);
-    const preview = (await previewCategoryCleanup(USER, context.deps))!;
     await applyCategoryCleanup(
       USER,
       {
-        version: preview.version,
         groups: [{ labels: ["Execution", "Direct execution"], name: "Execution style" }],
       },
       context.deps
@@ -212,12 +263,7 @@ describe("undo", () => {
   it("undoes the newest cleanup first, then the next older one", async () => {
     const { manager, id, deps } = await setup();
     const apply = async (labels: string[], name: string) => {
-      const preview = (await previewCategoryCleanup(USER, deps))!;
-      await applyCategoryCleanup(
-        USER,
-        { version: preview.version, groups: [{ labels, name }] },
-        deps
-      );
+      await applyCategoryCleanup(USER, { groups: [{ labels, name }] }, deps);
     };
     await apply(["Execution", "Direct execution", "Autonomous execution"], "Execution style");
     await apply(["Language", "Communication language"], "Language style");

@@ -1351,18 +1351,14 @@ export async function handleCategoryCleanupApply(
     const { applyCategoryCleanup } = await import("./user-profile/category-cleanup.js");
     const { clearCategoryCleanupJob } = await import("./user-profile/category-cleanup-job.js");
     const user = await categoryCleanupUser(userId);
-    const result = await applyCategoryCleanup(
-      user,
-      { version: body?.version, groups: body?.groups },
-      deps
-    );
+    const result = await applyCategoryCleanup(user, { groups: body?.groups }, deps);
     if (result.ok) {
       // The finished preview no longer matches the profile.
       clearCategoryCleanupJob(user);
       return { success: true, data: { renamed: result.renamed } };
     }
     const messages = {
-      stale: "Profile changed since the preview. Build a new preview.",
+      stale: "Profile saved at the same moment. Try Apply again.",
       no_profile: "No profile found to clean up",
       invalid: "Each group needs at least two labels and a name.",
     };
