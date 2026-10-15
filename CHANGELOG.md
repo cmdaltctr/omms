@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.18.0](https://github.com/cmdaltctr/omms/compare/v4.17.1...v4.18.0) (2026-10-15)
+
+
+### Features
+
+* show a status glyph in the Pi, OpenCode and Claude Code footers ([f6b72d0](https://github.com/cmdaltctr/omms/commit/f6b72d0e5a8b9341e84eae2b6056d0b932f75530))
+* show a status glyph in the Pi, OpenCode and Claude Code footers ([670d75e](https://github.com/cmdaltctr/omms/commit/670d75e39509a8cd98f75bdb8973d8c6c69242b3))
+
 ## [4.17.1](https://github.com/cmdaltctr/omms/compare/v4.17.0...v4.17.1) (2026-10-15)
 
 
