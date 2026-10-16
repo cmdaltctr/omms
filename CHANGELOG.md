@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.19.1](https://github.com/cmdaltctr/omms/compare/v4.19.0...v4.19.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* stop stale profile saves from overwriting newer versions ([b7f3012](https://github.com/cmdaltctr/omms/commit/b7f301263eceeb4ed573dcdc61172d52f4403cee))
+* stop stale profile saves from overwriting newer versions ([2d3b57f](https://github.com/cmdaltctr/omms/commit/2d3b57ff467ae167da68ca19bfab9e4b3ef4f13d))
+
+
+### Documentation
+
+* point ADR-028 and TDR-050 at the archived change folder ([1ddbf5b](https://github.com/cmdaltctr/omms/commit/1ddbf5bcbecda1063cee41bc193b4c670b35f9ed))
+
 ## [4.19.0](https://github.com/cmdaltctr/omms/compare/v4.18.0...v4.19.0) (2026-10-16)
 
 
