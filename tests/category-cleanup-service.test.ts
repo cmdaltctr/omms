@@ -151,7 +151,13 @@ describe("preview with saved model answers", () => {
     expect(firstPreview.groups).toHaveLength(FAMILIES);
     expect(first.map((batch) => batch.length)).toEqual([20, 20, 5]);
 
-    await manager.updateProfile(id, wideProfile(FAMILIES + 1), 0, "Learning");
+    await manager.updateProfile(
+      id,
+      wideProfile(FAMILIES + 1),
+      0,
+      "Learning",
+      (await stored(manager, id)).profile.version
+    );
     const second: string[][] = [];
     const secondPreview = (await previewCategoryCleanup(USER, {
       manager,
@@ -260,7 +266,7 @@ describe("apply", () => {
     const { manager, id, deps } = await setup();
     await previewCategoryCleanup(USER, deps);
     const versionAtPreview = (await stored(manager, id)).profile.version;
-    await manager.updateProfile(id, profileData(), 0, "Learning");
+    await manager.updateProfile(id, profileData(), 0, "Learning", versionAtPreview);
     const result = await applyCategoryCleanup(
       USER,
       { groups: [{ labels: ["Execution", "Direct execution"], name: "Execution" }] },
@@ -276,7 +282,13 @@ describe("apply", () => {
     const learned = profileData();
     learned.preferences.push(item("Direct execution", 30));
     learned.preferences.push(item("New topic", 31));
-    await manager.updateProfile(id, learned, 0, "Learning");
+    await manager.updateProfile(
+      id,
+      learned,
+      0,
+      "Learning",
+      (await stored(manager, id)).profile.version
+    );
     const result = await applyCategoryCleanup(
       USER,
       { groups: [{ labels: ["Execution", "Direct execution"], name: "Execution" }] },
@@ -297,7 +309,13 @@ describe("apply", () => {
     const learned = profileData();
     learned.preferences = learned.preferences.filter((entry) => entry.category === "Testing");
     learned.patterns = [];
-    await manager.updateProfile(id, learned, 0, "Learning");
+    await manager.updateProfile(
+      id,
+      learned,
+      0,
+      "Learning",
+      (await stored(manager, id)).profile.version
+    );
     const before = await manager.getProfileChangelogs(id);
     const result = await applyCategoryCleanup(
       USER,
@@ -313,7 +331,7 @@ describe("apply", () => {
     const racing = Object.create(manager) as typeof manager;
     racing.getActiveProfile = async (userId: string) => {
       const profile = await manager.getActiveProfile(userId);
-      await manager.updateProfile(id, profileData(), 0, "Learning during apply");
+      await manager.updateProfile(id, profileData(), 0, "Learning during apply", profile!.version);
       return profile;
     };
     const result = await applyCategoryCleanup(
@@ -354,7 +372,13 @@ describe("undo", () => {
     current.preferences.push(
       ...Array.from({ length: 5 }, (_, index) => item("New topic", 20 + index))
     );
-    await manager.updateProfile(id, current, 0, "Learning");
+    await manager.updateProfile(
+      id,
+      current,
+      0,
+      "Learning",
+      (await stored(manager, id)).profile.version
+    );
     const result = await undoCategoryCleanup(USER, deps);
     expect(result).toEqual({ ok: true, restored: 10, notFound: 2 });
     const after = (await stored(manager, id)).data.preferences.map((entry: any) => entry.category);

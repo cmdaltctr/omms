@@ -38,6 +38,10 @@ Where the model answered, it kept 104 of 120 groups, renamed 37 of them (for exa
 
 A read-only preview on the live profile took 1,954 seconds: 295 groups, 23 dropped by the model, 232 checked, 40 unchecked after two batches timed out. The operator applied only the 232 checked groups, with "Prioritisation" in British spelling, after a database backup (`user-profiles.db.bak-category-cleanup-20261013`). The apply renamed 510 items: categories fell from 1,738 to 1,292 while items stayed at 1,988. The undo record holds 510 renames.
 
+### Recount (2026-10-16)
+
+A read-only recount three days later found 2,116 items and 1,849 categories, more than before the apply. 490 of the 510 renamed items had their old category again. The cleanup did not fail. A Claude Code learning run that loaded the profile at 09:48 saved that copy at 10:29, eight minutes after the apply, and replaced the renames. [TDR-050](050-profile-saves-lost-to-stale-learning-copy.md) gives the evidence and the fix. The threshold and model pace in this record are unaffected.
+
 ## Decision
 
 - Keep the grouping threshold at 0.80. It takes the live profile from 1,724 to about 1,180 categories, keeps groups small, and groups in seconds. Lower thresholds group more names but build larger groups and take minutes.

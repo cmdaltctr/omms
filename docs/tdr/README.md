@@ -71,6 +71,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [047](./047-category-cleanup-apply-after-learning.md)             | Category cleanup applies after profile learning                         | Accepted              | 2026-10-15 |
 | [048](./048-category-cleanup-reuses-model-answers.md)             | Category cleanup reuses model answers between previews                  | Accepted              | 2026-10-15 |
 | [049](./049-category-cleanup-tests-use-shared-windows-cleanup.md) | Category cleanup tests use the shared Windows cleanup                   | Accepted              | 2026-10-15 |
+| [050](./050-profile-saves-lost-to-stale-learning-copy.md)         | Profile saves lost to a stale learning copy                             | Accepted              | 2026-10-16 |
 
 ## Status values
 

@@ -100,6 +100,7 @@ export async function performPiProfileLearning(input: PiProfileLearningInput): P
 
     const { userProfileManager } =
       await import("../../services/user-profile/user-profile-manager.js");
+    const { saveMergedProfile } = await import("../../services/user-profile/merge-and-save.js");
     const existing = await userProfileManager.getActiveProfile(userId);
 
     const resolveProfileModel = input.resolveProfileModel;
@@ -122,9 +123,10 @@ export async function performPiProfileLearning(input: PiProfileLearningInput): P
     }
 
     if (existing && analysis.merged) {
-      const updated = await userProfileManager.updateProfile(
-        existing.id,
-        analysis.merged,
+      const updated = await saveMergedProfile(
+        userProfileManager,
+        existing,
+        analysis,
         input.prompts.length,
         `Pi analysis of ${input.prompts.length} prompts`
       );

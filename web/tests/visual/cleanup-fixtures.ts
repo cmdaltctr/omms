@@ -8,7 +8,16 @@ const TOTAL = 6;
 const preview = {
   before: 1257,
   after: 1189,
-  groups: Array.from({ length: 62 }, () => ({ labels: [], name: "" })),
+  // Every fifth group is one the model did not check, so the review starts them cleared.
+  groups: Array.from({ length: 62 }, (_, index) => ({
+    id: `group-${index}`,
+    name: `Topic ${index + 1}`,
+    checked: index % 5 !== 0,
+    labels: [
+      { label: `Topic ${index + 1}`, count: 4 },
+      { label: `Topic ${index + 1} variant`, count: 2 },
+    ],
+  })),
 };
 let state: CleanupFixtureState = "none";
 let done = 0;

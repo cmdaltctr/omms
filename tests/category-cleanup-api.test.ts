@@ -97,7 +97,8 @@ it("tells the user to try again when a save lands while applying", async () => {
       profile!.id,
       JSON.parse(profile!.profileData),
       0,
-      "Learning during apply"
+      "Learning during apply",
+      profile!.version
     );
     return profile;
   };

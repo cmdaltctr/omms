@@ -14,7 +14,8 @@ export interface ProfileAdminStore {
     profileId: string,
     profileData: UserProfileData,
     additionalPromptsAnalyzed: number,
-    changeSummary: string
+    changeSummary: string,
+    expectedVersion: number
   ): Promise<boolean>;
   deactivateProfile(profileId: string): Promise<boolean>;
 }
@@ -92,7 +93,8 @@ export async function mergeProfiles(
     target.id,
     merged,
     source.totalPromptsAnalyzed,
-    `Merged profile ${source.userId}`
+    `Merged profile ${source.userId}`,
+    target.version
   );
   if (!saved) throw new ProfileAdminError("Profile was changed by another session. Retry.", 409);
   await store.deactivateProfile(source.id);

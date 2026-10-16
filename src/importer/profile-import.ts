@@ -32,7 +32,7 @@ type PromptStore = Pick<
 >;
 type ProfileStore = Pick<
   typeof userProfileManager,
-  "getActiveProfile" | "createProfile" | "updateProfile"
+  "getActiveProfile" | "getProfileById" | "createProfile" | "mergeProfileData" | "updateProfile"
 >;
 type Ledger = Pick<ImportLedger, "get" | "begin" | "complete"> &
   Partial<Pick<ImportLedger, "peek">>;

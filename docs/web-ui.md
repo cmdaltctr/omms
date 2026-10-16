@@ -173,11 +173,11 @@ Open `/user-profile` to see learned preferences, patterns and workflows.
 **Clean up categories** shows the number of categories beside its label. It opens a review of category names that mean the same thing:
 
 1. OMMS groups the names and the profile model proposes one name per group. This runs in the background with a progress line, one model call per 20 groups. On a large profile it can take many minutes. Closing the window does not stop it. **Build a new preview** starts over.
-2. Each group lists its names with item counts. Clear a group's box to skip it, or edit its name.
+2. Each group lists its names with item counts. Clear a group's box to skip it, or edit its name. Groups that the AI checked start selected. Groups marked **Not checked by the AI** start cleared; select one to include it.
 3. **Apply selected** renames the categories of the selected groups. No memory is changed, merged or removed.
 4. **Undo last cleanup** restores the names the last cleanup changed.
 
-A group marked **Not checked by the AI** used its most used name because the profile model did not answer.
+A group marked **Not checked by the AI** used its most used name because the profile model did not answer. Check its names before you select it: the AI did not confirm that they mean the same thing.
 
 While a preview exists, a banner under the profile details shows its state, so you do not need to keep the window open:
 

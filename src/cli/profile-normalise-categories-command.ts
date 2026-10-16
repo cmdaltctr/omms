@@ -76,7 +76,8 @@ export async function runProfileNormaliseCategoriesCommand(
       profile.id,
       after,
       0,
-      `Normalised profile categories: ${changes} items renamed`
+      `Normalised profile categories: ${changes} items renamed`,
+      profile.version
     );
     if (!saved) throw new Error("Profile was modified by another session. Please retry.");
     print("Category renames saved. The previous snapshot remains in the profile changelog.");

@@ -202,6 +202,7 @@ export async function executeMemoryOperation(
 
         const { userProfileManager } =
           await import("../services/user-profile/user-profile-manager.js");
+        const { saveMergedProfile } = await import("../services/user-profile/merge-and-save.js");
         const userId = tags.user.userEmail || "unknown";
 
         if (args.content !== undefined) {
@@ -236,18 +237,26 @@ export async function executeMemoryOperation(
           const existingProfile = await userProfileManager.getActiveProfile(userId);
           if (existingProfile) {
             const existingData = JSON.parse(existingProfile.profileData);
+            const raw = { preferences: [newPreference] };
             const mergedData = await userProfileManager.mergeProfileData(
               existingData,
-              { preferences: [newPreference] },
+              raw,
               undefined,
               existingProfile.id
             );
-            await userProfileManager.updateProfile(
-              existingProfile.id,
-              mergedData,
+            const saved = await saveMergedProfile(
+              userProfileManager,
+              existingProfile,
+              { raw, merged: mergedData },
               0,
               `Explicit preference added: ${sanitizedContent.slice(0, 80)}`
             );
+            if (!saved) {
+              return {
+                success: false,
+                error: "The profile changed while saving. Try again.",
+              };
+            }
             return { success: true, message: "Preference saved to profile" };
           }
 

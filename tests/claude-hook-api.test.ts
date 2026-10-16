@@ -57,6 +57,7 @@ function createHarness(config: Record<string, unknown> = EXTERNAL_API): Harness 
 const { mock } = await import("bun:test");
 const embeddingStub = {
   embedWithTimeout: async () => new Float32Array([0.25, 0.5, 0.75, 1]),
+  embed: async () => new Float32Array([0.25, 0.5, 0.75, 1]),
   warmup: async () => {},
   isWarmedUp: true,
 };
@@ -568,6 +569,77 @@ scenario = { afterOne, profileCalls, captures: calls.length, recorded, failures 
       "Prompt three after a failed profile step",
       "Prompt two for the profile",
     ]);
+  });
+
+  it("keeps a category cleanup that lands while profile learning waits for the model", async () => {
+    const { run } = createHarness({ ...EXTERNAL_API, userProfileAnalysisInterval: 1 });
+    const scenario = await run(`
+const { userProfileManager } = await import(${JSON.stringify(moduleUrl("src/services/user-profile/user-profile-manager.js"))});
+const profileId = await userProfileManager.createProfile("dev@example.com", "Dev", "dev", "dev@example.com", {
+  preferences: [{ category: "Old name", description: "Prefers short answers", confidence: 0.8, frequency: 3, evidence: ["e"], lastSeen: Date.now() }],
+  patterns: [], workflows: [],
+}, 0);
+const profileCalls = [];
+const profileModel = { provider: "stub", modelId: "stub", async complete(_system, prompt) {
+  profileCalls.push(prompt);
+  // A category cleanup renames the item while the model is still working.
+  const current = await userProfileManager.getProfileById(profileId);
+  const data = JSON.parse(current.profileData);
+  data.preferences = data.preferences.map((item) => ({ ...item, category: "New name" }));
+  await userProfileManager.updateProfile(profileId, data, 0, "Category cleanup", current.version);
+  return JSON.stringify({
+    preferences: [{ category: "Fresh topic", description: "Runs the failing test first", confidence: 0.7, evidence: ["e"] }],
+    patterns: [], workflows: [],
+  });
+} };
+turn("1", "Prompt for the cleanup race", "Reply");
+api.handleClaudeCapture({ session_id: "ses-1", transcript_path: transcript, cwd: projectDir }, { captureProvider: () => provider, profileModel: () => profileModel });
+await api.whenClaudeCaptureIdle();
+const finalProfile = await userProfileManager.getProfileById(profileId);
+scenario = {
+  modelCalls: profileCalls.length,
+  categories: JSON.parse(finalProfile.profileData).preferences.map((item) => item.category),
+  failures: logs.filter((l) => l.message === "Claude Code profile learning failed"),
+  finished: logs.filter((l) => l.message === "Claude Code profile learning finished").length,
+};
+`);
+    expect(scenario.failures).toEqual([]);
+    expect(scenario.finished).toBe(1);
+    expect(scenario.modelCalls).toBe(1);
+    expect(scenario.categories).toContain("New name");
+    expect(scenario.categories).not.toContain("Old name");
+  });
+
+  it("keeps the prompts unanalysed when every profile save meets a newer version", async () => {
+    const { run } = createHarness({ ...EXTERNAL_API, userProfileAnalysisInterval: 1 });
+    const scenario = await run(`
+const { userProfileManager } = await import(${JSON.stringify(moduleUrl("src/services/user-profile/user-profile-manager.js"))});
+const { userPromptManager } = await import(${JSON.stringify(moduleUrl("src/services/user-prompt/user-prompt-manager.js"))});
+await userProfileManager.createProfile("dev@example.com", "Dev", "dev", "dev@example.com", {
+  preferences: [{ category: "Old name", description: "Prefers short answers", confidence: 0.8, frequency: 3, evidence: ["e"], lastSeen: Date.now() }],
+  patterns: [], workflows: [],
+}, 0);
+let saveAttempts = 0;
+userProfileManager.updateProfile = async () => { saveAttempts++; return false; };
+let modelCalls = 0;
+const profileModel = { provider: "stub", modelId: "stub", async complete() {
+  modelCalls++;
+  return JSON.stringify({ preferences: [], patterns: [], workflows: [] });
+} };
+turn("1", "Prompt for the conflict loop", "Reply");
+api.handleClaudeCapture({ session_id: "ses-1", transcript_path: transcript, cwd: projectDir }, { captureProvider: () => provider, profileModel: () => profileModel });
+await api.whenClaudeCaptureIdle();
+scenario = {
+  saveAttempts,
+  modelCalls,
+  unanalysed: await userPromptManager.countUnanalyzedForUserLearning(),
+  failures: logs.filter((l) => l.message === "Claude Code profile learning failed"),
+};
+`);
+    expect(scenario.modelCalls).toBe(1);
+    expect(scenario.saveAttempts).toBe(3);
+    expect(scenario.unanalysed).toBe(1);
+    expect(scenario.failures).toHaveLength(1);
   });
 
   it("makes no model call and logs the missing setting once when the external API is half configured", async () => {

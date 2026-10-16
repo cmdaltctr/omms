@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Loader, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { fetchAPI } from "$lib/api";
+import {
+  categoriesAfter,
+  groupsToApply,
+  initiallyAccepted,
+  toggled,
+} from "$lib/category-cleanup-groups";
 import { keywordHue } from "./KeywordBadge";
 import { Badge } from "$lib/components/ui/badge";
 import { Button } from "$lib/components/ui/button";
@@ -81,7 +87,7 @@ export function CategoryCleanupDialog({ open = false, onOpenChange, onApplied }:
 
   function show(next: CleanupPreview) {
     setPreview(next);
-    setAccepted(new Set(next.groups.map((_, index) => index)));
+    setAccepted(initiallyAccepted(next.groups));
     setNames(next.groups.map((group) => group.name));
   }
 
@@ -126,30 +132,16 @@ export function CategoryCleanupDialog({ open = false, onOpenChange, onApplied }:
   }
 
   function toggle(index: number) {
-    setAccepted((previous) => {
-      const next = new Set(previous);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
-      return next;
-    });
+    setAccepted((previous) => toggled(previous, index));
   }
 
-  const after = preview
-    ? preview.before -
-      preview.groups.reduce(
-        (sum, group, index) => sum + (accepted.has(index) ? group.labels.length - 1 : 0),
-        0
-      )
-    : 0;
+  const after = preview ? categoriesAfter(preview.before, preview.groups, accepted) : 0;
   const ready = [...accepted].every((index) => (names[index] ?? "").trim().length > 0);
 
   async function apply() {
     if (!preview || accepted.size === 0 || !ready) return;
     setBusy(true);
-    const groups = [...accepted].map((index) => ({
-      labels: preview.groups[index]!.labels.map((entry) => entry.label),
-      name: names[index]!.trim(),
-    }));
+    const groups = groupsToApply(preview.groups, accepted, names);
     const result = await fetchAPI<{ renamed: number }>("/api/user-profile/category-cleanup/apply", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
