@@ -124,11 +124,32 @@ it("translates every banner text into Chinese and Arabic", () => {
   }
 });
 
-it("renders the banner on the Profile page, hidden while the cleanup dialog is open", async () => {
+const { ProfileView } = await import("../src/lib/components/explorer/ProfileView.tsx");
+const profile = {
+  exists: true,
+  profileData: { preferences: [], patterns: [], workflows: [] },
+} as never;
+const bannerOf = (props: { categoryCleanupOpen?: boolean; onCategoryCleanup?: () => void }) =>
+  nodes(ProfileView({ profile, ...props }) as ReactNode).find(
+    (node) => typeof node.type === "function" && node.type.name === "CategoryCleanupBanner"
+  )!;
+
+it("renders the banner on the Profile page and opens the review dialog from it", () => {
+  const onCategoryCleanup = mock(() => {});
+  const banner = bannerOf({ onCategoryCleanup });
+  expect(banner).toBeDefined();
+  (banner.props.onOpen as () => void)();
+  expect(onCategoryCleanup).toHaveBeenCalledTimes(1);
+});
+
+it("pauses the banner on the Profile page only while the cleanup dialog is open", () => {
+  expect(bannerOf({}).props.paused).toBe(false);
+  expect(bannerOf({ categoryCleanupOpen: true }).props.paused).toBe(true);
+});
+
+it("passes the dialog state from the app to the Profile page", async () => {
+  // App cannot be rendered outside a browser, so this one wiring check reads its source.
   const { readFileSync } = await import("node:fs");
-  const source = (path: string) => readFileSync(new URL(`../src/${path}`, import.meta.url), "utf8");
-  const view = source("lib/components/explorer/ProfileView.tsx");
-  expect(view).toMatch(/<CategoryCleanupBanner\s+paused=\{categoryCleanupOpen\}/);
-  expect(view).toMatch(/onOpen=\{\(\) => onCategoryCleanup\?\.\(\)\}/);
-  expect(source("App.tsx")).toContain("categoryCleanupOpen={profile.categoryCleanupOpen}");
+  const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  expect(app).toContain("categoryCleanupOpen={profile.categoryCleanupOpen}");
 });
