@@ -11,6 +11,7 @@ import { CONFIG } from "../config.js";
 import type { MemoryType } from "../types/index.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
 import type { UserProfileData } from "./user-profile/types.js";
+import { saveProfile } from "./user-profile/merge-and-save.js";
 import { sortProfileItems, stripProfileVectors } from "../utils/profile.js";
 import { resolveWebProfileUserId } from "./profile-identity.js";
 import type { ShardInfo } from "./turso/types.js";
@@ -1030,8 +1031,7 @@ export async function handleRefreshProfile(userId?: string): Promise<ApiResponse
       const pData = JSON.parse(profile.profileData);
       const { data: decayed, hasChanges } = userProfileManager.decayInMemory(pData);
       if (hasChanges) {
-        await userProfileManager.updateProfile(profile.id, decayed, 0, "Applied confidence decay");
-        decayApplied = true;
+        decayApplied = await saveProfile(profile, decayed, "Applied confidence decay");
       }
     }
     const unanalyzedCount = await userPromptManager.countUnanalyzedForUserLearning();
@@ -1278,10 +1278,9 @@ export async function handleApplyCleanup(userId?: string, body?: any): Promise<A
 
     const partial = (pending.includeIds && pending.includeIds.length > 0) || explicitAcceptance;
 
-    const success = await userProfileManager.updateProfile(
-      profile.id,
+    const success = await saveProfile(
+      profile,
       result,
-      0,
       partial ? "AI cleanup applied (partial)" : "AI cleanup applied"
     );
 
@@ -1495,12 +1494,7 @@ export async function handleUpdateProfileItem(body?: any): Promise<ApiResponse<a
         ? `Deleted ${type.slice(0, -1)} at index ${index}`
         : `Edited ${type.slice(0, -1)} at index ${index}`;
 
-    const success = await userProfileManager.updateProfile(
-      profile.id,
-      profileData,
-      0,
-      changeSummary
-    );
+    const success = await saveProfile(profile, profileData, changeSummary);
     if (!success)
       return { success: false, error: "Profile was modified by another session. Please retry." };
 

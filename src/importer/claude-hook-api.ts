@@ -545,14 +545,14 @@ async function learnProfile(directory: string, deps: ClaudeHookDeps): Promise<vo
       existing ? { id: existing.id, profileData: existing.profileData } : null
     );
     if (existing) {
-      const updated =
-        analysis.merged &&
-        (await userProfileManager.updateProfile(
-          existing.id,
-          analysis.merged,
-          batch.length,
-          `Claude Code analysis of ${batch.length} prompts`
-        ));
+      const { saveMergedProfile } = await import("../services/user-profile/merge-and-save.js");
+      const updated = await saveMergedProfile(
+        userProfileManager,
+        existing,
+        analysis,
+        batch.length,
+        `Claude Code analysis of ${batch.length} prompts`
+      );
       if (!updated) throw new Error("Profile update conflict");
     } else {
       await userProfileManager.createProfile(

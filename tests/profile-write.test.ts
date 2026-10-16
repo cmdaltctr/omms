@@ -117,7 +117,8 @@ describe("UserProfileManager – explicit preference writes", () => {
       existingProfile.id,
       merged,
       0,
-      "Explicit preference added: Always use numbered lists"
+      "Explicit preference added: Always use numbered lists",
+      existingProfile.version
     );
 
     const updated = await mgr.getActiveProfile(userId)!;
@@ -163,7 +164,13 @@ describe("UserProfileManager – explicit preference writes", () => {
     const merged = await mgr.mergeProfileData(d1, {
       preferences: [{ ...pref, lastSeen: Date.now() }],
     });
-    await mgr.updateProfile(p1.id, merged, 0, "Explicit preference added: Prefer short answers");
+    await mgr.updateProfile(
+      p1.id,
+      merged,
+      0,
+      "Explicit preference added: Prefer short answers",
+      p1.version
+    );
 
     const p2 = await mgr.getActiveProfile(userId)!;
     const d2 = JSON.parse(p2.profileData);
@@ -213,7 +220,7 @@ describe("UserProfileManager – explicit preference writes", () => {
         },
       ],
     });
-    await mgr.updateProfile(p.id, merged, 0, summary);
+    await mgr.updateProfile(p.id, merged, 0, summary, p.version);
 
     const changelogs = await mgr.getProfileChangelogs(p.id);
     const last = changelogs[0];

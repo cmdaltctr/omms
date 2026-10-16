@@ -1,5 +1,6 @@
 import { analyzeProfile, type ModelPort } from "../core/profile-analysis.js";
 import { profileFailureCode, type ProfileFailureCode } from "../core/profile-failure.js";
+import { saveMergedProfile } from "../services/user-profile/merge-and-save.js";
 import { userProfileManager } from "../services/user-profile/user-profile-manager.js";
 import { userPromptManager } from "../services/user-prompt/user-prompt-manager.js";
 
@@ -12,7 +13,7 @@ export type BacklogPromptStore = Pick<
   Partial<Pick<typeof userPromptManager, "skipTrivialPromptsForLearning">>;
 export type BacklogProfileStore = Pick<
   typeof userProfileManager,
-  "getActiveProfile" | "createProfile" | "updateProfile"
+  "getActiveProfile" | "getProfileById" | "createProfile" | "mergeProfileData" | "updateProfile"
 >;
 
 export interface DrainProfileBacklogOptions {
@@ -93,15 +94,8 @@ export async function drainProfileBacklog(
           existing ? { id: existing.id, profileData: existing.profileData } : null
         );
         if (existing) {
-          if (
-            !analysis.merged ||
-            !(await profiles.updateProfile(
-              existing.id,
-              analysis.merged,
-              batch.length,
-              `${label} of ${batch.length} prompts`
-            ))
-          )
+          const summary = `${label} of ${batch.length} prompts`;
+          if (!(await saveMergedProfile(profiles, existing, analysis, batch.length, summary)))
             throw new Error("Profile update conflict");
         } else {
           await profiles.createProfile(

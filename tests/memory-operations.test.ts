@@ -127,9 +127,15 @@ mock.module(${JSON.stringify(profileManagerUrl)}, () => ({
         preferences: [...(existing.preferences ?? []), ...(incoming.preferences ?? [])],
       };
     },
-    updateProfile: async (profileId, data, _bump, note) => {
-      profileWrites.push({ profileId, data, note });
-      return { success: true };
+    // Another writer has already saved version 4, so a reload finds it.
+    getProfileById: async (profileId) => ({
+      id: profileId,
+      profileData: JSON.stringify({ preferences: [{ description: "prefers Bun" }] }),
+      version: 4,
+    }),
+    updateProfile: async (profileId, data, _bump, note, expectedVersion) => {
+      profileWrites.push({ profileId, data, note, expectedVersion });
+      return globalThis.failProfileSaves ? false : { success: true };
     },
     createProfile: async (userId) => {
       profileWrites.push({ userId, created: true });
@@ -282,6 +288,17 @@ describe("memory operations (shared tool path) characterisation", () => {
     const savedPreference = result.profileWrites[0].data.preferences.at(-1);
     expect(savedPreference.description).toBe("prefers [REDACTED] dark themes");
     expect(savedPreference.confidence).toBe(1);
+    expect(result.profileWrites[0].expectedVersion).toBe(3);
+  });
+
+  it("profile write asks the user to try again when every save meets a newer version", () => {
+    const result = runScenario(
+      `globalThis.failProfileSaves = true;\n${run({ mode: "profile", content: "prefers tabs" }, context)}`
+    );
+
+    expect(result.output.success).toBe(false);
+    expect(result.output.error).toContain("changed while saving");
+    expect(result.profileWrites.map((write: any) => write.expectedVersion)).toEqual([3, 4, 4]);
   });
 
   it("profile write without a resolvable user email is rejected", () => {

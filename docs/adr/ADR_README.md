@@ -31,3 +31,4 @@ Local decision records for OMMS maintainers.
 | [025](./025-memory-workspace-sequential-imports.md)             | Memory workspace with sequential web imports                      | 2026-10-08 | Accepted           |
 | [026](./026-claude-code-memory-tool-from-plugin-module.md)      | Claude Code gets a memory tool from the plugin module             | 2026-10-13 | Proposed           |
 | [027](./027-review-first-label-assignment.md)                   | First label assignment goes to review                             | 2026-10-11 | Proposed (on hold) |
+| [028](./028-every-profile-save-checks-version.md)               | Every profile save checks the version it read                     | 2026-10-16 | Accepted           |

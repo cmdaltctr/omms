@@ -7,6 +7,7 @@ import { resolveOpencodeHostModel } from "../../services/ai/live-model-choice.js
 import { userPromptManager } from "../../services/user-prompt/user-prompt-manager.js";
 import type { UserPrompt } from "../../services/user-prompt/user-prompt-manager.js";
 import { userProfileManager } from "../../services/user-profile/user-profile-manager.js";
+import { saveProfile } from "../../services/user-profile/merge-and-save.js";
 import { sortProfileItems } from "../../utils/profile.js";
 import { truncateToMaxBytes } from "../../utils/context-limit.js";
 import type { UserProfile, UserProfileData } from "../../services/user-profile/types.js";
@@ -41,12 +42,8 @@ async function runAutomaticProfileCleanup(userId: string): Promise<void> {
     const result = await aiCleanupProfile(profileData);
     if (result.diff.merged.length === 0 && result.diff.removed.length === 0) return;
 
-    const updated = await userProfileManager.updateProfile(
-      profile.id,
-      result.cleaned,
-      0,
-      `Automatic AI cleanup: ${result.diff.merged.length} merged, ${result.diff.removed.length} removed`
-    );
+    const summary = `Automatic AI cleanup: ${result.diff.merged.length} merged, ${result.diff.removed.length} removed`;
+    const updated = await saveProfile(profile, result.cleaned, summary);
     log("user-profile-learning: automatic cleanup complete", {
       userId,
       updated,
@@ -243,11 +240,11 @@ Rules:
           changeSummary = changeSummary + "; " + validationSummary;
         }
 
-        success = await userProfileManager.updateProfile(
-          existingProfile.id,
+        success = await saveProfile(
+          existingProfile,
           updatedProfileData,
-          prompts.length,
-          changeSummary
+          changeSummary,
+          prompts.length
         );
         if (!success) {
           log("User profile update conflict, retrying", {
@@ -260,13 +257,12 @@ Rules:
       }
 
       if (!success) {
-        // Mark the batch anyway so the same prompts are not retried forever
-        // (token burn + repeated toasts on every subsequent idle).
+        // Keep the prompts for a later run; the backoff stops a retry on every idle.
         log("User profile update conflict: exhausted retries", {
           profileId: existingProfile?.id,
           userId,
         });
-        await userPromptManager.markMultipleAsUserLearningCaptured(prompts.map((p) => p.id));
+        recordProfileFailure("opencode", "user-profile-learning: conflict", new Error("conflict"));
         return;
       }
 
@@ -835,10 +831,9 @@ If no clear chains, return { "paths": [] }.`;
 
   const data: UserProfileData = JSON.parse(profile.profileData);
   data.learning_paths = result.paths;
-  await userProfileManager.updateProfile(
-    profileId,
+  await saveProfile(
+    profile,
     data,
-    0,
     `Updated learning paths: ${result.paths.map((p) => p.topic).join(", ")}`
   );
 }

@@ -110,7 +110,8 @@ describe("category save paths", () => {
     const input = data();
     input.workflows[0]!.steps = ["One manually edited step"];
     const before = structuredClone(input);
-    expect(await manager.updateProfile(id, input, 0, "Manual edit")).toBe(true);
+    const version = (await manager.getProfileById(id))!.version;
+    expect(await manager.updateProfile(id, input, 0, "Manual edit", version)).toBe(true);
     const stored = await manager.getProfileById(id);
     expect(JSON.parse(stored!.profileData)).toEqual(expected(before));
     expect(input).toEqual(before);
@@ -151,7 +152,8 @@ describe("category save paths", () => {
       7
     );
     expect(await categories(id)).toEqual(Array(5).fill("explicit"));
-    expect(await manager.updateProfile(id, variants(), 0, "Manual edit")).toBe(true);
+    const version = (await manager.getProfileById(id))!.version;
+    expect(await manager.updateProfile(id, variants(), 0, "Manual edit", version)).toBe(true);
     expect(await categories(id)).toEqual(Array(5).fill("explicit"));
   });
 });

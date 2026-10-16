@@ -325,8 +325,8 @@ export class UserProfileManager {
     profileData: UserProfileData,
     additionalPromptsAnalyzed: number,
     changeSummary: string,
-    /** When given, refuse the save unless the stored version still equals it. */
-    expectedVersion?: number
+    /** The version the caller read. The save is refused when the stored version differs. */
+    expectedVersion: number
   ): Promise<boolean> {
     const db = await this.ready();
     const now = Date.now();
@@ -340,7 +340,7 @@ export class UserProfileManager {
 
     const versionRow = await db.get(`SELECT version FROM user_profiles WHERE id = ?`, [profileId]);
     const currentVersion = Number(versionRow?.version ?? 0);
-    if (expectedVersion !== undefined && currentVersion !== expectedVersion) return false;
+    if (currentVersion !== expectedVersion) return false;
     const newVersion = currentVersion + 1;
 
     const changes = await db.run(

@@ -53,7 +53,7 @@ describe("updateProfile expected version", () => {
       0
     );
     const version = (await manager.getProfileById(id))!.version;
-    expect(await manager.updateProfile(id, empty(), 0, "Learning")).toBe(true);
+    expect(await manager.updateProfile(id, empty(), 0, "Learning", version)).toBe(true);
     const changed = { ...empty(), preferences: [] };
     expect(await manager.updateProfile(id, changed, 0, "Stale edit", version)).toBe(false);
     expect((await manager.getProfileById(id))!.version).toBe(version + 1);
@@ -61,7 +61,7 @@ describe("updateProfile expected version", () => {
     expect(changes.map((entry) => entry.changeSummary)).not.toContain("Stale edit");
   });
 
-  it("keeps the old behaviour when no expected version is given", async () => {
+  it("saves in sequence when each save carries the version it read", async () => {
     const manager = await makeManager();
     const id = await manager.createProfile(
       "u@example.invalid",
@@ -71,7 +71,9 @@ describe("updateProfile expected version", () => {
       empty(),
       0
     );
-    expect(await manager.updateProfile(id, empty(), 0, "One")).toBe(true);
-    expect(await manager.updateProfile(id, empty(), 0, "Two")).toBe(true);
+    const version = (await manager.getProfileById(id))!.version;
+    expect(await manager.updateProfile(id, empty(), 0, "One", version)).toBe(true);
+    expect(await manager.updateProfile(id, empty(), 0, "Two", version + 1)).toBe(true);
+    expect((await manager.getProfileById(id))!.version).toBe(version + 2);
   });
 });
