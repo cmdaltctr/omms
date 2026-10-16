@@ -43,4 +43,4 @@ The profile is one JSON document per user with a version number. Many writers lo
 ## References
 
 - [TDR-050: Profile saves lost to a stale learning copy](../tdr/050-profile-saves-lost-to-stale-learning-copy.md)
-- `openspec/changes/guard-profile-saves/`
+- `openspec/changes/archive/2026-10-16-guard-profile-saves/`

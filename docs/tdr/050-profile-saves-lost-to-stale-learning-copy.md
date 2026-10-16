@@ -75,5 +75,5 @@ Change `guard-profile-saves`:
 
 ## References
 
-- `openspec/changes/guard-profile-saves/`
+- `openspec/changes/archive/2026-10-16-guard-profile-saves/`
 - [TDR-044](044-category-cleanup-threshold-and-model-pace.md), [TDR-047](047-category-cleanup-apply-after-learning.md), [ADR-028](../adr/028-every-profile-save-checks-version.md)
