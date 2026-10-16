@@ -1,3 +1,4 @@
+import { cleanupResponse } from "./cleanup-fixtures";
 import { settingsResponse } from "./settings-fixtures";
 import { memoryResponse } from "./memory-fixtures";
 
@@ -149,6 +150,8 @@ export function fixtureResponse(
   if (memory) return memory;
   const settings = settingsResponse(method, path, body);
   if (settings) return settings;
+  const cleanup = cleanupResponse(method, path, body);
+  if (cleanup) return cleanup;
 
   if (method === "PUT" && path === "/api/memories/preview-memory-1") {
     const content = (body as { content?: unknown })?.content;

@@ -13,6 +13,7 @@ import {
   UserX,
   Workflow,
 } from "lucide-react";
+import { CategoryCleanupBanner } from "./CategoryCleanupBanner";
 import { ChangelogDialog } from "./ChangelogDialog";
 import { keywordHue } from "./KeywordBadge";
 import { ProfileItemDialog } from "./ProfileItemDialog";
@@ -33,6 +34,8 @@ type Props = {
   onRefresh?: () => void;
   onCleanup?: () => void;
   onCategoryCleanup?: () => void;
+  /** True while the category cleanup dialog is open, so the banner hides. */
+  categoryCleanupOpen?: boolean;
 };
 
 const PAGE_SIZE = 20;
@@ -71,6 +74,7 @@ export function ProfileView({
   onRefresh,
   onCleanup,
   onCategoryCleanup,
+  categoryCleanupOpen = false,
 }: Props) {
   const { t } = useI18n();
   const [profilePages, setProfilePages] = useState({ pref: 1, pat: 1, wf: 1 });
@@ -318,6 +322,10 @@ export function ProfileView({
               </Button>
             </div>
           </div>
+          <CategoryCleanupBanner
+            paused={categoryCleanupOpen}
+            onOpen={() => onCategoryCleanup?.()}
+          />
         </div>
 
         <div className="grid gap-8">

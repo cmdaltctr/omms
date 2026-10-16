@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "$lib/components/ui/dialog";
+import { sameCategoryIds } from "$lib/cleanup-selection";
 import { useI18n } from "$lib/i18n";
 import { findDescById, findStepsById } from "$lib/profile-utils";
 import type { PendingCleanup, ProfileItem, UserProfile } from "$lib/types";
@@ -135,14 +136,7 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
   }
 
   function selectSameCat() {
-    const next = new Set<string>();
-    for (const cat of Object.keys(cats)) {
-      const items = [...cats[cat].pref, ...cats[cat].pat, ...cats[cat].wf];
-      if (items.length >= 3) {
-        for (const it of items) next.add(it._id);
-      }
-    }
-    setSelectedIds(next);
+    setSelectedIds(sameCategoryIds(allItems));
   }
 
   async function analyze() {

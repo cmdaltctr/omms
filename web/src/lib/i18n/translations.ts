@@ -193,6 +193,9 @@ export const translations = {
     "label-category-cleanup-background":
       "This runs in the background and can take several minutes. You can close this window and come back.",
     "btn-category-cleanup-rebuild": "Build a new preview",
+    "label-category-cleanup-banner-ready": "A cleanup preview is ready ({groups} groups).",
+    "label-category-cleanup-banner-failed": "The cleanup preview failed:",
+    "btn-category-cleanup-banner-open": "Open review",
     "toast-category-cleanup-applied": "Items renamed: {count}",
     "toast-category-cleanup-undone": "Items restored: {restored}. Not found: {notFound}.",
     "toast-category-cleanup-failed": "Category cleanup failed",
@@ -222,7 +225,7 @@ export const translations = {
     "label-ai-cleanup-hint-low":
       "Picks memories seen 3 times or fewer. These are the most likely to be one-off notes or copies of another memory. Memories you repeat often stay out.",
     "label-ai-cleanup-hint-same-cat":
-      "Picks every memory whose category holds 3 or more memories. Memories under one category name are the most likely to be copies of each other. Names must match exactly, so run Clean up categories first to catch more.",
+      "Picks every memory whose category holds 3 or more memories. Memories under one category name are the most likely to be copies of each other. Names must match exactly, so run Clean up categories first to catch more. Memories with no category are left out.",
     "label-more-info": "What does this do?",
     "help-ai-cleanup":
       "Asks the AI to find memories that say the same thing and merge them. It can also remove memories that are too vague to help. You choose which memories it checks, then review every change. Nothing is saved until you press Apply Changes.",
@@ -422,6 +425,9 @@ export const translations = {
     "label-category-cleanup-background":
       "此任务在后台运行，可能需要几分钟。你可以关闭此窗口，稍后再回来。",
     "btn-category-cleanup-rebuild": "重新生成预览",
+    "label-category-cleanup-banner-ready": "整理预览已就绪（{groups} 组）。",
+    "label-category-cleanup-banner-failed": "整理预览失败：",
+    "btn-category-cleanup-banner-open": "打开审阅",
     "toast-category-cleanup-applied": "已重命名的条目：{count}",
     "toast-category-cleanup-undone": "已恢复：{restored}。未找到：{notFound}。",
     "toast-category-cleanup-failed": "分类整理失败",
@@ -451,7 +457,7 @@ export const translations = {
     "label-ai-cleanup-hint-low":
       "选出出现 3 次或更少的记忆。它们最可能是一次性的记录，或是其他记忆的重复。经常出现的记忆不会被选中。",
     "label-ai-cleanup-hint-same-cat":
-      "选出所在分类包含 3 条或更多记忆的所有记忆。同一分类名下的记忆最可能互相重复。分类名必须完全一致，所以先运行“整理分类”可以选中更多。",
+      "选出所在分类包含 3 条或更多记忆的所有记忆。同一分类名下的记忆最可能互相重复。分类名必须完全一致，所以先运行“整理分类”可以选中更多。没有分类的记忆不会被选中。",
     "label-more-info": "这是做什么的？",
     "help-ai-cleanup":
       "让 AI 找出意思相同的记忆并合并。它也可以删除过于模糊、没有帮助的记忆。你先选择要检查的记忆，再逐项查看每个变更。点击“应用变更”之前不会保存任何内容。",
@@ -693,6 +699,9 @@ export const translations = {
     "label-category-cleanup-background":
       "يعمل هذا في الخلفية وقد يستغرق عدة دقائق. يمكنك إغلاق هذه النافذة والعودة لاحقًا.",
     "btn-category-cleanup-rebuild": "إنشاء معاينة جديدة",
+    "label-category-cleanup-banner-ready": "معاينة التنظيف جاهزة ({groups} مجموعة).",
+    "label-category-cleanup-banner-failed": "فشلت معاينة التنظيف:",
+    "btn-category-cleanup-banner-open": "فتح المراجعة",
     "toast-category-cleanup-applied": "العناصر المعاد تسميتها: {count}",
     "toast-category-cleanup-undone": "المستعادة: {restored}. غير الموجودة: {notFound}.",
     "toast-category-cleanup-failed": "فشل تنظيف الفئات",
@@ -722,7 +731,7 @@ export const translations = {
     "label-ai-cleanup-hint-low":
       "يحدد الذكريات التي ظهرت 3 مرات أو أقل. هذه الذكريات هي الأكثر احتمالًا أن تكون ملاحظات لمرة واحدة أو نسخًا من ذكريات أخرى. الذكريات التي تتكرر كثيرًا تبقى خارج التحديد.",
     "label-ai-cleanup-hint-same-cat":
-      "يحدد كل ذكرى تنتمي إلى فئة فيها 3 ذكريات أو أكثر. الذكريات تحت اسم فئة واحد هي الأكثر احتمالًا أن تكون نسخًا من بعضها. يجب أن تتطابق الأسماء تمامًا، لذلك شغّل «تنظيف الفئات» أولًا لتحديد المزيد.",
+      "يحدد كل ذكرى تنتمي إلى فئة فيها 3 ذكريات أو أكثر. الذكريات تحت اسم فئة واحد هي الأكثر احتمالًا أن تكون نسخًا من بعضها. يجب أن تتطابق الأسماء تمامًا، لذلك شغّل «تنظيف الفئات» أولًا لتحديد المزيد. الذكريات التي بلا فئة تُستبعد.",
     "label-more-info": "ما وظيفة هذا؟",
     "help-ai-cleanup":
       "يطلب من الذكاء الاصطناعي إيجاد الذكريات التي تقول الشيء نفسه ودمجها. ويمكنه أيضًا حذف الذكريات الغامضة جدًا بحيث لا تفيد. أنت تختار الذكريات التي يفحصها، ثم تراجع كل تغيير. لا يُحفظ شيء حتى تضغط «تطبيق التغييرات».",
