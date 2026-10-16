@@ -2,6 +2,20 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.19.0](https://github.com/cmdaltctr/omms/compare/v4.18.0...v4.19.0) (2026-10-16)
+
+
+### Features
+
+* explain the profile cleanup buttons and selection shortcuts ([c56e2f8](https://github.com/cmdaltctr/omms/commit/c56e2f83f473756056ac5b4e0240e3808057d468))
+* explain the profile cleanup buttons and show the cleanup preview state ([abdd516](https://github.com/cmdaltctr/omms/commit/abdd5164a7babe4cad6c99357e704d7ead9e42dc))
+* show the cleanup preview state on the Profile page ([a208606](https://github.com/cmdaltctr/omms/commit/a208606fe39514c0a54a9ea919ba996f15e30b3b))
+
+
+### Documentation
+
+* **openspec:** propose profile cleanup progress banner ([57009a2](https://github.com/cmdaltctr/omms/commit/57009a22b0bd84a21896c17000885271386aa1cb))
+
 ## [4.18.0](https://github.com/cmdaltctr/omms/compare/v4.17.1...v4.18.0) (2026-10-15)
 
 
