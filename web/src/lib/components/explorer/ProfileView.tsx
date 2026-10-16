@@ -18,6 +18,7 @@ import { keywordHue } from "./KeywordBadge";
 import { ProfileItemDialog } from "./ProfileItemDialog";
 import { Badge } from "$lib/components/ui/badge";
 import { Button } from "$lib/components/ui/button";
+import { InfoPopover } from "$lib/components/ui/info-popover";
 import { formatDate } from "$lib/format";
 import { useI18n } from "$lib/i18n";
 import { cn } from "$lib/utils";
@@ -290,17 +291,23 @@ export function ProfileView({
               </span>
             </span>
             <div className="ms-auto flex flex-wrap items-center gap-1.5">
-              <Button variant="outline" size="sm" onClick={() => onCleanup?.()}>
-                <Sparkles className="size-3.5" />
-                {t("btn-ai-cleanup")}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => onCategoryCleanup?.()}>
-                <Tags className="size-3.5" />
-                {t("btn-category-cleanup")}
-                <span className="font-mono opacity-70" title={t("label-category-count-title")}>
-                  {categoryCount}
-                </span>
-              </Button>
+              <span className="inline-flex items-center gap-0.5">
+                <Button variant="outline" size="sm" onClick={() => onCleanup?.()}>
+                  <Sparkles className="size-3.5" />
+                  {t("btn-ai-cleanup")}
+                </Button>
+                <InfoPopover label={t("label-more-info")}>{t("help-ai-cleanup")}</InfoPopover>
+              </span>
+              <span className="inline-flex items-center gap-0.5">
+                <Button variant="outline" size="sm" onClick={() => onCategoryCleanup?.()}>
+                  <Tags className="size-3.5" />
+                  {t("btn-category-cleanup")}
+                  <span className="font-mono opacity-70" title={t("label-category-count-title")}>
+                    {categoryCount}
+                  </span>
+                </Button>
+                <InfoPopover label={t("label-more-info")}>{t("help-category-cleanup")}</InfoPopover>
+              </span>
               <Button variant="secondary" size="sm" onClick={() => onRefresh?.()}>
                 <RefreshCw className="size-3.5" />
                 {t("btn-refresh")}

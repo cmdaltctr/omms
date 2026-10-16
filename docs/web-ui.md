@@ -179,6 +179,18 @@ Open `/user-profile` to see learned preferences, patterns and workflows.
 
 A group marked **Not checked by the AI** used its most used name because the profile model did not answer.
 
+An **i** button sits beside **AI Cleanup** and beside **Clean up categories**. Select it to read a short explanation. Press Escape or select elsewhere to close it.
+
+**AI Cleanup** asks the profile model to merge memories that say the same thing and to remove memories that are too vague to help. It can change preferences, patterns and workflows.
+
+1. Choose the memories to check. A shortcut changes the selection and shows a note under the buttons:
+   - **Low Freq (≤3)** selects memories that OMMS has seen 3 times or fewer. This is the default.
+   - **Same Category (3+)** selects every memory in a category that holds 3 or more memories. The category names must match exactly, so run **Clean up categories** first to select more.
+   - **Select All** and **Deselect All** clear the note.
+2. The green box under the list shows how many memories are selected.
+3. **Analyze Selected** sends them to the model. Review each merge and each removal.
+4. **Apply Changes** saves only the changes you ticked. There is no undo, and the profile keeps only its last 5 versions. Copy `~/.omms/data/user-profiles.db` first.
+
 ## Settings page
 
 Open `http://127.0.0.1:4747/settings`, select **Settings**, or select the sidebar cogwheel. Its arrow opens the section list.

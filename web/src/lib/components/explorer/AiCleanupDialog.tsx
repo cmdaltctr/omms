@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { fetchAPI } from "$lib/api";
+import { CleanupSelectShortcuts } from "./CleanupSelectShortcuts";
 import { Button } from "$lib/components/ui/button";
 import { Checkbox } from "$lib/components/ui/checkbox";
 import {
@@ -253,20 +254,12 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
               <h3 className="text-subsection-title font-semibold">
                 {t("label-ai-cleanup-select")}
               </h3>
-              <div className="flex flex-wrap gap-1.5">
-                <Button variant="secondary" size="xs" onClick={selectAll}>
-                  {t("label-ai-cleanup-select-all")}
-                </Button>
-                <Button variant="secondary" size="xs" onClick={selectNone}>
-                  {t("label-ai-cleanup-deselect-all")}
-                </Button>
-                <Button variant="secondary" size="xs" onClick={selectLow}>
-                  {t("label-ai-cleanup-select-low")}
-                </Button>
-                <Button variant="secondary" size="xs" onClick={selectSameCat}>
-                  {t("label-ai-cleanup-select-same-cat")}
-                </Button>
-              </div>
+              <CleanupSelectShortcuts
+                onSelectAll={selectAll}
+                onSelectNone={selectNone}
+                onSelectLow={selectLow}
+                onSelectSameCat={selectSameCat}
+              />
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               {sortedCatKeys.map((cat) => {
@@ -316,7 +309,7 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
               })}
             </div>
             <div className="flex items-center justify-between gap-2 pt-1">
-              <span className="text-xs text-muted-foreground">
+              <span className="rounded-md border border-status-success/30 bg-status-success/10 px-2 py-0.5 text-xs font-medium text-status-success">
                 {t("label-ai-cleanup-selected", { count: selectedCount })}
               </span>
               <Button onClick={analyze}>{t("label-ai-cleanup-analyze")}</Button>
