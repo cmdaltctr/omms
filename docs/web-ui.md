@@ -172,12 +172,32 @@ Open `/user-profile` to see learned preferences, patterns and workflows.
 
 **Clean up categories** shows the number of categories beside its label. It opens a review of category names that mean the same thing:
 
-1. OMMS groups the names and the profile model proposes one name per group. This runs in the background with a progress line, one model call per 20 groups. On a large profile it can take many minutes; you can close the window and open it again later. **Build a new preview** starts over.
+1. OMMS groups the names and the profile model proposes one name per group. This runs in the background with a progress line, one model call per 20 groups. On a large profile it can take many minutes. Closing the window does not stop it. **Build a new preview** starts over.
 2. Each group lists its names with item counts. Clear a group's box to skip it, or edit its name.
 3. **Apply selected** renames the categories of the selected groups. No memory is changed, merged or removed.
 4. **Undo last cleanup** restores the names the last cleanup changed.
 
 A group marked **Not checked by the AI** used its most used name because the profile model did not answer.
+
+While a preview exists, a banner under the profile details shows its state, so you do not need to keep the window open:
+
+- **Running:** shows the progress, such as "batch 3 of 15", with an **Open review** button.
+- **Ready:** says that a preview is ready and how many groups it holds, with the same button.
+- **Failed:** shows the error. **Open review** opens the window, where **Build a new preview** starts over.
+
+The banner only reads the state. It never starts a preview or calls the model. It hides while the window is open and shows the current state when you close it. It stays until you apply or undo a cleanup, or the web app restarts. If the web app cannot be reached, the banner is hidden until you open the page again.
+
+An **i** button sits beside **AI Cleanup** and beside **Clean up categories**. Select it to read a short explanation. Press Escape or select elsewhere to close it.
+
+**AI Cleanup** asks the profile model to merge memories that say the same thing and to remove memories that are too vague to help. It can change preferences, patterns and workflows.
+
+1. Choose the memories to check. A shortcut changes the selection and shows a note under the buttons:
+   - **Low Freq (≤3)** selects memories that OMMS has seen 3 times or fewer. This is the default.
+   - **Same Category (3+)** selects every memory in a category that holds 3 or more memories. The category names must match exactly, so run **Clean up categories** first to select more. Memories with no category are left out.
+   - **Select All** and **Deselect All** clear the note.
+2. The green box under the list shows how many memories are selected.
+3. **Analyze Selected** sends them to the model. Review each merge and each removal.
+4. **Apply Changes** saves only the changes you ticked. There is no undo, and the profile keeps only its last 5 versions. Copy `~/.omms/data/user-profiles.db` first.
 
 ## Settings page
 

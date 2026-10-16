@@ -193,6 +193,9 @@ export const translations = {
     "label-category-cleanup-background":
       "This runs in the background and can take several minutes. You can close this window and come back.",
     "btn-category-cleanup-rebuild": "Build a new preview",
+    "label-category-cleanup-banner-ready": "A cleanup preview is ready ({groups} groups).",
+    "label-category-cleanup-banner-failed": "The cleanup preview failed:",
+    "btn-category-cleanup-banner-open": "Open review",
     "toast-category-cleanup-applied": "Items renamed: {count}",
     "toast-category-cleanup-undone": "Items restored: {restored}. Not found: {notFound}.",
     "toast-category-cleanup-failed": "Category cleanup failed",
@@ -216,9 +219,18 @@ export const translations = {
     "toast-cleanup-apply-failed": "Apply cleanup failed",
     "label-ai-cleanup-select": "Select items for cleanup analysis",
     "label-ai-cleanup-select-low": "Low Freq (≤3)",
-    "label-ai-cleanup-select-same-cat": "Same Category Pairs",
+    "label-ai-cleanup-select-same-cat": "Same Category (3+)",
     "label-ai-cleanup-analyze": "Analyze Selected",
     "label-ai-cleanup-selected": "{count} selected",
+    "label-ai-cleanup-hint-low":
+      "Picks memories seen 3 times or fewer. These are the most likely to be one-off notes or copies of another memory. Memories you repeat often stay out.",
+    "label-ai-cleanup-hint-same-cat":
+      "Picks every memory whose category holds 3 or more memories. Memories under one category name are the most likely to be copies of each other. Names must match exactly, so run Clean up categories first to catch more. Memories with no category are left out.",
+    "label-more-info": "What does this do?",
+    "help-ai-cleanup":
+      "Asks the AI to find memories that say the same thing and merge them. It can also remove memories that are too vague to help. You choose which memories it checks, then review every change. Nothing is saved until you press Apply Changes.",
+    "help-category-cleanup":
+      'Finds category names that mean the same thing, such as "Execution" and "Direct execution", and gives each group one name. It only renames categories. No memory is merged or removed. You review the groups first, and you can undo the last cleanup.',
     "migration-found-tags": "Found {count} memories needing technical tags.",
     "migration-stopped": "Migration stopped: maximum attempts reached",
     "migration-shards-mismatch": "{count} shard(s) have different dimensions",
@@ -413,6 +425,9 @@ export const translations = {
     "label-category-cleanup-background":
       "此任务在后台运行，可能需要几分钟。你可以关闭此窗口，稍后再回来。",
     "btn-category-cleanup-rebuild": "重新生成预览",
+    "label-category-cleanup-banner-ready": "整理预览已就绪（{groups} 组）。",
+    "label-category-cleanup-banner-failed": "整理预览失败：",
+    "btn-category-cleanup-banner-open": "打开审阅",
     "toast-category-cleanup-applied": "已重命名的条目：{count}",
     "toast-category-cleanup-undone": "已恢复：{restored}。未找到：{notFound}。",
     "toast-category-cleanup-failed": "分类整理失败",
@@ -436,9 +451,18 @@ export const translations = {
     "toast-cleanup-apply-failed": "应用清理失败",
     "label-ai-cleanup-select": "选择需要清理分析的条目",
     "label-ai-cleanup-select-low": "低频 (≤3)",
-    "label-ai-cleanup-select-same-cat": "同分类多条目",
+    "label-ai-cleanup-select-same-cat": "同分类 (3+)",
     "label-ai-cleanup-analyze": "分析选中项",
     "label-ai-cleanup-selected": "已选 {count} 项",
+    "label-ai-cleanup-hint-low":
+      "选出出现 3 次或更少的记忆。它们最可能是一次性的记录，或是其他记忆的重复。经常出现的记忆不会被选中。",
+    "label-ai-cleanup-hint-same-cat":
+      "选出所在分类包含 3 条或更多记忆的所有记忆。同一分类名下的记忆最可能互相重复。分类名必须完全一致，所以先运行“整理分类”可以选中更多。没有分类的记忆不会被选中。",
+    "label-more-info": "这是做什么的？",
+    "help-ai-cleanup":
+      "让 AI 找出意思相同的记忆并合并。它也可以删除过于模糊、没有帮助的记忆。你先选择要检查的记忆，再逐项查看每个变更。点击“应用变更”之前不会保存任何内容。",
+    "help-category-cleanup":
+      "找出意思相同的分类名称，例如“Execution”和“Direct execution”，并为每组选定一个名称。它只重命名分类，不合并或删除任何记忆。你可以先查看各组，并可撤销上次整理。",
     "profile-actions": "操作",
     "migration-found-tags": "发现 {count} 条需要技术标签的记忆。",
     "migration-stopped": "迁移已停止：达到最大尝试次数",
@@ -675,6 +699,9 @@ export const translations = {
     "label-category-cleanup-background":
       "يعمل هذا في الخلفية وقد يستغرق عدة دقائق. يمكنك إغلاق هذه النافذة والعودة لاحقًا.",
     "btn-category-cleanup-rebuild": "إنشاء معاينة جديدة",
+    "label-category-cleanup-banner-ready": "معاينة التنظيف جاهزة ({groups} مجموعة).",
+    "label-category-cleanup-banner-failed": "فشلت معاينة التنظيف:",
+    "btn-category-cleanup-banner-open": "فتح المراجعة",
     "toast-category-cleanup-applied": "العناصر المعاد تسميتها: {count}",
     "toast-category-cleanup-undone": "المستعادة: {restored}. غير الموجودة: {notFound}.",
     "toast-category-cleanup-failed": "فشل تنظيف الفئات",
@@ -698,9 +725,18 @@ export const translations = {
     "toast-cleanup-apply-failed": "فشل تطبيق التنظيف",
     "label-ai-cleanup-select": "حدد العناصر للتحليل",
     "label-ai-cleanup-select-low": "تردد منخفض (≤3)",
-    "label-ai-cleanup-select-same-cat": "نفس الفئة",
+    "label-ai-cleanup-select-same-cat": "نفس الفئة (3+)",
     "label-ai-cleanup-analyze": "تحليل المحدد",
     "label-ai-cleanup-selected": "{count} محدد",
+    "label-ai-cleanup-hint-low":
+      "يحدد الذكريات التي ظهرت 3 مرات أو أقل. هذه الذكريات هي الأكثر احتمالًا أن تكون ملاحظات لمرة واحدة أو نسخًا من ذكريات أخرى. الذكريات التي تتكرر كثيرًا تبقى خارج التحديد.",
+    "label-ai-cleanup-hint-same-cat":
+      "يحدد كل ذكرى تنتمي إلى فئة فيها 3 ذكريات أو أكثر. الذكريات تحت اسم فئة واحد هي الأكثر احتمالًا أن تكون نسخًا من بعضها. يجب أن تتطابق الأسماء تمامًا، لذلك شغّل «تنظيف الفئات» أولًا لتحديد المزيد. الذكريات التي بلا فئة تُستبعد.",
+    "label-more-info": "ما وظيفة هذا؟",
+    "help-ai-cleanup":
+      "يطلب من الذكاء الاصطناعي إيجاد الذكريات التي تقول الشيء نفسه ودمجها. ويمكنه أيضًا حذف الذكريات الغامضة جدًا بحيث لا تفيد. أنت تختار الذكريات التي يفحصها، ثم تراجع كل تغيير. لا يُحفظ شيء حتى تضغط «تطبيق التغييرات».",
+    "help-category-cleanup":
+      "يجد أسماء الفئات التي لها المعنى نفسه، مثل «Execution» و«Direct execution»، ويعطي كل مجموعة اسمًا واحدًا. يعيد تسمية الفئات فقط، ولا يدمج أو يحذف أي ذكرى. تراجع المجموعات أولًا، ويمكنك التراجع عن آخر تنظيف.",
 
     "migration-found-tags": "تم العثور على {count} من الذكريات التي تحتاج إلى وسوم تقنية.",
 

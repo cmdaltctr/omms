@@ -439,6 +439,7 @@ export default function App() {
                 onRefresh={profile.refreshProfile}
                 onCleanup={() => profile.setAiCleanupOpen(true)}
                 onCategoryCleanup={() => profile.setCategoryCleanupOpen(true)}
+                categoryCleanupOpen={profile.categoryCleanupOpen}
               />
             )}
           </div>
