@@ -1,0 +1,88 @@
+{
+  "experiment_id": "24-retrieval-memory-reranker-2026-10-17",
+  "category": "retrieval",
+  "size": "Standard",
+  "status": "PLANNED",
+  "question": "Does a reranker over the top 50 memories find more relevant memories in the final 10 than the current scorer?",
+  "decision": "Whether to propose a reranker stage for memory retrieval on all hosts, or test BM25 next.",
+  "approval": "Operator asked on 2026-10-17 for one simple experiment in its own worktree. Chose reranker first, AI labels with operator spot check, 60 prompts, Standard. Running needs separate approval.",
+  "hypotheses": {
+    "H1": {
+      "role": "primary",
+      "statement": "Mean recall@10 of Arm B minus Arm A >= 0.05, and two-sided sign test over prompts with differing recall gives p < 0.05."
+    },
+    "H0": "Gain < 0.05, or p >= 0.05, or Arm B worse."
+  },
+  "decision_rule": {
+    "pass": "H1, guardrail P and guardrail L hold: write an OpenSpec proposal for a reranker stage, with a human-labelled confirmation run.",
+    "fail": "Keep the current scorer; plan Experiment 25 (BM25 over memory content).",
+    "unclear": "Gain >= 0.05 with p >= 0.05, or G3 or G5 fails: INCONCLUSIVE; operator decides on a larger run."
+  },
+  "stats": {
+    "level": "medium",
+    "test": "two-sided sign test on prompts where recall@10 differs (Experiment 18 run_eval.py sign_test)",
+    "intervals": "mean difference with win, loss and tie counts; no shared bootstrap helper exists",
+    "exploratory": "Arm A0 (top 10, no cut-off) against A and B; recall per arm on prompts with any relevant memory"
+  },
+  "gates": {
+    "G1_integrity": "snapshot files and reranker GGUF SHA-256 match before and after",
+    "G2_embedding_match": "5 random stored memories re-embedded via 127.0.0.1:9931 have cosine >= 0.999 with stored vectors",
+    "G3_coverage": "at least 40 of 60 prompts have one or more relevant memories in the pool",
+    "G4_completeness": "every prompt has A, A0 and B lists; every pool pair judged; errors count as misses",
+    "G5_key_check": "operator agrees with the AI judge on at least 16 of 20 spot-check pairs",
+    "guardrail_P": "Arm B precision >= Arm A precision - 0.10",
+    "guardrail_L": "reranker delay p95 <= 500 ms per prompt"
+  },
+  "frozen": {
+    "git_commit": "91acd22",
+    "thresholds": {
+      "H1_min_gain": 0.05,
+      "H1_alpha": 0.05,
+      "G2_min_cosine": 0.999,
+      "G3_min_prompts": 40,
+      "G5_min_agree": 16,
+      "guardrail_P_max_loss": 0.1,
+      "guardrail_L_p95_ms": 500
+    },
+    "arms": {
+      "A": "exact scan of eligible memories; score 0.6*content_sim + 0.4*max(tags_sim, word_match_boost); keep score >= 0.6; top 10",
+      "B": "top 50 by the Arm A score with no cut-off; rerank prompt against memory content (cut at 4000 characters); top 10 by reranker score",
+      "A0": "exploratory: top 10 by the Arm A score with no cut-off"
+    },
+    "data": {
+      "memories": "~/.omms/data/projects/project_769e931b738f5620_shard_0.db, read-only copy; SHA-256 recorded at prepare",
+      "prompts": "~/.omms/data/user-prompts.db omms rows, read-only copy; SHA-256 recorded at prepare",
+      "sample": "60 prompts, seed 24, at most 2 per session",
+      "prompt_filter": "omms project path; length >= 40; not a slash command; no <private>; distinct text",
+      "eligible_memories": "created before the prompt and not from the prompt's session",
+      "pool": "union of A0 top 10 and B top 10, shuffled, arm and rank hidden",
+      "relevant": "the memory would help an assistant answer or act on the prompt"
+    },
+    "fixed": {
+      "embedding": "qwen3-embedding:0.6b at 127.0.0.1:9931, task prefixes off",
+      "reranker": {
+        "repo": "ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF",
+        "file": "qwen3-reranker-0.6b-q8_0.gguf",
+        "sha256": "22c9979ce4fbcdc5acdc310c6641c32797eff1aa980b8f7a2db8a8ea23429a48",
+        "server": "Experiment 17 settings, port 3008"
+      },
+      "judge": "Claude subagent, blind to arm and rank; model id recorded in output"
+    },
+    "pins": {
+      "experiments/18-retrieval-fresh-confirmation-all-methods-2026-10-12/run_eval.py": "acbe4aa0362757eb4f2963ca31dd1c892d77f7a497dab7ca1595d49309ed8ee6",
+      "experiments/17-retrieval-reranker-label-suggestions-2026-10-12/plan.json": "e61af714909adfb498354737488ef92cd73907db39c3219905e064e795859c6f"
+    }
+  },
+  "amendments": [
+    {
+      "date": "2026-10-17",
+      "seen_results": false,
+      "change": "The Experiment 03 manifest that pins the llama.cpp server is gitignored and absent from this worktree. The runner pins the same b11510 server binary directly: /Users/aizat/Development/PROJECTS/llamaindex-rag-mcp-v3/experiments/38-rescue-quality-signal-2026-09-30/output/.models/llamacpp/b11510/llama-b11510/llama-server, SHA-256 1bf5602a2be50097c44282a6ecc63234d94ee8f96d39fd45fed6eff4e74b6b41. Server arguments are unchanged."
+    },
+    {
+      "date": "2026-10-17",
+      "seen_results": false,
+      "change": "sign_test is copied (same formula) into the summariser instead of imported from the Experiment 18 runner, because that runner loads other experiments at import. Pandas, numpy and other packages are not used; scoring runs in pure Python."
+    }
+  ]
+}
