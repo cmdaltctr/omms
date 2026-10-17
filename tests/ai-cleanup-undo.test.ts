@@ -119,6 +119,19 @@ describe("undoCleanupEdits", () => {
     expect(result.restored).toBe(1);
   });
 
+  it("finds a merged item that learning updated, and restores the originals without the update", () => {
+    // The docs say so: an update to a merged item is lost, other later learning stays.
+    const current = profileOf("target and source", "learnt later");
+    current.preferences[0]!.frequency = 9;
+    const result = undoCleanupEdits(current, [
+      mergeEntry(["target", "source"], "target and source"),
+    ]);
+    expect(result).toMatchObject({ restored: 1, notFound: 0 });
+    expect(descriptions(result.profile)).toEqual(["learnt later", "source", "target"]);
+    expect(result.profile.preferences.find((p) => p.description === "target")?.frequency).toBe(1);
+    expect(result.profile.preferences.find((p) => p.description === "learnt later")).toBeDefined();
+  });
+
   it("finds a merged item whose category spelling a later save rewrote", () => {
     // The save keeps one visible label for spellings of one category, so "code_style" became "Code style".
     const current = {

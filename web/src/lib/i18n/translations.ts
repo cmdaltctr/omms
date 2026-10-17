@@ -202,7 +202,7 @@ export const translations = {
     "btn-auto-cleanup-undo-confirm": "Undo cleanup",
     "title-auto-cleanup-undo": "Undo the last automatic cleanup?",
     "label-auto-cleanup-undo-body":
-      "The automatic cleanup on {when} merged {merged} groups of memories and removed {removed}. Undo puts the original memories back. It keeps everything learned since.",
+      "The automatic cleanup on {when} merged {merged} groups of memories and removed {removed}. Undo puts the original memories back. Other memories learned since stay. A later update to a merged memory is lost.",
     "toast-auto-cleanup-undone": "Restored {restored} changes.",
     "toast-auto-cleanup-undone-partial":
       "Restored {restored} changes. {notFound} not found, because the memories changed since.",
@@ -452,7 +452,7 @@ export const translations = {
     "btn-auto-cleanup-undo-confirm": "撤销整理",
     "title-auto-cleanup-undo": "撤销上次自动整理？",
     "label-auto-cleanup-undo-body":
-      "{when} 的自动整理合并了 {merged} 组记忆，并删除了 {removed} 条。撤销会恢复原来的记忆，并保留之后学到的所有内容。",
+      "{when} 的自动整理合并了 {merged} 组记忆，并删除了 {removed} 条。撤销会恢复原来的记忆。之后学到的其他记忆会保留。合并后记忆上的更新会丢失。",
     "toast-auto-cleanup-undone": "已恢复 {restored} 项更改。",
     "toast-auto-cleanup-undone-partial":
       "已恢复 {restored} 项更改。有 {notFound} 项未找到，因为记忆已发生变化。",
@@ -742,7 +742,7 @@ export const translations = {
     "btn-auto-cleanup-undo-confirm": "تراجع عن التنظيف",
     "title-auto-cleanup-undo": "هل تريد التراجع عن آخر تنظيف تلقائي؟",
     "label-auto-cleanup-undo-body":
-      "دمج التنظيف التلقائي في {when} عدد {merged} من مجموعات الذكريات وحذف {removed}. يعيد التراجع الذكريات الأصلية ويحتفظ بكل ما تم تعلمه بعد ذلك.",
+      "دمج التنظيف التلقائي في {when} عدد {merged} من مجموعات الذكريات وحذف {removed}. يعيد التراجع الذكريات الأصلية. تبقى الذكريات الأخرى التي تم تعلمها بعد ذلك. يُفقد أي تحديث لاحق على ذاكرة مدموجة.",
     "toast-auto-cleanup-undone": "تمت استعادة {restored} من التغييرات.",
     "toast-auto-cleanup-undone-partial":
       "تمت استعادة {restored} من التغييرات. لم يتم العثور على {notFound} لأن الذكريات تغيرت بعد ذلك.",

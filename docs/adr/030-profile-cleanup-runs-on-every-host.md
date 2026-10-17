@@ -29,7 +29,7 @@ An unreviewed run can do harm. In October 2026 a category cleanup wrote 284 grou
 ### Positive
 
 - All three hosts keep the profile tidy, with the same code.
-- A wrong merge or removal can be undone for 30 days without losing what learning added later.
+- A wrong merge or removal can be undone for 30 days without losing the other items that learning added or updated later.
 - A run of any size finishes inside the time limit of each call.
 
 ### Negative
@@ -38,6 +38,7 @@ An unreviewed run can do harm. In October 2026 a category cleanup wrote 284 grou
 - A run on a profile of about 2,260 items makes about 24 model calls and takes about 6 minutes, every 500 prompts by default. A user who sets a short interval pays for more runs.
 - A run that is still going when a host ends saves nothing.
 - Undo cannot restore a change when the merged item was reworded, merged again or renamed after the run. It reports how many changes it did not find.
+- Undo replaces a merged item with its originals. A counter update that learning made to the merged item after the run (for example a higher frequency) is lost. The match ignores counters, so Undo still finds the item.
 - Pi and Claude Code users get the cleanup when they update. They can turn it off with `userProfileAutoCleanupEnabled`.
 
 ### Neutral

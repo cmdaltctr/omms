@@ -223,7 +223,7 @@ The model merges memories only inside one batch. Two duplicates in different bat
 2. Select **Undo cleanup** to put the original memories back. Select **Cancel** to change nothing.
 3. A message says how many changes were restored and how many were not found. A change is not found when learning changed or removed the merged memory after the run.
 
-Undo keeps everything that OMMS learned after the cleanup. It does not undo **Apply Changes** in the AI Cleanup window.
+Undo keeps the other memories that OMMS learned or updated after the cleanup. It replaces each merged memory with its originals, so an update that learning made to a merged memory after the cleanup is lost. Undo does not undo **Apply Changes** in the AI Cleanup window.
 
 ## Settings page
 
