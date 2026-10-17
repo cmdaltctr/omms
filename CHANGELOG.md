@@ -2,6 +2,21 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.22.0](https://github.com/cmdaltctr/omms/compare/v4.21.0...v4.22.0) (2026-10-17)
+
+
+### Features
+
+* set the memory language from the Settings page ([af78857](https://github.com/cmdaltctr/omms/commit/af78857f203def652da64148ebefbad40a01f305))
+
+
+### Bug Fixes
+
+* let the Windows package smoke leave a scratch folder that is still open ([5884860](https://github.com/cmdaltctr/omms/commit/588486095af03a49effc40105be31cd2b30ddb5e))
+* let the Windows package smoke leave a scratch folder that is still open ([44ec6ca](https://github.com/cmdaltctr/omms/commit/44ec6ca2e8ecb880b52f313c4cb73dbbd45e2f2f))
+* write memories in English when the prompt is too short to detect a language ([f07cbe1](https://github.com/cmdaltctr/omms/commit/f07cbe10532b5c494f3157761604e9b141641eb9))
+* write memories in English when the prompt is too short to detect a language ([79fb282](https://github.com/cmdaltctr/omms/commit/79fb28212b29b06e47ddb50077318a1fb230a25f))
+
 ## [4.21.0](https://github.com/cmdaltctr/omms/compare/v4.20.1...v4.21.0) (2026-10-17)
 
 
