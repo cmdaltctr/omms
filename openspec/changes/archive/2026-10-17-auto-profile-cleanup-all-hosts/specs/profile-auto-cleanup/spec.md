@@ -97,7 +97,7 @@ The automatic cleanup SHALL save every merge and every removal that the model pr
 
 ### Requirement: Every automatic cleanup that changes the profile leaves a restore record
 
-Before the save, the automatic cleanup SHALL store a restore record. For each applied change, the record SHALL hold the items as they were stored and, for a merge, the merged item that the run writes. The record SHALL NOT hold items that the run did not change. The record SHALL be kept for 30 days and then deleted. A run that applies no change SHALL leave no record. The text of a record SHALL NOT appear in the log.
+Before the save, the automatic cleanup SHALL store a restore record. For each applied change, the record SHALL hold the items as they were stored and, for a merge, the merged item that the run writes. The record SHALL NOT hold items that the run did not change. The record SHALL be offered for undo for 30 days. After that the system SHALL NOT offer it, and SHALL delete it no later than the next daily cleanup, the next start of the web app, or the next time the table is read or written. A run that applies no change SHALL leave no record. The text of a record SHALL NOT appear in the log.
 
 #### Scenario: A run with one merge and one removal
 
@@ -113,7 +113,14 @@ Before the save, the automatic cleanup SHALL store a restore record. For each ap
 #### Scenario: A record expires
 
 - **WHEN** a record is 31 days old
-- **THEN** the system SHALL delete it and SHALL NOT offer it for undo
+- **THEN** the system SHALL NOT offer it for undo
+- **AND** SHALL delete it at the next daily cleanup, web app start, or read or write of the table
+
+#### Scenario: Two hosts write at the same time
+
+- **WHEN** two hosts store a restore record for the same profile at the same moment, and one of their saves then fails
+- **THEN** the failed run SHALL withdraw only its own record
+- **AND** the record of the run that saved SHALL stay available for undo
 
 ### Requirement: The last automatic cleanup can be undone
 

@@ -95,6 +95,67 @@ describe("auto cleanup restore records", () => {
     expect(await s.latestOpenAutoCleanup("p1", 3_000)).toBeNull();
   });
 
+  it("returns the id of the row it inserted when two writers insert for one profile at once", async () => {
+    const s = await store();
+    const input = (n: number) => ({
+      promptsAnalyzed: n,
+      merged: n,
+      removed: 0,
+      entries: [],
+    });
+    const ids = await Promise.all(
+      Array.from({ length: 8 }, (_, i) => s.insertAutoCleanupRecord("p1", input(i + 1), 1_000 + i))
+    );
+    expect(new Set(ids).size).toBe(8);
+    // Each id belongs to its own row: deleting one leaves the other seven.
+    for (const [i, id] of ids.entries()) {
+      const record = await s.latestOpenAutoCleanup("p1", 2_000);
+      expect(record).not.toBeNull();
+      await s.deleteAutoCleanup(id);
+      const left = await s.latestOpenAutoCleanup("p1", 2_000);
+      expect(left === null || left.id !== id).toBe(true);
+      expect(i).toBeGreaterThanOrEqual(0);
+    }
+    expect(await s.latestOpenAutoCleanup("p1", 2_000)).toBeNull();
+  });
+
+  it("maps each returned id to the row with the same figures", async () => {
+    const s = await store();
+    const [a, b] = await Promise.all([
+      s.insertAutoCleanupRecord(
+        "p1",
+        { promptsAnalyzed: 111, merged: 1, removed: 0, entries: [] },
+        1_000
+      ),
+      s.insertAutoCleanupRecord(
+        "p1",
+        { promptsAnalyzed: 222, merged: 2, removed: 0, entries: [] },
+        1_001
+      ),
+    ]);
+    await s.deleteAutoCleanup(a);
+    const left = await s.latestOpenAutoCleanup("p1", 2_000);
+    expect(left).toMatchObject({ id: b, promptsAnalyzed: 222 });
+  });
+
+  it("prunes expired records with no other table access, for every profile", async () => {
+    const s = await store();
+    await s.insertAutoCleanupRecord(
+      "p1",
+      { promptsAnalyzed: 1, merged: 1, removed: 0, entries: [] },
+      0
+    );
+    await s.insertAutoCleanupRecord(
+      "p2",
+      { promptsAnalyzed: 1, merged: 1, removed: 0, entries: [] },
+      5 * DAY
+    );
+    expect(await s.pruneAutoCleanupRecords(29 * DAY)).toBe(0);
+    expect(await s.pruneAutoCleanupRecords(31 * DAY)).toBe(1);
+    expect(await s.latestOpenAutoCleanup("p2", 31 * DAY)).not.toBeNull();
+    expect(await s.pruneAutoCleanupRecords(36 * DAY)).toBe(1);
+  });
+
   it("deletes a record", async () => {
     const s = await store();
     const id = await s.insertAutoCleanupRecord(

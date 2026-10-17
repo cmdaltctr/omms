@@ -702,6 +702,10 @@ export class WebServer {
     void import("../importer/web-import-api.js")
       .then(({ sweepOrphanSnapshots }) => sweepOrphanSnapshots())
       .catch(() => {});
+    // Restore records of the automatic cleanup expire after 30 days, even if nothing reads them.
+    void import("./user-profile/auto-cleanup-store.js")
+      .then(({ pruneAutoCleanupRecords }) => pruneAutoCleanupRecords())
+      .catch(() => {});
 
     const tokens = await import("./api-tokens.js");
     try {

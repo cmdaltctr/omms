@@ -123,6 +123,15 @@ export class CleanupService {
       }
 
       try {
+        const { pruneAutoCleanupRecords } = await import("./user-profile/auto-cleanup-store.js");
+        await pruneAutoCleanupRecords();
+      } catch (error) {
+        log("Automatic cleanup record cleanup failed", {
+          code: error instanceof Error ? error.name : "unknown",
+        });
+      }
+
+      try {
         await userPromptManager.vacuum();
         log("Cleanup: VACUUM done", { db: "user-prompts.db" });
       } catch (err) {

@@ -62,7 +62,9 @@ export async function insertAutoCleanupRecord(
 ): Promise<number> {
   const db = await connection();
   await prune(db, now);
-  await db.execute(
+  // The id comes from this INSERT. A separate SELECT could return the row of another host
+  // that wrote for the same profile in between, and a failed save would delete that row.
+  const result = await db.execute(
     "INSERT INTO profile_auto_cleanups (profile_id, created_at, prompts_analyzed, merged, removed, entries) VALUES (?, ?, ?, ?, ?, ?)",
     [
       profileId,
@@ -73,11 +75,21 @@ export async function insertAutoCleanupRecord(
       JSON.stringify(record.entries),
     ]
   );
-  const row = await db.get(
-    "SELECT id FROM profile_auto_cleanups WHERE profile_id = ? ORDER BY id DESC LIMIT 1",
-    [profileId]
-  );
-  return Number(row?.id);
+  if (result.lastInsertRowid === undefined) throw new Error("Restore record id missing");
+  return Number(result.lastInsertRowid);
+}
+
+/**
+ * Deletes every record older than 30 days, for all profiles. The daily cleanup and the web
+ * app start call it, so a record does not outlive its limit when nothing else touches the
+ * table. Returns how many rows it deleted.
+ */
+export async function pruneAutoCleanupRecords(now = Date.now()): Promise<number> {
+  const db = await connection();
+  const result = await db.execute("DELETE FROM profile_auto_cleanups WHERE created_at < ?", [
+    now - AUTO_CLEANUP_RECORD_MAX_AGE_MS,
+  ]);
+  return Number(result.rowsAffected ?? 0);
 }
 
 export async function deleteAutoCleanup(id: number): Promise<void> {
