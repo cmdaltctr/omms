@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.23.0](https://github.com/cmdaltctr/omms/compare/v4.22.0...v4.23.0) (2026-10-17)
+
+
+### Features
+
+* add an opt-in memory reranker and a threshold that follows the embedder ([03259c9](https://github.com/cmdaltctr/omms/commit/03259c917dda63cfc77f48844c91cd828300eefe))
+* add an opt-in memory reranker and a threshold that follows the embedder ([cd7be76](https://github.com/cmdaltctr/omms/commit/cd7be761be4c46040ecdf8f17a26cf676752488d))
+
+
+### Bug Fixes
+
+* address CodeRabbit review on the reranker ([84dd923](https://github.com/cmdaltctr/omms/commit/84dd9234e2c79266f9d089432cdaea65a2a36c18))
+
 ## [4.22.0](https://github.com/cmdaltctr/omms/compare/v4.21.0...v4.22.0) (2026-10-17)
 
 
