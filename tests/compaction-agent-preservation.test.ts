@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, setDefaultTimeout } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveSessionAgent } from "../src/index.js";
+
+// Each test spawns a Bun process; a busy runner can take over 5 seconds (Ubuntu, release 4.20.0).
+setDefaultTimeout(30_000);
 
 const tempDirs: string[] = [];
 
