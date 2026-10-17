@@ -33,6 +33,7 @@ const keys = new Set([
   "importPathMaps",
   "importIgnoredDirectories",
   "claudeConfigDir",
+  "autoCaptureLanguage",
   "maxMemories",
   "chatMessage.maxMemories",
   "autoCaptureMaxContextBytes",
@@ -103,6 +104,9 @@ function isValidEdit(key: string, value: unknown): boolean {
   }
   if (key === "memoryApiKey") return isSecretReference(value);
   if (key === "memoryProvider") return MEMORY_PROVIDERS.includes(value as string);
+  // "auto", or an ISO 639 code (en, id, zh, fil).
+  if (key === "autoCaptureLanguage")
+    return typeof value === "string" && /^(auto|[a-z]{2,3})$/.test(value);
   // Entries are checked by the startup validation below.
   if (key === "importPathMaps" || key === "importIgnoredDirectories") return Array.isArray(value);
   // The five memory limits share one validation rule set.

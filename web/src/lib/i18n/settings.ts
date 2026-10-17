@@ -624,6 +624,18 @@ const text = {
     "已保存。映射在下次导入或回填时生效。",
     "تم الحفظ. تسري الخرائط في الاستيراد التالي.",
   ],
+  "Memory language": ["记忆语言", "لغة الذاكرة"],
+  "The language that new memory summaries are written in. Automatic detects it from your prompt, but a Latin-script prompt under 100 characters counts as English.":
+    [
+      "新记忆摘要使用的语言。“自动”会根据你的提示检测语言，但少于 100 个字符的拉丁字母提示按英语处理。",
+      "اللغة التي تُكتب بها ملخصات الذاكرة الجديدة. يكتشفها الوضع التلقائي من موجّهك، لكن الموجّه بالأحرف اللاتينية الأقصر من 100 حرف يُعدّ إنجليزياً.",
+    ],
+  "Summary language": ["摘要语言", "لغة الملخص"],
+  Automatic: ["自动", "تلقائي"],
+  "Saved. New memories use this language.": [
+    "已保存。新记忆将使用此语言。",
+    "تم الحفظ. ستستخدم الذكريات الجديدة هذه اللغة.",
+  ],
   "Claude Code folder": ["Claude Code 文件夹", "مجلد Claude Code"],
   "Set this when Claude Code does not use ~/.claude, for example when you start it with CLAUDE_CONFIG_DIR. Leave it empty to use the default.":
     [

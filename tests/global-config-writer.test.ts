@@ -134,6 +134,30 @@ describe("global config writer", () => {
     expect(result.text).not.toContain("userProfileAutoCleanupEnabled");
   });
 
+  it("saves autoCaptureLanguage, rejects bad codes, and exposes it in the snapshot", async () => {
+    const seed = '{ "piModel": "old" }\n';
+    const result = await scenario(
+      `
+      const { getSettingsSnapshot } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/settings-snapshot.ts")).href)});
+      const errors = [];
+      for (const edits of [{ autoCaptureLanguage: "English" }, { autoCaptureLanguage: "" }, { autoCaptureLanguage: 3 }])
+        try { await writeGlobalConfigKeys(edits, readGlobalConfigRevision()); }
+        catch (error) { errors.push(String(error)); }
+      const untouched = readFileSync(target, "utf8");
+      await writeGlobalConfigKeys({ autoCaptureLanguage: "en" }, readGlobalConfigRevision());
+      const english = getSettingsSnapshot(${JSON.stringify(import.meta.dir)}).settings.autoCaptureLanguage;
+      await writeGlobalConfigKeys({ autoCaptureLanguage: "auto" }, readGlobalConfigRevision());
+      const auto = getSettingsSnapshot(${JSON.stringify(import.meta.dir)}).settings.autoCaptureLanguage;
+      return { errors, untouched, english, auto, text: readFileSync(target, "utf8") };
+    `,
+      seed
+    );
+    expect(result.errors).toHaveLength(3);
+    expect(result.untouched).toBe(seed);
+    expect(result.english).toMatchObject({ value: "en", globalValue: "en", source: "global" });
+    expect(result.auto).toMatchObject({ value: "auto", globalValue: "auto" });
+    expect(result.text).toContain('"autoCaptureLanguage": "auto"');
+  });
   it("keeps comments, order, and unrelated values", async () => {
     const seed =
       '{\n  // owner\n  "maxMemories": 12,\n  "piModel": "old",\n  "memoryModel": "secret-model"\n}\n';

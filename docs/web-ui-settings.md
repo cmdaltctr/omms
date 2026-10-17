@@ -309,6 +309,14 @@ Use this section when Claude Code does not keep its data in `~/.claude`, for exa
 - A save applies to the next capture and the next import. You do not restart anything.
 - A project config cannot change this setting.
 
+## Memory language
+
+Use this card to choose the language that new memory summaries are written in.
+
+- **Summary language** (`autoCaptureLanguage`) is **Automatic** or one language. Choosing a language saves it at once.
+- **Automatic** detects the language of your prompt. Detection is unreliable on short text, so a Latin-script prompt under 100 characters counts as English. Pick a fixed language if your memories come out in a language you do not use.
+- A save applies to the next capture. Memories that exist already keep their language.
+
 ## Import and backfill
 
 Moved and renamed to [Import chat history](web-ui-memory.md#import-chat-history). `/settings#settings-section-import` redirects to `/memory#memory-section-import`.

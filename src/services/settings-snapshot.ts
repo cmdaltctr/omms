@@ -38,6 +38,7 @@ const editable = [
   "importPathMaps",
   "importIgnoredDirectories",
   "claudeConfigDir",
+  "autoCaptureLanguage",
   ...MEMORY_LIMIT_SETTINGS,
 ] as const;
 
