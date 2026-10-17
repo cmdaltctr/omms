@@ -7,6 +7,7 @@ import { ImportSection } from "./ImportSection";
 import { AutoImportSection } from "./AutoImportSection";
 import { ProfileCatchUpSection } from "./ProfileCatchUpSection";
 import { MemorySection } from "./MemorySection";
+import { RerankerSection } from "./RerankerSection";
 import { DirectoryMapsSection } from "./DirectoryMapsSection";
 
 export function MemoryView() {
@@ -23,6 +24,7 @@ export function MemoryView() {
     "memory-section-auto-import": <AutoImportSection />,
     "memory-section-profile": <ProfileCatchUpSection onReanalyse={reanalyse} />,
     "memory-section-limits": <MemorySection />,
+    "memory-section-reranker": <RerankerSection />,
     "memory-section-project-folders": <DirectoryMapsSection />,
   };
   return (

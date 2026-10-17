@@ -19,6 +19,7 @@ import { isOlderVersion } from "./version-compare.js";
 import { AUTH_HEADER, getOrCreateAuthToken, isAuthorizedApiRequest } from "./auth-token.js";
 import { WebAuth } from "./web-auth.js";
 import { NODE_HTTP_IDLE_TIMEOUT_MS } from "./request-timeouts.js";
+import { testReranker } from "./reranker-test.js";
 import {
   handleListTags,
   handleListKeywords,
@@ -1282,6 +1283,10 @@ export class WebServer {
         const response = await this.handleEmbeddingRoute(req, path, method, remoteAddress);
         if (response) return response;
       }
+
+      // The Reranker card's Test button; the module holds the loopback and
+      // token guards, matching the embedding test route.
+      if (path === "/api/settings/reranker/test") return testReranker(req, method, remoteAddress);
 
       if (path === "/api/settings/external-api/test" && method === "POST") {
         const { testExternalApi } = await import("../importer/web-import-api.js");

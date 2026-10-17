@@ -16,11 +16,18 @@ import {
   memorySaveEdits,
   parseMemoryValue,
   STALE_CONFIG_MESSAGE,
+  type MemoryControlKey,
   type MemorySaveFailure,
 } from "$lib/memory-controls";
 import { tableWrap, td, th, thead, tr } from "../settings/table-styles";
 
-type Setting = { value?: unknown; source: string; globalValue?: unknown; default?: unknown };
+type Setting = {
+  value?: unknown;
+  source: string;
+  globalValue?: unknown;
+  default?: unknown;
+  hasGlobal?: boolean;
+};
 type Snapshot = { revision: string; settings: Record<string, Setting> };
 
 /** Store status identities so a language switch retranslates the feedback. */
@@ -72,6 +79,16 @@ export function MemorySection() {
     if (!snapshot || !canSave || saving.current) return;
     const edits = memorySaveEdits(draft, loaded);
     if (!Object.keys(edits).length) return;
+    await saveEdits(edits);
+  }
+  /** Reset one row: null on the wire removes the key so the default applies again. */
+  async function reset(key: MemoryControlKey) {
+    if (!snapshot || busy || saving.current) return;
+    if (!snapshot.settings[key]?.hasGlobal) return;
+    await saveEdits({ [key]: null });
+  }
+  async function saveEdits(edits: Record<string, unknown>) {
+    if (!snapshot || saving.current) return;
     saving.current = true;
     setBusy(true);
     let saved = false;
@@ -89,7 +106,11 @@ export function MemorySection() {
     setBusy(false);
     saving.current = false;
     if (saved) {
-      setDraft({});
+      setDraft((previous) => {
+        const next = { ...previous };
+        for (const key of Object.keys(edits)) delete next[key];
+        return next;
+      });
       setStatus({ kind: "saved", reloaded });
     } else
       setStatus({
@@ -166,6 +187,13 @@ export function MemorySection() {
                   typeof raw === "string" && parseMemoryValue(control, raw) === undefined;
                 const setting = snapshot?.settings[control.key];
                 const overridden = setting?.source === "project";
+                // Reset needs a key in the file; the marker needs a saved value
+                // that differs from the (embedder-aware) default.
+                const hasGlobal = setting?.hasGlobal === true;
+                const differs =
+                  hasGlobal &&
+                  typeof setting?.globalValue === "number" &&
+                  setting.globalValue !== defaults[control.key];
                 return (
                   <tr className={tr} key={control.key}>
                     <td className={td}>
@@ -193,8 +221,8 @@ export function MemorySection() {
                         type="number"
                         id={`${control.id}-input`}
                         className="w-36 tabular-nums"
-                        inputMode="numeric"
-                        step={1}
+                        inputMode={control.kind === "decimal" ? "decimal" : "numeric"}
+                        step={control.kind === "decimal" ? 0.01 : 1}
                         min={control.min}
                         max={control.max}
                         aria-label={`${control.key} ${s("Value")}`}
@@ -215,9 +243,24 @@ export function MemorySection() {
                       >
                         {s(control.accepted)}
                       </span>
+                      <button
+                        type="button"
+                        data-reset={control.key}
+                        className="mt-1 block text-xs underline"
+                        disabled={busy || !hasGlobal}
+                        aria-label={`${control.key} ${s("Reset to default")}`}
+                        onClick={() => void reset(control.key)}
+                      >
+                        {s("Reset to default")}
+                      </button>
                     </td>
                     <td className={`${td} tabular-nums`}>
                       {formatMemoryDefault(defaults[control.key])}
+                      {differs && (
+                        <span className="block text-xs text-amber-600">
+                          {s("Differs from default")}
+                        </span>
+                      )}
                     </td>
                     <td className={td}>{s(control.unit)}</td>
                     <td className={td}>{s(control.affects)}</td>

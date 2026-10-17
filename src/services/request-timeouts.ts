@@ -16,3 +16,13 @@ export const NODE_HTTP_IDLE_TIMEOUT_MS =
  * without memory rather than stalling the agent.
  */
 export const V2_RETRIEVAL_TIMEOUT_MS = 5_000;
+
+// Opt-in reranker (openspec change retrieval-threshold-and-reranker). The
+// default keeps total search time inside OpenCode V2's 5-second wait; a user
+// who sets more than 5000 accepts that V2 may send the request with no memory.
+export const RERANKER_TIMEOUT_DEFAULT_MS = 4_000;
+export const RERANKER_TIMEOUT_MIN_MS = 500;
+export const RERANKER_TIMEOUT_MAX_MS = 30_000;
+
+/** Candidates the reranker sees per search. A constant until evidence says otherwise. */
+export const RERANKER_POOL_SIZE = 50;

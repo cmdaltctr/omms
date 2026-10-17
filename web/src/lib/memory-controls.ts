@@ -9,7 +9,8 @@ export type MemoryControlKey =
   | "chatMessage.maxMemories"
   | "autoCaptureMaxContextBytes"
   | "userProfileMaxContextBytes"
-  | "retrievalMaxTokens";
+  | "retrievalMaxTokens"
+  | "similarityThreshold";
 
 export type MemoryControl = {
   key: MemoryControlKey;
@@ -24,6 +25,8 @@ export type MemoryControl = {
   max: number;
   /** Accepted values, shown as help text and as the validation message. */
   accepted: string;
+  /** Integer rows refuse decimals; the threshold row accepts them. */
+  kind: "integer" | "decimal";
 };
 
 const POSITIVE_WHOLE = "Enter a positive whole number.";
@@ -39,6 +42,7 @@ export const MEMORY_CONTROLS: readonly MemoryControl[] = [
     min: 1,
     max: Number.MAX_SAFE_INTEGER,
     accepted: POSITIVE_WHOLE,
+    kind: "integer",
   },
   {
     key: "chatMessage.maxMemories",
@@ -50,6 +54,7 @@ export const MEMORY_CONTROLS: readonly MemoryControl[] = [
     min: 1,
     max: Number.MAX_SAFE_INTEGER,
     accepted: POSITIVE_WHOLE,
+    kind: "integer",
   },
   {
     key: "autoCaptureMaxContextBytes",
@@ -61,6 +66,7 @@ export const MEMORY_CONTROLS: readonly MemoryControl[] = [
     min: 16384,
     max: 16777216,
     accepted: "Enter a whole number from 16,384 to 16,777,216.",
+    kind: "integer",
   },
   {
     key: "userProfileMaxContextBytes",
@@ -72,6 +78,7 @@ export const MEMORY_CONTROLS: readonly MemoryControl[] = [
     min: 1024,
     max: 16777216,
     accepted: "Enter a whole number from 1,024 to 16,777,216.",
+    kind: "integer",
   },
   {
     key: "retrievalMaxTokens",
@@ -83,6 +90,21 @@ export const MEMORY_CONTROLS: readonly MemoryControl[] = [
     min: 256,
     max: 65536,
     accepted: "Enter a whole number from 256 to 65,536.",
+    kind: "integer",
+  },
+  {
+    key: "similarityThreshold",
+    id: "memory-similarityThreshold",
+    // Fallback only: the Default column reads the snapshot, whose default
+    // follows the active embedder (0.5 for qwen3-embedding:0.6b).
+    default: 0.6,
+    unit: "Similarity score",
+    affects:
+      "Lowest score a memory needs to be returned by search. Lower values return more memories, including less relevant ones. Higher values can return none. The default depends on the embedder.",
+    min: 0,
+    max: 1,
+    accepted: "Enter a number from 0 to 1.",
+    kind: "decimal",
   },
 ];
 
@@ -98,6 +120,7 @@ export const MEMORY_SETTINGS_MESSAGES: readonly string[] = [
   "Memories",
   "Bytes",
   "Approximate tokens",
+  "Similarity score",
   ...MEMORY_CONTROLS.flatMap((control) => [control.unit, control.affects, control.accepted]),
   "Byte limits count UTF-8 bytes.",
   "Approximate tokens are estimated as ceil(UTF-8 bytes / 4). A provider can count more or fewer tokens for the same text.",
@@ -112,6 +135,8 @@ export const MEMORY_SETTINGS_MESSAGES: readonly string[] = [
   "Effective value",
   "project",
   "The project value stays in force. Saving edits the global file only.",
+  "Reset to default",
+  "Differs from default",
 ];
 
 /** Parse a raw draft string into a valid value, or undefined when invalid. */
@@ -119,7 +144,8 @@ export function parseMemoryValue(control: MemoryControl, raw: string): number | 
   const text = typeof raw === "string" ? raw.trim() : "";
   if (!text || !/^-?\d+(\.\d+)?$/.test(text)) return undefined;
   const value = Number(text);
-  if (!Number.isInteger(value)) return undefined;
+  // Only the decimal rows (similarityThreshold) accept a fraction.
+  if (control.kind === "integer" && !Number.isInteger(value)) return undefined;
   return value >= control.min && value <= control.max ? value : undefined;
 }
 
