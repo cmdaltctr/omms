@@ -341,6 +341,83 @@ describe("global automatic backfill settings", () => {
     });
   });
 
+  it("defaults the automatic profile cleanup to on every 500 prompts and ignores project overrides", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-cleanup-home-"));
+    const project = mkdtempSync(join(tmpdir(), "omms-cleanup-project-"));
+    tempDirs.push(home, project);
+    mkdirSync(join(project, ".opencode"), { recursive: true });
+    writeFileSync(
+      join(project, ".opencode", "omms.jsonc"),
+      JSON.stringify({ userProfileAutoCleanupEnabled: false, userProfileAutoCleanupInterval: 50 })
+    );
+    const result = await runConfigScenario(
+      home,
+      `
+      initConfig(${JSON.stringify(project)});
+      return { enabled: cfg.CONFIG.userProfileAutoCleanupEnabled,
+        interval: cfg.CONFIG.userProfileAutoCleanupInterval };
+    `
+    );
+    expect(result).toMatchObject({ ok: true, enabled: true, interval: 500 });
+  });
+
+  it("ignores a project override of the automatic memory cleanup", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-memory-cleanup-home-"));
+    const project = mkdtempSync(join(tmpdir(), "omms-memory-cleanup-project-"));
+    tempDirs.push(home, project);
+    mkdirSync(join(project, ".opencode"), { recursive: true });
+    writeFileSync(
+      join(project, ".opencode", "omms.jsonc"),
+      JSON.stringify({ autoCleanupEnabled: false, autoCleanupRetentionDays: 1 })
+    );
+    const result = await runConfigScenario(
+      home,
+      `
+      initConfig(${JSON.stringify(project)});
+      return { enabled: cfg.CONFIG.autoCleanupEnabled, days: cfg.CONFIG.autoCleanupRetentionDays };
+    `
+    );
+    expect(result).toMatchObject({ ok: true, enabled: true, days: 30 });
+  });
+
+  it("uses 500 for an existing config file that has no automatic profile cleanup keys", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-cleanup-existing-"));
+    tempDirs.push(home);
+    mkdirSync(join(home, ".config", "omms"), { recursive: true });
+    writeFileSync(
+      join(home, ".config", "omms", "omms.jsonc"),
+      JSON.stringify({ memoryModel: "a-model" })
+    );
+    const result = await runConfigScenario(
+      home,
+      `
+      initConfig("/tmp/nonexistent-project");
+      return { enabled: cfg.CONFIG.userProfileAutoCleanupEnabled,
+        interval: cfg.CONFIG.userProfileAutoCleanupInterval };
+    `
+    );
+    expect(result).toMatchObject({ ok: true, enabled: true, interval: 500 });
+  });
+
+  it("uses the global automatic profile cleanup values", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-cleanup-global-"));
+    tempDirs.push(home);
+    mkdirSync(join(home, ".config", "omms"), { recursive: true });
+    writeFileSync(
+      join(home, ".config", "omms", "omms.jsonc"),
+      JSON.stringify({ userProfileAutoCleanupEnabled: false, userProfileAutoCleanupInterval: 300 })
+    );
+    const result = await runConfigScenario(
+      home,
+      `
+      initConfig("/tmp/nonexistent-project");
+      return { enabled: cfg.CONFIG.userProfileAutoCleanupEnabled,
+        interval: cfg.CONFIG.userProfileAutoCleanupInterval };
+    `
+    );
+    expect(result).toMatchObject({ ok: true, enabled: false, interval: 300 });
+  });
+
   it("keeps the shared web server controlled by global config across projects", async () => {
     const home = mkdtempSync(join(tmpdir(), "omms-web-home-"));
     const projectA = mkdtempSync(join(tmpdir(), "omms-web-project-a-"));

@@ -1,4 +1,5 @@
 import { log } from "../logger.js";
+import type { ModelPort } from "../../core/profile-analysis.js";
 import type { UserProfileData } from "./types.js";
 import {
   addIdsToProfile,
@@ -96,13 +97,16 @@ function groupByCategory(items: IndexedProfileItem[]): IndexedProfileItem[][] {
   return [...groups.keys()].sort().map((key) => groups.get(key)!);
 }
 
-/** One model request for one batch. */
-export async function cleanupBatch(indexed: IndexedProfile): Promise<BatchCleanupResult> {
+/** One model request for one batch. A caller with its own model passes it. */
+export async function cleanupBatch(
+  indexed: IndexedProfile,
+  model?: ModelPort | null
+): Promise<BatchCleanupResult> {
   const t0 = Date.now();
   const prompt = buildAICleanupPrompt(indexed);
   log("AI cleanup: batch prompt built", { items: countItems(indexed), promptLen: prompt.length });
 
-  const result = await callAICleanup(prompt);
+  const result = await callAICleanup(prompt, model);
   log("AI cleanup: batch reply received", { callMs: Date.now() - t0 });
 
   const cleanedById = buildItemIndex(result.profile);
@@ -211,6 +215,7 @@ export function failureReason(error: unknown): string {
     if (error instanceof SyntaxError || /valid JSON|No content/.test(error.message)) {
       return "invalid-reply";
     }
+    if (/No AI provider configured/.test(error.message)) return "no-provider";
   }
   return "error";
 }

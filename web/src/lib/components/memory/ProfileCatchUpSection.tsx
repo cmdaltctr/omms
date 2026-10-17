@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
+import { AutoCleanupSettings } from "./AutoCleanupSettings";
 
 export type CatchUpJob = {
   state: "idle" | "running" | "paused" | "done" | "failed" | "superseded";
@@ -175,6 +176,7 @@ export function ProfileCatchUpSection({ onReanalyse }: { onReanalyse?: () => voi
           </p>
         ))}
       {error && <p role="alert">{error}</p>}
+      <AutoCleanupSettings />
     </section>
   );
 }

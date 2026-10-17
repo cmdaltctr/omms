@@ -198,6 +198,15 @@ export const translations = {
     "btn-category-cleanup-banner-open": "Open review",
     "toast-category-cleanup-applied": "Items renamed: {count}",
     "toast-category-cleanup-undone": "Items restored: {restored}. Not found: {notFound}.",
+    "btn-auto-cleanup-undo": "Undo last automatic cleanup",
+    "btn-auto-cleanup-undo-confirm": "Undo cleanup",
+    "title-auto-cleanup-undo": "Undo the last automatic cleanup?",
+    "label-auto-cleanup-undo-body":
+      "The automatic cleanup on {when} merged {merged} groups of memories and removed {removed}. Undo puts the original memories back. It keeps everything learned since.",
+    "toast-auto-cleanup-undone": "Restored {restored} changes.",
+    "toast-auto-cleanup-undone-partial":
+      "Restored {restored} changes. {notFound} not found, because the memories changed since.",
+    "toast-auto-cleanup-undo-failed": "Could not undo the automatic cleanup.",
     "toast-category-cleanup-failed": "Category cleanup failed",
     "label-ai-cleanup-title": "AI Profile Cleanup",
     "label-ai-cleanup-loading": "AI is analyzing profile...",
@@ -439,6 +448,15 @@ export const translations = {
     "btn-category-cleanup-banner-open": "打开审阅",
     "toast-category-cleanup-applied": "已重命名的条目：{count}",
     "toast-category-cleanup-undone": "已恢复：{restored}。未找到：{notFound}。",
+    "btn-auto-cleanup-undo": "撤销上次自动整理",
+    "btn-auto-cleanup-undo-confirm": "撤销整理",
+    "title-auto-cleanup-undo": "撤销上次自动整理？",
+    "label-auto-cleanup-undo-body":
+      "{when} 的自动整理合并了 {merged} 组记忆，并删除了 {removed} 条。撤销会恢复原来的记忆，并保留之后学到的所有内容。",
+    "toast-auto-cleanup-undone": "已恢复 {restored} 项更改。",
+    "toast-auto-cleanup-undone-partial":
+      "已恢复 {restored} 项更改。有 {notFound} 项未找到，因为记忆已发生变化。",
+    "toast-auto-cleanup-undo-failed": "无法撤销自动整理。",
     "toast-category-cleanup-failed": "分类整理失败",
     "label-ai-cleanup-title": "AI 画像清理",
     "label-ai-cleanup-loading": "AI 正在分析画像...",
@@ -720,6 +738,15 @@ export const translations = {
     "btn-category-cleanup-banner-open": "فتح المراجعة",
     "toast-category-cleanup-applied": "العناصر المعاد تسميتها: {count}",
     "toast-category-cleanup-undone": "المستعادة: {restored}. غير الموجودة: {notFound}.",
+    "btn-auto-cleanup-undo": "تراجع عن آخر تنظيف تلقائي",
+    "btn-auto-cleanup-undo-confirm": "تراجع عن التنظيف",
+    "title-auto-cleanup-undo": "هل تريد التراجع عن آخر تنظيف تلقائي؟",
+    "label-auto-cleanup-undo-body":
+      "دمج التنظيف التلقائي في {when} عدد {merged} من مجموعات الذكريات وحذف {removed}. يعيد التراجع الذكريات الأصلية ويحتفظ بكل ما تم تعلمه بعد ذلك.",
+    "toast-auto-cleanup-undone": "تمت استعادة {restored} من التغييرات.",
+    "toast-auto-cleanup-undone-partial":
+      "تمت استعادة {restored} من التغييرات. لم يتم العثور على {notFound} لأن الذكريات تغيرت بعد ذلك.",
+    "toast-auto-cleanup-undo-failed": "تعذر التراجع عن التنظيف التلقائي.",
     "toast-category-cleanup-failed": "فشل تنظيف الفئات",
     "label-ai-cleanup-title": "تنظيف الملف الشخصي",
     "label-ai-cleanup-loading": "الذكاء الاصطناعي يحلل الملف الشخصي...",

@@ -158,6 +158,21 @@ One catch-up run works across processes and cannot overlap a live pass. A second
 
 Open the page on the computer running OMMS to start, pause or resume catch-up. The endpoints are `GET /api/settings/profile/catch-up` and `POST /api/settings/profile/catch-up/start`, `/pause`, `/resume`. POST requires a local caller and the token file `~/.omms/.auth-token`; other callers get `403`. For another model, use [CLI: Profile catch-up](cli.md#profile-catch-up).
 
+### Automatic profile cleanup
+
+The **Profile learning** card also holds the controls of the automatic cleanup. OMMS merges duplicate profile items and removes vague ones by itself, in the background, after a learning pass. See [Using memory: Automatic cleanup](using-memory.md#automatic-cleanup).
+
+| Control                                  | Config key                       | Default | Allowed                          |
+| ---------------------------------------- | -------------------------------- | ------- | -------------------------------- |
+| **Clean up the profile automatically**   | `userProfileAutoCleanupEnabled`  | on      | on or off                        |
+| **Run every this many analysed prompts** | `userProfileAutoCleanupInterval` | 500     | a whole number from 50 to 100000 |
+
+1. Clear or select the switch. The change saves at once.
+2. To change the interval, type a whole number and select **Save interval**. Another value shows a message beside the field and writes nothing.
+3. The change applies to the next learning pass. You do not restart anything.
+
+Each run makes about one model call for every 100 profile items, so a longer interval costs less. The page does not accept an interval below 50, because each run is paid for. A project config cannot override these two settings; the page shows and saves the global value. **Undo last automatic cleanup** is on the Profile page. Saving uses the [safe global save](web-ui-settings.md#how-saving-works) of the other settings, and keeps comments and other keys in your config file.
+
 ### Re-analyse chat history
 
 Select **Re-analyse chat history** to open Import chat history with **User profile** selected, **Project memories** deselected and **Re-analyse handled history** enabled. This presets the form; it starts no model work. Choose hosts and scope, list sessions, preview and confirm.

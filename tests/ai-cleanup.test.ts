@@ -63,6 +63,10 @@ describe("extractTextFromPromptResult", () => {
 });
 
 const aiCleanupUrl = new URL("../src/services/user-profile/ai-cleanup.js", import.meta.url).href;
+const aiCleanupBatchesUrl = new URL(
+  "../src/services/user-profile/ai-cleanup-batches.js",
+  import.meta.url
+).href;
 const configUrl = new URL("../src/config.js", import.meta.url).href;
 const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
 const profileModelUrl = new URL("../src/adapters/opencode/profile-model.js", import.meta.url).href;
@@ -168,7 +172,8 @@ if (${withExternalApi}) {
 // The OpenCode plugin registers its profile model at start-up.
 const { registerOpencodeProfileModel } = await import(${JSON.stringify(profileModelUrl)});
 registerOpencodeProfileModel();
-const { aiCleanupProfile } = await import(${JSON.stringify(aiCleanupUrl)});
+const { addIdsToProfile } = await import(${JSON.stringify(aiCleanupUrl)});
+const { cleanupBatch } = await import(${JSON.stringify(aiCleanupBatchesUrl)});
 
 const profile = {
   preferences: [
@@ -182,7 +187,7 @@ const profile = {
 let errorMessage = null;
 let result = null;
 try {
-  result = await aiCleanupProfile(profile);
+  result = await cleanupBatch(addIdsToProfile(profile));
 } catch (e) {
   errorMessage = String(e?.message || e);
 }

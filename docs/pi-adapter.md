@@ -133,6 +133,10 @@ The adapter does not replace or change Pi's native compaction. If compaction
 happens during a run, capture waits for the settled point. The work unit then
 covers both sides of the compaction, and each part is captured once.
 
+### Automatic profile cleanup
+
+After a profile learning pass takes the count of analysed prompts past a multiple of `userProfileAutoCleanupInterval` (default 500), Pi starts the automatic cleanup in the background. It uses the same model as profile learning. A run that is still going when Pi ends saves nothing. See [Using memory: Automatic cleanup](using-memory.md#automatic-cleanup).
+
 ## Provenance
 
 Memories captured from Pi carry:

@@ -1,7 +1,8 @@
+import { categoryKey } from "./profile-category.js";
 import type { CleanupDiff } from "./ai-cleanup.js";
 import type { UserProfileData } from "./types.js";
 
-type Section = "preferences" | "patterns" | "workflows";
+export type Section = "preferences" | "patterns" | "workflows";
 
 const SECTION_BY_PREFIX: Record<string, Section> = {
   pref: "preferences",
@@ -21,10 +22,19 @@ export interface AcceptedCleanup {
   removed?: string[];
 }
 
+/**
+ * What one applied change replaced, as stored. Undo reverses it. A merge holds the original
+ * items and the merged item that was written. A removal holds the original item.
+ */
+export type RestoreEntry =
+  | { kind: "merge"; section: Section; originals: unknown[]; merged: unknown }
+  | { kind: "remove"; section: Section; original: unknown };
+
 export interface AppliedCleanup {
   profile: UserProfileData;
   applied: number;
   skipped: number;
+  restore: RestoreEntry[];
 }
 
 /**
@@ -48,6 +58,7 @@ export function applyCleanupEdits(
   const merges = new Map(job.changes.merged.map((m) => [m.ids.join(","), m.ids]));
   const removals = new Set(job.changes.removed.map((r) => r.id));
   const used = new Set<string>();
+  const restore: RestoreEntry[] = [];
   let applied = 0;
   let skipped = 0;
 
@@ -61,7 +72,14 @@ export function applyCleanupEdits(
       continue;
     }
     const items = profile[found.section] as unknown[];
-    items[found.indices[0]!] = { ...(mergedItem as object) };
+    const written = { ...(mergedItem as object) };
+    restore.push({
+      kind: "merge",
+      section: found.section,
+      originals: found.indices.map((index) => items[index]),
+      merged: written,
+    });
+    items[found.indices[0]!] = written;
     for (const index of found.indices.slice(1).sort((a, b) => b - a)) items.splice(index, 1);
     for (const id of ids) used.add(id);
     applied++;
@@ -74,12 +92,13 @@ export function applyCleanupEdits(
       skipped++;
       continue;
     }
-    profile[found.section].splice(found.indices[0]!, 1);
+    const [removed] = profile[found.section].splice(found.indices[0]!, 1);
+    restore.push({ kind: "remove", section: found.section, original: removed });
     used.add(id);
     applied++;
   }
 
-  return { profile, applied, skipped };
+  return { profile, applied, skipped, restore };
 }
 
 /**
@@ -118,10 +137,14 @@ function positionOf(id: string): number {
   return Number.parseInt(id.split("_")[1] ?? "", 10);
 }
 
-/** The fields that identify a profile item. Counters and vectors are left out. */
+/**
+ * The fields that identify a profile item. Counters and vectors are left out. The category
+ * counts by its key, because every save keeps one visible spelling per category and may
+ * rewrite the spelling of a stored item.
+ */
 export function profileItemIdentityKey(item: any): string {
   return JSON.stringify({
-    category: item.category ?? null,
+    category: item.category == null ? null : categoryKey(String(item.category)),
     description: item.description ?? null,
     steps: Array.isArray(item.steps) ? item.steps : null,
   });

@@ -67,6 +67,20 @@ describe("applyCleanupEdits", () => {
     ]);
   });
 
+  it("matches an item whose category spelling a later save rewrote", () => {
+    const current = structuredClone(old);
+    current.preferences[2]!.category = "Style";
+    const spelt = structuredClone(old);
+    spelt.preferences[2]!.category = "style";
+    const result = applyCleanupEdits(
+      current,
+      { ...job, old: spelt },
+      { merged: [], removed: ["pref_2"] }
+    );
+    expect(descriptions(result.profile)).not.toContain("stale");
+    expect(result).toMatchObject({ applied: 1, skipped: 0 });
+  });
+
   it("matches a selected item whose frequency learning raised", () => {
     const current = structuredClone(old);
     current.preferences[2]!.frequency = 9;
@@ -195,5 +209,70 @@ describe("applyCleanupEdits", () => {
     const current = structuredClone(old);
     applyCleanupEdits(current, job, { merged: [["pref_0", "pref_1"]], removed: ["pref_2"] });
     expect(current).toEqual(old);
+  });
+});
+
+describe("applyCleanupEdits restore entries", () => {
+  it("holds the original items and the merged item of a merge, and the original of a removal", () => {
+    const result = applyCleanupEdits(structuredClone(old), job, {
+      merged: [["pref_0", "pref_1"]],
+      removed: ["pref_2"],
+    });
+    expect(result.restore).toEqual([
+      {
+        kind: "merge",
+        section: "preferences",
+        originals: [old.preferences[0], old.preferences[1]],
+        merged: pref("target merged", { frequency: 2 }),
+      },
+      { kind: "remove", section: "preferences", original: old.preferences[2] },
+    ]);
+  });
+
+  it("holds the items as stored, with the counters learning raised", () => {
+    const current = structuredClone(old);
+    current.preferences[2]!.frequency = 9;
+    const result = applyCleanupEdits(current, job, { merged: [], removed: ["pref_2"] });
+    expect(result.restore).toEqual([
+      {
+        kind: "remove",
+        section: "preferences",
+        original: expect.objectContaining({ frequency: 9 }),
+      },
+    ]);
+  });
+
+  it("holds no entry for a change that was skipped", () => {
+    const current = structuredClone(old);
+    current.preferences.splice(2, 1);
+    const result = applyCleanupEdits(current, job, {
+      merged: [["pref_0", "pref_1"]],
+      removed: ["pref_2"],
+    });
+    expect(result.skipped).toBe(1);
+    expect(result.restore).toHaveLength(1);
+    expect(result.restore[0]).toMatchObject({ kind: "merge" });
+  });
+
+  it("holds no entry when nothing is applied", () => {
+    const result = applyCleanupEdits(structuredClone(old), job, { merged: [], removed: [] });
+    expect(result.restore).toEqual([]);
+  });
+
+  it("holds a workflow merge in the workflows section", () => {
+    const wf = (description: string) => ({ category: "git", description, steps: ["a"] }) as any;
+    const current = { preferences: [], patterns: [], workflows: [wf("one"), wf("two")] };
+    const result = applyCleanupEdits(
+      structuredClone(current),
+      {
+        old: current,
+        changes: { kept: [], merged: [{ ids: ["wf_0", "wf_1"], result: "m" }], removed: [] },
+        mergedItems: { wf_0: wf("m") },
+      },
+      { merged: [["wf_0", "wf_1"]] }
+    );
+    expect(result.restore).toEqual([
+      { kind: "merge", section: "workflows", originals: [wf("one"), wf("two")], merged: wf("m") },
+    ]);
   });
 });

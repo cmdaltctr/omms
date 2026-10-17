@@ -93,6 +93,26 @@ const text = {
   queued: ["排队中", "في الانتظار"],
   preparing: ["准备中", "جارٍ التحضير"],
   "not-run": ["未运行", "لم يُشغّل"],
+  "Automatic profile cleanup": ["自动整理画像", "التنظيف التلقائي للملف الشخصي"],
+  "After a learning pass, OMMS merges duplicate profile items and removes vague ones by itself, in the background. Each run makes about one model call for every 100 items and takes several minutes on a large profile. Undo last automatic cleanup on the Profile page puts the changes back.":
+    [
+      "学习完成后，OMMS 会在后台自动合并重复的画像条目，并删除含糊的条目。每次运行大约每 100 个条目调用一次模型，在大型画像上需要几分钟。在“用户画像”页面选择“撤销上次自动整理”可恢复这些更改。",
+      "بعد كل جولة تعلّم، يدمج OMMS عناصر الملف الشخصي المكررة ويحذف العناصر الغامضة تلقائياً في الخلفية. تجري كل عملية نحو اتصال واحد بالنموذج لكل 100 عنصر وتستغرق عدة دقائق على الملف الكبير. يعيد خيار «تراجع عن آخر تنظيف تلقائي» في صفحة الملف الشخصي التغييرات.",
+    ],
+  "Clean up the profile automatically": ["自动整理画像", "تنظيف الملف الشخصي تلقائياً"],
+  "Run every this many analysed prompts": [
+    "每隔多少条已分析的提示运行一次",
+    "التشغيل كل عدد من المطالبات المحللة",
+  ],
+  "Save interval": ["保存间隔", "حفظ الفاصل"],
+  "Enter a whole number from 50 to 100000.": [
+    "请输入 50 到 100000 之间的整数。",
+    "أدخل عدداً صحيحاً من 50 إلى 100000.",
+  ],
+  "Saved. Changes apply at the next learning pass.": [
+    "已保存。更改将在下一次学习时生效。",
+    "تم الحفظ. تنطبق التغييرات في جولة التعلّم التالية.",
+  ],
   "Analyse waiting prompts": ["分析等待处理的提示", "تحليل المطالبات المنتظرة"],
   "Re-analyse chat history": ["重新分析聊天记录", "إعادة تحليل سجل المحادثات"],
   "Analyse waiting prompts reads prompts already inside OMMS with the saved external API, 50 eligible prompts per analysis call. Completed history is not re-analysed. Preferences, patterns, and workflows are the outputs.":

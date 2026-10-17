@@ -2,6 +2,7 @@
 
 - **Date:** 2026-10-17
 - **Status:** Accepted
+- **Superseded in part by:** [ADR-030](030-profile-cleanup-runs-on-every-host.md), which keeps the automatic cleanup on every host and replaces decision 5
 - **Deciders:** Aizat Hawari
 
 ## Context

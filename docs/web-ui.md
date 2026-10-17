@@ -217,6 +217,14 @@ Profile learning can save while the cleanup runs. Apply then puts your ticked ch
 
 The model merges memories only inside one batch. Two duplicates in different batches both stay. Run AI Cleanup again after Apply to find them.
 
+**Undo last automatic cleanup** shows beside **History** while OMMS has an automatic cleanup from the last 30 days that you have not undone. See [Using memory: Automatic cleanup](using-memory.md#automatic-cleanup).
+
+1. Select the button. A window shows when the cleanup ran, how many groups of memories it merged and how many it removed.
+2. Select **Undo cleanup** to put the original memories back. Select **Cancel** to change nothing.
+3. A message says how many changes were restored and how many were not found. A change is not found when learning changed or removed the merged memory after the run.
+
+Undo keeps everything that OMMS learned after the cleanup. It does not undo **Apply Changes** in the AI Cleanup window.
+
 ## Settings page
 
 Open `http://127.0.0.1:4747/settings`, select **Settings**, or select the sidebar cogwheel. Its arrow opens the section list.
