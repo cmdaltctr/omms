@@ -72,6 +72,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [048](./048-category-cleanup-reuses-model-answers.md)             | Category cleanup reuses model answers between previews                  | Accepted              | 2026-10-15 |
 | [049](./049-category-cleanup-tests-use-shared-windows-cleanup.md) | Category cleanup tests use the shared Windows cleanup                   | Accepted              | 2026-10-15 |
 | [050](./050-profile-saves-lost-to-stale-learning-copy.md)         | Profile saves lost to a stale learning copy                             | Accepted              | 2026-10-16 |
+| [051](./051-ai-cleanup-timeout-on-large-selections.md)            | AI Cleanup timed out on large selections                                | Accepted              | 2026-10-17 |
 
 ## Status values
 

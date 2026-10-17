@@ -44,14 +44,13 @@ import {
   handleGetProfileChangelog,
   handleGetProfileSnapshot,
   handleRefreshProfile,
-  handleAICleanup,
-  handleApplyCleanup,
   handleCategoryCleanupApply,
   handleCategoryCleanupStart,
   handleCategoryCleanupStatus,
   handleCategoryCleanupUndo,
   handleUpdateProfileItem,
 } from "./api-handlers.js";
+import * as aiCleanup from "./ai-cleanup-handlers.js";
 
 /**
  * Runtime-portable HTTP server handle.
@@ -1657,21 +1656,19 @@ export class WebServer {
 
       if (path === "/api/user-profile/ai-cleanup" && method === "POST") {
         const body = (await req.json().catch(() => ({}))) as any;
-        const userId = body.userId || undefined;
-        const includeIds = Array.isArray(body.includeIds)
-          ? (body.includeIds as string[])
-          : undefined;
-        const profileVersion =
-          typeof body.profileVersion === "number" ? body.profileVersion : undefined;
-        const result = await handleAICleanup(userId, includeIds, profileVersion);
-        return this.jsonResponse(result);
+        return this.jsonResponse(await aiCleanup.handleAiCleanupStart(body.userId, body));
+      }
+
+      if (path === "/api/user-profile/ai-cleanup" && (method === "GET" || method === "DELETE")) {
+        const userId = url.searchParams.get("userId") || undefined;
+        const handle =
+          method === "GET" ? aiCleanup.handleAiCleanupStatus : aiCleanup.handleAiCleanupStop;
+        return this.jsonResponse(await handle(userId));
       }
 
       if (path === "/api/user-profile/ai-cleanup/apply" && method === "POST") {
         const body = (await req.json().catch(() => ({}))) as any;
-        const userId = body.userId || undefined;
-        const result = await handleApplyCleanup(userId, body);
-        return this.jsonResponse(result);
+        return this.jsonResponse(await aiCleanup.handleAiCleanupApply(body.userId, body));
       }
 
       if (path === "/api/user-profile/category-cleanup" && method === "POST") {

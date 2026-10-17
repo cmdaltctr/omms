@@ -1,6 +1,9 @@
 export const EXTERNAL_PROFILE_CLEANUP_TIMEOUT_MS = 60_000;
 export const OPENCODE_PROFILE_CLEANUP_TIMEOUT_MS = 300_000;
 
+/** The most items one web AI cleanup request sends, so each request ends inside its time limit. */
+export const AI_CLEANUP_BATCH_SIZE = 100;
+
 const HTTP_TIMEOUT_GRACE_MS = 30_000;
 
 export const NODE_HTTP_IDLE_TIMEOUT_MS =

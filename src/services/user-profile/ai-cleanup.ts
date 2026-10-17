@@ -65,55 +65,7 @@ export async function aiCleanupProfile(profileData: UserProfileData): Promise<AI
   return { cleaned, diff };
 }
 
-export async function aiCleanupProfileFromIndexed(
-  indexed: IndexedProfile
-): Promise<AICleanupResult> {
-  const t0 = Date.now();
-  const prompt = buildAICleanupPrompt(indexed);
-
-  log("AI cleanup: prompt built (filtered)", {
-    prefCount: indexed.preferences.length,
-    patCount: indexed.patterns.length,
-    wfCount: indexed.workflows.length,
-    promptLen: prompt.length,
-    buildMs: Date.now() - t0,
-  });
-
-  const aiStart = Date.now();
-  const result = await callAICleanup(prompt);
-  log("AI cleanup: AI response received (filtered)", { callMs: Date.now() - aiStart });
-
-  const cleanedById = buildItemIndex(result.profile);
-  const originalById = buildItemIndex(indexed);
-  const counters = { cleaned: 0, original: 0 };
-
-  const cleaned = rebuildProfileUsing(result.mapping, cleanedById, originalById, counters);
-  const diff = generateDiff(indexed, result.mapping, cleanedById);
-
-  log("AI cleanup: complete (filtered)", {
-    totalMs: Date.now() - t0,
-    kept: diff.kept.length,
-    merged: diff.merged.length,
-    removed: diff.removed.length,
-  });
-
-  return { cleaned, diff };
-}
-
-export function filterProfileForCleanup(
-  profileData: UserProfileData,
-  includeIds: string[]
-): IndexedProfile {
-  const idSet = new Set(includeIds);
-  const indexed = addIdsToProfile(profileData);
-  return {
-    preferences: indexed.preferences.filter((p) => idSet.has(p.id)),
-    patterns: indexed.patterns.filter((p) => idSet.has(p.id)),
-    workflows: indexed.workflows.filter((p) => idSet.has(p.id)),
-  };
-}
-
-interface IndexedProfileItem {
+export interface IndexedProfileItem {
   id: string;
   category?: string;
   description: string;
@@ -122,13 +74,13 @@ interface IndexedProfileItem {
   [key: string]: unknown;
 }
 
-interface IndexedProfile {
+export interface IndexedProfile {
   preferences: IndexedProfileItem[];
   patterns: IndexedProfileItem[];
   workflows: IndexedProfileItem[];
 }
 
-interface AIMapping {
+export interface AIMapping {
   kept: string[];
   merged: string[][];
   removed: string[];
@@ -157,7 +109,7 @@ function normalizeAIMapping(raw: any): AIMapping {
   return { kept, merged, removed };
 }
 
-function addIdsToProfile(profile: UserProfileData): IndexedProfile {
+export function addIdsToProfile(profile: UserProfileData): IndexedProfile {
   const items = {
     preferences: profile.preferences.map((p, i) => ({ ...p, id: `pref_${i}` })),
     patterns: profile.patterns.map((p, i) => ({ ...p, id: `pat_${i}` })),
@@ -166,7 +118,7 @@ function addIdsToProfile(profile: UserProfileData): IndexedProfile {
   return items;
 }
 
-function buildAICleanupPrompt(profile: IndexedProfile): string {
+export function buildAICleanupPrompt(profile: IndexedProfile): string {
   const profileJSON = JSON.stringify(
     {
       preferences: profile.preferences.map(formatForAI),
@@ -212,7 +164,7 @@ function formatForAI(item: IndexedProfileItem): Record<string, unknown> {
   return { id, category, description, frequency };
 }
 
-async function callAICleanup(
+export async function callAICleanup(
   prompt: string
 ): Promise<{ profile: IndexedProfile; mapping: AIMapping }> {
   // Use the host model when the host registered one (same pattern as auto-capture).
@@ -302,7 +254,7 @@ async function callViaHostModel(
   };
 }
 
-function buildItemIndex(profile: IndexedProfile): Map<string, IndexedProfileItem> {
+export function buildItemIndex(profile: IndexedProfile): Map<string, IndexedProfileItem> {
   const map = new Map<string, IndexedProfileItem>();
   for (const item of profile.preferences) map.set(item.id, item);
   for (const item of profile.patterns) map.set(item.id, item);
@@ -489,7 +441,7 @@ export function rebuildProfileUsing(
   return result;
 }
 
-function generateDiff(
+export function generateDiff(
   original: IndexedProfile,
   mapping: AIMapping,
   cleanedById: Map<string, IndexedProfileItem>

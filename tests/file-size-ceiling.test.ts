@@ -13,8 +13,8 @@ const exemptPrefixes = ["web/src/lib/i18n/"];
 // ceiling or is removed; the stale-entry check below fails until you do.
 const overCeilingBaseline: Record<string, number> = {
   "src/services/user-profile/user-profile-manager.ts": 1931,
-  "src/services/web-server.ts": 1829,
-  "src/services/api-handlers.ts": 1662,
+  "src/services/web-server.ts": 1826,
+  "src/services/api-handlers.ts": 1347,
   "src/config.ts": 1206,
   "src/adapters/opencode/profile-learning.ts": 844,
   "src/index.ts": 784,
@@ -25,10 +25,9 @@ const overCeilingBaseline: Record<string, number> = {
   "src/importer/claude-hook-api.ts": 609,
   "web/src/lib/components/explorer/AppSidebar.tsx": 571,
   "src/services/tag-prefix-migration.ts": 567,
-  "web/src/lib/components/explorer/AiCleanupDialog.tsx": 540,
+  "web/src/lib/components/explorer/AiCleanupDialog.tsx": 523,
   "src/services/ai/providers/openai-chat-completion.ts": 536,
   "src/services/turso/vector-search.ts": 533,
-  "src/services/user-profile/ai-cleanup.ts": 517,
   "src/services/shard-path-migration-service.ts": 508,
   "web/src/hooks/useMemoriesExplorer.ts": 504,
 };

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowRight,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -10,8 +9,11 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { fetchAPI } from "$lib/api";
+import { aiCleanupApi } from "$lib/api";
+import { useAiCleanupJob } from "@/hooks/useAiCleanupJob";
+import { dialogView, retrySelection, selectionAfterStop } from "./ai-cleanup-job-state";
 import { CleanupSelectShortcuts } from "./CleanupSelectShortcuts";
+import { CleanupSteps } from "./CleanupSteps";
 import { Button } from "$lib/components/ui/button";
 import { Checkbox } from "$lib/components/ui/checkbox";
 import {
@@ -24,7 +26,7 @@ import {
 import { sameCategoryIds } from "$lib/cleanup-selection";
 import { useI18n } from "$lib/i18n";
 import { findDescById, findStepsById } from "$lib/profile-utils";
-import type { PendingCleanup, ProfileItem, UserProfile } from "$lib/types";
+import type { ProfileItem, UserProfile } from "$lib/types";
 
 type CleanupItem = ProfileItem & { _id: string; _type: "pref" | "pat" | "wf" };
 
@@ -41,15 +43,20 @@ function truncate(text: string, max: number) {
 
 export function AiCleanupDialog({ open = false, profile = null, onOpenChange, onApplied }: Props) {
   const { t } = useI18n();
-  const [phase, setPhase] = useState<"select" | "loading" | "diff">("select");
+  const cleanup = useAiCleanupJob(open);
+  const [starting, setStarting] = useState(false);
   const [allItems, setAllItems] = useState<CleanupItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [pendingCleanup, setPendingCleanup] = useState<PendingCleanup | null>(null);
   const [acceptedMerged, setAcceptedMerged] = useState<Set<number>>(new Set());
   const [acceptedRemoved, setAcceptedRemoved] = useState<Set<number>>(new Set());
   const [keptOpen, setKeptOpen] = useState(false);
   const [applying, setApplying] = useState(false);
   const wasOpen = useRef(false);
+
+  const job = cleanup.job;
+  const jobView = dialogView(job, cleanup.startError);
+  const view = starting ? { phase: "running" as const, done: 0, total: 0 } : jobView;
+  const review = view.phase === "review" ? view.result : null;
 
   const cats = useMemo(() => {
     const map: Record<string, { pref: CleanupItem[]; pat: CleanupItem[]; wf: CleanupItem[] }> = {};
@@ -65,7 +72,7 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
   const selectedCount = selectedIds.size;
   const diffSelectedCount = acceptedMerged.size + acceptedRemoved.size;
   const diffTotalCount =
-    (pendingCleanup?.changes.merged?.length || 0) + (pendingCleanup?.changes.removed?.length || 0);
+    (review?.changes.merged?.length || 0) + (review?.changes.removed?.length || 0);
 
   function initSelect() {
     const pd = profile?.profileData;
@@ -93,8 +100,6 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
     const items = [...prefs, ...pats, ...wfs];
     setAllItems(items);
     setSelectedIds(new Set(items.filter((it) => (it.frequency || 0) <= 3).map((it) => it._id)));
-    setPhase("select");
-    setPendingCleanup(null);
     setKeptOpen(false);
   }
 
@@ -102,13 +107,21 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
     if (open && !wasOpen.current) {
       initSelect();
     } else if (!open && wasOpen.current) {
-      setPhase("select");
-      setPendingCleanup(null);
       setApplying(false);
     }
     wasOpen.current = open;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-init on dialog open edge
   }, [open]);
+
+  // A finished job opens its review with every change ticked.
+  const doneJobId = job?.status.state === "done" ? job.id : null;
+  useEffect(() => {
+    if (job?.status.state !== "done") return;
+    const { changes } = job.status.result;
+    setAcceptedMerged(new Set((changes.merged || []).map((_, i) => i)));
+    setAcceptedRemoved(new Set((changes.removed || []).map((_, i) => i)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when a new job finishes
+  }, [doneJobId]);
 
   function handleOpenChange(next: boolean) {
     onOpenChange?.(next);
@@ -139,28 +152,20 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
     setSelectedIds(sameCategoryIds(allItems));
   }
 
-  async function analyze() {
-    const ids = [...selectedIds];
+  async function analyze(ids: string[]) {
     if (ids.length === 0) {
       toast.warning("No items selected");
       return;
     }
-    setPhase("loading");
-    const result = await fetchAPI<PendingCleanup>("/api/user-profile/ai-cleanup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ includeIds: ids, profileVersion: profile?.version }),
-      timeout: 180000,
-    });
-    if (!result.success || !result.data) {
-      setPhase("select");
-      toast.error(result.error || t("toast-ai-cleanup-failed"));
-      return;
-    }
-    setPendingCleanup(result.data);
-    setAcceptedMerged(new Set((result.data.changes.merged || []).map((_, i) => i)));
-    setAcceptedRemoved(new Set((result.data.changes.removed || []).map((_, i) => i)));
-    setPhase("diff");
+    setStarting(true);
+    await cleanup.start(ids, profile?.version, t("toast-ai-cleanup-failed"));
+    setStarting(false);
+  }
+
+  /** Stop, or Back from a result or a failure: back to the selection the job ran with. */
+  function backToSelection() {
+    setSelectedIds(selectionAfterStop(job, selectedIds));
+    void cleanup.discard();
   }
 
   function typeLabel(id: string) {
@@ -191,8 +196,8 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
   }
 
   function selectAllDiff() {
-    setAcceptedMerged(new Set((pendingCleanup?.changes.merged || []).map((_, i) => i)));
-    setAcceptedRemoved(new Set((pendingCleanup?.changes.removed || []).map((_, i) => i)));
+    setAcceptedMerged(new Set((review?.changes.merged || []).map((_, i) => i)));
+    setAcceptedRemoved(new Set((review?.changes.removed || []).map((_, i) => i)));
   }
 
   function deselectAllDiff() {
@@ -201,28 +206,26 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
   }
 
   async function apply() {
-    if (!pendingCleanup || diffSelectedCount === 0) return;
+    if (!review || diffSelectedCount === 0) return;
     setApplying(true);
     const acceptedMergedIds = [...acceptedMerged]
-      .map((mi) => pendingCleanup?.changes.merged?.[mi]?.ids)
+      .map((mi) => review.changes.merged?.[mi]?.ids)
       .filter((ids): ids is string[] => !!ids);
     const acceptedRemovedIds = [...acceptedRemoved]
-      .map((ri) => pendingCleanup?.changes.removed?.[ri]?.id)
+      .map((ri) => review.changes.removed?.[ri]?.id)
       .filter((id): id is string => !!id);
 
-    const result = await fetchAPI("/api/user-profile/ai-cleanup/apply", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        profile: pendingCleanup.new,
-        acceptedMerged: acceptedMergedIds,
-        acceptedRemoved: acceptedRemovedIds,
-      }),
-    });
+    const result = await aiCleanupApi.apply(acceptedMergedIds, acceptedRemovedIds);
     setApplying(false);
 
     if (result.success) {
-      toast.success(t("toast-ai-cleanup-success"));
+      const { applied = 0, skipped = 0 } = result.data ?? {};
+      toast.success(
+        skipped > 0
+          ? t("toast-ai-cleanup-skipped", { applied, skipped })
+          : t("toast-ai-cleanup-success")
+      );
+      cleanup.clear();
       handleOpenChange(false);
       onApplied?.();
     } else {
@@ -237,12 +240,25 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
           <DialogTitle>{t("label-ai-cleanup-title")}</DialogTitle>
         </DialogHeader>
 
-        {phase === "loading" ? (
+        {view.phase === "running" ? (
           <div className="flex flex-col items-center gap-3 py-10 text-muted-foreground">
             <Loader className="size-6 animate-spin" />
             <span className="text-sm">{t("label-ai-cleanup-loading")}</span>
+            {view.total > 0 ? (
+              <span className="text-sm font-medium text-foreground" aria-live="polite">
+                {t("label-ai-cleanup-progress", { done: view.done, total: view.total })}
+              </span>
+            ) : null}
+            <span className="text-xs">{t("label-ai-cleanup-running-hint")}</span>
           </div>
-        ) : phase === "select" ? (
+        ) : view.phase === "failed" ? (
+          <div className="flex flex-col items-center gap-2 py-10 text-center" role="alert">
+            <span className="text-sm font-medium text-destructive">
+              {t("toast-ai-cleanup-failed")}
+            </span>
+            <span className="text-sm text-muted-foreground break-words">{view.error}</span>
+          </div>
+        ) : view.phase === "select" ? (
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-subsection-title font-semibold">
@@ -306,11 +322,18 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
               <span className="rounded-md border border-status-success/30 bg-status-success/10 px-2 py-0.5 text-xs font-medium text-status-success">
                 {t("label-ai-cleanup-selected", { count: selectedCount })}
               </span>
-              <Button onClick={analyze}>{t("label-ai-cleanup-analyze")}</Button>
+              <Button onClick={() => analyze([...selectedIds])}>
+                {t("label-ai-cleanup-analyze")}
+              </Button>
             </div>
           </div>
-        ) : phase === "diff" && pendingCleanup ? (
+        ) : view.phase === "review" && review ? (
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+            {view.notice ? (
+              <div className="rounded-lg border border-status-warning/30 bg-status-warning/10 px-3 py-2 text-xs text-status-warning">
+                {t("label-ai-cleanup-failed-batches", view.notice)}
+              </div>
+            ) : null}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs text-muted-foreground">
                 {t("label-ai-cleanup-changes-selected", {
@@ -328,18 +351,17 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
               </div>
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-              {(pendingCleanup.changes.merged || []).length > 0 ? (
+              {(review.changes.merged || []).length > 0 ? (
                 <div className="space-y-2">
                   <h3 className="flex items-center gap-1.5 text-subsection-title font-semibold">
                     <GitMerge className="size-3.5" />
                     {t("label-ai-cleanup-merged-header", {
-                      count: pendingCleanup.changes.merged?.length || 0,
+                      count: review.changes.merged?.length || 0,
                     })}
                   </h3>
-                  {(pendingCleanup.changes.merged || []).map((m, mi) => {
+                  {(review.changes.merged || []).map((m, mi) => {
                     const mergedFrom = m.ids.slice(1);
                     const mainDesc = m.result || "";
-                    const mainSteps = findStepsById(m.ids[0], pendingCleanup.old);
                     const mergeChecked = acceptedMerged.has(mi);
                     return (
                       <div key={mi} className="rounded-xl border border-border p-3 space-y-2">
@@ -364,8 +386,7 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
                         <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr] items-start text-sm">
                           <div className="space-y-1.5">
                             {mergedFrom.map((id) => {
-                              const desc = findDescById(id, pendingCleanup.old);
-                              const steps = findStepsById(id, pendingCleanup.old);
+                              const desc = findDescById(id, review.old);
                               if (!desc) return null;
                               return (
                                 <div key={id} className="rounded-lg bg-muted/50 p-2 space-y-1">
@@ -375,20 +396,7 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
                                     </span>{" "}
                                     {truncate(desc, 80)}
                                   </div>
-                                  {steps?.length ? (
-                                    <div className="flex flex-wrap gap-1 text-xs text-muted-foreground">
-                                      {steps.map((s, si) => (
-                                        <span key={si} className="contents">
-                                          <span>
-                                            {si + 1}. {s}
-                                          </span>
-                                          {si < steps.length - 1 ? (
-                                            <ArrowRight className="size-3 inline" />
-                                          ) : null}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : null}
+                                  <CleanupSteps steps={findStepsById(id, review.old)} />
                                 </div>
                               );
                             })}
@@ -398,20 +406,7 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
                           </div>
                           <div className="rounded-lg bg-primary/10 p-2 space-y-1">
                             <div>{truncate(mainDesc, 120)}</div>
-                            {mainSteps?.length ? (
-                              <div className="flex flex-wrap gap-1 text-xs text-muted-foreground">
-                                {mainSteps.map((s, si) => (
-                                  <span key={si} className="contents">
-                                    <span>
-                                      {si + 1}. {s}
-                                    </span>
-                                    {si < mainSteps.length - 1 ? (
-                                      <ArrowRight className="size-3 inline" />
-                                    ) : null}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null}
+                            <CleanupSteps steps={findStepsById(m.ids[0], review.old)} />
                           </div>
                         </div>
                       </div>
@@ -420,17 +415,16 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
                 </div>
               ) : null}
 
-              {(pendingCleanup.changes.removed || []).length > 0 ? (
+              {(review.changes.removed || []).length > 0 ? (
                 <div className="space-y-2">
                   <h3 className="flex items-center gap-1.5 text-subsection-title font-semibold">
                     <Trash2 className="size-3.5" />
                     {t("label-ai-cleanup-removed-header", {
-                      count: pendingCleanup.changes.removed?.length || 0,
+                      count: review.changes.removed?.length || 0,
                     })}
                   </h3>
-                  {(pendingCleanup.changes.removed || []).map((r, ri) => {
-                    const desc = findDescById(r.id, pendingCleanup.old);
-                    const steps = findStepsById(r.id, pendingCleanup.old);
+                  {(review.changes.removed || []).map((r, ri) => {
+                    const desc = findDescById(r.id, review.old);
                     const removeChecked = acceptedRemoved.has(ri);
                     return (
                       <div key={ri} className="rounded-xl border border-border p-3 space-y-2">
@@ -453,20 +447,7 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
                           <span>{t("label-ai-cleanup-remove-check")}</span>
                         </div>
                         <div className="text-sm">{desc || r.id}</div>
-                        {steps?.length ? (
-                          <div className="flex flex-wrap gap-1 text-xs text-muted-foreground">
-                            {steps.map((s, si) => (
-                              <span key={si} className="contents">
-                                <span>
-                                  {si + 1}. {s}
-                                </span>
-                                {si < steps.length - 1 ? (
-                                  <ArrowRight className="size-3 inline" />
-                                ) : null}
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
+                        <CleanupSteps steps={findStepsById(r.id, review.old)} />
                         <div className="text-xs text-muted-foreground">{r.reason}</div>
                       </div>
                     );
@@ -474,7 +455,7 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
                 </div>
               ) : null}
 
-              {(pendingCleanup.changes.kept || []).length > 0 ? (
+              {(review.changes.kept || []).length > 0 ? (
                 <div className="space-y-2">
                   <button
                     type="button"
@@ -483,7 +464,7 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
                   >
                     {t("label-ai-cleanup-kept")}
                     <span className="text-muted-foreground">
-                      ({pendingCleanup.changes.kept?.length || 0})
+                      ({review.changes.kept?.length || 0})
                     </span>
                     {keptOpen ? (
                       <ChevronUp className="size-3.5" />
@@ -493,7 +474,7 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
                   </button>
                   {keptOpen ? (
                     <div className="space-y-1">
-                      {(pendingCleanup.changes.kept || []).map((k, ki) => (
+                      {(review.changes.kept || []).map((k, ki) => (
                         <div
                           key={ki}
                           className="text-xs text-muted-foreground rounded bg-muted/40 px-2 py-1"
@@ -513,7 +494,22 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
           <Button variant="secondary" onClick={() => handleOpenChange(false)}>
             {t("btn-cancel")}
           </Button>
-          {phase === "diff" ? (
+          {view.phase === "running" && !starting ? (
+            <Button variant="outline" onClick={backToSelection}>
+              {t("btn-ai-cleanup-stop")}
+            </Button>
+          ) : null}
+          {view.phase === "failed" || view.phase === "review" ? (
+            <Button variant="outline" onClick={backToSelection}>
+              {t("btn-ai-cleanup-back")}
+            </Button>
+          ) : null}
+          {view.phase === "failed" ? (
+            <Button onClick={() => analyze(retrySelection(job, selectedIds))}>
+              {t("btn-ai-cleanup-retry")}
+            </Button>
+          ) : null}
+          {view.phase === "review" ? (
             <Button disabled={diffSelectedCount === 0 || applying} onClick={apply}>
               {diffSelectedCount > 0
                 ? `${t("label-ai-cleanup-apply")} (${diffSelectedCount})`
