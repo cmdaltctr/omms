@@ -426,3 +426,27 @@ Planned and completed 2026-10-12. Offline check on saved Clef probabilities from
 | 23  | retrieval | Standard | Which method gives the best three tags per memory, and does choosing from both sections (preferences and patterns) help? | MIXED  | [All methods, both sections](23-retrieval-all-methods-both-sections-2026-10-12/report.md) |
 
 Planned 2026-10-12. Same 600 observations as Experiments 18 and 20, scored against the Experiment 22 multi-label key. Eight arms: cosine, reranker, Clef and their combination, each with one section and with both. Saved answers are reused; new local calls are about 800 reranker and 600 Clef. Targets: Clef gains at least 10 points with both sections and loses no more than 3 within a section; the best method wins unless a cheaper one is within 3 points.
+
+## Retrieval: Experiment 24, reranker for memory retrieval
+
+| ID  | Category  | Size     | Question                                                                                                      | Status  | Plan and report                                                        |
+| --- | --------- | -------- | ------------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------- |
+| 24  | retrieval | Standard | Does a reranker over the top 50 memories find more relevant memories in the final 10 than the current scorer? | FAIL (delay), validity INCONCLUSIVE | [Memory reranker](24-retrieval-memory-reranker-2026-10-17/report.md) |
+
+Run 2026-10-17. The reranker beat the current scorer by 0.32 recall@10, but removing the 0.6 cut-off alone gave 0.30 of that. Reranker delay was 2.5 s median, over the 0.5 s limit. AI answer key, checked on 20 pairs. Plan: 60 real omms prompts against a read-only copy of 1,519 omms memories. Arm A is the current scorer (top 10 above 0.6); Arm B reranks the top 50 with Qwen3-Reranker-0.6B and keeps 10. A blind AI judge labels the pooled pairs; the operator checks 20. Target: recall@10 gain of at least 0.05 with sign test p < 0.05, precision loss no more than 0.10, reranker p95 delay no more than 500 ms.
+
+## Retrieval: Experiment 25, similarity threshold sweep
+
+| ID  | Category  | Size  | Question                                                                                                                   | Status  | Plan and report                                                      |
+| --- | --------- | ----- | -------------------------------------------------------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------- |
+| 25  | retrieval | Quick | Which `similarityThreshold` gives the best balance of recall and noise for the current scorer with `qwen3-embedding:0.6b`? | PASS (post-hoc), validity INCONCLUSIVE | [Threshold sweep](25-retrieval-threshold-sweep-2026-10-17/report.md) |
+
+Run 2026-10-17. Threshold 0.50 lifts recall@10 from 0.36 to 0.60 and cuts empty prompts from 21 to 4 of 60, with 1.2 more irrelevant memories per prompt. Needs a fresh-prompt check before the default changes. Plan: post-hoc rescoring of the Experiment 24 prompts and labels; no new judging. Seven thresholds from 0.60 down to none. Target: a threshold that lifts recall@10 by at least 0.10 over 0.60 with no more than 2 extra irrelevant memories per prompt.
+
+## Retrieval: Experiment 26, threshold check on fresh prompts
+
+| ID  | Category  | Size  | Question                                                                                                     | Status  | Plan and report                                                       |
+| --- | --------- | ----- | ------------------------------------------------------------------------------------------------------------ | ------- | --------------------------------------------------------------------- |
+| 26  | retrieval | Quick | Does the Experiment 25 threshold result hold on prompts that no earlier experiment used?                     | INCONCLUSIVE (G5), H1 holds | [Fresh prompts](26-retrieval-threshold-fresh-prompts-2026-10-17/report.md) |
+
+Run 2026-10-17. On fresh prompts 0.50 lifts recall@10 from 0.54 to 0.88 with 1.85 extra irrelevant memories per prompt; pick 0.50 on every key. Operator check agreed on 23 of 40 (30 needed). Plan: 60 omms prompts outside the Experiment 24 sample and its sessions, scored against the same memory snapshot. Thresholds 0.60, 0.55, 0.50 and 0.45. Haiku labels the pool with the Experiment 24 v2 rule; the operator checks 40 pairs, half of them marked not relevant by the AI. Target: 0.50 lifts recall@10 by at least 0.10 with at most 2 extra irrelevant memories per prompt.
