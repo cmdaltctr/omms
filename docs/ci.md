@@ -187,7 +187,7 @@ Runs on `macos-15`, `macos-26`, `macos-26-intel`, `windows-latest`, and
 1. Installs dependencies.
 2. Runs the full local gate.
 3. Packs the npm tarball and installs it into a scratch project.
-4. Runs the native dependency, libSQL vector, and package smoke scripts.
+4. Runs the native dependency, libSQL vector, and package smoke scripts. The package smoke removes its scratch folder with `scripts/remove-scratch-dir.mjs`, which leaves a folder that Windows still holds open. See [TDR-053](tdr/053-windows-smoke-could-not-remove-its-scratch-home.md).
 
 It runs:
 

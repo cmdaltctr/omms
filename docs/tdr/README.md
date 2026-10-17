@@ -74,6 +74,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [050](./050-profile-saves-lost-to-stale-learning-copy.md)                     | Profile saves lost to a stale learning copy                             | Accepted              | 2026-10-16 |
 | [051](./051-ai-cleanup-timeout-on-large-selections.md)                        | AI Cleanup timed out on large selections                                | Accepted              | 2026-10-17 |
 | [052](./052-item-matching-breaks-when-a-save-rewrites-a-category-spelling.md) | Item matching broke when a save rewrote a category spelling             | Accepted              | 2026-10-17 |
+| [053](./053-windows-smoke-could-not-remove-its-scratch-home.md)               | The Windows package smoke could not remove its scratch home             | Accepted              | 2026-10-17 |
 
 ## Status values
 

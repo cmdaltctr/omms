@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { removeScratchDir } from "./remove-scratch-dir.mjs";
 
 // omms resolves its home directory when its modules load, so point HOME at a
 // scratch directory before importing anything: the smoke test must not write
@@ -58,7 +59,8 @@ try {
   assert.match(await response.text(), /<title>omms Memory Explorer<\/title>/);
 } finally {
   await webServer.stop();
-  rmSync(home, { recursive: true, force: true });
+  // The web app may still hold a database file open on Windows; see removeScratchDir.
+  removeScratchDir(home);
 }
 
 console.log("omms package smoke test passed (plugin exports and web UI)");
