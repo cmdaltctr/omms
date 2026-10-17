@@ -59,12 +59,15 @@ export function RerankerSection() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<RerankerStatus>();
   const saving = useRef(false);
+  // The latest shared snapshot, so a refresh can tell untouched fields from typed ones.
+  const latestSnapshot = useRef<Snapshot | undefined>(undefined);
   useEffect(() => {
     let active = true;
     const read = beginSettingsRead();
     void settingsRequest<Snapshot>("/api/settings")
       .then((value) => {
         if (active && read.isCurrent()) {
+          latestSnapshot.current = value;
           setSnapshot(value);
           setDraft(draftFromSnapshot(value));
         }
@@ -73,10 +76,17 @@ export function RerankerSection() {
         if (active) setStatus({ kind: "load-failed" });
       });
     const unsubscribe = onSettingsSnapshot((value) => {
-      if (active) {
-        setSnapshot(value as Snapshot);
-        setDraft(draftFromSnapshot(value as Snapshot));
-      }
+      if (!active) return;
+      const previous = latestSnapshot.current;
+      const next = value as Snapshot;
+      latestSnapshot.current = next;
+      setSnapshot(next);
+      // Keep typed values when another card reloads the shared snapshot.
+      setDraft((current) =>
+        !previous || JSON.stringify(current) === JSON.stringify(draftFromSnapshot(previous))
+          ? draftFromSnapshot(next)
+          : current
+      );
     });
     return () => {
       active = false;

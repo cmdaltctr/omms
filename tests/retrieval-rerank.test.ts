@@ -143,6 +143,25 @@ describe("rerankedSearch", () => {
     expect(JSON.stringify([message, meta])).not.toContain("memory of mem_high");
   });
 
+  it("skips the reranker call when the shard search finds no candidates", async () => {
+    const { search } = searchSpy([]);
+    const fetchCalls: Array<{ url: string; body: any }> = [];
+    const result = await rerankedSearch(
+      {
+        shards: [],
+        queryVector: new Float32Array(1),
+        containerTag: "tag",
+        queryText: "q",
+        maxMemories: 3,
+        similarityThreshold: 0.5,
+      },
+      SETTINGS,
+      { search, fetchImpl: fakeFetchWithScores([], fetchCalls) }
+    );
+    expect(fetchCalls).toHaveLength(0);
+    expect(result).toEqual({ results: [], warnings: [], reranked: false });
+  });
+
   it("keeps shard warnings on both paths", async () => {
     const warned: SearchResult[] = [candidate("mem_a", 0.8)];
     const search: SearchAcrossShards = async () => ({

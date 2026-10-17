@@ -232,7 +232,7 @@ Open `/memory#memory-section-reranker`, below Memory limits. The card configures
 | Key        | `rerankerApiKey`    | Optional. Must be an `env://` or `file://` reference; literal keys are refused.                                   |
 | Timeout    | `rerankerTimeoutMs` | Milliseconds, default 4000, from 500 to 30000.                                                                    |
 
-The card states what the reranker does, that it sends the prompt and candidate memory text to the server URL, that a server on the same machine is recommended, and that a project file cannot change these settings. Beside the timeout it notes that the default 2000 keeps the search inside OpenCode V2's 5-second wait, and that a value over 5000 can make OpenCode V2 send the request with no memory.
+The card states what the reranker does, that it sends the prompt and candidate memory text to the server URL, that a server on the same machine is recommended, and that a project file cannot change these settings. Beside the timeout it notes that the default 4000 keeps the search inside OpenCode V2's 5-second wait, and that a value over 5000 can make OpenCode V2 send the request with no memory.
 
 - **Save** writes only the five reranker keys through the same [safe global save](web-ui-settings.md#how-saving-works) as Memory limits, and refreshes the shared revision. It is disabled while the switch is on with a blank URL or model, while a key is not a reference, or while the timeout is out of range.
 - **Test** sends two fixed sample documents to the drafted URL and model, using the drafted timeout, and reports success or a failure code such as `reranker_unreachable`. No prompt or memory text leaves during a test.

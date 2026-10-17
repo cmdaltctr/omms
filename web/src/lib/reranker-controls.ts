@@ -14,9 +14,9 @@ export type RerankerDraft = {
 
 export type RerankerSaveEdits = {
   rerankerEnabled: boolean;
-  rerankerApiUrl: string | undefined;
-  rerankerModel: string | undefined;
-  rerankerApiKey: string | undefined;
+  rerankerApiUrl: string | null;
+  rerankerModel: string | null;
+  rerankerApiKey: string | null;
   rerankerTimeoutMs: number;
 };
 
@@ -69,7 +69,13 @@ export function isSecretReference(raw: string): boolean {
 export function isRemoteRerankerUrl(raw: string): boolean {
   try {
     const host = new URL(raw.trim()).hostname.toLowerCase();
-    return !(host === "localhost" || host === "::1" || /^127\.\d+\.\d+\.\d+$/.test(host));
+    // URL.hostname keeps the brackets on an IPv6 literal.
+    return !(
+      host === "localhost" ||
+      host === "::1" ||
+      host === "[::1]" ||
+      /^127\.\d+\.\d+\.\d+$/.test(host)
+    );
   } catch {
     return false;
   }
@@ -98,9 +104,9 @@ export function canSaveReranker(draft: RerankerDraft): boolean {
 export function rerankerSaveEdits(draft: RerankerDraft): RerankerSaveEdits {
   return {
     rerankerEnabled: draft.enabled,
-    rerankerApiUrl: draft.url.trim() || undefined,
-    rerankerModel: draft.model.trim() || undefined,
-    rerankerApiKey: draft.key.trim() || undefined,
+    rerankerApiUrl: draft.url.trim() || null,
+    rerankerModel: draft.model.trim() || null,
+    rerankerApiKey: draft.key.trim() || null,
     rerankerTimeoutMs: parseRerankerTimeout(draft.timeout) ?? RERANKER_TIMEOUT_DEFAULT,
   };
 }

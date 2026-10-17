@@ -1264,7 +1264,6 @@ export class WebServer {
       if (path === "/api/settings/tokens" || path.startsWith("/api/settings/tokens/")) {
         return this.handleTokenRoute(req, path, method, remoteAddress);
       }
-
       if (path === "/api/settings/profiles" || path.startsWith("/api/settings/profiles/")) {
         const response = await this.handleProfilesRoute(req, path, method);
         if (response) return response;
@@ -1274,7 +1273,6 @@ export class WebServer {
         const response = await this.handleCatchUpRoute(req, path, method, remoteAddress);
         if (response) return response;
       }
-
       if (path === "/api/settings/web-password" && method === "POST") {
         return this.handleWebPassword(req, remoteAddress);
       }
@@ -1284,10 +1282,7 @@ export class WebServer {
         if (response) return response;
       }
 
-      // The Reranker card's Test button; the module holds the loopback and
-      // token guards, matching the embedding test route.
       if (path === "/api/settings/reranker/test") return testReranker(req, method, remoteAddress);
-
       if (path === "/api/settings/external-api/test" && method === "POST") {
         const { testExternalApi } = await import("../importer/web-import-api.js");
         return this.jsonResponse(await testExternalApi());

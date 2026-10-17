@@ -95,8 +95,17 @@ export async function testReranker(
   }
   const settings = draftSettings(body);
   if (settings instanceof Response) return settings;
+  const started = Date.now();
   try {
-    await rerankDocuments(settings, TEST_QUERY, TEST_DOCUMENTS);
+    const { ordered } = await rerankDocuments(settings, TEST_QUERY, TEST_DOCUMENTS);
+    // The spec passes the test only when the relevant sample ranks first.
+    if (ordered[0]?.id !== "sample-1") {
+      return Response.json({
+        success: false,
+        code: "reranker_wrong_order",
+        elapsedMs: Date.now() - started,
+      });
+    }
     return Response.json({ success: true });
   } catch (error) {
     // Success or a failure code only; never prompt or memory text.

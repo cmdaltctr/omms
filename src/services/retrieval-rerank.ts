@@ -59,6 +59,8 @@ export async function rerankedSearch(
     0,
     options.queryText
   );
+  // Nothing to reorder: skip the server round trip for an empty search.
+  if (candidates.length === 0) return { results: [], warnings, reranked: false };
   try {
     const { ordered } = await rerankDocuments(
       settings,

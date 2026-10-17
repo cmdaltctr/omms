@@ -77,9 +77,11 @@ const STUB_FETCH = `
           reject(new DOMException("Aborted", "AbortError"));
         });
       });
+    // The relevant sample (index 0) ranks first unless the mode reverses it.
+    const first = mode === "reversed" ? 1 : 0;
     return Response.json({ results: [
-      { index: 1, relevance_score: 0.9 },
-      { index: 0, relevance_score: 0.2 },
+      { index: first, relevance_score: 0.9 },
+      { index: 1 - first, relevance_score: 0.2 },
     ] });
   };
 `;
@@ -103,6 +105,21 @@ describe("reranker test route", () => {
     expect(typeof requestBody.query).toBe("string");
     // The reply never carries memory text: success and metadata only.
     expect(JSON.stringify(result.body)).not.toContain("documents");
+  });
+
+  it("reports reranker_wrong_order when the relevant sample does not rank first", async () => {
+    const result = await routeScenario(
+      `
+      ${STUB_FETCH}
+      const response = await send("/api/settings/reranker/test", "POST", ${JSON.stringify(VALID_DRAFT)});
+      globalThis.fetch = realFetch;
+      return { status: response.status, body: await response.json() };
+    `,
+      { OMMS_TEST_FETCH_MODE: "reversed" }
+    );
+    expect(result.status).toBe(200);
+    expect(result.body.success).toBe(false);
+    expect(result.body.code).toBe("reranker_wrong_order");
   });
 
   it("reports a failure code when the server is down or the reply is short", async () => {

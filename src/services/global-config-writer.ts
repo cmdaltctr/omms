@@ -78,11 +78,15 @@ export function isSecretReference(value: unknown): value is string {
   );
 }
 
+/** Reranker keys that a null edit removes, the same wire form as a limit reset. */
+const OPTIONAL_RERANKER_KEYS = ["rerankerApiUrl", "rerankerModel", "rerankerApiKey"];
+
 function isValidEdit(key: string, value: unknown): boolean {
   // `undefined` removes the key from the file. `null` is the wire form of
-  // "reset to default", accepted for the six memory limits only.
+  // "reset to default", accepted for the six memory limits and the optional reranker keys.
   const memoryLimit = getMemoryLimitRule(key);
   if (memoryLimit && value === null) return true;
+  if (OPTIONAL_RERANKER_KEYS.includes(key) && value === null) return true;
   // The five opt-in reranker keys (openspec retrieval-threshold-and-reranker).
   if (key === "rerankerEnabled") return typeof value === "boolean";
   if (key === "rerankerApiUrl") {
@@ -232,7 +236,10 @@ export async function writeGlobalConfigKeys(
       const jsoncPath = (getMemoryLimitRule(key)?.path ?? [key]) as string[];
       // null is the wire form of "reset to default": remove the key so the
       // value follows the default again (undefined removes in jsonc modify).
-      const jsoncValue = value === null && getMemoryLimitRule(key) ? undefined : value;
+      const jsoncValue =
+        value === null && (getMemoryLimitRule(key) || OPTIONAL_RERANKER_KEYS.includes(key))
+          ? undefined
+          : value;
       content = applyEdits(
         content,
         modify(content, jsoncPath, jsoncValue, {

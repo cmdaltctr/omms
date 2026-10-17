@@ -149,6 +149,19 @@ describe("reranker settings save and snapshot", () => {
     });
   });
 
+  it("removes a saved reranker key when the edit sends null", async () => {
+    const result = await rerankerWebScenario(`
+      const json = { "content-type": "application/json" };
+      const before = await (await send("/api/settings")).json();
+      await send("/api/settings", "PATCH", { edits: { rerankerApiKey: "env://OMMS_RERANK_KEY" }, revision: before.revision }, json);
+      const again = await (await send("/api/settings")).json();
+      const cleared = await send("/api/settings", "PATCH", { edits: { rerankerApiKey: null }, revision: again.revision }, json);
+      return { status: cleared.status, text: readFileSync(configPath, "utf8") };
+    `);
+    expect(result.status).toBe(200);
+    expect(result.text).not.toContain("rerankerApiKey");
+  });
+
   it("rejects invalid reranker edits without writing", async () => {
     const seed = '{ "memoryModel": "keep" }\n';
     const result = await rerankerWebScenario(
