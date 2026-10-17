@@ -9,8 +9,24 @@ const FALLBACK_MAP: Record<string, string> = {
   hbs: "sr", // Serbo-Croatian
 };
 
+// franc guesses wrongly on short Latin-script text (for example "ok go ahead" as Somali),
+// and the capture prompt then asks the model to write the memory in that language.
+// Below this length, Latin-script text counts as English. Non-Latin scripts stay reliable.
+const MIN_LATIN_DETECT_LENGTH = 100;
+
+function isMostlyLatin(text: string): boolean {
+  const letters = text.match(/\p{L}/gu) ?? [];
+  if (letters.length === 0) return true;
+  const latin = letters.filter((char) => /\p{Script=Latin}/u.test(char)).length;
+  return latin / letters.length >= 0.5;
+}
+
 export function detectLanguage(text: string): string {
   if (!text || text.trim().length === 0) {
+    return "en";
+  }
+
+  if (text.trim().length < MIN_LATIN_DETECT_LENGTH && isMostlyLatin(text)) {
     return "en";
   }
 

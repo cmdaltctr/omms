@@ -41,6 +41,9 @@ On first start, if no config exists at all, the plugin creates a full commented 
   "importPathMaps": [{ "from": "~/code/app-feat-x", "to": "~/code/app" }],
   "importIgnoredDirectories": [],
   "claudeConfigDir": "",
+  // "auto" detects the language of your prompt. Latin-script prompts under 100
+  // characters count as English, because short text is detected unreliably.
+  // Set a fixed code such as "en" to always write memories in that language.
   "autoCaptureLanguage": "auto",
 
   // Model for auto-capture and profile learning (see "Choosing the model").

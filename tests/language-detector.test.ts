@@ -25,6 +25,26 @@ describe("detectLanguage", () => {
   it("should fallback to en for very short undetectable input", () => {
     expect(detectLanguage("ab")).toBe("en");
   });
+
+  // Real short English prompts that franc labelled Somali and Tagalog, which made
+  // auto-capture write the memory in the wrong language.
+  it.each(["ok go ahead", "eta of it", "why saved map are making messy"])(
+    "should treat short Latin-script prompt %p as en",
+    (prompt) => {
+      expect(detectLanguage(prompt)).toBe("en");
+    }
+  );
+
+  it("should keep detecting short non-Latin text", () => {
+    expect(detectLanguage("Καλημέρα, πώς είσαι σήμερα φίλε μου;")).toBe("el");
+  });
+
+  it("should detect a long Latin-script prompt in its own language", () => {
+    const french =
+      "Bonjour, peux-tu corriger le bug dans la fonction de recherche de souvenirs " +
+      "et ajouter un test pour vérifier que le résultat reste stable ?";
+    expect(detectLanguage(french)).toBe("fr");
+  });
 });
 
 describe("getLanguageName", () => {
