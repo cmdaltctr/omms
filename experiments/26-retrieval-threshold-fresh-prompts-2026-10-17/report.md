@@ -113,7 +113,7 @@ The 17 disagreements: in 12 the operator marked relevant where the AI said not r
 
 ## Amendments
 
-1. `run.py` gained phases `spotcheck` and `ingest`, and an `ai` argument for `summarise`, after the plan was written. They only build the check page, read its answers, and run the summary without the operator override.
+1. `run.py` gained phases `spotcheck` and `ingest`, and an `ai` argument for `summarise`, after the plan was written. They only build the check page, read its answers, and run the summary without the operator override. `spotcheck` also removes memories with more than 2% non-ASCII characters or a French marker word (`utilisateur`, `Demande`, `Résultat`, `Résultats`) before it samples 20 pairs from each AI label group, because the page has no translation step. The sample is random only among the remaining readable memories, so French and other non-English memories are not represented in the 40 pairs. The number removed was not recorded.
 2. The plan said the operator's labels override the AI. Both results are reported because G5 failed.
 3. After the run the operator said to trust the AI judge more than the operator's own labels. The main result is therefore the AI-key-only run (`output/summary_ai_only.json`: pick 0.50, H1 met). The run with the operator's 40 labels applied (`output/summary.json`) is a sensitivity check. G5 stays recorded as failed, because the plan set it before the run. Validity stays INCONCLUSIVE for production approval, since the key is AI-made and no human label set agrees with it closely enough.
 

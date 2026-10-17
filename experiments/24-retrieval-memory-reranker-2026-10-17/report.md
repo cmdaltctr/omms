@@ -10,7 +10,7 @@
 - **Question**: Does a reranker over the top 50 memories find more relevant memories in the final 10 than the current scorer?
 - **Answer**: Yes on paper, but the gain comes from removing the 0.6 cut-off, not from the reranker. Arm B (reranker) beat Arm A (current scorer) by 0.32 recall@10. Arm A0 (top 10, no cut-off, no reranker) already reached 0.66. The reranker added 0.02 over A0, which is within noise.
 - **Decision**: Do not add a reranker stage now. The reranker also fails the delay limit: median 2.5 seconds per prompt, p95 9.5 seconds, against a limit of 0.5 seconds. Follow up on the cut-off in Experiment 25.
-- **How sure**: Low to medium. The answer key is AI-made and was checked on 20 pairs only. The check passed at the exact line (16 of 20) after the judge rule changed once.
+- **How sure**: Low to medium. The answer key is AI-made and was checked on 20 pairs only. The check passed at the exact line (16 of 20) after the judge rule changed twice (amendment 2).
 - **Next step**: Experiment 25 (done) shows the cut-off is the main cause. Re-test the reranker only on top of a lower cut-off, with a smaller pool, on fresh prompts.
 
 ## Results

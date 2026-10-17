@@ -152,6 +152,11 @@ render();
 </script></body></html>"""
 
 
+def embed_json(value):
+    """JSON for a <script> block: a literal "<" would let "</script>" in memory text end the block."""
+    return json.dumps(value, ensure_ascii=False).replace("<", "\\u003c")
+
+
 def phase_spotcheck():
     """40 pairs: 20 the AI marked relevant, 20 not relevant. Memories that look French are skipped (no translation step)."""
     labels = {k: v for k, v in load_labels().items()}
@@ -172,7 +177,7 @@ def phase_spotcheck():
     items = [{"n": n, "pair_id": p, "prompt": inputs[p]["prompt"], "memory": inputs[p]["memory"]} for n, p in enumerate(chosen, 1)]
     css = (EXP24 / "output" / "spot_check.html").read_text().split("</style>")[0].replace(
         "Experiment 24 spot check", "Experiment 26 spot check")
-    (OUT / "spot_check.html").write_text(css + PAGE_BODY.replace("__ITEMS__", json.dumps(items, ensure_ascii=False)))
+    (OUT / "spot_check.html").write_text(css + PAGE_BODY.replace("__ITEMS__", embed_json(items)))
     r.atomic_json(OUT / "spot_check_key.json", {p: labels[p] for p in chosen})
     print(f"{len(items)} pairs written to spot_check.html ({sum(labels[p] for p in chosen)} AI relevant)", flush=True)
 
