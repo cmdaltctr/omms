@@ -2,6 +2,24 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.21.0](https://github.com/cmdaltctr/omms/compare/v4.20.1...v4.21.0) (2026-10-17)
+
+
+### Features
+
+* clean up the profile by itself on every host, with undo ([da6ca1d](https://github.com/cmdaltctr/omms/commit/da6ca1d2edf995f97045af4dc7a2fdee7c25edd2))
+* clean up the profile by itself on every host, with undo ([2b34e23](https://github.com/cmdaltctr/omms/commit/2b34e230d7fe9b7c37f20d953e204b24ea8c87d1))
+
+
+### Bug Fixes
+
+* take the restore record id from the insert and expire old records on their own ([94bc36d](https://github.com/cmdaltctr/omms/commit/94bc36d4726ce6c3f7a90c9e41c93f1d93617a20))
+
+
+### Documentation
+
+* say that Undo loses a later update to a merged item ([5500e88](https://github.com/cmdaltctr/omms/commit/5500e8898e69aa285d9a7fa65b2e64f0ac88b7dc))
+
 ## [4.20.1](https://github.com/cmdaltctr/omms/compare/v4.20.0...v4.20.1) (2026-10-17)
 
 
