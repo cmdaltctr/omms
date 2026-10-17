@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { aiCleanupApi } from "$lib/api";
-import { keepPolling, type AiCleanupJob } from "$lib/components/explorer/ai-cleanup-job-state";
+import { afterStatusRead, type AiCleanupJob } from "$lib/components/explorer/ai-cleanup-job-state";
 
 const POLL_MS = 2000;
 
@@ -10,7 +10,13 @@ const POLL_MS = 2000;
  * the dialog does not stop the job.
  */
 export function useAiCleanupJob(open: boolean) {
-  const [job, setJob] = useState<AiCleanupJob | null>(null);
+  const [job, setJobState] = useState<AiCleanupJob | null>(null);
+  // The poll reads the latest job here, since its closure holds an older render.
+  const latest = useRef<AiCleanupJob | null>(null);
+  const setJob = useCallback((next: AiCleanupJob | null) => {
+    latest.current = next;
+    setJobState(next);
+  }, []);
   const [startError, setStartError] = useState<string | undefined>();
   // Changing this asks the effect below to read the job again.
   const [reads, setReads] = useState(0);
@@ -25,16 +31,16 @@ export function useAiCleanupJob(open: boolean) {
     const load = async () => {
       const result = await aiCleanupApi.status();
       if (stopped || generation.current !== mine) return;
-      const next = result.success ? (result.data ?? null) : null;
-      setJob(next);
-      if (keepPolling(next, true)) timer = setTimeout(() => void load(), POLL_MS);
+      const next = afterStatusRead(latest.current, result);
+      setJob(next.job);
+      if (next.poll) timer = setTimeout(() => void load(), POLL_MS);
     };
     void load();
     return () => {
       stopped = true;
       clearTimeout(timer);
     };
-  }, [open, reads]);
+  }, [open, reads, setJob]);
 
   useEffect(() => {
     if (!open) setStartError(undefined);
@@ -52,7 +58,7 @@ export function useAiCleanupJob(open: boolean) {
       setJob(result.data);
       setReads((n) => n + 1);
     },
-    []
+    [setJob]
   );
 
   /** Stops a running job, or discards a finished or failed one. */
@@ -61,7 +67,7 @@ export function useAiCleanupJob(open: boolean) {
     setJob(null);
     setStartError(undefined);
     await aiCleanupApi.stop();
-  }, []);
+  }, [setJob]);
 
   return { job, startError, start, discard, clear: () => setJob(null) };
 }

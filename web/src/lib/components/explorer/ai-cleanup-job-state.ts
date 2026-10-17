@@ -50,6 +50,18 @@ export function keepPolling(job: AiCleanupJob | null, open: boolean): boolean {
   return open && job?.status.state === "running";
 }
 
+/**
+ * What one status read changes. A failed read says nothing about the job, so a running job
+ * stays on screen and the next poll tries again.
+ */
+export function afterStatusRead(
+  current: AiCleanupJob | null,
+  read: { success: boolean; data?: AiCleanupJob | null }
+): { job: AiCleanupJob | null; poll: boolean } {
+  const job = read.success ? (read.data ?? null) : current;
+  return { job, poll: keepPolling(job, true) };
+}
+
 /** Stop returns to the selection the job ran with, which a reopened dialog no longer holds. */
 export function selectionAfterStop(job: AiCleanupJob | null, current: Set<string>): Set<string> {
   return job ? new Set(job.selection) : current;

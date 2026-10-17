@@ -196,7 +196,7 @@ An **i** button sits beside **AI Cleanup** and beside **Clean up categories**. S
    - **Same Category (3+)** selects every memory in a category that holds 3 or more memories. The category names must match exactly, so run **Clean up categories** first to select more. Memories with no category are left out.
    - **Select All** and **Deselect All** clear the note.
 2. The green box under the list shows how many memories are selected.
-3. **Analyze Selected** starts the cleanup. OMMS sends the selection to the model in batches of up to 100 memories, one batch at a time. A batch holds one kind of memory. Memories with the same category go in the same batch. The window shows the progress, such as "Batch 3 of 14", and a **Stop** button.
+3. **Analyze Selected** starts the cleanup. OMMS sends the selection to the model in batches of up to 100 memories, one batch at a time. A batch holds one kind of memory. Memories with the same category go in the same batch, if the category has 100 selected memories or fewer. OMMS splits a larger category across batches. The window shows the progress, such as "Batch 3 of 14", and a **Stop** button.
    - You can close the window. The cleanup keeps running. Open **AI Cleanup** again to see the progress, or the review when the cleanup is done.
    - **Stop** ends the cleanup and shows your selection again. Nothing is saved.
 4. Review each merge and each removal. When a batch failed, a note says how many batches failed. Their memories stay unchanged.
@@ -206,7 +206,7 @@ A finished review stays for 30 minutes, or until the web app restarts. **Back** 
 
 When every batch fails, the window shows the error with **Retry** and **Back**. **Retry** runs the same selection again. If the error says "Profile changed", the profile was saved after you opened the page. Reload the page, then try again.
 
-Each batch must finish in 60 seconds. A reasoning model can take longer: on one profile, a batch of 100 took 95 seconds with reasoning and 17 seconds without. If the error says "The model did not answer in time", do one of these:
+A call to an external API must finish in 60 seconds. A call through an OpenCode session model has a limit of 300 seconds. A reasoning model can take longer: on one profile, a batch of 100 took 95 seconds with reasoning and 17 seconds without. If the error says "The model did not answer in time", do one of these:
 
 1. Turn reasoning off, if your provider supports it: `"memoryExtraParams": { "thinking": { "type": "disabled" } }`. This setting applies to every external API call, including memory capture.
 2. Choose a faster model in **Settings**.

@@ -107,9 +107,24 @@ export async function cleanupBatch(indexed: IndexedProfile): Promise<BatchCleanu
 
   const cleanedById = buildItemIndex(result.profile);
   const originalById = buildItemIndex(indexed);
+  const mapping = restrictToBatch(result.mapping, originalById);
   return {
-    diff: generateDiff(indexed, result.mapping, cleanedById),
-    mergedItems: buildMergedItems(result.mapping, cleanedById, originalById),
+    diff: generateDiff(indexed, mapping, cleanedById),
+    mergedItems: buildMergedItems(mapping, cleanedById, originalById),
+  };
+}
+
+// The model may return an id that is not in the batch. Apply looks ids up in the whole
+// profile, so such an id could change an item the user never selected.
+function restrictToBatch(
+  mapping: AIMapping,
+  originalById: Map<string, IndexedProfileItem>
+): AIMapping {
+  const inBatch = (id: string) => originalById.has(id);
+  return {
+    kept: mapping.kept.filter(inBatch),
+    merged: mapping.merged.map((group) => group.filter(inBatch)).filter((g) => g.length > 1),
+    removed: mapping.removed.filter(inBatch),
   };
 }
 

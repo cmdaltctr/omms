@@ -5,8 +5,9 @@ mock.module("../src/services/logger.js", () => ({
   log: (message: string, data: unknown) => logged.push({ message, data }),
 }));
 
-const { splitIntoBatches, runInBatches } =
+const { splitIntoBatches, runInBatches, cleanupBatch } =
   await import("../src/services/user-profile/ai-cleanup-batches.js");
+const { registerHostProfileModel } = await import("../src/services/user-profile/profile-model.js");
 
 type Item = { id: string; category?: string; description: string };
 type Indexed = { preferences: Item[]; patterns: Item[]; workflows: Item[] };
@@ -126,6 +127,39 @@ function resultFor(batch: Indexed, extra: Partial<{ merged: string[][]; removed:
     ),
   };
 }
+
+describe("cleanupBatch", () => {
+  it("drops ids the model returns that are not in the batch", async () => {
+    const reply = {
+      preferences: [
+        { id: "pref_0", category: "c", description: "merged zero" },
+        { id: "pref_2", category: "c", description: "merged two" },
+      ],
+      patterns: [],
+      workflows: [],
+      mapping: {
+        kept: ["pref_9"],
+        merged: [
+          ["pref_0", "pref_1"],
+          ["pref_2", "pref_8"],
+        ],
+        removed: ["pref_5"],
+      },
+    };
+    registerHostProfileModel(
+      async () => ({ complete: async () => JSON.stringify(reply) }) as never
+    );
+    try {
+      const result = await cleanupBatch(batchOf(["pref_0", "pref_1", "pref_2"]));
+      expect(result.diff.merged.map((m) => m.ids)).toEqual([["pref_0", "pref_1"]]);
+      expect(result.diff.removed).toEqual([]);
+      expect(result.diff.kept).not.toContain("pref_9");
+      expect(Object.keys(result.mergedItems)).toEqual(["pref_0"]);
+    } finally {
+      registerHostProfileModel(null);
+    }
+  });
+});
 
 describe("runInBatches", () => {
   it("joins the results of every batch", async () => {

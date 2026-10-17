@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
+  afterStatusRead,
   dialogView,
   keepPolling,
   retrySelection,
@@ -67,6 +68,32 @@ describe("keepPolling", () => {
     expect(keepPolling(done, true)).toBe(false);
     expect(keepPolling(failed, true)).toBe(false);
     expect(keepPolling(null, true)).toBe(false);
+  });
+});
+
+describe("afterStatusRead", () => {
+  it("keeps a running job and polls again when one read fails", () => {
+    expect(afterStatusRead(running, { success: false })).toEqual({ job: running, poll: true });
+  });
+
+  it("does not poll after a failed read when no job is running", () => {
+    expect(afterStatusRead(null, { success: false })).toEqual({ job: null, poll: false });
+    expect(afterStatusRead(done, { success: false })).toEqual({ job: done, poll: false });
+  });
+
+  it("takes the job from a good read and polls only while it runs", () => {
+    expect(afterStatusRead(null, { success: true, data: running })).toEqual({
+      job: running,
+      poll: true,
+    });
+    expect(afterStatusRead(running, { success: true, data: done })).toEqual({
+      job: done,
+      poll: false,
+    });
+  });
+
+  it("clears the job when the server has none", () => {
+    expect(afterStatusRead(running, { success: true })).toEqual({ job: null, poll: false });
   });
 });
 
