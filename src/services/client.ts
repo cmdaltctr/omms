@@ -9,6 +9,8 @@ import {
   resolveMemoryScope,
   type MemoryScopeRef,
 } from "./memory-scope.js";
+import { rerankSettingsFrom } from "./reranker.js";
+import { rerankedSearch } from "./retrieval-rerank.js";
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
 import type { MemoryType } from "../types/index.js";
@@ -111,10 +113,17 @@ export class LocalMemoryClient {
   }
 
   async searchMemories(query: string, containerTag: string, scope: MemoryScope = "project") {
-    // Capture the result count at entry: initialize, embedding, and shard
-    // reads all await, and a config edit during them must not change this
-    // search's limit.
+    // Capture the result count and the reranker settings at entry: initialize,
+    // embedding, and shard reads all await, and a config edit during them must
+    // not change this search's limit or reranker target.
     const maxMemories = CONFIG.maxMemories;
+    const reranker = rerankSettingsFrom(CONFIG);
+    if (CONFIG.rerankerEnabled && !reranker) {
+      // On but incomplete: search must keep working, so treat it as off.
+      log("Reranker enabled without a URL or model; searching without it", {
+        code: "reranker_not_configured",
+      });
+    }
     try {
       await this.initialize();
 
@@ -130,14 +139,44 @@ export class LocalMemoryClient {
         return { success: true as const, results: [], total: 0, timing: 0 };
       }
 
-      const { results, warnings } = await tursoVectorSearch.searchAcrossShards(
-        shards,
-        queryVector,
-        scope === "all-projects" ? "" : containerTag,
-        maxMemories,
-        CONFIG.similarityThreshold,
-        query
-      );
+      let results;
+      let warnings: string[];
+      if (reranker) {
+        // One shard read with no threshold feeds both the reranker and the
+        // fallback path (retrieval-rerank.ts, design decision 7).
+        ({ results, warnings } = await rerankedSearch(
+          {
+            shards,
+            queryVector,
+            containerTag: scope === "all-projects" ? "" : containerTag,
+            queryText: query,
+            maxMemories,
+            similarityThreshold: CONFIG.similarityThreshold,
+          },
+          reranker,
+          {
+            search: (shardList, vector, tag, limit, threshold, queryText) =>
+              tursoVectorSearch.searchAcrossShards(
+                shardList,
+                vector,
+                tag,
+                limit,
+                threshold,
+                queryText
+              ),
+            log: (message, meta) => log(message, meta),
+          }
+        ));
+      } else {
+        ({ results, warnings } = await tursoVectorSearch.searchAcrossShards(
+          shards,
+          queryVector,
+          scope === "all-projects" ? "" : containerTag,
+          maxMemories,
+          CONFIG.similarityThreshold,
+          query
+        ));
+      }
 
       return {
         success: true as const,

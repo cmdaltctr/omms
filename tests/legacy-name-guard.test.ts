@@ -11,6 +11,7 @@ const LEGACY_NAME = /opencode-mem|OpenCodeMem|OPENCODE_MEM/;
  */
 const LEGACY_FALLBACK_FILES = new Set([
   "src/config.ts", // legacy global and project config paths, legacy storage layout
+  "src/config-template.ts", // template comments document the legacy store migration
   "src/services/legacy-migration.ts", // ~/.opencode-mem -> ~/.omms store migration
   "src/services/settings-snapshot.ts", // reads legacy project config overrides
   "src/services/log-path.ts", // OPENCODE_MEM_LOG_FILE override

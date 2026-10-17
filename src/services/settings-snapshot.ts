@@ -39,6 +39,10 @@ const editable = [
   "importIgnoredDirectories",
   "claudeConfigDir",
   "autoCaptureLanguage",
+  "rerankerEnabled",
+  "rerankerApiUrl",
+  "rerankerModel",
+  "rerankerTimeoutMs",
   ...MEMORY_LIMIT_SETTINGS,
 ] as const;
 
@@ -56,6 +60,11 @@ const globalOnly = [
   "importPathMaps",
   "importIgnoredDirectories",
   "claudeConfigDir",
+  "rerankerEnabled",
+  "rerankerApiUrl",
+  "rerankerModel",
+  "rerankerApiKey",
+  "rerankerTimeoutMs",
 ];
 
 function readSettingsFile(path: string | undefined): Record<string, unknown> {
@@ -103,6 +112,8 @@ function nestedMemorySetting(
     source: hasValue ? (projectHasParent ? "project" : "global") : "default",
     globalValue: hasGlobal ? globalContainer![leaf] : rule.default,
     default: rule.default,
+    // Whether the leaf exists in the global file: the Reset action needs it.
+    hasGlobal,
   };
 }
 
@@ -129,22 +140,32 @@ export function getSettingsSnapshot(directory: string) {
           ? "global"
           : "default";
       const value = projectOverrides ? project[key] : (global[key] ?? runtime[key]);
-      // The five memory limits also carry their documented default for the UI.
+      // The six memory limits also carry their documented default for the UI;
+      // similarityThreshold's default follows the active embedder. hasGlobal
+      // tells the Reset action whether the key exists in the global file.
+      const ruleDefault = limitRule?.defaultFor?.(CONFIG.embeddingModel) ?? limitRule?.default;
       return [
         key,
         limitRule
           ? {
               value,
               source,
-              globalValue: global[key] ?? limitRule.default,
-              default: limitRule.default,
+              globalValue: global[key] ?? ruleDefault,
+              default: ruleDefault,
+              hasGlobal: Object.hasOwn(global, key),
             }
           : { value, source, globalValue: global[key] ?? runtime[key] },
       ];
     })
   );
   const secrets = Object.fromEntries(
-    ["memoryApiKey", "embeddingApiKey", "webServerApiToken", "webServerAuthPassword"].map((key) => {
+    [
+      "memoryApiKey",
+      "embeddingApiKey",
+      "webServerApiToken",
+      "webServerAuthPassword",
+      "rerankerApiKey",
+    ].map((key) => {
       const raw = global[key];
       const source =
         typeof raw === "string"

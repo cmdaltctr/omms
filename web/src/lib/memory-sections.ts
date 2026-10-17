@@ -4,6 +4,7 @@ export const MEMORY_SECTIONS = [
   { id: "memory-section-auto-import", title: "Automatic import" },
   { id: "memory-section-profile", title: "Profile learning" },
   { id: "memory-section-limits", title: "Memory limits" },
+  { id: "memory-section-reranker", title: "Reranker" },
   { id: "memory-section-project-folders", title: "Resolve missing project folders" },
 ] as const;
 

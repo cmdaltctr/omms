@@ -19,6 +19,7 @@ import { isOlderVersion } from "./version-compare.js";
 import { AUTH_HEADER, getOrCreateAuthToken, isAuthorizedApiRequest } from "./auth-token.js";
 import { WebAuth } from "./web-auth.js";
 import { NODE_HTTP_IDLE_TIMEOUT_MS } from "./request-timeouts.js";
+import { testReranker } from "./reranker-test.js";
 import {
   handleListTags,
   handleListKeywords,
@@ -1263,7 +1264,6 @@ export class WebServer {
       if (path === "/api/settings/tokens" || path.startsWith("/api/settings/tokens/")) {
         return this.handleTokenRoute(req, path, method, remoteAddress);
       }
-
       if (path === "/api/settings/profiles" || path.startsWith("/api/settings/profiles/")) {
         const response = await this.handleProfilesRoute(req, path, method);
         if (response) return response;
@@ -1273,7 +1273,6 @@ export class WebServer {
         const response = await this.handleCatchUpRoute(req, path, method, remoteAddress);
         if (response) return response;
       }
-
       if (path === "/api/settings/web-password" && method === "POST") {
         return this.handleWebPassword(req, remoteAddress);
       }
@@ -1283,6 +1282,7 @@ export class WebServer {
         if (response) return response;
       }
 
+      if (path === "/api/settings/reranker/test") return testReranker(req, method, remoteAddress);
       if (path === "/api/settings/external-api/test" && method === "POST") {
         const { testExternalApi } = await import("../importer/web-import-api.js");
         return this.jsonResponse(await testExternalApi());

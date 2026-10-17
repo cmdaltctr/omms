@@ -1,10 +1,11 @@
 /**
- * Shared validation rules for the five memory-limit settings
+ * Shared validation rules for the six memory-limit settings
  * (openspec change memory-context-controls). Pure functions only: values
  * are passed in, so config.ts, the settings writer, and the settings
  * snapshot share one rule set without importing CONFIG. Do not import
  * CONFIG here: many tests stub src/config.js with a partial module.
  */
+import { defaultSimilarityThreshold } from "./threshold-default.js";
 
 export interface MemoryLimitRule {
   /** Settings identifier used by files, requests, and the UI. Nested settings use one dot. */
@@ -12,6 +13,11 @@ export interface MemoryLimitRule {
   /** JSONC leaf path. A nested setting maps to its leaf, never a literal dotted key. */
   readonly path: readonly string[];
   readonly default: number;
+  /**
+   * Embedder-aware default when the file omits the key. Only
+   * similarityThreshold needs it; the other limits keep `default`.
+   */
+  readonly defaultFor?: (embeddingModel: string | undefined) => number;
   readonly unit: string;
   /** Accepted-values text for error messages and help text. */
   readonly accepted: string;
@@ -27,15 +33,21 @@ function integerInRange(min: number, max: number) {
     typeof value === "number" && Number.isSafeInteger(value) && value >= min && value <= max;
 }
 
+/** Any finite number from 0 to 1 inclusive (similarityThreshold). */
+function decimalFrom0To1(value: unknown): boolean {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
 function rule(
   setting: string,
   path: readonly string[],
   defaultValue: number,
   unit: string,
   accepted: string,
-  isValid: (value: unknown) => boolean
+  isValid: (value: unknown) => boolean,
+  defaultFor?: (embeddingModel: string | undefined) => number
 ): MemoryLimitRule {
-  return { setting, path, default: defaultValue, unit, accepted, isValid };
+  return { setting, path, default: defaultValue, defaultFor, unit, accepted, isValid };
 }
 
 export const MEMORY_LIMITS = {
@@ -79,9 +91,18 @@ export const MEMORY_LIMITS = {
     "integers from 256 to 65536",
     integerInRange(256, 65536)
   ),
+  similarityThreshold: rule(
+    "similarityThreshold",
+    ["similarityThreshold"],
+    0.6,
+    "similarity score",
+    "numbers from 0 to 1",
+    decimalFrom0To1,
+    defaultSimilarityThreshold
+  ),
 } as const satisfies Record<string, MemoryLimitRule>;
 
-/** The five settings identifiers, in Memory card order. */
+/** The six settings identifiers, in Memory card order. */
 export const MEMORY_LIMIT_SETTINGS: readonly string[] = Object.keys(MEMORY_LIMITS);
 
 const RULES: Readonly<Record<string, MemoryLimitRule>> = MEMORY_LIMITS;

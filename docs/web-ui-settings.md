@@ -115,7 +115,7 @@ Health checks, test calls, and history imports that use an OpenCode model still 
 
 ## Memory
 
-Moved to [Memory limits](web-ui-memory.md#memory-limits). `/settings#settings-section-memory` redirects to `/memory#memory-section-limits`. Defaults, units, host coverage and safe-save rules remain unchanged.
+Moved to [Memory limits](web-ui-memory.md#memory-limits). `/settings#settings-section-memory` redirects to `/memory#memory-section-limits`. Defaults, units, host coverage and safe-save rules remain unchanged. The card now shows six rows, including `similarityThreshold`, and every row has a **Reset to default** action. The opt-in [Reranker](web-ui-memory.md#reranker) card sits below it on the same page.
 
 ## Embedding
 
