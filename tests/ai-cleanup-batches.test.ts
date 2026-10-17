@@ -161,6 +161,39 @@ describe("cleanupBatch", () => {
   });
 });
 
+describe("cleanupBatch with a given model", () => {
+  it("sends the batch to the given model and not the registered host model", async () => {
+    const calls: string[] = [];
+    const reply = JSON.stringify({
+      preferences: [],
+      patterns: [],
+      workflows: [],
+      mapping: { kept: ["pref_0"], merged: [], removed: [] },
+    });
+    registerHostProfileModel(
+      async () =>
+        ({
+          complete: async () => {
+            calls.push("host");
+            return reply;
+          },
+        }) as never
+    );
+    const given = {
+      complete: async () => {
+        calls.push("given");
+        return reply;
+      },
+    };
+    try {
+      await cleanupBatch(batchOf(["pref_0"]), given as never);
+      expect(calls).toEqual(["given"]);
+    } finally {
+      registerHostProfileModel(null);
+    }
+  });
+});
+
 describe("runInBatches", () => {
   it("joins the results of every batch", async () => {
     const batches = [batchOf(["pref_0", "pref_1"]), batchOf(["pref_2", "pref_3"])];
@@ -256,7 +289,8 @@ describe("runInBatches", () => {
     const http = new Error("API request failed: 503 Service Unavailable");
     const invalid = new SyntaxError("Unexpected token");
     const other = new Error("boom");
-    for (const error of [timeout, http, invalid, other]) {
+    const noProvider = new Error("No AI provider configured for profile cleanup");
+    for (const error of [timeout, http, invalid, other, noProvider]) {
       await runInBatches([batchOf(["pref_0"]), batchOf(["pref_1"])], {
         callBatch: async (batch: Indexed) =>
           idsOf(batch)[0] === "pref_0" ? failWith(error)() : resultFor(batch),
@@ -265,7 +299,7 @@ describe("runInBatches", () => {
     const reasons = logged
       .filter((entry) => entry.message === "AI cleanup: batch failed")
       .map((entry) => (entry.data as { reason: string }).reason);
-    expect(reasons).toEqual(["timeout", "http-503", "invalid-reply", "error"]);
+    expect(reasons).toEqual(["timeout", "http-503", "invalid-reply", "error", "no-provider"]);
     const text = JSON.stringify(logged);
     expect(text).not.toContain("secret text");
     expect(text).not.toContain("pref_0");

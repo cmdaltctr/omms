@@ -129,8 +129,7 @@ export async function handleAiCleanupApply(
     const { getAiCleanupResult, stopAiCleanupJob } =
       await import("./user-profile/ai-cleanup-job.js");
     const { applyCleanupEdits } = await import("./user-profile/ai-cleanup-apply.js");
-    const { MAX_PROFILE_SAVE_ATTEMPTS, saveProfile } =
-      await import("./user-profile/merge-and-save.js");
+    const { applyToNewestProfile } = await import("./user-profile/profile-edit-save.js");
     const user = await cleanupUser(userId);
     const job = getAiCleanupResult(user);
     if (!job) return { success: false, error: "No finished cleanup found. Run AI cleanup again." };
@@ -139,21 +138,24 @@ export async function handleAiCleanupApply(
       merged: Array.isArray(body?.acceptedMerged) ? body.acceptedMerged : [],
       removed: Array.isArray(body?.acceptedRemoved) ? body.acceptedRemoved : [],
     };
-    const manager = await managerOf(deps);
-    for (let attempt = 1; attempt <= MAX_PROFILE_SAVE_ATTEMPTS; attempt++) {
-      const profile = await manager.getActiveProfile(user);
-      if (!profile) return { success: false, error: "Profile not found" };
-      const result = applyCleanupEdits(JSON.parse(profile.profileData), job, accepted);
-      const saved =
-        result.applied === 0 ||
-        (await saveProfile(profile, result.profile, "AI cleanup applied", 0, manager));
-      if (saved) {
-        stopAiCleanupJob(user);
-        return { success: true, data: { applied: result.applied, skipped: result.skipped } };
-      }
-      log("AI cleanup apply: save conflict", { attempt, of: MAX_PROFILE_SAVE_ATTEMPTS });
+    const outcome = await applyToNewestProfile(
+      user,
+      (data) => {
+        const applied = applyCleanupEdits(data, job, accepted);
+        return {
+          profile: applied.profile,
+          changed: applied.applied > 0,
+          result: { applied: applied.applied, skipped: applied.skipped },
+        };
+      },
+      { summary: "AI cleanup applied", store: await managerOf(deps) }
+    );
+    if (outcome.status === "no-profile") return { success: false, error: "Profile not found" };
+    if (outcome.status === "conflict") {
+      return { success: false, error: "Profile saved at the same moment. Try Apply again." };
     }
-    return { success: false, error: "Profile saved at the same moment. Try Apply again." };
+    stopAiCleanupJob(user);
+    return { success: true, data: outcome.result };
   } catch (error) {
     return handlerError("apply", error);
   }

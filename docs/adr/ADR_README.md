@@ -33,3 +33,4 @@ Local decision records for OMMS maintainers.
 | [027](./027-review-first-label-assignment.md)                   | First label assignment goes to review                             | 2026-10-11 | Proposed (on hold) |
 | [028](./028-every-profile-save-checks-version.md)               | Every profile save checks the version it read                     | 2026-10-16 | Accepted           |
 | [029](./029-ai-cleanup-runs-as-a-batched-job.md)                | AI Cleanup runs as a batched background job and applies edits     | 2026-10-17 | Accepted           |
+| [030](./030-profile-cleanup-runs-on-every-host.md)              | The profile cleans itself up on every host, with a restore record | 2026-10-17 | Accepted           |

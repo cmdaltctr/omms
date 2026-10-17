@@ -52,3 +52,24 @@ it("has Chinese and Arabic text for every external API issue the capture status 
   );
   expect(missing).toEqual([]);
 });
+
+it("has Chinese and Arabic text for the automatic cleanup controls and their refusal message", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { parseInterval } =
+    await import("../web/src/lib/components/memory/auto-cleanup-settings-state.js");
+  const source = readFileSync(
+    join(import.meta.dir, "../web/src/lib/components/memory/AutoCleanupSettings.tsx"),
+    "utf8"
+  );
+  const labels = [...source.matchAll(/\bs\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g)].map(
+    (match) => JSON.parse(`"${match[1]}"`) as string
+  );
+  const refusal = parseInterval("10");
+  if (!refusal.ok) labels.push(refusal.message);
+  expect(labels.length).toBeGreaterThanOrEqual(6);
+  const missing = labels.filter(
+    (label) => translateSettings(label, "zh") === label || translateSettings(label, "ar") === label
+  );
+  expect(missing).toEqual([]);
+});

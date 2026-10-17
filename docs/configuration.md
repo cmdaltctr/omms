@@ -61,6 +61,10 @@ On first start, if no config exists at all, the plugin creates a full commented 
   "showErrorToasts": true,
 
   "userProfileAnalysisInterval": 10,
+  // Merge duplicate profile items by itself after this many analysed prompts. Set false to turn it off.
+  // Change both on the Memory page (Profile learning). A project config cannot override them.
+  "userProfileAutoCleanupEnabled": true,
+  "userProfileAutoCleanupInterval": 500,
   "userProfileMaxContextBytes": 32768,
   "maxMemories": 10,
 

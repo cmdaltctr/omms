@@ -64,6 +64,76 @@ describe("global config writer", () => {
     expect(result.settings.autoBackfill.globalValue).toBe(false);
     expect(result.settings.webServerAutoStart.globalValue).toBe(false);
   });
+  it("saves the automatic profile cleanup switch and interval, keeping comments", async () => {
+    const seed = '{\n  // owner note\n  "maxMemories": 12\n}\n';
+    const result = await scenario(
+      `
+      const { getSettingsSnapshot } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/settings-snapshot.ts")).href)});
+      await writeGlobalConfigKeys(
+        { userProfileAutoCleanupEnabled: false, userProfileAutoCleanupInterval: 300 },
+        readGlobalConfigRevision()
+      );
+      return { text: readFileSync(target, "utf8"), settings: getSettingsSnapshot(${JSON.stringify(import.meta.dir)}).settings };
+    `,
+      seed
+    );
+    expect(result.text).toContain("// owner note");
+    expect(result.text).toContain('"maxMemories": 12');
+    expect(result.text).toContain('"userProfileAutoCleanupEnabled": false');
+    expect(result.text).toContain('"userProfileAutoCleanupInterval": 300');
+    expect(result.settings.userProfileAutoCleanupEnabled.globalValue).toBe(false);
+    expect(result.settings.userProfileAutoCleanupInterval.globalValue).toBe(300);
+  });
+
+  it("accepts the interval limits and refuses values outside them without changing the file", async () => {
+    const seed = '{ "piModel": "old" }\n';
+    const result = await scenario(
+      `
+      const accepted = [];
+      for (const value of [50, 100000]) {
+        await writeGlobalConfigKeys({ userProfileAutoCleanupInterval: value }, readGlobalConfigRevision());
+        accepted.push(value);
+      }
+      const before = readFileSync(target, "utf8");
+      const errors = [];
+      for (const edits of [
+        { userProfileAutoCleanupInterval: 49 },
+        { userProfileAutoCleanupInterval: 100001 },
+        { userProfileAutoCleanupInterval: 2.5 },
+        { userProfileAutoCleanupInterval: "500" },
+        { userProfileAutoCleanupInterval: null },
+        { userProfileAutoCleanupEnabled: "yes" },
+        { userProfileAutoCleanupEnabled: 1 },
+      ]) {
+        try { await writeGlobalConfigKeys(edits, readGlobalConfigRevision()); }
+        catch (error) { errors.push(String(error)); }
+      }
+      return { accepted, errors, unchanged: readFileSync(target, "utf8") === before };
+    `,
+      seed
+    );
+    expect(result.accepted).toEqual([50, 100000]);
+    expect(result.errors).toHaveLength(7);
+    expect(result.unchanged).toBe(true);
+  });
+
+  it("refuses a change based on a stale revision", async () => {
+    const seed = '{ "piModel": "old" }\n';
+    const result = await scenario(
+      `
+      const stale = readGlobalConfigRevision();
+      writeFileSync(target, '{ "piModel": "changed outside" }\\n');
+      let error = "";
+      try { await writeGlobalConfigKeys({ userProfileAutoCleanupEnabled: false }, stale); }
+      catch (caught) { error = String(caught); }
+      return { error, text: readFileSync(target, "utf8") };
+    `,
+      seed
+    );
+    expect(result.error).toContain("Config changed");
+    expect(result.text).not.toContain("userProfileAutoCleanupEnabled");
+  });
+
   it("keeps comments, order, and unrelated values", async () => {
     const seed =
       '{\n  // owner\n  "maxMemories": 12,\n  "piModel": "old",\n  "memoryModel": "secret-model"\n}\n';

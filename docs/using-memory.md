@@ -127,6 +127,20 @@ Each learning pass can check up to three candidate pairs for conflicts and five 
 
 Pausing an import during profile learning stops it at a batch boundary. Completed batches stay learned.
 
+### Automatic cleanup
+
+OpenCode, Pi and Claude Code clean up the profile by themselves. After a live learning pass takes the count of analysed prompts past a multiple of `userProfileAutoCleanupInterval` (default 500), the host starts a cleanup in the background. It never delays learning or capture.
+
+- The cleanup merges duplicate items and removes items that are too vague to help. It sends the whole profile to the model in batches of up to 100 items.
+- It saves what the model proposes. You do not review it. A change is skipped when learning changed one of its items during the run.
+- It changes nothing when the model proposes to remove or merge away more than a quarter of the items. The log then says `too-many-changes`.
+- Before it saves, OMMS stores the items it changes. **Undo last automatic cleanup** on the Profile page puts them back for 30 days. OMMS deletes older records at its next daily cleanup or web app start. Undo keeps the other memories that OMMS learned or updated after the run. An update to a merged memory is lost, because Undo replaces that memory with its originals.
+- History imports, backfills and catch-up runs never start it.
+- Turn it off, or change how often it runs, in the **Profile learning** card on the Memory page. See [Memory page: Automatic profile cleanup](web-ui-memory.md#automatic-profile-cleanup). The keys are `userProfileAutoCleanupEnabled` and `userProfileAutoCleanupInterval`. A project config cannot override them.
+- A run takes several minutes on a large profile and makes about one model call for every 100 items. On a profile of 2,000 items that is about 20 calls for each run, so the default interval is 500 prompts. On the external API, each call must finish in 60 seconds. A reasoning model can be too slow. See [Web UI: User profile page](web-ui.md#user-profile-page).
+
+The AI Cleanup window on the Profile page still lets you review the changes before they are saved.
+
 ### How long profile items stay
 
 Each profile pass removes old items that have little support:

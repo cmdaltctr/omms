@@ -252,7 +252,7 @@ const DEFAULTS: Required<
   userProfileEmbeddingMinDescriptionLength: 5,
   userProfileMinEvidenceForRetention: 3,
   userProfileAutoCleanupEnabled: true,
-  userProfileAutoCleanupInterval: 100,
+  userProfileAutoCleanupInterval: 500,
   userProfileValidationEnabled: false,
   showAutoCaptureToasts: true,
   showUserProfileToasts: true,
@@ -653,10 +653,9 @@ export const CONFIG_TEMPLATE = `{
   // Items confirmed fewer times are more likely to be pruned when confidence decays
   "userProfileMinEvidenceForRetention": 3,
 
-  // Periodically merge duplicate or irrelevant profile items with the configured AI provider
+  // Merge duplicate or vague profile items every N analysed prompts (about 1 model call per 100 items)
   "userProfileAutoCleanupEnabled": true,
-  // Number of analyzed user prompts between automatic AI cleanup runs
-  "userProfileAutoCleanupInterval": 100,
+  "userProfileAutoCleanupInterval": 500,
 
   // Enable LLM validation of existing preferences against recent behavior.
   // When enabled, each analysis round checks if top-5 preferences still match recent prompts.
@@ -1135,6 +1134,8 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   const projectOverrides = { ...projectConfig };
   delete projectOverrides.autoCleanupEnabled;
   delete projectOverrides.autoCleanupRetentionDays;
+  delete projectOverrides.userProfileAutoCleanupEnabled;
+  delete projectOverrides.userProfileAutoCleanupInterval;
   // A checked-in project file must not start recording conversations; it may
   // only turn tracing off for its project.
   if (projectOverrides.captureTrace === true) {

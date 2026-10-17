@@ -50,7 +50,7 @@ import {
   handleCategoryCleanupUndo,
   handleUpdateProfileItem,
 } from "./api-handlers.js";
-import * as aiCleanup from "./ai-cleanup-handlers.js";
+import { routeProfileCleanup } from "./profile-cleanup-routes.js";
 
 /**
  * Runtime-portable HTTP server handle.
@@ -701,6 +701,10 @@ export class WebServer {
     // Remove OpenCode snapshot copies left by processes that quit mid-import.
     void import("../importer/web-import-api.js")
       .then(({ sweepOrphanSnapshots }) => sweepOrphanSnapshots())
+      .catch(() => {});
+    // Restore records of the automatic cleanup expire after 30 days, even if nothing reads them.
+    void import("./user-profile/auto-cleanup-store.js")
+      .then(({ pruneAutoCleanupRecords }) => pruneAutoCleanupRecords())
       .catch(() => {});
 
     const tokens = await import("./api-tokens.js");
@@ -1654,22 +1658,10 @@ export class WebServer {
         return this.jsonResponse(result);
       }
 
-      if (path === "/api/user-profile/ai-cleanup" && method === "POST") {
-        const body = (await req.json().catch(() => ({}))) as any;
-        return this.jsonResponse(await aiCleanup.handleAiCleanupStart(body.userId, body));
-      }
-
-      if (path === "/api/user-profile/ai-cleanup" && (method === "GET" || method === "DELETE")) {
-        const userId = url.searchParams.get("userId") || undefined;
-        const handle =
-          method === "GET" ? aiCleanup.handleAiCleanupStatus : aiCleanup.handleAiCleanupStop;
-        return this.jsonResponse(await handle(userId));
-      }
-
-      if (path === "/api/user-profile/ai-cleanup/apply" && method === "POST") {
-        const body = (await req.json().catch(() => ({}))) as any;
-        return this.jsonResponse(await aiCleanup.handleAiCleanupApply(body.userId, body));
-      }
+      const cleanup = await routeProfileCleanup(path, method, url, () =>
+        req.json().catch(() => ({}))
+      );
+      if (cleanup !== undefined) return this.jsonResponse(cleanup);
 
       if (path === "/api/user-profile/category-cleanup" && method === "POST") {
         const body = (await req.json().catch(() => ({}))) as any;

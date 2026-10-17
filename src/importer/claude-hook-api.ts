@@ -37,6 +37,7 @@ import {
   type ClaudeConversationWindow,
   type ClaudeTranscriptEntry,
 } from "./claude-conversation.js";
+import { learnClaudeProfile } from "./claude-profile-learning.js";
 import { defaultClaudeProjectsRoot } from "./claude-reader.js";
 
 // The web app's side of the Claude Code hooks (design decisions 4, 6, 7):
@@ -474,7 +475,12 @@ async function captureTurn(request: CaptureRequest, deps: ClaudeHookDeps): Promi
     // The model answers again, so earlier failed turns may go through now.
     startCaptureRetryDrain(HOST);
   }
-  if (counts.captured + counts.skipped > 0) await learnProfile(request.cwd, deps);
+  if (counts.captured + counts.skipped > 0) {
+    await learnClaudeProfile(
+      request.cwd,
+      async () => deps.profileModel?.() ?? (await externalModels()).profile
+    );
+  }
 }
 
 // --- Profile learning ---
@@ -499,81 +505,6 @@ async function recordPrompt(
       sessionID: request.sessionId,
       code: errorCode(error),
     });
-  }
-}
-
-let learning = false;
-
-/**
- * Build or update the user profile from the recorded prompts once there are
- * `userProfileAnalysisInterval` of them. A failure is logged and never
- * blocks capture; the prompts stay for the next pass.
- */
-async function learnProfile(directory: string, deps: ClaudeHookDeps): Promise<void> {
-  const interval = CONFIG.userProfileAnalysisInterval ?? 0;
-  if (!(interval > 0) || learning) return;
-  const { profileBackoff, profileCatchUpLock, recordProfileFailure } =
-    await import("../core/profile-backoff.js");
-  // A catch-up run, here or in a terminal, analyses the same prompts; skip the live pass meanwhile.
-  if (!profileBackoff.canRun() || profileCatchUpLock.isActive()) return;
-  const { CatchUpLease } = await import("../services/user-prompt/profile-catch-up-lease.js");
-  if (await new CatchUpLease().isActive().catch(() => false)) return;
-  learning = true;
-  try {
-    const [{ userPromptManager }, { userProfileManager }, { analyzeProfile }] = await Promise.all([
-      import("../services/user-prompt/user-prompt-manager.js"),
-      import("../services/user-profile/user-profile-manager.js"),
-      import("../core/profile-analysis.js"),
-    ]);
-    await userPromptManager.skipTrivialPromptsForLearning();
-    if ((await userPromptManager.countUnanalyzedForUserLearning()) < interval) return;
-    const user = getTags(directory).user;
-    if (!user.userEmail) {
-      log("Claude Code profile learning skipped", { code: "no-user-email" });
-      return;
-    }
-    const batch = await userPromptManager.getPromptsForUserLearning(interval, {
-      recentFirst: true,
-    });
-    if (batch.length === 0) return;
-    const model = deps.profileModel?.() ?? (await externalModels()).profile;
-    const existing = await userProfileManager.getActiveProfile(user.userEmail);
-    const context = batch.map((prompt, index) => `${index + 1}. ${prompt.content}`).join("\n");
-    const analysis = await analyzeProfile(
-      model,
-      context,
-      existing ? { id: existing.id, profileData: existing.profileData } : null
-    );
-    if (existing) {
-      const { saveMergedProfile } = await import("../services/user-profile/merge-and-save.js");
-      const updated = await saveMergedProfile(
-        userProfileManager,
-        existing,
-        analysis,
-        batch.length,
-        `Claude Code analysis of ${batch.length} prompts`
-      );
-      if (!updated) throw new Error("Profile update conflict");
-    } else {
-      await userProfileManager.createProfile(
-        user.userEmail,
-        user.displayName || user.userEmail,
-        user.userName || user.userEmail,
-        user.userEmail,
-        analysis.raw,
-        batch.length
-      );
-    }
-    await userPromptManager.markMultipleAsUserLearningCaptured(batch.map((prompt) => prompt.id));
-    profileBackoff.recordSuccess();
-    log("Claude Code profile learning finished", {
-      prompts: batch.length,
-      hadExisting: Boolean(existing),
-    });
-  } catch (error) {
-    recordProfileFailure("claude-code", "Claude Code profile learning failed", error);
-  } finally {
-    learning = false;
   }
 }
 

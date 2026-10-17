@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   createUserProfileAnalysisSchema,
   createUserProfileToolSchema,
-  shouldRunAutomaticProfileCleanup,
   USER_PROFILE_LLM_CONFIDENCE_MAX,
 } from "../src/adapters/opencode/profile-learning.js";
 import { UserProfileValidator } from "../src/services/ai/validators/user-profile-validator.js";
@@ -64,10 +63,5 @@ describe("user-profile-learning confidence schema (#231)", () => {
       }).valid
     ).toBe(false);
     expect(UserProfileValidator.validate(baseProfile).valid).toBe(true);
-  });
-
-  it("schedules automatic cleanup only when a prompt interval is crossed", () => {
-    expect(shouldRunAutomaticProfileCleanup(90, 10, 100)).toBe(true);
-    expect(shouldRunAutomaticProfileCleanup(100, 10, 100)).toBe(false);
   });
 });

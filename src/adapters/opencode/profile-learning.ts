@@ -8,52 +8,13 @@ import { userPromptManager } from "../../services/user-prompt/user-prompt-manage
 import type { UserPrompt } from "../../services/user-prompt/user-prompt-manager.js";
 import { userProfileManager } from "../../services/user-profile/user-profile-manager.js";
 import { saveProfile } from "../../services/user-profile/merge-and-save.js";
+import { shouldStartAutoCleanup } from "../../services/user-profile/auto-cleanup-trigger.js";
 import { sortProfileItems } from "../../utils/profile.js";
 import { truncateToMaxBytes } from "../../utils/context-limit.js";
 import type { UserProfile, UserProfileData } from "../../services/user-profile/types.js";
 import { loadOpencodeProvider } from "./opencode-provider-loader.js";
 
 let isLearningRunning = false;
-
-export function shouldRunAutomaticProfileCleanup(
-  previousPromptCount: number,
-  addedPromptCount: number,
-  interval: number = CONFIG.userProfileAutoCleanupInterval
-): boolean {
-  if (!CONFIG.userProfileAutoCleanupEnabled || !Number.isInteger(interval) || interval <= 0) {
-    return false;
-  }
-  return (
-    Math.floor(previousPromptCount / interval) <
-    Math.floor((previousPromptCount + addedPromptCount) / interval)
-  );
-}
-
-async function runAutomaticProfileCleanup(userId: string): Promise<void> {
-  try {
-    const profile = await userProfileManager.getActiveProfile(userId);
-    if (!profile) return;
-    const profileData: UserProfileData = JSON.parse(profile.profileData);
-    const itemCount =
-      profileData.preferences.length + profileData.patterns.length + profileData.workflows.length;
-    if (itemCount < 2) return;
-
-    const { aiCleanupProfile } = await import("../../services/user-profile/ai-cleanup.js");
-    const result = await aiCleanupProfile(profileData);
-    if (result.diff.merged.length === 0 && result.diff.removed.length === 0) return;
-
-    const summary = `Automatic AI cleanup: ${result.diff.merged.length} merged, ${result.diff.removed.length} removed`;
-    const updated = await saveProfile(profile, result.cleaned, summary);
-    log("user-profile-learning: automatic cleanup complete", {
-      userId,
-      updated,
-      merged: result.diff.merged.length,
-      removed: result.diff.removed.length,
-    });
-  } catch (error) {
-    log("user-profile-learning: automatic cleanup failed", { userId, error: String(error) });
-  }
-}
 
 export async function performUserProfileLearning(
   ctx: PluginInput,
@@ -279,8 +240,16 @@ Rules:
       await userPromptManager.markMultipleAsUserLearningCaptured(prompts.map((p) => p.id));
     }
 
-    if (shouldRunAutomaticProfileCleanup(cleanupPreviousPromptCount, prompts.length)) {
-      await runAutomaticProfileCleanup(userId);
+    if (
+      shouldStartAutoCleanup(cleanupPreviousPromptCount, prompts.length, {
+        enabled: CONFIG.userProfileAutoCleanupEnabled,
+        interval: CONFIG.userProfileAutoCleanupInterval,
+      })
+    ) {
+      // In the background: a long run must not hold the learning pass, and a failure must not fail it.
+      void import("../../services/user-profile/auto-cleanup.js")
+        .then(({ startAutoProfileCleanup }) => startAutoProfileCleanup(userId))
+        .catch(() => {});
     }
 
     if (CONFIG.showUserProfileToasts) {

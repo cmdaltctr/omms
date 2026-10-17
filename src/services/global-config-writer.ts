@@ -24,6 +24,8 @@ const keys = new Set([
   "opencodeBackfillModel",
   "piBackfillModel",
   "webServerAutoStart",
+  "userProfileAutoCleanupEnabled",
+  "userProfileAutoCleanupInterval",
   "memoryProvider",
   "memoryApiUrl",
   "memoryModel",
@@ -82,8 +84,18 @@ function isValidEdit(key: string, value: unknown): boolean {
   if (key === "embeddingDimensions") {
     return Number.isInteger(value) && (value as number) > 0 && (value as number) <= 65536;
   }
-  if (key === "captureTrace" || key === "autoBackfill" || key === "webServerAutoStart") {
+  if (
+    key === "captureTrace" ||
+    key === "autoBackfill" ||
+    key === "webServerAutoStart" ||
+    key === "userProfileAutoCleanupEnabled"
+  ) {
     return typeof value === "boolean";
+  }
+  // Each automatic cleanup is paid for, so the page refuses an interval that would run one
+  // after almost every learning pass. A hand edit of the file has no floor.
+  if (key === "userProfileAutoCleanupInterval") {
+    return Number.isSafeInteger(value) && (value as number) >= 50 && (value as number) <= 100000;
   }
   if (key.endsWith("RetentionDays")) return Number.isSafeInteger(value) && (value as number) >= 1;
   if (key === "captureRetryRetentionHours") {

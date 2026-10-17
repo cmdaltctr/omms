@@ -13,6 +13,7 @@ import {
   UserX,
   Workflow,
 } from "lucide-react";
+import { AutoCleanupUndo } from "./AutoCleanupUndo";
 import { CategoryCleanupBanner } from "./CategoryCleanupBanner";
 import { ChangelogDialog } from "./ChangelogDialog";
 import { keywordHue } from "./KeywordBadge";
@@ -312,6 +313,7 @@ export function ProfileView({
                 </Button>
                 <InfoPopover label={t("label-more-info")}>{t("help-category-cleanup")}</InfoPopover>
               </span>
+              <AutoCleanupUndo version={profile.version} onUndone={onRefresh} />
               <Button variant="secondary" size="sm" onClick={() => onRefresh?.()}>
                 <RefreshCw className="size-3.5" />
                 {t("btn-refresh")}

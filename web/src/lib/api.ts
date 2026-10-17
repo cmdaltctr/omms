@@ -1,5 +1,6 @@
 import type { ApiResult } from "$shared/api";
 import type { AiCleanupJob } from "$lib/components/explorer/ai-cleanup-job-state";
+import type { AutoCleanupRecord } from "$lib/components/explorer/auto-cleanup-undo-state";
 
 export type { ApiResult };
 
@@ -52,5 +53,18 @@ export const aiCleanupApi = {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify({ acceptedMerged, acceptedRemoved }),
+    }),
+};
+
+const AUTO_CLEANUP = "/api/user-profile/auto-cleanup";
+
+/** The newest automatic cleanup that can be undone, and its undo. */
+export const autoCleanupApi = {
+  status: () => fetchAPI<AutoCleanupRecord | null>(AUTO_CLEANUP),
+  undo: () =>
+    fetchAPI<{ restored: number; notFound: number }>(`${AUTO_CLEANUP}/undo`, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({}),
     }),
 };

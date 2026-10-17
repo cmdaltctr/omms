@@ -335,6 +335,7 @@ or the `memory` command.
 - A failure writes one `Claude Code profile learning failed` record with the host and a reason code. The record holds no prompt, reply, or key.
 - After a failure, the web app starts no profile pass for 10 minutes. Capture continues. A success or a web app restart clears the wait.
 - The web app runs no live pass while a profile catch-up run works.
+- After a pass takes the count of analysed prompts past a multiple of `userProfileAutoCleanupInterval` (default 500), the web app starts the automatic cleanup in the background, with the same external API. See [Using memory: Automatic cleanup](using-memory.md#automatic-cleanup).
 
 To clear a backlog, use **Catch up profile** on the Settings page, or `om-memory-system profile-catch-up`. See [Settings page: Profile learning](web-ui-settings.md#profile-learning) and [CLI: Profile catch-up](cli.md#profile-catch-up).
 

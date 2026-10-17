@@ -65,7 +65,7 @@ The web app SHALL run AI Cleanup as a background job for each user. Starting a c
 
 ### Requirement: A failed batch leaves its items unchanged
 
-When a batch fails or times out, the cleanup SHALL keep every item of that batch as it was and SHALL continue with the next batch. The review screen SHALL say how many batches failed and how many items they held. The log SHALL record the batch number, the item count and a fixed reason code: `timeout`, `http-<status>`, `invalid-reply` or `error`. The log SHALL NOT contain item text, prompts or replies.
+When a batch fails or times out, the cleanup SHALL keep every item of that batch as it was and SHALL continue with the next batch. The review screen SHALL say how many batches failed and how many items they held. The log SHALL record the batch number, the item count and a fixed reason code: `timeout`, `http-<status>`, `invalid-reply`, `no-provider` or `error`. `no-provider` means that neither a host model nor an external API is set. The log SHALL NOT contain item text, prompts or replies.
 
 #### Scenario: One batch times out
 
@@ -73,6 +73,12 @@ When a batch fails or times out, the cleanup SHALL keep every item of that batch
 - **THEN** the review screen SHALL show the changes of 13 batches
 - **AND** SHALL say that 1 batch failed and its items are unchanged
 - **AND** no item of batch 4 SHALL appear as merged or removed
+
+#### Scenario: No provider is set
+
+- **WHEN** a batch fails because neither a host model nor an external API is set
+- **THEN** the log SHALL record the reason code `no-provider`
+- **AND** SHALL NOT contain item text
 
 ### Requirement: A failed cleanup shows its reason in the dialog
 
@@ -96,7 +102,7 @@ When every batch fails, or the job cannot start, the dialog SHALL show the error
 
 ### Requirement: Apply puts the ticked changes into the newest profile
 
-The review screen SHALL show the merges and removals of all batches together. A merge SHALL combine items from one batch only. Apply SHALL put the ticked changes into the newest stored profile, even when its version differs from the version the job read. Apply SHALL find each item by its section, category and description, and for workflows also its steps. A ticked change SHALL be skipped when any of its items is no longer found. Apply SHALL change only the items of ticked changes. Every other item SHALL stay exactly as stored, including selected items the model kept or reworded, unticked changes, and items that learning added or updated during the run. An empty selection SHALL mean every item of the profile when the job starts. The save SHALL check the version. When the save meets a newer version, Apply SHALL load the profile and put the changes in again, at most three times; when all three fail, the profile SHALL stay unchanged and the dialog SHALL ask the user to try again. The result SHALL say how many ticked changes were applied and how many were skipped.
+The review screen SHALL show the merges and removals of all batches together. A merge SHALL combine items from one batch only. Apply SHALL put the ticked changes into the newest stored profile, even when its version differs from the version the job read. Apply SHALL find each item by its section, category and description, and for workflows also its steps. Two spellings of one category that differ only in case, spacing, hyphens or underscores SHALL count as the same category, because every save keeps one spelling for each category and may rewrite a stored item. A ticked change SHALL be skipped when any of its items is no longer found. Apply SHALL change only the items of ticked changes. Every other item SHALL stay exactly as stored, including selected items the model kept or reworded, unticked changes, and items that learning added or updated during the run. An empty selection SHALL mean every item of the profile when the job starts. The save SHALL check the version. When the save meets a newer version, Apply SHALL load the profile and put the changes in again, at most three times; when all three fail, the profile SHALL stay unchanged and the dialog SHALL ask the user to try again. The result SHALL say how many ticked changes were applied and how many were skipped.
 
 #### Scenario: Merges from two batches
 
@@ -128,3 +134,8 @@ The review screen SHALL show the merges and removals of all batches together. A 
 - **WHEN** three save attempts in a row meet a newer version
 - **THEN** the profile SHALL stay as the last writer left it
 - **AND** the dialog SHALL ask the user to try again
+
+#### Scenario: A save rewrote a category spelling
+
+- **WHEN** a save during the run rewrote the category of a selected item from `git_workflow` to `Git workflow`
+- **THEN** Apply SHALL still find that item

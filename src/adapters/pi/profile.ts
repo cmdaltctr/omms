@@ -8,6 +8,7 @@ import {
 import { profileBackoff, recordProfileFailure } from "../../core/profile-backoff.js";
 import { log } from "../../services/logger.js";
 import { getTags } from "../../services/tags.js";
+import { shouldStartAutoCleanup } from "../../services/user-profile/auto-cleanup-trigger.js";
 import type { PiModelHandle } from "./provider.js";
 
 export type { ExistingProfileInput, ProfileAnalysisResult } from "../../core/profile-analysis.js";
@@ -71,6 +72,13 @@ export interface PiProfileLearningInput {
     message: string;
     variant: "success" | "warning" | "error" | "info";
   }) => Promise<void> | void;
+}
+
+/** The model Pi uses for profile work, for the automatic cleanup. */
+function resolveCleanupModel(input: PiProfileLearningInput): ModelPort | null {
+  if (input.resolveProfileModel) return input.resolveProfileModel();
+  const handle = input.resolveModel?.();
+  return handle ? adaptPiProfileModel(handle) : null;
 }
 
 /**
@@ -151,6 +159,20 @@ export async function performPiProfileLearning(input: PiProfileLearningInput): P
       prompts: input.prompts.length,
       hadExisting: Boolean(existing),
     });
+
+    if (
+      shouldStartAutoCleanup(existing?.totalPromptsAnalyzed ?? 0, input.prompts.length, {
+        enabled: CONFIG.userProfileAutoCleanupEnabled,
+        interval: CONFIG.userProfileAutoCleanupInterval,
+      })
+    ) {
+      // In the background: a long run must not hold the learning pass, and a failure must not fail it.
+      void import("../../services/user-profile/auto-cleanup.js")
+        .then(({ startAutoProfileCleanup }) =>
+          startAutoProfileCleanup(userId, { resolveModel: () => resolveCleanupModel(input) })
+        )
+        .catch(() => {});
+    }
 
     if (CONFIG.showUserProfileToasts && input.notify) {
       await Promise.resolve(

@@ -170,6 +170,10 @@ restores up to `compaction.memoryLimit` memories from that session:
 - On V1, it adds them as a synthetic, no-reply message for the session's own agent.
 - On V2, it adds them to the system prompt of later turns.
 
+### Automatic profile cleanup
+
+After a profile learning pass takes the count of analysed prompts past a multiple of `userProfileAutoCleanupInterval` (default 500), the plugin starts the automatic cleanup in the background. It uses the same model as profile learning and sends the profile in batches of up to 100 items. A run that is still going when OpenCode ends saves nothing. See [Using memory: Automatic cleanup](using-memory.md#automatic-cleanup).
+
 ## Provenance
 
 Memories captured from OpenCode carry:

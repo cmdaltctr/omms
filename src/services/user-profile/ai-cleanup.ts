@@ -6,63 +6,10 @@ import { resolveHostProfileModel } from "./profile-model.js";
 import { EXTERNAL_PROFILE_CLEANUP_TIMEOUT_MS } from "../request-timeouts.js";
 import { applySafeExtraParams } from "../ai/providers/base-provider.js";
 
-export interface AICleanupResult {
-  cleaned: UserProfileData;
-  diff: CleanupDiff;
-}
-
 export interface CleanupDiff {
   kept: string[];
   merged: Array<{ ids: string[]; result: string }>;
   removed: Array<{ id: string; reason: string }>;
-}
-
-export async function aiCleanupProfile(profileData: UserProfileData): Promise<AICleanupResult> {
-  const t0 = Date.now();
-  const indexed = addIdsToProfile(profileData);
-  const prompt = buildAICleanupPrompt(indexed);
-
-  log("AI cleanup: prompt built", {
-    prefCount: indexed.preferences.length,
-    patCount: indexed.patterns.length,
-    wfCount: indexed.workflows.length,
-    promptLen: prompt.length,
-    buildMs: Date.now() - t0,
-  });
-
-  const aiStart = Date.now();
-  const result = await callAICleanup(prompt);
-  log("AI cleanup: AI response received", { callMs: Date.now() - aiStart });
-
-  const cleanedById = buildItemIndex(result.profile);
-  const originalById = buildItemIndex(indexed);
-  const counters = { cleaned: 0, original: 0 };
-
-  const cleaned = rebuildProfileUsing(result.mapping, cleanedById, originalById, counters);
-  const diff = generateDiff(indexed, result.mapping, cleanedById);
-
-  const sampleCleaned = result.profile.preferences[0];
-  log("AI cleanup: rebuild done", {
-    cleanedPrefCount: result.profile.preferences.length,
-    cleanedPatCount: result.profile.patterns.length,
-    cleanedWfCount: result.profile.workflows.length,
-    sampleId: sampleCleaned?.id,
-    sampleDescLen: sampleCleaned?.description?.length,
-    cleanedItemDescLen: cleanedById.get("pref_0")?.description?.length,
-    originalItemDescLen: originalById.get("pref_0")?.description?.length,
-    keptById: cleaned.preferences.length,
-    usedCleaned: counters.cleaned,
-    usedOriginal: counters.original,
-  });
-
-  log("AI cleanup: complete", {
-    totalMs: Date.now() - t0,
-    kept: diff.kept.length,
-    merged: diff.merged.length,
-    removed: diff.removed.length,
-  });
-
-  return { cleaned, diff };
 }
 
 export interface IndexedProfileItem {
@@ -165,11 +112,13 @@ function formatForAI(item: IndexedProfileItem): Record<string, unknown> {
 }
 
 export async function callAICleanup(
-  prompt: string
+  prompt: string,
+  model?: ModelPort | null
 ): Promise<{ profile: IndexedProfile; mapping: AIMapping }> {
-  // Use the host model when the host registered one (same pattern as auto-capture).
-  // When it is available, surface its errors instead of masking them as
-  // "No AI provider configured" via a silent fallback (#177).
+  // A caller that has its own model (Pi) passes it. Otherwise use the host model when the
+  // host registered one (same pattern as auto-capture). When it is available, surface its
+  // errors instead of masking them as "No AI provider configured" via a silent fallback (#177).
+  if (model) return callViaHostModel(model, prompt);
   const hostModel = await resolveHostProfileModel();
   if (hostModel) {
     return callViaHostModel(hostModel, prompt);
