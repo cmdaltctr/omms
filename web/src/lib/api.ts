@@ -1,4 +1,5 @@
 import type { ApiResult } from "$shared/api";
+import type { AiCleanupJob } from "$lib/components/explorer/ai-cleanup-job-state";
 
 export type { ApiResult };
 
@@ -14,9 +15,7 @@ export async function fetchAPI<T = unknown>(
 ): Promise<ApiResult<T>> {
   try {
     const controller = new AbortController();
-    const timeoutMs =
-      options.timeout ||
-      (options.method === "POST" && endpoint.includes("/ai-cleanup") ? 180000 : 60000);
+    const timeoutMs = options.timeout || 60000;
     const { timeout: _timeout, headers: extraHeaders, ...fetchOptions } = options;
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     const response = await fetch(endpoint, {
@@ -34,3 +33,24 @@ export async function fetchAPI<T = unknown>(
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
+
+const AI_CLEANUP = "/api/user-profile/ai-cleanup";
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+/** The AI cleanup job runs on the server; these calls start, read, stop and apply it. */
+export const aiCleanupApi = {
+  start: (includeIds: string[], profileVersion?: number) =>
+    fetchAPI<AiCleanupJob>(AI_CLEANUP, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ includeIds, profileVersion }),
+    }),
+  status: () => fetchAPI<AiCleanupJob | null>(AI_CLEANUP),
+  stop: () => fetchAPI<null>(AI_CLEANUP, { method: "DELETE" }),
+  apply: (acceptedMerged: string[][], acceptedRemoved: string[]) =>
+    fetchAPI<{ applied: number; skipped: number }>(`${AI_CLEANUP}/apply`, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ acceptedMerged, acceptedRemoved }),
+    }),
+};
