@@ -103,7 +103,7 @@ Open the Settings page in the login web app, in OpenCode, or with `om-memory-sys
 - OpenCode, Pi, and the web app that serves Claude Code reload changed config files at the next capture or profile-learning run. You do not need to restart.
 - On a legacy-only install, the first save copies the old config and its comments to `~/.config/omms/omms.jsonc`. OMMS reads the new file from then on. The old file stays unchanged.
 - The page rejects a save if the file changed since the page loaded it. Check the refreshed values, then save again.
-- The **Memory** card edits the five [memory limits](#memory-limits) below, including the nested `chatMessage.maxMemories` leaf.
+- The **Memory** card edits the six [memory limits](#memory-limits) below, including the nested `chatMessage.maxMemories` leaf and `similarityThreshold`. Every row has a **Reset to default** action that removes the key from the global file so the value follows the default again.
 
 ## Profile retention
 
@@ -119,15 +119,18 @@ See [Using memory: How long profile items stay](using-memory.md#how-long-profile
 
 Edit `~/.config/omms/omms.jsonc` directly, or use **Settings → Memory**. File configuration needs no web server.
 
-| Setting                      | Default | Unit               | Accepted values          | Affects                                                                                                               |
-| ---------------------------- | ------- | ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `maxMemories`                | 10      | Results            | Positive safe integers   | Maximum memory search results. Manual searches can request fewer.                                                     |
-| `chatMessage.maxMemories`    | 3       | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 search each prompt.               |
-| `autoCaptureMaxContextBytes` | 131072  | UTF-8 bytes        | 16384–16777216 inclusive | Conversation input to the shared memory-summary pipeline.                                                             |
-| `userProfileMaxContextBytes` | 32768   | UTF-8 bytes        | 1024–16777216 inclusive  | OpenCode profile-learning input, including the truncation marker. Other hosts' profile input is outside this control. |
-| `retrievalMaxTokens`         | 2000    | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text and formatting.                                     |
+| Setting                      | Default                                        | Unit               | Accepted values          | Affects                                                                                                                |
+| ---------------------------- | ---------------------------------------------- | ------------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `maxMemories`                | 10                                             | Results            | Positive safe integers   | Maximum memory search results. Manual searches can request fewer.                                                      |
+| `chatMessage.maxMemories`    | 3                                              | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 search each prompt.                |
+| `autoCaptureMaxContextBytes` | 131072                                         | UTF-8 bytes        | 16384–16777216 inclusive | Conversation input to the shared memory-summary pipeline.                                                              |
+| `userProfileMaxContextBytes` | 32768                                          | UTF-8 bytes        | 1024–16777216 inclusive  | OpenCode profile-learning input, including the truncation marker. Other hosts' profile input is outside this control.  |
+| `retrievalMaxTokens`         | 2000                                           | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text and formatting.                                      |
+| `similarityThreshold`        | 0.5 with `qwen3-embedding:0.6b`, otherwise 0.6 | Similarity score   | Numbers from 0 to 1      | Lowest score a memory needs to be returned by search. Lower values return more memories, including less relevant ones. |
 
-All values must be integers. Count limits accept up to `Number.MAX_SAFE_INTEGER` (9007199254740991). Missing values use defaults. Invalid types, fractions, and values outside the ranges are refused.
+All values except `similarityThreshold` must be integers; `similarityThreshold` accepts decimals from 0 to 1. Count limits accept up to `Number.MAX_SAFE_INTEGER` (9007199254740991). Missing values use defaults. Invalid types, fractions on integer settings, and values outside the ranges are refused.
+
+The threshold default follows the active embedding model: 0.5 for `qwen3-embedding:0.6b` and its aliases, 0.6 for every other embedder including the built-in one. The 0.5 value comes from tests with `qwen3-embedding:0.6b` only (Experiments 24 to 26); other embedders keep 0.6 until someone measures them. A value saved in the file always wins and is never rewritten: a file that still holds the old template's `"similarityThreshold": 0.6` keeps 0.6 until you remove the line or select **Reset to default** on the Memory page.
 
 ```jsonc
 {
@@ -143,6 +146,9 @@ All values must be integers. Count limits accept up to `Number.MAX_SAFE_INTEGER`
   "userProfileMaxContextBytes": 32768,
   // Approximate tokens = ceil(UTF-8 bytes / 4).
   "retrievalMaxTokens": 2000,
+  // Lowest similarity score for search results. Leave unset to follow the
+  // default for your embedding model (0.5 for qwen3-embedding:0.6b, else 0.6).
+  // "similarityThreshold": 0.5,
 }
 ```
 
@@ -161,6 +167,51 @@ OMMS estimates tokens as `Math.ceil(utf8ByteLength(text) / 4)`. The final emitte
 - Packing preserves valid Unicode and closes generated delimiters. When useful content cannot fit, OMMS emits no section.
 
 Smaller limits can omit conversation input or show fewer or shorter injected memories. Stored memories, profiles, prompts, and manual tool or CLI search content remain complete. These controls do not set a spending limit, limit model replies, or control Graphify output.
+
+## Reranker
+
+An optional second stage for memory search, off by default. When on, a search takes the 50 best memories by similarity (with no threshold applied), asks your reranker server to order them, and keeps the top `maxMemories`. OpenCode, Pi, and Claude Code all use it, because prompt retrieval and manual search share one search path.
+
+| Setting             | Default | Accepted values                             | Meaning                                                             |
+| ------------------- | ------- | ------------------------------------------- | ------------------------------------------------------------------- |
+| `rerankerEnabled`   | false   | Boolean                                     | Turns the stage on. Treated as off while the URL or model is blank. |
+| `rerankerApiUrl`    | unset   | An `http://` or `https://` URL              | The server base URL; OMMS posts to `<url>/rerank`.                  |
+| `rerankerModel`     | unset   | A non-empty string                          | Sent as `model` in the request.                                     |
+| `rerankerApiKey`    | unset   | An `env://NAME` or `file://path` reference  | Optional bearer token. Literal keys are refused.                    |
+| `rerankerTimeoutMs` | 4000    | Integers from 500 to 30000, in milliseconds | How long the search waits before falling back.                      |
+
+These five settings are [global only](#global-only-settings): a project file cannot set them, because they decide where memory text is sent.
+
+**Endpoint contract.** `POST <rerankerApiUrl>/rerank` with a JSON body `{model, query, documents, top_n}`; each document is cut to 4,000 characters. A reply is valid only when `{results: [{index, relevance_score}]}` has one entry per document, every index is an integer in range and appears once, and every score is a finite number. Candidates are ordered by score, highest first, with ties broken by memory id.
+
+**Failure never blocks search.** If the server is unreachable, the call exceeds `rerankerTimeoutMs`, the HTTP status is not a success, or the reply is invalid, the search returns exactly what it would with the reranker off, using `similarityThreshold`. Each failure logs one metadata record (a code and the elapsed time); the query, memory text, and key are never logged.
+
+**Timeout and OpenCode V2.** The default 4000 keeps total search time inside OpenCode V2's 5-second wait for the per-prompt search. A value over 5000 can make OpenCode V2 give up and send the request with no memory.
+
+**Privacy.** With the switch on, the prompt and the text of candidate memories leave the process and go to `rerankerApiUrl`. A server on the same machine is recommended. OMMS never bundles, downloads, or starts a reranker model or server.
+
+**Example: a local Qwen3-Reranker-0.6B server with llama.cpp.**
+
+```bash
+llama-server \
+  --reranking \
+  -hf Qwen/Qwen3-Reranker-0.6B \
+  --host 127.0.0.1 --port 3008
+```
+
+Then set:
+
+```jsonc
+{
+  "rerankerEnabled": true,
+  "rerankerApiUrl": "http://127.0.0.1:3008/v1",
+  "rerankerModel": "Qwen3-Reranker-0.6B",
+  // "rerankerApiKey": "env://OMMS_RERANK_KEY",
+  // "rerankerTimeoutMs": 6000,
+}
+```
+
+The Memory page's [Reranker card](web-ui-memory.md#reranker) edits these settings and tests the server.
 
 Valid edits apply at the next relevant search, injection, capture, or OpenCode profile-learning operation without a restart. An operation already running keeps its original limits. Invalid live edits retain the last valid settings and log a metadata-only error.
 
@@ -235,7 +286,7 @@ On the Settings page you can **Run now**, **Pause**, and **Resume** each host's 
 
 Some settings are read only from the global file.
 
-- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoCleanupEnabled`, and `autoCleanupRetentionDays`. This stops one project from, for example, turning off the shared web server for another.
+- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoCleanupEnabled`, `autoCleanupRetentionDays`, and the five `reranker*` settings. This stops one project from, for example, turning off the shared web server for another, or sending a user's memories to its own reranker server.
 - A project config cannot turn `captureTrace` on. See [Capture traces](#capture-traces-opt-in).
 - A project config that sets `embeddingApiUrl`, `embeddingApiKey`, `memoryProvider`, `memoryApiUrl`, or `memoryApiKey` is an error. Move those to the global file.
 

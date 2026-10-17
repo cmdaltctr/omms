@@ -1095,6 +1095,78 @@ const text = {
     "项目值仍然生效。保存只修改全局文件。",
     "تبقى قيمة المشروع سارية، والحفظ يعدّل الملف العام فقط.",
   ],
+  "Similarity score": ["相似度分数", "درجة التشابه"],
+  "Enter a number from 0 to 1.": ["请输入 0 到 1 之间的数字。", "أدخل رقماً من 0 إلى 1."],
+  "Lowest score a memory needs to be returned by search. Lower values return more memories, including less relevant ones. Higher values can return none. The default depends on the embedder.":
+    [
+      "记忆被搜索返回所需的最低分数。较低的值会返回更多记忆，包括相关性较低的；较高的值可能一条也不返回。默认值取决于嵌入模型。",
+      "أدنى درجة تحتاجها الذاكرة لتُعاد في نتائج البحث. القيم الأدنى تعيد ذكريات أكثر بمن فيها الأقل صلة، والقيم الأعلى قد لا تعيد شيئاً. تعتمد القيمة الافتراضية على نموذج التضمين.",
+    ],
+  "Reset to default": ["恢复默认", "إعادة إلى الافتراضي"],
+  "Differs from default": ["与默认值不同", "يختلف عن الافتراضي"],
+  Reranker: ["重排序器", "إعادة الترتيب"],
+  "Use a reranker": ["使用重排序器", "استخدم معيد الترتيب"],
+  Key: ["密钥", "المفتاح"],
+  Timeout: ["超时", "مهلة الانتهاء"],
+  "Search is unchanged while the switch is off.": [
+    "开关关闭时，搜索行为保持不变。",
+    "يظل البحث دون تغيير أثناء إيقاف المفتاح.",
+  ],
+  "The reranker reorders the best memory search results with your reranker server and keeps the top results.":
+    [
+      "重排序器使用您的重排序服务器对最佳记忆搜索结果重新排序，并保留最靠前的结果。",
+      "يعيد معيد الترتيب ترتيب أفضل نتائج بحث الذاكرة عبر خادم إعادة الترتيب لديك ويحتفظ بالنتائج العليا.",
+    ],
+  "The reranker sends the prompt and the text of candidate memories to the server URL. A server on the same machine is recommended.":
+    [
+      "重排序器会将提示和候选记忆的文本发送到该服务器 URL。建议使用同一台机器上的服务器。",
+      "يرسل معيد الترتيب المطالبة ونص الذكريات المرشحة إلى عنوان URL للخادم. يُنصح بخادم على الجهاز نفسه.",
+    ],
+  "This URL is not on this machine: memory text leaves this machine.": [
+    "此 URL 不在本机上：记忆文本将离开本机。",
+    "هذا العنوان ليس على هذا الجهاز: نص الذاكرة يغادر جهازك.",
+  ],
+  "A project file cannot change these settings.": [
+    "项目文件无法更改这些设置。",
+    "لا يمكن لملف المشروع تغيير هذه الإعدادات.",
+  ],
+  "The default of 4000 keeps the search inside OpenCode V2's 5-second wait. A value over 5000 can make OpenCode V2 send the request with no memory.":
+    [
+      "默认值 4000 使搜索保持在 OpenCode V2 的 5 秒等待之内。超过 5000 的值可能导致 OpenCode V2 在不注入记忆的情况下发送请求。",
+      "تحافظ القيمة الافتراضية 4000 على بقاء البحث داخل مهلة انتظار OpenCode V2 البالغة 5 ثوانٍ. القيمة الأعلى من 5000 قد تجعل OpenCode V2 يرسل الطلب دون ذاكرة.",
+    ],
+  "Enter the server URL and model before turning the reranker on.": [
+    "打开重排序器前，请先填写服务器 URL 和模型。",
+    "أدخل عنوان URL للخادم والنموذج قبل تشغيل معيد الترتيب.",
+  ],
+  "The key must be an env:// or file:// reference, or left empty.": [
+    "密钥必须是 env:// 或 file:// 引用，或留空。",
+    "يجب أن يكون المفتاح مرجع env:// أو file://، أو يُترك فارغاً.",
+  ],
+  "Enter a whole number from 500 to 30,000.": [
+    "请输入 500 到 30,000 之间的整数。",
+    "أدخل رقماً صحيحاً من 500 إلى 30,000.",
+  ],
+  "Optional env:// or file:// key reference.": [
+    "可选的 env:// 或 file:// 密钥引用。",
+    "مرجع مفتاح env:// أو file:// اختياري.",
+  ],
+  milliseconds: ["毫秒", "ميلي ثانية"],
+  Save: ["保存", "حفظ"],
+  "Saved. New searches use these settings.": [
+    "已保存。新的搜索将使用这些设置。",
+    "تم الحفظ. ستستخدم عمليات البحث الجديدة هذه الإعدادات.",
+  ],
+  "The reranker settings could not be saved. Reload the page to try again.": [
+    "无法保存重排序器设置。请重新加载页面重试。",
+    "تعذّر حفظ إعدادات معيد الترتيب. أعد تحميل الصفحة للمحاولة مجدداً.",
+  ],
+  "The reranker settings could not be loaded. Reload the page to try again.": [
+    "无法加载重排序器设置。请重新加载页面重试。",
+    "تعذّر تحميل إعدادات معيد الترتيب. أعد تحميل الصفحة للمحاولة مجدداً.",
+  ],
+  "Test passed.": ["测试通过。", "نجح الاختبار."],
+  "Test failed:": ["测试失败：", "فشل الاختبار:"],
 } as const;
 
 export function translateSettings(message: string, language: "en" | "zh" | "ar"): string {

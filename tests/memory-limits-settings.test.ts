@@ -36,7 +36,7 @@ async function scenario(
   const tokenUrl = pathToFileURL(join(import.meta.dir, "../src/services/auth-token.ts")).href;
   const apiTokensUrl = pathToFileURL(join(import.meta.dir, "../src/services/api-tokens.ts")).href;
   const script = `
-    const { readFileSync, existsSync } = await import("node:fs");
+    const { readFileSync, existsSync, writeFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const { WebServer } = await import(${JSON.stringify(serverUrl)});
     const { getOrCreateAuthToken } = await import(${JSON.stringify(tokenUrl)});
@@ -72,37 +72,42 @@ async function scenario(
 }
 
 describe("memory settings snapshot", () => {
-  it("shows the five fields with their defaults and sources", async () => {
+  it("shows the six fields with their defaults and sources", async () => {
     const result = await scenario(`return (await (await send("/api/settings")).json()).settings;`);
     expect(result.maxMemories).toEqual({
       value: 10,
       source: "default",
       globalValue: 10,
       default: 10,
+      hasGlobal: false,
     });
     expect(result["chatMessage.maxMemories"]).toEqual({
       value: 3,
       source: "default",
       globalValue: 3,
       default: 3,
+      hasGlobal: false,
     });
     expect(result.autoCaptureMaxContextBytes).toEqual({
       value: 131072,
       source: "default",
       globalValue: 131072,
       default: 131072,
+      hasGlobal: false,
     });
     expect(result.userProfileMaxContextBytes).toEqual({
       value: 32768,
       source: "default",
       globalValue: 32768,
       default: 32768,
+      hasGlobal: false,
     });
     expect(result.retrievalMaxTokens).toEqual({
       value: 2000,
       source: "default",
       globalValue: 2000,
       default: 2000,
+      hasGlobal: false,
     });
   });
 
@@ -122,25 +127,35 @@ describe("memory settings snapshot", () => {
       source: "project",
       globalValue: 3000,
       default: 2000,
+      hasGlobal: true,
     });
-    expect(result.maxMemories).toEqual({ value: 8, source: "global", globalValue: 8, default: 10 });
+    expect(result.maxMemories).toEqual({
+      value: 8,
+      source: "global",
+      globalValue: 8,
+      default: 10,
+      hasGlobal: true,
+    });
     expect(result["chatMessage.maxMemories"]).toEqual({
       value: 4,
       source: "global",
       globalValue: 4,
       default: 3,
+      hasGlobal: true,
     });
     expect(result.autoCaptureMaxContextBytes).toEqual({
       value: 65536,
       source: "global",
       globalValue: 65536,
       default: 131072,
+      hasGlobal: true,
     });
     expect(result.userProfileMaxContextBytes).toEqual({
       value: 8192,
       source: "global",
       globalValue: 8192,
       default: 32768,
+      hasGlobal: true,
     });
   });
 
@@ -170,8 +185,68 @@ describe("memory settings snapshot", () => {
         source: "project",
         globalValue: defaults[key],
         default: defaults[key],
+        hasGlobal: false,
       });
     }
+  });
+
+  it("switching the embedder changes the threshold row's default in the snapshot", async () => {
+    const result = await scenario(
+      `
+        const json = { "content-type": "application/json" };
+        const { initConfig } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+        initConfig(join(home, "project"));
+        const before = (await (await send("/api/settings")).json()).settings.similarityThreshold;
+        writeFileSync(configPath, JSON.stringify({ embeddingModel: "qwen3-embedding:0.6b" }) + "\\n");
+        const { refreshConfigIfChanged } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+        refreshConfigIfChanged(join(home, "project"));
+        const after = (await (await send("/api/settings")).json()).settings.similarityThreshold;
+        return { before, after };
+      `
+    );
+    expect(result.before).toEqual({
+      value: 0.6,
+      source: "default",
+      globalValue: 0.6,
+      default: 0.6,
+      hasGlobal: false,
+    });
+    expect(result.after).toEqual({
+      value: 0.5,
+      source: "default",
+      globalValue: 0.5,
+      default: 0.5,
+      hasGlobal: false,
+    });
+  });
+
+  it("integer rows still refuse a fraction while the threshold row accepts one", async () => {
+    const seed = '{ "maxMemories": 10, "similarityThreshold": 0.6 }\n';
+    const result = await scenario(
+      `
+        const json = { "content-type": "application/json" };
+        const revision = (await (await send("/api/settings")).json()).revision;
+        const fraction = await send("/api/settings", "PATCH",
+          { edits: { maxMemories: 2.5 }, revision }, json);
+        const decimal = await send("/api/settings", "PATCH",
+          { edits: { similarityThreshold: 0.45 }, revision }, json);
+        const after = await (await send("/api/settings")).json();
+        return { fraction: fraction.status, decimal: decimal.status,
+          text: readFileSync(configPath, "utf8"),
+          threshold: after.settings.similarityThreshold };
+      `,
+      { globalConfig: seed }
+    );
+    expect(result.fraction).toBe(400);
+    expect(result.decimal).toBe(200);
+    expect(result.text).toContain('"similarityThreshold": 0.45');
+    expect(result.threshold).toEqual({
+      value: 0.45,
+      source: "global",
+      globalValue: 0.45,
+      default: 0.6,
+      hasGlobal: true,
+    });
   });
 
   it("resolves the nested chatMessage.maxMemories with the runtime merge rules", async () => {
@@ -182,7 +257,50 @@ describe("memory settings snapshot", () => {
         projectConfig: JSON.stringify({ chatMessage: { enabled: true } }),
       }
     );
-    expect(result).toEqual({ value: 3, source: "default", globalValue: 5, default: 3 });
+    expect(result).toEqual({
+      value: 3,
+      source: "default",
+      globalValue: 5,
+      default: 3,
+      hasGlobal: true,
+    });
+  });
+
+  it("shows the similarityThreshold row with the embedder-aware default", async () => {
+    const builtIn = await scenario(
+      `return (await (await send("/api/settings")).json()).settings.similarityThreshold;`
+    );
+    expect(builtIn).toEqual({
+      value: 0.6,
+      source: "default",
+      globalValue: 0.6,
+      default: 0.6,
+      hasGlobal: false,
+    });
+
+    const qwen = await scenario(
+      `return (await (await send("/api/settings")).json()).settings.similarityThreshold;`,
+      { globalConfig: JSON.stringify({ embeddingModel: "qwen3-embedding:0.6b" }) }
+    );
+    expect(qwen).toEqual({
+      value: 0.5,
+      source: "default",
+      globalValue: 0.5,
+      default: 0.5,
+      hasGlobal: false,
+    });
+
+    const saved = await scenario(
+      `return (await (await send("/api/settings")).json()).settings.similarityThreshold;`,
+      { globalConfig: JSON.stringify({ similarityThreshold: 0.6 }) }
+    );
+    expect(saved).toEqual({
+      value: 0.6,
+      source: "global",
+      globalValue: 0.6,
+      default: 0.6,
+      hasGlobal: true,
+    });
   });
 });
 
@@ -276,12 +394,205 @@ describe("memory settings saves", () => {
       { globalConfig: '{ "maxMemories": 12, "piModel": "keep" }\n' }
     );
     expect(result.status).toBe(200);
-    expect(result.snapshot).toEqual({ value: 2, source: "global", globalValue: 2, default: 3 });
+    expect(result.snapshot).toEqual({
+      value: 2,
+      source: "global",
+      globalValue: 2,
+      default: 3,
+      hasGlobal: true,
+    });
     expect(result.text).toContain('"piModel": "keep"');
     expect(result.text).toContain('"maxMemories": 12');
     expect(result.text).toMatch(/"chatMessage"\s*:\s*\{/);
     expect(result.text).toContain('"maxMemories": 2');
     expect(result.text).not.toContain('"chatMessage.maxMemories"');
+  });
+});
+
+describe("memory settings reset to default", () => {
+  it("removes the key when a request sends null for a memory limit", async () => {
+    const seed = [
+      "{",
+      "  // keep me",
+      '  "maxMemories": 6,',
+      '  "similarityThreshold": 0.6,',
+      "  // model comment",
+      '  "memoryModel": "keep-model"',
+      "}",
+      "",
+    ].join("\n");
+    const result = await scenario(
+      `
+        const json = { "content-type": "application/json" };
+        const { initConfig } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+        initConfig(join(home, "project"));
+        const before = await (await send("/api/settings")).json();
+        const reset = await send("/api/settings", "PATCH",
+          { edits: { maxMemories: null }, revision: before.revision }, json);
+        const after = await (await send("/api/settings")).json();
+        return { status: reset.status,
+          text: readFileSync(configPath, "utf8"),
+          maxMemories: after.settings.maxMemories };
+      `,
+      { globalConfig: seed }
+    );
+    expect(result.status).toBe(200);
+    // A comment on another property stays; the removed key's own comment goes with it.
+    expect(result.text).toContain("// model comment");
+    expect(result.text).toContain('"similarityThreshold": 0.6');
+    expect(result.text).toContain('"memoryModel": "keep-model"');
+    expect(result.text).not.toMatch(/"maxMemories"\s*:/);
+    expect(result.maxMemories).toEqual({
+      value: 10,
+      source: "default",
+      globalValue: 10,
+      default: 10,
+      hasGlobal: false,
+    });
+  });
+
+  it("removes only the chatMessage.maxMemories leaf and keeps siblings and comments", async () => {
+    const seed = [
+      "{",
+      '  "chatMessage": {',
+      "    // recent memories at session start",
+      '    "enabled": true,',
+      '    "excludeCurrentSession": false,',
+      '    "maxAgeDays": 14,',
+      '    "injectOn": "always",',
+      "    // recent memories injected at session start",
+      '    "maxMemories": 4',
+      "  }",
+      "}",
+      "",
+    ].join("\n");
+    const result = await scenario(
+      `
+        const json = { "content-type": "application/json" };
+        const before = await (await send("/api/settings")).json();
+        const reset = await send("/api/settings", "PATCH",
+          { edits: { "chatMessage.maxMemories": null }, revision: before.revision }, json);
+        const after = await (await send("/api/settings")).json();
+        return { status: reset.status, text: readFileSync(configPath, "utf8"),
+          chatMax: after.settings["chatMessage.maxMemories"] };
+      `,
+      { globalConfig: seed }
+    );
+    expect(result.status).toBe(200);
+    expect(result.text).toContain("    // recent memories at session start");
+    expect(result.text).toContain('"enabled": true');
+    expect(result.text).toContain('"excludeCurrentSession": false');
+    expect(result.text).toContain('"maxAgeDays": 14');
+    expect(result.text).toContain('"injectOn": "always"');
+    // The removed leaf is the nested one only.
+    expect(result.text).toMatch(/"chatMessage"\s*:\s*\{/);
+    expect(result.text).not.toMatch(/"maxMemories"\s*:/);
+    expect(result.chatMax).toEqual({
+      value: 3,
+      source: "default",
+      globalValue: 3,
+      default: 3,
+      hasGlobal: false,
+    });
+  });
+
+  it("resets similarityThreshold so the default follows the embedder again", async () => {
+    const seed = JSON.stringify({
+      embeddingModel: "qwen3-embedding:0.6b",
+      similarityThreshold: 0.6,
+    });
+    const result = await scenario(
+      `
+        const json = { "content-type": "application/json" };
+        const { initConfig } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+        initConfig(join(home, "project"));
+        const before = await (await send("/api/settings")).json();
+        const reset = await send("/api/settings", "PATCH",
+          { edits: { similarityThreshold: null }, revision: before.revision }, json);
+        const after = await (await send("/api/settings")).json();
+        return { status: reset.status, text: readFileSync(configPath, "utf8"),
+          threshold: after.settings.similarityThreshold };
+      `,
+      { globalConfig: seed }
+    );
+    expect(result.status).toBe(200);
+    expect(result.text).not.toMatch(/"similarityThreshold"\s*:/);
+    expect(result.text).toContain('"embeddingModel": "qwen3-embedding:0.6b"');
+    expect(result.threshold).toEqual({
+      value: 0.5,
+      source: "default",
+      globalValue: 0.5,
+      default: 0.5,
+      hasGlobal: false,
+    });
+  });
+
+  it("treats a reset of an absent key as a no-op", async () => {
+    const seed = '{ "maxMemories": 6, "memoryModel": "keep-model" }\n';
+    const result = await scenario(
+      `
+        const json = { "content-type": "application/json" };
+        const before = await (await send("/api/settings")).json();
+        const reset = await send("/api/settings", "PATCH",
+          { edits: { retrievalMaxTokens: null }, revision: before.revision }, json);
+        return { status: reset.status, text: readFileSync(configPath, "utf8") };
+      `,
+      { globalConfig: seed }
+    );
+    expect(result.status).toBe(200);
+    expect(result.text).toBe(seed);
+  });
+
+  it("refuses a reset after another editor changed the file, without writing", async () => {
+    const seed = '{ "maxMemories": 6 }\n';
+    const result = await scenario(
+      `
+        const json = { "content-type": "application/json" };
+        const before = await (await send("/api/settings")).json();
+        writeFileSync(configPath, JSON.stringify({ maxMemories: 7 }) + "\\n");
+        const stale = await send("/api/settings", "PATCH",
+          { edits: { maxMemories: null }, revision: before.revision }, json);
+        return { status: stale.status, text: readFileSync(configPath, "utf8") };
+      `,
+      { globalConfig: seed }
+    );
+    expect(result.status).toBe(409);
+    expect(result.text).toBe('{"maxMemories":7}\n');
+  });
+
+  it("leaves the project file untouched on a reset", async () => {
+    const project = JSON.stringify({ maxMemories: 5 });
+    const result = await scenario(
+      `
+        const json = { "content-type": "application/json" };
+        const before = await (await send("/api/settings")).json();
+        const reset = await send("/api/settings", "PATCH",
+          { edits: { maxMemories: null }, revision: before.revision }, json);
+        return { status: reset.status,
+          projectText: readFileSync(join(home, "project", ".opencode", "omms.jsonc"), "utf8"),
+          globalText: readFileSync(configPath, "utf8") };
+      `,
+      { globalConfig: '{ "maxMemories": 6 }\n', projectConfig: project }
+    );
+    expect(result.status).toBe(200);
+    expect(result.projectText).toBe(project);
+    expect(result.globalText).not.toMatch(/"maxMemories"\s*:/);
+  });
+
+  it("refuses null for a setting that is not a memory limit", async () => {
+    const seed = '{ "piModel": "keep", "maxMemories": 6 }\n';
+    const result = await scenario(
+      `
+        const json = { "content-type": "application/json" };
+        const before = await (await send("/api/settings")).json();
+        const reset = await send("/api/settings", "PATCH",
+          { edits: { piModel: null }, revision: before.revision }, json);
+        return { status: reset.status, text: readFileSync(configPath, "utf8") };
+      `,
+      { globalConfig: seed }
+    );
+    expect(result.status).toBe(400);
+    expect(result.text).toBe(seed);
   });
 });
 
@@ -293,8 +604,10 @@ describe("memory settings rejections", () => {
         const json = { "content-type": "application/json" };
         const rows = [];
         const invalid = [
+          // null was a wrong-type case until it became the reset-to-default
+          // wire form (openspec retrieval-threshold-and-reranker); true replaces it.
           ["retrievalMaxTokens", 0], ["retrievalMaxTokens", 255], ["retrievalMaxTokens", 65537],
-          ["retrievalMaxTokens", 2000.5], ["retrievalMaxTokens", "3000"], ["retrievalMaxTokens", null],
+          ["retrievalMaxTokens", 2000.5], ["retrievalMaxTokens", "3000"], ["retrievalMaxTokens", true],
           ["maxMemories", -1], ["maxMemories", 1.5], ["maxMemories", "4"],
           ["chatMessage.maxMemories", 0], ["chatMessage.maxMemories", 2.5],
           ["userProfileMaxContextBytes", 1023], ["userProfileMaxContextBytes", 16777217],
@@ -405,7 +718,13 @@ describe("memory settings rejections", () => {
     expect(result.migrated).toContain('"memoryModel": "keep-model"');
     expect(result.migrated).toContain('"maxMemories": 2');
     expect(result.migrated).not.toContain('"chatMessage.maxMemories"');
-    expect(result.snapshot).toEqual({ value: 2, source: "global", globalValue: 2, default: 3 });
+    expect(result.snapshot).toEqual({
+      value: 2,
+      source: "global",
+      globalValue: 2,
+      default: 3,
+      hasGlobal: true,
+    });
     expect(result.maxMemories).toBe(11);
   });
 

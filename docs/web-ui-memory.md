@@ -8,6 +8,7 @@ Open `http://127.0.0.1:4747/memory` or select **Memory** in the sidebar. The arr
 | [Automatic import](#automatic-import)                               | `/memory#memory-section-auto-import`     |
 | [Profile learning](#profile-learning)                               | `/memory#memory-section-profile`         |
 | [Memory limits](#memory-limits)                                     | `/memory#memory-section-limits`          |
+| [Reranker](#reranker)                                               | `/memory#memory-section-reranker`        |
 | [Resolve missing project folders](#resolve-missing-project-folders) | `/memory#memory-section-project-folders` |
 
 Browse stored results on **Project memories** (`/project-memories`) and **User profile** (`/user-profile`). `/` opens Project memories. Settings retains models, access controls, diagnostics and profile identity controls. See [Settings page](web-ui-settings.md).
@@ -189,15 +190,18 @@ Analysis calls use `ceil(total eligible prompts / profile batch size)`. Memory u
 
 Open `/memory#memory-section-limits`. The table has **Setting**, **Value**, **Default**, **Unit** and **Affects** columns. Effects remain visible beside each input.
 
-| Setting                      | Default | Unit               | Accepted values          | Affects                                                                                                               |
-| ---------------------------- | ------- | ------------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `maxMemories`                | 10      | Results            | Positive safe integers   | Maximum search results; manual searches can request fewer. Prompt retrieval uses this ceiling.                        |
-| `chatMessage.maxMemories`    | 3       | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 search each prompt.               |
-| `autoCaptureMaxContextBytes` | 131072  | Bytes              | 16384–16777216 inclusive | Conversation input sent through the shared memory-summary pipeline.                                                   |
-| `userProfileMaxContextBytes` | 32768   | Bytes              | 1024–16777216 inclusive  | OpenCode profile-learning input, including its truncation marker. Other hosts' profile input is outside this control. |
-| `retrievalMaxTokens`         | 2000    | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text, formatting and retrieval wrappers.                 |
+| Setting                      | Default                                        | Unit               | Accepted values          | Affects                                                                                                                                                     |
+| ---------------------------- | ---------------------------------------------- | ------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maxMemories`                | 10                                             | Results            | Positive safe integers   | Maximum search results; manual searches can request fewer. Prompt retrieval uses this ceiling.                                                              |
+| `chatMessage.maxMemories`    | 3                                              | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 search each prompt.                                                     |
+| `autoCaptureMaxContextBytes` | 131072                                         | Bytes              | 16384–16777216 inclusive | Conversation input sent through the shared memory-summary pipeline.                                                                                         |
+| `userProfileMaxContextBytes` | 32768                                          | Bytes              | 1024–16777216 inclusive  | OpenCode profile-learning input, including its truncation marker. Other hosts' profile input is outside this control.                                       |
+| `retrievalMaxTokens`         | 2000                                           | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text, formatting and retrieval wrappers.                                                       |
+| `similarityThreshold`        | 0.5 with `qwen3-embedding:0.6b`, otherwise 0.6 | Similarity score   | Numbers from 0 to 1      | Lowest score a memory needs to be returned by search. Lower values return more memories, including less relevant ones. The default depends on the embedder. |
 
-Bytes mean UTF-8 bytes. Approximate tokens use `ceil(bytes / 4)` and can differ from the model's count. Count limits accept up to 9007199254740991. Blank, negative, fractional or out-of-range values are refused. Smaller limits can omit input or inject fewer or shorter memories. Stored data and manual search content remain unchanged. Limits do not set a spending cap, limit model replies or control Graphify output.
+Bytes mean UTF-8 bytes. Approximate tokens use `ceil(bytes / 4)` and can differ from the model's count. Count limits accept up to 9007199254740991. Blank, negative, fractional or out-of-range values are refused; `similarityThreshold` accepts decimals from 0 to 1 and is the only row that does. Smaller limits can omit input or inject fewer or shorter memories. Stored data and manual search content remain unchanged. Limits do not set a spending cap, limit model replies or control Graphify output.
+
+The threshold default follows the active embedding model: 0.5 for `qwen3-embedding:0.6b` (the only embedder measured; see [Configuration: Memory limits](configuration.md#memory-limits)), 0.6 for every other embedder. The **Default** column shows the default for the current embedder, so it changes when you switch embedder.
 
 1. Change the global values you need.
 2. Correct validation messages beside the inputs.
@@ -209,7 +213,32 @@ A project override shows its effective value and source. Inputs still edit globa
 
 Saving `chatMessage.maxMemories` edits only that leaf inside `chatMessage`. Siblings such as `enabled` and `injectOn`, their comments and unrelated keys retain their values and order. Unsupported nested edits are refused. Invalid or stale saves write nothing. If another editor changed the file, check refreshed values and save again.
 
+### Reset to default
+
+Every row has a **Reset to default** button. Selecting it removes that key from the global file through the same safe save flow, so the value follows the default again. For `chatMessage.maxMemories` only that leaf is removed; the other `chatMessage` properties and their comments stay. Reset never writes a project file. A row whose key is absent from the file has its Reset button disabled.
+
+A row whose saved value differs from its default shows a **Differs from default** marker. This is how a file that still holds the old template's `"similarityThreshold": 0.6` becomes visible: with the `qwen3-embedding:0.6b` embedder the row shows the marker, and Reset removes the line so the default 0.5 applies again. A value equal to the default, or no saved value, shows no marker.
+
 Memory uses the existing [safe global save](web-ui-settings.md#how-saving-works), including authentication, origin, validation, conflict and legacy-file rules. It never writes project config. Edit `~/.config/omms/omms.jsonc` directly for file-only configuration. Valid edits apply at the next relevant operation; an active operation keeps its original limits. Invalid live edits retain the last valid settings. See [Configuration: Memory limits](configuration.md#memory-limits) for packing rules and host coverage.
+
+## Reranker
+
+Open `/memory#memory-section-reranker`, below Memory limits. The card configures the opt-in reranker stage: a switch labelled **Use a reranker** (off by default) and four fields.
+
+| Field      | Setting             | Notes                                                                                                             |
+| ---------- | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Server URL | `rerankerApiUrl`    | Required before the switch can be saved on. Non-loopback URLs show a notice that memory text leaves this machine. |
+| Model      | `rerankerModel`     | Required before the switch can be saved on.                                                                       |
+| Key        | `rerankerApiKey`    | Optional. Must be an `env://` or `file://` reference; literal keys are refused.                                   |
+| Timeout    | `rerankerTimeoutMs` | Milliseconds, default 4000, from 500 to 30000.                                                                    |
+
+The card states what the reranker does, that it sends the prompt and candidate memory text to the server URL, that a server on the same machine is recommended, and that a project file cannot change these settings. Beside the timeout it notes that the default 2000 keeps the search inside OpenCode V2's 5-second wait, and that a value over 5000 can make OpenCode V2 send the request with no memory.
+
+- **Save** writes only the five reranker keys through the same [safe global save](web-ui-settings.md#how-saving-works) as Memory limits, and refreshes the shared revision. It is disabled while the switch is on with a blank URL or model, while a key is not a reference, or while the timeout is out of range.
+- **Test** sends two fixed sample documents to the drafted URL and model, using the drafted timeout, and reports success or a failure code such as `reranker_unreachable`. No prompt or memory text leaves during a test.
+- **Cancel** restores the saved values without writing.
+
+See [Configuration: Reranker](configuration.md#reranker) for the endpoint contract, a `llama-server --reranking` example, and the fallback rules.
 
 ## Resolve missing project folders
 

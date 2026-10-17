@@ -3,13 +3,14 @@ import { promises as fs, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { applyEdits, modify, parse, type ParseError } from "jsonc-parser";
 import {
-  CONFIG_TEMPLATE,
   getGlobalConfigSourcePath,
   getGlobalConfigWritePath,
   validateGlobalConfig,
 } from "../config.js";
+import { CONFIG_TEMPLATE } from "../config-template.js";
 import { isValidClaudeConfigDir } from "./claude-folder.js";
 import { getMemoryLimitRule } from "../utils/memory-limits.js";
+import { RERANKER_TIMEOUT_MAX_MS, RERANKER_TIMEOUT_MIN_MS } from "./request-timeouts.js";
 
 const keys = new Set([
   "opencodeProvider",
@@ -39,6 +40,12 @@ const keys = new Set([
   "autoCaptureMaxContextBytes",
   "userProfileMaxContextBytes",
   "retrievalMaxTokens",
+  "similarityThreshold",
+  "rerankerEnabled",
+  "rerankerApiUrl",
+  "rerankerModel",
+  "rerankerApiKey",
+  "rerankerTimeoutMs",
 ]);
 
 /**
@@ -72,7 +79,29 @@ export function isSecretReference(value: unknown): value is string {
 }
 
 function isValidEdit(key: string, value: unknown): boolean {
-  // `undefined` removes the key from the file.
+  // `undefined` removes the key from the file. `null` is the wire form of
+  // "reset to default", accepted for the six memory limits only.
+  const memoryLimit = getMemoryLimitRule(key);
+  if (memoryLimit && value === null) return true;
+  // The five opt-in reranker keys (openspec retrieval-threshold-and-reranker).
+  if (key === "rerankerEnabled") return typeof value === "boolean";
+  if (key === "rerankerApiUrl") {
+    return value === undefined || (typeof value === "string" && /^https?:\/\/\S+$/.test(value));
+  }
+  if (key === "rerankerModel") {
+    return value === undefined || (typeof value === "string" && value.trim().length > 0);
+  }
+  if (key === "rerankerApiKey") {
+    return value === undefined || isSecretReference(value);
+  }
+  if (key === "rerankerTimeoutMs") {
+    return (
+      typeof value === "number" &&
+      Number.isSafeInteger(value) &&
+      value >= RERANKER_TIMEOUT_MIN_MS &&
+      value <= RERANKER_TIMEOUT_MAX_MS
+    );
+  }
   if (key === "embeddingApiUrl") {
     return value === undefined || (typeof value === "string" && /^https?:\/\/\S+$/.test(value));
   }
@@ -109,8 +138,8 @@ function isValidEdit(key: string, value: unknown): boolean {
     return typeof value === "string" && /^(auto|[a-z]{2,3})$/.test(value);
   // Entries are checked by the startup validation below.
   if (key === "importPathMaps" || key === "importIgnoredDirectories") return Array.isArray(value);
-  // The five memory limits share one validation rule set.
-  const memoryLimit = getMemoryLimitRule(key);
+  // The five memory limits share one validation rule set (six with
+  // similarityThreshold; null means reset, handled above).
   if (memoryLimit) return memoryLimit.isValid(value);
   // An empty value clears the field.
   if (key === "claudeConfigDir") return isValidClaudeConfigDir(value);
@@ -161,12 +190,20 @@ export async function writeGlobalConfigKeys(
     if (!isValidEdit(key, value)) {
       // Never echo the value: a rejected memoryApiKey may be a literal key.
       const memoryRule = getMemoryLimitRule(key);
+      const rerankerAccepted: Record<string, string> = {
+        rerankerEnabled: "boolean",
+        rerankerApiUrl: "an http:// or https:// URL",
+        rerankerModel: "a non-empty string",
+        rerankerTimeoutMs: `integers from ${RERANKER_TIMEOUT_MIN_MS} to ${RERANKER_TIMEOUT_MAX_MS}`,
+      };
       throw new Error(
-        ["memoryApiKey", "embeddingApiKey", "webServerAuthPassword"].includes(key)
+        ["memoryApiKey", "embeddingApiKey", "webServerAuthPassword", "rerankerApiKey"].includes(key)
           ? `${key} must be an env:// or file:// reference`
           : memoryRule
             ? `Invalid ${key} setting: accepted ${memoryRule.accepted}`
-            : `Invalid ${key} setting`
+            : rerankerAccepted[key]
+              ? `Invalid ${key} setting: accepted ${rerankerAccepted[key]}`
+              : `Invalid ${key} setting`
       );
     }
   }
@@ -193,9 +230,12 @@ export async function writeGlobalConfigKeys(
       // A nested limit identifier maps to its JSONC leaf path, so
       // chatMessage.maxMemories writes the leaf, never a literal dotted key.
       const jsoncPath = (getMemoryLimitRule(key)?.path ?? [key]) as string[];
+      // null is the wire form of "reset to default": remove the key so the
+      // value follows the default again (undefined removes in jsonc modify).
+      const jsoncValue = value === null && getMemoryLimitRule(key) ? undefined : value;
       content = applyEdits(
         content,
-        modify(content, jsoncPath, value, {
+        modify(content, jsoncPath, jsoncValue, {
           formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
         })
       );

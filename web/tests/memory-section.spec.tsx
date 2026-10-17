@@ -43,7 +43,13 @@ const runEffects = () => {
   for (const effect of pending) effect();
 };
 
-type Setting = { value?: unknown; source: string; globalValue?: unknown; default?: unknown };
+type Setting = {
+  value?: unknown;
+  source: string;
+  globalValue?: unknown;
+  default?: unknown;
+  hasGlobal?: boolean;
+};
 type Snapshot = { revision: string; settings: Record<string, Setting> };
 const KEYS = [
   "maxMemories",
@@ -51,6 +57,7 @@ const KEYS = [
   "autoCaptureMaxContextBytes",
   "userProfileMaxContextBytes",
   "retrievalMaxTokens",
+  "similarityThreshold",
 ] as const;
 const DEFAULTS: Record<(typeof KEYS)[number], number> = {
   maxMemories: 10,
@@ -58,6 +65,7 @@ const DEFAULTS: Record<(typeof KEYS)[number], number> = {
   autoCaptureMaxContextBytes: 131072,
   userProfileMaxContextBytes: 32768,
   retrievalMaxTokens: 2000,
+  similarityThreshold: 0.6,
 };
 
 function snapshotFixture(settings: Partial<Record<(typeof KEYS)[number], Setting>> = {}): Snapshot {
@@ -71,6 +79,7 @@ function snapshotFixture(settings: Partial<Record<(typeof KEYS)[number], Setting
           source: "default",
           globalValue: DEFAULTS[key],
           default: DEFAULTS[key],
+          hasGlobal: false,
         },
       ])
     ),
@@ -124,19 +133,21 @@ const flush = async () => {
   for (let i = 0; i < 4; i++) await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
-it("defines the five memory controls with exact keys, defaults, and units", () => {
+it("defines the six memory controls with exact keys, defaults, units, and kinds", () => {
   expect(controls.MEMORY_CONTROLS.map((control) => control.key)).toEqual([...KEYS]);
   for (const control of controls.MEMORY_CONTROLS) {
     expect(control.default).toBe(DEFAULTS[control.key]);
     expect(control.unit.length).toBeGreaterThan(0);
     expect(control.affects.length).toBeGreaterThan(0);
     expect(control.accepted.length).toBeGreaterThan(0);
+    expect(control.kind).toBe(control.key === "similarityThreshold" ? "decimal" : "integer");
   }
   const units = controls.MEMORY_CONTROLS.map((control) => control.unit);
   expect(units).toContain("Results");
   expect(units).toContain("Memories");
   expect(units).toContain("Bytes");
   expect(units).toContain("Approximate tokens");
+  expect(units).toContain("Similarity score");
 });
 
 it("accepts spec boundaries and rejects invalid values", () => {
@@ -164,6 +175,15 @@ it("accepts spec boundaries and rejects invalid values", () => {
   expect(controls.parseMemoryValue(tokens, "255")).toBeUndefined();
   expect(controls.parseMemoryValue(tokens, "65537")).toBeUndefined();
   expect(controls.parseMemoryValue(tokens, "2000.5")).toBeUndefined();
+  // The decimal row accepts decimals; integer rows still refuse them.
+  const threshold = byKey("similarityThreshold");
+  expect(controls.parseMemoryValue(threshold, "0.45")).toBe(0.45);
+  expect(controls.parseMemoryValue(threshold, "0")).toBe(0);
+  expect(controls.parseMemoryValue(threshold, "1")).toBe(1);
+  expect(controls.parseMemoryValue(threshold, "0.6")).toBe(0.6);
+  for (const bad of ["", "-0.1", "1.1", "0.5.5", "abc", "1e3", null, undefined]) {
+    expect(controls.parseMemoryValue(threshold, bad as string)).toBeUndefined();
+  }
 });
 
 it("formats defaults with thousands separators while inputs stay plain integers", () => {
@@ -196,10 +216,10 @@ it("computes the save plan from drafts against the loaded global values", () => 
   ).toEqual({ "chatMessage.maxMemories": 2 });
 });
 
-it("renders one Memory card with an H2 section title and five labelled rows", () => {
+it("renders one Memory card with an H2 section title and six labelled rows", () => {
   const html = render();
   expect(html.match(/<section/g)).toHaveLength(1);
-  // One form holds the five rows and the Save/Cancel controls (design 7).
+  // One form holds the six rows and the Save/Cancel controls (design 7).
   expect(html.match(/<form/g)).toHaveLength(1);
   expect(html).toMatch(
     /<h2 class="[^"]*text-section-title[^"]*font-semibold[^"]*">Memory limits<\/h2>/
@@ -213,7 +233,7 @@ it("renders one Memory card with an H2 section title and five labelled rows", ()
     // Identifiers stay literal and isolated left-to-right, including in Arabic.
     expect(html).toContain(`<code dir="ltr">${key}</code>`);
   }
-  expect(html.match(/type="number"/g)).toHaveLength(5);
+  expect(html.match(/type="number"/g)).toHaveLength(6);
   for (const control of controls.MEMORY_CONTROLS) {
     expect(html).toContain(`aria-label="${control.key} Value"`);
   }
@@ -224,10 +244,10 @@ it("renders one Memory card with an H2 section title and five labelled rows", ()
 
 it("shows defaults, units, and a visible Affects cell beside each control", () => {
   const html = render();
-  for (const value of ["10", "3", "131,072", "32,768", "2,000"]) {
+  for (const value of ["10", "3", "131,072", "32,768", "2,000", "0.6"]) {
     expect(html).toContain(`>${value}</td>`);
   }
-  for (const unit of ["Results", "Memories", "Bytes", "Approximate tokens"]) {
+  for (const unit of ["Results", "Memories", "Bytes", "Approximate tokens", "Similarity score"]) {
     expect(html).toContain(`>${unit}</td>`);
   }
   for (const control of controls.MEMORY_CONTROLS) {
@@ -284,6 +304,141 @@ it("associates an accepted-values validation message with each invalid input", (
   expect(renderToStaticMarkup(<MemorySection />)).toMatch(
     /id="memory-retrievalMaxTokens-help"[^>]*>Enter a whole number from 256 to 65,536\./
   );
+});
+
+it("gives the threshold row a decimal input and the threshold validation message", () => {
+  const nodes = tree();
+  const thresholdInput = input(nodes, "memory-similarityThreshold-input");
+  expect(thresholdInput.props.step).toBe(0.01);
+  expect(thresholdInput.props.inputMode).toBe("decimal");
+  const integerInput = input(nodes, "memory-maxMemories-input");
+  expect(integerInput.props.step).toBe(1);
+  expect(integerInput.props.inputMode).toBe("numeric");
+  const invalid = tree({ similarityThreshold: "-0.1" });
+  expect(input(invalid, "memory-similarityThreshold-input").props["aria-invalid"]).toBe(true);
+  expect(renderToStaticMarkup(<MemorySection />)).toMatch(
+    /id="memory-similarityThreshold-help"[^>]*>Enter a number from 0 to 1\./
+  );
+});
+
+it("reads the threshold default from the snapshot, so the embedder drives it", () => {
+  states = [
+    snapshotFixture({
+      similarityThreshold: {
+        value: 0.5,
+        source: "default",
+        globalValue: 0.5,
+        default: 0.5,
+        hasGlobal: false,
+      },
+    }),
+    {},
+    false,
+    "",
+  ];
+  cursor = 0;
+  const html = renderToStaticMarkup(<MemorySection />);
+  expect(html).toContain(">0.5</td>");
+  cursor = 0;
+  expect(
+    input(
+      find(MemorySection(), () => true),
+      "memory-similarityThreshold-input"
+    ).props.value
+  ).toBe("0.5");
+});
+
+it("offers a Reset to default button on every row, disabled when the key is absent", () => {
+  const nodes = tree();
+  const resets = nodes.filter((node) => node.type === "button" && node.props["data-reset"]);
+  expect(resets).toHaveLength(6);
+  for (const node of resets) expect(node.props.disabled).toBe(true);
+  // A saved global value enables the reset for that row only.
+  states = [
+    snapshotFixture({
+      maxMemories: { value: 6, source: "global", globalValue: 6, hasGlobal: true },
+    }),
+    {},
+    false,
+    "",
+  ];
+  cursor = 0;
+  const saved = find(MemorySection(), () => true);
+  const maxReset = saved.find(
+    (node) => node.type === "button" && node.props["data-reset"] === "maxMemories"
+  )!;
+  expect(maxReset.props.disabled).toBe(false);
+  const otherReset = saved.find(
+    (node) => node.type === "button" && node.props["data-reset"] === "retrievalMaxTokens"
+  )!;
+  expect(otherReset.props.disabled).toBe(true);
+});
+
+it("shows the Differs from default marker only on rows whose saved value differs", () => {
+  states = [
+    snapshotFixture({
+      maxMemories: { value: 6, source: "global", globalValue: 6, hasGlobal: true },
+      similarityThreshold: {
+        value: 0.5,
+        source: "global",
+        globalValue: 0.5,
+        default: 0.5,
+        hasGlobal: true,
+      },
+    }),
+    {},
+    false,
+    "",
+  ];
+  cursor = 0;
+  const html = renderToStaticMarkup(<MemorySection />);
+  expect((html.match(/Differs from default/g) ?? []).length).toBe(1);
+  // A saved value equal to the default shows no marker.
+  states = [
+    snapshotFixture({
+      similarityThreshold: {
+        value: 0.6,
+        source: "global",
+        globalValue: 0.6,
+        default: 0.6,
+        hasGlobal: true,
+      },
+    }),
+    {},
+    false,
+    "",
+  ];
+  cursor = 0;
+  expect(renderToStaticMarkup(<MemorySection />)).not.toContain("Differs from default");
+});
+
+it("sends null for the reset row and reloads the shared snapshot", async () => {
+  stubFetch((call) =>
+    call.url === "/api/settings" && call.init?.method === "PATCH"
+      ? Response.json({}, { status: 200 })
+      : Response.json(snapshotFixture())
+  );
+  states = [
+    snapshotFixture({
+      maxMemories: { value: 6, source: "global", globalValue: 6, hasGlobal: true },
+    }),
+    {},
+    false,
+    "",
+  ];
+  cursor = 0;
+  const nodes = find(MemorySection(), () => true);
+  const reset = nodes.find(
+    (node) => node.type === "button" && node.props["data-reset"] === "maxMemories"
+  )!;
+  await (reset.props.onClick as () => Promise<void>)();
+  await flush();
+  const patch = calls.find((call) => call.init?.method === "PATCH");
+  expect(JSON.parse(String(patch?.init?.body))).toEqual({
+    edits: { maxMemories: null },
+    revision: "rev-1",
+  });
+  expect(states[3]).toEqual({ kind: "saved", reloaded: true });
 });
 
 it("shows the project override with its effective value while editing the global value", () => {
