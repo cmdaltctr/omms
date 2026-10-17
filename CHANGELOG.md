@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.20.1](https://github.com/cmdaltctr/omms/compare/v4.20.0...v4.20.1) (2026-10-17)
+
+
+### Bug Fixes
+
+* give the compaction agent test a 30-second limit ([8e5237f](https://github.com/cmdaltctr/omms/commit/8e5237f1cd8156597ad2f7d34746b322bd211fc5))
+* give the compaction agent test a 30-second limit ([e634116](https://github.com/cmdaltctr/omms/commit/e634116a2bdc74cce5a0e6976b7c8f7a41c3a862))
+
 ## [4.20.0](https://github.com/cmdaltctr/omms/compare/v4.19.1...v4.20.0) (2026-10-17)
 
 
