@@ -2,6 +2,15 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.25.1](https://github.com/cmdaltctr/omms/compare/v4.25.0...v4.25.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* keep citation buttons out of attributes, code and links ([1b3182c](https://github.com/cmdaltctr/omms/commit/1b3182c3bef794bf20e205a241c8cc7b049ae298))
+* render markdown in chat answers and keep the chat list in view ([bde3660](https://github.com/cmdaltctr/omms/commit/bde3660da4af384f35663538d4f6f886bb9715e7))
+* render markdown in chat answers and keep the chat list in view ([1826f40](https://github.com/cmdaltctr/omms/commit/1826f402d433bb179bc77709f051e93179aa3589))
+
 ## [4.25.0](https://github.com/cmdaltctr/omms/compare/v4.24.0...v4.25.0) (2026-10-18)
 
 
