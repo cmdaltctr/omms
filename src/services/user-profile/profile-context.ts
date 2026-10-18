@@ -156,9 +156,6 @@ export async function getUserProfileContext(
         wfs: wfs.relevanceSlots,
       },
       counts: { prefs: topPrefs.length, pats: topPats.length, wfs: topWfs.length },
-      prefs: topPrefs.map((p: any) => `[${p.category}] ${p.description}`.substring(0, 80)),
-      pats: topPats.map((p: any) => `[${p.category}] ${p.description}`.substring(0, 80)),
-      wfs: topWfs.map((w: any) => w.description.substring(0, 80)),
     });
   }
 

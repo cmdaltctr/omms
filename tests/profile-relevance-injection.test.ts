@@ -185,4 +185,21 @@ describe("profile block follows the prompt", () => {
     expect(injectLog[1].counts.prefs).toBe(2);
     expect(JSON.stringify(calls.logs)).not.toContain("secret-prompt-words");
   });
+
+  it("logs no profile item text", () => {
+    const { calls } = runScenario(
+      `await buildRetrievalSection("which package manager?", "/tmp/project", "s1");`
+    );
+    const injectLog = calls.logs.find(([message]: [string]) => message === "profile inject");
+    expect(injectLog).toBeDefined();
+    // Items are summaries learned from the user's prompts, so only counts may be logged.
+    for (const text of [
+      "Use British spelling",
+      "Use bun as the package manager",
+      "Prefers TypeScript",
+    ]) {
+      expect(JSON.stringify(calls.logs)).not.toContain(text);
+    }
+    expect(Object.keys(injectLog[1]).sort()).toEqual(["counts", "relevanceSlots"]);
+  });
 });
