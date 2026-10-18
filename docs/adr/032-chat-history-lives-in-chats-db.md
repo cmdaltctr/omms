@@ -3,7 +3,7 @@
 - **Date:** 2026-10-18
 - **Status:** Accepted
 - **Deciders:** Aizat Hawari
-- **Change:** [`memory-chat`](../../openspec/changes/memory-chat/proposal.md)
+- **Change:** [`memory-chat`](../../openspec/changes/archive/2026-10-18-memory-chat/proposal.md)
 
 ## Context
 

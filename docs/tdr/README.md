@@ -75,6 +75,9 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [051](./051-ai-cleanup-timeout-on-large-selections.md)                        | AI Cleanup timed out on large selections                                | Accepted              | 2026-10-17 |
 | [052](./052-item-matching-breaks-when-a-save-rewrites-a-category-spelling.md) | Item matching broke when a save rewrote a category spelling             | Accepted              | 2026-10-17 |
 | [053](./053-windows-smoke-could-not-remove-its-scratch-home.md)               | The Windows package smoke could not remove its scratch home             | Accepted              | 2026-10-17 |
+| [054](./054-tag-matching-boosted-short-tags-and-untagged-memories.md)         | Tag matching boosted short tags and untagged memories                   | Accepted              | 2026-10-18 |
+| [055](./055-opencode-saved-private-text-that-profile-learning-could-quote.md) | OpenCode saved private text that profile learning could quote           | Accepted              | 2026-10-18 |
+| [056](./056-profile-dialog-lost-focus-and-ran-left-to-right-in-arabic.md)     | The profile evidence dialog lost focus and ran left to right in Arabic  | Accepted              | 2026-10-18 |
 
 ## Status values
 
