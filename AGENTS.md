@@ -11,7 +11,7 @@ OMMS (npm `om-memory-system`) is a memory plugin for AI coding agents. One share
 - Write commit messages as Conventional Commits. release-please derives versions from them: `feat:` is minor, `fix:`, `deps:`, `perf:`, and `docs:` are patch, and `!` is major.
 - `ci:`, `chore:`, `refactor:`, and `test:` commits are hidden from the changelog. On their own they do not start a release, so use `chore:` when a docs-only change needs none. A hidden commit that lands while a release is pending goes out with it. A `docs:` commit does start a patch release.
 - Never edit `version` in `package.json` or `.claude-plugin/plugin.json`. release-please sets both.
-- Before a push to a pull request, run `bun run ci:local` and confirm that it passes. Each push starts GitHub CI.
+- Before a push to a pull request, run `bun run ci:local` and confirm that it passes. Each push starts GitHub CI. A docs-only change (Markdown and other files that change no code, tests or build output) does not need `ci:local`. Run Prettier on the changed files and push.
 - Do not dispatch `gh workflow run` smoke workflows unless the user asks.
 
 ## Worktrees
@@ -30,7 +30,7 @@ The main checkout is the folder you cloned the repository into, wherever it is o
 4. A new worktree has no `node_modules`. Run `bun install --frozen-lockfile` and `(cd web && bun install --frozen-lockfile)` in it first.
 5. Run installs, builds, tests, `ci:local`, and `claude --plugin-dir` in the worktree. Never run them for a change in the main checkout.
 6. Never create a worktree inside the repository or inside a tool folder such as `.claude/` or `.opencode/`.
-7. Before you remove a worktree, copy out any gitignored files you still need: `docs/plans/`, `docs/design-preview/`, `docs/memory-workspace-evidence/`, `experiments/**/output/`, and `graphify-out/`. `git worktree remove` deletes ignored files without a warning. Check the copy first. Never copy `.env`.
+7. Before you remove a worktree, copy out any gitignored files you still need: `docs/plans/`, `docs/design-preview/`, `docs/memory-workspace-evidence/`, `experiments/**/output/`, `experiments/**/corpus/`, `experiments/**/eval_results.json`, `experiments/**/ground-truth.json`, and `graphify-out/`. `git worktree remove` deletes ignored files without a warning. Check the copy first. Never copy `.env`. Keep large copies in `/Users/aizat/Development/DATA/omms/` and record each copy's SHA-256 checksum. Do not upload them to a public host.
 8. After the pull request merges, remove the worktree with `git worktree remove ../omms-<name>`, delete the branch locally and on GitHub, then run `git pull --ff-only` in the main checkout.
 
 ## Architecture
