@@ -31,7 +31,7 @@ export function recordProfileFailure(
 ): ProfileFailureCode {
   const reason = profileFailureCode(error);
   profileBackoff.recordFailure(now);
-  log(message, { host, reason });
+  log(message, { host, reason }, "error");
   return reason;
 }
 

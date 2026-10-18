@@ -2,6 +2,7 @@ import { spawn as nodeSpawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
+import type { LogLevel } from "../services/logger.js";
 import type { WebAutostartOptions } from "../services/web-autostart.js";
 import { packageVersion } from "../services/package-version.js";
 import { ommsDir } from "../services/runtime-handoff.js";
@@ -69,7 +70,7 @@ export interface PowerDeps {
   launcher: string | null;
   cwd: string;
   pid: number;
-  log: (message: string, data: Record<string, unknown>) => void | Promise<void>;
+  log: (message: string, data: Record<string, unknown>, level?: LogLevel) => void | Promise<void>;
 }
 
 let tokenHeader: Promise<Record<string, string>> | null = null;
@@ -141,7 +142,8 @@ function productionDeps(options: WebAutostartOptions): PowerDeps {
     launcher: existsSync(launcherPath(ommsDir())) ? launcherPath(ommsDir()) : null,
     cwd: homedir(),
     pid: process.pid,
-    log: async (message, data) => (await import("../services/logger.js")).log(message, data),
+    log: async (message, data, level) =>
+      (await import("../services/logger.js")).log(message, data, level),
   };
 }
 
@@ -164,7 +166,7 @@ export function createPowerAction(options: {
 }): (action: ProcessAction) => Promise<string | undefined> {
   const deps: PowerDeps = { ...productionDeps(options.autostart ?? {}), ...options.deps };
   const logFailure = (code: string) =>
-    Promise.resolve(deps.log("Web app restart failed", { code })).catch(() => undefined);
+    Promise.resolve(deps.log("Web app restart failed", { code }, "error")).catch(() => undefined);
   let stopped = false;
 
   /** Start the copy, check it, stop serving, and wait until the copy answers. */

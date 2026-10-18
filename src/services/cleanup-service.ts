@@ -97,7 +97,7 @@ export class CleanupService {
               projectDeleted++;
             }
           } catch (error) {
-            log("Cleanup: delete error", { memoryId: memory.id, error: String(error) });
+            log("Cleanup: delete error", { memoryId: memory.id, error: String(error) }, "error");
           }
         }
       }
@@ -108,34 +108,46 @@ export class CleanupService {
         const { pruneCaptureAttempts } = await import("./capture-attempt-store.js");
         await pruneCaptureAttempts(CONFIG.captureAttemptRetentionDays);
       } catch (error) {
-        log("Capture attempt cleanup failed", {
-          code: error instanceof Error ? error.name : "unknown",
-        });
+        log(
+          "Capture attempt cleanup failed",
+          {
+            code: error instanceof Error ? error.name : "unknown",
+          },
+          "error"
+        );
       }
 
       try {
         const { pruneCaptureRetries } = await import("./capture-retry-queue.js");
         await pruneCaptureRetries(CONFIG);
       } catch (error) {
-        log("Capture retry cleanup failed", {
-          code: error instanceof Error ? error.name : "unknown",
-        });
+        log(
+          "Capture retry cleanup failed",
+          {
+            code: error instanceof Error ? error.name : "unknown",
+          },
+          "error"
+        );
       }
 
       try {
         const { pruneAutoCleanupRecords } = await import("./user-profile/auto-cleanup-store.js");
         await pruneAutoCleanupRecords();
       } catch (error) {
-        log("Automatic cleanup record cleanup failed", {
-          code: error instanceof Error ? error.name : "unknown",
-        });
+        log(
+          "Automatic cleanup record cleanup failed",
+          {
+            code: error instanceof Error ? error.name : "unknown",
+          },
+          "error"
+        );
       }
 
       try {
         await userPromptManager.vacuum();
         log("Cleanup: VACUUM done", { db: "user-prompts.db" });
       } catch (err) {
-        log("Cleanup: VACUUM skipped (DB busy)", { error: String(err) });
+        log("Cleanup: VACUUM skipped (DB busy)", { error: String(err) }, "warn");
       }
 
       return {

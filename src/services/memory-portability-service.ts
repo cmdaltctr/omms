@@ -396,7 +396,7 @@ export class MemoryPortabilityService {
             );
           }
         } catch (cleanupError) {
-          log("Memory import cleanup failed", { error: String(cleanupError) });
+          log("Memory import cleanup failed", { error: String(cleanupError) }, "error");
         }
       }
 

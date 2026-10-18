@@ -117,7 +117,7 @@ export class TursoConnectionManager {
           try {
             await db.close();
           } catch (error) {
-            log("Error closing Turso database", { path: dbPath, error: String(error) });
+            log("Error closing Turso database", { path: dbPath, error: String(error) }, "error");
           }
 
           this.connections.delete(dbPath);
@@ -142,7 +142,7 @@ export class TursoConnectionManager {
         try {
           await db.close();
         } catch (error) {
-          log("Error closing Turso database", { path, error: String(error) });
+          log("Error closing Turso database", { path, error: String(error) }, "error");
         }
       }
       this.connections.clear();
@@ -162,7 +162,7 @@ export class TursoConnectionManager {
       try {
         db.getClient().close();
       } catch (error) {
-        log("Error closing Turso database (sync)", { path, error: String(error) });
+        log("Error closing Turso database (sync)", { path, error: String(error) }, "error");
       }
     }
     this.connections.clear();

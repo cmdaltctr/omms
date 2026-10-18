@@ -1,4 +1,5 @@
 import { posix, win32 } from "node:path";
+import type { LogLevel } from "./logger.js";
 import { availableUpdate, latestNpmVersion } from "./update-check.js";
 
 // The web app's npm release check. It reads npm `latest` at start, every 10
@@ -36,7 +37,7 @@ export interface WebUpdateDeps {
   enabled: boolean;
   fetch: typeof fetch;
   setInterval: (callback: () => void, ms: number) => { unref?: () => void };
-  log: (message: string, data: Record<string, unknown>) => void;
+  log: (message: string, data: Record<string, unknown>, level?: LogLevel) => void;
   /** The runtime of this web app; npm must sit beside it. */
   execPath: string;
   platform: NodeJS.Platform;
@@ -102,7 +103,7 @@ export class WebUpdate {
     this.lastCheck = this.deps.now();
     const latest = await latestNpmVersion(this.deps.fetch);
     if (latest === null) {
-      this.deps.log("Web app update check failed", { code: "unreachable" });
+      this.deps.log("Web app update check failed", { code: "unreachable" }, "error");
       return;
     }
     this.available = availableUpdate(this.deps.version, latest);

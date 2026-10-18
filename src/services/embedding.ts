@@ -86,7 +86,7 @@ async function ensureTransformersLoaded(): Promise<NonNullable<typeof _transform
   try {
     (mod.env as any).backends.onnx.wasm.numThreads = 1;
   } catch (e) {
-    log("Failed to set wasm.numThreads", { error: String(e) });
+    log("Failed to set wasm.numThreads", { error: String(e) }, "warn");
   }
   _transformers = mod;
   return _transformers!;
@@ -225,7 +225,7 @@ export class EmbeddingService {
       const rewritten = formatOnnxruntimeInitError(error);
       this.initPromise = null;
       this.initError = rewritten.message;
-      log("Failed to initialize embedding model", { error: rewritten.message });
+      log("Failed to initialize embedding model", { error: rewritten.message }, "error");
       throw rewritten;
     }
   }

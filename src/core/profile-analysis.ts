@@ -74,10 +74,14 @@ export async function analyzeProfile(
     const schema = createUserProfileAnalysisSchema(z);
     const parsed = schema.safeParse(extractJsonObject(reply));
     if (!parsed.success) {
-      log("pi profile analysis: model reply failed shared schema validation", {
-        provider: model.provider,
-        modelId: model.modelId,
-      });
+      log(
+        "pi profile analysis: model reply failed shared schema validation",
+        {
+          provider: model.provider,
+          modelId: model.modelId,
+        },
+        "error"
+      );
       throw new Error("pi profile analysis: invalid profile payload");
     }
     const raw = parsed.data as UserProfileData;

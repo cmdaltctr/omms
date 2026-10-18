@@ -64,23 +64,21 @@ it("identifies running hosts for progress callers", () => {
   ).toBe(true);
 });
 
-it("renders automatic import in Memory and web controls in Settings with unchanged switches", () => {
+it("renders each host's automatic import controls in its Memory view and web controls in Settings with unchanged switches", () => {
   const folder = join(import.meta.dir, "../web/src/lib/components/settings");
   const memoryFolder = join(import.meta.dir, "../web/src/lib/components/memory");
-  const automatic = readFileSync(join(memoryFolder, "AutoImportSection.tsx"), "utf8");
-  const memoryView = readFileSync(join(memoryFolder, "MemoryView.tsx"), "utf8");
+  const hostSettings = readFileSync(join(memoryFolder, "HostSettings.tsx"), "utf8");
+  const backfill = readFileSync(join(memoryFolder, "use-backfill.ts"), "utf8");
+  const hostView = readFileSync(join(memoryFolder, "HostView.tsx"), "utf8");
   const web = readFileSync(join(folder, "WebAppSection.tsx"), "utf8");
   const view = readFileSync(join(folder, "SettingsView.tsx"), "utf8");
-  expect(automatic).toContain("autoBackfill");
-  expect(automatic).toContain("setInterval");
-  expect(automatic).toContain("3000");
-  expect(automatic).toContain("backfillModelEdit");
+  expect(hostSettings).toContain("autoBackfill");
+  expect(backfill).toContain("setInterval");
+  expect(backfill).toContain("3000");
+  expect(backfill).toContain("backfillModelEdit");
   expect(web).toContain("webServerAutoStart");
-  expect(memoryView).toContain('"memory-section-auto-import": <AutoImportSection />');
+  expect(hostView).toContain("<HostSettings host={host} backfill={statuses.backfill} />");
   expect(view).not.toContain("AutoImportSection");
-  expect(readFileSync(join(folder, "AutoImportSection.tsx"), "utf8")).toContain(
-    'from "../memory/AutoImportSection"'
-  );
   expect(view).toContain(": WebAppSection,");
   // The Claude Code folder: a field, the folder in use, its source, and a missing folder warning.
   const claude = readFileSync(join(folder, "ClaudeFolderSection.tsx"), "utf8");
@@ -92,8 +90,7 @@ it("renders automatic import in Memory and web controls in Settings with unchang
   expect(claude).toContain("read.isCurrent()");
   expect(claude).toContain("isValidClaudeConfigDir");
   // Claude Code gets a backfill card without a model select.
-  expect(automatic).toContain('"claude-code"');
-  expect(automatic).toContain('host === "claude-code" ? (');
+  expect(hostSettings).toContain('host === "claude-code" ? (');
 });
 
 describe("import status badge", () => {

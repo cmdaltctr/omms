@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { CONFIG } from "../config.js";
 import type { ImportHost } from "./import-args.js";
-import { defaultClaudeSourcePath } from "./import-sources.js";
+import { defaultClaudeSourcePath, defaultImportSourcePath } from "./import-sources.js";
 
 /**
  * What a real web import could use right now, checked inside the web app
@@ -30,6 +30,8 @@ export interface ImportReadiness {
     defaultRootFound: boolean;
     modelChoices: ["external"];
   };
+  /** Whether each host's default history source exists on this machine. */
+  defaultSourceFound: Record<ImportHost, boolean>;
 }
 
 export interface ReadinessDeps {
@@ -40,6 +42,7 @@ export interface ReadinessDeps {
   }>;
   loadPiSdk?: () => Promise<unknown>;
   claudeRoot?: () => string;
+  sourceExists?: (path: string) => boolean;
 }
 
 const EXTERNAL_REASONS: Record<Exclude<ExternalApiState, "ready">, string> = {
@@ -85,21 +88,32 @@ export async function importReadiness(deps: ReadinessDeps = {}): Promise<ImportR
       })
     ),
   ]);
+  const exists = deps.sourceExists ?? existsSync;
+  const claudeCode = claudeReadiness(
+    deps.claudeRoot?.() ?? defaultClaudeSourcePath(CONFIG.claudeConfigDir),
+    exists
+  );
   return {
     external: { state, provider: CONFIG.memoryProvider, model: CONFIG.memoryModel ?? null },
     opencode: { available: opencode.available, models: opencode.models ?? [] },
     piReader,
-    claudeCode: claudeReadiness(
-      deps.claudeRoot?.() ?? defaultClaudeSourcePath(CONFIG.claudeConfigDir)
-    ),
+    claudeCode,
+    defaultSourceFound: {
+      pi: exists(defaultImportSourcePath("pi")),
+      opencode: exists(defaultImportSourcePath("opencode")),
+      "claude-code": claudeCode.defaultRootFound,
+    },
   };
 }
 
-function claudeReadiness(defaultRoot: string): ImportReadiness["claudeCode"] {
+function claudeReadiness(
+  defaultRoot: string,
+  exists: (path: string) => boolean
+): ImportReadiness["claudeCode"] {
   return {
     available: true,
     defaultRoot,
-    defaultRootFound: existsSync(defaultRoot),
+    defaultRootFound: exists(defaultRoot),
     modelChoices: ["external"],
   };
 }

@@ -195,13 +195,24 @@ describe("settings API", () => {
   it("ignores a supplied log path, filters capture lines, and enforces the limit", async () => {
     const result = await scenario(`
       const { writeFileSync } = await import("node:fs");
-      writeFileSync(process.env.OMMS_LOG_FILE, "ordinary\\nCapture attempt saved\\nCapture attempt failed\\n");
+      writeFileSync(process.env.OMMS_LOG_FILE, "[t] INFO ordinary\\n[t] INFO Capture attempt saved\\n[t] ERROR Capture attempt failed\\n");
       const response = await send("/api/settings/log?lines=1&filter=capture&path=/etc/passwd");
       return { status: response.status, body: await response.json() };
     `);
     expect(result.status).toBe(200);
-    expect(result.body.lines).toEqual(["Capture attempt failed"]);
+    expect(result.body.records.map((record: { message: string }) => record.message)).toEqual([
+      "Capture attempt failed",
+    ]);
     expect(result.body.path).toContain("omms.log");
+  });
+  it("passes the level query through to the log reader", async () => {
+    const result = await scenario(`
+      const { writeFileSync } = await import("node:fs");
+      writeFileSync(process.env.OMMS_LOG_FILE, "[t] INFO a\\n[t] WARN b\\n[t] ERROR c\\n");
+      const response = await send("/api/settings/log?level=error");
+      return await response.json();
+    `);
+    expect(result.records.map((record: { level: string }) => record.level)).toEqual(["error"]);
   });
   it("reports project overrides and secret source without disclosing the key", async () => {
     const result = await scenario(
@@ -570,7 +581,13 @@ describe("settings API", () => {
     expect(result.relative).toBe(400);
     expect(result.getList).not.toBe(200);
     expect(result.readiness).toBe(200);
-    expect(result.readinessKeys).toEqual(["claudeCode", "external", "opencode", "piReader"]);
+    expect(result.readinessKeys).toEqual([
+      "claudeCode",
+      "defaultSourceFound",
+      "external",
+      "opencode",
+      "piReader",
+    ]);
     expect(result.browse).toBe(200);
     expect(result.entries).toContain("pi-sessions");
   });

@@ -788,9 +788,13 @@ export function refreshConfigIfChanged(directory: string): void {
     // A bad hand edit must not stop capture: keep the last good settings, and
     // skip this exact file state until it changes, instead of re-reading it on
     // every unit. The last good directory and signature stay as they were.
-    log("Config reload failed; keeping the previous settings", {
-      error: error instanceof Error ? error.message : String(error),
-    });
+    log(
+      "Config reload failed; keeping the previous settings",
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+      "error"
+    );
     lastFailedConfig = attempt;
   }
 }

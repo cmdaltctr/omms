@@ -125,7 +125,8 @@ export async function runHistoryImport(
         report.profile?.error ? profileFailureCode(report.profile.error) : undefined
       );
       // Only a run over every project and every session sees the full list.
-      if (args.scope === "all-projects" && !run.selection) await recordUnresolved(host, report);
+      if (args.scope === "all-projects" && !run.selection)
+        await recordUnresolved(host, report, args.since !== undefined || args.until !== undefined);
       return report;
     } catch (error) {
       await recorder
@@ -144,11 +145,21 @@ export async function runHistoryImport(
   }
 }
 
-async function recordUnresolved(host: ImportHost, report: HistoryImportReport): Promise<void> {
+async function recordUnresolved(
+  host: ImportHost,
+  report: HistoryImportReport,
+  dateLimited: boolean
+): Promise<void> {
   try {
     const { recordUnresolvedDirectories, unresolvedDirectoriesOf } =
       await import("../services/backfill-state.js");
-    await recordUnresolvedDirectories(host, unresolvedDirectoriesOf(report));
+    // A run limited by date misses unresolved sessions outside it, so it must not replace a whole-history list.
+    await recordUnresolvedDirectories(
+      host,
+      unresolvedDirectoriesOf(report),
+      Date.now(),
+      dateLimited ? "partial" : "full"
+    );
   } catch {
     // The list is a convenience for the Settings page; the import itself succeeded.
   }

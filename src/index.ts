@@ -100,7 +100,7 @@ export async function resolveSessionAgent(
         return session.agent.trim();
       }
     } catch (error) {
-      log("resolveSessionAgent: session.get failed", { sessionID, error: String(error) });
+      log("resolveSessionAgent: session.get failed", { sessionID, error: String(error) }, "error");
     }
   }
 
@@ -143,7 +143,11 @@ export async function resolveSessionAgent(
       }
     }
   } catch (error) {
-    log("resolveSessionAgent: session.messages failed", { sessionID, error: String(error) });
+    log(
+      "resolveSessionAgent: session.messages failed",
+      { sessionID, error: String(error) },
+      "error"
+    );
   }
 
   return undefined;
@@ -177,13 +181,17 @@ async function isInternalCaptureSession(client: unknown, sessionID: string): Pro
         matched: false,
       });
     } catch (error) {
-      log("internal capture session check via session.get failed", {
-        sessionID,
-        error: String(error),
-      });
+      log(
+        "internal capture session check via session.get failed",
+        {
+          sessionID,
+          error: String(error),
+        },
+        "error"
+      );
     }
   } else {
-    log("internal capture session check: session.get unavailable", { sessionID });
+    log("internal capture session check: session.get unavailable", { sessionID }, "warn");
   }
 
   return false;
@@ -230,10 +238,14 @@ export async function configureOpencodeHostTransport(ctx: {
   if (hostConfig.fetch) {
     setHostFetch(hostConfig.fetch);
   } else {
-    log("OpenCode host fetch unavailable; falling back to global fetch", {
-      clientKeys: hostConfig.clientKeys,
-      sdkConfigCount: hostConfig.sdkConfigCount,
-    });
+    log(
+      "OpenCode host fetch unavailable; falling back to global fetch",
+      {
+        clientKeys: hostConfig.clientKeys,
+        sdkConfigCount: hostConfig.sdkConfigCount,
+      },
+      "warn"
+    );
   }
 
   const serverUrl = hostConfig.baseUrl ?? ctx.serverUrl;
@@ -272,17 +284,25 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
   void import("./services/runtime-handoff.js")
     .then(({ registerOwnCopy }) => registerOwnCopy())
     .catch((error: unknown) =>
-      log("OpenCode runtime record failed", {
-        code: error instanceof Error ? error.name : "unknown",
-      })
+      log(
+        "OpenCode runtime record failed",
+        {
+          code: error instanceof Error ? error.name : "unknown",
+        },
+        "error"
+      )
     );
   if (CONFIG.webServerAutoStart !== undefined && process.env.OMMS_DISABLE_WEB_AUTOSTART !== "1") {
     void import("./services/web-autostart.js")
       .then(({ reconcileWebAutostart }) => reconcileWebAutostart(CONFIG))
       .catch((error: unknown) =>
-        log("OpenCode login item reconciliation failed", {
-          code: error instanceof Error ? error.name : "unknown",
-        })
+        log(
+          "OpenCode login item reconciliation failed",
+          {
+            code: error instanceof Error ? error.name : "unknown",
+          },
+          "error"
+        )
       );
   }
   logAutoCaptureProviderStatus();
@@ -299,7 +319,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
         await memoryClient.warmup();
         (globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] = true;
       } catch (error) {
-        log("Plugin memory warmup failed", { error: String(error) });
+        log("Plugin memory warmup failed", { error: String(error) }, "error");
       }
     })();
   }
@@ -329,12 +349,16 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
           configured: CONFIG.opencodeProvider || "(not set)",
         });
       } else {
-        log("opencode provider list empty or failed", {
-          data: JSON.stringify(providerResult.data).substring(0, 100),
-        });
+        log(
+          "opencode provider list empty or failed",
+          {
+            data: JSON.stringify(providerResult.data).substring(0, 100),
+          },
+          "warn"
+        );
       }
     } catch (error) {
-      log("Failed to initialize opencode provider state", { error: String(error) });
+      log("Failed to initialize opencode provider state", { error: String(error) }, "error");
     }
     const configModel = async () => {
       const response = await ctx.client.config.get();
@@ -363,9 +387,13 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
           })
         )
         .catch((error: unknown) =>
-          log("OpenCode backfill failed", {
-            error: error instanceof Error ? error.message : String(error),
-          })
+          log(
+            "OpenCode backfill failed",
+            {
+              error: error instanceof Error ? error.message : String(error),
+            },
+            "error"
+          )
         );
     }
   })();
@@ -376,7 +404,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
       await ensureTursoReady();
       tursoReadyForWeb = true;
     } catch (error) {
-      log("Turso ready gate failed before web server start", { error: String(error) });
+      log("Turso ready gate failed before web server start", { error: String(error) }, "error");
       if (ctx.client?.tui) {
         ctx.client.tui
           .showToast({
@@ -435,7 +463,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
           }
         });
       })
-      .catch((error) => log("Web app start failed", { error: String(error) }));
+      .catch((error) => log("Web app start failed", { error: String(error) }, "error"));
   }
 
   let cleanedUp = false;
@@ -453,7 +481,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
     try {
       await cleanupPlugin();
     } catch (error) {
-      log("Shutdown error", { error: String(error) });
+      log("Shutdown error", { error: String(error) }, "error");
       process.exitCode = 1;
     }
   };
@@ -591,7 +619,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
           output.parts.unshift(contextPart);
         }
       } catch (error) {
-        log("chat.message: ERROR", { error: String(error) });
+        log("chat.message: ERROR", { error: String(error) }, "error");
         if (ctx.client?.tui && CONFIG.showErrorToasts) {
           await ctx.client.tui
             .showToast({
@@ -618,7 +646,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
           input.model.id
         );
       } catch (error) {
-        log("chat.params: ERROR", { error: String(error) });
+        log("chat.params: ERROR", { error: String(error) }, "error");
       }
     },
 
@@ -698,7 +726,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
             const { cleanupService } = await import("./services/cleanup-service.js");
             if (await cleanupService.shouldRunCleanup()) await cleanupService.runCleanup();
           } catch (error) {
-            log("Idle processing error", { error: String(error) });
+            log("Idle processing error", { error: String(error) }, "error");
           } finally {
             idleTimeout = null;
           }
@@ -736,7 +764,8 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
               "Compaction: skipped memory injection because session agent could not be resolved",
               {
                 sessionID,
-              }
+              },
+              "warn"
             );
             return;
           }
@@ -776,7 +805,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
             agent: agent ?? null,
           });
         } catch (error) {
-          log("Compaction handler error", { error: String(error) });
+          log("Compaction handler error", { error: String(error) }, "error");
         }
       }
     },

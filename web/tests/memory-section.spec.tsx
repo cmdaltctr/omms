@@ -6,7 +6,7 @@ import * as react from "react";
 import { setLanguage } from "../src/lib/i18n/index.ts";
 import { translateSettings } from "../src/lib/i18n/settings.ts";
 import { SETTINGS_SECTIONS } from "../src/lib/settings-sections.ts";
-import { MEMORY_SECTIONS } from "../src/lib/memory-sections.ts";
+import { SHARED_ROW_IDS } from "../src/lib/memory-sections.ts";
 
 // The Memory card keeps its snapshot, draft, busy, and status in this order,
 // so the tests can inject each state through the shared mock. The status is
@@ -780,10 +780,11 @@ it("uses the shared snapshot protection and revision flow", () => {
   expect(source).not.toContain("revealDirectoryMaps");
 });
 
-it("belongs once to Memory after Profile learning and is absent from Settings", () => {
-  const ids = MEMORY_SECTIONS.map((section) => section.id);
-  expect(ids.indexOf("memory-section-limits")).toBe(ids.indexOf("memory-section-profile") + 1);
-  expect(ids.filter((id) => id === "memory-section-limits")).toHaveLength(1);
+it("belongs once to the Shared view after Profile learning and is absent from Settings", () => {
+  // Memory limits is a row of the Shared view, directly after Profile learning.
+  const ids: readonly string[] = SHARED_ROW_IDS;
+  expect(ids.indexOf("shared-limits")).toBe(ids.indexOf("shared-profile") + 1);
+  expect(ids.filter((id) => id === "shared-limits")).toHaveLength(1);
   expect(
     SETTINGS_SECTIONS.some((section) => String(section.id) === "settings-section-memory")
   ).toBe(false);

@@ -20,7 +20,7 @@ export function revealPageAnchor(hash: string): void {
   if (typeof document === "undefined" || typeof requestAnimationFrame === "undefined") return;
   const id = hash.replace(/^#/, "");
   if (
-    !/^(?:(?:settings|memory)-section-[a-z0-9-]+|directory-maps-(?:pi|opencode|claude-code)|profile-(?:preferences|patterns|workflows))$/.test(
+    !/^(?:(?:settings|memory)-section-[a-z0-9-]+|directory-maps-(?:pi|opencode|claude-code)|shared-(?:profile|limits|keywords|reranker|directory-maps)|host-unresolved|profile-(?:preferences|patterns|workflows))$/.test(
       id
     )
   )
@@ -31,6 +31,11 @@ export function revealPageAnchor(hash: string): void {
     if (!element) {
       if (tries++ < 50) requestAnimationFrame(reveal);
       return;
+    }
+    if (id.startsWith("shared-")) {
+      // A Shared row is a disclosure; open it so the target is visible.
+      const disclosure = element.closest("details");
+      if (disclosure) disclosure.open = true;
     }
     if (id.startsWith("directory-maps-")) {
       const disclosure = element.parentElement as HTMLDetailsElement | null;

@@ -1,5 +1,6 @@
 import type { ChatRuntimeConfig } from "./chat/chat-runtime.js";
 import { routeChat, type RouteResult } from "./chat/chat-routes.js";
+import { routeMemoryHosts } from "./memory-host-routes.js";
 import { routeProfileCleanup } from "./profile-cleanup-routes.js";
 
 /**
@@ -19,6 +20,9 @@ export async function routeModules(
 
   const cleanup = await routeProfileCleanup(path, method, url, readBody);
   if (cleanup !== undefined) return { status: 200, body: cleanup };
+
+  const hosts = await routeMemoryHosts(path, method, url, readBody, config);
+  if (hosts !== undefined) return hosts;
 
   return routeChat(path, method, readBody, config);
 }

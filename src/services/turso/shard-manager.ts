@@ -433,10 +433,14 @@ export class TursoShardManager {
 
       return true;
     } catch (error) {
-      log("Error validating shard DB", {
-        dbPath: shard.dbPath,
-        error: String(error),
-      });
+      log(
+        "Error validating shard DB",
+        {
+          dbPath: shard.dbPath,
+          error: String(error),
+        },
+        "error"
+      );
       return false;
     }
   }
@@ -533,10 +537,14 @@ export class TursoShardManager {
         await withSqliteFileLockRetry(() => unlinkSync(fullPath));
       }
     } catch (error) {
-      log("Error deleting shard file", {
-        dbPath: fullPath,
-        error: String(error),
-      });
+      log(
+        "Error deleting shard file",
+        {
+          dbPath: fullPath,
+          error: String(error),
+        },
+        "error"
+      );
     }
 
     await metadataDb.run(`DELETE FROM shards WHERE id = ?`, [shardId]);

@@ -29,7 +29,11 @@ async function managerOf(deps: AiCleanupHandlerDeps): Promise<UserProfileManager
 
 function handlerError(step: string, error: unknown): ApiResponse<never> {
   // The log never holds profile text, so only the error's kind is kept.
-  log(`AI cleanup ${step}: error`, { code: error instanceof Error ? error.name : "unknown" });
+  log(
+    `AI cleanup ${step}: error`,
+    { code: error instanceof Error ? error.name : "unknown" },
+    "error"
+  );
   return { success: false, error: String(error) };
 }
 

@@ -190,7 +190,7 @@ function serveFetch(opts: {
     const onListening = () => {
       server.off("error", onError);
       // Keep a listener, so a later server error is logged instead of crashing the process.
-      server.on("error", (error) => log("Web server error", { error: String(error) }));
+      server.on("error", (error) => log("Web server error", { error: String(error) }, "error"));
       resolve({
         stop: () => {
           server.closeAllConnections();
@@ -388,7 +388,7 @@ export class WebServer {
       try {
         await callback(action);
       } catch (error) {
-        log("Power action callback error", { action, error: String(error) });
+        log("Power action callback error", { action, error: String(error) }, "error");
       } finally {
         this.powerActionRunning = false;
       }
@@ -642,7 +642,7 @@ export class WebServer {
         try {
           await this.onStepAsideCallback();
         } catch (error) {
-          log("Step-aside callback error", { error: String(error) });
+          log("Step-aside callback error", { error: String(error) }, "error");
         }
         return;
       }
@@ -715,9 +715,13 @@ export class WebServer {
         log("Imported webServerApiToken into the API token table");
       }
     } catch (error) {
-      log("Importing webServerApiToken failed", {
-        code: error instanceof Error ? error.name : "unknown",
-      });
+      log(
+        "Importing webServerApiToken failed",
+        {
+          code: error instanceof Error ? error.name : "unknown",
+        },
+        "error"
+      );
     }
     assertWebServerNetworkAuth(
       this.config.host,
@@ -754,7 +758,7 @@ export class WebServer {
       } else {
         this.isOwner = false;
         this.server = null;
-        log("Web server failed to start", { error: errorMsg });
+        log("Web server failed to start", { error: errorMsg }, "error");
         throw error;
       }
     }
@@ -790,7 +794,7 @@ export class WebServer {
     try {
       await this.onStepAsideCallback();
     } catch (error) {
-      log("Step-aside callback error", { error: String(error) });
+      log("Step-aside callback error", { error: String(error) }, "error");
     }
   }
 
@@ -852,10 +856,14 @@ export class WebServer {
     );
     if (nextPort !== this.config.port) {
       this.takeoverFailures = 0;
-      log("Web server port held by a non-responsive process; falling back to next port", {
-        previousPort: this.config.port,
-        newPort: nextPort,
-      });
+      log(
+        "Web server port held by a non-responsive process; falling back to next port",
+        {
+          previousPort: this.config.port,
+          newPort: nextPort,
+        },
+        "warn"
+      );
       this.config.port = nextPort;
     } else if (
       this.config.port >= this.maxFallbackPort &&
@@ -885,7 +893,7 @@ export class WebServer {
         try {
           await this.onTakeoverCallback();
         } catch (error) {
-          log("Takeover callback error", { error: String(error) });
+          log("Takeover callback error", { error: String(error) }, "error");
         }
       }
     }
@@ -894,14 +902,18 @@ export class WebServer {
   private notifyPortsExhausted(): void {
     if (this.portsExhaustedNotified) return;
     this.portsExhaustedNotified = true;
-    log("Web server unavailable: every candidate port is held by a non-responsive process", {
-      port: this.config.port,
-      maxFallbackPort: this.maxFallbackPort,
-    });
+    log(
+      "Web server unavailable: every candidate port is held by a non-responsive process",
+      {
+        port: this.config.port,
+        maxFallbackPort: this.maxFallbackPort,
+      },
+      "warn"
+    );
     try {
       this.onPortsExhaustedCallback?.();
     } catch (error) {
-      log("Ports exhausted callback error", { error: String(error) });
+      log("Ports exhausted callback error", { error: String(error) }, "error");
     }
   }
 
@@ -1196,9 +1208,13 @@ export class WebServer {
           const { refreshConfigIfChanged } = await import("../config.js");
           refreshConfigIfChanged(this.config.directory ?? process.cwd());
         } catch (error) {
-          log("Settings saved, but reloading them failed", {
-            error: error instanceof Error ? error.message : String(error),
-          });
+          log(
+            "Settings saved, but reloading them failed",
+            {
+              error: error instanceof Error ? error.message : String(error),
+            },
+            "error"
+          );
         }
         if (body.edits.captureRetryRetentionHours === 0) {
           // Turning the queue off removes waiting turns now, not at the next cleanup.
@@ -1209,9 +1225,13 @@ export class WebServer {
             ]);
             await pruneCaptureRetries({ ...CONFIG, captureRetryRetentionHours: 0 });
           } catch (error) {
-            log("Settings saved, but clearing the capture retry queue failed", {
-              code: error instanceof Error ? error.name : "unknown",
-            });
+            log(
+              "Settings saved, but clearing the capture retry queue failed",
+              {
+                code: error instanceof Error ? error.name : "unknown",
+              },
+              "error"
+            );
           }
         }
         return this.jsonResponse(result);
@@ -1460,12 +1480,7 @@ export class WebServer {
 
       if (path === "/api/settings/log" && method === "GET") {
         const { readSettingsLog } = await import("./settings-log.js");
-        return this.jsonResponse(
-          await readSettingsLog(
-            Number(url.searchParams.get("lines") ?? 200),
-            url.searchParams.get("filter") === "capture"
-          )
-        );
+        return this.jsonResponse(await readSettingsLog(Object.fromEntries(url.searchParams)));
       }
 
       if (path === "/api/tags" && method === "GET") {

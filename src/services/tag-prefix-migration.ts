@@ -562,6 +562,6 @@ export async function runStartupTagPrefixGate(): Promise<void> {
 
   const warning = explicitOpencodePrefixWarning(getExplicitContainerTagPrefix());
   if (warning) {
-    log(warning);
+    log(warning, undefined, "warn");
   }
 }

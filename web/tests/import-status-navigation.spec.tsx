@@ -112,8 +112,10 @@ it("retains both general Directory maps anchors", async () => {
   states = [];
   cursor = 0;
   expect(renderToStaticMarkup(<DirectoryMapsSection />)).toContain('id="directory-maps"');
+  // The general maps are a row of the Shared view; the old section anchor still resolves to it.
   const sections = readFileSync(new URL("../src/lib/memory-sections.ts", import.meta.url), "utf8");
-  expect(sections).toContain('id: "memory-section-project-folders"');
+  expect(sections).toContain('"shared-directory-maps"');
+  expect(sections).toContain('"memory-section-project-folders": shared("shared-directory-maps")');
 });
 
 it("reveals and focuses on every activation while preserving other hosts and drafts", async () => {

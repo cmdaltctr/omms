@@ -129,7 +129,7 @@ export async function enqueueCaptureRetry(
   const json = JSON.stringify(cleaned);
   const size = Buffer.byteLength(json, "utf8");
   if (size > MAX_QUEUED_TURN_BYTES) {
-    log("Capture retry skipped: turn too large", { sessionID: unit.hostSessionId, size });
+    log("Capture retry skipped: turn too large", { sessionID: unit.hostSessionId, size }, "warn");
     return "too-large";
   }
 

@@ -177,13 +177,17 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
 
         if (!response.ok) {
           const errorText = await response.text().catch(() => response.statusText);
-          log(this.apiErrorLogLabel(), {
-            provider: this.getProviderName(),
-            model: this.config.model,
-            status: response.status,
-            error: errorText,
-            iteration: iterations,
-          });
+          log(
+            this.apiErrorLogLabel(),
+            {
+              provider: this.getProviderName(),
+              model: this.config.model,
+              status: response.status,
+              error: errorText,
+              iteration: iterations,
+            },
+            "error"
+          );
           return {
             stopReason,
             success: false,
@@ -226,17 +230,21 @@ export class AnthropicMessagesProvider extends BaseAIProvider {
               iterations,
             };
           } catch (validationError) {
-            log(this.toolValidationErrorLogLabel(), {
-              error: describeValidationError(validationError),
-              errorType:
-                validationError instanceof Error
-                  ? validationError.constructor.name
-                  : typeof validationError,
-              toolName: toolSchema.function.name,
-              iteration: iterations,
-              // Log only the size: the tool input is the model's reply.
-              inputChars: JSON.stringify(toolUse)?.length ?? 0,
-            });
+            log(
+              this.toolValidationErrorLogLabel(),
+              {
+                error: describeValidationError(validationError),
+                errorType:
+                  validationError instanceof Error
+                    ? validationError.constructor.name
+                    : typeof validationError,
+                toolName: toolSchema.function.name,
+                iteration: iterations,
+                // Log only the size: the tool input is the model's reply.
+                inputChars: JSON.stringify(toolUse)?.length ?? 0,
+              },
+              "error"
+            );
             return {
               stopReason,
               success: false,

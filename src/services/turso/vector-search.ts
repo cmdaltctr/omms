@@ -254,10 +254,14 @@ export class TursoVectorSearch {
         similarity: distanceToSimilarity(Number(row.dist)),
       }));
     } catch (error) {
-      log("Turso vector_top_k failed; falling back to exact scan", {
-        indexName,
-        error: String(error),
-      });
+      log(
+        "Turso vector_top_k failed; falling back to exact scan",
+        {
+          indexName,
+          error: String(error),
+        },
+        "warn"
+      );
       return exactScanKind(db, queryJson, k, containerTag, columnName);
     }
   }
@@ -287,7 +291,7 @@ export class TursoVectorSearch {
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        log("Shard search error", { shardId: shard.id, error: message });
+        log("Shard search error", { shardId: shard.id, error: message }, "error");
         shardErrors.push({ shardId: shard.id, error: message });
         return [];
       }
@@ -311,10 +315,14 @@ export class TursoVectorSearch {
         : [];
 
     if (warnings.length > 0) {
-      log("Vector search completed with partial shard failures", {
-        failedShards: shardErrors,
-        totalShards: shards.length,
-      });
+      log(
+        "Vector search completed with partial shard failures",
+        {
+          failedShards: shardErrors,
+          totalShards: shards.length,
+        },
+        "warn"
+      );
     }
 
     const allResults = resultsArray.flat();

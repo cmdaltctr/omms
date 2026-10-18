@@ -74,10 +74,14 @@ export class DeduplicationService {
                 await tursoShardManager.decrementVectorCount(shard.id);
                 exactDeleted++;
               } catch (error) {
-                log("Deduplication: delete error", {
-                  memoryId: dup.id,
-                  error: String(error),
-                });
+                log(
+                  "Deduplication: delete error",
+                  {
+                    memoryId: dup.id,
+                    error: String(error),
+                  },
+                  "error"
+                );
               }
             }
           }

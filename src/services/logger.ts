@@ -106,7 +106,14 @@ function ensureLoggerInitialized() {
   (globalThis as any)[GLOBAL_LOGGER_KEY] = true;
 }
 
-export function log(message: string, data?: unknown) {
+export type LogLevel = "warn" | "error";
+
+/**
+ * Writes one line: `[time] LEVEL message: {data}`. No level means INFO. The
+ * level is an extra argument, not a method, because many tests stub this module
+ * with a bare `log`.
+ */
+export function log(message: string, data?: unknown, level?: LogLevel) {
   ensureLoggerInitialized();
 
   const today = formatDate(new Date());
@@ -117,8 +124,9 @@ export function log(message: string, data?: unknown) {
 
   const logFile = getLogFilePath();
   const timestamp = formatTimestamp(new Date());
+  const token = level ? level.toUpperCase() : "INFO";
   const line = data
-    ? `[${timestamp}] ${message}: ${JSON.stringify(data)}\n`
-    : `[${timestamp}] ${message}\n`;
+    ? `[${timestamp}] ${token} ${message}: ${JSON.stringify(data)}\n`
+    : `[${timestamp}] ${token} ${message}\n`;
   appendFileSync(logFile, line);
 }

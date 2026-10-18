@@ -47,13 +47,19 @@ Object.assign(globalThis, {
   },
 });
 const { AppSidebar } = await import("../src/lib/components/explorer/AppSidebar.tsx");
+const { MemorySidebarLinks } = await import("../src/lib/components/memory/MemorySidebarLinks.tsx");
 const { initRouter, navigate } = await import("../src/lib/router.ts");
 type Node = ReactElement<{ children?: ReactNode; [key: string]: unknown }>;
 function find(node: ReactNode, predicate: (node: Node) => boolean): Node[] {
   if (!react.isValidElement(node))
     return Array.isArray(node) ? node.flatMap((child) => find(child, predicate)) : [];
   const element = node as Node;
-  return [...(predicate(element) ? [element] : []), ...find(element.props.children, predicate)];
+  // The Memory links are their own component; mount it as React would.
+  const children =
+    element.type === MemorySidebarLinks
+      ? (element.type as (props: unknown) => ReactNode)(element.props)
+      : element.props.children;
+  return [...(predicate(element) ? [element] : []), ...find(children, predicate)];
 }
 beforeEach(() => {
   state = [];
@@ -72,25 +78,26 @@ it("recognises Memory for direct load, reload and application routing", () => {
   expect(location.pathname).toBe("/memory");
 });
 it("replaces every legacy link before mounting and retains unrelated Settings links", () => {
+  // Import and automatic import name no host, so they open the overview; the rest are Shared rows.
   const mappings = {
-    import: "import",
-    "auto-import": "auto-import",
-    profile: "profile",
-    memory: "limits",
-    "directory-maps": "project-folders",
+    import: "/memory",
+    "auto-import": "/memory",
+    profile: "/memory/shared#shared-profile",
+    memory: "/memory/shared#shared-limits",
+    "directory-maps": "/memory/shared#shared-directory-maps",
   };
   for (const [old, next] of Object.entries(mappings)) {
     location.pathname = "/settings";
     location.hash = `#settings-section-${old}`;
     initRouter();
-    expect(location.pathname + location.hash).toBe(`/memory#memory-section-${next}`);
-    expect(changes.at(-1)).toBe(`replace:/memory#memory-section-${next}`);
+    expect(location.pathname + location.hash).toBe(next);
+    expect(changes.at(-1)).toBe(`replace:${next}`);
   }
   for (const host of ["pi", "opencode", "claude-code"]) {
     location.pathname = "/settings";
     location.hash = `#directory-maps-${host}`;
     initRouter();
-    expect(location.pathname + location.hash).toBe(`/memory#directory-maps-${host}`);
+    expect(location.pathname + location.hash).toBe(`/memory/${host}#host-unresolved`);
   }
   location.pathname = "/settings";
   location.hash = "#settings-section-health";
@@ -99,40 +106,53 @@ it("replaces every legacy link before mounting and retains unrelated Settings li
 });
 it("navigates section hashes without remounting the page, and popstate preserves the destination", () => {
   initRouter();
-  navigate("/memory#memory-section-limits");
-  expect(location.pathname + location.hash).toBe("/memory#memory-section-limits");
-  location.hash = "#memory-section-import";
+  navigate("/memory/shared#shared-limits");
+  expect(location.pathname + location.hash).toBe("/memory/shared#shared-limits");
+  location.hash = "#shared-profile";
   handlers.get("popstate")!();
-  expect(location.pathname + location.hash).toBe("/memory#memory-section-import");
+  expect(location.pathname + location.hash).toBe("/memory/shared#shared-profile");
 });
-it("reveals a cross-route host disclosure only after mount and preserves other folder drafts", () => {
+it("sends an old host folder link to that host's view and reveals its list only after mount", () => {
   location.pathname = "/project-memories";
   location.hash = "";
   const frames: (() => void)[] = [];
-  const focus = mock(() => {}),
-    scroll = mock(() => {});
-  const disclosure = { open: false };
+  const scroll = mock(() => {});
   const other = { open: true, draft: "/edited/target" };
-  let summary: object | null = null;
+  let list: object | null = null;
   Object.assign(globalThis, {
-    document: {
-      getElementById: (id: string) => (id === "directory-maps-opencode" ? summary : null),
-    },
+    document: { getElementById: (id: string) => (id === "host-unresolved" ? list : null) },
     requestAnimationFrame: (fn: () => void) => {
       frames.push(fn);
     },
   });
   navigate("/memory#directory-maps-opencode");
-  expect(location.pathname + location.hash).toBe("/memory#directory-maps-opencode");
-  expect(focus).not.toHaveBeenCalled();
-  summary = { parentElement: disclosure, focus, scrollIntoView: scroll };
+  expect(location.pathname + location.hash).toBe("/memory/opencode#host-unresolved");
+  expect(scroll).not.toHaveBeenCalled();
+  list = { scrollIntoView: scroll };
   for (const frame of frames.splice(0)) frame();
-  expect(disclosure.open).toBe(true);
-  expect(focus).toHaveBeenCalledWith({ preventScroll: true });
   expect(scroll).toHaveBeenCalledTimes(1);
   expect(other).toEqual({ open: true, draft: "/edited/target" });
 });
-it("shows seven Memory children and stores its tree independently of Settings", async () => {
+it("opens a collapsed Shared row when a link names it", () => {
+  const frames: (() => void)[] = [];
+  const details = { open: false };
+  const scroll = mock(() => {});
+  Object.assign(globalThis, {
+    document: {
+      getElementById: (id: string) =>
+        id === "shared-reranker" ? { closest: () => details, scrollIntoView: scroll } : null,
+    },
+    requestAnimationFrame: (fn: () => void) => {
+      frames.push(fn);
+    },
+  });
+  navigate("/memory#memory-section-reranker");
+  expect(location.pathname + location.hash).toBe("/memory/shared#shared-reranker");
+  for (const frame of frames.splice(0)) frame();
+  expect(details.open).toBe(true);
+  expect(scroll).toHaveBeenCalledTimes(1);
+});
+it("shows four Memory views and stores its tree independently of Settings", async () => {
   const { MEMORY_SECTIONS } = await import("../src/lib/memory-sections.ts");
   const dismissed: boolean[] = [];
   const render = () => {
@@ -161,10 +181,10 @@ it("shows seven Memory children and stores its tree independently of Settings", 
   ).toHaveLength(1);
   const links = find(
     tree,
-    (node) => node.type === "a" && String(node.props.href).startsWith("/memory#")
+    (node) => node.type === "a" && String(node.props.href).startsWith("/memory/")
   );
-  // Seven since the Keyword matching card joined the Memory page below Memory limits.
-  expect(links).toHaveLength(7);
+  // Pi, OpenCode, Claude Code and Shared.
+  expect(links).toHaveLength(4);
   const toggle = find(tree, (node) => node.props["aria-controls"] === "sidebar-memory-tree")[0];
   (toggle.props.onClick as () => void)();
   tree = render();
@@ -179,6 +199,6 @@ it("shows seven Memory children and stores its tree independently of Settings", 
     requestAnimationFrame: (fn: () => void) => fn(),
   });
   (links[3].props.onClick as (event: unknown) => void)({ button: 0, preventDefault: () => {} });
-  expect(location.pathname + location.hash).toBe("/memory#memory-section-limits");
+  expect(location.pathname + location.hash).toBe("/memory/shared");
   expect(dismissed.at(-1)).toBe(false);
 });

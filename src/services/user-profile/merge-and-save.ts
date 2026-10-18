@@ -43,7 +43,7 @@ export async function saveProfile(
     summary,
     profile.version
   );
-  if (!saved) log("profile save skipped", { code: "version-changed" });
+  if (!saved) log("profile save skipped", { code: "version-changed" }, "warn");
   return saved;
 }
 

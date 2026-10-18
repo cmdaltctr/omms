@@ -91,12 +91,12 @@ it("shows Settings in the main menu, opened on the settings page", () => {
   );
 });
 
-it("displays the Memory parent in uppercase without changing its translated label", () => {
+it("displays the Memory parent in normal capitals, like the other entries", () => {
   const tree = render("settings");
   const memory = find(tree, (node) => node.type === "a" && node.props.href === "/memory")[0]!;
   const label = find(memory, (node) => node.type === "span")[0]!;
   expect(label.props.children).toBe("Memory");
-  expect(String(label.props.className).split(/\s+/)).toContain("uppercase");
+  expect(String(label.props.className).split(/\s+/)).not.toContain("uppercase");
 });
 
 it("keeps Settings children in their natural title case", () => {

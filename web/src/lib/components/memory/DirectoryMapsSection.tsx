@@ -11,12 +11,15 @@ import { useSettingsText } from "$lib/i18n/settings";
 import {
   confirmedEdits,
   groupSavedMaps,
+  ignorableRows,
+  ignoreAllList,
   reviewDirectoryMaps,
   type DirectoryMapReview,
   type SuggestedDirectory,
 } from "$lib/directory-maps";
 import { DirectoryMapHost } from "../settings/DirectoryMapHost";
 import { DirectoryMapReviewDialog } from "../settings/DirectoryMapReviewDialog";
+import { IgnoreAllDialog } from "../settings/IgnoreAllDialog";
 import { Button } from "$lib/components/ui/button";
 
 type Snapshot = { revision: string; settings?: { importPathMaps?: { globalValue?: PathMap[] } } };
@@ -30,8 +33,26 @@ type View = {
   "claude-code"?: Suggested[];
 };
 
-export function DirectoryMapsSection() {
+const ALL_HOSTS = ["pi", "opencode", "claude-code"] as const;
+
+/**
+ * The Directory maps card. The Shared view shows the saved maps and ignored
+ * directories (`hosts` empty); a host view shows only that host's unresolved
+ * directories (`saved` off) and opens them.
+ */
+export function DirectoryMapsSection({
+  hosts = ALL_HOSTS,
+  saved = true,
+  title,
+  anchorId,
+}: {
+  hosts?: readonly Host[];
+  saved?: boolean;
+  title?: string;
+  anchorId?: string;
+} = {}) {
   const s = useSettingsText();
+  const [ignoringAll, setIgnoringAll] = useState<{ host: Host; rows: Suggested[] }>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [view, setView] = useState<View>();
   const [removed, setRemoved] = useState<Set<string>>(new Set());
@@ -164,6 +185,15 @@ export function DirectoryMapsSection() {
       "The directory could not be ignored. Try again."
     );
   }
+  function ignoreAll() {
+    if (!ignoringAll) return;
+    const { rows } = ignoringAll;
+    void saveNow(
+      { importIgnoredDirectories: ignoreAllList(ignoredList(), rows) },
+      "Ignored. The directories stay unimported.",
+      "The directories could not be ignored. Try again."
+    ).then(() => setIgnoringAll(undefined));
+  }
   function restore(directory: string) {
     void saveNow(
       { importIgnoredDirectories: ignoredList().filter((item) => item !== directory) },
@@ -276,11 +306,13 @@ export function DirectoryMapsSection() {
 
   return (
     <section
-      id="directory-maps"
+      id={anchorId ?? "directory-maps"}
       className="space-y-3 rounded-xl border border-border bg-card p-4"
-      aria-label={s("Resolve missing project folders")}
+      aria-label={s(title ?? "Resolve missing project folders")}
     >
-      <h2 className="text-section-title font-semibold">{s("Resolve missing project folders")}</h2>
+      <h2 className="text-section-title font-semibold">
+        {s(title ?? "Resolve missing project folders")}
+      </h2>
       <p className="text-sm text-muted-foreground">
         {s(
           "A directory map links a recorded project folder to its current folder. Saved maps apply globally to every host at the next import or backfill run. Review changes before saving."
@@ -291,99 +323,105 @@ export function DirectoryMapsSection() {
           "Map a directory that was moved or deleted to the project it belongs to. A change applies to the next import or backfill run."
         )}
       </p>
-      <details className="min-w-0 rounded-lg border border-border p-3">
-        <summary className="cursor-pointer rounded font-medium focus-visible:outline-2 focus-visible:outline-ring">
-          <h3 className="inline text-subsection-title font-semibold">{s("Saved maps")}</h3> ·{" "}
-          {view?.saved.length ?? 0}
-          <span className="mt-1 block text-xs font-normal text-muted-foreground">
-            {s("Saved maps apply to every host.")}
-          </span>
-        </summary>
-        <div className="mt-3 space-y-2">
-          <p className="text-xs text-muted-foreground">
-            {s(
-              "Keep a map after its sessions import. Every import checks the map before it skips a session, so removing a map makes its sessions unresolved again on the next run."
-            )}
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={busy || !!refreshNeeded || !snapshot || !view || removed.size === 0}
-            onClick={saveRemovals}
-          >
-            {s("Save removals")}
-          </Button>
-          {!view?.saved.length && <p className="text-sm text-muted-foreground">{s("none")}</p>}
-          {groupSavedMaps(view?.saved ?? []).map((group) => (
-            <details key={group.target} className="min-w-0 border-t border-border pt-2">
-              <summary className="cursor-pointer rounded text-sm focus-visible:outline-2 focus-visible:outline-ring">
-                <code dir="ltr" className="break-all">
-                  {group.target}
-                </code>{" "}
-                · {group.maps.length}
-              </summary>
-              <ul className="mt-2 space-y-1 text-sm">
-                {group.maps.map((map) => (
-                  <li key={map.from} className="flex min-w-0 items-start gap-2">
-                    <code
-                      dir="ltr"
-                      className={`min-w-0 flex-1 break-all ${removed.has(map.from) ? "line-through" : ""}`}
-                    >
-                      {map.from}
-                    </code>
-                    <button
-                      type="button"
-                      className="shrink-0 rounded border border-border px-2 py-0.5 text-xs"
-                      aria-label={`${removed.has(map.from) ? s("Keep") : s("Remove")} ${map.from}`}
-                      disabled={busy}
-                      onClick={() =>
-                        setRemoved((previous) => {
-                          const next = new Set(previous);
-                          if (next.has(map.from)) next.delete(map.from);
-                          else next.add(map.from);
-                          return next;
-                        })
-                      }
-                    >
-                      {removed.has(map.from) ? s("Keep") : s("Remove")}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ))}
-        </div>
-      </details>
-      <details className="min-w-0 rounded-lg border border-border p-3">
-        <summary className="cursor-pointer rounded font-medium focus-visible:outline-2 focus-visible:outline-ring">
-          <h3 className="inline text-subsection-title font-semibold">{s("Ignored directories")}</h3>{" "}
-          · {view?.ignored?.length ?? 0}
-          <span className="mt-1 block text-xs font-normal text-muted-foreground">
-            {s("Ignored directories stay unimported and leave the unresolved counts.")}
-          </span>
-        </summary>
-        <ul className="mt-3 space-y-1 text-sm">
-          {!view?.ignored?.length && <li className="text-muted-foreground">{s("none")}</li>}
-          {view?.ignored?.map((directory) => (
-            <li key={directory} className="flex min-w-0 items-start gap-2">
-              <code dir="ltr" className="min-w-0 flex-1 break-all">
-                {directory}
-              </code>
-              <button
+      {saved && (
+        <>
+          <details className="min-w-0 rounded-lg border border-border p-3">
+            <summary className="cursor-pointer rounded font-medium focus-visible:outline-2 focus-visible:outline-ring">
+              <h3 className="inline text-subsection-title font-semibold">{s("Saved maps")}</h3> ·{" "}
+              {view?.saved.length ?? 0}
+              <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                {s("Saved maps apply to every host.")}
+              </span>
+            </summary>
+            <div className="mt-3 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                {s(
+                  "Keep a map after its sessions import. Every import checks the map before it skips a session, so removing a map makes its sessions unresolved again on the next run."
+                )}
+              </p>
+              <Button
                 type="button"
-                className="shrink-0 rounded border border-border px-2 py-0.5 text-xs"
-                aria-label={`${s("Restore")} ${directory}`}
-                disabled={busy || !!refreshNeeded || !snapshot}
-                onClick={() => restore(directory)}
+                variant="outline"
+                size="sm"
+                disabled={busy || !!refreshNeeded || !snapshot || !view || removed.size === 0}
+                onClick={saveRemovals}
               >
-                {s("Restore")}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </details>
-      {(["pi", "opencode", "claude-code"] as const).map((host) => {
+                {s("Save removals")}
+              </Button>
+              {!view?.saved.length && <p className="text-sm text-muted-foreground">{s("none")}</p>}
+              {groupSavedMaps(view?.saved ?? []).map((group) => (
+                <details key={group.target} className="min-w-0 border-t border-border pt-2">
+                  <summary className="cursor-pointer rounded text-sm focus-visible:outline-2 focus-visible:outline-ring">
+                    <code dir="ltr" className="break-all">
+                      {group.target}
+                    </code>{" "}
+                    · {group.maps.length}
+                  </summary>
+                  <ul className="mt-2 space-y-1 text-sm">
+                    {group.maps.map((map) => (
+                      <li key={map.from} className="flex min-w-0 items-start gap-2">
+                        <code
+                          dir="ltr"
+                          className={`min-w-0 flex-1 break-all ${removed.has(map.from) ? "line-through" : ""}`}
+                        >
+                          {map.from}
+                        </code>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded border border-border px-2 py-0.5 text-xs"
+                          aria-label={`${removed.has(map.from) ? s("Keep") : s("Remove")} ${map.from}`}
+                          disabled={busy}
+                          onClick={() =>
+                            setRemoved((previous) => {
+                              const next = new Set(previous);
+                              if (next.has(map.from)) next.delete(map.from);
+                              else next.add(map.from);
+                              return next;
+                            })
+                          }
+                        >
+                          {removed.has(map.from) ? s("Keep") : s("Remove")}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ))}
+            </div>
+          </details>
+          <details className="min-w-0 rounded-lg border border-border p-3">
+            <summary className="cursor-pointer rounded font-medium focus-visible:outline-2 focus-visible:outline-ring">
+              <h3 className="inline text-subsection-title font-semibold">
+                {s("Ignored directories")}
+              </h3>{" "}
+              · {view?.ignored?.length ?? 0}
+              <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                {s("Ignored directories stay unimported and leave the unresolved counts.")}
+              </span>
+            </summary>
+            <ul className="mt-3 space-y-1 text-sm">
+              {!view?.ignored?.length && <li className="text-muted-foreground">{s("none")}</li>}
+              {view?.ignored?.map((directory) => (
+                <li key={directory} className="flex min-w-0 items-start gap-2">
+                  <code dir="ltr" className="min-w-0 flex-1 break-all">
+                    {directory}
+                  </code>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded border border-border px-2 py-0.5 text-xs"
+                    aria-label={`${s("Restore")} ${directory}`}
+                    disabled={busy || !!refreshNeeded || !snapshot}
+                    onClick={() => restore(directory)}
+                  >
+                    {s("Restore")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </>
+      )}
+      {hosts.map((host) => {
         const rows = view?.[host] ?? [];
         return (
           <DirectoryMapHost
@@ -395,9 +433,20 @@ export function DirectoryMapsSection() {
             onDecide={decide}
             onResolve={() => smartResolve(host, rows)}
             onIgnore={ignore}
+            onIgnoreAll={() => setIgnoringAll({ host, rows: ignorableRows(rows) })}
+            open={hosts.length === 1}
           />
         );
       })}
+      {ignoringAll && (
+        <IgnoreAllDialog
+          host={ignoringAll.host}
+          rows={ignoringAll.rows}
+          busy={busy}
+          onConfirm={ignoreAll}
+          onCancel={() => setIgnoringAll(undefined)}
+        />
+      )}
       {pending && (
         <DirectoryMapReviewDialog
           host={pending.host}

@@ -52,9 +52,13 @@ export function startCategoryCleanupJob(userId: string, deps: CleanupDeps = {}):
         ? { state: "done", preview }
         : { state: "failed", error: "No profile found to clean up" };
     } catch (error) {
-      log("category cleanup job: failed", {
-        code: error instanceof Error ? error.name : "unknown",
-      });
+      log(
+        "category cleanup job: failed",
+        {
+          code: error instanceof Error ? error.name : "unknown",
+        },
+        "error"
+      );
       job.status = {
         state: "failed",
         error: error instanceof Error ? error.message : String(error),

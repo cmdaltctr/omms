@@ -28,9 +28,13 @@ export async function performUserProfileLearning(
   // this pass's input limit.
   const profileContextMaxBytes = CONFIG.userProfileMaxContextBytes ?? 32768;
   if (!CONFIG.autoCaptureProviderStatus || !CONFIG.autoCaptureProviderStatus.ready) {
-    log("user-profile-learning: skipped (provider not ready)", {
-      issues: CONFIG.autoCaptureProviderStatus?.issues ?? ["status undefined"],
-    });
+    log(
+      "user-profile-learning: skipped (provider not ready)",
+      {
+        issues: CONFIG.autoCaptureProviderStatus?.issues ?? ["status undefined"],
+      },
+      "warn"
+    );
     return;
   }
   isLearningRunning = true;
@@ -115,10 +119,14 @@ Rules:
 - no_evidence: recent prompts don't address this topic
 - Only mark contradicted if there is explicit evidence the user's behavior has changed`;
       } else {
-        log("user-profile-learning: validation skipped", {
-          prefCount: topPrefs.length,
-          reason: "needs ≥ 5 preferences",
-        });
+        log(
+          "user-profile-learning: validation skipped",
+          {
+            prefCount: topPrefs.length,
+            reason: "needs ≥ 5 preferences",
+          },
+          "warn"
+        );
       }
     } else if (existingProfile) {
       const profileData: UserProfileData = JSON.parse(existingProfile.profileData);
@@ -179,10 +187,14 @@ Rules:
             undefined,
             existingProfile.id
           );
-          log("user-profile-learning: retry merge", {
-            retry: retries,
-            profileId: existingProfile.id,
-          });
+          log(
+            "user-profile-learning: retry merge",
+            {
+              retry: retries,
+              profileId: existingProfile.id,
+            },
+            "warn"
+          );
         }
         cleanupPreviousPromptCount = existingProfile.totalPromptsAnalyzed;
 
@@ -208,11 +220,15 @@ Rules:
           prompts.length
         );
         if (!success) {
-          log("User profile update conflict, retrying", {
-            profileId: existingProfile.id,
-            userId,
-            retry: retries,
-          });
+          log(
+            "User profile update conflict, retrying",
+            {
+              profileId: existingProfile.id,
+              userId,
+              retry: retries,
+            },
+            "warn"
+          );
         }
         retries++;
       }
@@ -507,7 +523,7 @@ async function applyValidations(
       (i) => `${i.category || "_"}||${(i.description || "").substring(0, 30)}` === key
     );
     if (!item) {
-      log("user-profile-learning: validation match failed", { index: v.index, key });
+      log("user-profile-learning: validation match failed", { index: v.index, key }, "warn");
       continue;
     }
 
@@ -634,9 +650,13 @@ Use the update_user_profile tool to save the ${existingProfile ? "updated" : "ne
       return { raw: rawData, merged: null };
     } catch (e) {
       opencodeProviderError = e;
-      log("user-profile-learning: opencode provider failed, falling back to external API", {
-        error: String(e),
-      });
+      log(
+        "user-profile-learning: opencode provider failed, falling back to external API",
+        {
+          error: String(e),
+        },
+        "warn"
+      );
     }
   }
 
@@ -644,10 +664,14 @@ Use the update_user_profile tool to save the ${existingProfile ? "updated" : "ne
     if (opencodeProviderError) {
       throw opencodeProviderError;
     }
-    log("User Profile Config Check Failed:", {
-      memoryModel: CONFIG.memoryModel,
-      memoryApiUrl: CONFIG.memoryApiUrl,
-    });
+    log(
+      "User Profile Config Check Failed:",
+      {
+        memoryModel: CONFIG.memoryModel,
+        memoryApiUrl: CONFIG.memoryApiUrl,
+      },
+      "error"
+    );
     throw new Error("External API not configured for user memory learning");
   }
 
@@ -751,7 +775,7 @@ If no clear chains, return { "paths": [] }.`;
         ])) as LearningPathsResult;
       }
     } catch (e) {
-      log("learning paths: native provider failed", { error: String(e) });
+      log("learning paths: native provider failed", { error: String(e) }, "warn");
     }
   }
 
@@ -783,7 +807,7 @@ If no clear chains, return { "paths": [] }.`;
         if (content) result = JSON.parse(content) as LearningPathsResult;
       }
     } catch (e) {
-      log("learning paths: external API failed", { error: String(e) });
+      log("learning paths: external API failed", { error: String(e) }, "error");
     }
   }
 

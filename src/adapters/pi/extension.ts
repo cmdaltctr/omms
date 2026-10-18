@@ -137,7 +137,11 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
       void import("../../services/runtime-handoff.js")
         .then(({ registerOwnCopy }) => registerOwnCopy())
         .catch((error: unknown) =>
-          log("Pi runtime record failed", { code: error instanceof Error ? error.name : "unknown" })
+          log(
+            "Pi runtime record failed",
+            { code: error instanceof Error ? error.name : "unknown" },
+            "error"
+          )
         );
       if (
         CONFIG.webServerAutoStart !== undefined &&
@@ -146,9 +150,13 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
         void import("../../services/web-autostart.js")
           .then(({ reconcileWebAutostart }) => reconcileWebAutostart(CONFIG))
           .catch((error: unknown) =>
-            log("Pi login item reconciliation failed", {
-              code: error instanceof Error ? error.name : "unknown",
-            })
+            log(
+              "Pi login item reconciliation failed",
+              {
+                code: error instanceof Error ? error.name : "unknown",
+              },
+              "error"
+            )
           );
       }
       if (process.env.OMMS_DISABLE_WEB_AUTOSTART !== "1") {
@@ -172,9 +180,13 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
             });
           })
           .catch((error: unknown) =>
-            log("Pi web app start failed", {
-              code: error instanceof Error ? error.name : "unknown",
-            })
+            log(
+              "Pi web app start failed",
+              {
+                code: error instanceof Error ? error.name : "unknown",
+              },
+              "error"
+            )
           );
       }
 
@@ -234,9 +246,13 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
           });
         })()
           .catch((error: unknown) =>
-            log("Pi backfill failed", {
-              error: error instanceof Error ? error.message : String(error),
-            })
+            log(
+              "Pi backfill failed",
+              {
+                error: error instanceof Error ? error.message : String(error),
+              },
+              "error"
+            )
           )
           .finally(() => {
             if (globalScope[GLOBAL_PI_BACKFILL_KEY] === task) {
@@ -251,7 +267,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
             globalScope[GLOBAL_PLUGIN_WARMUP_KEY] = true;
             finishStatus(ctx, status, "connected");
           } catch (error) {
-            log("Pi plugin memory warmup failed", { error: String(error) });
+            log("Pi plugin memory warmup failed", { error: String(error) }, "error");
             finishStatus(ctx, status, "error");
           }
         })();
@@ -259,7 +275,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
         finishStatus(ctx, status, "connected");
       }
     } catch (error) {
-      log("Pi session_start error", { error: String(error) });
+      log("Pi session_start error", { error: String(error) }, "error");
       finishStatus(ctx, status, "error");
     }
   });
@@ -292,7 +308,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
         systemPrompt: event.systemPrompt + "\n\n" + wrapRetrievalSection(section),
       };
     } catch (error) {
-      log("Pi before_agent_start retrieval error", { error: String(error) });
+      log("Pi before_agent_start retrieval error", { error: String(error) }, "error");
       finishStatus(ctx, status, "error");
       return undefined;
     }
@@ -343,7 +359,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
 
       finishStatus(ctx, status, captureResult.status === "failed" ? "error" : "connected");
     } catch (error) {
-      log("Pi agent_settled error", { error: String(error) });
+      log("Pi agent_settled error", { error: String(error) }, "error");
       finishStatus(ctx, status, "error");
     }
   });

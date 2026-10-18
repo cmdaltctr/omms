@@ -6,6 +6,7 @@ import { mergeListing } from "$lib/import-listing";
 import { navigate, ROUTES } from "$lib/router";
 import { HostImportBadges } from "../settings/HostImportBadges";
 import { HostSessionSelection } from "./HostSessionSelection";
+import { loadHostChoice, saveHostChoice } from "./import-host-choice";
 import { ImportOptions, importButton } from "./ImportOptions";
 import { importFeedback, ImportResults, workCounts } from "./ImportResults";
 import {
@@ -48,9 +49,18 @@ const EXTERNAL_REASONS: Record<string, string> = {
 };
 
 /** One draft owns every host and shared option. The server owns execution order. */
-export function ImportSection({ profilePreset = 0 }: { profilePreset?: number } = {}) {
+export function ImportSection({
+  profilePreset = 0,
+  host: onlyHost,
+}: { profilePreset?: number; host?: WebHost } = {}) {
   const s = useSettingsText();
-  const [draft, setDraft] = useState<ImportDraft>(initialImportDraft);
+  const [draft, setDraft] = useState<ImportDraft>(() => {
+    const fresh = initialImportDraft();
+    if (!onlyHost) return loadHostChoice(fresh);
+    // A host view imports that host only.
+    for (const host of IMPORT_HOSTS) fresh.hosts[host].enabled = host === onlyHost;
+    return fresh;
+  });
   const [advanced, setAdvanced] = useState(false);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [job, setJob] = useState<ImportJob | null>(null);
@@ -66,6 +76,10 @@ export function ImportSection({ profilePreset = 0 }: { profilePreset?: number } 
   const currentFingerprint = useRef(fingerprint);
   currentFingerprint.current = fingerprint;
   const hosts = IMPORT_HOSTS.filter((host) => draft.hosts[host].enabled);
+  const shownHosts = onlyHost ? [onlyHost] : IMPORT_HOSTS;
+  useEffect(() => {
+    if (!onlyHost) saveHostChoice(draft);
+  }, [draft, onlyHost]);
   const running =
     job?.state === "running" ||
     job?.state === "cancelling" ||
@@ -311,90 +325,96 @@ export function ImportSection({ profilePreset = 0 }: { profilePreset?: number } 
   return (
     <section
       className="space-y-3 rounded-xl border border-border bg-card p-4 min-w-0"
-      aria-label={s("Import chat history")}
+      aria-label={onlyHost ? s("Sessions") : s("Import chat history")}
     >
-      <h2 className="text-section-title font-semibold">{s("Import chat history")}</h2>
-      <p className="text-sm text-muted-foreground">
-        {s(
-          "Conversations populate project facts. User prompts populate personal preferences, recurring patterns, and workflow steps."
-        )}
-      </p>
-      <p className="flex flex-wrap gap-3 text-sm">
-        <a
-          className="underline"
-          href={ROUTES.project}
-          onClick={(event) => {
-            event.preventDefault();
-            navigate(ROUTES.project);
-          }}
-        >
-          {s("Project memories")}
-        </a>
-        <a
-          className="underline"
-          href={ROUTES.profile}
-          onClick={(event) => {
-            event.preventDefault();
-            navigate(ROUTES.profile);
-          }}
-        >
-          {s("User profile")}
-        </a>
-        <a
-          className="underline"
-          href={`${ROUTES.settings}#settings-section-profiles`}
-          onClick={(event) => {
-            event.preventDefault();
-            navigate(`${ROUTES.settings}#settings-section-profiles`);
-          }}
-        >
-          {s("Profile identity in Settings")}
-        </a>
-      </p>
-      <p className="text-xs text-muted-foreground">
-        {s(
-          "Hosts keep their existing user identities. All hosts does not merge profiles with different identities."
-        )}
-      </p>
-      <HostImportBadges />
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        {IMPORT_HOSTS.map((host) => (
-          <label key={host}>
-            <input
-              type="checkbox"
-              aria-label={hostLabel(host)}
-              checked={draft.hosts[host].enabled}
-              onChange={(event) => changeHost(host, { enabled: event.target.checked })}
-            />{" "}
-            {hostLabel(host)}
-          </label>
-        ))}
-        <button
-          type="button"
-          className={importButton}
-          onClick={() =>
-            change({
-              hosts: {
-                pi: { ...draft.hosts.pi, enabled: true },
-                opencode: { ...draft.hosts.opencode, enabled: true },
-                "claude-code": { ...draft.hosts["claude-code"], enabled: true },
-              },
-            })
-          }
-        >
-          {s("All hosts")}
-        </button>
-        <span role="status">
-          {s("Selected hosts")}: {hosts.length}
-        </span>
-      </div>
+      <h2 className="text-section-title font-semibold">
+        {onlyHost ? s("Sessions") : s("Import chat history")}
+      </h2>
+      {!onlyHost && (
+        <>
+          <p className="text-sm text-muted-foreground">
+            {s(
+              "Conversations populate project facts. User prompts populate personal preferences, recurring patterns, and workflow steps."
+            )}
+          </p>
+          <p className="flex flex-wrap gap-3 text-sm">
+            <a
+              className="underline"
+              href={ROUTES.project}
+              onClick={(event) => {
+                event.preventDefault();
+                navigate(ROUTES.project);
+              }}
+            >
+              {s("Project memories")}
+            </a>
+            <a
+              className="underline"
+              href={ROUTES.profile}
+              onClick={(event) => {
+                event.preventDefault();
+                navigate(ROUTES.profile);
+              }}
+            >
+              {s("User profile")}
+            </a>
+            <a
+              className="underline"
+              href={`${ROUTES.settings}#settings-section-profiles`}
+              onClick={(event) => {
+                event.preventDefault();
+                navigate(`${ROUTES.settings}#settings-section-profiles`);
+              }}
+            >
+              {s("Profile identity in Settings")}
+            </a>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {s(
+              "Hosts keep their existing user identities. All hosts does not merge profiles with different identities."
+            )}
+          </p>
+          <HostImportBadges />
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            {IMPORT_HOSTS.map((host) => (
+              <label key={host}>
+                <input
+                  type="checkbox"
+                  aria-label={hostLabel(host)}
+                  checked={draft.hosts[host].enabled}
+                  onChange={(event) => changeHost(host, { enabled: event.target.checked })}
+                />{" "}
+                {hostLabel(host)}
+              </label>
+            ))}
+            <button
+              type="button"
+              className={importButton}
+              onClick={() =>
+                change({
+                  hosts: {
+                    pi: { ...draft.hosts.pi, enabled: true },
+                    opencode: { ...draft.hosts.opencode, enabled: true },
+                    "claude-code": { ...draft.hosts["claude-code"], enabled: true },
+                  },
+                })
+              }
+            >
+              {s("All hosts")}
+            </button>
+            <span role="status">
+              {s("Selected hosts")}: {hosts.length}
+            </span>
+          </div>
+        </>
+      )}
       <ImportOptions
         draft={draft}
         advanced={advanced}
         onChange={change}
         onAdvanced={() => setAdvanced((value) => !value)}
       />
-      {IMPORT_HOSTS.map((host) => (
+      {shownHosts.map((host) => (
         <HostSessionSelection
           key={host}
           host={host}

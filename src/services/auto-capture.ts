@@ -126,7 +126,7 @@ async function capturePrompt(
         await userPromptManager.recordFailedAttempt(prompt.id);
 
         if (attempt < maxRetries) {
-          log(`Auto-capture warning (attempt ${attempt}/${maxRetries})`, { error: errMsg });
+          log(`Auto-capture warning (attempt ${attempt}/${maxRetries})`, { error: errMsg }, "warn");
           await new Promise((resolve) => setTimeout(resolve, quickRetryDelayMs(attempt)));
         } else {
           throw error;
@@ -135,7 +135,7 @@ async function capturePrompt(
     }
   } catch (error) {
     const errMsg = error instanceof Error ? error.message : String(error);
-    log(`Auto-capture final error after ${attempt} attempts`, { error: errMsg });
+    log(`Auto-capture final error after ${attempt} attempts`, { error: errMsg }, "error");
     // Only after the quick retries fail; the queue decides whether a retry can help.
     if (workUnit) await queueFailedCapture(workUnit, error, CONFIG);
 
@@ -156,7 +156,9 @@ async function capturePrompt(
         log(
           `Failed to release captured=2 claim for prompt ${claimedPromptId}: ${
             releaseErr instanceof Error ? releaseErr.message : String(releaseErr)
-          }`
+          }`,
+          undefined,
+          "error"
         );
       }
     }

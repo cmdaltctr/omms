@@ -118,7 +118,11 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
       try {
         await memory.recordPrompt(sessionID, prompt.messageID, prompt.text);
       } catch (error) {
-        log("v2 context: failed to record user prompt", { sessionID, error: String(error) });
+        log(
+          "v2 context: failed to record user prompt",
+          { sessionID, error: String(error) },
+          "error"
+        );
       }
     }
     if (remaining.length > 0) pendingPrompts.set(sessionID, remaining);
@@ -212,7 +216,7 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
     // Start the search now with the entry snapshot, so it overlaps prompt admission.
     // An edit during retrieval must not change this request's allowance.
     const promise = memory.retrieve(text, sessionID, budgetBytes).catch((error) => {
-      log("v2 prompt: memory retrieval failed", { sessionID, error: String(error) });
+      log("v2 prompt: memory retrieval failed", { sessionID, error: String(error) }, "error");
       return null;
     });
     setBounded(retrievals, sessionID, { promise, budgetBytes });
@@ -263,7 +267,11 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
       if (memories) setBounded(restored, sessionID, memories);
       else restored.delete(sessionID);
     } catch (error) {
-      log("v2 compaction: failed to load session memories", { sessionID, error: String(error) });
+      log(
+        "v2 compaction: failed to load session memories",
+        { sessionID, error: String(error) },
+        "error"
+      );
     }
   });
 
@@ -281,7 +289,7 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
       }
     } catch (error) {
       if (!controller.signal.aborted) {
-        log("omms v2 event bridge failed", { error: String(error) });
+        log("omms v2 event bridge failed", { error: String(error) }, "error");
       }
     }
   })();

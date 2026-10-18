@@ -145,7 +145,7 @@ export async function handleListTags(): Promise<ApiResponse<{ project: TagInfo[]
     }
     return { success: true, data: { project: projectTags } };
   } catch (error) {
-    log("handleListTags: error", { error: String(error) });
+    log("handleListTags: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -194,7 +194,7 @@ export async function handleListKeywords(
     const rows = await loadMemoryRows(tag);
     return { success: true, data: { keywords: countKeywords(rows.map((r) => r.tags)) } };
   } catch (error) {
-    log("handleListKeywords: error", { error: String(error) });
+    log("handleListKeywords: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -340,7 +340,7 @@ export async function handleListMemories(
 
     return { success: true, data: { items, total, page, pageSize, totalPages } };
   } catch (error) {
-    log("handleListMemories: error", { error: String(error) });
+    log("handleListMemories: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -407,7 +407,7 @@ export async function handleAddMemory(data: {
       return { success: true as const, data: { id } };
     });
   } catch (error) {
-    log("handleAddMemory: error", { error: String(error) });
+    log("handleAddMemory: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -438,7 +438,7 @@ export async function handleDeleteMemory(
     }
     return { success: false, error: "Memory not found" };
   } catch (error) {
-    log("handleDeleteMemory: error", { error: String(error) });
+    log("handleDeleteMemory: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -456,7 +456,7 @@ export async function handleBulkDelete(
     }
     return { success: true, data: { deleted } };
   } catch (error) {
-    log("handleBulkDelete: error", { error: String(error) });
+    log("handleBulkDelete: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -531,7 +531,7 @@ export async function handleUpdateMemory(
 
     return { success: true };
   } catch (error) {
-    log("handleUpdateMemory: error", { error: String(error) });
+    log("handleUpdateMemory: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -597,7 +597,7 @@ export async function handleSearch(
           );
           memoryResults.push(...results);
         } catch (error) {
-          log("Shard search error", { shardId: shard.id, error: String(error) });
+          log("Shard search error", { shardId: shard.id, error: String(error) }, "error");
         }
       }
       const projectPath = await getProjectPathFromTag(tag);
@@ -615,7 +615,7 @@ export async function handleSearch(
       for (const containerTag of uniqueTags) {
         const parsed = tryExtractScopeFromContainerTag(containerTag);
         if (!parsed) {
-          log("Skipping invalid container_tag during global search", { containerTag });
+          log("Skipping invalid container_tag during global search", { containerTag }, "warn");
           continue;
         }
         const { scope, hash } = parsed;
@@ -630,7 +630,7 @@ export async function handleSearch(
             );
             memoryResults.push(...results);
           } catch (error) {
-            log("Shard search error", { shardId: shard.id, error: String(error) });
+            log("Shard search error", { shardId: shard.id, error: String(error) }, "error");
           }
         }
       }
@@ -745,7 +745,7 @@ export async function handleSearch(
 
     return { success: true, data: { items: paginatedResults, total, page, pageSize, totalPages } };
   } catch (error) {
-    log("handleSearch: error", { error: String(error) });
+    log("handleSearch: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -784,7 +784,7 @@ export async function handleStats(): Promise<
       },
     };
   } catch (error) {
-    log("handleStats: error", { error: String(error) });
+    log("handleStats: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -803,7 +803,7 @@ export async function handlePinMemory(id: string): Promise<ApiResponse<void>> {
     }
     return { success: false, error: "Memory not found" };
   } catch (error) {
-    log("handlePinMemory: error", { error: String(error) });
+    log("handlePinMemory: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -822,7 +822,7 @@ export async function handleUnpinMemory(id: string): Promise<ApiResponse<void>> 
     }
     return { success: false, error: "Memory not found" };
   } catch (error) {
-    log("handleUnpinMemory: error", { error: String(error) });
+    log("handleUnpinMemory: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -835,7 +835,7 @@ export async function handleRunCleanup(): Promise<
     const result = await cleanupService.runCleanup();
     return { success: true, data: result };
   } catch (error) {
-    log("handleRunCleanup: error", { error: String(error) });
+    log("handleRunCleanup: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -848,7 +848,7 @@ export async function handleRunDeduplication(): Promise<
     const result = await deduplicationService.detectAndRemoveDuplicates();
     return { success: true, data: result };
   } catch (error) {
-    log("handleRunDeduplication: error", { error: String(error) });
+    log("handleRunDeduplication: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -866,7 +866,7 @@ export async function handleDetectMigration(): Promise<
     const result = await migrationService.detectDimensionMismatch();
     return { success: true, data: result };
   } catch (error) {
-    log("handleDetectMigration: error", { error: String(error) });
+    log("handleDetectMigration: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -886,7 +886,7 @@ export async function handleRunMigration(strategy: "fresh-start" | "re-embed"): 
     const result = await migrationService.migrateToNewModel(strategy);
     return { success: result.success, data: result };
   } catch (error) {
-    log("handleRunMigration: error", { error: String(error) });
+    log("handleRunMigration: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -907,7 +907,7 @@ export async function handleDeletePrompt(
     await userPromptManager.deletePrompt(id);
     return { success: true, data: { deletedMemory } };
   } catch (error) {
-    log("handleDeletePrompt: error", { error: String(error) });
+    log("handleDeletePrompt: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -925,7 +925,7 @@ export async function handleBulkDeletePrompts(
     }
     return { success: true, data: { deleted } };
   } catch (error) {
-    log("handleBulkDeletePrompts: error", { error: String(error) });
+    log("handleBulkDeletePrompts: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -968,7 +968,7 @@ export async function handleGetUserProfile(userId?: string): Promise<ApiResponse
       },
     };
   } catch (error) {
-    log("handleGetUserProfile: error", { error: String(error) });
+    log("handleGetUserProfile: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -991,7 +991,7 @@ export async function handleGetProfileChangelog(
     }));
     return { success: true, data: formattedChangelogs };
   } catch (error) {
-    log("handleGetProfileChangelog: error", { error: String(error) });
+    log("handleGetProfileChangelog: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -1012,7 +1012,7 @@ export async function handleGetProfileSnapshot(changelogId: string): Promise<Api
       },
     };
   } catch (error) {
-    log("handleGetProfileSnapshot: error", { error: String(error) });
+    log("handleGetProfileSnapshot: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -1046,7 +1046,7 @@ export async function handleRefreshProfile(userId?: string): Promise<ApiResponse
       },
     };
   } catch (error) {
-    log("handleRefreshProfile: error", { error: String(error) });
+    log("handleRefreshProfile: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -1059,7 +1059,11 @@ async function categoryCleanupUser(userId?: string): Promise<string> {
 
 function categoryCleanupError(step: string, error: unknown): ApiResponse<never> {
   // The log never holds category names or descriptions, so only the error's kind is kept.
-  log(`category cleanup ${step}: error`, { code: error instanceof Error ? error.name : "unknown" });
+  log(
+    `category cleanup ${step}: error`,
+    { code: error instanceof Error ? error.name : "unknown" },
+    "error"
+  );
   return { success: false, error: String(error) };
 }
 
@@ -1198,7 +1202,7 @@ export async function handleUpdateProfileItem(body?: any): Promise<ApiResponse<a
       data: { message: `${action} successful`, version: profile.version + 1 },
     };
   } catch (error) {
-    log("handleUpdateProfileItem: error", { error: String(error) });
+    log("handleUpdateProfileItem: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
 }
@@ -1327,7 +1331,7 @@ export async function handleRunTagMigrationBatch(
       } catch (e) {
         const errorMsg = String(e);
         migrationProgress.errors.push(errorMsg);
-        log("Migration error for memory", { id: item.id, error: errorMsg });
+        log("Migration error for memory", { id: item.id, error: errorMsg }, "error");
       } finally {
         migrationProgress.processed++;
       }
