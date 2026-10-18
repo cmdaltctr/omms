@@ -6,8 +6,9 @@ import {
   sniffImageType,
 } from "../src/lib/avatar-image";
 
-const blob = (bytes: number[], pad = 0) =>
-  new Blob([new Uint8Array([...bytes, ...new Array(pad).fill(0)])]);
+// Allocate the padding directly. Spreading millions of items into an array took
+// 10 seconds on the slow Intel macOS runner and failed a release.
+const blob = (bytes: number[], pad = 0) => new Blob([new Uint8Array(bytes), new Uint8Array(pad)]);
 
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const JPEG = [0xff, 0xd8, 0xff, 0xe0];
