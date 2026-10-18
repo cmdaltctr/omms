@@ -2,6 +2,20 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.26.0](https://github.com/cmdaltctr/omms/compare/v4.25.1...v4.26.0) (2026-10-18)
+
+
+### Features
+
+* add log levels and a live Settings log ([d61641c](https://github.com/cmdaltctr/omms/commit/d61641c9d9dfffe5f230d1b918c28976e22179ec))
+* organise the Memory page by host and add log levels ([a3b23b5](https://github.com/cmdaltctr/omms/commit/a3b23b5cdd998b085d9a28a42a3a1f50c93537a0))
+* **web:** organise the Memory page by host ([ec06f72](https://github.com/cmdaltctr/omms/commit/ec06f723e21530e2e9073fc711a4e702a5208375))
+
+
+### Bug Fixes
+
+* **importer:** keep unresolved folders after a backfill and answer Run now ([36fd8b5](https://github.com/cmdaltctr/omms/commit/36fd8b51f8f6fc98f6961254761463b880cb9d32))
+
 ## [4.25.1](https://github.com/cmdaltctr/omms/compare/v4.25.0...v4.25.1) (2026-10-18)
 
 
