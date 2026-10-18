@@ -74,7 +74,7 @@ export async function askQuestion(
   if (isFullyPrivate(input.question)) {
     return fail(400, "private", "The question is fully private");
   }
-  const question = stripPrivateContent(input.question).trim();
+  let question = stripPrivateContent(input.question).trim();
   if (!question) return fail(400, "empty", "A question is required");
   if (question.length > MAX_QUESTION_CHARS) {
     return fail(400, "too_long", `Questions have at most ${MAX_QUESTION_CHARS} characters`);
@@ -92,6 +92,8 @@ export async function askQuestion(
   if (input.retry && last?.role === "assistant" && last.errorCode && userTurn?.role === "user") {
     await deps.store.deleteMessage(last.id);
     history = history.slice(0, -2);
+    // Answer the question that was stored, whatever text the request carries.
+    question = userTurn.content;
   } else {
     if (found.messages.length === 0 && found.conversation.title === DEFAULT_TITLE) {
       await deps.store.renameConversation(conversationId, question.slice(0, TITLE_CHARS));

@@ -27,6 +27,15 @@ describe("tagMatchBoost", () => {
     expect(tagMatchBoost("修复用户界面的问题", "用户界面")).toBe(1);
   });
 
+  it("matches a one-character query word only to a whole tag", () => {
+    expect(tagMatchBoost("C language", "c")).toBe(0.5);
+    expect(tagMatchBoost("a build", "c")).toBe(0);
+  });
+
+  it("finds a part of a hyphenated tag inside a query without spaces", () => {
+    expect(tagMatchBoost("请修复界面的问题", "用户-界面")).toBe(1);
+  });
+
   it("returns 0 without words or tags", () => {
     expect(tagMatchBoost(undefined, "ui")).toBe(0);
     expect(tagMatchBoost("ui", "")).toBe(0);

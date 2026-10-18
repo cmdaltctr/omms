@@ -37,7 +37,10 @@ export function FolderRow({ name, count, actions, onSelectAll, children }: Props
           />
           <Icon className="size-3.5 shrink-0" aria-hidden="true" />
           <span className="min-w-0 truncate uppercase tracking-wide">{name}</span>
-          <span className="tabular-nums" aria-label={t("chat-folder-count", { count })}>
+          <span
+            className="tabular-nums"
+            aria-label={t(count === 1 ? "chat-folder-count-one" : "chat-folder-count", { count })}
+          >
             {count}
           </span>
         </button>

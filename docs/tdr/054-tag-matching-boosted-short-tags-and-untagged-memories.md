@@ -17,7 +17,7 @@ Search scores a memory as 0.6 × content similarity + 0.4 × the larger of tag-v
 
 ## Decision
 
-Matching moved to `src/services/turso/tag-match.ts` (`tagMatchBoost`). A query word matches when it equals a whole tag or one part of a hyphenated tag (`code` matches `claude-code`). Tags in Han, Hiragana, Katakana, or Thai still match inside a query, because those scripts have no spaces. A test file checks each case. The old test now expects 0.6 for an untagged memory.
+Matching moved to `src/services/turso/tag-match.ts` (`tagMatchBoost`). A query word matches when it equals a whole tag or one part of a hyphenated tag (`code` matches `claude-code`). Tags in Han, Hiragana, Katakana, or Thai still match inside a query, because those scripts have no spaces, and so do the parts of a hyphenated tag in those scripts. A one-character query word counts only when it equals a whole tag (`C language` matches the tag `c`). Code review of the pull request found both gaps. A test file checks each case. The old test now expects 0.6 for an untagged memory.
 
 ## Consequences
 

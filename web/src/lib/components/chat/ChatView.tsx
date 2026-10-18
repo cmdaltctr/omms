@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Info, MessagesSquare, X } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
 import { useI18n } from "$lib/i18n";
@@ -18,11 +18,21 @@ export function ChatView() {
   const { t } = useI18n();
   const chat = useChat();
   const [listOpen, setListOpen] = useState(false);
+  const listButton = useRef<HTMLButtonElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<DeleteRequest | null>(null);
   const [naming, setNaming] = useState<NameRequest | null>(null);
   const [source, setSource] = useState<ChatSource | null>(null);
+
+  // The narrow-screen panel is a modal: take focus when it opens and give it back when it closes.
+  useEffect(() => {
+    if (!listOpen) return;
+    const trigger = listButton.current;
+    closeButton.current?.focus();
+    return () => trigger?.focus();
+  }, [listOpen]);
 
   const missing = new Set(chat.detail?.missingMemoryIds ?? []);
   const readOnly = chat.list.readOnly;
@@ -65,6 +75,9 @@ export function ChatView() {
           role="dialog"
           aria-modal="true"
           aria-label={t("chat-show-list")}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setListOpen(false);
+          }}
         >
           <button
             type="button"
@@ -76,6 +89,7 @@ export function ChatView() {
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">{t("chat-conversations")}</span>
               <Button
+                ref={closeButton}
                 type="button"
                 variant="ghost"
                 size="icon-sm"
@@ -92,7 +106,13 @@ export function ChatView() {
 
       <section className="flex min-h-0 min-w-0 flex-col gap-4">
         <div className="flex items-center gap-2 md:hidden">
-          <Button type="button" variant="outline" size="sm" onClick={() => setListOpen(true)}>
+          <Button
+            ref={listButton}
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setListOpen(true)}
+          >
             <MessagesSquare />
             {t("chat-show-list")}
           </Button>

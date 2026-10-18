@@ -16,7 +16,7 @@ Profile learning asks the model for up to 3 example prompts as evidence per item
 
 ## Decision
 
-`recordUserPrompt` now removes `<private>` text with `stripPrivateContent` before saving, and does not save a fully private prompt (`isFullyPrivate`). Both OpenCode entry points (V1 `chat.message`, V2 `prompt`) use this function. Pi does not store live prompts. A test mocks the prompt manager and fails without the fix.
+`recordUserPrompt` now removes `<private>` text with `stripPrivateContent` before saving, and does not save a fully private prompt (`isFullyPrivate`). Code review found that `isFullyPrivate` was false for a prompt made of several private regions, because it compared the result with one `[REDACTED]` marker. It now removes every marker before it checks, which also fixes the other callers. Both OpenCode entry points (V1 `chat.message`, V2 `prompt`) use this function. Pi does not store live prompts. A test mocks the prompt manager and fails without the fix.
 
 ## Consequences
 

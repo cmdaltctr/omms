@@ -163,6 +163,25 @@ describe("askQuestion", () => {
     ]);
   });
 
+  it("answers the stored question on retry, not the text in the request", async () => {
+    const t = await setup({ plan_search: goodPlan, answer: new Error("down") });
+    await t.askQuestion(t.conversation.id, { question: "npm or bun?", scopeTag: "p_a" }, t.deps);
+    const seen: string[] = [];
+    (t.deps as any).callTool = async (_s: string, user: string, tool: any) => {
+      seen.push(user);
+      return tool.function.name === "plan_search" ? goodPlan : goodAnswer;
+    };
+    await t.askQuestion(
+      t.conversation.id,
+      { question: "something else entirely", scopeTag: "p_a", retry: true },
+      t.deps
+    );
+    expect(seen.join("\n")).toContain("npm or bun?");
+    expect(seen.join("\n")).not.toContain("something else entirely");
+    const full = await t.store.getConversation(t.conversation.id);
+    expect(full!.messages[0]!.content).toBe("npm or bun?");
+  });
+
   it("logs no question, answer, or source text", async () => {
     const t = await setup({ plan_search: goodPlan, answer: goodAnswer });
     await t.askQuestion(t.conversation.id, { question: "npm or bun?", scopeTag: "p_a" }, t.deps);

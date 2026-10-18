@@ -62,7 +62,10 @@ export function deleteBody(
   request: DeleteRequest,
   t: (key: string, params?: Record<string, string | number>) => string
 ): string {
-  return request.kind === "folder"
-    ? t("chat-delete-folder-body", { name: request.name, count: request.count })
-    : t("chat-delete-chats-body", { count: request.ids.length });
+  if (request.kind === "folder") {
+    const key = request.count === 1 ? "chat-delete-folder-body-one" : "chat-delete-folder-body";
+    return t(key, { name: request.name, count: request.count });
+  }
+  const count = request.ids.length;
+  return t(count === 1 ? "chat-delete-chats-body-one" : "chat-delete-chats-body", { count });
 }

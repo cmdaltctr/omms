@@ -16,15 +16,16 @@ function tokens(text: string): string[] {
  * words like "build" or "guide", which pushed weak results up.
  */
 export function tagMatchBoost(queryText: string | undefined, tagsCsv: string): number {
-  const words = tokens(queryText ?? "").filter((word) => word.length > 1);
   const tags = tagsCsv
     .split(",")
     .map((tag) => tag.trim().toLowerCase())
     .filter((tag) => tag.length > 0);
+  // A one-character word counts only when it is a whole tag ("C language", tag "c").
+  const words = tokens(queryText ?? "").filter((word) => word.length > 1 || tags.includes(word));
   if (words.length === 0 || tags.length === 0) return 0;
 
   const tagParts = new Set(tags.flatMap((tag) => [tag, ...tokens(tag)]));
-  const unspacedTags = tags.filter((tag) => UNSPACED_SCRIPT.test(tag));
+  const unspacedTags = [...tagParts].filter((part) => UNSPACED_SCRIPT.test(part));
   const matches = words.filter(
     (word) => tagParts.has(word) || unspacedTags.some((tag) => word.includes(tag))
   ).length;
