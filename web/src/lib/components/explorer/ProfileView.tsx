@@ -3,7 +3,6 @@ import {
   Activity,
   Heart,
   RotateCcwClock,
-  Info,
   Pencil,
   RefreshCw,
   Sparkles,
@@ -17,6 +16,8 @@ import { AutoCleanupUndo } from "./AutoCleanupUndo";
 import { CategoryCleanupBanner } from "./CategoryCleanupBanner";
 import { ChangelogDialog } from "./ChangelogDialog";
 import { keywordHue } from "./KeywordBadge";
+import { ProfileEvidenceButton } from "./ProfileEvidenceButton";
+import { ProfileEvidenceDialog } from "./ProfileEvidenceDialog";
 import { ProfileItemDialog } from "./ProfileItemDialog";
 import { Badge } from "$lib/components/ui/badge";
 import { Button } from "$lib/components/ui/button";
@@ -24,7 +25,12 @@ import { InfoPopover } from "$lib/components/ui/info-popover";
 import { formatDate } from "$lib/format";
 import { useI18n } from "$lib/i18n";
 import { cn } from "$lib/utils";
-import { CONFIDENCE_CLASSES, confidenceLevel, parseProfileField } from "$lib/profile-utils";
+import {
+  CONFIDENCE_CLASSES,
+  confidenceLevel,
+  evidenceItems,
+  parseProfileField,
+} from "$lib/profile-utils";
 import type { ProfileItem, UserProfile } from "$lib/types";
 
 type ProfileField = "preferences" | "patterns" | "workflows";
@@ -59,16 +65,6 @@ function confidencePct(item: ProfileItem) {
   return Math.round((item.confidence || 0) * 100);
 }
 
-function evidenceTitle(item: ProfileItem) {
-  if (!item.evidence) return "";
-  return Array.isArray(item.evidence) ? item.evidence.join("\n") : item.evidence;
-}
-
-function evidenceCount(item: ProfileItem) {
-  if (!item.evidence) return 0;
-  return Array.isArray(item.evidence) ? item.evidence.length : 1;
-}
-
 export function ProfileView({
   profile,
   loading = false,
@@ -85,6 +81,11 @@ export function ProfileView({
   const [itemIndex, setItemIndex] = useState(0);
   const [itemAction, setItemAction] = useState<"edit" | "delete">("edit");
   const [itemData, setItemData] = useState<ProfileItem | null>(null);
+  const [evidence, setEvidence] = useState<{
+    item: ProfileItem;
+    section: ProfileField;
+    focusKey: string;
+  } | null>(null);
 
   const profileData = useMemo(() => {
     if (!profile?.exists || !profile.profileData) return null;
@@ -241,13 +242,14 @@ export function ProfileView({
               <Target className="size-3" />
               {item.frequency || 1}
             </span>
-            {evidenceCount(item) > 0 ? (
+            {evidenceItems(item).length > 0 ? (
               <>
                 <span>·</span>
-                <span className="inline-flex items-center gap-1" title={evidenceTitle(item)}>
-                  <Info className="size-3" />
-                  {evidenceCount(item)} evidence
-                </span>
+                <ProfileEvidenceButton
+                  item={item}
+                  focusKey={`${type}-${idx}`}
+                  onOpen={() => setEvidence({ item, section: type, focusKey: `${type}-${idx}` })}
+                />
               </>
             ) : null}
           </div>
@@ -424,6 +426,15 @@ export function ProfileView({
         action={itemAction}
         item={itemData}
         onSaved={onRefresh}
+      />
+
+      <ProfileEvidenceDialog
+        item={evidence?.item ?? null}
+        section={evidence?.section ?? "preferences"}
+        focusKey={evidence?.focusKey ?? null}
+        onOpenChange={(open) => {
+          if (!open) setEvidence(null);
+        }}
       />
     </>
   );
