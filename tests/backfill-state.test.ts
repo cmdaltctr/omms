@@ -132,3 +132,59 @@ it("falls back to the run's count when the directory list is full", () => {
   expect(visibleUnresolvedCount(500, full, ["/x/d0"])).toBe(499);
   expect(visibleUnresolvedCount(0, full, ["/x/d0"])).toBe(0);
 });
+
+it("keeps a whole-history list when a later backfill records only history before its cutoff", async () => {
+  directory = mkdtempSync(join(tmpdir(), "omms-unresolved-coverage-"));
+  CONFIG.storagePath = directory;
+  const listing = [
+    { directory: "/private/tmp/oc-mem-phase1/project", sessions: 7 },
+    { directory: "/Users/me/Library/Application Support/Open Design/x", sessions: 13 },
+    { directory: "/private/var/folders/od-conn-test", sessions: 1 },
+  ];
+  await recordUnresolvedDirectories("opencode", listing, 1_000, "full");
+  await recordUnresolvedDirectories("opencode", [], 2_000, "partial");
+  expect(await readUnresolvedDirectories("opencode")).toEqual(listing);
+});
+
+it("lets a backfill record unresolved directories while the host has no whole-history list", async () => {
+  directory = mkdtempSync(join(tmpdir(), "omms-unresolved-coverage-"));
+  CONFIG.storagePath = directory;
+  const early = [{ directory: "/old/tool", sessions: 4 }];
+  await recordUnresolvedDirectories("pi", early, 1_000, "partial");
+  expect(await readUnresolvedDirectories("pi")).toEqual(early);
+  await recordUnresolvedDirectories(
+    "pi",
+    [{ directory: "/old/tool", sessions: 2 }],
+    2_000,
+    "partial"
+  );
+  expect(await readUnresolvedDirectories("pi")).toEqual([{ directory: "/old/tool", sessions: 2 }]);
+});
+
+it("replaces a partial list with a later whole-history list", async () => {
+  directory = mkdtempSync(join(tmpdir(), "omms-unresolved-coverage-"));
+  CONFIG.storagePath = directory;
+  await recordUnresolvedDirectories(
+    "claude-code",
+    [{ directory: "/a", sessions: 1 }],
+    1_000,
+    "partial"
+  );
+  await recordUnresolvedDirectories(
+    "claude-code",
+    [{ directory: "/b", sessions: 5 }],
+    2_000,
+    "full"
+  );
+  expect(await readUnresolvedDirectories("claude-code")).toEqual([
+    { directory: "/b", sessions: 5 },
+  ]);
+});
+
+it("treats a call without a coverage argument as whole-history", async () => {
+  directory = mkdtempSync(join(tmpdir(), "omms-unresolved-coverage-"));
+  CONFIG.storagePath = directory;
+  await recordUnresolvedDirectories("pi", [{ directory: "/a", sessions: 1 }], 1_000);
+  await recordUnresolvedDirectories("pi", [], 2_000, "partial");
+  expect(await readUnresolvedDirectories("pi")).toEqual([{ directory: "/a", sessions: 1 }]);
+});

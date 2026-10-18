@@ -145,22 +145,40 @@ export function visibleUnresolvedCount(
 }
 
 /**
- * Save the unresolved directories of a host's latest full run or listing. They
+ * How much history a saved unresolved list covers. A `partial` list comes from
+ * a run limited to history before a cutoff or a date range; it never replaces
+ * a `full` list, which covers the host's whole source.
+ */
+export type UnresolvedCoverage = "full" | "partial";
+
+/**
+ * Save the unresolved directories of a host's latest run or listing. They
  * live in their own table, so recording them never sets a backfill cutoff.
  */
 export async function recordUnresolvedDirectories(
   host: BackfillHost,
   directories: UnresolvedDirectory[],
-  now = Date.now()
+  now = Date.now(),
+  coverage: UnresolvedCoverage = "full"
 ): Promise<void> {
   const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
   await db.run(`CREATE TABLE IF NOT EXISTS unresolved_directories (
     host TEXT PRIMARY KEY, directories TEXT NOT NULL, updated_at INTEGER NOT NULL
   )`);
+  try {
+    await db.run(
+      "ALTER TABLE unresolved_directories ADD COLUMN coverage TEXT NOT NULL DEFAULT 'full'"
+    );
+  } catch (error) {
+    if (!String((error as Error)?.message ?? error).includes("duplicate column")) throw error;
+  }
+  // One statement keeps two processes writing at once correct.
   await db.run(
-    `INSERT INTO unresolved_directories (host, directories, updated_at) VALUES (?, ?, ?)
-     ON CONFLICT(host) DO UPDATE SET directories = excluded.directories, updated_at = excluded.updated_at`,
-    [host, JSON.stringify(directories.slice(0, MAX_UNRESOLVED_DIRECTORIES)), now]
+    `INSERT INTO unresolved_directories (host, directories, updated_at, coverage) VALUES (?, ?, ?, ?)
+     ON CONFLICT(host) DO UPDATE SET directories = excluded.directories,
+       updated_at = excluded.updated_at, coverage = excluded.coverage
+     WHERE unresolved_directories.coverage = 'partial' OR excluded.coverage = 'full'`,
+    [host, JSON.stringify(directories.slice(0, MAX_UNRESOLVED_DIRECTORIES)), now, coverage]
   );
 }
 

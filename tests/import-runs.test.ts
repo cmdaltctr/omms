@@ -8,6 +8,10 @@ import { scheduleAutoBackfill } from "../src/importer/auto-backfill.js";
 import { tryAcquireBackfillLock } from "../src/importer/backfill-lock.js";
 import { readImportRun, setBackfillPaused, startImportRun } from "../src/importer/import-runs.js";
 import { runHistoryImport } from "../src/importer/run-import.js";
+import {
+  readUnresolvedDirectories,
+  recordUnresolvedDirectories,
+} from "../src/services/backfill-state.js";
 import { tursoConnectionManager } from "../src/services/turso/connection-manager.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
@@ -249,4 +253,83 @@ describe("pausing a backfill", () => {
       expect(calls).toEqual([true]);
     });
   }
+
+  it("records a finished run when the user starts a backfill with nothing pending", async () => {
+    const directory = store();
+    // A stale record from an earlier process, as left on disk on 9 October.
+    const earlier = await startImportRun("opencode", "cli", { intervalMs: 0 });
+    await earlier.finish("stopped", {});
+    const before = (await readImportRun("opencode"))!;
+    await scheduleAutoBackfill({
+      host: "opencode",
+      cwd: directory,
+      userStarted: true,
+      surface: "web",
+      notify: () => {},
+      resolveModels: async () => ({ model: "external/m", models: {} }),
+      run: async () =>
+        ({
+          unitsWouldImport: 0,
+          unitsImported: 0,
+          unitsSkipped: 0,
+          unitsFailed: 0,
+          unresolvableSessions: [],
+          unresolvedProjects: [],
+        }) as never,
+    } as never);
+    const after = (await readImportRun("opencode"))!;
+    expect(after.state).toBe("done");
+    expect(after.surface).toBe("web");
+    expect(after.total).toBe(0);
+    expect(after.updatedAt!).toBeGreaterThan(before.updatedAt!);
+  });
+
+  it("leaves the run record alone when an automatic backfill finds nothing pending", async () => {
+    const directory = store();
+    const earlier = await startImportRun("pi", "cli", { intervalMs: 0 });
+    await earlier.finish("done", {});
+    const before = (await readImportRun("pi"))!;
+    await scheduleAutoBackfill({
+      host: "pi",
+      cwd: directory,
+      wait: async () => {},
+      enabled: () => true,
+      notify: () => {},
+      resolveModels: async () => ({ model: "external/m", models: {} }),
+      run: async () =>
+        ({
+          unitsWouldImport: 0,
+          unitsImported: 0,
+          unitsSkipped: 0,
+          unitsFailed: 0,
+          unresolvableSessions: [],
+          unresolvedProjects: [],
+        }) as never,
+    } as never);
+    expect((await readImportRun("pi"))!.updatedAt).toBe(before.updatedAt!);
+  });
+
+  it("keeps a session listing's unresolved directories when a later backfill finds none", async () => {
+    const directory = store();
+    const listed = [{ directory: "/private/tmp/oc-mem-phase1/project", sessions: 21 }];
+    await recordUnresolvedDirectories("opencode", listed);
+    await scheduleAutoBackfill({
+      host: "opencode",
+      cwd: directory,
+      wait: async () => {},
+      enabled: () => true,
+      notify: () => {},
+      resolveModels: async () => ({ model: "external/m", models: {} }),
+      run: async () =>
+        ({
+          unitsWouldImport: 0,
+          unitsImported: 0,
+          unitsSkipped: 0,
+          unitsFailed: 0,
+          unresolvableSessions: [],
+          unresolvedProjects: [],
+        }) as never,
+    } as never);
+    expect(await readUnresolvedDirectories("opencode")).toEqual(listed);
+  });
 });
