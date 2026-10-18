@@ -1,6 +1,7 @@
 import { cleanupResponse } from "./cleanup-fixtures";
 import { settingsResponse } from "./settings-fixtures";
 import { memoryResponse } from "./memory-fixtures";
+import { chatResponse } from "./chat-fixtures";
 
 const timestamp = "2026-10-03T12:00:00.000Z";
 const memories = [
@@ -152,6 +153,8 @@ export function fixtureResponse(
   if (settings) return settings;
   const cleanup = cleanupResponse(method, path, body);
   if (cleanup) return cleanup;
+  const chat = chatResponse(method, path, body);
+  if (chat) return chat;
 
   if (method === "PUT" && path === "/api/memories/preview-memory-1") {
     const content = (body as { content?: unknown })?.content;

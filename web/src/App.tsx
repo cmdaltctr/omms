@@ -13,6 +13,7 @@ import { ProfileView } from "$lib/components/explorer/ProfileView";
 import { TagMigrationDialog } from "$lib/components/explorer/TagMigrationDialog";
 import { SettingsView } from "$lib/components/settings/SettingsView";
 import { MemoryView } from "$lib/components/memory/MemoryView";
+import { ChatView } from "$lib/components/chat/ChatView";
 import { MEMORY_SECTIONS } from "$lib/memory-sections";
 import { Alert, AlertDescription } from "$lib/components/ui/alert";
 import { Button } from "$lib/components/ui/button";
@@ -115,6 +116,7 @@ export default function App() {
           brand={t("brand")}
           projectLabel={t("tab-project")}
           profileLabel={t("tab-profile")}
+          chatLabel={t("nav-chat")}
           profileSections={[
             { id: "profile-preferences", label: t("profile-preferences") },
             { id: "profile-patterns", label: t("profile-patterns") },
@@ -177,7 +179,9 @@ export default function App() {
                     ? t("tab-profile")
                     : currentView === "memory"
                       ? translateSettings("Memory", language)
-                      : t("nav-settings")}
+                      : currentView === "chat"
+                        ? t("nav-chat")
+                        : t("nav-settings")}
               </h1>
               {currentView === "project" ? (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -430,6 +434,8 @@ export default function App() {
               </>
             ) : currentView === "memory" ? (
               <MemoryView />
+            ) : currentView === "chat" ? (
+              <ChatView />
             ) : currentView === "settings" ? (
               <SettingsView />
             ) : (

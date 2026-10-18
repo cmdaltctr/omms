@@ -51,7 +51,7 @@ import {
   handleCategoryCleanupUndo,
   handleUpdateProfileItem,
 } from "./api-handlers.js";
-import { routeProfileCleanup } from "./profile-cleanup-routes.js";
+import { routeModules } from "./web-route-modules.js";
 
 /**
  * Runtime-portable HTTP server handle.
@@ -1658,10 +1658,9 @@ export class WebServer {
         return this.jsonResponse(result);
       }
 
-      const cleanup = await routeProfileCleanup(path, method, url, () =>
-        req.json().catch(() => ({}))
-      );
-      if (cleanup !== undefined) return this.jsonResponse(cleanup);
+      const { CONFIG: config } = await import("../config.js");
+      const routed = await routeModules(path, method, url, req, config);
+      if (routed) return this.jsonResponse(routed.body, routed.status);
 
       if (path === "/api/user-profile/category-cleanup" && method === "POST") {
         const body = (await req.json().catch(() => ({}))) as any;
