@@ -193,7 +193,8 @@ describe("turso vector search", () => {
     expect(results.length).toBeGreaterThan(0);
     // The closest target-tag memory must rank first.
     expect(results[0]?.id).toBe("mem_ann_0");
-    expect(results[0]?.similarity).toBeGreaterThan(0.9);
+    // Identical content vector, no tags: content weight 0.6, no tag credit.
+    expect(results[0]?.similarity).toBeCloseTo(0.6);
     // No other-container-tag memories (indices 150-199) should leak through.
     for (const r of results) {
       const idx = Number(r.id.replace("mem_ann_", ""));
