@@ -177,7 +177,7 @@ Search finds memories by meaning and by exact words. A memory that contains a wo
 | `keywordBoost` | 0.1     | Numbers from 0 to 0.5 | Largest score a word match can add. `0` turns keyword matching off and skips the index.                                                                                                                                                                                        |
 | `keywordMode`  | `boost` | `boost` or `rrf`      | How word matches join the results. `boost` adds the bonus above. `rrf` (experimental) merges a meaning list and a word list by rank, so a word match below `similarityThreshold` can be returned. `rrf` is ignored while the reranker is on. `keywordBoost: 0` turns both off. |
 
-A project file can override `keywordBoost`. OMMS builds the word index (a derived table in each project store) on the first search after you upgrade and keeps it in step with saves, edits, and deletes. If the index fails, search continues with meaning and tag matching, and the log holds a code only.
+A project file can override `keywordBoost` and `keywordMode`. OMMS builds the word index (a derived table in each project store) on the first search after you upgrade and keeps it in step with saves, edits, and deletes. If the index fails, search continues with meaning and tag matching, and the log holds a code only.
 
 ## Reranker
 

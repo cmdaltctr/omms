@@ -11,9 +11,9 @@
 ## Answer
 
 - **Question**: Does the keyword boost of 0.10, or RRF with the similarity cut-off applied first, find more relevant memories in the top 10 than meaning alone?
-- **Answer**: The boost: yes. On 58 prompts with a relevant memory, recall@10 rises from 0.55 to 0.63 (+0.08; 21 wins, 8 losses, 29 ties) for 0.40 extra irrelevant memories per prompt. RRF: not shown. It reaches 0.68, which is +0.05 over the boost, but it adds 0.83 irrelevant memories per prompt, loses on more prompts than it wins against the boost (12 wins, 16 losses), and its edge disappears when the newly judged pairs are counted at 0.4 weight (exploratory). (`output/summary.json`, `output/exploratory.json`)
+- **Answer**: The boost: yes. On 58 prompts with a relevant memory, recall@10 rises from 0.54 to 0.62 (+0.08; 21 wins, 8 losses, 29 ties) for 0.40 extra irrelevant memories per prompt. RRF: not shown. It reaches 0.68, which is +0.06 over the boost, but it adds 0.82 irrelevant memories per prompt, loses on more prompts than it wins against the boost (12 wins, 16 losses), and its edge shrinks to +0.003 when the newly judged pairs are counted at 0.4 weight (exploratory). (`output/summary.json`, `output/exploratory.json`)
 - **Decision**: INCONCLUSIVE by the pre-set rule, because gate G6 failed (see Results). Keep `keywordBoost` at 0.1: the keep rule is met and the boost's extra memories are as relevant when judged by the old and the new judge. Do not propose a `keywordMode` setting for RRF now.
-- **How sure**: Low to medium for the boost, low for RRF. One project, one store, 60 prompts used in earlier experiments, and AI-only labels from two judge runs that disagree on 9 of 40 repeated pairs.
+- **How sure**: Low to medium for the boost, low for RRF. One project, one store, 60 prompts used in earlier experiments, and AI-only labels from two judge runs that disagree on 9 of 40 repeated pairs. The labels are Haiku only: the operator's overrides in the merged Experiment 24 file are not used.
 - **Next step**: To settle RRF, re-judge every pool pair with one judge in one run and repeat on fresh prompts (Experiment 26 set). The boost needs no further run before release.
 
 ## Plan (written before the run)
@@ -88,7 +88,7 @@ From the worktree root, one script, three phases:
 
 ## Results
 
-Run on 2026-10-18. Phase 1 reproduced Experiment 24's baseline top 10 for all 60 prompts (G1 and G2 pass, `output/arms.json`). The pool held 923 pairs. 577 already had Experiment 24 v2 labels. Three Haiku judges labelled the other 306 pairs and 40 repeat checks (346 labels; `output/judge_labels_part*.jsonl`). 58 of 60 prompts have a relevant memory in the pool (G4 pass). Every pool pair has a label (G5 pass). The query-builder port passes 16 tests that include the cases from `tests/keyword-search-pure.test.ts` (G3 pass).
+Run on 2026-10-18. Phase 1 reproduced Experiment 24's baseline top 10 for all 60 prompts (G1 and G2 pass, `output/arms.json`). The pool held 923 pairs. 577 already had Experiment 24 v2 Haiku labels (the AI-only part files, `judge_labels_v2_part*.jsonl`). Three Haiku judges labelled the other 306 pairs and 40 repeat checks (346 labels; `output/judge_labels_part*.jsonl`). 58 of 60 prompts have a relevant memory in the pool (G4 pass). Every pool pair has a label (G5 pass). The query-builder port passes 16 tests that include the cases from `tests/keyword-search-pure.test.ts` (G3 pass).
 
 **G6 failed.** The new judge repeated 19 of 20 old "relevant" labels but only 12 of 20 old "not relevant" labels (31 of 40; the rule needed 34, and 15 of 20 in each group). The new judge is more generous than the old one. (`output/summary.json`, `judge_check_agreement`)
 
@@ -96,17 +96,17 @@ Source: `output/summary.json`. Noise is irrelevant memories per prompt over all 
 
 | Arm                      | recall@10 | Relevant per prompt | Noise per prompt | Empty prompts |
 | ------------------------ | --------: | ------------------: | ---------------: | ------------: |
-| A, meaning alone         |     0.550 |                6.65 |             1.78 |             4 |
-| B, boost 0.10            |     0.628 |                6.98 |             2.18 |             3 |
-| C, RRF, cut-off first    |     0.683 |                6.98 |             3.02 |             0 |
+| A, meaning alone         |     0.542 |                6.60 |             1.83 |             4 |
+| B, boost 0.10            |     0.624 |                6.93 |             2.23 |             3 |
+| C, RRF, cut-off first    |     0.684 |                6.95 |             3.05 |             0 |
 
 | Comparison | recall difference | Noise difference | Wins / losses / ties |
 | ---------- | ----------------: | ---------------: | -------------------- |
-| B against A |            +0.078 |            +0.40 | 21 / 8 / 29          |
-| C against B |            +0.054 |            +0.83 | 12 / 16 / 30         |
-| C against A |            +0.133 |            +1.23 | 20 / 15 / 23         |
+| B against A |            +0.082 |            +0.40 | 21 / 8 / 29          |
+| C against B |            +0.060 |            +0.82 | 12 / 16 / 30         |
+| C against A |            +0.142 |            +1.22 | 21 / 15 / 22         |
 
-Pre-set outcomes (void while G6 fails): H1 for the boost is met (gain 0.078 at least 0.03, noise +0.40 at most 0.5). The keep rule is met. H2 for RRF is met on its two numbers (gain 0.054 at least 0.05, noise +0.83 at most 1.0).
+Pre-set outcomes (void while G6 fails): H1 for the boost is met (gain 0.082 at least 0.03, noise +0.40 at most 0.5). The keep rule is met. H2 for RRF is met on its two numbers (gain 0.060 at least 0.05, noise +0.82 at most 1.0).
 
 **Exploratory check (post-hoc, not in the plan).** Because the new judge is more generous, the 306 newly judged pairs may flatter arms B and C, which return most of them. (`output/exploratory.json`)
 
@@ -116,17 +116,17 @@ Pre-set outcomes (void while G6 fails): H1 for the boost is met (gain 0.078 at l
 
 | Weight of new labels | A     | B     | C     |
 | -------------------- | ----: | ----: | ----: |
-| 1.0 (as judged)      | 0.550 | 0.628 | 0.683 |
-| 0.6                  | 0.603 | 0.641 | 0.659 |
-| 0.4                  | 0.638 | 0.650 | 0.644 |
+| 1.0 (as judged)      | 0.542 | 0.624 | 0.684 |
+| 0.6                  | 0.594 | 0.635 | 0.661 |
+| 0.4                  | 0.627 | 0.643 | 0.646 |
 
-B stays ahead of A at every weight, by a shrinking margin. C's lead over B falls from 0.054 to 0.018 at weight 0.6 and reverses at 0.4. The weights are chosen by hand and are not a measured correction.
+B stays ahead of A at every weight, by a shrinking margin. C's lead over B falls from 0.060 to 0.026 at weight 0.6 and to 0.003 at weight 0.4, which is a tie. The weights are chosen by hand and are not a measured correction.
 
 ## Limits
 
 1. The keyword score is a Python port of the TypeScript query builder on an FTS5 index built outside OMMS. The unit test checks the query strings, not every score. Production ranks only vector candidates and keyword hits; this run ranks the whole eligible store. G2 shows that arm A matches.
 2. All labels are AI labels. Old and new labels come from different judge runs and do not agree (G6). The exploratory check does not fix this. A clean answer needs one judge for every pair.
-3. The `judge_labels_v2.jsonl` file includes the operator's 20 labels from Experiment 24, according to that report. The plan said they would not be applied. They cover 20 of 577 old pairs.
+3. The first summary used the merged `judge_labels_v2.jsonl`, which holds the operator's overrides from Experiment 24. A review found this differed from the plan. The summary and the exploratory check were re-run on the AI-only part files, and every figure above comes from that re-run. The conclusions did not change.
 4. The same 60 prompts and 1,519 memories were used in Experiments 24 to 26. The choice of 0.10 was made before this run, so the run tests it, but it is still one project, one embedding model and one store.
 5. recall@10 is relative to the pool of the three arms. A memory that no arm returned is not counted.
 6. RRF with the cut-off applied to every candidate, keyword hits included, only reorders arm A's memories, so it was not tested. RRF constant 60 was fixed and not tuned.

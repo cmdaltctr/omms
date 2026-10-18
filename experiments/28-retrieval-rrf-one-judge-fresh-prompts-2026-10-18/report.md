@@ -22,7 +22,7 @@
 
 ### Why
 
-Experiment 27 was INCONCLUSIVE. Its newly judged pairs came from a more generous judge than its old pairs (gate G6: 31 of 40 repeated labels agreed, 34 needed). RRF's lead over the boost (+0.054) shrank to +0.018 under a sensitivity check. The keyword change ships `keywordMode: "rrf"` as an experimental option, so the operator needs to know whether it earns a stable place. This run removes the judge mix-up and adds a second prompt set.
+Experiment 27 was INCONCLUSIVE. Its newly judged pairs came from a more generous judge than its old pairs (gate G6: 31 of 40 repeated labels agreed, 34 needed). RRF's lead over the boost (+0.060) shrank to +0.003 under a sensitivity check. The keyword change ships `keywordMode: "rrf"` as an experimental option, so the operator needs to know whether it earns a stable place. This run removes the judge mix-up and adds a second prompt set.
 
 ### Data
 
@@ -33,11 +33,11 @@ Experiment 27 was INCONCLUSIVE. Its newly judged pairs came from a more generous
 ### Answer key
 
 - **One judge, one run.** Claude Haiku subagents with the Experiment 27 rule, wording unchanged: relevant means a concrete, usable link (same project, tool, file, bug, decision, convention or preference, or an earlier outcome that bears on the prompt). A shared general topic alone is not relevant. Blind: no arm, rank or score. Pairs are shuffled across both sets and across parts.
-- **Set A pairs**: the 577 pool pairs that only have Experiment 24 labels are judged again. The 306 pairs judged in Experiment 27 keep their labels, because the same rule and model judged them. The Experiment 24 labels are not used.
+- **Set A pairs**: every pool pair of Set A (the 923 pairs of Experiment 27) is judged again in this run. No label from Experiment 24 or Experiment 27 is reused, so one judge in one run labels every pair.
 - **Set B pairs**: every pool pair (the union of the top-10 lists of A, B and C), about 920.
 - **Stability check**: 40 pairs (20 labelled relevant, 20 not, chosen with seed 28 from the Experiment 27 labels) are placed in two different parts and judged twice. The two answers are compared.
 - **Operator**: labels nothing. All labels are AI labels.
-- **Cost**: about 1,540 pairs in 11 parts of about 140. That is 11 Haiku subagents, roughly 2.3 million tokens.
+- **Cost**: about 1,880 pairs (923 for Set A, about 920 for Set B, 40 repeats) in 13 parts of about 145. That is 13 Haiku subagents, roughly 2.7 million tokens.
 
 ### Measures
 

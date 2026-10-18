@@ -17,7 +17,7 @@
 **Non-Goals:**
 
 - A model step in the hooks (ADR-033).
-- Reciprocal rank fusion. It replaces scores with ranks and breaks the meaning of the similarity threshold and the reranker input.
+- Reciprocal rank fusion as the default or as a replacement for the boost. It replaces scores with ranks and breaks the meaning of the similarity threshold and the reranker input. It is offered only as an experimental option (Decision 9).
 - Chinese or Japanese word search through the keyword index (see Decision 2).
 - Changing session-start injection (`buildRecentMemoriesSection`). It has no prompt.
 

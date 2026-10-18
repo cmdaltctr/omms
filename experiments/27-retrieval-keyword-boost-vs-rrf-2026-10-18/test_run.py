@@ -77,6 +77,21 @@ class Rrf(unittest.TestCase):
         self.assertEqual(run.rrf_rank([], []), [])
 
 
+class Labels(unittest.TestCase):
+    def test_missing_pairs_are_reported_not_raised(self):
+        arms = {"p1": {"A": ["m1"], "B": ["m1", "m2"], "C": ["m3"]}}
+        labels = {("p1", "m1"): 1, ("p1", "m3"): 0}
+        self.assertEqual(run.missing_pairs(arms, labels), [("p1", "m2")])
+
+    def test_no_missing_pairs(self):
+        arms = {"p1": {"A": ["m1"], "B": ["m1"], "C": ["m1"]}}
+        self.assertEqual(run.missing_pairs(arms, {("p1", "m1"): 1}), [])
+
+    def test_ai_only_labels_do_not_read_the_merged_file(self):
+        names = run.OLD_LABEL_GLOB
+        self.assertEqual(names, "judge_labels_v2_part*.jsonl")
+
+
 class Summary(unittest.TestCase):
     def test_recall_noise_and_wins(self):
         arms = {"p1": {"A": ["m1"], "B": ["m1", "m2"], "C": ["m3"]},

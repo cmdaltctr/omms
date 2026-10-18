@@ -3,7 +3,7 @@
 - **Date:** 2026-10-18
 - **Status:** Accepted
 - **Deciders:** Aizat Hawari
-- **Change:** `hook-search-keywords-and-profile` (`openspec/changes/hook-search-keywords-and-profile/`)
+- **Change:** `hook-search-keywords-and-profile` (archived: `openspec/changes/archive/2026-10-18-hook-search-keywords-and-profile/`)
 
 ## Context
 
@@ -51,7 +51,7 @@ The hooks run on every prompt in three hosts with a 10-second limit. They cannot
 ## Revisit Triggers
 
 - The live check (task 6.1) or later use shows weak common-word matches in the top results. Then change the boost to depend on match strength.
-- A repeat of Experiment 27 with one judge for every pair, on fresh prompts, shows RRF raising recall@10 by 0.05 or more over the boost. Experiment 27 was inconclusive (judge gate failed): the boost gained +0.08 recall@10 over meaning alone, and RRF's extra +0.05 came with 0.8 more irrelevant memories per prompt and faded under a sensitivity check. Then propose a `keywordMode` setting.
+- A repeat of Experiment 27 with one judge for every pair (Experiment 28, planned) shows RRF raising recall@10 by 0.05 or more over the boost on both prompt sets. Experiment 27 was inconclusive (judge gate failed): the boost gained +0.08 recall@10 over meaning alone, and RRF's extra +0.06 came with 0.8 more irrelevant memories per prompt and shrank to +0.003 under a sensitivity check. Then drop the "(experimental)" label and decide whether `rrf` should become the default.
 - The store holds enough Chinese, Japanese or Arabic text to make `trigram` worth its cost.
 
 ## References

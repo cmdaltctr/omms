@@ -136,13 +136,24 @@ def phase_arms():
 
 # --- Phase 2: pool ---------------------------------------------------------------------------
 
+# The AI-only Haiku labels of Experiment 24. The merged judge_labels_v2.jsonl also holds the
+# operator's overrides, which the plan does not use.
+OLD_LABEL_GLOB = "judge_labels_v2_part*.jsonl"
+
+
 def load_old_labels():
     keys = {p["pair_id"]: (p["prompt_id"], p["memory_id"]) for p in r.read_json(DATA24 / "pair_key.json")}
     labels = {}
-    for line in (DATA24 / "judge_labels_v2.jsonl").read_text().splitlines():
-        item = json.loads(line)
-        labels[keys[item["pair_id"]]] = int(item["relevant"])
+    for path in sorted(DATA24.glob(OLD_LABEL_GLOB)):
+        for line in path.read_text().splitlines():
+            item = json.loads(line)
+            labels[keys[item["pair_id"]]] = int(item["relevant"])
     return labels
+
+
+def missing_pairs(arms, label_map):
+    """Pool pairs that no judge labelled. Checked before scoring so a gap sets G5 instead of raising."""
+    return [(p, m) for p, a in arms.items() for arm in ARMS for m in a[arm] if (p, m) not in label_map]
 
 
 def phase_pool():
@@ -211,8 +222,13 @@ def phase_summarise():
     new = {(k["prompt_id"], k["memory_id"]): judged.get(k["pair_id"]) for k in key if k["kind"] == "new"}
     check = [(old[(k["prompt_id"], k["memory_id"])], judged.get(k["pair_id"])) for k in key if k["kind"] == "check"]
     label_map = {**old, **{k: v for k, v in new.items() if v is not None}}
-    missing = [(p, m) for p, a in arms.items() for arm in ARMS for m in a[arm] if (p, m) not in label_map]
+    missing = missing_pairs(arms, label_map)
     agree = {g: sum(o == n for o, n in check if o == g) for g in (1, 0)}
+    if missing:
+        summary = {"gates": {"G5": False}, "unlabelled": len(missing), "judge_check_agreement": agree}
+        r.atomic_json(OUT / "summary.json", summary)
+        print(json.dumps(summary, indent=1))
+        return
     result = summarise_arms(arms, lambda p, m: label_map[(p, m)])
     gates = {"G1": bool(state["meta"].get("G1")), "G2": bool(state["meta"].get("G2")),
              "G4": result["prompts_with_relevant"] >= 40, "G5": not missing,
