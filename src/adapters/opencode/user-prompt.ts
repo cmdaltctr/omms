@@ -1,6 +1,7 @@
 import { isStructuredSummaryPromptMessage } from "../../core/internal-prompt.js";
 import { isInternalStructuredSession } from "./opencode-provider.js";
 import { userPromptManager } from "../../services/user-prompt/user-prompt-manager.js";
+import { isFullyPrivate, stripPrivateContent } from "../../services/privacy.js";
 
 export { isStructuredSummaryPromptMessage };
 
@@ -21,6 +22,14 @@ export async function recordUserPrompt(
   userMessage: string
 ): Promise<boolean> {
   if (!userMessage.trim() || isInternalPrompt(sessionID, userMessage)) return false;
-  await userPromptManager.savePrompt(sessionID, messageID, directory, userMessage);
+  // Profile learning quotes saved prompts as evidence, so <private> text must
+  // never reach the store (the Claude Code hook strips it the same way).
+  if (isFullyPrivate(userMessage)) return false;
+  await userPromptManager.savePrompt(
+    sessionID,
+    messageID,
+    directory,
+    stripPrivateContent(userMessage)
+  );
   return true;
 }
