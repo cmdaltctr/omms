@@ -3,6 +3,7 @@ import { CONFIG } from "../../config.js";
 import type { UserProfileData } from "./types.js";
 import { sortProfileItems } from "../../utils/profile.js";
 import { log } from "../logger.js";
+import { selectProfileItems } from "./profile-relevance.js";
 
 function dedupByCategory(items: any[], topN: number): any[] {
   if (items.length <= topN) return items;
@@ -35,7 +36,15 @@ function escapeContextText(value: unknown): string {
     .replace(/>/g, "&gt;");
 }
 
-export async function getUserProfileContext(userId: string): Promise<string | null> {
+/**
+ * The profile block for the prompt. With `queryVector`, half of each section
+ * (rounded up) follows the prompt; without it the block is the same for every
+ * prompt, as before.
+ */
+export async function getUserProfileContext(
+  userId: string,
+  queryVector?: ArrayLike<number>
+): Promise<string | null> {
   const profile = await userProfileManager.getActiveProfile(userId);
 
   if (!profile) {
@@ -69,12 +78,35 @@ export async function getUserProfileContext(userId: string): Promise<string | nu
       ? (sortProfileItems(profileData.workflows as any[], "frequency") as any[])
       : [];
 
-  const topPrefs = dedupByCategory(
-    scoreByRecency(sortedPrefs.slice(0, injectPrefs * 2)),
-    injectPrefs
-  );
-  const topPats = dedupByCategory(sortedPats, injectPats);
-  const topWfs = sortedWfs.slice(0, injectWfs);
+  // The prompt must be about as close to an item as it is to a memory.
+  const minCloseness = CONFIG.similarityThreshold;
+  const prefs = selectProfileItems({
+    baseline: dedupByCategory(scoreByRecency(sortedPrefs.slice(0, injectPrefs * 2)), injectPrefs),
+    candidates: sortedPrefs,
+    count: injectPrefs,
+    queryVector,
+    minCloseness,
+    onePerCategory: true,
+  });
+  const pats = selectProfileItems({
+    baseline: dedupByCategory(sortedPats, injectPats),
+    candidates: sortedPats,
+    count: injectPats,
+    queryVector,
+    minCloseness,
+    onePerCategory: true,
+  });
+  const wfs = selectProfileItems({
+    baseline: sortedWfs.slice(0, injectWfs),
+    candidates: sortedWfs,
+    count: injectWfs,
+    queryVector,
+    minCloseness,
+    onePerCategory: false,
+  });
+  const topPrefs = prefs.items;
+  const topPats = pats.items;
+  const topWfs = wfs.items;
 
   if (topPrefs.length > 0) {
     parts.push("User Preferences:");
@@ -117,6 +149,13 @@ export async function getUserProfileContext(userId: string): Promise<string | nu
 
   if (topPrefs.length + topPats.length + topWfs.length > 0) {
     log("profile inject", {
+      // Counts only: the log never holds the prompt.
+      relevanceSlots: {
+        prefs: prefs.relevanceSlots,
+        pats: pats.relevanceSlots,
+        wfs: wfs.relevanceSlots,
+      },
+      counts: { prefs: topPrefs.length, pats: topPats.length, wfs: topWfs.length },
       prefs: topPrefs.map((p: any) => `[${p.category}] ${p.description}`.substring(0, 80)),
       pats: topPats.map((p: any) => `[${p.category}] ${p.description}`.substring(0, 80)),
       wfs: topWfs.map((w: any) => w.description.substring(0, 80)),

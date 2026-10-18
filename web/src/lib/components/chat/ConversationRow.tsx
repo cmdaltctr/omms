@@ -37,7 +37,9 @@ export function ConversationRow(props: Props) {
             onCheckedChange={props.onToggleSelect}
             aria-label={t("chat-select-chat", { title })}
           />
-          <span className="min-w-0 flex-1 truncate">{title}</span>
+          <span dir="auto" className="min-w-0 flex-1 truncate" title={title}>
+            {title}
+          </span>
         </label>
       </li>
     );
@@ -53,11 +55,15 @@ export function ConversationRow(props: Props) {
       >
         <button
           type="button"
-          className="min-h-11 md:min-h-9 min-w-0 flex-1 cursor-pointer truncate rounded-lg px-2 text-start text-sm focus-visible:outline-2 focus-visible:outline-ring"
+          className="min-h-11 md:min-h-9 min-w-0 flex-1 cursor-pointer overflow-hidden rounded-lg px-2 text-start text-sm focus-visible:outline-2 focus-visible:outline-ring"
           aria-current={active ? "true" : undefined}
+          title={title}
           onClick={props.onOpen}
         >
-          {title}
+          {/* text-overflow does not apply to a button's own text, so the ellipsis sits on this block. */}
+          <span dir="auto" className="block truncate">
+            {title}
+          </span>
         </button>
         {props.readOnly ? null : (
           <Button

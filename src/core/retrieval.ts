@@ -38,7 +38,8 @@ export async function buildRetrievalSection(
   const memoryContext = await formatContextForPrompt(
     tags.user.userEmail || null,
     { results },
-    budget
+    budget,
+    search.queryVector
   );
 
   return memoryContext || null;

@@ -1104,6 +1104,43 @@ const text = {
     ],
   "Reset to default": ["恢复默认", "إعادة إلى الافتراضي"],
   "Differs from default": ["与默认值不同", "يختلف عن الافتراضي"],
+  "Keyword matching": ["关键词匹配", "مطابقة الكلمات"],
+  "Search finds memories by meaning and by exact words from your prompt.": [
+    "搜索按含义和提示中的确切词语查找记忆。",
+    "يجد البحث الذكريات بالمعنى وبالكلمات الدقيقة من مطالبتك.",
+  ],
+  "Word matching mode": ["词语匹配模式", "وضع مطابقة الكلمات"],
+  "Boost (default)": ["加分（默认）", "تعزيز (افتراضي)"],
+  "Rank fusion (experimental)": ["排名融合（实验性）", "دمج الترتيب (تجريبي)"],
+  "Boost adds a small score bonus to memories that contain a word of your prompt.": [
+    "加分会给包含提示中某个词的记忆增加少量分数。",
+    "يضيف التعزيز مكافأة صغيرة في الدرجة للذكريات التي تحتوي على كلمة من مطالبتك.",
+  ],
+  "Rank fusion merges a list by meaning and a list by words. A memory that contains a word of your prompt can be returned even when its meaning score is below the similarity threshold. Experimental: it has not been shown to find more relevant memories.":
+    [
+      "排名融合会合并按含义排序的列表和按词语排序的列表。即使含义得分低于相似度阈值，包含提示中某个词的记忆也可能被返回。实验性：尚未证明能找到更多相关记忆。",
+      "يدمج دمج الترتيب قائمة بالمعنى وقائمة بالكلمات. قد تُعاد ذاكرة تحتوي على كلمة من مطالبتك حتى لو كانت درجة المعنى أقل من حد التشابه. تجريبي: لم يثبت أنه يجد ذكريات أكثر صلة.",
+    ],
+  "Rank fusion is not used while the reranker is on. Search uses the boost.": [
+    "重排序器开启时不使用排名融合，搜索使用加分模式。",
+    "لا يُستخدم دمج الترتيب أثناء تشغيل معيد الترتيب. يستخدم البحث التعزيز.",
+  ],
+  "A project file can override this setting. This page edits the global value.": [
+    "项目文件可以覆盖此设置。此页面编辑全局值。",
+    "يمكن لملف المشروع تجاوز هذا الإعداد. تعدّل هذه الصفحة القيمة العامة.",
+  ],
+  "Saved. New searches use this mode.": [
+    "已保存。新的搜索将使用此模式。",
+    "تم الحفظ. تستخدم عمليات البحث الجديدة هذا الوضع.",
+  ],
+  "The keyword matching setting could not be saved. Reload the page to try again.": [
+    "无法保存关键词匹配设置。请重新加载页面后重试。",
+    "تعذّر حفظ إعداد مطابقة الكلمات. أعد تحميل الصفحة للمحاولة مرة أخرى.",
+  ],
+  "The keyword matching setting could not be loaded. Reload the page to try again.": [
+    "无法加载关键词匹配设置。请重新加载页面后重试。",
+    "تعذّر تحميل إعداد مطابقة الكلمات. أعد تحميل الصفحة للمحاولة مرة أخرى.",
+  ],
   Reranker: ["重排序器", "إعادة الترتيب"],
   "Use a reranker": ["使用重排序器", "استخدم معيد الترتيب"],
   Key: ["密钥", "المفتاح"],
@@ -1126,9 +1163,9 @@ const text = {
     "此 URL 不在本机上：记忆文本将离开本机。",
     "هذا العنوان ليس على هذا الجهاز: نص الذاكرة يغادر جهازك.",
   ],
-  "A project file cannot change these settings.": [
-    "项目文件无法更改这些设置。",
-    "لا يمكن لملف المشروع تغيير هذه الإعدادات.",
+  "A project file cannot change these settings. The reranker settings are global only.": [
+    "项目文件无法更改这些设置。重排序器设置仅限全局。",
+    "لا يمكن لملف المشروع تغيير هذه الإعدادات. إعدادات معيد الترتيب عامة فقط.",
   ],
   "The default of 4000 keeps the search inside OpenCode V2's 5-second wait. A value over 5000 can make OpenCode V2 send the request with no memory.":
     [

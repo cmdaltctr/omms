@@ -32,6 +32,8 @@ export interface SearchResult {
   id: string;
   memory: string;
   similarity: number;
+  /** Internal: match strength of a word hit. Removed before results leave search. */
+  keywordScore?: number;
   createdAt?: number;
   tags?: string[];
   type?: string;

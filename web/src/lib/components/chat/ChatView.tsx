@@ -1,3 +1,4 @@
+import { CitationLegend } from "./CitationLegend";
 import { useEffect, useRef, useState } from "react";
 import { Info, MessagesSquare, X } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
@@ -123,6 +124,7 @@ export function ChatView() {
           ) : null}
         </div>
 
+        <CitationLegend />
         {chat.status && !ready ? <ChatSetupNotice status={chat.status} /> : null}
         {readOnly ? (
           <p role="alert" className="rounded-xl border border-border bg-card p-3 text-sm">

@@ -23,6 +23,8 @@ settings, memory builds up as you work.
      session (`chatMessage.injectOn`).
    - After compaction, the session's own memories are put back.
    - The added memories are the closest matches only. Their header tells the agent to search the full store. See [When agents search memory](#when-agents-search-memory).
+   - Search matches by meaning and by exact words. A memory that contains a word from your prompt (an identifier such as `ADR-023`, a tool name, a tag) gets a small score bonus, set by `keywordBoost`. See [Keyword matching](configuration.md#keyword-matching). No extra model call is made. The Memory page can switch to an experimental rank fusion mode: see [Memory page: Keyword matching](web-ui-memory.md#keyword-matching).
+   - The profile block in that section also follows the prompt. About half of the preferences, patterns and workflows are the ones closest to the prompt. The rest are the usual top items, so the block is not the same for every prompt.
 5. Browse or edit memories in the web UI at `http://127.0.0.1:4747`.
 6. Use the `memory` tool to store or find something at once. See
    [The memory tool](#the-memory-tool).
@@ -86,6 +88,9 @@ preferences and habits. It covers all your projects.
   `memory({ mode: "profile" })`.
 - You do not fill it in by hand. Profile learning fills it when a model is
   ready.
+- Each prompt shows only some items. Half of the slots go to the items closest
+  to the prompt, and the other half keep the usual order. The prompt vector is
+  reused from the memory search, so this adds no embedding call.
 
 How profile learning behaves:
 

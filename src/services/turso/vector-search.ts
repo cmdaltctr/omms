@@ -3,6 +3,10 @@ import { log } from "../logger.js";
 import type { MemoryRecord, SearchResult, ShardInfo } from "./types.js";
 import { distanceToSimilarity, vectorToJson } from "./vector-utils.js";
 import { tagMatchBoost } from "./tag-match.js";
+import { exactScanKind } from "./exact-scan.js";
+import { boostedSimilarity, searchKeywords } from "./keyword-search.js";
+import { fuseShardResults } from "./rank-fusion.js";
+import type { KeywordMode } from "../../utils/keyword-boost.js";
 import type { TursoDb } from "./turso-db.js";
 import type { Transaction } from "@libsql/client";
 
@@ -109,7 +113,9 @@ export class TursoVectorSearch {
     queryVector: Float32Array,
     containerTag: string,
     limit: number,
-    queryText?: string
+    queryText?: string,
+    keywordBoost = 0,
+    keywordMode: KeywordMode = "boost"
   ): Promise<SearchResult[]> {
     const db = await tursoConnectionManager.getConnection(shard.dbPath);
     const queryJson = vectorToJson(queryVector);
@@ -137,6 +143,11 @@ export class TursoVectorSearch {
     const candidateIds = new Set<string>();
     for (const result of contentResults) candidateIds.add(result.id);
     for (const result of tagsResults) candidateIds.add(result.id);
+    const kwHits =
+      keywordBoost > 0
+        ? await searchKeywords(db, queryText, containerTag, Math.max(limit * 4, 32))
+        : null;
+    for (const id of kwHits?.scores.keys() ?? []) candidateIds.add(id);
 
     const ids = Array.from(candidateIds);
     if (ids.length === 0) return [];
@@ -183,12 +194,14 @@ export class TursoVectorSearch {
       const exactMatchBoost = tagMatchBoost(queryText, memoryTagsStr);
 
       const finalTagsSim = Math.max(tagsSim, exactMatchBoost);
-      const similarity = contentSim * 0.6 + finalTagsSim * 0.4;
+      const base = contentSim * 0.6 + finalTagsSim * 0.4;
+      const similarity = boostedSimilarity(base, kwHits, String(row.id), keywordBoost, keywordMode);
 
       return {
         id: String(row.id),
         memory: String(row.content),
         similarity,
+        keywordScore: kwHits?.scores.get(String(row.id)),
         createdAt: Number(row.created_at),
         tags: memoryTagsStr ? memoryTagsStr.split(",") : [],
         type: row.type ? String(row.type) : undefined,
@@ -205,7 +218,9 @@ export class TursoVectorSearch {
     });
 
     hydratedResults.sort((a, b) => b.similarity - a.similarity);
-    return hydratedResults.slice(0, Math.max(0, limit));
+    // Rank fusion needs the word-only candidates too; it applies the limit itself.
+    const fusing = keywordMode === "rrf" && keywordBoost > 0;
+    return fusing ? hydratedResults : hydratedResults.slice(0, Math.max(0, limit));
   }
 
   private async searchKind(
@@ -243,40 +258,8 @@ export class TursoVectorSearch {
         indexName,
         error: String(error),
       });
-      return this.exactScanKind(db, queryJson, k, containerTag, columnName);
+      return exactScanKind(db, queryJson, k, containerTag, columnName);
     }
-  }
-
-  private async exactScanKind(
-    db: TursoDb,
-    queryJson: string,
-    k: number,
-    containerTag: string,
-    columnName: string
-  ): Promise<Array<{ id: string; similarity: number }>> {
-    const rows = await db.all(
-      containerTag === ""
-        ? `
-        SELECT m.id AS id, vector_distance_cos(m.${columnName}, vector32(?)) AS dist
-        FROM memories m
-        WHERE m.${columnName} IS NOT NULL
-        ORDER BY dist ASC
-        LIMIT ?
-      `
-        : `
-        SELECT m.id AS id, vector_distance_cos(m.${columnName}, vector32(?)) AS dist
-        FROM memories m
-        WHERE m.${columnName} IS NOT NULL AND m.container_tag = ?
-        ORDER BY dist ASC
-        LIMIT ?
-      `,
-      containerTag === "" ? [queryJson, k] : [queryJson, containerTag, k]
-    );
-
-    return rows.map((row) => ({
-      id: String(row.id),
-      similarity: distanceToSimilarity(Number(row.dist)),
-    }));
   }
 
   async searchAcrossShards(
@@ -285,13 +268,23 @@ export class TursoVectorSearch {
     containerTag: string,
     limit: number,
     similarityThreshold: number,
-    queryText?: string
+    queryText?: string,
+    keywordBoost = 0,
+    keywordMode: KeywordMode = "boost"
   ): Promise<{ results: SearchResult[]; warnings: string[] }> {
     const shardErrors: Array<{ shardId: number; error: string }> = [];
 
     const shardPromises = shards.map(async (shard) => {
       try {
-        return await this.searchInShard(shard, queryVector, containerTag, limit, queryText);
+        return await this.searchInShard(
+          shard,
+          queryVector,
+          containerTag,
+          limit,
+          queryText,
+          keywordBoost,
+          keywordMode
+        );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         log("Shard search error", { shardId: shard.id, error: message });
@@ -325,6 +318,9 @@ export class TursoVectorSearch {
     }
 
     const allResults = resultsArray.flat();
+    if (keywordMode === "rrf" && keywordBoost > 0) {
+      return { results: fuseShardResults(allResults, similarityThreshold, limit), warnings };
+    }
     allResults.sort((a, b) => b.similarity - a.similarity);
     return {
       results: allResults

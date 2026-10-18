@@ -43,6 +43,7 @@ const editable = [
   "rerankerApiUrl",
   "rerankerModel",
   "rerankerTimeoutMs",
+  "keywordMode",
   ...MEMORY_LIMIT_SETTINGS,
 ] as const;
 

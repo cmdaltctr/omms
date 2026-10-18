@@ -8,6 +8,7 @@ Open `http://127.0.0.1:4747/memory` or select **Memory** in the sidebar. The arr
 | [Automatic import](#automatic-import)                               | `/memory#memory-section-auto-import`     |
 | [Profile learning](#profile-learning)                               | `/memory#memory-section-profile`         |
 | [Memory limits](#memory-limits)                                     | `/memory#memory-section-limits`          |
+| [Keyword matching](#keyword-matching)                               | `/memory#memory-section-keywords`        |
 | [Reranker](#reranker)                                               | `/memory#memory-section-reranker`        |
 | [Resolve missing project folders](#resolve-missing-project-folders) | `/memory#memory-section-project-folders` |
 
@@ -221,9 +222,22 @@ A row whose saved value differs from its default shows a **Differs from default*
 
 Memory uses the existing [safe global save](web-ui-settings.md#how-saving-works), including authentication, origin, validation, conflict and legacy-file rules. It never writes project config. Edit `~/.config/omms/omms.jsonc` directly for file-only configuration. Valid edits apply at the next relevant operation; an active operation keeps its original limits. Invalid live edits retain the last valid settings. See [Configuration: Memory limits](configuration.md#memory-limits) for packing rules and host coverage.
 
+## Keyword matching
+
+Open `/memory#memory-section-keywords`, below Memory limits. The card has one choice, **Word matching mode**, which sets `keywordMode`.
+
+| Mode                       | Value   | Effect                                                                                                                                                                                                                      |
+| -------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Boost (default)            | `boost` | A memory that holds a word of your prompt gains a small score bonus (`keywordBoost`).                                                                                                                                       |
+| Rank fusion (experimental) | `rrf`   | Merges a list by meaning and a list by words, so a memory that holds a word of your prompt can be returned although its meaning score is below `similarityThreshold`. It has not been shown to find more relevant memories. |
+
+**Save** is enabled only when the choice differs from the saved value. **Cancel** restores it. The card writes the global config. A project file (`<project>/.opencode/omms.jsonc`) can still override the mode, and the card then says so. See [Configuration: Where the settings live](configuration.md#where-the-settings-live) for the global and project file locations on macOS and Windows. While the reranker is on, search uses the boost, and the card says that when you choose rank fusion. `keywordBoost` stays a config-file setting: see [Configuration: Keyword matching](configuration.md#keyword-matching). The card uses the same safe global save as the other Memory cards.
+
 ## Reranker
 
 Open `/memory#memory-section-reranker`, below Memory limits. The card configures the opt-in reranker stage: a switch labelled **Use a reranker** (off by default) and four fields.
+
+The reranker settings are global only: they live in the global file, and a project file cannot change them. The global file is `~/.config/omms/omms.jsonc` on macOS and `%USERPROFILE%\.config\omms\omms.jsonc` on Windows. A project file is `<project>/.opencode/omms.jsonc`. See [Configuration: Where the settings live](configuration.md#where-the-settings-live).
 
 | Field      | Setting             | Notes                                                                                                             |
 | ---------- | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
