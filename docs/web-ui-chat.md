@@ -32,6 +32,10 @@ Each question makes two model calls:
 
 When OMMS finds no source, it says so and makes no answer call.
 
+## Reading answers
+
+Answers show Markdown: bold text, headings, bullet lists, and numbered lists. Bold text, headings, bullets, and numbers use the primary colour. Headings stay small, so an answer never gets a large title. On a wide screen, the chat list stays in view while a long chat scrolls.
+
 ## Citations
 
 Answers cite memories as `S1`, `S2`, … and profile items as `P1`, `P2`, …. OMMS removes any citation to a source it did not send.

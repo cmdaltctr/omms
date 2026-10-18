@@ -19,6 +19,12 @@ mock.module("react", () => ({
   },
 }));
 
+// Bun has no DOM for DOMPurify. The sanitiser has no part in these checks, so render with marked alone.
+mock.module("../src/lib/markdown.ts", async () => {
+  const { marked } = await import("marked");
+  return { renderMarkdown: (text: string) => marked.parse(text, { async: false }) as string };
+});
+
 const { setLanguage } = await import("../src/lib/i18n/index.ts");
 const { ChatSetupNotice } = await import("../src/lib/components/chat/ChatSetupNotice.tsx");
 const { ChatInput } = await import("../src/lib/components/chat/ChatInput.tsx");
@@ -111,16 +117,33 @@ it("opens the cited source from a citation chip", () => {
     onOpenSource: (source) => opened.push(source.id),
     onRetry: () => {},
   });
-  const chips = find(
-    tree,
-    (node) => typeof node.props.label === "string" && "onOpen" in node.props
-  );
-  expect(chips.length).toBeGreaterThan(0);
-  (chips[0]!.props.onOpen as () => void)();
-  expect(opened).toEqual(["m1"]);
-  const html = renderToStaticMarkup(tree);
-  expect(html).toContain("Sources");
+  const body = find(tree, (node) => "dangerouslySetInnerHTML" in node.props)[0]!;
+  const html = (body.props.dangerouslySetInnerHTML as { __html: string }).__html;
+  expect(html).toContain('data-cite="S1"');
   expect(html).toContain('aria-label="Open source S1"');
+  // A click on the chip carries its label to the source dialog; a click elsewhere opens nothing.
+  const click = body.props.onClick as (event: unknown) => void;
+  const target = (label?: string) => ({
+    target: { closest: () => (label ? { dataset: { cite: label } } : null) },
+  });
+  click(target());
+  expect(opened).toEqual([]);
+  click(target("S1"));
+  expect(opened).toEqual(["m1"]);
+  expect(renderToStaticMarkup(tree)).toContain("Sources");
+});
+
+it("renders markdown in an answer, so bold text is not shown with asterisks", () => {
+  const tree = AnswerBubble({
+    message: { ...answer, content: "**Terse and compressed.** Short prompts [S1]." },
+    missingMemoryIds: new Set(),
+    readOnly: false,
+    onOpenSource: () => {},
+    onRetry: () => {},
+  });
+  const html = renderToStaticMarkup(tree);
+  expect(html).toContain("<strong>Terse and compressed.</strong>");
+  expect(html).not.toContain("**");
 });
 
 it("shows how the answer searched, and when the plan was skipped", () => {

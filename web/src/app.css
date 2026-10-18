@@ -256,6 +256,104 @@
 .markdown-content :is(h1, h2, h3, h4, h5, h6):first-child {
   margin-top: 0;
 }
+.markdown-content :is(ul, ol) {
+  margin: 0.4em 0;
+  padding-inline-start: 1.25rem;
+}
+.markdown-content ul {
+  list-style: disc;
+}
+.markdown-content ol {
+  list-style: decimal;
+}
+/*
+ * Chat answers show bold text and headings in the primary colour, with a short
+ * heading scale (18, 16, 15, 14px over 14px body) so an answer never gets a huge title.
+ * Memory cards keep the muted uppercase labels.
+ */
+.markdown-content.chat-answer :is(strong, h1, h2, h3, h4, h5, h6) {
+  color: var(--primary-label);
+}
+.markdown-content.chat-answer :is(h1, h2, h3, h4, h5, h6) {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-transform: none;
+}
+.markdown-content.chat-answer h1 {
+  font-size: 1.125rem;
+}
+.markdown-content.chat-answer h2 {
+  font-size: 1rem;
+}
+.markdown-content.chat-answer h3 {
+  font-size: 0.9375rem;
+}
+/* Looser spacing than a memory card: a clear gap between blocks, and under each heading. */
+.markdown-content.chat-answer :is(p, ul, ol, pre, blockquote) {
+  margin: 0.85em 0;
+}
+.markdown-content.chat-answer :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.5em 0 0.6em;
+}
+.markdown-content.chat-answer li + li {
+  margin-top: 0.35em;
+}
+/* Bullets and numbers use the primary colour. */
+.markdown-content.chat-answer li::marker {
+  color: var(--primary-label);
+}
+.markdown-content.chat-answer ol > li::marker {
+  font-weight: 600;
+}
+.markdown-content.chat-answer li > :is(ul, ol) {
+  margin: 0.35em 0 0;
+}
+.markdown-content.chat-answer > :first-child {
+  margin-top: 0;
+}
+.markdown-content.chat-answer > :last-child {
+  margin-bottom: 0;
+}
+/* Citation buttons that linkCitations puts inside an answer; memory chips use CitationChip. */
+.markdown-content .cite-chip {
+  display: inline-flex;
+  height: 1.25rem;
+  margin: 0 0.125rem;
+  padding: 0 0.375rem;
+  align-items: center;
+  cursor: pointer;
+  border: 1px solid color-mix(in oklab, var(--primary) 30%, transparent);
+  border-radius: 0.375rem;
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+  color: var(--primary-label);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  vertical-align: baseline;
+  transition: background-color 200ms ease-in;
+}
+.markdown-content .cite-chip:hover {
+  background: color-mix(in oklab, var(--primary) 20%, transparent);
+}
+.markdown-content .cite-chip:focus-visible {
+  outline: 2px solid var(--ring);
+}
+.markdown-content .cite-profile {
+  border-color: color-mix(in oklab, #2563eb 40%, transparent);
+  background: color-mix(in oklab, #3b82f6 10%, transparent);
+  color: #1d4ed8;
+}
+.markdown-content .cite-profile:hover {
+  background: color-mix(in oklab, #3b82f6 20%, transparent);
+}
+.dark .markdown-content .cite-profile {
+  color: #60a5fa;
+}
+.markdown-content .cite-deleted {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
 
 .confidence-ring {
   --p: 0;
