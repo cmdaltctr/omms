@@ -2,6 +2,20 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.25.0](https://github.com/cmdaltctr/omms/compare/v4.24.0...v4.25.0) (2026-10-18)
+
+
+### Features
+
+* match exact words in memory search and pick profile items by relevance ([f3ce8ad](https://github.com/cmdaltctr/omms/commit/f3ce8ad616c966269f8688b4ed111aded709fb18))
+* match exact words in memory search and pick profile items by relevance ([ff3e2ea](https://github.com/cmdaltctr/omms/commit/ff3e2ea3b5babe206edcd8e090ffc6e0381a81a1))
+
+
+### Bug Fixes
+
+* apply review findings to the keyword search change ([e94f160](https://github.com/cmdaltctr/omms/commit/e94f160eb37cf94dac9b19df4e8a61f0b5790d68))
+* keep profile item text out of the profile inject log ([0967d2c](https://github.com/cmdaltctr/omms/commit/0967d2c6fd85e790dbe5fd9e1f391770bbf4320b))
+
 ## [4.24.0](https://github.com/cmdaltctr/omms/compare/v4.23.0...v4.24.0) (2026-10-18)
 
 
