@@ -2,6 +2,29 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.24.0](https://github.com/cmdaltctr/omms/compare/v4.23.0...v4.24.0) (2026-10-18)
+
+
+### Features
+
+* chat with memories in the web UI ([e9d6333](https://github.com/cmdaltctr/omms/commit/e9d6333036c4baffb9b11d02ebe71f84c33899e4))
+* chat with memories, profile evidence dialog, and search fixes ([bffa623](https://github.com/cmdaltctr/omms/commit/bffa623243e6bf1a63e938ae138307b2511e68d6))
+* open profile evidence in a dialog ([465a10c](https://github.com/cmdaltctr/omms/commit/465a10c46da256eeb1f54a0d0c22fc95cc856f16))
+
+
+### Bug Fixes
+
+* address review findings on chat, tag match and private prompts ([eeb17cf](https://github.com/cmdaltctr/omms/commit/eeb17cf776a024366e2d2ef55657426c732d4f24))
+* match memory tags as whole words in search ([8bc85c9](https://github.com/cmdaltctr/omms/commit/8bc85c98f10ebb7e0b35387e464557487814a81c))
+* strip private text from OpenCode prompts before saving ([44824b4](https://github.com/cmdaltctr/omms/commit/44824b4139ab5c2b9945e60ad0eabb19c3f1f689))
+
+
+### Documentation
+
+* keep cited memory text as written in chats.db ([83d6dee](https://github.com/cmdaltctr/omms/commit/83d6deefb2cc1dd8433c7b97cc1f638e2d93be78))
+* record the chat, tag-match, private-text and dialog decisions ([046b6da](https://github.com/cmdaltctr/omms/commit/046b6dadd0db26a97c189f68b484220e89c56cf7))
+* record the live chat check in the memory-chat tasks ([7b7315c](https://github.com/cmdaltctr/omms/commit/7b7315c21d8358d6efdb544c6db645ff90de4314))
+
 ## [4.23.0](https://github.com/cmdaltctr/omms/compare/v4.22.0...v4.23.0) (2026-10-17)
 
 
