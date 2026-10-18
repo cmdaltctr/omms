@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.26.1](https://github.com/cmdaltctr/omms/compare/v4.26.0...v4.26.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* build the 20 MB avatar test file without a huge array spread ([3b17b16](https://github.com/cmdaltctr/omms/commit/3b17b1671d81be011743a0abd934fac0b1219f37))
+* build the 20 MB avatar test file without a huge array spread ([ff7e59a](https://github.com/cmdaltctr/omms/commit/ff7e59aa04ce85be81f4986dafb52e6f77f6ad9b))
+
 ## [4.26.0](https://github.com/cmdaltctr/omms/compare/v4.25.1...v4.26.0) (2026-10-18)
 
 
