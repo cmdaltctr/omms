@@ -107,3 +107,16 @@ export function groupSavedMaps(saved: readonly PathMap[]): { target: string; map
     }))
     .sort((a, b) => b.maps.length - a.maps.length || a.target.localeCompare(b.target));
 }
+
+/** The rows Ignore all covers: every listed directory except the entry with no recorded directory. */
+export function ignorableRows(rows: readonly SuggestedDirectory[]): SuggestedDirectory[] {
+  return rows.filter((row) => row.directory !== NO_DIRECTORY);
+}
+
+/** The ignored list after Ignore all: the existing entries, then each listed directory once. */
+export function ignoreAllList(
+  ignored: readonly string[],
+  rows: readonly SuggestedDirectory[]
+): string[] {
+  return [...new Set([...ignored, ...ignorableRows(rows).map((row) => row.directory)])];
+}

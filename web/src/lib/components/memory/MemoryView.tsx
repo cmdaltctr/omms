@@ -1,41 +1,33 @@
 import { useEffect, useState } from "react";
 import "../settings/settings.css";
-import { MEMORY_SECTIONS, type MemorySectionId } from "$lib/memory-sections";
 import { revealPageAnchor } from "$lib/settings-navigation";
-import { navigate, ROUTES } from "$lib/router";
-import { ImportSection } from "./ImportSection";
-import { AutoImportSection } from "./AutoImportSection";
-import { ProfileCatchUpSection } from "./ProfileCatchUpSection";
-import { MemorySection } from "./MemorySection";
-import { KeywordModeSection } from "./KeywordModeSection";
-import { RerankerSection } from "./RerankerSection";
-import { DirectoryMapsSection } from "./DirectoryMapsSection";
+import { memoryViewFromPath } from "$lib/routes";
+import { navigate, ROUTES, usePath } from "$lib/router";
+import { HostView } from "./HostView";
+import { MemoryOverview } from "./MemoryOverview";
+import { SharedView } from "./SharedView";
+import { useHostStatuses } from "./use-host-statuses";
 
+/** The Memory page: the overview, one host's view, or the Shared view, by path. */
 export function MemoryView() {
+  const view = memoryViewFromPath(usePath().split("#")[0]);
+  const statuses = useHostStatuses();
   const [profilePreset, setProfilePreset] = useState(0);
   useEffect(() => {
     revealPageAnchor(window.location.hash);
-  }, []);
+  }, [view]);
+  // Re-analysing chat history starts from the all-hosts import on the overview.
   function reanalyse() {
     setProfilePreset((value) => value + 1);
-    navigate(`${ROUTES.memory}#memory-section-import`);
+    navigate(ROUTES.memory);
   }
-  const cards: Record<MemorySectionId, React.ReactNode> = {
-    "memory-section-import": <ImportSection profilePreset={profilePreset} />,
-    "memory-section-auto-import": <AutoImportSection />,
-    "memory-section-profile": <ProfileCatchUpSection onReanalyse={reanalyse} />,
-    "memory-section-limits": <MemorySection />,
-    "memory-section-keywords": <KeywordModeSection />,
-    "memory-section-reranker": <RerankerSection />,
-    "memory-section-project-folders": <DirectoryMapsSection />,
-  };
   return (
-    <div className="settings-view space-y-8">
-      {MEMORY_SECTIONS.map(({ id }) => (
-        <div key={id} id={id} className="scroll-mt-20 md:scroll-mt-4">
-          {cards[id]}
-        </div>
-      ))}
+    <div className="settings-view">
+      {view === null && <MemoryOverview statuses={statuses} profilePreset={profilePreset} />}
+      {view === "shared" && <SharedView statuses={statuses} onReanalyse={reanalyse} />}
+      {view !== null && view !== "shared" && (
+        <HostView host={view} statuses={statuses} profilePreset={profilePreset} />
+      )}
     </div>
   );
 }

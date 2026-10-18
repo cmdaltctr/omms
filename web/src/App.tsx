@@ -14,7 +14,6 @@ import { TagMigrationDialog } from "$lib/components/explorer/TagMigrationDialog"
 import { SettingsView } from "$lib/components/settings/SettingsView";
 import { MemoryView } from "$lib/components/memory/MemoryView";
 import { ChatView } from "$lib/components/chat/ChatView";
-import { MEMORY_SECTIONS } from "$lib/memory-sections";
 import { Alert, AlertDescription } from "$lib/components/ui/alert";
 import { Button } from "$lib/components/ui/button";
 import { Checkbox } from "$lib/components/ui/checkbox";
@@ -30,6 +29,7 @@ import { translateSettings } from "$lib/i18n/settings";
 import { SETTINGS_SECTIONS } from "$lib/settings-sections";
 import { clearTagMigrationClose, rememberTagMigrationClose } from "$lib/tag-migration-prompt";
 import { initRouter, navigate, ROUTES, useAppView } from "$lib/router";
+import { useMemorySidebar } from "$lib/memory-sidebar";
 
 const MEMORY_TYPES = [
   "",
@@ -47,6 +47,7 @@ const MEMORY_TYPES = [
 export default function App() {
   const { t, language } = useI18n();
   const currentView = useAppView();
+  const memorySidebar = useMemorySidebar(language);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const explorer = useMemoriesExplorer();
@@ -123,10 +124,7 @@ export default function App() {
             { id: "profile-workflows", label: t("profile-workflows") },
           ]}
           memoryLabel={translateSettings("Memory", language)}
-          memorySections={MEMORY_SECTIONS.map((section) => ({
-            id: section.id,
-            label: translateSettings(section.title, language),
-          }))}
+          {...memorySidebar}
           settingsSections={SETTINGS_SECTIONS.map((section) => ({
             id: section.id,
             label: translateSettings(section.title, language),
@@ -166,13 +164,7 @@ export default function App() {
             ) : null}
 
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h1
-                className={`text-page-title font-semibold text-foreground${
-                  language === "en" && (currentView === "memory" || currentView === "settings")
-                    ? " uppercase"
-                    : ""
-                }`}
-              >
+              <h1 className="text-page-title font-semibold text-foreground">
                 {currentView === "project"
                   ? t("tab-project")
                   : currentView === "profile"

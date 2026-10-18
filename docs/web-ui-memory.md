@@ -1,18 +1,49 @@
 # Memory page
 
-Open `http://127.0.0.1:4747/memory` or select **Memory** in the sidebar. The arrow opens its section list. Memory and Settings remember their expanded lists separately. Memory remains available in the collapsed desktop sidebar and mobile drawer.
+Open `http://127.0.0.1:4747/memory` or select **Memory** in the sidebar. The page opens on an overview of four cards of the same size. Choose one to see only what belongs to it. The arrow beside **Memory** in the sidebar lists the same four views. User profile, Memory and Settings remember their expanded lists separately. Memory remains available in the collapsed desktop sidebar and mobile drawer.
 
-| Section                                                             | App URL                                  |
-| ------------------------------------------------------------------- | ---------------------------------------- |
-| [Import chat history](#import-chat-history)                         | `/memory#memory-section-import`          |
-| [Automatic import](#automatic-import)                               | `/memory#memory-section-auto-import`     |
-| [Profile learning](#profile-learning)                               | `/memory#memory-section-profile`         |
-| [Memory limits](#memory-limits)                                     | `/memory#memory-section-limits`          |
-| [Keyword matching](#keyword-matching)                               | `/memory#memory-section-keywords`        |
-| [Reranker](#reranker)                                               | `/memory#memory-section-reranker`        |
-| [Resolve missing project folders](#resolve-missing-project-folders) | `/memory#memory-section-project-folders` |
+| View        | App URL               | What it shows                                                                                                                                         |
+| ----------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Overview    | `/memory`             | The four cards and [Import all hosts](#import-chat-history).                                                                                          |
+| Pi          | `/memory/pi`          | Pi's [status and main action](#a-host-view), [sessions](#import-chat-history), [folders that need a map](#resolve-missing-project-folders), settings. |
+| OpenCode    | `/memory/opencode`    | The same for OpenCode.                                                                                                                                |
+| Claude Code | `/memory/claude-code` | The same for Claude Code.                                                                                                                             |
+| Shared      | `/memory/shared`      | [Profile learning](#profile-learning), [Memory limits](#memory-limits), [Keyword matching](#keyword-matching), [Reranker](#reranker), saved maps.     |
+
+Every view starts with the same four cards, including **Shared**, so one click reaches any other view. Under **Shared** in the sidebar, a contents list links to each of its five rows. Choosing one opens the row and scrolls to it. A refresh keeps the view you chose, and Back returns to the previous one.
 
 Browse stored results on **Project memories** (`/project-memories`) and **User profile** (`/user-profile`). `/` opens Project memories. Settings retains models, access controls, diagnostics and profile identity controls. See [Settings page](web-ui-settings.md).
+
+## The overview
+
+Each host card shows the host's avatar, its name and one line of state, such as `Paused · 0 pending` or `Imported 9 Oct`. **Shared** says that its settings apply to every host. A host whose history is not on this computer shows **Not set up** and its card is greyed.
+
+**Import all hosts** opens the multi-host import described under [Import chat history](#import-chat-history). It makes model calls and can cost money.
+
+### Memories not saved
+
+The page checks that a new memory can be saved when it opens, every five minutes while the tab is visible, and when you select **Check again**. The check opens the memory store and embeds one fixed test string. It sends no conversation text. The server reuses a result for 30 seconds, so open tabs cause few calls. If your embedding service is remote, each check is one very small call to it.
+
+When the check fails, each set-up host card turns amber and reads **Memories not saved** with a short reason, such as `Embedding server error (500)`. Each host view shows a strip with the reason and **Check again**. The sidebar marks the hosts with a dot. Fix the service named in the reason, then select **Check again**.
+
+### Host avatars
+
+Use the pencil on a host card, **Change icon**. **Upload image** accepts PNG, JPEG, WebP and GIF up to 20 MB. SVG is refused. OMMS crops the middle square, redraws it at 128 × 128 pixels in your browser, and saves only that PNG, so any image size gives the same avatar size and photo location data is dropped. **Choose icon** offers a searchable set of about 60 icons. **Reset to default** restores the host's two-letter mark.
+
+The choice is saved in `appearance.json` and `<host>.png` under `host-appearance/` in the OMMS data folder (`~/.omms/data/host-appearance/` by default). It applies in every project.
+
+## A host view
+
+A host view shows only that host. From the top:
+
+1. A switcher of the four cards, with the current one marked.
+2. The write-health strip, when memories cannot be saved.
+3. The **status header**: the host's state, one main action, and one sentence that explains them.
+4. **Sessions**: the host's import form and session list.
+5. **Sessions that need a folder**: the host's unresolved directories, open and ready to edit.
+6. The host's own settings: backfill model and the automatic-import switch.
+
+The main action follows the state. It reads **Pause** while a run is going, **Resume** while paused, **Retry** after a failure and **Run now** otherwise. When it is unavailable, the sentence under it gives the reason. For a host that needs itself open, the sentence offers **Use external API**, which saves the saved external API as that host's backfill model so Resume can run on its own. A run that finds nothing says `Nothing was waiting before <date>`. Newer chats come in through **Sessions**.
 
 ## Import chat history
 
@@ -122,7 +153,7 @@ Automatic import, or backfill, reads older conversations in the background and p
 
 **Import past chats automatically** keeps the existing global `autoBackfill` switch. Turning it off stops a running backfill after its current exchange. The first backfill fixes each host's cutoff; later starts resume pending work with that cutoff and ledger. Live capture handles newer turns. A model change applies at the next run.
 
-Each host has a collapsed card. Running or paused hosts open by default. User-opened or closed cards retain that state while counts refresh, including unsaved model choices. Each summary shows state, pending exchanges and unresolved sessions.
+Each host's view holds its own automatic-import controls: the status header, the run facts below it, and the host's settings. The overview card shows the state in one line. Unsaved model choices stay while counts refresh.
 
 The Pi and OpenCode **Backfill model** choices remain:
 
@@ -132,9 +163,9 @@ The Pi and OpenCode **Backfill model** choices remain:
 
 Live capture keeps its own model. Claude Code has no backfill-model setting and always uses the external API. Missing settings block **Run now** and **Resume** with a reason.
 
-Cards show the model, cutoff, errors and active run's starting surface. During memory extraction they show a progress bar, percentage, done/total and minutes left. The time estimate uses the recent rate and stays unknown until enough progress exists. **Learning profile** shows batches done/total after the exchanges. When idle, **Last run** shows its finish time, starting surface and imported, skipped and failed counts, without a progress bar.
+The status header shows the model, cutoff, errors and active run's starting surface. During memory extraction they show a progress bar, percentage, done/total and minutes left. The time estimate uses the recent rate and stays unknown until enough progress exists. **Learning profile** shows batches done/total after the exchanges. When idle, **Last run** shows its finish time, starting surface and imported, skipped and failed counts, without a progress bar.
 
-Counts refresh every three seconds during a run. Operational progress leaves already handled exchanges out of pending model work. Unresolved counts are sessions, excluding ignored folders. Their links reveal and focus the matching host's folder disclosure. Overall historical badges appear once, in Import chat history.
+Counts refresh every three seconds during a run. Operational progress leaves already handled exchanges out of pending model work. Unresolved counts are sessions, excluding ignored folders. Their links open that host's **Sessions that need a folder**. Overall historical badges appear once, in Import chat history.
 
 ### Run now, Pause and Resume
 
@@ -189,7 +220,7 @@ Analysis calls use `ceil(total eligible prompts / profile batch size)`. Memory u
 
 ## Memory limits
 
-Open `/memory#memory-section-limits`. The table has **Setting**, **Value**, **Default**, **Unit** and **Affects** columns. Effects remain visible beside each input.
+Open **Shared** (`/memory/shared`) and expand **Memory limits**. The table has **Setting**, **Value**, **Default**, **Unit** and **Affects** columns. Effects remain visible beside each input.
 
 | Setting                      | Default                                        | Unit               | Accepted values          | Affects                                                                                                                                                     |
 | ---------------------------- | ---------------------------------------------- | ------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -224,7 +255,7 @@ Memory uses the existing [safe global save](web-ui-settings.md#how-saving-works)
 
 ## Keyword matching
 
-Open `/memory#memory-section-keywords`, below Memory limits. The card has one choice, **Word matching mode**, which sets `keywordMode`.
+Open **Shared** and expand **Keyword matching**, below Memory limits. The card has one choice, **Word matching mode**, which sets `keywordMode`.
 
 | Mode                       | Value   | Effect                                                                                                                                                                                                                      |
 | -------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -235,7 +266,7 @@ Open `/memory#memory-section-keywords`, below Memory limits. The card has one ch
 
 ## Reranker
 
-Open `/memory#memory-section-reranker`, below Memory limits. The card configures the opt-in reranker stage: a switch labelled **Use a reranker** (off by default) and four fields.
+Open **Shared** and expand **Reranker**, below Keyword matching. The card configures the opt-in reranker stage: a switch labelled **Use a reranker** (off by default) and four fields.
 
 The reranker settings are global only: they live in the global file, and a project file cannot change them. The global file is `~/.config/omms/omms.jsonc` on macOS and `%USERPROFILE%\.config\omms\omms.jsonc` on Windows. A project file is `<project>/.opencode/omms.jsonc`. See [Configuration: Where the settings live](configuration.md#where-the-settings-live).
 
@@ -262,11 +293,12 @@ A directory map links a recorded project folder to its current folder, for examp
 - **Remove** marks a saved map for removal; **Keep** undoes it. **Save removals** saves pending removals.
 - Keep maps after importing their sessions. Resolution happens before ledger checks. Removing a needed map makes its sessions unresolved again. Previously stored memories remain.
 - **Ignored directories** lists `importIgnoredDirectories`. **Restore** immediately saves removal from that list. The folder returns to each host list that reported it.
-- Each host's **Unresolved directories** starts collapsed. Its summary counts directories, unresolved sessions and rows with targets. Expand a row to edit its target. Collapsing keeps unsaved targets.
+- Each host view lists its **Unresolved directories** open, with a folder field on every row. Its summary counts directories, unresolved sessions and rows with targets. Collapsing keeps unsaved targets. **Shared** keeps **Saved maps** and **Ignored directories**.
 - **Ignore** immediately saves the folder to `importIgnoredDirectories`. Its sessions leave unresolved counts and stay unimported. Maps, ledger and history files remain unchanged.
+- **Ignore all** lists every directory it will ignore, with session counts, and saves them in one global save after you confirm. Cancel saves nothing. It never covers **No directory recorded**.
 - Sessions with **No directory recorded** cannot be mapped or ignored.
 
-A Partly imported badge or Automatic import folder link opens only the matching host and focuses its summary. Other disclosures and drafts retain their state. Repeating a link reveals a collapsed host again. Navigation saves nothing and starts no import.
+A Partly imported badge or status-header folder link opens the matching host view at its folder list. Navigation saves nothing and starts no import.
 
 ### Suggestions
 
@@ -298,21 +330,24 @@ Existing maps and ignored folders stay. Unrelated target drafts and pending remo
 
 After a successful save with a failed refresh, select **Refresh list** without saving again. Opening review, confirming maps, ignoring and restoring start no import. Saving does not recreate folders. A missing target leaves sessions unresolved. Per-run `--map` overrides a saved map for the same folder; memories already imported remain after removing it.
 
-The host lists reflect listing and full-history scans. A current-project import or explicit session selection does not replace the full unresolved list.
+The host lists reflect session listings and full-history scans, which find unresolved sessions across the whole source in both scopes. An automatic backfill sees only history before its cutoff, so it never replaces a whole-history list; it is used only while the host has none. A current-project import or explicit session selection does not replace the full unresolved list.
 
 ## Old Settings links
 
 Existing Markdown section anchors in the [Settings guide](web-ui-settings.md) link here. Bookmarked app URLs redirect as follows:
 
-| Old URL                                     | Current URL                              |
-| ------------------------------------------- | ---------------------------------------- |
-| `/settings#settings-section-import`         | `/memory#memory-section-import`          |
-| `/settings#settings-section-auto-import`    | `/memory#memory-section-auto-import`     |
-| `/settings#settings-section-profile`        | `/memory#memory-section-profile`         |
-| `/settings#settings-section-memory`         | `/memory#memory-section-limits`          |
-| `/settings#settings-section-directory-maps` | `/memory#memory-section-project-folders` |
+| Old URL                                                                               | Current URL                            |
+| ------------------------------------------------------------------------------------- | -------------------------------------- |
+| `/settings#settings-section-import`, `/memory#memory-section-import`                  | `/memory`                              |
+| `/settings#settings-section-auto-import`, `/memory#memory-section-auto-import`        | `/memory`                              |
+| `/settings#settings-section-profile`, `/memory#memory-section-profile`                | `/memory/shared#shared-profile`        |
+| `/settings#settings-section-memory`, `/memory#memory-section-limits`                  | `/memory/shared#shared-limits`         |
+| `/memory#memory-section-keywords`                                                     | `/memory/shared#shared-keywords`       |
+| `/memory#memory-section-reranker`                                                     | `/memory/shared#shared-reranker`       |
+| `/settings#settings-section-directory-maps`, `/memory#memory-section-project-folders` | `/memory/shared#shared-directory-maps` |
+| `/settings#directory-maps-<host>`, `/memory#directory-maps-<host>`                    | `/memory/<host>#host-unresolved`       |
 
-Host disclosure links use `/memory#directory-maps-pi`, `/memory#directory-maps-opencode` and `/memory#directory-maps-claude-code`. Their old `/settings#directory-maps-<host>` forms redirect and reveal the matching host. Legacy navigation replaces the old history entry, so Back does not cycle between the two URLs. Unrelated Settings anchors remain there; profile identities use `/settings#settings-section-profiles`.
+Import and automatic import name no host, so they open the overview. A Shared row opens when a link names it. Legacy navigation replaces the old history entry, so Back does not cycle between the two URLs. Unrelated Settings anchors remain there; profile identities use `/settings#settings-section-profiles`.
 
 ## Troubleshooting
 
@@ -323,6 +358,8 @@ Host disclosure links use `/memory#directory-maps-pi`, `/memory#directory-maps-o
 | Session list is out of date       | Refresh the affected host's list. Review its selection and preview again.                          |
 | An import is already running      | Reconnect to the current job or wait for that host's CLI or backfill run to finish.                |
 | Group failed or was cancelled     | Keep completed results. Fix the named problem, refresh lists, preview and confirm unfinished work. |
+| Memories not saved                | Fix the service in the reason, such as the embedding server, then select **Check again**.          |
+| Resume is greyed out              | Read the sentence under it. Select **Use external API** or open the host.                          |
 | Config changed before save        | Review refreshed values and save again.                                                            |
 
 For the additive grouped API and legacy response fields, see [For developers: Web history-import API](developers.md#web-history-import-api).

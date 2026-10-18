@@ -158,13 +158,13 @@ The preview used synthetic data on loopback port 5179. It did not use the normal
 
 ## Memory page
 
-Select **Memory** or open `http://127.0.0.1:4747/memory`. Its five sections are **Import chat history**, **Automatic import**, **Profile learning**, **Memory limits** and **Resolve missing project folders**.
+Select **Memory** or open `http://127.0.0.1:4747/memory`. It opens on four cards of the same size: **Pi**, **OpenCode**, **Claude Code** and **Shared**. A host card opens only that host: its status and main action (Pause, Resume, Retry or Run now), its sessions, the folders that need a map, and its own settings. **Shared** holds **Profile learning**, **Memory limits**, **Keyword matching**, **Reranker** and the saved directory maps. Each host card has an avatar that you can change, and the cards turn amber when memories cannot be saved.
 
-Import chat history defaults to Pi, Current project and both outputs: Project memories and User profile. **All hosts** explicitly includes Pi, OpenCode and Claude Code without widening project scope. A reviewed preview and confirmation precede model calls. The server runs the selected hosts sequentially and retains completed work after failure or cancellation.
+**Import all hosts** on the overview opens the multi-host import. It defaults to Pi, Current project and both outputs: Project memories and User profile. **All hosts** explicitly includes Pi, OpenCode and Claude Code without widening project scope. The hosts and scope you tick stay after a refresh. A reviewed preview and confirmation precede model calls. The server runs the selected hosts sequentially and retains completed work after failure or cancellation.
 
 Profile learning separates **Analyse waiting prompts** inside OMMS from **Re-analyse chat history**, a reviewed forced profile-only import. The [Memory page guide](web-ui-memory.md) covers operations, estimates, limits, maps and [old Settings redirects](web-ui-memory.md#old-settings-links).
 
-Browse results on `/project-memories` and `/user-profile`. `/` resolves to Project memories. Memory and Settings each remember their section tree; both remain reachable through desktop collapse and the mobile drawer.
+Browse results on `/project-memories` and `/user-profile`. `/` resolves to Project memories. User profile, Memory and Settings each have an arrow that opens or closes their list in the sidebar, and each remembers its own choice; both remain reachable through desktop collapse and the mobile drawer.
 
 ## Chat page
 

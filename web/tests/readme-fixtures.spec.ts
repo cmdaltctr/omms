@@ -33,6 +33,11 @@ it("keeps all screenshot data English only", async () => {
     "settings",
     "settings/profiles",
     "settings/imports/current",
+    "settings/imports/readiness",
+    "settings/backfill",
+    "settings/backfill/runs",
+    "memory/write-health",
+    "host-appearance",
   ]) {
     const result = await response("GET", `/api/${route}`);
     expect(result.status).toBe(200);
@@ -79,4 +84,46 @@ it("uses its own port, fixture header and closed proxies in both modes", () => {
   expect(config).toContain("configureServer");
   expect(config).toContain("configurePreviewServer");
   expect(config).not.toContain("4747");
+});
+
+it("shows healthy hosts on the Memory pages: memories saving, imports done, every source found", async () => {
+  expect((await response("GET", "/api/memory/write-health")).body).toMatchObject({
+    ok: true,
+    reason: null,
+  });
+  expect((await response("GET", "/api/host-appearance")).body).toEqual({
+    hosts: {
+      pi: { kind: "default" },
+      opencode: { kind: "default" },
+      "claude-code": { kind: "default" },
+    },
+  });
+  const readiness = (await response("GET", "/api/settings/imports/readiness")).body as {
+    defaultSourceFound: Record<string, boolean>;
+  };
+  expect(readiness.defaultSourceFound).toEqual({ pi: true, opencode: true, "claude-code": true });
+  const rows = (await response("GET", "/api/settings/backfill")).body as {
+    data?: unknown;
+  } & Record<string, { state: string; counts: { pending: number } } | null>;
+  const runs = (await response("GET", "/api/settings/backfill/runs")).body as Record<
+    string,
+    { run: { state: string }; runNowUnavailable: string | null }
+  >;
+  for (const host of ["pi", "opencode", "claude-code"]) {
+    expect(rows[host]?.state, host).toBe("done");
+    expect(rows[host]?.counts.pending, host).toBe(0);
+    expect(runs[host].run.state, host).toBe("done");
+    // Run now is available, so the page shows a normal button and a plain sentence.
+    expect(runs[host].runNowUnavailable, host).toBeNull();
+  }
+});
+
+it("saves nothing from the Memory pages in the demo", async () => {
+  for (const [method, path] of [
+    ["PUT", "/api/host-appearance/pi"],
+    ["DELETE", "/api/host-appearance/pi"],
+    ["POST", "/api/settings/backfill/pi/run"],
+  ] as const) {
+    expect((await response(method, path, {})).status, `${method} ${path}`).toBe(405);
+  }
 });

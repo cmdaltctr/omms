@@ -47,6 +47,8 @@ export type Readiness = {
   opencode: { available: boolean; models: { provider: string; model: string; name: string }[] };
   piReader: { available: boolean; reason?: string };
   claudeCode?: { available: boolean; defaultRoot: string; defaultRootFound: boolean };
+  /** Whether each host's default history source exists on this machine. */
+  defaultSourceFound?: Record<WebHost, boolean>;
 };
 export type PinnedSelection =
   | { mode: "all"; excludedKeys: string[]; revision: string; listedAt: number }

@@ -193,3 +193,27 @@ it("reports the missing external API setting for a Claude Code import", async ()
   );
   expect(importBlockedReason(readiness, { host: "claude-code", needsModel: false })).toBeNull();
 });
+
+it("reports whether each host's default history source exists on this machine", async () => {
+  configure({});
+  const present = new Set<string>();
+  const readiness = await importReadiness({
+    ...deps,
+    claudeRoot: () => "/claude/projects",
+    sourceExists: (path) => present.has(path),
+  });
+  expect(readiness.defaultSourceFound).toEqual({
+    pi: false,
+    opencode: false,
+    "claude-code": false,
+  });
+  const { defaultImportSourcePath } = await import("../src/importer/import-sources.js");
+  present.add(defaultImportSourcePath("opencode"));
+  present.add("/claude/projects");
+  const second = await importReadiness({
+    ...deps,
+    claudeRoot: () => "/claude/projects",
+    sourceExists: (path) => present.has(path),
+  });
+  expect(second.defaultSourceFound).toEqual({ pi: false, opencode: true, "claude-code": true });
+});

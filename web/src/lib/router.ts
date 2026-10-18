@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { legacyMemoryAnchor } from "./memory-sections";
+import { legacyMemoryDestination } from "./memory-sections";
 import { revealPageAnchor } from "./settings-navigation";
 import {
   normalizePath,
@@ -11,8 +11,7 @@ import {
 } from "./routes";
 
 function destination(path: string, hash = ""): string {
-  const legacy = legacyMemoryAnchor(normalizePath(path), hash);
-  return legacy ? `${ROUTES.memory}${legacy}` : `${resolveAppPath(path)}${hash}`;
+  return legacyMemoryDestination(normalizePath(path), hash) ?? `${resolveAppPath(path)}${hash}`;
 }
 
 let currentPath =
@@ -49,13 +48,14 @@ function getServerSnapshot() {
 export function navigate(to: string, replace = false) {
   const [path, hash = ""] = to.split(/(?=#)/);
   const next = destination(path, hash);
-  const legacy = legacyMemoryAnchor(normalizePath(path), hash);
+  const legacy = legacyMemoryDestination(normalizePath(path), hash);
   if (`${normalizePath(window.location.pathname)}${window.location.hash}` !== next) {
     if (replace || legacy) window.history.replaceState({}, "", next);
     else window.history.pushState({}, "", next);
   }
   setPath(next);
-  if (hash || legacy) revealPageAnchor(legacy ?? hash);
+  const anchor = next.indexOf("#");
+  if (anchor >= 0) revealPageAnchor(next.slice(anchor));
 }
 
 export function navigateView(view: AppView, replace = false) {

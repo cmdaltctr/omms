@@ -2,6 +2,8 @@ import { describe, expect, it } from "bun:test";
 import {
   NO_DIRECTORY,
   confirmedEdits,
+  ignorableRows,
+  ignoreAllList,
   defaultTicks,
   groupSavedMaps,
   reviewDirectoryMaps,
@@ -147,5 +149,35 @@ describe("Directory map review helpers", () => {
     ];
     expect(mapsToSave(saved, new Set(["/a"]))).toEqual([{ from: "/b", to: "/y" }]);
     expect(mapsToSave(saved, new Set())).toEqual(saved);
+  });
+});
+
+describe("Ignore all", () => {
+  const rows: SuggestedDirectory[] = [
+    { directory: "/private/tmp/oc-mem-phase1/project", sessions: 7, suggestion: null },
+    {
+      directory: "/Users/me/Open Design/x",
+      sessions: 13,
+      suggestion: { kind: "ignore", reason: "temporary" },
+    },
+    { directory: NO_DIRECTORY, sessions: 2, suggestion: null },
+  ];
+
+  it("lists every directory except the entry with no recorded directory", () => {
+    expect(ignorableRows(rows).map((row) => row.directory)).toEqual([
+      "/private/tmp/oc-mem-phase1/project",
+      "/Users/me/Open Design/x",
+    ]);
+    expect(ignorableRows([{ directory: NO_DIRECTORY, sessions: 1, suggestion: null }])).toEqual([]);
+  });
+
+  it("adds the listed directories to the ignored list once, keeping the existing ones", () => {
+    const existing = ["/old/ignored", "/private/tmp/oc-mem-phase1/project"];
+    expect(ignoreAllList(existing, rows)).toEqual([
+      "/old/ignored",
+      "/private/tmp/oc-mem-phase1/project",
+      "/Users/me/Open Design/x",
+    ]);
+    expect(existing).toEqual(["/old/ignored", "/private/tmp/oc-mem-phase1/project"]);
   });
 });

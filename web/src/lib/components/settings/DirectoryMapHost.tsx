@@ -14,6 +14,10 @@ type Props = {
   onDecide: (row: SuggestedDirectory, target: string) => void;
   onResolve: () => void;
   onIgnore: (row: SuggestedDirectory) => void;
+  /** Offered when the host lists at least one directory that can be ignored. */
+  onIgnoreAll?: () => void;
+  /** Start expanded, as in a host view. */
+  open?: boolean;
 };
 
 /** Compact host review; drafts remain in the owning settings section. */
@@ -25,6 +29,8 @@ export function DirectoryMapHost({
   onDecide,
   onResolve,
   onIgnore,
+  onIgnoreAll,
+  open,
 }: Props) {
   const s = useSettingsText();
   const mappable = rows.filter((row) => row.directory !== NO_DIRECTORY);
@@ -32,7 +38,7 @@ export function DirectoryMapHost({
     rowTarget(row, decisions[row.directory]).trim()
   ).length;
   return (
-    <details className="min-w-0 rounded-lg border border-border p-3">
+    <details className="min-w-0 rounded-lg border border-border p-3" open={open || undefined}>
       <summary
         id={`directory-maps-${host}`}
         className="scroll-mt-20 cursor-pointer rounded font-medium focus-visible:outline-2 focus-visible:outline-ring"
@@ -63,6 +69,18 @@ export function DirectoryMapHost({
               >
                 {s("Smart resolve directories")}
               </Button>
+              {onIgnoreAll && mappable.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="ms-2"
+                  disabled={busy}
+                  onClick={onIgnoreAll}
+                >
+                  {s("Ignore all")}
+                </Button>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               {s(
@@ -90,7 +108,7 @@ export function DirectoryMapHost({
               key={row.directory}
               className="flex min-w-0 items-start gap-2 border-t border-border pt-2 text-sm"
             >
-              <details className="min-w-0 flex-1">
+              <details className="min-w-0 flex-1" open={open || undefined}>
                 <summary className="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-ring">
                   <code dir="ltr" className="break-all">
                     {row.directory}
