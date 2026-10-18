@@ -24,7 +24,7 @@ export async function ensureTursoReady(): Promise<void> {
       isReady = true;
     } catch (error) {
       initPromise = null;
-      log("Turso ready gate failed", { error: String(error) });
+      log("Turso ready gate failed", { error: String(error) }, "error");
       throw error;
     }
   })();

@@ -48,9 +48,13 @@ async function captureWithQuickRetries(unit: CaptureWorkUnit, provider: CaptureS
       return await captureConversation(unit, provider);
     } catch (error) {
       if (attempt >= maxRetries) throw error;
-      log(`Pi auto-capture warning (attempt ${attempt}/${maxRetries})`, {
-        sessionID: unit.hostSessionId,
-      });
+      log(
+        `Pi auto-capture warning (attempt ${attempt}/${maxRetries})`,
+        {
+          sessionID: unit.hostSessionId,
+        },
+        "warn"
+      );
       await new Promise((resolve) => setTimeout(resolve, quickRetryDelayMs(attempt)));
     }
   }
@@ -135,7 +139,7 @@ export async function capturePiSettledWorkUnit(
     return { status: "captured", memoryId: captureResult.memoryId };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log(`Pi auto-capture error: ${message}`, { sessionID: input.sessionId });
+    log(`Pi auto-capture error: ${message}`, { sessionID: input.sessionId }, "error");
     // The next prompt moves capture on to a newer turn, so keep this one for a later retry.
     if (workUnit) await queueFailedCapture(workUnit, error, CONFIG);
 

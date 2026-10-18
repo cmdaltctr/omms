@@ -170,7 +170,7 @@ export function pruneTraces(config: CaptureDiagnosticsConfig, now: Date = new Da
       }
     }
   } catch (error) {
-    log("Capture trace cleanup failed", { code: errorCode(error) });
+    log("Capture trace cleanup failed", { code: errorCode(error) }, "error");
   }
   return removed;
 }
@@ -229,7 +229,7 @@ export function writeTraceEntry(
     // A new Windows file inherits the private directory ACL until this call.
     if (!existingWindowsFile) protectTracePath(file, 0o600);
   } catch (error) {
-    log("Capture trace write failed", { code: errorCode(error) });
+    log("Capture trace write failed", { code: errorCode(error) }, "error");
   }
 }
 
@@ -250,7 +250,9 @@ export function emitCaptureAttempt(
   }
   void import("./capture-attempt-store.js")
     .then(({ saveCaptureAttempt }) => saveCaptureAttempt(record, now.getTime()))
-    .catch((error: unknown) => log("Capture attempt store failed", { code: errorCode(error) }));
+    .catch((error: unknown) =>
+      log("Capture attempt store failed", { code: errorCode(error) }, "error")
+    );
   if (config.captureTrace === true) {
     writeTraceEntry(record, diagnostics, config, now);
   }

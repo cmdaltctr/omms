@@ -116,7 +116,7 @@ export class UserProfileManager {
       } catch (error) {
         this.initPromise = null;
         this.db = null;
-        log("user-profile-manager: db init failed", { error: String(error) });
+        log("user-profile-manager: db init failed", { error: String(error) }, "error");
         throw error;
       }
     })();
@@ -645,7 +645,7 @@ export class UserProfileManager {
     const isWorkflow = itemType === "workflow";
 
     if (!useEmbedding) {
-      log("profile embedding skipped: model not warmed up");
+      log("profile embedding skipped: model not warmed up", undefined, "warn");
     }
 
     for (const item of existing) {
@@ -664,10 +664,14 @@ export class UserProfileManager {
           (item as any).anchor = arr;
           log("profile centroid migrated", { desc: item.description.substring(0, 30) });
         } catch (e) {
-          log("profile centroid migration failed", {
-            desc: item.description.substring(0, 30),
-            error: String(e),
-          });
+          log(
+            "profile centroid migration failed",
+            {
+              desc: item.description.substring(0, 30),
+              error: String(e),
+            },
+            "error"
+          );
         }
       }
     }
@@ -1317,10 +1321,14 @@ export class UserProfileManager {
         const parsed = JSON.parse(val);
         return Array.isArray(parsed) ? parsed : [];
       } catch (e) {
-        log("ensureArray: failed to parse JSON string, returning []", {
-          val: String(val).substring(0, 100),
-          error: String(e),
-        });
+        log(
+          "ensureArray: failed to parse JSON string, returning []",
+          {
+            val: String(val).substring(0, 100),
+            error: String(e),
+          },
+          "error"
+        );
         return [];
       }
     }
@@ -1455,7 +1463,7 @@ Answer JSON only: { "duplicate": true|false, "reason": "one sentence explanation
         ]);
         return result.duplicate || false;
       } catch (e) {
-        log("profile dedup check: native provider failed", { error: String(e) });
+        log("profile dedup check: native provider failed", { error: String(e) }, "warn");
       }
     }
 
@@ -1488,7 +1496,7 @@ Answer JSON only: { "duplicate": true|false, "reason": "one sentence explanation
         const parsed = JSON.parse(content);
         return parsed.duplicate || false;
       } catch (e) {
-        log("profile dedup check: external API failed", { error: String(e) });
+        log("profile dedup check: external API failed", { error: String(e) }, "error");
       }
     }
 
@@ -1642,7 +1650,7 @@ Answer JSON only: { "conflict": true|false, "reason": "one sentence explanation"
         ]);
         return result.conflict || false;
       } catch (e) {
-        log("profile conflict check: native provider failed", { error: String(e) });
+        log("profile conflict check: native provider failed", { error: String(e) }, "warn");
       }
     }
 
@@ -1687,7 +1695,7 @@ Answer JSON only: { "conflict": true|false, "reason": "one sentence explanation"
         })();
         return parsed.conflict || false;
       } catch (e) {
-        log("profile conflict check: external API failed", { error: String(e) });
+        log("profile conflict check: external API failed", { error: String(e) }, "error");
       }
     }
 
@@ -1748,9 +1756,13 @@ Generate a concise, abstract description of the user's general behavioral tenden
       try {
         newDescription = await this.callHostModel(hostModel, systemPrompt, userPrompt);
       } catch (e) {
-        log("profile description evolution: native provider failed, trying external API", {
-          error: String(e),
-        });
+        log(
+          "profile description evolution: native provider failed, trying external API",
+          {
+            error: String(e),
+          },
+          "error"
+        );
       }
     }
 
@@ -1758,7 +1770,7 @@ Generate a concise, abstract description of the user's general behavioral tenden
       try {
         newDescription = await this.callExternalAPI(systemPrompt, userPrompt);
       } catch (e) {
-        log("profile description evolution: external API failed", { error: String(e) });
+        log("profile description evolution: external API failed", { error: String(e) }, "error");
         return null;
       }
     }
@@ -1851,9 +1863,13 @@ Generate a concise, abstract description of the user's general behavioral tenden
             return;
           }
         } else {
-          log("profile description evolution: embedding not warmed up, skipping validation", {
-            type: itemType,
-          });
+          log(
+            "profile description evolution: embedding not warmed up, skipping validation",
+            {
+              type: itemType,
+            },
+            "warn"
+          );
         }
 
         const oldDesc = item.description;
@@ -1867,7 +1883,7 @@ Generate a concise, abstract description of the user's general behavioral tenden
         });
       }
     } catch (e) {
-      log("profile description evolve error", { type: itemType, error: String(e) });
+      log("profile description evolve error", { type: itemType, error: String(e) }, "error");
     }
   }
 

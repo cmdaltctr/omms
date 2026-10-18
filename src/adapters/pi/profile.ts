@@ -99,9 +99,13 @@ export async function performPiProfileLearning(input: PiProfileLearningInput): P
     refreshConfigIfChanged(input.directory);
     const tags = getTags(input.directory);
     if (!tags.user.userEmail) {
-      log("pi profile learning: skipped (no user email resolved)", {
-        directory: input.directory,
-      });
+      log(
+        "pi profile learning: skipped (no user email resolved)",
+        {
+          directory: input.directory,
+        },
+        "warn"
+      );
       return;
     }
     const userId = tags.user.userEmail;
@@ -126,7 +130,7 @@ export async function performPiProfileLearning(input: PiProfileLearningInput): P
       existing ? { id: existing.id, profileData: existing.profileData } : null
     );
     if (!analysis) {
-      log("pi profile learning: skipped (no model available)", { userId });
+      log("pi profile learning: skipped (no model available)", { userId }, "warn");
       return;
     }
 

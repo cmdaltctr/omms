@@ -107,7 +107,7 @@ it("keeps serving on the same process when the restarted copy cannot start", asy
     expect(await listeners(port)).toEqual([String(child.pid)]);
     expect((await fetch(`${base}/api/health`)).ok).toBe(true);
     const log = readFileSync(join(home, "omms.log"), "utf8");
-    expect(log).toContain("Web app restart failed");
+    expect(log).toContain("ERROR Web app restart failed");
     expect(log).toContain("copy-exit");
   } finally {
     child.kill("SIGKILL");

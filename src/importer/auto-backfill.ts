@@ -109,10 +109,14 @@ export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promis
     current = counts(dry);
     await recordUnresolvedDirectories(options.host, unresolvedDirectoriesOf(dry)).catch(
       (error: unknown) =>
-        log("Backfill unresolved directories write failed", {
-          host: options.host,
-          error: error instanceof Error ? error.message : String(error),
-        })
+        log(
+          "Backfill unresolved directories write failed",
+          {
+            host: options.host,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          "error"
+        )
     );
     if (controller.signal.aborted) {
       state = "stopped";
@@ -186,10 +190,14 @@ export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promis
               updateBackfillStatus(options.host, { state: "running", model, counts: current })
             )
             .catch((error: unknown) => {
-              log("Backfill status write failed", {
-                host: options.host,
-                error: error instanceof Error ? error.message : String(error),
-              });
+              log(
+                "Backfill status write failed",
+                {
+                  host: options.host,
+                  error: error instanceof Error ? error.message : String(error),
+                },
+                "error"
+              );
             });
         },
       }

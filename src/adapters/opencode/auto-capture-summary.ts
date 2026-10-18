@@ -141,9 +141,13 @@ export async function generateOpenCodeAutoCaptureSummary(
       diagnostics.failureReason = hostModelFailureReason(error);
       diagnostics.httpStatus = errorHttpStatus(error);
       diagnostics.retryAfterMs = errorRetryAfterMs(error);
-      log("auto-capture: opencode provider failed, falling back to external API", {
-        error: String(error),
-      });
+      log(
+        "auto-capture: opencode provider failed, falling back to external API",
+        {
+          error: String(error),
+        },
+        "warn"
+      );
     }
   }
 

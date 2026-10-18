@@ -363,7 +363,7 @@ export class ShardPathMigrationService {
         try {
           await userPromptManager.updateProjectPath(source.group.projectPath, target.projectPath);
         } catch (error) {
-          log("Path migration prompt metadata update failed", { error: String(error) });
+          log("Path migration prompt metadata update failed", { error: String(error) }, "error");
         }
       }
 
@@ -418,7 +418,7 @@ export class ShardPathMigrationService {
         }
       } catch (error) {
         rollbackFailed = true;
-        log("Path migration source rollback failed", { move, error: String(error) });
+        log("Path migration source rollback failed", { move, error: String(error) }, "error");
       }
     }
 
@@ -440,7 +440,7 @@ export class ShardPathMigrationService {
         }
       } catch (error) {
         rollbackFailed = true;
-        log("Path migration target rollback failed", { archived, error: String(error) });
+        log("Path migration target rollback failed", { archived, error: String(error) }, "error");
       }
     }
 
@@ -455,7 +455,7 @@ export class ShardPathMigrationService {
       }
     } catch (error) {
       rollbackFailed = true;
-      log("Path migration stale target cleanup failed", { error: String(error) });
+      log("Path migration stale target cleanup failed", { error: String(error) }, "error");
     }
 
     if (!rollbackFailed && existsSync(statePath)) {

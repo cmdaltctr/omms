@@ -148,7 +148,11 @@ export function registerOpencodeProfileModel(): void {
     if (!hostModel) return null;
     const v2Client = (await loadOpencodeProvider()).getV2Client();
     if (!v2Client) {
-      log("profile model: opencode client unavailable, falling back to external API");
+      log(
+        "profile model: opencode client unavailable, falling back to external API",
+        undefined,
+        "warn"
+      );
       return null;
     }
     return adaptOpencodeProfileModel(v2Client, hostModel);

@@ -61,7 +61,7 @@ export async function startAutoProfileCleanup(
   try {
     return await run(userId, options);
   } catch (error) {
-    log("auto cleanup: failed", { reason: failureReason(error) });
+    log("auto cleanup: failed", { reason: failureReason(error) }, "error");
     return { status: "failed" };
   } finally {
     running = false;
@@ -97,7 +97,7 @@ async function run(userId: string, options: AutoCleanupOptions): Promise<AutoCle
     return { status: "nothing-to-change" };
   }
   if (proposed > AUTO_CLEANUP_MAX_CHANGE_SHARE * sent) {
-    log("auto cleanup: skipped", { reason: "too-many-changes", proposed, sent });
+    log("auto cleanup: skipped", { reason: "too-many-changes", proposed, sent }, "warn");
     return { status: "too-many-changes" };
   }
 

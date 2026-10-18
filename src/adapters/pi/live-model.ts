@@ -69,7 +69,7 @@ async function withFallback<T>(
   }
   if (!isExternalModelReady(CONFIG)) throw failure;
   const reason = failure instanceof Error ? failure.message : String(failure);
-  log("Pi live model failed, falling back to external API", { error: reason });
+  log("Pi live model failed, falling back to external API", { error: reason }, "warn");
   await Promise.resolve(
     notify?.({
       title: "Using fallback provider",

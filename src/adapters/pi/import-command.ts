@@ -107,7 +107,7 @@ export function registerPiHistoryImportCommand(
           try {
             await memoryClient.warmup();
           } catch (error) {
-            log("Pi import: memory warmup failed", { error: String(error) });
+            log("Pi import: memory warmup failed", { error: String(error) }, "error");
           }
         }
 
@@ -140,7 +140,7 @@ export function registerPiHistoryImportCommand(
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        log("Pi history import failed", { error: message });
+        log("Pi history import failed", { error: message }, "error");
         notify(`memory-import-pi-history failed: ${message}`);
       } finally {
         endManualImport();

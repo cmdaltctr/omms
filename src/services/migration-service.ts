@@ -80,10 +80,14 @@ export class MigrationService {
           });
         }
       } catch (error) {
-        log("Migration: error checking shard", {
-          shardId: shard.id,
-          error: String(error),
-        });
+        log(
+          "Migration: error checking shard",
+          {
+            shardId: shard.id,
+            error: String(error),
+          },
+          "error"
+        );
       }
     }
 
@@ -128,7 +132,7 @@ export class MigrationService {
 
       return await this.reEmbedMigration(mismatch, startTime);
     } catch (error) {
-      log("Migration: failed", { error: String(error) });
+      log("Migration: failed", { error: String(error) }, "error");
       return {
         success: false,
         strategy,

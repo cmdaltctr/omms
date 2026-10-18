@@ -299,13 +299,17 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
 
         if (!response.ok) {
           const errorText = await response.text().catch(() => response.statusText);
-          log("OpenAI Chat Completion API error", {
-            provider: this.getProviderName(),
-            model: this.config.model,
-            status: response.status,
-            error: errorText,
-            iteration: iterations,
-          });
+          log(
+            "OpenAI Chat Completion API error",
+            {
+              provider: this.getProviderName(),
+              model: this.config.model,
+              status: response.status,
+              error: errorText,
+              iteration: iterations,
+            },
+            "error"
+          );
 
           let errorMessage = `API error: ${response.status} - ${errorText}`;
 
@@ -331,12 +335,16 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
         const data: unknown = await response.json();
 
         if (isErrorResponseBody(data)) {
-          log("API returned error in response body", {
-            provider: this.getProviderName(),
-            model: this.config.model,
-            status: data.status,
-            msg: data.msg,
-          });
+          log(
+            "API returned error in response body",
+            {
+              provider: this.getProviderName(),
+              model: this.config.model,
+              status: data.status,
+              msg: data.msg,
+            },
+            "error"
+          );
           return {
             stopReason,
             success: false,
@@ -450,17 +458,21 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
                   iterations,
                 };
               } catch (validationError) {
-                log("OpenAI tool response validation failed", {
-                  error: describeValidationError(validationError),
-                  errorType:
-                    validationError instanceof Error
-                      ? validationError.constructor.name
-                      : typeof validationError,
-                  toolName: toolSchema.function.name,
-                  iteration: iterations,
-                  // Log only the size: the arguments are the model's reply.
-                  argumentsChars: toolCall.function.arguments.length,
-                });
+                log(
+                  "OpenAI tool response validation failed",
+                  {
+                    error: describeValidationError(validationError),
+                    errorType:
+                      validationError instanceof Error
+                        ? validationError.constructor.name
+                        : typeof validationError,
+                    toolName: toolSchema.function.name,
+                    iteration: iterations,
+                    // Log only the size: the arguments are the model's reply.
+                    argumentsChars: toolCall.function.arguments.length,
+                  },
+                  "error"
+                );
 
                 const errorMessage = `Validation failed: ${describeValidationError(validationError)}`;
                 lastErrorMessage = errorMessage;

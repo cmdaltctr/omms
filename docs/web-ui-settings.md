@@ -374,10 +374,29 @@ See [CLI: Global install](cli.md#global-install-optional) and [Updating and upgr
 
 ## Log
 
-This section shows the latest lines of `~/.omms/omms.log`.
+This section shows the latest records of `~/.omms/omms.log`, newest last. Each record has its time, a coloured level badge, its message and its data. The badge says `info`, `warn` or `error` in words, so colour is never the only signal.
 
-- **Capture attempts only** shows only capture attempt records.
+OMMS writes each new line as `[time] LEVEL message: {data}`. For example:
+
+```text
+[2026-10-18T18:36:51.802+01:00] ERROR addMemory: error: {"error":"API embedding failed: 500"}
+```
+
+- `info` is routine activity.
+- `warn` means OMMS fell back, skipped a unit, retried, or lost an optional feature and kept working.
+- `error` means an operation failed.
+
+Lines written before levels existed have no level word. The page guesses the level from the message text and shows `guessed` in the badge tooltip and in its accessible name. The guess reads only the message, never the data, so `Capture attempt: {"error":null}` reads as `info`.
+
+Controls:
+
+- **All**, **Warning** and **Error** choose the lowest level to show. **Warning** shows warnings and errors. **Error** shows errors only, from the last 200 error records in the part of the file the page reads.
+- **Capture attempts only** shows only capture attempt records. It combines with the level chips.
+- **Pause** stops the page from reading new records and freezes what is shown. **Resume** reads again at once and restarts the checks.
 - **Refresh** reads the log again.
+- **Copy visible records** copies the shown records, one per line.
 - **Copy log path** copies the file path.
 
-The log holds sizes, identifiers, and codes. It never holds prompts, replies, or keys.
+While the section is on screen and not paused, the page checks for new records every 5 seconds. It stops checking when you scroll the section out of view or switch to another browser tab. The list follows the newest record until you scroll up, and follows again when you scroll back to the bottom.
+
+The page reads at most the last 256 KB of the file. The log holds sizes, identifiers, and codes. It never holds prompts, replies, or keys.
