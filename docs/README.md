@@ -16,6 +16,7 @@ The [project README](../README.md#documentation) lists the user and developer gu
 - [Web UI](web-ui.md) covers app startup, navigation and access.
 - [Memory page](web-ui-memory.md) covers reviewed history imports, grouped results, profile actions, limits and missing folders.
 - [Settings page](web-ui-settings.md) covers models, access, diagnostics and profile identity controls.
+- [Chat page](web-ui-chat.md) covers asking questions about memories, citations, folders, deleting chats and copying `chats.db`.
 
 ## Hosts
 

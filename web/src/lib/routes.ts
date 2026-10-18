@@ -4,9 +4,10 @@ export const ROUTES = {
   profile: "/user-profile",
   settings: "/settings",
   memory: "/memory",
+  chat: "/chat",
 } as const;
 
-export type AppView = "project" | "profile" | "settings" | "memory";
+export type AppView = "project" | "profile" | "settings" | "memory" | "chat";
 
 export function normalizePath(pathname: string): string {
   const path = pathname.replace(/\/+$/, "") || "/";
@@ -17,12 +18,14 @@ export function viewFromPath(pathname: string): AppView {
   const path = normalizePath(pathname);
   if (path === ROUTES.memory) return "memory";
   if (path === ROUTES.settings) return "settings";
+  if (path === ROUTES.chat) return "chat";
   return path === ROUTES.profile ? "profile" : "project";
 }
 
 export function pathForView(view: AppView): string {
   if (view === "memory") return ROUTES.memory;
   if (view === "settings") return ROUTES.settings;
+  if (view === "chat") return ROUTES.chat;
   return view === "profile" ? ROUTES.profile : ROUTES.project;
 }
 
@@ -33,7 +36,8 @@ export function isAppPath(pathname: string): boolean {
     path === ROUTES.project ||
     path === ROUTES.profile ||
     path === ROUTES.settings ||
-    path === ROUTES.memory
+    path === ROUTES.memory ||
+    path === ROUTES.chat
   );
 }
 

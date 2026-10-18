@@ -2,6 +2,7 @@ import { tursoConnectionManager } from "./connection-manager.js";
 import { log } from "../logger.js";
 import type { MemoryRecord, SearchResult, ShardInfo } from "./types.js";
 import { distanceToSimilarity, vectorToJson } from "./vector-utils.js";
+import { tagMatchBoost } from "./tag-match.js";
 import type { TursoDb } from "./turso-db.js";
 import type { Transaction } from "@libsql/client";
 
@@ -172,13 +173,6 @@ export class TursoVectorSearch {
         : [queryJson, queryJson, ...ids, containerTag]
     );
 
-    const queryWords = queryText
-      ? queryText
-          .toLowerCase()
-          .split(/[\s,]+/)
-          .filter((word) => word.length > 1)
-      : [];
-
     const hydratedResults = rows.map((row: Record<string, unknown>) => {
       const contentSim = distanceToSimilarity(Number(row.content_dist));
       const tagsSim =
@@ -186,15 +180,7 @@ export class TursoVectorSearch {
           ? 0
           : distanceToSimilarity(Number(row.tags_dist));
       const memoryTagsStr = String(row.tags || "");
-      const memoryTags = memoryTagsStr.split(",").map((tag) => tag.trim().toLowerCase());
-
-      let exactMatchBoost = 0;
-      if (queryWords.length > 0 && memoryTags.length > 0) {
-        const matches = queryWords.filter((word) =>
-          memoryTags.some((tag) => tag.includes(word) || word.includes(tag))
-        ).length;
-        exactMatchBoost = matches / Math.max(queryWords.length, 1);
-      }
+      const exactMatchBoost = tagMatchBoost(queryText, memoryTagsStr);
 
       const finalTagsSim = Math.max(tagsSim, exactMatchBoost);
       const similarity = contentSim * 0.6 + finalTagsSim * 0.4;

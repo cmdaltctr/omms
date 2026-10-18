@@ -70,5 +70,14 @@ describe("privacy", () => {
       const result = isFullyPrivate("just normal text");
       expect(result).toBe(false);
     });
+
+    it("is true when every region is private, however many there are", () => {
+      expect(isFullyPrivate("<private>a</private><private>b</private>")).toBe(true);
+      expect(isFullyPrivate("<private>a</private> \n <private>b</private>")).toBe(true);
+    });
+
+    it("is false when public text sits between private regions", () => {
+      expect(isFullyPrivate("<private>a</private> keep this <private>b</private>")).toBe(false);
+    });
   });
 });

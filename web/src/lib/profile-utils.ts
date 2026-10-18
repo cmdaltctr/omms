@@ -48,6 +48,26 @@ export function findStepsById(
   return profileData.workflows?.[idx]?.steps || null;
 }
 
+/** Written by `memory` tool writes instead of a quote from a conversation. */
+const MANUAL_WRITE_MARKER = "manual-write";
+
+export interface EvidenceItem {
+  kind: "text" | "manual-write";
+  text: string;
+}
+
+/** An item's evidence as a list, whether it is stored as an array or one string. */
+export function evidenceItems(item: ProfileItem): EvidenceItem[] {
+  const raw = item.evidence;
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return list
+    .filter((entry) => entry.trim().length > 0)
+    .map((entry) => ({
+      kind: entry.trim() === MANUAL_WRITE_MARKER ? "manual-write" : "text",
+      text: entry,
+    }));
+}
+
 export type ConfidenceLevel = "high" | "medium" | "low" | "poor";
 
 /** Confidence bands for the profile badge: 80% and up, 60–79%, 40–59%, below 40%. */

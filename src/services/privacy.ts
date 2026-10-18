@@ -75,6 +75,6 @@ export function stripPrivateContent(content: string): string {
  * than storing a message that is private in its entirety.
  */
 export function isFullyPrivate(content: string): boolean {
-  const stripped = stripPrivateContent(content).trim();
-  return stripped === REDACTED || stripped === "";
+  // Several private regions leave several markers, so remove them all.
+  return stripPrivateContent(content).split(REDACTED).join("").trim() === "";
 }

@@ -35,3 +35,5 @@ Local decision records for OMMS maintainers.
 | [029](./029-ai-cleanup-runs-as-a-batched-job.md)                | AI Cleanup runs as a batched background job and applies edits            | 2026-10-17 | Accepted           |
 | [030](./030-profile-cleanup-runs-on-every-host.md)              | The profile cleans itself up on every host, with a restore record        | 2026-10-17 | Accepted           |
 | [031](./031-opt-in-memory-reranker.md)                          | The reranker is opt-in and the similarity threshold follows the embedder | 2026-10-17 | Accepted           |
+| [032](./032-chat-history-lives-in-chats-db.md)                  | Chat history lives in chats.db                                           | 2026-10-18 | Accepted           |
+| [033](./033-chat-uses-the-model-to-plan-search-hooks-do-not.md) | Chat uses the model to plan its search; the hooks do not                 | 2026-10-18 | Accepted           |

@@ -166,9 +166,22 @@ Profile learning separates **Analyse waiting prompts** inside OMMS from **Re-ana
 
 Browse results on `/project-memories` and `/user-profile`. `/` resolves to Project memories. Memory and Settings each remember their section tree; both remain reachable through desktop collapse and the mobile drawer.
 
+## Chat page
+
+Select **Chat** or open `http://127.0.0.1:4747/chat` to ask questions about your memories and profile. Answers cite their sources. The [Chat page guide](web-ui-chat.md) covers setup, citations, folders, deleting chats, and copying `chats.db` to another computer.
+
 ## User profile page
 
 Open `/user-profile` to see learned preferences, patterns and workflows.
+
+The footer of each card shows two numbers:
+
+- **◎ 36** is how many times profile analysis matched this item. It has no upper limit.
+- **ⓘ 10 evidence** is the number of evidence items. OMMS keeps up to 10 per item. A card with no evidence does not show it.
+
+Select **10 evidence** to open a window that shows the item's section, its description, and its evidence as a numbered list. Press Escape to close the window. Focus goes back to the button.
+
+The profile model writes each evidence item from your prompts, so an item can be a summary, not an exact quote. **Added by a manual memory save** means that you or an agent saved the item with the `memory` tool.
 
 **Clean up categories** shows the number of categories beside its label. It opens a review of category names that mean the same thing:
 
