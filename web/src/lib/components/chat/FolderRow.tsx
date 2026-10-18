@@ -20,7 +20,7 @@ export function FolderRow({ name, count, actions, onSelectAll, children }: Props
   const [open, setOpen] = useState(true);
   const Icon = open ? FolderOpen : Folder;
   return (
-    <section className="grid gap-0.5">
+    <section className="grid grid-cols-[minmax(0,1fr)] gap-0.5">
       <div className="flex items-center gap-1">
         <button
           type="button"
@@ -88,7 +88,7 @@ export function FolderRow({ name, count, actions, onSelectAll, children }: Props
           </div>
         ) : null}
       </div>
-      {open ? <ul className="grid gap-0.5 ps-3">{children}</ul> : null}
+      {open ? <ul className="grid grid-cols-[minmax(0,1fr)] gap-0.5 ps-3">{children}</ul> : null}
     </section>
   );
 }

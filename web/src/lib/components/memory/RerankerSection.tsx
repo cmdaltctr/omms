@@ -6,6 +6,9 @@ import {
   settingsRequest,
   withNote,
 } from "$lib/settings-api";
+import { Button } from "$lib/components/ui/button";
+import { Input } from "$lib/components/ui/input";
+import { Label } from "$lib/components/ui/label";
 import { useSettingsText } from "$lib/i18n/settings";
 import {
   canSaveReranker,
@@ -190,7 +193,7 @@ export function RerankerSection() {
         )}
       </p>
       <p className="text-xs text-muted-foreground">
-        {s("A project file cannot change these settings.")}
+        {s("A project file cannot change these settings. The reranker settings are global only.")}
       </p>
       {!draft.enabled && (
         <p className="text-xs text-muted-foreground">
@@ -214,12 +217,12 @@ export function RerankerSection() {
             aria-label={s("Use a reranker")}
             onChange={(event) => update({ enabled: event.target.checked })}
           />
-          <label htmlFor="reranker-enabled">{s("Use a reranker")}</label>
+          <Label htmlFor="reranker-enabled">{s("Use a reranker")}</Label>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <div>
-            <label htmlFor="reranker-url">{s("Server URL")}</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="reranker-url">{s("Server URL")}</Label>
+            <Input
               type="url"
               id="reranker-url"
               dir="ltr"
@@ -241,9 +244,9 @@ export function RerankerSection() {
               </p>
             )}
           </div>
-          <div>
-            <label htmlFor="reranker-model">{s("Model")}</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="reranker-model">{s("Model")}</Label>
+            <Input
               type="text"
               id="reranker-model"
               dir="ltr"
@@ -254,9 +257,9 @@ export function RerankerSection() {
             />
             <span className="block text-xs text-muted-foreground">rerankerModel</span>
           </div>
-          <div>
-            <label htmlFor="reranker-key">{s("Key")}</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="reranker-key">{s("Key")}</Label>
+            <Input
               type="text"
               id="reranker-key"
               dir="ltr"
@@ -272,9 +275,9 @@ export function RerankerSection() {
                 : s("Optional env:// or file:// key reference.")}
             </span>
           </div>
-          <div>
-            <label htmlFor="reranker-timeout">{s("Timeout")}</label>
-            <input
+          <div className="space-y-2">
+            <Label htmlFor="reranker-timeout">{s("Timeout")}</Label>
+            <Input
               type="number"
               id="reranker-timeout"
               className="tabular-nums"
@@ -301,23 +304,29 @@ export function RerankerSection() {
           </div>
         </div>
         <div className="flex gap-2">
-          <button
+          <Button
             type="submit"
             disabled={busy || !snapshot || !canSave}
             onClick={() => void save()}
           >
             {s("Save")}
-          </button>
-          <button type="button" disabled={busy || !canSave} onClick={() => void testServer()}>
-            {s("Test")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            disabled={busy || !canSave}
+            onClick={() => void testServer()}
+          >
+            {s("Test")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
             disabled={busy}
             onClick={() => setDraft(draftFromSnapshot(snapshot))}
           >
             {s("Cancel")}
-          </button>
+          </Button>
         </div>
       </form>
       {status && (

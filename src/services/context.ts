@@ -34,12 +34,14 @@ const HEADER_TEXT =
 export async function formatContextForPrompt(
   userId: string | null,
   projectMemories: MemoriesResponseMinimal,
-  budget?: ContextBudgetOptions
+  budget?: ContextBudgetOptions,
+  /** The embedded prompt, when there is one. Lets the profile block follow the prompt. */
+  queryVector?: ArrayLike<number>
 ): Promise<string> {
   const blocks: BudgetedBlock[] = [];
 
   if (CONFIG.injectProfile && userId) {
-    const profileContext = await getUserProfileContext(userId);
+    const profileContext = await getUserProfileContext(userId, queryVector);
     if (profileContext) {
       blocks.push({
         prefix: "<user_profile>\n",

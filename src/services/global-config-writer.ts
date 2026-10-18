@@ -9,6 +9,7 @@ import {
 } from "../config.js";
 import { CONFIG_TEMPLATE } from "../config-template.js";
 import { isValidClaudeConfigDir } from "./claude-folder.js";
+import { KEYWORD_MODES } from "../utils/keyword-boost.js";
 import { getMemoryLimitRule } from "../utils/memory-limits.js";
 import { RERANKER_TIMEOUT_MAX_MS, RERANKER_TIMEOUT_MIN_MS } from "./request-timeouts.js";
 
@@ -41,6 +42,7 @@ const keys = new Set([
   "userProfileMaxContextBytes",
   "retrievalMaxTokens",
   "similarityThreshold",
+  "keywordMode",
   "rerankerEnabled",
   "rerankerApiUrl",
   "rerankerModel",
@@ -87,6 +89,8 @@ function isValidEdit(key: string, value: unknown): boolean {
   const memoryLimit = getMemoryLimitRule(key);
   if (memoryLimit && value === null) return true;
   if (OPTIONAL_RERANKER_KEYS.includes(key) && value === null) return true;
+  // keywordMode: null removes the key, so the mode follows the default again.
+  if (key === "keywordMode") return value === null || KEYWORD_MODES.includes(value as never);
   // The five opt-in reranker keys (openspec retrieval-threshold-and-reranker).
   if (key === "rerankerEnabled") return typeof value === "boolean";
   if (key === "rerankerApiUrl") {
@@ -199,6 +203,7 @@ export async function writeGlobalConfigKeys(
         rerankerApiUrl: "an http:// or https:// URL",
         rerankerModel: "a non-empty string",
         rerankerTimeoutMs: `integers from ${RERANKER_TIMEOUT_MIN_MS} to ${RERANKER_TIMEOUT_MAX_MS}`,
+        keywordMode: KEYWORD_MODES.join(" or "),
       };
       throw new Error(
         ["memoryApiKey", "embeddingApiKey", "webServerAuthPassword", "rerankerApiKey"].includes(key)
@@ -237,7 +242,8 @@ export async function writeGlobalConfigKeys(
       // null is the wire form of "reset to default": remove the key so the
       // value follows the default again (undefined removes in jsonc modify).
       const jsoncValue =
-        value === null && (getMemoryLimitRule(key) || OPTIONAL_RERANKER_KEYS.includes(key))
+        value === null &&
+        (getMemoryLimitRule(key) || OPTIONAL_RERANKER_KEYS.includes(key) || key === "keywordMode")
           ? undefined
           : value;
       content = applyEdits(

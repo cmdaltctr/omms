@@ -32,6 +32,8 @@ mock.module("react", () => ({
   },
 }));
 const { RerankerSection } = await import("../src/lib/components/memory/RerankerSection.tsx");
+const { Button } = await import("../src/lib/components/ui/button.tsx");
+const { Input } = await import("../src/lib/components/ui/input.tsx");
 const controls = await import("../src/lib/reranker-controls.ts");
 
 type Setting = { value?: unknown; source: string; globalValue?: unknown };
@@ -78,10 +80,10 @@ const html = (draft = defaultDraft(), busy = false, status: unknown = undefined)
 };
 const button = (label: string, nodes: Node[]) =>
   nodes.find(
-    (node) => node.type === "button" && react.Children.toArray(node.props.children)[0] === label
+    (node) => node.type === Button && react.Children.toArray(node.props.children)[0] === label
   )!;
 const field = (nodes: Node[], id: string) =>
-  nodes.find((node) => node.type === "input" && node.props.id === id)!;
+  nodes.find((node) => (node.type === Input || node.type === "input") && node.props.id === id)!;
 
 type Call = { url: string; init?: RequestInit };
 const realFetch = globalThis.fetch;
@@ -118,7 +120,9 @@ it("shows the default state: switch off, empty fields, timeout 4000, unchanged s
   expect(markup).toContain(
     "The reranker sends the prompt and the text of candidate memories to the server URL. A server on the same machine is recommended."
   );
-  expect(markup).toContain("A project file cannot change these settings.");
+  expect(markup).toContain(
+    "A project file cannot change these settings. The reranker settings are global only."
+  );
   expect(markup).not.toContain("leaves this machine");
 });
 
@@ -272,7 +276,12 @@ it("restores the saved values on Cancel without any request", () => {
 
 it("sits on the Memory page below Memory limits and is absent from Settings", () => {
   const ids = MEMORY_SECTIONS.map((section) => section.id);
-  expect(ids.indexOf("memory-section-reranker")).toBe(ids.indexOf("memory-section-limits") + 1);
+  expect(ids.indexOf("memory-section-reranker")).toBeGreaterThan(
+    ids.indexOf("memory-section-limits")
+  );
+  // The Keyword matching card sits between the two.
+  expect(ids.indexOf("memory-section-keywords")).toBe(ids.indexOf("memory-section-limits") + 1);
+  expect(ids.indexOf("memory-section-reranker")).toBe(ids.indexOf("memory-section-keywords") + 1);
 });
 
 it("translates every reranker message into Chinese and Arabic", () => {

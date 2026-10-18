@@ -132,7 +132,7 @@ it("reveals a cross-route host disclosure only after mount and preserves other f
   expect(scroll).toHaveBeenCalledTimes(1);
   expect(other).toEqual({ open: true, draft: "/edited/target" });
 });
-it("shows six Memory children and stores its tree independently of Settings", async () => {
+it("shows seven Memory children and stores its tree independently of Settings", async () => {
   const { MEMORY_SECTIONS } = await import("../src/lib/memory-sections.ts");
   const dismissed: boolean[] = [];
   const render = () => {
@@ -163,8 +163,8 @@ it("shows six Memory children and stores its tree independently of Settings", as
     tree,
     (node) => node.type === "a" && String(node.props.href).startsWith("/memory#")
   );
-  // Six since the Reranker card joined the Memory page below Memory limits.
-  expect(links).toHaveLength(6);
+  // Seven since the Keyword matching card joined the Memory page below Memory limits.
+  expect(links).toHaveLength(7);
   const toggle = find(tree, (node) => node.props["aria-controls"] === "sidebar-memory-tree")[0];
   (toggle.props.onClick as () => void)();
   tree = render();

@@ -450,3 +450,19 @@ Run 2026-10-17. Threshold 0.50 lifts recall@10 from 0.36 to 0.60 and cuts empty 
 | 26  | retrieval | Quick | Does the Experiment 25 threshold result hold on prompts that no earlier experiment used?                     | INCONCLUSIVE (G5), H1 holds | [Fresh prompts](26-retrieval-threshold-fresh-prompts-2026-10-17/report.md) |
 
 Run 2026-10-17. On fresh prompts 0.50 lifts recall@10 from 0.54 to 0.88 with 1.85 extra irrelevant memories per prompt; pick 0.50 on every key. Operator check agreed on 23 of 40 (30 needed). Plan: 60 omms prompts outside the Experiment 24 sample and its sessions, scored against the same memory snapshot. Thresholds 0.60, 0.55, 0.50 and 0.45. Haiku labels the pool with the Experiment 24 v2 rule; the operator checks 40 pairs, half of them marked not relevant by the AI. Target: 0.50 lifts recall@10 by at least 0.10 with at most 2 extra irrelevant memories per prompt.
+
+## Retrieval: Experiment 27, keyword boost against rank fusion
+
+| ID  | Category  | Size  | Question                                                                                                     | Status  | Plan and report                                                       |
+| --- | --------- | ----- | ------------------------------------------------------------------------------------------------------------ | ------- | --------------------------------------------------------------------- |
+| 27  | retrieval | Quick | Does the keyword boost of 0.10, or RRF with the cut-off first, find more relevant memories in the top 10 than meaning alone? | INCONCLUSIVE (G6); boost helps, RRF not shown | [Boost against RRF](27-retrieval-keyword-boost-vs-rrf-2026-10-18/report.md) |
+
+Run 2026-10-18. With the 0.10 boost, recall@10 rises from 0.54 to 0.62 on 58 prompts for 0.40 extra irrelevant memories per prompt. Rank fusion (RRF) reaches 0.68 with 0.8 more irrelevant memories per prompt than the boost. Gate G6 (judge stability) failed, so the result is INCONCLUSIVE. All labels are AI labels. Output files are local only.
+
+## Retrieval: Experiment 28, rank fusion with one judge
+
+| ID  | Category  | Size  | Question                                                                                                     | Status  | Plan and report                                                       |
+| --- | --------- | ----- | ------------------------------------------------------------------------------------------------------------ | ------- | --------------------------------------------------------------------- |
+| 28  | retrieval | Quick | When one judge labels every pair, does RRF find more relevant memories in the top 10 than the keyword boost, on two prompt sets? | PLANNED | [RRF with one judge](28-retrieval-rrf-one-judge-fresh-prompts-2026-10-18/report.md) |
+
+Planned 2026-10-18. Not run: no run approval yet. It would re-judge every pair with one judge in one run, on the Experiment 24 prompts and the Experiment 26 fresh prompts (about 13 Haiku subagents).

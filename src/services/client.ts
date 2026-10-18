@@ -117,7 +117,10 @@ export class LocalMemoryClient {
     // embedding, and shard reads all await, and a config edit during them must
     // not change this search's limit or reranker target.
     const maxMemories = CONFIG.maxMemories;
+    const keywordBoost = CONFIG.keywordBoost;
     const reranker = rerankSettingsFrom(CONFIG);
+    // The reranker path below always uses the boost: it needs a full pool on the similarity scale.
+    const keywordMode = CONFIG.keywordMode;
     if (CONFIG.rerankerEnabled && !reranker) {
       // On but incomplete: search must keep working, so treat it as off.
       log("Reranker enabled without a URL or model; searching without it", {
@@ -136,7 +139,7 @@ export class LocalMemoryClient {
       ).flat();
 
       if (shards.length === 0) {
-        return { success: true as const, results: [], total: 0, timing: 0 };
+        return { success: true as const, results: [], total: 0, timing: 0, queryVector };
       }
 
       let results;
@@ -162,7 +165,8 @@ export class LocalMemoryClient {
                 tag,
                 limit,
                 threshold,
-                queryText
+                queryText,
+                keywordBoost
               ),
             log: (message, meta) => log(message, meta),
           }
@@ -174,7 +178,9 @@ export class LocalMemoryClient {
           scope === "all-projects" ? "" : containerTag,
           maxMemories,
           CONFIG.similarityThreshold,
-          query
+          query,
+          keywordBoost,
+          keywordMode
         ));
       }
 
@@ -183,6 +189,8 @@ export class LocalMemoryClient {
         results,
         total: results.length,
         timing: 0,
+        // The embedded prompt, so callers (the profile step) need not embed it again.
+        queryVector,
         ...(warnings.length > 0 ? { warnings } : {}),
       };
     } catch (error) {

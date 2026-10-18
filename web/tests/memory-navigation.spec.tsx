@@ -45,14 +45,15 @@ beforeEach(() => {
   store.clear();
 });
 
-it("registers six Memory operations once and retains unrelated Settings order with Profiles identity", () => {
+it("registers seven Memory operations once and retains unrelated Settings order with Profiles identity", () => {
   const ids = MEMORY_SECTIONS.map((section) => section.id);
-  expect(new Set(ids).size).toBe(6);
+  expect(new Set(ids).size).toBe(7);
   expect(ids).toEqual([
     "memory-section-import",
     "memory-section-auto-import",
     "memory-section-profile",
     "memory-section-limits",
+    "memory-section-keywords",
     "memory-section-reranker",
     "memory-section-project-folders",
   ]);

@@ -36,7 +36,7 @@ export const RERANKER_MESSAGES: readonly string[] = [
   "The reranker reorders the best memory search results with your reranker server and keeps the top results.",
   "The reranker sends the prompt and the text of candidate memories to the server URL. A server on the same machine is recommended.",
   "This URL is not on this machine: memory text leaves this machine.",
-  "A project file cannot change these settings.",
+  "A project file cannot change these settings. The reranker settings are global only.",
   "The default of 4000 keeps the search inside OpenCode V2's 5-second wait. A value over 5000 can make OpenCode V2 send the request with no memory.",
   "Enter the server URL and model before turning the reranker on.",
   "The key must be an env:// or file:// reference, or left empty.",

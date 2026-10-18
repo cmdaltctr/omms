@@ -7,7 +7,7 @@ OMMS works with no configuration. This page covers the settings you may want to 
 - **Global file:** `~/.config/omms/omms.jsonc`. On Windows this is `%USERPROFILE%\.config\omms\omms.jsonc`, not AppData.
 - **Legacy global file:** while the global file does not exist, OMMS still reads `~/.config/opencode/opencode-mem.jsonc`. It never writes to it.
 - **Project file:** `<project>/.opencode/omms.jsonc` overrides the global file for that project. OMMS still reads a legacy `.opencode/opencode-mem.jsonc` when no `omms.jsonc` exists. Some settings are [global only](#global-only-settings).
-- **Default store:** `~/.omms/data` (`%USERPROFILE%\.omms\data` on Windows). A legacy `~/.opencode-mem/data` store moves to the new path at first start.
+- **Default store:** `~/.omms/data` (`%USERPROFILE%\.omms\data` on Windows). A legacy `~/.opencode-mem/data` store moves to the new path at first start. Saved chats are in the same folder, in `chats.db` (see [Chat page: Where chats are stored](web-ui-chat.md#where-chats-are-stored)).
 
 On first start, if no config exists at all, the plugin creates a full commented template. This shorter example shows the most common settings:
 
@@ -167,6 +167,17 @@ OMMS estimates tokens as `Math.ceil(utf8ByteLength(text) / 4)`. The final emitte
 - Packing preserves valid Unicode and closes generated delimiters. When useful content cannot fit, OMMS emits no section.
 
 Smaller limits can omit conversation input or show fewer or shorter injected memories. Stored memories, profiles, prompts, and manual tool or CLI search content remain complete. These controls do not set a spending limit, limit model replies, or control Graphify output.
+
+## Keyword matching
+
+Search finds memories by meaning and by exact words. A memory that contains a word of the prompt (in its text or its tags) gains a boost, and a memory that only matches by word can still be returned. Rare words count more than common ones.
+
+| Setting        | Default | Accepted values       | Effect                                                                                                                                                                                                                                                                         |
+| -------------- | ------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `keywordBoost` | 0.1     | Numbers from 0 to 0.5 | Largest score a word match can add. `0` turns keyword matching off and skips the index.                                                                                                                                                                                        |
+| `keywordMode`  | `boost` | `boost` or `rrf`      | How word matches join the results. `boost` adds the bonus above. `rrf` (experimental) merges a meaning list and a word list by rank, so a word match below `similarityThreshold` can be returned. `rrf` is ignored while the reranker is on. `keywordBoost: 0` turns both off. |
+
+A project file can override `keywordBoost` and `keywordMode`. OMMS builds the word index (a derived table in each project store) on the first search after you upgrade and keeps it in step with saves, edits, and deletes. If the index fails, search continues with meaning and tag matching, and the log holds a code only.
 
 ## Reranker
 

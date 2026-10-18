@@ -11,11 +11,13 @@ import { parseBackfillModel } from "./importer/backfill-model.js";
 import { parseIgnoredDirectories, parseImportPathMaps } from "./importer/import-path-maps.js";
 import { checkedMemoryLimit, MEMORY_LIMITS, type MemoryLimitRule } from "./utils/memory-limits.js";
 import { defaultSimilarityThreshold } from "./utils/threshold-default.js";
+import { RERANKER_TIMEOUT_DEFAULT_MS } from "./services/request-timeouts.js";
+import { checkedRerankerSettings } from "./utils/reranker-settings.js";
 import {
-  RERANKER_TIMEOUT_DEFAULT_MS,
-  RERANKER_TIMEOUT_MAX_MS,
-  RERANKER_TIMEOUT_MIN_MS,
-} from "./services/request-timeouts.js";
+  checkedKeywordBoost,
+  checkedKeywordMode,
+  type KeywordMode,
+} from "./utils/keyword-boost.js";
 import {
   resolveDefaultStoragePath,
   runLegacyStoreMigration,
@@ -66,6 +68,10 @@ interface OmmsConfig {
   rerankerModel?: string;
   rerankerApiKey?: string;
   rerankerTimeoutMs?: number;
+  /** Extra similarity for a memory that holds a word of the prompt, 0 to 0.5. 0 turns it off. */
+  keywordBoost?: number;
+  /** How word matches join the results: `boost` (default) or `rrf` (experimental). */
+  keywordMode?: KeywordMode;
   /** Shared budget for automatic memory context in approximate tokens (ceil(UTF-8 bytes / 4)). */
   retrievalMaxTokens?: number;
   maxProfileItems?: number;
@@ -170,6 +176,8 @@ const DEFAULTS: Required<
     | "memoryTemperature"
     | "memoryExtraParams"
     | "similarityThreshold"
+    | "keywordBoost"
+    | "keywordMode"
     | "rerankerApiUrl"
     | "rerankerModel"
     | "rerankerApiKey"
@@ -448,59 +456,6 @@ export function normalizeCaptureRetryRetentionHours(value: unknown): number {
   return Math.min(720, Math.max(0, Math.floor(value)));
 }
 
-/** The reranker key must be a reference, never a literal secret in the file. */
-function isRerankerKeyReference(value: string): boolean {
-  return /^(env:\/\/[A-Za-z_][A-Za-z0-9_]*|file:\/\/.+)$/.test(value.trim());
-}
-
-/**
- * Validate the five opt-in reranker keys when present (openspec change
- * retrieval-threshold-and-reranker). Messages name the setting and its
- * accepted values only; the value is never quoted back.
- */
-function checkedRerankerSettings(fileConfig: OmmsConfig) {
-  const invalid = (setting: string, accepted: string): Error =>
-    new Error(`Invalid ${setting} config (accepted: ${accepted})`);
-  if (fileConfig.rerankerEnabled !== undefined && typeof fileConfig.rerankerEnabled !== "boolean") {
-    throw invalid("rerankerEnabled", "boolean");
-  }
-  for (const key of ["rerankerApiUrl", "rerankerModel"] as const) {
-    const value = fileConfig[key];
-    if (value === undefined) continue;
-    if (typeof value !== "string" || value.trim().length === 0) {
-      throw invalid(key, "a non-empty string");
-    }
-  }
-  if (
-    fileConfig.rerankerApiUrl !== undefined &&
-    !/^https?:\/\/\S+$/.test(fileConfig.rerankerApiUrl.trim())
-  ) {
-    throw invalid("rerankerApiUrl", "an http:// or https:// URL");
-  }
-  if (fileConfig.rerankerApiKey !== undefined) {
-    if (
-      typeof fileConfig.rerankerApiKey !== "string" ||
-      !isRerankerKeyReference(fileConfig.rerankerApiKey)
-    ) {
-      throw invalid("rerankerApiKey", "an env:// or file:// secret reference");
-    }
-  }
-  if (fileConfig.rerankerTimeoutMs !== undefined) {
-    const value = fileConfig.rerankerTimeoutMs;
-    const ok =
-      typeof value === "number" &&
-      Number.isSafeInteger(value) &&
-      value >= RERANKER_TIMEOUT_MIN_MS &&
-      value <= RERANKER_TIMEOUT_MAX_MS;
-    if (!ok) {
-      throw invalid(
-        "rerankerTimeoutMs",
-        `integers from ${RERANKER_TIMEOUT_MIN_MS} to ${RERANKER_TIMEOUT_MAX_MS}`
-      );
-    }
-  }
-}
-
 export function normalizeAutoCleanupRetentionDays(value: number): number {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`Invalid autoCleanupRetentionDays config: ${value}`);
@@ -617,6 +572,8 @@ function buildConfig(fileConfig: OmmsConfig) {
     rerankerModel: fileConfig.rerankerModel?.trim() || undefined,
     rerankerApiKey: fileConfig.rerankerApiKey,
     rerankerTimeoutMs: fileConfig.rerankerTimeoutMs ?? DEFAULTS.rerankerTimeoutMs,
+    keywordBoost: checkedKeywordBoost(fileConfig.keywordBoost),
+    keywordMode: checkedKeywordMode(fileConfig.keywordMode),
     maxMemories,
     retrievalMaxTokens,
     maxProfileItems: fileConfig.maxProfileItems ?? DEFAULTS.maxProfileItems,
