@@ -56,7 +56,7 @@ export async function getUserProfileContext(
     profileData = JSON.parse(profile.profileData);
   } catch (e) {
     // A single corrupt row must not break context injection for everyone.
-    log("profile context: failed to parse stored profileData", { error: String(e) });
+    log("profile context: failed to parse stored profileData", { error: String(e) }, "error");
     return null;
   }
   const parts: string[] = [];

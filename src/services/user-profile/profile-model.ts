@@ -22,9 +22,13 @@ export async function resolveHostProfileModel(): Promise<ModelPort | null> {
   try {
     return await hostProfileModel();
   } catch (error) {
-    log("profile model: host model unavailable, falling back to external API", {
-      error: String(error),
-    });
+    log(
+      "profile model: host model unavailable, falling back to external API",
+      {
+        error: String(error),
+      },
+      "warn"
+    );
     return null;
   }
 }

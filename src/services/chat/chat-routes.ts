@@ -57,7 +57,7 @@ export async function routeChat(
     if (error instanceof ChatStoreError) {
       return fail(STATUS_BY_CODE[error.code], error.code, error.message);
     }
-    log("chat route: error", { path: path.replace(/\/[0-9a-f-]{36}/g, "/:id"), method });
+    log("chat route: error", { path: path.replace(/\/[0-9a-f-]{36}/g, "/:id"), method }, "error");
     return fail(500, "internal", "Chat request failed");
   }
 }

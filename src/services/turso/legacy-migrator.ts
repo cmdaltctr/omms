@@ -366,7 +366,7 @@ async function migrateMemoryShard(dbPath: string): Promise<ShardMigrationSidecar
     const record = rowToRecord(row);
     if (!record) {
       skippedIds.push(String(row.id));
-      log("Legacy migration skipped memory without vector", { memoryId: row.id, dbPath });
+      log("Legacy migration skipped memory without vector", { memoryId: row.id, dbPath }, "warn");
       continue;
     }
     records.push(record);

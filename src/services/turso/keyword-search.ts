@@ -157,10 +157,14 @@ export async function searchKeywords(
     const scores = new Map(rows.map((row) => [String(row.id), Number(row.score)] as const));
     return { scores, best: Math.max(0, ...scores.values()) };
   } catch (error) {
-    log("Keyword search failed; using vector results", {
-      code: "keyword_index_failed",
-      error: error instanceof Error ? error.name : "unknown",
-    });
+    log(
+      "Keyword search failed; using vector results",
+      {
+        code: "keyword_index_failed",
+        error: error instanceof Error ? error.name : "unknown",
+      },
+      "warn"
+    );
     return null;
   }
 }

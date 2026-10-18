@@ -523,6 +523,15 @@ const text = {
   "Log lines": ["日志行", "أسطر السجل"],
   "No log has been written yet.": ["尚未写入日志。", "لم يُكتب سجل بعد."],
   "Loading log…": ["正在加载日志…", "جارٍ تحميل السجل…"],
+  Level: ["级别", "المستوى"],
+  Warning: ["警告", "تحذير"],
+  Error: ["错误", "خطأ"],
+  info: ["信息", "معلومات"],
+  error: ["错误", "خطأ"],
+  "Level guessed from the message": ["级别由消息内容推测", "المستوى مُخمَّن من نص الرسالة"],
+  "Copy visible records": ["复制可见记录", "نسخ السجلات المعروضة"],
+  Copied: ["已复制", "تم النسخ"],
+  "No matching log records.": ["没有匹配的日志记录。", "لا توجد سجلات مطابقة."],
   "External API": ["外部 API", "واجهة API الخارجية"],
   "An OpenAI- or Anthropic-compatible endpoint that either host can use for capture and backfill.":
     [

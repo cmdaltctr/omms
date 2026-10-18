@@ -76,16 +76,20 @@ export async function queueFailedCapture(
     if (classifyCaptureFailure(failure) !== "retryable") return false;
     const result = await enqueueCaptureRetry(unit, failure, config);
     if (result === "queued") {
-      log("Capture queued for retry", {
-        host: unit.host,
-        sessionID: unit.hostSessionId,
-        reason: failure.reason,
-        httpStatus: failure.httpStatus ?? null,
-      });
+      log(
+        "Capture queued for retry",
+        {
+          host: unit.host,
+          sessionID: unit.hostSessionId,
+          reason: failure.reason,
+          httpStatus: failure.httpStatus ?? null,
+        },
+        "warn"
+      );
     }
     return result === "queued";
   } catch (queueError) {
-    log("Capture retry queue write failed", { code: errorCode(queueError) });
+    log("Capture retry queue write failed", { code: errorCode(queueError) }, "error");
     return false;
   }
 }
@@ -139,7 +143,7 @@ export async function drainCaptureRetries(
       try {
         await options.onSettled?.(row.workUnit, outcome);
       } catch (error) {
-        log("Capture retry follow-up failed", { host, code: errorCode(error) });
+        log("Capture retry follow-up failed", { host, code: errorCode(error) }, "error");
       }
     }
     if (result.captured + result.skipped + result.dropped > 0 || result.stopped) {
@@ -147,7 +151,7 @@ export async function drainCaptureRetries(
     }
     return result;
   } catch (error) {
-    log("Capture retry pass failed", { host, code: errorCode(error) });
+    log("Capture retry pass failed", { host, code: errorCode(error) }, "error");
     return { ...result, status: "error" };
   } finally {
     running.delete(host);
@@ -168,7 +172,7 @@ export function startCaptureRetryDrain(host: MemoryHost): void {
   const drain = registeredDrains.get(host);
   if (!drain) return;
   void drain().catch((error: unknown) =>
-    log("Capture retry pass failed", { host, code: errorCode(error) })
+    log("Capture retry pass failed", { host, code: errorCode(error) }, "error")
   );
 }
 

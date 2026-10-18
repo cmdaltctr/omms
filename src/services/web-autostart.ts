@@ -329,9 +329,13 @@ export function restartWebAutostart(options: WebAutostartOptions = {}): boolean 
     }
     return true;
   } catch (error) {
-    log("OMMS login item restart failed", {
-      code: error instanceof Error ? error.name : "unknown",
-    });
+    log(
+      "OMMS login item restart failed",
+      {
+        code: error instanceof Error ? error.name : "unknown",
+      },
+      "error"
+    );
     return false;
   }
 }
@@ -346,8 +350,12 @@ export function reconcileWebAutostart(
     if (config.webServerAutoStart && config.webServerEnabled) installWebAutostart(options);
     else removeWebAutostart(options);
   } catch (error) {
-    log("OMMS login item reconciliation failed", {
-      code: error instanceof Error ? error.name : "unknown",
-    });
+    log(
+      "OMMS login item reconciliation failed",
+      {
+        code: error instanceof Error ? error.name : "unknown",
+      },
+      "error"
+    );
   }
 }

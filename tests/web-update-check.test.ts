@@ -9,7 +9,7 @@ import {
 function fake(version: string, latest: (string | null)[], enabled = true) {
   const requests: string[] = [];
   const clock = { ms: 0 };
-  const logs: { message: string; data: Record<string, unknown> }[] = [];
+  const logs: { message: string; data: Record<string, unknown>; level?: string }[] = [];
   const timers: { ms: number; callback: () => void }[] = [];
   const deps: WebUpdateDeps = {
     version,
@@ -24,7 +24,7 @@ function fake(version: string, latest: (string | null)[], enabled = true) {
       timers.push({ ms, callback });
       return {};
     },
-    log: (message, data) => logs.push({ message, data }),
+    log: (message, data, level?: string) => logs.push({ message, data, level }),
     execPath: "/opt/node/bin/node",
     platform: "darwin",
     exists: () => true,
@@ -91,7 +91,7 @@ it("keeps the last result and logs a code when npm cannot be reached", async () 
   await f.update.check();
   expect(f.update.status().available).toBe("4.10.0");
   expect(f.logs).toEqual([
-    { message: "Web app update check failed", data: { code: "unreachable" } },
+    { message: "Web app update check failed", data: { code: "unreachable" }, level: "error" },
   ]);
 });
 

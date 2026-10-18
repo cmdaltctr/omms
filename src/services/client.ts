@@ -66,7 +66,7 @@ export class LocalMemoryClient {
         this.isInitialized = true;
       } catch (error) {
         this.initPromise = null;
-        log("Turso initialization failed", { error: String(error) });
+        log("Turso initialization failed", { error: String(error) }, "error");
         throw error;
       }
     })();
@@ -195,7 +195,7 @@ export class LocalMemoryClient {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      log("searchMemories: error", { error: errorMessage });
+      log("searchMemories: error", { error: errorMessage }, "error");
       return { success: false as const, error: errorMessage, results: [], total: 0, timing: 0 };
     }
   }
@@ -284,7 +284,7 @@ export class LocalMemoryClient {
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      log("addMemory: error", { error: errorMessage });
+      log("addMemory: error", { error: errorMessage }, "error");
       return { success: false as const, error: errorMessage };
     }
   }
@@ -311,7 +311,7 @@ export class LocalMemoryClient {
       return { success: false, error: "Memory not found" };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      log("deleteMemory: error", { memoryId, error: errorMessage });
+      log("deleteMemory: error", { memoryId, error: errorMessage }, "error");
       return { success: false, error: errorMessage };
     }
   }
@@ -370,7 +370,7 @@ export class LocalMemoryClient {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      log("listMemories: error", { error: errorMessage });
+      log("listMemories: error", { error: errorMessage }, "error");
       return {
         success: false as const,
         error: errorMessage,
@@ -391,7 +391,7 @@ export class LocalMemoryClient {
       return await shardInventoryService.listShards(currentDirectory);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      log("listShards: error", { error: errorMessage });
+      log("listShards: error", { error: errorMessage }, "error");
       return { success: false as const, error: errorMessage };
     }
   }
@@ -409,7 +409,7 @@ export class LocalMemoryClient {
       return await shardPathMigrationService.migrate(options);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      log("migrateProjectPath: error", { error: errorMessage });
+      log("migrateProjectPath: error", { error: errorMessage }, "error");
       return { success: false as const, dryRun: Boolean(options.dryRun), error: errorMessage };
     }
   }
@@ -421,7 +421,7 @@ export class LocalMemoryClient {
       return await memoryPortabilityService.exportMemories({ currentDirectory, outputPath });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      log("exportMemories: error", { error: errorMessage });
+      log("exportMemories: error", { error: errorMessage }, "error");
       return { success: false as const, error: errorMessage };
     }
   }
@@ -437,7 +437,7 @@ export class LocalMemoryClient {
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      log("importMemories: error", { error: errorMessage });
+      log("importMemories: error", { error: errorMessage }, "error");
       return { success: false as const, dryRun: Boolean(dryRun), error: errorMessage };
     }
   }
@@ -482,7 +482,7 @@ export class LocalMemoryClient {
       return { success: true as const, results, total: results.length, timing: 0 };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      log("searchMemoriesBySessionID: error", { error: errorMessage });
+      log("searchMemoriesBySessionID: error", { error: errorMessage }, "error");
       return { success: false as const, error: errorMessage, results: [], total: 0, timing: 0 };
     }
   }

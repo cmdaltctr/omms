@@ -34,7 +34,7 @@ export async function learnClaudeProfile(
     if ((await userPromptManager.countUnanalyzedForUserLearning()) < interval) return;
     const user = getTags(directory).user;
     if (!user.userEmail) {
-      log("Claude Code profile learning skipped", { code: "no-user-email" });
+      log("Claude Code profile learning skipped", { code: "no-user-email" }, "warn");
       return;
     }
     const batch = await userPromptManager.getPromptsForUserLearning(interval, {

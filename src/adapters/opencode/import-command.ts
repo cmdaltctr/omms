@@ -82,7 +82,7 @@ export async function runOpencodeImportCommand(input: OpencodeImportCommandInput
       try {
         await memoryClient.warmup();
       } catch (error) {
-        log("OpenCode import: memory warmup failed", { error: String(error) });
+        log("OpenCode import: memory warmup failed", { error: String(error) }, "error");
       }
     }
 
@@ -106,7 +106,7 @@ export async function runOpencodeImportCommand(input: OpencodeImportCommandInput
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log("OpenCode history import failed", { error: message });
+    log("OpenCode history import failed", { error: message }, "error");
     return `${name} failed: ${message}`;
   } finally {
     endManualImport();

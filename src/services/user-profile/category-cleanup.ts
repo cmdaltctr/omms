@@ -170,10 +170,14 @@ export async function checkAndNameGroups(
       replies = readReply(await model(SYSTEM_PROMPT, buildPrompt(batch, examples)));
     } catch (error) {
       failedBatches++;
-      log("category cleanup: model batch failed", {
-        groups: batch.length,
-        code: error instanceof Error ? error.name : "unknown",
-      });
+      log(
+        "category cleanup: model batch failed",
+        {
+          groups: batch.length,
+          code: error instanceof Error ? error.name : "unknown",
+        },
+        "error"
+      );
       for (const group of batch) named.set(group.id, fallback(group));
       return;
     }
@@ -188,10 +192,14 @@ export async function checkAndNameGroups(
       try {
         await cache.save(verdicts);
       } catch (error) {
-        log("category cleanup: verdict save failed", {
-          groups: verdicts.size,
-          code: error instanceof Error ? error.name : "unknown",
-        });
+        log(
+          "category cleanup: verdict save failed",
+          {
+            groups: verdicts.size,
+            code: error instanceof Error ? error.name : "unknown",
+          },
+          "error"
+        );
       }
     }
   };
@@ -351,9 +359,13 @@ async function openVerdictCache(
       save: (verdicts) => saveVerdicts(profileId, verdicts),
     };
   } catch (error) {
-    log("category cleanup: verdict store unavailable", {
-      code: error instanceof Error ? error.name : "unknown",
-    });
+    log(
+      "category cleanup: verdict store unavailable",
+      {
+        code: error instanceof Error ? error.name : "unknown",
+      },
+      "warn"
+    );
     return undefined;
   }
 }

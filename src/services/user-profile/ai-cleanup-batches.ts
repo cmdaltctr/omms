@@ -188,12 +188,16 @@ export async function runInBatches(
       if (joined.failedBatches === 0) firstError = error;
       joined.failedBatches++;
       joined.failedItems += countItems(batch);
-      log("AI cleanup: batch failed", {
-        batch: index + 1,
-        of: batches.length,
-        items: countItems(batch),
-        reason: failureReason(error),
-      });
+      log(
+        "AI cleanup: batch failed",
+        {
+          batch: index + 1,
+          of: batches.length,
+          items: countItems(batch),
+          reason: failureReason(error),
+        },
+        "error"
+      );
     }
     onProgress?.(index + 1, batches.length, joined.failedBatches);
   }

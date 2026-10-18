@@ -167,10 +167,14 @@ export class BackfillControls {
       notify: (message) => log(source, { host, message: message.slice(0, 200) }),
     })
       .catch((error: unknown) =>
-        log(`${source} failed`, {
-          host,
-          error: error instanceof Error ? error.name : "unknown",
-        })
+        log(
+          `${source} failed`,
+          {
+            host,
+            error: error instanceof Error ? error.name : "unknown",
+          },
+          "error"
+        )
       )
       .finally(() => {
         if (this.controllers.get(host) === controller) this.controllers.delete(host);

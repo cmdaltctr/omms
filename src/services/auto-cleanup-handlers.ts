@@ -27,9 +27,13 @@ async function managerOf(deps: AutoCleanupHandlerDeps) {
 
 function handlerError(step: string, error: unknown): ApiResponse<never> {
   // The log never holds profile text, so only the error's kind is kept.
-  log(`Automatic cleanup ${step}: error`, {
-    code: error instanceof Error ? error.name : "unknown",
-  });
+  log(
+    `Automatic cleanup ${step}: error`,
+    {
+      code: error instanceof Error ? error.name : "unknown",
+    },
+    "error"
+  );
   return { success: false, error: String(error) };
 }
 

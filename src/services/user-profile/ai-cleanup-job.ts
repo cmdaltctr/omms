@@ -110,7 +110,7 @@ export function startAiCleanupJob(
     } catch (error) {
       if (job.stopped) return;
       const reason = failureReason(error);
-      log("AI cleanup job: failed", { reason });
+      log("AI cleanup job: failed", { reason }, "error");
       job.status = {
         state: "failed",
         error:

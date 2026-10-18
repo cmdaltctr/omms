@@ -108,13 +108,17 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
 
         if (!response.ok) {
           const errorText = await response.text().catch(() => response.statusText);
-          log("OpenAI Responses API error", {
-            provider: this.getProviderName(),
-            model: this.config.model,
-            status: response.status,
-            error: errorText,
-            iteration: iterations,
-          });
+          log(
+            "OpenAI Responses API error",
+            {
+              provider: this.getProviderName(),
+              model: this.config.model,
+              status: response.status,
+              error: errorText,
+              iteration: iterations,
+            },
+            "error"
+          );
           return {
             stopReason,
             success: false,
@@ -200,11 +204,15 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
             const parsed = JSON.parse(item.arguments);
             return parsed;
           } catch (error) {
-            log("Failed to parse function call arguments", {
-              error: String(error),
-              toolName: item.name,
-              arguments: item.arguments,
-            });
+            log(
+              "Failed to parse function call arguments",
+              {
+                error: String(error),
+                toolName: item.name,
+                arguments: item.arguments,
+              },
+              "error"
+            );
             return null;
           }
         } else {

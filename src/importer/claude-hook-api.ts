@@ -196,7 +196,7 @@ function maybeStartBackfill(deps: ClaudeHookDeps): void {
   void deps
     .startBackfill()
     .catch((error: unknown) =>
-      log("Claude Code backfill start failed", { code: errorCode(error) })
+      log("Claude Code backfill start failed", { code: errorCode(error) }, "error")
     );
 }
 
@@ -264,11 +264,15 @@ export async function handleClaudeRetrieve(
     const section = await retrievalSection(request, budgetBytes);
     return { additionalContext: section ? wrapRetrievalSection(section) : "" };
   } catch (error) {
-    log("Claude Code retrieval failed", {
-      event: request.event,
-      sessionID: request.sessionId,
-      code: errorCode(error),
-    });
+    log(
+      "Claude Code retrieval failed",
+      {
+        event: request.event,
+        sessionID: request.sessionId,
+        code: errorCode(error),
+      },
+      "error"
+    );
     return { additionalContext: "" };
   }
 }
@@ -295,7 +299,11 @@ export function handleClaudeCapture(body: unknown, deps: ClaudeHookDeps = {}): {
   captureChain = captureChain
     .then(() => captureTurn(request, deps))
     .catch((error: unknown) =>
-      log("Claude Code capture failed", { sessionID: request.sessionId, code: errorCode(error) })
+      log(
+        "Claude Code capture failed",
+        { sessionID: request.sessionId, code: errorCode(error) },
+        "error"
+      )
     );
   return { queued: true };
 }
@@ -306,7 +314,7 @@ export function whenClaudeCaptureIdle(): Promise<void> {
 }
 
 function skipped(request: CaptureRequest, code: string, data: Record<string, unknown> = {}): void {
-  log("Claude Code capture skipped", { sessionID: request.sessionId, code, ...data });
+  log("Claude Code capture skipped", { sessionID: request.sessionId, code, ...data }, "warn");
 }
 
 async function readTranscript(request: CaptureRequest): Promise<ClaudeTranscriptEntry[] | null> {
@@ -501,10 +509,14 @@ async function recordPrompt(
     await userPromptManager.markAsCaptured(id);
     if (memoryId) await userPromptManager.linkMemoryToPrompt(id, memoryId);
   } catch (error) {
-    log("Claude Code prompt record failed", {
-      sessionID: request.sessionId,
-      code: errorCode(error),
-    });
+    log(
+      "Claude Code prompt record failed",
+      {
+        sessionID: request.sessionId,
+        code: errorCode(error),
+      },
+      "error"
+    );
   }
 }
 
