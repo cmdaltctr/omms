@@ -166,6 +166,10 @@ Profile learning separates **Analyse waiting prompts** inside OMMS from **Re-ana
 
 Browse results on `/project-memories` and `/user-profile`. `/` resolves to Project memories. Memory and Settings each remember their section tree; both remain reachable through desktop collapse and the mobile drawer.
 
+## Chat page
+
+Select **Chat** or open `http://127.0.0.1:4747/chat` to ask questions about your memories and profile. Answers cite their sources. The [Chat page guide](web-ui-chat.md) covers setup, citations, folders, deleting chats, and copying `chats.db` to another computer.
+
 ## User profile page
 
 Open `/user-profile` to see learned preferences, patterns and workflows.

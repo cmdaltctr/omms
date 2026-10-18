@@ -3,6 +3,7 @@ import {
   ChevronRight,
   Brain,
   Folder,
+  MessageSquare,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
@@ -15,6 +16,7 @@ import type { Lang } from "$lib/i18n/translations";
 import { GithubIcon } from "$lib/components/icons/GithubIcon";
 import { PowerButton } from "$lib/components/explorer/PowerButton";
 import { SidebarBrand } from "$lib/components/explorer/SidebarBrand";
+import { SidebarNavLink } from "$lib/components/explorer/SidebarNavLink";
 import { UpdateDialog, UpdateTrigger } from "$lib/components/explorer/UpdateButton";
 import { Button } from "$lib/components/ui/button";
 import { Separator } from "$lib/components/ui/separator";
@@ -28,6 +30,7 @@ type Props = {
   brand: string;
   projectLabel: string;
   profileLabel: string;
+  chatLabel: string;
   profileSections: { id: string; label: string }[];
   /** The Settings page cards, shown as a collapsible tree under Settings. */
   settingsSections?: { id: string; label: string }[];
@@ -82,6 +85,7 @@ export function AppSidebar({
   brand,
   projectLabel,
   profileLabel,
+  chatLabel,
   profileSections,
   settingsSections = [],
   memoryLabel = "Memory",
@@ -295,30 +299,21 @@ export function AppSidebar({
           )}
           aria-label="Main"
         >
-          <a
-            href={ROUTES.project}
-            className={navClass(currentView === "project")}
-            aria-current={currentView === "project" ? "page" : undefined}
-            title={collapsed ? projectLabel : undefined}
-            onClick={(e) => onNavClick(e, ROUTES.project)}
-          >
-            <Folder className="size-4 shrink-0" />
-            <span className={cn("min-w-0 break-words text-start", onDesktop("md:sr-only"))}>
-              {projectLabel}
-            </span>
-          </a>
-          <a
-            href={ROUTES.profile}
-            className={navClass(currentView === "profile")}
-            aria-current={currentView === "profile" ? "page" : undefined}
-            title={collapsed ? profileLabel : undefined}
-            onClick={(e) => onNavClick(e, ROUTES.profile)}
-          >
-            <User className="size-4 shrink-0" />
-            <span className={cn("min-w-0 break-words text-start", onDesktop("md:sr-only"))}>
-              {profileLabel}
-            </span>
-          </a>
+          {(
+            [
+              ["project", ROUTES.project, projectLabel, Folder],
+              ["chat", ROUTES.chat, chatLabel, MessageSquare],
+              ["profile", ROUTES.profile, profileLabel, User],
+            ] as const
+          ).map(([view, href, label, icon]) => (
+            <SidebarNavLink
+              key={view}
+              {...{ href, label, icon, collapsed }}
+              active={currentView === view}
+              className={navClass(currentView === view)}
+              onNavigate={onNavClick}
+            />
+          ))}
           <ul
             className={cn(
               "ms-5 space-y-0.5 border-s border-sidebar-border ps-2",
