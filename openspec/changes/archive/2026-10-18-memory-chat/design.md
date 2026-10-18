@@ -41,7 +41,7 @@ See proposal.md for the motivation. Facts that shape the design:
 
    **The file is portable.** The user moves chats to another computer by copying `chats.db`. So:
    - Everything a conversation needs is in this one file. The store keeps SQLite's default rollback journal and never turns on WAL, so no `-wal` or `-shm` file holds committed data.
-   - The file holds no absolute path, user name, or email. Snapshots keep the project name and the project tag, not the project folder.
+   - The chat writes no absolute path, user name, or email into its own fields. Snapshots keep the project name and the project tag, not the project folder. The snapshot `text` is a copy of the memory as written, so it holds whatever the memory holds, including folder paths. Rewriting it would make a citation differ from the answer it supports. The user controls both copies, and the docs warn not to share the file or commit it to Git.
    - A `chat_meta` table holds `schema_version`. An older OMMS that finds a newer version shows the chats as read-only and says to upgrade. A newer OMMS migrates an older file in place.
    - A conversation's scope is a project tag. OMMS makes the tag from the git remote, so the same repository has the same tag on both computers. When the tag matches no project on this computer, the scope shows "Project not on this computer", saved answers still open from their snapshots, and the next question asks the user to pick a scope.
    - Copy and replace the file while the web app is stopped. The docs say how.

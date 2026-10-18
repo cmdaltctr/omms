@@ -13,7 +13,7 @@ The web UI gains a chat page that answers questions from stored memories and the
 
 1. **One libSQL file, `chats.db`, in the storage path.** It holds `chat_meta`, `chat_folders`, `chat_conversations`, and `chat_messages`. It opens through the shared connection manager like the other stores.
 2. **The file is self-contained.** It keeps SQLite's default rollback journal and never turns on WAL, so a copy of `chats.db` alone carries every committed conversation.
-3. **No personal data in the file.** Source snapshots keep an allow-listed set of fields: label, kind, id, text, project name, project tag, date, tags, score, and for profile items the section, category, and evidence. Folder paths, user names, and emails are never written.
+3. **No personal data added by the chat.** Source snapshots keep an allow-listed set of fields: label, kind, id, text, project name, project tag, date, tags, score, and for profile items the section, category, and evidence. The chat never writes folder paths, user names, or emails of its own. The snapshot text is a copy of the memory as written, so it holds whatever the memory holds, such as folder paths. It is kept unchanged so that a citation matches the answer it supports. Treat the file as private.
 4. **Sources are snapshots.** Each answer saves the text it cited, so an old answer still opens after its memory is deleted or on a computer that never held that memory.
 5. **Schema version in `chat_meta`.** A file from a newer OMMS opens read-only. An older file is updated in place.
 6. **Folders are one level deep and own their chats.** `folder_id` references `chat_folders` with `ON DELETE CASCADE`, and messages cascade from conversations, so deleting a folder deletes its chats in one statement.

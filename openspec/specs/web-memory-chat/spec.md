@@ -1,8 +1,10 @@
+# web-memory-chat Specification
+
 ## Purpose
 
 Defines how the web UI answers the user's questions from stored memories and the user profile, with citations the user can open and conversations that are saved in the OMMS store.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Chat has its own page and sidebar item
 
@@ -193,7 +195,7 @@ The conversation list SHALL have a select mode in which the user can tick severa
 
 ### Requirement: The chat file can be copied to another computer
 
-`chats.db` SHALL hold every conversation's data by itself, with no other file needed once the web app has stopped. It SHALL NOT hold absolute paths, user names, or email addresses. It SHALL record its schema version. When a copied `chats.db` is placed in another computer's OMMS data folder while that web app is stopped, the chat page on that computer SHALL list the same conversations with their answers, citations, and search details.
+`chats.db` SHALL hold every conversation's data by itself, with no other file needed once the web app has stopped. The chat SHALL NOT write absolute paths, user names, or email addresses into its own fields: titles, scope tags, project names, project tags, search plans, and timestamps. Cited source snapshots SHALL keep the memory or profile text exactly as it was when the answer was written, so that text can contain whatever the user's memories contain, such as folder paths. The docs SHALL warn that the file holds copies of memory text and must not be committed to Git or shared. It SHALL record its schema version. When a copied `chats.db` is placed in another computer's OMMS data folder while that web app is stopped, the chat page on that computer SHALL list the same conversations with their answers, citations, and search details.
 
 #### Scenario: Copy to a second computer
 

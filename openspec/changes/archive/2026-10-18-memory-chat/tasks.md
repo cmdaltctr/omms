@@ -70,6 +70,6 @@
   - Every citation label in both answers was in the set of sources sent.
   - `omms.log`: two `chat:` lines holding only counts, timings and ids. No question or answer text.
   - `chats.db`: one file, no `-wal` or `-shm` file, no email address, no path in the title, project name or project tag.
-  - FINDING: `chats.db` contains `/Users/…` text. It sits inside saved source snapshots, copied from the user's own memory text (one memory names a worktree path and a config path). The requirement says the file SHALL NOT hold absolute paths or user names. As written it fails for real data, because the snapshot is a copy of the memory. Needs a decision: reword the requirement to cover the file's own fields only and keep memory text as written, or strip paths from snapshots. The file must stay out of Git and public hosts either way.
+  - FINDING, resolved: `chats.db` contains `/Users/…` text inside saved source snapshots, copied from the user's own memory text (one memory names a worktree path and a config path). The user chose to reword the requirement: the chat's own fields hold no paths, user names, or emails; snapshot text stays as written so a citation matches its answer; the docs and ADR-032 warn that the file must stay out of Git and must not be shared. A test now checks that memory text with a path is kept unchanged.
   - Cost: the chat does not log token counts, so none were measured. Each answer call sends at most 18 sources of 2,000 characters.
 - 8.3 PASS: `bun run ci:local` exited 0, no failing test file.

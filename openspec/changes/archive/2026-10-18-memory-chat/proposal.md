@@ -32,7 +32,7 @@ None.
 ## Impact
 
 - Backend: new modules under `src/services/chat/` (store, plan, retrieval, answer, routes). One dispatch line in `src/services/web-server.ts`, offset so the file does not grow past its frozen size.
-- Storage: a new `chats.db` in the OMMS data folder (`CONFIG.storagePath`). It is self-contained and holds no absolute path, user name, or email, so it can be copied between computers.
+- Storage: a new `chats.db` in the OMMS data folder (`CONFIG.storagePath`). It is self-contained, so it can be copied between computers. The chat adds no absolute path, user name, or email of its own. Saved sources keep memory text as written, so the file can hold paths that appear in the user's memories and must not be shared.
 - Web UI: `web/src/lib/routes.ts`, `web/src/App.tsx`, `web/src/lib/components/explorer/AppSidebar.tsx` (frozen size, needs a small extraction), new components under `web/src/lib/components/chat/`, translations in English, Chinese, and Arabic.
 - Model cost: two external model calls per question.
 - Docs: a new `docs/web-ui-chat.md`, an entry in `docs/README.md`, and an ADR for chat storage.

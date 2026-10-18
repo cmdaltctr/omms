@@ -166,6 +166,19 @@ describe("chat store", () => {
     expect(full?.messages[0]?.sources[0]).toMatchObject({ label: "S1", text: "memory text" });
   });
 
+  it("keeps cited memory text exactly as written, including paths inside it", async () => {
+    const store = await openStore();
+    const c = await store.createConversation({ title: "Q", scopeTag: null });
+    const text = "Created worktree `/Users/someone/project-x` and edited `~/.config/tool.json`.";
+    await store.appendMessage(c.id, {
+      role: "assistant",
+      content: "A [S1]",
+      sources: [{ label: "S1", kind: "memory", id: "mem_2", text } as never],
+    });
+    const full = await store.getConversation(c.id);
+    expect(full?.messages[0]?.sources[0]?.text).toBe(text);
+  });
+
   it("opens a file from a newer OMMS as read-only", async () => {
     const store = await openStore();
     await store.createConversation({ title: "Q", scopeTag: null });
