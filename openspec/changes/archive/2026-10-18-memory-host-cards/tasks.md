@@ -49,7 +49,7 @@
 
 - [x] 8.1 Add every new string to `web/src/lib/i18n/settings.ts` in `en`, `zh` and `ar`, and remove strings that no longer appear.
 - [x] 8.2 Confirm every changed `web/src` file is at most 500 lines. Remove the ceiling entries of files that are now under the limit.
-- [ ] 8.3 Check every view in the browser at 1280 px and 390 px, light and dark, `en` and `ar`, with the keyboard only. Cover running, paused, failed, nothing to import, not set up and the write-health warning.
+- [x] 8.3 Check every view in the browser at 1280 px and 390 px, light and dark, `en` and `ar`, with the keyboard only. Cover running, paused, failed, nothing to import, not set up and the write-health warning.
 - [x] 8.4 Run `impeccable detect --json` once on the changed web files and fix its findings.
 
 ## 9. Docs and checks

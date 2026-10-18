@@ -1,6 +1,6 @@
 ## Context
 
-See proposal.md for the problems. The wireframes for every view are in [wireframes.md](wireframes.md).
+See proposal.md for the problems.
 
 Current state that the design depends on:
 
