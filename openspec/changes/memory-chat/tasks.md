@@ -44,7 +44,7 @@
 ## 8. Check
 
 - [x] 8.1 Browser check against synthetic fixture data with a fake model: desktop and 390 px widths, light and dark themes, Arabic, keyboard use of citation chips and dialogs, a long conversation, folders (create, move, delete with chats), and multi-select delete. Verify: screenshots, with each check reported as PASS, FAIL, or NOT RUN.
-- [ ] 8.2 Live check against the real web app with the DeepSeek settings: ask one question in one project and one across all projects; confirm every citation opens a real source; confirm `~/.omms/omms.log` holds no question or answer text. Verify: report the results.
+- [x] 8.2 Live check against the real web app with the DeepSeek settings: ask one question in one project and one across all projects; confirm every citation opens a real source; confirm `~/.omms/omms.log` holds no question or answer text. Verify: report the results.
 - [x] 8.3 Run `bun run ci:local`. Verify: exit 0.
 
 ## Verification notes
@@ -64,5 +64,12 @@
   - PASS Arabic: the page is right to left, the panel opens from the right, and the labels are translated. The chat title beside **Chats** needed `dir="auto"`; fixed.
   - PASS Chinese: the duplicate folder error was the server's English text; fixed to the translated message and rechecked.
   - Hover colours on chips and folder rows were checked through their classes; a real mouse hover was NOT RUN.
-- 8.2 NOT RUN: the live DeepSeek check against the real web app and store needs user approval.
+- 8.2 PASS with one finding. Run on 2026-10-18 with user approval, from this branch on a second web app (loopback port 4799) against the real store and `deepseek-flash` with reasoning off. Two questions, four model calls.
+  - Project scope (`om-pi-todo`, 10 memories): answered in 4.2 s. The search returned profile items only, no memory sources, so the model said the sources do not answer the question and cited two profile items. The answer wandered into other projects through the profile items. Not a spec failure, but a quality point: a vague question in a small project gets profile items only.
+  - All projects: answered in 5.2 s with 12 memory and 6 profile sources. The plan chose real tags (`omms`, `om-memory-system`, `retrieval`). The answer cited S1, S3, S7 and S12. All four exist in the store and their saved text matches.
+  - Every citation label in both answers was in the set of sources sent.
+  - `omms.log`: two `chat:` lines holding only counts, timings and ids. No question or answer text.
+  - `chats.db`: one file, no `-wal` or `-shm` file, no email address, no path in the title, project name or project tag.
+  - FINDING: `chats.db` contains `/Users/…` text. It sits inside saved source snapshots, copied from the user's own memory text (one memory names a worktree path and a config path). The requirement says the file SHALL NOT hold absolute paths or user names. As written it fails for real data, because the snapshot is a copy of the memory. Needs a decision: reword the requirement to cover the file's own fields only and keep memory text as written, or strip paths from snapshots. The file must stay out of Git and public hosts either way.
+  - Cost: the chat does not log token counts, so none were measured. Each answer call sends at most 18 sources of 2,000 characters.
 - 8.3 PASS: `bun run ci:local` exited 0, no failing test file.
