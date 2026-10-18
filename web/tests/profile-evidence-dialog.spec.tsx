@@ -50,7 +50,7 @@ it("shows markup in evidence as text", () => {
 
 it("shows the section, description and hit count", () => {
   const html = render("patterns");
-  expect(html).toContain("PATTERNS");
+  expect(html).toContain("Patterns");
   expect(html).toContain("Uses npm as the default package manager");
   expect(html).toContain("Profile analysis matched this item 36 times.");
 });

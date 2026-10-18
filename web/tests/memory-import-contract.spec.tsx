@@ -9,6 +9,11 @@ import {
   initialImportDraft,
   membership,
 } from "../src/lib/components/memory/import-draft";
+import {
+  HOST_CHOICE_KEY,
+  loadHostChoice,
+  saveHostChoice,
+} from "../src/lib/components/memory/import-host-choice";
 
 const job: GroupImportJob = {
   id: "synthetic-contract",
@@ -153,4 +158,54 @@ it("pins valid empty host listings as all-matching selections accepted by the ba
     listedAt: 100,
   });
   expect(() => validateWebImportRequest(request)).not.toThrow();
+});
+
+function fakeStorage(initial: Record<string, string> = {}) {
+  const data = new Map(Object.entries(initial));
+  return {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => void data.set(key, value),
+  };
+}
+
+it("restores ticked hosts and scope after a reload", () => {
+  const storage = fakeStorage();
+  const draft = initialImportDraft();
+  draft.hosts.opencode.enabled = true;
+  draft.hosts.pi.enabled = true;
+  draft.hosts["claude-code"].enabled = false;
+  draft.scope = "all-projects";
+  saveHostChoice(draft, storage);
+  const reloaded = loadHostChoice(initialImportDraft(), storage);
+  expect(reloaded.hosts.pi.enabled).toBe(true);
+  expect(reloaded.hosts.opencode.enabled).toBe(true);
+  expect(reloaded.hosts["claude-code"].enabled).toBe(false);
+  expect(reloaded.scope).toBe("all-projects");
+});
+
+it("keeps the default draft when nothing, unreadable or invalid choices are stored", () => {
+  const fresh = initialImportDraft();
+  expect(loadHostChoice(initialImportDraft(), fakeStorage())).toEqual(fresh);
+  for (const bad of ["not json", '{"hosts":["nope"],"scope":"x"}', '{"hosts":[]}', "null"]) {
+    expect(loadHostChoice(initialImportDraft(), fakeStorage({ [HOST_CHOICE_KEY]: bad }))).toEqual(
+      fresh
+    );
+  }
+  const broken = {
+    getItem: () => {
+      throw new Error("blocked");
+    },
+    setItem: () => {
+      throw new Error("blocked");
+    },
+  };
+  expect(loadHostChoice(initialImportDraft(), broken)).toEqual(fresh);
+  expect(() => saveHostChoice(initialImportDraft(), broken)).not.toThrow();
+});
+
+it("keeps working when the browser store cannot be reached at all", () => {
+  // No `localStorage` global here, as in a browser that blocks site data.
+  expect(typeof (globalThis as { localStorage?: unknown }).localStorage).toBe("undefined");
+  expect(loadHostChoice(initialImportDraft())).toEqual(initialImportDraft());
+  expect(() => saveHostChoice(initialImportDraft())).not.toThrow();
 });

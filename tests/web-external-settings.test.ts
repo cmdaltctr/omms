@@ -6,11 +6,7 @@ import {
   mapsToSave,
   versionNotice,
 } from "../web/src/lib/external-api-settings.js";
-import {
-  backfillActions,
-  backfillModelEdit,
-  progressView,
-} from "../web/src/lib/auto-import-settings.js";
+import { backfillModelEdit, progressView } from "../web/src/lib/auto-import-settings.js";
 
 describe("External API card", () => {
   it("builds each key source request and validates it before sending", () => {
@@ -115,20 +111,5 @@ describe("Automatic import progress", () => {
     });
     expect(progressView({ ...run, minutesLeft: null })?.minutesLeft).toBe("unknown");
     expect(progressView(null)).toBeNull();
-  });
-
-  it("offers Pause while running, Resume while paused, and Run now otherwise", () => {
-    expect(backfillActions(run, null)).toEqual({ runNow: false, pause: true, resume: false });
-    expect(backfillActions({ ...run, state: "stopped", paused: true }, null)).toEqual({
-      runNow: false,
-      pause: false,
-      resume: true,
-    });
-    expect(backfillActions({ ...run, state: "done" }, null).runNow).toBe(true);
-    expect(backfillActions(null, "Open Pi")).toEqual({
-      runNow: false,
-      pause: false,
-      resume: false,
-    });
   });
 });

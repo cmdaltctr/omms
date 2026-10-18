@@ -1213,6 +1213,138 @@ const text = {
   ],
   "Test passed.": ["测试通过。", "نجح الاختبار."],
   "Test failed:": ["测试失败：", "فشل الاختبار:"],
+  "Change icon": ["更换图标", "تغيير الأيقونة"],
+  "Check again": ["再次检查", "تحقق مرة أخرى"],
+  "Choose a host to see its history import, sessions and settings.": [
+    "选择一个宿主，查看其历史导入、会话和设置。",
+    "اختر مضيفاً لعرض استيراد سجله وجلساته وإعداداته.",
+  ],
+  "Choose icon": ["选择图标", "اختر أيقونة"],
+  Done: ["已完成", "اكتمل"],
+  "Every avatar is shown at the same size. Images are cropped to a square.": [
+    "所有头像大小一致。图片会被裁剪为正方形。",
+    "تظهر كل الصور الرمزية بالحجم نفسه. تُقصّ الصور إلى مربع.",
+  ],
+  "Every host": ["所有宿主", "كل المضيفين"],
+  "Fix the service named here, then press Check again.": [
+    "请修复此处所列的服务，然后点击“再次检查”。",
+    "أصلح الخدمة المذكورة هنا، ثم اضغط «تحقق مرة أخرى».",
+  ],
+  "How many memories a search returns": [
+    "一次搜索返回多少条记忆",
+    "عدد الذكريات التي يعيدها البحث",
+  ],
+  "How to set up": ["如何设置", "كيفية الإعداد"],
+  "Ignore all": ["全部忽略", "تجاهل الكل"],
+  "Import all hosts": ["导入所有宿主", "استيراد كل المضيفين"],
+  "Import progress": ["导入进度", "تقدم الاستيراد"],
+  "Imported {date}": ["已于 {date} 导入", "تم الاستيراد في {date}"],
+  "Importing makes model calls and can cost money.": [
+    "导入会调用模型，可能产生费用。",
+    "يجري الاستيراد اتصالات بالنموذج وقد يكلّف مالاً.",
+  ],
+  "Importing · {percent}%": ["正在导入 · {percent}%", "جارٍ الاستيراد · {percent}%"],
+  "Memories are not being saved.": ["记忆当前无法保存。", "لا يتم حفظ الذكريات حالياً."],
+  "Memories not saved": ["记忆未保存", "الذكريات غير محفوظة"],
+  "Memory views": ["记忆视图", "عروض الذاكرة"],
+  "Mode: {mode}": ["模式：{mode}", "الوضع: {mode}"],
+  "No icon matches.": ["没有匹配的图标。", "لا توجد أيقونة مطابقة."],
+  "No import has run yet.": ["尚未运行过导入。", "لم يتم تشغيل أي استيراد بعد."],
+  "Not set up": ["未设置", "غير مُعد"],
+  "Nothing was waiting before {date}. Use Sessions below for newer chats.": [
+    "在 {date} 之前没有待导入的内容。更新的聊天请使用下方的“会话”。",
+    "لم يكن هناك ما ينتظر قبل {date}. استخدم «الجلسات» أدناه للمحادثات الأحدث.",
+  ],
+  "Nothing was waiting. Use Sessions below for newer chats.": [
+    "没有待导入的内容。更新的聊天请使用下方的“会话”。",
+    "لم يكن هناك ما ينتظر. استخدم «الجلسات» أدناه للمحادثات الأحدث.",
+  ],
+  "OMMS did not find this host's chat history on this computer. Install the host and use it once, then reload this page.":
+    [
+      "OMMS 在这台电脑上没有找到该宿主的聊天记录。请安装该宿主并使用一次，然后重新加载此页面。",
+      "لم يعثر OMMS على سجل محادثات هذا المضيف على هذا الحاسوب. ثبّت المضيف واستخدمه مرة واحدة، ثم أعد تحميل هذه الصفحة.",
+    ],
+  Off: ["关", "متوقف"],
+  On: ["开", "قيد التشغيل"],
+  "On · {model}": ["开 · {model}", "قيد التشغيل · {model}"],
+  "PNG, JPEG, WebP or GIF, up to 20 MB.": [
+    "PNG、JPEG、WebP 或 GIF，最大 20 MB。",
+    "PNG أو JPEG أو WebP أو GIF، حتى 20 ميغابايت.",
+  ],
+  "Paused · {pending} pending": [
+    "已暂停 · 待处理 {pending}",
+    "متوقف مؤقتاً · {pending} قيد الانتظار",
+  ],
+  "Paused. Resume to continue.": [
+    "已暂停。点击“恢复”继续。",
+    "متوقف مؤقتاً. اضغط «استئناف» للمتابعة.",
+  ],
+  "Prompts waiting for profile learning, and re-analysis of old chats": [
+    "等待画像学习的提示，以及旧聊天的重新分析",
+    "مطالبات تنتظر تعلم الملف الشخصي، وإعادة تحليل المحادثات القديمة",
+  ],
+  "Results {results} · Similarity {similarity}": [
+    "结果数 {results} · 相似度 {similarity}",
+    "النتائج {results} · التشابه {similarity}",
+  ],
+  "Runs one import for every host you tick. It makes model calls and can cost money.": [
+    "对勾选的每个宿主运行一次导入。它会调用模型，可能产生费用。",
+    "يشغّل استيراداً واحداً لكل مضيف تحدده. يجري اتصالات بالنموذج وقد يكلّف مالاً.",
+  ],
+  "Saved maps and ignored directories": [
+    "已保存的映射和已忽略的目录",
+    "الخرائط المحفوظة والمجلدات المتجاهلة",
+  ],
+  "Search icons": ["搜索图标", "ابحث عن أيقونة"],
+  "Settings for every host": ["适用于所有宿主的设置", "إعدادات لكل المضيفين"],
+  Shared: ["共享", "مشترك"],
+  "Stopped · {pending} pending": ["已停止 · 待处理 {pending}", "متوقف · {pending} قيد الانتظار"],
+  "Stopped: {error}": ["已停止：{error}", "توقف: {error}"],
+  "These directories stay unimported and leave the unresolved counts.": [
+    "这些目录保持未导入状态，并从未解析计数中移除。",
+    "تبقى هذه المجلدات غير مستوردة وتخرج من أعداد غير المحلولة.",
+  ],
+  "These settings apply to every host. Open a row to change it.": [
+    "这些设置适用于所有宿主。展开一行即可修改。",
+    "تنطبق هذه الإعدادات على كل المضيفين. افتح صفاً لتغييره.",
+  ],
+  "This browser could not read the image.": [
+    "此浏览器无法读取该图片。",
+    "تعذّر على هذا المتصفح قراءة الصورة.",
+  ],
+  "This host is not set up on this machine.": [
+    "此宿主尚未在这台机器上设置。",
+    "لم يتم إعداد هذا المضيف على هذا الجهاز.",
+  ],
+  "This switch applies to every host. Automatic import makes model calls.": [
+    "此开关适用于所有宿主。自动导入会调用模型。",
+    "ينطبق هذا المفتاح على كل المضيفين. يجري الاستيراد التلقائي اتصالات بالنموذج.",
+  ],
+  "Upload image": ["上传图片", "رفع صورة"],
+  "Use external API": ["使用外部 API", "استخدام واجهة API الخارجية"],
+  settings: ["设置", "الإعدادات"],
+  "{saved} saved · {ignored} ignored": [
+    "已保存 {saved} · 已忽略 {ignored}",
+    "{saved} محفوظة · {ignored} متجاهلة",
+  ],
+  "The image is larger than 20 MB.": ["图片超过 20 MB。", "الصورة أكبر من 20 ميغابايت."],
+  "Only PNG, JPEG, WebP and GIF images are accepted.": [
+    "仅接受 PNG、JPEG、WebP 和 GIF 图片。",
+    "تُقبل صور PNG وJPEG وWebP وGIF فقط.",
+  ],
+  "Importing {done} / {total}.": [
+    "正在导入 {done} / {total}。",
+    "جارٍ الاستيراد {done} / {total}.",
+  ],
+  "Importing {done} / {total}. About {minutes} min left.": [
+    "正在导入 {done} / {total}。约剩 {minutes} 分钟。",
+    "جارٍ الاستيراد {done} / {total}. يتبقى نحو {minutes} دقيقة.",
+  ],
+  "Nothing is waiting to import.": ["没有待导入的内容。", "لا يوجد ما ينتظر الاستيراد."],
+  "{pending} still waiting to import.": [
+    "仍有 {pending} 条待导入。",
+    "لا يزال {pending} بانتظار الاستيراد.",
+  ],
 } as const;
 
 export function translateSettings(message: string, language: "en" | "zh" | "ar"): string {

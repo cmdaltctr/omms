@@ -75,6 +75,36 @@ const readRoutes = new Set([
   "/api/settings/profile/catch-up",
 ]);
 
+const hostIds = ["pi", "opencode", "claude-code"] as const;
+const finishedAt = Date.parse(timestamp);
+/** Each host finished its history import: nothing pending, nothing failed. */
+const backfillRow = (imported: number) => ({
+  state: "done",
+  model: "demo-memory-model",
+  cutoff: finishedAt - 86_400_000,
+  counts: { imported, skipped: 3, failed: 0, pending: 0, unresolved: 0 },
+  error: null,
+});
+const backfillRun = (imported: number) => ({
+  run: {
+    surface: "auto",
+    state: "done",
+    phase: "exchanges",
+    total: imported + 3,
+    done: imported + 3,
+    percent: 100,
+    minutesLeft: null,
+    paused: false,
+    startedAt: finishedAt - 600_000,
+    updatedAt: finishedAt,
+    imported,
+    skipped: 3,
+    failed: 0,
+  },
+  runNowUnavailable: null,
+});
+const importedByHost = { pi: 21, opencode: 34, "claude-code": 48 };
+
 /** English-only README demo. No request reaches a store, history reader or model. */
 export function readmeFixtureResponse(
   method: string,
@@ -184,8 +214,23 @@ export function readmeFixtureResponse(
       settings.access.authUsername = "DemoUser";
       return result;
     }
+    case "/api/memory/write-health":
+      return raw({ ok: true, reason: null, checkedAt: finishedAt });
+    case "/api/host-appearance":
+      return raw({
+        hosts: Object.fromEntries(hostIds.map((host) => [host, { kind: "default" }])),
+      });
+    case "/api/settings/backfill":
+      return raw(
+        Object.fromEntries(hostIds.map((host) => [host, backfillRow(importedByHost[host])]))
+      );
+    case "/api/settings/backfill/runs":
+      return raw(
+        Object.fromEntries(hostIds.map((host) => [host, backfillRun(importedByHost[host])]))
+      );
     case "/api/settings/imports/readiness":
       return raw({
+        defaultSourceFound: { pi: true, opencode: true, "claude-code": true },
         external: { state: "ready", provider: "openai-chat", model: "demo-memory-model" },
         opencode: { available: false, models: [] },
         piReader: { available: true },

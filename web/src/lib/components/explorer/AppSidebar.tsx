@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { ProfileTree, useSavedOpen } from "./ProfileTree";
+import { MemorySidebarLinks, type MemorySidebarSection } from "../memory/MemorySidebarLinks";
 import {
   ChevronRight,
   Brain,
@@ -35,7 +37,11 @@ type Props = {
   /** The Settings page cards, shown as a collapsible tree under Settings. */
   settingsSections?: { id: string; label: string }[];
   memoryLabel?: string;
-  memorySections?: { id: string; label: string }[];
+  memorySections?: MemorySidebarSection[];
+  /** Accessible name of the warning marker beside a Memory view. */
+  memoryWarningLabel?: string;
+  /** The Memory view on screen: a host, "shared", or null for the overview. */
+  memoryViewId?: string | null;
   langLabel: string;
   languageLabel: string;
   themeLabel: string;
@@ -56,6 +62,7 @@ const LANGUAGE_OPTIONS: { code: Lang; label: string }[] = [
 const COLLAPSED_KEY = "omms-sidebar-collapsed";
 const SETTINGS_TREE_KEY = "omms-sidebar-settings-open";
 const MEMORY_TREE_KEY = "omms-sidebar-memory-open";
+const PROFILE_TREE_KEY = "omms-sidebar-profile-open";
 
 /** Shared base for the sidebar footer icon controls; each call site adds its own shape and edges. */
 const FOOTER_ICON_BUTTON =
@@ -90,6 +97,8 @@ export function AppSidebar({
   settingsSections = [],
   memoryLabel = "Memory",
   memorySections = [],
+  memoryWarningLabel = "",
+  memoryViewId = null,
   langLabel,
   languageLabel,
   themeLabel,
@@ -123,6 +132,12 @@ export function AppSidebar({
       return currentView === "memory";
     }
   });
+
+  // With no saved choice, the profile tree starts open on the User profile page only.
+  const [profileTreeOpen, toggleProfileTree] = useSavedOpen(
+    PROFILE_TREE_KEY,
+    currentView === "profile"
+  );
 
   function toggleMemoryTree() {
     const next = !memoryTreeOpen;
@@ -216,7 +231,8 @@ export function AppSidebar({
       return;
     }
     event.preventDefault();
-    navigate(`${ROUTES[view]}#${id}`);
+    // Memory children are views with their own paths; the others are anchors.
+    navigate(view === "memory" ? `${ROUTES.memory}/${id}` : `${ROUTES[view]}#${id}`);
     setOpen(false);
   }
 
@@ -305,33 +321,31 @@ export function AppSidebar({
               ["chat", ROUTES.chat, chatLabel, MessageSquare],
               ["profile", ROUTES.profile, profileLabel, User],
             ] as const
-          ).map(([view, href, label, icon]) => (
-            <SidebarNavLink
-              key={view}
-              {...{ href, label, icon, collapsed }}
-              active={currentView === view}
-              className={navClass(currentView === view)}
-              onNavigate={onNavClick}
-            />
-          ))}
-          <ul
-            className={cn(
-              "ms-5 space-y-0.5 border-s border-sidebar-border ps-2",
-              onDesktop("md:hidden")
-            )}
-          >
-            {profileSections.map((section) => (
-              <li key={section.id}>
-                <a
-                  href={`${ROUTES.profile}#${section.id}`}
-                  className="flex min-h-11 md:min-h-7 items-center break-words rounded-lg px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-                  onClick={(e) => onSectionClick(e, section.id)}
-                >
-                  {section.label}
-                </a>
-              </li>
-            ))}
-          </ul>
+          ).map(([view, href, label, icon]) => {
+            const entry = (
+              <SidebarNavLink
+                key={view}
+                {...{ href, label, icon, collapsed }}
+                active={currentView === view}
+                className={navClass(currentView === view)}
+                onNavigate={onNavClick}
+              />
+            );
+            return view === "profile" ? (
+              <ProfileTree
+                key={view}
+                link={entry}
+                sections={profileSections}
+                open={profileTreeOpen}
+                onToggle={toggleProfileTree}
+                label={profileLabel}
+                hideWhenCollapsed={onDesktop("md:hidden")}
+                onSectionClick={onSectionClick}
+              />
+            ) : (
+              entry
+            );
+          })}
           <div className="flex items-center gap-0.5">
             <a
               href={ROUTES.memory}
@@ -341,9 +355,7 @@ export function AppSidebar({
               onClick={(e) => onNavClick(e, ROUTES.memory)}
             >
               <Brain className="size-4 shrink-0" aria-hidden="true" />
-              <span
-                className={cn("min-w-0 break-words text-start uppercase", onDesktop("md:sr-only"))}
-              >
+              <span className={cn("min-w-0 break-words text-start", onDesktop("md:sr-only"))}>
                 {memoryLabel}
               </span>
             </a>
@@ -370,25 +382,17 @@ export function AppSidebar({
             ) : null}
           </div>
           {memoryTreeOpen && memorySections.length > 0 ? (
-            <ul
-              id="sidebar-memory-tree"
+            <MemorySidebarLinks
+              sections={memorySections}
+              currentView={currentView}
+              memoryViewId={memoryViewId}
+              warningLabel={memoryWarningLabel}
               className={cn(
                 "ms-5 space-y-0.5 border-s border-sidebar-border ps-2",
                 onDesktop("md:hidden")
               )}
-            >
-              {memorySections.map((section) => (
-                <li key={section.id}>
-                  <a
-                    href={`${ROUTES.memory}#${section.id}`}
-                    className="flex min-h-11 md:min-h-7 items-center break-words rounded-lg px-2.5 py-1 text-xs text-muted-foreground hover:bg-interactive-hover focus-visible:outline-2 focus-visible:outline-ring"
-                    onClick={(e) => onSectionClick(e, section.id, "memory")}
-                  >
-                    {section.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
+              onSectionClick={onSectionClick}
+            />
           ) : null}
           <div className="flex items-center gap-0.5">
             <a
@@ -399,9 +403,7 @@ export function AppSidebar({
               onClick={(e) => onNavClick(e, ROUTES.settings)}
             >
               <Settings className="size-4 shrink-0" />
-              <span
-                className={cn("min-w-0 break-words text-start uppercase", onDesktop("md:sr-only"))}
-              >
+              <span className={cn("min-w-0 break-words text-start", onDesktop("md:sr-only"))}>
                 {settingsLabel}
               </span>
             </a>

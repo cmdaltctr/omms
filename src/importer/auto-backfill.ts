@@ -18,7 +18,7 @@ import {
 } from "./run-import.js";
 import type { HistoryImportArgs } from "./import-args.js";
 import { isManualImportRunning } from "./manual-import-guard.js";
-import { isBackfillPaused, type ImportSurface } from "./import-runs.js";
+import { isBackfillPaused, startImportRun, type ImportSurface } from "./import-runs.js";
 import { workProgress } from "./import-progress.js";
 
 type Counts = BackfillStatus["counts"];
@@ -107,22 +107,42 @@ export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promis
       signal: controller.signal,
     });
     current = counts(dry);
-    await recordUnresolvedDirectories(options.host, unresolvedDirectoriesOf(dry)).catch(
-      (error: unknown) =>
-        log(
-          "Backfill unresolved directories write failed",
-          {
-            host: options.host,
-            error: error instanceof Error ? error.message : String(error),
-          },
-          "error"
-        )
+    // The dry run stops at the cutoff, so its list covers only history before it.
+    await recordUnresolvedDirectories(
+      options.host,
+      unresolvedDirectoriesOf(dry),
+      clock(),
+      "partial"
+    ).catch((error: unknown) =>
+      log(
+        "Backfill unresolved directories write failed",
+        {
+          host: options.host,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        "error"
+      )
     );
     if (controller.signal.aborted) {
       state = "stopped";
       return;
     }
     if (!current.pending) {
+      // A pressed Run now needs an answer on the page: record a finished run.
+      if (options.userStarted) {
+        await startImportRun(options.host, options.surface ?? "web")
+          .then((recorder) => recorder.finish("done", {}))
+          .catch((error: unknown) =>
+            log(
+              "Backfill run record write failed",
+              {
+                host: options.host,
+                error: error instanceof Error ? error.message : String(error),
+              },
+              "error"
+            )
+          );
+      }
       state = "done";
       return;
     }

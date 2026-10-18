@@ -84,18 +84,36 @@ Object.assign(globalThis, {
     return new Response(JSON.stringify(value));
   },
 });
-const { AutoImportSection } = await import("../src/lib/components/memory/AutoImportSection.tsx");
+const { HostStatusHeader } = await import("../src/lib/components/memory/HostStatusHeader.tsx");
+const { HostSettings } = await import("../src/lib/components/memory/HostSettings.tsx");
+const { HostRunDetails } = await import("../src/lib/components/memory/HostRunDetails.tsx");
+const { HostAvatar } = await import("../src/lib/components/memory/HostAvatar.tsx");
+const { useHostStatuses } = await import("../src/lib/components/memory/use-host-statuses.ts");
 const { HostImportBadges } = await import("../src/lib/components/settings/HostImportBadges.tsx");
 const { ImportStatusBadge } = await import("../src/lib/components/settings/ImportStatusBadge.tsx");
 
+const mounted = new Set<unknown>([HostStatusHeader, HostSettings, HostRunDetails, HostAvatar]);
 type Node = ReactElement<{ children?: ReactNode; [key: string]: any }>;
 function nodes(node: ReactNode): Node[] {
   if (!react.isValidElement(node)) return Array.isArray(node) ? node.flatMap(nodes) : [];
   const element = node as Node;
   if (element.type === ImportStatusBadge) return nodes(ImportStatusBadge(element.props as never));
+  // Mount the host components the way React would, in order, so their hooks use this harness.
+  if (mounted.has(element.type as never))
+    return nodes((element.type as (props: unknown) => ReactNode)(element.props));
   return [element, ...nodes(element.props.children)];
 }
-function render(component = AutoImportSection) {
+/** Pi's status header and OpenCode's settings, as the host views mount them. */
+function Probe() {
+  const statuses = useHostStatuses();
+  return (
+    <>
+      <HostStatusHeader host="pi" statuses={statuses} />
+      <HostSettings host="opencode" backfill={statuses.backfill} />
+    </>
+  );
+}
+function render(component: () => ReactNode = Probe) {
   cursor = refCursor = effectCursor = 0;
   const tree = nodes(component());
   for (const effect of effects.splice(0)) {
@@ -148,19 +166,16 @@ afterEach(() => {
 });
 
 for (const surface of ["cli", "web"] as const) {
-  it(`refreshes an idle Memory card through ${surface === "web" ? "group child" : "CLI"} start, exchanges, profile and completion without losing drafts`, async () => {
+  it(`refreshes an idle host view through ${surface === "web" ? "group child" : "CLI"} start, exchanges, profile and completion without losing drafts`, async () => {
     render();
     await settle();
     let tree = render();
-    const cards = () => tree.filter((node) => node.type === "details");
-    expect(cards().every((node) => !node.props.open)).toBe(true);
-    cards()[1].props.onToggle({ currentTarget: { open: true } });
     tree
       .find((node) => node.props["aria-label"] === "OpenCode Backfill model")!
       .props.onChange({ target: { value: "typed" } });
     tree = render();
     tree
-      .find((node) => node.props["aria-label"] === "opencode Manual provider/model")!
+      .find((node) => node.props["aria-label"] === "OpenCode Manual provider/model")!
       .props.onChange({ target: { value: "draft/model" } });
     progress(surface);
     await poll();
@@ -191,15 +206,19 @@ for (const surface of ["cli", "web"] as const) {
     expect(tree.map(text).join(" ")).toContain("Last run:");
     expect(tree.map(text).join(" ")).toContain("Imported: 1000 · Skipped: 3 · Failed: 0");
     expect(tree.some((node) => node.props.role === "progressbar")).toBe(false);
-    expect(cards().map((node) => node.props.open)).toEqual([false, true, false]);
     expect(
-      tree.find((node) => node.props["aria-label"] === "opencode Manual provider/model")!.props
+      tree.find((node) => node.props["aria-label"] === "OpenCode Manual provider/model")!.props
         .value
     ).toBe("draft/model");
     expect(requests.every((request) => request.method === "GET")).toBe(true);
-    expect(requests.some((request) => request.path.startsWith("/api/settings/imports"))).toBe(
-      false
-    );
+    // Reading readiness is allowed; starting or previewing an import is not.
+    expect(
+      requests.some(
+        (request) =>
+          request.path.startsWith("/api/settings/imports") &&
+          request.path !== "/api/settings/imports/readiness"
+      )
+    ).toBe(false);
   });
 }
 

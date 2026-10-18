@@ -90,10 +90,10 @@ for (const [view, label] of [
   ["memory", "Memory"],
   ["settings", "Settings"],
 ] as const) {
-  it(`presents the English ${view} H1 in uppercase while keeping semantic text`, () => {
+  it(`presents the English ${view} H1 in normal capitals, not all capitals`, () => {
     const heading = pageHeading(view, "en");
     expect(heading.children).toBe(label);
-    expect(heading.className.split(/\s+/)).toContain("uppercase");
+    expect(heading.className.split(/\s+/)).not.toContain("uppercase");
   });
 }
 
@@ -176,4 +176,25 @@ it("uses an H3 host title inside the summary and an H2 section-sized accessible 
   expect(dialog).toContain("<DialogPrimitive.Title");
   expect(dialog).toContain('className={cn("text-section-title font-semibold", className)}');
   expect(dialog).not.toContain("text-page-title");
+});
+
+it("stores every English page and sidebar title in normal capitals, never all capitals", () => {
+  for (const key of [
+    "tab-project",
+    "tab-profile",
+    "nav-chat",
+    "nav-settings",
+    "profile-preferences",
+    "profile-patterns",
+    "profile-workflows",
+  ] as const) {
+    const label = t(key, {}, "en");
+    expect(label, key).not.toBe(label.toUpperCase());
+    // A capital first letter and lower case after it, as in "Memory".
+    expect(label.slice(1), key).toBe(label.slice(1).toLowerCase());
+    expect(label[0], key).toBe(label[0]!.toUpperCase());
+  }
+  expect([t("tab-project", {}, "en"), t("tab-profile", {}, "en"), t("nav-chat", {}, "en")]).toEqual(
+    ["Project memories", "User profile", "Chat"]
+  );
 });

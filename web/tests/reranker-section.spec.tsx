@@ -4,7 +4,7 @@ import type { ReactElement, ReactNode } from "react";
 import * as react from "react";
 import { setLanguage } from "../src/lib/i18n/index.ts";
 import { translateSettings } from "../src/lib/i18n/settings.ts";
-import { MEMORY_SECTIONS } from "../src/lib/memory-sections.ts";
+import { SHARED_ROW_IDS } from "../src/lib/memory-sections.ts";
 
 // Same shared mock as memory-section.spec.tsx: the card keeps snapshot,
 // draft, busy, and status in this order so tests can inject each state.
@@ -274,14 +274,12 @@ it("restores the saved values on Cancel without any request", () => {
   expect(calls).toEqual([]);
 });
 
-it("sits on the Memory page below Memory limits and is absent from Settings", () => {
-  const ids = MEMORY_SECTIONS.map((section) => section.id);
-  expect(ids.indexOf("memory-section-reranker")).toBeGreaterThan(
-    ids.indexOf("memory-section-limits")
-  );
-  // The Keyword matching card sits between the two.
-  expect(ids.indexOf("memory-section-keywords")).toBe(ids.indexOf("memory-section-limits") + 1);
-  expect(ids.indexOf("memory-section-reranker")).toBe(ids.indexOf("memory-section-keywords") + 1);
+it("sits in the Shared view below Memory limits and is absent from Settings", () => {
+  const ids: readonly string[] = SHARED_ROW_IDS;
+  expect(ids.indexOf("shared-reranker")).toBeGreaterThan(ids.indexOf("shared-limits"));
+  // The Keyword matching row sits between the two.
+  expect(ids.indexOf("shared-keywords")).toBe(ids.indexOf("shared-limits") + 1);
+  expect(ids.indexOf("shared-reranker")).toBe(ids.indexOf("shared-keywords") + 1);
 });
 
 it("translates every reranker message into Chinese and Arabic", () => {

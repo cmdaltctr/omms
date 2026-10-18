@@ -581,7 +581,13 @@ describe("settings API", () => {
     expect(result.relative).toBe(400);
     expect(result.getList).not.toBe(200);
     expect(result.readiness).toBe(200);
-    expect(result.readinessKeys).toEqual(["claudeCode", "external", "opencode", "piReader"]);
+    expect(result.readinessKeys).toEqual([
+      "claudeCode",
+      "defaultSourceFound",
+      "external",
+      "opencode",
+      "piReader",
+    ]);
     expect(result.browse).toBe(200);
     expect(result.entries).toContain("pi-sessions");
   });

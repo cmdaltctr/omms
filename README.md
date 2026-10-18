@@ -106,10 +106,12 @@ Browse captured notes alongside example user input and technical outcomes.
 
 ### Memory
 
-Review history imports, manage profile learning and set memory limits. This page
-also helps resolve missing project folders.
+Pick a host card (Pi, OpenCode or Claude Code) to see its import status, sessions
+and folders that need a map. The Shared card holds profile learning, memory limits
+and other settings that apply to every host. The cards also warn you when memories
+cannot be saved.
 
-![Memory page with synthetic import and profile examples](.github/screenshots/memory.png)
+![Memory page showing the Pi host view with synthetic import status](.github/screenshots/memory.png)
 
 ### Settings
 
@@ -119,18 +121,18 @@ Choose models and manage access. Diagnostics show capture outcomes and component
 
 ## Documentation
 
-| Guide                                       | Covers                                                       |
-| ------------------------------------------- | ------------------------------------------------------------ |
-| [Using memory](docs/using-memory.md)        | Daily use, capture, recall and the user profile              |
-| [Web UI](docs/web-ui.md)                    | Starting the app, browsing memories and safe network access  |
-| [Memory page](docs/web-ui-memory.md)        | History imports, profile actions, limits and missing folders |
-| [Settings page](docs/web-ui-settings.md)    | Models, credentials, diagnostics and profile identities      |
-| [Configuration](docs/configuration.md)      | Config files, model selection, privacy and embeddings        |
-| [Moving projects](docs/moving-projects.md)  | Folder moves, backup and restore                             |
-| [Updating and upgrading](docs/upgrading.md) | Updates, version pinning and older stores                    |
-| [CLI reference](docs/cli.md)                | Terminal commands                                            |
-| [For developers](docs/developers.md)        | Building, testing and architecture                           |
-| [Contributing](CONTRIBUTING.md)             | Development workflow and pull requests                       |
+| Guide                                       | Covers                                                      |
+| ------------------------------------------- | ----------------------------------------------------------- |
+| [Using memory](docs/using-memory.md)        | Daily use, capture, recall and the user profile             |
+| [Web UI](docs/web-ui.md)                    | Starting the app, browsing memories and safe network access |
+| [Memory page](docs/web-ui-memory.md)        | One card per host, imports, shared settings and avatars     |
+| [Settings page](docs/web-ui-settings.md)    | Models, credentials, diagnostics and profile identities     |
+| [Configuration](docs/configuration.md)      | Config files, model selection, privacy and embeddings       |
+| [Moving projects](docs/moving-projects.md)  | Folder moves, backup and restore                            |
+| [Updating and upgrading](docs/upgrading.md) | Updates, version pinning and older stores                   |
+| [CLI reference](docs/cli.md)                | Terminal commands                                           |
+| [For developers](docs/developers.md)        | Building, testing and architecture                          |
+| [Contributing](CONTRIBUTING.md)             | Development workflow and pull requests                      |
 
 History import guides: [OpenCode](docs/opencode-history-import.md),
 [Pi](docs/pi-history-import.md) and [Claude Code](docs/claude-code-history-import.md).

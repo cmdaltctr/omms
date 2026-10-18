@@ -83,3 +83,13 @@
 .settings-view table {
   overflow-wrap: normal;
 }
+
+/* A section inside a Shared row sits in the row's own card: no second border, no second heading. */
+[data-shared-row] > div > section {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+[data-shared-row] > div > section > h2:first-child {
+  display: none;
+}
