@@ -170,6 +170,15 @@ Browse results on `/project-memories` and `/user-profile`. `/` resolves to Proje
 
 Open `/user-profile` to see learned preferences, patterns and workflows.
 
+The footer of each card shows two numbers:
+
+- **◎ 36** is how many times profile analysis matched this item. It has no upper limit.
+- **ⓘ 10 evidence** is the number of evidence items. OMMS keeps up to 10 per item. A card with no evidence does not show it.
+
+Select **10 evidence** to open a window that shows the item's section, its description, and its evidence as a numbered list. Press Escape to close the window. Focus goes back to the button.
+
+The profile model writes each evidence item from your prompts, so an item can be a summary, not an exact quote. **Added by a manual memory save** means that you or an agent saved the item with the `memory` tool.
+
 **Clean up categories** shows the number of categories beside its label. It opens a review of category names that mean the same thing:
 
 1. OMMS groups the names and the profile model proposes one name per group. This runs in the background with a progress line, one model call per 20 groups. On a large profile it can take many minutes. Closing the window does not stop it. **Build a new preview** starts over.

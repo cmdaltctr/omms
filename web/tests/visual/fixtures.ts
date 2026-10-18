@@ -105,7 +105,19 @@ const profile = {
         category: "UI",
         description: "Keep helper text visible. 中文长标签检查换行。",
         confidence: 0.96,
-        frequency: 3,
+        frequency: 36,
+        evidence: [
+          "manual-write",
+          "Keep the helper text under each setting visible at all times.",
+          "Asked to show a short explanation next to every cleanup button.",
+          "Prefers <b>plain text</b> labels over icons without names.",
+          "Said tooltips are hard to read on a phone.",
+          "Wants long lists to scroll inside the window, not the whole page.",
+          "保持帮助文字可见，不要隐藏在悬停提示中。",
+          "Asked for keyboard access to every dialog with Escape to close.",
+          "Prefers British English in every label and message.",
+          "Wants each evidence line numbered so it can be referred to in a review comment without counting by hand.",
+        ],
       },
     ],
     patterns: [
@@ -114,6 +126,7 @@ const profile = {
         description: "تحقق من المسارات مثل example/model-preview دون تغيير البيانات.",
         confidence: 0.86,
         frequency: 2,
+        evidence: "تحقق من المسارات قبل التغيير.",
       },
     ],
     workflows: [
