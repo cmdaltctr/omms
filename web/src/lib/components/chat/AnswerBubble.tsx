@@ -1,7 +1,10 @@
+import { useMemo } from "react";
 import { Info, RotateCw, TriangleAlert } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
 import { useI18n } from "$lib/i18n";
-import { citedLabels, splitCitations } from "$lib/chat-citations";
+import { linkCitations } from "$lib/chat-answer-html";
+import { citedLabels } from "$lib/chat-citations";
+import { renderMarkdown } from "$lib/markdown";
 import type { ChatMessage, ChatSource } from "$lib/chat-api";
 import { CitationChip } from "./CitationChip";
 import { SearchDetails } from "./SearchDetails";
@@ -33,6 +36,22 @@ export function AnswerBubble({
   const byLabel = new Map(message.sources.map((source) => [source.label, source]));
   const isDeleted = (source?: ChatSource) =>
     !!source && source.kind === "memory" && missingMemoryIds.has(source.id);
+  const html = useMemo(
+    () =>
+      linkCitations(
+        renderMarkdown(message.content),
+        labels,
+        (label) => isDeleted(byLabel.get(label)),
+        (label) => t("chat-cite-label", { label })
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [message.content, message.sources, missingMemoryIds, t]
+  );
+  const openCited = (event: React.MouseEvent<HTMLElement>) => {
+    const button = (event.target as HTMLElement).closest<HTMLElement>("[data-cite]");
+    const source = button ? byLabel.get(button.dataset.cite ?? "") : undefined;
+    if (source) onOpenSource(source);
+  };
   const cited = citedLabels(message.content, labels)
     .map((label) => byLabel.get(label))
     .filter((source): source is ChatSource => !!source);
@@ -53,20 +72,12 @@ export function AnswerBubble({
       ) : null}
 
       {message.content ? (
-        <p dir="auto" className="whitespace-pre-wrap break-words text-sm leading-7">
-          {splitCitations(message.content, labels).map((part, i) =>
-            part.kind === "text" ? (
-              <span key={i}>{part.text}</span>
-            ) : (
-              <CitationChip
-                key={i}
-                label={part.label}
-                deleted={isDeleted(byLabel.get(part.label))}
-                onOpen={() => onOpenSource(byLabel.get(part.label)!)}
-              />
-            )
-          )}
-        </p>
+        <div
+          dir="auto"
+          className="markdown-content chat-answer break-words text-sm leading-7"
+          onClick={openCited}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
       ) : null}
 
       {message.notice ? (

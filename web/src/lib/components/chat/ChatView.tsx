@@ -66,7 +66,8 @@ export function ChatView() {
 
   return (
     <div className="grid min-h-[calc(100svh-9rem)] gap-4 md:grid-cols-[17rem_minmax(0,1fr)]">
-      <aside className="hidden min-h-0 overflow-y-auto border-e border-border pe-4 md:block">
+      {/* The page scrolls as a whole, so the list sticks below the page padding (md:p-6) and scrolls inside its own height. */}
+      <aside className="hidden min-h-0 overflow-y-auto border-e border-border pe-4 md:sticky md:top-6 md:block md:max-h-[calc(100svh-3rem)] md:self-start">
         {list}
       </aside>
 
