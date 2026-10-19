@@ -32,6 +32,18 @@ export function initialImportDraft(): ImportDraft {
     profile: true,
   };
 }
+/**
+ * Apply a shared option change. A new scope or project lists a different set of
+ * sessions, so the old lists and selections go; the user lists again.
+ */
+export function applyDraftChange(draft: ImportDraft, patch: Partial<ImportDraft>): ImportDraft {
+  const next = { ...draft, ...patch };
+  if (next.scope === draft.scope && next.project === draft.project) return next;
+  const hosts = { ...next.hosts };
+  for (const host of IMPORT_HOSTS)
+    hosts[host] = { ...hosts[host], page: null, listedWith: "", selection: emptySelection() };
+  return { ...next, hosts };
+}
 export function membership(draft: ImportDraft, host: WebHost): string {
   return JSON.stringify([
     draft.hosts[host].source?.sourceToken,

@@ -115,7 +115,7 @@ Hosts, scope and outputs remain visible with Advanced options closed.
 
 ### Group progress, cancellation and retry
 
-The server owns the queue. Selected hosts run in **Pi, OpenCode, Claude Code** order. A child finishes its memory and profile phases before the next starts. Navigation or reload reconnects to the current job without resubmitting it. One web preview or import can run at a time, including legacy single-host jobs.
+The server owns the queue. Selected hosts run in **Pi, OpenCode, Claude Code** order. A child finishes its memory and profile phases before the next starts. Navigation or reload reconnects to the current job without resubmitting it. One web preview or import can run at a time, including legacy single-host jobs. A host tab shows only the results of its own host. The overview shows the whole job. When you change Scope or the project directory, the session lists clear. Select **List sessions** again.
 
 Results show the current host and phase, each host's state, and combined counts. Hosts can be queued, running, done, failed, cancelled, no-work or not-run. Memory units and profile batches are separate measures. Finished memory extraction still leaves the profile phase to complete.
 
