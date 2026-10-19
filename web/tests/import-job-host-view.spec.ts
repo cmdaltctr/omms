@@ -49,3 +49,43 @@ it("matches a single-host job that only carries `host`", () => {
 it("passes a missing job through", () => {
   expect(jobForHost(null, "pi")).toBeNull();
 });
+
+const failedGroup = (): ImportJob => ({
+  id: "synthetic-failed",
+  dryRun: false,
+  state: "failed",
+  activeHost: "opencode",
+  error: "OpenCode: model refused",
+  hosts: [
+    { host: "opencode", state: "failed", error: "OpenCode: model refused" },
+    { host: "claude-code", state: "not-run" },
+  ],
+});
+
+it("shows the host's own state, not the failed group's, on a later host", () => {
+  const view = jobForHost(failedGroup(), "claude-code");
+  expect(view?.state).toBe("not-run");
+  expect(view?.error).toBeUndefined();
+  expect(view?.activeHost).toBeNull();
+});
+
+it("keeps the failure and active host on the host that failed", () => {
+  const view = jobForHost(failedGroup(), "opencode");
+  expect(view?.state).toBe("failed");
+  expect(view?.error).toBe("OpenCode: model refused");
+  expect(view?.activeHost).toBe("opencode");
+});
+
+it("keeps a group-level error when no host row failed", () => {
+  const job: ImportJob = {
+    id: "synthetic-prep",
+    dryRun: false,
+    state: "failed",
+    error: "Import preparation failed.",
+    hosts: [
+      { host: "opencode", state: "queued" },
+      { host: "claude-code", state: "queued" },
+    ],
+  };
+  expect(jobForHost(job, "claude-code")?.error).toBe("Import preparation failed.");
+});
