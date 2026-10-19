@@ -14,6 +14,7 @@ import { HostSessionSelection } from "./HostSessionSelection";
 import { loadHostChoice, saveHostChoice } from "./import-host-choice";
 import { ImportOptions, importButton } from "./ImportOptions";
 import { ImportFinish } from "./ImportFinish";
+import { reloadAfterFinish } from "./import-finish";
 import { ImportProgressBar } from "./ImportProgressBar";
 import { importFeedback, ImportResults, workCounts } from "./ImportResults";
 import { jobForHost } from "./import-job-view";
@@ -128,9 +129,10 @@ export function ImportSection({
   }, []);
 
   /** OK on the finish dialog: reload readiness, host status and the job without a page reload. */
-  function reloadAfterFinish() {
-    void reloadSettingsSnapshot();
-    void refreshJob().catch(() => {});
+  function onFinishOk() {
+    void reloadAfterFinish(reloadSettingsSnapshot, refreshJob).then((failure) => {
+      if (mounted.current && failure) setError(failure);
+    });
   }
 
   useEffect(() => {
@@ -489,7 +491,7 @@ export function ImportSection({
       </div>
       {error && <p role="alert">{importFeedback(error, s)}</p>}
       <ImportProgressBar job={view} />
-      <ImportFinish job={view} onReload={reloadAfterFinish} />
+      <ImportFinish job={view} onReload={onFinishOk} />
       <ImportResults job={view} />
     </section>
   );

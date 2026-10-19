@@ -3,6 +3,8 @@ import {
   classifyEnd,
   failedUnits,
   progressBarView,
+  reloadAfterFinish,
+  SETTINGS_RELOAD_FAILED,
 } from "../src/lib/components/memory/import-finish";
 import type { HostResult, ImportJob } from "../src/lib/components/memory/import-types";
 
@@ -78,4 +80,18 @@ it("sums failed memory units across hosts", () => {
   expect(failedUnits(done({ hosts }))).toBe(2);
   expect(failedUnits(done({ hosts: [], summary: { unitsFailed: 1 } }))).toBe(1);
   expect(failedUnits(null)).toBe(0);
+});
+
+it("reports a failed settings reload on OK and still refreshes the job", async () => {
+  let refreshed = 0;
+  const refresh = async () => {
+    refreshed++;
+  };
+  expect(await reloadAfterFinish(async () => null, refresh)).toBe(SETTINGS_RELOAD_FAILED);
+  expect(await reloadAfterFinish(async () => ({ revision: "r" }), refresh)).toBeNull();
+  expect(refreshed).toBe(2);
+  const failing = async () => {
+    throw new Error("down");
+  };
+  expect(await reloadAfterFinish(async () => ({}), failing)).toBeNull();
 });

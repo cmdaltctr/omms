@@ -69,6 +69,21 @@ export function failureReason(job: ImportJob): string | undefined {
   return job.hosts?.find((child) => child.error)?.error ?? job.error;
 }
 
+export const SETTINGS_RELOAD_FAILED = "Could not reload the settings. Reload the page.";
+
+/**
+ * Work done when the user clicks OK. Returns a message when the settings
+ * reload failed (it resolves null then), so readiness and host status stay
+ * stale. The job refresh runs either way.
+ */
+export async function reloadAfterFinish(
+  reloadSettings: () => Promise<unknown>,
+  refreshJob: () => Promise<unknown>
+): Promise<string | null> {
+  const [snapshot] = await Promise.all([reloadSettings(), refreshJob().catch(() => {})]);
+  return snapshot === null ? SETTINGS_RELOAD_FAILED : null;
+}
+
 const DISMISSED_KEY = "omms.import.dismissedEnd";
 
 /** Per-viewer convenience; storage can be missing or blocked. */
