@@ -107,13 +107,21 @@ export function useBackfill() {
 
   async function control(host: BackfillHost, action: "run" | "pause" | "resume") {
     setBusy(true);
+    // Pausing with no run going only saves the flag; nothing stops "after the current exchange".
+    const live = runs?.[host]?.run?.state === "running";
     try {
       await settingsRequest(`/api/settings/backfill/${host}/${action}`, {
         method: "POST",
         body: "{}",
       });
       setMessage(
-        s(action === "pause" ? "Pausing after the current exchange." : "Backfill started.")
+        s(
+          action !== "pause"
+            ? "Backfill started."
+            : live
+              ? "Pausing after the current exchange."
+              : "Paused. No import starts until you resume."
+        )
       );
     } catch (error) {
       setMessage((error as Error).message);

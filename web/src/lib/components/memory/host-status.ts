@@ -1,9 +1,8 @@
 import type { BackfillHost, ImportRunView } from "$lib/auto-import-settings";
 
-export type HostState =
-  "not-set-up" | "running" | "paused" | "failed" | "stopped" | "done" | "idle";
+export type HostState = "not-set-up" | "running" | "paused" | "failed" | "stopped";
 
-export type HostActionKind = "setup" | "pause" | "resume" | "retry" | "run";
+export type HostActionKind = "setup" | "pause" | "resume" | "retry";
 
 /** A line of page text: an English key for the translation table, and its values. */
 export type StatusText = { text: string; params?: Record<string, string | number> };
@@ -15,7 +14,7 @@ export type HostStatusInput = {
   pending: number;
   /** When the backfill cutoff was fixed, in milliseconds; null when none is known. */
   cutoff: number | null;
-  /** Why Run now cannot start here, from the server; null when it can. */
+  /** Why a run cannot start here, from the server; null when it can. */
   runNowUnavailable: string | null;
   /** The host's history source exists on this machine, or a custom one is saved. */
   setUp: boolean;
@@ -31,10 +30,11 @@ export type HostStatus = {
 };
 
 /**
- * One host's state, its single main action and the sentence under it. The
- * action label follows the state: Pause while running, Resume while paused,
- * Retry after a failure, and Run now otherwise. A blocked action stays on the
- * page with the server's reason as its sentence.
+ * One host's state, its single main action and the sentence under it.
+ * Automatic import runs all the time, so a host that is set up, not paused and
+ * not failed reads Running with Pause, whether or not a run is in progress.
+ * Play (Resume) and Retry mean something is off. Stopped shows only when a run
+ * was cut short with work pending, or when the server says a run cannot start.
  */
 export function hostStatus(input: HostStatusInput): HostStatus {
   const { run, runNowUnavailable: blocked } = input;
@@ -98,34 +98,34 @@ export function hostStatus(input: HostStatusInput): HostStatus {
     };
   }
 
-  if (!run || run.state === null) {
+  // A run cut short with work pending needs the user; so does a blocked host.
+  if (!enabled || (run?.state === "stopped" && input.pending > 0)) {
     return {
-      ...status("idle", "run", enabled ? { text: "No import has run yet." } : reason, enabled),
+      ...status(
+        "stopped",
+        "resume",
+        enabled
+          ? { text: "{pending} still waiting to import.", params: { pending: input.pending } }
+          : reason,
+        enabled
+      ),
       offerExternal,
     };
   }
 
-  const idle = run.state === "done" && run.total === 0;
+  const idle = run?.state === "done" && run.total === 0;
   let sentence: StatusText;
-  if (!enabled) sentence = reason;
-  else if (idle && input.cutoff !== null) {
+  if (idle && input.cutoff !== null) {
     sentence = {
-      text: "Nothing was waiting before {date}. Use Sessions below for newer chats.",
+      text: "Automatic import is on. Nothing was waiting before {date}. Use Sessions below for newer chats.",
       params: { date: input.formatDate(input.cutoff) },
     };
-  } else if (idle) {
-    sentence = { text: "Nothing was waiting. Use Sessions below for newer chats." };
+  } else if (input.pending > 0) {
+    sentence = { text: "{pending} still waiting to import.", params: { pending: input.pending } };
   } else {
-    // The details below the header already list what the last run did.
-    sentence =
-      input.pending > 0
-        ? { text: "{pending} still waiting to import.", params: { pending: input.pending } }
-        : { text: "Nothing is waiting to import." };
+    sentence = { text: "Automatic import is on. Nothing is waiting." };
   }
-  return {
-    ...status(run.state === "stopped" ? "stopped" : "done", "run", sentence, enabled),
-    offerExternal,
-  };
+  return status("running", "pause", sentence);
 }
 
 /** The one-line status on a host card. */
@@ -138,13 +138,13 @@ export function cardLine(input: HostStatusInput): StatusText {
   if (run?.paused)
     return { text: "Paused · {pending} pending", params: { pending: input.pending } };
   if (run?.state === "failed") return { text: "Failed" };
-  if (!run || run.state === null) return { text: "Not started" };
-  if (run.state === "stopped") {
+  const blocked = input.runNowUnavailable !== null;
+  if (blocked || (run?.state === "stopped" && input.pending > 0)) {
     return { text: "Stopped · {pending} pending", params: { pending: input.pending } };
   }
-  return run.updatedAt
-    ? { text: "Imported {date}", params: { date: input.formatDate(run.updatedAt) } }
-    : { text: "Imported" };
+  return run?.updatedAt && run.state === "done"
+    ? { text: "Running · last import {date}", params: { date: input.formatDate(run.updatedAt) } }
+    : { text: "Running" };
 }
 
 /** Translate a status line and fill its `{name}` values. */

@@ -91,30 +91,32 @@ it("shows Retry and the redacted reason after a failed run", () => {
   expect(status.sentence.params).toEqual({ error: "model call failed (401)" });
 });
 
-it("says nothing was waiting before the cutoff after a finished run with no work", () => {
+it("reads Running with Pause and says nothing waited before the cutoff after a finished run with no work", () => {
   const status = hostStatus(input({ run: run({ state: "done", total: 0 }) }));
-  expect(status.state).toBe("done");
-  expect(status.action).toEqual({ kind: "run", enabled: true });
+  expect(status.state).toBe("running");
+  expect(status.action).toEqual({ kind: "pause", enabled: true });
   expect(status.sentence.text).toBe(
-    "Nothing was waiting before {date}. Use Sessions below for newer chats."
+    "Automatic import is on. Nothing was waiting before {date}. Use Sessions below for newer chats."
   );
   expect(status.sentence.params).toEqual({ date: "2026-09-28" });
 });
 
-it("says nothing was waiting without a date when no cutoff is known", () => {
+it("reads Running with Pause and says nothing is waiting when no cutoff is known", () => {
   const status = hostStatus(input({ cutoff: null, run: run({ state: "done", total: 0 }) }));
-  expect(status.sentence.text).toBe("Nothing was waiting. Use Sessions below for newer chats.");
+  expect(status.state).toBe("running");
+  expect(status.sentence.text).toBe("Automatic import is on. Nothing is waiting.");
 });
 
-it("says nothing is waiting after a run that did work, and leaves the counts to the details below", () => {
+it("reads Running with Pause after a run that did work, and leaves the counts to the details below", () => {
   const status = hostStatus(
     input({
       pending: 0,
       run: run({ state: "done", total: 431, done: 431, imported: 400, skipped: 30, failed: 1 }),
     })
   );
-  expect(status.state).toBe("done");
-  expect(status.sentence).toEqual({ text: "Nothing is waiting to import." });
+  expect(status.state).toBe("running");
+  expect(status.action).toEqual({ kind: "pause", enabled: true });
+  expect(status.sentence).toEqual({ text: "Automatic import is on. Nothing is waiting." });
 });
 
 it("says how many exchanges still wait when a finished or stopped run left some", () => {
@@ -127,27 +129,42 @@ it("says how many exchanges still wait when a finished or stopped run left some"
   }
 });
 
-it("calls a run that stopped with work left stopped, and keeps Run now available", () => {
+it("calls a run that stopped with work left stopped, and offers Resume", () => {
   const status = hostStatus(
     input({ pending: 12, run: run({ state: "stopped", total: 50, done: 38, imported: 38 }) })
   );
   expect(status.state).toBe("stopped");
-  expect(status.action).toEqual({ kind: "run", enabled: true });
+  expect(status.action).toEqual({ kind: "resume", enabled: true });
 });
 
-it("explains why Run now is unavailable when the host must be open", () => {
+it("reads Running when a run stopped with nothing left to import", () => {
+  const status = hostStatus(input({ pending: 0, run: run({ state: "stopped", total: 5 }) }));
+  expect(status.state).toBe("running");
+  expect(status.action.kind).toBe("pause");
+});
+
+it("calls an idle host stopped, with the reason, when it must be open", () => {
   const reason = "Open Pi, or choose the external API for Pi's backfill";
   const status = hostStatus(input({ host: "pi", run: run(), runNowUnavailable: reason }));
-  expect(status.action).toEqual({ kind: "run", enabled: false });
+  expect(status.state).toBe("stopped");
+  expect(status.action).toEqual({ kind: "resume", enabled: false });
   expect(status.sentence.params).toEqual({ reason });
   expect(status.offerExternal).toBe(true);
 });
 
-it("treats a host with no run record as not started", () => {
-  const status = hostStatus(input({ run: null }));
-  expect(status.state).toBe("idle");
-  expect(status.action).toEqual({ kind: "run", enabled: true });
-  expect(status.sentence.text).toBe("No import has run yet.");
+it("treats a host with no run record as running, because automatic import is on", () => {
+  for (const value of [null, run({ state: null })]) {
+    const status = hostStatus(input({ run: value }));
+    expect(status.state).toBe("running");
+    expect(status.action).toEqual({ kind: "pause", enabled: true });
+  }
+});
+
+it("never offers Run now for any run record", () => {
+  const runs = [null, run({ state: "done" }), run({ state: "stopped" }), run({ state: "failed" })];
+  for (const value of runs) {
+    expect(hostStatus(input({ run: value, pending: 2 })).action.kind).not.toBe("run" as never);
+  }
 });
 
 it("builds the one-line card status for each state", () => {
@@ -167,10 +184,10 @@ it("builds the one-line card status for each state", () => {
     params: { pending: 3 },
   });
   expect(line({ run: run({ state: "done", updatedAt: Date.UTC(2026, 9, 9) }) })).toEqual({
-    text: "Imported {date}",
+    text: "Running · last import {date}",
     params: { date: "2026-10-09" },
   });
-  expect(line({ run: null })).toEqual({ text: "Not started" });
+  expect(line({ run: null })).toEqual({ text: "Running" });
 });
 
 it("shows a pause that is still being honoured as running with Pause unavailable", () => {

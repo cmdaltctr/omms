@@ -628,7 +628,6 @@ const text = {
   "Minutes left": ["剩余分钟", "الدقائق المتبقية"],
   unknown: ["未知", "غير معروف"],
   about: ["约", "حوالي"],
-  "Run now": ["立即运行", "تشغيل الآن"],
   Pause: ["暂停", "إيقاف مؤقت"],
   Resume: ["继续", "استئناف"],
   "Pausing after the current exchange.": [
@@ -636,6 +635,14 @@ const text = {
     "سيتوقف مؤقتاً بعد المحادثة الحالية.",
   ],
   "Backfill started.": ["回填已开始。", "بدأ الاستيراد."],
+  "The list is still loading. Try again in a moment.": [
+    "列表仍在加载。请稍后再试。",
+    "لا تزال القائمة قيد التحميل. حاول مرة أخرى بعد لحظة.",
+  ],
+  "Paused. No import starts until you resume.": [
+    "已暂停。恢复前不会开始导入。",
+    "تم الإيقاف مؤقتاً. لن يبدأ أي استيراد حتى تستأنفه.",
+  ],
   "Directory maps": ["目录映射", "خرائط المجلدات"],
   "Map a directory that was moved or deleted to the project it belongs to. A change applies to the next import or backfill run.":
     [
@@ -1243,7 +1250,6 @@ const text = {
     "اختر مضيفاً لعرض استيراد سجله وجلساته وإعداداته.",
   ],
   "Choose icon": ["选择图标", "اختر أيقونة"],
-  Done: ["已完成", "اكتمل"],
   "Every avatar is shown at the same size. Images are cropped to a square.": [
     "所有头像大小一致。图片会被裁剪为正方形。",
     "تظهر كل الصور الرمزية بالحجم نفسه. تُقصّ الصور إلى مربع.",
@@ -1261,7 +1267,7 @@ const text = {
   "Ignore all": ["全部忽略", "تجاهل الكل"],
   "Import all hosts": ["导入所有宿主", "استيراد كل المضيفين"],
   "Import progress": ["导入进度", "تقدم الاستيراد"],
-  "Imported {date}": ["已于 {date} 导入", "تم الاستيراد في {date}"],
+  "Running · last import {date}": ["运行中 · 上次导入 {date}", "قيد التشغيل · آخر استيراد {date}"],
   "Importing makes model calls and can cost money.": [
     "导入会调用模型，可能产生费用。",
     "يجري الاستيراد اتصالات بالنموذج وقد يكلّف مالاً.",
@@ -1272,15 +1278,15 @@ const text = {
   "Memory views": ["记忆视图", "عروض الذاكرة"],
   "Mode: {mode}": ["模式：{mode}", "الوضع: {mode}"],
   "No icon matches.": ["没有匹配的图标。", "لا توجد أيقونة مطابقة."],
-  "No import has run yet.": ["尚未运行过导入。", "لم يتم تشغيل أي استيراد بعد."],
   "Not set up": ["未设置", "غير مُعد"],
-  "Nothing was waiting before {date}. Use Sessions below for newer chats.": [
-    "在 {date} 之前没有待导入的内容。更新的聊天请使用下方的“会话”。",
-    "لم يكن هناك ما ينتظر قبل {date}. استخدم «الجلسات» أدناه للمحادثات الأحدث.",
-  ],
-  "Nothing was waiting. Use Sessions below for newer chats.": [
-    "没有待导入的内容。更新的聊天请使用下方的“会话”。",
-    "لم يكن هناك ما ينتظر. استخدم «الجلسات» أدناه للمحادثات الأحدث.",
+  "Automatic import is on. Nothing was waiting before {date}. Use Sessions below for newer chats.":
+    [
+      "自动导入已开启。在 {date} 之前没有待导入的内容。更新的聊天请使用下方的“会话”。",
+      "الاستيراد التلقائي قيد التشغيل. لم يكن هناك ما ينتظر قبل {date}. استخدم «الجلسات» أدناه للمحادثات الأحدث.",
+    ],
+  "Automatic import is on. Nothing is waiting.": [
+    "自动导入已开启。没有待导入的内容。",
+    "الاستيراد التلقائي قيد التشغيل. لا يوجد ما ينتظر.",
   ],
   "OMMS did not find this host's chat history on this computer. Install the host and use it once, then reload this page.":
     [

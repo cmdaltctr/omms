@@ -329,9 +329,9 @@ See [Memory: Advanced options](web-ui-memory.md#advanced-options) for sources, d
 
 See [Memory: Automatic import](web-ui-memory.md#automatic-import). `/settings#settings-section-auto-import` redirects to `/memory#memory-section-auto-import`.
 
-### Run now, Pause, and Resume
+### Pause and Resume
 
-See [Memory: Run now, Pause and Resume](web-ui-memory.md#run-now-pause-and-resume).
+See [Memory: Pause and Resume](web-ui-memory.md#pause-and-resume).
 
 ## Profiles
 

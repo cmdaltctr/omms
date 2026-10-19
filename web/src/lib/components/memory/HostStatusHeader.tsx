@@ -22,8 +22,6 @@ const STATE_LABEL: Record<HostState, string> = {
   paused: "Paused",
   failed: "Failed",
   stopped: "Stopped",
-  done: "Done",
-  idle: "Not started",
 };
 
 /** The host's state, its one main action, and the sentence that explains both. */
@@ -38,16 +36,15 @@ export function HostStatusHeader({ host, statuses }: { host: WebHost; statuses: 
     const kind = status.action.kind;
     if (kind === "pause") void backfill.control(host, "pause");
     else if (kind === "resume") void backfill.control(host, "resume");
-    else if (kind === "retry" || kind === "run") void backfill.control(host, "run");
+    else if (kind === "retry") void backfill.control(host, "run");
   };
   const label: Record<typeof status.action.kind, string> = {
     setup: s("How to set up"),
     pause: s("Pause"),
     resume: s("Resume"),
     retry: s("Retry"),
-    run: s("Run now"),
   };
-  const Icon = { pause: Pause, resume: Play, retry: RotateCw, run: Play, setup: ExternalLink }[
+  const Icon = { pause: Pause, resume: Play, retry: RotateCw, setup: ExternalLink }[
     status.action.kind
   ];
   return (

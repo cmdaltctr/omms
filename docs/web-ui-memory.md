@@ -16,7 +16,7 @@ Browse stored results on **Project memories** (`/project-memories`) and **User p
 
 ## The overview
 
-Each host card shows the host's avatar, its name and one line of state, such as `Paused · 0 pending` or `Imported 9 Oct`. **Shared** says that its settings apply to every host. A host whose history is not on this computer shows **Not set up** and its card is greyed.
+Each host card shows the host's avatar, its name and one line of state, such as `Running · last import 9 Oct` or `Paused · 0 pending`. **Shared** says that its settings apply to every host. A host whose history is not on this computer shows **Not set up** and its card is greyed.
 
 **Import all hosts** opens the multi-host import described under [Import chat history](#import-chat-history). It makes model calls and can cost money.
 
@@ -43,7 +43,7 @@ A host view shows only that host. From the top:
 5. **Sessions that need a folder**: the host's unresolved directories, open and ready to edit.
 6. The host's own settings: backfill model and the automatic-import switch.
 
-The main action follows the state. It reads **Pause** while a run is going, **Resume** while paused, **Retry** after a failure and **Run now** otherwise. When it is unavailable, the sentence under it gives the reason. For a host that needs itself open, the sentence offers **Use external API**, which saves the saved external API as that host's backfill model so Resume can run on its own. A run that finds nothing says `Nothing was waiting before <date>`. Newer chats come in through **Sessions**.
+Automatic import runs all the time, so a host that is set up, not paused and not failed reads **Running** with **Pause**, even when no run is going. A **Play** button means something is off. The main action reads **Resume** while paused, **Retry** after a failure and **Resume** after a run was cut short with exchanges still pending. **Stopped** shows only for a cut-short run or a run the server says cannot start. When it is unavailable, the sentence under it gives the reason. For a host that needs itself open, the sentence offers **Use external API**, which saves the saved external API as that host's backfill model so Resume can run on its own. A host with nothing to import says `Automatic import is on. Nothing was waiting before <date>`. Newer chats come in through **Sessions**.
 
 ## Import chat history
 
@@ -167,19 +167,18 @@ The Pi and OpenCode **Backfill model** choices remain:
 - **External API:** saves `external` and can run with no host open.
 - A listed or typed `provider/model`: uses that host's sign-in for backfill only.
 
-Live capture keeps its own model. Claude Code has no backfill-model setting and always uses the external API. Missing settings block **Run now** and **Resume** with a reason.
+Live capture keeps its own model. Claude Code has no backfill-model setting and always uses the external API. Missing settings block **Resume** and **Retry** with a reason.
 
 The status header shows the model, cutoff, errors and active run's starting surface. During memory extraction they show a progress bar, percentage, done/total and minutes left. The time estimate uses the recent rate and stays unknown until enough progress exists. **Learning profile** shows batches done/total after the exchanges. When idle, **Last run** shows its finish time, starting surface and imported, skipped and failed counts, without a progress bar.
 
 Counts refresh every three seconds during a run. Operational progress leaves already handled exchanges out of pending model work. Unresolved counts are sessions, excluding ignored folders. Their links open that host's **Sessions that need a folder**. Overall historical badges appear once, in Import chat history.
 
-### Run now, Pause and Resume
+### Pause and Resume
 
-- **Run now** starts that host's backfill with its existing cutoff, maps, model rule and ledger.
-- **Pause** stops after the current exchange, including a run in another process. The pause survives host restarts.
-- **Resume** clears the pause and continues from the ledger.
+- **Pause** stops after the current exchange, including a run in another process. With no run going, it saves the pause so no automatic run starts. The pause survives host restarts.
+- **Resume** clears the pause and starts the host's backfill from the ledger, with its existing cutoff, maps and model rule.
 
-Only one import runs per host across automatic, web, terminal and in-session surfaces. Run now and Resume execute in the web app. Pi needs an open host or an external backfill model; standalone OpenCode web backfill needs the external API. Claude Code always runs in the web app with the external API. See the [Pi](pi-history-import.md#automatic-import), [OpenCode](opencode-history-import.md#automatic-import) and [Claude Code](claude-code-history-import.md#automatic-import) guides.
+Only one import runs per host across automatic, web, terminal and in-session surfaces. Resume and Retry execute in the web app. Pi needs an open host or an external backfill model; standalone OpenCode web backfill needs the external API. Claude Code always runs in the web app with the external API. See the [Pi](pi-history-import.md#automatic-import), [OpenCode](opencode-history-import.md#automatic-import) and [Claude Code](claude-code-history-import.md#automatic-import) guides.
 
 ## Profile learning
 

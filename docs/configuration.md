@@ -251,7 +251,7 @@ Valid edits apply at the next relevant search, injection, capture, or OpenCode p
 - Imports do not change. Sessions in an ignored folder stay unimported.
 - **Ignore** and **Restore** on the Settings page edit the list.
 
-On the Settings page you can **Run now**, **Pause**, and **Resume** each host's backfill.
+On the Settings page you can **Pause** and **Resume** each host's backfill.
 
 - A paused backfill does not start when the host starts. It waits until you resume it.
 - Every real import records its progress in `import-ledger.db`. It stores numbers only, no conversation content.
@@ -261,7 +261,7 @@ On the Settings page you can **Run now**, **Pause**, and **Resume** each host's 
 
 - `"inherit"` on Pi follows Pi's live-capture model rule.
 - `"inherit"` on OpenCode uses the configured host model, then the saved external API, then OpenCode's configured default model.
-- `"external"` sends that host's backfill to the external API. If the external API is not fully configured, the backfill stops and names the missing setting. With `"external"`, Run now also works in the login web app with no host open.
+- `"external"` sends that host's backfill to the external API. If the external API is not fully configured, the backfill stops and names the missing setting. With `"external"`, Resume also works in the login web app with no host open.
 - A signed-in `provider/model` chooses another backfill model without changing live capture.
 - Any other value is a config error.
 - If no model is available, the backfill stops and records an error.

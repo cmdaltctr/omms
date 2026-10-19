@@ -118,7 +118,7 @@ Hidden reasoning and host SDK objects never go into it.
 | Module                                                 | Purpose                                                                                                                       |
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | `src/importer/import-runs.ts`                          | Progress for each host's import run, and one run at a time for each host across every surface (`auto`, `web`, `cli`, `slash`) |
-| `src/importer/backfill-controls.ts`                    | Run now, Pause, and Resume. Each host registers its backfill model resolver with `registerHostBackfillModels`                 |
+| `src/importer/backfill-controls.ts`                    | Run, Pause, and Resume. Each host registers its backfill model resolver with `registerHostBackfillModels`                     |
 | `src/importer/external-backfill-models.ts`             | Backfill models from the external API settings (`memoryModel`, `memoryApiUrl`, `memoryApiKey`)                                |
 | `src/importer/external-api-test.ts`                    | A short test call to the external API                                                                                         |
 | `src/importer/import-path-maps.ts`                     | Checks and normalises `importPathMaps` from the global config                                                                 |

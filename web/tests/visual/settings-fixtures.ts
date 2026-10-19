@@ -14,6 +14,7 @@ const values: Record<string, unknown> = {
   captureAttemptRetentionDays: 30,
   captureRetryRetentionHours: 72,
   importPathMaps: [{ from: "/synthetic/old-project", to: "/synthetic/preview-project" }],
+  importIgnoredDirectories: [],
   claudeConfigDir: "/synthetic/claude",
   webServerAutoStart: false,
   maxMemories: 10,
@@ -74,11 +75,15 @@ function snapshot() {
 
 function filteredMaps(view: {
   saved: unknown;
+  ignored?: string[];
   pi: { directory: string; sessions: number; suggestion: string | null }[];
   opencode: { directory: string; sessions: number; suggestion: string | null }[];
   "claude-code": { directory: string; sessions: number; suggestion: string | null }[];
 }) {
-  const sources = new Set((view.saved as { from: string }[]).map((map) => map.from));
+  const sources = new Set([
+    ...(view.saved as { from: string }[]).map((map) => map.from),
+    ...(view.ignored ?? []),
+  ]);
   for (const host of ["pi", "opencode", "claude-code"] as const) {
     view[host] = view[host].filter((row) => !sources.has(row.directory));
   }
@@ -162,6 +167,7 @@ export function settingsResponse(
       return ok(
         filteredMaps({
           saved: values.importPathMaps,
+          ignored: values.importIgnoredDirectories as string[],
           pi: [
             {
               directory: "/synthetic/shared-old",

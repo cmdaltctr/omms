@@ -57,12 +57,12 @@ By default, OMMS waits about 30 seconds after OpenCode starts. It then saves a c
 On the Memory page you can:
 
 - See the cutoff, progress, and errors.
-- **Run now**, **Pause**, and **Resume** the backfill, and watch its progress bar and minutes left.
+- **Pause** and **Resume** the backfill, and watch its progress bar and minutes left.
 - Manage saved directory maps (`importPathMaps`) in **Resolve missing project folders**. Review suggestions before saving. Global maps apply to every host's next import.
 
 See [Memory: Automatic import](web-ui-memory.md#automatic-import) for details.
 
-- With `opencodeBackfillModel` set to `"external"`, **Run now** works in the login web app with no host open.
+- With `opencodeBackfillModel` set to `"external"`, **Resume** works in the login web app with no host open.
 - A paused backfill stays paused across OpenCode starts until you resume it.
 - One OpenCode import runs at a time, whether from a backfill, the page, a slash command, or the CLI.
 
