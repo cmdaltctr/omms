@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.27.0](https://github.com/cmdaltctr/omms/compare/v4.26.2...v4.27.0) (2026-10-19)
+
+
+### Features
+
+* show import progress and finish feedback, hide handled sessions ([125a482](https://github.com/cmdaltctr/omms/commit/125a482e9b4286be847a4ea5b24902f62d5ab8cf))
+* show import progress and finish feedback, hide handled sessions ([f972e17](https://github.com/cmdaltctr/omms/commit/f972e1781d9a79670e6974dbd806e4b9d1a91dac))
+
+
+### Bug Fixes
+
+* show an error when the settings reload after an import fails ([a91cba0](https://github.com/cmdaltctr/omms/commit/a91cba048d3d2d140047aa088eb7158dee803c24))
+
 ## [4.26.2](https://github.com/cmdaltctr/omms/compare/v4.26.1...v4.26.2) (2026-10-19)
 
 
