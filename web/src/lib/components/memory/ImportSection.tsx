@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { createLatestGate, onSettingsSnapshot, settingsRequest } from "$lib/settings-api";
+import {
+  createLatestGate,
+  onSettingsSnapshot,
+  reloadSettingsSnapshot,
+  settingsRequest,
+} from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import { hostLabel, type WebHost } from "$lib/host-label";
 import { mergeListing } from "$lib/import-listing";
@@ -8,6 +13,8 @@ import { HostImportBadges } from "../settings/HostImportBadges";
 import { HostSessionSelection } from "./HostSessionSelection";
 import { loadHostChoice, saveHostChoice } from "./import-host-choice";
 import { ImportOptions, importButton } from "./ImportOptions";
+import { ImportFinish } from "./ImportFinish";
+import { ImportProgressBar } from "./ImportProgressBar";
 import { importFeedback, ImportResults, workCounts } from "./ImportResults";
 import { jobForHost } from "./import-job-view";
 import {
@@ -15,6 +22,7 @@ import {
   emptySelection,
   groupRequest,
   initialImportDraft,
+  listRequestFields,
   membership,
   optionsError,
   parseMaps,
@@ -77,6 +85,7 @@ export function ImportSection({
   const fingerprint = previewFingerprint(draft);
   const currentFingerprint = useRef(fingerprint);
   currentFingerprint.current = fingerprint;
+  const view = jobForHost(job, onlyHost);
   const hosts = IMPORT_HOSTS.filter((host) => draft.hosts[host].enabled);
   const shownHosts = onlyHost ? [onlyHost] : IMPORT_HOSTS;
   useEffect(() => {
@@ -118,6 +127,12 @@ export function ImportSection({
     };
   }, []);
 
+  /** OK on the finish dialog: reload readiness, host status and the job without a page reload. */
+  function reloadAfterFinish() {
+    void reloadSettingsSnapshot();
+    void refreshJob().catch(() => {});
+  }
+
   useEffect(() => {
     if (!running) return;
     const timer = setInterval(() => {
@@ -131,7 +146,9 @@ export function ImportSection({
 
   useEffect(() => {
     if (!profilePreset) return;
-    setDraft((previous) => ({ ...previous, memories: false, profile: true, force: true }));
+    setDraft((previous) =>
+      applyDraftChange(previous, { memories: false, profile: true, force: true })
+    );
     setPreview(null);
   }, [profilePreset]);
 
@@ -164,6 +181,7 @@ export function ImportSection({
           offset,
           limit: 50,
           refresh,
+          ...listRequestFields(draft),
         }),
       });
       if (!mounted.current || listingVersions.current[host] !== version) return;
@@ -470,7 +488,9 @@ export function ImportSection({
         )}
       </div>
       {error && <p role="alert">{importFeedback(error, s)}</p>}
-      <ImportResults job={jobForHost(job, onlyHost)} />
+      <ImportProgressBar job={view} />
+      <ImportFinish job={view} onReload={reloadAfterFinish} />
+      <ImportResults job={view} />
     </section>
   );
 }

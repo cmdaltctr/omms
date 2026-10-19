@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import * as react from "react";
 import { setLanguage } from "../src/lib/i18n/index";
 import type { ImportJob } from "../src/lib/components/memory/import-types";
+import { MEMORY_FAILED_MESSAGE, PROFILE_FAILED_MESSAGE } from "../../src/importer/web-import-group";
 
 // Read the client language snapshot during server rendering, as other web specs do.
 mock.module("react", () => ({
@@ -37,8 +38,8 @@ for (const [language, copy] of [
   [
     "zh",
     {
-      memory: "记忆处理失败。",
-      profile: "画像学习失败。",
+      memory: "部分记忆单元失败。已完成的工作已保存。重新预览并导入只会重试失败的单元。",
+      profile: "画像学习失败。已完成的记忆处理已保存。",
       retry: "请刷新预览后重试。",
       stale: "会话列表已过期。请刷新列表后重试。",
       changed: "历史记录来源已更改。请重新选择。",
@@ -50,8 +51,9 @@ for (const [language, copy] of [
   [
     "ar",
     {
-      memory: "فشلت معالجة الذاكرة.",
-      profile: "فشل تعلّم الملف الشخصي.",
+      memory:
+        "فشلت بعض وحدات الذاكرة. العمل المكتمل محفوظ. المعاينة والاستيراد الجديدان يعيدان محاولة الوحدات الفاشلة فقط.",
+      profile: "فشل تعلّم الملف الشخصي. عمل الذاكرة المكتمل محفوظ.",
       retry: "حدّث المعاينة ثم أعد المحاولة.",
       stale: "قائمة الجلسات قديمة. حدّث القائمة ثم أعد المحاولة.",
       changed: "تغيّر مصدر السجل. اختره مجدداً.",
@@ -63,16 +65,15 @@ for (const [language, copy] of [
 ] as const) {
   it(`${language}: translates grouped memory failures in both host and overall alerts`, () => {
     setLanguage(language);
-    const html = renderError("Pi: Memory work failed. Refresh the preview and retry.");
+    const html = renderError(`Pi: ${MEMORY_FAILED_MESSAGE}`);
     expect(html.split(copy.memory)).toHaveLength(3);
-    expect(html.split(copy.retry)).toHaveLength(3);
     expect(html).toContain('<bdi dir="ltr">Pi</bdi>');
-    expect(html).not.toContain("Memory work failed");
+    expect(html).not.toContain("Some memory units failed");
   });
 
   it(`${language}: translates profile failures without exposing model replies`, () => {
     setLanguage(language);
-    const html = renderError("OpenCode: Profile learning failed. Refresh the preview and retry.");
+    const html = renderError(`OpenCode: ${PROFILE_FAILED_MESSAGE}`);
     expect(html.split(copy.profile)).toHaveLength(3);
     expect(html).toContain(copy.retry);
     expect(html).not.toContain("Profile learning failed");
@@ -141,8 +142,8 @@ it("preserves English feedback and redacted unknown messages/model identifiers",
     expect(code).toContain("future-code");
     if (language === "en") {
       for (const error of [
-        "Pi: Memory work failed. Refresh the preview and retry.",
-        "OpenCode: Profile learning failed. Refresh the preview and retry.",
+        `Pi: ${MEMORY_FAILED_MESSAGE}`,
+        `OpenCode: ${PROFILE_FAILED_MESSAGE}`,
         "Claude Code: The session list is out of date. Refresh the list and try again.",
         "Pi: The history source changed. Choose it again.",
         "Pi: The history source is no longer valid. Choose it again.",

@@ -272,9 +272,10 @@ it("defaults to Pi/current project and positive outputs outside Advanced, and re
 });
 it("requires current preview, maps positive outputs to skip flags, and confirms all paid-work details", async () => {
   await mount();
+  // Changing the outputs clears the list, so untick before listing.
+  input("Project memories").props.onChange({ target: { checked: false } });
   await choosePi();
   expect(button("Start import").props.disabled).toBe(true);
-  input("Project memories").props.onChange({ target: { checked: false } });
   await click("Preview (dry run)");
   const preview = requests.find((request) => request.path === "/api/settings/imports")!.body!;
   expect(preview.hosts.map((child: any) => child.host)).toEqual(["pi"]);
@@ -303,6 +304,8 @@ it("invalidates preview on output, force, date, batch, map, model and scope chan
   await click("Preview (dry run)");
   input("User profile").props.onChange({ target: { checked: false } });
   expect(button("Start import").props.disabled).toBe(true);
+  // A new output choice clears the list; list and select again.
+  await choosePi();
   await click("Preview (dry run)");
   await click("Advanced options");
   for (const [label, value] of [
@@ -313,6 +316,8 @@ it("invalidates preview on output, force, date, batch, map, model and scope chan
   ] as const) {
     input(label).props.onChange({ target: { value, checked: value } });
     expect(button("Start import").props.disabled).toBe(true);
+    // Re-analysis also changes which sessions are listed.
+    if (label === "Re-analyse handled history") await choosePi();
     await click("Preview (dry run)");
   }
   input("Import model").props.onChange({ target: { value: "" } });
@@ -389,6 +394,7 @@ it("maps default and memory-only outputs without changing importer flag meanings
     requests.filter((request) => request.path === "/api/settings/imports").at(-1)!.body!.options
   ).toMatchObject({ skipMemories: false, skipProfile: false });
   input("User profile").props.onChange({ target: { checked: false } });
+  await choosePi();
   await click("Preview (dry run)");
   expect(
     requests.filter((request) => request.path === "/api/settings/imports").at(-1)!.body!.options
@@ -430,6 +436,8 @@ it("applies a forced profile-only preset without starting work and still require
   render();
   for (const effect of effects.splice(0)) effect();
   await settle();
+  // The preset changes the outputs, so the list clears; list and select again.
+  await choosePi();
   expect(input("Project memories").props.checked).toBe(false);
   expect(input("User profile").props.checked).toBe(true);
   expect(button("Start import").props.disabled).toBe(true);

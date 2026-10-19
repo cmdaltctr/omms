@@ -30,15 +30,26 @@ export function initialImportDraft(): ImportDraft {
     force: false,
     memories: true,
     profile: true,
+    showHandled: false,
   };
 }
+/** Options that decide which sessions a list shows. */
+const LISTING_OPTIONS = [
+  "scope",
+  "project",
+  "memories",
+  "profile",
+  "force",
+  "showHandled",
+] as const;
 /**
- * Apply a shared option change. A new scope or project lists a different set of
- * sessions, so the old lists and selections go; the user lists again.
+ * Apply a shared option change. A new scope, project, output, or handled option
+ * lists a different set of sessions, so the old lists and selections go; the
+ * user lists again.
  */
 export function applyDraftChange(draft: ImportDraft, patch: Partial<ImportDraft>): ImportDraft {
   const next = { ...draft, ...patch };
-  if (next.scope === draft.scope && next.project === draft.project) return next;
+  if (LISTING_OPTIONS.every((key) => next[key] === draft[key])) return next;
   const hosts = { ...next.hosts };
   for (const host of IMPORT_HOSTS)
     hosts[host] = { ...hosts[host], page: null, listedWith: "", selection: emptySelection() };
@@ -50,7 +61,23 @@ export function membership(draft: ImportDraft, host: WebHost): string {
     draft.scope,
     draft.project,
     draft.maps,
+    draft.memories,
+    draft.profile,
+    draft.force,
+    draft.showHandled,
   ]);
+}
+/**
+ * What the list request adds for handled sessions: the ticked outputs decide
+ * "handled", and "Re-analyse handled history" shows them as well.
+ */
+export function listRequestFields(draft: ImportDraft) {
+  return {
+    skipMemories: !draft.memories,
+    skipProfile: !draft.profile,
+    force: draft.force,
+    includeHandled: draft.showHandled || draft.force,
+  };
 }
 export function selectableCount(draft: ImportDraft, host: WebHost): number {
   const page = draft.hosts[host].page;
@@ -126,6 +153,7 @@ export function groupRequest(draft: ImportDraft, dryRun: boolean): GroupImportRe
                 excludedKeys: selection.mode === "all" ? [...selection.excluded] : [],
                 revision: child.page.revision,
                 listedAt: child.page.listedAt,
+                ...(draft.showHandled || draft.force ? { includeHandled: true } : {}),
               }
             : {
                 mode: "ids",

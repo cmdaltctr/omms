@@ -117,6 +117,15 @@ async function discardSelection(identity: ImportSourceIdentity): Promise<void> {
   const { opencodeSnapshots } = await import("./opencode-snapshot.js");
   opencodeSnapshots.discard(importSourceKey(identity));
 }
+/**
+ * Fixed sentences with no number, so the page can translate them by exact text.
+ * The failed count travels apart in the child's summary.
+ */
+export const MEMORY_FAILED_MESSAGE =
+  "Some memory units failed. Completed work is saved. A new preview and import retries only the failed units.";
+export const PROFILE_FAILED_MESSAGE =
+  "Profile learning failed. Completed memory work is saved. Refresh the preview and retry.";
+
 function matchOptions(child: Child, directory: string, signal: AbortSignal) {
   return {
     host: child.input.host,
@@ -126,6 +135,8 @@ function matchOptions(child: Child, directory: string, signal: AbortSignal) {
     cwd: directory,
     allowEmpty: true,
     signal,
+    outputs: { memories: !child.args.skipMemories, profile: !child.args.skipProfile },
+    ...(child.args.force ? { force: true } : {}),
   };
 }
 function hostError(host: ImportHost, error: unknown): ImportJobError {
@@ -425,7 +436,7 @@ async function executeGroup(
       else if (historyImportFailed(report)) {
         child.row.state = "failed";
         failed = true;
-        child.row.error = `${hostLabel(host)}: ${report.unitsFailed ? "Memory work failed" : "Profile learning failed"}. Refresh the preview and retry.`;
+        child.row.error = `${hostLabel(host)}: ${report.unitsFailed ? MEMORY_FAILED_MESSAGE : PROFILE_FAILED_MESSAGE}`;
         job.error = child.row.error;
       } else {
         const pending =
