@@ -2,6 +2,15 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.26.2](https://github.com/cmdaltctr/omms/compare/v4.26.1...v4.26.2) (2026-10-19)
+
+
+### Bug Fixes
+
+* keep host status separate from the group status in import results ([18fad33](https://github.com/cmdaltctr/omms/commit/18fad331fe6e98da59e48c2cfecbc245b55c8d67))
+* show only a host's own import results and clear session lists on scope change ([725295a](https://github.com/cmdaltctr/omms/commit/725295a7c18b49f067e3d548ba82d06af5c9c49c))
+* show only a host's own import results and clear session lists on scope change ([a3bd5af](https://github.com/cmdaltctr/omms/commit/a3bd5afadf6660cc4c1cfc091bf11afbbfe745f7))
+
 ## [4.26.1](https://github.com/cmdaltctr/omms/compare/v4.26.0...v4.26.1) (2026-10-18)
 
 
