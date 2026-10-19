@@ -120,12 +120,12 @@ The Claude Code backfill always uses the external API. There is no
 `claudeBackfillModel` setting.
 
 - When the external API is not fully configured, the run does not start. The status names the missing setting, for example `memoryApiUrl`.
-- The web app does not try again by itself. Set up the external API, then select **Run now**, or restart the web app.
+- The web app does not try again by itself. Set up the external API, then select **Pause** and then **Resume**, or restart the web app.
 
 On the Memory page you can:
 
 - See the Claude Code backfill state, pending counts, cutoff, and errors.
-- **Run now**, **Pause**, and **Resume** the backfill. The routes are `POST /api/settings/backfill/claude-code/run`, `/pause`, and `/resume`.
+- **Pause** and **Resume** the backfill. The routes are `POST /api/settings/backfill/claude-code/run`, `/pause`, and `/resume`.
 - Manage saved directory maps (`importPathMaps`) in **Resolve missing project folders**. Review suggestions before saving. Global maps apply to every host's next import.
 
 A paused backfill stays paused across Claude Code sessions until you resume

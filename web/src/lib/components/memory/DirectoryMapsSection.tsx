@@ -124,7 +124,14 @@ export function DirectoryMapsSection({
     done: string,
     failed: string
   ): Promise<boolean> {
-    if (!snapshot || !view || saving.current || refreshNeeded) return false;
+    if (!snapshot || !view || saving.current || refreshNeeded) {
+      // A refused save must say so; a silent no-op looks like a broken button.
+      // A pending refresh and a running save already show their own message.
+      if (!saving.current && !refreshNeeded) {
+        setMessage("The list is still loading. Try again in a moment.");
+      }
+      return false;
+    }
     saving.current = true;
     setBusy(true);
     try {
@@ -192,7 +199,10 @@ export function DirectoryMapsSection({
       { importIgnoredDirectories: ignoreAllList(ignoredList(), rows) },
       "Ignored. The directories stay unimported.",
       "The directories could not be ignored. Try again."
-    ).then(() => setIgnoringAll(undefined));
+    ).then((saved) => {
+      // A failed or refused save keeps the dialog open, with the reason on the page.
+      if (saved) setIgnoringAll(undefined);
+    });
   }
   function restore(directory: string) {
     void saveNow(

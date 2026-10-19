@@ -571,7 +571,7 @@ Other checks:
 - **Check the setup.** Select **Run checks** in **Health**. The **Claude Code model** row fails and names each missing external API setting. The **Claude Code folder** row warns with the path when the transcripts folder does not exist. **Run checks and test models** adds the **Claude Code model test** row, which makes one short call to the external API.
 - **The profile does not update.** Look for `Claude Code profile learning failed` in the log. The record holds the host and a reason code: `timeout`, `http-<status>`, `no-tool-call`, `invalid-reply`, `not-configured`, or `error`. See [Using memory: User profile](using-memory.md#user-profile).
 - **The hooks return nothing.** Run `node --version`. The plugin hooks need Node.js 22.14 or later. If `npx` is the only source of OMMS, the first hook after a plugin update downloads the package and can run out of time. Start a new session to try again. Hooks that you added by hand also need `om-memory-system --version` to work in the shell that starts Claude Code.
-- **The backfill did not start.** The web app tries the Claude Code backfill once per process. If the external API was missing at that time, set it up and select **Run now**, or restart the web app.
+- **The backfill did not start.** The web app tries the Claude Code backfill once per process. If the external API was missing at that time, set it up and select **Pause** and then **Resume**, or restart the web app.
 
 ### Known limit: web app on another port
 

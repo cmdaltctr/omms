@@ -17,7 +17,7 @@ import { ImportFinish } from "./ImportFinish";
 import { reloadAfterFinish } from "./import-finish";
 import { ImportProgressBar } from "./ImportProgressBar";
 import { importFeedback, ImportResults, workCounts } from "./ImportResults";
-import { jobForHost } from "./import-job-view";
+import { jobForHost, restorableJob } from "./import-job-view";
 import {
   applyDraftChange,
   emptySelection,
@@ -98,11 +98,12 @@ export function ImportSection({
     job?.state === "preparing" ||
     job?.state === "queued";
 
-  function refreshJob() {
+  /** `onLoad` drops a job that already ended, so a reload does not bring its results back. */
+  function refreshJob(onLoad = false) {
     const isCurrent = jobReplies.current.begin();
     return settingsRequest<{ job: ImportJob | null }>("/api/settings/imports/current").then(
       (value) => {
-        if (mounted.current && isCurrent()) setJob(value.job);
+        if (mounted.current && isCurrent()) setJob(onLoad ? restorableJob(value.job) : value.job);
       }
     );
   }
@@ -120,7 +121,7 @@ export function ImportSection({
         });
     };
     reload();
-    void refreshJob().catch(() => {});
+    void refreshJob(true).catch(() => {});
     const stop = watchReadiness(reload);
     return () => {
       mounted.current = false;

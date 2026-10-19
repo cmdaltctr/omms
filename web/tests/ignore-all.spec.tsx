@@ -39,6 +39,8 @@ const originalWindow = globalThis.window;
 Object.assign(globalThis, { window: { location: { pathname: "/memory", hash: "" } } });
 const patches: { edits: Record<string, unknown>; revision: string }[] = [];
 let patchStatus = 200;
+// What the server has saved; a real save hides these directories from the list.
+let serverIgnored: string[] = [];
 const rows = [
   { directory: "/private/tmp/oc-mem-phase1/project", sessions: 7, suggestion: null },
   { directory: "/Users/me/Open Design/x", sessions: 13, suggestion: null },
@@ -46,7 +48,11 @@ const rows = [
 ];
 globalThis.fetch = (async (path: string, options: RequestInit = {}) => {
   if (options.method === "PATCH") {
-    patches.push(JSON.parse(String(options.body)));
+    const sent = JSON.parse(String(options.body));
+    patches.push(sent);
+    if (patchStatus === 200 && sent.edits.importIgnoredDirectories) {
+      serverIgnored = sent.edits.importIgnoredDirectories;
+    }
     return new Response(JSON.stringify(patchStatus === 200 ? {} : { error: "stale" }), {
       status: patchStatus,
     });
@@ -56,9 +62,9 @@ globalThis.fetch = (async (path: string, options: RequestInit = {}) => {
       ? { revision: "r1", settings: { importPathMaps: { globalValue: [] } } }
       : {
           saved: [],
-          ignored: ["/old/ignored"],
+          ignored: serverIgnored,
           pi: [],
-          opencode: rows,
+          opencode: rows.filter((row) => !serverIgnored.includes(row.directory)),
           "claude-code": [],
         };
   return new Response(JSON.stringify(value));
@@ -102,6 +108,7 @@ beforeEach(() => {
   effects = [];
   patches.length = 0;
   patchStatus = 200;
+  serverIgnored = ["/old/ignored"];
 });
 
 it("lists every directory, without the no-directory entry, before anything is saved", async () => {
@@ -151,6 +158,51 @@ it("keeps the list and does not retry by itself when settings changed elsewhere"
     "/private/tmp/oc-mem-phase1/project"
   );
   expect(patches).toHaveLength(1);
+});
+
+const rowPaths = (tree: Node[]) =>
+  host(tree).props.rows.map((row: { directory: string }) => row.directory);
+const texts = (tree: Node[]) =>
+  tree.flatMap((node) => (typeof node.props.children === "string" ? [node.props.children] : []));
+
+it("closes the dialog and drops every ignored directory from the list once saved", async () => {
+  const tree = await open();
+  dialog(tree)!.props.onConfirm();
+  await settle();
+  await settle();
+  const after = render();
+  expect(dialog(after)).toBeUndefined();
+  expect(rowPaths(after)).toEqual([""]);
+});
+
+it("drops a single ignored directory from the list once saved", async () => {
+  await open();
+  const tree = render();
+  const row = host(tree).props.rows[0];
+  host(tree).props.onIgnore(row);
+  await settle();
+  await settle();
+  expect(rowPaths(render())).not.toContain(row.directory);
+});
+
+it("keeps the dialog open and says why when the save fails", async () => {
+  patchStatus = 400;
+  const tree = await open();
+  dialog(tree)!.props.onConfirm();
+  await settle();
+  await settle();
+  const after = render();
+  expect(dialog(after)).toBeDefined();
+  expect(texts(after)).toContain("The directories could not be ignored. Try again.");
+});
+
+it("says so, and keeps the dialog open, when the list is not ready to save", async () => {
+  render();
+  const tree = render();
+  host(tree).props.onIgnore({ directory: "/private/tmp/x", sessions: 1, suggestion: null });
+  await settle();
+  expect(patches).toHaveLength(0);
+  expect(texts(render())).toContain("The list is still loading. Try again in a moment.");
 });
 
 afterAll(() => {

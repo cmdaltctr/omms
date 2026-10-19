@@ -1,6 +1,17 @@
 import type { WebHost } from "$lib/host-label";
 import type { ImportJob } from "./import-types";
 
+const ACTIVE_JOB_STATES = ["queued", "preparing", "running", "cancelling"];
+
+/**
+ * The job to show when the page loads. The server keeps the last job after it
+ * ends; only an active one is still news, so a reload does not bring back a
+ * finished import's results.
+ */
+export function restorableJob(job: ImportJob | null): ImportJob | null {
+  return job && ACTIVE_JOB_STATES.includes(job.state) ? job : null;
+}
+
 /**
  * The server keeps one current import job for the whole app. A host tab shows
  * only its own part of it; the overview (no host) shows the whole job.

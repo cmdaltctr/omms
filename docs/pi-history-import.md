@@ -61,12 +61,12 @@ On the first Pi start, OMMS waits about 30 seconds. It then saves a cutoff for P
 On the Memory page you can:
 
 - See the state, pending counts, cutoff, and errors.
-- **Run now**, **Pause**, and **Resume** the backfill, and watch its progress bar and minutes left.
+- **Pause** and **Resume** the backfill, and watch its progress bar and minutes left.
 - Manage saved directory maps (`importPathMaps`) in **Resolve missing project folders**. Suggestions need review before saving. Global maps apply to every host's next import.
 
 See [Memory: Automatic import](web-ui-memory.md#automatic-import) for details.
 
-- With `piBackfillModel` set to `"external"`, **Run now** works in the login web app with no host open.
+- With `piBackfillModel` set to `"external"`, **Resume** works in the login web app with no host open.
 - A paused backfill stays paused across Pi starts until you resume it.
 - One Pi import runs at a time, whether from a backfill, the page, a slash command, or the CLI.
 
