@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { CONFIG } from "../config.js";
 import { tursoConnectionManager } from "../services/turso/connection-manager.js";
@@ -108,6 +109,63 @@ export class ImportLedger {
     if (!table) return null;
     const row = await db.get(`SELECT * FROM import_ledger WHERE key = ?`, [key]);
     return row ? rowToEntry(row) : null;
+  }
+
+  /**
+   * Sessions whose ledger rows are all finished for every ticked output.
+   * Memory rows and profile rows (`project_hash = 'profile'`) are judged apart.
+   * A ticked output passes when the session has at least one row of its kind
+   * and every such row is imported or skipped. Read-only like `peek`: a missing
+   * file or table gives an empty set and nothing is created.
+   */
+  async handledSessionIds(
+    sessionIds: readonly string[],
+    outputs: { memories: boolean; profile: boolean }
+  ): Promise<Set<string>> {
+    const handled = new Set<string>();
+    const ids = [...new Set(sessionIds.filter((id) => id !== ""))];
+    if ((!outputs.memories && !outputs.profile) || ids.length === 0) return handled;
+    // Opening a connection creates the file, so a missing ledger is read as empty first.
+    if (!existsSync(importLedgerDbPath())) return handled;
+    const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
+    const table = await db.get(
+      `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'import_ledger'`
+    );
+    if (!table) return handled;
+    const kinds = new Map<string, { memory: [number, number]; profile: [number, number] }>();
+    for (let start = 0; start < ids.length; start += 500) {
+      const chunk = ids.slice(start, start + 500);
+      const rows = await db.all(
+        `
+          SELECT session_id,
+                 CASE WHEN project_hash = 'profile' THEN 'profile' ELSE 'memory' END AS kind,
+                 COUNT(*) AS total,
+                 SUM(CASE WHEN status IN ('imported', 'skipped') THEN 1 ELSE 0 END) AS done
+          FROM import_ledger
+          WHERE session_id IN (${chunk.map(() => "?").join(", ")})
+          GROUP BY session_id, kind
+        `,
+        chunk
+      );
+      for (const row of rows) {
+        const entry = kinds.get(String(row.session_id)) ?? {
+          memory: [0, 0] as [number, number],
+          profile: [0, 0] as [number, number],
+        };
+        entry[row.kind === "profile" ? "profile" : "memory"] = [
+          Number(row.total),
+          Number(row.done),
+        ];
+        kinds.set(String(row.session_id), entry);
+      }
+    }
+    const passes = ([total, done]: [number, number]) => total > 0 && total === done;
+    for (const [sessionId, entry] of kinds) {
+      if (outputs.memories && !passes(entry.memory)) continue;
+      if (outputs.profile && !passes(entry.profile)) continue;
+      handled.add(sessionId);
+    }
+    return handled;
   }
 
   async countByStatus(): Promise<Record<string, number>> {

@@ -77,6 +77,8 @@ The web app must be running and each chosen history source must be readable. A r
 
 Lists show dates, session IDs, project folders and **Resolved by**, without prompts or replies. You can select up to 1,000 sessions individually; use **Select all matching** for more. A valid source with no matching sessions reports **No work to process**. Fix an unavailable source or explicitly deselect its host, then preview again.
 
+The list hides sessions that are already handled for the outputs you ticked. The check reads the import ledger only and never reads transcripts. With only **Project memories** ticked, a session is handled when it has memory rows and every one is imported or skipped. With only **User profile** ticked, the same test applies to its profile rows, which record that a prompt was collected. With both ticked, both tests must pass. A session with a failed or in-progress row, with no row of a ticked kind, or with no session ID stays listed. The list says how many handled sessions are hidden. The total, the pages and **Select all matching** count only the sessions shown, and the server applies the same rule when it resolves **Select all matching**. Turn on **Show handled sessions** to see them marked **Handled**. **Re-analyse handled history** shows them as well. Changing the ticked outputs, **Show handled sessions** or **Re-analyse handled history** clears the lists and the selection; select **List sessions** again. The hiding is a hint. A session that gained turns after its last import can still look handled, and a session with nothing to learn for an output never gets a row of that kind and stays listed. Preview always decides what work is pending.
+
 Preview makes no model calls or memory-store writes. OpenCode listing or preview can create a temporary database snapshot. Readiness says **Configured, not tested.** A preview can return counts and a model blocker before the external API is ready. Complete the settings and preview again before starting.
 
 Changing hosts, sources, sessions, scope, dates, maps, outputs, re-analysis, batch size or models invalidates the preview. Start requires a successful preview of the current draft and confirmation.
@@ -109,7 +111,7 @@ Hosts, scope and outputs remain visible with Advanced options closed.
 | Prompt date from, Prompt date to | Inclusive whole days in your browser's time zone. These filter turns inside sessions, not the session list. Empty limits include every turn. Untimed turns remain included and counted. |
 | Directory maps                   | `old=new`, one per line. These apply to this run and win over saved maps for the same folder.                                                                                           |
 | Profile batch size               | Positive integer of prompts per profile analysis request; default 50.                                                                                                                   |
-| Re-analyse handled history       | Force processing for the selected outputs. Each profile prompt can be forcibly re-analysed once.                                                                                        |
+| Re-analyse handled history       | Force processing for the selected outputs. Each profile prompt can be forcibly re-analysed once. Also shows handled sessions in the list.                                               |
 
 **Browse** lists one folder at a time on a loopback-bound server. On a network address, type the path. Original history files remain unchanged. OpenCode reads a private database copy and first checks temporary disk space.
 
@@ -117,13 +119,17 @@ Hosts, scope and outputs remain visible with Advanced options closed.
 
 The server owns the queue. Selected hosts run in **Pi, OpenCode, Claude Code** order. A child finishes its memory and profile phases before the next starts. Navigation or reload reconnects to the current job without resubmitting it. One web preview or import can run at a time, including legacy single-host jobs. A host tab shows only the results of its own host. The overview shows the whole job. When you change Scope or the project directory, the session lists clear. Select **List sessions** again.
 
+While a real import runs, the Sessions card shows a green progress bar for the active host. It names the host and the phase, either **Memory units** or **Profile batches**, with the done count out of the total. The two phases keep separate counts. A preview shows no bar.
+
+When a real import ends while you are on the page, a dialog opens with one **OK** button. A successful run says **Import successful 🎉** (the 🎉 shows in English only) with the counts. A failed run names the host and the reason. If memory units failed, a line **Failed memory units: N** shows the count from the host's results. **OK** reloads readiness, host status and the job without a page reload. Your lists, selection and options stay. A cancelled run shows **Import cancelled** under the buttons and opens no dialog. If a real import ended while the page was closed, a banner shows the result with a **Dismiss** button. The page remembers the dismissed run in your browser, so the banner returns only for a later run. A preview never opens a dialog or a banner.
+
 Results show the current host and phase, each host's state, and combined counts. Hosts can be queued, running, done, failed, cancelled, no-work or not-run. Memory units and profile batches are separate measures. Finished memory extraction still leaves the profile phase to complete.
 
 Grouped results' **Unresolved sessions** counts source sessions with missing project folders, excluding ignored directories. These sessions stay outside import selections. No-work hosts retain their unresolved count. Combined results count each selected host once. One unresolved OpenCode project with five sessions contributes five. Legacy single-host summaries retain their unresolved-entry count for compatibility; that project contributes one there.
 
 Results also show **Skipped memory units**, **Held-back turns**, **Untimed turns** and **Load errors** from existing report metadata. Held-back turns are newer than the listing cutoff. Untimed turns remain included when date limits apply.
 
-A thrown error, failed memory unit or profile error fails the group. Later children become **not-run**. Completed results and ledger progress remain. Each child honours the existing per-host claim, so a competing CLI import or backfill can refuse that child.
+A thrown error, failed memory unit or profile error fails the group. Later children become **not-run**. Completed results and ledger progress remain. When memory units fail, the message reads: some memory units failed, completed work is saved, and a new preview and import retries only the failed units. The message carries no number, so every language can translate it; the failed count shows apart. A profile failure says that profile learning failed and completed memory work is saved. Each child honours the existing per-host claim, so a competing CLI import or backfill can refuse that child.
 
 **Cancel after current unit** stops the active child at its safe boundary. Cancellation during preparation can stop earlier. Queued hosts are cancelled; completed results remain. Cancellation does not undo stored results.
 

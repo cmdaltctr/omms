@@ -10,12 +10,16 @@ export type SessionRow = {
   directory: string | null;
   via: "mapped" | "recorded" | "worktree" | "unresolved";
   selectable: boolean;
+  /** The import ledger shows every ticked output finished for this session. */
+  handled?: boolean;
 };
 export type SessionPage = {
   source: ChosenSource;
   total: number;
   offset: number;
   rows: SessionRow[];
+  /** Handled sessions left out of the list. */
+  hiddenHandled?: number;
   unresolvedCount: number;
   revision: string;
   listedAt: number;
@@ -41,6 +45,8 @@ export type ImportDraft = {
   force: boolean;
   memories: boolean;
   profile: boolean;
+  /** List sessions that are already handled for the ticked outputs. */
+  showHandled: boolean;
 };
 export type Readiness = {
   external: { state: string; provider: string; model: string | null };
@@ -51,7 +57,13 @@ export type Readiness = {
   defaultSourceFound?: Record<WebHost, boolean>;
 };
 export type PinnedSelection =
-  | { mode: "all"; excludedKeys: string[]; revision: string; listedAt: number }
+  | {
+      mode: "all";
+      excludedKeys: string[];
+      revision: string;
+      listedAt: number;
+      includeHandled?: boolean;
+    }
   | { mode: "ids"; sessions: { key: string; directory: string }[]; listedAt: number };
 /** Additive web contract; shared options never contain per-host selections. */
 export type GroupImportRequest = {

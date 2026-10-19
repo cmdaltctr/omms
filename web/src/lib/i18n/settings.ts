@@ -44,8 +44,31 @@ const text = {
     "قارئ جلسات Pi غير متاح. أصلح القارئ أو ألغِ تحديد Pi.",
   ],
   "Import results": ["导入结果", "نتائج الاستيراد"],
-  "Memory work failed.": ["记忆处理失败。", "فشلت معالجة الذاكرة."],
-  "Profile learning failed.": ["画像学习失败。", "فشل تعلّم الملف الشخصي."],
+  "Import successful 🎉": ["导入成功", "تم الاستيراد بنجاح"],
+  "Import failed": ["导入失败", "فشل الاستيراد"],
+  "Import cancelled": ["导入已取消", "تم إلغاء الاستيراد"],
+  "The import finished while you were away.": [
+    "导入在你离开时已结束。",
+    "انتهى الاستيراد أثناء غيابك.",
+  ],
+  "Could not reload the settings. Reload the page.": [
+    "无法重新加载设置。请刷新页面。",
+    "تعذر إعادة تحميل الإعدادات. أعد تحميل الصفحة.",
+  ],
+  OK: ["确定", "حسناً"],
+  Dismiss: ["关闭", "إغلاق"],
+  "Show handled sessions": ["显示已处理的会话", "إظهار الجلسات المعالجة"],
+  Handled: ["已处理", "تمت معالجتها"],
+  "Handled sessions hidden": ["已隐藏的已处理会话", "الجلسات المعالجة المخفية"],
+  "Some memory units failed. Completed work is saved. A new preview and import retries only the failed units.":
+    [
+      "部分记忆单元失败。已完成的工作已保存。重新预览并导入只会重试失败的单元。",
+      "فشلت بعض وحدات الذاكرة. العمل المكتمل محفوظ. المعاينة والاستيراد الجديدان يعيدان محاولة الوحدات الفاشلة فقط.",
+    ],
+  "Profile learning failed. Completed memory work is saved.": [
+    "画像学习失败。已完成的记忆处理已保存。",
+    "فشل تعلّم الملف الشخصي. عمل الذاكرة المكتمل محفوظ.",
+  ],
   "Import preparation failed.": ["导入准备失败。", "فشل تحضير الاستيراد."],
   "Refresh the preview and retry.": ["请刷新预览后重试。", "حدّث المعاينة ثم أعد المحاولة."],
   "The session list is out of date. Refresh the list and try again.": [

@@ -127,6 +127,7 @@ export function memoryResponse(
         stage?: string;
         host?: ImportHost;
         offset?: number;
+        includeHandled?: boolean;
         hosts?: { host: ImportHost }[];
         options?: Outputs & { dryRun?: boolean };
       }
@@ -137,6 +138,32 @@ export function memoryResponse(
       job = null;
       starts = 0;
       catchUp = { state: "idle", batchesBuilt: 0, remaining: 12 };
+    } else if (input?.stage === "running-memory") {
+      job = group(["pi"], false);
+      job.hosts[0] = { ...job.hosts[0]!, processed: 400, total: 1000 };
+      job.processed = 400;
+      job.total = 1000;
+    } else if (input?.stage === "success" || input?.stage === "failed-units") {
+      job = group(["pi"], false);
+      const failed = input.stage === "failed-units";
+      const done = { ...summary(false), unitsFailed: failed ? 3 : 0 };
+      job.state = failed ? "failed" : "done";
+      delete job.activeHost;
+      job.summary = done;
+      job.hosts[0] = {
+        ...job.hosts[0]!,
+        state: failed ? "failed" : "done",
+        processed: 1000,
+        total: 1000,
+        summary: done,
+        ...(failed
+          ? {
+              error:
+                "Pi: Some memory units failed. Completed work is saved. A new preview and import retries only the failed units.",
+            }
+          : {}),
+      };
+      if (failed) job.error = job.hosts[0]!.error;
     } else if (input?.stage === "profile" || input?.stage === "failed") {
       job = group(hosts, false);
       job.hosts[0] = {
@@ -186,14 +213,18 @@ export function memoryResponse(
     if (!input?.host || !hosts.includes(input.host))
       return ok({ error: "Choose a synthetic host" }, 400);
     const host = input.host;
+    // A request that states includeHandled hides or shows one handled session.
+    const handledMode = input.includeHandled !== undefined;
+    const shown = handledMode && !input.includeHandled ? 1 : 2;
     return ok({
       source: { sourceToken: `synthetic-${host}`, displayPath: `/synthetic/history/${host}` },
-      total: 2,
+      total: shown,
       offset: input.offset ?? 0,
+      ...(handledMode ? { hiddenHandled: 2 - shown === 1 ? 386 : 0 } : {}),
       unresolvedCount: 1,
       revision: `synthetic-revision-${host}`,
       listedAt: 100,
-      rows: [0, 1].map((index) => ({
+      rows: [0, 1].slice(0, shown).map((index) => ({
         key: `${host}-${index}`,
         sessionId: `synthetic-${index}`,
         createdAt: 100,
@@ -202,6 +233,7 @@ export function memoryResponse(
         directory: "/synthetic/preview-project",
         via: "recorded",
         selectable: true,
+        ...(handledMode ? { handled: index === 1 } : {}),
       })),
     });
   }

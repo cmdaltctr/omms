@@ -656,6 +656,7 @@ describe("settings API", () => {
         directory: expect.stringContaining("code"),
         via: "recorded",
         selectable: true,
+        handled: false,
       },
     ]);
     expect(result.text).not.toContain("secret prompt text");

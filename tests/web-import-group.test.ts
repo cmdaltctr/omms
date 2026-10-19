@@ -267,6 +267,14 @@ describe("grouped web jobs", () => {
         ],
       });
       expect(JSON.stringify(jobs.current())).not.toContain("private reply");
+      if (failure !== "claim") {
+        const message =
+          failure === "memory"
+            ? "OpenCode: Some memory units failed. Completed work is saved. A new preview and import retries only the failed units."
+            : "OpenCode: Profile learning failed. Completed memory work is saved. Refresh the preview and retry.";
+        expect(jobs.current()?.hosts?.[1]?.error).toBe(message);
+        expect(jobs.current()?.error).toBe(message);
+      }
       expect(discarded.sort()).toEqual(["claude-code", "opencode", "pi"]);
     });
 

@@ -156,6 +156,11 @@ export function HostSessionSelection({
                     </td>
                     <td className="p-1 font-mono text-xs">
                       <bdi dir="ltr">{row.sessionId ?? row.key}</bdi>
+                      {row.handled && (
+                        <span className="ms-2 rounded border border-border px-1 font-sans text-muted-foreground">
+                          {s("Handled")}
+                        </span>
+                      )}
                     </td>
                     <td className="p-1 font-mono text-xs break-all">
                       <bdi dir="ltr">{row.directory ?? row.recordedDirectory ?? "—"}</bdi>
@@ -166,6 +171,11 @@ export function HostSessionSelection({
               </tbody>
             </table>
             {page.total === 0 && <p className="text-sm">{s("No sessions match.")}</p>}
+            {(page.hiddenHandled ?? 0) > 0 && (
+              <p role="status" className="text-sm text-muted-foreground">
+                {s("Handled sessions hidden")}: {page.hiddenHandled}
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <button

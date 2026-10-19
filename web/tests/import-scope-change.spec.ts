@@ -1,8 +1,11 @@
 import { expect, it } from "bun:test";
 import {
   applyDraftChange,
+  groupRequest,
   initialImportDraft,
+  listRequestFields,
   membership,
+  selectableCount,
 } from "../src/lib/components/memory/import-draft";
 import type { ImportDraft, SessionPage } from "../src/lib/components/memory/import-types";
 
@@ -35,12 +38,69 @@ it("keeps the session list when the scope is set to the same value", () => {
 
 it("keeps the session list for options that do not change which sessions are listed", () => {
   const draft = listedDraft();
-  const next = applyDraftChange(draft, { force: true, since: "2026-09-30" });
+  const next = applyDraftChange(draft, { since: "2026-09-30", profileBatch: "20" });
   expect(next.hosts.pi.page).toBe(draft.hosts.pi.page);
-  expect(next.force).toBe(true);
+  expect(next.since).toBe("2026-09-30");
 });
 
 it("clears the list when the project folder changes", () => {
   const next = applyDraftChange(listedDraft(), { project: "/tmp/other" });
   expect(next.hosts.pi.page).toBeNull();
+});
+
+it("clears every host's list and selection when the ticked outputs or handled options change", () => {
+  for (const patch of [
+    { memories: false },
+    { profile: false },
+    { force: true },
+    { showHandled: true },
+  ]) {
+    const next = applyDraftChange(listedDraft(), patch);
+    for (const host of ["pi", "opencode", "claude-code"] as const) {
+      expect(next.hosts[host].page).toBeNull();
+      expect(next.hosts[host].selection).toEqual({ mode: "ids", picked: new Map() });
+    }
+  }
+});
+
+it("counts only the sessions shown for Select all matching", () => {
+  const draft = listedDraft();
+  draft.hosts.pi.page = { total: 3, unresolvedCount: 0, hiddenHandled: 386, rows: [] } as never;
+  expect(selectableCount(draft, "pi")).toBe(3);
+});
+
+it("sends the ticked outputs and handled options with each list request", () => {
+  const draft = initialImportDraft();
+  expect(listRequestFields(draft)).toEqual({
+    skipMemories: false,
+    skipProfile: false,
+    force: false,
+    includeHandled: false,
+  });
+  draft.memories = false;
+  draft.showHandled = true;
+  expect(listRequestFields(draft)).toMatchObject({ skipMemories: true, includeHandled: true });
+  draft.force = true;
+  draft.showHandled = false;
+  expect(listRequestFields(draft)).toMatchObject({ force: true, includeHandled: true });
+});
+
+it("sends includeHandled on an all selection when handled sessions are shown", () => {
+  const draft = initialImportDraft();
+  const page = {
+    total: 2,
+    unresolvedCount: 0,
+    revision: "r",
+    listedAt: 5,
+    source: { sourceToken: "t" },
+    rows: [],
+  };
+  draft.hosts.pi.page = page as never;
+  draft.hosts.pi.listedWith = membership(draft, "pi");
+  draft.hosts.pi.selection = { mode: "all", excluded: new Set() };
+  const hidden = groupRequest(draft, false).hosts[0]!.selection;
+  expect(hidden).not.toHaveProperty("includeHandled");
+  draft.showHandled = true;
+  draft.hosts.pi.listedWith = membership(draft, "pi");
+  expect(groupRequest(draft, false).hosts[0]!.selection).toMatchObject({ includeHandled: true });
 });

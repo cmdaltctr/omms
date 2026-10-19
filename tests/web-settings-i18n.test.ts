@@ -73,3 +73,19 @@ it("has Chinese and Arabic text for the automatic cleanup controls and their ref
   );
   expect(missing).toEqual([]);
 });
+
+it("translates the fixed import failure sentences, which carry no number", async () => {
+  const { MEMORY_FAILED_MESSAGE, PROFILE_FAILED_MESSAGE } =
+    await import("../src/importer/web-import-group.js");
+  expect(MEMORY_FAILED_MESSAGE).not.toMatch(/\d/);
+  expect(PROFILE_FAILED_MESSAGE).not.toMatch(/\d/);
+  // The page strips a trailing "Refresh the preview and retry." before the lookup.
+  const lookups = [
+    MEMORY_FAILED_MESSAGE,
+    PROFILE_FAILED_MESSAGE.replace(" Refresh the preview and retry.", ""),
+  ];
+  for (const message of lookups) {
+    expect(translateSettings(message, "zh")).not.toBe(message);
+    expect(translateSettings(message, "ar")).not.toBe(message);
+  }
+});

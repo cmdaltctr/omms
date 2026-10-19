@@ -22,6 +22,14 @@ import type { ImportPathMap } from "./importer.js";
 export const MAX_SELECTED_KEYS = 1000;
 const MAX_PAGE = 200;
 
+/** The outputs a run produces; a session is handled only when every ticked one is finished. */
+export interface ImportOutputs {
+  memories: boolean;
+  profile: boolean;
+}
+
+const ALL_OUTPUTS: ImportOutputs = { memories: true, profile: true };
+
 export interface ImportSessionRow {
   /**
    * Selection key: the OpenCode session ID, or the Pi or Claude Code file path
@@ -45,6 +53,10 @@ export interface ImportMatchOptions {
   /** Grouped imports can retain a valid source with no matching sessions as no-work. */
   allowEmpty?: boolean;
   signal?: AbortSignal;
+  /** Outputs the job writes; decides which sessions an "all" selection drops as handled. */
+  outputs?: ImportOutputs;
+  /** A forced run re-analyses handled history, so it keeps handled sessions. */
+  force?: boolean;
 }
 
 export class StaleSelectionError extends Error {
@@ -171,11 +183,32 @@ export async function matchImportSessions(
   };
 }
 
+/**
+ * Sessions the ledger shows as finished for every ticked output. The check uses
+ * each row's `sessionId`, since Pi and Claude Code keys are file paths. A row
+ * without a session id is never handled. The ledger is read, never created.
+ */
+export async function handledKeys(
+  rows: ImportSessionRow[],
+  outputs: ImportOutputs
+): Promise<Set<string>> {
+  const ids = rows.flatMap((row) => (row.sessionId ? [row.sessionId] : []));
+  if (ids.length === 0) return new Set();
+  const { ImportLedger } = await import("./ledger.js");
+  const handled = await new ImportLedger().handledSessionIds(ids, outputs);
+  return new Set(
+    rows.filter((row) => row.sessionId && handled.has(row.sessionId)).map((r) => r.key)
+  );
+}
+
 export interface ImportSessionPage {
   source: { kind: ImportSourceIdentity["kind"]; displayPath: string; sourceToken: string };
+  /** Rows shown: handled sessions are left out unless the request keeps them. */
   total: number;
   offset: number;
-  rows: Array<ImportSessionRow & { selectable: boolean }>;
+  rows: Array<ImportSessionRow & { selectable: boolean; handled: boolean }>;
+  /** Handled sessions left out of the list. */
+  hiddenHandled: number;
   /** Sessions whose recorded directory no longer exists. */
   unresolvedCount: number;
   revision: string;
@@ -187,6 +220,8 @@ export interface SessionListRequest {
   offset?: number;
   limit?: number;
   refresh?: boolean;
+  /** True when the page shows handled sessions; "Re-analyse handled history" implies it. */
+  includeHandled?: boolean;
   match: Omit<ImportMatchOptions, "cwd">;
 }
 
@@ -220,16 +255,25 @@ export function validateSessionListRequest(value: unknown): SessionListRequest {
       throw new Error(`Invalid ${key}`);
     }
   }
+  for (const key of ["skipMemories", "skipProfile", "force", "includeHandled"] as const) {
+    if (input[key] !== undefined && typeof input[key] !== "boolean") {
+      throw new Error(`Invalid ${key}`);
+    }
+  }
+  const force = input.force === true;
   return {
     ...(input.source !== undefined ? { sourceToken: input.source } : {}),
     ...(input.offset !== undefined ? { offset: input.offset as number } : {}),
     ...(input.limit !== undefined ? { limit: input.limit as number } : {}),
     refresh: input.refresh === true,
+    includeHandled: input.includeHandled === true || force,
     match: {
       host: input.host,
       scope,
       ...(project ? { project } : {}),
       pathMaps: maps as ImportPathMap[],
+      outputs: { memories: input.skipMemories !== true, profile: input.skipProfile !== true },
+      ...(force ? { force } : {}),
     },
   };
 }
@@ -241,6 +285,7 @@ export async function listImportSessions(
     offset?: number;
     limit?: number;
     refresh?: boolean;
+    includeHandled?: boolean;
   },
   options: ImportMatchOptions
 ): Promise<ImportSessionPage> {
@@ -270,17 +315,21 @@ export async function listImportSessions(
       matched.unresolved.map((row) => ({ directory: row.recordedDirectory }))
     )
   ).catch(() => {});
-  const rows = [
-    ...matched.matching.map((row) => ({ ...row, selectable: true })),
+  const handled = await handledKeys(matched.matching, options.outputs ?? ALL_OUTPUTS);
+  const listed = [
+    ...matched.matching.map((row) => ({ ...row, selectable: true, handled: handled.has(row.key) })),
     ...(options.scope === "all-projects"
-      ? matched.unresolved.map((row) => ({ ...row, selectable: false }))
+      ? matched.unresolved.map((row) => ({ ...row, selectable: false, handled: false }))
       : []),
   ];
+  const keep = request.includeHandled === true || options.force === true;
+  const rows = keep ? listed : listed.filter((row) => !row.handled);
   return {
     source: { kind: identity.kind, displayPath: identity.realPath, sourceToken: token as string },
     total: rows.length,
     offset,
     rows: rows.slice(offset, offset + limit),
+    hiddenHandled: listed.length - rows.length,
     unresolvedCount: matched.unresolved.length,
     revision: matched.revision,
     listedAt,
@@ -289,7 +338,14 @@ export async function listImportSessions(
 
 export type ImportSelection =
   | { mode: "ids"; sessions: Array<{ key: string; directory: string }>; listedAt: number }
-  | { mode: "all"; excludedKeys: string[]; revision: string; listedAt: number };
+  | {
+      mode: "all";
+      excludedKeys: string[];
+      revision: string;
+      listedAt: number;
+      /** False or absent: the server drops sessions already handled for the job's outputs. */
+      includeHandled?: boolean;
+    };
 
 export function validateImportSelection(value: unknown): ImportSelection {
   const input = value as Record<string, unknown> | null;
@@ -329,7 +385,16 @@ export function validateImportSelection(value: unknown): ImportSelection {
       throw new Error("Invalid excluded sessions");
     }
     if (typeof input.revision !== "string") throw new Error("Invalid session list revision");
-    return { mode: "all", excludedKeys: excluded as string[], revision: input.revision, listedAt };
+    if (input.includeHandled !== undefined && typeof input.includeHandled !== "boolean") {
+      throw new Error("Invalid includeHandled");
+    }
+    return {
+      mode: "all",
+      excludedKeys: excluded as string[],
+      revision: input.revision,
+      listedAt,
+      ...(input.includeHandled === true ? { includeHandled: true } : {}),
+    };
   }
   throw new Error("Choose sessions to import");
 }
@@ -362,7 +427,13 @@ export async function resolveImportSelection(
   if (selection.mode === "all") {
     if (matched.revision !== selection.revision) throw new StaleSelectionError();
     const excluded = new Set(selection.excludedKeys);
-    keys = matched.matching.map((row) => row.key).filter((key) => !excluded.has(key));
+    const keep = selection.includeHandled === true || options.force === true;
+    const handled = keep
+      ? new Set<string>()
+      : await handledKeys(matched.matching, options.outputs ?? ALL_OUTPUTS);
+    keys = matched.matching
+      .map((row) => row.key)
+      .filter((key) => !excluded.has(key) && !handled.has(key));
   } else {
     const current = new Map(matched.matching.map((row) => [row.key, row.directory]));
     for (const item of selection.sessions) {

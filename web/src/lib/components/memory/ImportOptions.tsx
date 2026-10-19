@@ -52,6 +52,15 @@ export function ImportOptions({
           <option value="all-projects">{s("All projects")}</option>
         </Select>
       </label>
+      <label className="block text-sm">
+        <input
+          type="checkbox"
+          aria-label={s("Show handled sessions")}
+          checked={draft.showHandled}
+          onChange={(event) => onChange({ showHandled: event.target.checked })}
+        />{" "}
+        {s("Show handled sessions")}
+      </label>
       <button type="button" className={importButton} onClick={onAdvanced} aria-expanded={advanced}>
         {s(advanced ? "Hide advanced options" : "Advanced options")}
       </button>
