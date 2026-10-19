@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.28.0](https://github.com/cmdaltctr/omms/compare/v4.27.0...v4.28.0) (2026-10-19)
+
+
+### Features
+
+* show automatic import as running, and fix Ignore all feedback ([4294c57](https://github.com/cmdaltctr/omms/commit/4294c57d4e7fc0c97517f268a97a12a675d199fc))
+* show automatic import as running, and fix Ignore all feedback ([f99bc39](https://github.com/cmdaltctr/omms/commit/f99bc3996ef3377dfad36d936988c039fedf8de1))
+
 ## [4.27.0](https://github.com/cmdaltctr/omms/compare/v4.26.2...v4.27.0) (2026-10-19)
 
 
