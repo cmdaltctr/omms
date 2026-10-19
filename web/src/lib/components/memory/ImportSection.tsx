@@ -9,7 +9,9 @@ import { HostSessionSelection } from "./HostSessionSelection";
 import { loadHostChoice, saveHostChoice } from "./import-host-choice";
 import { ImportOptions, importButton } from "./ImportOptions";
 import { importFeedback, ImportResults, workCounts } from "./ImportResults";
+import { jobForHost } from "./import-job-view";
 import {
+  applyDraftChange,
   emptySelection,
   groupRequest,
   initialImportDraft,
@@ -135,7 +137,7 @@ export function ImportSection({
 
   function change(patch: Partial<ImportDraft>) {
     setPreview(null);
-    setDraft((previous) => ({ ...previous, ...patch }));
+    setDraft((previous) => applyDraftChange(previous, patch));
   }
   function changeHost(host: WebHost, patch: Partial<HostDraft>) {
     setPreview(null);
@@ -468,7 +470,7 @@ export function ImportSection({
         )}
       </div>
       {error && <p role="alert">{importFeedback(error, s)}</p>}
-      <ImportResults job={job} />
+      <ImportResults job={jobForHost(job, onlyHost)} />
     </section>
   );
 }
