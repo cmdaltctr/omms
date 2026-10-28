@@ -1,6 +1,5 @@
 export const translations = {
   en: {
-    title: "omms Memory Explorer",
     brand: "OMMS",
     "tab-project": "Project memories",
     "tab-profile": "User profile",
@@ -343,7 +342,6 @@ export const translations = {
     "auth-warning-text": "Cross-origin editing disabled. Set webServerAuthPassword to enable.",
   },
   zh: {
-    title: "omms Memory Explorer",
     brand: "OMMS",
     "tab-project": "项目记忆",
     "tab-profile": "用户画像",
@@ -673,7 +671,6 @@ export const translations = {
     "auth-warning-text": "跨源编辑已禁用. 设置 webServerAuthPassword 即可启用.",
   },
   ar: {
-    title: "مستكشف ذاكرة omms",
     brand: "OMMS",
     "tab-project": "ذكريات المشروع",
     "tab-profile": "ملف المستخدم",
