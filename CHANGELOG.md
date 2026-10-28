@@ -2,6 +2,15 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.28.1](https://github.com/cmdaltctr/omms/compare/v4.28.0...v4.28.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* keep html lang and theme-color in step with the UI ([028d49a](https://github.com/cmdaltctr/omms/commit/028d49ab66e4866c95cd4da0b9023d3602db05a0))
+* name OMMS in the browser tab and add page metadata ([701137c](https://github.com/cmdaltctr/omms/commit/701137c9c357b05ddeca70b2c0e78800a6f801cc))
+* name OMMS in the browser tab and keep page metadata in step ([2edbcc4](https://github.com/cmdaltctr/omms/commit/2edbcc4f680cc64076d85b57579afd0897f7e609))
+
 ## [4.28.0](https://github.com/cmdaltctr/omms/compare/v4.27.0...v4.28.0) (2026-10-19)
 
 
