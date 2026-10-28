@@ -2,6 +2,16 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.28.2](https://github.com/cmdaltctr/omms/compare/v4.28.1...v4.28.2) (2026-10-28)
+
+
+### Bug Fixes
+
+* expect the capitalised OMMS title in the release smoke test ([8dea68f](https://github.com/cmdaltctr/omms/commit/8dea68fa94542974290e58bb8ce3a777a9d47685))
+* follow the system light or dark setting until the user picks a theme ([b24cd6c](https://github.com/cmdaltctr/omms/commit/b24cd6c069c2a24deb90f6139413f6cb3ef5054f))
+* keep the theme choice right when browser storage is blocked ([0508e08](https://github.com/cmdaltctr/omms/commit/0508e083d8456c63d58ab8cc8b84baf1e0f80162))
+* unblock the release smoke test and follow the system theme ([82e99de](https://github.com/cmdaltctr/omms/commit/82e99de3aad1c255e833f5589851bb14cb48de0d))
+
 ## [4.28.1](https://github.com/cmdaltctr/omms/compare/v4.28.0...v4.28.1) (2026-10-28)
 
 
