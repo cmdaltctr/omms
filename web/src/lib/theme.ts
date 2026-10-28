@@ -1,32 +1,47 @@
 import { useSyncExternalStore } from "react";
 import { applyThemeColor } from "./document-head";
 import { readPreference, writePreference } from "./preferences";
+import { parseSavedTheme, resolveTheme, type Theme } from "./theme-choice";
 
-export type Theme = "dark" | "light";
+export type { Theme };
 
 const STORAGE_KEY = "omms-theme";
 const LEGACY_STORAGE_KEY = "opencode-mem-theme";
+const SYSTEM_DARK = "(prefers-color-scheme: dark)";
+
+function savedTheme(): Theme | null {
+  if (typeof window === "undefined") return null;
+  return parseSavedTheme(readPreference(STORAGE_KEY, LEGACY_STORAGE_KEY));
+}
+
+function systemPrefersDark(): boolean {
+  if (typeof window === "undefined" || !window.matchMedia) return true;
+  return window.matchMedia(SYSTEM_DARK).matches;
+}
 
 function readTheme(): Theme {
-  if (typeof window === "undefined") return "dark";
-  const stored = readPreference(STORAGE_KEY, LEGACY_STORAGE_KEY);
-  if (stored === "light" || stored === "dark") return stored;
-  return "dark";
+  return resolveTheme(savedTheme(), systemPrefersDark());
 }
 
 let currentTheme: Theme = readTheme();
+// A pick this session still wins when storage is blocked and the save failed.
+let pickedThisSession = false;
 const listeners = new Set<() => void>();
 
 function emit() {
   for (const listener of listeners) listener();
 }
 
-function applyTheme(theme: Theme) {
+// Only a click on the toggle saves the theme; otherwise the system setting stays in charge.
+function applyTheme(theme: Theme, save = false) {
   currentTheme = theme;
   if (typeof document !== "undefined") {
     document.documentElement.classList.toggle("dark", theme === "dark");
     applyThemeColor(document, theme);
-    writePreference(STORAGE_KEY, theme);
+    if (save) {
+      pickedThisSession = true;
+      writePreference(STORAGE_KEY, theme);
+    }
   }
   emit();
 }
@@ -51,7 +66,7 @@ export function getTheme(): Theme {
 }
 
 export function setTheme(theme: Theme) {
-  applyTheme(theme);
+  applyTheme(theme, true);
 }
 
 export function toggleTheme(): Theme {
@@ -68,7 +83,11 @@ export function useTheme(): Theme {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-// Apply on module load so first paint matches stored preference.
+// Apply on module load so first paint matches the saved or system theme.
 if (typeof document !== "undefined") {
   applyTheme(currentTheme);
+  // Follow a system change while the user has not picked a theme.
+  window.matchMedia?.(SYSTEM_DARK).addEventListener?.("change", () => {
+    if (!pickedThisSession && savedTheme() === null) applyTheme(readTheme());
+  });
 }

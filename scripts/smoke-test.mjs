@@ -36,7 +36,7 @@ assert.equal(
 const distDir = dirname(fileURLToPath(import.meta.resolve("om-memory-system")));
 const webIndex = join(distDir, "web", "index.html");
 assert.ok(existsSync(webIndex), `installed package must contain ${webIndex}`);
-assert.match(readFileSync(webIndex, "utf8"), /<title>omms Memory Explorer<\/title>/);
+assert.match(readFileSync(webIndex, "utf8"), /<title>OMMS Memory Explorer<\/title>/);
 
 async function freePort() {
   return new Promise((resolve, reject) => {
@@ -56,7 +56,7 @@ try {
   await webServer.start();
   const response = await fetch(`http://127.0.0.1:${port}/`);
   assert.equal(response.status, 200, "web UI must be served at /");
-  assert.match(await response.text(), /<title>omms Memory Explorer<\/title>/);
+  assert.match(await response.text(), /<title>OMMS Memory Explorer<\/title>/);
 } finally {
   await webServer.stop();
   // The web app may still hold a database file open on Windows; see removeScratchDir.

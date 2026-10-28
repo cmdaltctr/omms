@@ -8,9 +8,27 @@
       content="Browse and manage the memories OMMS keeps for your AI coding agents."
     />
     <meta name="robots" content="noindex, nofollow" />
-    <!-- Dark is the app default; the theme toggle switches color-scheme in app.css. -->
+    <!-- The saved theme wins, else the system setting; dark is the fallback without JavaScript. -->
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#120f0e" />
+    <script>
+      // Runs before first paint so a light system does not flash dark. Mirrors lib/theme.ts.
+      var saved = null;
+      try {
+        saved = localStorage.getItem("omms-theme") || localStorage.getItem("opencode-mem-theme");
+      } catch (e) {
+        // Storage blocked: fall through to the system setting.
+      }
+      try {
+        var dark =
+          saved === "dark" ||
+          (saved !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.classList.toggle("dark", dark);
+        document
+          .querySelector('meta[name="theme-color"]')
+          .setAttribute("content", dark ? "#120f0e" : "#fdfcfa");
+      } catch (e) {}
+    </script>
     <link rel="icon" type="image/x-icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/omms-icon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
