@@ -32,10 +32,12 @@ export function startWebUpdate(
 export function nodeInstallDeps(): InstallDeps {
   return {
     execPath: process.execPath,
+    pathEnv: process.env.PATH,
     platform: process.platform,
     spawn: (command, args, options) =>
       spawn(command, args, {
         shell: options.shell,
+        env: options.path === undefined ? undefined : { ...process.env, PATH: options.path },
         stdio: ["ignore", "ignore", "pipe"],
         windowsHide: true,
       }) as InstallChild,

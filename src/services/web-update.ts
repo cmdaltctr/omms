@@ -40,9 +40,15 @@ export interface WebUpdateDeps {
   log: (message: string, data: Record<string, unknown>, level?: LogLevel) => void;
   /** The runtime of this web app; npm must sit beside it. */
   execPath: string;
+  /** This process's PATH; npm gets the folder of `execPath` in front of it. */
+  pathEnv: string | undefined;
   platform: NodeJS.Platform;
   exists: (path: string) => boolean;
-  spawn: (command: string, args: string[], options: { shell: boolean }) => InstallChild;
+  spawn: (
+    command: string,
+    args: string[],
+    options: { shell: boolean; path?: string }
+  ) => InstallChild;
   /** The version of the global install after npm ran, or null. */
   globalVersion: () => string | null;
   /** False when no restart could serve the new copy, such as a missing launcher. Checked before npm runs. */
@@ -166,7 +172,7 @@ export class WebUpdate {
 /** The parts of the update deps that run npm. */
 export type InstallDeps = Pick<
   WebUpdateDeps,
-  "execPath" | "platform" | "spawn" | "killTree" | "setTimeout" | "clearTimeout"
+  "execPath" | "pathEnv" | "platform" | "spawn" | "killTree" | "setTimeout" | "clearTimeout"
 >;
 
 /** A failure code, or null when npm exited with code 0. */
@@ -184,6 +190,19 @@ export function npmBesideRuntime(deps: Pick<WebUpdateDeps, "execPath" | "platfor
 }
 
 /**
+ * The PATH for npm. npm starts with `#!/usr/bin/env node`, and a login item's PATH
+ * (`/usr/bin:/bin:/usr/sbin:/sbin` on macOS) has no node, so npm would exit with 127.
+ * Windows needs nothing: `npm.cmd` runs the node.exe beside itself.
+ */
+export function npmSearchPath(
+  deps: Pick<WebUpdateDeps, "execPath" | "pathEnv" | "platform">
+): string | undefined {
+  if (deps.platform === "win32") return undefined;
+  const bin = posix.dirname(deps.execPath);
+  return deps.pathEnv ? `${bin}${posix.delimiter}${deps.pathEnv}` : bin;
+}
+
+/**
  * Run `npm install -g om-memory-system@<target>` and stop it after 5 minutes.
  * The web app's update button and `web update` share it.
  */
@@ -198,6 +217,7 @@ export function runGlobalInstall(deps: InstallDeps, target: string): Promise<Ins
       const command = windows ? `"${npmBesideRuntime(deps)}"` : npmBesideRuntime(deps);
       child = deps.spawn(command, ["install", "-g", `om-memory-system@${target}`], {
         shell: windows,
+        path: npmSearchPath(deps),
       });
     } catch {
       resolve({ code: "spawn-error" });

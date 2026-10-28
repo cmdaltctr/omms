@@ -23,9 +23,10 @@ async function fake(
     platform?: NodeJS.Platform;
     execPath?: string;
     canRestart?: boolean;
+    pathEnv?: string;
   } = {}
 ) {
-  const spawns: { command: string; args: string[]; shell: boolean }[] = [];
+  const spawns: { command: string; args: string[]; shell: boolean; path?: string }[] = [];
   const logs: { message: string; data: Record<string, unknown> }[] = [];
   const children: (InstallChild & { killed: boolean })[] = [];
   const timeouts: { ms: number; callback: () => void }[] = [];
@@ -41,6 +42,7 @@ async function fake(
     setInterval: () => ({}),
     log: (message, data) => logs.push({ message, data }),
     execPath: config.execPath ?? "/opt/node/bin/node",
+    pathEnv: "pathEnv" in config ? config.pathEnv : "/usr/bin:/bin",
     canRestart: () => config.canRestart ?? true,
     killTree: async (child) => {
       (child as InstallChild & { killed: boolean }).killed = true;
@@ -49,7 +51,7 @@ async function fake(
     platform: config.platform ?? "darwin",
     exists: () => config.npmExists ?? true,
     spawn: (command, args, options) => {
-      spawns.push({ command, args, shell: options.shell });
+      spawns.push({ command, args, shell: options.shell, path: options.path });
       if ("throws" in npm) throw new Error("spawn failed");
       const emitter = new EventEmitter();
       const stderr = new EventEmitter();
@@ -108,6 +110,7 @@ it("installs with the npm beside Node.js and restarts onto the new copy", async 
       command: "/opt/node/bin/npm",
       args: ["install", "-g", "om-memory-system@4.10.0"],
       shell: false,
+      path: "/opt/node/bin:/usr/bin:/bin",
     },
   ]);
   expect(f.restarts()).toBe(1);
@@ -254,4 +257,27 @@ it("keeps the update running until npm has stopped after a timeout", async () =>
   await settle();
   expect(f.update.status()).toMatchObject({ state: "failed", code: "timeout" });
   killDone = { promise: Promise.resolve(), release: () => {} };
+});
+
+// A login item starts with PATH=/usr/bin:/bin:/usr/sbin:/sbin, and npm's
+// `#!/usr/bin/env node` line then finds no node and exits with 127.
+it("puts the folder of this Node.js first on npm's PATH", async () => {
+  const f = await fake({ pathEnv: "/usr/bin:/bin:/usr/sbin:/sbin" });
+  f.update.requestInstall();
+  await settle();
+  expect(f.spawns[0]?.path).toBe("/opt/node/bin:/usr/bin:/bin:/usr/sbin:/sbin");
+});
+
+it("gives npm the Node.js folder alone when there is no PATH", async () => {
+  const f = await fake({ pathEnv: undefined });
+  f.update.requestInstall();
+  await settle();
+  expect(f.spawns[0]?.path).toBe("/opt/node/bin");
+});
+
+it("leaves PATH alone on Windows, where npm.cmd finds node.exe beside itself", async () => {
+  const f = await fake({ platform: "win32", execPath: "C:\\node\\node.exe" });
+  f.update.requestInstall();
+  await settle();
+  expect(f.spawns[0]?.path).toBeUndefined();
 });
