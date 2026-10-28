@@ -6,6 +6,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { htmlLangFor } from "../document-head";
 import { readPreference, writePreference } from "../preferences";
 import { translations, type Lang, type TranslationKey } from "./translations";
 
@@ -38,7 +39,7 @@ function applyLang(lang: Lang) {
   if (typeof document !== "undefined") {
     writePreference(LANG_STORAGE_KEY, lang);
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
-    document.documentElement.lang = lang;
+    document.documentElement.lang = htmlLangFor(lang);
   }
   emit();
 }
@@ -127,5 +128,5 @@ export function useI18n(): I18nContextValue {
 
 if (typeof document !== "undefined") {
   document.documentElement.dir = currentLang === "ar" ? "rtl" : "ltr";
-  document.documentElement.lang = currentLang;
+  document.documentElement.lang = htmlLangFor(currentLang);
 }
