@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.28.3](https://github.com/cmdaltctr/omms/compare/v4.28.2...v4.28.3) (2026-10-28)
+
+
+### Bug Fixes
+
+* let the update button's npm find node in a login item ([0108c5f](https://github.com/cmdaltctr/omms/commit/0108c5f49e3d3b9a441815576e5c07211139086c))
+* let the update button's npm find node in a login item ([1916e10](https://github.com/cmdaltctr/omms/commit/1916e10847eec7979b212e6490652121bcbf83ea))
+
 ## [4.28.2](https://github.com/cmdaltctr/omms/compare/v4.28.1...v4.28.2) (2026-10-28)
 
 
