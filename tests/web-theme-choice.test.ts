@@ -25,7 +25,7 @@ it("saves the theme only when the user picks one", () => {
   const source = readFileSync(join(webDir, "src", "lib", "theme.ts"), "utf8");
   const writes = source.match(/writePreference\(/g) ?? [];
   expect(writes.length).toBe(1);
-  expect(source).toMatch(/if \(save\) writePreference\(STORAGE_KEY, theme\)/);
+  expect(source).toMatch(/if \(save\) \{[^}]*writePreference\(STORAGE_KEY, theme\)/);
   expect(source).toMatch(/export function setTheme\(theme: Theme\) \{\s*applyTheme\(theme, true\)/);
 });
 
@@ -33,4 +33,18 @@ it("picks the theme in index.html before first paint", () => {
   const html = readFileSync(join(webDir, "index.html"), "utf8");
   expect(html).toContain("prefers-color-scheme: dark");
   expect(html).toContain('localStorage.getItem("omms-theme")');
+});
+
+it("keeps a pick made this session when storage is blocked", () => {
+  const source = readFileSync(join(webDir, "src", "lib", "theme.ts"), "utf8");
+  expect(source).toMatch(/pickedThisSession = true;\s*writePreference/);
+  expect(source).toMatch(/if \(!pickedThisSession && savedTheme\(\) === null\)/);
+});
+
+it("still follows the system in index.html when storage is blocked", () => {
+  const html = readFileSync(join(webDir, "index.html"), "utf8");
+  const storageRead = html.indexOf('localStorage.getItem("omms-theme")');
+  const systemCheck = html.indexOf("prefers-color-scheme: dark");
+  const between = html.slice(storageRead, systemCheck);
+  expect(between).toContain("catch");
 });

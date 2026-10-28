@@ -24,6 +24,8 @@ function readTheme(): Theme {
 }
 
 let currentTheme: Theme = readTheme();
+// A pick this session still wins when storage is blocked and the save failed.
+let pickedThisSession = false;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -36,7 +38,10 @@ function applyTheme(theme: Theme, save = false) {
   if (typeof document !== "undefined") {
     document.documentElement.classList.toggle("dark", theme === "dark");
     applyThemeColor(document, theme);
-    if (save) writePreference(STORAGE_KEY, theme);
+    if (save) {
+      pickedThisSession = true;
+      writePreference(STORAGE_KEY, theme);
+    }
   }
   emit();
 }
@@ -83,6 +88,6 @@ if (typeof document !== "undefined") {
   applyTheme(currentTheme);
   // Follow a system change while the user has not picked a theme.
   window.matchMedia?.(SYSTEM_DARK).addEventListener?.("change", () => {
-    if (savedTheme() === null) applyTheme(readTheme());
+    if (!pickedThisSession && savedTheme() === null) applyTheme(readTheme());
   });
 }

@@ -13,9 +13,13 @@
     <meta name="theme-color" content="#120f0e" />
     <script>
       // Runs before first paint so a light system does not flash dark. Mirrors lib/theme.ts.
+      var saved = null;
       try {
-        var saved =
-          localStorage.getItem("omms-theme") || localStorage.getItem("opencode-mem-theme");
+        saved = localStorage.getItem("omms-theme") || localStorage.getItem("opencode-mem-theme");
+      } catch (e) {
+        // Storage blocked: fall through to the system setting.
+      }
+      try {
         var dark =
           saved === "dark" ||
           (saved !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
