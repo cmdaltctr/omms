@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { applyThemeColor } from "./document-head";
 import { readPreference, writePreference } from "./preferences";
 
 export type Theme = "dark" | "light";
@@ -24,6 +25,7 @@ function applyTheme(theme: Theme) {
   currentTheme = theme;
   if (typeof document !== "undefined") {
     document.documentElement.classList.toggle("dark", theme === "dark");
+    applyThemeColor(document, theme);
     writePreference(STORAGE_KEY, theme);
   }
   emit();
