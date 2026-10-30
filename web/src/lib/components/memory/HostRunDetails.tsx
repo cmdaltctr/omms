@@ -7,6 +7,7 @@ import {
 } from "$lib/auto-import-settings";
 import { hostLabel, type WebHost } from "$lib/host-label";
 import { useSettingsText } from "$lib/i18n/settings";
+import { formatDate } from "$lib/format";
 import { navigate } from "$lib/router";
 import { memoryPath } from "$lib/routes";
 import type { BackfillRow } from "./use-backfill";
@@ -62,9 +63,9 @@ export function HostRunDetails({
       )}
       {summary && (
         <p className="text-muted-foreground">
-          {s("Last run")}: {new Date(summary.finishedAt).toLocaleString()} ·{" "}
-          {s(`started from ${summary.surface}`)} · {s(summary.state)} · {s("Imported")}:{" "}
-          {summary.imported} · {s("Skipped")}: {summary.skipped} · {s("Failed")}: {summary.failed}
+          {s("Last run")}: {formatDate(summary.finishedAt)} · {s(`started from ${summary.surface}`)}{" "}
+          · {s(summary.state)} · {s("Imported")}: {summary.imported} · {s("Skipped")}:{" "}
+          {summary.skipped} · {s("Failed")}: {summary.failed}
         </p>
       )}
       {row && (
@@ -99,7 +100,7 @@ export function HostRunDetails({
             {s("Model")}: <bdi dir="ltr">{row.model ?? s("none")}</bdi>
           </p>
           <p>
-            {s("Cutoff")}: {new Date(row.cutoff).toLocaleString()}
+            {s("Cutoff")}: {formatDate(row.cutoff)}
           </p>
           {row.error && <p role="alert">{row.error}</p>}
         </div>

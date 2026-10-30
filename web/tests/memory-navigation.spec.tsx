@@ -70,6 +70,7 @@ it("registers the four Memory views once and retains unrelated Settings order wi
     "settings-section-health",
     "settings-section-claude-folder",
     "settings-section-capture-language",
+    "settings-section-appearance",
     "settings-section-profiles",
     "settings-section-web-app",
     "settings-section-log",

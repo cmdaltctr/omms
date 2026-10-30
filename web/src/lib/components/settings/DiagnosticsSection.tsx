@@ -12,6 +12,7 @@ import {
   createLatestGate,
 } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
+import { formatDate } from "$lib/format";
 import { hostLabel, hostName, type WebHost } from "$lib/host-label";
 
 type Attempt = {
@@ -355,7 +356,7 @@ export function DiagnosticsSection() {
             {data?.recent.map((row, index) => (
               <tr className={tr} key={`${row.timestamp}-${index}`}>
                 {[
-                  new Date(row.timestamp).toLocaleString(),
+                  formatDate(row.timestamp),
                   hostName(row.host),
                   row.sourceType,
                   row.sessionId,

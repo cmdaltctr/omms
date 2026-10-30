@@ -224,6 +224,15 @@ export function readmeFixtureResponse(
       return raw(
         Object.fromEntries(hostIds.map((host) => [host, backfillRow(importedByHost[host])]))
       );
+    case "/api/settings/last-saved":
+      // Synthetic live saves: one today, one yesterday, one host with none kept.
+      return raw({
+        hosts: {
+          pi: Date.now() - 3_600_000,
+          opencode: Date.now() - 86_400_000,
+          "claude-code": null,
+        },
+      });
     case "/api/settings/backfill/runs":
       return raw(
         Object.fromEntries(hostIds.map((host) => [host, backfillRun(importedByHost[host])]))

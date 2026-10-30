@@ -19,6 +19,9 @@ export type HostStatusInput = {
   /** The host's history source exists on this machine, or a custom one is saved. */
   setUp: boolean;
   formatDate: (milliseconds: number) => string;
+  /** The newest live capture that saved a memory, in milliseconds; null when none is kept. */
+  lastSaved: number | null;
+  formatSaved: (milliseconds: number) => string;
 };
 
 export type HostStatus = {
@@ -142,9 +145,18 @@ export function cardLine(input: HostStatusInput): StatusText {
   if (blocked || (run?.state === "stopped" && input.pending > 0)) {
     return { text: "Stopped · {pending} pending", params: { pending: input.pending } };
   }
-  return run?.updatedAt && run.state === "done"
-    ? { text: "Running · last import {date}", params: { date: input.formatDate(run.updatedAt) } }
-    : { text: "Running" };
+  // The history date is the one-off import; live capture is what keeps memory current.
+  const date = run?.updatedAt && run.state === "done" ? input.formatDate(run.updatedAt) : null;
+  const when = input.lastSaved === null ? null : input.formatSaved(input.lastSaved);
+  if (date && when) {
+    return {
+      text: "Running · history imported {date} · last saved {when}",
+      params: { date, when },
+    };
+  }
+  if (date) return { text: "Running · history imported {date}", params: { date } };
+  if (when) return { text: "Running · last saved {when}", params: { when } };
+  return { text: "Running" };
 }
 
 /** Translate a status line and fill its `{name}` values. */

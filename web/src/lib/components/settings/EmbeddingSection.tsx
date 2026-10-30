@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Select } from "$lib/components/ui/select";
+import { compactField, Select } from "$lib/components/ui/select";
 import {
   beginSettingsRead,
   onSettingsSnapshot,
@@ -286,20 +286,22 @@ export function EmbeddingSection() {
             <>
               <label className="block">
                 {s("Preset")}
-                <Select
-                  aria-label={s("Preset")}
-                  className="mt-1 block w-full rounded border border-border bg-background p-2"
-                  value={
-                    EMBEDDING_PRESETS.find((preset) => preset.url === fields.url)?.id ?? "custom"
-                  }
-                  onChange={(event) => edit({ url: presetUrl(event.target.value, fields.url) })}
-                >
-                  {EMBEDDING_PRESETS.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {preset.id === "custom" ? s("Custom") : preset.label}
-                    </option>
-                  ))}
-                </Select>
+                <div className={compactField}>
+                  <Select
+                    aria-label={s("Preset")}
+                    className="mt-1 block w-full rounded border border-border bg-background p-2"
+                    value={
+                      EMBEDDING_PRESETS.find((preset) => preset.url === fields.url)?.id ?? "custom"
+                    }
+                    onChange={(event) => edit({ url: presetUrl(event.target.value, fields.url) })}
+                  >
+                    {EMBEDDING_PRESETS.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.id === "custom" ? s("Custom") : preset.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               </label>
               <label className="block">
                 {s("Server URL")}

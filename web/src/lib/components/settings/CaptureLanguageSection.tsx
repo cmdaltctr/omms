@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Select } from "$lib/components/ui/select";
+import { compactField, Select } from "$lib/components/ui/select";
 import {
   beginSettingsRead,
   onSettingsSnapshot,
@@ -22,20 +22,22 @@ export function CaptureLanguageField({
 }) {
   const s = useSettingsText();
   return (
-    <Select
-      id="capture-language"
-      className="w-full rounded-lg border border-border bg-background p-2 text-sm"
-      value={value}
-      disabled={disabled}
-      onChange={(event) => onChange(event.target.value)}
-    >
-      <option value="auto">{s("Automatic")}</option>
-      {captureLanguageOptions(value).map((entry) => (
-        <option value={entry.code} key={entry.code}>
-          {entry.name ?? entry.code}
-        </option>
-      ))}
-    </Select>
+    <div className={compactField}>
+      <Select
+        id="capture-language"
+        className="w-full rounded-lg border border-border bg-background p-2 text-sm"
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="auto">{s("Automatic")}</option>
+        {captureLanguageOptions(value).map((entry) => (
+          <option value={entry.code} key={entry.code}>
+            {entry.name ?? entry.code}
+          </option>
+        ))}
+      </Select>
+    </div>
   );
 }
 

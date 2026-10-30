@@ -25,6 +25,8 @@ const input = (overrides: Partial<HostStatusInput> = {}): HostStatusInput => ({
   runNowUnavailable: null,
   setUp: true,
   formatDate: (ms) => new Date(ms).toISOString().slice(0, 10),
+  lastSaved: null,
+  formatSaved: (ms) => `saved-${ms}`,
   ...overrides,
 });
 
@@ -184,10 +186,25 @@ it("builds the one-line card status for each state", () => {
     params: { pending: 3 },
   });
   expect(line({ run: run({ state: "done", updatedAt: Date.UTC(2026, 9, 9) }) })).toEqual({
-    text: "Running · last import {date}",
+    text: "Running · history imported {date}",
     params: { date: "2026-10-09" },
   });
   expect(line({ run: null })).toEqual({ text: "Running" });
+});
+
+it("adds the last live save to a running card", () => {
+  const line = (overrides: Partial<HostStatusInput>) => cardLine(input(overrides));
+  const done = run({ state: "done", updatedAt: Date.UTC(2026, 9, 18) });
+  expect(line({ run: done, lastSaved: 5 })).toEqual({
+    text: "Running · history imported {date} · last saved {when}",
+    params: { date: "2026-10-18", when: "saved-5" },
+  });
+  expect(line({ run: null, lastSaved: 7 })).toEqual({
+    text: "Running · last saved {when}",
+    params: { when: "saved-7" },
+  });
+  // A paused or failed host keeps its own line.
+  expect(line({ run: run({ state: "failed" }), lastSaved: 7 })).toEqual({ text: "Failed" });
 });
 
 it("shows a pause that is still being honoured as running with Pause unavailable", () => {

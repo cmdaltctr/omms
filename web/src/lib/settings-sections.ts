@@ -12,6 +12,7 @@ export const SETTINGS_SECTIONS = [
   { id: "settings-section-health", title: "Health" },
   { id: "settings-section-claude-folder", title: "Claude Code folder" },
   { id: "settings-section-capture-language", title: "Memory language" },
+  { id: "settings-section-appearance", title: "Appearance" },
   { id: "settings-section-profiles", title: "Profiles" },
   { id: "settings-section-web-app", title: "Web app" },
   { id: "settings-section-log", title: "Log" },

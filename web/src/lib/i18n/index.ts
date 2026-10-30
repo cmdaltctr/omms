@@ -6,6 +6,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { getDateFormat, subscribeDateFormat, type DateFormatChoice } from "../date-format";
 import { htmlLangFor } from "../document-head";
 import { readPreference, writePreference } from "../preferences";
 import { translations, type Lang, type TranslationKey } from "./translations";
@@ -92,6 +93,8 @@ export function t(
 type I18nContextValue = {
   language: Lang;
   t: TranslateFn;
+  /** The date and time format; a change re-renders every reader of this context. */
+  dateFormat: DateFormatChoice;
 };
 
 const I18nContext = createContext<I18nContextValue | null>(null);
@@ -100,14 +103,20 @@ function useLanguageStore(): Lang {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
+function useDateFormatStore(): DateFormatChoice {
+  return useSyncExternalStore(subscribeDateFormat, getDateFormat, getDateFormat);
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const language = useLanguageStore();
+  const dateFormat = useDateFormatStore();
   const value = useMemo<I18nContextValue>(
     () => ({
       language,
       t: (key, params = {}) => t(key, params, language),
+      dateFormat,
     }),
-    [language]
+    [language, dateFormat]
   );
 
   return createElement(I18nContext.Provider, { value }, children);
@@ -116,13 +125,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 export function useI18n(): I18nContextValue {
   const ctx = useContext(I18nContext);
   const language = useLanguageStore();
+  const dateFormat = useDateFormatStore();
   return useMemo(
     () =>
       ctx ?? {
         language,
         t: (key, params = {}) => t(key, params, language),
+        dateFormat,
       },
-    [ctx, language]
+    [ctx, language, dateFormat]
   );
 }
 

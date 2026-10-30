@@ -40,6 +40,9 @@ function collectOptions(children: React.ReactNode): OptionItem[] {
   return items;
 }
 
+/** Wrap a dropdown with short options in this so it does not fill the whole row. */
+export const compactField = "w-72 max-w-full";
+
 /**
  * A styled replacement for the native `<select>`. It takes the same `value`,
  * `onChange` and `<option>` children, so call sites only swap the tag name.

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Select } from "$lib/components/ui/select";
 import { useSettingsText } from "$lib/i18n/settings";
+import { formatDateOnly } from "$lib/format";
 
 export type ApiToken = {
   id: string;
@@ -44,8 +45,7 @@ export function ApiTokensTable({
   const s = useSettingsText();
   const [name, setName] = useState("");
   const [expiry, setExpiry] = useState<string>("30");
-  const date = (value: number | null) =>
-    value === null ? s("Never") : new Date(value).toLocaleDateString();
+  const date = (value: number | null) => (value === null ? s("Never") : formatDateOnly(value));
   return (
     <div className="space-y-2">
       <table className="w-full text-left text-xs">

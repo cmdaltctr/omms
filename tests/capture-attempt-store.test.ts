@@ -12,6 +12,7 @@ import {
   saveCaptureAttempt,
   queryCaptureAttempts,
   pruneCaptureAttempts,
+  lastLiveSaves,
 } from "../src/services/capture-attempt-store.js";
 
 const storage = mkdtempSync(join(tmpdir(), "omms-attempts-"));
@@ -109,6 +110,35 @@ describe("capture attempt store preparation", () => {
       await tursoConnectionManager.closeAll();
       rmSync(first, { recursive: true, force: true });
       rmSync(second, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("lastLiveSaves", () => {
+  it("gives each host's newest saved live capture and ignores imports, skips and failures", async () => {
+    const storageDir = mkdtempSync(join(tmpdir(), "omms-attempts-last-"));
+    const previous = CONFIG.storagePath;
+    try {
+      CONFIG.storagePath = storageDir;
+      const base = Date.UTC(2026, 9, 28, 12);
+      await saveCaptureAttempt({ ...attempt("saved"), host: "pi" }, base);
+      await saveCaptureAttempt({ ...attempt("saved"), host: "pi" }, base + 5000);
+      await saveCaptureAttempt({ ...attempt("failed", "call-error"), host: "pi" }, base + 9000);
+      await saveCaptureAttempt({ ...attempt("skipped"), host: "opencode" }, base + 9000);
+      await saveCaptureAttempt(
+        { ...attempt("saved"), host: "opencode", sourceType: "history-import" },
+        base + 9000
+      );
+      await saveCaptureAttempt({ ...attempt("saved"), host: "claude-code" }, base + 7000);
+      expect(await lastLiveSaves()).toEqual({
+        pi: base + 5000,
+        opencode: null,
+        "claude-code": base + 7000,
+      });
+    } finally {
+      CONFIG.storagePath = previous;
+      await tursoConnectionManager.closeAll();
+      rmSync(storageDir, { recursive: true, force: true });
     }
   });
 });

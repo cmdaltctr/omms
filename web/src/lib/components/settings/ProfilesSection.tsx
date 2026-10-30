@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { reloadSettingsSnapshot, settingsRequest, withBusy } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
+import { formatDate } from "$lib/format";
 import { cn } from "$lib/utils";
 import { caption, tableWrap, td, th, thead, tr } from "./table-styles";
 
@@ -114,7 +115,7 @@ export function ProfilesSection() {
                 <td className={td}>{profile.patterns}</td>
                 <td className={td}>{profile.workflows}</td>
                 <td className={td}>{profile.totalPromptsAnalyzed}</td>
-                <td className={td}>{new Date(profile.lastAnalyzedAt).toLocaleString()}</td>
+                <td className={td}>{formatDate(profile.lastAnalyzedAt)}</td>
                 <td className={cn(td, "space-y-1")}>
                   {!profile.inUse && (
                     <button

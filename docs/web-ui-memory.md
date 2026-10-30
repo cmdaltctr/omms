@@ -16,7 +16,10 @@ Browse stored results on **Project memories** (`/project-memories`) and **User p
 
 ## The overview
 
-Each host card shows the host's avatar, its name and one line of state, such as `Running · last import 9 Oct` or `Paused · 0 pending`. **Shared** says that its settings apply to every host. A host whose history is not on this computer shows **Not set up** and its card is greyed.
+Each host card shows the host's avatar, its name and one line of state, such as `Running · history imported 9 Oct · last saved today 18:52` or `Paused · 0 pending`.
+
+- **history imported** is when the one-off import of older chats last finished. It does not change once that history is done.
+- **last saved** is the newest live capture that saved a memory. It shows `today` or `yesterday` with the time, or the date and time when older. The card reads it again every minute. A host with no saved capture in the kept records (30 days by default, `captureAttemptRetentionDays`) shows no `last saved` part. **Shared** says that its settings apply to every host. A host whose history is not on this computer shows **Not set up** and its card is greyed.
 
 **Import all hosts** opens the multi-host import described under [Import chat history](#import-chat-history). It makes model calls and can cost money.
 

@@ -20,3 +20,5 @@ CHANGELOG.md
 .claude-plugin/types
 # Experiment evidence: earlier experiments pin these files by SHA-256, so formatting them breaks their verification
 experiments
+# Generated from OpenChamber themes; one theme per line
+web/src/lib/themes/theme-data.ts

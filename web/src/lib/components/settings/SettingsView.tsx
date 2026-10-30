@@ -14,6 +14,7 @@ import { WebAppSection } from "./WebAppSection";
 import { ClaudeFolderSection } from "./ClaudeFolderSection";
 import { LogSection } from "./LogSection";
 import { CaptureLanguageSection } from "./CaptureLanguageSection";
+import { AppearanceSection } from "./AppearanceSection";
 
 const CARDS: Record<SettingsSectionId, ComponentType> = {
   "settings-section-external-api": ExternalApiSection,
@@ -24,6 +25,7 @@ const CARDS: Record<SettingsSectionId, ComponentType> = {
   "settings-section-health": HealthSection,
   "settings-section-claude-folder": ClaudeFolderSection,
   "settings-section-capture-language": CaptureLanguageSection,
+  "settings-section-appearance": AppearanceSection,
   "settings-section-profiles": ProfilesSection,
   "settings-section-web-app": WebAppSection,
   "settings-section-log": LogSection,
