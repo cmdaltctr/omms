@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.30.0](https://github.com/cmdaltctr/omms/compare/v4.29.1...v4.30.0) (2026-10-30)
+
+
+### Features
+
+* show the last live save on host cards and add an Appearance section ([8d3ee5d](https://github.com/cmdaltctr/omms/commit/8d3ee5d1e614354d4d6094372eb7b7e33923da63))
+* show the last live save on host cards and add an Appearance section ([19a4f7e](https://github.com/cmdaltctr/omms/commit/19a4f7e7409406c7869f5d2c554bb98a8ed3d45b))
+
+
+### Bug Fixes
+
+* let System theme win over a theme saved under the old opencode-mem key ([a23530f](https://github.com/cmdaltctr/omms/commit/a23530f0897b95879d240ce4d5d358f28696dd93))
+
 ## [4.29.1](https://github.com/cmdaltctr/omms/compare/v4.29.0...v4.29.1) (2026-10-30)
 
 
