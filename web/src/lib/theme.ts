@@ -139,6 +139,8 @@ export function setThemeMode(mode: ThemeMode) {
   if (mode !== "system") return setTheme(mode);
   pickedThisSession = false;
   removePreference(STORAGE_KEY);
+  // Otherwise the next read copies the opencode-mem-era pick back in.
+  removePreference(LEGACY_STORAGE_KEY);
   currentChoice = { ...currentChoice, mode: "system" };
   applyTheme(readTheme());
 }

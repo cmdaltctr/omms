@@ -57,3 +57,12 @@ it("forgets the saved mode for System and keeps it for the sidebar toggle", () =
   expect(store.get("omms-theme")).toBe("light");
   expect(classes.has("dark")).toBe(false);
 });
+
+it("lets System win over a theme saved under the old opencode-mem key", () => {
+  store.set("opencode-mem-theme", "light");
+  theme.setThemeMode("system");
+  expect(store.has("omms-theme")).toBe(false);
+  expect(store.has("opencode-mem-theme")).toBe(false);
+  // The fake system prefers dark, so the old light pick no longer applies.
+  expect(classes.has("dark")).toBe(true);
+});
