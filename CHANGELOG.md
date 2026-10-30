@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.29.0](https://github.com/cmdaltctr/omms/compare/v4.28.3...v4.29.0) (2026-10-30)
+
+
+### Features
+
+* minimise a running AI Cleanup to a status pill ([8e03236](https://github.com/cmdaltctr/omms/commit/8e032366d0c189d69aef7bf2a2a4ea61c9284d69))
+* minimise a running AI Cleanup to a status pill ([f5d7f45](https://github.com/cmdaltctr/omms/commit/f5d7f45bb88406923afaadbe85385fb0bd11ba1e))
+
+
+### Bug Fixes
+
+* keep the AI Cleanup pill reading the job and wait for a fresh read on reopen ([5802bb2](https://github.com/cmdaltctr/omms/commit/5802bb24b46e398b7adf04efb5fe11a5b41c6704))
+
 ## [4.28.3](https://github.com/cmdaltctr/omms/compare/v4.28.2...v4.28.3) (2026-10-28)
 
 
