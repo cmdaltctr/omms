@@ -16,7 +16,7 @@ type Props = {
 /** A minimised AI Cleanup dialog. It follows the job until the user opens the dialog again. */
 export function AiCleanupPill({ onOpen, onGone }: Props) {
   const { t } = useI18n();
-  const cleanup = useAiCleanupJob(true);
+  const cleanup = useAiCleanupJob(true, true);
   const view = pillView(cleanup.job, cleanup.checked);
   const gone = view === null;
 

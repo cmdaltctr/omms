@@ -57,7 +57,9 @@ export function AiCleanupDialog(props: Props) {
 
   const job = cleanup.job;
   const jobView = dialogView(job, cleanup.startError);
-  const view = starting ? { phase: "running" as const, done: 0, total: 0 } : jobView;
+  // A kept job may be stale until the first read after opening answers.
+  const waiting = starting || (!!job && !cleanup.checked);
+  const view = waiting ? { phase: "running" as const, done: 0, total: 0 } : jobView;
   const review = view.phase === "review" ? view.result : null;
 
   const cats = useMemo(() => {
@@ -224,7 +226,7 @@ export function AiCleanupDialog(props: Props) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="grid! sm:max-w-2xl max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden gap-4"
-        onMinimise={view.phase === "running" && !starting ? onMinimise : undefined}
+        onMinimise={view.phase === "running" && !waiting ? onMinimise : undefined}
       >
         <DialogHeader className="pe-20">
           <DialogTitle>{t("label-ai-cleanup-title")}</DialogTitle>
@@ -484,7 +486,7 @@ export function AiCleanupDialog(props: Props) {
           <Button variant="secondary" onClick={() => handleOpenChange(false)}>
             {t("btn-cancel")}
           </Button>
-          {view.phase === "running" && !starting ? (
+          {view.phase === "running" && !waiting ? (
             <Button variant="outline" onClick={backToSelection}>
               {t("btn-ai-cleanup-stop")}
             </Button>

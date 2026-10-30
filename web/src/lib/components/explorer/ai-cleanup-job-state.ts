@@ -72,14 +72,16 @@ export function keepPolling(job: AiCleanupJob | null, open: boolean): boolean {
 
 /**
  * What one status read changes. A failed read says nothing about the job, so a running job
- * stays on screen and the next poll tries again.
+ * stays on screen and the next poll tries again. `follow` keeps polling in every state, so the
+ * pill sees a finished job expire or be discarded elsewhere.
  */
 export function afterStatusRead(
   current: AiCleanupJob | null,
-  read: { success: boolean; data?: AiCleanupJob | null }
+  read: { success: boolean; data?: AiCleanupJob | null },
+  follow = false
 ): { job: AiCleanupJob | null; poll: boolean } {
   const job = read.success ? (read.data ?? null) : current;
-  return { job, poll: keepPolling(job, true) };
+  return { job, poll: follow || keepPolling(job, true) };
 }
 
 /** Stop returns to the selection the job ran with, which a reopened dialog no longer holds. */

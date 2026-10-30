@@ -77,6 +77,14 @@ describe("afterStatusRead", () => {
     expect(afterStatusRead(running, { success: false })).toEqual({ job: running, poll: true });
   });
 
+  it("keeps polling a finished job, no job or a failed read while the pill follows it", () => {
+    expect(afterStatusRead(running, { success: true, data: done }, true)).toEqual({
+      job: done,
+      poll: true,
+    });
+    expect(afterStatusRead(null, { success: false }, true)).toEqual({ job: null, poll: true });
+  });
+
   it("does not poll after a failed read when no job is running", () => {
     expect(afterStatusRead(null, { success: false })).toEqual({ job: null, poll: false });
     expect(afterStatusRead(done, { success: false })).toEqual({ job: done, poll: false });

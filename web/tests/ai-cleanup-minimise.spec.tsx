@@ -113,3 +113,16 @@ it("offers Minimise in the AI Cleanup dialog only while a job runs", () => {
   currentJob = null;
   expect(content().props.onMinimise).toBeUndefined();
 });
+
+it("waits for the first read after opening before it shows a retained job", () => {
+  const onMinimise = () => {};
+  const tree = () => nodes(AiCleanupDialog({ open: true, onMinimise }) as ReactNode);
+  currentJob = running;
+  checked = false;
+  const waiting = tree();
+  expect(waiting.find((node) => node.type === DialogContent)!.props.onMinimise).toBeUndefined();
+  expect(waiting.some((node) => text(node.props.children) === t("btn-ai-cleanup-stop"))).toBe(
+    false
+  );
+  expect(text(waiting)).not.toContain(t("label-ai-cleanup-progress", { done: 12, total: 24 }));
+});

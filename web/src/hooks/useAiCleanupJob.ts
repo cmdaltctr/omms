@@ -7,9 +7,9 @@ const POLL_MS = 2000;
 /**
  * The user's AI cleanup job. On open it reads the job, so a run started earlier shows its
  * progress or result. It polls only while the job runs and the dialog is open. Closing
- * the dialog does not stop the job.
+ * the dialog does not stop the job. With `follow`, it polls in every state while open.
  */
-export function useAiCleanupJob(open: boolean) {
+export function useAiCleanupJob(open: boolean, follow = false) {
   const [job, setJobState] = useState<AiCleanupJob | null>(null);
   // The poll reads the latest job here, since its closure holds an older render.
   const latest = useRef<AiCleanupJob | null>(null);
@@ -33,7 +33,7 @@ export function useAiCleanupJob(open: boolean) {
     const load = async () => {
       const result = await aiCleanupApi.status();
       if (stopped || generation.current !== mine) return;
-      const next = afterStatusRead(latest.current, result);
+      const next = afterStatusRead(latest.current, result, follow);
       setJob(next.job);
       if (result.success) setChecked(true);
       if (next.poll) timer = setTimeout(() => void load(), POLL_MS);
@@ -43,10 +43,13 @@ export function useAiCleanupJob(open: boolean) {
       stopped = true;
       clearTimeout(timer);
     };
-  }, [open, reads, setJob]);
+  }, [open, follow, reads, setJob]);
 
   useEffect(() => {
-    if (!open) setStartError(undefined);
+    if (open) return;
+    setStartError(undefined);
+    // A reopened dialog waits for a fresh read before it trusts the job it kept.
+    setChecked(false);
   }, [open]);
 
   const start = useCallback(
