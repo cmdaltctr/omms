@@ -16,7 +16,7 @@ concurrency: 20 jobs in total, 5 of them macOS.
 | Format, lint, typecheck                | Local, before every push          | pre-push hook (`bun run check`)         |
 | Build, unit tests                      | Local, full gate                  | `bun run ci:local`                      |
 | Format, lint, typecheck, package shape | GitHub, `ubuntu-latest`           | Quality workflow, every PR and `main`   |
-| Build, unit tests                      | GitHub, `macos-latest`            | Quality workflow, every PR and `main`   |
+| Build, unit tests                      | GitHub, `ubuntu-latest`           | Quality workflow, every PR and `main`   |
 | Build, unit tests                      | GitHub, `windows-latest`          | Quality workflow, PR and `main`         |
 | Native embedding smoke (4 platforms)   | GitHub, PRs touching native paths | Embedding Backend workflow, or manual   |
 | Nested OpenCode fixture, Intel (#225)  | GitHub, PRs touching native paths | Embedding Backend workflow, or manual   |
@@ -135,7 +135,7 @@ Runs on every pull request and on every push to `main`. Four jobs:
 - `check` on `ubuntu-latest`: format, lint, typecheck, then build and
   `bun run check:package` (entry points and web UI present, `publint`,
   `attw`). Always runs, because Prettier also checks Markdown.
-- `test` on `macos-latest`: build, then the full suite through
+- `test` on `ubuntu-latest`: build, then the full suite through
   `scripts/run-tests-isolated.sh`. Skipped when a pull request changes only
   Markdown files or files under `docs/`.
 - `test-windows` on `windows-latest`: the same build and suite, run in Git
@@ -147,7 +147,7 @@ Runs on every pull request and on every push to `main`. Four jobs:
 - A skipped `test` job still passes the required status check. So docs-only pull requests can merge.
 - Do not add `paths-ignore` to this workflow. If it does not start, the required checks never report and the pull request stays blocked.
 - If the `changes` job fails, `test` runs anyway, and so does `test-windows` on a push to `main`.
-- `test-windows` is a separate job, not a matrix entry of `test`. A matrix renames the job to `test (macos-latest)`, so the required `test` check would never report and every pull request would stay blocked.
+- `test-windows` is a separate job, not a matrix entry of `test`. A matrix renames the job to `test (ubuntu-latest)`, so the required `test` check would never report and every pull request would stay blocked.
 - The "Protect main" ruleset requires `check` and `test`. Do not add `test-windows`: it does not run on pull requests, so a required check would never report.
 
 Quality is the minimum gate for every pull request. This includes pull
@@ -166,7 +166,7 @@ also start it by hand at any time.
 - onnxruntime-node and sharp ship a separate native binary for each platform.
   So the `verify` job runs on `macos-15`, `macos-26-intel`, `windows-latest`,
   and `ubuntu-latest`.
-- `macos-15` is the oldest supported macOS on Apple Silicon. The Quality `test` job already covers the newest macOS.
+- `macos-15` is the oldest supported macOS on Apple Silicon. The newest macOS is tested locally before each push; the Quality `test` job runs on Linux.
 - Intel macOS runs on `macos-26-intel` only. There is no macOS 15 Intel job.
 - Each job installs without lifecycle scripts and makes real embeddings under Bun and Node 24.
 - The `nested-intel-regression` job copies the OpenCode nested install on
