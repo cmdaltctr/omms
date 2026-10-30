@@ -339,6 +339,11 @@ If no Release run starts after you merge the release pull request, GitHub
 missed the push. Merge any other pull request into `main`. release-please then
 finds the merged release pull request, tags it, and runs smoke and `publish`.
 
+If a macOS job is cancelled after about 15 minutes with "The job was not
+acquired by Runner of type hosted", GitHub had no free macOS runner. No test
+ran. This is not a setting in the workflow. Re-running only the failed job does
+not start, because the smoke is a called workflow. Release again as below.
+
 If the smoke gate fails, nothing is staged. The tag and GitHub Release
 already exist. The `report-failure` job marks the GitHub Release "not published
 to npm" and mentions you on the release pull request. To fix it, push a `fix:`
