@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.29.1](https://github.com/cmdaltctr/omms/compare/v4.29.0...v4.29.1) (2026-10-30)
+
+
+### Documentation
+
+* explain a release smoke cancelled for lack of a macOS runner ([b3395c5](https://github.com/cmdaltctr/omms/commit/b3395c5aae04f374c8bde539768326957035650e))
+* explain a release smoke cancelled for lack of a macOS runner ([f74db81](https://github.com/cmdaltctr/omms/commit/f74db81d96ea2133cc4ac19f84678bf0c626b442))
+
 ## [4.29.0](https://github.com/cmdaltctr/omms/compare/v4.28.3...v4.29.0) (2026-10-30)
 
 
