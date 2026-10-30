@@ -85,7 +85,10 @@ jobs:
     # Runs unless the change is docs-only. If the changes job fails, its output
     # is empty and the tests still run.
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
-    runs-on: macos-latest
+    # Linux, not macOS: macOS runners are limited to 5 at once and a pull request
+    # could wait more than 15 minutes for one. Changes are tested on macOS locally
+    # first, and the release smoke tests macOS before npm.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:

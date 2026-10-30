@@ -1,6 +1,6 @@
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { XIcon } from "lucide-react";
+import { MinusIcon, XIcon } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
 import { cn } from "$lib/utils";
 import { useI18n } from "$lib/i18n";
@@ -41,11 +41,14 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onMinimise,
   onOpenAutoFocus,
   onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
+  /** Shows a Minimise button beside the close button. */
+  onMinimise?: () => void;
 }) {
   const { t } = useI18n();
   const opener = React.useRef<HTMLElement | null>(null);
@@ -73,6 +76,18 @@ function DialogContent({
         }}
       >
         {children}
+        {onMinimise ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="bg-secondary absolute top-4 end-14"
+            size="icon-sm"
+            onClick={onMinimise}
+          >
+            <MinusIcon aria-hidden="true" />
+            <span className="sr-only">{t("dialog-minimise")}</span>
+          </Button>
+        ) : null}
         {showCloseButton ? (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button variant="ghost" className="bg-secondary absolute top-4 end-4" size="icon-sm">

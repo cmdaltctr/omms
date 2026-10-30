@@ -45,6 +45,26 @@ export function dialogView(job: AiCleanupJob | null, startError?: string): AiCle
   }
 }
 
+export type AiCleanupPillView =
+  | { kind: "checking" }
+  | { kind: "running"; done: number; total: number }
+  | { kind: "ready" }
+  | { kind: "failed" };
+
+/** The pill of a minimised dialog. Before the first read it cannot tell "no job" yet. */
+export function pillView(job: AiCleanupJob | null, checked: boolean): AiCleanupPillView | null {
+  if (!job) return checked ? null : { kind: "checking" };
+  const status = job.status;
+  switch (status.state) {
+    case "running":
+      return { kind: "running", done: status.done, total: status.total };
+    case "done":
+      return { kind: "ready" };
+    case "failed":
+      return { kind: "failed" };
+  }
+}
+
 /** Only a running job changes, and only an open dialog shows it. */
 export function keepPolling(job: AiCleanupJob | null, open: boolean): boolean {
   return open && job?.status.state === "running";
@@ -52,14 +72,16 @@ export function keepPolling(job: AiCleanupJob | null, open: boolean): boolean {
 
 /**
  * What one status read changes. A failed read says nothing about the job, so a running job
- * stays on screen and the next poll tries again.
+ * stays on screen and the next poll tries again. `follow` keeps polling in every state, so the
+ * pill sees a finished job expire or be discarded elsewhere.
  */
 export function afterStatusRead(
   current: AiCleanupJob | null,
-  read: { success: boolean; data?: AiCleanupJob | null }
+  read: { success: boolean; data?: AiCleanupJob | null },
+  follow = false
 ): { job: AiCleanupJob | null; poll: boolean } {
   const job = read.success ? (read.data ?? null) : current;
-  return { job, poll: keepPolling(job, true) };
+  return { job, poll: follow || keepPolling(job, true) };
 }
 
 /** Stop returns to the selection the job ran with, which a reopened dialog no longer holds. */
