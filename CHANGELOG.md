@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.30.1](https://github.com/cmdaltctr/omms/compare/v4.30.0...v4.30.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* stop a macOS runner shortage from blocking npm releases ([5b86295](https://github.com/cmdaltctr/omms/commit/5b862954c2f0ca890037069041d55b3e6141318b))
+* stop a macOS runner shortage from blocking npm releases ([c0eefb3](https://github.com/cmdaltctr/omms/commit/c0eefb3e43ddc6fa471a3f4a0c4c007b74ce4c69))
+
 ## [4.30.0](https://github.com/cmdaltctr/omms/compare/v4.29.1...v4.30.0) (2026-10-30)
 
 
