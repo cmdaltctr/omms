@@ -191,7 +191,7 @@ Runs on `macos-15`, `macos-26`, `macos-26-intel`, `windows-latest`, and
 
 It runs:
 
-- Before every release. The Release workflow calls it and waits for it.
+- Before every release. The Release workflow calls it twice: Linux and Windows, which gate npm, and the three macOS runners, which do not.
 - Every Monday at 06:00 UTC, to find changes in runner images and upstream packages.
 - On demand, after any packaging change:
 
@@ -213,7 +213,12 @@ Runs on every push to `main` once the repository variable
   `omms-release` GitHub App, so its pull requests run the Quality checks.
   Merging that pull request tags `vX.Y.Z` and creates the GitHub Release.
 - `smoke` runs only for a release. It calls Platform Package Smoke on the
-  release commit.
+  release commit for `ubuntu-latest` and `windows-latest`. These two gate npm.
+- `smoke-macos` runs the same smoke for the three macOS runners at the same time.
+  It reports but does not block `publish`. GitHub's macOS runners can be short
+  for hours, and a job that no runner picks up is cancelled after about 15
+  minutes. Every change runs `ci:local` on macOS before it is pushed. Check its
+  result after a release; a failure there is a macOS bug in a published version. See [ADR-035](adr/035-macos-smoke-does-not-gate-npm.md).
 - `publish` runs only after `smoke` passes. It builds, verifies the package
   contents, checks the version, and runs `npm stage publish` with no token
   (npm trusted publishing). npm holds the version until the maintainer
@@ -341,8 +346,9 @@ finds the merged release pull request, tags it, and runs smoke and `publish`.
 
 If a macOS job is cancelled after about 15 minutes with "The job was not
 acquired by Runner of type hosted", GitHub had no free macOS runner. No test
-ran. This is not a setting in the workflow. Re-running only the failed job does
-not start, because the smoke is a called workflow. Release again as below.
+ran. This is not a setting in the workflow. The release still publishes,
+because `smoke-macos` does not gate it. Run the smoke on macOS later with
+`gh workflow run "Platform Package Smoke" --ref main`.
 
 If the smoke gate fails, nothing is staged. The tag and GitHub Release
 already exist. The `report-failure` job marks the GitHub Release "not published
