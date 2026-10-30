@@ -16,6 +16,8 @@ export function fakeStatuses(setUp: Record<(typeof hosts)[number], boolean>): Ho
     runNowUnavailable: null,
     setUp: setUp[host],
     formatDate: String,
+    lastSaved: null,
+    formatSaved: String,
   });
   return {
     backfill: {

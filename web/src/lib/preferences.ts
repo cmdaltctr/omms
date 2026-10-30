@@ -15,6 +15,14 @@ export function readPreference(key: string, legacyKey: string): string | null {
   }
 }
 
+export function removePreference(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // storage unavailable; the in-memory value still changes
+  }
+}
+
 export function writePreference(key: string, value: string): void {
   try {
     localStorage.setItem(key, value);

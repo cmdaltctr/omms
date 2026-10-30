@@ -23,7 +23,8 @@ it("ignores a saved value that is not a theme", () => {
 
 it("saves the theme only when the user picks one", () => {
   const source = readFileSync(join(webDir, "src", "lib", "theme.ts"), "utf8");
-  const writes = source.match(/writePreference\(/g) ?? [];
+  // The mode key is written in one place; the light and dark theme ids have their own keys.
+  const writes = source.match(/writePreference\(STORAGE_KEY/g) ?? [];
   expect(writes.length).toBe(1);
   expect(source).toMatch(/if \(save\) \{[^}]*writePreference\(STORAGE_KEY, theme\)/);
   expect(source).toMatch(/export function setTheme\(theme: Theme\) \{\s*applyTheme\(theme, true\)/);

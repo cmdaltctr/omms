@@ -317,6 +317,23 @@ Use this card to choose the language that new memory summaries are written in.
 - **Automatic** detects the language of your prompt. Detection is unreliable on short text, so a Latin-script prompt under 100 characters counts as English. Pick a fixed language if your memories come out in a language you do not use.
 - A save applies to the next capture. Memories that exist already keep their language.
 
+## Appearance
+
+Every choice here stays in this browser. It is not written to the OMMS config.
+
+### Theme
+
+1. Choose **System**, **Light** or **Dark**. **System** follows your operating system. The sidebar theme button switches between Light and Dark and changes the same choice.
+2. Choose a light theme and a dark theme. **OMMS** is the default of each list. The other themes come from OpenChamber (MIT licence).
+3. Type in **Filter themes** to narrow both lists by name.
+
+### Date and time
+
+- **Date format**: Automatic, day month year (`30 Oct 2026`), month day year (`Oct 30, 2026`) or year-month-day (`2026-10-30`).
+- **Time format**: Automatic, 24-hour (`18:52`) or 12-hour (`6:52 PM`).
+
+Automatic follows the page language. Each option shows today's date or the current time as an example. Every date and time in the web app follows the choice at once.
+
 ## Import and backfill
 
 Moved and renamed to [Import chat history](web-ui-memory.md#import-chat-history). `/settings#settings-section-import` redirects to `/memory#memory-section-import`.

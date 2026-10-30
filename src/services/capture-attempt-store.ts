@@ -79,6 +79,22 @@ export async function hasCaptureAttempts(host: string): Promise<boolean> {
   return Boolean(await db.get("SELECT 1 FROM capture_attempts WHERE host = ? LIMIT 1", [host]));
 }
 
+/** Each host's newest live capture that saved a memory, in milliseconds, or null. */
+export async function lastLiveSaves(): Promise<
+  Record<"pi" | "opencode" | "claude-code", number | null>
+> {
+  const db = await database();
+  const rows = await db.all(
+    `SELECT host, MAX(created_at) AS at FROM capture_attempts
+    WHERE source_type = 'live-capture' AND outcome = 'saved' GROUP BY host`
+  );
+  const at = (host: string) => {
+    const row = rows.find((entry) => entry.host === host);
+    return row ? Number(row.at) : null;
+  };
+  return { pi: at("pi"), opencode: at("opencode"), "claude-code": at("claude-code") };
+}
+
 export async function pruneCaptureAttempts(days: number, now = Date.now()): Promise<number> {
   const db = await database();
   return db.run("DELETE FROM capture_attempts WHERE created_at < ?", [now - days * 86400000]);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Select } from "$lib/components/ui/select";
+import { compactField, Select } from "$lib/components/ui/select";
 import {
   beginSettingsRead,
   onSettingsSnapshot,
@@ -150,18 +150,20 @@ export function ExternalApiSection() {
       </p>
       <label className="block text-sm">
         {s("Provider")}
-        <Select
-          aria-label={s("Provider")}
-          className="mt-1 block w-full rounded border border-border bg-background p-2"
-          value={value("memoryProvider") || "openai-chat"}
-          onChange={(event) => setFields({ ...fields, memoryProvider: event.target.value })}
-        >
-          {PROVIDERS.map((provider) => (
-            <option key={provider} value={provider}>
-              {provider}
-            </option>
-          ))}
-        </Select>
+        <div className={compactField}>
+          <Select
+            aria-label={s("Provider")}
+            className="mt-1 block w-full rounded border border-border bg-background p-2"
+            value={value("memoryProvider") || "openai-chat"}
+            onChange={(event) => setFields({ ...fields, memoryProvider: event.target.value })}
+          >
+            {PROVIDERS.map((provider) => (
+              <option key={provider} value={provider}>
+                {provider}
+              </option>
+            ))}
+          </Select>
+        </div>
       </label>
       <label className="block text-sm">
         {s("API URL")}

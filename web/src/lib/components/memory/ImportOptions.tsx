@@ -1,4 +1,4 @@
-import { Select } from "$lib/components/ui/select";
+import { compactField, Select } from "$lib/components/ui/select";
 import { useSettingsText } from "$lib/i18n/settings";
 import type { ImportDraft } from "./import-types";
 
@@ -42,15 +42,18 @@ export function ImportOptions({
       </div>
       <label className="block text-sm">
         {s("Scope")}
-        <Select
-          aria-label={s("Scope")}
-          className={importField}
-          value={draft.scope}
-          onChange={(event) => onChange({ scope: event.target.value as ImportDraft["scope"] })}
-        >
-          <option value="current-project">{s("Current project")}</option>
-          <option value="all-projects">{s("All projects")}</option>
-        </Select>
+        {/* Two short options: a compact width, not the whole row. */}
+        <div className={compactField}>
+          <Select
+            aria-label={s("Scope")}
+            className={importField}
+            value={draft.scope}
+            onChange={(event) => onChange({ scope: event.target.value as ImportDraft["scope"] })}
+          >
+            <option value="current-project">{s("Current project")}</option>
+            <option value="all-projects">{s("All projects")}</option>
+          </Select>
+        </div>
       </label>
       <label className="block text-sm">
         <input

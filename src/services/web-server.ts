@@ -1333,6 +1333,11 @@ export class WebServer {
         return this.jsonResponse({ error: "Invalid host" }, 400);
       }
 
+      if (path === "/api/settings/last-saved" && method === "GET") {
+        const { lastLiveSaves } = await import("./capture-attempt-store.js");
+        return this.jsonResponse({ hosts: await lastLiveSaves() });
+      }
+
       if (path === "/api/settings/diagnostics" && method === "GET") {
         const [{ queryCaptureAttempts }, { CONFIG }, { countCaptureRetries }] = await Promise.all([
           import("./capture-attempt-store.js"),

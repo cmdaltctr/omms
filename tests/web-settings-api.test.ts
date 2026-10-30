@@ -721,6 +721,22 @@ describe("settings API", () => {
     expect(result.other).toBe(400);
   });
 
+  it("gives each host's last saved live capture, and refuses a network request without the token", async () => {
+    const result = await scenario(`
+      const { join } = await import("node:path");
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "isolated-store");
+      const { saveCaptureAttempt } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/capture-attempt-store.ts")).href)});
+      await saveCaptureAttempt({ host: "pi", sourceType: "live-capture", sessionId: "s", durationMs: 1, outcome: "saved" }, 1000);
+      const body = await (await send("/api/settings/last-saved")).json();
+      const network = new WebServer({ enabled: true, host: "0.0.0.0", port: 4747, apiToken: "network-test-token" });
+      const refused = await network.handleRequest(new Request("http://127.0.0.1:4747/api/settings/last-saved"));
+      return { body, refused: refused.status };
+    `);
+    expect(result.body).toEqual({ hosts: { pi: 1000, opencode: null, "claude-code": null } });
+    expect(result.refused).toBe(401);
+  });
+
   it("refuses browsing on a network bind and cross-site listing without a JSON body", async () => {
     const result = await scenario(`
       const network = new WebServer({ enabled: true, host: "0.0.0.0", port: 4747, apiToken: "network-test-token" });

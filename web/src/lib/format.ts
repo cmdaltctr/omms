@@ -1,14 +1,40 @@
 import { getLanguage } from "./i18n";
+import {
+  autoLocale,
+  formatDateOnlyWith,
+  formatDateTimeWith,
+  formatDayWith,
+  formatTimeWith,
+  getDateFormat,
+  type DateFormatChoice,
+} from "./date-format";
 
-export function formatDate(isoString: string): string {
-  const date = new Date(isoString);
-  const lang = getLanguage();
-  const locale = lang === "zh" ? "zh-CN" : lang === "ar" ? "ar-SA" : "en-US";
-  return date.toLocaleString(locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+type DateValue = string | number | Date;
+
+const toDate = (value: DateValue) => (value instanceof Date ? value : new Date(value));
+const locale = () =>
+  autoLocale(getLanguage(), typeof navigator === "undefined" ? undefined : navigator.language);
+
+/** A date and time in the user's chosen format. */
+export function formatDate(value: DateValue): string {
+  return formatDateTimeWith(toDate(value), getDateFormat(), locale());
+}
+
+/** A date with its year, without a time. */
+export function formatDateOnly(value: DateValue): string {
+  return formatDateOnlyWith(toDate(value), getDateFormat(), locale());
+}
+
+/** A day and month, for example `28 Oct`. */
+export function formatDay(value: DateValue): string {
+  return formatDayWith(toDate(value), getDateFormat(), locale());
+}
+
+export function formatTime(value: DateValue, choice = getDateFormat()): string {
+  return formatTimeWith(toDate(value), choice, locale());
+}
+
+/** A date in a given format choice, for the examples in Settings. */
+export function formatDateOnlyAs(value: DateValue, choice: DateFormatChoice): string {
+  return formatDateOnlyWith(toDate(value), choice, locale());
 }

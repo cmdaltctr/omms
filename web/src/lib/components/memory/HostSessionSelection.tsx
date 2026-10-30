@@ -1,6 +1,7 @@
 import { Select } from "$lib/components/ui/select";
 import { hostLabel, type WebHost } from "$lib/host-label";
 import { useSettingsText } from "$lib/i18n/settings";
+import { formatDate } from "$lib/format";
 import { ImportSourcePicker } from "../settings/ImportSourcePicker";
 import {
   emptySelection,
@@ -152,7 +153,7 @@ export function HostSessionSelection({
                       />
                     </td>
                     <td className="p-1 whitespace-nowrap">
-                      {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
+                      {row.createdAt ? formatDate(row.createdAt) : "—"}
                     </td>
                     <td className="p-1 font-mono text-xs">
                       <bdi dir="ltr">{row.sessionId ?? row.key}</bdi>

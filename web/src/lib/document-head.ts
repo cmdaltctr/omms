@@ -17,6 +17,8 @@ export function themeColorFor(theme: Theme): string {
   return THEME_COLORS[theme];
 }
 
-export function applyThemeColor(doc: Document, theme: Theme): void {
-  doc.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColorFor(theme));
+/** `colour` is the chosen theme's canvas; without it the OMMS default is used. */
+export function applyThemeColor(doc: Document, theme: Theme, colour?: string): void {
+  const content = colour ?? themeColorFor(theme);
+  doc.querySelector('meta[name="theme-color"]')?.setAttribute("content", content);
 }
