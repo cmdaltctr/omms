@@ -211,6 +211,7 @@ An **i** button sits beside **AI Cleanup** and beside **Clean up categories**. S
 2. The green box under the list shows how many memories are selected.
 3. **Analyze Selected** starts the cleanup. OMMS sends the selection to the model in batches of up to 100 memories, one batch at a time. A batch holds one kind of memory. Memories with the same category go in the same batch, if the category has 100 selected memories or fewer. OMMS splits a larger category across batches. The window shows the progress, such as "Batch 3 of 14", and a **Stop** button.
    - You can close the window. The cleanup keeps running. Open **AI Cleanup** again to see the progress, or the review when the cleanup is done.
+   - **Minimise** (the **−** button next to **×**) hides the window and shows a small status button at the top right. It shows the batch progress, then **ready to review** or **failed** when the cleanup ends. Select it to open the window again. **×** closes the window without the status button.
    - **Stop** ends the cleanup and shows your selection again. Nothing is saved.
 4. Review each merge and each removal. When a batch failed, a note says how many batches failed. Their memories stay unchanged.
 5. **Apply Changes** saves only the changes you ticked. Every other memory stays exactly as stored, including a memory that the model reworded but did not merge. There is no undo, and the profile keeps only its last 5 versions. Copy `~/.omms/data/user-profiles.db` first.

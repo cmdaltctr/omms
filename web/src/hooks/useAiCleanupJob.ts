@@ -18,6 +18,8 @@ export function useAiCleanupJob(open: boolean) {
     setJobState(next);
   }, []);
   const [startError, setStartError] = useState<string | undefined>();
+  // True once a read has answered, so "no job" is known and not just "not read yet".
+  const [checked, setChecked] = useState(false);
   // Changing this asks the effect below to read the job again.
   const [reads, setReads] = useState(0);
   // Discard raises this, so a poll already in flight cannot bring the stopped job back.
@@ -33,6 +35,7 @@ export function useAiCleanupJob(open: boolean) {
       if (stopped || generation.current !== mine) return;
       const next = afterStatusRead(latest.current, result);
       setJob(next.job);
+      if (result.success) setChecked(true);
       if (next.poll) timer = setTimeout(() => void load(), POLL_MS);
     };
     void load();
@@ -69,5 +72,5 @@ export function useAiCleanupJob(open: boolean) {
     await aiCleanupApi.stop();
   }, [setJob]);
 
-  return { job, startError, start, discard, clear: () => setJob(null) };
+  return { job, checked, startError, start, discard, clear: () => setJob(null) };
 }

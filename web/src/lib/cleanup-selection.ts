@@ -14,3 +14,11 @@ export function sameCategoryIds(items: Array<{ _id: string; category?: string }>
   }
   return ids;
 }
+
+/** A copy of `set` with `value` added when `checked`, or removed when not. */
+export function withToggled<T>(set: Set<T>, value: T, checked: boolean): Set<T> {
+  const next = new Set(set);
+  if (checked) next.add(value);
+  else next.delete(value);
+  return next;
+}

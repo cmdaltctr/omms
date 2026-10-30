@@ -1,5 +1,5 @@
 import { expect, it } from "bun:test";
-import { sameCategoryIds } from "../src/lib/cleanup-selection.ts";
+import { sameCategoryIds, withToggled } from "../src/lib/cleanup-selection.ts";
 
 const item = (id: string, category?: string) => ({ _id: id, category });
 
@@ -34,4 +34,11 @@ it("still selects a real category when uncategorised items sit beside it", () =>
 it("matches category names exactly", () => {
   const items = [item("a", "Git"), item("b", "git"), item("c", "git ")];
   expect([...sameCategoryIds(items)]).toEqual([]);
+});
+
+it("adds or removes one value and leaves the original set alone", () => {
+  const before = new Set(["a"]);
+  expect(withToggled(before, "b", true)).toEqual(new Set(["a", "b"]));
+  expect(withToggled(before, "a", false)).toEqual(new Set());
+  expect(before).toEqual(new Set(["a"]));
 });

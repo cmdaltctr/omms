@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "$lib/components/ui/dialog";
-import { sameCategoryIds } from "$lib/cleanup-selection";
+import { sameCategoryIds, withToggled } from "$lib/cleanup-selection";
 import { useI18n } from "$lib/i18n";
 import { findDescById, findStepsById } from "$lib/profile-utils";
 import type { ProfileItem, UserProfile } from "$lib/types";
@@ -35,13 +35,15 @@ type Props = {
   profile?: UserProfile | null;
   onOpenChange?: (open: boolean) => void;
   onApplied?: () => void;
+  onMinimise?: () => void;
 };
 
 function truncate(text: string, max: number) {
   return text.length > max ? text.substring(0, max) + "..." : text;
 }
 
-export function AiCleanupDialog({ open = false, profile = null, onOpenChange, onApplied }: Props) {
+export function AiCleanupDialog(props: Props) {
+  const { open = false, profile = null, onOpenChange, onApplied, onMinimise } = props;
   const { t } = useI18n();
   const cleanup = useAiCleanupJob(open);
   const [starting, setStarting] = useState(false);
@@ -128,12 +130,7 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
   }
 
   function toggleId(id: string, checked: boolean) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(id);
-      else next.delete(id);
-      return next;
-    });
+    setSelectedIds((prev) => withToggled(prev, id, checked));
   }
 
   function selectAll() {
@@ -178,21 +175,11 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
   }
 
   function toggleMerged(i: number, checked: boolean) {
-    setAcceptedMerged((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(i);
-      else next.delete(i);
-      return next;
-    });
+    setAcceptedMerged((prev) => withToggled(prev, i, checked));
   }
 
   function toggleRemoved(i: number, checked: boolean) {
-    setAcceptedRemoved((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(i);
-      else next.delete(i);
-      return next;
-    });
+    setAcceptedRemoved((prev) => withToggled(prev, i, checked));
   }
 
   function selectAllDiff() {
@@ -235,8 +222,11 @@ export function AiCleanupDialog({ open = false, profile = null, onOpenChange, on
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="grid! sm:max-w-2xl max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden gap-4">
-        <DialogHeader>
+      <DialogContent
+        className="grid! sm:max-w-2xl max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden gap-4"
+        onMinimise={view.phase === "running" && !starting ? onMinimise : undefined}
+      >
+        <DialogHeader className="pe-20">
           <DialogTitle>{t("label-ai-cleanup-title")}</DialogTitle>
         </DialogHeader>
 

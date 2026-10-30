@@ -9,6 +9,20 @@ export function useUserProfile() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [aiCleanupOpen, setAiCleanupOpen] = useState(false);
   const [categoryCleanupOpen, setCategoryCleanupOpen] = useState(false);
+  // A minimised AI Cleanup dialog shows a status pill instead. Opening the dialog removes it.
+  const [aiCleanupMinimised, setAiCleanupMinimised] = useState(false);
+
+  const openAiCleanup = useCallback((open: boolean) => {
+    setAiCleanupOpen(open);
+    if (open) setAiCleanupMinimised(false);
+  }, []);
+
+  const minimiseAiCleanup = useCallback(() => {
+    setAiCleanupOpen(false);
+    setAiCleanupMinimised(true);
+  }, []);
+
+  const dismissAiCleanupPill = useCallback(() => setAiCleanupMinimised(false), []);
 
   const loadUserProfile = useCallback(async () => {
     setLoadingProfile(true);
@@ -40,7 +54,10 @@ export function useUserProfile() {
     userProfile,
     loadingProfile,
     aiCleanupOpen,
-    setAiCleanupOpen,
+    setAiCleanupOpen: openAiCleanup,
+    aiCleanupMinimised,
+    minimiseAiCleanup,
+    dismissAiCleanupPill,
     categoryCleanupOpen,
     setCategoryCleanupOpen,
     loadUserProfile,

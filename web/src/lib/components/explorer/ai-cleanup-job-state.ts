@@ -45,6 +45,26 @@ export function dialogView(job: AiCleanupJob | null, startError?: string): AiCle
   }
 }
 
+export type AiCleanupPillView =
+  | { kind: "checking" }
+  | { kind: "running"; done: number; total: number }
+  | { kind: "ready" }
+  | { kind: "failed" };
+
+/** The pill of a minimised dialog. Before the first read it cannot tell "no job" yet. */
+export function pillView(job: AiCleanupJob | null, checked: boolean): AiCleanupPillView | null {
+  if (!job) return checked ? null : { kind: "checking" };
+  const status = job.status;
+  switch (status.state) {
+    case "running":
+      return { kind: "running", done: status.done, total: status.total };
+    case "done":
+      return { kind: "ready" };
+    case "failed":
+      return { kind: "failed" };
+  }
+}
+
 /** Only a running job changes, and only an open dialog shows it. */
 export function keepPolling(job: AiCleanupJob | null, open: boolean): boolean {
   return open && job?.status.state === "running";

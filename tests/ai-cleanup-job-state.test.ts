@@ -3,6 +3,7 @@ import {
   afterStatusRead,
   dialogView,
   keepPolling,
+  pillView,
   retrySelection,
   selectionAfterStop,
   type AiCleanupJob,
@@ -112,5 +113,27 @@ describe("Stop and Retry", () => {
 
   it("retries a failed start with the dialog's selection", () => {
     expect(retrySelection(null, new Set(["wf_9"]))).toEqual(["wf_9"]);
+  });
+});
+
+describe("pillView", () => {
+  it("shows batch progress while the job runs", () => {
+    expect(pillView(running, true)).toEqual({ kind: "running", done: 3, total: 14 });
+  });
+
+  it("says the review is ready when the job is done", () => {
+    expect(pillView(done, true)).toEqual({ kind: "ready" });
+  });
+
+  it("says the cleanup failed when the job failed", () => {
+    expect(pillView(failed, true)).toEqual({ kind: "failed" });
+  });
+
+  it("waits for the first read before it decides there is no job", () => {
+    expect(pillView(null, false)).toEqual({ kind: "checking" });
+  });
+
+  it("hides when a read finds no job", () => {
+    expect(pillView(null, true)).toBeNull();
   });
 });
