@@ -12,6 +12,11 @@ on:
         type: string
         required: false
         default: ''
+      platforms:
+        description: JSON list of runners to test. Empty tests all five.
+        type: string
+        required: false
+        default: ''
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
@@ -27,12 +32,8 @@ jobs:
       matrix:
         # Apple Silicon: macos-15 (floor) / macos-26 (darwin/arm64).
         # Intel: macos-26-intel (darwin/x64).
-        os:
-          - macos-15
-          - macos-26
-          - macos-26-intel
-          - windows-latest
-          - ubuntu-latest
+        # The Release workflow passes a subset; scheduled and manual runs test all five.
+        os: ${{ fromJSON(inputs.platforms || '["macos-15","macos-26","macos-26-intel","windows-latest","ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
