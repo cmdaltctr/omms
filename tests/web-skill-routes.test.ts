@@ -162,6 +162,34 @@ describe("skills routes with recording on", () => {
     expect(result.bad.status).toBe(400);
   });
 
+  it("adds modified and lastAppliedAt to the list and to one skill", async () => {
+    const { result } = await scenario(
+      `
+      const store = new SkillStore(dbPath);
+      await store.init();
+      const { createProposal, updateProposalState } = await import(${src("services/skill-learning/proposal-store.ts")});
+      const draft = (name, skillPath) => ({ kind: "improve", skillName: name, skillPath, baseHash: "h",
+        content: "c", diff: "", summary: "", evidenceTurnIds: [] });
+      const made = await createProposal(store, draft("alpha", alphaPath), 1000);
+      const before = await call("/api/skills");
+      await updateProposalState(store, made.id, "applied", 5000, "person");
+      const applied = await call("/api/skills");
+      const one = await call("/api/skills/skill?path=" + encodeURIComponent(alphaPath));
+      await updateProposalState(store, made.id, "undone", 6000);
+      const undone = await call("/api/skills");
+      const pick = (r, name) => r.body.data.skills.find((s) => s.name === name);
+      return { before: pick(before, "alpha"), applied: pick(applied, "alpha"), beta: pick(applied, "beta"),
+        one: one.body.data.skill, undone: pick(undone, "alpha") };
+    `,
+      on
+    );
+    expect(result.before).toMatchObject({ modified: false, lastAppliedAt: null });
+    expect(result.applied).toMatchObject({ modified: true, lastAppliedAt: 5000 });
+    expect(result.one).toMatchObject({ modified: true, lastAppliedAt: 5000 });
+    expect(result.beta).toMatchObject({ modified: false, lastAppliedAt: null });
+    expect(result.undone).toMatchObject({ modified: false, lastAppliedAt: null });
+  });
+
   it("ranks recorded skills, shows one skill with its recent turns, sets the mode and deletes turns", async () => {
     const { result } = await scenario(
       `

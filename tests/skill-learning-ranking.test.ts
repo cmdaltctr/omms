@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { buildSkillIndex } from "../src/services/skill-learning/skill-index.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
 const DAY = 86_400_000;
@@ -260,6 +261,8 @@ describe("skill ranking", () => {
         mode: "automatic",
         suggested: false,
         attention: 0.5,
+        modified: false,
+        lastAppliedAt: null,
       },
     ]);
   });
@@ -395,6 +398,129 @@ describe("skill ranking", () => {
       expect(row).toMatchObject({ uses: 40, failedTurns: 1, suggested: false });
       const { SUGGEST_MIN_ATTENTION } = await import("../src/services/skill-learning/ranking.js");
       expect(SUGGEST_MIN_ATTENTION).toBe(0.3);
+    });
+  });
+
+  describe("modified skills", () => {
+    const draft = (name: string, skillPath: string | null) => ({
+      kind: "improve" as const,
+      skillName: name,
+      skillPath,
+      baseHash: "abc",
+      content: "new",
+      diff: "",
+      summary: "",
+      evidenceTurnIds: [],
+    });
+
+    it("marks a skill modified only while a proposal is applied, with the apply time", async () => {
+      const path = addSkill("alpha");
+      const { store, index, rankSkills, proposals } = await setup();
+      const first = await proposals.createProposal(store, draft("alpha", path), NOW - 5 * DAY);
+      let [row] = await rankSkills(store, index, NOW);
+      expect(row).toMatchObject({ modified: false, lastAppliedAt: null });
+
+      await proposals.updateProposalState(store, first.id, "applied", NOW - 4 * DAY, "person");
+      [row] = await rankSkills(store, index, NOW);
+      expect(row).toMatchObject({ modified: true, lastAppliedAt: NOW - 4 * DAY });
+
+      // The newest applied proposal sets the time.
+      const second = await proposals.createProposal(store, draft("alpha", path), NOW - 3 * DAY);
+      await proposals.updateProposalState(store, second.id, "applied", NOW - 2 * DAY, "agent");
+      [row] = await rankSkills(store, index, NOW);
+      expect(row).toMatchObject({ modified: true, lastAppliedAt: NOW - 2 * DAY });
+
+      // Undoing the newest leaves the older applied proposal.
+      await proposals.updateProposalState(store, second.id, "undone", NOW - DAY);
+      [row] = await rankSkills(store, index, NOW);
+      expect(row).toMatchObject({ modified: true, lastAppliedAt: NOW - 4 * DAY });
+
+      await proposals.updateProposalState(store, first.id, "undone", NOW - DAY);
+      [row] = await rankSkills(store, index, NOW);
+      expect(row).toMatchObject({ modified: false, lastAppliedAt: null });
+    });
+
+    it("does not count a pending, rejected or stale proposal", async () => {
+      const path = addSkill("alpha");
+      const { store, index, rankSkills, proposals } = await setup();
+      await proposals.createProposal(store, draft("alpha", path), NOW - 5 * DAY);
+      const rejected = await proposals.createProposal(store, draft("alpha", path), NOW - 5 * DAY);
+      await proposals.updateProposalState(store, rejected.id, "rejected", NOW - 4 * DAY);
+      const stale = await proposals.createProposal(store, draft("alpha", path), NOW - 5 * DAY);
+      await proposals.updateProposalState(store, stale.id, "stale", NOW - 4 * DAY);
+      const [row] = await rankSkills(store, index, NOW);
+      expect(row).toMatchObject({ modified: false, lastAppliedAt: null });
+    });
+
+    it("matches a proposal by path, and by name only when the proposal has no path", async () => {
+      const watched = addSkill("alpha");
+      const { store, index, rankSkills, proposals } = await setup();
+      // A recorded use of a skill outside the watched folders gives a row with no path.
+      await store.insertTurn(turn({ name: "loose", path: null, at: NOW - DAY }));
+      await store.insertTurn(turn({ name: "alpha-copy", path: null, at: NOW - DAY }));
+      // A pathless proposal named "alpha" must not mark the watched alpha.
+      const loose = await proposals.createProposal(store, draft("loose", null), NOW - 3 * DAY);
+      await proposals.updateProposalState(store, loose.id, "applied", NOW - 2 * DAY, "person");
+      const sameName = await proposals.createProposal(store, draft("alpha", null), NOW - 3 * DAY);
+      await proposals.updateProposalState(store, sameName.id, "applied", NOW - 2 * DAY, "person");
+      // A proposal with a path never marks a pathless skill of the same name.
+      const pathed = await proposals.createProposal(
+        store,
+        draft("alpha-copy", join(skillsDir, "elsewhere", "SKILL.md")),
+        NOW - 3 * DAY
+      );
+      await proposals.updateProposalState(store, pathed.id, "applied", NOW - DAY, "person");
+
+      const rows = await rankSkills(store, index, NOW);
+      const byName = (name: string) => rows.find((r) => r.name === name);
+      expect(byName("loose")).toMatchObject({ modified: true, lastAppliedAt: NOW - 2 * DAY });
+      expect(byName("alpha-copy")).toMatchObject({ modified: false, lastAppliedAt: null });
+      expect(rows.find((r) => r.path === watched)).toMatchObject({
+        modified: false,
+        lastAppliedAt: null,
+      });
+
+      const real = await proposals.createProposal(store, draft("alpha", watched), NOW - 3 * DAY);
+      await proposals.updateProposalState(store, real.id, "applied", NOW - DAY, "person");
+      const after = await rankSkills(store, index, NOW);
+      expect(after.find((r) => r.path === watched)).toMatchObject({
+        modified: true,
+        lastAppliedAt: NOW - DAY,
+      });
+    });
+
+    it("reads the proposals in one query however many skills there are", async () => {
+      const { store, rankSkills, proposals } = await setup();
+      const paths: string[] = [];
+      for (let i = 0; i < 12; i++) paths.push(addSkill(`skill-${i}`));
+      const many = buildSkillIndex([skillsDir]);
+      for (const [i, path] of paths.entries()) {
+        const made = await proposals.createProposal(
+          store,
+          draft(`skill-${i}`, path),
+          NOW - 5 * DAY
+        );
+        if (i < 3) await proposals.updateProposalState(store, made.id, "applied", NOW - DAY);
+      }
+
+      const count = async (idx: ReturnType<typeof buildSkillIndex>) => {
+        const db = (await store.existingDb())!;
+        const seen: string[] = [];
+        for (const method of ["all", "get"] as const) {
+          const original = db[method].bind(db);
+          (db as unknown as Record<string, unknown>)[method] = (sql: string, args?: unknown[]) => {
+            if (sql.includes("skill_proposals")) seen.push(sql);
+            return original(sql, args as never);
+          };
+        }
+        await rankSkills(store, idx, NOW);
+        return seen.length;
+      };
+      const queries = await count(many);
+      const rows = await rankSkills(store, many, NOW);
+      expect(rows.filter((r) => r.modified)).toHaveLength(3);
+      // The ranking query reads proposals for last_proposal; the modified lookup adds one query.
+      expect(queries).toBe(2);
     });
   });
 });
