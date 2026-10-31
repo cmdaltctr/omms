@@ -33,47 +33,71 @@ function toSummary(row: Record<string, unknown>): SkillTurnSummary {
 // The same use-to-skill rule as the ranking: a recorded path counts while the
 // index lists it; a use with no path belongs to the one watched skill with its name.
 const BY_PATH = `
-SELECT ${COLUMNS} FROM turns t WHERE t.id IN (
-  SELECT su.turn_id FROM skill_uses su
-  WHERE su.skill_path = ? OR (su.skill_path IS NULL AND su.skill_name = ? AND ? = 1)
-) ORDER BY t.created_at DESC, t.id DESC LIMIT ?`;
+SELECT su.turn_id FROM skill_uses su
+WHERE su.skill_path = ? OR (su.skill_path IS NULL AND su.skill_name = ? AND ? = 1)`;
 
 const BY_NAME = `
-SELECT ${COLUMNS} FROM turns t WHERE t.id IN (
-  SELECT su.turn_id FROM skill_uses su
-  WHERE su.skill_name = ? AND (
-    (su.skill_path IS NOT NULL AND su.skill_path NOT IN (SELECT value FROM json_each(?)))
-    OR (su.skill_path IS NULL AND ? = 0)
-  )
-) ORDER BY t.created_at DESC, t.id DESC LIMIT ?`;
+SELECT su.turn_id FROM skill_uses su
+WHERE su.skill_name = ? AND (
+  (su.skill_path IS NOT NULL AND su.skill_path NOT IN (SELECT value FROM json_each(?)))
+  OR (su.skill_path IS NULL AND ? = 0)
+)`;
+
+/** The SQL that selects a skill's turn ids, and its parameters. */
+function turnIdsFor(skill: { name: string; path: string | null }, index: SkillIndex) {
+  const named = index.entries.filter((e) => e.name === skill.name);
+  return skill.path
+    ? {
+        sql: BY_PATH,
+        args: [skill.path, skill.name, named.length === 1 && named[0]!.path === skill.path ? 1 : 0],
+      }
+    : {
+        sql: BY_NAME,
+        args: [
+          skill.name,
+          JSON.stringify(index.entries.map((e) => e.path)),
+          named.length === 1 ? 1 : 0,
+        ],
+      };
+}
 
 /**
- * The newest turns that used one skill. `path` is null for a skill that no
- * watched folder holds. A missing `skills.db` gives no turns and stays missing.
+ * Turns that used one skill, newest first, `limit` of them after skipping
+ * `offset`. `path` is null for a skill that no watched folder holds. A missing
+ * `skills.db` gives no turns and stays missing.
  */
 export async function recentSkillTurns(
   store: SkillStore,
   skill: { name: string; path: string | null },
   index: SkillIndex,
-  limit = RECENT_TURN_LIMIT
+  limit = RECENT_TURN_LIMIT,
+  offset = 0
 ): Promise<SkillTurnSummary[]> {
   const db = await store.existingDb();
   if (!db) return [];
-  const named = index.entries.filter((e) => e.name === skill.name);
-  const rows = skill.path
-    ? await db.all(BY_PATH, [
-        skill.path,
-        skill.name,
-        named.length === 1 && named[0]!.path === skill.path ? 1 : 0,
-        limit,
-      ])
-    : await db.all(BY_NAME, [
-        skill.name,
-        JSON.stringify(index.entries.map((e) => e.path)),
-        named.length === 1 ? 1 : 0,
-        limit,
-      ]);
+  const ids = turnIdsFor(skill, index);
+  const rows = await db.all(
+    `SELECT ${COLUMNS} FROM turns t WHERE t.id IN (${ids.sql})
+     ORDER BY t.created_at DESC, t.id DESC LIMIT ? OFFSET ?`,
+    [...ids.args, limit, offset]
+  );
   return rows.map(toSummary);
+}
+
+/** How many recorded turns used this skill. */
+export async function countSkillTurns(
+  store: SkillStore,
+  skill: { name: string; path: string | null },
+  index: SkillIndex
+): Promise<number> {
+  const db = await store.existingDb();
+  if (!db) return 0;
+  const ids = turnIdsFor(skill, index);
+  const row = await db.get(
+    `SELECT COUNT(*) AS n FROM turns t WHERE t.id IN (${ids.sql})`,
+    ids.args
+  );
+  return Number(row?.n ?? 0);
 }
 
 /** The turns with these ids, newest first; ids of deleted turns are left out. */

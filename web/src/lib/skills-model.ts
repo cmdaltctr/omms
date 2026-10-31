@@ -23,17 +23,11 @@ export function proposalLabel(proposal: Pick<Proposal, "state" | "appliedBy">): 
     : proposal.state;
 }
 
-/** How many decided proposals the Skills page lists under Recent proposals. */
-export const RECENT_PROPOSALS = 20;
-
-/** The most recently changed proposals that are not pending, newest first. */
+/** Proposals that are not pending, newest first. The Skills page pages through all of them. */
 export function recentProposals<T extends Pick<Proposal, "state" | "updatedAt">>(
   proposals: readonly T[]
 ): T[] {
-  return proposals
-    .filter((p) => p.state !== "pending")
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, RECENT_PROPOSALS);
+  return proposals.filter((p) => p.state !== "pending").sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 export type DiffLine = { kind: "add" | "del" | "ctx" | "hunk"; text: string };

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Check, Undo2, X } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
 import { useSettingsText } from "$lib/i18n/settings";
 import { formatDate } from "$lib/format";
 import { skillsApi, type Proposal, type SkillsReply, type TurnSummary } from "$lib/skills-api";
-import { proposalLabel } from "$lib/skills-model";
+import { fill, proposalLabel } from "$lib/skills-model";
 import { Callout } from "./Callout";
 import { HuePill } from "./HuePill";
 import { ProposalDiff } from "./ProposalDiff";
@@ -32,6 +32,32 @@ export function UndoStopped({ savedContent }: { savedContent: string | null }) {
   );
 }
 
+/** The proposal as the server now holds it after a "stale" answer. */
+export const markStale = (proposal: Proposal, now: number): Proposal => ({
+  ...proposal,
+  state: "stale",
+  updatedAt: now,
+});
+
+const DECIDED = {
+  applied: "Applied {date}",
+  rejected: "Rejected {date}",
+  undone: "Undone {date}",
+  stale: "Stale since {date}",
+} as const;
+
+/** When the proposal was drafted and, once decided, when its state last changed. */
+export function ProposalTimes({ proposal }: { proposal: Proposal }) {
+  const s = useSettingsText();
+  const decided = proposal.state === "pending" ? null : DECIDED[proposal.state];
+  return (
+    <span className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+      <span>{fill(s("Created {date}"), { date: formatDate(proposal.createdAt) })}</span>
+      {decided ? <span>{fill(s(decided), { date: formatDate(proposal.updatedAt) })}</span> : null}
+    </span>
+  );
+}
+
 /**
  * One proposal. A pending proposal opens with its diff, summary and evidence
  * turns and offers Apply and Reject. Other states fold the diff behind a toggle.
@@ -46,6 +72,10 @@ export function ProposalCard({
   const s = useSettingsText();
   const label = proposalLabel(proposal);
   const pending = proposal.state === "pending";
+  const hintId = useId();
+  // The list says false when a newer applied change superseded this one.
+  // A proposal applied just now carries no flag and can be undone.
+  const canUndo = proposal.canUndo !== false;
   const [open, setOpen] = useState(pending);
   const [evidence, setEvidence] = useState<TurnSummary[] | null>(null);
   const [working, setWorking] = useState(false);
@@ -74,7 +104,7 @@ export function ProposalCard({
       setError(reply.error);
       if (reply.code === "changed") setSavedContent(reply.savedContent ?? null);
       // A stale answer changes the stored state; the card must show it.
-      if (reply.code === "stale") onChange({ ...proposal, state: "stale" });
+      if (reply.code === "stale") onChange(markStale(proposal, Date.now()));
     }
   }
 
@@ -87,7 +117,7 @@ export function ProposalCard({
           label={s(proposal.kind === "new" ? "New skill" : "Improvement")}
           colourKey={proposal.kind}
         />
-        <span className="text-xs text-muted-foreground">{formatDate(proposal.updatedAt)}</span>
+        <ProposalTimes proposal={proposal} />
       </header>
       {proposal.summary ? (
         <p className="text-sm" dir="auto">
@@ -159,16 +189,24 @@ export function ProposalCard({
               </Button>
             </>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={working}
-              onClick={() => void act(() => skillsApi.undo(proposal.id))}
-            >
-              <Undo2 aria-hidden="true" />
-              {s("Undo")}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={working || !canUndo}
+                aria-describedby={canUndo ? undefined : hintId}
+                onClick={() => void act(() => skillsApi.undo(proposal.id))}
+              >
+                <Undo2 aria-hidden="true" />
+                {s("Undo")}
+              </Button>
+              {canUndo ? null : (
+                <span id={hintId} className="self-center text-xs text-muted-foreground">
+                  {s("Revert the newer change first.")}
+                </span>
+              )}
+            </>
           )}
         </div>
       ) : null}

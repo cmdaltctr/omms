@@ -137,14 +137,15 @@ it("keeps the saved content of a refused undo", async () => {
   expect(reply).toMatchObject({ ok: false, code: "changed", savedContent: "old text" });
 });
 
-it("keeps the 20 most recently changed proposals that are not pending", () => {
+it("keeps every proposal that is not pending, newest first", () => {
   const list = Array.from({ length: 25 }, (_, i) => ({
     id: `p${i}`,
     state: i === 3 ? ("pending" as const) : ("rejected" as const),
     updatedAt: i,
   }));
   const recent = recentProposals(list);
-  expect(recent).toHaveLength(20);
+  expect(recent).toHaveLength(24);
   expect(recent[0]!.id).toBe("p24");
+  expect(recent.at(-1)!.id).toBe("p0");
   expect(recent.some((p) => p.state === "pending")).toBe(false);
 });

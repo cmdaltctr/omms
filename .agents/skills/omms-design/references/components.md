@@ -18,6 +18,9 @@ Read [visual foundations](foundations.md) before applying target styles. The pat
 | Settings composition          | `web/src/lib/components/settings/SettingsView.tsx`                                       |
 | Settings sections and anchors | `web/src/lib/settings-sections.ts`                                                       |
 | App layout                    | `web/src/App.tsx`                                                                        |
+| Paged list                    | `web/src/lib/components/paged-list/` (`index.ts` exports the API)                        |
+| Chart primitives and cards    | `web/src/lib/components/ui/chart.tsx`, `web/src/lib/components/skills/charts/`           |
+| History timeline              | `web/src/lib/components/skills/SkillHistory.tsx`, `HistoryEntry.tsx`                     |
 
 ## Buttons
 
@@ -114,7 +117,7 @@ The current shared close button contains English `Close` and physical `right-4` 
 
 ## Sidebar
 
-Keep `AppSidebar` and its current props. `App.tsx` supplies translated labels. Preserve routes, profile/settings anchors, mobile dismissal, desktop collapse, language-menu keyboard handling, and persisted collapse/tree state.
+Keep `AppSidebar` and its current props. `App.tsx` supplies translated labels. Preserve routes, profile/settings anchors, mobile dismissal, desktop collapse, language-menu keyboard handling, and persisted collapse/tree state. Every main link that has sections (User profile, Skills, Memory, Settings) gets the same arrow and indented list. A section link needs a page element with the same id and `scroll-mt-4`, and its id pattern in `revealPageAnchor` (`web/src/lib/settings-navigation.ts`).
 
 The present expanded width is `w-64`, with `md:w-14` when collapsed. The first styling pass keeps these dimensions. It already uses logical `start-0` and `border-e`; preserve its directional drawer transforms.
 
@@ -168,3 +171,45 @@ This illustrates composition; it does not require extracting a new component. Re
 Use logical alignment and allow labels to wrap. Stack label/control rows in narrow panels. Container queries are useful when the panel width differs from the viewport; add a container before using its query classes. Preserve existing viewport-responsive app navigation.
 
 Keep visible helper text, warnings, save feedback, and validation messages in the first pass. Changing their visibility requires approval. Standardise repeated row styles after the pattern is established; avoid importing OpenChamber's runtime-dependent primitives.
+
+## Long lists: page size 5, sort, custom size, footer
+
+Page every list that can grow past 5 rows. Use the shared module in `web/src/lib/components/paged-list/`. Do not copy the controls into a list.
+
+1. For rows held in the browser, call `usePagedList({ storageKey, items, sorts, resetKey })`. It returns `view` and `pageItems`.
+2. For rows the server pages, call `usePaging({ storageKey, total, sorts })`. Ask the server for `serverWindow(view.page, view.perPage, total, oldestFirst)`.
+3. Wrap the rows in `<PagedList view={view} totalLabel={...}>`. It draws the toolbar, the rows and the footer.
+
+Rules:
+
+- Give each list its own `storageKey`, for example `omms-list-skills`. The hook saves the page size and sort there in a `try`/`catch`.
+- Define the sorts once, as in `web/src/lib/skills-sorts.ts`. Each sort has an English `label`, a `first` direction and an ascending `compare`. The toolbar translates the label.
+- Pass the filter text as `resetKey`. A new filter, sort or page size returns to page 1. The page stays inside the list when the data shrinks.
+- The toolbar reads "Show [5] results | Custom: [ ] | Sort by [menu] [arrow]", with the total on the right. Custom sizes apply on Enter or blur, are clamped to 1 to 200, and appear in the menu in sorted order. The separators hide on narrow screens.
+- The footer reads "Showing X to Y of Z results" over Previous, page numbers with gaps, and Next. It renders nothing for one page. Previous and Next use a real `disabled`, so they leave the tab order. Narrow screens show only their icons.
+- Keep the accessible names: "Results per page", "Custom results per page", "Sort by", "Sort ascending", "Sort descending", the `pagination` nav and `aria-current="page"`.
+- Put the empty and loading states outside `PagedList`. A list with no rows shows its own sentence.
+
+## Charts
+
+Draw charts with the shadcn chart primitives in `web/src/lib/components/ui/chart.tsx` (Recharts). Wrap each chart in `ChartCard` from `web/src/lib/components/skills/charts/ChartCard.tsx`.
+
+- Show a chart only when real data backs it. Do not add sample or placeholder data.
+- Use the colour tokens in `web/src/app.css`. In every skill chart, `--status-success` (green) marks successful uses and `--destructive` (red) marks failed uses, the tokens of the success and error badges. Every theme sets both. A 1px `--card` edge leaves a gap between stacked parts. Both colours come from the theme, so they change with it. A single-series chart uses `--chart-1`. Each token has a light and a dark value. Run the dataviz palette validator after you change one.
+- Colour is never the only code. Give each chart a legend for 2 or more series, a summary line with the headline numbers, and direct value labels where they fit.
+- `ChartCard` hides the drawing from screen readers and adds a table with the same numbers. Pass `table` with translated column names.
+- Give an empty chart `emptyText`. Say when data will appear, for example "Bars appear after OMMS records turns."
+- Lay chart cards in a grid: 1 column on mobile, 2 columns on wide screens (`lg`), `gap-3`, `items-start`. A time series takes the whole row (`lg:col-span-2`).
+- Give a time series one range control in its section header, shared by every chart in the section: a Days | Months | Years radio group, then one menu (last 30 days or a month; a year; none for Years). Remember the choice per browser and keep the old chart, dimmed, until the new data arrives.
+- Crop a long category name at the end with an ellipsis. Show the full name in the shared `Tooltip` on hover and on keyboard focus. Put focusable labels outside the hidden drawing (`ChartCard interactive`).
+- A chart that opens something on click needs a keyboard path to the same place, such as the list below it.
+
+## History timelines
+
+Show the changes of one item as a vertical timeline, newest first, paged with the shared paged list.
+
+- Use an `<ol>` with a start border. Mark each entry with a small dot in its kind colour, taken from `keywordHue`.
+- Each entry shows a `HuePill` with its kind, a `<time>`, the summary and the line counts as `+added −removed`. Give the counts an accessible name, for example "12 lines added, 3 lines removed".
+- An action that changes state, such as **Revert to before this change**, asks for confirmation in a warning `Callout`. When the action also removes later changes, the callout says how many.
+- When the action is not possible, keep the button visible and disabled. Add a short hint next to it, linked with `aria-describedby`, for example "Revert the newer change first."
+- Follow [Feedback after a click](#feedback-after-a-click): a status line while the action runs, then a result message or an alert.

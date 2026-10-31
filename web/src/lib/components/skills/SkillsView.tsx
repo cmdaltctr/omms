@@ -1,41 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { Input } from "$lib/components/ui/input";
 import { useSettingsText } from "$lib/i18n/settings";
-import { navigate, ROUTES } from "$lib/router";
+import { navigate, ROUTES, usePath } from "$lib/router";
 import {
   skillsApi,
   type Proposal,
-  type SkillOrder,
   type SkillRow,
   type SkillsOverview,
+  type TopSkill,
 } from "$lib/skills-api";
 import { filterSkills, recentProposals } from "$lib/skills-model";
 import { Callout } from "./Callout";
-import { ProposalCard } from "./ProposalCard";
+import { SkillActivitySection } from "./charts/SkillActivity";
+import { ProposalList } from "./ProposalList";
 import { RecordPast } from "./RecordPast";
 import { SkillDetail } from "./SkillDetail";
 import { SkillFolders } from "./SkillFolders";
 import { SkillIdeas } from "./SkillIdeas";
-import { SkillList } from "./SkillList";
-import { SkillSortChoice } from "./SkillSortChoice";
-
-const ORDER_KEY = "omms-skills-order";
-
-function savedOrder(): SkillOrder {
-  try {
-    return localStorage.getItem(ORDER_KEY) === "attention" ? "attention" : "uses";
-  } catch {
-    return "uses";
-  }
-}
-
-function saveOrder(order: SkillOrder): void {
-  try {
-    localStorage.setItem(ORDER_KEY, order);
-  } catch {
-    // Private mode or blocked site data; the choice lasts for this visit.
-  }
-}
+import { RankedSkills } from "./SkillList";
 
 const SETTINGS_CARD = `${ROUTES.settings}#settings-section-skill-learning`;
 
@@ -43,12 +25,12 @@ type PageProps = {
   overview: SkillsOverview | null;
   turns: number | null;
   pending: Proposal[];
-  /** Up to 20 proposals that are no longer pending, so a rejected or undone new skill still shows. */
+  /** Every proposal that is no longer pending, newest first, so a rejected or undone new skill still shows. */
   recent: Proposal[];
   error: string;
   query: string;
-  order: SkillOrder;
-  onOrder: (order: SkillOrder) => void;
+  /** Bumped after each reload, so the Activity charts load again. */
+  reloadKey?: number;
   onQuery: (query: string) => void;
   onOpen: (skill: SkillRow) => void;
   onPendingChange: (next: Proposal) => void;
@@ -64,8 +46,7 @@ export function SkillsPage({
   recent,
   error,
   query,
-  order,
-  onOrder,
+  reloadKey = 0,
   onQuery,
   onOpen,
   onPendingChange,
@@ -75,6 +56,12 @@ export function SkillsPage({
   const s = useSettingsText();
   const skills = filterSkills(overview?.skills ?? [], query);
   const folders = overview?.folders ?? [];
+  const openTop = (top: TopSkill) => {
+    const row = (overview?.skills ?? []).find((skill) =>
+      top.path ? skill.path === top.path : skill.name === top.name
+    );
+    if (row) onOpen(row);
+  };
   return (
     <div className="space-y-8">
       <div className="max-w-3xl space-y-2 text-sm text-muted-foreground">
@@ -110,20 +97,27 @@ export function SkillsPage({
         </p>
       ) : null}
 
-      <section className="space-y-3" aria-label={s("Skills")}>
+      <SkillActivitySection
+        proposals={[...pending, ...recent]}
+        onOpen={openTop}
+        reloadKey={reloadKey}
+      />
+
+      <section
+        id="skills-section-ranked"
+        className="scroll-mt-4 space-y-3"
+        aria-label={s("Skills")}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-section-title font-semibold">{s("Ranked skills")}</h2>
-          <div className="flex flex-wrap items-center gap-3">
-            <SkillSortChoice order={order} onChange={onOrder} />
-            <Input
-              type="search"
-              className="max-w-xs"
-              value={query}
-              aria-label={s("Filter skills by name")}
-              placeholder={s("Filter skills by name")}
-              onChange={(event) => onQuery(event.target.value)}
-            />
-          </div>
+          <Input
+            type="search"
+            className="max-w-xs"
+            value={query}
+            aria-label={s("Filter skills by name")}
+            placeholder={s("Filter skills by name")}
+            onChange={(event) => onQuery(event.target.value)}
+          />
         </div>
         {overview && overview.recording && turns === 0 ? (
           <div className="space-y-2">
@@ -140,26 +134,53 @@ export function SkillsPage({
             )}
           </p>
         ) : null}
-        <SkillList skills={skills} folders={folders} onOpen={onOpen} />
+        {skills.length > 0 ? (
+          <RankedSkills skills={skills} folders={folders} query={query} onOpen={onOpen} />
+        ) : null}
       </section>
 
-      {pending.length > 0 ? (
-        <section className="space-y-3" aria-label={s("Pending proposals")}>
-          <h2 className="text-section-title font-semibold">{s("Pending proposals")}</h2>
-          {pending.map((proposal) => (
-            <ProposalCard key={proposal.id} proposal={proposal} onChange={onPendingChange} />
-          ))}
-        </section>
-      ) : null}
+      <section
+        id="skills-section-pending"
+        className="scroll-mt-4 space-y-3"
+        aria-label={s("Pending proposals")}
+      >
+        <h2 className="text-section-title font-semibold">{s("Pending proposals")}</h2>
+        {pending.length > 0 ? (
+          <ProposalList
+            storageKey="omms-list-pending"
+            proposals={pending}
+            onChange={onPendingChange}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">{s("No proposals are waiting.")}</p>
+        )}
+      </section>
 
-      {recent.length > 0 ? (
-        <section className="space-y-3" aria-label={s("Recent proposals")}>
-          <h2 className="text-section-title font-semibold">{s("Recent proposals")}</h2>
-          {recent.map((proposal) => (
-            <ProposalCard key={proposal.id} proposal={proposal} onChange={onRecentChange} />
-          ))}
-        </section>
-      ) : null}
+      <section
+        id="skills-section-recent"
+        className="scroll-mt-4 space-y-3"
+        aria-label={s("Recent proposals")}
+      >
+        <h2 className="text-section-title font-semibold">{s("Recent proposals")}</h2>
+        {recent.length > 0 ? (
+          <>
+            <p className="text-sm text-muted-foreground">
+              {s(
+                "Each card shows when the proposal was created and when it was last applied, rejected or undone."
+              )}
+            </p>
+            <ProposalList
+              storageKey="omms-list-recent"
+              proposals={recent}
+              onChange={onRecentChange}
+            />
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {s("No proposals have been decided yet.")}
+          </p>
+        )}
+      </section>
 
       {overview?.recording ? <SkillIdeas folders={folders} onDrafted={onReload} /> : null}
 
@@ -177,11 +198,11 @@ export function SkillsView() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<SkillRow | null>(null);
-  const [order, setOrder] = useState<SkillOrder>(savedOrder);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const load = useCallback(async () => {
     const [list, stats, proposals] = await Promise.all([
-      skillsApi.overview(order),
+      skillsApi.overview(),
       skillsApi.stats(),
       skillsApi.proposals(),
     ]);
@@ -195,10 +216,21 @@ export function SkillsView() {
       setPending(all.filter((p) => p.state === "pending"));
       setRecent(recentProposals(all));
     }
-  }, [order]);
+  }, []);
   useEffect(() => {
     void load();
   }, [load]);
+  // A reload after a change also refreshes the Activity charts.
+  const reload = () => {
+    setReloadKey((key) => key + 1);
+    void load();
+  };
+
+  // A sidebar link to a section leaves the open skill and shows the page.
+  const path = usePath();
+  useEffect(() => {
+    if (path.includes("#skills-section-")) setOpen(null);
+  }, [path]);
 
   if (open) {
     return (
@@ -206,7 +238,7 @@ export function SkillsView() {
         skill={open}
         onBack={() => {
           setOpen(null);
-          void load();
+          reload();
         }}
         onChanged={() => void load()}
       />
@@ -214,11 +246,7 @@ export function SkillsView() {
   }
   return (
     <SkillsPage
-      {...{ overview, turns, pending, recent, error, query, order }}
-      onOrder={(next) => {
-        saveOrder(next);
-        setOrder(next);
-      }}
+      {...{ overview, turns, pending, recent, error, query, reloadKey }}
       onQuery={setQuery}
       onOpen={setOpen}
       onPendingChange={(next) =>
@@ -227,7 +255,7 @@ export function SkillsView() {
       onRecentChange={(next) =>
         setRecent((list) => list.map((item) => (item.id === next.id ? next : item)))
       }
-      onReload={() => void load()}
+      onReload={reload}
     />
   );
 }

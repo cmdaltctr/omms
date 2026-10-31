@@ -573,3 +573,199 @@ describe("skill turns in the web import and preview", () => {
     }
   });
 });
+
+describe("skills list routes: paging, activity and history", () => {
+  const on = {
+    config: (home: string) => ({ skillLearning: true, skillFolders: [join(home, "skills")] }),
+  };
+
+  it("pages the turns of one skill and adds turnTotal and 30 daily rows", async () => {
+    const { result } = await scenario(
+      `
+      const store = new SkillStore(dbPath);
+      await store.init();
+      for (let i = 0; i < 25; i++) await store.insertTurn(turn("alpha", alphaPath, i % 5 === 0));
+      const q = "/api/skills/skill?path=" + encodeURIComponent(alphaPath);
+      const base = await call(q);
+      const paged = await call(q + "&turnLimit=5&turnOffset=10");
+      const big = await call(q + "&turnLimit=9999");
+      const bad = await call(q + "&turnLimit=abc&turnOffset=-4");
+      const zero = await call(q + "&turnLimit=0");
+      return { base, paged, big, bad, zero };
+    `,
+      on
+    );
+    const data = (r: { body: { data: Record<string, unknown[]> } }) => r.body.data;
+    expect(data(result.base).recentTurns).toHaveLength(20);
+    expect(data(result.base).turnTotal).toBe(25);
+    const daily = data(result.base).daily as { uses: number; failed: number }[];
+    expect(daily).toHaveLength(30);
+    expect(daily.reduce((n, d) => n + d.uses, 0)).toBe(25);
+    expect(daily.reduce((n, d) => n + d.failed, 0)).toBe(5);
+    for (const d of daily) expect(d.failed).toBeLessThanOrEqual(d.uses);
+    expect(data(result.paged).recentTurns).toHaveLength(5);
+    expect(data(result.paged).recentTurns[0].id).toBe(data(result.base).recentTurns[10].id);
+    expect(data(result.big).recentTurns).toHaveLength(25);
+    expect(result.bad.status).toBe(200);
+    expect(data(result.bad).recentTurns).toHaveLength(20);
+    expect(result.zero.status).toBe(200);
+    expect(data(result.zero).recentTurns).toHaveLength(1);
+  });
+
+  it("returns activity with clamped days, zero-fill and top skills", async () => {
+    const { result } = await scenario(
+      `
+      const empty = await call("/api/skills/activity");
+      const store = new SkillStore(dbPath);
+      await store.init();
+      for (let i = 0; i < 3; i++) await store.insertTurn(turn("alpha", alphaPath, i === 0));
+      await store.insertTurn(turn("beta", betaPath, false));
+      const full = await call("/api/skills/activity?days=7");
+      const huge = await call("/api/skills/activity?days=9999");
+      const junk = await call("/api/skills/activity?days=abc");
+      return { empty, full, huge, junk };
+    `,
+      on
+    );
+    expect(result.empty.body.data.days).toHaveLength(30);
+    expect(result.empty.body.data.topSkills).toEqual([]);
+    expect(result.empty.body.data.totals).toEqual({ uses: 0, failed: 0, activeSkills: 0 });
+    expect(result.full.body.data.days).toHaveLength(7);
+    expect(result.full.body.data.totals).toEqual({ uses: 4, failed: 1, activeSkills: 2 });
+    expect(result.full.body.data.topSkills.map((t: { name: string }) => t.name)).toEqual([
+      "alpha",
+      "beta",
+    ]);
+    expect(result.huge.body.data.days).toHaveLength(90);
+    expect(result.junk.body.data.days).toHaveLength(30);
+  });
+
+  it("returns activity by month and year, a whole month by day, and refuses bad params", async () => {
+    const { result } = await scenario(
+      `
+      const store = new SkillStore(dbPath);
+      await store.init();
+      await store.insertTurn(turn("alpha", alphaPath, true));
+      await store.insertTurn(turn("beta", betaPath, false));
+      const plain = await call("/api/skills/activity");
+      const month = await call("/api/skills/activity?bucket=month");
+      const old = await call("/api/skills/activity?bucket=month&year=2020");
+      const junkYear = await call("/api/skills/activity?bucket=month&year=abc");
+      const year = await call("/api/skills/activity?bucket=year");
+      const leap = await call("/api/skills/activity?bucket=day&month=2024-02");
+      const topOne = await call("/api/skills/activity?bucket=month&top=1");
+      const topHuge = await call("/api/skills/activity?top=9999");
+      const bad = [];
+      for (const q of ["bucket=week", "month=2024-13", "month=abc", "month=1969-12"]) {
+        bad.push(await call("/api/skills/activity?" + q));
+      }
+      return { plain, month, old, junkYear, year, leap, topOne, topHuge, bad };
+    `,
+      on
+    );
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const thisMonth = `${y}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    const months = (year: number) =>
+      Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
+    type Point = { key: string; uses: number; failed: number };
+    const keys = (r: { body: { data: { series: Point[] } } }) =>
+      r.body.data.series.map((p) => p.key);
+
+    const plain = result.plain.body.data;
+    expect(plain.bucket).toBe("day");
+    expect(plain.series).toHaveLength(30);
+    expect(plain.days.map((d: { day: string }) => d.day)).toEqual(keys(result.plain));
+    expect(plain.available).toEqual({ months: [thisMonth], years: [y] });
+
+    expect(result.month.body.data.bucket).toBe("month");
+    expect(keys(result.month)).toEqual(months(y));
+    expect(result.month.body.data.days).toEqual([]);
+    expect(result.month.body.data.totals).toEqual({ uses: 2, failed: 1, activeSkills: 2 });
+    expect(keys(result.old)).toEqual(months(2020));
+    expect(result.old.body.data.totals).toEqual({ uses: 0, failed: 0, activeSkills: 0 });
+    expect(result.old.body.data.topSkills).toEqual([]);
+    expect(result.junkYear.status).toBe(200);
+    expect(keys(result.junkYear)).toEqual(months(y));
+
+    expect(result.year.body.data.series).toEqual([{ key: String(y), uses: 2, failed: 1 }]);
+    expect(result.leap.body.data.series).toHaveLength(29);
+    expect(result.leap.body.data.days).toHaveLength(29);
+    expect(plain.topTotal).toBe(2);
+    expect(result.topOne.body.data.topSkills).toHaveLength(1);
+    expect(result.topOne.body.data.topTotal).toBe(2);
+    expect(result.topHuge.status).toBe(200);
+    expect(result.topHuge.body.data.topSkills).toHaveLength(2);
+    for (const r of result.bad) {
+      expect(r.status).toBe(400);
+      expect(r.body.code).toBe("invalid-args");
+    }
+  });
+
+  it("returns history, pages it, clamps params and pages proposals with a total", async () => {
+    const { result } = await scenario(
+      `
+      const { createProposal } = await import(${src("services/skill-learning/proposal-store.ts")});
+      const { hashSkillContent } = await import(${src("services/skill-learning/apply.ts")});
+      const store = new SkillStore(dbPath);
+      await store.init();
+      const current = readFileSync(alphaPath, "utf8");
+      const ids = [];
+      for (let i = 0; i < 3; i++) {
+        const p = await createProposal(store, { kind: "improve", skillName: "alpha", skillPath: alphaPath,
+          baseHash: hashSkillContent(current), content: current + "line " + i + "\\n",
+          diff: "@@ -1,1 +1,2 @@\\n x\\n+line " + i, summary: "s" + i, evidenceTurnIds: [] }, 1000 + i);
+        ids.push(p.id);
+      }
+      const q = "/api/skills/history?path=" + encodeURIComponent(alphaPath);
+      const before = await call(q);
+      const applied = await call("/api/skills/apply", "POST", { id: ids[0] });
+      const after = await call(q);
+      const paged = await call(q + "&limit=2&offset=1");
+      const junk = await call(q + "&limit=zzz&offset=-3");
+      const unknown = await call("/api/skills/history?path=" + encodeURIComponent("/no/SKILL.md"));
+      const noArgs = await call("/api/skills/history");
+      const proposalsAll = await call("/api/skills/proposals");
+      const proposalsPage = await call("/api/skills/proposals?limit=2&offset=1");
+      const proposalsJunk = await call("/api/skills/proposals?limit=zzz&offset=-1");
+      return { before, applied, after, paged, junk, unknown, noArgs, proposalsAll, proposalsPage, proposalsJunk };
+    `,
+      on
+    );
+    expect(result.before.body.data.total).toBe(3);
+    expect(
+      result.before.body.data.entries.every((e: { kind: string }) => e.kind === "created")
+    ).toBe(true);
+    expect(result.applied.status).toBe(200);
+    expect(result.after.body.data.total).toBe(4);
+    expect(result.after.body.data.entries[0]).toMatchObject({
+      kind: "applied",
+      appliedBy: "person",
+      canUndo: true,
+      laterAppliedCount: 0,
+      added: 1,
+      removed: 0,
+    });
+    expect(result.paged.body.data.entries).toHaveLength(2);
+    expect(result.paged.body.data.total).toBe(4);
+    expect(result.junk.status).toBe(200);
+    expect(result.unknown.body.data).toEqual({ total: 0, entries: [] });
+    expect(result.noArgs.status).toBe(400);
+    expect(result.proposalsAll.body.data.proposals).toHaveLength(3);
+    expect(result.proposalsAll.body.data.total).toBe(3);
+    // canUndo is true only for the applied proposal; pending ones have nothing to undo.
+    expect(
+      result.proposalsAll.body.data.proposals.map((p: { state: string; canUndo: boolean }) => [
+        p.state,
+        p.canUndo,
+      ])
+    ).toEqual([
+      ["pending", false],
+      ["pending", false],
+      ["applied", true],
+    ]);
+    expect(result.proposalsPage.body.data.proposals).toHaveLength(2);
+    expect(result.proposalsPage.body.data.total).toBe(3);
+    expect(result.proposalsJunk.body.data.proposals).toHaveLength(3);
+  });
+});

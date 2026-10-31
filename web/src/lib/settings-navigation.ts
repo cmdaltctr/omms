@@ -41,7 +41,7 @@ export function revealPageAnchor(hash: string): void {
   if (typeof document === "undefined" || typeof requestAnimationFrame === "undefined") return;
   const id = hash.replace(/^#/, "");
   if (
-    !/^(?:(?:settings|memory)-section-[a-z0-9-]+|directory-maps-(?:pi|opencode|claude-code)|shared-(?:profile|limits|keywords|reranker|directory-maps)|host-unresolved|profile-(?:preferences|patterns|workflows))$/.test(
+    !/^(?:(?:settings|memory|skills)-section-[a-z0-9-]+|directory-maps-(?:pi|opencode|claude-code)|shared-(?:profile|limits|keywords|reranker|directory-maps)|host-unresolved|profile-(?:preferences|patterns|workflows))$/.test(
       id
     )
   )

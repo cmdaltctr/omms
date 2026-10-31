@@ -24,6 +24,8 @@ type Options = {
   onNavigate: (event: MouseEvent, to: string) => void;
   /** The User profile link carries a collapsible tree of its sections. */
   profileTree: Omit<ComponentProps<typeof ProfileTree>, "link" | "label">;
+  /** The Skills link carries a tree of the page sections the same way. */
+  skillsTree: Omit<ComponentProps<typeof ProfileTree>, "link" | "label">;
 };
 
 /**
@@ -37,6 +39,7 @@ export function mainNavEntries({
   navClass,
   onNavigate,
   profileTree,
+  skillsTree,
 }: Options): ReactElement[] {
   return MAIN_NAV.map(({ view, href, icon }) => {
     const label = labels[view];
@@ -48,10 +51,19 @@ export function mainNavEntries({
         className={navClass(currentView === view)}
       />
     );
-    return view === "profile" ? (
-      <ProfileTree key={view} link={entry} label={label} {...profileTree} />
-    ) : (
-      entry
-    );
+    if (view === "profile")
+      return <ProfileTree key={view} link={entry} label={label} {...profileTree} />;
+    if (view === "skills")
+      return (
+        <ProfileTree
+          key={view}
+          link={entry}
+          label={label}
+          id="sidebar-skills-tree"
+          base={ROUTES.skills}
+          {...skillsTree}
+        />
+      );
+    return entry;
   });
 }

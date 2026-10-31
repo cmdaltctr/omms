@@ -1,6 +1,5 @@
 /** Shapes and calls for the `/api/skills` routes. The server owns the meaning of each code. */
 
-export type SkillOrder = "uses" | "attention";
 export type SkillMode = "manual" | "automatic";
 export type ProposalState = "pending" | "applied" | "stale" | "rejected" | "undone";
 
@@ -38,12 +37,63 @@ export type Proposal = {
   appliedBy: "person" | "agent" | "automatic" | null;
   createdAt: number;
   updatedAt: number;
+  /** Lists only: false when a newer applied change superseded this one. Absent after apply. */
+  canUndo?: boolean;
 };
+/** Uses of one UTC day. `failed` counts the turns that had a failed tool call. */
+export type DailyUse = { day: string; uses: number; failed: number };
 export type SkillDetailData = {
   skill: SkillRow;
   recentTurns: TurnSummary[];
   proposals: Proposal[];
+  /** All recorded turns of this skill. An older server leaves it out. */
+  turnTotal?: number;
+  /** The last 30 UTC days, oldest first. An older server leaves it out. */
+  daily?: DailyUse[];
 };
+export type TopSkill = { name: string; path: string | null; uses: number; failed: number };
+export type ActivityBucket = "day" | "month" | "year";
+/** Uses of one UTC period. `key` is `YYYY-MM-DD`, `YYYY-MM` or `YYYY`. */
+export type PeriodUse = { key: string; uses: number; failed: number };
+export type SkillActivity = {
+  bucket: ActivityBucket;
+  /** One entry per period, oldest first, zero-filled. */
+  series: PeriodUse[];
+  /** The day series as before; empty for months and years. */
+  days: DailyUse[];
+  topSkills: TopSkill[];
+  /** Distinct skills used in the window; `topSkills` may hold fewer. */
+  topTotal: number;
+  totals: { uses: number; failed: number; activeSkills: number };
+  /** Months with a use, and years with a use plus this year, newest first. */
+  available: { months: string[]; years: number[] };
+};
+/** `month` (`YYYY-MM`) wins over `days` for the day bucket; `year` applies to the month bucket. */
+export type ActivityRequest = {
+  bucket?: ActivityBucket;
+  days?: number;
+  month?: string;
+  year?: number;
+  /** How many of the most used skills to return, 1 to 100. The server default is 8. */
+  top?: number;
+};
+export type HistoryKind = "created" | "applied" | "rejected" | "undone" | "stale";
+export type HistoryEntry = {
+  id: string;
+  proposalId: string;
+  kind: HistoryKind;
+  at: number;
+  summary: string;
+  appliedBy: string | null;
+  versionId: string | null;
+  canUndo: boolean;
+  laterAppliedCount: number;
+  added: number;
+  removed: number;
+};
+export type SkillHistoryPage = { total: number; entries: HistoryEntry[] };
+/** One window of a server-paged list. */
+export type ListWindow = { limit: number; offset: number };
 export type SkillIdea = {
   name: string;
   description: string;
@@ -98,12 +148,26 @@ export async function skillsCall<T>(
   }
 }
 
+/** One skill by its path, or by its name when it has no path. */
+const skillQuery = (path: string | null, name: string) =>
+  path ? `path=${encodeURIComponent(path)}` : `name=${encodeURIComponent(name)}`;
+
 export const skillsApi = {
-  overview: (order: SkillOrder = "uses") =>
-    skillsCall<SkillsOverview>(order === "uses" ? "/api/skills" : `/api/skills?order=${order}`),
-  skill: (path: string | null, name: string) =>
+  overview: () => skillsCall<SkillsOverview>("/api/skills"),
+  skill: (path: string | null, name: string, turns?: ListWindow) =>
     skillsCall<SkillDetailData>(
-      `/api/skills/skill?${path ? `path=${encodeURIComponent(path)}` : `name=${encodeURIComponent(name)}`}`
+      `/api/skills/skill?${skillQuery(path, name)}${turns ? `&turnLimit=${turns.limit}&turnOffset=${turns.offset}` : ""}`
+    ),
+  activity: (request: ActivityRequest = { days: 30 }) => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(request)) {
+      if (value !== undefined) query.set(key, String(value));
+    }
+    return skillsCall<SkillActivity>(`/api/skills/activity?${query}`);
+  },
+  history: (path: string | null, name: string, page: ListWindow) =>
+    skillsCall<SkillHistoryPage>(
+      `/api/skills/history?${skillQuery(path, name)}&limit=${page.limit}&offset=${page.offset}`
     ),
   proposals: (state?: ProposalState) =>
     skillsCall<{ proposals: Proposal[] }>(

@@ -164,7 +164,7 @@ Select **Memory** or open `http://127.0.0.1:4747/memory`. It opens on four cards
 
 Profile learning separates **Analyse waiting prompts** inside OMMS from **Re-analyse chat history**, a reviewed forced profile-only import. The [Memory page guide](web-ui-memory.md) covers operations, estimates, limits, maps and [old Settings redirects](web-ui-memory.md#old-settings-links).
 
-Browse results on `/project-memories` and `/user-profile`. `/` resolves to Project memories. User profile, Memory and Settings each have an arrow that opens or closes their list in the sidebar, and each remembers its own choice; both remain reachable through desktop collapse and the mobile drawer.
+Browse results on `/project-memories` and `/user-profile`. `/` resolves to Project memories. User profile, Skills, Memory and Settings each have an arrow that opens or closes their list in the sidebar, and each remembers its own choice; both remain reachable through desktop collapse and the mobile drawer.
 
 ## Chat page
 
@@ -174,11 +174,37 @@ Select **Chat** or open `http://127.0.0.1:4747/chat` to ask questions about your
 
 Select **Skills** (below **User profile**) or open `http://127.0.0.1:4747/skills`. The page ranks the skills that OMMS finds in the watched folders by use in the last 30 days. See [Configuration: Skill learning](configuration.md#skill-learning) for the settings.
 
+- **Activity.** This section is above **Ranked skills**. Choose the time range in the section header:
+  - **Days** shows one bar per day. The menu next to it offers **Last 30 days** (the default) or one calendar month that has uses.
+  - **Months** shows 12 bars, January to December, for one year. The menu offers each year with uses and the current year.
+  - **Years** shows one bar per year, from the first recorded use to the current year.
+
+  The range applies to the count line and the first two charts. The browser remembers it. If the remembered month or year has no uses any more, the section goes back to the last 30 days. While a new range loads, the old charts stay on screen and dim. All dates are UTC.
+
+  A line shows the uses in the range, the failed turns and the active skills. Three charts follow:
+  - **Uses per day**, **Uses per month** or **Uses per year** takes the whole row. It shows successful uses in green and failed uses in red with diagonal stripes.
+  - **Most used skills** shows the 8 most used skills in the range. **Show more** adds 8 skills at a time, and **Show less** goes back to 8. Long names end with an ellipsis. Hover over or tab to a name to see it in full. Select a name or a bar to open that skill.
+  - **Proposal pipeline** counts the proposals in each state. It does not depend on the range.
+
+  On wide screens the last two charts share one row. Each chart has a summary line, and a screen reader gets the numbers as a table. The use charts appear after OMMS records turns that use a skill. Until then the section says so.
+
 - **Ranked skills.** Each row shows the skill name, its folder, uses, failed turns, last use and mode. A skill that meets the rule gets a **Suggested** badge. Type in the filter to find a skill by name. Select a row to open the skill.
+- **Paged lists.** Ranked skills, both proposal lists, and the history and turns of one skill show 5 rows on each page. The toolbar above each list has these controls:
+  - **Show** sets the page size: 5, 10, 25, 50 or 100.
+  - **Custom** takes any size from 1 to 200. Press Enter or leave the box to apply it. A value that is not a number goes back to the current size.
+  - **Sort by** sets the order. The arrow button changes the direction.
+
+  Ranked skills sort by **Most used**, **Needs attention**, **Name (A–Z)**, **Last used** or **Failed turns**. Proposals sort by **Newest**, **Oldest**, **State** or **Skill**. History and turns sort by **Newest** or **Oldest**. Below the list, "Showing 1 to 5 of 26 results" and the page buttons appear when there is more than one page. A change of size, sort or filter goes back to page 1. The browser remembers the size and sort of each list.
+
 - **Recording off.** While **Record agent turns** is off, an info notice says that nothing is recorded yet and links to the **Skill learning** card on the [Settings page](web-ui-settings.md#skill-learning). The watched folders and the existing proposals still show.
 - **Record past turns.** The page offers it while recording is on and no turns are recorded. A progress bar shows the run. When it ends, the page shows the count of turns recorded.
-- **Skill view.** It shows the path, the counts, the recent turns and the proposals of one skill. **Draft improvement** sends the skill file and its recent turns to the external API model and saves the reply as a pending proposal. The **Manual** and **Automatic** choice sets the mode. Choosing **Automatic** shows a warning that OMMS changes the file without asking, and waits for your confirmation.
-- **Proposals.** Each proposal shows one state: pending, applied, applied automatically, rejected, stale or undone. A pending proposal shows a line diff (green for added lines, red for removed lines), the summary and the evidence turns, with **Apply** and **Reject**. An applied proposal offers **Undo**. When you changed the file by hand after OMMS wrote it, **Undo** stops and shows the content that OMMS saved. The Skills page lists **Pending proposals**, then **Recent proposals**: the 20 most recently changed proposals that are not pending, folded behind **Show changes**. A rejected or undone new skill stays visible there.
+- **Skill view.** It shows the path, the counts, a **Uses in the last 30 days** chart, the proposals, the **History** and the recent turns of one skill. **Draft improvement** sends the skill file and its recent turns to the external API model and saves the reply as a pending proposal. The **Manual** and **Automatic** choice sets the mode. Choosing **Automatic** shows a warning that OMMS changes the file without asking, and waits for your confirmation.
+- **Proposals.** Each proposal shows one state: pending, applied, applied automatically, rejected, stale or undone. A pending proposal shows a line diff (green for added lines, red for removed lines), the summary and the evidence turns, with **Apply** and **Reject**. An applied proposal offers **Undo**. When you changed the file by hand after OMMS wrote it, **Undo** stops and shows the content that OMMS saved. The Skills page lists **Pending proposals**, then **Recent proposals**: every proposal that is not pending, newest first, folded behind **Show changes**. Each card shows when the proposal was created and when it was applied, rejected or undone. A rejected or undone new skill stays visible there.
+- **History.** The skill view lists each change of the skill on a timeline, newest first: created, applied, rejected, undone and stale. Each entry shows its time, its summary and the lines it added and removed. Use it to find the change to revert.
+  - An applied entry has **Revert to before this change**. The button asks for confirmation, then restores `SKILL.md` as it was before that change. A status line shows the revert while it runs, and a message shows the result.
+  - Only the latest applied change can be reverted. Older applied entries keep the button disabled with the hint "Revert the newer change first."
+  - When later changes exist, the confirmation says how many the revert also removes.
+  - An applied change that you undo shows as created and undone, with no applied entry.
 - **Find new skill ideas.** It sends recent turns to the external API model and lists up to three ideas. Choose a watched folder for an idea and select **Draft skill**. The result is a pending proposal.
 - **Watched folders.** Each folder shows how many skills it holds. Add a folder by its path, or remove one. A folder that does not exist is refused, and the message names it. **Reset default** appears when the folders are set in the config file.
 

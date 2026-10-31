@@ -21,6 +21,7 @@ import {
   updateProposalState,
   type SkillAppliedBy,
   type SkillProposal,
+  type SkillVersion,
 } from "./proposal-store.js";
 import { clearSkillIndexCache } from "./skill-index.js";
 import type { SkillStore } from "./store.js";
@@ -262,13 +263,19 @@ function removeEmptyFolder(folder: string, roots: readonly string[]): void {
   }
 }
 
-/**
- * Restores the content saved before the last apply, or deletes the file the
- * apply created. Only when the file still matches what OMMS wrote; otherwise
- * refuses and returns the saved content.
- */
-export async function undoProposal(id: string, deps: ApplyDeps): Promise<UndoResult> {
-  const now = deps.now ?? Date.now;
+type UndoFailure = Extract<UndoResult, { ok: false }>;
+type UndoPlan =
+  | {
+      ok: true;
+      proposal: SkillProposal;
+      version: SkillVersion;
+      real: string;
+      folders: string[];
+    }
+  | UndoFailure;
+
+/** Every check undo makes before it writes. Reads only; changes nothing. */
+async function planUndo(id: string, deps: ApplyDeps): Promise<UndoPlan> {
   const { store } = deps;
   if (store.isReadOnly()) {
     return {
@@ -287,7 +294,6 @@ export async function undoProposal(id: string, deps: ApplyDeps): Promise<UndoRes
   const target = checkTarget(version.path, deps.folders);
   if (!target.ok) return { ok: false, code: "outside-folder", message: target.message };
   const { real, folders } = target;
-
   if (readHash(real) !== version.writtenHash) {
     return {
       ok: false,
@@ -296,6 +302,25 @@ export async function undoProposal(id: string, deps: ApplyDeps): Promise<UndoRes
       savedContent: version.previousContent,
     };
   }
+  return { ok: true, proposal, version, real, folders };
+}
+
+/** True when `undoProposal` would accept this proposal now. Writes nothing. */
+export async function canUndoProposal(id: string, deps: ApplyDeps): Promise<boolean> {
+  return (await planUndo(id, deps)).ok;
+}
+
+/**
+ * Restores the content saved before the last apply, or deletes the file the
+ * apply created. Only when the file still matches what OMMS wrote; otherwise
+ * refuses and returns the saved content. So an older change is refused once a
+ * later change has rewritten the file, until that later change is undone.
+ */
+export async function undoProposal(id: string, deps: ApplyDeps): Promise<UndoResult> {
+  const now = deps.now ?? Date.now;
+  const plan = await planUndo(id, deps);
+  if (!plan.ok) return plan;
+  const { proposal, version, real, folders } = plan;
   try {
     if (version.previousContent === null) {
       unlinkSync(real);
@@ -308,7 +333,7 @@ export async function undoProposal(id: string, deps: ApplyDeps): Promise<UndoRes
   }
   clearSkillIndexCache();
   const undoneAt = now();
-  await updateProposalState(store, id, "undone", undoneAt);
+  await updateProposalState(deps.store, id, "undone", undoneAt);
   return {
     ok: true,
     code: "undone",

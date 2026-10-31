@@ -7,7 +7,10 @@ import {
 } from "../core/skill-operations.js";
 import type { RouteResult } from "./chat/chat-routes.js";
 import { log } from "./logger.js";
+import { skillActivity, skillDaily } from "./skill-learning/activity.js";
+import { parseActivityQuery, topParam } from "./skill-learning/activity-range.js";
 import { undoProposal } from "./skill-learning/apply.js";
+import { skillHistory, withCanUndo } from "./skill-learning/history.js";
 import { skillOperationsDeps } from "./skill-learning/operations-deps.js";
 import {
   getProposal,
@@ -16,11 +19,17 @@ import {
   type ProposalFilter,
   type SkillProposalState,
 } from "./skill-learning/proposal-store.js";
+import { intParam } from "./skill-learning/query-params.js";
 import { SKILL_ORDERS, rankSkills, type SkillOrder } from "./skill-learning/ranking.js";
 import { skillTurnSettingsFor } from "./skill-learning/settings-for.js";
 import { getSkillIndex, type SkillIndex } from "./skill-learning/skill-index.js";
 import { SkillStore, SkillStoreError, skillsDbPath } from "./skill-learning/store.js";
-import { recentSkillTurns, skillTurnsByIds } from "./skill-learning/turn-summaries.js";
+import {
+  RECENT_TURN_LIMIT,
+  countSkillTurns,
+  recentSkillTurns,
+  skillTurnsByIds,
+} from "./skill-learning/turn-summaries.js";
 
 /**
  * What the web server lends the skill routes: its folder, and a way to start
@@ -33,6 +42,9 @@ export interface SkillRouteContext {
 }
 
 type Body = Record<string, unknown>;
+
+const MAX_PAGE = 200;
+const DEFAULT_PAGE = 20;
 
 const PROPOSAL_STATES: readonly SkillProposalState[] = [
   "pending",
@@ -169,8 +181,16 @@ async function dispatch(
         redact: settings.redact,
       });
     }
-    if (path === "/api/skills/skill") return showSkill(url, store, index(), now);
-    if (path === "/api/skills/proposals") return proposals(url, store);
+    if (path === "/api/skills/skill") {
+      return showSkill(url, { store, folders: settings.folders }, index(), now);
+    }
+    if (path === "/api/skills/activity") {
+      const query = parseActivityQuery(url, now);
+      if ("error" in query) return fail("invalid-args", query.error);
+      return ok("ok", await skillActivity(store, index(), now, query, topParam(url)));
+    }
+    if (path === "/api/skills/history") return history(url, store, settings.folders);
+    if (path === "/api/skills/proposals") return proposals(url, store, settings.folders);
     const one = /^\/api\/skills\/proposals\/([^/]+)$/.exec(path);
     if (one) {
       const proposal = await getProposal(store, decodeURIComponent(one[1]!));
@@ -214,7 +234,13 @@ async function dispatch(
   return undefined;
 }
 
-async function showSkill(url: URL, store: SkillStore, index: SkillIndex, now: number) {
+async function showSkill(
+  url: URL,
+  deps: { store: SkillStore; folders: readonly string[] },
+  index: SkillIndex,
+  now: number
+) {
+  const { store } = deps;
   const path = text(url.searchParams.get("path"));
   const name = text(url.searchParams.get("name"));
   if (!path && !name) return fail("invalid-args", "Give path or name");
@@ -222,14 +248,20 @@ async function showSkill(url: URL, store: SkillStore, index: SkillIndex, now: nu
     path ? s.path === path : s.path === null && s.name === name
   );
   if (!skill) return fail("not-found", "No such skill");
+  const limit = intParam(url, "turnLimit", 1, MAX_PAGE, RECENT_TURN_LIMIT);
+  const offset = intParam(url, "turnOffset", 0, Number.MAX_SAFE_INTEGER, 0);
   return ok("ok", {
     skill,
-    recentTurns: await recentSkillTurns(store, skill, index),
-    proposals: skill.path ? await listProposals(store, { skillPath: skill.path }) : [],
+    recentTurns: await recentSkillTurns(store, skill, index, limit, offset),
+    turnTotal: await countSkillTurns(store, skill, index),
+    daily: await skillDaily(store, index, skill, now),
+    proposals: skill.path
+      ? await withCanUndo(deps, await listProposals(store, { skillPath: skill.path }))
+      : [],
   });
 }
 
-async function proposals(url: URL, store: SkillStore) {
+async function proposals(url: URL, store: SkillStore, folders: readonly string[]) {
   const state = text(url.searchParams.get("state"));
   const skill = text(url.searchParams.get("skill"));
   if (state && !PROPOSAL_STATES.includes(state as SkillProposalState)) {
@@ -240,7 +272,22 @@ async function proposals(url: URL, store: SkillStore) {
   // A path names one file; a bare name matches every skill with that name.
   if (skill && /[/\\]/.test(skill)) filter.skillPath = skill;
   else if (skill) filter.skillName = skill;
-  return ok("ok", { proposals: await listProposals(store, filter) });
+  const all = await listProposals(store, filter);
+  // Without limit or offset the whole list comes back, as before.
+  const offset = intParam(url, "offset", 0, Number.MAX_SAFE_INTEGER, 0);
+  const limit = intParam(url, "limit", 1, MAX_PAGE, all.length || 1);
+  const paged = url.searchParams.has("limit") || url.searchParams.has("offset");
+  const shown = paged ? all.slice(offset, offset + limit) : all;
+  return ok("ok", { proposals: await withCanUndo({ store, folders }, shown), total: all.length });
+}
+
+async function history(url: URL, store: SkillStore, folders: readonly string[]) {
+  const path = text(url.searchParams.get("path"));
+  const name = text(url.searchParams.get("name"));
+  if (!path && !name) return fail("invalid-args", "Give path or name");
+  const limit = intParam(url, "limit", 1, MAX_PAGE, DEFAULT_PAGE);
+  const offset = intParam(url, "offset", 0, Number.MAX_SAFE_INTEGER, 0);
+  return ok("ok", await skillHistory({ store, folders }, { path, name }, limit, offset));
 }
 
 async function undo(id: string | undefined, store: SkillStore, folders: readonly string[]) {

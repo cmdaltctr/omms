@@ -34,7 +34,11 @@ export function SkillFolders({
   }
 
   return (
-    <section className="space-y-3" aria-label={s("Watched folders")}>
+    <section
+      id="skills-section-folders"
+      className="scroll-mt-4 space-y-3"
+      aria-label={s("Watched folders")}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-section-title font-semibold">{s("Watched folders")}</h2>
         {canReset ? (

@@ -60,7 +60,7 @@ const sections = [
   { id: "profile-patterns", label: "Patterns" },
   { id: "profile-workflows", label: "Workflows" },
 ];
-function render(currentView: string) {
+function render(currentView: string, extra: Record<string, unknown> = {}) {
   cursor = 0;
   return AppSidebar({
     currentView: currentView as never,
@@ -78,6 +78,7 @@ function render(currentView: string) {
     closeLabel: "Close",
     collapseLabel: "Collapse",
     expandLabel: "Expand",
+    ...extra,
   });
 }
 const toggle = (tree: ReactNode) =>
@@ -149,4 +150,57 @@ it("still works when the browser blocks storage", () => {
   expect(toggle(tree).props["aria-expanded"]).toBe(true);
   expect(() => (toggle(tree).props.onClick as () => void)()).not.toThrow();
   expect(links(render("profile"))).toEqual([]);
+});
+
+const skillsSections = [
+  { id: "skills-section-activity", label: "Activity" },
+  { id: "skills-section-ranked", label: "Ranked skills" },
+];
+const skillsToggle = (tree: ReactNode) =>
+  find(tree, (node) => node.props["aria-controls"] === "sidebar-skills-tree")[0];
+const skillsLinks = (tree: ReactNode) =>
+  find(tree, (node) => node.type === "a" && String(node.props.href).startsWith("/skills#")).map(
+    (link) => link.props.children
+  );
+
+it("shows the Skills tree open on the Skills page, linking to its sections", () => {
+  const tree = render("skills", { skillsSections });
+  expect(skillsToggle(tree).props["aria-expanded"]).toBe(true);
+  expect(skillsLinks(tree)).toEqual(["Activity", "Ranked skills"]);
+  const hrefs = find(
+    tree,
+    (node) => node.type === "a" && String(node.props.href).startsWith("/skills#")
+  ).map((link) => link.props.href);
+  expect(hrefs).toEqual(["/skills#skills-section-activity", "/skills#skills-section-ranked"]);
+});
+
+it("keeps the Skills tree closed elsewhere and remembers a toggle under its own key", () => {
+  let tree = render("project", { skillsSections });
+  expect(skillsToggle(tree).props["aria-expanded"]).toBe(false);
+  expect(skillsLinks(tree)).toEqual([]);
+  (skillsToggle(tree).props.onClick as () => void)();
+  expect(store.get("omms-sidebar-skills-open")).toBe("1");
+  expect(store.has("omms-sidebar-profile-open")).toBe(false);
+  tree = render("project", { skillsSections });
+  expect(skillsLinks(tree)).toHaveLength(2);
+});
+
+it("shows no Skills toggle when the page has no sections", () => {
+  expect(skillsToggle(render("skills"))).toBeUndefined();
+});
+
+it("opens the Skills tree when the user moves to Skills with no saved choice", () => {
+  // The sidebar stays mounted across pages, so the same state sees both renders.
+  const before = render("project", { skillsSections });
+  expect(skillsToggle(before).props["aria-expanded"]).toBe(false);
+  cursor = 0;
+  const after = render("skills", { skillsSections });
+  expect(skillsToggle(after).props["aria-expanded"]).toBe(true);
+});
+
+it("keeps a saved choice when the user moves to Skills", () => {
+  store.set("omms-sidebar-skills-open", "0");
+  render("project", { skillsSections });
+  cursor = 0;
+  expect(skillsToggle(render("skills", { skillsSections })).props["aria-expanded"]).toBe(false);
 });
