@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.31.0](https://github.com/cmdaltctr/omms/compare/v4.30.1...v4.31.0) (2026-10-31)
+
+
+### Features
+
+* skill learning — record agent turns, rank skills and draft improvements ([81531ca](https://github.com/cmdaltctr/omms/commit/81531ca27140b2e169849e3d08864fb72da23c72))
+* skill learning — record agent turns, rank skills and draft improvements ([f801fdd](https://github.com/cmdaltctr/omms/commit/f801fddae5abe9c3c2c6e9b660b3e92a102efbc2))
+
+
+### Bug Fixes
+
+* address code review on skill learning ([f99e004](https://github.com/cmdaltctr/omms/commit/f99e00426a55c6398540483b153c65454e2492e6))
+
 ## [4.30.1](https://github.com/cmdaltctr/omms/compare/v4.30.0...v4.30.1) (2026-10-30)
 
 
