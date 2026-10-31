@@ -19,6 +19,8 @@ const skill = (over: Partial<SkillRow> = {}): SkillRow => ({
   lastUsedAt: Date.UTC(2026, 9, 28),
   mode: "manual",
   suggested: false,
+  modified: false,
+  lastAppliedAt: null,
   ...over,
 });
 const folders = [{ path: "/home/u/.agents/skills", skills: 2, exists: true }];
@@ -73,7 +75,9 @@ it("marks a skill outside the watched folders", () => {
 });
 
 it("renders a pending proposal with a coloured line diff, summary, Apply and Reject", () => {
-  const html = renderToStaticMarkup(<ProposalCard proposal={proposal()} onChange={() => {}} />);
+  const html = renderToStaticMarkup(
+    <ProposalCard proposal={proposal()} initiallyOpen onChange={() => {}} />
+  );
   expect(html).toContain("pending");
   expect(html).toContain("Tighten the search steps.");
   expect(html).toContain('data-line="del"');
@@ -256,7 +260,7 @@ it("shows attention in the meta line of a ranked row", () => {
   expect(html).toContain("Attention 0.42");
 });
 
-it("lists recent proposals below Pending, folded, with their state and Undo when applied", () => {
+it("lists recent proposals below Pending, collapsed, with their state and Undo when applied", () => {
   const html = page(overview(true), 3, [
     proposal({ id: "r1", kind: "new", skillName: "deploy", state: "rejected" }),
     proposal({ id: "r2", state: "applied", appliedBy: "person" }),
@@ -264,8 +268,9 @@ it("lists recent proposals below Pending, folded, with their state and Undo when
   expect(html).toContain("Recent proposals");
   expect(html).toContain("deploy");
   expect(html).toContain(">rejected<");
-  expect(html).toContain("Show changes");
-  expect(html).not.toContain("Hide changes");
+  expect(html).toContain("Show more");
+  expect(html).not.toContain("Show changes");
+  expect(html).not.toContain('data-line="del"');
   expect(html).toContain("Undo");
   // With nothing decided yet the section stays, so its sidebar link has a target.
   const empty = page(overview(true), 3);

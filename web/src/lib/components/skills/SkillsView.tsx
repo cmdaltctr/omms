@@ -10,9 +10,17 @@ import {
   type TopSkill,
 } from "$lib/skills-api";
 import { filterSkills, recentProposals } from "$lib/skills-model";
+import {
+  applyModifiedFilter,
+  modifiedCounts,
+  readModifiedFilter,
+  saveModifiedFilter,
+  type ModifiedFilter,
+} from "$lib/skills-modified";
 import { Callout } from "./Callout";
 import { SkillActivitySection } from "./charts/SkillActivity";
-import { ProposalList } from "./ProposalList";
+import { ModifiedFilterControl } from "./ModifiedFilterControl";
+import { PENDING_LIST_KEY, ProposalList, RECENT_LIST_KEY } from "./ProposalList";
 import { RecordPast } from "./RecordPast";
 import { SkillDetail } from "./SkillDetail";
 import { SkillFolders } from "./SkillFolders";
@@ -29,14 +37,26 @@ type PageProps = {
   recent: Proposal[];
   error: string;
   query: string;
+  /** Which ranked skills show by modification. Defaults to All. */
+  modifiedFilter?: ModifiedFilter;
   /** Bumped after each reload, so the Activity charts load again. */
   reloadKey?: number;
   onQuery: (query: string) => void;
+  onModifiedFilter?: (filter: ModifiedFilter) => void;
   onOpen: (skill: SkillRow) => void;
   onPendingChange: (next: Proposal) => void;
   onRecentChange: (next: Proposal) => void;
   onReload: () => void;
 };
+
+/** Why the ranked list is empty. A name filter wins; then the tab the reader chose. */
+function emptyMessage(query: string, loaded: number, filter: ModifiedFilter): string {
+  if (query.trim()) return "No skill matches this name.";
+  if (loaded > 0 && filter === "modified") return "No skill has been modified yet.";
+  if (loaded > 0 && filter === "not-modified") return "Every skill has been modified.";
+  if (loaded > 0 && filter === "suggested") return "No skill is suggested for a change yet.";
+  return "No skills found in the watched folders.";
+}
 
 /** The Skills page as markup: ranked skills, pending proposals, ideas and the watched folders. */
 export function SkillsPage({
@@ -46,15 +66,18 @@ export function SkillsPage({
   recent,
   error,
   query,
+  modifiedFilter = "all",
   reloadKey = 0,
   onQuery,
+  onModifiedFilter = () => {},
   onOpen,
   onPendingChange,
   onRecentChange,
   onReload,
 }: PageProps) {
   const s = useSettingsText();
-  const skills = filterSkills(overview?.skills ?? [], query);
+  const loaded = overview?.skills ?? [];
+  const skills = applyModifiedFilter(filterSkills(loaded, query), modifiedFilter);
   const folders = overview?.folders ?? [];
   const openTop = (top: TopSkill) => {
     const row = (overview?.skills ?? []).find((skill) =>
@@ -110,14 +133,23 @@ export function SkillsPage({
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-section-title font-semibold">{s("Ranked skills")}</h2>
-          <Input
-            type="search"
-            className="max-w-xs"
-            value={query}
-            aria-label={s("Filter skills by name")}
-            placeholder={s("Filter skills by name")}
-            onChange={(event) => onQuery(event.target.value)}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            {loaded.length > 0 ? (
+              <ModifiedFilterControl
+                value={modifiedFilter}
+                counts={modifiedCounts(loaded)}
+                onChange={onModifiedFilter}
+              />
+            ) : null}
+            <Input
+              type="search"
+              className="w-72 max-w-full"
+              value={query}
+              aria-label={s("Filter skills by name")}
+              placeholder={s("Filter skills by name")}
+              onChange={(event) => onQuery(event.target.value)}
+            />
+          </div>
         </div>
         {overview && overview.recording && turns === 0 ? (
           <div className="space-y-2">
@@ -127,15 +159,17 @@ export function SkillsPage({
         ) : null}
         {overview && skills.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {s(
-              query.trim()
-                ? "No skill matches this name."
-                : "No skills found in the watched folders."
-            )}
+            {s(emptyMessage(query, loaded.length, modifiedFilter))}
           </p>
         ) : null}
         {skills.length > 0 ? (
-          <RankedSkills skills={skills} folders={folders} query={query} onOpen={onOpen} />
+          <RankedSkills
+            skills={skills}
+            folders={folders}
+            query={query}
+            modifiedFilter={modifiedFilter}
+            onOpen={onOpen}
+          />
         ) : null}
       </section>
 
@@ -147,7 +181,7 @@ export function SkillsPage({
         <h2 className="text-section-title font-semibold">{s("Pending proposals")}</h2>
         {pending.length > 0 ? (
           <ProposalList
-            storageKey="omms-list-pending"
+            storageKey={PENDING_LIST_KEY}
             proposals={pending}
             onChange={onPendingChange}
           />
@@ -170,7 +204,7 @@ export function SkillsPage({
               )}
             </p>
             <ProposalList
-              storageKey="omms-list-recent"
+              storageKey={RECENT_LIST_KEY}
               proposals={recent}
               onChange={onRecentChange}
             />
@@ -197,6 +231,7 @@ export function SkillsView() {
   const [recent, setRecent] = useState<Proposal[]>([]);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [modifiedFilter, setModifiedFilter] = useState<ModifiedFilter>(readModifiedFilter);
   const [open, setOpen] = useState<SkillRow | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -246,8 +281,12 @@ export function SkillsView() {
   }
   return (
     <SkillsPage
-      {...{ overview, turns, pending, recent, error, query, reloadKey }}
+      {...{ overview, turns, pending, recent, error, query, modifiedFilter, reloadKey }}
       onQuery={setQuery}
+      onModifiedFilter={(next) => {
+        setModifiedFilter(next);
+        saveModifiedFilter(next);
+      }}
       onOpen={setOpen}
       onPendingChange={(next) =>
         setPending((list) => list.map((item) => (item.id === next.id ? next : item)))

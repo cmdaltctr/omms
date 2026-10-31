@@ -42,6 +42,45 @@ export function diffLines(diff: string): DiffLine[] {
   });
 }
 
+/**
+ * Lines added and removed by a proposal, counted from the diff it already
+ * holds. A new skill has no diff, so every line of its content counts as added.
+ */
+export function diffStat(proposal: Pick<Proposal, "diff" | "content">): {
+  added: number;
+  removed: number;
+} {
+  if (proposal.diff === null) {
+    const lines = proposal.content.trim() ? proposal.content.split("\n").length : 0;
+    return { added: lines, removed: 0 };
+  }
+  const lines = diffLines(proposal.diff);
+  return {
+    added: lines.filter((line) => line.kind === "add").length,
+    removed: lines.filter((line) => line.kind === "del").length,
+  };
+}
+
+/** A summary longer than this, or with more than one line break, may pass 2 lines. */
+const LONG_SUMMARY = 160;
+
+/**
+ * Whether a proposal card has anything to reveal behind Show more: a summary
+ * that may pass two lines, a diff (or the content of a new skill), or evidence.
+ */
+export function hasMoreDetail(
+  proposal: Pick<Proposal, "summary" | "diff" | "content" | "evidenceTurnIds">
+): boolean {
+  const summary = proposal.summary ?? "";
+  return (
+    summary.length > LONG_SUMMARY ||
+    summary.split("\n").length > 2 ||
+    Boolean(proposal.diff) ||
+    (proposal.diff === null && proposal.content.trim() !== "") ||
+    proposal.evidenceTurnIds.length > 0
+  );
+}
+
 /** Turn count with a thousands separator that does not follow the page language. */
 export const countText = (n: number): string => n.toLocaleString("en-US");
 

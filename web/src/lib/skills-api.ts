@@ -13,6 +13,10 @@ export type SkillRow = {
   lastUsedAt: number | null;
   mode: SkillMode;
   suggested: boolean;
+  /** At least one proposal of this skill is applied now; an undone one does not count. */
+  modified: boolean;
+  /** When the newest applied proposal was applied, or null when the skill is not modified. */
+  lastAppliedAt: number | null;
 };
 export type FolderRow = { path: string; skills: number; exists: boolean };
 export type SkillsOverview = { recording: boolean; skills: SkillRow[]; folders: FolderRow[] };

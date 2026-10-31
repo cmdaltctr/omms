@@ -68,6 +68,8 @@ const skill = (name: string, over: Partial<SkillRow> = {}): SkillRow => ({
   lastUsedAt: null,
   mode: "manual",
   suggested: false,
+  modified: false,
+  lastAppliedAt: null,
   ...over,
 });
 

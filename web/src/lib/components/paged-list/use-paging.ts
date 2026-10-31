@@ -7,6 +7,7 @@ import {
   sortItems,
   syncPaged,
   type PageWindow,
+  type SavedView,
   type SortOrder,
 } from "./paging";
 
@@ -42,13 +43,31 @@ type Options<S extends string> = {
   sorts: readonly SortChoice<S>[];
   /** A new value (for example a new filter) returns the list to page 1. */
   resetKey?: string;
+  /** Page size before the reader picks one. A saved size wins. Defaults to 5. */
+  defaultPerPage?: number;
 };
 
-function initialView<S extends string>(storageKey: string, sorts: readonly SortChoice<S>[]) {
+/**
+ * The entry to save. The page size goes in only when the reader chose it, so a
+ * later change of the default reaches readers who never picked a size.
+ */
+export function viewToSave<S extends string>(
+  view: { perPage: number; sort: S; order: SortOrder },
+  sizeChosen: boolean
+): SavedView<S> {
+  const { perPage, ...rest } = view;
+  return sizeChosen ? { perPage, ...rest } : rest;
+}
+
+export function initialView<S extends string>(
+  storageKey: string,
+  sorts: readonly SortChoice<S>[],
+  defaultPerPage = DEFAULT_PER_PAGE
+) {
   const saved = readView<S>(storageKey);
   const choice = sorts.find((option) => option.value === saved?.sort) ?? sorts[0];
   return {
-    perPage: saved?.perPage ?? DEFAULT_PER_PAGE,
+    perPage: saved?.perPage ?? defaultPerPage,
     sort: choice.value,
     order: (saved?.sort === choice.value ? saved.order : undefined) ?? choice.first,
   };
@@ -64,17 +83,20 @@ export function usePaging<S extends string>({
   total,
   sorts,
   resetKey = "",
+  defaultPerPage,
 }: Options<S>): PagingView<S> {
-  const [view, setView] = useState(() => initialView(storageKey, sorts));
+  const [view, setView] = useState(() => initialView(storageKey, sorts, defaultPerPage));
+  const [sizeChosen, setSizeChosen] = useState(() => readView(storageKey)?.perPage !== undefined);
   const [paged, setPaged] = useState({ page: 1, key: resetKey });
   // A new key drops the stored page, so returning to an earlier key starts at page 1.
   const current = syncPaged(paged, resetKey);
   if (current !== paged) setPaged(current);
   const place = pageWindow(current.page, view.perPage, total);
 
-  const update = (next: typeof view) => {
+  const update = (next: typeof view, chosen = sizeChosen) => {
     setView(next);
-    saveView(storageKey, next);
+    setSizeChosen(chosen);
+    saveView(storageKey, viewToSave(next, chosen));
     setPaged({ page: 1, key: resetKey });
   };
   return {
@@ -82,7 +104,7 @@ export function usePaging<S extends string>({
     ...view,
     sorts,
     setPage: (page) => setPaged({ page, key: resetKey }),
-    setPerPage: (perPage) => update({ ...view, perPage }),
+    setPerPage: (perPage) => update({ ...view, perPage }, true),
     setSort: (sort, order) => update({ ...view, sort, order }),
   };
 }

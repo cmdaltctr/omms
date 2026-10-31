@@ -5,7 +5,7 @@
  */
 
 /** Page sizes in the "Show" menu, the same on every list. */
-export const PER_PAGE_PRESETS = [5, 10, 25, 50, 100] as const;
+export const PER_PAGE_PRESETS = [3, 5, 10, 25, 50, 100] as const;
 export const DEFAULT_PER_PAGE = 5;
 /** Largest page size a list accepts. The skills routes check the same limit. */
 export const MAX_PER_PAGE = 200;
@@ -110,7 +110,8 @@ export function sortItems<T>(
     .map(({ item }) => item);
 }
 
-export type SavedView<S extends string> = { perPage: number; sort?: S; order?: SortOrder };
+/** What a list saves. `perPage` is present only when the reader chose a size. */
+export type SavedView<S extends string> = { perPage?: number; sort?: S; order?: SortOrder };
 
 /** The saved page size and sort of one list. Blocked storage or bad data gives `null`. */
 export function readView<S extends string>(key: string): SavedView<S> | null {
@@ -118,7 +119,10 @@ export function readView<S extends string>(key: string): SavedView<S> | null {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const value = JSON.parse(raw) as Partial<SavedView<S>>;
-    const perPage = parseCustomSize(String(value.perPage ?? ""), DEFAULT_PER_PAGE);
+    const perPage =
+      value.perPage === undefined
+        ? undefined
+        : parseCustomSize(String(value.perPage), DEFAULT_PER_PAGE);
     const order = value.order === "asc" || value.order === "desc" ? value.order : undefined;
     return { perPage, sort: typeof value.sort === "string" ? value.sort : undefined, order };
   } catch {

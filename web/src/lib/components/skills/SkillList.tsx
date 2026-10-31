@@ -3,8 +3,11 @@ import { useSettingsText } from "$lib/i18n/settings";
 import { formatDate } from "$lib/format";
 import type { FolderRow, SkillRow } from "$lib/skills-api";
 import { countText, fill } from "$lib/skills-model";
+import type { ModifiedFilter } from "$lib/skills-modified";
 import { SKILL_SORTS } from "$lib/skills-sorts";
+import { cn } from "$lib/utils";
 import { HuePill } from "./HuePill";
+import { ModifiedMark } from "./ModifiedMark";
 
 /** The folder that holds a skill: the watched folder whose path starts its path. */
 export function folderOf(skill: SkillRow, folders: FolderRow[]): string | null {
@@ -31,13 +34,13 @@ export function SkillList({
       {skills.map((skill) => {
         const folder = folderOf(skill, folders);
         return (
-          <li key={skill.path ?? `name:${skill.name}`}>
+          <li key={skill.path ?? `name:${skill.name}`} className="relative">
             <button
               type="button"
               onClick={() => onOpen(skill)}
               className="w-full min-w-0 space-y-1.5 rounded-xl border border-border bg-card px-3 py-2.5 text-start transition-colors duration-150 hover:bg-interactive-hover focus-visible:outline-2 focus-visible:outline-ring"
             >
-              <span className="flex flex-wrap items-center gap-2">
+              <span className={cn("flex flex-wrap items-center gap-2", skill.modified && "ps-6")}>
                 <span className="min-w-0 break-words text-sm font-semibold">{skill.name}</span>
                 {skill.suggested ? <HuePill label={s("Suggested")} colourKey="Suggested" /> : null}
                 <HuePill
@@ -62,6 +65,9 @@ export function SkillList({
                 {s("Last use")} {skill.lastUsedAt ? formatDate(skill.lastUsedAt) : s("Never")}
               </span>
             </button>
+            {skill.modified && skill.lastAppliedAt !== null ? (
+              <ModifiedMark at={skill.lastAppliedAt} className="absolute start-3 top-3" />
+            ) : null}
           </li>
         );
       })}
@@ -71,17 +77,19 @@ export function SkillList({
 
 /**
  * The ranked skills, sorted in the browser and paged five to a page. A new
- * filter returns the list to page 1.
+ * name filter or modified filter returns the list to page 1.
  */
 export function RankedSkills({
   skills,
   folders,
   query,
+  modifiedFilter = "all",
   onOpen,
 }: {
   skills: SkillRow[];
   folders: FolderRow[];
   query: string;
+  modifiedFilter?: ModifiedFilter;
   onOpen: (skill: SkillRow) => void;
 }) {
   const s = useSettingsText();
@@ -89,7 +97,7 @@ export function RankedSkills({
     storageKey: "omms-list-skills",
     items: skills,
     sorts: SKILL_SORTS,
-    resetKey: query.trim().toLowerCase(),
+    resetKey: `${modifiedFilter}|${query.trim().toLowerCase()}`,
   });
   return (
     <PagedList

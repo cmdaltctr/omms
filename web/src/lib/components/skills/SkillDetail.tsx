@@ -17,6 +17,7 @@ import { Callout } from "./Callout";
 import { DraftNotice, useDraftNotice } from "./DraftNotice";
 import { HuePill } from "./HuePill";
 import { ModeChoice } from "./ModeChoice";
+import { ModifiedMark } from "./ModifiedMark";
 import { UsesChart } from "./charts/UsesChart";
 import { ProposalList } from "./ProposalList";
 import { SkillHistory } from "./SkillHistory";
@@ -90,6 +91,8 @@ export function SkillDetail({
   }
 
   const proposals = detail?.proposals ?? [];
+  // The loaded row follows an apply or an undo made on this view.
+  const shown = detail?.skill ?? skill;
   return (
     <div className="space-y-8">
       <div className="space-y-3">
@@ -99,6 +102,9 @@ export function SkillDetail({
         </Button>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="min-w-0 break-words text-section-title font-semibold">{skill.name}</h2>
+          {shown.modified && shown.lastAppliedAt !== null ? (
+            <ModifiedMark at={shown.lastAppliedAt} />
+          ) : null}
           {skill.suggested ? <HuePill label={s("Suggested")} colourKey="Suggested" /> : null}
           <HuePill label={s(mode === "manual" ? "Manual" : "Automatic")} colourKey={mode} />
         </div>
