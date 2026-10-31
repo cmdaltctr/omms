@@ -92,10 +92,11 @@ export async function skillHistory(
   limit: number,
   offset: number
 ): Promise<{ total: number; entries: SkillHistoryEntry[] }> {
-  const proposals = await listProposals(
-    deps.store,
-    skill.path ? { skillPath: skill.path } : { skillName: skill.name }
-  );
+  // A name without a path is a skill outside the watched folders. Its proposals
+  // have no path, so a watched skill that shares the name stays out.
+  const proposals = skill.path
+    ? await listProposals(deps.store, { skillPath: skill.path })
+    : (await listProposals(deps.store, { skillName: skill.name })).filter((p) => !p.skillPath);
   const versions = await latestVersionIds(
     deps,
     proposals.filter((p) => p.state === "applied").map((p) => p.id)
@@ -117,4 +118,21 @@ export async function skillHistory(
     })
   );
   return { total: all.length, entries };
+}
+
+/**
+ * Each proposal with `canUndo`: true only for an applied proposal that undo
+ * would accept now, so false once a later change rewrote the file. Reads one
+ * saved version and one file hash per applied proposal, and nothing for the rest.
+ */
+export async function withCanUndo(
+  deps: ApplyDeps,
+  proposals: readonly SkillProposal[]
+): Promise<(SkillProposal & { canUndo: boolean })[]> {
+  return Promise.all(
+    proposals.map(async (p) => ({
+      ...p,
+      canUndo: p.state === "applied" && (await canUndoProposal(p.id, deps)),
+    }))
+  );
 }

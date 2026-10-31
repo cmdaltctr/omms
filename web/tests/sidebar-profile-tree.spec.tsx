@@ -188,3 +188,19 @@ it("keeps the Skills tree closed elsewhere and remembers a toggle under its own 
 it("shows no Skills toggle when the page has no sections", () => {
   expect(skillsToggle(render("skills"))).toBeUndefined();
 });
+
+it("opens the Skills tree when the user moves to Skills with no saved choice", () => {
+  // The sidebar stays mounted across pages, so the same state sees both renders.
+  const before = render("project", { skillsSections });
+  expect(skillsToggle(before).props["aria-expanded"]).toBe(false);
+  cursor = 0;
+  const after = render("skills", { skillsSections });
+  expect(skillsToggle(after).props["aria-expanded"]).toBe(true);
+});
+
+it("keeps a saved choice when the user moves to Skills", () => {
+  store.set("omms-sidebar-skills-open", "0");
+  render("project", { skillsSections });
+  cursor = 0;
+  expect(skillsToggle(render("skills", { skillsSections })).props["aria-expanded"]).toBe(false);
+});

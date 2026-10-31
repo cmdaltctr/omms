@@ -6,6 +6,7 @@ import { formatDate } from "$lib/format";
 import {
   skillsApi,
   type Proposal,
+  type SkillsReply,
   type SkillDetailData,
   type SkillMode,
   type SkillRow,
@@ -20,6 +21,9 @@ import { UsesChart } from "./charts/UsesChart";
 import { ProposalList } from "./ProposalList";
 import { SkillHistory } from "./SkillHistory";
 import { SkillTurns } from "./SkillTurns";
+
+/** The load error to show after a reply. */
+export const nextLoadError = (reply: SkillsReply<unknown>): string => (reply.ok ? "" : reply.error);
 
 /** One skill: its path, counts, daily uses, mode, a draft button, proposals, history and turns. */
 export function SkillDetail({
@@ -45,7 +49,7 @@ export function SkillDetail({
   const load = useCallback(async () => {
     const reply = await skillsApi.skill(skill.path, skill.name, { limit: 1, offset: 0 });
     if (reply.ok) setDetail(reply.data);
-    else setLoadError(reply.error);
+    setLoadError(nextLoadError(reply));
   }, [skill.path, skill.name]);
   const reloadAll = () => {
     setReloadKey((key) => key + 1);

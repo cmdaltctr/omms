@@ -39,8 +39,8 @@ const STATE_ORDER: readonly ProposalState[] = ["pending", "applied", "rejected",
 export type ProposalSort = "newest" | "oldest" | "state" | "skill";
 const byUpdated = (a: Proposal, b: Proposal) => a.updatedAt - b.updatedAt;
 export const PROPOSAL_SORTS: readonly SortOption<ProposalSort, Proposal>[] = [
-  { value: "newest", label: "Newest", first: "desc", compare: byUpdated },
-  { value: "oldest", label: "Oldest", first: "asc", compare: byUpdated },
+  { value: "newest", label: "Newest", first: "desc", flip: "oldest", compare: byUpdated },
+  { value: "oldest", label: "Oldest", first: "asc", flip: "newest", compare: byUpdated },
   {
     value: "state",
     label: "State",
@@ -58,8 +58,8 @@ export const PROPOSAL_SORTS: readonly SortOption<ProposalSort, Proposal>[] = [
 /** Turns and history come from the server newest first; Oldest asks for the other end. */
 export type TimeSort = "newest" | "oldest";
 export const TIME_SORTS: readonly SortChoice<TimeSort>[] = [
-  { value: "newest", label: "Newest", first: "desc" },
-  { value: "oldest", label: "Oldest", first: "asc" },
+  { value: "newest", label: "Newest", first: "desc", flip: "oldest" },
+  { value: "oldest", label: "Oldest", first: "asc", flip: "newest" },
 ];
 
 /** Whether a time-sorted view shows the oldest row first. */

@@ -133,3 +133,28 @@ export function saveView<S extends string>(key: string, view: SavedView<S>): voi
     // Private mode or blocked site data; the choice lasts for this visit.
   }
 }
+
+/** The page a list asked for, and the reset key it asked under. */
+export type PagedState = { page: number; key: string };
+
+/** The stored page for this reset key. A new key drops the old page for good. */
+export function syncPaged(state: PagedState, key: string): PagedState {
+  return state.key === key ? state : { page: 1, key };
+}
+
+/**
+ * What the direction button picks. A sort with an opposite (Newest and
+ * Oldest) moves to it, so the label always matches the order shown. Any other
+ * sort keeps its value and reverses its order.
+ */
+export function flipSort<S extends string>(
+  sorts: readonly { value: S; first: SortOrder; flip?: S }[],
+  sort: S,
+  order: SortOrder
+): { sort: S; order: SortOrder } {
+  const opposite = sorts.find(
+    (option) => option.value === sorts.find((o) => o.value === sort)?.flip
+  );
+  if (opposite) return { sort: opposite.value, order: opposite.first };
+  return { sort, order: order === "asc" ? "desc" : "asc" };
+}

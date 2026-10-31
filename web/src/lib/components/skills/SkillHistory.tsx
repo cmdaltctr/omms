@@ -16,6 +16,8 @@ type ViewProps = {
   entries: HistoryEntry[];
   /** null while the first page loads. */
   loaded: boolean;
+  /** A new page is loading; the entries on screen belong to the previous range. */
+  refreshing?: boolean;
   error: string;
   confirmId: string | null;
   workingId: string | null;
@@ -28,7 +30,7 @@ type ViewProps = {
 /** The History timeline as markup: one entry per change, newest first, paged. */
 export function SkillHistoryView(props: ViewProps) {
   const s = useSettingsText();
-  const { view, entries, loaded, error, notice } = props;
+  const { view, entries, loaded, error, notice, refreshing = false } = props;
   return (
     <section className="space-y-3" aria-labelledby="skill-history-title">
       <h3 id="skill-history-title" className="text-section-title font-semibold">
@@ -69,14 +71,17 @@ export function SkillHistoryView(props: ViewProps) {
             count: view.total,
           })}
         >
-          <ol className="ms-1.5 space-y-4 border-s border-border ps-4">
+          <ol
+            aria-busy={refreshing}
+            className={`ms-1.5 space-y-4 border-s border-border ps-4 transition-opacity ${refreshing ? "opacity-60" : ""}`}
+          >
             {entries.map((entry) => (
               <HistoryEntryItem
                 key={entry.id}
                 entry={entry}
                 confirming={props.confirmId === entry.id}
                 working={props.workingId === entry.id}
-                locked={props.workingId !== null}
+                locked={props.workingId !== null || refreshing}
                 onAsk={() => props.onAsk(entry)}
                 onConfirm={() => props.onConfirm(entry)}
                 onCancel={props.onCancel}
@@ -102,6 +107,9 @@ export function SkillHistory({
   const [total, setTotal] = useState(0);
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
+  // The range the entries on screen were loaded for. Until it matches the
+  // range asked for, the entries are the previous page and cannot be reverted.
+  const [shownKey, setShownKey] = useState("");
   const [error, setError] = useState("");
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
@@ -109,6 +117,7 @@ export function SkillHistory({
   const view = usePaging({ storageKey: "omms-list-skill-history", total, sorts: TIME_SORTS });
   const reverse = oldestFirst(view);
   const { offset, limit } = serverWindow(view.page, view.perPage, total, reverse);
+  const wantedKey = `${skill.path}|${skill.name}|${limit}|${offset}|${reverse}|${reloadKey}`;
 
   useEffect(() => {
     let live = true;
@@ -121,11 +130,12 @@ export function SkillHistory({
       setTotal(page.total);
       const rows = page.entries.slice(0, limit);
       setEntries(reverse ? rows.reverse() : rows);
+      setShownKey(wantedKey);
     });
     return () => {
       live = false;
     };
-  }, [skill.path, skill.name, limit, offset, reverse, reloadKey]);
+  }, [skill.path, skill.name, limit, offset, reverse, reloadKey, wantedKey]);
 
   async function revert(entry: HistoryEntry) {
     setConfirmId(null);
@@ -148,6 +158,7 @@ export function SkillHistory({
   return (
     <SkillHistoryView
       {...{ view, entries, loaded, error, confirmId, workingId, notice }}
+      refreshing={loaded && shownKey !== wantedKey}
       onAsk={(entry) => {
         setNotice(null);
         setConfirmId(entry.id);

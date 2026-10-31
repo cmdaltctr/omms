@@ -5,12 +5,19 @@ import {
   readView,
   saveView,
   sortItems,
+  syncPaged,
   type PageWindow,
   type SortOrder,
 } from "./paging";
 
 /** One entry of the "Sort by" menu. `label` is the English message; the toolbar translates it. */
-export type SortChoice<S extends string> = { value: S; label: string; first: SortOrder };
+export type SortChoice<S extends string> = {
+  value: S;
+  label: string;
+  first: SortOrder;
+  /** The sort that shows the same rows the other way round, for example Newest and Oldest. */
+  flip?: S;
+};
 /** A sort the browser runs. `compare` gives the ascending order. */
 export type SortOption<S extends string, T> = SortChoice<S> & {
   compare: (a: T, b: T) => number;
@@ -60,8 +67,10 @@ export function usePaging<S extends string>({
 }: Options<S>): PagingView<S> {
   const [view, setView] = useState(() => initialView(storageKey, sorts));
   const [paged, setPaged] = useState({ page: 1, key: resetKey });
-  const requested = paged.key === resetKey ? paged.page : 1;
-  const place = pageWindow(requested, view.perPage, total);
+  // A new key drops the stored page, so returning to an earlier key starts at page 1.
+  const current = syncPaged(paged, resetKey);
+  if (current !== paged) setPaged(current);
+  const place = pageWindow(current.page, view.perPage, total);
 
   const update = (next: typeof view) => {
     setView(next);

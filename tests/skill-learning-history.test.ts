@@ -139,8 +139,39 @@ describe("skill history", () => {
     const s = await setup();
     await draft(s, path, V0, V1);
     await draft(s, other, V0, V1, "beta");
-    expect((await s.skillHistory(s.deps, { name: "alpha" }, 20, 0)).total).toBe(1);
+    expect((await s.skillHistory(s.deps, { path }, 20, 0)).total).toBe(1);
     expect((await s.skillHistory(s.deps, { path: other }, 20, 0)).total).toBe(1);
+  });
+
+  it("gives a name-only request only the proposals that have no path", async () => {
+    const path = skillPath();
+    writeFileSync(path, V0);
+    const s = await setup();
+    await draft(s, path, V0, V1); // a watched skill named alpha
+    // Without any path-less proposal the name-only history is empty.
+    expect(await s.skillHistory(s.deps, { name: "alpha" }, 20, 0)).toEqual({
+      total: 0,
+      entries: [],
+    });
+    const loose = await s.createProposal(
+      s.store,
+      {
+        kind: "new",
+        skillName: "alpha",
+        skillPath: null,
+        baseHash: null,
+        content: V0,
+        diff: null,
+        summary: "loose",
+        evidenceTurnIds: [],
+      },
+      (clock += 100)
+    );
+    const named = await s.skillHistory(s.deps, { name: "alpha" }, 20, 0);
+    expect(named.entries.every((e) => e.proposalId === loose.id)).toBe(true);
+    expect(named.total).toBe(1);
+    // The watched skill's history, asked by path, is unchanged.
+    expect((await s.skillHistory(s.deps, { path }, 20, 0)).total).toBe(1);
   });
 
   it("allows undo only for the change that still matches the file, and counts later changes", async () => {
@@ -179,6 +210,38 @@ describe("skill history", () => {
     writeFileSync(path, "hand edit\n");
     const { entries } = await s.skillHistory(s.deps, { path }, 20, 0);
     expect(entries[0]).toMatchObject({ kind: "applied", canUndo: false });
+  });
+});
+
+describe("proposal canUndo flag", () => {
+  beforeEach(() => {
+    baseDir = mkdtempSync(join(tmpdir(), "skill-history-"));
+    skillsDir = join(baseDir, "skills");
+    mkdirSync(skillsDir);
+    clock = 10_000;
+  });
+
+  afterEach(async () => {
+    await cleanupTursoTestDirectory(baseDir);
+  });
+
+  it("is true only for an applied proposal that undo would accept now", async () => {
+    const path = skillPath();
+    writeFileSync(path, V0);
+    const s = await setup();
+    const older = await draft(s, path, V0, V1);
+    await s.applyProposal(older.id, "person", s.deps);
+    const newer = await draft(s, path, V1, V2);
+    await s.applyProposal(newer.id, "person", s.deps);
+    const pending = await draft(s, path, V2, V0);
+    const flags = async () =>
+      Object.fromEntries(
+        (await s.withCanUndo(s.deps, await s.listProposals(s.store))).map((p) => [p.id, p.canUndo])
+      );
+    expect(await flags()).toEqual({ [older.id]: false, [newer.id]: true, [pending.id]: false });
+    await s.undoProposal(newer.id, s.deps);
+    expect((await flags())[older.id]).toBe(true);
+    expect((await flags())[newer.id]).toBe(false);
   });
 });
 

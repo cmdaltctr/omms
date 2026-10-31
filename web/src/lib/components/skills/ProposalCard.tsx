@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Check, Undo2, X } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
 import { useSettingsText } from "$lib/i18n/settings";
@@ -31,6 +31,13 @@ export function UndoStopped({ savedContent }: { savedContent: string | null }) {
     </div>
   );
 }
+
+/** The proposal as the server now holds it after a "stale" answer. */
+export const markStale = (proposal: Proposal, now: number): Proposal => ({
+  ...proposal,
+  state: "stale",
+  updatedAt: now,
+});
 
 const DECIDED = {
   applied: "Applied {date}",
@@ -65,6 +72,10 @@ export function ProposalCard({
   const s = useSettingsText();
   const label = proposalLabel(proposal);
   const pending = proposal.state === "pending";
+  const hintId = useId();
+  // The list says false when a newer applied change superseded this one.
+  // A proposal applied just now carries no flag and can be undone.
+  const canUndo = proposal.canUndo !== false;
   const [open, setOpen] = useState(pending);
   const [evidence, setEvidence] = useState<TurnSummary[] | null>(null);
   const [working, setWorking] = useState(false);
@@ -93,7 +104,7 @@ export function ProposalCard({
       setError(reply.error);
       if (reply.code === "changed") setSavedContent(reply.savedContent ?? null);
       // A stale answer changes the stored state; the card must show it.
-      if (reply.code === "stale") onChange({ ...proposal, state: "stale" });
+      if (reply.code === "stale") onChange(markStale(proposal, Date.now()));
     }
   }
 
@@ -178,16 +189,24 @@ export function ProposalCard({
               </Button>
             </>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={working}
-              onClick={() => void act(() => skillsApi.undo(proposal.id))}
-            >
-              <Undo2 aria-hidden="true" />
-              {s("Undo")}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={working || !canUndo}
+                aria-describedby={canUndo ? undefined : hintId}
+                onClick={() => void act(() => skillsApi.undo(proposal.id))}
+              >
+                <Undo2 aria-hidden="true" />
+                {s("Undo")}
+              </Button>
+              {canUndo ? null : (
+                <span id={hintId} className="self-center text-xs text-muted-foreground">
+                  {s("Revert the newer change first.")}
+                </span>
+              )}
+            </>
           )}
         </div>
       ) : null}

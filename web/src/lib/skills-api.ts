@@ -37,6 +37,8 @@ export type Proposal = {
   appliedBy: "person" | "agent" | "automatic" | null;
   createdAt: number;
   updatedAt: number;
+  /** Lists only: false when a newer applied change superseded this one. Absent after apply. */
+  canUndo?: boolean;
 };
 /** Uses of one UTC day. `failed` counts the turns that had a failed tool call. */
 export type DailyUse = { day: string; uses: number; failed: number };

@@ -115,7 +115,7 @@ export function HistoryEntryItem({
             </p>
           ) : null}
           <div className="flex flex-wrap gap-2 pt-1">
-            <Button type="button" size="sm" disabled={working} onClick={onConfirm}>
+            <Button type="button" size="sm" disabled={working || locked} onClick={onConfirm}>
               {s("Revert")}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={onCancel}>

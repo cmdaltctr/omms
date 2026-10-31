@@ -753,6 +753,17 @@ describe("skills list routes: paging, activity and history", () => {
     expect(result.noArgs.status).toBe(400);
     expect(result.proposalsAll.body.data.proposals).toHaveLength(3);
     expect(result.proposalsAll.body.data.total).toBe(3);
+    // canUndo is true only for the applied proposal; pending ones have nothing to undo.
+    expect(
+      result.proposalsAll.body.data.proposals.map((p: { state: string; canUndo: boolean }) => [
+        p.state,
+        p.canUndo,
+      ])
+    ).toEqual([
+      ["pending", false],
+      ["pending", false],
+      ["applied", true],
+    ]);
     expect(result.proposalsPage.body.data.proposals).toHaveLength(2);
     expect(result.proposalsPage.body.data.total).toBe(3);
     expect(result.proposalsJunk.body.data.proposals).toHaveLength(3);

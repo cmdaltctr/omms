@@ -4,24 +4,25 @@ import { ROUTES } from "$lib/routes";
 import { cn } from "$lib/utils";
 
 /**
- * The open state of a sidebar tree, saved in this browser under `key`. With no
- * saved choice it starts as `fallback`. Blocked storage leaves the toggle working
- * for this visit.
+ * The open state of a sidebar tree. The user's choice is saved in this browser
+ * under `key`. With no choice the tree follows `fallback`, so it opens when the
+ * user moves to its page. Blocked storage leaves the toggle working for this visit.
  */
 export function useSavedOpen(key: string, fallback: boolean): [boolean, () => void] {
-  const [open, setOpen] = useState(() => {
+  const [choice, setChoice] = useState<boolean | null>(() => {
     try {
       const saved = localStorage.getItem(key);
-      return saved === null ? fallback : saved === "1";
+      return saved === null ? null : saved === "1";
     } catch {
-      return fallback;
+      return null;
     }
   });
+  const open = choice ?? fallback;
   return [
     open,
     () => {
       const next = !open;
-      setOpen(next);
+      setChoice(next);
       try {
         localStorage.setItem(key, next ? "1" : "0");
       } catch {

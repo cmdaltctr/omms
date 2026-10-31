@@ -4,7 +4,7 @@ import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Select } from "$lib/components/ui/select";
 import { useSettingsText } from "$lib/i18n/settings";
-import { parseCustomSize, sizeOptions } from "./paging";
+import { flipSort, parseCustomSize, sizeOptions } from "./paging";
 import type { PagingView } from "./use-paging";
 
 const Bar = () => (
@@ -101,7 +101,10 @@ export function PagedListControls<S extends string>({
             size="icon-sm"
             aria-label={s(ascending ? "Sort descending" : "Sort ascending")}
             title={s(ascending ? "Sort descending" : "Sort ascending")}
-            onClick={() => view.setSort(view.sort, ascending ? "desc" : "asc")}
+            onClick={() => {
+              const next = flipSort(view.sorts, view.sort, view.order);
+              view.setSort(next.sort, next.order);
+            }}
           >
             <Arrow className="size-3.5" aria-hidden="true" />
           </Button>
