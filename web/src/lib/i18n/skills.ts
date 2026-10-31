@@ -330,4 +330,17 @@ export const skillText = {
   "Modified ({count})": ["已修改（{count}）", "معدّلة ({count})"],
   "No skill has been modified yet.": ["尚未修改任何技能。", "لم يتم تعديل أي مهارة بعد."],
   "Every skill has been modified.": ["所有技能都已修改。", "تم تعديل كل المهارات."],
+  "Suggested ({count})": ["建议（{count}）", "مقترحة ({count})"],
+  "No skill is suggested for a change yet.": [
+    "尚无建议修改的技能。",
+    "لم تُقترح أي مهارة للتعديل بعد.",
+  ],
+  "The state could not be saved, so SKILL.md is as it was. Try again.": [
+    "无法保存状态，SKILL.md 保持原样。请重试。",
+    "تعذر حفظ الحالة، لذا بقي SKILL.md كما كان. حاول مرة أخرى.",
+  ],
+  "No skill matches this name in this tab.": [
+    "此标签页中没有技能匹配该名称。",
+    "لا توجد مهارة تطابق هذا الاسم في هذا التبويب.",
+  ],
 } as const;

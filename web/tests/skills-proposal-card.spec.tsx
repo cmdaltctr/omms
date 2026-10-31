@@ -8,6 +8,7 @@ import {
   PENDING_LIST_KEY,
   ProposalList,
   RECENT_LIST_KEY,
+  SKILL_PROPOSALS_LIST_KEY,
 } from "../src/lib/components/skills/ProposalList.tsx";
 import { PagedList } from "../src/lib/components/paged-list/index.ts";
 import type { Proposal } from "../src/lib/skills-api.ts";
@@ -182,11 +183,13 @@ it("starts the proposal lists at 3 even when an old key saved 5", () => {
   const store = new Map<string, string>([
     ["omms-list-pending", JSON.stringify({ perPage: 5, sort: "newest", order: "desc" })],
     ["omms-list-recent", JSON.stringify({ perPage: 5, sort: "newest", order: "desc" })],
+    ["omms-list-skill-proposals", JSON.stringify({ perPage: 5, sort: "newest", order: "desc" })],
   ]);
   g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem() {} };
-  for (const key of [PENDING_LIST_KEY, RECENT_LIST_KEY]) {
+  for (const key of [PENDING_LIST_KEY, RECENT_LIST_KEY, SKILL_PROPOSALS_LIST_KEY]) {
     expect(initialView(key, PROPOSAL_SORTS, 3).perPage).toBe(3);
   }
   expect(PENDING_LIST_KEY).not.toBe("omms-list-pending");
   expect(RECENT_LIST_KEY).not.toBe("omms-list-recent");
+  expect(SKILL_PROPOSALS_LIST_KEY).toBe("omms-list-skill-proposals-v2");
 });

@@ -111,8 +111,28 @@ describe("Last modified sort", () => {
     expect(option.label).toBe("Last modified");
     expect(option.first).toBe("desc");
     const rows = [skill("none"), modified("old", 1000), modified("new", 9000), skill("none2")];
-    const names = sortItems(rows, option.compare, "desc").map((s) => s.name);
+    const names = sortItems(rows, option.compare, "desc", option.last).map((s) => s.name);
     expect(names).toEqual(["new", "old", "none", "none2"]);
+  });
+
+  it("keeps unmodified skills last when sorted oldest first", () => {
+    const rows = [skill("none"), modified("new", 9000), skill("none2"), modified("old", 1000)];
+    const names = sortItems(rows, option.compare, "asc", option.last).map((s) => s.name);
+    expect(names).toEqual(["old", "new", "none", "none2"]);
+  });
+
+  it("keeps never-used skills last in both directions of Last used", () => {
+    const used = SKILL_SORTS.find((o) => o.value === "lastUsed")!;
+    const rows = [
+      skill("never"),
+      skill("recent", { lastUsedAt: 9000 }),
+      skill("never2"),
+      skill("early", { lastUsedAt: 1000 }),
+    ];
+    const run = (order: "asc" | "desc") =>
+      sortItems(rows, used.compare, order, used.last).map((s) => s.name);
+    expect(run("asc")).toEqual(["early", "recent", "never", "never2"]);
+    expect(run("desc")).toEqual(["recent", "early", "never", "never2"]);
   });
 });
 
@@ -250,7 +270,27 @@ describe("the page", () => {
     expect(html).toContain("gamma-three");
     expect(html).not.toContain("alpha-one");
     expect(html).toContain("Not modified (2)");
-    expect(page(skills, "modified", "gamma")).toContain("No skill matches this name.");
+  });
+
+  it("says no skill matches the name when the whole list has none, in any tab", () => {
+    for (const filter of ["all", "not-modified", "modified", "suggested"] as const) {
+      const html = page(skills, filter, "zzz");
+      expect(html).toContain("No skill matches this name.");
+      expect(html).not.toContain("in this tab");
+    }
+  });
+
+  it("says the tab hides the match when the name matches only skills the tab hides", () => {
+    const html = page(skills, "modified", "gamma");
+    expect(html).toContain("No skill matches this name in this tab.");
+    expect(html).not.toContain("No skill matches this name.");
+    expect(page(skills, "suggested", "alpha")).toContain("No skill matches this name in this tab.");
+  });
+
+  it("shows no empty message when the name matches skills the tab shows", () => {
+    const html = page(skills, "not-modified", "gamma");
+    expect(html).toContain("gamma-three");
+    expect(html).not.toContain("No skill matches this name");
   });
 
   it("says so when a tab is empty", () => {

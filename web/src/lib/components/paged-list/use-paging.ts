@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   DEFAULT_PER_PAGE,
+  migrateView,
   pageWindow,
   readView,
   saveView,
@@ -22,6 +23,8 @@ export type SortChoice<S extends string> = {
 /** A sort the browser runs. `compare` gives the ascending order. */
 export type SortOption<S extends string, T> = SortChoice<S> & {
   compare: (a: T, b: T) => number;
+  /** Rows that always come last, whichever way the sort runs, such as a missing date. */
+  last?: (item: T) => boolean;
 };
 
 /** Everything the toolbar and footer need. Pass it to `PagedList` as `view`. */
@@ -43,6 +46,8 @@ type Options<S extends string> = {
   sorts: readonly SortChoice<S>[];
   /** A new value (for example a new filter) returns the list to page 1. */
   resetKey?: string;
+  /** An older key whose saved view moves to `storageKey` once, when `storageKey` holds nothing. */
+  legacyKey?: string;
   /** Page size before the reader picks one. A saved size wins. Defaults to 5. */
   defaultPerPage?: number;
 };
@@ -83,9 +88,13 @@ export function usePaging<S extends string>({
   total,
   sorts,
   resetKey = "",
+  legacyKey,
   defaultPerPage,
 }: Options<S>): PagingView<S> {
-  const [view, setView] = useState(() => initialView(storageKey, sorts, defaultPerPage));
+  const [view, setView] = useState(() => {
+    if (legacyKey) migrateView(storageKey, legacyKey);
+    return initialView(storageKey, sorts, defaultPerPage);
+  });
   const [sizeChosen, setSizeChosen] = useState(() => readView(storageKey)?.perPage !== undefined);
   const [paged, setPaged] = useState({ page: 1, key: resetKey });
   // A new key drops the stored page, so returning to an earlier key starts at page 1.
@@ -119,8 +128,11 @@ export function usePagedList<T, S extends string>({
   sorts: readonly SortOption<S, T>[];
 }) {
   const view = usePaging({ ...options, sorts, total: items.length });
-  const compare = (sorts.find((option) => option.value === view.sort) ?? sorts[0]).compare;
-  const sorted = useMemo(() => sortItems(items, compare, view.order), [items, compare, view.order]);
+  const { compare, last } = sorts.find((option) => option.value === view.sort) ?? sorts[0];
+  const sorted = useMemo(
+    () => sortItems(items, compare, view.order, last),
+    [items, compare, last, view.order]
+  );
   const pageItems = sorted.slice(Math.max(0, view.from - 1), view.to);
   return { view, pageItems };
 }

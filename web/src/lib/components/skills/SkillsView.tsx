@@ -49,9 +49,21 @@ type PageProps = {
   onReload: () => void;
 };
 
-/** Why the ranked list is empty. A name filter wins; then the tab the reader chose. */
-function emptyMessage(query: string, loaded: number, filter: ModifiedFilter): string {
-  if (query.trim()) return "No skill matches this name.";
+/**
+ * Why the ranked list is empty. A name filter wins: `nameMatches` counts the
+ * skills the name matches before the tab hides any. Then the tab the reader chose.
+ */
+function emptyMessage(
+  query: string,
+  nameMatches: number,
+  loaded: number,
+  filter: ModifiedFilter
+): string {
+  if (query.trim()) {
+    return nameMatches === 0
+      ? "No skill matches this name."
+      : "No skill matches this name in this tab.";
+  }
   if (loaded > 0 && filter === "modified") return "No skill has been modified yet.";
   if (loaded > 0 && filter === "not-modified") return "Every skill has been modified.";
   if (loaded > 0 && filter === "suggested") return "No skill is suggested for a change yet.";
@@ -77,7 +89,8 @@ export function SkillsPage({
 }: PageProps) {
   const s = useSettingsText();
   const loaded = overview?.skills ?? [];
-  const skills = applyModifiedFilter(filterSkills(loaded, query), modifiedFilter);
+  const nameMatches = filterSkills(loaded, query);
+  const skills = applyModifiedFilter(nameMatches, modifiedFilter);
   const folders = overview?.folders ?? [];
   const openTop = (top: TopSkill) => {
     const row = (overview?.skills ?? []).find((skill) =>
@@ -159,7 +172,7 @@ export function SkillsPage({
         ) : null}
         {overview && skills.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {s(emptyMessage(query, loaded.length, modifiedFilter))}
+            {s(emptyMessage(query, nameMatches.length, loaded.length, modifiedFilter))}
           </p>
         ) : null}
         {skills.length > 0 ? (

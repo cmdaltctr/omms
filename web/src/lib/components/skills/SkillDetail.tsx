@@ -19,12 +19,35 @@ import { HuePill } from "./HuePill";
 import { ModeChoice } from "./ModeChoice";
 import { ModifiedMark } from "./ModifiedMark";
 import { UsesChart } from "./charts/UsesChart";
-import { ProposalList } from "./ProposalList";
+import { ProposalList, SKILL_PROPOSALS_LIST_KEY } from "./ProposalList";
 import { SkillHistory } from "./SkillHistory";
 import { SkillTurns } from "./SkillTurns";
 
 /** The load error to show after a reply. */
 export const nextLoadError = (reply: SkillsReply<unknown>): string => (reply.ok ? "" : reply.error);
+
+/**
+ * What follows an apply, reject or undo made on a proposal card. The card
+ * updates at once. The history reloads, and so does the detail, so the green
+ * tick and date in the header follow the new state.
+ */
+export function proposalChanged(
+  next: Proposal,
+  actions: {
+    setDetail: (update: (previous: SkillDetailData | null) => SkillDetailData | null) => void;
+    bumpHistory: () => void;
+    reload: () => void;
+  }
+): void {
+  actions.setDetail((previous) =>
+    previous
+      ? { ...previous, proposals: previous.proposals.map((p) => (p.id === next.id ? next : p)) }
+      : previous
+  );
+  // Apply, reject and undo add a history entry.
+  actions.bumpHistory();
+  actions.reload();
+}
 
 /** One skill: its path, counts, daily uses, mode, a draft button, proposals, history and turns. */
 export function SkillDetail({
@@ -80,18 +103,15 @@ export function SkillDetail({
     } else setModeError(reply.error);
   }
 
-  function replaceProposal(next: Proposal) {
-    setDetail((previous) =>
-      previous
-        ? { ...previous, proposals: previous.proposals.map((p) => (p.id === next.id ? next : p)) }
-        : previous
-    );
-    // Apply, reject and undo add a history entry.
-    setReloadKey((key) => key + 1);
-  }
+  const replaceProposal = (next: Proposal) =>
+    proposalChanged(next, {
+      setDetail,
+      bumpHistory: () => setReloadKey((key) => key + 1),
+      reload: () => void load(),
+    });
 
   const proposals = detail?.proposals ?? [];
-  // The loaded row follows an apply or an undo made on this view.
+  // The reloaded row carries the tick; until it loads, the row from the list stands in.
   const shown = detail?.skill ?? skill;
   return (
     <div className="space-y-8">
@@ -176,7 +196,7 @@ export function SkillDetail({
           <p className="text-sm text-muted-foreground">{s("No proposals yet.")}</p>
         ) : (
           <ProposalList
-            storageKey="omms-list-skill-proposals"
+            storageKey={SKILL_PROPOSALS_LIST_KEY}
             proposals={proposals}
             onChange={replaceProposal}
           />

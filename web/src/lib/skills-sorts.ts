@@ -25,6 +25,7 @@ export const SKILL_SORTS: readonly SortOption<SkillSort, SkillRow>[] = [
     label: "Last used",
     first: "desc",
     compare: (a, b) => (a.lastUsedAt ?? 0) - (b.lastUsedAt ?? 0),
+    last: (row) => row.lastUsedAt === null,
   },
   {
     value: "failed",
@@ -37,6 +38,7 @@ export const SKILL_SORTS: readonly SortOption<SkillSort, SkillRow>[] = [
     label: "Last modified",
     first: "desc",
     compare: (a, b) => (a.lastAppliedAt ?? 0) - (b.lastAppliedAt ?? 0),
+    last: (row) => row.lastAppliedAt === null,
   },
 ];
 

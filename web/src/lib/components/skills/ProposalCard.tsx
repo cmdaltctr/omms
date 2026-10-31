@@ -11,6 +11,21 @@ import { HuePill } from "./HuePill";
 import { ProposalDiff } from "./ProposalDiff";
 import { EvidenceTurns } from "./EvidenceTurns";
 
+/**
+ * What the card shows for a failed apply or undo. When the server could not
+ * save the new state it rolled the file back, so the card shows a fixed
+ * translatable message and loads the proposal again.
+ */
+export function replyProblem(code: string, error: string): { message: string; reload: boolean } {
+  if (code === "state-write-failed") {
+    return {
+      message: "The state could not be saved, so SKILL.md is as it was. Try again.",
+      reload: true,
+    };
+  }
+  return { message: error, reload: false };
+}
+
 /** Undo refused because the file changed by hand; shows the content OMMS saved. */
 export function UndoStopped({ savedContent }: { savedContent: string | null }) {
   const s = useSettingsText();
@@ -133,7 +148,13 @@ export function ProposalCard({
     setWorking(false);
     if (reply.ok) onChange(reply.data.proposal);
     else {
-      setError(reply.error);
+      const problem = replyProblem(reply.code, reply.error);
+      setError(s(problem.message));
+      if (problem.reload) {
+        void skillsApi.proposal(proposal.id).then((fresh) => {
+          if (fresh.ok) onChange(fresh.data.proposal);
+        });
+      }
       if (reply.code === "changed") setSavedContent(reply.savedContent ?? null);
       // A stale answer changes the stored state; the card must show it.
       if (reply.code === "stale") onChange(markStale(proposal, Date.now()));
