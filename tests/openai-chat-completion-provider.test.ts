@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import { jsonErrorPosition } from "../src/services/ai/providers/base-provider.js";
 import { OpenAIChatCompletionProvider } from "../src/services/ai/providers/openai-chat-completion.js";
 import type { AIMessage } from "../src/services/ai/session/session-types.js";
 import type { ChatCompletionTool } from "../src/services/ai/tools/tool-schema.js";
@@ -393,6 +394,44 @@ describe("OpenAIChatCompletionProvider", () => {
     expect(result.iterations).toBe(1);
   });
 
+  it("says a reply cut off at the output limit was cut off", async () => {
+    globalThis.fetch = makeFetch({
+      ok: true,
+      body: {
+        choices: [
+          {
+            finish_reason: "length",
+            message: {
+              content: null,
+              tool_calls: [
+                {
+                  id: "call-1",
+                  type: "function",
+                  function: { name: "save_memories", arguments: '{"content": "half a ski' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    } as any);
+
+    const result = await makeProvider({ apiUrl: "https://api.openai.com/v1" }).executeToolCall(
+      "system",
+      "user",
+      toolSchema,
+      "session-id"
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.stopReason).toBe("length");
+    expect(result.error).toBe(
+      "Validation failed: tool arguments are not valid JSON (the reply was cut off)"
+    );
+    // The reply text never reaches the error.
+    expect(result.error).not.toContain("half a ski");
+  });
+
   it("returns success: false after max iterations with no tool call", async () => {
     globalThis.fetch = makeFetch({
       ok: true,
@@ -438,5 +477,19 @@ describe("OpenAIChatCompletionProvider", () => {
     }).executeToolCall("system", "user", toolSchema, "session-id");
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe("jsonErrorPosition", () => {
+  it("reads the position from a Node JSON error and nothing else", () => {
+    expect(
+      jsonErrorPosition(
+        new SyntaxError("Unterminated string in JSON at position 30479 (line 1 column 30480)")
+      )
+    ).toBe(30479);
+    expect(
+      jsonErrorPosition(new SyntaxError("JSON Parse error: Unterminated string"))
+    ).toBeUndefined();
+    expect(jsonErrorPosition(new Error("at position 3"))).toBeUndefined();
   });
 });

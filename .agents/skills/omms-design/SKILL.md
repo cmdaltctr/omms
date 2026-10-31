@@ -23,6 +23,7 @@ Preserve the theme and language stores, preference keys, legacy preference migra
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Colours, typography, spacing, corners, borders, or interaction states | [Visual foundations](references/foundations.md)                                                  |
 | Buttons, fields, dialogs, sidebar, or settings rows                   | [Component guidance](references/components.md), plus visual foundations                          |
+| Any action that starts a request, a job or a jump                     | [Feedback after a click](references/components.md#feedback-after-a-click)                        |
 | Visible text, accessible labels, language switching, or Arabic layout | [Localisation](references/localisation.md)                                                       |
 | Any rendered UI change                                                | [Verification](references/verification.md) before implementation and before reporting completion |
 
@@ -38,7 +39,7 @@ All source paths in the references are relative to the OMMS repository root. The
 
 ## Completion
 
-Components use semantic theme variables and the existing translation helpers. Selected state stays distinct from primary actions. Light and dark modes remain legible, and Arabic layouts preserve readable mixed-direction content. Confirm these outcomes with runtime evidence for each affected screen.
+Components use semantic theme variables and the existing translation helpers. Every action shows a visible answer at once and again when it ends. Selected state stays distinct from primary actions. Light and dark modes remain legible, and Arabic layouts preserve readable mixed-direction content. Confirm these outcomes with runtime evidence for each affected screen.
 
 ## Discovery and attribution
 

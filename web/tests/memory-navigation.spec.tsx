@@ -102,7 +102,11 @@ it("composes the limits once into the Shared view and reveals the URL after moun
 it("reveals the Memory or Settings card named by the hash and ignores unknown hashes", async () => {
   const { revealSettingsAnchor } = await import("../src/lib/settings-navigation.ts");
   const scrolled: string[] = [];
-  const element = { scrollIntoView: (options: unknown) => scrolled.push(JSON.stringify(options)) };
+  const flashed: string[] = [];
+  const element = {
+    scrollIntoView: (options: unknown) => scrolled.push(JSON.stringify(options)),
+    classList: { add: (name: string) => flashed.push(name), remove: () => {} },
+  };
   const getElementById = mock((id: string) =>
     ["memory-section-limits", "settings-section-health"].includes(id) ? element : null
   );
@@ -118,10 +122,10 @@ it("reveals the Memory or Settings card named by the hash and ignores unknown ha
     "#settings-section-log",
   ])
     expect(revealSettingsAnchor(hash, doc)).toBe(false);
-  expect(scrolled).toEqual([
-    '{"behavior":"smooth","block":"start"}',
-    '{"behavior":"smooth","block":"start"}',
-  ]);
+  // An instant jump: smooth scrolling did not move the page in Orca's browser.
+  expect(scrolled).toEqual(['{"block":"start"}', '{"block":"start"}']);
+  // The card reached is outlined for a moment.
+  expect(flashed).toEqual(["anchor-flash", "anchor-flash"]);
 });
 it("keeps host folder navigation and excludes it from the limit card", () => {
   // The host view's folder link opens that host's own list; the badge keeps the older helper.

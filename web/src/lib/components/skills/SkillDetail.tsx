@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader, Sparkles } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
 import { useSettingsText } from "$lib/i18n/settings";
 import { formatDate } from "$lib/format";
@@ -122,7 +122,12 @@ export function SkillDetail({
               <Sparkles aria-hidden="true" />
               {s("Draft improvement")}
             </Button>
-            {busy ? <span className="text-sm text-muted-foreground">{s("Drafting…")}</span> : null}
+            {busy ? (
+              <span role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader className="size-4 animate-spin" aria-hidden="true" />
+                {s("Drafting… This can take a few minutes.")}
+              </span>
+            ) : null}
           </div>
           <DraftNotice notice={notice.value} />
         </section>

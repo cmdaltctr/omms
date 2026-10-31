@@ -120,5 +120,8 @@ export function importSkillTurnOutput(
       { memories: false, skills: true },
       { recordSkillTurn: async (turn) => count(await output(turn, current)) }
     );
+    // `skills.db` writes finish without giving the event loop a turn. In the
+    // web app, a long run would otherwise hold back every request, progress included.
+    await new Promise<void>((resolve) => setImmediate(resolve));
   };
 }

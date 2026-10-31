@@ -2,6 +2,7 @@ import { expect, it } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ModeChoiceView } from "../src/lib/components/skills/ModeChoice.tsx";
 import { ProposalCard, UndoStopped } from "../src/lib/components/skills/ProposalCard.tsx";
+import { RecordPastView } from "../src/lib/components/skills/RecordPast.tsx";
 import { SkillFolders } from "../src/lib/components/skills/SkillFolders.tsx";
 import { SkillList } from "../src/lib/components/skills/SkillList.tsx";
 import { SkillSortChoice } from "../src/lib/components/skills/SkillSortChoice.tsx";
@@ -273,4 +274,14 @@ it("lists recent proposals below Pending, folded, with their state and Undo when
   expect(html).not.toContain("Hide changes");
   expect(html).toContain("Undo");
   expect(page(overview(true), 3)).not.toContain("Recent proposals");
+});
+
+it("says Record past turns is finding sessions while it starts, and nothing before a click", () => {
+  const view = (starting: boolean) =>
+    renderToStaticMarkup(
+      <RecordPastView job={null} running={false} starting={starting} error="" onStart={() => {}} />
+    );
+  expect(view(true)).toContain("Finding past sessions…");
+  expect(view(true)).toContain('role="status"');
+  expect(view(false)).not.toContain("Finding past sessions…");
 });

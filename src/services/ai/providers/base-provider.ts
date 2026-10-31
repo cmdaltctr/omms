@@ -57,6 +57,17 @@ export function describeValidationError(error: unknown): string {
   return "unknown validation error";
 }
 
+/**
+ * Where a JSON `SyntaxError` stopped, from Node's "at position N" text, or
+ * undefined when the runtime gives none. A position near the end of the
+ * arguments means a cut-off reply; one far before it means bad escaping.
+ */
+export function jsonErrorPosition(error: unknown): number | undefined {
+  if (!(error instanceof SyntaxError)) return undefined;
+  const match = /at position (\d+)/.exec(error.message);
+  return match ? Number(match[1]) : undefined;
+}
+
 const PROTECTED_KEYS = new Set([
   "model",
   "messages",

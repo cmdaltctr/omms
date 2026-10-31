@@ -1,5 +1,6 @@
 import type { WebHost } from "$lib/host-label";
 import { navigate, ROUTES } from "$lib/router";
+import { JUMP } from "$lib/settings-navigation";
 
 /** Reveal only the requested host; native anchor navigation supplies the scroll. */
 export function revealDirectoryMaps(host: WebHost) {
@@ -12,5 +13,5 @@ export function revealDirectoryMaps(host: WebHost) {
   }
   disclosure.open = true;
   summary.focus({ preventScroll: true });
-  summary.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  summary.scrollIntoView?.(JUMP);
 }
