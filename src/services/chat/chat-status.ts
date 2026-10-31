@@ -5,6 +5,7 @@ export interface ChatSettings {
   memoryModel?: string;
   memoryApiUrl?: string;
   memoryApiKey?: string;
+  skillLearning?: boolean;
 }
 
 export interface ChatStatus {
@@ -14,6 +15,8 @@ export interface ChatStatus {
   provider: string;
   /** The host that receives questions and memory text, so the page can name it. */
   apiHost: string | null;
+  /** True while skill learning is on: the chat may send skill counts and summaries. */
+  skillFacts: boolean;
 }
 
 /** Whether chat can call the external memory model. Mirrors `buildMemoryProviderConfig`. */
@@ -26,7 +29,13 @@ export function chatStatus(config: ChatSettings): ChatStatus {
   if (!config.memoryApiKey || isPlaceholderApiKey(config.memoryApiKey)) {
     missing.push("memoryApiKey");
   }
-  return { ready: missing.length === 0, missing, provider, apiHost: hostOf(config.memoryApiUrl) };
+  return {
+    ready: missing.length === 0,
+    missing,
+    provider,
+    apiHost: hostOf(config.memoryApiUrl),
+    skillFacts: config.skillLearning === true,
+  };
 }
 
 function hostOf(url: string | undefined): string | null {

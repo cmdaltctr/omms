@@ -11,10 +11,13 @@ CONFIG.storagePath = baseDir;
 const { ChatStore } = await import("../src/services/chat/chat-store.js");
 const store = new ChatStore(join(baseDir, "chats.db"));
 const asked: Array<{ id: string; question: string }> = [];
+// What the mocked ranking lists; null stands for a ranking that cannot be read.
+let listed: string[] | null = ["alpha"];
 
 mock.module("../src/services/chat/chat-runtime.js", () => ({
   chatStore: async () => store,
   existingMemoryIds: async (ids: string[]) => new Set(ids.filter((id) => id !== "gone")),
+  listedSkillNames: async () => (listed ? new Set(listed) : null),
   chatServiceDeps: async () => ({
     store,
     model: "m",
@@ -176,5 +179,51 @@ describe("chat routes", () => {
     expect(out.status).toBe(409);
     expect(out.json.code).toBe("not_configured");
     CONFIG.memoryApiKey = "sk-real-SECRET-value";
+  });
+
+  it("reports skillFacts from the effective skillLearning value", async () => {
+    CONFIG.skillLearning = true;
+    expect((await call("GET", "/api/chat/status")).json.data.skillFacts).toBe(true);
+    CONFIG.skillLearning = false;
+    expect((await call("GET", "/api/chat/status")).json.data.skillFacts).toBe(false);
+    CONFIG.skillLearning = undefined as never;
+    expect((await call("GET", "/api/chat/status")).json.data.skillFacts).toBe(false);
+  });
+
+  describe("missingSkillNames", () => {
+    async function seed() {
+      const conversation = await store.createConversation({ title: "Skills", scopeTag: null });
+      await store.appendMessage(conversation.id, {
+        role: "assistant",
+        content: "A [K1] [K2]",
+        sources: [
+          { label: "K1", kind: "skill", id: "alpha", text: "alpha: 1 use" },
+          { label: "K2", kind: "skill", id: "gone-skill", text: "gone-skill: 1 use" },
+        ],
+      });
+      return conversation.id;
+    }
+
+    it("lists a K source whose skill the ranking no longer lists", async () => {
+      CONFIG.skillLearning = true;
+      listed = ["alpha"];
+      const got = await call("GET", `/api/chat/conversations/${await seed()}`);
+      expect(got.json.data.missingSkillNames).toEqual(["gone-skill"]);
+    });
+
+    it("returns an empty list, with no error, when the ranking cannot be read", async () => {
+      CONFIG.skillLearning = true;
+      listed = null;
+      const got = await call("GET", `/api/chat/conversations/${await seed()}`);
+      expect(got.status).toBe(200);
+      expect(got.json.data.missingSkillNames).toEqual([]);
+    });
+
+    it("returns an empty list when skill learning is off", async () => {
+      CONFIG.skillLearning = false;
+      listed = ["alpha"];
+      const got = await call("GET", `/api/chat/conversations/${await seed()}`);
+      expect(got.json.data.missingSkillNames).toEqual([]);
+    });
   });
 });

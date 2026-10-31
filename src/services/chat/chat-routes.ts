@@ -4,11 +4,12 @@ import {
   chatServiceDeps,
   chatStore,
   existingMemoryIds,
+  listedSkillNames,
   type ChatRuntimeConfig,
 } from "./chat-runtime.js";
 import { askQuestion } from "./chat-service.js";
 import { chatStatus } from "./chat-status.js";
-import { ChatStoreError } from "./chat-types.js";
+import { ChatStoreError, type ChatMessage } from "./chat-types.js";
 
 export interface RouteResult {
   status: number;
@@ -39,6 +40,25 @@ function folderId(value: unknown): string | null | undefined {
 const CONVERSATION = /^\/api\/chat\/conversations\/([^/]+)$/;
 const MESSAGES = /^\/api\/chat\/conversations\/([^/]+)\/messages$/;
 const FOLDER = /^\/api\/chat\/folders\/([^/]+)$/;
+
+/**
+ * The `K` source names that the current ranking no longer lists. Empty while
+ * skill learning is off, and empty, with no error, when the ranking cannot be read.
+ */
+async function missingSkillNames(
+  messages: ChatMessage[],
+  config: ChatRuntimeConfig
+): Promise<string[]> {
+  if (config.skillLearning !== true) return [];
+  const cited = [
+    ...new Set(
+      messages.flatMap((m) => m.sources.filter((s) => s.kind === "skill").map((s) => s.id))
+    ),
+  ];
+  if (cited.length === 0) return [];
+  const listed = await listedSkillNames(config).catch(() => null);
+  return listed ? cited.filter((name) => !listed.has(name)) : [];
+}
 
 /**
  * The chat routes under `/api/chat/`. Returns undefined for any other path.
@@ -137,6 +157,7 @@ async function dispatch(
       return ok({
         ...found,
         missingMemoryIds: cited.filter((memoryId) => !existing.has(memoryId)),
+        missingSkillNames: await missingSkillNames(found.messages, config),
       });
     }
     if (method === "PATCH") {

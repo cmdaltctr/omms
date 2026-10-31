@@ -3,7 +3,7 @@ import { fetchAPI } from "$lib/api";
 /** Mirrors src/services/chat/chat-types.ts. */
 export interface ChatSource {
   label: string;
-  kind: "memory" | "profile";
+  kind: "memory" | "profile" | "skill";
   id: string;
   text: string;
   projectName?: string;
@@ -14,6 +14,25 @@ export interface ChatSource {
   section?: "preferences" | "patterns" | "workflows";
   category?: string;
   evidence?: string[];
+  /** Skill sources only. */
+  skill?: ChatSkillFacts;
+}
+
+export interface ChatSkillHistoryEntry {
+  kind: "created" | "applied" | "rejected" | "undone" | "stale";
+  at: number;
+  summary: string;
+  appliedBy: string | null;
+}
+
+export interface ChatSkillFacts {
+  name: string;
+  uses: number;
+  failedTurns: number;
+  attention: number;
+  modified: boolean;
+  lastAppliedAt: number | null;
+  history: ChatSkillHistoryEntry[];
 }
 
 export interface ChatPlan {
@@ -21,6 +40,10 @@ export interface ChatPlan {
   tags: string[];
   profileCategories: string[];
   skipped: boolean;
+  /** Written only while skill facts were on, and never by a skipped plan. */
+  skills?: string[];
+  skillIntent?: "none" | "needs-work" | "most-used";
+  skillFacts?: "unavailable";
 }
 
 export interface ChatMessage {
@@ -56,6 +79,8 @@ export interface ChatStatus {
   missing: string[];
   provider: string;
   apiHost: string | null;
+  /** True while skill learning is on: skill counts and summaries may be sent. */
+  skillFacts: boolean;
 }
 
 export interface ChatList {
@@ -69,6 +94,8 @@ export interface ChatDetail {
   messages: ChatMessage[];
   /** Memory ids cited in this conversation that no longer exist. */
   missingMemoryIds?: string[];
+  /** Skill names cited in this conversation that the ranking no longer lists. */
+  missingSkillNames?: string[];
 }
 
 const BASE = "/api/chat";

@@ -41,3 +41,4 @@ Local decision records for OMMS maintainers.
 | [035](./035-macos-smoke-does-not-gate-npm.md)                               | The macOS release smoke does not gate npm                                       | 2026-10-30 | Accepted           |
 | [036](./036-skill-learning-stores-full-turns-in-skills-db.md)               | Skill learning stores full turns in skills.db                                   | 2026-10-30 | Accepted           |
 | [037](./037-windows-tests-run-on-pull-requests-as-their-own-check.md)       | Windows tests run on pull requests as their own check                           | 2026-10-31 | Proposed           |
+| [038](./038-chat-reads-skill-facts-from-skills-db.md)                       | The chat reads skill facts from skills.db                                       | 2026-10-31 | Accepted           |

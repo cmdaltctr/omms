@@ -36,14 +36,19 @@ const SYSTEM = [
   "Write plain, short British English. Call the answer tool.",
 ].join(" ");
 
+const SKILL_SYSTEM =
+  "Sources marked K, such as [K1], are facts about one agent skill: uses, failed turns, whether it was changed, and its recent changes. Cite them like any other source.";
+
 export function numberSources(found: RetrievedSources): ChatSource[] {
   return [
     ...found.memories.map((source, i) => ({ ...source, label: `S${i + 1}` })),
     ...found.profile.map((source, i) => ({ ...source, label: `P${i + 1}` })),
+    ...(found.skills ?? []).map((source, i) => ({ ...source, label: `K${i + 1}` })),
   ];
 }
 
 function describeSource(source: ChatSource): string {
+  if (source.kind === "skill") return `[${source.label}] ${source.text.slice(0, MAX_SOURCE_CHARS)}`;
   const meta =
     source.kind === "memory"
       ? [source.projectName, source.tags?.length ? `tags: ${source.tags.join(", ")}` : ""]
@@ -67,10 +72,13 @@ export function buildAnswerPrompt(
   ]
     .filter(Boolean)
     .join("\n\n");
-  return { system: SYSTEM, user };
+  const system = sources.some((source) => source.kind === "skill")
+    ? `${SYSTEM} ${SKILL_SYSTEM}`
+    : SYSTEM;
+  return { system, user };
 }
 
-const MARKER = /\s*\[([SP]\d+)\]/g;
+const MARKER = /\s*\[([SPK]\d+)\]/g;
 
 /**
  * Removes `[S9]`-style markers that name a source that was not sent, and lists

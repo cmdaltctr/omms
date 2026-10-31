@@ -1,8 +1,15 @@
 import { useI18n } from "$lib/i18n";
+import type { CitationLetter } from "$lib/chat-skills";
 import { cn } from "$lib/utils";
 import { citationColours } from "./CitationChip";
 
-function LegendItem({ label, text }: { label: "S" | "P"; text: string }) {
+const LEGEND_KEY = {
+  S: "chat-legend-memory",
+  P: "chat-legend-profile",
+  K: "chat-legend-skill",
+} as const;
+
+function LegendItem({ label, text }: { label: CitationLetter; text: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
       <span
@@ -18,13 +25,14 @@ function LegendItem({ label, text }: { label: "S" | "P"; text: string }) {
   );
 }
 
-/** One line above the thread that says what the S and P in a citation stand for. */
-export function CitationLegend() {
+/** One line above the thread that says what the letters in a citation stand for. */
+export function CitationLegend({ letters }: { letters: CitationLetter[] }) {
   const { t } = useI18n();
   return (
     <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-      <LegendItem label="S" text={t("chat-legend-memory")} />
-      <LegendItem label="P" text={t("chat-legend-profile")} />
+      {letters.map((letter) => (
+        <LegendItem key={letter} label={letter} text={t(LEGEND_KEY[letter])} />
+      ))}
     </p>
   );
 }

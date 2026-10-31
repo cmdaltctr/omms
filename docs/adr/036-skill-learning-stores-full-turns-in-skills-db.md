@@ -1,7 +1,7 @@
 # ADR-036: Skill learning stores full turns in skills.db
 
 - **Date:** 2026-10-30
-- **Status:** Accepted
+- **Status:** Accepted. Decision 4 amended by ADR-038.
 - **Deciders:** Aizat Hawari
 - **Change:** [`skill-learning`](../../openspec/changes/archive/2026-10-31-skill-learning/proposal.md)
 

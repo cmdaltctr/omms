@@ -1,6 +1,6 @@
 export type CitationPart = { kind: "text"; text: string } | { kind: "cite"; label: string };
 
-const MARKER = /\[([SP]\d+)\]/g;
+const MARKER = /\[([SPK]\d+)\]/g;
 
 /**
  * Splits an answer into text and citation parts. Only markers that name a

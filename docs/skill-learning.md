@@ -19,7 +19,7 @@ Tool output, such as the text of a file the agent read, is not stored.
 
 Turns go into `skills.db` in the storage path (`~/.omms/data` by default). It is never inside a project folder. Treat this file as private, because it holds whatever your turns hold.
 
-Project memories and the user profile do not change. They get the same input as before, and they never read `skills.db`.
+Project memories and the user profile do not change. They get the same input as before, and they never read `skills.db`. The [memory chat](web-ui-chat.md#skill-facts) reads skill counts and short, scrubbed change summaries from it while recording is on, never turn text, and never writes to it.
 
 Recording makes no model call. A failure to record is logged without any turn text and never stops memory capture.
 

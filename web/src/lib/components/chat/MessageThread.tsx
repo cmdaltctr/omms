@@ -8,6 +8,7 @@ type Props = {
   /** A question on its way to the server, shown until the answer arrives. */
   pending: string | null;
   missingMemoryIds: Set<string>;
+  missingSkillNames: Set<string>;
   readOnly: boolean;
   onOpenSource: (source: ChatSource) => void;
   onRetry: (message: ChatMessage) => void;
@@ -32,6 +33,7 @@ export function MessageThread({
   messages,
   pending,
   missingMemoryIds,
+  missingSkillNames,
   readOnly,
   onOpenSource,
   onRetry,
@@ -54,6 +56,7 @@ export function MessageThread({
             <AnswerBubble
               message={message}
               missingMemoryIds={missingMemoryIds}
+              missingSkillNames={missingSkillNames}
               readOnly={readOnly}
               onOpenSource={onOpenSource}
               onRetry={onRetry}

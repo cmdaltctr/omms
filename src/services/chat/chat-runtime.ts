@@ -3,12 +3,15 @@ import { log } from "../logger.js";
 import type { ChatServiceDeps } from "./chat-service.js";
 import { ChatStore } from "./chat-store.js";
 import type { MemoryHit, ProfileCandidate } from "./chat-retrieve.js";
+import { chatSkillsDep, type ChatSkillsConfig } from "./chat-skills-runtime.js";
+
+export { listedSkillNames } from "./chat-skills-runtime.js";
 
 /** Each model call gets this long before chat gives up on it. */
 export const CHAT_MODEL_TIMEOUT_MS = 60_000;
 
 /** The settings chat reads. The caller passes `CONFIG`. */
-export interface ChatRuntimeConfig {
+export interface ChatRuntimeConfig extends Partial<Omit<ChatSkillsConfig, "storagePath">> {
   storagePath: string;
   memoryProvider: string;
   memoryModel?: string;
@@ -102,8 +105,10 @@ export async function existingMemoryIds(ids: string[]): Promise<Set<string>> {
 /** Real dependencies for `askQuestion`, built from the settings passed in. */
 export async function chatServiceDeps(config: ChatRuntimeConfig): Promise<ChatServiceDeps> {
   const store = await chatStore(config);
+  const skills = await chatSkillsDep(config);
   return {
     store,
+    ...(skills ? { skills } : {}),
     model: config.memoryModel ?? config.memoryProvider,
     callTool: (system, user, tool) => callTool(config, system, user, tool),
     retrieve: {

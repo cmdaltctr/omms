@@ -4,6 +4,7 @@ import { Button } from "$lib/components/ui/button";
 import { useI18n } from "$lib/i18n";
 import { linkCitations } from "$lib/chat-answer-html";
 import { citedLabels } from "$lib/chat-citations";
+import { isSourceDeleted } from "$lib/chat-skills";
 import { renderMarkdown } from "$lib/markdown";
 import type { ChatMessage, ChatSource } from "$lib/chat-api";
 import { CitationChip } from "./CitationChip";
@@ -12,6 +13,7 @@ import { SearchDetails } from "./SearchDetails";
 type Props = {
   message: ChatMessage;
   missingMemoryIds: Set<string>;
+  missingSkillNames: Set<string>;
   readOnly: boolean;
   onOpenSource: (source: ChatSource) => void;
   onRetry: (message: ChatMessage) => void;
@@ -27,6 +29,7 @@ const NOTICE_KEY = {
 export function AnswerBubble({
   message,
   missingMemoryIds,
+  missingSkillNames,
   readOnly,
   onOpenSource,
   onRetry,
@@ -35,7 +38,7 @@ export function AnswerBubble({
   const labels = message.sources.map((source) => source.label);
   const byLabel = new Map(message.sources.map((source) => [source.label, source]));
   const isDeleted = (source?: ChatSource) =>
-    !!source && source.kind === "memory" && missingMemoryIds.has(source.id);
+    isSourceDeleted(source, missingMemoryIds, missingSkillNames);
   const html = useMemo(
     () =>
       linkCitations(
@@ -45,7 +48,7 @@ export function AnswerBubble({
         (label) => t("chat-cite-label", { label })
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [message.content, message.sources, missingMemoryIds, t]
+    [message.content, message.sources, missingMemoryIds, missingSkillNames, t]
   );
   const openCited = (event: React.MouseEvent<HTMLElement>) => {
     const button = (event.target as HTMLElement).closest<HTMLElement>("[data-cite]");
@@ -102,8 +105,9 @@ export function AnswerBubble({
                   dir="auto"
                   className="min-w-0 flex-1 truncate leading-5 text-muted-foreground"
                 >
-                  {source.projectName ? `${source.projectName} · ` : ""}
-                  {source.text}
+                  {source.kind === "skill"
+                    ? source.id
+                    : `${source.projectName ? `${source.projectName} · ` : ""}${source.text}`}
                 </span>
               </li>
             ))}

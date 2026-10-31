@@ -350,6 +350,17 @@
 .dark .markdown-content .cite-profile {
   color: #60a5fa;
 }
+.markdown-content .cite-skill {
+  border-color: color-mix(in oklab, #7c3aed 40%, transparent);
+  background: color-mix(in oklab, #8b5cf6 10%, transparent);
+  color: #6d28d9;
+}
+.markdown-content .cite-skill:hover {
+  background: color-mix(in oklab, #8b5cf6 20%, transparent);
+}
+.dark .markdown-content .cite-skill {
+  color: #a78bfa;
+}
 .markdown-content .cite-deleted {
   text-decoration: line-through;
   opacity: 0.7;

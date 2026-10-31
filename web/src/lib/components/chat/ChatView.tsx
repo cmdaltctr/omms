@@ -1,11 +1,12 @@
-import { CitationLegend } from "./CitationLegend";
 import { useEffect, useRef, useState } from "react";
 import { Info, MessagesSquare, X } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
 import { useI18n } from "$lib/i18n";
 import type { ChatSource } from "$lib/chat-api";
 import { useChat } from "@/hooks/useChat";
+import { isSourceDeleted, legendLetters } from "$lib/chat-skills";
 import { cn } from "$lib/utils";
+import { CitationLegend } from "./CitationLegend";
 import { ChatInput } from "./ChatInput";
 import { ChatSetupNotice } from "./ChatSetupNotice";
 import { ConversationList } from "./ConversationList";
@@ -36,6 +37,10 @@ export function ChatView() {
   }, [listOpen]);
 
   const missing = new Set(chat.detail?.missingMemoryIds ?? []);
+  const missingSkills = new Set(chat.detail?.missingSkillNames ?? []);
+  const hasSkillSource = !!chat.detail?.messages.some((m) =>
+    m.sources.some((s) => s.kind === "skill")
+  );
   const readOnly = chat.list.readOnly;
   const ready = chat.status?.ready ?? false;
 
@@ -125,7 +130,7 @@ export function ChatView() {
           ) : null}
         </div>
 
-        <CitationLegend />
+        <CitationLegend letters={legendLetters(chat.status?.skillFacts === true, hasSkillSource)} />
         {chat.status && !ready ? <ChatSetupNotice status={chat.status} /> : null}
         {readOnly ? (
           <p role="alert" className="rounded-xl border border-border bg-card p-3 text-sm">
@@ -138,6 +143,7 @@ export function ChatView() {
             messages={chat.detail?.messages ?? []}
             pending={chat.pending}
             missingMemoryIds={missing}
+            missingSkillNames={missingSkills}
             readOnly={readOnly || !ready}
             onOpenSource={setSource}
             onRetry={chat.retry}
@@ -159,6 +165,12 @@ export function ChatView() {
               {t("chat-provider-note", { host: chat.status.apiHost })}
             </p>
           ) : null}
+          {ready && chat.status?.skillFacts ? (
+            <p className="flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground">
+              <Info className="size-3 shrink-0" aria-hidden="true" />
+              {t("chat-skill-privacy")}
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -170,7 +182,7 @@ export function ChatView() {
       <FolderDialog request={naming} onClose={() => setNaming(null)} />
       <SourceDialog
         source={source}
-        deleted={!!source && source.kind === "memory" && missing.has(source.id)}
+        deleted={isSourceDeleted(source ?? undefined, missing, missingSkills)}
         onClose={() => setSource(null)}
       />
     </div>

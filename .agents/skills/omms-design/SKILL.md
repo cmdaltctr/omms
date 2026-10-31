@@ -17,6 +17,8 @@ Keep navigation, routes, section order, visible wording, save behaviour, and dat
 
 Preserve the theme and language stores, preference keys, legacy preference migration, and Arabic document direction. Continue using Lucide and the existing UI primitives. Additional dependencies require approval.
 
+Chat citation chips have one colour per source type: orange (primary) for a memory `S`, blue for a profile item `P`, and violet for a skill `K`. `citationColours` in `CitationChip.tsx` holds the legend and source chip colours. The chips inside answer text take theirs from `.cite-profile` and `.cite-skill` in `web/src/app.css`, with light and dark rules that match. A skill source view lists its counts and up to 5 recent changes as small stacked rows, not a wide table, so it fits a 390 px screen without sideways scrolling.
+
 ## Read by task
 
 | Task                                                                  | Read                                                                                             |

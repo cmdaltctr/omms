@@ -1,8 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import {
   MAX_PLAN_TAGS,
+  MAX_PLAN_SKILLS,
   PLAN_TOOL,
+  PLAN_TOOL_WITH_SKILLS,
   buildPlanPrompt,
+  planTool,
   validatePlan,
 } from "../src/services/chat/chat-plan.js";
 
@@ -83,5 +86,123 @@ describe("validatePlan", () => {
         skipped: true,
       });
     }
+  });
+});
+
+// A fixed copy of the gate-off text. If a word of the skill text leaks into the
+// prompt or the tool while no skill names are given, these comparisons fail.
+const GATE_OFF_SYSTEM = [
+  "You plan a search over one user's saved memories of past coding sessions and their profile.",
+  "Return 1 to 3 short search phrases that would find memories answering the question.",
+  "Resolve follow-up questions with the earlier turns, so each phrase stands alone.",
+  "Pick tags and profile categories only from the lists given. Pick none when none fit.",
+  "Call plan_search. Do not answer the question.",
+].join(" ");
+
+const GATE_OFF_TOOL = {
+  type: "function",
+  function: {
+    name: "plan_search",
+    description: "Choose how to search the user's stored memories and profile",
+    parameters: {
+      type: "object",
+      properties: {
+        queries: {
+          type: "array",
+          items: { type: "string" },
+          description: "1 to 3 short search phrases",
+        },
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Tags from the given list that match the question",
+        },
+        profileCategories: {
+          type: "array",
+          items: { type: "string" },
+          description: "Profile categories from the given list that match the question",
+        },
+      },
+      required: ["queries", "tags", "profileCategories"],
+    },
+  },
+};
+
+describe("plan with the skill gate off", () => {
+  it("sends exactly today's system and user text", () => {
+    const { system, user } = buildPlanPrompt(base);
+    expect(system).toBe(GATE_OFF_SYSTEM);
+    expect(user).toBe(
+      [
+        "Earlier turns: none",
+        "Tags (count): bun (9), Claude-Code (4)",
+        "Profile categories: Tooling, Workflow",
+        "Question: Why does bun install fail?",
+      ].join("\n\n")
+    );
+    expect(`${system} ${user}`.toLowerCase()).not.toContain("skill");
+  });
+
+  it("uses today's plan tool", () => {
+    expect(PLAN_TOOL).toEqual(GATE_OFF_TOOL);
+    expect(planTool(false)).toBe(PLAN_TOOL);
+  });
+
+  it("saves no skill fields", () => {
+    const plan = validatePlan(
+      { queries: ["q"], tags: [], skills: ["a"], skillIntent: "needs-work" },
+      base
+    );
+    expect(Object.keys(plan).sort()).toEqual(["profileCategories", "queries", "skipped", "tags"]);
+  });
+});
+
+describe("plan with skill names", () => {
+  const withSkills = { ...base, skills: ["s-web-search", "Review", "plain"] };
+
+  it("lists the names and asks for skills and a skill intent", () => {
+    const { system, user } = buildPlanPrompt(withSkills);
+    expect(user).toContain("Skills: s-web-search, Review, plain");
+    expect(system).toContain("skillIntent");
+  });
+
+  it("sends at most 100 names", () => {
+    const skills = Array.from({ length: 130 }, (_, i) => `skill-${i}`);
+    const { user } = buildPlanPrompt({ ...base, skills });
+    expect(MAX_PLAN_SKILLS).toBe(100);
+    expect(user).toContain("skill-99");
+    expect(user).not.toContain("skill-100,");
+    expect(user).not.toContain("skill-100\n");
+  });
+
+  it("adds optional skills and skillIntent to the tool", () => {
+    const tool = planTool(true);
+    expect(tool).toBe(PLAN_TOOL_WITH_SKILLS);
+    const params = tool.function.parameters;
+    expect(Object.keys(params.properties)).toContain("skills");
+    expect(Object.keys(params.properties)).toContain("skillIntent");
+    expect(params.required).toEqual(["queries", "tags", "profileCategories"]);
+  });
+
+  it("drops unknown names, keeps stored spelling, and turns an unknown intent into none", () => {
+    const plan = validatePlan(
+      { queries: ["q"], tags: [], skills: ["REVIEW", "made-up"], skillIntent: "sideways" },
+      withSkills
+    );
+    expect(plan.skills).toEqual(["Review"]);
+    expect(plan.skillIntent).toBe("none");
+  });
+
+  it("keeps a valid intent", () => {
+    const plan = validatePlan({ queries: ["q"], skillIntent: "needs-work" }, withSkills);
+    expect(plan.skillIntent).toBe("needs-work");
+    expect(plan.skills).toEqual([]);
+  });
+
+  it("gives a skipped plan no skill fields", () => {
+    const plan = validatePlan(null, withSkills);
+    expect(plan.skipped).toBe(true);
+    expect(plan.skills).toBeUndefined();
+    expect(plan.skillIntent).toBeUndefined();
   });
 });

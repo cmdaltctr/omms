@@ -36,6 +36,8 @@ export interface RetrieveDeps {
 export interface RetrievedSources {
   memories: ChatSource[];
   profile: ChatSource[];
+  /** Skill facts. Added by the service while skill facts are on; retrieval never sets it. */
+  skills?: ChatSource[];
 }
 
 function cosine(a: ArrayLike<number>, b: ArrayLike<number>): number {

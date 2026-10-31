@@ -10,6 +10,51 @@ import {
 const memory = (id: string) => ({ label: "", kind: "memory" as const, id, text: `text ${id}` });
 const profile = (id: string) => ({ label: "", kind: "profile" as const, id, text: `pref ${id}` });
 
+const skill = (id: string) => ({
+  label: "",
+  kind: "skill" as const,
+  id,
+  text: `${id}: 4 uses, 1 failed turn\nModified: no`,
+});
+
+describe("skill sources", () => {
+  const sources = numberSources({
+    memories: [memory("a")],
+    profile: [profile("x")],
+    skills: [skill("alpha"), skill("beta")],
+  });
+
+  it("numbers skill sources K1, K2 after S and P", () => {
+    expect(sources.map((s) => s.label)).toEqual(["S1", "P1", "K1", "K2"]);
+  });
+
+  it("sends the skill text and names K sources in the system text", () => {
+    const { system, user } = buildAnswerPrompt("which need work?", [], sources);
+    expect(user).toContain("[K1] alpha: 4 uses, 1 failed turn\nModified: no");
+    expect(user).toContain("[K2] beta: 4 uses");
+    expect(system).toContain("[K1]");
+  });
+
+  it("leaves the system text as today when no skill source is sent", () => {
+    const plain = numberSources({ memories: [memory("a")], profile: [profile("x")] });
+    const { system } = buildAnswerPrompt("why?", [], plain);
+    expect(system).not.toContain("K1");
+    expect(system.toLowerCase()).not.toContain("skill");
+  });
+
+  it("removes a K marker that was not sent", () => {
+    const out = validateCitations("Alpha fails [K1] and beta [K4].", ["S1", "K1", "K2"]);
+    expect(out.text).toBe("Alpha fails [K1] and beta.");
+    expect(out.cited).toEqual(["K1"]);
+  });
+
+  it("removes every K marker when no K source was sent", () => {
+    const out = validateCitations("Claim [K1] and [S1].", ["S1"]);
+    expect(out.text).toBe("Claim and [S1].");
+    expect(out.cited).toEqual(["S1"]);
+  });
+});
+
 describe("numberSources", () => {
   it("labels memories S1… and profile items P1…", () => {
     const sources = numberSources({

@@ -179,6 +179,57 @@ describe("chat store", () => {
     expect(full?.messages[0]?.sources[0]?.text).toBe(text);
   });
 
+  it("keeps a skill source with its facts and drops any extra field", async () => {
+    const store = await openStore();
+    const c = await store.createConversation({ title: "Q", scopeTag: null });
+    const entry = {
+      kind: "applied",
+      at: 1_700_000_000_000,
+      summary: "Added a step",
+      appliedBy: "person",
+      versionId: "7",
+      path: "/Users/sam/x/SKILL.md",
+    };
+    await store.appendMessage(c.id, {
+      role: "assistant",
+      content: "A [K1]",
+      sources: [
+        {
+          label: "K1",
+          kind: "skill",
+          id: "alpha",
+          text: "alpha: 4 uses",
+          path: "/Users/sam/x/SKILL.md",
+          skill: {
+            name: "alpha",
+            uses: 4,
+            failedTurns: 1,
+            attention: 0.33,
+            modified: true,
+            lastAppliedAt: 1_700_000_000_000,
+            history: [entry],
+            path: "/Users/sam/x/SKILL.md",
+            versionId: "7",
+          },
+        } as never,
+      ],
+    });
+    const full = await store.getConversation(c.id);
+    const source = full!.messages[0]!.sources[0]!;
+    expect(source.skill).toEqual({
+      name: "alpha",
+      uses: 4,
+      failedTurns: 1,
+      attention: 0.33,
+      modified: true,
+      lastAppliedAt: 1_700_000_000_000,
+      history: [
+        { kind: "applied", at: 1_700_000_000_000, summary: "Added a step", appliedBy: "person" },
+      ],
+    });
+    expect((source as unknown as Record<string, unknown>).path).toBeUndefined();
+  });
+
   it("opens a file from a newer OMMS as read-only", async () => {
     const store = await openStore();
     await store.createConversation({ title: "Q", scopeTag: null });

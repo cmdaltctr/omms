@@ -53,4 +53,18 @@ describe("linkCitations", () => {
     expect(out).not.toContain("<button");
     expect(out).toContain("see [S1]");
   });
+
+  it("turns a [K1] marker into a chip and keeps unknown K markers as text", () => {
+    const out = linkCitations("<p>Alpha [K1] and [K7]</p>", ["K1"], () => false, aria);
+    expect(out).toContain('data-cite="K1"');
+    expect(out).toContain("[K7]");
+    expect(out.match(/<button/g)).toHaveLength(1);
+  });
+
+  it("gives a K chip cite-skill, a P chip cite-profile, and an S chip neither", () => {
+    const out = linkCitations("<p>[S1] [P1] [K1]</p>", ["S1", "P1", "K1"], () => false, aria);
+    expect(out).toContain('class="cite-chip" data-cite="S1"');
+    expect(out).toContain('class="cite-chip cite-profile" data-cite="P1"');
+    expect(out).toContain('class="cite-chip cite-skill" data-cite="K1"');
+  });
 });

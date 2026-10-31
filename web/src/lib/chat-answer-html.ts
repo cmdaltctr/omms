@@ -1,4 +1,4 @@
-const MARKER = /\[([SP]\d+)\]/g;
+const MARKER = /\[([SPK]\d+)\]/g;
 // One tag, with quoted attribute values kept whole so a ">" inside a value does not end it.
 const TAG = /<(?:[^>"']|"[^"]*"|'[^']*')*>/g;
 const TAG_NAME = /^<(\/?)([a-zA-Z][a-zA-Z0-9]*)/;
@@ -8,7 +8,7 @@ const LITERAL = new Set(["a", "code", "pre", "button"]);
 /**
  * Swaps known citation markers in sanitised answer HTML for buttons. Only text
  * outside tags changes, so attribute values stay as they were. The label
- * matches `[SP]\d+`, so nothing from the answer reaches the markup unescaped.
+ * matches `[SPK]\d+`, so nothing from the answer reaches the markup unescaped.
  * The page opens the source from the button's `data-cite` value.
  */
 export function linkCitations(
@@ -22,6 +22,7 @@ export function linkCitations(
     if (!known.has(label)) return marker;
     const classes = ["cite-chip"];
     if (label.startsWith("P")) classes.push("cite-profile");
+    if (label.startsWith("K")) classes.push("cite-skill");
     if (isDeleted(label)) classes.push("cite-deleted");
     const aria = ariaLabel(label).replace(/["&<>]/g, (c) => `&#${c.charCodeAt(0)};`);
     return `<button type="button" class="${classes.join(" ")}" data-cite="${label}" aria-haspopup="dialog" aria-label="${aria}">${label}</button>`;

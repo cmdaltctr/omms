@@ -1,16 +1,17 @@
 import { isFullyPrivate, stripPrivateContent } from "../privacy.js";
 import type { ToolCallResult } from "../ai/providers/base-provider.js";
 import { ANSWER_TOOL, buildAnswerPrompt, finaliseAnswer, numberSources } from "./chat-answer.js";
-import { PLAN_TOOL, buildPlanPrompt, validatePlan, type PlanInput } from "./chat-plan.js";
+import { buildPlanPrompt, planTool, validatePlan, type PlanInput } from "./chat-plan.js";
 import { retrieveSources, type RetrieveDeps } from "./chat-retrieve.js";
+import { readSkillRows, skillSourcesFor, failureCode, type ChatSkillsDep } from "./chat-skills.js";
 import type { ChatStore } from "./chat-store.js";
-import type { ChatMessage, ChatPlanRecord } from "./chat-types.js";
+import type { ChatMessage, ChatPlanRecord, ChatSource } from "./chat-types.js";
 
 export const MAX_QUESTION_CHARS = 4000;
 const TITLE_CHARS = 60;
 const DEFAULT_TITLE = "New chat";
 
-type Tool = typeof PLAN_TOOL | typeof ANSWER_TOOL;
+type Tool = ReturnType<typeof planTool> | typeof ANSWER_TOOL;
 
 export interface ChatServiceDeps {
   store: ChatStore;
@@ -20,6 +21,8 @@ export interface ChatServiceDeps {
   retrieve: RetrieveDeps;
   listTags: (scopeTag: string | null) => Promise<PlanInput["tags"]>;
   profileCategories: () => Promise<string[]>;
+  /** Skill facts. Present only while `skillLearning` is on; absent means today's behaviour. */
+  skills?: ChatSkillsDep;
   /** Metadata only: sizes, counts, codes, timings. Never question or answer text. */
   log: (message: string, meta: Record<string, unknown>) => void;
 }
@@ -56,7 +59,7 @@ async function safeCall(deps: ChatServiceDeps, system: string, user: string, too
 
 async function plan(deps: ChatServiceDeps, input: PlanInput): Promise<ChatPlanRecord> {
   const prompt = buildPlanPrompt(input);
-  const result = await safeCall(deps, prompt.system, prompt.user, PLAN_TOOL);
+  const result = await safeCall(deps, prompt.system, prompt.user, planTool(!!input.skills));
   return validatePlan(result?.success ? result.data : null, input);
 }
 
@@ -112,13 +115,36 @@ export async function askQuestion(
     deps.listTags(input.scopeTag).catch(() => []),
     deps.profileCategories().catch(() => []),
   ]);
-  const searchPlan = await plan(deps, { question, turns, tags, categories });
+  const read = deps.skills ? await readSkillRows(deps.skills) : null;
+  const rows = read && "rows" in read ? read.rows : null;
+  const searchPlan = await plan(deps, {
+    question,
+    turns,
+    tags,
+    categories,
+    ...(rows ? { skills: rows.map((row) => row.name) } : {}),
+  });
+  const markUnavailable = (reason: string) => {
+    searchPlan.skillFacts = "unavailable";
+    deps.log("chat: skill facts unavailable", { conversationId, reason });
+  };
+  if (read && "failure" in read) markUnavailable(read.failure);
+
+  let skillSources: ChatSource[] = [];
+  if (deps.skills && rows) {
+    try {
+      skillSources = await skillSourcesFor(deps.skills, rows, searchPlan, question);
+    } catch (error) {
+      markUnavailable(failureCode(error));
+    }
+  }
 
   let sources;
   try {
-    sources = numberSources(
-      await retrieveSources(question, searchPlan, input.scopeTag, deps.retrieve)
-    );
+    sources = numberSources({
+      ...(await retrieveSources(question, searchPlan, input.scopeTag, deps.retrieve)),
+      skills: skillSources,
+    });
   } catch {
     return save(deps, conversationId, { errorCode: "search_failed", plan: searchPlan }, started);
   }
@@ -177,6 +203,9 @@ async function save(
     tags: out.plan.tags.length,
     categories: out.plan.profileCategories.length,
     sources: out.sources?.length ?? 0,
+    ...(deps.skills
+      ? { skillSources: out.sources?.filter((s) => s.kind === "skill").length ?? 0 }
+      : {}),
     cited: out.cited ?? 0,
     answerChars: out.content?.length ?? 0,
     ms: Date.now() - started,
