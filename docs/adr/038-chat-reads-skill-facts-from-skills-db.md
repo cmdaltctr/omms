@@ -3,7 +3,7 @@
 - **Date:** 2026-10-31
 - **Status:** Accepted. Amends decision 3 of ADR-032 and decision 4 of ADR-036.
 - **Deciders:** Aizat Hawari
-- **Change:** [`chat-skill-facts`](../../openspec/changes/chat-skill-facts/proposal.md)
+- **Change:** [`chat-skill-facts`](../../openspec/changes/archive/2026-10-31-chat-skill-facts/proposal.md)
 
 ## Context
 
