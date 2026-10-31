@@ -8,6 +8,8 @@ import {
   type ImportHost,
 } from "./import-args.js";
 import { importBlockedReason, type ImportReadiness } from "./import-readiness.js";
+import { importSkillTurnsOn, skillTurnsOnly } from "./import-turn-outputs.js";
+import type { ImportSurface } from "./import-runs.js";
 import { resolveImportSelection, type ResolvedImportSelection } from "./import-sessions.js";
 import {
   importSourceKey,
@@ -41,7 +43,7 @@ export interface GroupHostJob {
   host: ImportHost;
   state: GroupHostState;
   sessions: number;
-  phase: "preparing" | "memory" | "profile";
+  phase: "preparing" | "memory" | "skill-turns" | "profile";
   processed: number;
   total: number;
   profileProcessed: number;
@@ -75,6 +77,8 @@ export interface GroupImportDeps {
   ) => Promise<HistoryImportRun["models"]>;
   discardSelection?: (identity: ImportSourceIdentity) => Promise<void>;
   waitingPrompts?: () => Promise<Set<string>>;
+  /** Where the run record says the import started; `web` by default. */
+  surface?: ImportSurface;
 }
 type Deps = GroupImportDeps & {
   runner: typeof runHistoryImport;
@@ -135,9 +139,18 @@ function matchOptions(child: Child, directory: string, signal: AbortSignal) {
     cwd: directory,
     allowEmpty: true,
     signal,
-    outputs: { memories: !child.args.skipMemories, profile: !child.args.skipProfile },
+    // Skill turns have no session ledger: while they are recorded, no session counts as handled.
+    outputs: importSkillTurnsOn(child.args)
+      ? { memories: false, profile: false }
+      : { memories: !child.args.skipMemories, profile: !child.args.skipProfile },
     ...(child.args.force ? { force: true } : {}),
+    // The list the selection came from passed the same flag.
+    ...(skillTurnsOnly(child.args, !child.args.skipProfile) ? { skillTurnsOnly: true } : {}),
   };
+}
+/** A skill-turns-only run reads history and calls no model. */
+function needsModel(args: HistoryImportArgs): boolean {
+  return !args.skipMemories || !args.skipProfile;
 }
 function hostError(host: ImportHost, error: unknown): ImportJobError {
   return new ImportJobError(
@@ -159,6 +172,10 @@ function emptySummary(dryRun: boolean): Summary {
     unitsAlreadyHandled: 0,
     unitsHeldBack: 0,
     unitsUntimed: 0,
+    skillTurnsRecorded: 0,
+    skillTurnsAlreadyPresent: 0,
+    skillTurnsWouldRecord: 0,
+    skillTurnsAlreadyRecorded: 0,
     projects: 0,
     unresolved: 0,
     loadErrors: 0,
@@ -260,7 +277,7 @@ export async function startImportGroup(
         child.row.blocker =
           importBlockedReason(readiness, {
             host,
-            needsModel: true,
+            needsModel: needsModel(child.args),
             modelChoice: child.input.modelChoice,
           }) ?? undefined;
         if (!job.dryRun && child.row.blocker) throw new Error(child.row.blocker);
@@ -363,29 +380,34 @@ async function executeGroup(
       // Reader/model readiness may change while earlier children finish their profile work.
       const blocked = importBlockedReason(await deps.readiness(), {
         host,
-        needsModel: !job.dryRun,
+        needsModel: !job.dryRun && needsModel(child.args),
         modelChoice: child.input.modelChoice,
       });
       if (blocked) throw new Error(blocked);
-      const models = job.dryRun
-        ? {}
-        : await (deps.prepareModels ?? prepareModels)(
-            child.input.modelChoice!,
-            directory,
-            signal,
-            host
-          );
+      const models =
+        job.dryRun || !needsModel(child.args)
+          ? {}
+          : await (deps.prepareModels ?? prepareModels)(
+              child.input.modelChoice!,
+              directory,
+              signal,
+              host
+            );
       if (signal.aborted) {
         child.row.state = "cancelled";
         continue;
       }
       const eligible = new Set<string>();
-      child.row.phase = child.args.skipMemories ? "profile" : "memory";
+      child.row.phase = !child.args.skipMemories
+        ? "memory"
+        : importSkillTurnsOn(child.args)
+          ? "skill-turns"
+          : "profile";
       const report = await deps.runner(host, child.args, {
         cwd: directory,
         models,
         signal,
-        track: { surface: "web" },
+        track: { surface: deps.surface ?? "web" },
         selection: {
           keys: pinned.keys,
           cutoff: pinned.cutoff,
@@ -442,6 +464,8 @@ async function executeGroup(
         const pending =
           report.unitsImported +
           report.unitsWouldImport +
+          (report.skillTurnsRecorded ?? 0) +
+          (report.skillTurnsWouldRecord ?? 0) +
           (report.profile?.promptsRecorded ?? 0) +
           (report.profile?.promptsWouldRecord ?? 0) +
           (report.profile?.batchesBuilt ?? 0) +

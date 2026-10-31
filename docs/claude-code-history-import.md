@@ -69,8 +69,9 @@ om-memory-system import-claude-history [options]
   --max-sessions <n>        Read at most n sessions, oldest first
   --map <old>=<new>         Map a recorded directory that no longer exists (repeatable)
   --root <dir>              Claude Code transcripts folder (default ~/.claude/projects)
-  --skip-memories           Record profile prompts only
-  --skip-profile            Import memories only
+  --skip-memories           Save no memories
+  --skip-profile            Record no profile prompts
+  --skip-skills             Record no skill turns (recorded only while skillLearning is on)
   --profile-batch <n>       Prompts per profile analysis batch (default: 50)
   --force                   Reprocess already-handled memory units and profile prompts
   --help                    Show this help
@@ -185,6 +186,20 @@ The reader never turns these into prompts:
 | Files with no user entry, or files that cannot be read                  | Counted as unrecognised files and skipped.                      |
 
 Tool inputs are cut to 100 characters, the same as the other hosts.
+
+## Skill turns
+
+While `skillLearning` is on, the import also records each turn it reads into `skills.db`. It records turns that the import ledger marks as handled and turns that the Stop hook saved. The memory ledger does not change for these turns. A turn that the Stop hook recorded is not recorded again.
+
+```bash
+om-memory-system import-claude-history --scope all-projects --dry-run   # count the turns to record
+om-memory-system import-claude-history --scope all-projects --skip-memories --skip-profile
+```
+
+- The second command records skill turns only. It makes no model call and needs no external API settings.
+- A skill-turns-only run also records sessions whose project folder no longer exists, under the recorded folder path. A run that saves memories or profile prompts still skips them until you map the folder with `--map`.
+- `--skip-skills` records no skill turns.
+- To record past turns from every host at once, run `om-memory-system skills record-past --yes`. See [CLI: Record past turns](cli.md#record-past-turns).
 
 ## Idempotency and recovery
 

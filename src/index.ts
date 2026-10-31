@@ -25,7 +25,6 @@ import { userPromptManager } from "./services/user-prompt/user-prompt-manager.js
 import { pruneTraces } from "./services/capture-diagnostics.js";
 import { ensureTursoReady } from "./services/turso/ready.js";
 import { tursoConnectionManager } from "./services/turso/connection-manager.js";
-
 import {
   isConfigured,
   CONFIG,
@@ -39,11 +38,11 @@ import { getLanguageName } from "./services/language-detector.js";
 import { getHostClientConfig } from "./adapters/opencode/opencode-host-config.js";
 import { applySkillsPathConfig } from "./adapters/opencode/package-skills.js";
 import { loadOpencodeProvider } from "./adapters/opencode/opencode-provider-loader.js";
+import { opencodeSkillsTool } from "./adapters/opencode/skills-tool.js";
 import {
   STRUCTURED_OUTPUT_AGENT,
   STRUCTURED_OUTPUT_TOOLS,
 } from "./adapters/opencode/opencode-provider.js";
-
 import {
   INTERNAL_CAPTURE_SESSION_TITLE,
   isInternalCaptureSessionTitle,
@@ -691,6 +690,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
           return JSON.stringify(result);
         },
       }),
+      skills: opencodeSkillsTool(directory),
     },
     event: async (input: { event: { type: string; properties?: any } }) => {
       const event = input.event;
@@ -705,10 +705,10 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
       }
 
       if (event.type === "session.idle") {
-        if (!isConfigured() || !CONFIG.autoCaptureEnabled) return;
+        // Skill learning records turns even when memory capture is off (ADR-035).
+        if (!isConfigured() || !(CONFIG.autoCaptureEnabled || CONFIG.skillLearning)) return;
         const sessionID = event.properties?.sessionID;
         if (!sessionID) return;
-
         // Transient structured-output sessions must not re-trigger capture/learning
         // (that self-schedules an unbounded idle Ã¢ÂÂ LLM Ã¢ÂÂ idle loop).
         if (await isInternalCaptureSession(ctx.client, sessionID)) {
@@ -721,7 +721,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
         idleTimeout = setTimeout(async () => {
           try {
             await performAutoCapture(autoCaptureHost, sessionID, directory);
-
+            if (!CONFIG.autoCaptureEnabled) return; // Skill turns only; the memory work stays off.
             await performUserProfileLearning(ctx, directory);
             const { cleanupService } = await import("./services/cleanup-service.js");
             if (await cleanupService.shouldRunCleanup()) await cleanupService.runCleanup();

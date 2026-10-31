@@ -1,4 +1,6 @@
 import type { CaptureToolCall } from "../core/host.js";
+import { boundToolInput, readToolPath } from "../core/tool-input.js";
+import { errorOutcome } from "../core/tool-outcome.js";
 import type { ImportWindow } from "./importer.js";
 
 /**
@@ -20,6 +22,7 @@ export interface ClaudeContentBlock {
   input?: unknown;
   tool_use_id?: string;
   content?: unknown;
+  is_error?: boolean;
 }
 
 export interface ClaudeTranscriptEntry {
@@ -77,8 +80,6 @@ const NOISE_PREFIXES = [
   "<bash-stderr>",
   "<task-notification>",
 ];
-
-const MAX_TOOL_INPUT_LENGTH = 100;
 
 export type ClaudeLineResult =
   | { status: "entry"; entry: ClaudeTranscriptEntry }
@@ -175,13 +176,6 @@ function formatToolInput(input: unknown): string {
     .join(", ");
 }
 
-function boundToolInput(input: string): string {
-  if (input.length > MAX_TOOL_INPUT_LENGTH) {
-    return input.substring(0, MAX_TOOL_INPUT_LENGTH) + "...";
-  }
-  return input;
-}
-
 interface OpenWindow {
   entryIndex: number;
   entry: ClaudeTranscriptEntry;
@@ -189,6 +183,7 @@ interface OpenWindow {
   textResponses: string[];
   toolCalls: CaptureToolCall[];
   sourceEntryIds: string[];
+  callsById: Map<string, CaptureToolCall>;
 }
 
 function closeWindow(open: OpenWindow): ClaudeConversationWindow | null {
@@ -215,10 +210,40 @@ function addAssistantWork(open: OpenWindow, entry: ClaudeTranscriptEntry): void 
     .trim();
   if (text) open.textResponses.push(text);
   for (const block of blocks.filter((item) => item.type === "tool_use")) {
-    open.toolCalls.push({
-      name: typeof block.name === "string" ? block.name : "unknown",
+    // A call stays `unknown` until a `tool_result` block answers it.
+    const name = typeof block.name === "string" ? block.name : "unknown";
+    const call: CaptureToolCall = {
+      name,
       input: boundToolInput(formatToolInput(block.input)),
-    });
+      outcome: "unknown",
+    };
+    const path = readToolPath(name, block.input);
+    if (path !== undefined) call.path = path;
+    open.toolCalls.push(call);
+    if (typeof block.id === "string") open.callsById.set(block.id, call);
+  }
+}
+
+/** Text of a `tool_result` block: a string, or an array of text blocks. */
+function toolResultText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((block) => block && block.type === "text" && typeof block.text === "string")
+    .map((block) => block.text as string)
+    .join("\n");
+}
+
+/**
+ * Set the outcome of each call a user entry's `tool_result` blocks answer.
+ * Only the error text of a failed call is kept; tool output is never stored.
+ */
+function addToolResults(open: OpenWindow, entry: ClaudeTranscriptEntry): void {
+  for (const block of blocksOf(entry).filter((item) => item.type === "tool_result")) {
+    const call = open.callsById.get(block.tool_use_id ?? "");
+    if (!call) continue;
+    if (block.is_error === true) Object.assign(call, errorOutcome(toolResultText(block.content)));
+    else call.outcome = "ok";
   }
 }
 
@@ -245,12 +270,16 @@ function windowsWithIndex(
           textResponses: [],
           toolCalls: [],
           sourceEntryIds: [entry.uuid],
+          callsById: new Map(),
         };
       }
       return;
     }
     if (open && entry.type === "assistant" && entry.isSidechain !== true) {
       addAssistantWork(open, entry);
+    }
+    if (open && entry.type === "user" && entry.isSidechain !== true) {
+      addToolResults(open, entry);
     }
   });
   flush();

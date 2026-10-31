@@ -7,6 +7,7 @@ The [project README](../README.md#documentation) lists the user and developer gu
 - [Using memory](using-memory.md) explains capture, retrieval and profile learning.
 - [Configuration](configuration.md) covers config files, model selection, privacy and embeddings.
 - [CLI reference](cli.md) lists the terminal commands.
+- [Skill learning](skill-learning.md) covers recording turns, ranking skills, drafting improvements, and apply and undo.
 - [Updating and upgrading](upgrading.md) covers updates, version pinning and older stores.
 - [Moving projects](moving-projects.md) covers folder moves, backup and restore.
 - [Migration from opencode-mem](omms-migration.md) is the guide for existing `opencode-mem` users.

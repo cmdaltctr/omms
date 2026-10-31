@@ -95,11 +95,21 @@ describe("extractClaudeConversationWindows", () => {
   it("returns one unit with the prompt, the reply, and the three tool calls with bounded inputs", () => {
     const window = fixtureWindows()[1]!;
     expect(window.toolCalls).toEqual([
-      { name: "Bash", input: 'command: "bun run check", description: "Run the checks"' },
-      { name: "Read", input: 'file_path: "/tmp/claude-fixture-project/README.md"' },
+      {
+        name: "Bash",
+        input: 'command: "bun run check", description: "Run the checks"',
+        outcome: "ok",
+      },
+      {
+        name: "Read",
+        input: 'file_path: "/tmp/claude-fixture-project/README.md"',
+        outcome: "ok",
+        path: "/tmp/claude-fixture-project/README.md",
+      },
       {
         name: "Grep",
         input: `pattern: "fixture-${"x".repeat(150)}"`.slice(0, 100) + "...",
+        outcome: "ok",
       },
     ]);
   });
@@ -179,6 +189,77 @@ describe("extractClaudeConversationWindows", () => {
         assistant("r1", [{ type: "thinking", thinking: "hidden" }]),
       ])
     ).toEqual([]);
+  });
+
+  it("matches tool results to tool calls by tool_use_id and sets the outcome", () => {
+    const windows = extractClaudeConversationWindows([
+      user("p1", "Run it"),
+      assistant("r1", [
+        { type: "tool_use", id: "toolu_read", name: "Read", input: { file_path: "a.ts" } },
+        { type: "tool_use", id: "toolu_bash", name: "Bash", input: { command: "false" } },
+        { type: "tool_use", id: "toolu_grep", name: "Grep", input: { pattern: "x" } },
+      ]),
+      user("tr1", [
+        {
+          type: "tool_result",
+          tool_use_id: "toolu_bash",
+          is_error: true,
+          content: [{ type: "text", text: "Exit code 1" }],
+        },
+      ]),
+      user("tr2", [
+        { type: "tool_result", tool_use_id: "toolu_read", is_error: false, content: "FILE BODY" },
+      ]),
+      assistant("r2", [{ type: "text", text: "The command failed." }]),
+    ]);
+
+    expect(windows.length).toBe(1);
+    expect(windows[0]!.toolCalls).toEqual([
+      { name: "Read", input: 'file_path: "a.ts"', outcome: "ok", path: "a.ts" },
+      { name: "Bash", input: 'command: "false"', outcome: "error", error: "Exit code 1" },
+      { name: "Grep", input: 'pattern: "x"', outcome: "unknown" },
+    ]);
+    expect(JSON.stringify(windows)).not.toContain("FILE BODY");
+  });
+
+  it("cuts a long Read input as before and keeps the full path in path", () => {
+    const skillPath = `/tmp/skills/${"s".repeat(129)}/SKILL.md`;
+    expect(skillPath.length).toBe(150);
+    const windows = extractClaudeConversationWindows([
+      user("p1", "Use the skill"),
+      assistant("r1", [
+        { type: "tool_use", id: "t", name: "Read", input: { limit: 50, file_path: skillPath } },
+      ]),
+    ]);
+
+    const formatted = `limit: 50, file_path: ${JSON.stringify(skillPath)}`;
+    expect(windows[0]!.toolCalls[0]!.input).toBe(formatted.substring(0, 100) + "...");
+    expect(windows[0]!.toolCalls[0]!.path).toBe(skillPath);
+  });
+
+  it("still cuts a long non-read input at 100 characters", () => {
+    const windows = extractClaudeConversationWindows([
+      user("p1", "Run it"),
+      assistant("r1", [
+        { type: "tool_use", id: "t", name: "Bash", input: { file_path: "x".repeat(150) } },
+      ]),
+    ]);
+
+    expect(windows[0]!.toolCalls[0]!.input.length).toBe(103);
+    expect(windows[0]!.toolCalls[0]!.path).toBeUndefined();
+  });
+
+  it("keeps string error content and bounds it to 2,000 characters", () => {
+    const windows = extractClaudeConversationWindows([
+      user("p1", "Run it"),
+      assistant("r1", [{ type: "tool_use", id: "toolu_1", name: "Bash", input: {} }]),
+      user("tr1", [
+        { type: "tool_result", tool_use_id: "toolu_1", is_error: true, content: "e".repeat(5000) },
+      ]),
+    ]);
+
+    expect(windows[0]!.toolCalls[0]!.outcome).toBe("error");
+    expect(windows[0]!.toolCalls[0]!.error?.length).toBe(2000);
   });
 });
 

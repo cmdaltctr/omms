@@ -5,9 +5,10 @@ export const ROUTES = {
   settings: "/settings",
   memory: "/memory",
   chat: "/chat",
+  skills: "/skills",
 } as const;
 
-export type AppView = "project" | "profile" | "settings" | "memory" | "chat";
+export type AppView = "project" | "profile" | "settings" | "memory" | "chat" | "skills";
 
 /** The Memory page's views after the overview, in sidebar order. */
 export const MEMORY_VIEWS = ["pi", "opencode", "claude-code", "shared"] as const;
@@ -36,6 +37,7 @@ export function viewFromPath(pathname: string): AppView {
   if (isMemoryPath(path)) return "memory";
   if (path === ROUTES.settings) return "settings";
   if (path === ROUTES.chat) return "chat";
+  if (path === ROUTES.skills) return "skills";
   return path === ROUTES.profile ? "profile" : "project";
 }
 
@@ -43,6 +45,7 @@ export function pathForView(view: AppView): string {
   if (view === "memory") return ROUTES.memory;
   if (view === "settings") return ROUTES.settings;
   if (view === "chat") return ROUTES.chat;
+  if (view === "skills") return ROUTES.skills;
   return view === "profile" ? ROUTES.profile : ROUTES.project;
 }
 
@@ -54,7 +57,8 @@ export function isAppPath(pathname: string): boolean {
     path === ROUTES.profile ||
     path === ROUTES.settings ||
     isMemoryPath(path) ||
-    path === ROUTES.chat
+    path === ROUTES.chat ||
+    path === ROUTES.skills
   );
 }
 

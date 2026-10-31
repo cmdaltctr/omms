@@ -288,7 +288,7 @@ describe("V2 command registration", () => {
         },
       },
     } as any;
-    const dispose = await registerV2Adapter(ctx, { tool: { memory: {} } }, {} as never);
+    const dispose = await registerV2Adapter(ctx, { tool: { memory: {}, skills: {} } }, {} as never);
     expect(command.name).toBe(OPENCODE_IMPORT_COMMAND);
     await command.execute({ sessionID: "s1", prompt: { text: "--help" } });
     expect(posted[0]).toMatchObject({ sessionID: "s1", resume: false });

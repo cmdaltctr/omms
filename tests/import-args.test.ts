@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { parseImportArgs } from "../src/cli/index.js";
-import { historyImportUsage, parseHistoryImportArgs } from "../src/importer/import-args.js";
+import {
+  historyImportUsage,
+  importNeedsModel,
+  parseHistoryImportArgs,
+  webImportTokens,
+} from "../src/importer/import-args.js";
 
 const cli = { host: "claude-code" as const, surface: "cli" as const };
 
@@ -68,5 +73,35 @@ describe("Claude Code history import arguments", () => {
       expect(usage).not.toContain("--db");
     }
     expect(historyImportUsage("claude-code", "cli")).toContain("--api-key-env");
+  });
+});
+
+describe("--skip-skills", () => {
+  it("is off by default and parses on every host, in the terminal and in a session", () => {
+    for (const host of ["pi", "opencode", "claude-code"] as const) {
+      for (const surface of ["cli", "session", "web"] as const) {
+        expect(parseHistoryImportArgs([], { host, surface }).skipSkills).toBe(false);
+        const args = parseHistoryImportArgs(["--skip-skills"], { host, surface });
+        expect(args.errors).toEqual([]);
+        expect(args.skipSkills).toBe(true);
+      }
+    }
+    expect(parseHistoryImportArgs(["--skip-skills=yes"], cli).errors).toEqual([
+      "--skip-skills takes no value",
+    ]);
+    expect(parseImportArgs(["import-pi-history", "--skip-skills"]).args.skipSkills).toBe(true);
+  });
+
+  it("comes from the page's skipSkills option and shows in the help", () => {
+    expect(webImportTokens({ skipSkills: true }, "pi")).toEqual(["--skip-skills"]);
+    expect(webImportTokens({ skipSkills: false }, "pi")).toEqual([]);
+    for (const surface of ["cli", "session"] as const) {
+      expect(historyImportUsage("pi", surface)).toContain("--skip-skills");
+    }
+  });
+
+  it("needs no model when only skill turns are left", () => {
+    const args = parseHistoryImportArgs(["--skip-memories", "--skip-profile"], cli);
+    expect(importNeedsModel(args)).toBe(false);
   });
 });

@@ -16,6 +16,10 @@ export function workCounts(counts: ImportCounts, s: (message: string) => string)
     ["Failed memory units", summary?.unitsFailed],
     ["Held-back turns", summary?.unitsHeldBack],
     ["Untimed turns", summary?.unitsUntimed],
+    ["Skill turns to record", summary?.skillTurnsWouldRecord],
+    ["Skill turns already recorded", summary?.skillTurnsAlreadyRecorded],
+    ["Skill turns recorded", summary?.skillTurnsRecorded],
+    ["Skill turns already present", summary?.skillTurnsAlreadyPresent],
     ["Load errors", summary?.loadErrors],
     ["Profile prompts", profile ? profile.promptsRecorded + profile.promptsWouldRecord : undefined],
     ["Already handled profile prompts", profile?.promptsAlreadyHandled],
@@ -102,7 +106,9 @@ export function ImportResults({ job }: { job: ImportJob | null }) {
                       ? "Learning profile"
                       : child.phase === "preparing"
                         ? "preparing"
-                        : "Memory extraction"
+                        : child.phase === "skill-turns"
+                          ? "Skill turns"
+                          : "Memory extraction"
                   )}
                 </>
               )}
@@ -112,10 +118,11 @@ export function ImportResults({ job }: { job: ImportJob | null }) {
                 {s("Profile batches")}: {child.profileProcessed ?? 0}/{child.profileTotal ?? 0}
               </p>
             ) : (
-              child.phase === "memory" &&
+              (child.phase === "memory" || child.phase === "skill-turns") &&
               child.total !== undefined && (
                 <p>
-                  {s("Memory units")}: {child.processed ?? 0}/{child.total}
+                  {s(child.phase === "skill-turns" ? "Skill turns" : "Memory units")}:{" "}
+                  {child.processed ?? 0}/{child.total}
                 </p>
               )
             )}

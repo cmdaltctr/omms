@@ -132,7 +132,7 @@ export function PasswordFields({
   const s = useSettingsText();
   return (
     <>
-      <label className="block">
+      <label className="block w-full max-w-72">
         <span>{s("User name")}</span>
         <input
           className="mt-1 block w-full rounded border border-border bg-background p-2"
@@ -141,7 +141,7 @@ export function PasswordFields({
           onChange={(event) => onChange({ ...value, username: event.target.value })}
         />
       </label>
-      <label className="block">
+      <label className="block w-full max-w-72">
         <span>{s("Password")}</span>
         <input
           type="password"

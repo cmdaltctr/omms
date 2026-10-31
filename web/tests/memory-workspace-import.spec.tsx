@@ -46,6 +46,7 @@ let totalSessions = 1;
 let currentRead: ((value: Response) => void) | undefined;
 let piAvailable = true;
 let externalState = "ready";
+let recording = false;
 let deferred: ((value: Response) => void) | undefined;
 const response = (value: unknown) => new Response(JSON.stringify(value));
 Object.assign(globalThis, {
@@ -66,6 +67,8 @@ Object.assign(globalThis, {
   fetch: async (path: string, options: RequestInit = {}) => {
     const body = options.body ? JSON.parse(String(options.body)) : undefined;
     requests.push({ path, body });
+    if (path === "/api/settings")
+      return response({ revision: "r1", settings: { skillLearning: { value: recording } } });
     if (path.endsWith("/readiness"))
       return response({
         external: { state: externalState, provider: "synthetic", model: "model" },
@@ -196,6 +199,7 @@ beforeEach(() => {
   currentRead = undefined;
   piAvailable = true;
   externalState = "ready";
+  recording = false;
   setLanguage("en");
 });
 afterEach(() => {

@@ -1,6 +1,12 @@
 import { atom, update } from "claude-code";
 
 import { DESCRIPTION, INPUT_SCHEMA, TOOL, registerMemoryTool } from "./omms-memory-tool.jsx";
+import {
+  DESCRIPTION as SKILLS_DESCRIPTION,
+  INPUT_SCHEMA as SKILLS_INPUT_SCHEMA,
+  TOOL as SKILLS_TOOL,
+  registerSkillsTool,
+} from "./omms-skills-tool.jsx";
 import { registerRecall } from "./omms-recall.jsx";
 import {
   DEFAULT_HEALTH_URL,
@@ -25,22 +31,17 @@ import {
 const label = atom({ plugin: "omms", key: "label" }, { state: "connecting", update: null });
 
 /**
- * Registers the memory tool, in the prompt's tool list from the start: a tool
- * behind tool search lost to the skill's Bash route. A failure is written to the
+ * Registers one tool, in the prompt's tool list from the start: a tool behind
+ * tool search lost to the skill's Bash route. A failure is written to the
  * transcript, since a missing tool is otherwise silent. The hooks keep working.
  */
-async function registerTool($) {
+async function registerTool($, name, description, inputSchema) {
   try {
-    await $.tool.register({
-      name: TOOL,
-      description: DESCRIPTION,
-      inputSchema: INPUT_SCHEMA,
-      isDeferred: false,
-    });
+    await $.tool.register({ name, description, inputSchema, isDeferred: false });
   } catch (error) {
     // The engine already prefixes the line with the plugin name.
     $.ui.log(
-      `could not register the memory tool: ${error instanceof Error ? error.message : String(error)}`
+      `could not register the ${name} tool: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }
@@ -136,14 +137,16 @@ function startStatus($, kept) {
 export const register = (on) => {
   registerStatus(on);
   registerMemoryTool(on);
+  registerSkillsTool(on);
   registerRecall(on);
 
   // Kept outside the hook: a second `session.start` must not double the timers or the toast.
   const kept = { toasted: new Set(), timers: [] };
 
   on("session.start", async ($, e, next) => {
-    // Before `next`, so the first prompt lists the tool.
-    await registerTool($);
+    // Before `next`, so the first prompt lists the tools.
+    await registerTool($, TOOL, DESCRIPTION, INPUT_SCHEMA);
+    await registerTool($, SKILLS_TOOL, SKILLS_DESCRIPTION, SKILLS_INPUT_SCHEMA);
     const started = await next(e);
     startStatus($, kept);
     return started;

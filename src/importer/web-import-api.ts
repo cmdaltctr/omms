@@ -11,3 +11,12 @@ export { BackfillControls } from "./backfill-controls.js";
 export { directoryMapsView, readStoreProjects, type KnownProject } from "./map-suggestions.js";
 export { testExternalApi } from "./external-api-test.js";
 export { catchUpState, pauseCatchUp, previewCatchUp, startCatchUp } from "./profile-catch-up.js";
+
+import { importReadiness } from "./import-readiness.js";
+import { startRecordPastTurns } from "./record-past-turns.js";
+import type { SettingsImportJobs } from "./web-import-jobs.js";
+
+/** Start Record past turns in the web app's import job slot. */
+export async function startRecordPast(jobs: () => Promise<SettingsImportJobs>, cwd: string) {
+  return startRecordPastTurns(await jobs(), cwd, await importReadiness());
+}

@@ -53,6 +53,15 @@ it("shows visible labels on the password form", () => {
   expect(html).toContain(">Password<");
 });
 
+it("keeps the user name and password fields short instead of full width", () => {
+  const html = renderToStaticMarkup(
+    <PasswordFields value={{ username: "", value: "" }} onChange={() => {}} />
+  );
+  const labels = html.match(/<label class="[^"]*"/g) ?? [];
+  expect(labels).toHaveLength(2);
+  for (const label of labels) expect(label).toContain("max-w-72");
+});
+
 it("asks about untagged memories once per count, and again only when more appear", () => {
   expect(shouldOpenTagMigration(7)).toBe(true);
   rememberTagMigrationClose(7);

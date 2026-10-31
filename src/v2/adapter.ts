@@ -5,6 +5,7 @@ import {
   runOpencodeImportCommand,
 } from "../adapters/opencode/import-command.js";
 import { addPackageSkill } from "../adapters/opencode/package-skills.js";
+import { SKILLS_TOOL_INPUT_SCHEMA } from "../core/skills-tool.js";
 import { log } from "../services/logger.js";
 import { utf8ByteLength } from "../utils/context-limit.js";
 import { eventBelongsToLocation, legacyToolResult, toLegacyEvent } from "./legacy-client.js";
@@ -139,29 +140,31 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
     return retrieval.settled.value;
   };
 
-  await ctx.tool.transform((editor) =>
-    editor.add({
-      name: "memory",
-      description: legacy.tool.memory.description,
-      input: memoryInput as any,
-      // A direct tool like OpenCode's own read/grep/skill, not a Code Mode catalog entry,
-      // so the model can always see and call it (as it can on V1 and Pi).
-      options: { codemode: false },
-      execute: async (args: any, toolContext: any) =>
-        legacyToolResult(
-          await legacy.tool.memory.execute(args, {
-            sessionID: toolContext.sessionID,
-            messageID: toolContext.messageID,
-            agent: toolContext.agent,
-            directory: ctx.location.directory,
-            worktree: ctx.location.project.directory,
-            abort: new AbortController().signal,
-            metadata() {},
-            async ask() {},
-          })
-        ) as any,
-    } as any)
-  );
+  // Each V1 tool becomes a direct V2 tool, like OpenCode's own read/grep/skill, not a
+  // Code Mode catalog entry, so the model can always see and call it (as on V1 and Pi).
+  const legacyTool = (name: "memory" | "skills", input: unknown) => ({
+    name,
+    description: legacy.tool[name].description,
+    input: input as any,
+    options: { codemode: false },
+    execute: async (args: any, toolContext: any) =>
+      legacyToolResult(
+        await legacy.tool[name].execute(args, {
+          sessionID: toolContext.sessionID,
+          messageID: toolContext.messageID,
+          agent: toolContext.agent,
+          directory: ctx.location.directory,
+          worktree: ctx.location.project.directory,
+          abort: new AbortController().signal,
+          metadata() {},
+          async ask() {},
+        })
+      ) as any,
+  });
+  await ctx.tool.transform((editor) => {
+    editor.add(legacyTool("memory", memoryInput) as any);
+    editor.add(legacyTool("skills", SKILLS_TOOL_INPUT_SCHEMA) as any);
+  });
 
   // The omms-memory skill ships in the package; V1 loads it through the config hook.
   await (ctx as any).skill?.transform?.((editor: any) => addPackageSkill(editor));

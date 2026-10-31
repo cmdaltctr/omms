@@ -82,18 +82,27 @@ export async function runHistoryImport(
   try {
     const { startImportRun } = await import("./import-runs.js");
     const { workProgress } = await import("./import-progress.js");
+    const { importSkillTurnsOn, skillTurnsOnly } = await import("./import-turn-outputs.js");
+    // Without memories, the source pass records skill turns only (no model call).
+    const skillTurnsPass = args.skipMemories && importSkillTurnsOn(args);
+    // A skills-only run reads sessions whose folder is gone, so its report misses them as unresolved.
+    const keepsMissingFolders = skillTurnsOnly(args, !args.skipProfile);
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     run.signal?.addEventListener("abort", onAbort, { once: true });
     if (run.signal?.aborted) controller.abort();
     const recorder = await startImportRun(host, run.track.surface, {
       onPause: () => controller.abort(),
+      ...(skillTurnsPass ? { phase: "skill-turns" as const } : {}),
     });
+    // Every unit the source pass reached is finished: the loop checks the signal before it.
+    let reached = 0;
     try {
       const report = await runUntracked(host, args, {
         ...run,
         signal: controller.signal,
         onProgress: (processed, total, preview, alreadyHandled = 0) => {
+          reached = processed;
           // Units already in the ledger need no model call: leave them out of
           // the progress so the bar and the time left describe real work.
           const work = workProgress(processed, total, alreadyHandled, run.track!.expectedTotal);
@@ -116,8 +125,8 @@ export async function runHistoryImport(
               : "done",
         {
           // The total stays the one progress last reported; a real run has no
-          // "would import" count of its own.
-          done: handled,
+          // "would import" count of its own. A skill-turns pass counts the turns it read.
+          done: skillTurnsPass ? reached : handled,
           imported: report.unitsImported,
           skipped: report.unitsSkipped,
           failed: report.unitsFailed,
@@ -125,7 +134,7 @@ export async function runHistoryImport(
         report.profile?.error ? profileFailureCode(report.profile.error) : undefined
       );
       // Only a run over every project and every session sees the full list.
-      if (args.scope === "all-projects" && !run.selection)
+      if (args.scope === "all-projects" && !run.selection && !keepsMissingFolders)
         await recordUnresolved(host, report, args.since !== undefined || args.until !== undefined);
       return report;
     } catch (error) {
@@ -200,6 +209,7 @@ async function runUntracked(
       force: args.force,
       skipMemories: args.skipMemories,
       skipProfile: args.skipProfile,
+      skipSkills: args.skipSkills,
       ...(run.signal ? { signal: run.signal } : {}),
       ...(run.onProgress ? { onProgress: run.onProgress } : {}),
       ...(run.models.capture ? { provider: capture } : {}),
@@ -236,6 +246,7 @@ async function runUntracked(
     force: args.force,
     dryRun: args.dryRun,
     skipMemories: args.skipMemories,
+    skipSkills: args.skipSkills,
     pathMaps,
   };
 
@@ -276,6 +287,16 @@ export function formatHistoryImportReport(
     `  memory units: ${report.unitsWouldImport} pending, ${report.unitsAlreadyHandled} already done, ` +
       `${report.unitsImported} imported, ${report.unitsSkipped} skipped, ${report.unitsFailed} failed`
   );
+  if (report.skillTurnsWouldRecord !== undefined) {
+    lines.push(
+      `  skill turns: ${report.skillTurnsWouldRecord} pending, ${report.skillTurnsAlreadyRecorded ?? 0} already recorded`
+    );
+  }
+  if (report.skillTurnsRecorded !== undefined) {
+    lines.push(
+      `  skill turns: ${report.skillTurnsRecorded} recorded, ${report.skillTurnsAlreadyPresent ?? 0} already present`
+    );
+  }
   for (const project of report.projects) {
     lines.push(
       `  project ${project.directory}: ${project.sessions} sessions, ${project.units} units`
@@ -326,6 +347,10 @@ export function summarizeHistoryImportReport(report: HistoryImportReport) {
     unitsAlreadyHandled: report.unitsAlreadyHandled,
     unitsHeldBack: report.unitsHeldBack ?? 0,
     unitsUntimed: report.unitsUntimed ?? 0,
+    skillTurnsRecorded: report.skillTurnsRecorded ?? 0,
+    skillTurnsAlreadyPresent: report.skillTurnsAlreadyPresent ?? 0,
+    skillTurnsWouldRecord: report.skillTurnsWouldRecord ?? 0,
+    skillTurnsAlreadyRecorded: report.skillTurnsAlreadyRecorded ?? 0,
     projects: report.projects.length,
     unresolved: (report.unresolvedProjects?.length ?? 0) + report.unresolvableSessions.length,
     loadErrors: report.loadErrors.length,

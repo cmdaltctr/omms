@@ -421,3 +421,68 @@ it("counts only units that need work as pending and passes the dry-run total", a
   const status = await readBackfillStatus("pi");
   expect(status?.counts.pending).toBe(5);
 });
+
+it("records skill turns only while skill learning is on, with the same cutoff", async () => {
+  directory = mkdtempSync(join(tmpdir(), "omms-auto-backfill-"));
+  CONFIG.storagePath = directory;
+  const previous = CONFIG.skillLearning;
+  type Call = { dryRun: boolean; until?: number; skipSkills: boolean; skipMemories: boolean };
+  const calls: Call[] = [];
+  const backfill = (skillTurnsWouldRecord: number | undefined, memoryPending: number) => {
+    let modelsResolved = 0;
+    const done = scheduleAutoBackfill({
+      host: "pi",
+      cwd: directory,
+      wait: async () => {},
+      enabled: () => true,
+      now: () => 100,
+      notify: () => {},
+      resolveModels: async () => {
+        modelsResolved++;
+        return { model: "external/glm", models: {} };
+      },
+      run: (async (_host: string, args: Call) => {
+        calls.push({
+          dryRun: args.dryRun,
+          until: args.until,
+          skipSkills: args.skipSkills,
+          skipMemories: args.skipMemories,
+        });
+        return {
+          unitsWouldImport: args.dryRun ? memoryPending : 0,
+          unitsImported: 0,
+          unitsSkipped: 0,
+          unitsFailed: 0,
+          ...(args.dryRun && skillTurnsWouldRecord !== undefined ? { skillTurnsWouldRecord } : {}),
+          unresolvableSessions: [],
+          unresolvedProjects: [],
+        };
+      }) as never,
+    });
+    return done.then(() => modelsResolved);
+  };
+  try {
+    CONFIG.skillLearning = false;
+    expect(await backfill(undefined, 1)).toBe(1);
+    expect(calls.map((call) => call.skipSkills)).toEqual([true, true]);
+
+    calls.length = 0;
+    CONFIG.skillLearning = true;
+    expect(await backfill(3, 1)).toBe(1);
+    expect(calls).toEqual([
+      { dryRun: true, until: 100, skipSkills: false, skipMemories: false },
+      { dryRun: false, until: 100, skipSkills: false, skipMemories: false },
+    ]);
+
+    // No memory work left: the turns are still recorded, with no model.
+    calls.length = 0;
+    expect(await backfill(3, 0)).toBe(0);
+    expect(calls).toEqual([
+      { dryRun: true, until: 100, skipSkills: false, skipMemories: false },
+      { dryRun: false, until: 100, skipSkills: false, skipMemories: true },
+    ]);
+    expect((await readBackfillStatus("pi"))?.state).toBe("done");
+  } finally {
+    CONFIG.skillLearning = previous;
+  }
+});

@@ -44,3 +44,18 @@ export function resolveImportProject(
   }
   return { directory: null, via: "unresolved" };
 }
+
+/**
+ * The folder an importer uses for one session. Skill turns need no project
+ * folder, so a skills-only run (`keepMissing`) keeps a session whose folder is
+ * gone under its recorded path. Every other run leaves it unresolved.
+ */
+export function importDirectory(
+  recordedDirectory: string | null,
+  maps: ImportPathMap[],
+  keepMissing: boolean,
+  projectWorktree: string | null = null
+): string | null {
+  const { directory } = resolveImportProject(recordedDirectory, maps, projectWorktree);
+  return directory ?? (keepMissing ? recordedDirectory : null);
+}

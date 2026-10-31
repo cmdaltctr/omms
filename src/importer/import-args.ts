@@ -17,6 +17,8 @@ export interface HistoryImportArgs {
   force: boolean;
   skipMemories: boolean;
   skipProfile: boolean;
+  /** Record no skill turns. Skill turns are recorded only while `skillLearning` is on. */
+  skipSkills: boolean;
   profileBatch?: number;
   /** Session: `provider/id` from the host's signed-in models. CLI: a model id for `--provider`. */
   model?: string;
@@ -50,6 +52,7 @@ const BOOLEAN_FLAGS = new Set([
   "--force",
   "--skip-memories",
   "--skip-profile",
+  "--skip-skills",
 ]);
 const VALUE_FLAGS = new Set([
   "--profile-batch",
@@ -99,6 +102,7 @@ export function parseHistoryImportArgs(
     force: false,
     skipMemories: false,
     skipProfile: false,
+    skipSkills: false,
     scope: "current-project",
     pathMaps: [],
     errors: [],
@@ -119,6 +123,7 @@ export function parseHistoryImportArgs(
       else if (flag === "--dry-run") result.dryRun = true;
       else if (flag === "--force") result.force = true;
       else if (flag === "--skip-memories") result.skipMemories = true;
+      else if (flag === "--skip-skills") result.skipSkills = true;
       else result.skipProfile = true;
       continue;
     }
@@ -227,6 +232,7 @@ export interface WebImportOptions {
   force?: boolean;
   skipMemories?: boolean;
   skipProfile?: boolean;
+  skipSkills?: boolean;
   model?: string;
   scope?: HistoryImportArgs["scope"];
   project?: string;
@@ -246,6 +252,7 @@ export function webImportTokens(options: WebImportOptions, _host: ImportHost): s
     ["force", "--force"],
     ["skipMemories", "--skip-memories"],
     ["skipProfile", "--skip-profile"],
+    ["skipSkills", "--skip-skills"],
   ] as const) {
     if (options[field]) tokens.push(flag);
   }
@@ -304,8 +311,9 @@ ${model}
   --max-sessions <n>        Read at most n sessions, oldest first
   --map <old>=<new>         Map a recorded directory that no longer exists (repeatable)
 ${source}
-  --skip-memories           Record profile prompts only
-  --skip-profile            Import memories only
+  --skip-memories           Save no memories
+  --skip-profile            Record no profile prompts
+  --skip-skills             Record no skill turns (recorded only while skillLearning is on)
   --profile-batch <n>       Prompts per profile analysis batch (default: 50)
   --force                   Reprocess already-handled memory units and profile prompts
   --help                    Show this help

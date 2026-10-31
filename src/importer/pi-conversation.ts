@@ -1,4 +1,6 @@
 import type { CaptureConversation, CaptureToolCall } from "../core/host.js";
+import { boundToolInput, readToolPath } from "../core/tool-input.js";
+import { errorOutcome } from "../core/tool-outcome.js";
 
 /**
  * Minimal structural view of Pi session entries (see Pi session-format docs).
@@ -12,18 +14,21 @@ export interface PiSessionEntry {
   message?: {
     role?: string;
     content?: string | PiContentBlock[];
+    /** Set on `toolResult` messages: the `id` of the matching `toolCall` block. */
+    toolCallId?: string;
+    /** Set on `toolResult` messages. */
+    isError?: boolean;
   };
 }
 
 export interface PiContentBlock {
   type: string;
+  id?: string;
   text?: string;
   thinking?: string;
   name?: string;
   arguments?: Record<string, unknown>;
 }
-
-const MAX_TOOL_INPUT_LENGTH = 100;
 
 export interface PiConversationWindow extends CaptureConversation {
   userEntryId: string;
@@ -49,18 +54,29 @@ function isAssistantEntry(entry: PiSessionEntry): boolean {
   return entry.type === "message" && entry.message?.role === "assistant";
 }
 
-function formatToolInput(args: Record<string, unknown> | undefined): string {
-  if (!args) return "";
-  return Object.entries(args)
-    .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
-    .join(", ");
+function isToolResultEntry(entry: PiSessionEntry): boolean {
+  return entry.type === "message" && entry.message?.role === "toolResult";
 }
 
-function boundToolInput(input: string): string {
-  if (input.length > MAX_TOOL_INPUT_LENGTH) {
-    return input.substring(0, MAX_TOOL_INPUT_LENGTH) + "...";
+/**
+ * Set the outcome of the call a `toolResult` entry answers. Only the error
+ * text of a failed call is kept; a successful call's output is never stored.
+ */
+function applyToolResult(entry: PiSessionEntry, callsById: Map<string, CaptureToolCall>): void {
+  const call = callsById.get(entry.message?.toolCallId ?? "");
+  if (!call) return;
+  if (entry.message?.isError === true) {
+    Object.assign(call, errorOutcome(entryText(entry.message.content)));
+  } else {
+    call.outcome = "ok";
   }
-  return input;
+}
+
+function formatToolInput(args: unknown): string {
+  if (!args) return "";
+  return Object.entries(args as Record<string, unknown>)
+    .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+    .join(", ");
 }
 
 /**
@@ -80,10 +96,12 @@ function buildWindow(entries: PiSessionEntry[], userIndex: number): PiConversati
   const textResponses: string[] = [];
   const toolCalls: CaptureToolCall[] = [];
   const sourceEntryIds: string[] = [];
+  const callsById = new Map<string, CaptureToolCall>();
   let sourceTimestamp: number | undefined;
 
   for (const entry of entries.slice(userIndex + 1)) {
     if (isUserEntry(entry)) break;
+    if (isToolResultEntry(entry)) applyToolResult(entry, callsById);
     if (!isAssistantEntry(entry)) continue;
 
     if (typeof entry.id === "string") sourceEntryIds.push(entry.id);
@@ -107,10 +125,16 @@ function buildWindow(entries: PiSessionEntry[], userIndex: number): PiConversati
 
     for (const block of blocks.filter((item) => item.type === "toolCall")) {
       const name = typeof block.name === "string" ? block.name : "unknown";
-      toolCalls.push({
+      // A call stays `unknown` until a `toolResult` entry answers it.
+      const call: CaptureToolCall = {
         name,
         input: boundToolInput(formatToolInput(block.arguments)),
-      });
+        outcome: "unknown",
+      };
+      const path = readToolPath(name, block.arguments);
+      if (path !== undefined) call.path = path;
+      toolCalls.push(call);
+      if (typeof block.id === "string") callsById.set(block.id, call);
     }
   }
 

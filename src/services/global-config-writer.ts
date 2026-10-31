@@ -9,6 +9,7 @@ import {
 } from "../config.js";
 import { CONFIG_TEMPLATE } from "../config-template.js";
 import { isValidClaudeConfigDir } from "./claude-folder.js";
+import { missingSkillFolder } from "./skill-learning/skill-config.js";
 import { KEYWORD_MODES } from "../utils/keyword-boost.js";
 import { getMemoryLimitRule } from "../utils/memory-limits.js";
 import { RERANKER_TIMEOUT_MAX_MS, RERANKER_TIMEOUT_MIN_MS } from "./request-timeouts.js";
@@ -48,7 +49,18 @@ const keys = new Set([
   "rerankerModel",
   "rerankerApiKey",
   "rerankerTimeoutMs",
+  "skillLearning",
+  "skillLearningRedact",
+  "skillFolders",
 ]);
+
+function isFolder(path: string): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Written only by the embedding apply route, together, after a passing test.
@@ -82,6 +94,8 @@ export function isSecretReference(value: unknown): value is string {
 
 /** Reranker keys that a null edit removes, the same wire form as a limit reset. */
 const OPTIONAL_RERANKER_KEYS = ["rerankerApiUrl", "rerankerModel", "rerankerApiKey"];
+/** Other keys whose `null` edit removes them, so they follow the default again. */
+const RESETTABLE_KEYS = ["keywordMode", "skillFolders"];
 
 function isValidEdit(key: string, value: unknown): boolean {
   // `undefined` removes the key from the file. `null` is the wire form of
@@ -89,6 +103,8 @@ function isValidEdit(key: string, value: unknown): boolean {
   const memoryLimit = getMemoryLimitRule(key);
   if (memoryLimit && value === null) return true;
   if (OPTIONAL_RERANKER_KEYS.includes(key) && value === null) return true;
+  // skillFolders: null removes the key, so the default skill folders apply again.
+  if (key === "skillFolders" && value === null) return true;
   // keywordMode: null removes the key, so the mode follows the default again.
   if (key === "keywordMode") return value === null || KEYWORD_MODES.includes(value as never);
   // The five opt-in reranker keys (openspec retrieval-threshold-and-reranker).
@@ -126,9 +142,15 @@ function isValidEdit(key: string, value: unknown): boolean {
     key === "captureTrace" ||
     key === "autoBackfill" ||
     key === "webServerAutoStart" ||
-    key === "userProfileAutoCleanupEnabled"
+    key === "userProfileAutoCleanupEnabled" ||
+    key === "skillLearning" ||
+    key === "skillLearningRedact"
   ) {
     return typeof value === "boolean";
+  }
+  // Path rules are checked by the startup validation below; existence just after this check.
+  if (key === "skillFolders") {
+    return Array.isArray(value) && value.every((entry) => typeof entry === "string");
   }
   // Each automatic cleanup is paid for, so the page refuses an interval that would run one
   // after almost every learning pass. A hand edit of the file has no floor.
@@ -215,6 +237,11 @@ export async function writeGlobalConfigKeys(
               : `Invalid ${key} setting`
       );
     }
+    const missing =
+      key === "skillFolders" && value !== null
+        ? missingSkillFolder(value as string[], isFolder)
+        : null;
+    if (missing !== null) throw new Error(`Skill folder not found: ${missing}`);
   }
   const wasQueued = pending > 0;
   pending++;
@@ -243,7 +270,9 @@ export async function writeGlobalConfigKeys(
       // value follows the default again (undefined removes in jsonc modify).
       const jsoncValue =
         value === null &&
-        (getMemoryLimitRule(key) || OPTIONAL_RERANKER_KEYS.includes(key) || key === "keywordMode")
+        (getMemoryLimitRule(key) ||
+          OPTIONAL_RERANKER_KEYS.includes(key) ||
+          RESETTABLE_KEYS.includes(key))
           ? undefined
           : value;
       content = applyEdits(

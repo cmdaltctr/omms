@@ -46,8 +46,7 @@ function memoryArgs(run: Run): readonly string[] {
 describe("registration", () => {
   test("registers the memory tool in the prompt from the start, naming the Bash command it replaces", async ($, on) => {
     const { registered } = await start($, on);
-    expect(registered).toHaveLength(1);
-    expect(registered[0].name).toBe("memory");
+    expect(registered.map((r) => r.name)).toEqual(["memory", "skills"]);
     expect(registered[0].isDeferred).toBe(false);
     expect(registered[0].description).toContain("instead of running `om-memory-system memory`");
     expect(registered[0].description).toContain("Bash");

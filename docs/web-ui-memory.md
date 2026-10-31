@@ -61,6 +61,15 @@ A new form selects **Pi**, **Current project**, **Project memories** and **User 
 | Selected         | Deselected   | Extract memories; skip profile learning.                           |
 | Deselected       | Deselected   | Preview and Start are unavailable; the server refuses the request. |
 
+**Skill turns** is a third output beside **Project memories** and **User profile**. It records each turn the import reads into `skills.db` for skill learning.
+
+- The box is ticked by default while **Record agent turns** is on in the **Skill learning** card on the Settings page.
+- While recording is off, the box is cleared and disabled. A note links to the **Skill learning** card.
+- Skill turns also come from sessions and turns that the import ledger marks as handled, and from turns that live capture saved. The memory ledger does not change for them.
+- With only **Skill turns** ticked, the run makes no model call and needs no import model. Preview and Start stay available, and the list hides no handled sessions.
+- With only **Skill turns** ticked, a session whose project folder no longer exists can be selected. It shows **missing**, and its turns are recorded under the recorded folder path. A run with **Project memories** or **User profile** still skips it.
+- Preview shows the turns it would record and the turns already recorded.
+
 Host identity rules remain unchanged. **All hosts** does not merge profiles with different git emails. [Profiles in Settings](web-ui-settings.md#profiles) lets you choose or merge identities when more than one active profile exists.
 
 ### Review and start
@@ -122,7 +131,7 @@ Hosts, scope and outputs remain visible with Advanced options closed.
 
 The server owns the queue. Selected hosts run in **Pi, OpenCode, Claude Code** order. A child finishes its memory and profile phases before the next starts. Navigation or reload reconnects to the current job without resubmitting it. One web preview or import can run at a time, including legacy single-host jobs. A host tab shows only the results of its own host. The overview shows the whole job. When you change Scope or the project directory, the session lists clear. Select **List sessions** again.
 
-While a real import runs, the Sessions card shows a green progress bar for the active host. It names the host and the phase, either **Memory units** or **Profile batches**, with the done count out of the total. The two phases keep separate counts. A preview shows no bar.
+While a real import runs, the Sessions card shows a green progress bar for the active host. It names the host and the phase, **Memory units**, **Skill turns** or **Profile batches**, with the done count out of the total. A run without project memories shows **Skill turns** while it reads the turns. The two phases keep separate counts. A preview shows no bar.
 
 When a real import ends while you are on the page, a dialog opens with one **OK** button. A successful run says **Import successful 🎉** (the 🎉 shows in English only) with the counts. A failed run names the host and the reason. If memory units failed, a line **Failed memory units: N** shows the count from the host's results. **OK** reloads readiness, host status and the job without a page reload. Your lists, selection and options stay. A cancelled run shows **Import cancelled** under the buttons and opens no dialog. If a real import ended while the page was closed, a banner shows the result with a **Dismiss** button. The page remembers the dismissed run in your browser, so the banner returns only for a later run. A preview never opens a dialog or a banner.
 
@@ -144,6 +153,17 @@ To continue after failure or cancellation:
 4. Confirm a new import.
 
 Normal retries use existing host ledgers to skip completed work and retry failed or waiting work. **Re-analyse handled history** intentionally forces the selected outputs again; leave it off for an ordinary memory retry. Forced profile replay keeps its once-per-prompt identity. A server restart ends the in-memory group and never restarts its queued children. Start a fresh preview and confirmation after restart; completed ledger work survives.
+
+### Record past turns
+
+**Record past turns** records the turns of all past history into `skills.db` in one run. The **Skill learning** card on the Settings page offers it after you turn on **Record agent turns**. The Skills page offers it too while no turns are recorded.
+
+- The run is a grouped import with **Skill turns** only. It reads every set-up host (Pi, OpenCode and Claude Code), all projects and every session, with no date limit.
+- It also reads sessions whose project folder no longer exists. Their turns use the recorded folder path for the project name.
+- It makes no model call.
+- It runs as the current import job, so this page shows its progress bar with the phase **Skill turns**. When it ends, it shows the count of turns recorded.
+- It is safe to run again. A second run with no new history records no turns and reports them as already present.
+- `om-memory-system skills record-past --yes` runs the same group in a terminal. See [CLI: Record past turns](cli.md#record-past-turns).
 
 ### Historical import badges
 

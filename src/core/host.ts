@@ -1,8 +1,16 @@
 import type { MemoryHost, MemorySourceType } from "../types/index.js";
 
+export type CaptureToolOutcome = "ok" | "error" | "unknown";
+
 export interface CaptureToolCall {
   name: string;
   input: string;
+  /** Set by the host readers for skill learning. Memory capture ignores it. */
+  outcome?: CaptureToolOutcome;
+  /** Error text the host reported, at most 2,000 characters. Memory capture ignores it. */
+  error?: string;
+  /** Full path of a read-type call, for skill detection. Memory capture ignores it. */
+  path?: string;
 }
 
 export interface CaptureConversation {

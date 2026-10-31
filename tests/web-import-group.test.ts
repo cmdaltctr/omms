@@ -489,3 +489,105 @@ describe("grouped web jobs", () => {
     expect(JSON.stringify(jobs.current())).not.toContain('["same","u"]');
   });
 });
+
+describe("grouped skill-turns imports", () => {
+  it("runs a skills-only group with no model or blocker, keeps handled sessions and shows the skill-turns phase", async () => {
+    const { CONFIG } = await import("../src/config.js");
+    const previous = CONFIG.skillLearning;
+    CONFIG.skillLearning = true;
+    try {
+      const outputs: unknown[] = [];
+      const phases: string[] = [];
+      const calls: Array<{ models: unknown; track: unknown }> = [];
+      let prepared = 0;
+      const jobs = new SettingsImportJobs({
+        ...dependencies(),
+        // No external API: a skills-only run must not need it.
+        readiness: async () => ({
+          ...ready,
+          external: { ...ready.external, state: "missing-key" },
+        }),
+        prepareModels: async () => {
+          prepared++;
+          return {};
+        },
+        resolveSelection: async (token, pinned, options) => {
+          outputs.push((options as { outputs?: unknown }).outputs);
+          return resolveSelection(token, pinned, options);
+        },
+        runner: async (_host: ImportHost, _args, run: HistoryImportRun) => {
+          calls.push({ models: run.models, track: run.track });
+          const job = jobs.current() as { hosts: Array<{ phase: string; state: string }> };
+          phases.push(job.hosts.find((child) => child.state === "running")!.phase);
+          return {
+            ...report(false),
+            profile: undefined,
+            unitsImported: 0,
+            skillTurnsRecorded: 2,
+            skillTurnsAlreadyPresent: 1,
+          };
+        },
+        surface: "cli",
+      });
+      await jobs.start(
+        {
+          hosts: [{ host: "pi", source: "pi", selection }],
+          options: { scope: "all-projects", skipMemories: true, skipProfile: true },
+        },
+        "/workspace"
+      );
+      while ((jobs.current() as { state: string }).state === "running") await settle();
+      const job = jobs.current() as {
+        state: string;
+        hosts: Array<{ state: string; blocker?: string; summary: Record<string, number> }>;
+      };
+      expect(job.state).toBe("done");
+      expect(job.hosts[0]!.state).toBe("done");
+      expect(job.hosts[0]!.blocker).toBeUndefined();
+      expect(job.hosts[0]!.summary).toMatchObject({
+        skillTurnsRecorded: 2,
+        skillTurnsAlreadyPresent: 1,
+      });
+      expect(prepared).toBe(0);
+      expect(calls).toEqual([{ models: {}, track: { surface: "cli" } }]);
+      expect(phases).toEqual(["skill-turns"]);
+      // Skill turns have no session ledger, so no session counts as handled.
+      expect(
+        outputs.every((value) => JSON.stringify(value) === '{"memories":false,"profile":false}')
+      ).toBe(true);
+    } finally {
+      CONFIG.skillLearning = previous;
+    }
+  });
+
+  it("keeps sessions the memory ledger handled when memories and skill turns are both on", async () => {
+    const { CONFIG } = await import("../src/config.js");
+    const previous = CONFIG.skillLearning;
+    CONFIG.skillLearning = true;
+    try {
+      const outputs: unknown[] = [];
+      const jobs = new SettingsImportJobs({
+        ...dependencies(),
+        resolveSelection: async (token, pinned, options) => {
+          outputs.push((options as { outputs?: unknown }).outputs);
+          return resolveSelection(token, pinned, options);
+        },
+        runner: async () => report(true),
+      });
+      await jobs.start(
+        {
+          hosts: [{ host: "pi", source: "pi", selection, modelChoice: "external" }],
+          options: { dryRun: true, scope: "all-projects", skipProfile: true },
+        },
+        "/workspace"
+      );
+      while ((jobs.current() as { state: string }).state === "running") await settle();
+      expect(outputs.length).toBeGreaterThan(0);
+      expect(
+        outputs.every((value) => JSON.stringify(value) === '{"memories":false,"profile":false}')
+      ).toBe(true);
+    } finally {
+      CONFIG.skillLearning = previous;
+    }
+  });
+});

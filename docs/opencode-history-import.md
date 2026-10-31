@@ -115,8 +115,9 @@ The OpenCode and Pi commands take the same options, in a session or a terminal. 
 | `--max-sessions <n>`                | Read at most this many sessions, oldest first.                                        |
 | `--map <old>=<new>`                 | Remap a missing session directory for this run. Adds to `importPathMaps`. Repeatable. |
 | `--db <path>`                       | Read this V1 SQLite database.                                                         |
-| `--skip-memories`                   | Record prompts and build the profile only.                                            |
-| `--skip-profile`                    | Import memories only.                                                                 |
+| `--skip-memories`                   | Save no memories.                                                                     |
+| `--skip-profile`                    | Record no profile prompts.                                                            |
+| `--skip-skills`                     | Record no skill turns. Skill turns are recorded only while `skillLearning` is on.     |
 | `--profile-batch <n>`               | Analyse this many prompts per profile batch. Default: 50.                             |
 | `--force`                           | Reprocess memory work units and profile prompts with final ledger states.             |
 | `--help`                            | Show command help.                                                                    |
@@ -157,6 +158,20 @@ The root directory `/` is never a project fallback.
 | `build-profile.py`     | Analyse those prompts in batches and create or update the profile. |
 
 The import runs all three steps by default. Use `--skip-memories` or `--skip-profile` when you only need one result.
+
+## Skill turns
+
+While `skillLearning` is on, the import also records each turn it reads into `skills.db`. It records turns that the import ledger marks as handled and turns that live capture saved. The memory ledger does not change for these turns. A turn that live capture recorded is not recorded again.
+
+```bash
+om-memory-system import-opencode-history --scope all-projects --dry-run   # count the turns to record
+om-memory-system import-opencode-history --scope all-projects --skip-memories --skip-profile
+```
+
+- The second command records skill turns only. It makes no model call and needs no provider.
+- A skill-turns-only run also records sessions whose project folder no longer exists, under the recorded folder path. A run that saves memories or profile prompts still skips them until you map the folder with `--map`.
+- `--skip-skills` records no skill turns.
+- To record past turns from every host at once, run `om-memory-system skills record-past --yes`. See [CLI: Record past turns](cli.md#record-past-turns).
 
 ## Cost
 

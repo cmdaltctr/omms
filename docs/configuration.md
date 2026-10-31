@@ -41,6 +41,9 @@ On first start, if no config exists at all, the plugin creates a full commented 
   "importPathMaps": [{ "from": "~/code/app-feat-x", "to": "~/code/app" }],
   "importIgnoredDirectories": [],
   "claudeConfigDir": "",
+  "skillLearning": false,
+  "skillLearningRedact": true,
+  // "skillFolders": ["~/.agents/skills"],
   // "auto" detects the language of your prompt. Latin-script prompts under 100
   // characters count as English, because short text is detected unreliably.
   // Set a fixed code such as "en" to always write memories in that language.
@@ -286,6 +289,27 @@ On the Settings page you can **Pause** and **Resume** each host's backfill.
 - Live capture, history import, and automatic backfill all use it. A CLI `--root` still overrides it for one import.
 - Set it on the Settings page, in the **Claude Code folder** section. The page shows the folder in use and where it comes from.
 
+## Skill learning
+
+`skillLearning` records each full turn in `skills.db`, so OMMS can rank your skills and draft better versions. See [ADR-035](adr/035-skill-learning-stores-full-turns-in-skills-db.md).
+
+```jsonc
+{
+  "skillLearning": false, // default false
+  "skillLearningRedact": true, // default true
+  // "skillFolders": ["~/.agents/skills"], // default: unset
+}
+```
+
+- `skillLearning` is `false` by default. Recording makes no model call.
+- A recorded turn holds the prompt, every reply, and every tool call with its outcome and error text. It does not hold tool output.
+- `skills.db` is in the global storage path (`~/.omms/data` by default), never inside a project folder. A project config's `storagePath` moves memories only; `skills.db` always uses the global storage path. Treat it as private.
+- `skillLearningRedact` is `true` by default. OMMS then removes `<private>` text and redacts secrets with the capture trace rules before it stores a turn. Set it to `false` to store text as written.
+- `skillFolders` lists the folders OMMS reads skills from. Each entry must be an absolute path or start with `~/`. Any other entry is a config error.
+- When `skillFolders` is unset, OMMS watches `~/.agents/skills` and the `skills` folder in the [Claude Code folder](#claude-code-folder), each only when it exists.
+- Folders with the same real path are watched once, under the first spelling. A `~/.claude/skills` link to `~/.agents/skills` does not list each skill twice.
+- All three settings must be set in the global file. A project config can set `"skillLearning": false` to stop recording in that project. A project value of `true` is ignored and logged. A project value for `skillLearningRedact` or `skillFolders` is ignored.
+
 ## Web app access
 
 - `webServerHost` defaults to `127.0.0.1`. A non-loopback host needs an unexpired API token or a browser password, or the web app refuses to start.
@@ -299,6 +323,7 @@ Some settings are read only from the global file.
 
 - OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoCleanupEnabled`, `autoCleanupRetentionDays`, and the five `reranker*` settings. This stops one project from, for example, turning off the shared web server for another, or sending a user's memories to its own reranker server.
 - A project config cannot turn `captureTrace` on. See [Capture traces](#capture-traces-opt-in).
+- A project config cannot turn `skillLearning` on, and it cannot set `skillLearningRedact` or `skillFolders`. See [Skill learning](#skill-learning).
 - A project config that sets `embeddingApiUrl`, `embeddingApiKey`, `memoryProvider`, `memoryApiUrl`, or `memoryApiKey` is an error. Move those to the global file.
 
 See [Web UI settings](web-ui-settings.md) for backfill status and [CLI](cli.md#web-app-commands) for the login-item commands.

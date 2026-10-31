@@ -3,7 +3,16 @@ import type { Client, InArgs, ResultSet, Transaction } from "@libsql/client";
 type Row = Record<string, unknown>;
 
 export class TursoDb {
+  /** Per-connection pragmas, set again after each transaction (see `transaction`). */
+  private pragmas: string[] = [];
+
   constructor(private readonly client: Client) {}
+
+  /** Run each pragma now and again after every transaction. */
+  async setConnectionPragmas(pragmas: string[]): Promise<void> {
+    this.pragmas = pragmas;
+    for (const pragma of pragmas) await this.execute(pragma);
+  }
 
   getClient(): Client {
     return this.client;
@@ -53,6 +62,10 @@ export class TursoDb {
       throw error;
     } finally {
       tx.close();
+      // libSQL hands the transaction's handle away and opens a fresh one, which
+      // starts without pragmas. Without this, busy_timeout drops to 0 and a
+      // second process holding the write lock gives SQLITE_BUSY at once.
+      for (const pragma of this.pragmas) await this.execute(pragma).catch(() => {});
     }
   }
 

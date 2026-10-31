@@ -34,18 +34,20 @@ export function chatStore(config: Pick<ChatRuntimeConfig, "storagePath">): Promi
   return store;
 }
 
-async function callTool(
+/** One structured call to the external memory model. Skill drafting reuses it (design §6). */
+export async function callTool(
   config: ChatRuntimeConfig,
   system: string,
   user: string,
-  tool: Parameters<ChatServiceDeps["callTool"]>[2]
+  tool: object,
+  timeoutMs = CHAT_MODEL_TIMEOUT_MS
 ) {
   const { AIProviderFactory } = await import("../ai/ai-provider-factory.js");
   const { buildMemoryProviderConfig } = await import("../ai/provider-config.js");
   const { aiSessionManager } = await import("../ai/session/ai-session-manager.js");
   const provider = AIProviderFactory.createProvider(
     config.memoryProvider as Parameters<typeof AIProviderFactory.createProvider>[0],
-    buildMemoryProviderConfig(config, { maxIterations: 1, iterationTimeout: CHAT_MODEL_TIMEOUT_MS })
+    buildMemoryProviderConfig(config, { maxIterations: 1, iterationTimeout: timeoutMs })
   );
   const sessionId = `chat_${crypto.randomUUID()}`;
   try {

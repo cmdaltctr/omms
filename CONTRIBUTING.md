@@ -73,9 +73,11 @@ formatting by hand.
 - Match the naming and comment style of the code around your change.
 - Never write raw model replies, prompts, or secrets to the log. Log sizes,
   identifiers, and codes. Prompts and replies may go only to the opt-in capture
-  trace (`captureTrace`), after `<private>` and secret redaction. The one
+  trace (`captureTrace`), after `<private>` and secret redaction. The first
   exception is the capture retry queue: it holds cleaned failed turns until they
-  are retried or `captureRetryRetentionHours` passes (see ADR-012).
+  are retried or `captureRetryRetentionHours` passes (see ADR-012). The second
+  is `skills.db`: it holds full turns only while the user turns on
+  `skillLearning`, and never inside a project folder (see ADR-035).
 
 ## Commit messages and pull requests
 

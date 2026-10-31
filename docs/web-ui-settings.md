@@ -1,6 +1,6 @@
 # Settings page
 
-Settings holds API and model configuration, embedding, access controls, diagnostics, health, Claude Code's folder, profile identities, web app controls and logs. Memory operations live on the [Memory page](web-ui-memory.md).
+Settings holds API and model configuration, embedding, access controls, diagnostics, health, Claude Code's folder, profile identities, skill learning, web app controls and logs. Memory operations live on the [Memory page](web-ui-memory.md).
 
 Open `http://127.0.0.1:4747/settings`, select **Settings** in the sidebar, or select the cogwheel at the bottom of the sidebar. The arrow next to **Settings** opens a list of the page cards. Select a card to go straight to it. The sidebar remembers whether the list is open. One shared web app serves the page. OpenCode, Pi, and Claude Code start it when none runs, and the login item starts it at sign-in. See [Web UI](web-ui.md) for starting the web app, ports, and access control.
 
@@ -388,6 +388,18 @@ See [Memory: Smart resolve](web-ui-memory.md#smart-resolve).
 - When no global install exists, the section says that a global install is optional.
 
 See [CLI: Global install](cli.md#global-install-optional) and [Updating and upgrading](upgrading.md#one-update-updates-every-host).
+
+## Skill learning
+
+The card holds the settings of [skill learning](configuration.md#skill-learning). It saves through the same safe flow as the other cards. See [How saving works](#how-saving-works).
+
+- **Record agent turns** (`skillLearning`) switches recording on or off. While it is on, the card shows a warning. It says that OMMS stores full prompts, replies and tool calls in `skills.db` on this computer, that drafting sends recorded turns to the external API, and that the file holds whatever the turns hold. A project config can turn recording off for its project. It cannot turn it on.
+- **Record past turns** appears while recording is on. It starts one grouped import of all past history with only **Skill turns** ticked. It makes no model call. A progress bar shows the **Skill turns** phase. When the run ends, the card shows the count of turns recorded.
+- **Remove private text and secrets** (`skillLearningRedact`) is on by default. Turning it off needs a confirmation. While it is off, the card shows a danger notice: `<private>` text, API keys and passwords are stored as written and sent to the external API when OMMS drafts.
+- **Recorded turns** and **File size** show the contents of `skills.db`.
+- **Delete recorded turns** asks first. The confirmation states the number of turns. Confirming deletes all of them, and the card then shows 0 turns. Proposals and skill versions stay.
+
+The watched folders (`skillFolders`) are on the [Skills page](web-ui.md#skills-page).
 
 ## Log
 

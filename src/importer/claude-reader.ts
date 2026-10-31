@@ -21,7 +21,7 @@ import {
   type ClaudeConversationWindow,
 } from "./claude-conversation.js";
 import type { UnrecognizedFile } from "./discovery.js";
-import { resolveImportProject } from "./import-project.js";
+import { importDirectory } from "./import-project.js";
 import {
   countImportableUnits,
   projectFilterTag,
@@ -245,6 +245,8 @@ export interface ClaudeHistoryOptions {
   pathMaps?: ImportPathMap[];
   /** Keep only sessions of this project directory (current-project scope). */
   project?: string;
+  /** A skills-only run keeps a session whose folder is gone, under its recorded path. */
+  keepMissingFolders?: boolean;
   signal?: AbortSignal;
 }
 
@@ -325,7 +327,11 @@ export async function openClaudeHistorySource(
       source.sessionsFilteredOut++;
       continue;
     }
-    const { directory } = resolveImportProject(discovered.cwd, options.pathMaps ?? []);
+    const directory = importDirectory(
+      discovered.cwd,
+      options.pathMaps ?? [],
+      options.keepMissingFolders === true
+    );
     if (!directory) {
       source.unresolvableSessions.push({ file: discovered.file, cwd: discovered.cwd });
       continue;

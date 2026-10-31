@@ -1,18 +1,23 @@
 import { compactField, Select } from "$lib/components/ui/select";
 import { useSettingsText } from "$lib/i18n/settings";
+import { navigate, ROUTES } from "$lib/router";
 import type { ImportDraft } from "./import-types";
 
+const SKILL_CARD = `${ROUTES.settings}#settings-section-skill-learning`;
 export const importField =
   "mt-1 block w-full min-w-0 rounded border border-border bg-background p-2";
 export const importButton = "rounded border border-border px-3 py-1.5 text-sm disabled:opacity-50";
 
 export function ImportOptions({
   draft,
+  skillRecording,
   advanced,
   onChange,
   onAdvanced,
 }: {
   draft: ImportDraft;
+  /** Whether Record agent turns is on; skill turns can be imported only then. */
+  skillRecording: boolean;
   advanced: boolean;
   onChange: (patch: Partial<ImportDraft>) => void;
   onAdvanced: () => void;
@@ -39,7 +44,32 @@ export function ImportOptions({
           />{" "}
           {s("User profile")} {s("(preferences, patterns, and workflows)")}
         </label>
+        <label>
+          <input
+            type="checkbox"
+            aria-label={s("Skill turns")}
+            checked={skillRecording && draft.skills}
+            disabled={!skillRecording}
+            onChange={(event) => onChange({ skills: event.target.checked })}
+          />{" "}
+          {s("Skill turns")}
+        </label>
       </div>
+      {!skillRecording && (
+        <p className="text-xs text-muted-foreground">
+          {s("Skill turns are recorded only while Record agent turns is on.")}{" "}
+          <a
+            className="underline"
+            href={SKILL_CARD}
+            onClick={(event) => {
+              event.preventDefault();
+              navigate(SKILL_CARD);
+            }}
+          >
+            {s("Open the Skill learning card")}
+          </a>
+        </p>
+      )}
       <label className="block text-sm">
         {s("Scope")}
         {/* Two short options: a compact width, not the whole row. */}
