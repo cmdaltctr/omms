@@ -45,10 +45,6 @@ import {
   handleGetProfileChangelog,
   handleGetProfileSnapshot,
   handleRefreshProfile,
-  handleCategoryCleanupApply,
-  handleCategoryCleanupStart,
-  handleCategoryCleanupStatus,
-  handleCategoryCleanupUndo,
   handleUpdateProfileItem,
 } from "./api-handlers.js";
 import { routeModules } from "./web-route-modules.js";
@@ -324,10 +320,10 @@ export class WebServer {
     return (this.backfillControlsInstance ??= new BackfillControls());
   }
 
-  private async importJobs() {
+  private importJobs = async () => {
     const { SettingsImportJobs } = await import("../importer/web-import-jobs.js");
     return (this.settingsImportJobs ??= new SettingsImportJobs());
-  }
+  };
 
   constructor(config: WebServerConfig) {
     this.config = config;
@@ -744,6 +740,7 @@ export class WebServer {
       void import("../importer/claude-hook-api.js")
         .then(({ startClaudeCodeWorker }) => startClaudeCodeWorker())
         .catch(() => {});
+      void import("./web-jobs.js").then((m) => m.startWebJobs()).catch(() => {});
     } catch (error) {
       const errorMsg = String(error);
 
@@ -1023,7 +1020,7 @@ export class WebServer {
       }
     }
 
-    if (path.startsWith("/api/settings") && !["GET", "HEAD"].includes(method)) {
+    if (/^\/api\/(settings|skills(\/|$))/.test(path) && !["GET", "HEAD"].includes(method)) {
       if (!/^application\/json(?:\s*;|$)/i.test(req.headers.get("content-type") ?? "")) {
         return this.jsonResponse({ error: "JSON content type required" }, 415);
       }
@@ -1678,30 +1675,12 @@ export class WebServer {
         return this.jsonResponse(result);
       }
 
-      const { CONFIG: config } = await import("../config.js");
-      const routed = await routeModules(path, method, url, req, config);
+      const routed = await routeModules(path, method, url, req, {
+        cwd: this.config.directory ?? process.cwd(),
+        startRecordPast: async (cwd) =>
+          (await import("../importer/web-import-api.js")).startRecordPast(this.importJobs, cwd),
+      });
       if (routed) return this.jsonResponse(routed.body, routed.status);
-
-      if (path === "/api/user-profile/category-cleanup" && method === "POST") {
-        const body = (await req.json().catch(() => ({}))) as any;
-        return this.jsonResponse(await handleCategoryCleanupStart(body.userId || undefined));
-      }
-
-      if (path === "/api/user-profile/category-cleanup" && method === "GET") {
-        return this.jsonResponse(
-          await handleCategoryCleanupStatus(url.searchParams.get("userId") || undefined)
-        );
-      }
-
-      if (path === "/api/user-profile/category-cleanup/apply" && method === "POST") {
-        const body = (await req.json().catch(() => ({}))) as any;
-        return this.jsonResponse(await handleCategoryCleanupApply(body.userId || undefined, body));
-      }
-
-      if (path === "/api/user-profile/category-cleanup/undo" && method === "POST") {
-        const body = (await req.json().catch(() => ({}))) as any;
-        return this.jsonResponse(await handleCategoryCleanupUndo(body.userId || undefined));
-      }
 
       if (path === "/api/user-profile/item" && method === "PATCH") {
         const body = (await req.json().catch(() => ({}))) as any;

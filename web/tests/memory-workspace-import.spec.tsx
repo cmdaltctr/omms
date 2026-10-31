@@ -46,6 +46,7 @@ let totalSessions = 1;
 let currentRead: ((value: Response) => void) | undefined;
 let piAvailable = true;
 let externalState = "ready";
+let recording = false;
 let deferred: ((value: Response) => void) | undefined;
 const response = (value: unknown) => new Response(JSON.stringify(value));
 Object.assign(globalThis, {
@@ -66,6 +67,8 @@ Object.assign(globalThis, {
   fetch: async (path: string, options: RequestInit = {}) => {
     const body = options.body ? JSON.parse(String(options.body)) : undefined;
     requests.push({ path, body });
+    if (path === "/api/settings")
+      return response({ revision: "r1", settings: { skillLearning: { value: recording } } });
     if (path.endsWith("/readiness"))
       return response({
         external: { state: externalState, provider: "synthetic", model: "model" },
@@ -196,6 +199,7 @@ beforeEach(() => {
   currentRead = undefined;
   piAvailable = true;
   externalState = "ready";
+  recording = false;
   setLanguage("en");
 });
 afterEach(() => {
@@ -448,6 +452,38 @@ it("applies a forced profile-only preset without starting work and still require
   expect(
     requests.filter((request) => request.path === "/api/settings/imports").at(-1)!.body!.options
   ).toMatchObject({ force: true, skipMemories: true, skipProfile: false });
+});
+it("keeps the saved Skill turns choice when the profile-only preset clears it", async () => {
+  const data = new Map<string, string>();
+  const g = globalThis as { localStorage?: unknown };
+  g.localStorage = {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => void data.set(key, value),
+  };
+  const savedSkills = () => JSON.parse(data.get("omms-memory-import-hosts") ?? "{}").skills;
+  try {
+    recording = true;
+    await mount();
+    expect(savedSkills()).toBe(true);
+    preset = 1;
+    render();
+    runEffects();
+    await settle();
+    render();
+    runEffects();
+    expect(input("Skill turns").props.checked).toBe(false);
+    expect(savedSkills()).toBe(true);
+    // A choice the user makes is still saved.
+    await input("Skill turns").props.onChange({ target: { checked: true } });
+    render();
+    runEffects();
+    await input("Skill turns").props.onChange({ target: { checked: false } });
+    render();
+    runEffects();
+    expect(savedSkills()).toBe(false);
+  } finally {
+    delete g.localStorage;
+  }
 });
 it("refuses duplicate preview requests even from the same render", async () => {
   await mount();

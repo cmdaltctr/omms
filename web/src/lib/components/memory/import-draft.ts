@@ -30,6 +30,7 @@ export function initialImportDraft(): ImportDraft {
     force: false,
     memories: true,
     profile: true,
+    skills: true,
     showHandled: false,
   };
 }
@@ -39,6 +40,7 @@ const LISTING_OPTIONS = [
   "project",
   "memories",
   "profile",
+  "skills",
   "force",
   "showHandled",
 ] as const;
@@ -63,6 +65,7 @@ export function membership(draft: ImportDraft, host: WebHost): string {
     draft.maps,
     draft.memories,
     draft.profile,
+    draft.skills,
     draft.force,
     draft.showHandled,
   ]);
@@ -72,11 +75,14 @@ export function membership(draft: ImportDraft, host: WebHost): string {
  * "handled", and "Re-analyse handled history" shows them as well.
  */
 export function listRequestFields(draft: ImportDraft) {
+  // A run that records skill turns counts no session as handled, so the list must match.
   return {
-    skipMemories: !draft.memories,
-    skipProfile: !draft.profile,
+    skipMemories: draft.skills || !draft.memories,
+    skipProfile: draft.skills || !draft.profile,
     force: draft.force,
     includeHandled: draft.showHandled || draft.force,
+    // Skill turns need no project folder, so this list keeps sessions whose folder is gone.
+    ...(draft.skills && !draft.memories && !draft.profile ? { skillTurnsOnly: true } : {}),
   };
 }
 export function selectableCount(draft: ImportDraft, host: WebHost): number {
@@ -115,7 +121,7 @@ export function parseMaps(text: string): { from: string; to: string }[] {
     });
 }
 export function optionsError(draft: ImportDraft): string | null {
-  if (!draft.memories && !draft.profile) return "Choose at least one output.";
+  if (!draft.memories && !draft.profile && !draft.skills) return "Choose at least one output.";
   if (!IMPORT_HOSTS.some((host) => draft.hosts[host].enabled)) return "Choose at least one host.";
   try {
     parseMaps(draft.maps);
@@ -167,6 +173,7 @@ export function groupRequest(draft: ImportDraft, dryRun: boolean): GroupImportRe
       force: draft.force,
       skipMemories: !draft.memories,
       skipProfile: !draft.profile,
+      skipSkills: !draft.skills,
       scope: draft.scope,
       ...(draft.scope === "current-project" && draft.project ? { project: draft.project } : {}),
       ...(draft.since ? { since: localDayStart(draft.since) } : {}),

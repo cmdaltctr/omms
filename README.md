@@ -131,6 +131,7 @@ Choose models and manage access. Diagnostics show capture outcomes and component
 | [Moving projects](docs/moving-projects.md)  | Folder moves, backup and restore                            |
 | [Updating and upgrading](docs/upgrading.md) | Updates, version pinning and older stores                   |
 | [CLI reference](docs/cli.md)                | Terminal commands                                           |
+| [Skill learning](docs/skill-learning.md)    | Opt-in turn recording, skill ranking and draft review       |
 | [For developers](docs/developers.md)        | Building, testing and architecture                          |
 | [Contributing](CONTRIBUTING.md)             | Development workflow and pull requests                      |
 

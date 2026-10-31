@@ -170,6 +170,18 @@ Browse results on `/project-memories` and `/user-profile`. `/` resolves to Proje
 
 Select **Chat** or open `http://127.0.0.1:4747/chat` to ask questions about your memories and profile. Answers cite their sources. The [Chat page guide](web-ui-chat.md) covers setup, citations, folders, deleting chats, and copying `chats.db` to another computer.
 
+## Skills page
+
+Select **Skills** (below **User profile**) or open `http://127.0.0.1:4747/skills`. The page ranks the skills that OMMS finds in the watched folders by use in the last 30 days. See [Configuration: Skill learning](configuration.md#skill-learning) for the settings.
+
+- **Ranked skills.** Each row shows the skill name, its folder, uses, failed turns, last use and mode. A skill that meets the rule gets a **Suggested** badge. Type in the filter to find a skill by name. Select a row to open the skill.
+- **Recording off.** While **Record agent turns** is off, an info notice says that nothing is recorded yet and links to the **Skill learning** card on the [Settings page](web-ui-settings.md#skill-learning). The watched folders and the existing proposals still show.
+- **Record past turns.** The page offers it while recording is on and no turns are recorded. A progress bar shows the run. When it ends, the page shows the count of turns recorded.
+- **Skill view.** It shows the path, the counts, the recent turns and the proposals of one skill. **Draft improvement** sends the skill file and its recent turns to the external API model and saves the reply as a pending proposal. The **Manual** and **Automatic** choice sets the mode. Choosing **Automatic** shows a warning that OMMS changes the file without asking, and waits for your confirmation.
+- **Proposals.** Each proposal shows one state: pending, applied, applied automatically, rejected, stale or undone. A pending proposal shows a line diff (green for added lines, red for removed lines), the summary and the evidence turns, with **Apply** and **Reject**. An applied proposal offers **Undo**. When you changed the file by hand after OMMS wrote it, **Undo** stops and shows the content that OMMS saved. The Skills page lists **Pending proposals**, then **Recent proposals**: the 20 most recently changed proposals that are not pending, folded behind **Show changes**. A rejected or undone new skill stays visible there.
+- **Find new skill ideas.** It sends recent turns to the external API model and lists up to three ideas. Choose a watched folder for an idea and select **Draft skill**. The result is a pending proposal.
+- **Watched folders.** Each folder shows how many skills it holds. Add a folder by its path, or remove one. A folder that does not exist is refused, and the message names it. **Reset default** appears when the folders are set in the config file.
+
 ## User profile page
 
 Open `/user-profile` to see learned preferences, patterns and workflows.
@@ -251,6 +263,7 @@ Open `http://127.0.0.1:4747/settings`, select **Settings**, or select the sideba
 - **Health.** Check OMMS components.
 - **Claude Code folder.** Configure the host's data folder.
 - **Profiles.** Choose or merge profile identities. The card appears with more than one active profile.
+- **Skill learning.** Record agent turns, remove private text and secrets, and delete recorded turns.
 - **Web app.** Control the login item and check versions.
 - **Log.** Read metadata logs.
 

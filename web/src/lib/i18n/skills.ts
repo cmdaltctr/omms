@@ -1,0 +1,171 @@
+/**
+ * Skill learning messages for the Skills page, its Settings card and the
+ * import form. English message first, then Chinese and Arabic. `settings.ts`
+ * merges this table into the Settings table.
+ */
+export const skillText = {
+  "(empty prompt)": ["（空提示）", "(مطالبة فارغة)"],
+  "<private> text, API keys and passwords will be stored as written and sent to the external API when drafting.":
+    [
+      "<private> 文本、API 密钥和密码将按原文存储，并在起草时发送到外部 API。",
+      "سيُخزَّن نص <private> ومفاتيح API وكلمات المرور كما كُتبت، وتُرسَل إلى واجهة API الخارجية عند الصياغة.",
+    ],
+  "A project config turns recording off for this project.": [
+    "项目配置已为此项目关闭记录。",
+    "يوقف إعداد المشروع التسجيل في هذا المشروع.",
+  ],
+  Attention: ["关注度", "الاهتمام"],
+  "Add folder": ["添加文件夹", "إضافة مجلد"],
+  "All skills": ["所有技能", "كل المهارات"],
+  "Changes to SKILL.md": ["对 SKILL.md 的更改", "التغييرات على SKILL.md"],
+  "Delete recorded turns": ["删除已记录的回合", "حذف الأدوار المسجلة"],
+  "Delete {count} recorded turns? This cannot be undone.": [
+    "删除 {count} 个已记录的回合？此操作无法撤销。",
+    "حذف {count} من الأدوار المسجلة؟ لا يمكن التراجع عن ذلك.",
+  ],
+  "Deleted {count} recorded turns.": [
+    "已删除 {count} 个已记录的回合。",
+    "تم حذف {count} من الأدوار المسجلة.",
+  ],
+  "Draft improvement": ["起草改进", "صياغة تحسين"],
+  "Draft skill": ["起草技能", "صياغة مهارة"],
+  "Drafting needs the external API. Set it up first.": [
+    "起草需要外部 API。请先设置。",
+    "تحتاج الصياغة إلى واجهة API الخارجية. أعدّها أولاً.",
+  ],
+  "Drafting…": ["正在起草…", "جارٍ الصياغة…"],
+  "Evidence turns": ["证据回合", "الأدوار الداعمة"],
+  "Failed turns": ["失败的回合", "الأدوار الفاشلة"],
+  "File size": ["文件大小", "حجم الملف"],
+  "Filter skills by name": ["按名称筛选技能", "تصفية المهارات بالاسم"],
+  "Find new skill ideas": ["查找新技能想法", "البحث عن أفكار مهارات جديدة"],
+  "Folder for the new skill": ["新技能的文件夹", "مجلد المهارة الجديدة"],
+  "Folder not found": ["未找到文件夹", "المجلد غير موجود"],
+  "Folder path": ["文件夹路径", "مسار المجلد"],
+  "Hide changes": ["隐藏更改", "إخفاء التغييرات"],
+  Improvement: ["改进", "تحسين"],
+  "Last use": ["上次使用", "آخر استخدام"],
+  "Loading…": ["加载中…", "جارٍ التحميل…"],
+  "Looking…": ["正在查找…", "جارٍ البحث…"],
+  Manual: ["手动", "يدوي"],
+  "Most used": ["最常用", "الأكثر استخدامًا"],
+  "Needs attention": ["需要关注", "يحتاج إلى اهتمام"],
+  "Sort skills": ["技能排序", "ترتيب المهارات"],
+  "New skill": ["新技能", "مهارة جديدة"],
+  "New skill ideas": ["新技能想法", "أفكار مهارات جديدة"],
+  "New turns will be stored as written.": [
+    "新回合将按原文存储。",
+    "ستُخزَّن الأدوار الجديدة كما كُتبت.",
+  ],
+  "No change proposed": ["没有建议更改", "لم يُقترح أي تغيير"],
+  "No content was saved.": ["没有保存内容。", "لم يُحفظ أي محتوى."],
+  "No folders are watched.": ["没有监视的文件夹。", "لا توجد مجلدات مراقبة."],
+  "No new skill ideas in the recorded turns.": [
+    "已记录的回合中没有新的技能想法。",
+    "لا توجد أفكار مهارات جديدة في الأدوار المسجلة.",
+  ],
+  "No proposals yet.": ["还没有提案。", "لا توجد مقترحات بعد."],
+  "No recorded turns.": ["没有已记录的回合。", "لا توجد أدوار مسجلة."],
+  "No skill matches this name.": ["没有技能匹配此名称。", "لا توجد مهارة تطابق هذا الاسم."],
+  "No skills found in the watched folders.": [
+    "在监视的文件夹中未找到技能。",
+    "لم يُعثر على مهارات في المجلدات المراقبة.",
+  ],
+  "No turns are recorded yet.": ["还没有记录任何回合。", "لم تُسجَّل أي أدوار بعد."],
+  "Not in a watched folder": ["不在监视的文件夹中", "ليست في مجلد مراقب"],
+  "Nothing is recorded yet. Agent turns are recorded only after you turn it on.": [
+    "尚未记录任何内容。只有在你开启后才会记录智能体回合。",
+    "لم يُسجَّل شيء بعد. لا تُسجَّل أدوار الوكيل إلا بعد تشغيل ذلك.",
+  ],
+  "OMMS stores full prompts, replies and tool calls in skills.db on this computer. Drafting sends recorded turns to the external API. The file holds whatever the turns hold.":
+    [
+      "OMMS 会把完整的提示、回复和工具调用存储在这台电脑上的 skills.db 中。起草时会把已记录的回合发送到外部 API。该文件包含回合中的所有内容。",
+      "يخزّن OMMS المطالبات والردود واستدعاءات الأدوات كاملةً في skills.db على هذا الجهاز. ترسل الصياغة الأدوار المسجلة إلى واجهة API الخارجية. يحتوي الملف على كل ما تحتويه الأدوار.",
+    ],
+  "OMMS will change this SKILL.md file without asking. It drafts an improvement after 10 new uses and at least 24 hours, then applies it. Each change can be undone.":
+    [
+      "OMMS 会在不询问的情况下修改此 SKILL.md 文件。它在 10 次新使用且至少 24 小时后起草改进，然后直接应用。每次更改都可以撤销。",
+      "سيعدّل OMMS ملف SKILL.md هذا دون أن يسأل. يصوغ تحسيناً بعد 10 استخدامات جديدة و24 ساعة على الأقل، ثم يطبّقه. يمكن التراجع عن كل تغيير.",
+    ],
+  "Skill learning watches how your agents use your skills on Pi, OpenCode and Claude Code. It ranks each skill by use and failed tool calls, and drafts better versions from real turns.":
+    [
+      "技能学习会观察你的智能体在 Pi、OpenCode 和 Claude Code 中如何使用你的技能。它按使用次数和失败的工具调用为每个技能排名，并根据真实回合起草更好的版本。",
+      "يراقب تعلّم المهارات كيف يستخدم وكلاؤك مهاراتك في Pi وOpenCode وClaude Code. يرتّب كل مهارة حسب الاستخدام واستدعاءات الأدوات الفاشلة، ويصوغ نسخاً أفضل من أدوار حقيقية.",
+    ],
+  "Every draft is a proposal with a diff. Nothing changes a SKILL.md file until you apply it, unless you set that skill to Automatic. Undo restores the previous version.":
+    [
+      "每份草稿都是带差异对比的提案。在你应用之前，SKILL.md 文件不会改变，除非你把该技能设为“自动”。撤销会恢复之前的版本。",
+      "كل مسودة مقترح مع عرض للفروق. لا يتغيّر ملف SKILL.md حتى تطبّقه، إلا إذا ضبطت تلك المهارة على تلقائي. التراجع يعيد النسخة السابقة.",
+    ],
+  "Open the Skill learning card": ["打开“技能学习”卡片", "افتح بطاقة تعلّم المهارات"],
+  "Pending proposals": ["待处理的提案", "المقترحات المعلّقة"],
+  Proposals: ["提案", "المقترحات"],
+  "Ranked skills": ["技能排名", "المهارات مرتبةً"],
+  "Recent turns": ["最近的回合", "الأدوار الأخيرة"],
+  "Recent proposals": ["最近的提案", "المقترحات الأخيرة"],
+  "Record agent turns": ["记录智能体回合", "تسجيل أدوار الوكيل"],
+  "Record agent turns so OMMS can rank your skills and draft improvements.": [
+    "记录智能体回合，让 OMMS 为你的技能排名并起草改进。",
+    "سجّل أدوار الوكيل ليتمكن OMMS من ترتيب مهاراتك وصياغة التحسينات.",
+  ],
+  "Record past turns": ["记录过去的回合", "تسجيل الأدوار السابقة"],
+  "Record past turns did not finish.": [
+    "记录过去的回合未完成。",
+    "لم يكتمل تسجيل الأدوار السابقة.",
+  ],
+  "Recorded turns": ["已记录的回合", "الأدوار المسجلة"],
+  "Recorded {count} past turns.": [
+    "已记录 {count} 个过去的回合。",
+    "تم تسجيل {count} من الأدوار السابقة.",
+  ],
+  Reject: ["拒绝", "رفض"],
+  "Remove folder": ["移除文件夹", "إزالة المجلد"],
+  "Remove folder {path}": ["移除文件夹 {path}", "إزالة المجلد {path}"],
+  "Remove private text and secrets": ["移除私密文本和机密", "إزالة النص الخاص والأسرار"],
+  "Reset default": ["恢复默认", "استعادة الافتراضي"],
+  "Saved.": ["已保存。", "تم الحفظ."],
+  "Show changes": ["显示更改", "عرض التغييرات"],
+  "Skill learning": ["技能学习", "تعلّم المهارات"],
+  "Skill turns": ["技能回合", "أدوار المهارات"],
+  "Skill turns are recorded only while Record agent turns is on.": [
+    "只有开启“记录智能体回合”时才会记录技能回合。",
+    "لا تُسجَّل أدوار المهارات إلا عند تشغيل تسجيل أدوار الوكيل.",
+  ],
+  "Skill turns to record": ["待记录的技能回合", "أدوار المهارات المراد تسجيلها"],
+  "Skill turns already recorded": ["已记录的技能回合", "أدوار المهارات المسجلة سابقاً"],
+  "Skill turns recorded": ["本次记录的技能回合", "أدوار المهارات المسجلة"],
+  "Skill turns already present": ["已存在的技能回合", "أدوار المهارات الموجودة مسبقاً"],
+  Skills: ["技能", "المهارات"],
+  "Stale: the file changed since this draft": [
+    "已过期：自起草以来文件已更改",
+    "قديم: تغيّر الملف منذ هذه المسودة",
+  ],
+  "Stop removing private text and secrets?": [
+    "停止移除私密文本和机密？",
+    "إيقاف إزالة النص الخاص والأسرار؟",
+  ],
+  Suggested: ["建议", "مقترحة"],
+  "Turn off": ["关闭", "إيقاف"],
+  "Turn on Automatic": ["开启自动", "تشغيل التلقائي"],
+  "Turn on Automatic mode for this skill?": [
+    "为此技能开启自动模式？",
+    "تشغيل الوضع التلقائي لهذه المهارة؟",
+  ],
+  Undo: ["撤销", "تراجع"],
+  "Undo stopped because the file changed. This is the content OMMS saved:": [
+    "撤销已停止，因为文件已更改。这是 OMMS 保存的内容：",
+    "توقف التراجع لأن الملف تغيّر. هذا هو المحتوى الذي حفظه OMMS:",
+  ],
+  Uses: ["使用", "الاستخدامات"],
+  "Uses in 30 days": ["30 天内使用", "الاستخدامات في 30 يوماً"],
+  "Watched folders": ["监视的文件夹", "المجلدات المراقبة"],
+  applied: ["已应用", "طُبّق"],
+  "applied automatically": ["已自动应用", "طُبّق تلقائياً"],
+  rejected: ["已拒绝", "مرفوض"],
+  stale: ["已过期", "قديم"],
+  undone: ["已撤销", "تم التراجع"],
+  "{count} failed tool call": ["{count} 次工具调用失败", "فشل استدعاء أداة واحد"],
+  "{count} failed tool calls": ["{count} 次工具调用失败", "فشل {count} من استدعاءات الأدوات"],
+  "{count} skill": ["{count} 个技能", "مهارة واحدة"],
+  "{count} skills": ["{count} 个技能", "المهارات: {count}"],
+} as const;

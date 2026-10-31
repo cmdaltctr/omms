@@ -111,6 +111,25 @@ describe("turso connection manager", () => {
     expect(Number((row as { foreign_keys?: number } | null)?.foreign_keys)).toBe(1);
   });
 
+  it("keeps busy_timeout and foreign keys after a transaction", async () => {
+    baseDir = mkdtempSync(join(tmpdir(), "turso-conn-tx-pragmas-"));
+    const { CONFIG } = await import("../src/config.js");
+    CONFIG.storagePath = baseDir;
+    const dbPath = join(baseDir, "tx-pragmas.db");
+
+    const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
+    const db = await tursoConnectionManager.getConnection(dbPath);
+    await db.execute("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY)");
+    await db.transaction("write", async (tx) => {
+      await tx.execute("INSERT INTO t DEFAULT VALUES");
+    });
+    // libSQL opens a fresh handle after a transaction; the pragmas must follow it.
+    const timeout = await db.get(`PRAGMA busy_timeout`);
+    const fk = await db.get(`PRAGMA foreign_keys`);
+    expect(Number(Object.values(timeout ?? {})[0])).toBe(5000);
+    expect(Number(Object.values(fk ?? {})[0])).toBe(1);
+  });
+
   it("refuses paths outside storagePath", async () => {
     baseDir = mkdtempSync(join(tmpdir(), "turso-conn-outside-"));
     const { CONFIG } = await import("../src/config.js");

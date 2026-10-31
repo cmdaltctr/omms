@@ -21,6 +21,7 @@ The npm package ships one terminal command, `om-memory-system`. Use it to import
 | `om-memory-system claude-hook <event>`                  | Run a Claude Code hook. The Claude Code plugin calls it. See [Claude Code hook command](#claude-code-hook-command). |
 | `om-memory-system profile-catch-up [flags]`             | Analyse every prompt that waits for profile learning. See [Profile catch-up](#profile-catch-up).                    |
 | `om-memory-system profile-normalise-categories [flags]` | Preview or confirm category renames. See [Normalise profile categories](#normalise-profile-categories).             |
+| `om-memory-system skills <mode> [flags]`                | List skills, review proposals, record or delete turns. See [Skill turns](#skill-turns).                             |
 
 Slash commands inside a session:
 
@@ -124,8 +125,9 @@ Before a real import starts, the CLI prints `Import model: provider/model`.
 | `--map <old>=<new>`                | Map a recorded directory to another one for this run. Adds to the saved `importPathMaps` and wins for the same `<old>`. Repeat as needed.                                                                                      |
 | `--db <path>`                      | OpenCode only. The database. Default: `~/.local/share/opencode/opencode.db`.                                                                                                                                                   |
 | `--root <path>`                    | Pi and Claude Code only. Pi: a session folder or one `.jsonl` session file. Default: `~/.pi/agent/sessions`. Claude Code: a transcripts folder, one project folder, or one `.jsonl` transcript. Default: `~/.claude/projects`. |
-| `--skip-memories`                  | Record profile prompts only.                                                                                                                                                                                                   |
-| `--skip-profile`                   | Import memories only.                                                                                                                                                                                                          |
+| `--skip-memories`                  | Save no memories.                                                                                                                                                                                                              |
+| `--skip-profile`                   | Record no profile prompts.                                                                                                                                                                                                     |
+| `--skip-skills`                    | Record no skill turns. An import records skill turns only while `skillLearning` is on. See [Skill turns](#skill-turns).                                                                                                        |
 | `--profile-batch <n>`              | Prompts per profile analysis batch. Default: 50. Must be a positive whole number.                                                                                                                                              |
 | `--force`                          | Reprocess memory work units and profile prompts that already finished. Use `--force --skip-memories` to rebuild the profile only.                                                                                              |
 | `--help`, `-h`                     | Show help for the command.                                                                                                                                                                                                     |
@@ -135,6 +137,7 @@ Before a real import starts, the CLI prints `Import model: provider/model`.
 - Inside a session, `--provider`, `--api-url`, and `--api-key-env` are rejected.
 - An unknown flag, `--db` on Pi or Claude Code, or `--root` on OpenCode, is an error.
 - `import-claude-history` always uses the external API or the `--provider`, `--api-url`, and `--api-key-env` flags. Claude Code has no session model.
+- `--skip-memories --skip-profile` with `skillLearning` on records skill turns only. This run makes no model call and needs no model settings. It also records sessions whose project folder no longer exists, under the recorded folder path.
 
 ## Output and exit codes
 
@@ -148,6 +151,8 @@ OpenCode history import (dry-run)
   unresolved /Users/me/old-worktree: 3 sessions, 9 units (use --map)
   profile prompts: 2422 pending, 0 recorded, 0 already done; 0 batches, 0 remaining
 ```
+
+While `skillLearning` is on, the report also has a `skill turns` line. A dry run shows `skill turns: 2422 pending, 0 already recorded`. A real run shows `skill turns: 2422 recorded, 0 already present`.
 
 | Exit code | Meaning                                                                                                   |
 | --------- | --------------------------------------------------------------------------------------------------------- |
@@ -240,6 +245,80 @@ Run again with --yes to start.
 - If this run is taken over, it prints `Stopped: a newer catch-up run took over.` and exits with code 0.
 - A failed batch stops the run. The command prints the reason code, for example `Stopped: timeout`, and exits with code `1`. Finished batches stay learned. Run the command again to continue.
 - A run needs a user email. OMMS reads it from git or from `userEmailOverride`.
+- Error messages never contain the API key.
+
+## Skill turns
+
+While `skillLearning` is on, every history import also records each turn it reads into `skills.db`. This includes turns that the memory import ledger marks as handled and turns that live capture saved. The memory ledger does not change for these turns. A turn is recorded once: a second import adds no copy.
+
+Use `--skip-skills` on an import to record no skill turns.
+
+### Record past turns
+
+`om-memory-system skills record-past` records past turns from every set-up host in one run. It reads Pi, OpenCode and Claude Code history from the default folders, for all projects, with no date limit. It makes no model call. It runs the same grouped import as **Record past turns** on the web page, so the Memory page shows its progress.
+
+```bash
+om-memory-system skills record-past            # print the counts, record nothing
+om-memory-system skills record-past --yes      # start the run
+om-memory-system skills record-past --dry-run  # print the counts only
+```
+
+```text
+Pi: 2 recorded, 0 already present
+Claude Code: 3 recorded, 0 already present
+```
+
+- A host is set up when its default history folder or database exists. Pi also needs its session reader.
+- Sessions whose project folder no longer exists are recorded too, under the recorded folder path. A memory import still skips them until you map the folder.
+- The run is safe to repeat. A second run with no new history reports every turn as already present.
+- The command stops with exit code `1` when `skillLearning` is off, or when no host history exists.
+- Progress goes to stderr. The counts go to stdout.
+
+### Delete recorded turns
+
+`om-memory-system skills delete-turns --yes` deletes every recorded turn, with its tool calls and skill uses. It then compacts `skills.db`, so the deleted text does not stay in the file. Proposals and saved skill versions stay. Without `--yes`, the command prints the number of recorded turns and deletes nothing.
+
+```bash
+om-memory-system skills delete-turns          # print the count
+om-memory-system skills delete-turns --yes    # delete every recorded turn
+```
+
+### Skills and proposals
+
+These modes run the same operations as the `skills` tool on Pi, OpenCode and Claude Code. They read the store and the watched skill folders for the current folder's project. `--directory <path>` chooses another project.
+
+| Mode        | Flags                                                                                                                            | What it does                                                                                                                       |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `list`      | `--order <uses\|attention>`                                                                                                      | List the skills, ranked by use in the last 30 days, or by attention with `--order attention`.                                      |
+| `ideas`     |                                                                                                                                  | Find up to three new skill ideas in the recorded turns.                                                                            |
+| `draft`     | `--skill <name or path>`                                                                                                         | Draft an improvement for a skill as a pending proposal.                                                                            |
+| `draft`     | `--idea-name <name>`, `--idea-description <text>`, `--folder <folder>`; optional `--idea-reason <text>`, `--idea-evidence <ids>` | Draft a new skill in a watched folder as a pending proposal. The reason and evidence turns from `ideas` go into the draft request. |
+| `evidence`  | `--skill <name or path>`, `--limit <1-20>`                                                                                       | Show a skill's `SKILL.md`, numbers and newest recorded turns, failed ones first.                                                   |
+| `propose`   | `--skill` or the idea flags, `--content-file <path>`, `--summary`, `--evidence <ids>`                                            | Save a fixed `SKILL.md` as a pending proposal. No model call.                                                                      |
+| `proposals` | `--state <state>`                                                                                                                | List proposals, newest first. The state filter is optional.                                                                        |
+| `show`      | `--id <id>`                                                                                                                      | Show a proposal with its summary, evidence turns and diff.                                                                         |
+| `apply`     | `--id <id>`                                                                                                                      | Write a pending proposal to its `SKILL.md`.                                                                                        |
+| `reject`    | `--id <id>`                                                                                                                      | Reject a pending proposal.                                                                                                         |
+| `undo`      | `--id <id>`                                                                                                                      | Restore the file an applied proposal changed.                                                                                      |
+| `help`      |                                                                                                                                  | List the modes.                                                                                                                    |
+
+```bash
+om-memory-system skills list
+om-memory-system skills draft --skill s-web-search
+om-memory-system skills proposals --state pending
+om-memory-system skills show --id <id>
+om-memory-system skills apply --id <id> --json
+```
+
+- The state is `pending`, `applied`, `stale`, `rejected` or `undone`.
+- `--skill` takes a skill name, or the full path of its `SKILL.md`. If two watched skills have the same name, give the path.
+- `ideas` and `draft` call the external API model (`memoryModel`, `memoryApiUrl`, `memoryApiKey`). A draft changes no file. It saves a pending proposal.
+- `apply` makes the same checks as the web page. It records that a person applied the proposal.
+- `propose` reads the new `SKILL.md` from `--content-file`. Give `-` to read standard input. OMMS reads the current file and computes the base hash and diff. The same content prints `no-change`. Content over 100 KB is refused. `--evidence` takes turn ids such as `12,14`.
+- `evidence` and `propose` make no model call. `evidence` stops with exit code `1` when `skillLearning` is off.
+- `list`, `ideas`, `draft` and `evidence` stop with exit code `1` when `skillLearning` is off. The message tells you where to turn it on.
+- The result goes to stdout as plain text. Add `--json` to get one JSON document with `success`, `mode`, `code`, `text` and `data`.
+- A bad flag prints the error and the usage to stderr. A failed operation exits with code `1`.
 - Error messages never contain the API key.
 
 ## Normalise profile categories

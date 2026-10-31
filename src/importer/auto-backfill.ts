@@ -96,6 +96,8 @@ export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promis
       force: false,
       skipMemories: false,
       skipProfile: false,
+      // Skill turns follow the same cutoff and sessions as memories.
+      skipSkills: !CONFIG.skillLearning,
       scope: "all-projects",
       pathMaps: [],
       until: cutoff,
@@ -128,8 +130,22 @@ export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promis
       return;
     }
     if (!current.pending) {
+      // No memory work, but turns to record: a skill-turns pass needs no model.
+      const skillTurnsOnly = Boolean(dry.skillTurnsWouldRecord);
+      if (skillTurnsOnly) {
+        await run(
+          options.host,
+          { ...args, dryRun: false, skipMemories: true, skipProfile: true },
+          {
+            cwd: options.cwd,
+            models: {},
+            signal: controller.signal,
+            track: { surface: options.surface ?? "auto", lockHeld: true },
+          }
+        );
+      }
       // A pressed Run now needs an answer on the page: record a finished run.
-      if (options.userStarted) {
+      if (options.userStarted && !skillTurnsOnly) {
         await startImportRun(options.host, options.surface ?? "web")
           .then((recorder) => recorder.finish("done", {}))
           .catch((error: unknown) =>

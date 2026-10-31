@@ -69,8 +69,26 @@ it("counts only the sessions shown for Select all matching", () => {
   expect(selectableCount(draft, "pi")).toBe(3);
 });
 
+it("lists with no handled outputs while skill turns are ticked", () => {
+  const draft = initialImportDraft();
+  expect(draft.skills).toBe(true);
+  expect(listRequestFields(draft)).toMatchObject({ skipMemories: true, skipProfile: true });
+  draft.skills = false;
+  expect(listRequestFields(draft)).toMatchObject({ skipMemories: false, skipProfile: false });
+});
+
+it("marks a skill-turns-only list, which also lists sessions whose folder is gone", () => {
+  const draft = initialImportDraft();
+  draft.memories = false;
+  draft.profile = false;
+  expect(listRequestFields(draft)).toMatchObject({ skillTurnsOnly: true });
+  draft.memories = true;
+  expect(listRequestFields(draft)).not.toHaveProperty("skillTurnsOnly");
+});
+
 it("sends the ticked outputs and handled options with each list request", () => {
   const draft = initialImportDraft();
+  draft.skills = false;
   expect(listRequestFields(draft)).toEqual({
     skipMemories: false,
     skipProfile: false,

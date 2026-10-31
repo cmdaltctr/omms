@@ -15,6 +15,7 @@ export const SETTINGS_SECTIONS = [
   { id: "settings-section-appearance", title: "Appearance" },
   { id: "settings-section-profiles", title: "Profiles" },
   { id: "settings-section-web-app", title: "Web app" },
+  { id: "settings-section-skill-learning", title: "Skill learning" },
   { id: "settings-section-log", title: "Log" },
 ] as const;
 

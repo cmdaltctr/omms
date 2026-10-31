@@ -10,7 +10,10 @@ export function saveHostChoice(draft: ImportDraft, storage?: Store): void {
   try {
     const store = storage ?? localStorage;
     const hosts = IMPORT_HOSTS.filter((host) => draft.hosts[host].enabled);
-    store.setItem(HOST_CHOICE_KEY, JSON.stringify({ hosts, scope: draft.scope }));
+    store.setItem(
+      HOST_CHOICE_KEY,
+      JSON.stringify({ hosts, scope: draft.scope, skills: draft.skills })
+    );
   } catch {
     // Private mode or blocked site data; the form still works for this visit.
   }
@@ -26,7 +29,11 @@ export function loadHostChoice(draft: ImportDraft, storage?: Store): ImportDraft
     const store = storage ?? localStorage;
     const saved: unknown = JSON.parse(store.getItem(HOST_CHOICE_KEY) ?? "null");
     if (!saved || typeof saved !== "object") return draft;
-    const { hosts, scope } = saved as { hosts?: unknown; scope?: unknown };
+    const { hosts, scope, skills } = saved as {
+      hosts?: unknown;
+      scope?: unknown;
+      skills?: unknown;
+    };
     const valid =
       Array.isArray(hosts) &&
       hosts.length > 0 &&
@@ -36,6 +43,8 @@ export function loadHostChoice(draft: ImportDraft, storage?: Store): ImportDraft
     return {
       ...draft,
       scope,
+      // A choice saved before skill turns existed has no value and keeps the default (ticked).
+      skills: typeof skills === "boolean" ? skills : draft.skills,
       hosts: Object.fromEntries(
         IMPORT_HOSTS.map((host) => [
           host,

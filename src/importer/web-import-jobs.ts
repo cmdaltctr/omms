@@ -69,6 +69,7 @@ const fields = new Set([
   "force",
   "skipMemories",
   "skipProfile",
+  "skipSkills",
   "scope",
   "project",
   "since",
@@ -115,7 +116,7 @@ export function validateWebImportRequest(value: unknown): WebImportRequest | Gro
   const options = input.options as Record<string, unknown>;
   for (const [key, option] of Object.entries(options)) {
     if (!fields.has(key)) throw new Error(`Unknown import option: ${key}`);
-    if (["dryRun", "force", "skipMemories", "skipProfile"].includes(key)) {
+    if (["dryRun", "force", "skipMemories", "skipProfile", "skipSkills"].includes(key)) {
       if (typeof option !== "boolean") throw new Error(`Invalid ${key}`);
     } else if (key === "pathMaps") {
       if (
@@ -141,7 +142,12 @@ export function validateWebImportRequest(value: unknown): WebImportRequest | Gro
       throw new Error("The project must be an absolute path");
     }
   }
-  if (options.skipMemories === true && options.skipProfile === true)
+  // Skill turns count as a target only while skillLearning is on.
+  if (
+    options.skipMemories === true &&
+    options.skipProfile === true &&
+    (options.skipSkills === true || !CONFIG.skillLearning)
+  )
     throw new Error("Choose Project memories or User profile");
   if (
     input.modelChoice !== undefined &&

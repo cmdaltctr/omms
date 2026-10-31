@@ -25,7 +25,7 @@ function createHarness(
     prompt: 0,
   };
   let requestBudget = 8_000;
-  let tool: any;
+  const tools = new Map<string, any>();
   let aborted = false;
   let disposed = false;
   let eventsDrained!: () => void;
@@ -40,7 +40,7 @@ function createHarness(
     },
     tool: {
       transform: async (callback: (editor: any) => void) => {
-        callback({ add: (definition: any) => (tool = definition) });
+        callback({ add: (definition: any) => tools.set(definition.name, definition) });
       },
     },
     session: {
@@ -102,6 +102,10 @@ function createHarness(
         description: "Memory tool",
         execute: async (args: any) => JSON.stringify({ success: true, args }),
       },
+      skills: {
+        description: "Skills tool",
+        execute: async (args: any) => JSON.stringify({ success: true, mode: args.mode }),
+      },
     },
     "chat.message": async () => {
       throw new Error("v2 must not call the V1 chat.message hook");
@@ -158,7 +162,8 @@ function createHarness(
     context,
     compaction,
     drained,
-    getTool: () => tool,
+    getTool: (name = "memory") => tools.get(name),
+    toolNames: () => [...tools.keys()],
     isAborted: () => aborted,
     isDisposed: () => disposed,
     setRequestBudget: (bytes: number) => {
@@ -180,6 +185,31 @@ describe("OpenCode v2 plugin adapter", () => {
       .execute({ mode: "help" }, { sessionID: "ses-1", messageID: "msg-1", agent: "build" });
     expect(JSON.parse(result.content)).toEqual({ success: true, args: { mode: "help" } });
     expect([...h.hooks.keys()].sort()).toEqual(["compaction", "context", "prompt"]);
+
+    await cleanup();
+  });
+
+  it("registers the V1 skills tool as a direct V2 tool with the shared modes", async () => {
+    const h = createHarness();
+    const cleanup = await h.register();
+
+    expect(h.toolNames()).toEqual(["memory", "skills"]);
+    const skills = h.getTool("skills");
+    expect(skills.description).toBe("Skills tool");
+    expect(skills.options).toEqual({ codemode: false });
+    // The V2 tool must carry the shared mode list and arguments unchanged.
+    const { SKILLS_TOOL_MODES, SKILLS_TOOL_INPUT_SCHEMA } =
+      await import("../src/core/skills-tool.js");
+    expect(skills.input.properties.mode.enum).toEqual([...SKILLS_TOOL_MODES]);
+    expect(skills.input.properties.mode.enum).toContain("propose");
+    expect(Object.keys(skills.input.properties).sort()).toEqual(
+      Object.keys(SKILLS_TOOL_INPUT_SCHEMA.properties).sort()
+    );
+    const result = await skills.execute(
+      { mode: "list" },
+      { sessionID: "ses-1", messageID: "msg-1", agent: "build" }
+    );
+    expect(JSON.parse(result.content)).toEqual({ success: true, mode: "list" });
 
     await cleanup();
   });

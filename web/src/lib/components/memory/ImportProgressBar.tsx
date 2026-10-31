@@ -3,6 +3,12 @@ import { useSettingsText } from "$lib/i18n/settings";
 import { progressBarView } from "./import-finish";
 import type { ImportJob } from "./import-types";
 
+const PHASE_LABEL = {
+  memory: "Memory units",
+  "skill-turns": "Skill turns",
+  profile: "Profile batches",
+} as const;
+
 /** The running state of a real import. A preview has no bar. */
 export function ImportProgressBar({ job }: { job: ImportJob | null }) {
   const s = useSettingsText();
@@ -21,8 +27,7 @@ export function ImportProgressBar({ job }: { job: ImportJob | null }) {
         <div className="h-full bg-green-600" style={{ width: `${view.percent}%` }} />
       </div>
       <p className="text-muted-foreground">
-        <bdi dir="ltr">{hostLabel(view.host)}</bdi> ·{" "}
-        {s(view.phase === "memory" ? "Memory units" : "Profile batches")}: {view.done} /{" "}
+        <bdi dir="ltr">{hostLabel(view.host)}</bdi> · {s(PHASE_LABEL[view.phase])}: {view.done} /{" "}
         {view.total} · {view.percent}%
       </p>
     </div>

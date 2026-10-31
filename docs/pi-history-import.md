@@ -100,8 +100,9 @@ The Pi and OpenCode commands take the same options. The full table is in [cli.md
   --max-sessions <n>         Read at most n sessions, oldest first
   --map <oldPath>=<newPath>  Remap a recorded cwd that no longer exists (repeatable)
   --root <dir>               Session folder or one .jsonl file (default ~/.pi/agent/sessions)
-  --skip-memories            Record profile prompts only
-  --skip-profile             Import memories without profile learning
+  --skip-memories            Save no memories
+  --skip-profile             Record no profile prompts
+  --skip-skills              Record no skill turns (recorded only while skillLearning is on)
   --profile-batch <n>        Prompts per profile analysis batch (default: 50)
   --force                    Reprocess units and profile prompts with final ledger states
   --help                     Show this help
@@ -129,6 +130,20 @@ About `--model`:
 - The same model handles memory extraction and profile analysis for this run.
 - The session's model stays unchanged.
 - An unknown model stops the import before any processing.
+
+## Skill turns
+
+While `skillLearning` is on, the import also records each turn it reads into `skills.db`. It records turns that the import ledger marks as handled and turns that live capture saved. The memory ledger does not change for these turns. A turn that live capture recorded is not recorded again.
+
+```bash
+om-memory-system import-pi-history --scope all-projects --dry-run   # count the turns to record
+om-memory-system import-pi-history --scope all-projects --skip-memories --skip-profile
+```
+
+- The second command records skill turns only. It makes no model call and needs no model.
+- A skill-turns-only run also records sessions whose project folder no longer exists, under the recorded folder path. A run that saves memories or profile prompts still skips them until you map the folder with `--map`.
+- `--skip-skills` records no skill turns.
+- To record past turns from every host at once, run `om-memory-system skills record-past --yes`. See [CLI: Record past turns](cli.md#record-past-turns).
 
 ## Idempotency and recovery
 

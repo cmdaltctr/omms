@@ -243,6 +243,18 @@ export const CONFIG_TEMPLATE = `{
   // "captureTraceRetentionDays": 7,
   // "captureAttemptRetentionDays": 30,
 
+  // Skill learning: record each full turn (prompt, replies, tool calls with
+  // their outcome, and the skills used) in ~/.omms/data/skills.db, so OMMS can
+  // rank your skills and draft better versions. Off by default. A project config
+  // can turn it off but never on. No model call is made to record a turn.
+  // "skillLearning": false,
+  // Remove <private> text and common API key formats before a turn is stored.
+  // Global config only. Turning this off stores text as written.
+  // "skillLearningRedact": true,
+  // Folders OMMS reads skills from. Absolute or starting with ~/. Global config
+  // only. Unset: ~/.agents/skills and the Claude Code folder's skills folder.
+  // "skillFolders": ["~/.agents/skills"],
+
   // Capture retry queue: when a live capture fails because the model cannot be
   // reached (network error, timeout, HTTP 408, 429 or 5xx), OMMS keeps a copy of
   // the turn in ~/.omms/data and tries it again later. The copy has <private>

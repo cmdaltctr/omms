@@ -45,6 +45,8 @@ export type ImportDraft = {
   force: boolean;
   memories: boolean;
   profile: boolean;
+  /** Record skill turns. Counts only while recording is on; old saved drafts have no value. */
+  skills: boolean;
   /** List sessions that are already handled for the ticked outputs. */
   showHandled: boolean;
 };
@@ -73,6 +75,7 @@ export type GroupImportRequest = {
     force: boolean;
     skipMemories: boolean;
     skipProfile: boolean;
+    skipSkills: boolean;
     scope: ImportDraft["scope"];
     project?: string;
     since?: number;
@@ -92,6 +95,11 @@ export type ImportSummary = {
   unitsUntimed?: number;
   loadErrors?: number;
   unresolved?: number;
+  /** Skill turns this run would record, or already recorded. Present only while skill learning is on. */
+  skillTurnsWouldRecord?: number;
+  skillTurnsAlreadyRecorded?: number;
+  skillTurnsRecorded?: number;
+  skillTurnsAlreadyPresent?: number;
   profile?: {
     promptsRecorded: number;
     promptsWouldRecord: number;

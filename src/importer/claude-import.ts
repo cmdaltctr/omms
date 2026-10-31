@@ -5,6 +5,7 @@ import {
   type ImportReport,
 } from "./importer.js";
 import { openClaudeHistorySource, type ClaudeHistoryDeps } from "./claude-reader.js";
+import { importSkillTurnsOn, skillTurnsOnly } from "./import-turn-outputs.js";
 
 export interface ClaudeImportReport extends ImportReport {
   /** Transcript lines that were not JSON entries. */
@@ -39,6 +40,7 @@ export async function importClaudeHistory(
       ...(filters.maxSessions !== undefined ? { maxSessions: filters.maxSessions } : {}),
       ...(filters.pathMaps ? { pathMaps: filters.pathMaps } : {}),
       ...(filters.scope === "current-project" ? { project: filters.currentDirectory } : {}),
+      keepMissingFolders: skillTurnsOnly(filters, Boolean(deps.profile)),
       ...(deps.signal ? { signal: deps.signal } : {}),
     },
     deps.loadSession ? { loadSession: deps.loadSession } : {}
@@ -69,7 +71,7 @@ export async function importClaudeHistory(
     unknownTypes: source.unknownTypes,
   };
 
-  if (filters.skipMemories) {
+  if (filters.skipMemories && !importSkillTurnsOn(filters)) {
     report.unitsTotal = source.unitsKept;
   } else {
     await importHistorySource(source, "claude-code", deps, filters, report);

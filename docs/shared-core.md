@@ -151,7 +151,9 @@ Claude Code model rule: the external API only. See
 OpenCode, Pi, the web app, and the `memory` command can run in separate
 processes against the same store:
 
-- Every connection sets `busy_timeout=5000` and uses one pooled handle.
+- Every connection sets `busy_timeout=5000` and `foreign_keys=ON` and uses
+  one pooled handle. It sets both again after each transaction, because the
+  libSQL client opens a fresh handle without them.
 - Every write goes through `withScopeWriteLock`. It nests a cross-process
   lock for each scope (`src/services/turso/cross-process-write-lock.ts`).
   That lock publishes a complete PID payload through a hard link before

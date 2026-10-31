@@ -12,7 +12,8 @@ import {
   type ImportReport,
   type ImportSourceSession,
 } from "./importer.js";
-import { resolveImportProject } from "./import-project.js";
+import { importDirectory } from "./import-project.js";
+import { importSkillTurnsOn, skillTurnsOnly } from "./import-turn-outputs.js";
 import type { UnresolvedProject } from "./opencode-project.js";
 import {
   DEFAULT_OPENCODE_DB,
@@ -42,6 +43,8 @@ export interface OpencodeImportOptions {
   force?: boolean;
   skipMemories?: boolean;
   skipProfile?: boolean;
+  /** Record no skill turns. */
+  skipSkills?: boolean;
   profileBatch?: number;
   provider?: CaptureSummaryProvider;
   profileModel?: ModelPort;
@@ -98,10 +101,12 @@ export async function importOpencodeHistory(
     const projects = new Map<string, ImportProjectReport & { sessionIds: Set<string> }>();
     const selected: Array<OpencodeSessionMeta & { directory: string }> = [];
     let filtered = 0;
+    const keepMissing = skillTurnsOnly(options, options.skipProfile !== true);
     for (const session of history.sessions) {
-      const { directory } = resolveImportProject(
+      const directory = importDirectory(
         session.recordedDirectory,
         options.pathMaps ?? [],
+        keepMissing,
         session.projectWorktree
       );
       if (!directory) {
@@ -193,7 +198,8 @@ export async function importOpencodeHistory(
       childSessionsFolded: history.childSessions,
       unresolvedProjects: [...unresolved.values()],
     };
-    if (!options.skipMemories) {
+    // The memory path or skill turns read every turn; profile-only runs only count them.
+    if (!options.skipMemories || importSkillTurnsOn(options)) {
       await importHistorySource(
         { total, open },
         "opencode",

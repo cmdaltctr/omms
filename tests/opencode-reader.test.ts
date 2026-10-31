@@ -92,6 +92,89 @@ it("reads top-level windows and excludes hidden or synthetic parts", async () =>
   }
 });
 
+it("sets each tool call's outcome and error from the stored part state", async () => {
+  const { path, directory } = fixture();
+  const writer = new DatabaseSync(path);
+  try {
+    writer
+      .prepare("INSERT INTO session VALUES (?, ?, ?, ?, ?)")
+      .run("tools", "p", null, directory, 50);
+    const insertMessage = writer.prepare("INSERT INTO message VALUES (?, ?, ?, ?)");
+    const insertPart = writer.prepare("INSERT INTO part VALUES (?, ?, ?, ?, ?)");
+    insertMessage.run("tu", "tools", 51, JSON.stringify({ role: "user" }));
+    insertPart.run("tu-0", "tu", "tools", 51, JSON.stringify({ type: "text", text: "Run it" }));
+    insertMessage.run("ta", "tools", 52, JSON.stringify({ role: "assistant" }));
+    const toolParts = [
+      { type: "tool", tool: "read", state: { status: "completed", input: "a", output: "body" } },
+      {
+        type: "tool",
+        tool: "bash",
+        state: { status: "error", input: "b", error: "e".repeat(5000) },
+      },
+      { type: "tool", tool: "grep", state: { status: "pending", input: "c" } },
+    ];
+    toolParts.forEach((part, index) =>
+      insertPart.run(`ta-${index}`, "ta", "tools", 52 + index, JSON.stringify(part))
+    );
+  } finally {
+    writer.close();
+  }
+  try {
+    const { sessions } = await readAll(path, { session: "tools" });
+    const calls = sessions[0]?.units[0]?.toolCalls;
+
+    expect(calls?.map((call) => [call.name, call.outcome])).toEqual([
+      ["read", "ok"],
+      ["bash", "error"],
+      ["grep", "unknown"],
+    ]);
+    expect(calls?.[0]?.error).toBeUndefined();
+    expect(calls?.[1]?.error).toBe("e".repeat(2000));
+  } finally {
+    await removeTestDir(directory);
+  }
+});
+
+it("cuts a long read input as before and keeps the full path in path", async () => {
+  const skillPath = `/tmp/skills/${"s".repeat(129)}/SKILL.md`;
+  expect(skillPath.length).toBe(150);
+  const { path, directory } = fixture();
+  const writer = new DatabaseSync(path);
+  try {
+    writer
+      .prepare("INSERT INTO session VALUES (?, ?, ?, ?, ?)")
+      .run("read", "p", null, directory, 60);
+    writer
+      .prepare("INSERT INTO message VALUES (?, ?, ?, ?)")
+      .run("ru", "read", 61, '{"role":"user"}');
+    writer
+      .prepare("INSERT INTO part VALUES (?, ?, ?, ?, ?)")
+      .run("ru-0", "ru", "read", 61, JSON.stringify({ type: "text", text: "Use the skill" }));
+    writer
+      .prepare("INSERT INTO message VALUES (?, ?, ?, ?)")
+      .run("ra", "read", 62, '{"role":"assistant"}');
+    const part = {
+      type: "tool",
+      tool: "read",
+      state: { status: "completed", input: { offset: 1, filePath: skillPath } },
+    };
+    writer
+      .prepare("INSERT INTO part VALUES (?, ?, ?, ?, ?)")
+      .run("ra-0", "ra", "read", 62, JSON.stringify(part));
+  } finally {
+    writer.close();
+  }
+  try {
+    const { sessions } = await readAll(path, { session: "read" });
+    const call = sessions[0]?.units[0]?.toolCalls[0];
+    const formatted = JSON.stringify({ offset: 1, filePath: skillPath });
+    expect(call?.input).toBe(formatted.slice(0, 100) + "...");
+    expect(call?.path).toBe(skillPath);
+  } finally {
+    await removeTestDir(directory);
+  }
+});
+
 it("rejects an incomplete V1 schema with a clear error", async () => {
   const directory = mkdtempSync(join(tmpdir(), "omms-opencode-invalid-"));
   try {

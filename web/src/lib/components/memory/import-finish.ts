@@ -5,7 +5,7 @@ import type { ImportJob } from "./import-types";
 
 export type BarView = {
   host: WebHost;
-  phase: "memory" | "profile";
+  phase: "memory" | "skill-turns" | "profile";
   done: number;
   total: number;
   percent: number;
@@ -28,7 +28,7 @@ export function progressBarView(job: ImportJob | null): BarView | null {
   const total = (profile ? child.profileTotal : child.total) ?? 0;
   return {
     host: child.host,
-    phase: profile ? "profile" : "memory",
+    phase: profile ? "profile" : child.phase === "skill-turns" ? "skill-turns" : "memory",
     done,
     total,
     percent: total > 0 ? Math.min(100, Math.floor((done * 100) / total)) : 0,

@@ -1,6 +1,17 @@
 import type { CaptureConversation, CaptureToolCall } from "../../core/host.js";
+import { boundToolInput, readToolPath } from "../../core/tool-input.js";
+import { opencodeToolOutcome } from "../../core/tool-outcome.js";
 
-const MAX_TOOL_INPUT_LENGTH = 100;
+function formatToolInput(inputValue: unknown): string {
+  if (!inputValue) return "";
+  if (typeof inputValue === "string") return inputValue;
+  if (typeof inputValue === "object") {
+    return Object.entries(inputValue)
+      .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+      .join(", ");
+  }
+  return "";
+}
 
 export function extractOpenCodeConversation(
   messages: any[],
@@ -38,24 +49,14 @@ export function extractOpenCodeConversation(
 
     for (const tool of message.parts.filter((part: any) => part.type === "tool")) {
       const name = tool.tool || "unknown";
-      let input = "";
-
-      if (tool.state?.input) {
-        const inputValue = tool.state.input;
-        if (typeof inputValue === "string") {
-          input = inputValue;
-        } else if (typeof inputValue === "object") {
-          input = Object.entries(inputValue)
-            .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
-            .join(", ");
-        }
-      }
-
-      if (input.length > MAX_TOOL_INPUT_LENGTH) {
-        input = input.substring(0, MAX_TOOL_INPUT_LENGTH) + "...";
-      }
-
-      toolCalls.push({ name, input });
+      const input = boundToolInput(formatToolInput(tool.state?.input));
+      const path = readToolPath(name, tool.state?.input);
+      toolCalls.push({
+        name,
+        input,
+        ...opencodeToolOutcome(tool.state),
+        ...(path === undefined ? {} : { path }),
+      });
     }
   }
 

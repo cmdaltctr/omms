@@ -1,11 +1,20 @@
 import { CONFIG } from "../../config.js";
-import { captureConversation, type CaptureWorkUnit } from "../../core/capture.js";
+import type { CaptureWorkUnit } from "../../core/capture.js";
 import { quickRetryDelayMs } from "../../core/capture-retry-policy.js";
 import type { CaptureSummaryProvider } from "../../core/host.js";
+import { handleFinishedTurn } from "../../core/turn-outputs.js";
 import { log } from "../../services/logger.js";
 import { memoryClient } from "../../services/client.js";
 import { queueFailedCapture, startCaptureRetryDrain } from "../../services/capture-retry-drain.js";
-import { extractPiConversation, type PiSessionEntry } from "../../importer/pi-conversation.js";
+import {
+  skillTurnRecorder,
+  type SkillTurnRecorder,
+} from "../../services/skill-learning/settings-for.js";
+import {
+  extractPiConversation,
+  type PiConversationWindow,
+  type PiSessionEntry,
+} from "../../importer/pi-conversation.js";
 
 export interface PiCaptureState {
   /** User entry IDs terminally handled by a settled capture for this session. */
@@ -41,11 +50,20 @@ export type PiSettledCaptureResult =
   | { status: "failed"; error: string };
 
 /** Try the turn up to `autoCaptureMaxRetries` times, as OpenCode does, before it counts as failed. */
-async function captureWithQuickRetries(unit: CaptureWorkUnit, provider: CaptureSummaryProvider) {
+async function captureWithQuickRetries(
+  unit: CaptureWorkUnit,
+  provider: CaptureSummaryProvider,
+  recorder: SkillTurnRecorder | undefined
+) {
   const maxRetries = Math.max(1, CONFIG.autoCaptureMaxRetries ?? 3);
   for (let attempt = 1; ; attempt++) {
     try {
-      return await captureConversation(unit, provider);
+      // A repeated attempt records the same turn key, which the store drops.
+      return await handleFinishedTurn(
+        unit,
+        { memories: true, skills: recorder !== undefined },
+        { provider, recordSkillTurn: recorder }
+      );
     } catch (error) {
       if (attempt >= maxRetries) throw error;
       log(
@@ -60,6 +78,40 @@ async function captureWithQuickRetries(unit: CaptureWorkUnit, provider: CaptureS
   }
 }
 
+function piWorkUnit(input: PiSettledCaptureInput, window: PiConversationWindow): CaptureWorkUnit {
+  return {
+    host: "pi",
+    hostSessionId: input.sessionId,
+    sourceType: "live-capture",
+    projectDirectory: input.directory,
+    userPrompt: window.userPrompt,
+    promptId: window.userEntryId,
+    prompt: {
+      id: window.userEntryId,
+      providerId: input.prompt?.providerId ?? null,
+      modelId: input.prompt?.modelId ?? null,
+    },
+    textResponses: window.textResponses,
+    toolCalls: window.toolCalls,
+    sourceEntryIds: window.sourceEntryIds,
+    ...(window.sourceTimestamp !== undefined ? { sourceTimestamp: window.sourceTimestamp } : {}),
+  };
+}
+
+/** Memory capture is off or not ready: record the settled turn for skill learning only. */
+async function recordSkillTurnOnly(
+  input: PiSettledCaptureInput,
+  window: PiConversationWindow | null = extractPiConversation(input.entries)
+): Promise<void> {
+  const recorder = skillTurnRecorder(input.directory);
+  if (!recorder || !window) return;
+  await handleFinishedTurn(
+    piWorkUnit(input, window),
+    { memories: false, skills: true },
+    { recordSkillTurn: recorder }
+  );
+}
+
 /**
  * Capture the work unit completed by the most recent user prompt on the
  * settled branch. Safe to call for every `agent_settled` event: a work unit is
@@ -69,7 +121,11 @@ async function captureWithQuickRetries(unit: CaptureWorkUnit, provider: CaptureS
 export async function capturePiSettledWorkUnit(
   input: PiSettledCaptureInput
 ): Promise<PiSettledCaptureResult> {
-  if (!CONFIG.autoCaptureEnabled) return { status: "skipped", reason: "disabled" };
+  if (!CONFIG.autoCaptureEnabled) {
+    // Skill learning records turns even when memory capture is off (ADR-036).
+    await recordSkillTurnOnly(input);
+    return { status: "skipped", reason: "disabled" };
+  }
   if (input.state.running) return { status: "skipped", reason: "busy" };
   input.state.running = true;
   let workUnit: CaptureWorkUnit | null = null;
@@ -84,27 +140,16 @@ export async function capturePiSettledWorkUnit(
 
     const embeddingInitError = memoryClient.getEmbeddingInitError?.();
     if (embeddingInitError) {
+      await recordSkillTurnOnly(input, window);
       return { status: "skipped", reason: "not-ready" };
     }
 
-    workUnit = {
-      host: "pi",
-      hostSessionId: input.sessionId,
-      sourceType: "live-capture",
-      projectDirectory: input.directory,
-      userPrompt: window.userPrompt,
-      promptId: window.userEntryId,
-      prompt: {
-        id: window.userEntryId,
-        providerId: input.prompt?.providerId ?? null,
-        modelId: input.prompt?.modelId ?? null,
-      },
-      textResponses: window.textResponses,
-      toolCalls: window.toolCalls,
-      sourceEntryIds: window.sourceEntryIds,
-      ...(window.sourceTimestamp !== undefined ? { sourceTimestamp: window.sourceTimestamp } : {}),
-    };
-    const captureResult = await captureWithQuickRetries(workUnit, input.provider);
+    workUnit = piWorkUnit(input, window);
+    const captureResult = await captureWithQuickRetries(
+      workUnit,
+      input.provider,
+      skillTurnRecorder(input.directory)
+    );
 
     input.state.handledUserEntries.add(window.userEntryId);
 

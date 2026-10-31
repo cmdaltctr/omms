@@ -1,5 +1,5 @@
 import { existsSync, realpathSync } from "node:fs";
-import { captureConversation } from "../core/capture.js";
+import { handleFinishedTurn } from "../core/turn-outputs.js";
 import type { CaptureConversation, CaptureSummaryProvider } from "../core/host.js";
 import type { ModelPort } from "../core/profile-analysis.js";
 import type { ProfileImportReport } from "./profile-import.js";
@@ -15,7 +15,14 @@ import {
   type PiSessionEntry,
 } from "./pi-conversation.js";
 import { discoverPiSessions } from "./discovery.js";
-import { resolveImportProject } from "./import-project.js";
+import { importDirectory } from "./import-project.js";
+import {
+  importSkillTurnOutput,
+  importSkillTurnsOn,
+  importWorkUnit,
+  skillTurnsOnly,
+  type ImportSkillTurnCounts,
+} from "./import-turn-outputs.js";
 import { PiImportLedger, importLedgerDbPath, type ImportLedgerRow } from "./ledger.js";
 import type { LoadedPiSession } from "./session-loader.js";
 import type { MemoryHost } from "../types/index.js";
@@ -45,6 +52,8 @@ export interface ImportFilters {
   dryRun?: boolean;
   /** Record profile prompts only; leave memory work units untouched. */
   skipMemories?: boolean;
+  /** Record no skill turns (design decision 11). */
+  skipSkills?: boolean;
   pathMaps?: ImportPathMap[];
   root?: string;
   /**
@@ -77,7 +86,7 @@ export interface ImportProjectReport {
   units: number;
 }
 
-export interface ImportReport {
+export interface ImportReport extends ImportSkillTurnCounts {
   dryRun: boolean;
   root: string;
   sessionsDiscovered: number;
@@ -265,17 +274,21 @@ export async function importHistorySource(
   source: AsyncIterable<ImportSourceSession> | Iterable<ImportSourceSession> | LazyImportSource,
   host: MemoryHost,
   deps: Pick<ImporterDeps, "provider" | "ledger" | "onProgress" | "signal">,
-  filters: Pick<ImportFilters, "dryRun" | "force" | "since" | "until">,
+  filters: Pick<
+    ImportFilters,
+    "dryRun" | "force" | "since" | "until" | "skipMemories" | "skipSkills"
+  >,
   report: ImportReport
 ): Promise<void> {
   const dryRun = Boolean(filters.dryRun);
+  const memories = !filters.skipMemories;
+  const recordSkills = importSkillTurnOutput(filters, report);
   const ledger = deps.ledger ?? new PiImportLedger();
   const ledgerFileExists = existsSync(importLedgerDbPath());
   const ledgerAccessible = !dryRun || ledgerFileExists;
-  // A dry run only reads the ledger (peek), so it never writes its schema.
-  if (!dryRun) await ledger.get("__warmup__");
-
-  if (!dryRun) {
+  if (!dryRun && memories) {
+    // A dry run only reads the ledger (peek), so it never writes its schema.
+    await ledger.get("__warmup__");
     const embeddingInitError = memoryClient.getEmbeddingInitError?.();
     if (embeddingInitError) {
       throw new Error(
@@ -314,7 +327,7 @@ export async function importHistorySource(
 
   for await (const candidate of candidates) {
     if (deps.signal?.aborted) break;
-    const { sessionId, directory, sourceFile, hash, window } = candidate;
+    const { sessionId, sourceFile, hash, window } = candidate;
     const key = buildImportKey(sessionId, window, host)!;
     processed++;
     deps.onProgress?.(
@@ -331,6 +344,10 @@ export async function importHistorySource(
       promptPreview: preview(window.userPrompt),
       status: "would-import",
     };
+    const workUnit = importWorkUnit(host, candidate, key);
+    await recordSkills?.(workUnit);
+    // A skills-only unit leaves the memory ledger untouched.
+    if (!memories) continue;
 
     const existing: ImportLedgerRow | null = !ledgerAccessible
       ? null
@@ -385,34 +402,13 @@ export async function importHistorySource(
       continue;
     }
 
-    await ledger.begin({
-      key,
-      sessionId: sessionId,
-      sourceFile: sourceFile,
-      projectHash: hash,
-    });
+    await ledger.begin({ key, sessionId, sourceFile, projectHash: hash });
 
     try {
-      const result = await captureConversation(
-        {
-          host,
-          hostSessionId: sessionId,
-          sourceType: "history-import",
-          projectDirectory: directory,
-          userPrompt: window.userPrompt,
-          promptId: window.userEntryId,
-          textResponses: window.textResponses,
-          toolCalls: window.toolCalls,
-          sourceEntryIds: window.sourceEntryIds,
-          ...(window.userTimestamp !== undefined
-            ? { sourceTimestamp: window.userTimestamp }
-            : window.sourceTimestamp !== undefined
-              ? { sourceTimestamp: window.sourceTimestamp }
-              : {}),
-          sourceFile: sourceFile,
-          importId: key,
-        },
-        deps.provider
+      const result = await handleFinishedTurn(
+        workUnit,
+        { memories: true, skills: false },
+        { provider: deps.provider }
       );
 
       if (result.status === "skipped") {
@@ -488,6 +484,7 @@ export async function importPiHistory(
     window: PiConversationWindow;
   }
   const candidates: CandidateUnit[] = [];
+  const keepMissing = skillTurnsOnly(filters, Boolean(deps.profile));
 
   for (const discovered of discovery.sessions) {
     if (deps.signal?.aborted) break;
@@ -524,7 +521,7 @@ export async function importPiHistory(
       continue;
     }
 
-    const directory = resolveImportProject(session.cwd, pathMaps).directory;
+    const directory = importDirectory(session.cwd, pathMaps, keepMissing);
     if (!directory) {
       report.unresolvableSessions.push({ file: session.sourceFile, cwd: session.cwd });
       continue;
@@ -584,7 +581,7 @@ export async function importPiHistory(
   }
   const sourceSessions = [...grouped.values()];
 
-  if (filters.skipMemories) {
+  if (filters.skipMemories && !importSkillTurnsOn(filters)) {
     report.unitsTotal = candidates.length;
   } else {
     await importHistorySource(sourceSessions, "pi", deps, filters, report);

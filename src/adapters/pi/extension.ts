@@ -17,6 +17,7 @@ import { capturePiSettledWorkUnit, createPiCaptureState } from "./capture.js";
 import type { PiSessionEntry } from "../../importer/pi-conversation.js";
 import { createPiLiveModels } from "./live-model.js";
 import { registerPiHistoryImportCommand } from "./import-command.js";
+import { registerPiSkillsTool } from "./skills-tool.js";
 import { performPiProfileLearning } from "./profile.js";
 import {
   buildRetrievalSection,
@@ -79,6 +80,7 @@ function lastSettledUserPrompt(entries: PiSessionEntry[]): string | null {
  * - `session_shutdown`     -> idempotent session-scoped cleanup
  * - `memory` tool          -> shared add/search/profile/list/forget/help and
  *                             portability operations
+ * - `skills` tool          -> shared skill-learning operations (skills-tool.ts)
  *
  * Pi types are imported type-only: the compiled extension carries no Pi
  * runtime dependency and uses the host Pi runtime provided at load time.
@@ -415,5 +417,6 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     },
   });
 
+  registerPiSkillsTool(pi);
   registerPiHistoryImportCommand(pi, () => latestCtx);
 }

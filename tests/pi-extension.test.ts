@@ -22,6 +22,9 @@ const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
 const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
 const languageUrl = new URL("../src/services/language-detector.js", import.meta.url).href;
 const contextServiceUrl = new URL("../src/services/context.js", import.meta.url).href;
+const skillOperationsUrl = new URL("../src/core/skill-operations.js", import.meta.url).href;
+const skillDepsUrl = new URL("../src/services/skill-learning/operations-deps.js", import.meta.url)
+  .href;
 const profileManagerUrl = new URL(
   "../src/services/user-profile/user-profile-manager.js",
   import.meta.url
@@ -183,6 +186,17 @@ mock.module(${JSON.stringify(profileManagerUrl)}, () => ({
       return true;
     },
   },
+}));
+
+const skillOperationCalls = [];
+mock.module(${JSON.stringify(skillOperationsUrl)}, () => ({
+  runSkillOperation: async (mode, args, deps) => {
+    skillOperationCalls.push({ mode, args, deps });
+    return { success: true, mode, code: "ok", text: "Skills by use" };
+  },
+}));
+mock.module(${JSON.stringify(skillDepsUrl)}, () => ({
+  skillOperationsDeps: (directory, appliedBy) => ({ directory, appliedBy }),
 }));
 
 const { default: ommsPiExtension } = await import(${JSON.stringify(extensionUrl)});
@@ -469,8 +483,54 @@ toolCalls.push(JSON.parse(result.content[0].text));
 `);
 
     expect(output.captured).toBe("memory");
-    expect(output.registeredTools.length).toBe(1);
+    expect(output.registeredTools.map((t: any) => t.name)).toEqual(["memory", "skills"]);
     expect(output.toolCalls[0].success).toBe(true);
+  });
+
+  it("registers the skills tool over the shared skill operations, applied by the agent", async () => {
+    const output = runScenario(`
+const skills = registeredTools.find((t) => t.name === "skills");
+const result = await skills.execute(
+  "call-2",
+  { mode: "draft", idea: { name: "deploy", description: "Deploy steps" }, folder: "/skills" },
+  undefined,
+  undefined,
+  makeCtx()
+);
+captured = {
+  description: skills.description,
+  modes: skills.parameters.properties.mode.anyOf.map((m) => m.const),
+  reply: JSON.parse(result.content[0].text),
+  call: skillOperationCalls[0],
+};
+`);
+
+    expect(output.captured.description).toContain("ranked by use");
+    expect(output.captured.description).toContain("only when the user asks");
+    expect(output.captured.modes).toEqual([
+      "list",
+      "ideas",
+      "draft",
+      "evidence",
+      "propose",
+      "proposals",
+      "show",
+      "apply",
+      "reject",
+      "undo",
+      "help",
+    ]);
+    expect(output.captured.reply).toEqual({
+      success: true,
+      mode: "draft",
+      code: "ok",
+      text: "Skills by use",
+    });
+    expect(output.captured.call).toEqual({
+      mode: "draft",
+      args: { idea: { name: "deploy", description: "Deploy steps" }, folder: "/skills" },
+      deps: { directory: "/workspace", appliedBy: "agent" },
+    });
   });
 
   it("shows warming then connected when the Pi session starts", async () => {

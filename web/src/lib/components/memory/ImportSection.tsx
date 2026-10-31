@@ -12,6 +12,8 @@ import { navigate, ROUTES } from "$lib/router";
 import { HostImportBadges } from "../settings/HostImportBadges";
 import { HostSessionSelection } from "./HostSessionSelection";
 import { loadHostChoice, saveHostChoice } from "./import-host-choice";
+import { useSkillSettings } from "../skills/use-skill-settings";
+import { modelBlockedReason } from "./import-model-blocker";
 import { ImportOptions, importButton } from "./ImportOptions";
 import { ImportFinish } from "./ImportFinish";
 import { reloadAfterFinish } from "./import-finish";
@@ -51,27 +53,25 @@ export function externalOptionLabel(
   return `${s("Saved external API")}${readiness && readiness.external.state !== "ready" ? ` — ${s("not ready")}` : ""}`;
 }
 
-const EXTERNAL_REASONS: Record<string, string> = {
-  "missing-model": "The external API has no memoryModel in the global config",
-  "missing-url": "The external API has no memoryApiUrl in the global config",
-  "missing-key":
-    "The external API key is missing in the OpenCode process; check memoryApiKey and its env:// or file:// source",
-  "unsupported-provider": "The memoryProvider in the global config is not supported for imports",
-};
-
 /** One draft owns every host and shared option. The server owns execution order. */
 export function ImportSection({
   profilePreset = 0,
   host: onlyHost,
 }: { profilePreset?: number; host?: WebHost } = {}) {
   const s = useSettingsText();
-  const [draft, setDraft] = useState<ImportDraft>(() => {
+  const [rawDraft, setDraft] = useState<ImportDraft>(() => {
     const fresh = initialImportDraft();
     if (!onlyHost) return loadHostChoice(fresh);
     // A host view imports that host only.
     for (const host of IMPORT_HOSTS) fresh.hosts[host].enabled = host === onlyHost;
     return fresh;
   });
+  // Skill turns count only while recording is on; the tick itself is kept as the user left it.
+  const { snapshot: settings } = useSkillSettings();
+  const recording = settings?.settings?.skillLearning?.value === true;
+  const withRecording = (value: ImportDraft): ImportDraft =>
+    recording ? value : { ...value, skills: false };
+  const draft = withRecording(rawDraft);
   const [advanced, setAdvanced] = useState(false);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [job, setJob] = useState<ImportJob | null>(null);
@@ -89,9 +89,11 @@ export function ImportSection({
   const view = jobForHost(job, onlyHost);
   const hosts = IMPORT_HOSTS.filter((host) => draft.hosts[host].enabled);
   const shownHosts = onlyHost ? [onlyHost] : IMPORT_HOSTS;
+  // Only the user's own tick is saved; the profile-only preset clears it for this visit.
+  const savedSkills = useRef(rawDraft.skills);
   useEffect(() => {
-    if (!onlyHost) saveHostChoice(draft);
-  }, [draft, onlyHost]);
+    if (!onlyHost) saveHostChoice({ ...rawDraft, skills: savedSkills.current });
+  }, [rawDraft, onlyHost]);
   const running =
     job?.state === "running" ||
     job?.state === "cancelling" ||
@@ -150,12 +152,13 @@ export function ImportSection({
   useEffect(() => {
     if (!profilePreset) return;
     setDraft((previous) =>
-      applyDraftChange(previous, { memories: false, profile: true, force: true })
+      applyDraftChange(previous, { memories: false, profile: true, skills: false, force: true })
     );
     setPreview(null);
   }, [profilePreset]);
 
   function change(patch: Partial<ImportDraft>) {
+    if (patch.skills !== undefined) savedSkills.current = patch.skills;
     setPreview(null);
     setDraft((previous) => applyDraftChange(previous, patch));
   }
@@ -189,7 +192,7 @@ export function ImportSection({
       });
       if (!mounted.current || listingVersions.current[host] !== version) return;
       setDraft((previous) => {
-        if (membership(previous, host) !== listedWith) return previous;
+        if (membership(withRecording(previous), host) !== listedWith) return previous;
         const child = previous.hosts[host];
         const merged = mergeListing(child.page, result, refresh);
         return {
@@ -232,27 +235,7 @@ export function ImportSection({
       return null;
     })
     .find(Boolean);
-  const modelBlocked = hosts
-    .map((host) => {
-      const model = draft.hosts[host].modelChoice;
-      let reason: string | null = null;
-      if (!readiness) reason = "Model readiness is unknown. Reload the page.";
-      else if (!model)
-        reason =
-          "No import model is ready. Connect a model in OpenCode or complete the external API settings.";
-      else if (model === "external" && readiness.external.state !== "ready")
-        reason = EXTERNAL_REASONS[readiness.external.state] ?? "The external API is not ready";
-      else if (host === "claude-code" && model !== "external")
-        reason = "Claude Code imports use the external API. Complete the external API settings.";
-      else if (
-        model !== "external" &&
-        !readiness.opencode.models.some((item) => `${item.provider}/${item.model}` === model)
-      )
-        reason =
-          "No import model is ready. Connect a model in OpenCode or complete the external API settings.";
-      return reason ? `${hostLabel(host)}: ${s(reason)}` : null;
-    })
-    .find(Boolean);
+  const modelBlocked = modelBlockedReason(hosts, draft, readiness, s);
   const previewReady = Boolean(
     preview &&
     preview.fingerprint === fingerprint &&
@@ -275,7 +258,11 @@ export function ImportSection({
   async function start(dryRun: boolean) {
     if (submitting.current || disabled || (!dryRun && (!previewReady || modelBlocked))) return;
     if (!dryRun) {
-      const outputs = [draft.memories && s("Project memories"), draft.profile && s("User profile")]
+      const outputs = [
+        draft.memories && s("Project memories"),
+        draft.profile && s("User profile"),
+        draft.skills && s("Skill turns"),
+      ]
         .filter(Boolean)
         .join(" · ");
       const models = hosts
@@ -284,7 +271,10 @@ export function ImportSection({
             `${hostLabel(host)}: ${draft.hosts[host].modelChoice === "external" ? `${s("Saved external API")} (${readiness?.external.provider}/${readiness?.external.model})` : draft.hosts[host].modelChoice}`
         )
         .join("\n");
+      // A run that records only skill turns calls no model, so it needs no warning.
+      const callsModel = draft.memories || draft.profile;
       if (
+        callsModel &&
         !window.confirm(
           [
             s("This import makes model calls. Continue?"),
@@ -433,6 +423,7 @@ export function ImportSection({
       )}
       <ImportOptions
         draft={draft}
+        skillRecording={recording}
         advanced={advanced}
         onChange={change}
         onAdvanced={() => setAdvanced((value) => !value)}

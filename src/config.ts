@@ -9,6 +9,10 @@ import { isPlaceholderApiKey } from "./services/ai/api-key-placeholder.js";
 import { getAutoCaptureProviderStatus } from "./services/ai/live-model-choice.js";
 import { parseBackfillModel } from "./importer/backfill-model.js";
 import { parseIgnoredDirectories, parseImportPathMaps } from "./importer/import-path-maps.js";
+import {
+  normaliseSkillConfig,
+  projectSkillOverride,
+} from "./services/skill-learning/skill-config.js";
 import { checkedMemoryLimit, MEMORY_LIMITS, type MemoryLimitRule } from "./utils/memory-limits.js";
 import { defaultSimilarityThreshold } from "./utils/threshold-default.js";
 import { RERANKER_TIMEOUT_DEFAULT_MS } from "./services/request-timeouts.js";
@@ -105,6 +109,12 @@ interface OmmsConfig {
   captureAttemptRetentionDays?: number;
   /** Hours to keep failed live captures for retry. 0 turns the queue off. Global config only. */
   captureRetryRetentionHours?: number;
+  /** Record full turns into skills.db (ADR-036). A project can only turn it off. */
+  skillLearning?: boolean;
+  /** Remove `<private>` text and secrets from recorded turns. Default true. Global config only. */
+  skillLearningRedact?: boolean;
+  /** Folders OMMS reads skills from. Absolute or `~/`. Unset: the shared and Claude Code skill folders. Global config only. */
+  skillFolders?: string[];
   autoBackfill?: boolean;
   opencodeBackfillModel?: string;
   piBackfillModel?: string;
@@ -191,6 +201,7 @@ const DEFAULTS: Required<
     | "webServerAuthPassword"
     | "webServerAuthUsername"
     | "webServerApiToken"
+    | "skillFolders"
   >
 > & {
   embeddingApiUrl?: string;
@@ -216,6 +227,7 @@ const DEFAULTS: Required<
   webServerAuthPassword?: string;
   webServerAuthUsername?: string;
   webServerApiToken?: string;
+  skillFolders?: string[];
   memory?: {
     defaultScope?: "project" | "all-projects";
   };
@@ -246,6 +258,8 @@ const DEFAULTS: Required<
   captureTraceRetentionDays: 7,
   captureAttemptRetentionDays: 30,
   captureRetryRetentionHours: 72,
+  skillLearning: false,
+  skillLearningRedact: true,
   autoBackfill: true,
   opencodeBackfillModel: "inherit",
   piBackfillModel: "inherit",
@@ -310,6 +324,16 @@ function expandPath(path: string): string {
     return homedir();
   }
   return path;
+}
+
+function storagePathFrom(fileConfig: OmmsConfig): string {
+  return fileConfig.storagePath ? expandPath(fileConfig.storagePath) : resolveDefaultStoragePath();
+}
+
+/** Keeps skills.db in the global storage path when a project config moves storagePath (ADR-036). */
+function withSkillStorage<T extends { storagePath: string }>(config: T, global: OmmsConfig): T {
+  const path = storagePathFrom(global);
+  return { ...config, skillStoragePath: path === config.storagePath ? undefined : path };
 }
 
 /**
@@ -552,9 +576,9 @@ function buildConfig(fileConfig: OmmsConfig) {
   }
 
   return {
-    storagePath: fileConfig.storagePath
-      ? expandPath(fileConfig.storagePath)
-      : resolveDefaultStoragePath(),
+    storagePath: storagePathFrom(fileConfig),
+    /** The global `storagePath` when a project moved `storagePath`; `skills.db` stays there. */
+    skillStoragePath: undefined as string | undefined,
     userEmailOverride: fileConfig.userEmailOverride,
     userNameOverride: fileConfig.userNameOverride,
     embeddingModel: fileConfig.embeddingModel ?? DEFAULTS.embeddingModel,
@@ -618,6 +642,7 @@ function buildConfig(fileConfig: OmmsConfig) {
     captureRetryRetentionHours: normalizeCaptureRetryRetentionHours(
       fileConfig.captureRetryRetentionHours
     ),
+    ...normaliseSkillConfig(fileConfig),
     autoBackfill: fileConfig.autoBackfill ?? DEFAULTS.autoBackfill,
     opencodeBackfillModel: fileConfig.opencodeBackfillModel ?? DEFAULTS.opencodeBackfillModel,
     piBackfillModel: fileConfig.piBackfillModel ?? DEFAULTS.piBackfillModel,
@@ -729,6 +754,7 @@ export function validateGlobalConfig(value: unknown): void {
 
 const _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
 let lastFileConfig: OmmsConfig = _globalFileConfig;
+let lastGlobalFileConfig: OmmsConfig = _globalFileConfig;
 export let CONFIG = buildConfig(_globalFileConfig);
 
 type RuntimeConfig = ReturnType<typeof buildConfig>;
@@ -818,6 +844,15 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   delete projectOverrides.captureTraceRetentionDays;
   // The queue holds conversation text, so only the global file sets how long.
   delete projectOverrides.captureRetryRetentionHours;
+  // Skill learning stores full turns: a project may only turn it off.
+  const skillRule = projectSkillOverride(projectConfig);
+  if (skillRule.ignoredTurnOn) {
+    log("Project config cannot turn on skillLearning; the value was ignored", { directory });
+  }
+  delete projectOverrides.skillLearning;
+  delete projectOverrides.skillLearningRedact;
+  delete projectOverrides.skillFolders;
+  Object.assign(projectOverrides, skillRule.override);
   delete projectOverrides.autoBackfill;
   delete projectOverrides.opencodeBackfillModel;
   delete projectOverrides.piBackfillModel;
@@ -836,8 +871,9 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   delete projectOverrides.webServerAutoStart;
   delete projectOverrides.webServerEnabled;
   const merged: OmmsConfig = { ...globalConfig, ...projectOverrides };
-  const nextConfig = buildConfig(merged);
+  const nextConfig = withSkillStorage(buildConfig(merged), globalConfig);
   lastFileConfig = merged;
+  lastGlobalFileConfig = globalConfig;
   CONFIG = nextConfig;
   lastConfigDirectory = directory;
   lastConfigSignature = configSignature(directory);
@@ -849,7 +885,7 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
  * ~/.omms/data when the migration marker says it succeeded.
  */
 function refreshStorageResolution(): void {
-  CONFIG = buildConfig(lastFileConfig);
+  CONFIG = withSkillStorage(buildConfig(lastFileConfig), lastGlobalFileConfig);
 }
 
 /**

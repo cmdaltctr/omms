@@ -74,7 +74,7 @@ it("names every settings card once, with a unique anchor", () => {
   const ids = SETTINGS_SECTIONS.map((section) => section.id);
   expect(new Set(ids).size).toBe(ids.length);
   expect(SETTINGS_SECTIONS.map((section) => section.title)).toContain("Keys and access");
-  expect(SETTINGS_SECTIONS.length).toBe(12);
+  expect(SETTINGS_SECTIONS.length).toBe(13);
 });
 
 it("shows Settings in the main menu, opened on the settings page", () => {

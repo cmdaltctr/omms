@@ -44,6 +44,9 @@ const editable = [
   "rerankerModel",
   "rerankerTimeoutMs",
   "keywordMode",
+  "skillLearning",
+  "skillLearningRedact",
+  "skillFolders",
   ...MEMORY_LIMIT_SETTINGS,
 ] as const;
 
@@ -66,6 +69,8 @@ const globalOnly = [
   "rerankerModel",
   "rerankerApiKey",
   "rerankerTimeoutMs",
+  "skillLearningRedact",
+  "skillFolders",
 ];
 
 function readSettingsFile(path: string | undefined): Record<string, unknown> {
@@ -132,7 +137,8 @@ export function getSettingsSnapshot(directory: string) {
       }
       const projectOverrides =
         Object.hasOwn(project, key) &&
-        (key === "captureTrace"
+        // A project may turn these off, never on.
+        (key === "captureTrace" || key === "skillLearning"
           ? project[key] === false
           : !key.endsWith("RetentionDays") && !globalOnly.includes(key));
       const source = projectOverrides

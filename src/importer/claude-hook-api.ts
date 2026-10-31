@@ -2,7 +2,7 @@ import { realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { CONFIG, refreshConfigIfChanged } from "../config.js";
-import { captureConversation, type CaptureResult, type CaptureWorkUnit } from "../core/capture.js";
+import type { CaptureResult, CaptureWorkUnit } from "../core/capture.js";
 import { classifyCaptureFailure, quickRetryDelayMs } from "../core/capture-retry-policy.js";
 import type { CaptureSummaryProvider } from "../core/host.js";
 import type { ModelPort } from "../core/profile-analysis.js";
@@ -11,9 +11,9 @@ import {
   buildRetrievalSection,
   formatMemoriesForCompaction,
   retrievalWrapperBytes,
-  stripRetrievalSections,
   wrapRetrievalSection,
 } from "../core/retrieval.js";
+import { handleFinishedTurn } from "../core/turn-outputs.js";
 import { DEFAULT_RETRIEVAL_MAX_TOKENS, tokensToByteCeiling } from "../core/context-budget.js";
 import { resolveClaudeCodeLiveModel } from "../services/ai/live-model-choice.js";
 import {
@@ -30,14 +30,17 @@ import {
 import { memoryClient } from "../services/client.js";
 import { log } from "../services/logger.js";
 import { isFullyPrivate, stripPrivateContent } from "../services/privacy.js";
+import { skillTurnRecorder } from "../services/skill-learning/settings-for.js";
 import { getTags } from "../services/tags.js";
-import {
-  extractClaudeWindowsAfter,
-  parseClaudeTranscript,
-  type ClaudeConversationWindow,
-  type ClaudeTranscriptEntry,
-} from "./claude-conversation.js";
+import { parseClaudeTranscript, type ClaudeTranscriptEntry } from "./claude-conversation.js";
 import { learnClaudeProfile } from "./claude-profile-learning.js";
+import {
+  claudeWindowsToCapture,
+  recordClaudeSkillTurns,
+  sessionDirectory,
+  skillUnitOf,
+  workUnitOf,
+} from "./claude-turn-units.js";
 import { defaultClaudeProjectsRoot } from "./claude-reader.js";
 
 // The web app's side of the Claude Code hooks (design decisions 4, 6, 7):
@@ -340,75 +343,22 @@ async function readTranscript(request: CaptureRequest): Promise<ClaudeTranscript
   return parsed.entries;
 }
 
-/**
- * The windows after the cursor. The transcript file can lag the hook, so the
- * hook's final text is added as a last assistant reply when the transcript
- * does not already end with it. It carries no entry id, so `sourceEntryIds`
- * stay the reader's ids.
- */
-export function claudeWindowsToCapture(
-  entries: ClaudeTranscriptEntry[],
-  cursor: string | null,
-  finalText: string | undefined
-): ClaudeConversationWindow[] {
-  const tail = finalText?.trim();
-  if (!tail) return extractClaudeWindowsAfter(entries, cursor);
-  const hookReply: ClaudeTranscriptEntry = {
-    type: "assistant",
-    message: { role: "assistant", content: [{ type: "text", text: tail }] },
-  };
-  const windows = extractClaudeWindowsAfter([...entries, hookReply], cursor);
-  const last = windows.at(-1);
-  const replies = last?.textResponses ?? [];
-  if (replies.length > 1 && replies[replies.length - 2]!.trim().endsWith(tail)) replies.pop();
-  return windows;
-}
-
-/**
- * The project a session belongs to: the first prompt's directory, the same rule
- * the history import uses. Live capture must file a turn under the project the
- * import would choose, or the import cannot see that the turn is already saved.
- */
-function sessionDirectory(entries: ClaudeTranscriptEntry[], fallback: string): string {
-  const first = entries.find((entry) => entry.type === "user" && entry.isSidechain !== true);
-  return typeof first?.cwd === "string" && first.cwd ? first.cwd : fallback;
-}
-
-/** A cleaned work unit, or null for a prompt with nothing left to capture. */
-function workUnitOf(
-  request: CaptureRequest,
-  window: ClaudeConversationWindow,
-  directory: string
-): CaptureWorkUnit | null {
-  const prompt = stripRetrievalSections(window.userPrompt);
-  if (!prompt || isFullyPrivate(prompt)) return null;
-  return {
-    host: HOST,
-    hostSessionId: request.sessionId,
-    sourceType: "live-capture",
-    projectDirectory: directory,
-    userPrompt: stripPrivateContent(prompt),
-    promptId: window.userEntryId,
-    textResponses: window.textResponses.map(stripPrivateContent),
-    toolCalls: window.toolCalls.map((call) => ({
-      name: call.name,
-      input: stripPrivateContent(call.input),
-    })),
-    sourceEntryIds: window.sourceEntryIds,
-    ...(window.sourceTimestamp !== undefined ? { sourceTimestamp: window.sourceTimestamp } : {}),
-  };
-}
-
 /** Try the turn up to `autoCaptureMaxRetries` times, as the other hosts do. */
 async function captureWithQuickRetries(
   unit: CaptureWorkUnit,
   provider: CaptureSummaryProvider,
-  sleep: (ms: number) => Promise<void>
+  sleep: (ms: number) => Promise<void>,
+  recordSkillTurn: (() => Promise<unknown>) | undefined
 ): Promise<CaptureResult> {
   const maxRetries = Math.max(1, CONFIG.autoCaptureMaxRetries ?? 3);
   for (let attempt = 1; ; attempt++) {
     try {
-      return await captureConversation(unit, provider);
+      const skills = recordSkillTurn !== undefined;
+      return await handleFinishedTurn(
+        unit,
+        { memories: true, skills },
+        { provider, recordSkillTurn }
+      );
     } catch (error) {
       if (attempt >= maxRetries) throw error;
       await sleep(quickRetryDelayMs(attempt));
@@ -421,14 +371,22 @@ async function externalModels(): Promise<{ capture: CaptureSummaryProvider; prof
   return selectImportModel({});
 }
 
+/** Memory capture is on and ready. Logs why when it is not, as before. */
+function memoryCaptureOn(request: CaptureRequest): boolean {
+  if (!CONFIG.autoCaptureEnabled) return false;
+  const live = resolveClaudeCodeLiveModel(CONFIG);
+  if (!live.ready) reportCaptureOff(live.issues);
+  else if (memoryClient.getEmbeddingInitError?.()) skipped(request, "not-ready");
+  else return true;
+  return false;
+}
+
 async function captureTurn(request: CaptureRequest, deps: ClaudeHookDeps): Promise<void> {
   const started = Date.now();
   refreshConfigIfChanged(request.cwd);
-  if (!CONFIG.autoCaptureEnabled) return;
-  const live = resolveClaudeCodeLiveModel(CONFIG);
-  if (!live.ready) return reportCaptureOff(live.issues);
-  if (memoryClient.getEmbeddingInitError?.()) return skipped(request, "not-ready");
-
+  const memories = memoryCaptureOn(request);
+  // Skill learning records turns even when memory capture is off (ADR-036).
+  if (!memories && !CONFIG.skillLearning) return;
   const entries = await readTranscript(request);
   if (!entries) return;
   const cursor = await readClaudeCaptureCursor(request.sessionId, CONFIG);
@@ -440,27 +398,36 @@ async function captureTurn(request: CaptureRequest, deps: ClaudeHookDeps): Promi
     return;
   }
   const directory = sessionDirectory(entries, request.cwd);
-
+  const recorder = skillTurnRecorder(directory);
+  const recordOnly = (only: typeof windows) =>
+    recordClaudeSkillTurns(only, request.sessionId, directory, recorder);
+  if (!memories) return recordOnly(windows);
   let provider: CaptureSummaryProvider;
   try {
     provider = deps.captureProvider?.() ?? (await externalModels()).capture;
   } catch (error) {
-    return skipped(request, "model-unavailable", { error: errorCode(error) });
+    skipped(request, "model-unavailable", { error: errorCode(error) });
+    return recordOnly(windows);
   }
 
   const sleep = deps.sleep ?? ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
   const counts = { captured: 0, skipped: 0, failed: 0, private: 0, queued: 0 };
   let blocked: unknown = null;
   for (const window of windows) {
-    const unit = workUnitOf(request, window, directory);
+    const unit = workUnitOf(request.sessionId, window, directory);
     if (!unit) {
       counts.private++;
+      await recordOnly([window]);
     } else if (blocked) {
       // The model is out of reach: queue the rest of the turns without calling it.
+      await recordOnly([window]);
       if (await queueFailedCapture(unit, blocked, CONFIG)) counts.queued++;
     } else {
       try {
-        const result = await captureWithQuickRetries(unit, provider, sleep);
+        // Memory capture reads the cleaned unit; skill learning records the raw one.
+        const record =
+          recorder && (() => recorder(skillUnitOf(request.sessionId, window, directory)));
+        const result = await captureWithQuickRetries(unit, provider, sleep, record);
         counts[result.status]++;
         await recordPrompt(request, unit, result.status === "captured" ? result.memoryId : null);
       } catch (error) {

@@ -57,6 +57,11 @@ export interface ImportMatchOptions {
   outputs?: ImportOutputs;
   /** A forced run re-analyses handled history, so it keeps handled sessions. */
   force?: boolean;
+  /**
+   * The run writes skill turns only. Skill turns need no project folder, so a
+   * session whose folder is gone matches under its recorded path.
+   */
+  skillTurnsOnly?: boolean;
 }
 
 export class StaleSelectionError extends Error {
@@ -71,8 +76,10 @@ interface Matched {
   identity: ImportSourceIdentity;
   /** Resolvable sessions in scope, newest first. */
   matching: ImportSessionRow[];
-  /** Sessions whose directory cannot be resolved, in any scope. */
+  /** Sessions this run cannot use because their directory cannot be resolved, in any scope. */
   unresolved: ImportSessionRow[];
+  /** Every session whose directory cannot be resolved; feeds the Directory maps list. */
+  missing: ImportSessionRow[];
   revision: string;
 }
 
@@ -165,8 +172,13 @@ export async function matchImportSessions(
   const { runPathMaps } = await import("./import-path-maps.js");
   const merged = { ...options, pathMaps: await runPathMaps(options.pathMaps, options.cwd) };
   const rows = await readRows(identity, merged, snapshotMode);
-  const unresolved = rows.filter((row) => row.directory === null);
-  const matching = rows
+  const missing = rows.filter((row) => row.directory === null);
+  // `via` stays "unresolved", so a kept row still shows its folder is gone.
+  const usable = options.skillTurnsOnly
+    ? rows.map((row) => (row.directory ? row : { ...row, directory: row.recordedDirectory }))
+    : rows;
+  const unresolved = usable.filter((row) => row.directory === null);
+  const matching = usable
     .filter((row) => row.directory !== null)
     .filter((row) => projectTag === null || projectFilterTag(row.directory!) === projectTag)
     .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0) || a.key.localeCompare(b.key));
@@ -174,6 +186,7 @@ export async function matchImportSessions(
     identity,
     matching,
     unresolved,
+    missing,
     revision: revisionOf(
       identity,
       merged,
@@ -255,7 +268,13 @@ export function validateSessionListRequest(value: unknown): SessionListRequest {
       throw new Error(`Invalid ${key}`);
     }
   }
-  for (const key of ["skipMemories", "skipProfile", "force", "includeHandled"] as const) {
+  for (const key of [
+    "skipMemories",
+    "skipProfile",
+    "force",
+    "includeHandled",
+    "skillTurnsOnly",
+  ] as const) {
     if (input[key] !== undefined && typeof input[key] !== "boolean") {
       throw new Error(`Invalid ${key}`);
     }
@@ -274,6 +293,7 @@ export function validateSessionListRequest(value: unknown): SessionListRequest {
       pathMaps: maps as ImportPathMap[],
       outputs: { memories: input.skipMemories !== true, profile: input.skipProfile !== true },
       ...(force ? { force } : {}),
+      ...(input.skillTurnsOnly === true ? { skillTurnsOnly: true } : {}),
     },
   };
 }
@@ -312,7 +332,7 @@ export async function listImportSessions(
   await recordUnresolvedDirectories(
     options.host,
     summarizeUnresolvedDirectories(
-      matched.unresolved.map((row) => ({ directory: row.recordedDirectory }))
+      matched.missing.map((row) => ({ directory: row.recordedDirectory }))
     )
   ).catch(() => {});
   const handled = await handledKeys(matched.matching, options.outputs ?? ALL_OUTPUTS);

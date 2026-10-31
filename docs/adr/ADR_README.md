@@ -39,3 +39,4 @@ Local decision records for OMMS maintainers.
 | [033](./033-chat-uses-the-model-to-plan-search-hooks-do-not.md)             | Chat uses the model to plan its search; the hooks do not                        | 2026-10-18 | Accepted           |
 | [034](./034-hook-search-uses-a-keyword-index-and-relevant-profile-items.md) | Hook search uses a keyword index and relevant profile items, with no model call | 2026-10-18 | Accepted           |
 | [035](./035-macos-smoke-does-not-gate-npm.md)                               | The macOS release smoke does not gate npm                                       | 2026-10-30 | Accepted           |
+| [036](./036-skill-learning-stores-full-turns-in-skills-db.md)               | Skill learning stores full turns in skills.db                                   | 2026-10-30 | Accepted           |

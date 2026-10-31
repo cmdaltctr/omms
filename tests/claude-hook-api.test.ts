@@ -658,6 +658,147 @@ scenario = { calls: calls.length, off };
   });
 });
 
+// Skill learning at the Stop hook (task 3.4). `skillTurns()` reads skills.db directly.
+const SKILL_HELPERS = `
+const { tursoConnectionManager } = await import(${JSON.stringify(moduleUrl("src/services/turso/connection-manager.js"))});
+const { existsSync } = await import("node:fs");
+const skillsDb = join(config.CONFIG.storagePath, "skills.db");
+async function skillTurns() {
+  if (!existsSync(skillsDb)) return null;
+  const db = await tursoConnectionManager.getConnection(skillsDb);
+  const rows = await db.all("SELECT turn_key, prompt, replies_json FROM turns ORDER BY id");
+  const tools = await db.all("SELECT name, outcome, error FROM tool_calls ORDER BY id");
+  return { rows: rows.map((r) => ({ ...r })), tools: tools.map((t) => ({ ...t })) };
+}
+function toolTurn(id, prompt) {
+  appendFileSync(transcript, entry("user", "u-" + id, prompt));
+  appendFileSync(transcript, entry("assistant", "a-" + id, [{ type: "tool_use", id: "t-" + id, name: "Bash", input: { command: "false" } }]));
+  appendFileSync(transcript, entry("user", "r-" + id, [{ type: "tool_result", tool_use_id: "t-" + id, is_error: true, content: "exit 1" }]));
+  appendFileSync(transcript, entry("assistant", "b-" + id, [{ type: "text", text: "It failed" }]));
+}
+`;
+const SKILLS_ON = { ...EXTERNAL_API, skillLearning: true };
+
+describe("Claude Code skill turns", () => {
+  it("sends the same memory request with skills on and off, and records the raw turn", async () => {
+    const code = `${SKILL_HELPERS}
+toolTurn("1", "Run the check\\n<omms-retrieval>\\ninjected memory text\\n</omms-retrieval>");
+await capture();
+scenario = { calls, memories: (await stored()).map((m) => m.summary), skills: await skillTurns() };
+`;
+    const on = await createHarness(SKILLS_ON).run(code);
+    const off = await createHarness().run(code);
+    expect(on.calls).toEqual(off.calls);
+    expect(on.memories).toEqual(off.memories);
+    expect(off.skills).toBeNull();
+    expect(on.skills.rows).toHaveLength(1);
+    expect(on.skills.rows[0].turn_key).toBe("claude-code:ses-1:u-1");
+    expect(on.skills.rows[0].prompt).toBe("Run the check");
+    expect(on.skills.tools).toEqual([{ name: "Bash", outcome: "error", error: "exit 1" }]);
+  });
+
+  it("records a turn the memory extractor skips", async () => {
+    const scenario = await createHarness(SKILLS_ON).run(`${SKILL_HELPERS}
+provider.summarize = async () => ({ summary: "", type: "skip", tags: [] });
+turn("1", "Just saying hi", "Hello");
+await capture();
+scenario = { memories: (await stored()).length, skills: await skillTurns() };
+`);
+    expect(scenario.memories).toBe(0);
+    expect(scenario.skills.rows).toHaveLength(1);
+  });
+
+  it("logs skill-record-failed and still saves the memory when skills.db cannot open", async () => {
+    const scenario = await createHarness(SKILLS_ON).run(`${SKILL_HELPERS}
+mkdirSync(skillsDb, { recursive: true });
+turn("1", "Question", "Answer");
+await capture();
+scenario = {
+  memories: (await stored()).length,
+  failed: logs.filter((l) => l.data?.code === "skill-record-failed").length,
+};
+`);
+    expect(scenario).toEqual({ memories: 1, failed: 1 });
+  });
+
+  it("keeps one row when a quick retry runs the turn again", async () => {
+    const scenario = await createHarness({ ...SKILLS_ON, autoCaptureMaxRetries: 3 })
+      .run(`${SKILL_HELPERS}
+let failures = 1;
+const summarize = provider.summarize;
+provider.summarize = async (request) => {
+  if (failures-- > 0) throw new Error("model hiccup");
+  return summarize(request);
+};
+turn("1", "Question", "Answer");
+api.handleClaudeCapture(
+  { session_id: "ses-1", transcript_path: transcript, cwd: projectDir },
+  { captureProvider: () => provider, sleep: async () => {} }
+);
+await api.whenClaudeCaptureIdle();
+scenario = { memories: (await stored()).length, skills: await skillTurns() };
+`);
+    expect(scenario.memories).toBe(1);
+    expect(scenario.skills.rows).toHaveLength(1);
+  });
+
+  it("records private turns and turns after a blocked model", async () => {
+    const scenario = await createHarness({ ...SKILLS_ON, skillLearningRedact: false })
+      .run(`${SKILL_HELPERS}
+turn("1", "First question", "First answer");
+await capture();
+turn("2", "<private>whole secret</private>", "Secret reply");
+turn("3", "Third question", "Third answer");
+turn("4", "Fourth question", "Fourth answer");
+failWith = new Error("fetch failed");
+await capture();
+scenario = { calls: calls.length, skills: await skillTurns() };
+`);
+    // Turn 3 meets the outage, so turn 4 is queued without a model call.
+    expect(scenario.calls).toBe(2);
+    expect(scenario.skills.rows.map((r: any) => r.turn_key)).toEqual([
+      "claude-code:ses-1:u-1",
+      "claude-code:ses-1:u-2",
+      "claude-code:ses-1:u-3",
+      "claude-code:ses-1:u-4",
+    ]);
+    expect(scenario.skills.rows[1].prompt).toBe("<private>whole secret</private>");
+  });
+
+  it("records the last turn without moving the cursor when capture is off", async () => {
+    const scenario = await createHarness({ ...SKILLS_ON, autoCaptureEnabled: false })
+      .run(`${SKILL_HELPERS}
+const { readClaudeCaptureCursor } = await import(${JSON.stringify(moduleUrl("src/services/claude-capture-cursor.js"))});
+turn("1", "First question", "First answer");
+turn("2", "Second question", "Second answer");
+await capture();
+turn("3", "Third question", "Third answer");
+await capture();
+scenario = {
+  calls: calls.length,
+  cursor: await readClaudeCaptureCursor("ses-1", config.CONFIG),
+  keys: (await skillTurns()).rows.map((r) => r.turn_key),
+};
+`);
+    expect(scenario).toEqual({
+      calls: 0,
+      cursor: null,
+      keys: ["claude-code:ses-1:u-2", "claude-code:ses-1:u-3"],
+    });
+  });
+
+  it("records turns when the external API is not configured", async () => {
+    const { memoryApiKey: _omit, ...halfConfigured } = EXTERNAL_API;
+    const scenario = await createHarness({ ...halfConfigured, skillLearning: true })
+      .run(`${SKILL_HELPERS}
+turn("1", "Question", "Answer");
+await capture();
+scenario = { calls: calls.length, rows: (await skillTurns()).rows.length };
+`);
+    expect(scenario).toEqual({ calls: 0, rows: 1 });
+  });
+});
+
 describe("Claude Code hook routes", () => {
   it("serves retrieve and capture with the token and rejects them without it", async () => {
     const { run } = createHarness();

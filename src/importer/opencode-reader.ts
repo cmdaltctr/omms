@@ -3,6 +3,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
+import { boundToolInput, readToolPath } from "../core/tool-input.js";
+import { opencodeToolOutcome } from "../core/tool-outcome.js";
 import { INTERNAL_CAPTURE_SESSION_TITLES } from "./opencode-internal-sessions.js";
 import type { ImportWindow } from "./importer.js";
 import {
@@ -98,9 +100,8 @@ function parseData(json: string): Record<string, unknown> {
   }
 }
 
-function boundInput(value: unknown): string {
-  const text = typeof value === "string" ? value : JSON.stringify(value ?? "");
-  return text.length > 100 ? `${text.slice(0, 100)}...` : text;
+function formatInput(value: unknown): string {
+  return typeof value === "string" ? value : JSON.stringify(value ?? "");
 }
 
 function buildWindows(
@@ -167,9 +168,14 @@ function buildWindows(
           part.state && typeof part.state === "object"
             ? (part.state as Record<string, unknown>)
             : {};
+        const name = String(part.tool ?? part.name ?? part.type);
+        const args = state.input ?? part.input ?? "";
+        const path = readToolPath(name, args);
         current.toolCalls.push({
-          name: String(part.tool ?? part.name ?? part.type),
-          input: boundInput(state.input ?? part.input ?? ""),
+          name,
+          input: boundToolInput(formatInput(args)),
+          ...opencodeToolOutcome(state),
+          ...(path === undefined ? {} : { path }),
         });
       }
     }

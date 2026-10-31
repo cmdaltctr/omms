@@ -14,8 +14,12 @@ import {
 
 export type ImportSurface = "auto" | "web" | "cli" | "slash";
 export type ImportRunState = "running" | "paused" | "stopped" | "done" | "failed";
-/** A run imports exchanges first, then learns the profile from the imported prompts. */
-export type ImportRunPhase = "exchanges" | "profile";
+/**
+ * A run imports exchanges first, then learns the profile from the imported
+ * prompts. A run without memories that records skill turns starts in
+ * `skill-turns` instead of `exchanges`.
+ */
+export type ImportRunPhase = "exchanges" | "skill-turns" | "profile";
 
 export interface ImportRunCounts {
   total: number;
@@ -104,7 +108,7 @@ export async function readImportRun(host: BackfillHost): Promise<ImportRun | nul
     failed: Number(row.failed),
     error: row.error === null ? null : String(row.error),
     paused: Number(row.paused) === 1,
-    phase: row.phase === "profile" ? "profile" : "exchanges",
+    phase: row.phase === "profile" || row.phase === "skill-turns" ? row.phase : "exchanges",
     profileDone: Number(row.profile_done ?? 0),
     profileTotal: Number(row.profile_total ?? 0),
     ...(state === "running"
@@ -156,6 +160,8 @@ export async function startImportRun(
     intervalMs?: number;
     sampleIntervalMs?: number;
     onPause?: () => void;
+    /** The first phase; `exchanges` unless the run records skill turns only. */
+    phase?: Exclude<ImportRunPhase, "profile">;
   } = {}
 ): Promise<ImportRunRecorder> {
   const clock = options.now ?? Date.now;
@@ -166,9 +172,9 @@ export async function startImportRun(
   await db.run(
     `UPDATE import_runs SET surface = ?, state = 'running', pid = ?, started_at = ?, total = 0,
        done = 0, imported = 0, skipped = 0, failed = 0, error = NULL, updated_at = ?, samples = '[]',
-       phase = 'exchanges', profile_done = 0, profile_total = 0
+       phase = ?, profile_done = 0, profile_total = 0
      WHERE host = ?`,
-    [surface, process.pid, startedAt, startedAt, host]
+    [surface, process.pid, startedAt, startedAt, options.phase ?? "exchanges", host]
   );
   let samples: ProgressSample[] = [];
   let lastWrite = Number.NEGATIVE_INFINITY;

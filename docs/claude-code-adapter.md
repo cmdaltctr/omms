@@ -9,7 +9,7 @@ The plugin is a set of shell hooks, one skill, and one small module. Each hook
 runs the launcher in the plugin, which runs the
 `om-memory-system claude-hook <event>` command. The command sends the event to
 the OMMS web app, and the web app does the memory work. The module draws the
-status line and the recall rows, and gives Claude a `memory` tool. The plugin
+status line and the recall rows, and gives Claude a `memory` and a `skills` tool. The plugin
 has no MCP server, and it never changes `CLAUDE.md`.
 
 The plugin is tested against Claude Code **2.1.296**. The transcript reader
@@ -19,7 +19,7 @@ targets **2.1.284**. See [Transcript format](#transcript-format).
 
 You need:
 
-- Claude Code 2.1.295 or later. The plugin module needs it for the status line, the `memory` tool and the recall rows.
+- Claude Code 2.1.295 or later. The plugin module needs it for the status line, the `memory` and `skills` tools and the recall rows.
 - Node.js 22.14 or later. The hooks run through `node`.
 - An external API for capture. See [The external API is required](#the-external-api-is-required).
 
@@ -52,9 +52,10 @@ The plugin files are in the repository root:
 | `.claude-plugin/plugin.json`      | The plugin manifest. The plugin name is `omms`.                                     |
 | `.claude-plugin/marketplace.json` | A marketplace named `omms` that lists the plugin.                                   |
 | `hooks/hooks.json`                | The `SessionStart`, `UserPromptSubmit`, and `Stop` hooks, and the module entry.     |
-| `hooks/omms.jsx`                  | The module entry. It loads the three module parts below.                            |
+| `hooks/omms.jsx`                  | The module entry. It loads the four module parts below.                             |
 | `hooks/omms-status.jsx`           | The status label. See [Status line](#status-line).                                  |
 | `hooks/omms-memory-tool.jsx`      | The `memory` tool. See [Memory tool and recall rows](#memory-tool-and-recall-rows). |
+| `hooks/omms-skills-tool.jsx`      | The `skills` tool. See [Memory tool and recall rows](#memory-tool-and-recall-rows). |
 | `hooks/omms-recall.jsx`           | The recall rows, with their parser `hooks/omms-recall-parse.js`.                    |
 | `skills/omms-memory/SKILL.md`     | The `omms-memory` skill. It tells the agent when to search and save memory.         |
 
@@ -425,6 +426,32 @@ can unfold to read the JSON result.
   the hooks. It needs no global install. It runs in the session's folder, with
   a 60 second limit.
 - When OMMS fails, Claude gets an error that starts with `memory failed:`.
+
+**The `skills` tool.** Claude sees it as `mcp__omms__skills`. It is in Claude's
+tool list from the first prompt, beside `memory`. It lists skills ranked by
+use, drafts improvements as proposals for you to review, and applies a
+proposal only when you ask.
+
+- It offers the modes `list`, `ideas`, `draft`, `evidence`, `propose`,
+  `proposals`, `show`, `apply`, `reject`, `undo`, and `help`. Its arguments
+  are `mode`, `skill`, `idea` (`name`, `description`, `reason` and
+  `evidenceTurnIds`, as `ideas` returns them), `folder`, `state`,
+  `order`, `id`, `limit`, `content`, `summary`, and `evidence`.
+- Claude can fix a skill itself with no external API call: `evidence` gives
+  the `SKILL.md` and its recorded turns, and `propose` saves Claude's fixed
+  file as a pending proposal. The turn text then enters Claude's session.
+  The tool sends `content` to the command on standard input
+  (`--content-file -`).
+- It refuses `record-past` and `delete-turns`. Run those with
+  [`om-memory-system skills`](cli.md#skill-turns) in a terminal.
+- It runs `skills <mode> ... --json --directory <session folder>` through the
+  plugin's launcher. The launcher's `npx` fallback runs from the temp folder,
+  so `--directory` names the project. The limit is 60 seconds, or 3 minutes for `ideas` and
+  `draft`, which also wait for the model.
+- On `apply` the tool passes `--applied-by agent`, so the proposal records
+  that the agent applied it, as on Pi and OpenCode.
+- When OMMS fails, or skill learning is off, Claude gets an error that starts
+  with `skills failed:`.
 
 **Recall rows.** Each recall that the hooks inject shows as one row at the top
 of the next reply:

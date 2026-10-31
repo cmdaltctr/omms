@@ -10,12 +10,20 @@ function toFileUrl(dbPath: string): string {
   return dbPath.startsWith("file:") ? dbPath : `file:${dbPath}`;
 }
 
-function assertPathInsideStorage(dbPath: string): void {
-  const storageRoot = resolve(CONFIG.storagePath);
-  const resolvedPath = resolve(dbPath);
-  const relativePath = relative(storageRoot, resolvedPath);
+function insideRoot(root: string, dbPath: string): boolean {
+  const relativePath = relative(resolve(root), resolve(dbPath));
   // Only treat path-segment traversal as escape (not filenames containing "..").
-  if (relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
+  return !(
+    relativePath === ".." ||
+    relativePath.startsWith(`..${sep}`) ||
+    isAbsolute(relativePath)
+  );
+}
+
+function assertPathInsideStorage(dbPath: string): void {
+  // skills.db stays in the global storage path when a project moves storagePath.
+  const roots = [CONFIG.storagePath, CONFIG.skillStoragePath].filter((root) => root !== undefined);
+  if (!roots.some((root) => insideRoot(root, dbPath))) {
     throw new Error(`Refusing to open database outside storagePath: ${dbPath}`);
   }
 }
@@ -70,8 +78,7 @@ export class TursoConnectionManager {
         // lock (see cross-process-write-lock.ts); the default rollback
         // journal is kept because file-level migration copies rely on the
         // main database file being current after every commit.
-        await db.execute("PRAGMA busy_timeout = 5000");
-        await db.execute("PRAGMA foreign_keys = ON");
+        await db.setConnectionPragmas(["PRAGMA busy_timeout = 5000", "PRAGMA foreign_keys = ON"]);
         this.connections.set(dbPath, db);
         return db;
       } catch (error) {

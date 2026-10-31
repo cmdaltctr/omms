@@ -1,24 +1,21 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
-import { ProfileTree, useSavedOpen } from "./ProfileTree";
+import { useSavedOpen } from "./ProfileTree";
 import { MemorySidebarLinks, type MemorySidebarSection } from "../memory/MemorySidebarLinks";
 import {
   ChevronRight,
   Brain,
-  Folder,
-  MessageSquare,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
   Sun,
-  User,
   X,
 } from "lucide-react";
 import type { Lang } from "$lib/i18n/translations";
 import { GithubIcon } from "$lib/components/icons/GithubIcon";
 import { PowerButton } from "$lib/components/explorer/PowerButton";
 import { SidebarBrand } from "$lib/components/explorer/SidebarBrand";
-import { SidebarNavLink } from "$lib/components/explorer/SidebarNavLink";
+import { mainNavEntries } from "$lib/components/explorer/sidebar-main-nav";
 import { UpdateDialog, UpdateTrigger } from "$lib/components/explorer/UpdateButton";
 import { Button } from "$lib/components/ui/button";
 import { Separator } from "$lib/components/ui/separator";
@@ -33,6 +30,7 @@ type Props = {
   projectLabel: string;
   profileLabel: string;
   chatLabel: string;
+  skillsLabel?: string;
   profileSections: { id: string; label: string }[];
   /** The Settings page cards, shown as a collapsible tree under Settings. */
   settingsSections?: { id: string; label: string }[];
@@ -93,6 +91,7 @@ export function AppSidebar({
   projectLabel,
   profileLabel,
   chatLabel,
+  skillsLabel = "Skills",
   profileSections,
   settingsSections = [],
   memoryLabel = "Memory",
@@ -315,36 +314,24 @@ export function AppSidebar({
           )}
           aria-label="Main"
         >
-          {(
-            [
-              ["project", ROUTES.project, projectLabel, Folder],
-              ["chat", ROUTES.chat, chatLabel, MessageSquare],
-              ["profile", ROUTES.profile, profileLabel, User],
-            ] as const
-          ).map(([view, href, label, icon]) => {
-            const entry = (
-              <SidebarNavLink
-                key={view}
-                {...{ href, label, icon, collapsed }}
-                active={currentView === view}
-                className={navClass(currentView === view)}
-                onNavigate={onNavClick}
-              />
-            );
-            return view === "profile" ? (
-              <ProfileTree
-                key={view}
-                link={entry}
-                sections={profileSections}
-                open={profileTreeOpen}
-                onToggle={toggleProfileTree}
-                label={profileLabel}
-                hideWhenCollapsed={onDesktop("md:hidden")}
-                onSectionClick={onSectionClick}
-              />
-            ) : (
-              entry
-            );
+          {mainNavEntries({
+            currentView,
+            labels: {
+              project: projectLabel,
+              chat: chatLabel,
+              profile: profileLabel,
+              skills: skillsLabel,
+            },
+            collapsed,
+            navClass,
+            onNavigate: onNavClick,
+            profileTree: {
+              sections: profileSections,
+              open: profileTreeOpen,
+              onToggle: toggleProfileTree,
+              hideWhenCollapsed: onDesktop("md:hidden"),
+              onSectionClick,
+            },
           })}
           <div className="flex items-center gap-0.5">
             <a
