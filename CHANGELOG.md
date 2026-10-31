@@ -2,6 +2,20 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.33.0](https://github.com/cmdaltctr/omms/compare/v4.32.0...v4.33.0) (2026-10-31)
+
+
+### Features
+
+* mark modified skills in the skills API ([ff5791a](https://github.com/cmdaltctr/omms/commit/ff5791a0d5ec8c85e31f7f80562b1a21daa91a4b))
+* show modified skills, filters and compact proposal cards ([1a425ee](https://github.com/cmdaltctr/omms/commit/1a425eea5647f75cf02201956c518f25902a6168))
+* show modified skills, filters and compact proposal cards ([5a19b84](https://github.com/cmdaltctr/omms/commit/5a19b84b95cacacc20661434041f73a513238fd1))
+
+
+### Bug Fixes
+
+* address review on the modified skills change ([f57b6c3](https://github.com/cmdaltctr/omms/commit/f57b6c30ce181119a3deebab55b7afd3119b99f8))
+
 ## [4.32.0](https://github.com/cmdaltctr/omms/compare/v4.31.2...v4.32.0) (2026-10-31)
 
 
