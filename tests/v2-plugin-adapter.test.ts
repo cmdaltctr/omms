@@ -197,25 +197,14 @@ describe("OpenCode v2 plugin adapter", () => {
     const skills = h.getTool("skills");
     expect(skills.description).toBe("Skills tool");
     expect(skills.options).toEqual({ codemode: false });
-    expect(skills.input.properties.mode.enum).toEqual([
-      "list",
-      "ideas",
-      "draft",
-      "proposals",
-      "show",
-      "apply",
-      "reject",
-      "help",
-    ]);
-    expect(Object.keys(skills.input.properties).sort()).toEqual([
-      "folder",
-      "id",
-      "idea",
-      "mode",
-      "order",
-      "skill",
-      "state",
-    ]);
+    // The V2 tool must carry the shared mode list and arguments unchanged.
+    const { SKILLS_TOOL_MODES, SKILLS_TOOL_INPUT_SCHEMA } =
+      await import("../src/core/skills-tool.js");
+    expect(skills.input.properties.mode.enum).toEqual([...SKILLS_TOOL_MODES]);
+    expect(skills.input.properties.mode.enum).toContain("propose");
+    expect(Object.keys(skills.input.properties).sort()).toEqual(
+      Object.keys(SKILLS_TOOL_INPUT_SCHEMA.properties).sort()
+    );
     const result = await skills.execute(
       { mode: "list" },
       { sessionID: "ses-1", messageID: "msg-1", agent: "build" }
