@@ -58,7 +58,7 @@ Order of work for one question while the gate is on:
 
 The two intents map onto the two `SKILL_ORDERS` that the ranking already has, so neither needs new counting code.
 
-When two ranking rows share a name, the row with the most uses wins. On a tie, the row that comes first in the index order wins. The source is built from that row, and `skillHistory` is called with that row's path. The source holds the name only, so the two cannot be told apart in the chat.
+When two ranking rows share a name, the row with the most uses wins. On a tie, the row that comes first in the ranking order wins. The source is built from that row, and `skillHistory` is called with that row's path. The source holds the name only, so the two cannot be told apart in the chat.
 
 - **Alternative: phrase matching only, no plan fields.** Rejected. "Which skills need work?" names no skill, so phrase matching finds nothing.
 - **Alternative: embed skill names and pick the closest.** Rejected. Names are short identifiers, and the plan model already reads the question.

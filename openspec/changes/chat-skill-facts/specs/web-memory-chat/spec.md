@@ -48,7 +48,7 @@ The chat SHALL use a skill name only if it matches `^[A-Za-z0-9][\w.:-]{0,63}$` 
 
 ### Requirement: Two skills with the same name give one source
 
-When two ranked skills share a name, the chat SHALL build one source from the row with the most uses, and from the first row in index order on a tie. It SHALL read the history of that row.
+When two ranked skills share a name, the chat SHALL build one source from the row with the most uses, and from the first row in ranking order on a tie. It SHALL read the history of that row.
 
 #### Scenario: Same name twice
 

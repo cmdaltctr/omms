@@ -85,6 +85,11 @@ export function SkillLearningCard(props: SkillLearningCardProps) {
                   "OMMS stores full prompts, replies and tool calls in skills.db on this computer. Drafting sends recorded turns to the external API. The file holds whatever the turns hold."
                 )}
               </p>
+              <p>
+                {s(
+                  "The memory chat sends skill counts and short change summaries to the external API, never turn text."
+                )}
+              </p>
             </Callout>
             <RecordPast onEnd={props.onRecordPastEnd} />
           </>

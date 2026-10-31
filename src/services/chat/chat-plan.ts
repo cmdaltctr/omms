@@ -1,15 +1,21 @@
-import type { ChatPlanRecord, ChatRole } from "./chat-types.js";
+import type { ChatPlanRecord, ChatRole, SkillIntent } from "./chat-types.js";
 
 export const MAX_PLAN_TAGS = 200;
 export const MAX_PLAN_TURNS = 6;
 export const MAX_TURN_CHARS = 500;
 export const MAX_PLAN_QUERIES = 3;
+/** Skill names offered to the plan model, most used first. */
+export const MAX_PLAN_SKILLS = 100;
+
+const SKILL_INTENTS: readonly SkillIntent[] = ["none", "needs-work", "most-used"];
 
 export interface PlanInput {
   question: string;
   turns: Array<{ role: ChatRole; content: string }>;
   tags: Array<{ keyword: string; count: number }>;
   categories: string[];
+  /** Safe skill names, most used first. Absent while skill facts are off. */
+  skills?: string[];
 }
 
 export const PLAN_TOOL = {
@@ -41,12 +47,47 @@ export const PLAN_TOOL = {
   },
 } as const;
 
+/** The plan tool while skill facts are on: two optional fields on top of `PLAN_TOOL`. */
+export const PLAN_TOOL_WITH_SKILLS = {
+  type: "function",
+  function: {
+    ...PLAN_TOOL.function,
+    parameters: {
+      ...PLAN_TOOL.function.parameters,
+      properties: {
+        ...PLAN_TOOL.function.parameters.properties,
+        skills: {
+          type: "array",
+          items: { type: "string" },
+          description: "Skills from the given list that the question names or is about",
+        },
+        skillIntent: {
+          type: "string",
+          enum: [...SKILL_INTENTS],
+          description:
+            "needs-work for skills that fail or need care, most-used for skills used most, otherwise none",
+        },
+      },
+    },
+  },
+} as const;
+
+export function planTool(withSkills: boolean): typeof PLAN_TOOL | typeof PLAN_TOOL_WITH_SKILLS {
+  return withSkills ? PLAN_TOOL_WITH_SKILLS : PLAN_TOOL;
+}
+
 const SYSTEM = [
   "You plan a search over one user's saved memories of past coding sessions and their profile.",
   "Return 1 to 3 short search phrases that would find memories answering the question.",
   "Resolve follow-up questions with the earlier turns, so each phrase stands alone.",
   "Pick tags and profile categories only from the lists given. Pick none when none fit.",
   "Call plan_search. Do not answer the question.",
+].join(" ");
+
+const SKILL_SYSTEM = [
+  "The question may also be about the user's agent skills.",
+  "Pick skills only from the Skills list. Set skillIntent to needs-work for questions about skills that fail or need care,",
+  "to most-used for questions about the skills used most, and to none otherwise.",
 ].join(" ");
 
 function topTags(tags: PlanInput["tags"]): PlanInput["tags"] {
@@ -59,13 +100,15 @@ export function buildPlanPrompt(input: PlanInput): { system: string; user: strin
     .map((turn) => `${turn.role}: ${turn.content.slice(0, MAX_TURN_CHARS)}`);
   const tags = topTags(input.tags).map((tag) => `${tag.keyword} (${tag.count})`);
   const categories = [...new Set(input.categories)];
+  const skills = input.skills ? [...new Set(input.skills)].slice(0, MAX_PLAN_SKILLS) : null;
   const user = [
     turns.length ? `Earlier turns:\n${turns.join("\n")}` : "Earlier turns: none",
     `Tags (count): ${tags.length ? tags.join(", ") : "none"}`,
     `Profile categories: ${categories.length ? categories.join(", ") : "none"}`,
+    ...(skills ? [`Skills: ${skills.length ? skills.join(", ") : "none"}`] : []),
     `Question: ${input.question}`,
   ].join("\n\n");
-  return { system: SYSTEM, user };
+  return { system: skills ? `${SYSTEM} ${SKILL_SYSTEM}` : SYSTEM, user };
 }
 
 function strings(value: unknown): string[] {
@@ -97,7 +140,7 @@ export function validatePlan(raw: unknown, input: PlanInput): ChatPlanRecord {
   if (queries.length === 0) {
     return { queries: [input.question], tags: [], profileCategories: [], skipped: true };
   }
-  return {
+  const record: ChatPlanRecord = {
     queries,
     tags: known(
       strings(plan.tags),
@@ -106,4 +149,9 @@ export function validatePlan(raw: unknown, input: PlanInput): ChatPlanRecord {
     profileCategories: known(strings(plan.profileCategories), input.categories),
     skipped: false,
   };
+  if (input.skills) {
+    record.skills = known(strings(plan.skills), input.skills.slice(0, MAX_PLAN_SKILLS));
+    record.skillIntent = SKILL_INTENTS.find((intent) => intent === plan.skillIntent) ?? "none";
+  }
+  return record;
 }

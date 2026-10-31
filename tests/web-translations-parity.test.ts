@@ -20,3 +20,41 @@ it("has the power button texts in every language", () => {
     expect(texts["power-note"]).toContain("om-memory-system web install");
   }
 });
+
+it("has the skill fact texts in every language", () => {
+  const keys = [
+    "chat-legend-skill",
+    "chat-source-skill",
+    "chat-skill-uses",
+    "chat-skill-failed",
+    "chat-skill-attention",
+    "chat-skill-modified",
+    "chat-skill-modified-yes",
+    "chat-skill-modified-no",
+    "chat-skill-modified-note",
+    "chat-skill-window",
+    "chat-skill-history",
+    "chat-skill-history-empty",
+    "chat-skill-missing",
+    "chat-skill-kind-created",
+    "chat-skill-kind-applied",
+    "chat-skill-kind-rejected",
+    "chat-skill-kind-undone",
+    "chat-skill-kind-stale",
+    "chat-skill-by-person",
+    "chat-skill-by-agent",
+    "chat-skill-by-automatic",
+    "chat-search-skills",
+    "chat-search-skill-intent",
+    "chat-intent-none",
+    "chat-intent-needs-work",
+    "chat-intent-most-used",
+    "chat-skill-facts-unavailable",
+    "chat-skill-privacy",
+  ];
+  for (const lang of ["en", "zh", "ar"] as const) {
+    const texts = translations[lang] as Record<string, string>;
+    expect({ lang, missing: keys.filter((key) => !texts[key]) }).toEqual({ lang, missing: [] });
+  }
+  expect(translations.en["chat-legend-skill" as never]).toBe("skill (usage and change history)");
+});

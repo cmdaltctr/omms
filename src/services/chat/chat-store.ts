@@ -70,12 +70,35 @@ const SOURCE_FIELDS = [
   "section",
   "category",
   "evidence",
+  "skill",
 ] as const;
 
-function snapshot(source: ChatSource): ChatSource {
+// A skill source has its own list (ADR-037): no path, version id or proposal id.
+const SKILL_FIELDS = [
+  "name",
+  "uses",
+  "failedTurns",
+  "attention",
+  "modified",
+  "lastAppliedAt",
+] as const;
+const HISTORY_FIELDS = ["kind", "at", "summary", "appliedBy"] as const;
+
+function pick<T extends object>(value: T, fields: readonly (keyof T)[]): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const field of SOURCE_FIELDS) {
-    if (source[field] !== undefined) out[field] = source[field];
+  for (const field of fields) {
+    if (value[field] !== undefined) out[field as string] = value[field];
+  }
+  return out;
+}
+
+function snapshot(source: ChatSource): ChatSource {
+  const out = pick(source, SOURCE_FIELDS);
+  if (source.skill) {
+    out.skill = {
+      ...pick(source.skill, SKILL_FIELDS),
+      history: (source.skill.history ?? []).map((entry) => pick(entry, HISTORY_FIELDS)),
+    };
   }
   return out as unknown as ChatSource;
 }

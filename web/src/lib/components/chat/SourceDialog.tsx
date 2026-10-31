@@ -12,6 +12,7 @@ import { useI18n } from "$lib/i18n";
 import { formatDate } from "$lib/format";
 import { ROUTES } from "$lib/routes";
 import type { ChatSource } from "$lib/chat-api";
+import { SkillSourceBody } from "./SkillSourceBody";
 
 type BodyProps = { source: ChatSource; deleted: boolean };
 
@@ -25,6 +26,20 @@ const SECTION_KEY = {
 export function SourceBody({ source, deleted }: BodyProps) {
   const { t, language } = useI18n();
   const isMemory = source.kind === "memory";
+  if (source.kind === "skill") {
+    return (
+      <div className="grid min-w-0 gap-3">
+        {deleted ? (
+          <p className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-2.5 text-xs">
+            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            {t("chat-skill-missing")}
+          </p>
+        ) : null}
+        {source.skill ? <SkillSourceBody skill={source.skill} /> : null}
+        <p className="text-xs text-muted-foreground">{t("chat-source-note")}</p>
+      </div>
+    );
+  }
   return (
     <div className="grid min-w-0 gap-3">
       {deleted ? (
@@ -116,7 +131,7 @@ export function SourceDialog({ source, deleted, onClose }: Props) {
         <DialogHeader>
           <DialogTitle>
             {source
-              ? `${source.label} · ${source.kind === "memory" ? t("chat-source-memory") : t("chat-source-profile")}`
+              ? `${source.label} · ${source.kind === "memory" ? t("chat-source-memory") : source.kind === "skill" ? `${t("chat-source-skill")} ${source.id}` : t("chat-source-profile")}`
               : ""}
           </DialogTitle>
           <DialogDescription className="sr-only">{source?.text.slice(0, 120)}</DialogDescription>

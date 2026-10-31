@@ -1,7 +1,7 @@
 # ADR-032: Chat history lives in chats.db
 
 - **Date:** 2026-10-18
-- **Status:** Accepted
+- **Status:** Accepted. Decision 3 amended by ADR-037.
 - **Deciders:** Aizat Hawari
 - **Change:** [`memory-chat`](../../openspec/changes/archive/2026-10-18-memory-chat/proposal.md)
 

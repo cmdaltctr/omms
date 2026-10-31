@@ -97,7 +97,7 @@ it("keeps the folder group and its chat list to the width of the column", () => 
 });
 
 it("explains the S and P labels with the same badges the citations use", () => {
-  const legend = renderToStaticMarkup(<CitationLegend />);
+  const legend = renderToStaticMarkup(<CitationLegend letters={["S", "P"]} />);
   const memoryChip = renderToStaticMarkup(<CitationChip label="S1" onOpen={() => {}} />);
   const profileChip = renderToStaticMarkup(<CitationChip label="P1" onOpen={() => {}} />);
   const classOf = (html: string, text: string) =>
@@ -111,4 +111,17 @@ it("explains the S and P labels with the same badges the citations use", () => {
   expect(classOf(legend, "P")).toContain(profileColours as string);
   expect(legend).toContain("memory (a note saved from your sessions)");
   expect(legend).toContain("profile item (a preference, pattern or workflow)");
+});
+
+it("shows the K badge in the legend only when asked, with the colours of the K chip", () => {
+  const without = renderToStaticMarkup(<CitationLegend letters={["S", "P"]} />);
+  const withK = renderToStaticMarkup(<CitationLegend letters={["S", "P", "K"]} />);
+  const chip = renderToStaticMarkup(<CitationChip label="K1" onOpen={() => {}} />);
+  const classOf = (html: string, text: string) =>
+    html.match(new RegExp(`class="([^"]*)"[^>]*>${text}<`))?.[1];
+  const colours = classOf(chip, "K1")?.match(/border-violet-600\/40[^"]*/)?.[0];
+  expect(colours).toBeDefined();
+  expect(without).not.toContain("skill (usage and change history)");
+  expect(classOf(withK, "K")).toContain(colours as string);
+  expect(withK).toContain("skill (usage and change history)");
 });
