@@ -4,7 +4,7 @@ import { Button } from "$lib/components/ui/button";
 import { useSettingsText } from "$lib/i18n/settings";
 import { formatDate } from "$lib/format";
 import { skillsApi, type Proposal, type SkillsReply, type TurnSummary } from "$lib/skills-api";
-import { proposalLabel } from "$lib/skills-model";
+import { fill, proposalLabel } from "$lib/skills-model";
 import { Callout } from "./Callout";
 import { HuePill } from "./HuePill";
 import { ProposalDiff } from "./ProposalDiff";
@@ -29,6 +29,25 @@ export function UndoStopped({ savedContent }: { savedContent: string | null }) {
         </pre>
       )}
     </div>
+  );
+}
+
+const DECIDED = {
+  applied: "Applied {date}",
+  rejected: "Rejected {date}",
+  undone: "Undone {date}",
+  stale: "Stale since {date}",
+} as const;
+
+/** When the proposal was drafted and, once decided, when its state last changed. */
+export function ProposalTimes({ proposal }: { proposal: Proposal }) {
+  const s = useSettingsText();
+  const decided = proposal.state === "pending" ? null : DECIDED[proposal.state];
+  return (
+    <span className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+      <span>{fill(s("Created {date}"), { date: formatDate(proposal.createdAt) })}</span>
+      {decided ? <span>{fill(s(decided), { date: formatDate(proposal.updatedAt) })}</span> : null}
+    </span>
   );
 }
 
@@ -87,7 +106,7 @@ export function ProposalCard({
           label={s(proposal.kind === "new" ? "New skill" : "Improvement")}
           colourKey={proposal.kind}
         />
-        <span className="text-xs text-muted-foreground">{formatDate(proposal.updatedAt)}</span>
+        <ProposalTimes proposal={proposal} />
       </header>
       {proposal.summary ? (
         <p className="text-sm" dir="auto">

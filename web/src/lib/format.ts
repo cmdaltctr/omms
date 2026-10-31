@@ -34,6 +34,11 @@ export function formatTime(value: DateValue, choice = getDateFormat()): string {
   return formatTimeWith(toDate(value), choice, locale());
 }
 
+/** The locale and date style the page formats dates with, for pure label helpers. */
+export function dateContext(): { locale: string; choice: DateFormatChoice } {
+  return { locale: locale(), choice: getDateFormat() };
+}
+
 /** A date in a given format choice, for the examples in Settings. */
 export function formatDateOnlyAs(value: DateValue, choice: DateFormatChoice): string {
   return formatDateOnlyWith(toDate(value), choice, locale());

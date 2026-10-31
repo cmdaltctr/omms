@@ -32,6 +32,7 @@ type Props = {
   chatLabel: string;
   skillsLabel?: string;
   profileSections: { id: string; label: string }[];
+  skillsSections?: { id: string; label: string }[];
   /** The Settings page cards, shown as a collapsible tree under Settings. */
   settingsSections?: { id: string; label: string }[];
   memoryLabel?: string;
@@ -61,6 +62,7 @@ const COLLAPSED_KEY = "omms-sidebar-collapsed";
 const SETTINGS_TREE_KEY = "omms-sidebar-settings-open";
 const MEMORY_TREE_KEY = "omms-sidebar-memory-open";
 const PROFILE_TREE_KEY = "omms-sidebar-profile-open";
+const SKILLS_TREE_KEY = "omms-sidebar-skills-open";
 
 /** Shared base for the sidebar footer icon controls; each call site adds its own shape and edges. */
 const FOOTER_ICON_BUTTON =
@@ -93,6 +95,7 @@ export function AppSidebar({
   chatLabel,
   skillsLabel = "Skills",
   profileSections,
+  skillsSections = [],
   settingsSections = [],
   memoryLabel = "Memory",
   memorySections = [],
@@ -136,6 +139,12 @@ export function AppSidebar({
   const [profileTreeOpen, toggleProfileTree] = useSavedOpen(
     PROFILE_TREE_KEY,
     currentView === "profile"
+  );
+
+  // With no saved choice, the skills tree starts open on the Skills page only.
+  const [skillsTreeOpen, toggleSkillsTree] = useSavedOpen(
+    SKILLS_TREE_KEY,
+    currentView === "skills"
   );
 
   function toggleMemoryTree() {
@@ -224,7 +233,7 @@ export function AppSidebar({
   function onSectionClick(
     event: MouseEvent,
     id: string,
-    view: "profile" | "settings" | "memory" = "profile"
+    view: "profile" | "settings" | "memory" | "skills" = "profile"
   ) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
       return;
@@ -331,6 +340,13 @@ export function AppSidebar({
               onToggle: toggleProfileTree,
               hideWhenCollapsed: onDesktop("md:hidden"),
               onSectionClick,
+            },
+            skillsTree: {
+              sections: skillsSections,
+              open: skillsTreeOpen,
+              onToggle: toggleSkillsTree,
+              hideWhenCollapsed: onDesktop("md:hidden"),
+              onSectionClick: (event, id) => onSectionClick(event, id, "skills"),
             },
           })}
           <div className="flex items-center gap-0.5">

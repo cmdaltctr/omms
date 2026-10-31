@@ -10,15 +10,18 @@ import {
   type SkillMode,
   type SkillRow,
 } from "$lib/skills-api";
+import { dayRows, normaliseDays } from "$lib/skill-activity";
 import { countText } from "$lib/skills-model";
 import { Callout } from "./Callout";
 import { DraftNotice, useDraftNotice } from "./DraftNotice";
 import { HuePill } from "./HuePill";
 import { ModeChoice } from "./ModeChoice";
-import { ProposalCard } from "./ProposalCard";
-import { TurnList } from "./TurnList";
+import { UsesChart } from "./charts/UsesChart";
+import { ProposalList } from "./ProposalList";
+import { SkillHistory } from "./SkillHistory";
+import { SkillTurns } from "./SkillTurns";
 
-/** One skill: its path, counts, mode, recent turns, a draft button and its proposals. */
+/** One skill: its path, counts, daily uses, mode, a draft button, proposals, history and turns. */
 export function SkillDetail({
   skill,
   onBack,
@@ -35,12 +38,20 @@ export function SkillDetail({
   const [mode, setMode] = useState<SkillMode>(skill.mode);
   const [modeError, setModeError] = useState("");
   const notice = useDraftNotice();
+  // A change anywhere on this view reloads the history and the turns as well.
+  const [reloadKey, setReloadKey] = useState(0);
 
+  // The turns list loads its own pages, so this load asks for one turn only.
   const load = useCallback(async () => {
-    const reply = await skillsApi.skill(skill.path, skill.name);
+    const reply = await skillsApi.skill(skill.path, skill.name, { limit: 1, offset: 0 });
     if (reply.ok) setDetail(reply.data);
     else setLoadError(reply.error);
   }, [skill.path, skill.name]);
+  const reloadAll = () => {
+    setReloadKey((key) => key + 1);
+    void load();
+    onChanged();
+  };
   useEffect(() => {
     void load();
   }, [load]);
@@ -51,7 +62,7 @@ export function SkillDetail({
     const reply = await skillsApi.draftImprovement(skill.path ?? skill.name);
     setBusy(false);
     notice.show(reply);
-    if (reply.ok) await load();
+    if (reply.ok) reloadAll();
   }
 
   async function chooseMode(next: SkillMode) {
@@ -70,6 +81,8 @@ export function SkillDetail({
         ? { ...previous, proposals: previous.proposals.map((p) => (p.id === next.id ? next : p)) }
         : previous
     );
+    // Apply, reject and undo add a history entry.
+    setReloadKey((key) => key + 1);
   }
 
   const proposals = detail?.proposals ?? [];
@@ -108,6 +121,14 @@ export function SkillDetail({
         </dl>
       </div>
 
+      {detail ? (
+        <UsesChart
+          className="max-w-3xl"
+          rows={dayRows(normaliseDays(detail.daily))}
+          title={s("Uses in the last 30 days")}
+        />
+      ) : null}
+
       {skill.path ? (
         <section className="space-y-3" aria-label={s("Mode")}>
           <h3 className="text-section-title font-semibold">{s("Mode")}</h3>
@@ -133,8 +154,10 @@ export function SkillDetail({
         </section>
       ) : null}
 
-      <section className="space-y-3" aria-label={s("Proposals")}>
-        <h3 className="text-section-title font-semibold">{s("Proposals")}</h3>
+      <section className="space-y-3" aria-labelledby="skill-proposals-title">
+        <h3 id="skill-proposals-title" className="text-section-title font-semibold">
+          {s("Proposals")}
+        </h3>
         {loadError ? (
           <p role="alert" className="text-sm text-destructive-label">
             {loadError}
@@ -142,16 +165,17 @@ export function SkillDetail({
         ) : proposals.length === 0 ? (
           <p className="text-sm text-muted-foreground">{s("No proposals yet.")}</p>
         ) : (
-          proposals.map((proposal) => (
-            <ProposalCard key={proposal.id} proposal={proposal} onChange={replaceProposal} />
-          ))
+          <ProposalList
+            storageKey="omms-list-skill-proposals"
+            proposals={proposals}
+            onChange={replaceProposal}
+          />
         )}
       </section>
 
-      <section className="space-y-3" aria-label={s("Recent turns")}>
-        <h3 className="text-section-title font-semibold">{s("Recent turns")}</h3>
-        <TurnList turns={detail?.recentTurns ?? []} />
-      </section>
+      <SkillHistory skill={skill} reloadKey={reloadKey} onChanged={reloadAll} />
+
+      <SkillTurns skill={skill} reloadKey={reloadKey} />
     </div>
   );
 }

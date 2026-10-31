@@ -31,7 +31,10 @@ export function useSavedOpen(key: string, fallback: boolean): [boolean, () => vo
   ];
 }
 
-/** The User profile entry with its toggle, and the Preferences, Patterns and Workflows links under it. */
+/**
+ * A main link with its toggle and the section links under it. Used for User profile
+ * (Preferences, Patterns, Workflows) and for Skills; `id` and `base` default to the profile.
+ */
 export function ProfileTree({
   link,
   sections,
@@ -40,6 +43,8 @@ export function ProfileTree({
   label,
   hideWhenCollapsed,
   onSectionClick,
+  id = "sidebar-profile-tree",
+  base = ROUTES.profile,
 }: {
   link: ReactNode;
   sections: { id: string; label: string }[];
@@ -49,6 +54,10 @@ export function ProfileTree({
   /** Classes that hide the toggle and the links when the desktop sidebar is collapsed. */
   hideWhenCollapsed: string;
   onSectionClick: (event: MouseEvent, id: string) => void;
+  /** The DOM id of the link list. */
+  id?: string;
+  /** The page the section anchors belong to. */
+  base?: string;
 }) {
   return (
     <>
@@ -63,7 +72,7 @@ export function ProfileTree({
             )}
             onClick={onToggle}
             aria-expanded={open}
-            aria-controls="sidebar-profile-tree"
+            aria-controls={id}
             aria-label={label}
             title={label}
           >
@@ -78,13 +87,13 @@ export function ProfileTree({
       </div>
       {open && sections.length > 0 && (
         <ul
-          id="sidebar-profile-tree"
+          id={id}
           className={cn("ms-5 space-y-0.5 border-s border-sidebar-border ps-2", hideWhenCollapsed)}
         >
           {sections.map((section) => (
             <li key={section.id}>
               <a
-                href={`${ROUTES.profile}#${section.id}`}
+                href={`${base}#${section.id}`}
                 className="flex min-h-11 md:min-h-7 items-center break-words rounded-lg px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
                 onClick={(event) => onSectionClick(event, section.id)}
               >

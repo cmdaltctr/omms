@@ -1,7 +1,9 @@
+import { PagedList, usePagedList } from "$lib/components/paged-list";
 import { useSettingsText } from "$lib/i18n/settings";
 import { formatDate } from "$lib/format";
 import type { FolderRow, SkillRow } from "$lib/skills-api";
-import { countText } from "$lib/skills-model";
+import { countText, fill } from "$lib/skills-model";
+import { SKILL_SORTS } from "$lib/skills-sorts";
 import { HuePill } from "./HuePill";
 
 /** The folder that holds a skill: the watched folder whose path starts its path. */
@@ -13,7 +15,7 @@ export function folderOf(skill: SkillRow, folders: FolderRow[]): string | null {
   return home?.path ?? null;
 }
 
-/** Ranked skills, busiest first as the server sends them. Each row opens one skill. */
+/** Skill rows. Each row opens one skill. */
 export function SkillList({
   skills,
   folders,
@@ -64,5 +66,39 @@ export function SkillList({
         );
       })}
     </ul>
+  );
+}
+
+/**
+ * The ranked skills, sorted in the browser and paged five to a page. A new
+ * filter returns the list to page 1.
+ */
+export function RankedSkills({
+  skills,
+  folders,
+  query,
+  onOpen,
+}: {
+  skills: SkillRow[];
+  folders: FolderRow[];
+  query: string;
+  onOpen: (skill: SkillRow) => void;
+}) {
+  const s = useSettingsText();
+  const { view, pageItems } = usePagedList({
+    storageKey: "omms-list-skills",
+    items: skills,
+    sorts: SKILL_SORTS,
+    resetKey: query.trim().toLowerCase(),
+  });
+  return (
+    <PagedList
+      view={view}
+      totalLabel={fill(s(view.total === 1 ? "{count} skill" : "{count} skills"), {
+        count: view.total,
+      })}
+    >
+      <SkillList skills={pageItems} folders={folders} onOpen={onOpen} />
+    </PagedList>
   );
 }

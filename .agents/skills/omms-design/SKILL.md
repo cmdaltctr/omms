@@ -24,6 +24,9 @@ Preserve the theme and language stores, preference keys, legacy preference migra
 | Colours, typography, spacing, corners, borders, or interaction states | [Visual foundations](references/foundations.md)                                                  |
 | Buttons, fields, dialogs, sidebar, or settings rows                   | [Component guidance](references/components.md), plus visual foundations                          |
 | Any action that starts a request, a job or a jump                     | [Feedback after a click](references/components.md#feedback-after-a-click)                        |
+| A list that can grow past 5 rows                                      | [Long lists](references/components.md#long-lists-page-size-5-sort-custom-size-footer)            |
+| A chart, a KPI line or an empty chart                                 | [Charts](references/components.md#charts)                                                        |
+| A list of changes over time with revert actions                       | [History timelines](references/components.md#history-timelines)                                  |
 | Visible text, accessible labels, language switching, or Arabic layout | [Localisation](references/localisation.md)                                                       |
 | Any rendered UI change                                                | [Verification](references/verification.md) before implementation and before reporting completion |
 

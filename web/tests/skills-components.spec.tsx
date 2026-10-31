@@ -5,7 +5,6 @@ import { ProposalCard, UndoStopped } from "../src/lib/components/skills/Proposal
 import { RecordPastView } from "../src/lib/components/skills/RecordPast.tsx";
 import { SkillFolders } from "../src/lib/components/skills/SkillFolders.tsx";
 import { SkillList } from "../src/lib/components/skills/SkillList.tsx";
-import { SkillSortChoice } from "../src/lib/components/skills/SkillSortChoice.tsx";
 import { SkillsPage } from "../src/lib/components/skills/SkillsView.tsx";
 import { SkillLearningCard } from "../src/lib/components/settings/SkillLearningSection.tsx";
 import type { Proposal, SkillRow, SkillsOverview } from "../src/lib/skills-api.ts";
@@ -163,8 +162,6 @@ const page = (o: SkillsOverview | null, turns: number | null, recent: Proposal[]
       recent={recent}
       error=""
       query=""
-      order="uses"
-      onOrder={() => {}}
       onQuery={() => {}}
       onOpen={() => {}}
       onPendingChange={() => {}}
@@ -244,15 +241,12 @@ it("states the count in the delete confirmation", () => {
   );
 });
 
-it("shows a sort choice beside the filter, with the current order selected", () => {
+it("offers every ranked-skill sort in the toolbar beside the filter", () => {
   const html = page(overview(true), 340);
+  expect(html).toContain('aria-label="Sort by"');
   expect(html).toContain("Most used");
-  expect(html).toContain("Needs attention");
-  const byAttention = renderToStaticMarkup(
-    <SkillSortChoice order="attention" onChange={() => {}} />
-  );
-  expect(byAttention).toMatch(/aria-checked="true"[^>]*>Needs attention/);
-  expect(byAttention).toMatch(/aria-checked="false"[^>]*>Most used/);
+  expect(html).toContain("Filter skills by name");
+  expect(html).toContain("1 skill");
 });
 
 it("shows attention in the meta line of a ranked row", () => {
@@ -273,7 +267,11 @@ it("lists recent proposals below Pending, folded, with their state and Undo when
   expect(html).toContain("Show changes");
   expect(html).not.toContain("Hide changes");
   expect(html).toContain("Undo");
-  expect(page(overview(true), 3)).not.toContain("Recent proposals");
+  // With nothing decided yet the section stays, so its sidebar link has a target.
+  const empty = page(overview(true), 3);
+  expect(empty).toContain('id="skills-section-recent"');
+  expect(empty).toContain("No proposals have been decided yet.");
+  expect(empty).toContain("No proposals are waiting.");
 });
 
 it("says Record past turns is finding sessions while it starts, and nothing before a click", () => {
