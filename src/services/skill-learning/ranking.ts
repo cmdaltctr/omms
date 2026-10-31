@@ -36,8 +36,11 @@ export interface SkillRanking {
 // order is above the earliest use position in that turn. A NULL position (a
 // row from before the column) and -1 (a slash command) count every failure.
 // A review (a draft with no change, or an automatic review) counts as a proposal.
-const RANKING_SQL = `
-WITH idx AS (
+// The activity charts reuse these CTEs (idx, resolved, first_use, uses) so they
+// count a use and a failed turn the same way. Parameters: the index JSON, then
+// the earliest turn time.
+export const USES_CTES = `
+idx AS (
   SELECT json_extract(value, '$.name') AS name, json_extract(value, '$.path') AS path
   FROM json_each(?)
 ),
@@ -74,7 +77,10 @@ uses AS (
       WHERE tc.turn_id = f.turn_id AND tc.outcome = 'error' AND tc.position > f.position
     ) AS failed
   FROM first_use f
-),
+)`;
+
+const RANKING_SQL = `
+WITH ${USES_CTES},
 last_proposal AS (
   SELECT path, MAX(at) AS at FROM (
     SELECT skill_path AS path, created_at AS at FROM skill_proposals WHERE skill_path IS NOT NULL
