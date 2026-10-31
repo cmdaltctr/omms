@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.34.0](https://github.com/cmdaltctr/omms/compare/v4.33.1...v4.34.0) (2026-10-31)
+
+
+### Features
+
+* let the memory chat answer from skill facts ([05fc987](https://github.com/cmdaltctr/omms/commit/05fc98714b7fd1c072ef1b51a07e8a6588b36967))
+* let the memory chat answer from skill facts ([ea969e2](https://github.com/cmdaltctr/omms/commit/ea969e2b9e99eaa6d27ec00d053e445c4ae5ffcf))
+
 ## [4.33.1](https://github.com/cmdaltctr/omms/compare/v4.33.0...v4.33.1) (2026-10-31)
 
 
