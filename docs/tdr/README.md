@@ -80,6 +80,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [056](./056-profile-dialog-lost-focus-and-ran-left-to-right-in-arabic.md)      | The profile evidence dialog lost focus and ran left to right in Arabic  | Accepted              | 2026-10-18 |
 | [057](./057-count-on-an-external-content-fts-table-reads-the-content-table.md) | COUNT(*) on an external-content FTS table reads the content table       | Accepted              | 2026-10-18 |
 | [058](./058-update-button-npm-found-no-node-in-a-login-item.md)                | The update button's npm found no node in a login item                   | Accepted              | 2026-10-28 |
+| [059](./059-skill-proposal-lists-read-large-columns.md)                        | Skill proposal lists read the large columns                             | Accepted              | 2026-10-31 |
 
 ## Status values
 
