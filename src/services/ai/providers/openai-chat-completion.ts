@@ -3,8 +3,8 @@ import {
   type ProviderConfig,
   type ToolCallResult,
   applySafeExtraParams,
-  describeValidationError,
-  jsonErrorPosition,
+  validationFailureMessage,
+  validationLogFields,
   isTransportError,
 } from "./base-provider.js";
 import type { AISessionManager } from "../session/ai-session-manager.js";
@@ -462,24 +462,16 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
                 log(
                   "OpenAI tool response validation failed",
                   {
-                    error: describeValidationError(validationError),
-                    errorType:
-                      validationError instanceof Error
-                        ? validationError.constructor.name
-                        : typeof validationError,
+                    ...validationLogFields(validationError, stopReason),
                     toolName: toolSchema.function.name,
                     iteration: iterations,
                     // Log only the size: the arguments are the model's reply.
                     argumentsChars: toolCall.function.arguments.length,
-                    // "length" means the reply hit the output limit and was cut off.
-                    stopReason: stopReason ?? null,
-                    jsonErrorAt: jsonErrorPosition(validationError) ?? null,
                   },
                   "error"
                 );
 
-                const cutOff = stopReason === "length" ? " (the reply was cut off)" : "";
-                const errorMessage = `Validation failed: ${describeValidationError(validationError)}${cutOff}`;
+                const errorMessage = validationFailureMessage(validationError, stopReason);
                 lastErrorMessage = errorMessage;
                 await this.addToolResponse(
                   session.id,

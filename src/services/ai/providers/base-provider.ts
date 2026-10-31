@@ -68,6 +68,23 @@ export function jsonErrorPosition(error: unknown): number | undefined {
   return match ? Number(match[1]) : undefined;
 }
 
+/** Log fields for a failed tool reply: no reply text, only codes and a position. */
+export function validationLogFields(error: unknown, stopReason: string | undefined) {
+  return {
+    error: describeValidationError(error),
+    errorType: error instanceof Error ? error.constructor.name : typeof error,
+    // "length" means the reply hit the output limit and was cut off.
+    stopReason: stopReason ?? null,
+    jsonErrorAt: jsonErrorPosition(error) ?? null,
+  };
+}
+
+/** The error a failed tool reply returns. It says when the reply was cut off. */
+export function validationFailureMessage(error: unknown, stopReason: string | undefined): string {
+  const cutOff = stopReason === "length" ? " (the reply was cut off)" : "";
+  return `Validation failed: ${describeValidationError(error)}${cutOff}`;
+}
+
 const PROTECTED_KEYS = new Set([
   "model",
   "messages",
