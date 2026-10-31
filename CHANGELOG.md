@@ -2,6 +2,15 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.31.2](https://github.com/cmdaltctr/omms/compare/v4.31.1...v4.31.2) (2026-10-31)
+
+
+### Bug Fixes
+
+* give skill learning actions visible feedback ([e765ab8](https://github.com/cmdaltctr/omms/commit/e765ab82c84f19cb352eafe9fa3254eb989aabcb))
+* give skill learning actions visible feedback ([44bfca0](https://github.com/cmdaltctr/omms/commit/44bfca06d6daf93d5d0f767bcfe6b79e79c37ce0))
+* keep the OpenAI provider under its size ceiling ([7c8de69](https://github.com/cmdaltctr/omms/commit/7c8de693ff1099d72397d1b0c4d6e3806213e0e9))
+
 ## [4.31.1](https://github.com/cmdaltctr/omms/compare/v4.31.0...v4.31.1) (2026-10-31)
 
 
