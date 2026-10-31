@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 
 /**
- * Skill learning settings (ADR-035), kept out of `src/config.ts` to save its
+ * Skill learning settings (ADR-036), kept out of `src/config.ts` to save its
  * lines. Pure on purpose: callers pass the file config, and the loaded
  * `CONFIG` is never imported here, because many tests stub `src/config.js`.
  */

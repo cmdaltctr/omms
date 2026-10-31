@@ -705,7 +705,7 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
       }
 
       if (event.type === "session.idle") {
-        // Skill learning records turns even when memory capture is off (ADR-035).
+        // Skill learning records turns even when memory capture is off (ADR-036).
         if (!isConfigured() || !(CONFIG.autoCaptureEnabled || CONFIG.skillLearning)) return;
         const sessionID = event.properties?.sessionID;
         if (!sessionID) return;

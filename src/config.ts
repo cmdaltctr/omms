@@ -109,7 +109,7 @@ interface OmmsConfig {
   captureAttemptRetentionDays?: number;
   /** Hours to keep failed live captures for retry. 0 turns the queue off. Global config only. */
   captureRetryRetentionHours?: number;
-  /** Record full turns into skills.db (ADR-035). A project can only turn it off. */
+  /** Record full turns into skills.db (ADR-036). A project can only turn it off. */
   skillLearning?: boolean;
   /** Remove `<private>` text and secrets from recorded turns. Default true. Global config only. */
   skillLearningRedact?: boolean;
@@ -330,7 +330,7 @@ function storagePathFrom(fileConfig: OmmsConfig): string {
   return fileConfig.storagePath ? expandPath(fileConfig.storagePath) : resolveDefaultStoragePath();
 }
 
-/** Keeps skills.db in the global storage path when a project config moves storagePath (ADR-035). */
+/** Keeps skills.db in the global storage path when a project config moves storagePath (ADR-036). */
 function withSkillStorage<T extends { storagePath: string }>(config: T, global: OmmsConfig): T {
   const path = storagePathFrom(global);
   return { ...config, skillStoragePath: path === config.storagePath ? undefined : path };

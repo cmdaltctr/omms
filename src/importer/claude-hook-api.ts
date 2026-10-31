@@ -385,7 +385,7 @@ async function captureTurn(request: CaptureRequest, deps: ClaudeHookDeps): Promi
   const started = Date.now();
   refreshConfigIfChanged(request.cwd);
   const memories = memoryCaptureOn(request);
-  // Skill learning records turns even when memory capture is off (ADR-035).
+  // Skill learning records turns even when memory capture is off (ADR-036).
   if (!memories && !CONFIG.skillLearning) return;
   const entries = await readTranscript(request);
   if (!entries) return;

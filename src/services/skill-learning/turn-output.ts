@@ -89,7 +89,7 @@ function storedChars(record: SkillTurnRecord): number {
 }
 
 /**
- * Records one finished turn into `skills.db` (ADR-035). Off: returns at once
+ * Records one finished turn into `skills.db` (ADR-036). Off: returns at once
  * and never opens the file. The log record holds counts and sizes only.
  * Errors are thrown; `handleFinishedTurn` catches them.
  */

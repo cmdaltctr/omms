@@ -49,12 +49,27 @@ jobs:
           manifest-file: .release-please-manifest.json
 
   # Full platform matrix must pass before anything is staged on npm.
+  # Linux and Windows gate npm. GitHub's macOS runners can be short for hours,
+  # and a job no runner picks up is cancelled after about 15 minutes, so the
+  # macOS jobs run beside the gate and report without blocking publish.
+  # Every change is tested on macOS locally (`ci:local`) before it is pushed.
   smoke:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     uses: ./.github/workflows/platform-smoke.yml
     with:
       ref: ${{ needs.release-please.outputs.sha }}
+      platforms: '["windows-latest","ubuntu-latest"]'
+    permissions:
+      contents: read
+
+  smoke-macos:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    uses: ./.github/workflows/platform-smoke.yml
+    with:
+      ref: ${{ needs.release-please.outputs.sha }}
+      platforms: '["macos-15","macos-26","macos-26-intel"]'
     permissions:
       contents: read
 

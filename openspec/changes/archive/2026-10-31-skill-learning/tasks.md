@@ -2,8 +2,8 @@
 
 ## 1. Decision record, security rule and config
 
-- [x] 1.1 Write `docs/adr/035-skill-learning-stores-full-turns-in-skills-db.md` (opt-in full turns, redaction switch, separate store, one shared turn path, external API only, tool output bodies not stored) and add it to `docs/adr/ADR_README.md`; verify that Prettier passes on both files
-- [x] 1.2 Add a `skills.db` exception bullet to the Security section of `AGENTS.md` (`CLAUDE.md` links to it). Name `skillLearning`, `skillLearningRedact`, the global-only rule and ADR-035. Update `CONTRIBUTING.md` if it repeats the rule. Verify by reading the rendered section
+- [x] 1.1 Write `docs/adr/036-skill-learning-stores-full-turns-in-skills-db.md` (opt-in full turns, redaction switch, separate store, one shared turn path, external API only, tool output bodies not stored) and add it to `docs/adr/ADR_README.md`; verify that Prettier passes on both files
+- [x] 1.2 Add a `skills.db` exception bullet to the Security section of `AGENTS.md` (`CLAUDE.md` links to it). Name `skillLearning`, `skillLearningRedact`, the global-only rule and ADR-036. Update `CONTRIBUTING.md` if it repeats the rule. Verify by reading the rendered section
 - [x] 1.3 Add `src/services/skill-learning/skill-config.ts` with normalisation of `skillLearning`, `skillLearningRedact` and `skillFolders`, plus the project-override rule (off only). Wire it into `src/config.ts` and `src/config-template.ts`. Verify with a test file covering defaults, project off, project on ignored, and an invalid folder entry
 - [x] 1.4 Document the three keys in `docs/configuration.md`; verify that the defaults in the doc match `skill-config.ts`
 
@@ -76,7 +76,7 @@
 
 ## 10. Final ADR and docs pass
 
-- [x] 10.1 Update ADR-035 to match what was built: set Status to Accepted, record the turn_key rule (OpenCode live uses the message id), the separate `path` field that keeps memory capture input unchanged, and the known gaps (OpenCode live prompts already stripped, `chatMessage.enabled` off records nothing). Point its change link at the archive path. Verify Prettier passes and the link resolves after archive
+- [x] 10.1 Update ADR-036 to match what was built: set Status to Accepted, record the turn_key rule (OpenCode live uses the message id), the separate `path` field that keeps memory capture input unchanged, and the known gaps (OpenCode live prompts already stripped, `chatMessage.enabled` off records nothing). Point its change link at the archive path. Verify Prettier passes and the link resolves after archive
 - [x] 10.2 Re-read every guide this change touched (`docs/skill-learning.md`, `configuration.md`, `cli.md`, the three import guides, `web-ui-memory.md`, `web-ui-settings.md`, `web-ui.md`, the three adapter guides) against the final code and UI. Fix any drift, check `docs/README.md` lists `skill-learning.md`, and confirm `AGENTS.md` and `CONTRIBUTING.md` agree. Verify with Prettier and by running each documented command once
 
 ## 11. Ranking: attributed failures and attention order

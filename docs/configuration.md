@@ -291,7 +291,7 @@ On the Settings page you can **Pause** and **Resume** each host's backfill.
 
 ## Skill learning
 
-`skillLearning` records each full turn in `skills.db`, so OMMS can rank your skills and draft better versions. See [ADR-035](adr/035-skill-learning-stores-full-turns-in-skills-db.md).
+`skillLearning` records each full turn in `skills.db`, so OMMS can rank your skills and draft better versions. See [ADR-036](adr/036-skill-learning-stores-full-turns-in-skills-db.md).
 
 ```jsonc
 {

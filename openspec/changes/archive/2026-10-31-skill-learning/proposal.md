@@ -41,4 +41,4 @@ None. Tool outcomes are new optional fields on the work unit, and memory capture
 - **Data:** a new `skills.db` file in the storage path. It can hold full prompts and replies, so the user must treat it as private.
 - **Model cost:** one external API call for each draft, and two for a new-skill idea run. Recording itself makes no model call.
 - **Writes outside the store:** OMMS writes `SKILL.md` files, but only inside a watched folder.
-- **Docs:** a new `docs/skill-learning.md` guide, `docs/configuration.md`, `docs/cli.md`, the three history import guides, `docs/web-ui-memory.md`, `docs/web-ui-settings.md`, `docs/README.md`, ADR-035, and `AGENTS.md`.
+- **Docs:** a new `docs/skill-learning.md` guide, `docs/configuration.md`, `docs/cli.md`, the three history import guides, `docs/web-ui-memory.md`, `docs/web-ui-settings.md`, `docs/README.md`, ADR-036, and `AGENTS.md`.

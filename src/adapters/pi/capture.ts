@@ -122,7 +122,7 @@ export async function capturePiSettledWorkUnit(
   input: PiSettledCaptureInput
 ): Promise<PiSettledCaptureResult> {
   if (!CONFIG.autoCaptureEnabled) {
-    // Skill learning records turns even when memory capture is off (ADR-035).
+    // Skill learning records turns even when memory capture is off (ADR-036).
     await recordSkillTurnOnly(input);
     return { status: "skipped", reason: "disabled" };
   }

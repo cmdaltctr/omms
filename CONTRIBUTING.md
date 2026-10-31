@@ -77,7 +77,7 @@ formatting by hand.
   exception is the capture retry queue: it holds cleaned failed turns until they
   are retried or `captureRetryRetentionHours` passes (see ADR-012). The second
   is `skills.db`: it holds full turns only while the user turns on
-  `skillLearning`, and never inside a project folder (see ADR-035).
+  `skillLearning`, and never inside a project folder (see ADR-036).
 
 ## Commit messages and pull requests
 

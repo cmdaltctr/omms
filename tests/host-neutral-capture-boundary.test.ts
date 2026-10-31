@@ -26,7 +26,7 @@ function sourceFiles(dir: string): string[] {
 
 const SKILL_FOLDER = "src/services/skill-learning";
 
-// Profile learning and memory retrieval must not read the skill store (ADR-035).
+// Profile learning and memory retrieval must not read the skill store (ADR-036).
 const profileAndRetrievalFiles = sourceFiles("src").filter(
   (path) =>
     !path.startsWith(SKILL_FOLDER) &&

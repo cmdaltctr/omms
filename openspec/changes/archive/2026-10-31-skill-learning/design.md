@@ -58,7 +58,7 @@ It opens through `TursoConnectionManager` like the other stores. `turn_key` is `
 
 ### 2. Full turns stored by choice, with redaction as a switch
 
-The user decided that full replies are worth keeping because the data stays on their computer. Redaction stays on by default and can be turned off in the settings card. The callouts in `web-skills` state what is stored and what drafting sends out. ADR-035 records this as the second exception to the Security rule, after ADR-012. `AGENTS.md` gets a matching bullet.
+The user decided that full replies are worth keeping because the data stays on their computer. Redaction stays on by default and can be turned off in the settings card. The callouts in `web-skills` state what is stored and what drafting sends out. ADR-036 records this as the second exception to the Security rule, after ADR-012. `AGENTS.md` gets a matching bullet.
 
 Tool output bodies are not stored. A `Read` of a large file would multiply the store size, and the outcome and error text carry the learning signal.
 

@@ -1,4 +1,4 @@
-# ADR-035: Skill learning stores full turns in skills.db
+# ADR-036: Skill learning stores full turns in skills.db
 
 - **Date:** 2026-10-30
 - **Status:** Accepted

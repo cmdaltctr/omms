@@ -133,4 +133,4 @@ This deletes every recorded turn with its tool calls and skill uses, then compac
 - OpenCode with `chatMessage.enabled` off saves no prompts, so it records no skill turns.
 - The skill view has no address of its own. Reloading the Skills page returns to the list.
 
-The design is recorded in [ADR-035](adr/035-skill-learning-stores-full-turns-in-skills-db.md).
+The design is recorded in [ADR-036](adr/036-skill-learning-stores-full-turns-in-skills-db.md).
