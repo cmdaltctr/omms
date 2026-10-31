@@ -22,7 +22,7 @@ export const SKILLS_TOOL_MODES = [
 export const SKILLS_TOOL_DESCRIPTION = [
   "Lists this project's skills ranked by use, drafts improvements as reviewable proposals, and applies a proposal only when the user asks.",
   'mode "list" (order "uses" or "attention"): skills ranked by use in the last 30 days, or by attention. "ideas": up to three new skill ideas from recorded turns.',
-  '"draft" (skill, or idea {name, description} with folder): the external API drafts a pending proposal; it changes no file.',
+  '"draft" (skill, or an idea from "ideas" {name, description, reason, evidenceTurnIds} with folder): the external API drafts a pending proposal; it changes no file.',
   'To fix a skill yourself: call "evidence" (skill, limit) for its SKILL.md and recorded turns, write the fixed SKILL.md, then call "propose" (skill, or idea with folder; content, summary, evidence turn ids). Show the user the diff.',
   "This path makes no external API call, but the recorded turn text enters this session.",
   '"proposals" (state), "show" (id): review proposals and their diffs.',
@@ -41,7 +41,12 @@ export const SKILLS_TOOL_INPUT_SCHEMA = {
     folder: { type: "string" },
     idea: {
       type: "object",
-      properties: { name: { type: "string" }, description: { type: "string" } },
+      properties: {
+        name: { type: "string" },
+        description: { type: "string" },
+        reason: { type: "string" },
+        evidenceTurnIds: { type: "array", items: { type: "number" } },
+      },
     },
     limit: { type: "number" },
     content: { type: "string" },
@@ -58,7 +63,7 @@ export interface SkillsToolArgs {
   state?: string;
   order?: string;
   folder?: string;
-  idea?: { name?: string; description?: string };
+  idea?: { name?: string; description?: string; reason?: string; evidenceTurnIds?: number[] };
   limit?: number;
   content?: string;
   summary?: string;

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { initConfig } from "../src/config.js";
-import { runSkillsCommand } from "../src/cli/skills-command.js";
+import { parseOperationArgs, runSkillsCommand } from "../src/cli/skills-command.js";
 import { hashSkillContent } from "../src/services/skill-learning/apply.js";
 import { createProposal, getProposal } from "../src/services/skill-learning/proposal-store.js";
 import { SkillStore, skillsDbPath } from "../src/services/skill-learning/store.js";
@@ -155,5 +155,45 @@ describe("skills evidence and propose", () => {
     const run = await command(["propose", "--skill", "s-web-search", "--content-file", "/no/file"]);
     expect(run.code).toBe(1);
     expect(run.errors).toContain("/no/file");
+  });
+});
+
+describe("skills options from the Claude Code tool", () => {
+  // The launcher's npx fallback runs from the temp folder, so the tool names the project.
+  it("--directory reads that project's config, not the working folder's", async () => {
+    mkdirSync(join(project, ".opencode"), { recursive: true });
+    writeFileSync(
+      join(project, ".opencode", "omms.jsonc"),
+      JSON.stringify({ skillLearning: false })
+    );
+    const elsewhere = mkdtempSync(join(tmpdir(), "skills-cli-cwd-"));
+    try {
+      process.chdir(elsewhere);
+      expect(JSON.parse((await command(["list", "--json"])).text).code).not.toBe("recording-off");
+      const run = await command(["list", "--json", "--directory", project]);
+      expect(JSON.parse(run.text).code).toBe("recording-off");
+    } finally {
+      process.chdir(project);
+      rmSync(elsewhere, { recursive: true, force: true });
+    }
+  });
+
+  it("passes the idea's reason and evidence turns", () => {
+    const { args } = parseOperationArgs([
+      "--idea-name",
+      "deploy",
+      "--idea-description",
+      "Deploy steps",
+      "--idea-reason",
+      "Seen often",
+      "--idea-evidence",
+      "12,T14",
+    ]);
+    expect(args.idea).toEqual({
+      name: "deploy",
+      description: "Deploy steps",
+      reason: "Seen often",
+      evidenceTurnIds: [12, 14],
+    });
   });
 });

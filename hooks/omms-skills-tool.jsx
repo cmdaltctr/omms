@@ -34,7 +34,7 @@ const MODES = [
 export const DESCRIPTION = [
   "Lists this project's skills ranked by use, drafts improvements as reviewable proposals, and applies a proposal only when the user asks. Use this tool instead of running `om-memory-system skills` through Bash; it runs the same command.",
   'mode "list": skills ranked by use in the last 30 days. "ideas": up to three new skill ideas from recorded turns.',
-  '"draft" (skill, or idea {name, description} with folder): the external API drafts a pending proposal; it changes no file.',
+  '"draft" (skill, or an idea from "ideas" {name, description, reason, evidenceTurnIds} with folder): the external API drafts a pending proposal; it changes no file.',
   'To fix a skill yourself: call "evidence" (skill, limit) for its SKILL.md and recorded turns, write the fixed SKILL.md, then call "propose" (skill, or idea with folder; content, summary, evidence turn ids). Show the user the diff.',
   "This path makes no external API call, but the recorded turn text enters this session.",
   '"proposals" (state), "show" (id): review proposals and their diffs.',
@@ -51,8 +51,13 @@ export const INPUT_SCHEMA = {
     },
     idea: {
       type: "object",
-      properties: { name: { type: "string" }, description: { type: "string" } },
-      description: 'A new skill idea from "ideas" (draft). Needs folder.',
+      properties: {
+        name: { type: "string" },
+        description: { type: "string" },
+        reason: { type: "string" },
+        evidenceTurnIds: { type: "array", items: { type: "number" } },
+      },
+      description: 'A new skill idea from "ideas", passed as returned (draft). Needs folder.',
     },
     folder: { type: "string", description: "Watched folder for a new skill (draft)." },
     state: {
@@ -111,6 +116,9 @@ function skillsArgs(input) {
     if (idea) {
       flag("idea-name", text(idea.name));
       flag("idea-description", text(idea.description));
+      flag("idea-reason", text(idea.reason));
+      if (Array.isArray(idea.evidenceTurnIds))
+        flag("idea-evidence", idea.evidenceTurnIds.join(","));
       flag("folder", text(input.folder));
     }
   }
@@ -168,10 +176,19 @@ export const registerSkillsTool = (on) => {
     const parsed = skillsArgs(e);
     if ("error" in parsed) return { deny: parsed.error };
     try {
+      const cwd = await $.session.cwd();
+      // The launcher's npx fallback runs from the temp folder, so name the project.
       const run = await $.process.run(
-        ["node", `${$.plugin.root}/bin/omms-launch.mjs`, "--at-least-own-version", ...parsed.args],
+        [
+          "node",
+          `${$.plugin.root}/bin/omms-launch.mjs`,
+          "--at-least-own-version",
+          ...parsed.args,
+          "--directory",
+          cwd,
+        ],
         {
-          cwd: await $.session.cwd(),
+          cwd,
           timeoutMs: parsed.timeoutMs,
           ...(parsed.stdin === undefined ? {} : { stdin: parsed.stdin }),
         }

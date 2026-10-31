@@ -23,6 +23,8 @@ export function registerPiSkillsTool(pi: ExtensionAPI): void {
         Type.Object({
           name: Type.Optional(Type.String()),
           description: Type.Optional(Type.String()),
+          reason: Type.Optional(Type.String()),
+          evidenceTurnIds: Type.Optional(Type.Array(Type.Number())),
         })
       ),
       limit: Type.Optional(Type.Number()),

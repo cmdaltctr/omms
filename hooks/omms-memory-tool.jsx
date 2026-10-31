@@ -112,9 +112,18 @@ export const registerMemoryTool = (on) => {
     const parsed = memoryArgs(e);
     if ("error" in parsed) return { deny: parsed.error };
     try {
+      const cwd = await $.session.cwd();
+      // The launcher's npx fallback runs from the temp folder, so name the project folder too.
       const run = await $.process.run(
-        ["node", `${$.plugin.root}/bin/omms-launch.mjs`, "--at-least-own-version", ...parsed.args],
-        { cwd: await $.session.cwd(), timeoutMs: LAUNCHER_TIMEOUT_MS }
+        [
+          "node",
+          `${$.plugin.root}/bin/omms-launch.mjs`,
+          "--at-least-own-version",
+          ...parsed.args,
+          "--directory",
+          cwd,
+        ],
+        { cwd, timeoutMs: LAUNCHER_TIMEOUT_MS }
       );
       return readOutcome(run);
     } catch (error) {

@@ -40,12 +40,17 @@ async function start($: any, on: any, answer: (argv: readonly string[]) => any =
   return { runs, registered };
 }
 
-/** The `skills ...` part of a launcher run, after `node <root>/bin/omms-launch.mjs --at-least-own-version`. */
+/**
+ * The `skills ...` part of a launcher run, after `node <root>/bin/omms-launch.mjs --at-least-own-version`
+ * and before the closing `--directory /work`. The launcher's npx fallback runs from the temp folder,
+ * so every call names the session folder.
+ */
 function skillsArgs(run: Run): readonly string[] {
   expect(run.argv[0]).toBe("node");
   expect(String(run.argv[1]).endsWith("/bin/omms-launch.mjs")).toBe(true);
   expect(run.argv[2]).toBe(LAUNCH_FLAG);
-  return run.argv.slice(3);
+  expect(run.argv.slice(-2)).toEqual(["--directory", "/work"]);
+  return run.argv.slice(3, -2);
 }
 
 describe("registration", () => {
@@ -128,6 +133,43 @@ describe("calls", () => {
       "deploy",
       "--idea-description",
       "Deploy steps",
+      "--folder",
+      "/skills",
+      "--json",
+    ]);
+  });
+
+  test("draft keeps the reason and evidence turns of an idea from ideas", async ($, on) => {
+    const { runs, registered } = await start($, on);
+    const idea = registered.find((r) => r.name === "skills").inputSchema.properties.idea;
+    expect(Object.keys(idea.properties).sort()).toEqual([
+      "description",
+      "evidenceTurnIds",
+      "name",
+      "reason",
+    ]);
+    await $.tool.call({
+      tool: FULL as any,
+      mode: "draft",
+      idea: {
+        name: "deploy",
+        description: "Deploy steps",
+        reason: "Seen in three sessions",
+        evidenceTurnIds: [12, 14],
+      },
+      folder: "/skills",
+    });
+    expect(skillsArgs(runs[0]!)).toEqual([
+      "skills",
+      "draft",
+      "--idea-name",
+      "deploy",
+      "--idea-description",
+      "Deploy steps",
+      "--idea-reason",
+      "Seen in three sessions",
+      "--idea-evidence",
+      "12,14",
       "--folder",
       "/skills",
       "--json",

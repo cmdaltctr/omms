@@ -83,6 +83,22 @@ async function agentPath(call: Call) {
   expect(readFileSync(skillPath, "utf8")).toBe(OLD);
 }
 
+// `ideas` returns each idea's reason and evidence turns; draft needs both to send the turn text.
+it("every host's skills tool takes the idea's reason and evidence turns", async () => {
+  const want = ["description", "evidenceTurnIds", "name", "reason"];
+  const { SKILLS_TOOL_INPUT_SCHEMA } = await import("../src/core/skills-tool.js");
+  expect(Object.keys(SKILLS_TOOL_INPUT_SCHEMA.properties.idea.properties).sort()).toEqual(want);
+  const { registerPiSkillsTool } = await import("../src/adapters/pi/skills-tool.js");
+  const tools: any[] = [];
+  registerPiSkillsTool({ registerTool: (def: any) => tools.push(def) } as any);
+  expect(Object.keys(tools[0].parameters.properties.idea.properties).sort()).toEqual(want);
+  const { opencodeSkillsTool } = await import("../src/adapters/opencode/skills-tool.js");
+  const opencode: any = opencodeSkillsTool(baseDir);
+  const idea = { name: "deploy", description: "d", reason: "Seen often", evidenceTurnIds: [3] };
+  // OpenCode parses the arguments with the schema, which drops unknown keys.
+  expect(opencode.args.idea.parse(idea)).toEqual(idea);
+});
+
 describe("the agent fixes a skill through the host tool", () => {
   it("Pi", async () => {
     const { registerPiSkillsTool } = await import("../src/adapters/pi/skills-tool.js");

@@ -35,12 +35,17 @@ async function start($: any, on: any, answer: (argv: readonly string[]) => any =
   return { runs, registered };
 }
 
-/** The `memory ...` part of a launcher run, after `node <root>/bin/omms-launch.mjs --at-least-own-version`. */
+/**
+ * The `memory ...` part of a launcher run, after `node <root>/bin/omms-launch.mjs --at-least-own-version`
+ * and before the closing `--directory /work`. The launcher's npx fallback runs from the temp folder,
+ * so the session folder must travel as a flag, not only as the run's cwd.
+ */
 function memoryArgs(run: Run): readonly string[] {
   expect(run.argv[0]).toBe("node");
   expect(String(run.argv[1]).endsWith("/bin/omms-launch.mjs")).toBe(true);
   expect(run.argv[2]).toBe(LAUNCH_FLAG);
-  return run.argv.slice(3);
+  expect(run.argv.slice(-2)).toEqual(["--directory", "/work"]);
+  return run.argv.slice(3, -2);
 }
 
 describe("registration", () => {

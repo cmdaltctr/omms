@@ -21,6 +21,8 @@ export function opencodeSkillsTool(directory: string): ToolDefinition {
         .object({
           name: tool.schema.string().optional(),
           description: tool.schema.string().optional(),
+          reason: tool.schema.string().optional(),
+          evidenceTurnIds: tool.schema.array(tool.schema.number()).optional(),
         })
         .optional(),
       limit: tool.schema.number().optional(),

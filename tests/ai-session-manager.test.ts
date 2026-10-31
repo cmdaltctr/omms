@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -66,5 +66,35 @@ describe("AI session manager", () => {
     await new AISessionManager().getMessages("none");
 
     expect(fileHasMarker()).toBe(false);
+  });
+
+  // Another process can hold the file past busy_timeout; the cleanup must not fail the AI call.
+  it("still opens when the free-page VACUUM fails", async () => {
+    const { CONFIG } = await import("../src/config.js");
+    CONFIG.storagePath = baseDir;
+    const path = join(baseDir, "ai-sessions.db");
+    const { createClient } = await import("@libsql/client");
+    const old = createClient({ url: `file:${path}` });
+    await old.execute("CREATE TABLE leftover (body TEXT)");
+    for (let i = 0; i < 20; i++) {
+      await old.execute({ sql: "INSERT INTO leftover VALUES (?)", args: ["x".repeat(500)] });
+    }
+    await old.execute("DELETE FROM leftover");
+    old.close();
+    const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
+    const db = await tursoConnectionManager.getConnection(path);
+    const execute = db.execute.bind(db);
+    const vacuums: string[] = [];
+    spyOn(db, "execute").mockImplementation(async (sql, args) => {
+      if (sql === "VACUUM") {
+        vacuums.push(sql);
+        throw new Error("SQLITE_BUSY: database is locked");
+      }
+      return execute(sql, args);
+    });
+
+    const { AISessionManager } = await import("../src/services/ai/session/ai-session-manager.js");
+    expect(await new AISessionManager().getMessages("none")).toEqual([]);
+    expect(vacuums).toEqual(["VACUUM"]);
   });
 });

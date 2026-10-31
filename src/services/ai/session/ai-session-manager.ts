@@ -44,9 +44,13 @@ export class AISessionManager {
         // turns. Zero deleted rows so their text does not stay in free pages.
         await this.db.execute("PRAGMA secure_delete = ON");
         // A file written before secure_delete was on can still hold deleted
-        // text in free pages. Rebuild it once, only when it has free pages.
-        const free = await this.db.get<{ freelist_count: number }>("PRAGMA freelist_count");
-        if (Number(free?.freelist_count ?? 0) > 0) await this.db.execute("VACUUM");
+        // text in free pages. Rebuild it at open when it has free pages.
+        try {
+          const free = await this.db.get<{ freelist_count: number }>("PRAGMA freelist_count");
+          if (Number(free?.freelist_count ?? 0) > 0) await this.db.execute("VACUUM");
+        } catch {
+          // Best effort: another process may hold the file; the next open tries again.
+        }
         await this.initDatabase();
       } catch (error) {
         this.initPromise = null;

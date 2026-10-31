@@ -32,6 +32,8 @@ Options for the modes from list to help:
   --skill <name|path>       Skill name, or the full path of its SKILL.md (draft, evidence, propose)
   --idea-name <name>        Name of a new skill idea (draft, propose)
   --idea-description <text> Description of a new skill idea (draft, propose)
+  --idea-reason <text>      Why the idea is needed, from ideas (draft)
+  --idea-evidence <ids>     The idea's evidence turn ids, such as 12,14 (draft)
   --folder <path>           Watched folder for a new skill (draft, propose)
   --limit <n>               Recorded turns to show, 1 to 20; default 10 (evidence)
   --content-file <path>     File with the full new SKILL.md; - reads standard input (propose)
@@ -40,7 +42,8 @@ Options for the modes from list to help:
   --state <state>           pending, applied, stale, rejected or undone (proposals)
   --order <order>           uses (default) or attention (list)
   --id <id>                 Proposal id (show, apply, reject, undo)
-  --json                    Print the result as one JSON document
+  --directory <path>        Project folder (default: the working folder)
+  --json                   Print the result as one JSON document
 
 Without --yes, record-past and delete-turns print counts and change nothing.
 Run record-past or delete-turns with --help to see its options.`;
@@ -69,6 +72,9 @@ const VALUE_FLAGS = new Set([
   "--folder",
   "--idea-name",
   "--idea-description",
+  "--idea-reason",
+  "--idea-evidence",
+  "--directory",
   "--limit",
   "--content-file",
   "--summary",
@@ -80,10 +86,11 @@ const VALUE_FLAGS = new Set([
 type AppliedBy = "person" | "agent";
 
 /** Parse the shared modes' options. Throws on bad input or an unreadable content file. */
-function parseOperationArgs(argv: string[]): {
+export function parseOperationArgs(argv: string[]): {
   args: SkillOperationArgs;
   json: boolean;
   appliedBy: AppliedBy;
+  directory?: string;
 } {
   const values: Record<string, string> = {};
   let json = false;
@@ -132,8 +139,22 @@ function parseOperationArgs(argv: string[]): {
   }
   if (values["--idea-name"] !== undefined || values["--idea-description"] !== undefined) {
     args.idea = { name: values["--idea-name"], description: values["--idea-description"] };
+    if (values["--idea-reason"] !== undefined) args.idea.reason = values["--idea-reason"];
+    const evidence = values["--idea-evidence"];
+    if (evidence !== undefined) {
+      args.idea.evidenceTurnIds = evidence
+        .split(",")
+        .map((item) => /^\s*T?(\d+)\s*$/i.exec(item)?.[1])
+        .filter((id): id is string => id !== undefined)
+        .map(Number);
+    }
   }
-  return { args, json, appliedBy: appliedBy === "agent" ? "agent" : "person" };
+  return {
+    args,
+    json,
+    appliedBy: appliedBy === "agent" ? "agent" : "person",
+    directory: values["--directory"],
+  };
 }
 
 /** Run one shared `skills` mode for the working directory (spec: Agents and terminal reach operations). */
@@ -154,7 +175,7 @@ async function runOperation(
     printError(`${error instanceof Error ? error.message : String(error)}\n\n${usage}`);
     return 1;
   }
-  const directory = process.cwd();
+  const directory = parsed.directory ?? process.cwd();
   const secrets: string[] = [];
   let result: SkillOperationResult;
   try {

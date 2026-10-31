@@ -434,7 +434,8 @@ proposal only when you ask.
 
 - It offers the modes `list`, `ideas`, `draft`, `evidence`, `propose`,
   `proposals`, `show`, `apply`, `reject`, `undo`, and `help`. Its arguments
-  are `mode`, `skill`, `idea` (`name` and `description`), `folder`, `state`,
+  are `mode`, `skill`, `idea` (`name`, `description`, `reason` and
+  `evidenceTurnIds`, as `ideas` returns them), `folder`, `state`,
   `order`, `id`, `limit`, `content`, `summary`, and `evidence`.
 - Claude can fix a skill itself with no external API call: `evidence` gives
   the `SKILL.md` and its recorded turns, and `propose` saves Claude's fixed
@@ -443,8 +444,9 @@ proposal only when you ask.
   (`--content-file -`).
 - It refuses `record-past` and `delete-turns`. Run those with
   [`om-memory-system skills`](cli.md#skill-turns) in a terminal.
-- It runs `skills <mode> ... --json` through the plugin's launcher, in the
-  session's folder. The limit is 60 seconds, or 3 minutes for `ideas` and
+- It runs `skills <mode> ... --json --directory <session folder>` through the
+  plugin's launcher. The launcher's `npx` fallback runs from the temp folder,
+  so `--directory` names the project. The limit is 60 seconds, or 3 minutes for `ideas` and
   `draft`, which also wait for the model.
 - On `apply` the tool passes `--applied-by agent`, so the proposal records
   that the agent applied it, as on Pi and OpenCode.

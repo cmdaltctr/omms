@@ -453,6 +453,38 @@ it("applies a forced profile-only preset without starting work and still require
     requests.filter((request) => request.path === "/api/settings/imports").at(-1)!.body!.options
   ).toMatchObject({ force: true, skipMemories: true, skipProfile: false });
 });
+it("keeps the saved Skill turns choice when the profile-only preset clears it", async () => {
+  const data = new Map<string, string>();
+  const g = globalThis as { localStorage?: unknown };
+  g.localStorage = {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => void data.set(key, value),
+  };
+  const savedSkills = () => JSON.parse(data.get("omms-memory-import-hosts") ?? "{}").skills;
+  try {
+    recording = true;
+    await mount();
+    expect(savedSkills()).toBe(true);
+    preset = 1;
+    render();
+    runEffects();
+    await settle();
+    render();
+    runEffects();
+    expect(input("Skill turns").props.checked).toBe(false);
+    expect(savedSkills()).toBe(true);
+    // A choice the user makes is still saved.
+    await input("Skill turns").props.onChange({ target: { checked: true } });
+    render();
+    runEffects();
+    await input("Skill turns").props.onChange({ target: { checked: false } });
+    render();
+    runEffects();
+    expect(savedSkills()).toBe(false);
+  } finally {
+    delete g.localStorage;
+  }
+});
 it("refuses duplicate preview requests even from the same render", async () => {
   await mount();
   await choosePi();

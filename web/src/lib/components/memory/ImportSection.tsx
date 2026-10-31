@@ -89,8 +89,10 @@ export function ImportSection({
   const view = jobForHost(job, onlyHost);
   const hosts = IMPORT_HOSTS.filter((host) => draft.hosts[host].enabled);
   const shownHosts = onlyHost ? [onlyHost] : IMPORT_HOSTS;
+  // Only the user's own tick is saved; the profile-only preset clears it for this visit.
+  const savedSkills = useRef(rawDraft.skills);
   useEffect(() => {
-    if (!onlyHost) saveHostChoice(rawDraft);
+    if (!onlyHost) saveHostChoice({ ...rawDraft, skills: savedSkills.current });
   }, [rawDraft, onlyHost]);
   const running =
     job?.state === "running" ||
@@ -156,6 +158,7 @@ export function ImportSection({
   }, [profilePreset]);
 
   function change(patch: Partial<ImportDraft>) {
+    if (patch.skills !== undefined) savedSkills.current = patch.skills;
     setPreview(null);
     setDraft((previous) => applyDraftChange(previous, patch));
   }
