@@ -3,6 +3,7 @@
 OMMS checks changes locally on macOS first. GitHub Actions then runs:
 
 - quality and test checks on every pull request
+- Windows test check on pull request (gates nothing)
 - a native embedding matrix on pull requests that touch native paths
 - a full platform matrix before each release
 
@@ -11,20 +12,21 @@ concurrency: 20 jobs in total, 5 of them macOS.
 
 ## Where each check runs
 
-| Check                                  | Where                             | Trigger                                 |
-| -------------------------------------- | --------------------------------- | --------------------------------------- |
-| Format, lint, typecheck                | Local, before every push          | pre-push hook (`bun run check`)         |
-| Build, unit tests                      | Local, full gate                  | `bun run ci:local`                      |
-| Format, lint, typecheck, package shape | GitHub, `ubuntu-latest`           | Quality workflow, every PR and `main`   |
-| Build, unit tests                      | GitHub, `ubuntu-latest`           | Quality workflow, every PR and `main`   |
-| Build, unit tests                      | GitHub, `windows-latest`          | Quality workflow, PR and `main`         |
-| Native embedding smoke (4 platforms)   | GitHub, PRs touching native paths | Embedding Backend workflow, or manual   |
-| Nested OpenCode fixture, Intel (#225)  | GitHub, PRs touching native paths | Embedding Backend workflow, or manual   |
-| Full gate and pack smoke (5 platforms) | GitHub                            | Before release, weekly (Monday), manual |
-| Release PR, tag, stage on npm          | GitHub, `ubuntu-latest`           | Release workflow, push to `main`        |
-| Merge the release PR                   | GitHub, `ubuntu-latest`           | Release auto-merge, after Quality on PR |
-| `next` prerelease on npm               | GitHub, `ubuntu-latest`           | Publish next, after Quality on `main`   |
-| Claude plugin `stable` channel         | GitHub, `ubuntu-latest`           | Hourly, manual, after npm approval      |
+| Check                                  | Where                             | Trigger                                                 |
+| -------------------------------------- | --------------------------------- | ------------------------------------------------------- |
+| Format, lint, typecheck                | Local, before every push          | pre-push hook (`bun run check`)                         |
+| Build, unit tests                      | Local, full gate                  | `bun run ci:local`                                      |
+| Format, lint, typecheck, package shape | GitHub, `ubuntu-latest`           | Quality workflow, every PR and `main`                   |
+| Build, unit tests                      | GitHub, `ubuntu-latest`           | Quality workflow, every PR and `main`                   |
+| Build, unit tests                      | GitHub, `windows-latest`          | Windows PR check workflow, every code PR. Gates nothing |
+| Build, unit tests                      | GitHub, `windows-latest`          | Quality workflow, push to `main` only                   |
+| Native embedding smoke (4 platforms)   | GitHub, PRs touching native paths | Embedding Backend workflow, or manual                   |
+| Nested OpenCode fixture, Intel (#225)  | GitHub, PRs touching native paths | Embedding Backend workflow, or manual                   |
+| Full gate and pack smoke (5 platforms) | GitHub                            | Before release, weekly (Monday), manual                 |
+| Release PR, tag, stage on npm          | GitHub, `ubuntu-latest`           | Release workflow, push to `main`                        |
+| Merge the release PR                   | GitHub, `ubuntu-latest`           | Release auto-merge, after Quality on PR                 |
+| `next` prerelease on npm               | GitHub, `ubuntu-latest`           | Publish next, after Quality on `main`                   |
+| Claude plugin `stable` channel         | GitHub, `ubuntu-latest`           | Hourly, manual, after npm approval                      |
 
 ## Local toolchain
 
@@ -139,20 +141,57 @@ Runs on every pull request and on every push to `main`. Four jobs:
   `scripts/run-tests-isolated.sh`. Skipped when a pull request changes only
   Markdown files or files under `docs/`.
 - `test-windows` on `windows-latest`: the same build and suite, run in Git
-  Bash, on pushes to `main` only. Pull requests do not run it, because a stalled
-  Windows runner times out unrelated tests and a failed Quality run also stops
-  the release pull request from merging itself. The release smoke and the weekly
-  smoke still test Windows. See [ADR-024](adr/024-windows-tests-before-release-only.md).
+  Bash, on pushes to `main` only. Pull requests do not run it in Quality, because a
+  stalled Windows runner times out unrelated tests and a failed Quality run also
+  stops the release pull request from merging itself. Pull requests get Windows
+  from the separate [Windows PR check](#windows-pr-check-automatic-gates-nothing).
+  The release smoke and the weekly smoke also test Windows. See
+  [ADR-024](adr/024-windows-tests-before-release-only.md) and
+  [ADR-037](adr/037-windows-tests-run-on-pull-requests-as-their-own-check.md).
 
 - A skipped `test` job still passes the required status check. So docs-only pull requests can merge.
 - Do not add `paths-ignore` to this workflow. If it does not start, the required checks never report and the pull request stays blocked.
 - If the `changes` job fails, `test` runs anyway, and so does `test-windows` on a push to `main`.
 - `test-windows` is a separate job, not a matrix entry of `test`. A matrix renames the job to `test (ubuntu-latest)`, so the required `test` check would never report and every pull request would stay blocked.
-- The "Protect main" ruleset requires `check` and `test`. Do not add `test-windows`: it does not run on pull requests, so a required check would never report.
+- The "Protect main" ruleset requires `check` and `test`. Do not add `test-windows`: it does not run on pull requests, so a required check would never report. Do not add `test-windows-pr` either (see the next section).
 
 Quality is the minimum gate for every pull request. This includes pull
 requests that skip the local hooks, such as Dependabot updates. Pull requests
 that touch native paths also run Embedding Backend Verification.
+
+### Windows PR check (automatic, gates nothing)
+
+`windows-pr.yml` is the workflow `Windows PR check`. It has one job,
+`test-windows-pr`, on `windows-latest`. GitHub shows the check as
+`Windows PR check / test-windows-pr`.
+
+- It runs on every pull request, except a pull request that changes only
+  Markdown files or files under `docs/`.
+- It runs the same Git Bash build and suite as `test-windows` in Quality.
+- It sets `OMMS_TEST_RETRY=1`. A failed file runs once more. A file that fails
+  twice fails the job. A file that passes on retry shows as a warning on the run.
+- A new push to the same pull request cancels the older run. The job stops after
+  30 minutes.
+- It is a separate workflow, not a job in Quality. Release auto-merge waits for
+  a completed `Quality` run. A stalled Windows runner must not fail that run.
+- It is not a required check. Do not add it to the "Protect main" ruleset. A
+  required check would let a stalled runner block every merge (ADR-024).
+  `paths-ignore` is safe here only because nothing requires the check.
+
+Read the result before you merge:
+
+1. Open the pull request checks and find `Windows PR check / test-windows-pr`.
+2. Green with no warning: no Windows action is needed.
+3. Green with a retry warning: the named file passed on the second run. Check
+   whether it is a stall (see "Tests skipped on Windows") or a real slow test.
+4. Red: a file failed twice. Read the failure. Fix a real Windows break before
+   you merge. If the failure is a stall, re-run the job.
+5. Cancelled or still running: wait for it, or re-run it. Do not read a
+   cancelled run as a pass.
+
+The release smoke is different. It runs on five platforms, runs `ci:local`,
+packs the package and installs it, and it gates npm. See
+[ADR-037](adr/037-windows-tests-run-on-pull-requests-as-their-own-check.md).
 
 ### Embedding Backend Verification (automatic on native changes, manual on demand)
 
@@ -423,7 +462,7 @@ setting and run the job again.
 Supported platforms: macOS 15 and later on Apple Silicon and Intel, Windows,
 and Linux. OpenCode users install the plugin on all of them.
 
-- Pull requests get one Linux quality job and one macOS test job. Windows runs on pushes to `main`, in the release smoke, and in the weekly smoke (ADR-024).
+- Pull requests get one Linux quality job, one Linux test job, and one Windows test job that gates nothing. Windows also runs on pushes to `main`, in release smoke, and in weekly smoke (ADR-024, ADR-037).
 - The native matrix runs only when native paths change.
 - The full five-platform matrix runs before a release and every week.
 
@@ -439,7 +478,7 @@ Four tests time out at 30 seconds when a Windows runner stalls. They pass on a r
 
 - Windows still runs every other test: paths, file locks, process handoff, and the package install.
 - The code these tests exercise has no `win32` branch, and the catch-up lease is a database table, not a lock file. If you suspect a Windows problem in profile catch-up or the Pi importer, run these tests on a Windows machine.
-- In the release and weekly smoke, Windows runs each failed file once more (`OMMS_TEST_RETRY=1`). A file that fails twice fails the smoke. A file that passed on retry is named as a GitHub warning. Check those warnings before you add a test to this list.
+- In the Windows PR check, the release smoke and the weekly smoke, Windows runs each failed file once more (`OMMS_TEST_RETRY=1`). A file that fails twice fails the smoke. A file that passed on retry is named as a GitHub warning. Check those warnings before you add a test to this list.
 - Do not add a test to this list because it failed once. Add it only after it timed out on a stalled runner and passed on a rerun, and record the runs in the TDR.
 
 Keep the `onnxruntime-node@1.20.1` pin:
@@ -451,9 +490,9 @@ Job counts for each event (hosted runners are free, macOS included):
 
 | Event                    | Ubuntu | Windows | macOS |
 | ------------------------ | ------ | ------- | ----- |
-| Routine pull request     | 2      | 0       | 1     |
+| Routine pull request     | 2      | 1       | 1     |
 | Docs-only pull request   | 2      | 0       | 0     |
-| Native-path pull request | 3      | 1       | 4     |
+| Native-path pull request | 3      | 2       | 4     |
 | Push to `main`           | 4      | 1       | 1     |
 | Release or weekly smoke  | 2      | 1       | 4     |
 

@@ -1,7 +1,7 @@
 # ADR-024: Windows tests run before a release, not on pull requests
 
 **Date:** 2026-10-07
-**Status:** Proposed
+**Status:** Proposed. Partly superseded by [ADR-037](./037-windows-tests-run-on-pull-requests-as-their-own-check.md): pull requests get a Windows check that gates nothing.
 **Deciders:** OMMS maintainer
 **Supersedes in part:** [ADR-020](./020-pull-requests-test-on-windows.md), the Windows job on every pull request
 
