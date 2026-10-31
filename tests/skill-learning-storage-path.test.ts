@@ -4,6 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG, initConfig } from "../src/config.js";
 import type { CaptureWorkUnit } from "../src/core/capture.js";
+import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 import {
   skillTurnRecorder,
   skillTurnSettingsFor,
@@ -42,10 +43,11 @@ function unit(projectDirectory: string): CaptureWorkUnit {
   } as CaptureWorkUnit;
 }
 
-afterEach(() => {
+afterEach(async () => {
   rmSync(globalConfigFile, { force: true });
   initConfig("/nonexistent-project");
-  for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  // `skills.db` is still open; Windows refuses to delete an open file.
+  for (const dir of tempDirs.splice(0)) await cleanupTursoTestDirectory(dir);
 });
 
 describe("skills.db location", () => {
