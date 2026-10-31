@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.33.1](https://github.com/cmdaltctr/omms/compare/v4.33.0...v4.33.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* skills test builds its file paths so Windows can read them ([1c6c5a8](https://github.com/cmdaltctr/omms/commit/1c6c5a866f646f96d1c1b63586dde7726cae6fed))
+* skills test builds its file paths so Windows can read them ([61433ee](https://github.com/cmdaltctr/omms/commit/61433ee2370aa80ad1dcc0044718c6bf418d6740))
+
 ## [4.33.0](https://github.com/cmdaltctr/omms/compare/v4.32.0...v4.33.0) (2026-10-31)
 
 
