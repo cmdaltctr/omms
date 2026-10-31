@@ -1,13 +1,35 @@
-import { History } from "lucide-react";
+import { History, Loader } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
 import { useSettingsText } from "$lib/i18n/settings";
 import { fill, jobEnded, jobPercent, recordedTurns, countText } from "$lib/skills-model";
+import type { ImportJob } from "../memory/import-types";
 import { useRecordPast } from "./use-record-past";
 
 /** Record past turns: the button, progress while it runs, and the count when it ends. */
 export function RecordPast({ onEnd }: { onEnd: () => void }) {
-  const s = useSettingsText();
   const { job, running, starting, error, start } = useRecordPast(onEnd);
+  return (
+    <RecordPastView
+      job={job}
+      running={running}
+      starting={starting}
+      error={error}
+      onStart={() => void start()}
+    />
+  );
+}
+
+interface RecordPastViewProps {
+  job: ImportJob | null;
+  running: boolean;
+  starting: boolean;
+  error: string;
+  onStart: () => void;
+}
+
+/** The markup only. Listing past sessions can take a while, so `starting` shows a message too. */
+export function RecordPastView({ job, running, starting, error, onStart }: RecordPastViewProps) {
+  const s = useSettingsText();
   const percent = job ? jobPercent(job) : 0;
   return (
     <div className="space-y-3">
@@ -16,11 +38,17 @@ export function RecordPast({ onEnd }: { onEnd: () => void }) {
         variant="outline"
         size="sm"
         disabled={running || starting}
-        onClick={() => void start()}
+        onClick={onStart}
       >
         <History aria-hidden="true" />
         {s("Record past turns")}
       </Button>
+      {starting ? (
+        <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader className="size-4 animate-spin" aria-hidden="true" />
+          {s("Finding past sessions…")}
+        </p>
+      ) : null}
       {running && job ? (
         <div className="space-y-1 text-sm">
           <div

@@ -45,6 +45,18 @@ export function AddMemoryAction({ onAdd }: { onAdd: () => void }) {
 
 For icon-only actions, give the button a translated accessible name. Mark its decorative icon `aria-hidden="true"`. Keep native button behaviour, including `type`, disabled state, and form submission. The current OMMS primitive forwards `type`; callers must specify `type="button"` for non-submit actions inside forms.
 
+## Feedback after a click
+
+Every action gives the reader a visible answer at once. A disabled button alone is not an answer: the reader cannot tell a slow job from a click that did nothing.
+
+1. Show a status line next to the control as soon as the request starts. Use `role="status"`, a spinning Lucide `Loader` marked `aria-hidden="true"`, and a translated message that names the wait, for example "Finding past sessions…" or "Drafting… This can take a few minutes."
+2. Give a job that runs longer than a few seconds a progress bar with counts (`role="progressbar"` plus `aria-valuenow`). Poll its status; do not wait for the start request to return the end result.
+3. When the job ends, replace the status line with the result: a count, a "Saved." line, or an error with `role="alert"` that says what to do next, such as "Try again."
+4. Keep the web app answering while a job runs. Long server loops yield between steps (`await new Promise((resolve) => setImmediate(resolve))`), so status and progress requests still answer.
+5. A link that jumps to a card scrolls at once (`scrollIntoView({ block: "start" })`) and outlines the card for a moment with `flashAnchor` from `web/src/lib/settings-navigation.ts`. Smooth scrolling did not move the page in Orca's built-in browser.
+
+Check each new action in the browser: click it and confirm that something visible changes within a moment, and again when it ends.
+
 ## Inputs and selects
 
 Keep `Input`, `Textarea`, `Label`, and the existing `Select` API. The select accepts `<option>` children and reports `event.target.value`; it is not OpenChamber's select and has no `size="settings"` prop.

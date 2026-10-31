@@ -1,4 +1,24 @@
 /**
+ * Jump straight to a card. A smooth scroll did not move the page at all in
+ * Orca's built-in browser, so every Settings and Memory link stayed put.
+ */
+export const JUMP: ScrollIntoViewOptions = { block: "start" };
+
+/**
+ * Outline the card just reached for a moment, so the reader sees where the
+ * link went. A card near the page end cannot reach the top of the window.
+ */
+export function flashAnchor(element: Element): void {
+  const list = (element as HTMLElement).classList;
+  if (!list) return;
+  list.remove("anchor-flash");
+  // Restart the animation when the same card is picked twice.
+  void (element as HTMLElement).offsetWidth;
+  list.add("anchor-flash");
+  setTimeout(() => list.remove("anchor-flash"), 1600);
+}
+
+/**
  * Bring the Settings card named by the page URL's hash into view after the
  * page mounts. The browser's own hash jump happens while React has not yet
  * rendered the cards, so a direct load or reload of
@@ -11,7 +31,8 @@ export function revealSettingsAnchor(hash: string, doc: Document): boolean {
   if (!/^(settings|memory)-section-[a-z0-9-]+$/.test(id)) return false;
   const card = doc.getElementById(id);
   if (!card) return false;
-  card.scrollIntoView({ behavior: "smooth", block: "start" });
+  card.scrollIntoView(JUMP);
+  flashAnchor(card);
   return true;
 }
 
@@ -42,7 +63,8 @@ export function revealPageAnchor(hash: string): void {
       if (disclosure) disclosure.open = true;
       element.focus({ preventScroll: true });
     }
-    element.scrollIntoView({ behavior: "smooth", block: "start" });
+    element.scrollIntoView(JUMP);
+    flashAnchor(element);
   };
   requestAnimationFrame(reveal);
 }

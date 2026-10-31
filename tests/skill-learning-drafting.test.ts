@@ -142,7 +142,11 @@ describe("skill drafting", () => {
     const path = addSkill("s-web-search");
     const s = await setup(ok({ content: 5, summary: "x" }));
     const result = await s.draftImprovement(path, s.deps());
-    expect(result).toMatchObject({ ok: false, code: "invalid-reply" });
+    expect(result).toMatchObject({
+      ok: false,
+      code: "invalid-reply",
+      message: "The model reply was not valid, so nothing was saved. Try again.",
+    });
     expect(await s.listProposals(s.store)).toEqual([]);
     expect(logged.map((entry) => entry.meta)).toEqual([{ host: null, reason: "invalid-reply" }]);
     expect(s.skillDraftBackoff.canRun(NOW + 60_000)).toBe(false);

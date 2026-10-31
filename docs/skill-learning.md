@@ -45,6 +45,8 @@ On OpenCode, `<private>` text is already removed from the prompt before OMMS see
 
 After you turn recording on, select **Record past turns** on the Settings card or the Skills page. OMMS reads every set-up host's history, for all projects, and records the turns. Sessions whose project folder no longer exists are recorded too, under the recorded folder path. It makes no model call. Running it again adds only new turns.
 
+The button first shows **Finding past sessions…**, then a progress bar with the turn count, then **Recorded N past turns**. The web app keeps answering while the run goes on. On macOS, the first run can ask whether `node` may read a history folder. The run waits until you answer.
+
 From the terminal:
 
 ```bash
@@ -76,7 +78,7 @@ Open a skill and select **Draft improvement**. OMMS sends the current `SKILL.md`
 
 **Find new skill ideas** sends a short list of recent turns and your skill names. It returns up to three ideas. Choose one, pick a watched folder, and select **Draft skill**.
 
-Each draft is one external API call. Set up the model in the **External API** card on the Settings page first. If a draft fails, OMMS logs a reason code and waits 10 minutes before automatic review tries again. Profile learning is not paused by a failed draft.
+Each draft is one external API call. Set up the model in the **External API** card on the Settings page first. A draft can take a few minutes; the page shows **Drafting…** with a spinner until it ends. If a draft fails, OMMS logs a reason code and waits 10 minutes before automatic review tries again. When the model's reply is not valid JSON, the page says **Try again**, and the log records why the model stopped (`stopReason`) and where the JSON broke (`jsonErrorAt`), never the reply text. Profile learning is not paused by a failed draft.
 
 ## Apply, reject and undo
 

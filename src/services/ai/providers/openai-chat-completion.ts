@@ -3,7 +3,8 @@ import {
   type ProviderConfig,
   type ToolCallResult,
   applySafeExtraParams,
-  describeValidationError,
+  validationFailureMessage,
+  validationLogFields,
   isTransportError,
 } from "./base-provider.js";
 import type { AISessionManager } from "../session/ai-session-manager.js";
@@ -461,11 +462,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
                 log(
                   "OpenAI tool response validation failed",
                   {
-                    error: describeValidationError(validationError),
-                    errorType:
-                      validationError instanceof Error
-                        ? validationError.constructor.name
-                        : typeof validationError,
+                    ...validationLogFields(validationError, stopReason),
                     toolName: toolSchema.function.name,
                     iteration: iterations,
                     // Log only the size: the arguments are the model's reply.
@@ -474,7 +471,7 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
                   "error"
                 );
 
-                const errorMessage = `Validation failed: ${describeValidationError(validationError)}`;
+                const errorMessage = validationFailureMessage(validationError, stopReason);
                 lastErrorMessage = errorMessage;
                 await this.addToolResponse(
                   session.id,

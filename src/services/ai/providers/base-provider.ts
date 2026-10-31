@@ -57,6 +57,34 @@ export function describeValidationError(error: unknown): string {
   return "unknown validation error";
 }
 
+/**
+ * Where a JSON `SyntaxError` stopped, from Node's "at position N" text, or
+ * undefined when the runtime gives none. A position near the end of the
+ * arguments means a cut-off reply; one far before it means bad escaping.
+ */
+export function jsonErrorPosition(error: unknown): number | undefined {
+  if (!(error instanceof SyntaxError)) return undefined;
+  const match = /at position (\d+)/.exec(error.message);
+  return match ? Number(match[1]) : undefined;
+}
+
+/** Log fields for a failed tool reply: no reply text, only codes and a position. */
+export function validationLogFields(error: unknown, stopReason: string | undefined) {
+  return {
+    error: describeValidationError(error),
+    errorType: error instanceof Error ? error.constructor.name : typeof error,
+    // "length" means the reply hit the output limit and was cut off.
+    stopReason: stopReason ?? null,
+    jsonErrorAt: jsonErrorPosition(error) ?? null,
+  };
+}
+
+/** The error a failed tool reply returns. It says when the reply was cut off. */
+export function validationFailureMessage(error: unknown, stopReason: string | undefined): string {
+  const cutOff = stopReason === "length" ? " (the reply was cut off)" : "";
+  return `Validation failed: ${describeValidationError(error)}${cutOff}`;
+}
+
 const PROTECTED_KEYS = new Set([
   "model",
   "messages",

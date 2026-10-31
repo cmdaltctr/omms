@@ -171,7 +171,8 @@ function nowOf(deps: DraftDeps): number {
 
 const FAILURE_TEXT: Partial<Record<DraftFailureCode, string>> = {
   "not-configured": "The external API is not set up. Set it up in the External API card.",
-  "invalid-reply": "The model reply was not valid, so nothing was saved",
+  // One reply in two came back as broken JSON in a live check, so a retry usually works.
+  "invalid-reply": "The model reply was not valid, so nothing was saved. Try again.",
   timeout: "The model did not reply in time",
 };
 
