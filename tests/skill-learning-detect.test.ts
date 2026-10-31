@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import {
   buildSkillIndex,
@@ -124,7 +124,11 @@ describe("skill use detection with a linked folder", () => {
   it("matches a read through the linked spelling to the indexed path", () => {
     const linked = join(link, "s-web-search", "SKILL.md");
     const uses = detectSkillUses(
-      { prompt: "go", toolCalls: [{ name: "Read", input: `file_path: "${linked}"` }] },
+      // Hosts write each value with JSON.stringify, which escapes Windows backslashes.
+      {
+        prompt: "go",
+        toolCalls: [{ name: "Read", input: `file_path: ${JSON.stringify(linked)}` }],
+      },
       buildSkillIndex([real])
     );
     expect(uses).toEqual([{ name: "s-web-search", path, method: "read", position: 0 }]);
@@ -239,7 +243,10 @@ describe("skill use detection", () => {
       { prompt: "go", toolCalls: [{ name: "Read", input, path }] },
       index
     );
-    expect(uses).toEqual([{ name: "long-skill", path, method: "read", position: 0 }]);
+    // The code resolves a read path, so Windows adds the drive letter.
+    expect(uses).toEqual([
+      { name: "long-skill", path: resolve(path), method: "read", position: 0 },
+    ]);
     // Without `path`, the cut input alone does not show the SKILL.md.
     expect(detectSkillUses({ prompt: "go", toolCalls: [{ name: "Read", input }] }, index)).toEqual(
       []
@@ -255,7 +262,12 @@ describe("skill use detection", () => {
       index
     );
     expect(uses).toEqual([
-      { name: "fresh", path: `${folder}/new/fresh/SKILL.md`, method: "read", position: 0 },
+      {
+        name: "fresh",
+        path: resolve(`${folder}/new/fresh/SKILL.md`),
+        method: "read",
+        position: 0,
+      },
     ]);
   });
 

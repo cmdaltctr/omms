@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import {
   defaultSkillFolders,
   normaliseSkillConfig,
@@ -26,12 +26,13 @@ describe("normaliseSkillConfig", () => {
     );
     expect(config.skillLearning).toBe(true);
     expect(config.skillLearningRedact).toBe(false);
-    expect(config.skillFolders).toEqual(["/opt/skills"]);
+    // The code resolves each folder, so Windows adds the drive letter.
+    expect(config.skillFolders).toEqual([resolve("/opt/skills")]);
   });
 
   it("expands ~/ and keeps an empty list as an empty list", () => {
     expect(normaliseSkillConfig({ skillFolders: ["~/.agents/skills"] }, HOME).skillFolders).toEqual(
-      [join(HOME, ".agents/skills")]
+      [resolve(HOME, ".agents/skills")]
     );
     expect(normaliseSkillConfig({ skillFolders: [] }, HOME).skillFolders).toEqual([]);
   });
@@ -41,7 +42,7 @@ describe("normaliseSkillConfig", () => {
       { skillFolders: ["~/skills", join(HOME, "skills")] },
       HOME
     ).skillFolders;
-    expect(folders).toEqual([join(HOME, "skills")]);
+    expect(folders).toEqual([resolve(HOME, "skills")]);
   });
 
   it("rejects a relative or non-string folder entry and names the entry", () => {
@@ -98,7 +99,7 @@ describe("projectSkillOverride", () => {
 describe("defaultSkillFolders", () => {
   it("lists the shared and Claude Code skill folders that exist", () => {
     const exists = (path: string) =>
-      path === join(HOME, ".agents/skills") || path.endsWith("/cc/skills");
+      path === join(HOME, ".agents/skills") || path === join("/cc", "skills");
     expect(defaultSkillFolders(HOME, "/cc", exists)).toEqual([
       join(HOME, ".agents/skills"),
       join("/cc", "skills"),
@@ -205,6 +206,6 @@ describe("skill learning in the loaded config", () => {
     );
     initConfig("/my/project");
     expect(CONFIG.skillLearningRedact).toBe(true);
-    expect(CONFIG.skillFolders).toEqual(["/global/skills"]);
+    expect(CONFIG.skillFolders).toEqual([resolve("/global/skills")]);
   });
 });
