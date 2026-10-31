@@ -45,4 +45,4 @@ None.
 - **Data:** no new file. `chats.db` keeps its schema version. Skill sources are saved inside the existing source snapshots of each answer.
 - **Model cost:** no new model call. The plan and answer prompts grow by the skill names and at most 6 short fact blocks, only while `skillLearning` is on.
 - **Translations:** new keys in English, Chinese and Arabic.
-- **Docs:** `docs/web-ui-chat.md`, `docs/web-ui-settings.md`, `docs/skill-learning.md`, the `skills.db` bullet in the Security section of `AGENTS.md`, a new ADR-037 and `docs/adr/ADR_README.md`, and the `omms-design` skill (both copies).
+- **Docs:** `docs/web-ui-chat.md`, `docs/web-ui-settings.md`, `docs/skill-learning.md`, the `skills.db` bullet in the Security section of `AGENTS.md`, a new ADR-038 and `docs/adr/ADR_README.md`, and the `omms-design` skill (both copies).

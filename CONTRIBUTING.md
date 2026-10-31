@@ -79,7 +79,7 @@ formatting by hand.
   is `skills.db`: it holds full turns only while the user turns on
   `skillLearning`, and never inside a project folder (see ADR-036). The memory
   chat reads skill counts and scrubbed summaries from it, never turn text, and
-  only while `skillLearning` is on (see ADR-037).
+  only while `skillLearning` is on (see ADR-038).
 
 ## Commit messages and pull requests
 

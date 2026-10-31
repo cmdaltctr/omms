@@ -73,7 +73,7 @@ const SOURCE_FIELDS = [
   "skill",
 ] as const;
 
-// A skill source has its own list (ADR-037): no path, version id or proposal id.
+// A skill source has its own list (ADR-038): no path, version id or proposal id.
 const SKILL_FIELDS = [
   "name",
   "uses",

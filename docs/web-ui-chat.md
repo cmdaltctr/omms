@@ -90,7 +90,7 @@ Every delete asks first and states how many chats will go. A delete removes all 
 
 ## Where chats are stored
 
-Chats, folders, answers, cited sources, and search plans are saved in one file: `~/.omms/data/chats.db` on macOS, or `%USERPROFILE%\.omms\data\chats.db` on Windows (the `storagePath` folder). The chat adds no folder paths, user names, or email addresses of its own, and a skill source holds none (see [ADR-037](adr/037-chat-reads-skill-facts-from-skills-db.md)). Cited sources keep the memory text exactly as it was when the answer was written, so the file can hold folder paths and other text from your memories. Keep it out of Git and do not share it. See [ADR-032](adr/032-chat-history-lives-in-chats-db.md).
+Chats, folders, answers, cited sources, and search plans are saved in one file: `~/.omms/data/chats.db` on macOS, or `%USERPROFILE%\.omms\data\chats.db` on Windows (the `storagePath` folder). The chat adds no folder paths, user names, or email addresses of its own, and a skill source holds none (see [ADR-038](adr/038-chat-reads-skill-facts-from-skills-db.md)). Cited sources keep the memory text exactly as it was when the answer was written, so the file can hold folder paths and other text from your memories. Keep it out of Git and do not share it. See [ADR-032](adr/032-chat-history-lives-in-chats-db.md).
 
 ## Moving chats to another computer
 

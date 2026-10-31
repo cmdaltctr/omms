@@ -1,4 +1,4 @@
-# ADR-037: The chat reads skill facts from skills.db
+# ADR-038: The chat reads skill facts from skills.db
 
 - **Date:** 2026-10-31
 - **Status:** Accepted. Amends decision 3 of ADR-032 and decision 4 of ADR-036.

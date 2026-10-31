@@ -168,7 +168,7 @@ Only names that match `^[A-Za-z0-9][\w.:-]{0,63}$` and that the scrub leaves unc
 
 ### 17. The saved `skill` object has its own allow-list
 
-`snapshot()` in `chat-store.ts` keeps only listed fields. The change adds `skill` to `SOURCE_FIELDS` and gives it a nested allow-list (see decision 4). A hostile or future field inside `skill` is dropped on save. ADR-037 amends ADR-032 decision 3 with this list. The `chats.db` copy requirement is modified so that skill sources survive a copy to another computer.
+`snapshot()` in `chat-store.ts` keeps only listed fields. The change adds `skill` to `SOURCE_FIELDS` and gives it a nested allow-list (see decision 4). A hostile or future field inside `skill` is dropped on save. ADR-038 amends ADR-032 decision 3 with this list. The `chats.db` copy requirement is modified so that skill sources survive a copy to another computer.
 
 ## Risks / Trade-offs
 
