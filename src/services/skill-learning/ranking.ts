@@ -1,6 +1,7 @@
 import type { SkillMode } from "./proposal-store.js";
 import type { SkillIndex } from "./skill-index.js";
 import type { SkillStore } from "./store.js";
+import type { TursoDb } from "../turso/turso-db.js";
 
 export const RANKING_WINDOW_MS = 30 * 86_400_000;
 /** A skill needs this many uses in the window before it can be Suggested. */
@@ -27,6 +28,10 @@ export interface SkillRanking {
   mode: SkillMode;
   /** 5 uses, attention of 0.3, and a failed turn since the skill's last proposal or review. */
   suggested: boolean;
+  /** True while at least one proposal of this skill is applied (an undone one does not count). */
+  modified: boolean;
+  /** `updated_at` of the newest applied proposal, or null when the skill is not modified. */
+  lastAppliedAt: number | null;
 }
 
 // A recorded path counts only while the index still lists it. A use with no
@@ -104,9 +109,36 @@ LEFT JOIN skill_settings s ON s.skill_path = u.path
 GROUP BY u.name, u.path
 `;
 
+/**
+ * The applied proposals as one query: the newest apply time per path, and per
+ * name for proposals with no path (the rule `skillHistory` uses).
+ */
+async function appliedTimes(db: TursoDb) {
+  const rows = await db.all(
+    `SELECT skill_path, skill_name, MAX(updated_at) AS at FROM skill_proposals
+     WHERE state = 'applied' GROUP BY skill_path, skill_name`
+  );
+  const byPath = new Map<string, number>();
+  const byName = new Map<string, number>();
+  for (const row of rows) {
+    const at = Number(row.at);
+    if (row.skill_path != null) {
+      const path = String(row.skill_path);
+      byPath.set(path, Math.max(byPath.get(path) ?? 0, at));
+    } else {
+      const name = String(row.skill_name);
+      byName.set(name, Math.max(byName.get(name) ?? 0, at));
+    }
+  }
+  return (path: string | null, name: string) =>
+    (path === null ? byName.get(name) : byPath.get(path)) ?? null;
+}
+
 function modeOf(value: unknown): SkillMode {
   return value === "automatic" ? "automatic" : "manual";
 }
+
+const modifiedFields = (at: number | null) => ({ modified: at !== null, lastAppliedAt: at });
 
 /** (failed + 1) / (uses + 2): a skill with little evidence stays near the middle. */
 export function attentionScore(failedTurns: number, uses: number): number {
@@ -129,6 +161,7 @@ export async function rankSkills(
   const entries = index.entries.map((e) => ({ name: e.name, path: e.path }));
   const rankings: SkillRanking[] = [];
   const seen = new Set<string>();
+  const appliedAt = db ? await appliedTimes(db) : () => null;
   if (db) {
     const rows = await db.all(RANKING_SQL, [JSON.stringify(entries), now - RANKING_WINDOW_MS]);
     for (const row of rows) {
@@ -151,6 +184,7 @@ export async function rankSkills(
           uses >= SUGGEST_MIN_USES &&
           attention >= SUGGEST_MIN_ATTENTION &&
           Number(row.failed_since_proposal) > 0,
+        ...modifiedFields(appliedAt(path, String(row.name))),
       });
     }
   }
@@ -174,6 +208,7 @@ export async function rankSkills(
       lastUsedAt: null,
       mode: modes.get(entry.path) ?? "manual",
       suggested: false,
+      ...modifiedFields(appliedAt(entry.path, entry.name)),
     });
   }
   const byUses = (a: SkillRanking, b: SkillRanking) =>

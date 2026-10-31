@@ -162,6 +162,34 @@ describe("skills routes with recording on", () => {
     expect(result.bad.status).toBe(400);
   });
 
+  it("adds modified and lastAppliedAt to the list and to one skill", async () => {
+    const { result } = await scenario(
+      `
+      const store = new SkillStore(dbPath);
+      await store.init();
+      const { createProposal, updateProposalState } = await import(${src("services/skill-learning/proposal-store.ts")});
+      const draft = (name, skillPath) => ({ kind: "improve", skillName: name, skillPath, baseHash: "h",
+        content: "c", diff: "", summary: "", evidenceTurnIds: [] });
+      const made = await createProposal(store, draft("alpha", alphaPath), 1000);
+      const before = await call("/api/skills");
+      await updateProposalState(store, made.id, "applied", 5000, "person");
+      const applied = await call("/api/skills");
+      const one = await call("/api/skills/skill?path=" + encodeURIComponent(alphaPath));
+      await updateProposalState(store, made.id, "undone", 6000);
+      const undone = await call("/api/skills");
+      const pick = (r, name) => r.body.data.skills.find((s) => s.name === name);
+      return { before: pick(before, "alpha"), applied: pick(applied, "alpha"), beta: pick(applied, "beta"),
+        one: one.body.data.skill, undone: pick(undone, "alpha") };
+    `,
+      on
+    );
+    expect(result.before).toMatchObject({ modified: false, lastAppliedAt: null });
+    expect(result.applied).toMatchObject({ modified: true, lastAppliedAt: 5000 });
+    expect(result.one).toMatchObject({ modified: true, lastAppliedAt: 5000 });
+    expect(result.beta).toMatchObject({ modified: false, lastAppliedAt: null });
+    expect(result.undone).toMatchObject({ modified: false, lastAppliedAt: null });
+  });
+
   it("ranks recorded skills, shows one skill with its recent turns, sets the mode and deletes turns", async () => {
     const { result } = await scenario(
       `
@@ -305,6 +333,48 @@ describe("skills routes with recording on", () => {
     expect(result.changed.status).toBe(409);
     expect(result.changed.body.code).toBe("changed");
     expect(result.changed.body.savedContent).toBe(result.original);
+  });
+
+  it("rolls the file back and answers state-write-failed when the proposal state cannot be saved", async () => {
+    const { result } = await scenario(
+      `
+      const { createProposal } = await import(${src("services/skill-learning/proposal-store.ts")});
+      const { hashSkillContent } = await import(${src("services/skill-learning/apply.ts")});
+      const store = new SkillStore(dbPath);
+      await store.init();
+      const original = readFileSync(alphaPath, "utf8");
+      const make = () => createProposal(store, { kind: "improve", skillName: "alpha",
+        skillPath: alphaPath, baseHash: hashSkillContent(readFileSync(alphaPath, "utf8")),
+        content: original + "Improved\\n", diff: "-a\\n+b", summary: "Better",
+        evidenceTurnIds: [] }, Date.now());
+      const state = async (id) => (await call("/api/skills/proposals/" + id)).body.data.proposal.state;
+      const block = () => store.db().then((db) => db.execute(
+        "CREATE TRIGGER block_state BEFORE UPDATE OF state ON skill_proposals " +
+        "BEGIN SELECT RAISE(ABORT, 'disk full'); END"));
+      const unblock = () => store.db().then((db) => db.execute("DROP TRIGGER block_state"));
+
+      const first = await make();
+      await block();
+      const applyFailed = await call("/api/skills/apply", "POST", { id: first.id });
+      const afterApply = { text: readFileSync(alphaPath, "utf8"), state: await state(first.id) };
+      await unblock();
+      await call("/api/skills/apply", "POST", { id: first.id });
+      const appliedText = readFileSync(alphaPath, "utf8");
+      await block();
+      const undoFailed = await call("/api/skills/undo", "POST", { id: first.id });
+      const afterUndo = { text: readFileSync(alphaPath, "utf8"), state: await state(first.id) };
+      return { original, applyFailed, afterApply, appliedText, undoFailed, afterUndo };
+    `,
+      on
+    );
+    expect(result.applyFailed.status).toBe(500);
+    expect(result.applyFailed.body).toMatchObject({ success: false, code: "state-write-failed" });
+    expect(JSON.stringify(result.applyFailed.body)).not.toContain("disk full");
+    expect(result.afterApply).toEqual({ text: result.original, state: "pending" });
+    expect(result.undoFailed.status).toBe(500);
+    expect(result.undoFailed.body).toMatchObject({ success: false, code: "state-write-failed" });
+    expect(JSON.stringify(result.undoFailed.body)).not.toContain("disk full");
+    expect(result.afterUndo).toEqual({ text: result.appliedText, state: "applied" });
   });
 
   it("drafts through the shared operations and reports the model and name codes", async () => {

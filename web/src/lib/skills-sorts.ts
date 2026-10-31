@@ -10,7 +10,7 @@ import type { Proposal, ProposalState, SkillRow } from "./skills-api";
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 
-export type SkillSort = "uses" | "attention" | "name" | "lastUsed" | "failed";
+export type SkillSort = "uses" | "attention" | "name" | "lastUsed" | "failed" | "lastModified";
 export const SKILL_SORTS: readonly SortOption<SkillSort, SkillRow>[] = [
   { value: "uses", label: "Most used", first: "desc", compare: (a, b) => a.uses - b.uses },
   {
@@ -25,12 +25,20 @@ export const SKILL_SORTS: readonly SortOption<SkillSort, SkillRow>[] = [
     label: "Last used",
     first: "desc",
     compare: (a, b) => (a.lastUsedAt ?? 0) - (b.lastUsedAt ?? 0),
+    last: (row) => row.lastUsedAt === null,
   },
   {
     value: "failed",
     label: "Failed turns",
     first: "desc",
     compare: (a, b) => a.failedTurns - b.failedTurns,
+  },
+  {
+    value: "lastModified",
+    label: "Last modified",
+    first: "desc",
+    compare: (a, b) => (a.lastAppliedAt ?? 0) - (b.lastAppliedAt ?? 0),
+    last: (row) => row.lastAppliedAt === null,
   },
 ];
 

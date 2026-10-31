@@ -5,7 +5,7 @@
  */
 
 /** Page sizes in the "Show" menu, the same on every list. */
-export const PER_PAGE_PRESETS = [5, 10, 25, 50, 100] as const;
+export const PER_PAGE_PRESETS = [3, 5, 10, 25, 50, 100] as const;
 export const DEFAULT_PER_PAGE = 5;
 /** Largest page size a list accepts. The skills routes check the same limit. */
 export const MAX_PER_PAGE = 200;
@@ -96,21 +96,30 @@ export function parseCustomSize(input: string, current: number): number {
 
 /**
  * Sort a copy. `compare` gives the ascending order; descending flips it. Rows
- * that compare equal keep their input order in both directions.
+ * that compare equal keep their input order in both directions. Rows that
+ * `last` accepts (for example a missing date) stay at the end in both directions.
  */
 export function sortItems<T>(
   items: readonly T[],
   compare: (a: T, b: T) => number,
-  order: SortOrder
+  order: SortOrder,
+  last?: (item: T) => boolean
 ): T[] {
   const sign = order === "asc" ? 1 : -1;
+  const tail = (item: T) => (last?.(item) ? 1 : 0);
   return items
     .map((item, index) => ({ item, index }))
-    .sort((a, b) => sign * compare(a.item, b.item) || a.index - b.index)
+    .sort(
+      (a, b) =>
+        tail(a.item) - tail(b.item) ||
+        (tail(a.item) ? 0 : sign * compare(a.item, b.item)) ||
+        a.index - b.index
+    )
     .map(({ item }) => item);
 }
 
-export type SavedView<S extends string> = { perPage: number; sort?: S; order?: SortOrder };
+/** What a list saves. `perPage` is present only when the reader chose a size. */
+export type SavedView<S extends string> = { perPage?: number; sort?: S; order?: SortOrder };
 
 /** The saved page size and sort of one list. Blocked storage or bad data gives `null`. */
 export function readView<S extends string>(key: string): SavedView<S> | null {
@@ -118,7 +127,10 @@ export function readView<S extends string>(key: string): SavedView<S> | null {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const value = JSON.parse(raw) as Partial<SavedView<S>>;
-    const perPage = parseCustomSize(String(value.perPage ?? ""), DEFAULT_PER_PAGE);
+    const perPage =
+      value.perPage === undefined
+        ? undefined
+        : parseCustomSize(String(value.perPage), DEFAULT_PER_PAGE);
     const order = value.order === "asc" || value.order === "desc" ? value.order : undefined;
     return { perPage, sort: typeof value.sort === "string" ? value.sort : undefined, order };
   } catch {
@@ -131,6 +143,25 @@ export function saveView<S extends string>(key: string, view: SavedView<S>): voi
     localStorage.setItem(key, JSON.stringify(view));
   } catch {
     // Private mode or blocked site data; the choice lasts for this visit.
+  }
+}
+
+/**
+ * Carries a list's saved view over from an old key to a new one, once: when
+ * the new key holds nothing. The size is copied only when it is not 5, the
+ * old default, which cannot be told from a chosen 5. The sort and order are
+ * copied as saved. The old key is left as it is.
+ */
+export function migrateView(newKey: string, oldKey: string): void {
+  try {
+    if (localStorage.getItem(newKey) !== null) return;
+    const old = readView(oldKey);
+    if (!old) return;
+    const perPage = old.perPage === DEFAULT_PER_PAGE ? undefined : old.perPage;
+    if (perPage === undefined && old.sort === undefined && old.order === undefined) return;
+    saveView(newKey, { perPage, sort: old.sort, order: old.order });
+  } catch {
+    // Blocked storage: the list starts at its defaults.
   }
 }
 

@@ -182,6 +182,7 @@ Page every list that can grow past 5 rows. Use the shared module in `web/src/lib
 
 Rules:
 
+- A list of tall cards may start smaller: pass `defaultPerPage: 3` (the proposal lists do). A saved size still wins. Other lists keep 5. The size menu offers 3, 5, 10, 25, 50 and 100.
 - Give each list its own `storageKey`, for example `omms-list-skills`. The hook saves the page size and sort there in a `try`/`catch`.
 - Define the sorts once, as in `web/src/lib/skills-sorts.ts`. Each sort has an English `label`, a `first` direction and an ascending `compare`. The toolbar translates the label.
 - Pass the filter text as `resetKey`. A new filter, sort or page size returns to page 1. The page stays inside the list when the data shrinks.
@@ -189,6 +190,23 @@ Rules:
 - The footer reads "Showing X to Y of Z results" over Previous, page numbers with gaps, and Next. It renders nothing for one page. Previous and Next use a real `disabled`, so they leave the tab order. Narrow screens show only their icons.
 - Keep the accessible names: "Results per page", "Custom results per page", "Sort by", "Sort ascending", "Sort descending", the `pagination` nav and `aria-current="page"`.
 - Put the empty and loading states outside `PagedList`. A list with no rows shows its own sentence.
+
+## Collapsible long sublists (3 default, 6 expanded, paged beyond)
+
+A sublist inside a card, such as the evidence turns of a proposal, must not make the card long. See `web/src/lib/components/skills/EvidenceTurns.tsx`.
+
+- Show 3 rows. With more than 3, add a ghost `Button` "Show N more" with a chevron and `aria-expanded`. N is the number of extra rows the click reveals, at most 3.
+- Expanded shows up to 6 rows. With more than 6 rows, page the expanded view 6 to a page with `PagedFooter` and `paginate` from the paged-list module. Leave out the size and sort toolbar.
+- "Show less" goes back to 3 rows and page 1.
+- Long cards: header + 2-line summary + key facts collapsed, details behind Show more. Use a ghost `Button` with a chevron, `aria-expanded` and `aria-controls`; keep the actions visible. See `web/src/lib/components/skills/ProposalCard.tsx`.
+
+## Done marker: green check beside the name, with a tooltip
+
+Mark a finished or changed item with a `CircleCheck` icon in `text-status-success`, beside its name. See `web/src/lib/components/skills/ModifiedMark.tsx`.
+
+- Wrap it in the shared `Tooltip`. The icon sits in a focusable `span`, so the tooltip shows on hover and on keyboard focus.
+- Put the same sentence in an `sr-only` span, for example "Modified on {date}". The icon has `aria-hidden`.
+- In a row that is one big button, place the mark as a sibling of the button, not inside it, so no interactive element sits inside another.
 
 ## Charts
 

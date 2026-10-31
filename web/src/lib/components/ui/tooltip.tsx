@@ -4,9 +4,37 @@ import { cn } from "$lib/utils";
 const EDGE_GAP = 8;
 
 /**
+ * How far to slide a bubble sideways so it stays between `left` and `right`.
+ * A bubble wider than that span is centred on it.
+ */
+export function tooltipShift({
+  centre,
+  half,
+  left,
+  right,
+  gap,
+}: {
+  centre: number;
+  half: number;
+  left: number;
+  right: number;
+  gap: number;
+}): number {
+  const minCentre = left + gap + half;
+  const maxCentre = right - gap - half;
+  if (minCentre > maxCentre) return (left + right) / 2 - centre;
+  return Math.min(Math.max(centre, minCentre), maxCentre) - centre;
+}
+
+/**
  * A small styled tooltip shown on hover or keyboard focus of its child. It sits centred
  * on one line above the child, and slides sideways when it would leave the viewport.
  */
+/** The page column that holds the tooltip, or null. App.tsx marks it with `data-tooltip-bounds`. */
+function pageColumn(node: HTMLElement): DOMRect | null {
+  return node.closest("[data-tooltip-bounds]")?.getBoundingClientRect() ?? null;
+}
+
 export function Tooltip({
   content,
   children,
@@ -30,10 +58,11 @@ export function Tooltip({
     const anchor = node.parentElement!.getBoundingClientRect();
     const half = node.offsetWidth / 2;
     const centre = anchor.left + anchor.width / 2;
-    const viewport = document.documentElement.clientWidth;
-    const minCentre = EDGE_GAP + half;
-    const maxCentre = viewport - EDGE_GAP - half;
-    setShift(Math.min(Math.max(centre, minCentre), maxCentre) - centre);
+    // Stay inside the page column when there is one: the sidebar paints over the rest.
+    const column = pageColumn(node);
+    const left = column ? column.left : 0;
+    const right = column ? column.right : document.documentElement.clientWidth;
+    setShift(tooltipShift({ centre, half, left, right, gap: EDGE_GAP }));
   };
 
   return (

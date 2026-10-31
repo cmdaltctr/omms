@@ -1,4 +1,5 @@
 import { afterEach, expect, it } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
 import { pathForView, isAppPath, resolveAppPath, ROUTES, viewFromPath } from "../src/lib/routes.ts";
 import { setLanguage } from "../src/lib/i18n/index.ts";
 import { translations } from "../src/lib/i18n/translations.ts";
@@ -45,6 +46,26 @@ it("translates the Skills entry in every language", () => {
   }
 });
 
+it("translates every capitalised string literal in the Skills components and sorts", () => {
+  const dir = new URL("../src/lib/components/skills/", import.meta.url).pathname;
+  const files = [
+    ...readdirSync(dir)
+      .filter((name) => name.endsWith(".tsx"))
+      .map((name) => dir + name),
+    new URL("../src/lib/skills-sorts.ts", import.meta.url).pathname,
+  ];
+  const keys = /^(Arrow|Escape|Enter|Home|End|Tab)/;
+  const missing: string[] = [];
+  for (const file of files) {
+    for (const match of readFileSync(file, "utf8").matchAll(/"([A-Z][^"\n]*)"/g)) {
+      const text = match[1]!;
+      if (keys.test(text)) continue;
+      if (translateSettings(text, "zh") === text) missing.push(text);
+    }
+  }
+  expect(missing).toEqual([]);
+});
+
 it("gives every Skill learning message a Chinese and an Arabic translation", () => {
   for (const [message, [zh, ar]] of Object.entries(skillText)) {
     expect(zh, message).toBeTruthy();
@@ -68,6 +89,8 @@ const skill = (name: string, over: Partial<SkillRow> = {}): SkillRow => ({
   lastUsedAt: null,
   mode: "manual",
   suggested: false,
+  modified: false,
+  lastAppliedAt: null,
   ...over,
 });
 

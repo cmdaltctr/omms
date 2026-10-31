@@ -48,7 +48,8 @@ export type ApplyFailureCode =
   | "stale"
   | "exists"
   | "read-only"
-  | "write-failed";
+  | "write-failed"
+  | "state-write-failed";
 
 export type ApplyResult =
   | { ok: true; code: "applied"; proposal: SkillProposal; path: string; writtenHash: string }
@@ -61,7 +62,8 @@ export type UndoFailureCode =
   | "outside-folder"
   | "changed"
   | "read-only"
-  | "write-failed";
+  | "write-failed"
+  | "state-write-failed";
 
 export type UndoResult =
   | { ok: true; code: "undone"; proposal: SkillProposal; path: string }
@@ -175,6 +177,10 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** The fixed answer when the state write fails; it holds no path and no error text. */
+const STATE_WRITE_FAILED =
+  "The proposal state could not be saved, so the SKILL.md change was rolled back";
+
 /**
  * Writes a pending proposal to its `SKILL.md` (design §7). Checks the real
  * path, the file name, a new skill's name and the base hash first. Saves the
@@ -243,7 +249,24 @@ export async function applyProposal(
   }
   clearSkillIndexCache();
   const appliedAt = now();
-  await updateProposalState(store, id, "applied", appliedAt, by);
+  try {
+    await updateProposalState(store, id, "applied", appliedAt, by);
+  } catch {
+    // The file and the state must agree: put the file back and drop the version row.
+    try {
+      if (proposal.kind === "new") {
+        unlinkSync(real);
+        removeEmptyFolder(dirname(real), target.folders);
+      } else if (previous !== null) {
+        replaceFile(real, previous);
+      }
+    } catch {
+      // Best effort; the code below still tells the reader the apply did not finish.
+    }
+    await deleteSkillVersion(store, versionId).catch(() => {});
+    clearSkillIndexCache();
+    return { ok: false, code: "state-write-failed", message: STATE_WRITE_FAILED };
+  }
   return {
     ok: true,
     code: "applied",
@@ -321,6 +344,8 @@ export async function undoProposal(id: string, deps: ApplyDeps): Promise<UndoRes
   const plan = await planUndo(id, deps);
   if (!plan.ok) return plan;
   const { proposal, version, real, folders } = plan;
+  // The plan checked that the file still holds what OMMS wrote; keep it to put back.
+  const written = readFileSync(real, "utf8");
   try {
     if (version.previousContent === null) {
       unlinkSync(real);
@@ -333,7 +358,19 @@ export async function undoProposal(id: string, deps: ApplyDeps): Promise<UndoRes
   }
   clearSkillIndexCache();
   const undoneAt = now();
-  await updateProposalState(deps.store, id, "undone", undoneAt);
+  try {
+    await updateProposalState(deps.store, id, "undone", undoneAt);
+  } catch {
+    // The proposal stays applied, so the file goes back to what it was written as.
+    try {
+      mkdirSync(dirname(real), { recursive: true });
+      replaceFile(real, written);
+    } catch {
+      // Best effort; the code below still tells the reader the undo did not finish.
+    }
+    clearSkillIndexCache();
+    return { ok: false, code: "state-write-failed", message: STATE_WRITE_FAILED };
+  }
   return {
     ok: true,
     code: "undone",

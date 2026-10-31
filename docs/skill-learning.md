@@ -66,7 +66,9 @@ On the **Skills** page, under **Watched folders**, you can add a folder by path,
 
 The **Skills** page lists each skill with its uses (U) in the last 30 days, the turns with a failed tool call (F), an attention score, its last use and its mode. A failed tool call counts only when it came after the skill was used in that turn. A skill invoked by a slash command counts every failed tool call in the turn. The attention score is (F + 1) / (U + 2), rounded to two decimals. A skill with little evidence stays near the middle, and a skill that fails often rises towards 1.
 
-The Skills page sorts the list in the browser by **Most used**, **Needs attention**, **Name (A–Z)**, **Last used** or **Failed turns**, in either direction. It shows 5 skills on each page and remembers the page size and sort. In the terminal, use `skills list --order attention`. The API takes `GET /api/skills?order=attention`. See [Web UI: Skills page](web-ui.md#skills-page) for the paging controls, the charts and the history timeline.
+The Skills page sorts the list in the browser by **Most used**, **Needs attention**, **Name (A–Z)**, **Last used**, **Failed turns** or **Last modified**, in either direction. Skills that are not modified come last under **Last modified**, and skills that were never used come last under **Last used**, whichever direction you pick. It shows 5 skills on each page and remembers the page size and sort. In the terminal, use `skills list --order attention`. The API takes `GET /api/skills?order=attention`. See [Web UI: Skills page](web-ui.md#skills-page) for the paging controls, the charts and the history timeline.
+
+Each skill row from `GET /api/skills` and from `GET /api/skills/skill` has two more fields. `modified` is true while at least one proposal of the skill is in the state `applied`. An undone, rejected, stale or pending proposal does not count. `lastAppliedAt` is the epoch time in milliseconds of the newest applied proposal, or `null` when `modified` is false. A proposal belongs to a skill by its path. A proposal with no path belongs to the skill with no path that has the same name. One query reads the applied proposals for the whole list.
 
 A skill in a watched folder shows **Suggested** when it has 5 or more uses, an attention score of 0.3 or more, and a failed turn since its last draft or review. A draft that proposes no change also counts, so the badge goes away until a new failed turn arrives. A skill with 1 use and 1 failure has attention 0.67 and is not Suggested, because it has fewer than 5 uses.
 
@@ -89,6 +91,8 @@ A pending proposal offers **Apply** and **Reject**.
 - **Undo** restores the previous version, or deletes a new skill. It works only while the file still matches what OMMS wrote. If you changed the file since, undo refuses and shows the saved version.
 
 Undo checks the file against the content OMMS wrote for that one change. If a later change rewrote the file, undo of the older change refuses with `changed`. Undo the later change first.
+
+OMMS saves the new proposal state after it writes `SKILL.md`. If that save fails, OMMS puts `SKILL.md` back as it was, removes the saved version of that apply, and answers with the code `state-write-failed` (HTTP 500). The proposal keeps its old state, so you can try again.
 
 ## Web API for the Skills page
 

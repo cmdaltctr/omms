@@ -51,9 +51,10 @@ it("clamps a custom size to 1–200 and snaps back on text that is not a size", 
 });
 
 it("shows a custom size in the menu in its sorted place", () => {
-  expect(sizeOptions(5)).toEqual([5, 10, 25, 50, 100]);
-  expect(sizeOptions(7)).toEqual([5, 7, 10, 25, 50, 100]);
-  expect(sizeOptions(200)).toEqual([5, 10, 25, 50, 100, 200]);
+  expect(sizeOptions(5)).toEqual([3, 5, 10, 25, 50, 100]);
+  expect(sizeOptions(3)).toEqual([3, 5, 10, 25, 50, 100]);
+  expect(sizeOptions(7)).toEqual([3, 5, 7, 10, 25, 50, 100]);
+  expect(sizeOptions(200)).toEqual([3, 5, 10, 25, 50, 100, 200]);
 });
 
 it("sorts both ways and keeps rows that tie in their input order", () => {
@@ -108,6 +109,7 @@ it("starts each skill and proposal sort in its natural direction", () => {
     name: "asc",
     lastUsed: "desc",
     failed: "desc",
+    lastModified: "desc",
   });
   expect(PROPOSAL_SORTS.map((o) => o.value)).toEqual(["newest", "oldest", "state", "skill"]);
   const name = SKILL_SORTS.find((o) => o.value === "name")!;
