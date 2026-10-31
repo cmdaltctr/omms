@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { pathForView, isAppPath, resolveAppPath, ROUTES, viewFromPath } from "../src/lib/routes.ts";
 import { setLanguage } from "../src/lib/i18n/index.ts";
 import { translations } from "../src/lib/i18n/translations.ts";
@@ -47,13 +48,15 @@ it("translates the Skills entry in every language", () => {
 });
 
 it("translates every capitalised string literal in the Skills components and sorts", () => {
-  const dir = new URL("../src/lib/components/skills/", import.meta.url).pathname;
+  // `join` and `import.meta.dir` give a real path on Windows; `URL.pathname` gives `/D:/...`.
+  const dir = join(import.meta.dir, "../src/lib/components/skills");
   const files = [
     ...readdirSync(dir)
       .filter((name) => name.endsWith(".tsx"))
-      .map((name) => dir + name),
-    new URL("../src/lib/skills-sorts.ts", import.meta.url).pathname,
+      .map((name) => join(dir, name)),
+    join(import.meta.dir, "../src/lib/skills-sorts.ts"),
   ];
+  expect(files.length).toBeGreaterThan(5);
   const keys = /^(Arrow|Escape|Enter|Home|End|Tab)/;
   const missing: string[] = [];
   for (const file of files) {
