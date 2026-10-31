@@ -2,6 +2,20 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.32.0](https://github.com/cmdaltctr/omms/compare/v4.31.2...v4.32.0) (2026-10-31)
+
+
+### Features
+
+* add paging, history and activity routes to the skills API ([877b14c](https://github.com/cmdaltctr/omms/commit/877b14ccbe2d37f66e9fd3bcda73564c85cd5325))
+* page, sort and chart the Skills page ([871cd47](https://github.com/cmdaltctr/omms/commit/871cd479328b27696c71354adec5d37f556b22c5))
+* page, sort and chart the Skills page ([10a0354](https://github.com/cmdaltctr/omms/commit/10a0354abad27558f671b01b67ab52647a55c06e))
+
+
+### Bug Fixes
+
+* address review on the Skills page ([df815b2](https://github.com/cmdaltctr/omms/commit/df815b2fcb6ff0481b4cdeac6937f6e673d955dd))
+
 ## [4.31.2](https://github.com/cmdaltctr/omms/compare/v4.31.1...v4.31.2) (2026-10-31)
 
 
