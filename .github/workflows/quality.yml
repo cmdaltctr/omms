@@ -121,7 +121,9 @@ jobs:
   # Runs on pushes to main only, not on pull requests: a stalled Windows runner
   # times out unrelated tests, and a failed Quality run also stops the release
   # pull request from merging itself. The release smoke still tests Windows
-  # before npm, with one retry for failed files. See ADR-024.
+  # before npm, with one retry for failed files. See ADR-024. Pull requests get
+  # Windows in the separate, non-gating Windows PR check (windows-pr.yml,
+  # ADR-037).
   test-windows:
     name: test-windows
     needs: changes

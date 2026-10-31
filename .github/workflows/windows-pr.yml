@@ -1,0 +1,64 @@
+name: Windows PR check
+
+# The test suite on Windows for every pull request. It gates nothing. It is a
+# separate workflow, not a job in Quality, because Release auto-merge waits for
+# a completed Quality run: a stalled Windows runner in Quality would stop the
+# release pull request from merging itself (ADR-024). Do not add this check to
+# the "Protect main" ruleset. A failure shows on the pull request for the
+# author to read before merging. See ADR-037 and docs/ci.md.
+#
+# Docs-only pull requests (Markdown anywhere, or anything under docs/) are
+# skipped, as the Quality `test` job skips them. Nothing requires this check,
+# so a skipped run blocks no merge and paths-ignore is safe here.
+on:
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+
+concurrency:
+  group: windows-pr-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-windows-pr:
+    name: test-windows-pr
+    runs-on: windows-latest
+    timeout-minutes: 30
+    # Git Bash for every step, as in the Quality `test-windows` job: the build
+    # calls rm and chmod, and a bare `bash` from PowerShell can resolve to WSL.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Install source dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install web dependencies
+        working-directory: web
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      # One Bun process per test file; see docs/ci.md. A stalled Windows runner
+      # times out tests that pass on a second run, so each failed file runs once
+      # more. A file that passes on retry shows as a warning on the run.
+      - name: Test
+        env:
+          OMMS_TEST_RETRY: '1'
+        run: bash scripts/run-tests-isolated.sh

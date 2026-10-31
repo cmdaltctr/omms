@@ -92,7 +92,8 @@ the changelog are generated from them:
 | `docs:`, `refactor:`, `test:`, `ci:`, `chore:` | No release                 |
 
 Open the pull request against `main`. Describe what changed and why, and how
-you tested it. GitHub runs the Quality workflow on every pull request;
+you tested it. GitHub runs the Quality workflow on every pull request, and a
+Windows PR check that gates nothing (read its result before you merge);
 CodeRabbit also reviews it. Reply to each review comment, fix it or explain
 why not, and resolve the thread. [docs/ci.md](docs/ci.md) explains every
 check and the release process.
