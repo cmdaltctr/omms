@@ -458,6 +458,225 @@ describe("skills routes with recording on", () => {
   });
 });
 
+describe("skills failure routes", () => {
+  const on = {
+    config: (home: string) => ({ skillLearning: true, skillFolders: [join(home, "skills")] }),
+  };
+
+  it("returns a turn's failed calls and a skill's failure groups, and logs nothing", async () => {
+    const { result } = await scenario(
+      `
+      const store = new SkillStore(dbPath);
+      await store.init();
+      let seq = 0;
+      const fturn = (skill, path, calls, position, at) => ({
+        turnKey: "pi:s1:u" + ++seq, host: "pi", sessionId: "s1", projectTag: null,
+        projectName: "demo", provider: null, model: null,
+        createdAt: at === undefined ? Date.now() - 60000 + seq : at,
+        prompt: "do it", replies: ["done"], redacted: true, toolCalls: calls,
+        skillUses: [{ name: skill, path, method: "tool",
+          ...(position === undefined ? {} : { position }) }],
+      });
+      await store.insertTurn(fturn("alpha", alphaPath, [
+        { name: "Bash", input: "SECRET-INPUT-" + "x".repeat(21_000), outcome: "error", error: "SECRET-ERR boom\\nsecond line" },
+        { name: "Read", input: "fine", outcome: "ok", error: null },
+        { name: "Grep", input: "g", outcome: "error", error: null },
+      ]));
+      const turnId = Number((await (await store.db()).get("SELECT id FROM turns"))?.id);
+      const failures = await call("/api/skills/turns/" + turnId + "/failures");
+      const badId = await call("/api/skills/turns/abc/failures");
+      const badEncoding = await call("/api/skills/turns/%E0%A4%A/failures");
+      const missing = await call("/api/skills/turns/9999/failures");
+      await store.insertTurn(fturn("alpha", alphaPath, [
+        { name: "Bash", input: "b2", outcome: "error", error: "SECRET-ERR boom" },
+      ], undefined, Date.now()));
+      const groups = await call("/api/skills/failures?path=" + encodeURIComponent(alphaPath));
+      const betaGroups = await call("/api/skills/failures?path=" + encodeURIComponent(betaPath));
+      const noArgs = await call("/api/skills/failures");
+      const unknown = await call("/api/skills/failures?path=" + encodeURIComponent("/no/SKILL.md"));
+      const logFile = join(home, "omms.log");
+      return {
+        failures, badId, badEncoding, missing, groups, betaGroups, noArgs, unknown,
+        logText: existsSync(logFile) ? readFileSync(logFile, "utf8") : "",
+      };
+    `,
+      on
+    );
+    expect(result.failures.status).toBe(200);
+    const failures = result.failures.body.data.failures;
+    expect(failures).toHaveLength(2);
+    expect(failures[0]).toMatchObject({
+      position: 0,
+      name: "Bash",
+      inputCut: true,
+      // The turn dialog carries the stored error text in full; only the group
+      // key uses its first line.
+      error: "SECRET-ERR boom\nsecond line",
+    });
+    expect(failures[0].input).toHaveLength(20_000);
+    expect(failures[1]).toMatchObject({ position: 2, name: "Grep", inputCut: false, error: null });
+    expect(result.badId.status).toBe(400);
+    expect(result.badId.body.code).toBe("invalid-args");
+    expect(result.badEncoding.status).toBe(400);
+    expect(result.badEncoding.body.code).toBe("invalid-args");
+    expect(result.missing.status).toBe(404);
+    expect(result.missing.body.code).toBe("not-found");
+
+    const groups = result.groups.body.data.groups;
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toMatchObject({
+      name: "Bash",
+      errorLine: "SECRET-ERR boom",
+      calls: 2,
+      turns: 2,
+    });
+    expect(groups[0].latest).toHaveLength(2);
+    expect(groups[0].latest[0]).toMatchObject({ input: "b2", projectName: "demo" });
+    expect(groups[1]).toMatchObject({ name: "Grep", errorLine: null, calls: 1 });
+    expect(result.betaGroups.status).toBe(200);
+    expect(result.betaGroups.body.data.groups).toEqual([]);
+    expect(result.noArgs.status).toBe(400);
+    expect(result.noArgs.body.code).toBe("invalid-args");
+    expect(result.unknown.status).toBe(404);
+    // The routes never write stored text to the log.
+    expect(result.logText).not.toContain("SECRET-INPUT");
+    expect(result.logText).not.toContain("SECRET-ERR");
+  });
+
+  it("explains failures through the model and logs only a reason code", async () => {
+    const { result } = await scenario(
+      `
+      const skillModelUrl = ${src("services/skill-learning/skill-model.ts")};
+      let toolCalls = 0;
+      mock.module(skillModelUrl, () => ({
+        skillModel: () => ({ ready: true, callTool: async () => {
+          toolCalls += 1;
+          return toolCalls === 1
+            ? { success: true, data: { summary: "The tool path is wrong", causes: [
+                { kind: "skill", explanation: "The skill omits the project root",
+                  actions: [" Name the root "] } ] } }
+            : { success: false, error: "timeout after 10ms" };
+        } }),
+      }));
+      const store = new SkillStore(dbPath);
+      await store.init();
+      let seq = 0;
+      const fturn = (skill, path, calls) => ({
+        turnKey: "pi:s1:u" + ++seq, host: "pi", sessionId: "s1", projectTag: null,
+        projectName: "demo", provider: null, model: null, createdAt: Date.now() - 60000 + seq,
+        prompt: "PROMPT-SECRET keep out", replies: ["REPLY-SECRET keep out"], redacted: true,
+        toolCalls: calls, skillUses: [{ name: skill, path, method: "tool" }],
+      });
+      await store.insertTurn(fturn("alpha", alphaPath, [
+        { name: "Bash", input: "SECRET-INPUT", outcome: "error", error: "SECRET-ERR boom" },
+      ]));
+      const body = { path: alphaPath };
+      const noArgs = await call("/api/skills/explain-failures", "POST", {});
+      const unknown = await call("/api/skills/explain-failures", "POST", { path: "/no/SKILL.md" });
+      const explained = await call("/api/skills/explain-failures", "POST", body);
+      const timedOut = await call("/api/skills/explain-failures", "POST", body);
+      const logFile = join(home, "omms.log");
+      return {
+        noArgs, unknown, explained, timedOut,
+        logText: existsSync(logFile) ? readFileSync(logFile, "utf8") : "",
+      };
+    `,
+      on
+    );
+    expect(result.noArgs.status).toBe(400);
+    expect(result.noArgs.body.code).toBe("invalid-args");
+    expect(result.unknown.status).toBe(404);
+    expect(result.unknown.body.code).toBe("not-found");
+    expect(result.explained.status).toBe(200);
+    expect(result.explained.body.data.explanation).toEqual({
+      summary: "The tool path is wrong",
+      causes: [
+        {
+          kind: "skill",
+          explanation: "The skill omits the project root",
+          actions: ["Name the root"],
+        },
+      ],
+    });
+    expect(result.timedOut.status).toBe(502);
+    expect(result.timedOut.body).toMatchObject({ success: false, code: "timeout" });
+    // The failure is logged by reason code only, with no stored text.
+    expect(result.logText).toContain('"reason":"timeout"');
+    expect(result.logText).not.toContain("SECRET-INPUT");
+    expect(result.logText).not.toContain("SECRET-ERR");
+    expect(result.logText).not.toContain("PROMPT-SECRET");
+    expect(result.logText).not.toContain("REPLY-SECRET");
+  });
+
+  it("refuses to explain without the external API and without recording", async () => {
+    const { result } = await scenario(
+      `
+      const store = new SkillStore(dbPath);
+      await store.init();
+      let seq = 0;
+      const fturn = (skill, path, calls) => ({
+        turnKey: "pi:s1:u" + ++seq, host: "pi", sessionId: "s1", projectTag: null,
+        projectName: "demo", provider: null, model: null, createdAt: Date.now() - 60000 + seq,
+        prompt: "p", replies: ["r"], redacted: true, toolCalls: calls,
+        skillUses: [{ name: skill, path, method: "tool" }],
+      });
+      await store.insertTurn(fturn("alpha", alphaPath, [
+        { name: "Bash", input: "x", outcome: "error", error: "boom" },
+      ]));
+      return { off: await call("/api/skills/explain-failures", "POST", { path: alphaPath }) };
+    `,
+      on
+    );
+    // No external API is set up in this home folder, so nothing is sent.
+    expect(result.off.status).toBe(409);
+    expect(result.off.body.code).toBe("not-configured");
+  });
+
+  it("refuses to explain failures while recording is off and never calls the model", async () => {
+    const { result } = await scenario(
+      `
+      const skillModelUrl = ${src("services/skill-learning/skill-model.ts")};
+      let modelCalls = 0;
+      mock.module(skillModelUrl, () => ({
+        skillModel: () => ({ ready: true, callTool: async () => {
+          modelCalls += 1;
+          return { success: true, data: { summary: "sent", causes: [] } };
+        } }),
+      }));
+      const store = new SkillStore(dbPath);
+      await store.init();
+      await store.insertTurn({
+        turnKey: "pi:s1:u1", host: "pi", sessionId: "s1", projectTag: null,
+        projectName: "demo", provider: null, model: null, createdAt: Date.now() - 60000,
+        prompt: "p", replies: ["r"], redacted: true,
+        toolCalls: [{ name: "Bash", input: "x", outcome: "error", error: "boom" }],
+        skillUses: [{ name: "alpha", path: alphaPath, method: "tool" }],
+      });
+      const off = await call("/api/skills/explain-failures", "POST", { path: alphaPath });
+      return { off, modelCalls };
+    `
+    );
+    expect(result.off.status).toBe(409);
+    expect(result.off.body.code).toBe("recording-off");
+    expect(result.modelCalls).toBe(0);
+  });
+
+  it("gives empty failures without creating skills.db while recording is off", async () => {
+    const { result } = await scenario(
+      `
+      const failures = await call("/api/skills/turns/3/failures");
+      const groups = await call("/api/skills/failures?path=" + encodeURIComponent(join(skills, "a", "SKILL.md")));
+      return { failures, groups, created: existsSync(dbPath) };
+    `
+    );
+    expect(result.failures.status).toBe(200);
+    expect(result.failures.body.data.failures).toEqual([]);
+    expect(result.groups.status).toBe(200);
+    expect(result.groups.body.data.groups).toEqual([]);
+    expect(result.created).toBe(false);
+  });
+});
+
 describe("skill settings in the safe Settings save", () => {
   it("writes only the changed skill keys and shows them in the settings snapshot", async () => {
     const { home, skills, result } = await scenario(

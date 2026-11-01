@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { CONFIG } from "../config.js";
 import {
   RECORDING_OFF_TEXT,
   runSkillOperation,
@@ -10,6 +11,8 @@ import { log } from "./logger.js";
 import { skillActivity, skillDaily } from "./skill-learning/activity.js";
 import { parseActivityQuery, topParam } from "./skill-learning/activity-range.js";
 import { undoProposal } from "./skill-learning/apply.js";
+import { turnFailures, skillFailureGroups } from "./skill-learning/failures.js";
+import { explainFailures } from "./skill-learning/failure-explain.js";
 import { skillHistory, withCanUndo } from "./skill-learning/history.js";
 import { skillOperationsDeps } from "./skill-learning/operations-deps.js";
 import {
@@ -22,6 +25,7 @@ import { listProposalSummaries } from "./skill-learning/proposal-summaries.js";
 import { intParam } from "./skill-learning/query-params.js";
 import { SKILL_ORDERS, rankSkills, type SkillOrder } from "./skill-learning/ranking.js";
 import { skillTurnSettingsFor } from "./skill-learning/settings-for.js";
+import { skillModel } from "./skill-learning/skill-model.js";
 import { getSkillIndex, type SkillIndex } from "./skill-learning/skill-index.js";
 import { SkillStore, SkillStoreError, skillsDbPath } from "./skill-learning/store.js";
 import {
@@ -184,6 +188,22 @@ async function dispatch(
     if (path === "/api/skills/skill") {
       return showSkill(url, { store, folders: settings.folders }, index(), now);
     }
+    if (path === "/api/skills/failures") {
+      return showFailureGroups(url, store, index(), now);
+    }
+    const turnFailuresMatch = /^\/api\/skills\/turns\/([^/]+)\/failures$/.exec(path);
+    if (turnFailuresMatch) {
+      let id = "";
+      try {
+        id = decodeURIComponent(turnFailuresMatch[1]!);
+      } catch {
+        // A malformed percent sequence is not a number; the check below rejects "".
+      }
+      if (!/^\d+$/.test(id)) return fail("invalid-args", "The turn id must be a number");
+      const failures = await turnFailures(store, Number(id));
+      if (failures === null) return fail("not-found", "No such turn");
+      return ok("ok", { failures });
+    }
     if (path === "/api/skills/activity") {
       const query = parseActivityQuery(url, now);
       if ("error" in query) return fail("invalid-args", query.error);
@@ -228,6 +248,10 @@ async function dispatch(
       return setMode(await readBody(), store, index());
     case "/api/skills/delete-turns":
       return deleteTurns(await readBody(), store);
+    case "/api/skills/explain-failures":
+      // Stored text goes to the external model, so recording must be on.
+      if (!settings.enabled) return fail("recording-off", RECORDING_OFF_TEXT);
+      return explainFailureGroups(await readBody(), store, index(), now);
     case "/api/skills/record-past":
       return recordPast(settings.enabled, ctx);
   }
@@ -262,6 +286,31 @@ async function showSkill(
         )
       : [],
   });
+}
+
+async function showFailureGroups(url: URL, store: SkillStore, index: SkillIndex, now: number) {
+  const path = text(url.searchParams.get("path"));
+  const name = text(url.searchParams.get("name"));
+  if (!path && !name) return fail("invalid-args", "Give path or name");
+  const skill = (await rankSkills(store, index, now)).find((s) =>
+    path ? s.path === path : s.path === null && s.name === name
+  );
+  if (!skill) return fail("not-found", "No such skill");
+  return ok("ok", { groups: await skillFailureGroups(store, skill, index) });
+}
+
+/** Explains one skill's failure groups through the drafting model path. The reply is shown, never saved. */
+async function explainFailureGroups(body: Body, store: SkillStore, index: SkillIndex, now: number) {
+  const path = text(body.path);
+  const name = text(body.name);
+  if (!path && !name) return fail("invalid-args", "Give path or name");
+  const skill = (await rankSkills(store, index, now)).find((s) =>
+    path ? s.path === path : s.path === null && s.name === name
+  );
+  if (!skill) return fail("not-found", "No such skill");
+  const result = await explainFailures(skill, { store, index, model: skillModel(CONFIG) });
+  if (!result.ok) return fail(result.code, result.message);
+  return ok("explained", { explanation: result.explanation });
 }
 
 async function proposals(url: URL, store: SkillStore, folders: readonly string[]) {

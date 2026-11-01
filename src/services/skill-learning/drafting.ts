@@ -109,6 +109,7 @@ function tool(name: string, description: string, properties: Record<string, unkn
     },
   };
 }
+export { tool };
 
 const evidenceField = {
   type: "array",

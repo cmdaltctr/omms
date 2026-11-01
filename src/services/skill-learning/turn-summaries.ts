@@ -33,18 +33,18 @@ function toSummary(row: Record<string, unknown>): SkillTurnSummary {
 // The same use-to-skill rule as the ranking: a recorded path counts while the
 // index lists it; a use with no path belongs to the one watched skill with its name.
 const BY_PATH = `
-SELECT su.turn_id FROM skill_uses su
+SELECT su.turn_id, su.position FROM skill_uses su
 WHERE su.skill_path = ? OR (su.skill_path IS NULL AND su.skill_name = ? AND ? = 1)`;
 
 const BY_NAME = `
-SELECT su.turn_id FROM skill_uses su
+SELECT su.turn_id, su.position FROM skill_uses su
 WHERE su.skill_name = ? AND (
   (su.skill_path IS NOT NULL AND su.skill_path NOT IN (SELECT value FROM json_each(?)))
   OR (su.skill_path IS NULL AND ? = 0)
 )`;
 
-/** The SQL that selects a skill's turn ids, and its parameters. */
-function turnIdsFor(skill: { name: string; path: string | null }, index: SkillIndex) {
+/** The SQL that selects a skill's uses (turn id and position), and its parameters. */
+export function skillUsesFor(skill: { name: string; path: string | null }, index: SkillIndex) {
   const named = index.entries.filter((e) => e.name === skill.name);
   return skill.path
     ? {
@@ -59,6 +59,12 @@ function turnIdsFor(skill: { name: string; path: string | null }, index: SkillIn
           named.length === 1 ? 1 : 0,
         ],
       };
+}
+
+/** The SQL that selects a skill's turn ids, and its parameters. */
+function turnIdsFor(skill: { name: string; path: string | null }, index: SkillIndex) {
+  const uses = skillUsesFor(skill, index);
+  return { sql: `SELECT turn_id FROM (${uses.sql})`, args: uses.args };
 }
 
 /**

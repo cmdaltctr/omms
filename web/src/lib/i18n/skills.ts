@@ -353,4 +353,103 @@ export const skillText = {
     "此标签页中没有技能匹配该名称。",
     "لا توجد مهارة تطابق هذا الاسم في هذا التبويب.",
   ],
+  // Failed tool call details.
+  "No error text recorded": ["没有记录错误文本", "لم يُسجَّل نص خطأ"],
+  "Could not copy": ["无法复制", "تعذّر النسخ"],
+  "Show full input": ["显示完整输入", "عرض الإدخال الكامل"],
+  "Show less input": ["收起完整输入", "إخفاء الإدخال الكامل"],
+  "The server sent the first 20000 characters of this input.": [
+    "服务器只发送了此输入的前 20000 个字符。",
+    "أرسل الخادم أول 20000 حرفاً من هذا الإدخال فقط.",
+  ],
+  Copy: ["复制", "نسخ"],
+  Close: ["关闭", "إغلاق"],
+  "The failed calls could not be loaded.": [
+    "无法加载失败的工具调用。",
+    "تعذّر تحميل الاستدعاءات الفاشلة.",
+  ],
+  "Position {position}": ["位置 {position}", "الموضع {position}"],
+  Failures: ["失败记录", "حالات الفشل"],
+  "Failed calls that count against this skill, grouped by tool and first error line.": [
+    "按工具和错误首行分组、计入此技能的失败调用。",
+    "الاستدعاءات الفاشلة التي تُحسب على هذه المهارة، مجمّعةً حسب الأداة وأول سطر في الخطأ.",
+  ],
+  "No failed tool calls are recorded for this skill.": [
+    "没有记录到计入此技能的失败工具调用。",
+    "لا توجد استدعاءات أدوات فاشلة مسجّلة لهذه المهارة.",
+  ],
+  "no error text": ["无错误文本", "بلا نص خطأ"],
+  "{calls} call over {turns} turn": [
+    "{calls} 次调用，涉及 {turns} 个回合",
+    "استدعاء واحد عبر دور واحد",
+  ],
+  "{calls} call over {turns} turns": [
+    "{calls} 次调用，涉及 {turns} 个回合",
+    "استدعاء واحد عبر {turns} أدوار",
+  ],
+  "{calls} calls over {turns} turn": [
+    "{calls} 次调用，涉及 {turns} 个回合",
+    "{calls} استدعاءات عبر دور واحد",
+  ],
+  "{calls} calls over {turns} turns": [
+    "{calls} 次调用，涉及 {turns} 个回合",
+    "{calls} استدعاءات عبر {turns} أدوار",
+  ],
+  "{count} call is in this group; showing the latest {shown}.": [
+    "此分组共有 {count} 次调用；显示最新的 {shown} 次。",
+    "هذه المجموعة تضم استدعاء واحداً؛ يُعرض آخر {shown} منه.",
+  ],
+  "{count} calls are in this group; showing the latest {shown}.": [
+    "此分组共有 {count} 次调用；显示最新的 {shown} 次。",
+    "هذه المجموعة تضم {count} استدعاء؛ يُعرض آخر {shown} منها.",
+  ],
+  "Last seen {date}": ["最近出现于 {date}", "آخر ظهور {date}"],
+  // Explain failures.
+  "Explain failures": ["解释失败", "شرح حالات الفشل"],
+  "Explaining… This can take a few minutes.": [
+    "正在解释…这可能需要几分钟。",
+    "جارٍ الشرح… قد يستغرق ذلك بضع دقائق.",
+  ],
+  "Skill learning must be on to explain failures.": [
+    "必须开启技能学习才能解释失败。",
+    "يجب تشغيل تعلّم المهارات لشرح حالات الفشل.",
+  ],
+  "No failure groups to explain.": ["没有可解释的失败分组。", "لا توجد مجموعات فشل لشرحها."],
+  "About Explain failures": ["关于“解释失败”", "حول شرح حالات الفشل"],
+  "Explaining needs the external API. Set it up first.": [
+    "解释失败需要外部 API。请先设置。",
+    "يحتاج شرح الفشل إلى واجهة API الخارجية. أعدّها أولاً.",
+  ],
+  "Send failures to the external API?": [
+    "将失败记录发送到外部 API？",
+    "إرسال حالات الفشل إلى واجهة API الخارجية؟",
+  ],
+  "Nothing is sent until you confirm. Nothing is saved.": [
+    "确认之前不会发送任何内容，也不会保存任何内容。",
+    "لا يُرسَل شيء قبل التأكيد، ولا يُحفَظ شيء.",
+  ],
+  "This sends the failure groups (tool names, error text and input excerpts of up to 500 characters) and this skill's SKILL.md to the external API model.":
+    [
+      "这会把失败分组（工具名称、错误文本和最多 500 字符的输入摘录）以及此技能的 SKILL.md 发送到外部 API 模型。",
+      "يرسل هذا مجموعات الفشل (أسماء الأدوات ونصوص الأخطاء ومقتطفات إدخال حتى 500 حرف) وملف SKILL.md لهذه المهارة إلى نموذج واجهة API الخارجية.",
+    ],
+  "The text is sent as stored, after <private> removal and secret redaction.": [
+    "文本按存储时的样子发送：已移除 <private> 内容并对机密进行脱敏。",
+    "يُرسَل النص كما خُزِّن: بعد إزالة <private> وإخفاء الأسرار.",
+  ],
+  "Warning: redaction is off. The text may hold secrets that were not removed.": [
+    "警告：脱敏已关闭。文本中可能含有未移除的机密。",
+    "تحذير: إخفاء الأسرار متوقف. قد يحمل النص أسراراً لم تُزَل.",
+  ],
+  Cancel: ["取消", "إلغاء"],
+  "Skill fix": ["技能修复", "إصلاح المهارة"],
+  "Host or harness bug": ["宿主或框架缺陷", "خلل في المضيف أو الإطار"],
+  "Environment problem": ["环境问题", "مشكلة في البيئة"],
+  Unknown: ["未知", "غير معروف"],
+  "Suggested actions": ["建议操作", "الإجراءات المقترحة"],
+  "The labels and suggestions are leads from the error text only; the model cannot see the host's code.":
+    [
+      "标签和建议仅是来自错误文本的线索；模型看不到宿主的代码。",
+      "التسميات والاقتراحات مجرد مؤشرات من نص الخطأ فقط؛ لا يستطيع النموذج رؤية كود المضيف.",
+    ],
 } as const;
