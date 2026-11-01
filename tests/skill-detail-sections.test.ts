@@ -5,6 +5,7 @@ import { SKILL_DETAIL_SECTIONS } from "../web/src/lib/skill-detail-sections.ts";
 describe("SKILL_DETAIL_SECTIONS", () => {
   it("lists the skill-view sections in page order, Failures after Recent turns", () => {
     expect(SKILL_DETAIL_SECTIONS.map((section) => section.title)).toEqual([
+      "Uses in the last 30 days",
       "Mode",
       "Proposals",
       "History",

@@ -21,7 +21,15 @@ describe("the skill view renders its sections in page order", () => {
   });
 
   it("mounts the table of contents and wires its way back to the view's back action", () => {
-    expect(source).toContain("<SkillToc onBack={onBack} />");
+    expect(source).toContain("<SkillToc onBack={onBack} hasMode={Boolean(skill.path)} />");
+  });
+
+  it("leaves the Mode entry out for a skill with no file in a watched folder", () => {
+    const toc = readFileSync(
+      join(import.meta.dir, "../web/src/lib/components/skills/SkillToc.tsx"),
+      "utf8"
+    );
+    expect(toc).toContain('section.id !== "skill-section-mode"');
   });
 
   it("the table of contents offers All skills above the sections", () => {
@@ -30,10 +38,16 @@ describe("the skill view renders its sections in page order", () => {
       "utf8"
     );
     expect(toc).toContain('back={{ label: s("All skills"), onBack }}');
-    expect(toc).toContain("sections={SKILL_DETAIL_SECTIONS}");
+    expect(toc).toContain("SKILL_DETAIL_SECTIONS");
   });
 
   it("shows Recent turns before Failures", () => {
-    expect(source.indexOf("<SkillTurns")).toBeLessThan(source.indexOf("<FailureGroups"));
+    // Both must exist first: a missing <SkillTurns would give -1, which
+    // compares less than anything and pass the order check vacuously.
+    const turns = source.indexOf("<SkillTurns");
+    const failures = source.indexOf("<FailureGroups");
+    expect(turns).toBeGreaterThan(-1);
+    expect(failures).toBeGreaterThan(-1);
+    expect(turns).toBeLessThan(failures);
   });
 });

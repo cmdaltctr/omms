@@ -117,7 +117,7 @@ export function SkillDetail({
   const shown = detail?.skill ?? skill;
   return (
     <div className="space-y-8">
-      <SkillToc onBack={onBack} />
+      <SkillToc onBack={onBack} hasMode={Boolean(skill.path)} />
       <div className="space-y-3">
         <Button type="button" variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft className="rtl:-scale-x-100" aria-hidden="true" />
@@ -155,11 +155,13 @@ export function SkillDetail({
       </div>
 
       {detail ? (
-        <UsesChart
-          className="max-w-3xl"
-          rows={dayRows(normaliseDays(detail.daily))}
-          title={s("Uses in the last 30 days")}
-        />
+        <div id="skill-section-uses" className="scroll-mt-4">
+          <UsesChart
+            className="max-w-3xl"
+            rows={dayRows(normaliseDays(detail.daily))}
+            title={s("Uses in the last 30 days")}
+          />
+        </div>
       ) : null}
 
       {skill.path ? (
