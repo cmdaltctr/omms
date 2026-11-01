@@ -1,5 +1,5 @@
 import type { SortChoice, SortOption } from "$lib/components/paged-list";
-import type { ProposalState, ProposalSummary, SkillRow } from "./skills-api";
+import type { FailureGroup, ProposalState, ProposalSummary, SkillRow } from "./skills-api";
 
 /*
  * The sorts of every list on the Skills page. Each `compare` gives the
@@ -11,6 +11,7 @@ const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 
 export type SkillSort = "uses" | "attention" | "name" | "lastUsed" | "failed" | "lastModified";
+
 export const SKILL_SORTS: readonly SortOption<SkillSort, SkillRow>[] = [
   { value: "uses", label: "Most used", first: "desc", compare: (a, b) => a.uses - b.uses },
   {
@@ -39,6 +40,32 @@ export const SKILL_SORTS: readonly SortOption<SkillSort, SkillRow>[] = [
     first: "desc",
     compare: (a, b) => (a.lastAppliedAt ?? 0) - (b.lastAppliedAt ?? 0),
     last: (row) => row.lastAppliedAt === null,
+  },
+];
+
+const byErrorLine = (a: FailureGroup, b: FailureGroup) =>
+  (a.errorLine ?? "").localeCompare(b.errorLine ?? "", undefined, { sensitivity: "base" });
+
+export type FailureSort = "calls" | "lastSeen" | "tool";
+/** The failure groups of one skill, held in the browser. Most calls first matches the reply. */
+export const FAILURE_SORTS: readonly SortOption<FailureSort, FailureGroup>[] = [
+  {
+    value: "calls",
+    label: "Most calls",
+    first: "desc",
+    compare: (a, b) => a.calls - b.calls,
+  },
+  {
+    value: "lastSeen",
+    label: "Last seen",
+    first: "desc",
+    compare: (a, b) => a.lastSeenAt - b.lastSeenAt,
+  },
+  {
+    value: "tool",
+    label: "Tool (A–Z)",
+    first: "asc",
+    compare: (a, b) => byName(a, b) || byErrorLine(a, b),
   },
 ];
 

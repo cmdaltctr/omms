@@ -10,6 +10,8 @@ import {
   type TopSkill,
 } from "$lib/skills-api";
 import { filterSkills, recentProposals } from "$lib/skills-model";
+import { PageToc } from "$lib/components/PageToc";
+import { SKILLS_SECTIONS } from "$lib/skills-sections";
 import {
   applyModifiedFilter,
   modifiedCounts,
@@ -100,6 +102,7 @@ export function SkillsPage({
   };
   return (
     <div className="space-y-8">
+      <PageToc storageKey="omms-skills-toc-open" sections={SKILLS_SECTIONS} />
       <div className="max-w-3xl space-y-2 text-sm text-muted-foreground">
         <p>
           {s(

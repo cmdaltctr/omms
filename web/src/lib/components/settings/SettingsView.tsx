@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { ComponentType } from "react";
 import "./settings.css";
 import { SETTINGS_SECTIONS, type SettingsSectionId } from "$lib/settings-sections";
+import { PageToc } from "$lib/components/PageToc";
 import { revealSettingsAnchor } from "$lib/settings-navigation";
 import { ModelsSection } from "./ModelsSection";
 import { ExternalApiSection } from "./ExternalApiSection";
@@ -41,6 +42,7 @@ export function SettingsView() {
   }, []);
   return (
     <div className="settings-view space-y-6">
+      <PageToc storageKey="omms-settings-toc-open" sections={SETTINGS_SECTIONS} />
       {SETTINGS_SECTIONS.map(({ id }) => {
         const Card = CARDS[id];
         // The sidebar's Settings tree scrolls to these anchors.

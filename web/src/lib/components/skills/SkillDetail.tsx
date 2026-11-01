@@ -22,6 +22,7 @@ import { UsesChart } from "./charts/UsesChart";
 import { ProposalList, SKILL_PROPOSALS_LIST_KEY } from "./ProposalList";
 import { FailureGroups } from "./FailureGroups";
 import { SkillHistory } from "./SkillHistory";
+import { SkillToc } from "./SkillToc";
 import { SkillTurns } from "./SkillTurns";
 
 /** The load error to show after a reply. */
@@ -116,6 +117,7 @@ export function SkillDetail({
   const shown = detail?.skill ?? skill;
   return (
     <div className="space-y-8">
+      <SkillToc onBack={onBack} />
       <div className="space-y-3">
         <Button type="button" variant="ghost" size="sm" onClick={onBack}>
           <ArrowLeft className="rtl:-scale-x-100" aria-hidden="true" />
@@ -161,7 +163,7 @@ export function SkillDetail({
       ) : null}
 
       {skill.path ? (
-        <section className="space-y-3" aria-label={s("Mode")}>
+        <section id="skill-section-mode" className="scroll-mt-4 space-y-3" aria-label={s("Mode")}>
           <h3 className="text-section-title font-semibold">{s("Mode")}</h3>
           <ModeChoice mode={mode} disabled={busy} onChoose={(next) => void chooseMode(next)} />
           {modeError ? (
@@ -185,7 +187,11 @@ export function SkillDetail({
         </section>
       ) : null}
 
-      <section className="space-y-3" aria-labelledby="skill-proposals-title">
+      <section
+        id="skill-section-proposals"
+        className="scroll-mt-4 space-y-3"
+        aria-labelledby="skill-proposals-title"
+      >
         <h3 id="skill-proposals-title" className="text-section-title font-semibold">
           {s("Proposals")}
         </h3>
@@ -204,11 +210,17 @@ export function SkillDetail({
         )}
       </section>
 
-      <SkillHistory skill={skill} reloadKey={reloadKey} onChanged={reloadAll} />
+      <div id="skill-section-history" className="scroll-mt-4">
+        <SkillHistory skill={skill} reloadKey={reloadKey} onChanged={reloadAll} />
+      </div>
 
-      <FailureGroups skill={skill} reloadKey={reloadKey} />
+      <div id="skill-section-turns" className="scroll-mt-4">
+        <SkillTurns skill={skill} reloadKey={reloadKey} />
+      </div>
 
-      <SkillTurns skill={skill} reloadKey={reloadKey} />
+      <div id="skill-section-failures" className="scroll-mt-4">
+        <FailureGroups skill={skill} reloadKey={reloadKey} />
+      </div>
     </div>
   );
 }
