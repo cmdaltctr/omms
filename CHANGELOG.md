@@ -2,6 +2,20 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.2.0](https://github.com/cmdaltctr/omms/compare/v5.1.0...v5.2.0) (2026-11-01)
+
+
+### Features
+
+* page failure groups and add floating contents to the long web pages ([8181c0d](https://github.com/cmdaltctr/omms/commit/8181c0d3198fa6f6cc6e7b897eae2545c7f4b594))
+* page failure groups and add floating contents to the long web pages ([1f986d9](https://github.com/cmdaltctr/omms/commit/1f986d9f55c7f2eb8699302c535898ef7d172913))
+
+
+### Bug Fixes
+
+* address review findings on the floating contents ([ddf6550](https://github.com/cmdaltctr/omms/commit/ddf6550674cf7a127b57f39ce97cbb58fbde8326))
+* rewrite the start lock temp file when its rename reports ENOENT ([edbc5f6](https://github.com/cmdaltctr/omms/commit/edbc5f6a0d5892baae88ef34e8e93db686653a74))
+
 ## [5.1.0](https://github.com/cmdaltctr/omms/compare/v5.0.0...v5.1.0) (2026-11-01)
 
 
