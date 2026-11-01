@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { allProposals } from "./skill-proposal-helpers.js";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -189,7 +190,7 @@ describe("agent fix modes", () => {
     await insertTurns(s, [turn(path, true)]);
     const result = await s.run("propose", { skill: path, content: OLD, summary: "none" });
     expect(result).toMatchObject({ success: true, code: "no-change" });
-    expect(await s.listProposals(s.store)).toEqual([]);
+    expect(await allProposals(s.store)).toEqual([]);
     expect((await s.getSkillSettings(s.store, path))?.lastReviewAt).toBe(NOW);
   });
 
@@ -229,7 +230,7 @@ describe("agent fix modes", () => {
     const big = `${OLD}${"x".repeat(100 * 1024)}`;
     const result = await s.run("propose", { skill: "s-web-search", content: big, summary: "x" });
     expect(result).toMatchObject({ success: false, code: "too-large" });
-    expect(await s.listProposals(s.store)).toEqual([]);
+    expect(await allProposals(s.store)).toEqual([]);
   });
 
   it("apply still waits for its own call, and undo restores the file", async () => {

@@ -5,7 +5,7 @@ import { useSettingsText } from "$lib/i18n/settings";
 import { formatDate } from "$lib/format";
 import {
   skillsApi,
-  type Proposal,
+  type ProposalSummary,
   type SkillsReply,
   type SkillDetailData,
   type SkillMode,
@@ -32,7 +32,7 @@ export const nextLoadError = (reply: SkillsReply<unknown>): string => (reply.ok 
  * tick and date in the header follow the new state.
  */
 export function proposalChanged(
-  next: Proposal,
+  next: ProposalSummary,
   actions: {
     setDetail: (update: (previous: SkillDetailData | null) => SkillDetailData | null) => void;
     bumpHistory: () => void;
@@ -103,7 +103,7 @@ export function SkillDetail({
     } else setModeError(reply.error);
   }
 
-  const replaceProposal = (next: Proposal) =>
+  const replaceProposal = (next: ProposalSummary) =>
     proposalChanged(next, {
       setDetail,
       bumpHistory: () => setReloadKey((key) => key + 1),

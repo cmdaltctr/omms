@@ -77,14 +77,19 @@ function text(value: unknown): string | null {
   return value === null || value === undefined ? null : String(value);
 }
 
-function toProposal(row: Row): SkillProposal {
-  let evidence: number[] = [];
+/** The turn ids in an `evidence_turn_ids` column. A damaged list reads as no evidence. */
+export function parseEvidenceIds(raw: unknown): number[] {
   try {
-    const parsed: unknown = JSON.parse(String(row.evidence_turn_ids));
-    if (Array.isArray(parsed)) evidence = parsed.map(Number);
+    const parsed: unknown = JSON.parse(String(raw));
+    if (Array.isArray(parsed)) return parsed.map(Number);
   } catch {
     // A damaged list reads as no evidence.
   }
+  return [];
+}
+
+function toProposal(row: Row): SkillProposal {
+  const evidence = parseEvidenceIds(row.evidence_turn_ids);
   return {
     id: String(row.id),
     kind: String(row.kind) as SkillProposalKind,
@@ -157,13 +162,11 @@ export interface ProposalFilter {
   skillPath?: string;
 }
 
-/** Proposals, newest first. */
-export async function listProposals(
-  store: SkillStore,
-  filter: ProposalFilter = {}
-): Promise<SkillProposal[]> {
-  const db = await store.existingDb();
-  if (!db) return [];
+/** The shared order of every proposal list: newest first, ties by insertion. */
+export const PROPOSAL_ORDER = "ORDER BY created_at DESC, rowid DESC";
+
+/** The `WHERE` clause and its arguments for a filter. Empty when the filter is empty. */
+export function proposalFilterClause(filter: ProposalFilter): { clause: string; args: string[] } {
   const where: string[] = [];
   const args: string[] = [];
   if (filter.state) {
@@ -178,12 +181,7 @@ export async function listProposals(
     where.push("skill_path = ?");
     args.push(filter.skillPath);
   }
-  const clause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
-  const rows = await db.all(
-    `SELECT * FROM skill_proposals ${clause} ORDER BY created_at DESC, rowid DESC`,
-    args
-  );
-  return rows.map(toProposal);
+  return { clause: where.length > 0 ? `WHERE ${where.join(" AND ")}` : "", args };
 }
 
 /**

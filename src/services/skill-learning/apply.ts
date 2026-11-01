@@ -297,40 +297,73 @@ type UndoPlan =
     }
   | UndoFailure;
 
-/** Every check undo makes before it writes. Reads only; changes nothing. */
-async function planUndo(id: string, deps: ApplyDeps): Promise<UndoPlan> {
-  const { store } = deps;
-  if (store.isReadOnly()) {
-    return {
-      ok: false,
-      code: "read-only",
-      message: "skills.db is from a newer OMMS and is read-only",
+const READ_ONLY_MESSAGE = "skills.db is from a newer OMMS and is read-only";
+
+/** What `checkUndo` needs. A list can read these for many proposals in one query. */
+export interface UndoFacts {
+  id: string;
+  readOnly: boolean;
+  /** The proposal's state. */
+  state: string;
+  /** The newest saved version of the proposal, or null when it has none. */
+  version: { path: string; writtenHash: string } | null;
+  folders: readonly string[];
+}
+
+type UndoCheck =
+  | { ok: true; real: string; folders: string[] }
+  | {
+      ok: false;
+      code: "read-only" | "not-applied" | "no-version" | "outside-folder" | "changed";
+      message: string;
     };
+
+/**
+ * Every undo check that needs no database read: the store is writable, the
+ * proposal is applied, a version exists, its file is a `SKILL.md` inside a
+ * watched folder, and the file still holds what OMMS wrote. Reads one file.
+ * `planUndo` and the `canUndo` of a list both run it, so they cannot disagree.
+ */
+export function checkUndo(facts: UndoFacts): UndoCheck {
+  const { id, state, version } = facts;
+  if (facts.readOnly) return { ok: false, code: "read-only", message: READ_ONLY_MESSAGE };
+  if (state !== "applied") {
+    return { ok: false, code: "not-applied", message: `Proposal ${id} is ${state}` };
   }
-  const proposal = await getProposal(store, id);
-  if (!proposal) return { ok: false, code: "not-found", message: `No proposal ${id}` };
-  if (proposal.state !== "applied") {
-    return { ok: false, code: "not-applied", message: `Proposal ${id} is ${proposal.state}` };
-  }
-  const version = await getLatestVersion(store, id);
   if (!version) return { ok: false, code: "no-version", message: `No saved version for ${id}` };
-  const target = checkTarget(version.path, deps.folders);
+  const target = checkTarget(version.path, facts.folders);
   if (!target.ok) return { ok: false, code: "outside-folder", message: target.message };
-  const { real, folders } = target;
-  if (readHash(real) !== version.writtenHash) {
+  if (readHash(target.real) !== version.writtenHash) {
     return {
       ok: false,
       code: "changed",
       message: "The file changed since OMMS wrote it, so undo would lose that change",
-      savedContent: version.previousContent,
     };
   }
-  return { ok: true, proposal, version, real, folders };
+  return { ok: true, real: target.real, folders: target.folders };
 }
 
-/** True when `undoProposal` would accept this proposal now. Writes nothing. */
-export async function canUndoProposal(id: string, deps: ApplyDeps): Promise<boolean> {
-  return (await planUndo(id, deps)).ok;
+/** Every check undo makes before it writes. Reads only; changes nothing. */
+async function planUndo(id: string, deps: ApplyDeps): Promise<UndoPlan> {
+  const { store } = deps;
+  // A read-only store refuses before it looks the proposal up.
+  if (store.isReadOnly()) return { ok: false, code: "read-only", message: READ_ONLY_MESSAGE };
+  const proposal = await getProposal(store, id);
+  if (!proposal) return { ok: false, code: "not-found", message: `No proposal ${id}` };
+  const version = await getLatestVersion(store, id);
+  const check = checkUndo({
+    id,
+    readOnly: false,
+    state: proposal.state,
+    version,
+    folders: deps.folders,
+  });
+  if (!check.ok) {
+    return check.code === "changed"
+      ? { ...check, savedContent: version?.previousContent ?? null }
+      : check;
+  }
+  return { ok: true, proposal, version: version!, real: check.real, folders: check.folders };
 }
 
 /**

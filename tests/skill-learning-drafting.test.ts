@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { allProposals } from "./skill-proposal-helpers.js";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -112,7 +113,7 @@ describe("skill drafting", () => {
     expect(calls[0]!.user).toContain("Old body");
     expect(calls[0]!.user).toContain(`[T${turnId}]`);
     expect(calls[0]!.user).toContain("Bash: error (exit 1)");
-    const [saved] = await s.listProposals(s.store);
+    const [saved] = await allProposals(s.store);
     expect(saved).toMatchObject({
       kind: "improve",
       skillName: "s-web-search",
@@ -135,7 +136,7 @@ describe("skill drafting", () => {
     const s = await setup(ok({ content: OLD.trimEnd(), summary: "Nothing", evidence: [] }));
     const result = await s.draftImprovement(path, s.deps());
     expect(result).toMatchObject({ ok: true, code: "no-change", message: "No change proposed" });
-    expect(await s.listProposals(s.store)).toEqual([]);
+    expect(await allProposals(s.store)).toEqual([]);
   });
 
   it("reports invalid-reply, saves nothing and pauses automatic drafting", async () => {
@@ -147,7 +148,7 @@ describe("skill drafting", () => {
       code: "invalid-reply",
       message: "The model reply was not valid, so nothing was saved. Try again.",
     });
-    expect(await s.listProposals(s.store)).toEqual([]);
+    expect(await allProposals(s.store)).toEqual([]);
     expect(logged.map((entry) => entry.meta)).toEqual([{ host: null, reason: "invalid-reply" }]);
     expect(s.skillDraftBackoff.canRun(NOW + 60_000)).toBe(false);
   });
@@ -260,7 +261,7 @@ describe("new skill ideas", () => {
     if (!result.ok) throw new Error("expected ideas");
     expect(result.ideas.map((i) => i.name)).toEqual(["release-notes", "db-migrate", "pr-review"]);
     expect(result.ideas[0]!.evidenceTurnIds).toEqual([turnId]);
-    expect(await s.listProposals(s.store)).toEqual([]);
+    expect(await allProposals(s.store)).toEqual([]);
   });
 
   it("drafts a new skill with name and description front matter as a pending proposal", async () => {
@@ -276,7 +277,7 @@ describe("new skill ideas", () => {
       s.deps()
     );
     expect(result).toMatchObject({ ok: true, code: "proposed" });
-    const [saved] = await s.listProposals(s.store);
+    const [saved] = await allProposals(s.store);
     expect(saved).toMatchObject({
       kind: "new",
       skillName: "release-notes",
@@ -298,7 +299,7 @@ describe("new skill ideas", () => {
         s.deps()
       );
       expect(result).toMatchObject({ ok: false, code: "invalid-reply" });
-      expect(await s.listProposals(s.store)).toEqual([]);
+      expect(await allProposals(s.store)).toEqual([]);
     }
   });
 });

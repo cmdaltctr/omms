@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { allProposals } from "./skill-proposal-helpers.js";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -105,7 +106,7 @@ describe("automatic skill review", () => {
     const report = await s.runAutoReview(s.deps, clock);
     expect(report.reviews).toEqual([{ skillPath, code: "applied" }]);
     expect(readFileSync(skillPath, "utf8")).toBe(NEW);
-    const [proposal] = await s.listProposals(s.store);
+    const [proposal] = await allProposals(s.store);
     expect(proposal).toMatchObject({ state: "applied", appliedBy: "automatic" });
     expect(await s.getSkillSettings(s.store, skillPath)).toMatchObject({
       mode: "automatic",
@@ -139,7 +140,7 @@ describe("automatic skill review", () => {
     const report = await s.runAutoReview(s.deps, clock);
     expect(report.reviews).toEqual([{ skillPath, code: "stale" }]);
     expect(readFileSync(skillPath, "utf8")).toBe(HAND);
-    const [proposal] = await s.listProposals(s.store);
+    const [proposal] = await allProposals(s.store);
     expect(proposal?.state).toBe("stale");
   });
 

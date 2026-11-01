@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { allProposals } from "./skill-proposal-helpers.js";
 import { existsSync, mkdtempSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -61,9 +62,9 @@ describe("skill proposal store", () => {
     const a = await s.createProposal(s.store, input("a"), 1_000);
     const b = await s.createProposal(s.store, input("b", "new"), 2_000);
     expect(await s.updateProposalState(s.store, a.id, "applied", 3_000, "agent")).toBe(true);
-    expect((await s.listProposals(s.store)).map((p) => p.id)).toEqual([b.id, a.id]);
-    expect((await s.listProposals(s.store, { state: "pending" })).map((p) => p.id)).toEqual([b.id]);
-    expect((await s.listProposals(s.store, { skillName: "a" }))[0]).toMatchObject({
+    expect((await allProposals(s.store)).map((p) => p.id)).toEqual([b.id, a.id]);
+    expect((await allProposals(s.store, { state: "pending" })).map((p) => p.id)).toEqual([b.id]);
+    expect((await allProposals(s.store, { skillName: "a" }))[0]).toMatchObject({
       state: "applied",
       appliedBy: "agent",
       updatedAt: 3_000,
@@ -115,7 +116,7 @@ describe("skill proposal store", () => {
 
   it("reads from a missing file without creating it", async () => {
     const s = await setup(false);
-    expect(await s.listProposals(s.store)).toEqual([]);
+    expect(await allProposals(s.store)).toEqual([]);
     expect(await s.getProposal(s.store, "x")).toBeNull();
     expect((await s.getSkillSettings(s.store, "/p")).mode).toBe("manual");
     expect(existsSync(join(baseDir, "skills.db"))).toBe(false);

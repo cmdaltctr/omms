@@ -11,14 +11,32 @@ import {
   SKILL_PROPOSALS_LIST_KEY,
 } from "../src/lib/components/skills/ProposalList.tsx";
 import { PagedList } from "../src/lib/components/paged-list/index.ts";
-import type { Proposal } from "../src/lib/skills-api.ts";
+import type { Proposal, ProposalSummary } from "../src/lib/skills-api.ts";
 import { diffStat, hasMoreDetail } from "../src/lib/skills-model.ts";
 import { PROPOSAL_SORTS } from "../src/lib/skills-sorts.ts";
 
 const LONG = "Tighten the search steps and name the tool order. ".repeat(5);
 const DIFF = "@@ -1,3 +1,3 @@\n keep\n-old line\n-older line\n+new line\n+newer line\n+newest line";
 
-const proposal = (over: Partial<Proposal> = {}): Proposal => ({
+/** A listed proposal: the summary, with the server's line counts and no content or diff. */
+const proposal = (over: Partial<ProposalSummary> = {}): ProposalSummary => ({
+  id: "p1",
+  kind: "improve",
+  skillName: "openspec-archive-change",
+  skillPath: "/skills/openspec-archive-change/SKILL.md",
+  summary: LONG,
+  evidenceTurnIds: [1, 2],
+  state: "pending",
+  appliedBy: null,
+  createdAt: 1,
+  updatedAt: 2,
+  added: 3,
+  removed: 2,
+  hasDiff: true,
+  ...over,
+});
+/** What the detail route returns for it. An open card shows this. */
+const full: Proposal = {
   id: "p1",
   kind: "improve",
   skillName: "openspec-archive-change",
@@ -31,12 +49,16 @@ const proposal = (over: Partial<Proposal> = {}): Proposal => ({
   appliedBy: null,
   createdAt: 1,
   updatedAt: 2,
-  ...over,
-});
+};
 const many = (n: number) => Array.from({ length: n }, (_, i) => proposal({ id: `p${i}` }));
-const card = (over: Partial<Proposal> = {}, initiallyOpen = false) =>
+const card = (over: Partial<ProposalSummary> = {}, initiallyOpen = false) =>
   renderToStaticMarkup(
-    <ProposalCard proposal={proposal(over)} initiallyOpen={initiallyOpen} onChange={() => {}} />
+    <ProposalCard
+      proposal={proposal(over)}
+      initiallyOpen={initiallyOpen}
+      initialDetail={initiallyOpen ? { status: "ready", proposal: full, evidence: [] } : null}
+      onChange={() => {}}
+    />
   );
 const articles = (html: string) => (html.match(/<article/g) ?? []).length;
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
@@ -98,19 +120,21 @@ it("lets a saved page size win over the default of 3", () => {
 });
 
 it("counts added and removed lines from the proposal diff", () => {
-  expect(diffStat(proposal())).toEqual({ added: 3, removed: 2 });
+  expect(diffStat(full)).toEqual({ added: 3, removed: 2 });
   // A new skill has no diff; every line of its content is new.
-  expect(diffStat(proposal({ diff: null, content: "a\nb\nc" }))).toEqual({ added: 3, removed: 0 });
-  expect(diffStat(proposal({ diff: null, content: "" }))).toEqual({ added: 0, removed: 0 });
+  expect(diffStat({ diff: null, content: "a\nb\nc" })).toEqual({ added: 3, removed: 0 });
+  expect(diffStat({ diff: null, content: "" })).toEqual({ added: 0, removed: 0 });
 });
 
 it("offers more only when something is hidden", () => {
-  const bare = { diff: null, content: "", evidenceTurnIds: [], summary: "Short." };
+  const bare = { hasDiff: false, added: 0, removed: 0, evidenceTurnIds: [], summary: "Short." };
   expect(hasMoreDetail(proposal(bare))).toBe(false);
   expect(hasMoreDetail(proposal({ ...bare, summary: "x".repeat(161) }))).toBe(true);
   expect(hasMoreDetail(proposal({ ...bare, summary: "one\ntwo\nthree" }))).toBe(true);
   expect(hasMoreDetail(proposal({ ...bare, summary: "one\ntwo" }))).toBe(false);
-  expect(hasMoreDetail(proposal({ ...bare, diff: DIFF }))).toBe(true);
+  expect(hasMoreDetail(proposal({ ...bare, hasDiff: true, added: 3, removed: 2 }))).toBe(true);
+  // A new skill has no diff; its content lines count as added.
+  expect(hasMoreDetail(proposal({ ...bare, added: 3 }))).toBe(true);
   expect(hasMoreDetail(proposal({ ...bare, evidenceTurnIds: [4] }))).toBe(true);
 });
 
@@ -160,7 +184,13 @@ it("keeps Undo and the stale notice in view while collapsed", () => {
 });
 
 it("shows no button when the card has nothing to reveal", () => {
-  const html = card({ diff: null, content: "", evidenceTurnIds: [], summary: "Short." });
+  const html = card({
+    hasDiff: false,
+    added: 0,
+    removed: 0,
+    evidenceTurnIds: [],
+    summary: "Short.",
+  });
   expect(html).not.toContain("aria-expanded");
   expect(html).not.toContain("Show more");
   expect(html).not.toContain("+0");

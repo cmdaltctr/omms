@@ -4,7 +4,7 @@ import { useSettingsText } from "$lib/i18n/settings";
 import { navigate, ROUTES, usePath } from "$lib/router";
 import {
   skillsApi,
-  type Proposal,
+  type ProposalSummary,
   type SkillRow,
   type SkillsOverview,
   type TopSkill,
@@ -32,9 +32,9 @@ const SETTINGS_CARD = `${ROUTES.settings}#settings-section-skill-learning`;
 type PageProps = {
   overview: SkillsOverview | null;
   turns: number | null;
-  pending: Proposal[];
+  pending: ProposalSummary[];
   /** Every proposal that is no longer pending, newest first, so a rejected or undone new skill still shows. */
-  recent: Proposal[];
+  recent: ProposalSummary[];
   error: string;
   query: string;
   /** Which ranked skills show by modification. Defaults to All. */
@@ -44,8 +44,8 @@ type PageProps = {
   onQuery: (query: string) => void;
   onModifiedFilter?: (filter: ModifiedFilter) => void;
   onOpen: (skill: SkillRow) => void;
-  onPendingChange: (next: Proposal) => void;
-  onRecentChange: (next: Proposal) => void;
+  onPendingChange: (next: ProposalSummary) => void;
+  onRecentChange: (next: ProposalSummary) => void;
   onReload: () => void;
 };
 
@@ -240,8 +240,8 @@ export function SkillsPage({
 export function SkillsView() {
   const [overview, setOverview] = useState<SkillsOverview | null>(null);
   const [turns, setTurns] = useState<number | null>(null);
-  const [pending, setPending] = useState<Proposal[]>([]);
-  const [recent, setRecent] = useState<Proposal[]>([]);
+  const [pending, setPending] = useState<ProposalSummary[]>([]);
+  const [recent, setRecent] = useState<ProposalSummary[]>([]);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [modifiedFilter, setModifiedFilter] = useState<ModifiedFilter>(readModifiedFilter);

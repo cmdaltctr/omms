@@ -1,5 +1,5 @@
 import type { SortChoice, SortOption } from "$lib/components/paged-list";
-import type { Proposal, ProposalState, SkillRow } from "./skills-api";
+import type { ProposalState, ProposalSummary, SkillRow } from "./skills-api";
 
 /*
  * The sorts of every list on the Skills page. Each `compare` gives the
@@ -45,8 +45,8 @@ export const SKILL_SORTS: readonly SortOption<SkillSort, SkillRow>[] = [
 const STATE_ORDER: readonly ProposalState[] = ["pending", "applied", "rejected", "stale", "undone"];
 
 export type ProposalSort = "newest" | "oldest" | "state" | "skill";
-const byUpdated = (a: Proposal, b: Proposal) => a.updatedAt - b.updatedAt;
-export const PROPOSAL_SORTS: readonly SortOption<ProposalSort, Proposal>[] = [
+const byUpdated = (a: ProposalSummary, b: ProposalSummary) => a.updatedAt - b.updatedAt;
+export const PROPOSAL_SORTS: readonly SortOption<ProposalSort, ProposalSummary>[] = [
   { value: "newest", label: "Newest", first: "desc", flip: "oldest", compare: byUpdated },
   { value: "oldest", label: "Oldest", first: "asc", flip: "newest", compare: byUpdated },
   {

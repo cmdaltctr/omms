@@ -1,15 +1,15 @@
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { Check, ChevronDown, ChevronUp, Undo2, X } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
 import { useSettingsText } from "$lib/i18n/settings";
 import { formatDate } from "$lib/format";
 import { cn } from "$lib/utils";
-import { skillsApi, type Proposal, type SkillsReply, type TurnSummary } from "$lib/skills-api";
-import { diffStat, fill, hasMoreDetail, proposalLabel } from "$lib/skills-model";
+import { skillsApi, type Proposal, type ProposalSummary, type SkillsReply } from "$lib/skills-api";
+import { fill, hasMoreDetail, proposalLabel, summaryOf } from "$lib/skills-model";
 import { Callout } from "./Callout";
 import { HuePill } from "./HuePill";
-import { ProposalDiff } from "./ProposalDiff";
-import { EvidenceTurns } from "./EvidenceTurns";
+import { ProposalDetail } from "./ProposalDetail";
+import { useProposalDetail, type ProposalDetailState } from "./useProposalDetail";
 
 /**
  * What the card shows for a failed apply or undo. When the server could not
@@ -49,7 +49,10 @@ export function UndoStopped({ savedContent }: { savedContent: string | null }) {
 }
 
 /** The proposal as the server now holds it after a "stale" answer. */
-export const markStale = (proposal: Proposal, now: number): Proposal => ({
+export const markStale = <T extends Pick<ProposalSummary, "state" | "updatedAt">>(
+  proposal: T,
+  now: number
+): T => ({
   ...proposal,
   state: "stale",
   updatedAt: now,
@@ -63,7 +66,11 @@ const DECIDED = {
 } as const;
 
 /** When the proposal was drafted and, once decided, when its state last changed. */
-export function ProposalTimes({ proposal }: { proposal: Proposal }) {
+export function ProposalTimes({
+  proposal,
+}: {
+  proposal: Pick<ProposalSummary, "state" | "createdAt" | "updatedAt">;
+}) {
   const s = useSettingsText();
   const decided = proposal.state === "pending" ? null : DECIDED[proposal.state];
   return (
@@ -75,9 +82,9 @@ export function ProposalTimes({ proposal }: { proposal: Proposal }) {
 }
 
 /** Lines added and removed, as a small chip. Screen readers get the long sentence. */
-function DiffStat({ proposal }: { proposal: Proposal }) {
+function DiffStat({ proposal }: { proposal: Pick<ProposalSummary, "added" | "removed"> }) {
   const s = useSettingsText();
-  const { added, removed } = diffStat(proposal);
+  const { added, removed } = proposal;
   if (added === 0 && removed === 0) return null;
   return (
     <span
@@ -102,17 +109,22 @@ function DiffStat({ proposal }: { proposal: Proposal }) {
 
 /**
  * One proposal. It starts compact: header, a two-line summary, a diffstat and
- * the actions. Show more opens the full summary, the diff and the evidence turns.
- * `initiallyOpen` starts the card open, for server rendering in tests.
+ * the actions, all from the list summary. Show more loads the full proposal once,
+ * then shows the full summary, the diff and the evidence turns. Apply, Reject and
+ * Undo send only the id, so they need no detail.
+ * `initiallyOpen` and `initialDetail` start the card open and loaded, for server
+ * rendering in tests.
  */
 export function ProposalCard({
   proposal,
   onChange,
   initiallyOpen = false,
+  initialDetail = null,
 }: {
-  proposal: Proposal;
-  onChange: (next: Proposal) => void;
+  proposal: ProposalSummary;
+  onChange: (next: ProposalSummary) => void;
   initiallyOpen?: boolean;
+  initialDetail?: ProposalDetailState | null;
 }) {
   const s = useSettingsText();
   const label = proposalLabel(proposal);
@@ -124,21 +136,10 @@ export function ProposalCard({
   const canUndo = proposal.canUndo !== false;
   const [open, setOpen] = useState(initiallyOpen);
   const Chevron = open ? ChevronUp : ChevronDown;
-  const [evidence, setEvidence] = useState<TurnSummary[] | null>(null);
+  const detail = useProposalDetail(proposal.id, open, initialDetail);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [savedContent, setSavedContent] = useState<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    if (!open || evidence || proposal.evidenceTurnIds.length === 0) return;
-    let active = true;
-    void skillsApi.proposal(proposal.id).then((reply) => {
-      if (active && reply.ok) setEvidence(reply.data.evidence);
-    });
-    return () => {
-      active = false;
-    };
-  }, [open, evidence, proposal.id, proposal.evidenceTurnIds.length]);
 
   async function act(run: () => Promise<SkillsReply<{ proposal: Proposal }>>) {
     setWorking(true);
@@ -146,13 +147,15 @@ export function ProposalCard({
     setSavedContent(undefined);
     const reply = await run();
     setWorking(false);
-    if (reply.ok) onChange(reply.data.proposal);
+    // The reply holds the full proposal; the list holds its summary. The detail the
+    // card already loaded stays: an action changes the state, not the content.
+    if (reply.ok) onChange(summaryOf(reply.data.proposal));
     else {
       const problem = replyProblem(reply.code, reply.error);
       setError(s(problem.message));
       if (problem.reload) {
         void skillsApi.proposal(proposal.id).then((fresh) => {
-          if (fresh.ok) onChange(fresh.data.proposal);
+          if (fresh.ok) onChange(summaryOf(fresh.data.proposal));
         });
       }
       if (reply.code === "changed") setSavedContent(reply.savedContent ?? null);
@@ -184,30 +187,7 @@ export function ProposalCard({
         </Callout>
       ) : null}
       <div id={detailsId} hidden={!open} className="space-y-3">
-        {open ? (
-          <>
-            {proposal.diff ? (
-              <ProposalDiff diff={proposal.diff} label={s("Changes to SKILL.md")} />
-            ) : (
-              <pre
-                dir="ltr"
-                className="max-h-96 overflow-auto rounded-lg border border-border bg-background p-2 font-mono text-xs"
-              >
-                {proposal.content}
-              </pre>
-            )}
-            {proposal.evidenceTurnIds.length > 0 ? (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">{s("Evidence turns")}</h4>
-                {evidence ? (
-                  <EvidenceTurns turns={evidence} />
-                ) : (
-                  <p className="text-sm text-muted-foreground">{s("Loading…")}</p>
-                )}
-              </div>
-            ) : null}
-          </>
-        ) : null}
+        {open ? <ProposalDetail detail={detail} /> : null}
       </div>
       {pending || proposal.state === "applied" ? (
         <div className="flex flex-wrap gap-2">

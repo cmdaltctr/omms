@@ -60,6 +60,30 @@ Query plans: `getLatestVersion` (`WHERE proposal_id = ?`) does `SCAN skill_versi
 4. **`LIMIT` alone does not help.** No index covers `created_at`, so SQLite sorts every row first. `LIMIT 5` still takes 17.9 ms at N = 5,000.
 5. **`skillHistory` stays small.** It takes 25.3 ms at N = 5,000 for a skill with 1,288 proposals. It returns 11.7 KB.
 
+## After phase 1
+
+The script ran again on the same machine after phase 1 (Bun 1.4.4, 5 runs after 1 warm-up). Case 4b now calls `listProposalSummaries` and `withCanUndo`, the path `GET /api/skills/skill` takes. Cases 4 and 5 call `skillHistory` and the route, as before. Median milliseconds, then the bytes the call returns.
+
+| Case                                                  | N = 100        | N = 1,000      | N = 5,000      |
+| ----------------------------------------------------- | -------------- | -------------- | -------------- |
+| 4 `skillHistory`, busiest skill, page of 20           | 0.36 / 11.6 KB | 2.25 / 11.9 KB | 10.8 / 11.7 KB |
+| 4b skill detail proposals (summaries + `withCanUndo`) | 0.38 / 16.8 KB | 6.31 / 221 KB  | 31.9 / 1.07 MB |
+| 5 `GET /api/skills/proposals` route                   | 1.71 / 82.6 KB | 23.5 / 831 KB  | 116 / 4.1 MB   |
+
+At N = 5,000, against the first table:
+
+- The route fell from 944 ms to 116 ms, and from 96.4 MB to 4.1 MB.
+- The skill detail proposals fell from 309 ms to 31.9 ms, and from 24.9 MB to 1.07 MB.
+- `skillHistory` fell from 25.3 ms to 10.8 ms. The body stays at 11.7 KB.
+
+This run was faster than the first one on the same query: case 1 took 48.0 ms at N = 5,000, against 56.7 ms before. Treat a gap under about 15% as run-to-run noise. The gains above are far larger.
+
+The route takes longer than the throwaway prototype of case 5c (69.6 ms in this run). It counts the diff lines of every proposal and runs the real undo check, which the prototype skipped. Both are inside the revisit trigger below.
+
+The route reads every diff when it has no `limit` and no `offset`, only to count lines. One idea was to count them inside SQLite, so the diff text would never reach JavaScript. It was tried and measured twice per variant in one sitting at N = 5,000, on a busier machine (load average about 6): the SQL count took 151 and 152 ms, and the JavaScript count took 127 and 130 ms. SQLite's `replace()` copies each diff, which costs more than counting in JavaScript. The idea was dropped. Stored line counts (phase 2) are the next step. The same busier machine gave 127 to 130 ms for the route with the shipped code, against 116 ms in the table above, so read the table with that spread in mind. `listProposals` was removed in phase 1, so case 1 in the script now runs its old `SELECT *` query text directly. The cost of the query is the same.
+
+The revisit trigger is not met. The list route (116 ms) and `skillHistory` (10.8 ms) are both below 200 ms at N = 5,000.
+
 ## Decision
 
 - Phase 1 (OpenSpec change `skill-proposal-summaries`): lists name their columns, never read `proposed_content` or `diff` except to count lines on the returned page, send a summary shape, and check `canUndo` with one batched lookup. The web page loads the full proposal when a card opens.

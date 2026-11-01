@@ -25,7 +25,7 @@ export const SKILLS_TOOL_DESCRIPTION = [
   '"draft" (skill, or an idea from "ideas" {name, description, reason, evidenceTurnIds} with folder): the external API drafts a pending proposal; it changes no file.',
   'To fix a skill yourself: call "evidence" (skill, limit) for its SKILL.md and recorded turns, write the fixed SKILL.md, then call "propose" (skill, or idea with folder; content, summary, evidence turn ids). Show the user the diff.',
   "This path makes no external API call, but the recorded turn text enters this session.",
-  '"proposals" (state), "show" (id): review proposals and their diffs.',
+  '"proposals" (state): list proposals as summaries, with line counts and no content or diff. "show" (id): one proposal with its diff and content.',
   '"apply" (id): write a pending proposal to its SKILL.md, only when the user asks. "reject" (id), "undo" (id), "help".',
 ].join(" ");
 

@@ -44,12 +44,22 @@ export type Proposal = {
   /** Lists only: false when a newer applied change superseded this one. Absent after apply. */
   canUndo?: boolean;
 };
+/**
+ * A proposal as a list holds it: no content and no diff (TDR-059). `added` and
+ * `removed` are the server's line counts, and `hasDiff` is false for a new skill.
+ * `proposal(id)` and the replies to apply, reject and undo carry the full `Proposal`.
+ */
+export type ProposalSummary = Omit<Proposal, "content" | "diff"> & {
+  added: number;
+  removed: number;
+  hasDiff: boolean;
+};
 /** Uses of one UTC day. `failed` counts the turns that had a failed tool call. */
 export type DailyUse = { day: string; uses: number; failed: number };
 export type SkillDetailData = {
   skill: SkillRow;
   recentTurns: TurnSummary[];
-  proposals: Proposal[];
+  proposals: ProposalSummary[];
   /** All recorded turns of this skill. An older server leaves it out. */
   turnTotal?: number;
   /** The last 30 UTC days, oldest first. An older server leaves it out. */
@@ -174,7 +184,7 @@ export const skillsApi = {
       `/api/skills/history?${skillQuery(path, name)}&limit=${page.limit}&offset=${page.offset}`
     ),
   proposals: (state?: ProposalState) =>
-    skillsCall<{ proposals: Proposal[] }>(
+    skillsCall<{ proposals: ProposalSummary[] }>(
       state ? `/api/skills/proposals?state=${state}` : "/api/skills/proposals"
     ),
   proposal: (id: string) =>

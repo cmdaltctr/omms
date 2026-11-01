@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { allProposals } from "./skill-proposal-helpers.js";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -211,6 +212,50 @@ describe("skill history", () => {
     const { entries } = await s.skillHistory(s.deps, { path }, 20, 0);
     expect(entries[0]).toMatchObject({ kind: "applied", canUndo: false });
   });
+
+  it("names its columns and reads diffs and saved versions only for what it needs", async () => {
+    const path = skillPath();
+    writeFileSync(path, V0);
+    const s = await setup();
+    const ids: string[] = [];
+    let current = V0;
+    for (const next of [V1, V2, V0, V1]) {
+      const p = await draft(s, path, current, next);
+      ids.push(p.id);
+      if (ids.length <= 3) {
+        await s.applyProposal(p.id, "person", s.deps);
+        current = next;
+      }
+    }
+    const db = (await s.store.existingDb())!;
+    const seen: { sql: string; args: unknown }[] = [];
+    for (const method of ["all", "get"] as const) {
+      const original = db[method].bind(db) as (sql: string, args?: unknown) => Promise<unknown>;
+      (db as unknown as Record<string, unknown>)[method] = async (sql: string, args?: unknown) => {
+        seen.push({ sql, args });
+        return original(sql, args);
+      };
+    }
+    const { total, entries } = await s.skillHistory(s.deps, { path }, 2, 0);
+    expect(total).toBe(7);
+    expect(entries).toHaveLength(2);
+
+    const proposalQueries = seen.filter((q) => q.sql.includes("skill_proposals"));
+    const list = proposalQueries.find((q) => !q.sql.includes("json_each"));
+    expect(list!.sql).not.toContain("*");
+    expect(list!.sql).not.toContain("proposed_content");
+    expect(list!.sql).not.toMatch(/\bdiff\b/);
+    // The diffs come in one query, for the proposals of the two entries on the page.
+    const diffQueries = proposalQueries.filter((q) => q.sql.includes("json_each"));
+    expect(diffQueries).toHaveLength(1);
+    expect(new Set(JSON.parse((diffQueries[0]!.args as string[])[0]!))).toEqual(
+      new Set(entries.map((e) => e.proposalId))
+    );
+    // One query reads the newest saved version of every applied proposal.
+    const versionQueries = seen.filter((q) => q.sql.includes("skill_versions"));
+    expect(versionQueries).toHaveLength(1);
+    expect(versionQueries[0]!.sql).not.toContain("previous_content");
+  });
 });
 
 describe("proposal canUndo flag", () => {
@@ -236,12 +281,47 @@ describe("proposal canUndo flag", () => {
     const pending = await draft(s, path, V2, V0);
     const flags = async () =>
       Object.fromEntries(
-        (await s.withCanUndo(s.deps, await s.listProposals(s.store))).map((p) => [p.id, p.canUndo])
+        (await s.withCanUndo(s.deps, await allProposals(s.store))).map((p) => [p.id, p.canUndo])
       );
     expect(await flags()).toEqual({ [older.id]: false, [newer.id]: true, [pending.id]: false });
     await s.undoProposal(newer.id, s.deps);
     expect((await flags())[older.id]).toBe(true);
     expect((await flags())[newer.id]).toBe(false);
+  });
+
+  it("reads the newest saved versions of all applied proposals in one query", async () => {
+    const s = await setup();
+    const names = ["one", "two", "three"];
+    const applied: string[] = [];
+    for (const name of names) {
+      const path = skillPath(name);
+      writeFileSync(path, V0);
+      const p = await draft(s, path, V0, V1, name);
+      await s.applyProposal(p.id, "person", s.deps);
+      applied.push(p.id);
+    }
+    const { listProposalSummaries } =
+      await import("../src/services/skill-learning/proposal-summaries.js");
+    const { proposals } = await listProposalSummaries(s.store);
+    const db = (await s.store.existingDb())!;
+    const seen: string[] = [];
+    for (const method of ["all", "get"] as const) {
+      const original = db[method].bind(db) as (sql: string, args?: unknown) => Promise<unknown>;
+      (db as unknown as Record<string, unknown>)[method] = async (sql: string, args?: unknown) => {
+        seen.push(sql);
+        return original(sql, args);
+      };
+    }
+    const flags = await s.withCanUndo(s.deps, proposals);
+    expect(flags.map((p) => p.canUndo)).toEqual([true, true, true]);
+    expect(flags.map((p) => p.id).sort()).toEqual([...applied].sort());
+    const versionQueries = seen.filter((sql) => sql.includes("skill_versions"));
+    expect(versionQueries).toHaveLength(1);
+    // The saved previous content is not needed to answer canUndo.
+    expect(versionQueries[0]).not.toContain("previous_content");
+    expect(versionQueries[0]).not.toContain("*");
+    // Nor is any proposal row: the list already holds the state.
+    expect(seen.filter((sql) => sql.includes("skill_proposals"))).toHaveLength(0);
   });
 });
 

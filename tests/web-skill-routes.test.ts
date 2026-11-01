@@ -838,4 +838,90 @@ describe("skills list routes: paging, activity and history", () => {
     expect(result.proposalsPage.body.data.total).toBe(3);
     expect(result.proposalsJunk.body.data.proposals).toHaveLength(3);
   });
+
+  it("lists summaries without content or diff, and the detail route keeps both", async () => {
+    const { result } = await scenario(
+      `
+      const { createProposal } = await import(${src("services/skill-learning/proposal-store.ts")});
+      const { lineDiff } = await import(${src("services/skill-learning/line-diff.ts")});
+      const store = new SkillStore(dbPath);
+      await store.init();
+      const before = "a\\nb\\nc\\n";
+      const after = "a\\nB\\nc\\nd\\ne\\n";
+      const improve = await createProposal(store, { kind: "improve", skillName: "alpha",
+        skillPath: alphaPath, baseHash: "h", content: "SECRET-CONTENT\\n" + after,
+        diff: lineDiff(before, after), summary: "Better", evidenceTurnIds: [1] }, 1000);
+      const fresh = await createProposal(store, { kind: "new", skillName: "gamma",
+        skillPath: join(skills, "gamma", "SKILL.md"), baseHash: null,
+        content: "SECRET-NEW\\ntwo\\nthree", diff: null, summary: "A new one", evidenceTurnIds: [] }, 2000);
+      const list = await call("/api/skills/proposals");
+      const one = await call("/api/skills/skill?path=" + encodeURIComponent(alphaPath));
+      const detail = await call("/api/skills/proposals/" + improve.id);
+      return { improve, fresh, list, one, detail };
+    `,
+      on
+    );
+    const summaryKeys = [
+      "added",
+      "appliedBy",
+      "canUndo",
+      "createdAt",
+      "draftedBy",
+      "evidenceTurnIds",
+      "hasDiff",
+      "id",
+      "kind",
+      "removed",
+      "skillName",
+      "skillPath",
+      "state",
+      "summary",
+      "updatedAt",
+    ];
+    const listed = result.list.body.data.proposals;
+    expect(listed).toHaveLength(2);
+    for (const proposal of listed) expect(Object.keys(proposal).sort()).toEqual(summaryKeys);
+    // Newest first: the new skill, then the improvement.
+    expect(listed[0]).toMatchObject({ id: result.fresh.id, added: 3, removed: 0, hasDiff: false });
+    expect(listed[1]).toMatchObject({ id: result.improve.id, added: 3, removed: 1, hasDiff: true });
+    expect(JSON.stringify(result.list.body)).not.toContain("SECRET");
+    // One skill's proposals in GET /api/skills/skill have the same shape.
+    expect(result.one.body.data.proposals).toHaveLength(1);
+    expect(Object.keys(result.one.body.data.proposals[0]).sort()).toEqual(summaryKeys);
+    expect(JSON.stringify(result.one.body)).not.toContain("SECRET");
+    // The detail route still returns the full proposal.
+    expect(result.detail.body.data.proposal).toMatchObject({
+      id: result.improve.id,
+      content: expect.stringContaining("SECRET-CONTENT"),
+      diff: expect.stringContaining("+B"),
+    });
+  });
+
+  it("keeps the proposal list under its size budget as proposals grow (TDR-059)", async () => {
+    const { result } = await scenario(
+      `
+      const { createProposal } = await import(${src("services/skill-learning/proposal-store.ts")});
+      const store = new SkillStore(dbPath);
+      await store.init();
+      // 500 proposals, each with 20 KB of content, a 2 KB diff, a 300-character
+      // summary and 30 evidence ids. The full shape is over 10 MB.
+      const content = "x".repeat(20_000);
+      const diff = "@@ -1,1 +1,1 @@\\n" + "+y".repeat(1000);
+      const evidenceTurnIds = Array.from({ length: 30 }, (_, i) => 1000 + i);
+      for (let i = 0; i < 500; i++) {
+        await createProposal(store, { kind: "improve", skillName: "alpha", skillPath: alphaPath,
+          baseHash: "h", content, diff, summary: "s".repeat(300), evidenceTurnIds }, 1000 + i);
+      }
+      const response = await send("/api/skills/proposals");
+      const body = await response.text();
+      return { status: response.status, bytes: Buffer.byteLength(body),
+        count: JSON.parse(body).data.proposals.length };
+    `,
+      on
+    );
+    expect(result.status).toBe(200);
+    expect(result.count).toBe(500);
+    // About 830 bytes a proposal, so about 415,000. The budget leaves room for field growth.
+    expect(result.bytes).toBeLessThan(600_000);
+  }, 60_000);
 });

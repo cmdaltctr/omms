@@ -1,4 +1,4 @@
-import type { Proposal, SkillRow } from "./skills-api";
+import type { Proposal, ProposalSummary, SkillRow } from "./skills-api";
 
 /** Fill `{name}` slots of a translated message. */
 export function fill(message: string, values: Record<string, string | number>): string {
@@ -61,22 +61,32 @@ export function diffStat(proposal: Pick<Proposal, "diff" | "content">): {
   };
 }
 
+/**
+ * The summary of a full proposal, as a list would hold it. The reply to apply,
+ * reject or undo carries the full proposal, and the card passes on its summary.
+ */
+export function summaryOf(proposal: Proposal): ProposalSummary {
+  const { content, diff, ...rest } = proposal;
+  return { ...rest, ...diffStat({ content, diff }), hasDiff: diff !== null };
+}
+
 /** A summary longer than this, or with more than one line break, may pass 2 lines. */
 const LONG_SUMMARY = 160;
 
 /**
  * Whether a proposal card has anything to reveal behind Show more: a summary
  * that may pass two lines, a diff (or the content of a new skill), or evidence.
+ * A new skill has no diff, so any line the server counted as added is content.
  */
 export function hasMoreDetail(
-  proposal: Pick<Proposal, "summary" | "diff" | "content" | "evidenceTurnIds">
+  proposal: Pick<ProposalSummary, "summary" | "hasDiff" | "added" | "evidenceTurnIds">
 ): boolean {
   const summary = proposal.summary ?? "";
   return (
     summary.length > LONG_SUMMARY ||
     summary.split("\n").length > 2 ||
-    Boolean(proposal.diff) ||
-    (proposal.diff === null && proposal.content.trim() !== "") ||
+    proposal.hasDiff ||
+    proposal.added > 0 ||
     proposal.evidenceTurnIds.length > 0
   );
 }

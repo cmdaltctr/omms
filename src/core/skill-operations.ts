@@ -7,13 +7,17 @@ import {
   type SkillIdea,
   type SkillModel,
 } from "../services/skill-learning/drafting.js";
+import { withCanUndo } from "../services/skill-learning/history.js";
 import {
   getProposal,
-  listProposals,
   updateProposalState,
   type SkillProposal,
   type SkillProposalState,
 } from "../services/skill-learning/proposal-store.js";
+import {
+  listProposalSummaries,
+  type SkillProposalRow,
+} from "../services/skill-learning/proposal-summaries.js";
 import {
   SKILL_ORDERS,
   rankSkills,
@@ -156,7 +160,7 @@ function rankingLine(skill: SkillRanking): string {
   return skill.path ? `${line}\n  ${skill.path}` : line;
 }
 
-function proposalLine(p: SkillProposal): string {
+function proposalLine(p: SkillProposalRow): string {
   const summary = p.summary ? `: ${p.summary}` : "";
   return `- ${p.id} ${p.state} ${p.kind} ${p.skillName} (${day(p.createdAt)})${summary}`;
 }
@@ -299,12 +303,14 @@ async function proposals(
       `state must be one of: ${PROPOSAL_STATES.join(", ")}.`
     );
   }
-  const found = await listProposals(deps.store, state ? { state } : {});
+  // Summaries, not full proposals: the JSON goes into the agent's context. `show` gives the text.
+  const { proposals: found } = await listProposalSummaries(deps.store, state ? { state } : {});
   const text =
     found.length === 0
       ? `No ${state ? `${state} ` : ""}proposals.`
       : ["Proposals, newest first:", ...found.map(proposalLine)].join("\n");
-  return reply("proposals", true, "ok", text, { proposals: found });
+  const listed = await withCanUndo({ store: deps.store, folders: deps.folders }, found);
+  return reply("proposals", true, "ok", text, { proposals: listed });
 }
 
 /** The proposal for `args.id`, or the reply that explains why there is none. */
