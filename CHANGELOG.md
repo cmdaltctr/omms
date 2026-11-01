@@ -2,6 +2,22 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.0.0](https://github.com/cmdaltctr/omms/compare/v4.34.1...v5.0.0) (2026-11-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* GET /api/skills/proposals, the proposals in GET /api/skills/skill, the skills tool "proposals" mode and `om-memory-system skills proposals --json` no longer hold content or diff. Use GET /api/skills/proposals/:id or the "show" mode for them.
+
+### Performance
+
+* list skill proposals as summaries, not full text ([004be7d](https://github.com/cmdaltctr/omms/commit/004be7dbaa01bc119d70c57b8ec7db12e8c634e0))
+
+
+### Documentation
+
+* correct the archived design on listProposals ([a18eb18](https://github.com/cmdaltctr/omms/commit/a18eb18c550f1e517d42670ee16c130c4dcaece5))
+
 ## [4.34.1](https://github.com/cmdaltctr/omms/compare/v4.34.0...v4.34.1) (2026-11-01)
 
 
