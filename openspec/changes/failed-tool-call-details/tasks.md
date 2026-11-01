@@ -15,10 +15,21 @@
 - [ ] 2.5 Add strings to `web/src/lib/i18n/skills.ts` for every supported language
 - [ ] 2.6 Keep each new `.tsx` file at 500 lines or fewer; run `tests/file-size-ceiling.test.ts`
 
-## 3. Docs and checks
+## 3. Explain failures
 
-- [ ] 3.1 Update `docs/skill-learning.md` and `docs/web-ui.md` with the dialog and the Failures section
-- [ ] 3.2 Run `openspec validate failed-tool-call-details --strict`
-- [ ] 3.3 Run `bun run ci:local`
-- [ ] 3.4 Browser check at 1280 px and 390 px on a separate preview app (own port and store, never the 4747 app): open a turn dialog, open a group, check long input, check the no-error-text case, check RTL (Arabic)
-- [ ] 3.5 Run `graphify update .`
+- [ ] 3.1 Write failing tests for `failure-explain.ts`: request holds at most 10 groups and 500-character excerpts and no prompts or replies; `not-configured` sends nothing; a model failure returns a fixed code; an invalid reply returns `invalid-reply`; nothing is saved
+- [ ] 3.2 Implement `failure-explain.ts` with the tool schema and the system prompt (labels skill, harness, environment, unknown; suggestions are leads), reusing the drafting model path and failure codes
+- [ ] 3.3 Add `POST /api/skills/explain-failures` with route tests, including that the log holds only a reason code
+- [ ] 3.4 Add the `explainFailures` call and reply types to `web/src/lib/skills-api.ts`
+- [ ] 3.5 Add `ExplainFailures.tsx`: button, disabled notes (skill learning off, no groups), summary and cause cards with labels, "leads only" note, not-configured link to the External API card, error message
+- [ ] 3.6 Add the first-use confirmation dialog with the stronger tone when redaction is off, remembered in `localStorage` with try/catch
+- [ ] 3.7 Add the "i" `InfoPopover` beside the button with the same warning text
+- [ ] 3.8 Add the new strings to `web/src/lib/i18n/skills.ts` for every supported language
+
+## 4. Docs and checks
+
+- [ ] 4.1 Update `docs/skill-learning.md` and `docs/web-ui.md` with the dialog, the Failures section and Explain failures (what is sent, to where, and the warning)
+- [ ] 4.2 Run `openspec validate failed-tool-call-details --strict`
+- [ ] 4.3 Run `bun run ci:local`
+- [ ] 4.4 Browser check at 1280 px and 390 px on a separate preview app (own port and store, never the 4747 app): open a turn dialog, open a group, check long input, check the no-error-text case, check RTL (Arabic), open the first-use confirmation and the "i" popover, run an explanation against a stub model
+- [ ] 4.5 Run `graphify update .`

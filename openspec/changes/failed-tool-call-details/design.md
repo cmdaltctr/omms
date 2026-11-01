@@ -13,6 +13,7 @@
 **Non-Goals:**
 
 - Storing tool output bodies. Not stored today and not added here.
+- Saving explanations, or turning one into a proposal. A later change can add that.
 - A cross-skill failures page. The group view is per skill. A later change can add it.
 - Changing ranking, attention scores or the "Suggested" rule.
 - Any change to capture or to the `tool_calls` schema.
@@ -28,11 +29,18 @@
 7. **Missing `skills.db`** gives empty replies and the file stays missing, as in `turn-summaries.ts` (`store.existingDb()`).
 8. **No setting gates the routes.** They read data that exists only when recording was on. The existing web server rules apply: loopback by default and token for any other host.
 
+9. **Explain through the drafting model path.** A new POST route `/api/skills/explain-failures` (`path`, `name`) calls a new `failure-explain.ts`. It builds the request from the group query (top 10 groups, 500-character input excerpt, `SKILL.md`) and calls `SkillModel.callTool` with one tool schema: `{ summary, causes: [{ kind: skill | harness | environment | unknown, explanation, actions[] }] }`. It uses the same external API setup and failure codes as drafting, including `not-configured`. Alternative: reuse `draftImprovement`. Rejected: it saves a proposal, and this reply is not kept.
+10. **No backoff, no auto run.** The user starts each explanation, so the draft backoff does not apply.
+11. **Warning in two places from one text.** One strings block feeds the first-use confirmation dialog and an `InfoPopover` ("i") beside the button. The confirmation uses the existing dialog and `Callout`. A red tone shows when `redact` is off (`/api/skills/stats` already reports it). The confirmation is remembered in `localStorage` (per-viewer convenience, wrapped in try/catch). Without storage it asks every time.
+12. **Disabled state from facts the page already has.** Skill learning off comes from the overview `recording` flag. No group means the groups reply is empty.
+
 ## Risks / Trade-offs
 
 - **Group count differs from the row labels.** Mitigation: the section heading says which calls count, and the spec states the rule.
 - **Large `tool_calls` tables make the group query slow.** Mitigation: the query is scoped to the skill's turn ids (same `turnIdsFor` rule as the turn list) and runs only when the skill view opens. Measure on a store of about 1800 turns and note the time in the PR. Add an index on `tool_calls(turn_id, outcome)` only if the measure needs it, as a separate decision.
 - **Hosts that report failures with no error text** show a group "no error text". This is the intended signal, but it may look noisy. The group label explains it.
+- **Explain sends stored text to an external model.** Same exposure as drafting (ADR-033 precedent), but it is a new send path. Mitigation: the request holds grouped data and 500-character excerpts, not whole turns; the first-use confirmation and the "i" popover state it; the button is off when recording is off; the log holds codes only.
+- **The model cannot see host code.** Its harness-bug label is a guess from error text. The panel says so, and the labels are leads.
 - **Tool input can hold private content.** Mitigation: it is already redacted at write time when redaction is on. With `skillLearningRedact` off, the dialog shows what the user chose to store. The routes do not log it.
 
 ## Open Questions
