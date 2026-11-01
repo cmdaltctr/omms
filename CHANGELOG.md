@@ -2,6 +2,25 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.1.0](https://github.com/cmdaltctr/omms/compare/v5.0.0...v5.1.0) (2026-11-01)
+
+
+### Features
+
+* add failed tool call details and failure explanation routes ([57d1fa0](https://github.com/cmdaltctr/omms/commit/57d1fa0146d956f75948a810eb8d24998cec2fc4))
+* failed tool call details and Explain failures on the Skills page ([9656264](https://github.com/cmdaltctr/omms/commit/96562648cf9e9275de5e625687d5da5e89a9fda4))
+* show failed tool calls and explain failures on the Skills page ([1f47ca0](https://github.com/cmdaltctr/omms/commit/1f47ca01bc4e506d813e9eb87e4ab41d759d8211))
+
+
+### Bug Fixes
+
+* address review findings on failed tool call details ([470af2d](https://github.com/cmdaltctr/omms/commit/470af2dfac73fe6928b45bb58281bb9fa44a8424))
+
+
+### Documentation
+
+* describe failed tool call details and Explain failures ([e7155e5](https://github.com/cmdaltctr/omms/commit/e7155e5abcbdf28036c97437e965b0fa78f7966c))
+
 ## [5.0.0](https://github.com/cmdaltctr/omms/compare/v4.34.1...v5.0.0) (2026-11-01)
 
 
