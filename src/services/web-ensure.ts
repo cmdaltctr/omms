@@ -152,10 +152,7 @@ export const nodeLockFs: LockFs = {
     }
   },
   replace(path, text) {
-    mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-    const temp = `${path}.${process.pid}.tmp`;
-    writeFileSync(temp, text, { mode: 0o600 });
-    renameRetrying(temp, path);
+    replaceRetrying(path, text);
   },
 };
 
@@ -163,6 +160,49 @@ export const nodeLockFs: LockFs = {
 // Bound retries so a permanent permission error still reaches the caller.
 const WINDOWS_FILE_RETRY_WAITS_MS = [1, 2, 5, 10, 20, 50, 100, 200];
 const WINDOWS_FILE_BUSY_CODES = new Set(["EPERM", "EACCES", "EBUSY"]);
+
+/**
+ * How many times `replaceRetrying` rewrites its temp file when `rename`
+ * reports ENOENT for a file that was just written. Bun's rename can
+ * intermittently do that (see docs/tdr/030-intermittent-bun-rename-failure.md),
+ * which made tests/web-ensure.test.ts fail at random under load. Rewriting
+ * and retrying heals that without weakening a genuine failure, which keeps
+ * failing past this budget and still reaches the caller.
+ */
+const REPLACE_ENOENT_REWRITES = 3;
+
+/**
+ * `nodeLockFs.replace`: write the temp file, rename it over the target, and
+ * when the rename reports ENOENT for a temp file that was just written,
+ * rewrite it and try again, up to `rewrites` times.
+ */
+export function replaceRetrying(
+  path: string,
+  text: string,
+  deps: {
+    mkdir?: (dir: string) => void;
+    write?: (path: string, text: string) => void;
+    rename?: (from: string, to: string) => void;
+    rewrites?: number;
+  } = {},
+  rewrites: number = deps.rewrites ?? REPLACE_ENOENT_REWRITES
+): void {
+  const mkdir = deps.mkdir ?? ((dir: string) => mkdirSync(dir, { recursive: true, mode: 0o700 }));
+  const write =
+    deps.write ?? ((file: string, body: string) => writeFileSync(file, body, { mode: 0o600 }));
+  const rename = deps.rename ?? ((from: string, to: string) => renameRetrying(from, to));
+  mkdir(dirname(path));
+  const temp = `${path}.${process.pid}.tmp`;
+  for (let attempt = 0; ; attempt++) {
+    write(temp, text);
+    try {
+      rename(temp, path);
+      return;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT" || attempt >= rewrites) throw error;
+    }
+  }
+}
 
 /** `renameSync` that retries while Windows reports the target busy. */
 export function renameRetrying(

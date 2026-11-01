@@ -115,6 +115,19 @@ CodeRabbit review and passing CI, then continuing this investigation separately.
 A native trace that captures the failure, a matching upstream fix, or a repeatable
 regression should reopen this investigation.
 
+## Resolution (2026-11-01)
+
+The flake struck twice more in full local gate runs of the `skills-failures-paging-toc`
+change (Bun 1.4.4, macOS), always the same single assertion, never in isolation. Rather
+than wait for an upstream fix, the writer now heals itself: `replaceRetrying` in
+`src/services/web-ensure.ts` writes the temp file, and when `rename` reports ENOENT for a
+temp file that was just written it rewrites the file and tries again, at most three times
+before the error reaches the caller as before. A genuine failure (a missing directory, a
+deleted file that stays deleted) keeps failing past the budget, so no real error is
+swallowed. The recovery is covered by unit tests with an injected rename; the original
+loop test is unchanged. The upstream cause stays unknown, so the open questions above
+remain open.
+
 ## References
 
 - [Original test](../../tests/web-ensure.test.ts)
