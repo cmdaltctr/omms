@@ -18,7 +18,13 @@ export function groupLabel(s: (message: string) => string, group: FailureGroup):
  * first. A group opens the failed-call dialog with its latest 5 calls, which
  * the reply carries, so opening one needs no second request.
  */
-export function FailureGroups({ skill }: { skill: Pick<SkillRow, "path" | "name"> }) {
+export function FailureGroups({
+  skill,
+  reloadKey,
+}: {
+  skill: Pick<SkillRow, "path" | "name">;
+  reloadKey: number;
+}) {
   const s = useSettingsText();
   const [groups, setGroups] = useState<FailureGroup[] | null>(null);
   const [error, setError] = useState("");
@@ -35,7 +41,7 @@ export function FailureGroups({ skill }: { skill: Pick<SkillRow, "path" | "name"
     return () => {
       live = false;
     };
-  }, [skill.path, skill.name]);
+  }, [skill.path, skill.name, reloadKey]);
 
   return (
     <section className="space-y-3" aria-labelledby="skill-failures-title">

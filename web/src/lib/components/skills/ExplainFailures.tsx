@@ -114,6 +114,7 @@ export function ExplainFailures({
 }) {
   const s = useSettingsText();
   const [stats, setStats] = useState<{ recording: boolean; redact: boolean } | null>(null);
+  const [statsFailed, setStatsFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
@@ -124,9 +125,9 @@ export function ExplainFailures({
   useEffect(() => {
     let live = true;
     void skillsApi.stats().then((reply) => {
-      if (live && reply.ok) {
-        setStats({ recording: reply.data.recording, redact: reply.data.redact });
-      }
+      if (!live) return;
+      if (reply.ok) setStats({ recording: reply.data.recording, redact: reply.data.redact });
+      else setStatsFailed(true);
     });
     return () => {
       live = false;
@@ -150,8 +151,11 @@ export function ExplainFailures({
   const noGroups = groups !== null && groups.length === 0;
   const recordingOff = stats !== null && !stats.recording;
   // Until the flags arrive the page cannot tell whether redaction is on, so it
-  // does not offer the button; the confirmation then never shows the weaker text by mistake.
-  const disabled = busy || stats === null || recordingOff || noGroups;
+  // does not offer the button. When the stats request fails the button works, and
+  // the unknown state gets the stronger warning (only a known "on" gets the weaker text).
+  const statsPending = stats === null && !statsFailed;
+  const disabled = busy || groups === null || statsPending || recordingOff || noGroups;
+  const redactionOn = stats?.redact === true;
 
   function click() {
     if (disabled) return;
@@ -184,7 +188,7 @@ export function ExplainFailures({
           </span>
         ) : null}
         <InfoPopover label={s("About Explain failures")}>
-          <div className="space-y-1.5">{warningParagraphs(s, stats?.redact ?? true)}</div>
+          <div className="space-y-1.5">{warningParagraphs(s, redactionOn)}</div>
         </InfoPopover>
       </div>
 
@@ -240,8 +244,8 @@ export function ExplainFailures({
               {s("Nothing is sent until you confirm. Nothing is saved.")}
             </DialogDescription>
           </DialogHeader>
-          <Callout tone={stats?.redact === false ? "danger" : "warning"}>
-            <div className="space-y-1.5">{warningParagraphs(s, stats?.redact ?? true)}</div>
+          <Callout tone={redactionOn ? "warning" : "danger"}>
+            <div className="space-y-1.5">{warningParagraphs(s, redactionOn)}</div>
           </Callout>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setConfirming(false)}>

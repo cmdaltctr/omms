@@ -632,6 +632,35 @@ describe("skills failure routes", () => {
     expect(result.off.body.code).toBe("not-configured");
   });
 
+  it("refuses to explain failures while recording is off and never calls the model", async () => {
+    const { result } = await scenario(
+      `
+      const skillModelUrl = ${src("services/skill-learning/skill-model.ts")};
+      let modelCalls = 0;
+      mock.module(skillModelUrl, () => ({
+        skillModel: () => ({ ready: true, callTool: async () => {
+          modelCalls += 1;
+          return { success: true, data: { summary: "sent", causes: [] } };
+        } }),
+      }));
+      const store = new SkillStore(dbPath);
+      await store.init();
+      await store.insertTurn({
+        turnKey: "pi:s1:u1", host: "pi", sessionId: "s1", projectTag: null,
+        projectName: "demo", provider: null, model: null, createdAt: Date.now() - 60000,
+        prompt: "p", replies: ["r"], redacted: true,
+        toolCalls: [{ name: "Bash", input: "x", outcome: "error", error: "boom" }],
+        skillUses: [{ name: "alpha", path: alphaPath, method: "tool" }],
+      });
+      const off = await call("/api/skills/explain-failures", "POST", { path: alphaPath });
+      return { off, modelCalls };
+    `
+    );
+    expect(result.off.status).toBe(409);
+    expect(result.off.body.code).toBe("recording-off");
+    expect(result.modelCalls).toBe(0);
+  });
+
   it("gives empty failures without creating skills.db while recording is off", async () => {
     const { result } = await scenario(
       `

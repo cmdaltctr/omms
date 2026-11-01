@@ -203,6 +203,40 @@ describe("failure groups query", () => {
     expect(group?.errorLine).toBe("E".repeat(200));
   });
 
+  it("puts a CRLF error line and an LF error line in one group", async () => {
+    const path = addSkill("s-web-search");
+    const s = await setup();
+    await s.store.insertTurn(
+      turn({
+        name: "s-web-search",
+        path,
+        calls: [
+          { name: "Read", input: "a", error: "ENOENT\r\nstack" },
+          { name: "Read", input: "b", error: "ENOENT\nstack" },
+        ],
+      })
+    );
+    const groups = await s.skillFailureGroups(s.store, { name: "s-web-search", path }, s.index);
+    expect(groups.map((g) => [g.errorLine, g.calls])).toEqual([["ENOENT", 2]]);
+  });
+
+  it("returns at most 50 groups, the 50 with the most calls, with samples for those only", async () => {
+    const path = addSkill("s-web-search");
+    const s = await setup();
+    // Group i has i + 1 calls, so group 59 has the most and group 0 the fewest.
+    const calls: Array<{ name: string; input: string; error: string }> = [];
+    for (let i = 0; i < 60; i += 1) {
+      for (let n = 0; n <= i; n += 1) calls.push({ name: "Bash", input: "x", error: `err-${i}` });
+    }
+    await s.store.insertTurn(turn({ name: "s-web-search", path, calls }));
+    const groups = await s.skillFailureGroups(s.store, { name: "s-web-search", path }, s.index);
+    expect(groups).toHaveLength(50);
+    expect(groups.map((g) => g.calls)).toEqual(Array.from({ length: 50 }, (_, k) => 60 - k));
+    expect(groups.every((g) => g.latest.length > 0)).toBe(true);
+    expect(groups.some((g) => g.errorLine === "err-9")).toBe(false);
+    expect(groups.some((g) => g.errorLine === "err-10")).toBe(true);
+  });
+
   it("counts only calls after the skill was used, and every call of a slash command", async () => {
     const path = addSkill("s-web-search");
     const s = await setup();

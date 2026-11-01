@@ -249,6 +249,8 @@ async function dispatch(
     case "/api/skills/delete-turns":
       return deleteTurns(await readBody(), store);
     case "/api/skills/explain-failures":
+      // Stored text goes to the external model, so recording must be on.
+      if (!settings.enabled) return fail("recording-off", RECORDING_OFF_TEXT);
       return explainFailureGroups(await readBody(), store, index(), now);
     case "/api/skills/record-past":
       return recordPast(settings.enabled, ctx);

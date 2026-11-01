@@ -355,6 +355,7 @@ export const skillText = {
   ],
   // Failed tool call details.
   "No error text recorded": ["没有记录错误文本", "لم يُسجَّل نص خطأ"],
+  "Could not copy": ["无法复制", "تعذّر النسخ"],
   "Show full input": ["显示完整输入", "عرض الإدخال الكامل"],
   "Show less input": ["收起完整输入", "إخفاء الإدخال الكامل"],
   "The server sent the first 20000 characters of this input.": [

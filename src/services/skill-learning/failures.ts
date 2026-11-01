@@ -8,6 +8,8 @@ export const FAILURE_INPUT_CAP = 20_000;
 export const FAILURE_LINE_CHARS = 200;
 /** How many of a group's latest calls the reply carries. */
 export const FAILURE_SAMPLE = 5;
+/** How many groups the reply carries, most calls first. */
+export const FAILURE_GROUP_LIMIT = 50;
 
 /** One failed tool call of a turn, as the dialog shows it. */
 export interface TurnFailure {
@@ -44,10 +46,11 @@ export interface FailureGroup {
 }
 
 // An empty error text is no error text, as a null one is: both show as
-// "No error text recorded". The first line of the error is the group key.
+// "No error text recorded". The first line of the error is the group key; a
+// trailing carriage return from CRLF text is not part of the key.
 const NO_ERROR = "tc.error IS NULL OR tc.error = ''";
 const LINE = `CASE WHEN ${NO_ERROR} THEN NULL
-  ELSE substr(substr(tc.error, 1, instr(tc.error || char(10), char(10)) - 1), 1, ${FAILURE_LINE_CHARS}) END`;
+  ELSE rtrim(substr(substr(tc.error, 1, instr(tc.error || char(10), char(10)) - 1), 1, ${FAILURE_LINE_CHARS}), char(13)) END`;
 
 const CALL_FIELDS = `
   tc.position, tc.name,
@@ -89,6 +92,7 @@ export async function turnFailures(
 /**
  * The failed calls of one skill that count against it by the ranking rule,
  * grouped by tool name and the first line of the error text, most calls first.
+ * At most `FAILURE_GROUP_LIMIT` groups come back, each with its latest calls.
  * A missing `skills.db` gives an empty list and stays missing.
  */
 export async function skillFailureGroups(
@@ -111,22 +115,21 @@ export async function skillFailureGroups(
     JOIN turns t ON t.id = tc.turn_id
     JOIN (${firstUse}) f ON f.turn_id = tc.turn_id
     WHERE tc.outcome = 'error' AND tc.position > f.position`;
-  const groups = await db.all(
-    `SELECT name, line, COUNT(*) AS calls, COUNT(DISTINCT turn_id) AS turn_count,
+  const top = `SELECT name, line, COUNT(*) AS calls, COUNT(DISTINCT turn_id) AS turn_count,
        MAX(created_at) AS last_seen
      FROM (${failed}) GROUP BY name, line
-     ORDER BY calls DESC, last_seen DESC, name, line`,
-    uses.args
-  );
+     ORDER BY calls DESC, last_seen DESC, name, line LIMIT ${FAILURE_GROUP_LIMIT}`;
+  const groups = await db.all(top, uses.args);
   if (groups.length === 0) return [];
-  // The latest calls of every group in one query: window functions work in the
+  // The latest calls of the returned groups in one query: window functions work in the
   // store's libSQL (checked for this change), so no JavaScript fallback is needed.
   const latest = await db.all(
     `SELECT turn_id, created_at, project_name, position, name, line, input, input_cut, error
-     FROM (SELECT g.*, ROW_NUMBER() OVER (PARTITION BY name, line ORDER BY created_at DESC, id DESC) AS rn
-       FROM (${failed}) g)
+     FROM (SELECT g.*, ROW_NUMBER() OVER (PARTITION BY g.name, g.line ORDER BY g.created_at DESC, g.id DESC) AS rn
+       FROM (${failed}) g
+       JOIN (${top}) k ON k.name = g.name AND k.line IS g.line)
      WHERE rn <= ${FAILURE_SAMPLE} ORDER BY name, line, rn`,
-    uses.args
+    [...uses.args, ...uses.args]
   );
   const byGroup = new Map<string, FailureGroupCall[]>();
   for (const row of latest) {

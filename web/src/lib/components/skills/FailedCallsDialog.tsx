@@ -33,15 +33,20 @@ function FailureCard({ call }: { call: DialogFailure }) {
   const s = useSettingsText();
   const [full, setFull] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const long = call.input.length > INPUT_PREVIEW_CHARS;
   const shown = long && !full ? call.input.slice(0, INPUT_PREVIEW_CHARS) + "…" : call.input;
   async function copy() {
     try {
       await navigator.clipboard.writeText(callText(call));
+      setCopyFailed(false);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      // The browser refused the clipboard; the button stays as it was.
+      // The browser refused the clipboard, for example on a plain HTTP host.
+      setCopied(false);
+      setCopyFailed(true);
+      window.setTimeout(() => setCopyFailed(false), 4000);
     }
   }
   return (
@@ -83,6 +88,11 @@ function FailureCard({ call }: { call: DialogFailure }) {
           {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
           <span role="status">{copied ? s("Copied") : s("Copy")}</span>
         </Button>
+        {copyFailed ? (
+          <span role="status" className="self-center text-xs text-destructive-label">
+            {s("Could not copy")}
+          </span>
+        ) : null}
       </div>
     </div>
   );

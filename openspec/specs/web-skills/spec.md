@@ -202,7 +202,7 @@ When the request for failed calls fails, the dialog SHALL say that the failed ca
 
 ### Requirement: The skill view groups repeated failures
 
-The view for one skill SHALL show a **Failures** section above its recent turns. The section SHALL group the skill's failed calls by tool name and the first line of the error text, cut to 200 characters. Calls with no error text SHALL form one group per tool name.
+The view for one skill SHALL show a **Failures** section above its recent turns. The section SHALL group the skill's failed calls by tool name and the first line of the error text, cut to 200 characters. Calls with no error text SHALL form one group per tool name. A trailing carriage return SHALL NOT be part of the first line. The section SHALL show at most 50 groups, the ones with the most calls first.
 
 #### Scenario: One error repeats across turns
 
@@ -213,6 +213,11 @@ The view for one skill SHALL show a **Failures** section above its recent turns.
 
 - **WHEN** one tool fails with two different first error lines
 - **THEN** the Failures section SHALL show two groups for that tool
+
+#### Scenario: Many groups
+
+- **WHEN** a skill has 60 groups
+- **THEN** the Failures section SHALL show the 50 groups with the most calls
 
 ### Requirement: A failure group shows its counts and sample
 
@@ -286,7 +291,7 @@ The request to the model SHALL hold the skill name, its `SKILL.md`, and at most 
 
 ### Requirement: The button is disabled when it cannot work
 
-The **Explain failures** button SHALL be disabled, with a note beside it, when skill learning is off, or when the skill has no failure group. When the external API is not set up, selecting the button SHALL show a message with a link to the External API card and SHALL send nothing.
+The **Explain failures** button SHALL be disabled, with a note beside it, when skill learning is off, or when the skill has no failure group. It SHALL stay disabled while the groups or the settings load. The server SHALL refuse the explain request, and SHALL send nothing to a model, while skill learning is off. When the external API is not set up, selecting the button SHALL show a message with a link to the External API card and SHALL send nothing.
 
 #### Scenario: Skill learning is off
 
@@ -320,7 +325,7 @@ Before the first explanation, the page SHALL show a confirmation that says what 
 
 ### Requirement: An info button shows the warning again
 
-An "i" button beside **Explain failures** SHALL open a popover with the same warning text. It SHALL close on Escape or a click outside.
+An "i" button beside **Explain failures** SHALL open a popover with the same warning text. It SHALL close on Escape or a click outside. While the redaction setting is unknown, the warning SHALL be the stronger one.
 
 #### Scenario: Open the info popover
 

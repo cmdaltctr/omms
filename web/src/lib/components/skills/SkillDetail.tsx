@@ -206,7 +206,7 @@ export function SkillDetail({
 
       <SkillHistory skill={skill} reloadKey={reloadKey} onChanged={reloadAll} />
 
-      <FailureGroups skill={skill} />
+      <FailureGroups skill={skill} reloadKey={reloadKey} />
 
       <SkillTurns skill={skill} reloadKey={reloadKey} />
     </div>
