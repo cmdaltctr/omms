@@ -20,6 +20,7 @@ import { ModeChoice } from "./ModeChoice";
 import { ModifiedMark } from "./ModifiedMark";
 import { UsesChart } from "./charts/UsesChart";
 import { ProposalList, SKILL_PROPOSALS_LIST_KEY } from "./ProposalList";
+import { FailureGroups } from "./FailureGroups";
 import { SkillHistory } from "./SkillHistory";
 import { SkillTurns } from "./SkillTurns";
 
@@ -204,6 +205,8 @@ export function SkillDetail({
       </section>
 
       <SkillHistory skill={skill} reloadKey={reloadKey} onChanged={reloadAll} />
+
+      <FailureGroups skill={skill} />
 
       <SkillTurns skill={skill} reloadKey={reloadKey} />
     </div>

@@ -115,6 +115,40 @@ export type SkillIdea = {
   evidenceTurnIds: number[];
 };
 export type SkillStats = { turns: number; fileSize: number; recording: boolean; redact: boolean };
+/** One failed tool call, with the input the server sent (cut at 20000 characters). */
+export type FailedCall = {
+  position: number;
+  name: string;
+  input: string;
+  /** True when the stored input was longer than the server cap. */
+  inputCut: boolean;
+  error: string | null;
+};
+/** A group's latest failed call, with the time and project of its turn. */
+export type FailureGroupCall = FailedCall & {
+  turnId: number;
+  createdAt: number;
+  projectName: string | null;
+};
+/** One skill's failed calls grouped by tool name and first error line. */
+export type FailureGroup = {
+  name: string;
+  errorLine: string | null;
+  calls: number;
+  turns: number;
+  lastSeenAt: number;
+  /** The latest 5 calls of the group, newest first. */
+  latest: FailureGroupCall[];
+};
+/** What a cause is blamed on; a lead from error text only. */
+export type ExplainCauseKind = "skill" | "harness" | "environment" | "unknown";
+export type ExplainCause = {
+  kind: ExplainCauseKind;
+  explanation: string;
+  actions: string[];
+};
+/** The model's explanation: a summary and labelled causes. Shown, never saved. */
+export type FailureExplanation = { summary: string; causes: ExplainCause[] };
 
 export type SkillsReply<T> =
   | { ok: true; code: string; data: T; message?: string }
@@ -192,6 +226,15 @@ export const skillsApi = {
       `/api/skills/proposals/${encodeURIComponent(id)}`
     ),
   stats: () => skillsCall<SkillStats>("/api/skills/stats"),
+  turnFailures: (turnId: number) =>
+    skillsCall<{ failures: FailedCall[] }>(`/api/skills/turns/${turnId}/failures`),
+  skillFailures: (path: string | null, name: string) =>
+    skillsCall<{ groups: FailureGroup[] }>(`/api/skills/failures?${skillQuery(path, name)}`),
+  explainFailures: (path: string | null, name: string) =>
+    skillsCall<{ explanation: FailureExplanation }>("/api/skills/explain-failures", {
+      path: path ?? undefined,
+      name: path ? undefined : name,
+    }),
   draftImprovement: (skill: string) =>
     skillsCall<{ proposal?: Proposal }>("/api/skills/draft", { skill }),
   draftNew: (idea: SkillIdea, folder: string) =>
