@@ -27,6 +27,7 @@ Chat citation chips have one colour per source type: orange (primary) for a memo
 | Buttons, fields, dialogs, sidebar, or settings rows                   | [Component guidance](references/components.md), plus visual foundations                          |
 | Any action that starts a request, a job or a jump                     | [Feedback after a click](references/components.md#feedback-after-a-click)                        |
 | A list that can grow past 5 rows                                      | [Long lists](references/components.md#long-lists-page-size-5-sort-custom-size-footer)            |
+| A view with several titled sections, such as one skill                | [Sticky table of contents](references/components.md#long-pages-sticky-table-of-contents)         |
 | A chart, a KPI line or an empty chart                                 | [Charts](references/components.md#charts)                                                        |
 | A list of changes over time with revert actions                       | [History timelines](references/components.md#history-timelines)                                  |
 | Visible text, accessible labels, language switching, or Arabic layout | [Localisation](references/localisation.md)                                                       |

@@ -190,6 +190,19 @@ Rules:
 - The footer reads "Showing X to Y of Z results" over Previous, page numbers with gaps, and Next. It renders nothing for one page. Previous and Next use a real `disabled`, so they leave the tab order. Narrow screens show only their icons.
 - Keep the accessible names: "Results per page", "Custom results per page", "Sort by", "Sort ascending", "Sort descending", the `pagination` nav and `aria-current="page"`.
 - Put the empty and loading states outside `PagedList`. A list with no rows shows its own sentence.
+- Every growing list on the Skills page follows this rule, including the failure groups of one skill (`omms-list-skill-failures`, default 5, Most calls first). A new list must not render a bare `<ul>` past 5 rows, even when the reply is already ordered; the sort control and the footer are part of the pattern, not extras.
+
+## Long pages: sticky table of contents
+
+A view or page with several titled sections offers a table of contents so no section needs a long scroll to reach: the skill view (with the way back), the Skills list page and the Settings page. All three mount one shared component, `web/src/lib/components/PageToc.tsx`, which carries the whole pattern; a new long page mounts it rather than copying it.
+
+- The sections of one skill's view come from `web/src/lib/skill-detail-sections.ts`, in page order: Uses, Mode, Proposals, History, Recent turns, Failures. Failures reads last, after Recent turns. A skill with no file in a watched folder has no Mode section, so its contents leave the Mode entry out. The table of contents, the order test and the docs read that one module; do not hard-code the order anywhere else.
+- The ToC floats at the top end of the screen (`fixed top-16 end-3 z-20`, `md:top-3`; `top-16` clears the mobile header bar), out of the page flow, so the top of the view keeps all its space. The view's back link stays in the flow on its own first line. Logical end alignment, so Arabic flips the side.
+- The list starts with the way back (**All skills**), which navigates rather than scrolls, set apart from the section links under it with a rule. Only a view inside a page carries the back entry; a top-level page (Skills list, Settings) omits it. Every long-view ToC carries the way back as well as the sections.
+- Each page passes its own sections module list (`skill-detail-sections.ts`, `skills-sections.ts`, `settings-sections.ts`) and its own `storageKey`, so the expanded choice persists per page. A long list (Settings) caps the nav height (`max-h-[70vh] overflow-y-auto`) instead of running past the screen.
+- One icon button (shared `Button`, `List` icon) expands the list and minimises it again. It carries `aria-expanded`, `aria-controls` on the nav, and a translated accessible name ("Show contents" / "Hide contents"). The choice persists in `localStorage` in a `try`/`catch`.
+- Each link scrolls at once with `scrollIntoView(JUMP)` and outlines its target for a moment with `flashAnchor`, both from `web/src/lib/settings-navigation.ts`. The target section carries the section's `id` and `scroll-mt-4`.
+- Section ids use the `skill-section-*` prefix, which `revealPageAnchor` ignores; page-level anchors stay `skills-section-*`.
 
 ## Collapsible long sublists (3 default, 6 expanded, paged beyond)
 

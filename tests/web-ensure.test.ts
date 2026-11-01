@@ -7,6 +7,7 @@ import {
   ensureWebApp,
   nodeLockFs,
   renameRetrying,
+  replaceRetrying,
   takeStartLock,
   type EnsureDeps,
   type EnsureResult,
@@ -401,6 +402,42 @@ describe("renameRetrying", () => {
     };
     expect(() => renameRetrying("a", "b", fail, "win32", (ms) => waits.push(ms))).toThrow("EBUSY");
     expect(calls).toBe(waits.length + 1);
+  });
+});
+
+describe("replaceRetrying", () => {
+  const enoent = (): NodeJS.ErrnoException => {
+    const error = new Error("no such file or directory") as NodeJS.ErrnoException;
+    error.code = "ENOENT";
+    return error;
+  };
+
+  it("rewrites the temp file when rename reports ENOENT for it", () => {
+    let remaining = 2;
+    const writes: string[] = [];
+    const renames: Array<[string, string]> = [];
+    replaceRetrying(join(tmpdir(), "lock"), "data", {
+      mkdir: () => {},
+      write: (file) => writes.push(file),
+      rename: (from, to) => {
+        renames.push([from, to]);
+        if (remaining-- > 0) throw enoent();
+      },
+    });
+    expect(writes.length).toBe(3);
+    expect(renames.length).toBe(3);
+  });
+
+  it("still throws when rename keeps reporting ENOENT past the budget", () => {
+    expect(() =>
+      replaceRetrying(join(tmpdir(), "lock"), "data", {
+        mkdir: () => {},
+        write: () => {},
+        rename: () => {
+          throw enoent();
+        },
+      })
+    ).toThrow();
   });
 });
 

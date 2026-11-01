@@ -1,7 +1,7 @@
 import { translateSettings } from "$lib/i18n/settings";
 
 /** The Skills page sections, in page order. The sidebar links to each by its element id. */
-const SKILLS_SECTIONS = [
+export const SKILLS_SECTIONS = [
   { id: "skills-section-activity", title: "Activity" },
   { id: "skills-section-ranked", title: "Ranked skills" },
   { id: "skills-section-pending", title: "Pending proposals" },
