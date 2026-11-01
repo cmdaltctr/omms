@@ -14,11 +14,11 @@ import { skillHistory, withCanUndo } from "./skill-learning/history.js";
 import { skillOperationsDeps } from "./skill-learning/operations-deps.js";
 import {
   getProposal,
-  listProposals,
   setSkillMode,
   type ProposalFilter,
   type SkillProposalState,
 } from "./skill-learning/proposal-store.js";
+import { listProposalSummaries } from "./skill-learning/proposal-summaries.js";
 import { intParam } from "./skill-learning/query-params.js";
 import { SKILL_ORDERS, rankSkills, type SkillOrder } from "./skill-learning/ranking.js";
 import { skillTurnSettingsFor } from "./skill-learning/settings-for.js";
@@ -256,7 +256,10 @@ async function showSkill(
     turnTotal: await countSkillTurns(store, skill, index),
     daily: await skillDaily(store, index, skill, now),
     proposals: skill.path
-      ? await withCanUndo(deps, await listProposals(store, { skillPath: skill.path }))
+      ? await withCanUndo(
+          deps,
+          (await listProposalSummaries(store, { skillPath: skill.path })).proposals
+        )
       : [],
   });
 }
@@ -272,13 +275,17 @@ async function proposals(url: URL, store: SkillStore, folders: readonly string[]
   // A path names one file; a bare name matches every skill with that name.
   if (skill && /[/\\]/.test(skill)) filter.skillPath = skill;
   else if (skill) filter.skillName = skill;
-  const all = await listProposals(store, filter);
-  // Without limit or offset the whole list comes back, as before.
+  // Without limit or offset the whole list comes back, as before. Summaries only: the
+  // content and diff come from the detail route.
   const offset = intParam(url, "offset", 0, Number.MAX_SAFE_INTEGER, 0);
-  const limit = intParam(url, "limit", 1, MAX_PAGE, all.length || 1);
+  const limit = intParam(url, "limit", 1, MAX_PAGE, Number.MAX_SAFE_INTEGER);
   const paged = url.searchParams.has("limit") || url.searchParams.has("offset");
-  const shown = paged ? all.slice(offset, offset + limit) : all;
-  return ok("ok", { proposals: await withCanUndo({ store, folders }, shown), total: all.length });
+  const { proposals: shown, total } = await listProposalSummaries(
+    store,
+    filter,
+    paged ? { limit, offset } : undefined
+  );
+  return ok("ok", { proposals: await withCanUndo({ store, folders }, shown), total });
 }
 
 async function history(url: URL, store: SkillStore, folders: readonly string[]) {

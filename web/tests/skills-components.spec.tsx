@@ -7,7 +7,7 @@ import { SkillFolders } from "../src/lib/components/skills/SkillFolders.tsx";
 import { SkillList } from "../src/lib/components/skills/SkillList.tsx";
 import { SkillsPage } from "../src/lib/components/skills/SkillsView.tsx";
 import { SkillLearningCard } from "../src/lib/components/settings/SkillLearningSection.tsx";
-import type { Proposal, SkillRow, SkillsOverview } from "../src/lib/skills-api.ts";
+import type { ProposalSummary, SkillRow, SkillsOverview } from "../src/lib/skills-api.ts";
 
 const skill = (over: Partial<SkillRow> = {}): SkillRow => ({
   name: "s-web-search",
@@ -24,21 +24,41 @@ const skill = (over: Partial<SkillRow> = {}): SkillRow => ({
   ...over,
 });
 const folders = [{ path: "/home/u/.agents/skills", skills: 2, exists: true }];
-const proposal = (over: Partial<Proposal> = {}): Proposal => ({
+const proposal = (over: Partial<ProposalSummary> = {}): ProposalSummary => ({
   id: "p1",
   kind: "improve",
   skillName: "s-web-search",
   skillPath: "/home/u/.agents/skills/s-web-search/SKILL.md",
-  content: "new",
-  diff: "@@ -1,2 +1,2 @@\n keep\n-old line\n+new line",
   summary: "Tighten the search steps.",
   evidenceTurnIds: [],
   state: "pending",
   appliedBy: null,
   createdAt: 1,
   updatedAt: 2,
+  added: 1,
+  removed: 1,
+  hasDiff: true,
   ...over,
 });
+/** What the detail route returns for the proposal above. */
+const loaded = {
+  status: "ready" as const,
+  evidence: [],
+  proposal: {
+    id: "p1",
+    kind: "improve" as const,
+    skillName: "s-web-search",
+    skillPath: "/home/u/.agents/skills/s-web-search/SKILL.md",
+    content: "new",
+    diff: "@@ -1,2 +1,2 @@\n keep\n-old line\n+new line",
+    summary: "Tighten the search steps.",
+    evidenceTurnIds: [],
+    state: "pending" as const,
+    appliedBy: null,
+    createdAt: 1,
+    updatedAt: 2,
+  },
+};
 
 it("shows the Suggested badge, counts and mode on a ranked row", () => {
   const html = renderToStaticMarkup(
@@ -76,7 +96,7 @@ it("marks a skill outside the watched folders", () => {
 
 it("renders a pending proposal with a coloured line diff, summary, Apply and Reject", () => {
   const html = renderToStaticMarkup(
-    <ProposalCard proposal={proposal()} initiallyOpen onChange={() => {}} />
+    <ProposalCard proposal={proposal()} initiallyOpen initialDetail={loaded} onChange={() => {}} />
   );
   expect(html).toContain("pending");
   expect(html).toContain("Tighten the search steps.");
@@ -102,7 +122,7 @@ it("offers Undo, not Apply, on an applied proposal", () => {
 });
 
 it("names each proposal state", () => {
-  const label = (state: Proposal["state"], appliedBy: Proposal["appliedBy"] = null) =>
+  const label = (state: ProposalSummary["state"], appliedBy: ProposalSummary["appliedBy"] = null) =>
     renderToStaticMarkup(
       <ProposalCard proposal={proposal({ state, appliedBy })} onChange={() => {}} />
     );
@@ -157,7 +177,7 @@ const overview = (recording: boolean): SkillsOverview => ({
   skills: [skill()],
   folders,
 });
-const page = (o: SkillsOverview | null, turns: number | null, recent: Proposal[] = []) =>
+const page = (o: SkillsOverview | null, turns: number | null, recent: ProposalSummary[] = []) =>
   renderToStaticMarkup(
     <SkillsPage
       overview={o}

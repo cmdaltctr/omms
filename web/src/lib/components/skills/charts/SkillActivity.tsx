@@ -16,7 +16,12 @@ import {
   readRange,
   type ActivityRange,
 } from "$lib/skill-activity";
-import { skillsApi, type Proposal, type SkillActivity, type TopSkill } from "$lib/skills-api";
+import {
+  skillsApi,
+  type ProposalSummary,
+  type SkillActivity,
+  type TopSkill,
+} from "$lib/skills-api";
 import { countText, fill } from "$lib/skills-model";
 import { cn } from "$lib/utils";
 import { ActivityRangeControl } from "./ActivityRangeControl";
@@ -36,7 +41,7 @@ type ViewProps = {
   shownRange?: ActivityRange;
   loading: boolean;
   error: string;
-  proposals: readonly Proposal[];
+  proposals: readonly ProposalSummary[];
   onOpen: (skill: TopSkill) => void;
   onRange: (range: ActivityRange) => void;
 };

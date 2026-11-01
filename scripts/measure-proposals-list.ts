@@ -53,7 +53,12 @@ const { SkillStore, skillsDbPath } = await import("../src/services/skill-learnin
 const proposalStore = await import("../src/services/skill-learning/proposal-store.js");
 const { skillHistory, withCanUndo } = await import("../src/services/skill-learning/history.js");
 const { routeSkills } = await import("../src/services/skill-routes.js");
-const { listProposals, createProposal, updateProposalState, saveSkillVersion } = proposalStore;
+const { createProposal, updateProposalState, saveSkillVersion } = proposalStore;
+/** The list query before phase 1 (`listProposals`, now removed): every column of every proposal. */
+const listAllColumns = async (store: Store) =>
+  (await store.db()).all("SELECT * FROM skill_proposals ORDER BY created_at DESC, rowid DESC");
+const { listProposalSummaries } =
+  await import("../src/services/skill-learning/proposal-summaries.js");
 type Store = InstanceType<typeof SkillStore>;
 
 if (process.env[RSS_ENV]) {
@@ -63,7 +68,7 @@ if (process.env[RSS_ENV]) {
   await store.existingDb();
   Bun.gc(true);
   const before = process.memoryUsage().rss;
-  const list = await listProposals(store, {});
+  const list = await listAllColumns(store);
   const after = process.memoryUsage().rss;
   const peakKb = process.resourceUsage().maxRSS;
   console.log(JSON.stringify({ rows: list.length, before, after, peak: peakKb * 1024 }));
@@ -344,7 +349,7 @@ for (const n of SIZES) {
   const deps = { store, folders: [seeded.skillsDir] };
   const db = await store.db();
 
-  await measure(n, "1 listProposals (SELECT *)", () => listProposals(store, {}));
+  await measure(n, "1 old list query (SELECT *)", () => listAllColumns(store));
   await measure(n, "2 small columns", () =>
     db.all(`SELECT ${SMALL} FROM skill_proposals ${ORDER}`)
   );
@@ -357,9 +362,13 @@ for (const n of SIZES) {
   await measure(n, "4 skillHistory busiest, page 20", () =>
     skillHistory(deps, { path: seeded.busiestPath }, 20, 0)
   );
-  await measure(n, "4b skill detail proposals busiest", async () =>
-    withCanUndo(deps, await listProposals(store, { skillPath: seeded.busiestPath }))
-  );
+  // The path GET /api/skills/skill takes: summaries, then one batched canUndo.
+  const skillProposals = async () =>
+    withCanUndo(
+      deps,
+      (await listProposalSummaries(store, { skillPath: seeded.busiestPath })).proposals
+    );
+  await measure(n, "4b skill detail proposals busiest", skillProposals);
   const ctx = { cwd: root, startRecordPast: () => Promise.reject(new Error("unused")) };
   const url = new URL("http://127.0.0.1/api/skills/proposals");
   const route = (await measure(n, "5 GET /api/skills/proposals (current)", async () => {
@@ -385,9 +394,7 @@ for (const n of SIZES) {
     const reply = await routeSkills(url.pathname, "GET", url, async () => ({}), ctx);
     return reply?.body;
   });
-  await measure(n, "4c skill detail proposals busiest + index", async () =>
-    withCanUndo(deps, await listProposals(store, { skillPath: seeded.busiestPath }))
-  );
+  await measure(n, "4c skill detail proposals busiest + index", skillProposals);
   await db.execute("DROP INDEX m_versions_proposal");
   if (n === SIZES[0]) notes.push(...(await queryPlans(db)));
   const pageSize = await overflowCase(n, store);

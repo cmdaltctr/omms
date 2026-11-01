@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
+import { allProposals } from "./skill-proposal-helpers.js";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -197,7 +198,7 @@ describe("skill operations", () => {
     const s = await setup({ reply: { content: NEW, summary: "Explain curl", evidence: [] } });
     const result = await s.run("draft", { skill: "s-web-search" });
     expect(result).toMatchObject({ success: true, code: "proposed" });
-    const [saved] = await s.listProposals(s.store);
+    const [saved] = await allProposals(s.store);
     expect(saved).toMatchObject({ kind: "improve", state: "pending" });
     expect(result.text).toContain(saved!.id);
   });
@@ -223,7 +224,7 @@ describe("skill operations", () => {
     expect(outside).toMatchObject({ success: false, code: "not-watched" });
     const result = await s.run("draft", { idea, folder: skillsDir });
     expect(result).toMatchObject({ success: true, code: "proposed" });
-    const [saved] = await s.listProposals(s.store);
+    const [saved] = await allProposals(s.store);
     expect(saved).toMatchObject({
       kind: "new",
       skillPath: join(skillsDir, "release-notes", "SKILL.md"),
@@ -241,6 +242,36 @@ describe("skill operations", () => {
     expect((applied.data as { proposals: unknown[] }).proposals).toHaveLength(0);
     const bad = await s.run("proposals", { state: "done" });
     expect(bad).toMatchObject({ success: false, code: "invalid-args" });
+  });
+
+  it("proposals returns summaries without content or diff, and show still returns both", async () => {
+    const path = addSkill("s-web-search");
+    const s = await setup();
+    const proposal = await seedProposal(s, path);
+    const result = await s.run("proposals");
+    const data = result.data as { proposals: Record<string, unknown>[] };
+    expect(data.proposals).toHaveLength(1);
+    const listed = data.proposals[0]!;
+    expect(listed).toMatchObject({
+      id: proposal.id,
+      kind: "improve",
+      skillName: "s-web-search",
+      state: "pending",
+      summary: "Explain the curl failure",
+      evidenceTurnIds: [7, 9],
+      added: 1,
+      removed: 1,
+      hasDiff: true,
+      canUndo: false,
+    });
+    expect("content" in listed).toBe(false);
+    expect("diff" in listed).toBe(false);
+    // `runSkillsTool` prints this result as JSON, so the agent never sees the text.
+    expect(JSON.stringify(result)).not.toContain("New body");
+    // The text lines stay as they were.
+    expect(result.text).toContain(`- ${proposal.id} pending improve s-web-search`);
+    const shown = await s.run("show", { id: proposal.id });
+    expect(shown.data).toMatchObject({ proposal: { content: NEW, diff: "-Old body\n+New body" } });
   });
 
   it("show gives the diff, summary and evidence", async () => {

@@ -77,6 +77,26 @@ async function command(argv: string[]) {
   return { code, text: lines.join("\n"), errors: errors.join("\n") };
 }
 
+describe("skills proposals --json", () => {
+  it("prints summaries, and show prints the full proposal", async () => {
+    const id = await seed();
+    const listed = JSON.parse((await command(["proposals", "--json"])).text);
+    expect(listed.data.proposals).toHaveLength(1);
+    expect(listed.data.proposals[0]).toMatchObject({
+      id,
+      state: "pending",
+      added: 1,
+      removed: 1,
+      hasDiff: true,
+      canUndo: false,
+    });
+    expect("content" in listed.data.proposals[0]).toBe(false);
+    expect("diff" in listed.data.proposals[0]).toBe(false);
+    const shown = JSON.parse((await command(["show", "--id", id, "--json"])).text);
+    expect(shown.data.proposal).toMatchObject({ content: NEW, diff: "-Old body\n+New body" });
+  });
+});
+
 describe("skills apply --applied-by", () => {
   it("records agent with --applied-by agent", async () => {
     const id = await seed();

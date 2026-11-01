@@ -3,7 +3,8 @@ import { Lightbulb, Sparkles } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
 import { Select } from "$lib/components/ui/select";
 import { useSettingsText } from "$lib/i18n/settings";
-import { skillsApi, type FolderRow, type Proposal, type SkillIdea } from "$lib/skills-api";
+import { skillsApi, type FolderRow, type ProposalSummary, type SkillIdea } from "$lib/skills-api";
+import { summaryOf } from "$lib/skills-model";
 import { DraftNotice, useDraftNotice } from "./DraftNotice";
 import { ProposalCard } from "./ProposalCard";
 
@@ -19,7 +20,7 @@ function IdeaCard({
   const s = useSettingsText();
   const [folder, setFolder] = useState(folders[0]?.path ?? "");
   const [busy, setBusy] = useState(false);
-  const [drafted, setDrafted] = useState<Proposal | null>(null);
+  const [drafted, setDrafted] = useState<ProposalSummary | null>(null);
   const notice = useDraftNotice();
 
   async function draft() {
@@ -29,7 +30,7 @@ function IdeaCard({
     setBusy(false);
     notice.show(reply);
     if (reply.ok && reply.data.proposal) {
-      setDrafted(reply.data.proposal);
+      setDrafted(summaryOf(reply.data.proposal));
       onDrafted();
     }
   }

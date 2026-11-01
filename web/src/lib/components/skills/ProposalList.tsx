@@ -1,6 +1,6 @@
 import { PagedList, usePagedList } from "$lib/components/paged-list";
 import { useSettingsText } from "$lib/i18n/settings";
-import type { Proposal } from "$lib/skills-api";
+import type { ProposalSummary } from "$lib/skills-api";
 import { fill } from "$lib/skills-model";
 import { PROPOSAL_SORTS } from "$lib/skills-sorts";
 import { ProposalCard } from "./ProposalCard";
@@ -31,8 +31,8 @@ export function ProposalList({
 }: {
   /** localStorage key for this list's page size and sort. */
   storageKey: string;
-  proposals: readonly Proposal[];
-  onChange: (next: Proposal) => void;
+  proposals: readonly ProposalSummary[];
+  onChange: (next: ProposalSummary) => void;
 }) {
   const s = useSettingsText();
   const { view, pageItems } = usePagedList({

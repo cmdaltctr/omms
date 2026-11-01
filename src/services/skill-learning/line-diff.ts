@@ -85,3 +85,15 @@ export function lineDiff(before: string, after: string): string {
   }
   return out.join("\n");
 }
+
+/** Added and removed line counts of a unified-style line diff. Hunk headers are skipped. */
+export function countDiffLines(diff: string | null): { added: number; removed: number } {
+  let added = 0;
+  let removed = 0;
+  for (const line of (diff ?? "").split("\n")) {
+    if (line.startsWith("@@")) continue;
+    if (line.startsWith("+")) added++;
+    else if (line.startsWith("-")) removed++;
+  }
+  return { added, removed };
+}

@@ -34,7 +34,7 @@ A new module `src/services/skill-learning/proposal-summaries.ts` holds the summa
 
 Measured at 5,000 proposals: `SELECT *` takes 56.7 ms and returns 96.3 MB; the named columns take 29.5 ms and return 4.3 MB.
 
-`listProposals` and `toProposal` stay for callers that need the full proposal (`show`, apply, undo). A new module keeps `proposal-store.ts` (295 lines) and `skill-operations.ts` (434 lines) under the 500-line ceiling, and keeps `CONFIG` out of the new code.
+`toProposal` stays for callers that need the full proposal (`show`, apply, undo), through `getProposal`. `listProposals` was removed once no production code called it. A new module keeps `proposal-store.ts` (295 lines) and `skill-operations.ts` (434 lines) under the 500-line ceiling, and keeps `CONFIG` out of the new code.
 
 ### D2. The summary shape
 
@@ -46,7 +46,7 @@ Each listed proposal has `id, kind, skillName, skillPath, state, appliedBy, draf
 
 After the list query (and after `limit` and `offset` when the route gets them), one second query reads `diff`, and `proposed_content` only where `diff IS NULL`, for the ids on the page (`WHERE id IN (SELECT value FROM json_each(?))`). `added` and `removed` follow `countDiffLines`. A proposal with no diff counts its content lines as added, as `diffStat` does in the web today.
 
-Without `limit` and `offset` the page is the whole list, so the route still reads every diff. Measured cost at 5,000: small columns and diff take 36.6 ms against 29.5 ms without diff. The full prototype of the summary route (case 5c) took 84.5 ms. That is acceptable, so stored line counts wait for phase 2.
+Without `limit` and `offset` the page is the whole list, so the route still reads every diff. Measured cost at 5,000: small columns and diff take 36.6 ms against 29.5 ms without diff. The full prototype of the summary route (case 5c) took 84.5 ms. That is acceptable, so stored line counts wait for phase 2. Counting the lines inside SQLite was tried and was about 20 ms slower at 5,000 (see TDR-059), so the lines are counted in JavaScript.
 
 ### D4. canUndo from one batched lookup
 

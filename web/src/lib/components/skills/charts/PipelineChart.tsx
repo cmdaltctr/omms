@@ -7,7 +7,7 @@ import {
 } from "$lib/components/ui/chart";
 import { useSettingsText } from "$lib/i18n/settings";
 import { pipelineCounts } from "$lib/skill-activity";
-import type { Proposal } from "$lib/skills-api";
+import type { ProposalSummary } from "$lib/skills-api";
 import { fill } from "$lib/skills-model";
 import { ChartCard } from "./ChartCard";
 
@@ -25,7 +25,7 @@ export const STATE_COLOUR: Record<string, string> = {
  * Each state has its own colour. The name on the axis and the count on each
  * bar carry the meaning too.
  */
-export function PipelineChart({ proposals }: { proposals: readonly Proposal[] }) {
+export function PipelineChart({ proposals }: { proposals: readonly ProposalSummary[] }) {
   const s = useSettingsText();
   const data = pipelineCounts(proposals).map((row) => ({ ...row, label: s(row.state) }));
   const config: ChartConfig = { count: { label: s("Proposals"), color: "var(--chart-1)" } };

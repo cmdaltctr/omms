@@ -50,6 +50,11 @@ export const skillText = {
   Improvement: ["改进", "تحسين"],
   "Last use": ["上次使用", "آخر استخدام"],
   "Loading…": ["加载中…", "جارٍ التحميل…"],
+  "Loading the proposal…": ["正在加载提案…", "جارٍ تحميل المقترح…"],
+  "The proposal could not be loaded. Select Show less, then Show more to try again.": [
+    "无法加载该提案。选择“显示更少”，再选择“显示更多”即可重试。",
+    "تعذّر تحميل المقترح. اختر «عرض أقل» ثم «عرض المزيد» للمحاولة مرة أخرى.",
+  ],
   "Looking…": ["正在查找…", "جارٍ البحث…"],
   Manual: ["手动", "يدوي"],
   "Most used": ["最常用", "الأكثر استخدامًا"],

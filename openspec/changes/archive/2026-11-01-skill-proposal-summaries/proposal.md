@@ -10,7 +10,7 @@ Every proposal list reads and sends the full `SKILL.md` content and diff of ever
 - `GET /api/skills/proposals` and the proposals in `GET /api/skills/skill` return a summary for each proposal: id, kind, skill name and path, state, who applied it, who drafted it, summary, evidence turn ids, times, added and removed line counts, `hasDiff` and `canUndo`. **BREAKING** for API callers: `content` and `diff` are gone from these lists.
 - `GET /api/skills/proposals/:id` stays the detail route with `content`, `diff` and the evidence turns.
 - `canUndo` in a list comes from one batched lookup of the newest saved versions. It no longer reads each proposal and scans `skill_versions` once per applied proposal.
-- The Skills page loads the detail of a proposal when the user selects **Show more**, or before **Apply** or **Reject** needs it. The compact card shows the server's line counts.
+- The Skills page loads the detail of a proposal when the user selects **Show more**. **Apply**, **Reject** and **Undo** send only the proposal id and need no detail. The compact card shows the server's line counts.
 - `skillHistory` reads small columns only. It reads a diff only for the entries on the returned page, to count their lines.
 - The `skills` tool and `om-memory-system skills proposals` return summaries in the `proposals` data. Their text lines do not change. **BREAKING** for `--json` and tool callers that read `content` or `diff` from `proposals`: use `show`. `skills list` lists skills, not proposals, and does not change.
 - A later phase 2 (stored line counts, an append-only event table, indexed history) is documented in design.md with a trigger. It is not part of this change.
