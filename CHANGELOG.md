@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [4.34.1](https://github.com/cmdaltctr/omms/compare/v4.34.0...v4.34.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* wrap long lines in the skill proposal diff ([846959c](https://github.com/cmdaltctr/omms/commit/846959ca4bb4c5f239c9c210d835d0e2af520df2))
+* wrap long lines in the skill proposal diff ([3bef893](https://github.com/cmdaltctr/omms/commit/3bef89394fe8dd8f26a0921197de732ddf44b7d7))
+
 ## [4.34.0](https://github.com/cmdaltctr/omms/compare/v4.33.1...v4.34.0) (2026-10-31)
 
 
