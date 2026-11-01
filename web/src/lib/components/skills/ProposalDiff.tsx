@@ -21,7 +21,7 @@ export function ProposalDiff({ diff, label }: { diff: string; label: string }) {
         <code
           key={index}
           data-line={line.kind}
-          className={cn("block px-2 whitespace-pre", LINE_CLASS[line.kind])}
+          className={cn("block px-2 whitespace-pre-wrap break-words", LINE_CLASS[line.kind])}
         >
           {line.text || " "}
         </code>
