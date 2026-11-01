@@ -34,7 +34,7 @@ A new module `src/services/skill-learning/proposal-summaries.ts` holds the summa
 
 Measured at 5,000 proposals: `SELECT *` takes 56.7 ms and returns 96.3 MB; the named columns take 29.5 ms and return 4.3 MB.
 
-`listProposals` and `toProposal` stay for callers that need the full proposal (`show`, apply, undo). A new module keeps `proposal-store.ts` (295 lines) and `skill-operations.ts` (434 lines) under the 500-line ceiling, and keeps `CONFIG` out of the new code.
+`toProposal` stays for callers that need the full proposal (`show`, apply, undo), through `getProposal`. `listProposals` was removed once no production code called it. A new module keeps `proposal-store.ts` (295 lines) and `skill-operations.ts` (434 lines) under the 500-line ceiling, and keeps `CONFIG` out of the new code.
 
 ### D2. The summary shape
 
