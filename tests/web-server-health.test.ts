@@ -55,6 +55,51 @@ describe("web server health check", () => {
     }
   });
 
+  it("treats an owner that answers after a few seconds as alive", async () => {
+    // A busy owner (for example a long profile job on the same event loop)
+    // can answer late. It must not be mistaken for a dead one.
+    const slow = createServer((_req, res) => {
+      setTimeout(() => {
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ success: true, status: "ok" }));
+      }, 3_000);
+    });
+    await new Promise<void>((resolve) => slow.listen(0, "127.0.0.1", resolve));
+    const address = slow.address();
+    if (!address || typeof address === "string") throw new Error("No free port");
+    try {
+      const server = new WebServer({ enabled: true, host: "127.0.0.1", port: address.port });
+      expect(await server.checkServerAvailable()).toBe(true);
+    } finally {
+      slow.closeAllConnections();
+      await new Promise<void>((resolve) => slow.close(() => resolve()));
+    }
+  }, 15_000);
+
+  it("records why the last health check failed", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+
+      globalThis.fetch = async () => new Response("no", { status: 503 });
+      expect(await server.checkServerAvailable()).toBe(false);
+      expect(server.getLastHealthFailure()).toBe("http 503");
+
+      globalThis.fetch = async () => {
+        throw new DOMException("The operation timed out.", "TimeoutError");
+      };
+      expect(await server.checkServerAvailable()).toBe(false);
+      expect(server.getLastHealthFailure()).toBe("timeout");
+
+      globalThis.fetch = async () =>
+        new Response(JSON.stringify({ success: true, status: "ok" }), { status: 200 });
+      expect(await server.checkServerAvailable()).toBe(true);
+      expect(server.getLastHealthFailure()).toBeNull();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("reports the process instance on health even behind basic auth", async () => {
     const server = new WebServer({
       enabled: true,

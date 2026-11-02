@@ -68,6 +68,8 @@ interface PortableServerHandle {
 const isBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
 
 const MIN_FAILED_TAKEOVERS = 3;
+/** A busy owner can answer late. Two seconds was short enough to call a live owner dead. */
+const HEALTH_CHECK_TIMEOUT_MS = 8_000;
 
 type NodeEventSource = {
   on(event: string, listener: (...args: any[]) => void): unknown;
@@ -271,6 +273,7 @@ export class WebServer {
   private holdOffTimer: NodeJS.Timeout | null = null;
   private portsExhaustedNotified = false;
   private takeoverFailures: number = 0;
+  private lastHealthFailure: string | null = null;
   private readonly maxFallbackPort: number;
   private settingsImportJobs?: import("../importer/web-import-jobs.js").SettingsImportJobs;
   private backfillControlsInstance?: import("../importer/web-import-api.js").BackfillControls;
@@ -858,6 +861,8 @@ export class WebServer {
         {
           previousPort: this.config.port,
           newPort: nextPort,
+          lastFailure: this.lastHealthFailure,
+          healthTimeoutMs: HEALTH_CHECK_TIMEOUT_MS,
         },
         "warn"
       );
@@ -947,6 +952,11 @@ export class WebServer {
     return webServerUrl(this.config.host, this.config.port);
   }
 
+  /** Why the last `checkServerAvailable` call said no, or null when it said yes. */
+  getLastHealthFailure(): string | null {
+    return this.lastHealthFailure;
+  }
+
   async checkServerAvailable(): Promise<boolean> {
     try {
       // Only a web app on this machine answers here, so the local token file is enough.
@@ -955,18 +965,27 @@ export class WebServer {
       const response = await fetch(`${this.getUrl()}${endpoint}`, {
         method: "GET",
         headers,
-        signal: AbortSignal.timeout(2000),
+        signal: AbortSignal.timeout(HEALTH_CHECK_TIMEOUT_MS),
       });
-      if (!response.ok) return false;
+      if (!response.ok) {
+        this.lastHealthFailure = `http ${response.status}`;
+        return false;
+      }
       // Fallback spans 10 neighbor ports; any 2xx from an unrelated local
       // service must not be mistaken for an omms owner. Require the
       // response to carry our API envelope.
       const body = (await response.json()) as { success?: boolean; status?: string };
-      if (endpoint === "/api/health") {
-        return body.success === true && body.status === "ok";
-      }
-      return body.success === true;
-    } catch {
+      const ok = body.success === true && (endpoint !== "/api/health" || body.status === "ok");
+      this.lastHealthFailure = ok ? null : "unexpected response";
+      return ok;
+    } catch (error) {
+      const name = error instanceof Error ? error.name : "";
+      this.lastHealthFailure =
+        name === "TimeoutError"
+          ? "timeout"
+          : error instanceof Error
+            ? error.message
+            : String(error);
       return false;
     }
   }
