@@ -1,6 +1,7 @@
 import type { Context } from "@opencode/plugin/promise/plugin";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
+import { markInProcessClient } from "../adapters/opencode/in-process-client.js";
 
 type LegacyPart = { type?: string; text?: string; metadata?: unknown };
 
@@ -234,7 +235,7 @@ export function createLegacyClient(ctx: Context) {
     },
   };
 
-  return client as any;
+  return markInProcessClient(client) as any;
 }
 
 export function legacyToolResult(value: unknown): { content: string; metadata?: unknown } {

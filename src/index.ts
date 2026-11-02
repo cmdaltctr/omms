@@ -236,7 +236,7 @@ export async function configureOpencodeHostTransport(ctx: {
   const hostConfig = getHostClientConfig(ctx);
   if (hostConfig.fetch) {
     setHostFetch(hostConfig.fetch);
-  } else {
+  } else if (!hostConfig.inProcess) {
     log(
       "OpenCode host fetch unavailable; falling back to global fetch",
       {
