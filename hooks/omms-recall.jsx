@@ -1,6 +1,6 @@
 import { atom, read, update } from "claude-code";
 
-import { callTitle, queryLine, recalledIn } from "./omms-recall-parse.js";
+import { callTitle, queryLine, sectionsIn } from "./omms-recall-parse.js";
 
 // A fold-out row at the top of each reply for each OMMS recall made for it,
 // drawn like a tool call: `▸ ● memory [mode=search, query="...", limit=4]`.
@@ -34,7 +34,7 @@ export const registerRecall = (on) => {
   // Recalled since the last reply started. The next reply to draw claims them.
   let pending = [];
   const claimed = new Map();
-  // The prompt OMMS searched with; null when the recall is the session's own.
+  // The prompt OMMS searched with; only a search section takes it.
   let lastPrompt = null;
 
   on("prompt.submit", async ($, e, next) => {
@@ -43,10 +43,11 @@ export const registerRecall = (on) => {
   });
 
   on("session.append", { door: "hook-context" }, async ($, e, next) => {
-    const items = e.agentId ? [] : recalledIn(textOf(e.message.content));
-    if (items.length > 0) {
-      pending = [...pending, { mode: lastPrompt ? "search" : "recent", query: lastPrompt, items }];
-      lastPrompt = null;
+    const sections = e.agentId ? [] : sectionsIn(textOf(e.message.content));
+    for (const { kind, query, items } of sections) {
+      const own = kind === "search" ? lastPrompt : query;
+      pending = [...pending, { mode: kind, query: own, items }];
+      if (kind === "search") lastPrompt = null;
     }
     return next(e);
   }).catch(($, e, next) => next(e));

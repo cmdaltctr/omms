@@ -21,6 +21,16 @@ Use WAL mode
 
 </omms-retrieval>`;
 
+const OPENING = `<omms-retrieval>
+<!--omms:opening query="project setup"-->
+<memory_context><project_knowledge>
+<memory id="mem_open" relevance="70%">
+Set up the project with bun.
+</memory>
+</project_knowledge></memory_context></omms-retrieval>`;
+
+const ROWS_OFF = INJECTED.replace("<omms-retrieval>", "<omms-retrieval>\n<!--omms:rows-off-->\n");
+
 function textOf(node: any): string {
   if (typeof node === "string") return node;
   if (!node || !Array.isArray(node.children)) return "";
@@ -62,30 +72,33 @@ async function mountReply($: any, requestId: string, isFirstOfReply = true) {
 }
 
 describe("recall row", () => {
-  test("a recall with no prompt of its own draws as mode=recent with no query", async ($, on) => {
+  test("a recall with no prompt of its own draws as mode=search with no query", async ($, on) => {
     world(on);
     await $.session.append(injectRow(INJECTED) as any);
     const text = textOf(await (await mountReply($, "reply-1")).drawn());
-    expect(text).toContain("● memory [mode=recent, limit=2]");
+    expect(text).toContain("● memory [mode=search, limit=2]");
     expect(text).not.toContain("query=");
+    expect(text).not.toContain("mode=recent");
   });
 
-  test("a restored-session section draws as mode=recent", async ($, on) => {
+  test("a restored-session section draws as mode=restore", async ($, on) => {
     world(on);
     await $.session.append(injectRow(RESTORED) as any);
     const mounted = await mountReply($, "reply-1");
-    expect(textOf(await mounted.drawn())).toContain("● memory [mode=recent, limit=1]");
+    expect(textOf(await mounted.drawn())).toContain("● memory [mode=restore, limit=1]");
     await mounted.press({ key: "omms-recall-reply-1-0" });
-    expect(textOf(await mounted.drawn())).toContain("1. mem_wal Use WAL mode");
+    const open = textOf(await mounted.drawn());
+    expect(open).toContain("1. mem_wal Use WAL mode");
+    expect(open).not.toContain("query:");
   });
 
-  test("a prompt is the query of one recall only: a later recall without a prompt is mode=recent", async ($, on) => {
+  test("a prompt is the query of one search recall only", async ($, on) => {
     world(on);
     await prompt($, "first question");
     await $.session.append(injectRow(INJECTED) as any);
     const text = textOf(await (await mountReply($, "reply-1")).drawn());
-    expect(text).toContain('query="first question"');
-    expect(text).toContain("mode=recent, limit=2");
+    expect(text).toContain('query="first question", limit=2');
+    expect(text).toContain("mode=search, limit=2]");
   });
 
   test("a prompt with no memories is not the query of a later compaction recall", async ($, on) => {
@@ -95,16 +108,66 @@ describe("recall row", () => {
     await $.session.append(injectRow(RESTORED) as any);
     const text = textOf(await (await mountReply($, "reply-2")).drawn());
     expect(text).not.toContain("unmatched question");
-    expect(text).toContain("● memory [mode=recent, limit=1]");
+    expect(text).toContain("● memory [mode=restore, limit=1]");
   });
 
-  test("a session recall and a prompt recall draw as two calls on the first reply", async ($, on) => {
+  test("a prompt, a restored section, then the prompt's section draw one restore row and one search row", async ($, on) => {
     world(on);
+    await $.prompt.submit({ text: "my first question" } as any);
+    await $.session.append(injectRow(RESTORED) as any);
     await $.session.append(injectRow(INJECTED) as any);
-    await prompt($, "my first question");
     const text = textOf(await (await mountReply($, "reply-1")).drawn());
-    expect(text).toContain("mode=recent");
-    expect(text).toContain('query="my first question"');
+    expect(text).toContain("mode=restore, limit=1]");
+    expect(text).toContain('mode=search, query="my first question", limit=2]');
+    expect(text.indexOf("mode=restore")).toBeLessThan(text.indexOf("mode=search"));
+    expect(text.match(/● memory/g)).toHaveLength(2);
+  });
+
+  test("an opening section draws as mode=opening after the search row and leaves the prompt for search", async ($, on) => {
+    world(on);
+    await $.prompt.submit({ text: "my first question" } as any);
+    await $.session.append(injectRow(OPENING) as any);
+    await $.session.append(injectRow(INJECTED) as any);
+    const text = textOf(await (await mountReply($, "reply-1")).drawn());
+    expect(text).toContain('mode=opening, query="project setup", limit=1]');
+    expect(text).toContain('mode=search, query="my first question", limit=2]');
+    // The opening section arrived first and did not use up the prompt.
+    expect(text.match(/● memory/g)).toHaveLength(2);
+  });
+
+  test("one injected text with a prompt section and then an opening section draws search then opening", async ($, on) => {
+    world(on);
+    await $.prompt.submit({ text: "my first question" } as any);
+    await $.session.append(injectRow(`${INJECTED}\n${OPENING}`) as any);
+    const text = textOf(await (await mountReply($, "reply-1")).drawn());
+    expect(text.indexOf("mode=search")).toBeGreaterThan(-1);
+    expect(text.indexOf("mode=search")).toBeLessThan(text.indexOf("mode=opening"));
+    expect(text).toContain('mode=search, query="my first question", limit=2]');
+    expect(text).toContain('mode=opening, query="project setup", limit=1]');
+  });
+
+  test("a rows-off section draws no row and does not take the prompt", async ($, on) => {
+    world(on);
+    await $.prompt.submit({ text: "my first question" } as any);
+    await $.session.append(injectRow(ROWS_OFF) as any);
+    const alone = await mountReply($, "reply-1");
+    expect(textOf(await alone.drawn())).toBe("Reply body");
+
+    // The rows-off section did not use up the prompt: the next section takes it.
+    await $.prompt.submit({ text: "second question" } as any);
+    await $.session.append(injectRow(ROWS_OFF) as any);
+    await $.session.append(injectRow(INJECTED) as any);
+    const text = textOf(await (await mountReply($, "reply-2")).drawn());
+    expect(text).toContain('mode=search, query="second question", limit=2]');
+    expect(text.match(/● memory/g)).toHaveLength(1);
+  });
+
+  test("the first reply shows no mode=recent row", async ($, on) => {
+    world(on);
+    await prompt($, "my first question");
+    await $.session.append(injectRow(RESTORED) as any);
+    const text = textOf(await (await mountReply($, "reply-1")).drawn());
+    expect(text).not.toContain("mode=recent");
   });
 
   test("a reply after a recall shows the count and the reply body", async ($, on) => {
@@ -161,5 +224,14 @@ describe("recall row", () => {
     await $.session.append(injectRow(INJECTED, "hook-context", "agent-1") as any);
     const mounted = await mountReply($, "reply-1");
     expect(textOf(await mounted.drawn())).toBe("Reply body");
+  });
+
+  test("a recall, then a subagent section, then the main reply draws the main row once", async ($, on) => {
+    world(on);
+    await prompt($, "main question");
+    await $.session.append(injectRow(INJECTED, "hook-context", "agent-1") as any);
+    const text = textOf(await (await mountReply($, "reply-1")).drawn());
+    expect(text.match(/● memory/g)).toHaveLength(1);
+    expect(text).toContain('mode=search, query="main question", limit=2]');
   });
 });

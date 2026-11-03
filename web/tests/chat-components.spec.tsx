@@ -93,6 +93,25 @@ it("disables the question input when chat is not ready", () => {
   expect(html).toMatch(/<textarea[^>]*disabled/);
 });
 
+it("keeps the shared focus outline on the question box", () => {
+  const html = renderToStaticMarkup(
+    <ChatInput
+      projects={[]}
+      scope={null}
+      scopeMissing={false}
+      disabled={false}
+      onScope={() => {}}
+      onAsk={() => {}}
+    />
+  );
+  const textarea = html.match(/<textarea[^>]*>/)?.[0] ?? "";
+  // The strong ring for Tab and the gentle one while typing both come from the shared Textarea.
+  expect(textarea).toContain('data-slot="textarea"');
+  expect(textarea).not.toContain("ring-0");
+  expect(textarea).not.toContain("border-0");
+  expect(textarea).not.toContain("shadow-none");
+});
+
 it("asks for a scope when the chat's project is not on this computer", () => {
   const html = renderToStaticMarkup(
     <ChatInput

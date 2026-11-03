@@ -61,8 +61,9 @@ Read `docs/shared-core.md` before you change a port or move code between layers.
 
 ## Host parity
 
-Pi and OpenCode must have the same user capabilities. One recorded exception: the OpenCode V2 recall rows, which Pi does not show yet. See [Host parity](docs/opencode-adapter.md#host-parity).
+Pi and OpenCode must have the same user capabilities.
 
+- For OpenCode, work only on the V2 plugin (`src/v2/`, the V2 parts of `src/adapters/opencode/`, and `opencode/tui.tsx`). Do not add or change features in the V1 hooks (for example `chat.message` in `src/index.ts`) unless the user asks.
 - When you add or change a feature for one host, add the same feature to the other host in the same change.
 - Put shared behaviour in `src/core/`, `src/services/`, or `src/importer/`. Keep adapters thin.
 - Live capture and profile learning choose a model in this order:
@@ -101,6 +102,12 @@ Commit OpenSpec artifacts with the code change they describe. Commit the archive
 - For "where is X defined", use grep or glob. The graph favours documentation nodes over source symbols for these questions.
 - If `query_graph` output says `TRUNCATED`, run it again with `token_budget: 8000` before you decide the graph has no answer. If 8000 also truncates, narrow with `context_filter` or `depth`.
 - After you change code, run `graphify update .`. It reads the syntax tree only and makes no API calls.
+
+## Local models
+
+- The default local runtime for embeddings is llama.cpp. Keep llama.cpp as the default in code, docs, config and tests.
+- Do not change a default to Ollama. Ollama stays as one option in the preset list in `web/src/lib/embedding-settings.ts`.
+- Chat, capture and profile models use the external API (`memoryModel`, `memoryApiUrl`, `memoryApiKey`), never a local runtime by default.
 
 ## Commands
 

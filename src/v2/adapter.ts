@@ -9,8 +9,9 @@ import { SKILLS_TOOL_INPUT_SCHEMA } from "../core/skills-tool.js";
 import { log } from "../services/logger.js";
 import { utf8ByteLength } from "../utils/context-limit.js";
 import { eventBelongsToLocation, legacyToolResult, toLegacyEvent } from "./legacy-client.js";
-import type { V2MemoryBridge } from "./memory-bridge.js";
+import type { FirstPromptSections, V2MemoryBridge } from "./memory-bridge.js";
 import { createRecallReporter } from "./recall-reporter.js";
+import { createSessionParents } from "./session-parent.js";
 
 const memoryInput = {
   type: "object",
@@ -50,6 +51,9 @@ const memoryInput = {
 /** Per-session state is bounded so long-running servers cannot grow it without limit. */
 export const MAX_TRACKED_SESSIONS = 256;
 
+/** Session ids remembered as already seen by this process, for the first-prompt rule. */
+export const MAX_SEEN_SESSIONS = 500;
+
 /** Unadmitted prompts kept per session before the oldest is dropped. */
 const MAX_PENDING_PROMPTS = 16;
 
@@ -57,19 +61,35 @@ const MAX_PENDING_PROMPTS = 16;
 const COMPACTION_EVENT_TYPES = new Set(["session.compacted", "session.compaction.ended"]);
 
 type Retrieval = {
-  readonly promise: Promise<string | null>;
+  readonly promise: Promise<FirstPromptSections>;
   /** The request's captured byte allowance, taken before the search started. */
   readonly budgetBytes: number;
   /** The user prompt the search ran for; the recall summary shows it as the query. */
   readonly query: string;
-  settled?: { value: string | null };
+  /** Tokens for the opening section's row, which is recorded apart from the prompt's. */
+  readonly openingToken: object;
+  /** Set when the first request finds an earlier user message: the session is a resume. */
+  resumed?: boolean;
+  settled?: { value: FirstPromptSections };
+};
+type Restored = { readonly memories: unknown[] };
+
+const NO_SECTIONS: FirstPromptSections = {
+  promptSection: null,
+  openingSection: null,
+  openingQuery: null,
 };
 type PendingPrompt = { readonly messageID: string; readonly text: string };
 
-function setBounded<V>(map: Map<string, V>, key: string, value: V): void {
+function setBounded<V>(
+  map: Map<string, V>,
+  key: string,
+  value: V,
+  limit = MAX_TRACKED_SESSIONS
+): void {
   map.delete(key);
   map.set(key, value);
-  while (map.size > MAX_TRACKED_SESSIONS) {
+  while (map.size > limit) {
     const oldest = map.keys().next().value;
     if (oldest === undefined) break;
     map.delete(oldest);
@@ -92,16 +112,25 @@ function deletedSessionID(event: { type: string; properties?: any }): string | u
 
 export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2MemoryBridge) {
   const retrievals = new Map<string, Retrieval>();
-  const restored = new Map<string, unknown[]>();
+  const restored = new Map<string, Restored>();
+  // Sessions this process has seen a prompt or compaction for. The first prompt of a session not
+  // in it is a first prompt (new session) or a resume, decided in the context hook.
+  const seen = new Map<string, true>();
+  // Per session whose first request is still to come: ids of the prompts this process admitted.
+  const firstPending = new Map<string, Set<string>>();
   const messageIDs = new Map<string, string>();
   // The prompt hook runs before OpenCode admits a prompt, so prompts wait here
   // until their message appears in a model request's history (the context
   // hook), and are only then recorded for auto-capture and profile learning.
   const pendingPrompts = new Map<string, PendingPrompt[]>();
-  const recall = await createRecallReporter(ctx, memory, setBounded);
+  const parents = createSessionParents(ctx, setBounded);
+  const recall = await createRecallReporter(ctx, memory, setBounded, parents);
 
   const forgetSession = (sessionID: string) => {
     recall.forget(sessionID);
+    parents.forget(sessionID);
+    seen.delete(sessionID);
+    firstPending.delete(sessionID);
     retrievals.delete(sessionID);
     restored.delete(sessionID);
     messageIDs.delete(sessionID);
@@ -137,12 +166,57 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
 
   // Resolve a prompt's retrieval once; every model step for that prompt then
   // reuses the same section, even if the search finishes after the timeout.
-  const settledRetrieval = async (retrieval: Retrieval): Promise<string | null> => {
+  const settledRetrieval = async (retrieval: Retrieval): Promise<FirstPromptSections> => {
     if (!retrieval.settled) {
-      const value = await withTimeout(retrieval.promise, memory.retrievalTimeoutMs, null);
+      const value = await withTimeout(retrieval.promise, memory.retrievalTimeoutMs, NO_SECTIONS);
       retrieval.settled ??= { value };
     }
     return retrieval.settled.value;
+  };
+
+  // Load the session's own memories once; the restored section is formatted when a request
+  // emits it, against that request's captured budget. Each load gets a new object, which keys
+  // its one row.
+  const loadRestored = async (sessionID: string, timeoutMs?: number) => {
+    try {
+      const loading = memory.restoreSession(sessionID);
+      const memories = await (timeoutMs === undefined
+        ? loading
+        : withTimeout(loading, timeoutMs, null));
+      if (memories) setBounded(restored, sessionID, { memories });
+      else restored.delete(sessionID);
+    } catch (error) {
+      log(
+        "v2 restore: failed to load session memories",
+        { sessionID, error: String(error) },
+        "error"
+      );
+    }
+  };
+
+  // The first request of a session's first prompt in this process decides new or resumed:
+  // an earlier user message in the history means resumed.
+  const decideFirstRequest = async (
+    sessionID: string,
+    messages: ReadonlyArray<{ readonly id?: string; readonly role?: string }>,
+    retrieval: Retrieval | undefined
+  ) => {
+    const ours = firstPending.get(sessionID);
+    if (!firstPending.delete(sessionID)) return;
+    // History is a user message with an id that none of this process's prompts own.
+    const earlier = messages.some(
+      (message) =>
+        message.role === "user" && typeof message.id === "string" && !ours?.has(message.id)
+    );
+    if (!earlier) return;
+    if (retrieval) retrieval.resumed = true;
+    if (!memory.isCompactionEnabled()) return;
+    const subagent = await withTimeout(
+      parents.isSubagent(sessionID),
+      memory.retrievalTimeoutMs,
+      false
+    );
+    if (!subagent) await loadRestored(sessionID, memory.retrievalTimeoutMs);
   };
 
   // Each V1 tool becomes a direct V2 tool, like OpenCode's own read/grep/skill, not a
@@ -219,15 +293,40 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
       setBounded(pendingPrompts, sessionID, pending);
     }
 
-    if (!memory.isInjectionEnabled() || !text.trim()) return;
+    if (!text.trim()) return;
+    const first = !seen.has(sessionID);
+    if (first) {
+      setBounded(seen, sessionID, true, MAX_SEEN_SESSIONS);
+      setBounded(firstPending, sessionID, new Set<string>());
+    }
+    firstPending.get(sessionID)?.add(event.messageID);
+    if (!memory.isInjectionEnabled()) return;
+
+    // A subagent session gets the prompt recall only when `subagentMemory` is on, and never the
+    // opening section. A failed or slow lookup counts as a root session.
+    const subagent = await withTimeout(
+      parents.isSubagent(sessionID),
+      memory.retrievalTimeoutMs,
+      false
+    );
+    if (subagent && !memory.isSubagentMemoryEnabled()) return;
 
     // Start the search now with the entry snapshot, so it overlaps prompt admission.
     // An edit during retrieval must not change this request's allowance.
-    const promise = memory.retrieve(text, sessionID, budgetBytes).catch((error) => {
+    const search = async (): Promise<FirstPromptSections> =>
+      first && !subagent
+        ? memory.retrieveFirstPrompt(text, sessionID, budgetBytes)
+        : { ...NO_SECTIONS, promptSection: await memory.retrieve(text, sessionID, budgetBytes) };
+    const promise = search().catch((error) => {
       log("v2 prompt: memory retrieval failed", { sessionID, error: String(error) }, "error");
-      return null;
+      return NO_SECTIONS;
     });
-    setBounded(retrievals, sessionID, { promise, budgetBytes, query: text });
+    setBounded(retrievals, sessionID, {
+      promise,
+      budgetBytes,
+      query: text,
+      openingToken: {},
+    });
   });
 
   await ctx.session.hook("context", async (event) => {
@@ -237,24 +336,35 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
 
     // Before chat.params, which stores the model on the recorded prompt row.
     await recordAdmittedPrompts(sessionID, event.messages);
-    // The retrieval and the restored section share one request budget: the
+    await decideFirstRequest(sessionID, event.messages as any, retrieval);
+    // The retrieval sections and the restored section share one request budget: the
     // restored section is formatted here, within what the retrieval left.
     let remainingBytes: number | null = null;
     if (retrieval) {
-      const section = await settledRetrieval(retrieval);
-      if (section) {
-        event.system.push({ type: "text", text: section });
-        recall.record(sessionID, retrieval, retrieval.query, section);
-        remainingBytes = retrieval.budgetBytes - utf8ByteLength(section);
-      } else {
-        remainingBytes = retrieval.budgetBytes;
+      const { promptSection, openingSection, openingQuery } = await settledRetrieval(retrieval);
+      remainingBytes = retrieval.budgetBytes;
+      if (promptSection) {
+        event.system.push({ type: "text", text: promptSection });
+        recall.record(sessionID, retrieval, "search", retrieval.query, promptSection);
+        remainingBytes -= utf8ByteLength(promptSection);
+      }
+      if (openingSection && !retrieval.resumed) {
+        event.system.push({ type: "text", text: openingSection });
+        recall.record(sessionID, retrieval.openingToken, "opening", openingQuery, openingSection);
+        remainingBytes -= utf8ByteLength(openingSection);
       }
     }
 
-    const restoredMemories = restored.get(sessionID);
-    if (restoredMemories) {
-      const section = memory.formatRestoredSession(restoredMemories, remainingBytes ?? budgetBytes);
-      if (section) event.system.push({ type: "text", text: section });
+    const restoredEntry = restored.get(sessionID);
+    if (restoredEntry) {
+      const section = memory.formatRestoredSession(
+        restoredEntry.memories,
+        remainingBytes ?? budgetBytes
+      );
+      if (section) {
+        event.system.push({ type: "text", text: section });
+        recall.record(sessionID, restoredEntry, "restore", null, section);
+      }
     }
 
     if (legacy["chat.params"]) {
@@ -267,21 +377,11 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
 
   await ctx.session.hook("compaction", async (event) => {
     memory.snapshotRequestBudget();
-    if (!memory.isCompactionEnabled()) return;
     const sessionID = event.sessionID;
-    try {
-      // Load once here; the restored section is formatted when a request
-      // emits it, against that request's captured budget.
-      const memories = await memory.restoreSession(sessionID);
-      if (memories) setBounded(restored, sessionID, memories);
-      else restored.delete(sessionID);
-    } catch (error) {
-      log(
-        "v2 compaction: failed to load session memories",
-        { sessionID, error: String(error) },
-        "error"
-      );
-    }
+    setBounded(seen, sessionID, true, MAX_SEEN_SESSIONS);
+    firstPending.delete(sessionID);
+    if (!memory.isCompactionEnabled()) return;
+    await loadRestored(sessionID);
   });
 
   const controller = new AbortController();
@@ -310,6 +410,9 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
     restored.clear();
     messageIDs.clear();
     pendingPrompts.clear();
+    seen.clear();
+    firstPending.clear();
+    parents.clear();
     recall.clear();
     await legacy.dispose?.();
   };

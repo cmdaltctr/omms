@@ -520,6 +520,30 @@ describe("recall rows never throw into the host", () => {
     expect(jsxHost.draw("s1")).toBeNull();
   });
 
+  it("keeps the opening and restore rows and drops an unknown mode", async () => {
+    const opening: RecallSummary = {
+      mode: "opening",
+      query: "project architecture, setup, conventions and key decisions",
+      items: [{ relevance: 77, id: "mem_3", headline: "Project layout" }],
+    };
+    const restore: RecallSummary = {
+      mode: "restore",
+      query: null,
+      items: [{ relevance: null, id: "mem_4", headline: "Use WAL mode" }],
+    };
+    const host = makeHost({
+      list: async () => ({
+        enabled: true,
+        items: [opening, restore, { ...search, mode: "other" }],
+      }),
+    });
+    startTuiRecall(host.deps);
+    expect(await host.shown("s1")).toEqual([
+      '▸ ● memory [mode=opening, query="project architecture, setup, conventions and key decisions", limit=1]',
+      "▸ ● memory [mode=restore, limit=1]",
+    ]);
+  });
+
   it("ignores malformed items in a reply", async () => {
     const host = makeHost({
       list: async () => ({ enabled: true, items: [null, { mode: "x" }, 5, search] }),

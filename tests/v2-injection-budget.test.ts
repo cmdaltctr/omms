@@ -29,7 +29,8 @@ function restoredSectionOfExactly(totalBytes: number): string | null {
 interface Harness {
   register: () => Promise<() => Promise<void>>;
   prompt: (sessionID: string, text: string) => Promise<void>;
-  context: (sessionID: string) => Promise<string[]>;
+  /** `history` lists user messages from before this process saw the session (a resumed session). */
+  context: (sessionID: string, history?: string[]) => Promise<string[]>;
   compaction: (sessionID: string) => Promise<void>;
   setRetrievalMaxTokens: (tokens: number) => void;
   seen: {
@@ -42,6 +43,7 @@ interface Harness {
 function createHarness(
   options: {
     retrievalBytes?: number;
+    openingBytes?: number;
     restoredBytes?: number;
     onSnapshot?: () => void;
     recordPrompt?: () => Promise<void>;
@@ -52,6 +54,7 @@ function createHarness(
   const retrievalBytes = options.retrievalBytes ?? Number.MAX_SAFE_INTEGER;
   const restoredBytes = options.restoredBytes ?? Number.MAX_SAFE_INTEGER;
   const state = { retrievalMaxTokens: 2000 };
+  const lastMessage = new Map<string, string>();
   const seen = {
     retrieveBudgets: [] as number[],
     restoreBudgets: [] as number[],
@@ -64,6 +67,7 @@ function createHarness(
     isInjectionEnabled: options.canInject ?? (() => true),
     isCompactionEnabled: options.canCompact ?? (() => true),
     isVisibleRecallEnabled: () => true,
+    isSubagentMemoryEnabled: () => true,
     isInternalPrompt: () => false,
     recordPrompt: options.recordPrompt ?? (async () => {}),
     snapshotRequestBudget() {
@@ -74,6 +78,15 @@ function createHarness(
     async retrieve(_prompt, _sessionID, budgetBytes) {
       seen.retrieveBudgets.push(budgetBytes);
       return wrappedSectionOfExactly(Math.min(retrievalBytes, budgetBytes));
+    },
+    // The opening section is packed with what the prompt section leaves of the same budget.
+    async retrieveFirstPrompt(prompt, sessionID, budgetBytes) {
+      const promptSection = await memory.retrieve(prompt, sessionID, budgetBytes);
+      const left = budgetBytes - utf8ByteLength(promptSection ?? "");
+      const openingSection = options.openingBytes
+        ? wrappedSectionOfExactly(Math.min(options.openingBytes, left))
+        : null;
+      return { promptSection, openingSection, openingQuery: openingSection ? "opening" : null };
     },
     async restoreSession() {
       return [{ memory: "Use WAL mode", tags: [] }];
@@ -111,14 +124,19 @@ function createHarness(
 
   return {
     register: () => registerV2Adapter(ctx, minimalLegacy(), memory),
-    prompt: (sessionID, text) =>
-      hooks.get("prompt")!({ sessionID, messageID: `msg-${text}`, prompt: { text } }),
-    context: async (sessionID) => {
+    prompt: (sessionID, text) => {
+      lastMessage.set(sessionID, `msg-${text}`);
+      return hooks.get("prompt")!({ sessionID, messageID: `msg-${text}`, prompt: { text } });
+    },
+    context: async (sessionID, history = []) => {
       const event = {
         sessionID,
         model: { providerID: "anthropic", id: "claude" },
         system: [] as Array<{ type: string; text: string }>,
-        messages: [{ id: `msg-${sessionID}`, role: "user" }],
+        messages: [...history, lastMessage.get(sessionID) ?? `msg-${sessionID}`].map((id) => ({
+          id,
+          role: "user",
+        })),
       };
       await hooks.get("context")!(event);
       return event.system.map((part) => part.text);
@@ -319,6 +337,38 @@ describe("OpenCode v2 request budget (memory-context-controls 4.1/4.2)", () => {
     expect(system).toHaveLength(1);
     expect(h.seen.restoreBudgets[0]).toBeLessThanOrEqual(0);
     expect(system[0]).not.toBe("");
+
+    await cleanup();
+  });
+  it("keeps the prompt, opening and restored sections within one request budget", async () => {
+    const h = createHarness({ retrievalBytes: 3_000, openingBytes: 2_500, restoredBytes: 6_000 });
+    const cleanup = await h.register();
+
+    await h.prompt("ses-1", "question");
+    await h.compaction("ses-1");
+    const system = await h.context("ses-1");
+
+    expect(system).toHaveLength(3);
+    expect(utf8ByteLength(system[0]!)).toBe(3_000);
+    // The opening section is packed with what the prompt section left of the 8,000 total.
+    expect(utf8ByteLength(system[1]!)).toBe(2_500);
+    // The restored section gets what both left.
+    expect(h.seen.restoreBudgets).toEqual([8_000 - 3_000 - 2_500]);
+    expect(utf8ByteLength(system.join(""))).toBeLessThanOrEqual(8_000);
+
+    await cleanup();
+  });
+
+  it("gives the restored section of a resumed session what the prompt section left, with no opening section", async () => {
+    const h = createHarness({ retrievalBytes: 3_000, openingBytes: 2_500, restoredBytes: 6_000 });
+    const cleanup = await h.register();
+
+    await h.prompt("ses-1", "question");
+    const system = await h.context("ses-1", ["msg-old"]);
+
+    expect(system).toHaveLength(2);
+    expect(h.seen.restoreBudgets).toEqual([8_000 - 3_000]);
+    expect(utf8ByteLength(system.join(""))).toBeLessThanOrEqual(8_000);
 
     await cleanup();
   });

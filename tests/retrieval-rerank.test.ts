@@ -473,9 +473,9 @@ captured = await buildRecentMemoriesSection({
   it("every host prompt path routes through buildRetrievalSection", () => {
     const repoRoot = join(import.meta.dir, "..");
     for (const relative of [
-      "src/adapters/pi/extension.ts",
+      "src/adapters/pi/session-context.ts",
       "src/v2/memory-bridge.ts",
-      "src/importer/claude-hook-api.ts",
+      "src/importer/claude-hook-context.ts",
     ]) {
       const source = readFileSync(join(repoRoot, relative), "utf8");
       expect(source, relative).toContain("buildRetrievalSection");

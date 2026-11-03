@@ -3,9 +3,11 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildMemoryProviderConfig } from "../src/services/ai/provider-config.js";
+import { isLocalApiUrl } from "../src/services/ai/local-api-url.js";
 import { applySafeExtraParams } from "../src/services/ai/providers/base-provider.js";
 import { OpenAIChatCompletionProvider } from "../src/services/ai/providers/openai-chat-completion.js";
 import { OpenAIResponsesProvider } from "../src/services/ai/providers/openai-responses.js";
+import { GoogleGeminiProvider } from "../src/services/ai/providers/google-gemini.js";
 import type { ChatCompletionTool } from "../src/services/ai/tools/tool-schema.js";
 
 const toolSchema: ChatCompletionTool = {
@@ -117,6 +119,52 @@ describe("AI provider config", () => {
     ).toThrow(
       "missing memoryModel; missing memoryApiUrl; replace the placeholder memoryApiKey value"
     );
+  });
+
+  it("recognises only an address on this machine as a local API URL", () => {
+    for (const url of [
+      "http://localhost:8080/v1",
+      "http://127.0.0.1:9931/v1",
+      "http://[::1]:8080/v1",
+      "HTTP://LocalHost/v1",
+    ]) {
+      expect(isLocalApiUrl(url)).toBe(true);
+    }
+    for (const url of [
+      "https://api.openai.com/v1",
+      "http://localhost.example.com/v1",
+      "http://192.168.1.20:8080/v1",
+      "http://127.0.0.1.example.com/v1",
+      "not a url",
+      "",
+      undefined,
+    ]) {
+      expect(isLocalApiUrl(url)).toBe(false);
+    }
+  });
+
+  it("lets a caller that opts in skip the key for a local URL only", () => {
+    const local = { memoryModel: "qwen", memoryApiUrl: "http://127.0.0.1:9931/v1" };
+    expect(buildMemoryProviderConfig(local, { keylessForLocalUrl: true }).apiKey).toBe("");
+    // Without the opt-in, capture, profile and import still need a key.
+    expect(() => buildMemoryProviderConfig(local)).toThrow("missing memoryApiKey");
+    // A remote URL needs a key even with the opt-in.
+    expect(() =>
+      buildMemoryProviderConfig(
+        { memoryModel: "m", memoryApiUrl: "https://api.openai.com/v1" },
+        { keylessForLocalUrl: true }
+      )
+    ).toThrow("missing memoryApiKey");
+    // A key that is set still goes through, and a placeholder is still refused.
+    expect(
+      buildMemoryProviderConfig(
+        { ...local, memoryApiKey: "real-key" },
+        { keylessForLocalUrl: true }
+      ).apiKey
+    ).toBe("real-key");
+    expect(() =>
+      buildMemoryProviderConfig({ ...local, memoryApiKey: "sk-..." }, { keylessForLocalUrl: true })
+    ).toThrow("replace the placeholder memoryApiKey value");
   });
 
   it("requires an API key for manual provider endpoints", () => {
@@ -292,6 +340,45 @@ describe("AI provider config", () => {
 
     expect(capturedBody).toBeDefined();
     expect(capturedBody?.temperature).toBeUndefined();
+  });
+
+  it("sends no credential when the key is empty, for openai-responses and gemini", async () => {
+    const seen: { url: string; headers: Record<string, string> }[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      seen.push({ url: String(input), headers: { ...(init?.headers as Record<string, string>) } });
+      return {
+        ok: false,
+        status: 400,
+        statusText: "Bad Request",
+        text: async () => "x",
+      } as Response;
+    }) as typeof fetch;
+    const config = (apiKey: string) => ({
+      model: "m",
+      apiUrl: "http://127.0.0.1:8080/v1",
+      apiKey,
+      memoryTemperature: false as const,
+      maxIterations: 1,
+    });
+
+    await new OpenAIResponsesProvider(config(""), new FakeSessionManager() as any)
+      .executeToolCall("system", "user", toolSchema, "session-id")
+      .catch(() => undefined);
+    await new GoogleGeminiProvider(config(""), new FakeSessionManager() as any)
+      .executeToolCall("system", "user", toolSchema, "session-id")
+      .catch(() => undefined);
+    expect(seen).toHaveLength(2);
+    expect(Object.keys(seen[0]!.headers).map((name) => name.toLowerCase())).not.toContain(
+      "authorization"
+    );
+    expect(seen[1]!.url).not.toContain("key=");
+
+    // A key that is set is still sent.
+    seen.length = 0;
+    await new OpenAIResponsesProvider(config("real-key"), new FakeSessionManager() as any)
+      .executeToolCall("system", "user", toolSchema, "session-id")
+      .catch(() => undefined);
+    expect(seen[0]!.headers.Authorization).toBe("Bearer real-key");
   });
 
   describe("applySafeExtraParams", () => {

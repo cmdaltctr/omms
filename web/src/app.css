@@ -210,6 +210,13 @@
   color: var(--foreground);
 }
 
+/* Text fields keep the strong outline when the person arrives with Tab. While the person
+   types or has clicked in, the outline gets thin and soft (see lib/focus-mode.ts). */
+html[data-focus-mode="typing"] :is([data-slot="input"], [data-slot="textarea"]):focus-visible {
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --tw-ring-shadow: 0 0 0 1px color-mix(in oklab, var(--ring) 35%, transparent);
+}
+
 .markdown-content {
   line-height: 1.6;
   word-break: break-word;

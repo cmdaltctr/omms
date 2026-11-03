@@ -1,6 +1,8 @@
 /**
- * Shared validation rules for the six memory-limit settings
- * (openspec change memory-context-controls). Pure functions only: values
+ * Shared validation rules for the six memory-limit settings of the Memory
+ * card (openspec change memory-context-controls), and the restore limit
+ * `compaction.memoryLimit`, which the Memory injection section edits
+ * (change align-recall-host-parity). Pure functions only: values
  * are passed in, so config.ts, the settings writer, and the settings
  * snapshot share one rule set without importing CONFIG. Do not import
  * CONFIG here: many tests stub src/config.js with a partial module.
@@ -100,9 +102,17 @@ export const MEMORY_LIMITS = {
     decimalFrom0To1,
     defaultSimilarityThreshold
   ),
+  "compaction.memoryLimit": rule(
+    "compaction.memoryLimit",
+    ["compaction", "memoryLimit"],
+    10,
+    "memories",
+    "positive safe integers",
+    isPositiveSafeInteger
+  ),
 } as const satisfies Record<string, MemoryLimitRule>;
 
-/** The six settings identifiers, in Memory card order. */
+/** The settings identifiers: the six Memory card limits in card order, then the restore limit. */
 export const MEMORY_LIMIT_SETTINGS: readonly string[] = Object.keys(MEMORY_LIMITS);
 
 const RULES: Readonly<Record<string, MemoryLimitRule>> = MEMORY_LIMITS;

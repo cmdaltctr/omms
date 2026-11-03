@@ -6,13 +6,7 @@ import type { CaptureResult, CaptureWorkUnit } from "../core/capture.js";
 import { classifyCaptureFailure, quickRetryDelayMs } from "../core/capture-retry-policy.js";
 import type { CaptureSummaryProvider } from "../core/host.js";
 import type { ModelPort } from "../core/profile-analysis.js";
-import {
-  buildRecentMemoriesSection,
-  buildRetrievalSection,
-  formatMemoriesForCompaction,
-  retrievalWrapperBytes,
-  wrapRetrievalSection,
-} from "../core/retrieval.js";
+import { formatMemoriesForCompaction } from "../core/retrieval.js";
 import { handleFinishedTurn } from "../core/turn-outputs.js";
 import { DEFAULT_RETRIEVAL_MAX_TOKENS, tokensToByteCeiling } from "../core/context-budget.js";
 import { resolveClaudeCodeLiveModel } from "../services/ai/live-model-choice.js";
@@ -29,10 +23,17 @@ import {
 } from "../services/claude-capture-cursor.js";
 import { memoryClient } from "../services/client.js";
 import { log } from "../services/logger.js";
-import { isFullyPrivate, stripPrivateContent } from "../services/privacy.js";
 import { skillTurnRecorder } from "../services/skill-learning/settings-for.js";
 import { getTags } from "../services/tags.js";
 import { parseClaudeTranscript, type ClaudeTranscriptEntry } from "./claude-conversation.js";
+import {
+  markSessionSeen,
+  promptContext,
+  sectionBudget,
+  sectionLimits,
+  subagentContext,
+  wrapSection,
+} from "./claude-hook-context.js";
 import { learnClaudeProfile } from "./claude-profile-learning.js";
 import {
   claudeWindowsToCapture,
@@ -44,7 +45,7 @@ import {
 import { defaultClaudeProjectsRoot } from "./claude-reader.js";
 
 // The web app's side of the Claude Code hooks (design decisions 4, 6, 7):
-// retrieval for SessionStart and UserPromptSubmit, a one-worker capture queue
+// retrieval for SessionStart, UserPromptSubmit and SubagentStart, a one-worker capture queue
 // for Stop, profile learning, and the once-per-process backfill start. Logs
 // carry event names, session ids, counts, sizes, and codes; never text.
 
@@ -69,12 +70,16 @@ export class ClaudeHookRequestError extends Error {
   }
 }
 
+const RETRIEVE_EVENTS = ["session-start", "user-prompt-submit", "subagent-start"] as const;
+
 interface RetrieveRequest {
-  event: "session-start" | "user-prompt-submit";
+  event: (typeof RETRIEVE_EVENTS)[number];
   sessionId: string;
   cwd: string;
   source?: string;
   prompt?: string;
+  transcriptPath?: string;
+  agentType?: string;
 }
 
 interface CaptureRequest {
@@ -112,14 +117,17 @@ function optionalString(body: Record<string, unknown>, key: string): string | un
 
 function parseRetrieveRequest(body: unknown): RetrieveRequest {
   const input = objectBody(body);
-  if (input.event !== "session-start" && input.event !== "user-prompt-submit") {
-    throw new ClaudeHookRequestError("event must be session-start or user-prompt-submit");
+  const event = RETRIEVE_EVENTS.find((name) => name === input.event);
+  if (!event) {
+    throw new ClaudeHookRequestError(`event must be one of ${RETRIEVE_EVENTS.join(", ")}`);
   }
   return {
-    event: input.event,
+    event,
     ...sessionAndCwd(input),
     source: optionalString(input, "source"),
     prompt: optionalString(input, "prompt"),
+    transcriptPath: optionalString(input, "transcript_path"),
+    agentType: optionalString(input, "agent_type"),
   };
 }
 
@@ -203,52 +211,67 @@ function maybeStartBackfill(deps: ClaudeHookDeps): void {
     );
 }
 
-async function retrievalSection(
-  request: RetrieveRequest,
-  budgetBytes: number
-): Promise<string | null> {
-  // Every section this api returns is wrapped in the retrieval tag, so each
-  // packed section reserves the wrapper bytes.
-  const budget = { maxBytes: budgetBytes, wrapperBytes: retrievalWrapperBytes() };
+/** The checked transcript path of the request, or undefined when it has none or fails the check. */
+function requestTranscript(request: RetrieveRequest): string | undefined {
+  if (!request.transcriptPath) return undefined;
+  try {
+    return checkedTranscriptPath(request.transcriptPath, request.sessionId);
+  } catch {
+    return undefined;
+  }
+}
+
+/** The text to add for one request, already wrapped in the retrieval tag. Empty means nothing. */
+async function retrievalText(request: RetrieveRequest, budgetBytes: number): Promise<string> {
+  const limits = sectionLimits(budgetBytes);
   if (request.event === "user-prompt-submit") {
-    const prompt = stripPrivateContent(request.prompt ?? "").trim();
-    if (!CONFIG.chatMessage.enabled || !prompt || isFullyPrivate(request.prompt ?? "")) {
-      return null;
-    }
-    return buildRetrievalSection(prompt, request.cwd, request.sessionId, budget);
-  }
-
-  const tags = getTags(request.cwd);
-  if (request.source === "compact" || request.source === "resume") {
-    if (!CONFIG.compaction.enabled) return null;
-    const result = await memoryClient.searchMemoriesBySessionID(
-      request.sessionId,
-      tags.project.tag,
-      CONFIG.compaction.memoryLimit
+    return promptContext(
+      {
+        prompt: request.prompt ?? "",
+        cwd: request.cwd,
+        sessionId: request.sessionId,
+        transcriptPath: requestTranscript(request),
+      },
+      limits
     );
-    const own = result.success
-      ? result.results.filter((memory: any) => memory.metadata?.host === HOST)
-      : [];
-    return own.length > 0 ? formatMemoriesForCompaction(own, budget) : null;
+  }
+  if (request.event === "subagent-start") {
+    return subagentContext(
+      {
+        cwd: request.cwd,
+        sessionId: request.sessionId,
+        transcriptPath: requestTranscript(request),
+        agentType: request.agentType,
+      },
+      budgetBytes
+    );
   }
 
-  if (!CONFIG.chatMessage.enabled) return null;
-  return buildRecentMemoriesSection({
-    projectTag: tags.project.tag,
-    userEmail: tags.user.userEmail,
-    sessionId: request.sessionId,
-    maxMemories: CONFIG.chatMessage.maxMemories,
-    excludeCurrentSession: CONFIG.chatMessage.excludeCurrentSession,
-    maxAgeDays: CONFIG.chatMessage.maxAgeDays,
-    budget,
-  });
+  // A fresh or cleared session adds nothing; the opening section waits for the first prompt.
+  if (request.source !== "compact" && request.source !== "resume") return "";
+  // A compacted or resumed session already has history, so it never gets an opening section.
+  markSessionSeen(request.sessionId);
+  if (!CONFIG.compaction.enabled) return "";
+  const tags = getTags(request.cwd);
+  const result = await memoryClient.searchMemoriesBySessionID(
+    request.sessionId,
+    tags.project.tag,
+    CONFIG.compaction.memoryLimit
+  );
+  const own = result.success
+    ? result.results.filter((memory: any) => memory.metadata?.host === HOST)
+    : [];
+  return own.length > 0
+    ? wrapSection(formatMemoriesForCompaction(own, sectionBudget(limits)), limits)
+    : "";
 }
 
 /**
- * `POST /api/claude/retrieve`: recent project memories for a fresh session,
- * the session's own memories after compaction or resume, or the retrieval
- * section for a prompt. Every text is wrapped in the retrieval tag; an empty
- * string means nothing to add.
+ * `POST /api/claude/retrieve`: the retrieval section for a prompt (and the
+ * opening section on a session's first prompt, when on), the memories for a
+ * starting subagent's task, or the session's own memories after compaction or
+ * resume. A fresh or cleared session adds nothing. Every text is wrapped in the
+ * retrieval tag; an empty string means nothing to add.
  */
 export async function handleClaudeRetrieve(
   body: unknown,
@@ -264,8 +287,7 @@ export async function handleClaudeRetrieve(
   );
   if (request.event === "session-start") maybeStartBackfill(deps);
   try {
-    const section = await retrievalSection(request, budgetBytes);
-    return { additionalContext: section ? wrapRetrievalSection(section) : "" };
+    return { additionalContext: await retrievalText(request, budgetBytes) };
   } catch (error) {
     log(
       "Claude Code retrieval failed",

@@ -171,19 +171,19 @@ await memoryClient.addMemory("Other project memory for the same session", otherT
 `;
 
 describe("Claude Code retrieval", () => {
-  it("returns the project's recent memories at startup, wrapped in the retrieval tag", async () => {
-    const { run } = createHarness();
+  it("adds nothing at startup or clear, whatever openingContext says", async () => {
+    const { run } = createHarness({ ...EXTERNAL_API, openingContext: true });
     const scenario = await run(`
 ${SEED_MEMORIES}
-const startup = await api.handleClaudeRetrieve({ event: "session-start", session_id: "ses-new", cwd: projectDir, source: "startup" });
-const empty = await api.handleClaudeRetrieve({ event: "session-start", session_id: "ses-new", cwd: join(projectDir, "..", "no-memories-here"), source: "startup" });
-scenario = { startup: startup.additionalContext, empty: empty.additionalContext };
+const ask = (source) => api.handleClaudeRetrieve({ event: "session-start", session_id: "ses-new", cwd: projectDir, source });
+scenario = {
+  startup: (await ask("startup")).additionalContext,
+  clear: (await ask("clear")).additionalContext,
+  unknown: (await ask("something-else")).additionalContext,
+  noSource: (await ask(undefined)).additionalContext,
+};
 `);
-    expect(scenario.startup.startsWith("<omms-retrieval>")).toBe(true);
-    expect(scenario.startup.trimEnd().endsWith("</omms-retrieval>")).toBe(true);
-    expect(scenario.startup).toContain("Old project decision about libSQL");
-    expect(scenario.startup).not.toContain("Other project memory");
-    expect(scenario.empty).toBe("");
+    expect(scenario).toEqual({ startup: "", clear: "", unknown: "", noSource: "" });
   });
 
   it("returns only that session's Claude Code memories after compaction", async () => {
@@ -243,6 +243,391 @@ await api.handleClaudeRetrieve({ event: "session-start", session_id: "s", cwd: p
 scenario = { started };
 `);
     expect(scenario.started).toBe(0);
+  });
+});
+
+/** A project config at `<project>/.opencode/omms.jsonc`, as the config loader reads it. */
+function writeProjectConfig(projectDir: string, config: Record<string, unknown>): void {
+  mkdirSync(join(projectDir, ".opencode"), { recursive: true });
+  writeFileSync(join(projectDir, ".opencode", "omms.jsonc"), JSON.stringify(config));
+}
+
+const COMPACT_ASK = `
+const askRestore = (source) => api.handleClaudeRetrieve({ event: "session-start", session_id: "ses-1", cwd: projectDir, source });
+scenario = {
+  compact: (await askRestore("compact")).additionalContext,
+  resume: (await askRestore("resume")).additionalContext,
+  startup: (await askRestore("startup")).additionalContext,
+};
+`;
+
+describe("Claude Code restore after compaction and resume", () => {
+  it("restores for compact and resume, and adds nothing for startup", async () => {
+    const { run } = createHarness();
+    const scenario = await run(`${SEED_MEMORIES}${COMPACT_ASK}`);
+    for (const text of [scenario.compact, scenario.resume] as string[]) {
+      expect(text).toContain("Restored Session Memory");
+      expect(text).toContain("Claude session memory about the parser");
+    }
+    expect(scenario.startup).toBe("");
+  });
+
+  it("restores nothing when compaction.enabled is false in the global config", async () => {
+    const { run } = createHarness({ ...EXTERNAL_API, compaction: { enabled: false } });
+    const scenario = await run(`${SEED_MEMORIES}${COMPACT_ASK}`);
+    expect(scenario).toEqual({ compact: "", resume: "", startup: "" });
+  });
+
+  it("restores nothing when a project config sets compaction.enabled to false", async () => {
+    const harness = createHarness();
+    writeProjectConfig(harness.projectDir, { compaction: { enabled: false } });
+    const scenario = await harness.run(`${SEED_MEMORIES}${COMPACT_ASK}`);
+    expect(scenario).toEqual({ compact: "", resume: "", startup: "" });
+  });
+});
+
+// Two searches with distinct answers: the prompt's, and the opening query's. The opening
+// result repeats the prompt's memory, which the opening section must leave out.
+const OPENING_SETUP = `
+const PROMPT = "How do we store memories?";
+const searched = [];
+const rowsFor = {
+  [PROMPT]: [{ id: "mem_prompt", similarity: 0.9, memory: "Prompt memory about libSQL storage" }],
+  [config.CONFIG.openingContextQuery]: [
+    { id: "mem_prompt", similarity: 0.8, memory: "Prompt memory about libSQL storage" },
+    { id: "mem_open", similarity: 0.7, memory: "Opening memory about conventions" },
+  ],
+};
+memoryClient.searchMemories = async (query) => {
+  searched.push(query);
+  return { success: true, results: rowsFor[query] ?? [] };
+};
+const ask = (extra = {}) => api.handleClaudeRetrieve({
+  event: "user-prompt-submit", session_id: "ses-1", cwd: projectDir,
+  prompt: PROMPT, transcript_path: transcript, ...extra,
+});
+`;
+const OPENING_ON = { ...EXTERNAL_API, openingContext: true, openingContextQuery: "project setup" };
+const OPEN_MARKER = '<!--omms:opening query="project setup"-->\n';
+
+describe("Claude Code opening section", () => {
+  it("adds the opening section after the prompt's section on the first prompt only", async () => {
+    const scenario = await createHarness(OPENING_ON).run(`${OPENING_SETUP}
+const first = (await ask()).additionalContext;
+// The host has not written the second prompt yet: the web app's own record says it is not first.
+const repeated = (await ask()).additionalContext;
+turn("1", PROMPT, "A reply");
+const second = (await ask()).additionalContext;
+scenario = { first, repeated, second };
+`);
+    const { first } = scenario;
+    expect(first.startsWith("<omms-retrieval>\n<memory_context>")).toBe(true);
+    expect(first.endsWith("</omms-retrieval>")).toBe(true);
+    expect(first.split("<omms-retrieval>")).toHaveLength(3);
+    const at = first.indexOf(`<omms-retrieval>\n${OPEN_MARKER}<memory_context>`);
+    expect(at).toBeGreaterThan(0);
+    const promptPart = first.slice(0, at);
+    const openingPart = first.slice(at);
+    expect(promptPart).toContain("Prompt memory about libSQL storage");
+    expect(promptPart).not.toContain("Opening memory");
+    expect(openingPart).toContain("Opening memory about conventions");
+    expect(openingPart).not.toContain("mem_prompt");
+    expect(promptPart.trimEnd().endsWith("</omms-retrieval>")).toBe(true);
+    for (const later of [scenario.repeated, scenario.second] as string[]) {
+      expect(later.split("<omms-retrieval>")).toHaveLength(2);
+      expect(later).not.toContain("omms:opening");
+      expect(later).toContain("Prompt memory about libSQL storage");
+    }
+  });
+
+  it("adds no opening section to a session whose transcript holds earlier prompts", async () => {
+    // A new process has no record of the session, as after a web app restart.
+    const scenario = await createHarness(OPENING_ON).run(`${OPENING_SETUP}
+turn("0", "An earlier question", "An earlier reply");
+scenario = (await ask()).additionalContext;
+`);
+    expect(scenario.split("<omms-retrieval>")).toHaveLength(2);
+    expect(scenario).not.toContain("omms:opening");
+    expect(scenario).toContain("Prompt memory about libSQL storage");
+  });
+
+  it("counts a prompt the host already wrote to the transcript as the first prompt", async () => {
+    const scenario = await createHarness(OPENING_ON).run(`${OPENING_SETUP}
+turn("1", PROMPT, null);
+scenario = (await ask()).additionalContext;
+`);
+    expect(scenario).toContain(OPEN_MARKER);
+  });
+
+  it("does not count a slash command or skill entry as an earlier prompt", async () => {
+    // Claude Code writes `<command-message>` entries for a custom command or a skill.
+    const scenario = await createHarness(OPENING_ON).run(`${OPENING_SETUP}
+appendFileSync(transcript, entry("user", "cmd-1", "<command-message>fixture-skill</command-message>\\n<command-name>/fixture-skill</command-name>\\n<command-args>tidy notes</command-args>"));
+scenario = (await ask({ prompt: "/fixture-skill tidy notes" })).additionalContext;
+`);
+    expect(scenario).toContain(OPEN_MARKER);
+  });
+
+  it("counts a missing transcript file as first, and a missing or invalid path as not first", async () => {
+    const scenario = await createHarness(OPENING_ON).run(`${OPENING_SETUP}
+const missingFile = join(transcriptDir, "ses-missing.jsonl");
+scenario = {
+  missing: (await ask({ session_id: "ses-missing", transcript_path: missingFile })).additionalContext,
+  // Nothing matches the prompt, so the opening section stands alone.
+  openingOnly: (await ask({ session_id: "ses-missing-2", prompt: "Nothing matches this", transcript_path: join(transcriptDir, "ses-missing-2.jsonl") })).additionalContext,
+  wrongName: (await ask({ session_id: "ses-bad", transcript_path: "/etc/hosts" })).additionalContext,
+  outsideRoot: (await ask({ session_id: "ses-out", transcript_path: join(projectDir, "ses-out.jsonl") })).additionalContext,
+  noPath: (await ask({ session_id: "ses-none", transcript_path: undefined })).additionalContext,
+};
+`);
+    expect(scenario.missing).toContain(OPEN_MARKER);
+    expect(
+      scenario.openingOnly.startsWith(`<omms-retrieval>\n${OPEN_MARKER}<memory_context>`)
+    ).toBe(true);
+    expect(scenario.openingOnly.split("<omms-retrieval>")).toHaveLength(2);
+    for (const key of ["wrongName", "outsideRoot", "noPath"]) {
+      expect(scenario[key]).toContain("Prompt memory about libSQL storage");
+      expect(scenario[key]).not.toContain("omms:opening");
+    }
+  });
+
+  it("removes --> and double quotes from the query in the marker, and cuts it to 300 characters", async () => {
+    const messy = await createHarness({
+      ...OPENING_ON,
+      openingContextQuery: 'say "hi" --> now',
+    }).run(`${OPENING_SETUP}
+scenario = (await ask()).additionalContext;
+`);
+    expect(messy).toContain('<omms-retrieval>\n<!--omms:opening query="say hi - now"-->\n');
+    const long = await createHarness({ ...OPENING_ON, openingContextQuery: "q".repeat(500) })
+      .run(`${OPENING_SETUP}
+scenario = (await ask()).additionalContext;
+`);
+    expect(long).toContain(`<!--omms:opening query="${"q".repeat(300)}"-->\n`);
+    expect(long).not.toContain("q".repeat(301));
+  });
+
+  it("returns today's output byte for byte when the option is off", async () => {
+    const scenario = await createHarness({ ...EXTERNAL_API, openingContextQuery: "project setup" })
+      .run(`${OPENING_SETUP}
+const { buildRetrievalSection, retrievalWrapperBytes, wrapRetrievalSection } = await import(${JSON.stringify(moduleUrl("src/core/retrieval.js"))});
+const section = await buildRetrievalSection(PROMPT, projectDir, "ses-1", {
+  maxBytes: config.CONFIG.retrievalMaxTokens * 4, wrapperBytes: retrievalWrapperBytes(),
+});
+scenario = { answer: (await ask()).additionalContext, expected: wrapRetrievalSection(section), searched: searched.filter((q) => q === "project setup").length };
+`);
+    expect(scenario.answer).toBe(scenario.expected);
+    expect(scenario.answer).not.toContain("<!--omms:");
+    expect(scenario.searched).toBe(0);
+  });
+
+  it("adds nothing when per-prompt retrieval is off", async () => {
+    const scenario = await createHarness({ ...OPENING_ON, chatMessage: { enabled: false } }).run(
+      `${OPENING_SETUP}
+scenario = (await ask()).additionalContext;
+`
+    );
+    expect(scenario).toBe("");
+  });
+});
+
+describe("Claude Code visibleRecall marker", () => {
+  const MARKER = "<omms-retrieval>\n<!--omms:rows-off-->\n";
+  const PROMPT_ASK = `
+scenario = (await api.handleClaudeRetrieve({ event: "user-prompt-submit", session_id: "ses-new", cwd: projectDir, prompt: "How do we store memories?" })).additionalContext;
+`;
+  const recall = { ...EXTERNAL_API, similarityThreshold: 0 };
+
+  it("puts the marker first in the prompt's section when the global value is false", async () => {
+    const scenario = await createHarness({ ...recall, visibleRecall: false }).run(
+      `${SEED_MEMORIES}${PROMPT_ASK}`
+    );
+    expect(scenario.startsWith(`${MARKER}<memory_context>`)).toBe(true);
+    expect(scenario).toContain("Old project decision about libSQL");
+    expect(scenario.trimEnd().endsWith("</omms-retrieval>")).toBe(true);
+  });
+
+  it("adds no marker when the setting is on", async () => {
+    const scenario = await createHarness(recall).run(`${SEED_MEMORIES}${PROMPT_ASK}`);
+    expect(scenario.startsWith("<omms-retrieval>\n<memory_context>")).toBe(true);
+    expect(scenario).not.toContain("<!--omms:");
+  });
+
+  it("puts the marker in when a project config sets false", async () => {
+    const harness = createHarness(recall);
+    writeProjectConfig(harness.projectDir, { visibleRecall: false });
+    const scenario = await harness.run(`${SEED_MEMORIES}${PROMPT_ASK}`);
+    expect(scenario.startsWith(MARKER)).toBe(true);
+  });
+
+  it("keeps the marker when a project config sets true under a global false", async () => {
+    const harness = createHarness({ ...recall, visibleRecall: false });
+    writeProjectConfig(harness.projectDir, { visibleRecall: true });
+    const scenario = await harness.run(`${SEED_MEMORIES}${PROMPT_ASK}`);
+    expect(scenario.startsWith(MARKER)).toBe(true);
+  });
+
+  it("puts the marker in a restored section", async () => {
+    const scenario = await createHarness({ ...EXTERNAL_API, visibleRecall: false }).run(
+      `${SEED_MEMORIES}${COMPACT_ASK}`
+    );
+    for (const text of [scenario.compact, scenario.resume] as string[]) {
+      expect(text.startsWith(`${MARKER}## Restored Session Memory`)).toBe(true);
+      expect(text).toContain("Claude session memory about the parser");
+    }
+  });
+
+  it("gives the opening section the rows-off marker and no opening marker", async () => {
+    const scenario = await createHarness({ ...OPENING_ON, visibleRecall: false }).run(
+      `${OPENING_SETUP}
+scenario = (await ask()).additionalContext;
+`
+    );
+    expect(scenario.split("<omms-retrieval>")).toHaveLength(3);
+    expect(scenario.split(MARKER)).toHaveLength(3);
+    expect(scenario).not.toContain("omms:opening");
+    const openingPart = scenario.slice(scenario.indexOf("</omms-retrieval>"));
+    expect(openingPart).toContain("Opening memory about conventions");
+  });
+});
+
+describe("Claude Code subagent start", () => {
+  const TASK = "Find where memories are stored in the libSQL layer";
+  const SUBAGENT_SETUP = `
+const TASK = ${JSON.stringify(TASK)};
+const searched = [];
+const rowsFor = {
+  [TASK]: [{ id: "mem_task", similarity: 0.9, memory: "Task memory about libSQL storage" }],
+  "first task": [{ id: "mem_first", similarity: 0.9, memory: "Memory for the first task" }],
+  "second task": [{ id: "mem_second", similarity: 0.9, memory: "Memory for the second task" }],
+};
+memoryClient.searchMemories = async (query) => {
+  searched.push(query);
+  return { success: true, results: rowsFor[query] ?? [] };
+};
+const call = (id, name, input) =>
+  appendFileSync(transcript, entry("assistant", "a-" + id, [{ type: "tool_use", id, name, input }]));
+const answer = (id) =>
+  appendFileSync(transcript, entry("user", "r-" + id, [{ type: "tool_result", tool_use_id: id, content: "done" }]));
+const start = (agentType, extra = {}) => api.handleClaudeRetrieve({
+  event: "subagent-start", session_id: "ses-1", cwd: projectDir,
+  transcript_path: transcript, agent_type: agentType, ...extra,
+}).then((reply) => reply.additionalContext);
+turn("1", "Please explore the code", null);
+`;
+  const MARKER = "<omms-retrieval>\n<!--omms:rows-off-->\n";
+
+  it("returns one rows-off section for the unanswered call of the same type", async () => {
+    const scenario = await createHarness({ ...EXTERNAL_API, openingContext: true }).run(
+      `${SUBAGENT_SETUP}
+call("t1", "Agent", { description: "d", prompt: TASK, subagent_type: "Explore" });
+scenario = { text: await start("Explore"), searched };
+`
+    );
+    expect(scenario.text.startsWith(`${MARKER}<memory_context>`)).toBe(true);
+    expect(scenario.text).toContain("Task memory about libSQL storage");
+    expect(scenario.text.split("<omms-retrieval>")).toHaveLength(2);
+    expect(scenario.text).not.toContain("omms:opening");
+    expect(scenario.searched).toEqual([TASK]);
+  });
+
+  it("adds nothing when subagentMemory is false, globally or in a project", async () => {
+    const body = `${SUBAGENT_SETUP}
+call("t1", "Agent", { description: "d", prompt: TASK, subagent_type: "Explore" });
+scenario = { text: await start("Explore"), searched };
+`;
+    const global = await createHarness({ ...EXTERNAL_API, subagentMemory: false }).run(body);
+    expect(global).toEqual({ text: "", searched: [] });
+    const harness = createHarness();
+    writeProjectConfig(harness.projectDir, { subagentMemory: false });
+    expect(await harness.run(body)).toEqual({ text: "", searched: [] });
+  });
+
+  it("adds nothing when no unanswered call of that type exists", async () => {
+    const scenario = await createHarness().run(`${SUBAGENT_SETUP}
+call("t1", "Agent", { prompt: TASK, subagent_type: "Explore" });
+answer("t1");
+call("t2", "Agent", { prompt: TASK, subagent_type: "Plan" });
+scenario = {
+  answeredAndOtherType: await start("Explore"),
+  noType: await start("general-purpose"),
+  noPath: await start("Plan", { transcript_path: undefined }),
+  wrongName: await start("Plan", { transcript_path: "/etc/hosts" }),
+  searched,
+};
+`);
+    expect(scenario).toEqual({
+      answeredAndOtherType: "",
+      noType: "",
+      noPath: "",
+      wrongName: "",
+      searched: [],
+    });
+  });
+
+  it("gives parallel subagents of one type their own task, oldest call first, and each call once", async () => {
+    const scenario = await createHarness().run(`${SUBAGENT_SETUP}
+call("t1", "Agent", { prompt: "first task", subagent_type: "Explore" });
+call("t2", "Agent", { prompt: "second task", subagent_type: "Explore" });
+const first = await start("Explore");
+const second = await start("Explore");
+// Both calls are used. A start with no new call must not reuse one.
+const third = await start("Explore");
+scenario = { first, second, third, searched };
+`);
+    expect(scenario.first).toContain("Memory for the first task");
+    expect(scenario.second).toContain("Memory for the second task");
+    expect(scenario.third).toBe("");
+    expect(scenario.searched).toEqual(["first task", "second task"]);
+  });
+
+  it("skips an answered call", async () => {
+    const scenario = await createHarness().run(`${SUBAGENT_SETUP}
+call("t1", "Agent", { prompt: "first task", subagent_type: "Explore" });
+call("t2", "Agent", { prompt: "second task", subagent_type: "Explore" });
+answer("t1");
+const open = await start("Explore");
+scenario = { open, searched };
+`);
+    expect(scenario.open).toContain("Memory for the second task");
+    expect(scenario.searched).toEqual(["second task"]);
+  });
+
+  it("treats a background launch receipt as no answer, and uses the call once", async () => {
+    // Claude Code writes the receipt as the call's tool_result as soon as it launches the agent.
+    const scenario = await createHarness().run(`${SUBAGENT_SETUP}
+call("t1", "Agent", { prompt: "first task", subagent_type: "Explore" });
+appendFileSync(transcript, entry("user", "r-t1", [{ type: "tool_result", tool_use_id: "t1",
+  content: "Async agent launched successfully.\\nagentId: a123 (internal ID)\\nThe agent is working in the background." }]));
+const launched = await start("Explore");
+// The receipt keeps t1 open, but it was used: a later start with no new call finds nothing.
+const later = await start("Explore");
+scenario = { launched, later, searched };
+`);
+    expect(scenario.launched).toContain("Memory for the first task");
+    expect(scenario.later).toBe("");
+    expect(scenario.searched).toEqual(["first task"]);
+  });
+
+  it("matches a call with no subagent_type to general-purpose, and reads the Task tool name", async () => {
+    const scenario = await createHarness().run(`${SUBAGENT_SETUP}
+call("t1", "Agent", { description: "d", prompt: TASK });
+const general = await start("general-purpose");
+const explore = await start("Explore");
+call("t2", "Task", { prompt: "second task", subagent_type: "Explore" });
+scenario = { general, explore };
+`);
+    expect(scenario.general).toContain("Task memory about libSQL storage");
+    expect(scenario.general.startsWith(MARKER)).toBe(true);
+    expect(scenario.explore).toBe("");
+  });
+
+  it("adds nothing for a fully private task prompt", async () => {
+    const scenario = await createHarness().run(`${SUBAGENT_SETUP}
+call("t1", "Agent", { prompt: "<private>secret task</private>", subagent_type: "Explore" });
+scenario = { text: await start("Explore"), searched };
+`);
+    expect(scenario).toEqual({ text: "", searched: [] });
   });
 });
 

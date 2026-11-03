@@ -92,10 +92,17 @@ function createHarness(
     isInjectionEnabled: () => true,
     isCompactionEnabled: () => true,
     isVisibleRecallEnabled: () => true,
+    isSubagentMemoryEnabled: () => true,
     isInternalPrompt: () => false,
     recordPrompt: async () => {},
     snapshotRequestBudget: () => 8_000,
     retrieve: async () => THREE_MEMORIES,
+    // By default a first prompt has no opening section, as before the opening context existed.
+    retrieveFirstPrompt: async (prompt, sessionID, budgetBytes) => ({
+      promptSection: await memory.retrieve(prompt, sessionID, budgetBytes),
+      openingSection: null,
+      openingQuery: null,
+    }),
     restoreSession: async () => null,
     formatRestoredSession: () => null,
     ...options.memory,
@@ -110,12 +117,13 @@ function createHarness(
     return hooks.get("prompt")!({ sessionID, messageID, prompt: { text } });
   };
 
-  const context = async (sessionID: string) => {
+  // `history` lists user messages from before this process saw the session (a resumed session).
+  const context = async (sessionID: string, history: string[] = []) => {
     const event = {
       sessionID,
       model: { providerID: "anthropic", id: "claude" },
       system: [] as Array<{ type: string; text: string }>,
-      messages: (ids.get(sessionID) ?? []).map((id) => ({ id, role: "user" })),
+      messages: [...history, ...(ids.get(sessionID) ?? [])].map((id) => ({ id, role: "user" })),
     };
     await hooks.get("context")!(event);
     // The subagent lookup settles after the hook returns, so let it finish.
@@ -125,10 +133,18 @@ function createHarness(
 
   const list = async (sessionID: string) => handlers.list({ sessionID }, {});
 
+  const compaction = (sessionID: string) =>
+    hooks.get("compaction")!({
+      sessionID,
+      model: { providerID: "anthropic", id: "claude" },
+      system: [],
+    });
+
   return {
     emitted,
     prompt,
     context,
+    compaction,
     list,
     definitionID: () => definitionID,
     register: () => registerV2Adapter(ctx, legacy, memory),
@@ -527,5 +543,98 @@ describe("OpenCode v2 recall reporting", () => {
 
     await a();
     await b();
+  });
+});
+
+const OPENING_SECTION = [
+  "<omms-retrieval>",
+  '<memory id="o1" relevance="72%">',
+  "Project layout notes",
+  "</memory>",
+  "</omms-retrieval>",
+].join("\n");
+const OPENING_QUERY = "project architecture, setup, conventions and key decisions";
+const RESTORED = "## Restored Session Memory\n\n### Memory 1 (r1)\nUse WAL mode\n\n";
+
+describe("OpenCode v2 opening and restore summaries", () => {
+  const withOpening: Partial<V2MemoryBridge> = {
+    retrieveFirstPrompt: async () => ({
+      promptSection: THREE_MEMORIES,
+      openingSection: OPENING_SECTION,
+      openingQuery: OPENING_QUERY,
+    }),
+  };
+  const withRestore: Partial<V2MemoryBridge> = {
+    restoreSession: async () => [{ id: "r1", memory: "Use WAL mode", tags: [] }],
+    formatRestoredSession: () => RESTORED,
+  };
+
+  it("records a search summary and then an opening summary with the configured query", async () => {
+    const h = createHarness({ memory: withOpening });
+    const cleanup = await h.register();
+
+    await h.prompt("ses-1", "first question");
+    await h.context("ses-1");
+    await h.context("ses-1");
+
+    const items = (await h.list("ses-1")).items;
+    expect(items.map((item: any) => item.mode)).toEqual(["search", "opening"]);
+    expect(items[0].query).toBe("first question");
+    expect(items[1].query).toBe(OPENING_QUERY);
+    expect(items[1].items).toEqual([{ relevance: 72, id: "o1", headline: "Project layout notes" }]);
+    await cleanup();
+  });
+
+  it("records one restore summary for a compaction, however many requests follow", async () => {
+    const h = createHarness({ memory: withRestore });
+    const cleanup = await h.register();
+
+    await h.prompt("ses-1", "question");
+    await h.compaction("ses-1");
+    await h.context("ses-1");
+    await h.context("ses-1");
+    await h.context("ses-1");
+
+    const restore = (await h.list("ses-1")).items.filter((item: any) => item.mode === "restore");
+    expect(restore).toHaveLength(1);
+    expect(restore[0].query).toBeNull();
+    expect(restore[0].items).toEqual([{ relevance: null, id: "r1", headline: "Use WAL mode" }]);
+
+    await h.compaction("ses-1");
+    await h.context("ses-1");
+    await h.context("ses-1");
+    const after = (await h.list("ses-1")).items.filter((item: any) => item.mode === "restore");
+    expect(after).toHaveLength(2);
+    await cleanup();
+  });
+
+  it("records one restore summary for a resume, and no opening summary", async () => {
+    const h = createHarness({ memory: { ...withOpening, ...withRestore } });
+    const cleanup = await h.register();
+
+    await h.prompt("ses-1", "back again");
+    await h.context("ses-1", ["msg-old"]);
+    await h.context("ses-1", ["msg-old"]);
+
+    const items = (await h.list("ses-1")).items;
+    expect(items.map((item: any) => item.mode)).toEqual(["search", "restore"]);
+    await cleanup();
+  });
+
+  it("records no opening or restore summary for a session with a parent", async () => {
+    const h = createHarness({
+      memory: { ...withOpening, ...withRestore },
+      getSession: async ({ sessionID }) => ({ id: sessionID, parentID: "ses-root" }),
+    });
+    const cleanup = await h.register();
+
+    await h.prompt("ses-child", "task");
+    await h.context("ses-child", ["msg-old"]);
+    await h.compaction("ses-child");
+    await h.context("ses-child");
+
+    expect((await h.list("ses-child")).items).toEqual([]);
+    expect(h.emitted).toEqual([]);
+    await cleanup();
   });
 });

@@ -332,6 +332,150 @@ describe("global config writer", () => {
     expect(result.provider).toBe("Invalid memoryProvider setting");
   });
 
+  it("saves the memory injection switches and query, and removes the query on null", async () => {
+    const result = await scenario(
+      `
+      const { parse } = await import("jsonc-parser");
+      const read = () => parse(readFileSync(target, "utf8"));
+      await writeGlobalConfigKeys({ openingContext: true, subagentMemory: false }, readGlobalConfigRevision());
+      const switches = read();
+      await writeGlobalConfigKeys({ openingContext: false, subagentMemory: true }, readGlobalConfigRevision());
+      const switchedBack = read();
+      await writeGlobalConfigKeys({ openingContextQuery: "setup and tests" }, readGlobalConfigRevision());
+      const query = read().openingContextQuery;
+      await writeGlobalConfigKeys({ openingContextQuery: "" }, readGlobalConfigRevision());
+      const empty = read().openingContextQuery;
+      const padded = "   " + "q".repeat(500) + "   ";
+      await writeGlobalConfigKeys({ openingContextQuery: padded }, readGlobalConfigRevision());
+      const full = read().openingContextQuery;
+      await writeGlobalConfigKeys({ openingContextQuery: null }, readGlobalConfigRevision());
+      return { switches, switchedBack, query, empty, fullLength: full.trim().length,
+        removed: !("openingContextQuery" in read()), piModel: read().piModel };
+    `,
+      '{ "piModel": "old" }\n'
+    );
+    expect(result.switches).toMatchObject({ openingContext: true, subagentMemory: false });
+    expect(result.switchedBack).toMatchObject({ openingContext: false, subagentMemory: true });
+    expect(result.query).toBe("setup and tests");
+    expect(result.empty).toBe("");
+    expect(result.fullLength).toBe(500);
+    expect(result.removed).toBe(true);
+    expect(result.piModel).toBe("old");
+  });
+
+  it("rejects bad memory injection values without echoing them or changing the file", async () => {
+    const seed = '{ "piModel": "old" }\n';
+    const result = await scenario(
+      `
+      const marker = "ECHOMARK-4417";
+      const errors = [];
+      for (const edits of [
+        { openingContext: "yes" },
+        { subagentMemory: "yes" },
+        { openingContext: marker },
+        { openingContextQuery: marker + "x".repeat(501 - marker.length) },
+        { openingContextQuery: 5 },
+        { openingContextQuery: [marker] },
+      ]) {
+        try { await writeGlobalConfigKeys(edits, readGlobalConfigRevision()); }
+        catch (error) { errors.push(error.message); }
+      }
+      return { errors, unchanged: readFileSync(target, "utf8") === ${JSON.stringify(seed)} };
+    `,
+      seed
+    );
+    expect(result.errors).toEqual([
+      "Invalid openingContext setting",
+      "Invalid subagentMemory setting",
+      "Invalid openingContext setting",
+      "openingContextQuery must be text of 500 characters or fewer",
+      "openingContextQuery must be text of 500 characters or fewer",
+      "openingContextQuery must be text of 500 characters or fewer",
+    ]);
+    expect(result.errors.join("\n")).not.toContain("ECHOMARK");
+    expect(result.unchanged).toBe(true);
+  });
+
+  it("resets the three switches with null: the key leaves the file, other keys stay", async () => {
+    const result = await scenario(
+      `
+      const { parse } = await import("jsonc-parser");
+      const read = () => parse(readFileSync(target, "utf8"));
+      await writeGlobalConfigKeys(
+        { openingContext: null, subagentMemory: null, "compaction.enabled": null },
+        readGlobalConfigRevision()
+      );
+      return read();
+    `,
+      '{\n  "openingContext": true,\n  "subagentMemory": false,\n  "compaction": { "enabled": false, "memoryLimit": 20 },\n  "piModel": "old"\n}\n'
+    );
+    expect(result.openingContext).toBeUndefined();
+    expect(result.subagentMemory).toBeUndefined();
+    expect(result.compaction).toEqual({ memoryLimit: 20 });
+    expect(result.piModel).toBe("old");
+  });
+
+  it("writes compaction.enabled at its nested path and keeps compaction.memoryLimit", async () => {
+    const result = await scenario(
+      `
+      const { parse } = await import("jsonc-parser");
+      const read = () => parse(readFileSync(target, "utf8"));
+      await writeGlobalConfigKeys({ "compaction.enabled": false }, readGlobalConfigRevision());
+      const off = read();
+      await writeGlobalConfigKeys({ "compaction.enabled": true }, readGlobalConfigRevision());
+      const on = read();
+      return { off, on, text: readFileSync(target, "utf8") };
+    `,
+      '{\n  // keep me\n  "compaction": { "enabled": true, "memoryLimit": 20 }\n}\n'
+    );
+    expect(result.off.compaction).toEqual({ enabled: false, memoryLimit: 20 });
+    expect(result.on.compaction).toEqual({ enabled: true, memoryLimit: 20 });
+    expect(result.on["compaction.enabled"]).toBeUndefined();
+    expect(result.text).toContain("// keep me");
+  });
+
+  it("saves and resets compaction.memoryLimit and refuses bad restore values without echoing them", async () => {
+    const result = await scenario(
+      `
+      const { parse } = await import("jsonc-parser");
+      const read = () => parse(readFileSync(target, "utf8"));
+      await writeGlobalConfigKeys({ "compaction.memoryLimit": 25 }, readGlobalConfigRevision());
+      const saved = read();
+      const before = readFileSync(target, "utf8");
+      const errors = [];
+      for (const edits of [
+        { "compaction.memoryLimit": 0 },
+        { "compaction.memoryLimit": -3 },
+        { "compaction.memoryLimit": 2.5 },
+        { "compaction.memoryLimit": "RESTOREMARK-9" },
+        { "compaction.enabled": "yes" },
+        { "compaction.enabled": "RESTOREMARK-9" },
+      ]) {
+        try { await writeGlobalConfigKeys(edits, readGlobalConfigRevision()); }
+        catch (error) { errors.push(error.message); }
+      }
+      const unchanged = readFileSync(target, "utf8") === before;
+      await writeGlobalConfigKeys({ "compaction.memoryLimit": null }, readGlobalConfigRevision());
+      return { saved, errors, unchanged, reset: read() };
+    `,
+      '{ "compaction": { "enabled": false } }\n'
+    );
+    expect(result.saved.compaction).toEqual({ enabled: false, memoryLimit: 25 });
+    expect(result.saved["compaction.memoryLimit"]).toBeUndefined();
+    const limitError = "Invalid compaction.memoryLimit setting: accepted positive safe integers";
+    expect(result.errors).toEqual([
+      limitError,
+      limitError,
+      limitError,
+      limitError,
+      "Invalid compaction.enabled setting",
+      "Invalid compaction.enabled setting",
+    ]);
+    expect(result.errors.join("\n")).not.toContain("RESTOREMARK");
+    expect(result.unchanged).toBe(true);
+    expect(result.reset.compaction).toEqual({ enabled: false });
+  });
+
   it("creates a missing config from the template", async () => {
     const result = await scenario(`
       await writeGlobalConfigKeys({ piModel: "test" }, readGlobalConfigRevision());

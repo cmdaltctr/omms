@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import { runBunProcess, TEST_PARENT_TIMEOUT_MS } from "./test-process.js";
 
 // Task 4.3 for Claude Code: every section the hook api returns (prompt
-// retrieval, session-start recent memories, compaction/resume restore) is
+// retrieval, opening section, compaction/resume restore) is
 // packed within the configured retrievalMaxTokens budget with the wrapper
 // reserved, a later config edit applies to the next request, and the hook
 // client's fixed transport cap keeps the wrapper closed on top of the budget.
@@ -20,7 +20,10 @@ afterEach(() => {
 
 const moduleUrl = (path: string) => pathToFileURL(join(import.meta.dir, "..", path)).href;
 
-function createHarness(initialTokens: number): {
+function createHarness(
+  initialTokens: number,
+  extraConfig: Record<string, unknown> = {}
+): {
   home: string;
   projectDir: string;
   run: (code: string) => Promise<any>;
@@ -39,6 +42,7 @@ function createHarness(initialTokens: number): {
         userEmailOverride: "dev@example.com",
         injectProfile: false,
         retrievalMaxTokens: tokens,
+        ...extraConfig,
       })
     );
   writeConfig(initialTokens);
@@ -138,8 +142,8 @@ const prompt = await sectionOf({
   event: "user-prompt-submit", session_id: "ses-1", cwd: projectDir,
   prompt: "how should answers be formatted?",
 });
-const recent = await sectionOf({
-  event: "session-start", session_id: "fresh-session", cwd: projectDir,
+const startup = await sectionOf({
+  event: "session-start", session_id: "fresh-session", cwd: projectDir, source: "startup",
 });
 const restored = await sectionOf({
   event: "session-start", session_id: "ses-1", cwd: projectDir, source: "compact",
@@ -147,7 +151,7 @@ const restored = await sectionOf({
 scenario = {
   budget,
   prompt: { bytes: byteLength(prompt), closed: closed(prompt), hasMemory: prompt.includes("short answers") },
-  recent: { bytes: byteLength(recent), closed: closed(recent), hasMemory: recent.includes("short answers") },
+  startup,
   restored: { bytes: byteLength(restored), closed: closed(restored), hasMemory: restored.includes("short answers") },
 };
 `);
@@ -156,9 +160,7 @@ scenario = {
       expect(output.prompt.hasMemory).toBe(true);
       expect(output.prompt.bytes).toBeLessThanOrEqual(output.budget);
 
-      expect(output.recent.closed).toBe(true);
-      expect(output.recent.hasMemory).toBe(true);
-      expect(output.recent.bytes).toBeLessThanOrEqual(output.budget);
+      expect(output.startup).toBe("");
 
       expect(output.restored.closed).toBe(true);
       expect(output.restored.hasMemory).toBe(true);
@@ -166,6 +168,100 @@ scenario = {
     },
     TEST_PARENT_TIMEOUT_MS
   );
+
+  it(
+    "keeps the rows-off marker inside the budget and the transport cap",
+    async () => {
+      const small = createHarness(300, { visibleRecall: false });
+      const output = await small.run(`
+const marker = "<omms-retrieval>\\n<!--omms:rows-off-->\\n";
+const prompt = await sectionOf({
+  event: "user-prompt-submit", session_id: "ses-1", cwd: projectDir,
+  prompt: "how should answers be formatted?",
+});
+const restored = await sectionOf({
+  event: "session-start", session_id: "ses-1", cwd: projectDir, source: "compact",
+});
+scenario = {
+  budget: tokensOf() * 4,
+  prompt: { bytes: byteLength(prompt), closed: closed(prompt), marked: prompt.startsWith(marker), hasMemory: prompt.includes("short answers") },
+  restored: { bytes: byteLength(restored), closed: closed(restored), marked: restored.startsWith(marker), hasMemory: restored.includes("short answers") },
+};
+`);
+      for (const section of [output.prompt, output.restored]) {
+        expect(section.marked).toBe(true);
+        expect(section.closed).toBe(true);
+        expect(section.hasMemory).toBe(true);
+        expect(section.bytes).toBeLessThanOrEqual(output.budget);
+      }
+
+      const large = createHarness(65536, { visibleRecall: false });
+      const cut = await large.run(`
+const marker = "<omms-retrieval>\\n<!--omms:rows-off-->\\n";
+const section = await sectionOf({
+  event: "user-prompt-submit", session_id: "ses-1", cwd: projectDir,
+  prompt: "how should answers be formatted?",
+});
+const transport = truncateContext(section);
+scenario = {
+  sectionBytes: byteLength(section),
+  chars: transport.length,
+  limit: CLAUDE_CONTEXT_LIMIT,
+  marked: transport.startsWith(marker),
+  closed: closed(transport),
+};
+`);
+      expect(cut.sectionBytes).toBeGreaterThan(9500);
+      expect(cut.chars).toBeLessThanOrEqual(cut.limit);
+      expect(cut.marked).toBe(true);
+      expect(cut.closed).toBe(true);
+    },
+    TEST_PARENT_TIMEOUT_MS
+  );
+
+  for (const rowsOff of [false, true]) {
+    it(
+      `keeps the prompt section and the opening section within one budget (rows ${rowsOff ? "off" : "on"})`,
+      async () => {
+        const h = createHarness(1000, {
+          openingContext: true,
+          openingContextQuery: "project setup",
+          ...(rowsOff ? { visibleRecall: false } : {}),
+        });
+        const output = await h.run(`
+const small = "Short prompt memory about formatting. ".repeat(4);
+const rows = {
+  "how should answers be formatted?": [{ id: "mem_prompt", similarity: 0.9, memory: small }],
+  "project setup": [{ id: "mem_open", similarity: 0.8, memory: "Opening memory about setup. ".repeat(400) }],
+};
+memoryClient.searchMemories = async (query) => ({ success: true, results: rows[query] ?? [] });
+const text = await sectionOf({
+  event: "user-prompt-submit", session_id: "ses-1", cwd: projectDir,
+  prompt: "how should answers be formatted?",
+  transcript_path: ${JSON.stringify(join(h.home, ".claude", "projects", "-proj", "ses-1.jsonl"))},
+});
+scenario = {
+  budget: tokensOf() * 4,
+  bytes: byteLength(text),
+  sections: text.split("<omms-retrieval>").length - 1,
+  closed: closed(text),
+  hasPrompt: text.includes("Short prompt memory"),
+  hasOpening: text.includes("Opening memory about setup"),
+  opening: text.includes("omms:opening"),
+  rowsOff: text.split("<!--omms:rows-off-->").length - 1,
+};
+`);
+        expect(output.sections).toBe(2);
+        expect(output.closed).toBe(true);
+        expect(output.hasPrompt).toBe(true);
+        expect(output.hasOpening).toBe(true);
+        expect(output.opening).toBe(!rowsOff);
+        expect(output.rowsOff).toBe(rowsOff ? 2 : 0);
+        expect(output.bytes).toBeLessThanOrEqual(output.budget);
+      },
+      TEST_PARENT_TIMEOUT_MS
+    );
+  }
 
   it(
     "applies a config edit to the next request",

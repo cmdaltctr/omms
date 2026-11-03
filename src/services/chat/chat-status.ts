@@ -1,4 +1,5 @@
 import { isPlaceholderApiKey } from "../ai/api-key-placeholder.js";
+import { isLocalApiUrl } from "../ai/local-api-url.js";
 
 export interface ChatSettings {
   memoryProvider?: string;
@@ -26,7 +27,9 @@ export function chatStatus(config: ChatSettings): ChatStatus {
   const missing: string[] = [];
   if (!config.memoryModel && !presetEndpoint) missing.push("memoryModel");
   if (!config.memoryApiUrl && !presetEndpoint) missing.push("memoryApiUrl");
-  if (!config.memoryApiKey || isPlaceholderApiKey(config.memoryApiKey)) {
+  // A model server on this machine needs no key. A placeholder that was left in the box is still flagged.
+  const keyOptional = !config.memoryApiKey && isLocalApiUrl(config.memoryApiUrl);
+  if (!keyOptional && (!config.memoryApiKey || isPlaceholderApiKey(config.memoryApiKey))) {
     missing.push("memoryApiKey");
   }
   return {

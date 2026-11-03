@@ -5,7 +5,8 @@
  * because many tests stub `src/config.js`.
  *
  * Read the effective value from `CONFIG.visibleRecall`. It is on by default,
- * and only an explicit `false` turns it off.
+ * and only an explicit `false` turns it off. It applies to OpenCode, Pi and
+ * Claude Code.
  */
 
 /**
@@ -15,7 +16,11 @@
  * which is why they compare with `=== false`.
  */
 export interface VisibleRecallFileKey {
-  /** Draw a row in the OpenCode TUI for each memory recall. Default true. A project can only turn it off. */
+  /**
+   * Draw a row in the OpenCode TUI, the Pi terminal and the Claude Code reply for each memory
+   * recall. On Claude Code the hook marks each injected section when rows are off, because the
+   * recall rows read only the injected text. Default true. A project can only turn it off.
+   */
   visibleRecall?: boolean;
 }
 

@@ -8,6 +8,15 @@ import {
   unfoldLines,
   type RecallSummary,
 } from "../src/core/recall-summary.js";
+import { formatMemoriesForCompaction, wrapRetrievalSection } from "../src/core/retrieval.js";
+
+// Real restored-session output, as every host injects it after compaction or resume.
+const RESTORED = wrapRetrievalSection(
+  formatMemoriesForCompaction([
+    { id: "mem_r1", memory: "## Request\nUse WAL mode for the queue.\n\n## Outcome\nDone." },
+    { memory: "A restored memory without an id.", tags: ["db"] },
+  ])
+);
 
 // Same shape `formatContextForPrompt` emits: header, optional profile, then memories with an id.
 const SECTION = `<memory_context>
@@ -62,6 +71,29 @@ describe("buildRecallSummary", () => {
 
   it("forces the query to null in recent mode", () => {
     expect(buildRecallSummary(SECTION, "recent", "ignored")?.query).toBeNull();
+  });
+
+  it("keeps the query for an opening recall", () => {
+    const summary = buildRecallSummary(SECTION, "opening", "project setup");
+    expect(summary?.mode).toBe("opening");
+    expect(summary?.query).toBe("project setup");
+    expect(summary?.items).toHaveLength(3);
+  });
+
+  it("reads a restored section with no query and no relevance", () => {
+    expect(buildRecallSummary(RESTORED, "restore", "ignored")).toEqual({
+      mode: "restore",
+      query: null,
+      items: [
+        { relevance: null, id: "mem_r1", headline: "Use WAL mode for the queue." },
+        { relevance: null, headline: "A restored memory without an id." },
+      ],
+    });
+  });
+
+  it("returns null for a restored section that holds no memory", () => {
+    expect(buildRecallSummary(wrapRetrievalSection(""), "restore", null)).toBeNull();
+    expect(buildRecallSummary(formatMemoriesForCompaction([]), "restore", null)).toBeNull();
   });
 
   it("reads a section wrapped in the omms-retrieval tag", () => {
@@ -219,6 +251,24 @@ describe("callTitle", () => {
     expect(callTitle({ mode: "recent", query: null, items })).toBe("memory [mode=recent, limit=2]");
   });
 
+  it("names the configured query for an opening recall", () => {
+    const query = "project architecture, setup, conventions and key decisions";
+    expect(callTitle({ mode: "opening", query, items: [...items, items[0]!] })).toBe(
+      `memory [mode=opening, query="${query}", limit=3]`
+    );
+  });
+
+  it("leaves out the query for a restore", () => {
+    const summary = buildRecallSummary(
+      wrapRetrievalSection(
+        formatMemoriesForCompaction(["one", "two", "three", "four"].map((memory) => ({ memory })))
+      ),
+      "restore",
+      "ignored"
+    )!;
+    expect(callTitle(summary)).toBe("memory [mode=restore, limit=4]");
+  });
+
   it("cuts a long, multi-line query to one 60-character line", () => {
     const title = callTitle({ mode: "search", query: `${"x".repeat(100)}\nnext`, items });
     expect(title).toBe(`memory [mode=search, query="${"x".repeat(57)}...", limit=2]`);
@@ -244,6 +294,15 @@ describe("unfoldLines", () => {
       "limit: 2",
       "1. 80% a",
       "2. 70% b",
+    ]);
+  });
+
+  it("shows restored memories without a relevance", () => {
+    expect(unfoldLines(buildRecallSummary(RESTORED, "restore", null)!)).toEqual([
+      "mode: restore",
+      "limit: 2",
+      "1. id=mem_r1 Use WAL mode for the queue.",
+      "2. A restored memory without an id.",
     ]);
   });
 

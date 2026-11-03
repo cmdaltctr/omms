@@ -1295,6 +1295,60 @@ const text = {
   ],
   "How to set up": ["如何设置", "كيفية الإعداد"],
   "Ignore all": ["全部忽略", "تجاهل الكل"],
+  "Memory injection": ["记忆注入", "حقن الذاكرة"],
+  "Inject memories at session start": ["在会话开始时注入记忆", "حقن الذكريات عند بدء الجلسة"],
+  "Added to the first message of a new session. OMMS searches the query below and adds only matching memories.":
+    [
+      "添加到新会话的第一条消息中。OMMS 会用下面的查询进行搜索，只添加匹配的记忆。",
+      "تُضاف إلى أول رسالة في جلسة جديدة. يبحث OMMS بالاستعلام أدناه ويضيف الذكريات المطابقة فقط.",
+    ],
+  "Session-start search query": ["会话开始搜索查询", "استعلام البحث عند بدء الجلسة"],
+  "Subagent memory": ["子代理记忆", "ذاكرة الوكلاء الفرعيين"],
+  "Subagents get memories that match their task. No rows are shown for them.": [
+    "子代理会获得与其任务匹配的记忆。不会为它们显示记忆行。",
+    "يحصل الوكلاء الفرعيون على الذكريات المطابقة لمهمتهم. لا تُعرض لهم أي صفوف.",
+  ],
+  "Restore memories after compaction or resume": [
+    "压缩或恢复后还原记忆",
+    "استعادة الذكريات بعد الضغط أو الاستئناف",
+  ],
+  "Most memories to restore": ["最多还原的记忆数", "أقصى عدد من الذكريات للاستعادة"],
+  "Applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. On Pi, subagent memory needs om-pi-subagents to load OMMS.":
+    [
+      "适用于 OpenCode V2、Pi 和 Claude Code，不包括 OpenCode V1。在 Pi 上，子代理记忆需要 om-pi-subagents 来加载 OMMS。",
+      "ينطبق على OpenCode V2 وPi وClaude Code. لا يشمل OpenCode V1. على Pi تحتاج ذاكرة الوكلاء الفرعيين إلى om-pi-subagents لتحميل OMMS.",
+    ],
+  "A project config can turn the session-start and subagent options off. It can turn restore on or off.":
+    [
+      "项目配置只能关闭会话开始和子代理选项，但可以开启或关闭还原。",
+      "يمكن لإعدادات المشروع إيقاف خياري بدء الجلسة والوكلاء الفرعيين فقط، ويمكنها تشغيل الاستعادة أو إيقافها.",
+    ],
+  "Saved. The next session uses these options.": [
+    "已保存。下一个会话将使用这些选项。",
+    "تم الحفظ. ستستخدم الجلسة التالية هذه الخيارات.",
+  ],
+  "The memory injection settings could not be loaded. Reload the page to try again.": [
+    "无法加载记忆注入设置。请重新加载页面后重试。",
+    "تعذّر تحميل إعدادات حقن الذاكرة. أعد تحميل الصفحة للمحاولة مرة أخرى.",
+  ],
+  "Session start {opening} · Subagents {subagent} · Restore {restore}": [
+    "会话开始 {opening} · 子代理 {subagent} · 还原 {restore}",
+    "بدء الجلسة {opening} · الوكلاء الفرعيون {subagent} · الاستعادة {restore}",
+  ],
+  "Invalid openingContext setting": ["openingContext 设置无效", "إعداد openingContext غير صالح"],
+  "Invalid subagentMemory setting": ["subagentMemory 设置无效", "إعداد subagentMemory غير صالح"],
+  "Invalid compaction.enabled setting": [
+    "compaction.enabled 设置无效",
+    "إعداد compaction.enabled غير صالح",
+  ],
+  "Invalid compaction.memoryLimit setting: accepted positive safe integers": [
+    "compaction.memoryLimit 设置无效：只接受正整数",
+    "إعداد compaction.memoryLimit غير صالح: يُقبل عدد صحيح موجب فقط",
+  ],
+  "openingContextQuery must be text of 500 characters or fewer": [
+    "openingContextQuery 必须是不超过 500 个字符的文本",
+    "يجب أن يكون openingContextQuery نصاً لا يزيد عن 500 حرف",
+  ],
   "Import all hosts": ["导入所有宿主", "استيراد كل المضيفين"],
   "Import progress": ["导入进度", "تقدم الاستيراد"],
   "Running · history imported {date}": [

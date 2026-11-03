@@ -19,7 +19,16 @@ afterEach(() => {
 const url = (path: string) => new URL(path, import.meta.url).href;
 
 /** Builds the three injected sections in a fresh process, so module mocks do not leak. */
-function buildSections(): { prompt: string; fresh: string; restored: string; cut: string } {
+function buildSections(): {
+  prompt: string;
+  fresh: string;
+  restored: string;
+  cut: string;
+  off: string;
+  restoredOff: string;
+  opening: string;
+  both: string;
+} {
   const dir = mkdtempSync(join(tmpdir(), "omms-recall-contract-"));
   tempDirs.push(dir);
   const scriptPath = join(dir, "scenario.mjs");
@@ -31,6 +40,9 @@ import { mock } from "bun:test";
 const rows = [
   { id: "mem_alpha", similarity: 0.67, memory: "## Request\\nUser asked to add a claude-adapter.\\n\\n## Outcome\\nStarted." },
   { id: "mem_beta", similarity: 0.62, memory: "OMMS global embeddings use llama.cpp." },
+];
+const openingRows = [
+  { id: "mem_open", similarity: 0.7, memory: "## Request\\nSet up the project with bun." },
 ];
 const recent = [
   { id: "mem_recent", summary: "Release 4.4 shipped.", createdAt: new Date().toISOString(), metadata: {} },
@@ -47,7 +59,10 @@ mock.module(${JSON.stringify(url("../src/services/tags.js"))}, () => ({
 }));
 mock.module(${JSON.stringify(url("../src/services/client.js"))}, () => ({
   memoryClient: {
-    searchMemories: async () => ({ success: true, results: rows }),
+    searchMemories: async (query) => ({
+      success: true,
+      results: query === "project setup" ? openingRows : rows,
+    }),
     listMemories: async () => ({ success: true, memories: recent }),
   },
 }));
@@ -58,6 +73,8 @@ const {
   formatMemoriesForCompaction,
   wrapRetrievalSection,
 } = await import(${JSON.stringify(url("../src/core/retrieval.js"))});
+const { buildFirstPromptSections } = await import(${JSON.stringify(url("../src/core/opening-context.js"))});
+const { ROWS_OFF_MARKER, openingMarker, insertMarker } = await import(${JSON.stringify(url("../src/importer/claude-hook-context.js"))});
 const { truncateContext } = await import(${JSON.stringify(url("../src/adapters/claude-code/hook-client.js"))});
 
 const prompt = wrapRetrievalSection(await buildRetrievalSection("how did we add the adapter", "/work", "ses-1"));
@@ -73,7 +90,15 @@ const restored = wrapRetrievalSection(
 // Claude Code caps hook context, and the hook cuts the text to fit. The cut
 // keeps the closing tag, so leave room for it after the second memory's start.
 const cut = truncateContext(prompt, prompt.indexOf("OMMS global") + 10 + "\\n</omms-retrieval>".length);
-console.log(JSON.stringify({ prompt, fresh, restored, cut }));
+const off = insertMarker(prompt, ROWS_OFF_MARKER);
+const restoredOff = insertMarker(restored, ROWS_OFF_MARKER);
+const first = await buildFirstPromptSections({
+  prompt: "how did we add the adapter", openingQuery: "project setup", directory: "/work",
+  sessionId: "ses-1", budget: { maxBytes: 8000 }, openingReserveBytes: 0,
+});
+const opening = insertMarker(first.openingSection, openingMarker("project setup"));
+const both = first.promptSection + "\\n" + opening;
+console.log(JSON.stringify({ prompt, fresh, restored, cut, off, restoredOff, opening, both }));
 `
   );
   const proc = Bun.spawnSync(["bun", scriptPath], { stdout: "pipe", stderr: "pipe" });
@@ -108,6 +133,66 @@ describe("recall parser against real OMMS output", () => {
     ]);
   });
 
+  it("tells a restored section from other sections", async () => {
+    const { restored } = await loadParser();
+    const sections = buildSections();
+    expect(restored(sections.restored)).toBe(true);
+    expect(restored(sections.prompt)).toBe(false);
+    expect(restored(sections.opening)).toBe(false);
+  });
+
+  it("finds the rows-off marker in the off state and not in the on state", async () => {
+    const { rowsOff, recalledIn } = await loadParser();
+    const sections = buildSections();
+    expect(rowsOff(sections.off)).toBe(true);
+    expect(rowsOff(sections.restoredOff)).toBe(true);
+    expect(rowsOff(sections.prompt)).toBe(false);
+    expect(rowsOff(sections.restored)).toBe(false);
+    // The marker does not hide the memories from the parser; the module gates on it.
+    expect(recalledIn(sections.off).map((item: { id: string }) => item.id)).toEqual([
+      "mem_alpha",
+      "mem_beta",
+    ]);
+  });
+
+  it("reads the configured query from the opening marker", async () => {
+    const { openingQuery, rowsOff } = await loadParser();
+    const sections = buildSections();
+    expect(openingQuery(sections.opening)).toBe("project setup");
+    expect(rowsOff(sections.opening)).toBe(false);
+    expect(openingQuery(sections.prompt)).toBeNull();
+    expect(openingQuery(sections.restored)).toBeNull();
+  });
+
+  it("splits a prompt section and an opening section into two kinds", async () => {
+    const { sectionsIn } = await loadParser();
+    expect(sectionsIn(buildSections().both)).toEqual([
+      {
+        kind: "search",
+        query: null,
+        items: [
+          { relevance: 67, id: "mem_alpha", text: "User asked to add a claude-adapter." },
+          { relevance: 62, id: "mem_beta", text: "OMMS global embeddings use llama.cpp." },
+        ],
+      },
+      {
+        kind: "opening",
+        query: "project setup",
+        items: [{ relevance: 70, id: "mem_open", text: "Set up the project with bun." }],
+      },
+    ]);
+  });
+
+  it("gives a restored section its own kind and skips a rows-off section", async () => {
+    const { sectionsIn } = await loadParser();
+    const sections = buildSections();
+    expect(sectionsIn(sections.restored).map((section: { kind: string }) => section.kind)).toEqual([
+      "restore",
+    ]);
+    expect(sectionsIn(sections.off)).toEqual([]);
+    expect(sectionsIn(sections.restoredOff)).toEqual([]);
+  });
+
   it("still reads a section the hook cut short", async () => {
     const { recalledIn } = await loadParser();
     const found = recalledIn(buildSections().cut);
@@ -128,6 +213,8 @@ describe("recall parser against real OMMS output", () => {
     expect(callTitle({ mode: "search", query: "find\n the thing", items })).toBe(
       'memory [mode=search, query="find the thing", limit=1]'
     );
-    expect(callTitle({ mode: "recent", query: null, items })).toBe("memory [mode=recent, limit=1]");
+    expect(callTitle({ mode: "restore", query: null, items })).toBe(
+      "memory [mode=restore, limit=1]"
+    );
   });
 });

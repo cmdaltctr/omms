@@ -82,11 +82,13 @@ interface SessionState {
   dirty: boolean;
 }
 
+const SUMMARY_MODES: ReadonlySet<unknown> = new Set(["search", "recent", "opening", "restore"]);
+
 function isSummary(value: unknown): value is RecallSummary {
   const v = value as Partial<RecallSummary> | null;
   return (
     !!v &&
-    (v.mode === "search" || v.mode === "recent") &&
+    SUMMARY_MODES.has(v.mode) &&
     Array.isArray(v.items) &&
     v.items.every((item) => !!item && typeof item.headline === "string")
   );

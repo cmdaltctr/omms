@@ -15,15 +15,25 @@ settings, memory builds up as you work.
      `"external"`.
 3. Work normally. Capture runs when an OpenCode session goes idle or a Pi turn
    settles. It stores the useful technical context.
-4. OMMS adds relevant memories to the agent's context by itself:
-   - On OpenCode v2 and Pi, every prompt runs a semantic search of the project
-     memory. The matches go in an `<omms-retrieval>` system section, never in
-     a chat message.
-     In the OpenCode terminal TUI, each recall also shows as a fold row above
-     the prompt. See [OpenCode adapter: Recall rows](opencode-adapter.md#recall-rows).
+4. OMMS adds relevant memories to the agent's context by itself. By default
+   a host adds only what the prompt needs:
+   - On OpenCode v2, Pi and Claude Code, every prompt runs a semantic search of
+     the project memory. The matches go in an `<omms-retrieval>` section, never
+     in a chat message. Nothing is added before your first prompt.
+     In the OpenCode terminal TUI, Pi's interactive terminal and Claude Code,
+     each recall also shows as a fold row. See
+     [OpenCode adapter: Recall rows](opencode-adapter.md#recall-rows),
+     [Pi adapter: Recall rows](pi-adapter.md#recall-rows) and
+     [Claude Code adapter: Recall rows](claude-code-adapter.md#memory-tool-and-recall-rows).
+   - Optional: set `openingContext` to `true` to add the memories that match
+     `openingContextQuery` to the first message of a new session, on all three
+     hosts. See [Configuration: Memory injection](configuration.md#memory-injection).
+   - Subagents get the memories that match their task (`subagentMemory`, on by
+     default). Pi needs om-pi-subagents to load OMMS in its subagents.
    - On OpenCode v1, the most recent memories go into the first message of a
-     session (`chatMessage.injectOn`).
-   - After compaction, the session's own memories are put back.
+     session (`chatMessage.injectOn`). OpenCode v1 ignores the new settings.
+   - After compaction and after a resume, the session's own memories are put
+     back as a short reminder, on every host (`compaction.enabled`).
    - The added memories are the closest matches only. Their header tells the agent to search the full store. See [When agents search memory](#when-agents-search-memory).
    - Search matches by meaning and by exact words. A memory that contains a word from your prompt (an identifier such as `ADR-023`, a tool name, a tag) gets a small score bonus, set by `keywordBoost`. See [Keyword matching](configuration.md#keyword-matching). No extra model call is made. The Memory page can switch to an experimental rank fusion mode: see [Memory page: Keyword matching](web-ui-memory.md#keyword-matching).
    - The profile block in that section also follows the prompt. About half of the preferences, patterns and workflows are the ones closest to the prompt. The rest are the usual top items, so the block is not the same for every prompt.
@@ -201,6 +211,23 @@ Do the same with `import-opencode-history` and `import-claude-history`. Commands
 [Memory's preview](web-ui-memory.md#analysis-call-estimates) counts eligible non-trivial history and the shared waiting backlog once. Additional matching, deduplication, retries or newly waiting prompts can add calls.
 
 Profile identities still follow git emails. **All hosts** does not merge different emails. Use [Profiles in Settings](web-ui-settings.md#profiles) to choose or merge identities when more than one active profile exists.
+
+## Host differences
+
+OpenCode v2, Pi and Claude Code share one store and one set of settings. These
+differences stay, each for a reason. When a new difference appears, add a row
+with its reason.
+
+| Capability                         | OpenCode v2                             | Pi                                               | Claude Code                                      | Why                                                                                                                                                                                                                  |
+| ---------------------------------- | --------------------------------------- | ------------------------------------------------ | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fold or unfold recall rows         | Click the row, or `/omms-recall`        | `/omms-recall`                                   | Press the row                                    | Claude Code draws each row inside its reply, and the module handles the press there. OMMS has no in-session command on Claude Code.                                                                                  |
+| In-session history import          | `/memory-import-opencode-history`       | `/memory-import-pi-history`                      | None: automatic backfill or the terminal command | The import uses the session model. Claude Code hooks cannot call it, and OMMS has no in-session command on Claude Code.                                                                                              |
+| Fold state after a restart         | Kept                                    | Lost                                             | Lost                                             | OpenCode offers a TUI store. Pi has no safe store for an extension ([TDR-062](tdr/062-pi-widget-surface-for-visible-recall.md)). Claude Code holds the fold state for the session only.                              |
+| Injection at session start         | First message, when on                  | First message, when on                           | First message, when on                           | Same on all three ([ADR-040](adr/040-hooks-add-only-what-the-prompt-needs.md)). OpenCode v2 and Pi have no earlier model request. OpenCode v1 still adds a recent list to the first message and ignores the setting. |
+| How long an injected section stays | That prompt's model requests            | That prompt's agent run                          | In the transcript until a compaction             | Each host offers a different channel: system context for each request on OpenCode v2, the system prompt for each run on Pi, and `additionalContext` in the transcript on Claude Code.                                |
+| Subagent memory                    | Child sessions, for each prompt         | Only when om-pi-subagents loads OMMS in children | Once, when the subagent starts                   | OpenCode v2 runs its prompt hook in child sessions. Pi children start with `--no-extensions`. Claude Code has only `SubagentStart`, which carries no task text, so OMMS reads the task from the parent transcript.   |
+| Subagent rows                      | None                                    | None                                             | None                                             | Rows are for your main conversation.                                                                                                                                                                                 |
+| Capture and profile model          | Host model, external API, session model | Host model, external API, session model          | External API only                                | Claude Code hooks cannot call the session model.                                                                                                                                                                     |
 
 ## Web UI
 

@@ -30,7 +30,7 @@ The `opencode-v2-adapter` spec requires that memory injection does not add a mes
 
 - OpenChamber and other frontends that do not load the TUI entry show nothing new.
 - The row sits above the prompt box, not above the reply text.
-- Pi has no rows yet. This is a recorded exception to the host parity rule.
+- Pi had no rows when this record was written. That exception ended with the change `add-pi-visible-recall`, which draws the rows in a Pi widget (TDR-062). The decision here is unchanged: rows come from the host's interactive UI, never from the transcript.
 
 ## Revisit triggers
 

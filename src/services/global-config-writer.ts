@@ -12,6 +12,7 @@ import { isValidClaudeConfigDir } from "./claude-folder.js";
 import { missingSkillFolder } from "./skill-learning/skill-config.js";
 import { KEYWORD_MODES } from "../utils/keyword-boost.js";
 import { getMemoryLimitRule } from "../utils/memory-limits.js";
+import { OPENING_CONTEXT_QUERY_MAX_LENGTH } from "./injection-options-config.js";
 import { RERANKER_TIMEOUT_MAX_MS, RERANKER_TIMEOUT_MIN_MS } from "./request-timeouts.js";
 
 const keys = new Set([
@@ -52,6 +53,11 @@ const keys = new Set([
   "skillLearning",
   "skillLearningRedact",
   "skillFolders",
+  "openingContext",
+  "openingContextQuery",
+  "subagentMemory",
+  "compaction.enabled",
+  "compaction.memoryLimit",
 ]);
 
 function isFolder(path: string): boolean {
@@ -95,11 +101,19 @@ export function isSecretReference(value: unknown): value is string {
 /** Reranker keys that a null edit removes, the same wire form as a limit reset. */
 const OPTIONAL_RERANKER_KEYS = ["rerankerApiUrl", "rerankerModel", "rerankerApiKey"];
 /** Other keys whose `null` edit removes them, so they follow the default again. */
-const RESETTABLE_KEYS = ["keywordMode", "skillFolders"];
+const RESETTABLE_KEYS = [
+  "keywordMode",
+  "skillFolders",
+  "openingContextQuery",
+  "openingContext",
+  "subagentMemory",
+  "compaction.enabled",
+];
+const QUERY_RULE = `openingContextQuery must be text of ${OPENING_CONTEXT_QUERY_MAX_LENGTH} characters or fewer`;
 
 function isValidEdit(key: string, value: unknown): boolean {
   // `undefined` removes the key from the file. `null` is the wire form of
-  // "reset to default", accepted for the six memory limits and the optional reranker keys.
+  // "reset to default", accepted for the memory limits and the optional reranker keys.
   const memoryLimit = getMemoryLimitRule(key);
   if (memoryLimit && value === null) return true;
   if (OPTIONAL_RERANKER_KEYS.includes(key) && value === null) return true;
@@ -107,6 +121,13 @@ function isValidEdit(key: string, value: unknown): boolean {
   if (key === "skillFolders" && value === null) return true;
   // keywordMode: null removes the key, so the mode follows the default again.
   if (key === "keywordMode") return value === null || KEYWORD_MODES.includes(value as never);
+  // The opening context query: null removes it; an empty query means no opening search.
+  if (key === "openingContextQuery") {
+    return (
+      value === null ||
+      (typeof value === "string" && value.trim().length <= OPENING_CONTEXT_QUERY_MAX_LENGTH)
+    );
+  }
   // The five opt-in reranker keys (openspec retrieval-threshold-and-reranker).
   if (key === "rerankerEnabled") return typeof value === "boolean";
   if (key === "rerankerApiUrl") {
@@ -144,9 +165,13 @@ function isValidEdit(key: string, value: unknown): boolean {
     key === "webServerAutoStart" ||
     key === "userProfileAutoCleanupEnabled" ||
     key === "skillLearning" ||
-    key === "skillLearningRedact"
+    key === "skillLearningRedact" ||
+    key === "openingContext" ||
+    key === "subagentMemory" ||
+    key === "compaction.enabled"
   ) {
-    return typeof value === "boolean";
+    // The three memory injection switches take null too: it removes the key (reset to default).
+    return typeof value === "boolean" || (value === null && RESETTABLE_KEYS.includes(key));
   }
   // Path rules are checked by the startup validation below; existence just after this check.
   if (key === "skillFolders") {
@@ -168,8 +193,8 @@ function isValidEdit(key: string, value: unknown): boolean {
     return typeof value === "string" && /^(auto|[a-z]{2,3})$/.test(value);
   // Entries are checked by the startup validation below.
   if (key === "importPathMaps" || key === "importIgnoredDirectories") return Array.isArray(value);
-  // The five memory limits share one validation rule set (six with
-  // similarityThreshold; null means reset, handled above).
+  // The memory limits share one validation rule set (similarityThreshold and
+  // compaction.memoryLimit included; null means reset, handled above).
   if (memoryLimit) return memoryLimit.isValid(value);
   // An empty value clears the field.
   if (key === "claudeConfigDir") return isValidClaudeConfigDir(value);
@@ -230,11 +255,13 @@ export async function writeGlobalConfigKeys(
       throw new Error(
         ["memoryApiKey", "embeddingApiKey", "webServerAuthPassword", "rerankerApiKey"].includes(key)
           ? `${key} must be an env:// or file:// reference`
-          : memoryRule
-            ? `Invalid ${key} setting: accepted ${memoryRule.accepted}`
-            : rerankerAccepted[key]
-              ? `Invalid ${key} setting: accepted ${rerankerAccepted[key]}`
-              : `Invalid ${key} setting`
+          : key === "openingContextQuery"
+            ? QUERY_RULE
+            : memoryRule
+              ? `Invalid ${key} setting: accepted ${memoryRule.accepted}`
+              : rerankerAccepted[key]
+                ? `Invalid ${key} setting: accepted ${rerankerAccepted[key]}`
+                : `Invalid ${key} setting`
       );
     }
     const missing =
@@ -263,9 +290,9 @@ export async function writeGlobalConfigKeys(
     }
     let content = original.content;
     for (const [key, value] of Object.entries(edits)) {
-      // A nested limit identifier maps to its JSONC leaf path, so
-      // chatMessage.maxMemories writes the leaf, never a literal dotted key.
-      const jsoncPath = (getMemoryLimitRule(key)?.path ?? [key]) as string[];
+      // A nested identifier maps to its JSONC leaf path, so chatMessage.maxMemories
+      // and compaction.enabled write the leaf, never a literal dotted key.
+      const jsoncPath = (getMemoryLimitRule(key)?.path ?? key.split(".")) as string[];
       // null is the wire form of "reset to default": remove the key so the
       // value follows the default again (undefined removes in jsonc modify).
       const jsoncValue =

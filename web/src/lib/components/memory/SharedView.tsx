@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { onSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
+import { injectionDraftFromSettings } from "$lib/injection-controls";
+import { navigate } from "$lib/router";
 import { DirectoryMapsSection } from "./DirectoryMapsSection";
 import { KeywordModeSection } from "./KeywordModeSection";
 import { MemorySection } from "./MemorySection";
@@ -38,6 +40,26 @@ function SharedRow({
   );
 }
 
+/** The Memory injection row: the three switch states and a link to the one place that edits them. */
+function InjectionLinkRow({ title, summary }: { title: string; summary: string }) {
+  const path = "/memory#memory-injection";
+  return (
+    <a
+      id="shared-memory-injection"
+      href={path}
+      onClick={(event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+        event.preventDefault();
+        navigate(path);
+      }}
+      className="flex min-h-11 flex-wrap items-baseline gap-x-3 gap-y-1 rounded-xl border border-border bg-card p-4 transition-colors duration-150 hover:bg-interactive-hover focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      <h2 className="text-subsection-title font-semibold">{title}</h2>
+      <span className="min-w-0 break-words text-xs text-muted-foreground">{summary}</span>
+    </a>
+  );
+}
+
 /** `/memory/shared`: the settings that apply to every host, one row each. */
 export function SharedView({
   statuses,
@@ -71,6 +93,16 @@ export function SharedView({
   }, []);
   const summary = sharedSummaries(settings, maps);
   const line = (key: keyof typeof summary) => statusText(s, summary[key]);
+  const injection = injectionDraftFromSettings(settings);
+  const state = (on: boolean) => s(on ? "On" : "Off");
+  const injectionLine = statusText(s, {
+    text: "Session start {opening} · Subagents {subagent} · Restore {restore}",
+    params: {
+      opening: state(injection.opening),
+      subagent: state(injection.subagent),
+      restore: state(injection.restore),
+    },
+  });
   return (
     <div className="space-y-6">
       <MemorySwitcher current="shared" statuses={statuses} />
@@ -87,6 +119,7 @@ export function SharedView({
         <SharedRow id="shared-limits" title={s("Memory limits")} summary={line("limits")}>
           <MemorySection />
         </SharedRow>
+        <InjectionLinkRow title={s("Memory injection")} summary={injectionLine} />
         <SharedRow id="shared-keywords" title={s("Keyword matching")} summary={line("keywords")}>
           <KeywordModeSection />
         </SharedRow>

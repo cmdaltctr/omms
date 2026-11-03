@@ -49,17 +49,30 @@ describe("Claude Code plugin assets", () => {
   it("hooks run the plugin launcher with the agreed timeouts", () => {
     const { hooks } = readJson("hooks/hooks.json");
 
-    expect(Object.keys(hooks).sort()).toEqual(["SessionStart", "Stop", "UserPromptSubmit"]);
+    // SubagentStart registers; SubagentStop must not, because subagent turns are not captured.
+    expect(Object.keys(hooks).sort()).toEqual([
+      "SessionStart",
+      "Stop",
+      "SubagentStart",
+      "UserPromptSubmit",
+    ]);
     const launch = 'node "${CLAUDE_PLUGIN_ROOT}/bin/omms-launch.mjs" --at-least-own-version';
     const expected: Record<string, { command: string; timeout: number; async?: true }> = {
       SessionStart: { command: `${launch} claude-hook session-start`, timeout: 20 },
       UserPromptSubmit: { command: `${launch} claude-hook user-prompt-submit`, timeout: 10 },
+      SubagentStart: { command: `${launch} claude-hook subagent-start`, timeout: 10 },
       Stop: { command: `${launch} claude-hook stop`, timeout: 60, async: true },
     };
     for (const [event, handler] of Object.entries(expected)) {
       expect(hooks[event]).toHaveLength(1);
       expect(hooks[event][0].hooks).toEqual([{ type: "command", ...handler }]);
     }
+  });
+
+  it("describes the hooks without saying memories are injected at session start", () => {
+    const { description } = readJson("hooks/hooks.json");
+    expect(description).not.toMatch(/session start/i);
+    expect(description).toMatch(/prompt/i);
   });
 
   it("loads one module entry beside the launcher hooks, and every file it imports exists", () => {

@@ -47,17 +47,17 @@ When Node.js is missing, or `npx` fails or runs out of time, the hook returns no
 
 The plugin files are in the repository root:
 
-| File                              | Content                                                                             |
-| --------------------------------- | ----------------------------------------------------------------------------------- |
-| `.claude-plugin/plugin.json`      | The plugin manifest. The plugin name is `omms`.                                     |
-| `.claude-plugin/marketplace.json` | A marketplace named `omms` that lists the plugin.                                   |
-| `hooks/hooks.json`                | The `SessionStart`, `UserPromptSubmit`, and `Stop` hooks, and the module entry.     |
-| `hooks/omms.jsx`                  | The module entry. It loads the four module parts below.                             |
-| `hooks/omms-status.jsx`           | The status label. See [Status line](#status-line).                                  |
-| `hooks/omms-memory-tool.jsx`      | The `memory` tool. See [Memory tool and recall rows](#memory-tool-and-recall-rows). |
-| `hooks/omms-skills-tool.jsx`      | The `skills` tool. See [Memory tool and recall rows](#memory-tool-and-recall-rows). |
-| `hooks/omms-recall.jsx`           | The recall rows, with their parser `hooks/omms-recall-parse.js`.                    |
-| `skills/omms-memory/SKILL.md`     | The `omms-memory` skill. It tells the agent when to search and save memory.         |
+| File                              | Content                                                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `.claude-plugin/plugin.json`      | The plugin manifest. The plugin name is `omms`.                                                  |
+| `.claude-plugin/marketplace.json` | A marketplace named `omms` that lists the plugin.                                                |
+| `hooks/hooks.json`                | The `SessionStart`, `UserPromptSubmit`, `SubagentStart`, and `Stop` hooks, and the module entry. |
+| `hooks/omms.jsx`                  | The module entry. It loads the four module parts below.                                          |
+| `hooks/omms-status.jsx`           | The status label. See [Status line](#status-line).                                               |
+| `hooks/omms-memory-tool.jsx`      | The `memory` tool. See [Memory tool and recall rows](#memory-tool-and-recall-rows).              |
+| `hooks/omms-skills-tool.jsx`      | The `skills` tool. See [Memory tool and recall rows](#memory-tool-and-recall-rows).              |
+| `hooks/omms-recall.jsx`           | The recall rows, with their parser `hooks/omms-recall-parse.js`.                                 |
+| `skills/omms-memory/SKILL.md`     | The `omms-memory` skill. It tells the agent when to search and save memory.                      |
 
 The same skill file serves Pi and OpenCode. In Claude Code, start it by name
 with `/omms:omms-memory`. See [Using memory: The omms-memory skill](using-memory.md#the-omms-memory-skill).
@@ -118,7 +118,7 @@ Use `--plugin-dir` to test edits in the checkout.
 
 You can add the hooks without the plugin. Put this block in
 `~/.claude/settings.json`. If the file already has a `hooks` object, merge the
-three events into it.
+four events into it.
 
 This block runs the `om-memory-system` command from `PATH`. It needs a global
 install. The command hands off to the newest recorded copy, so it stays current.
@@ -144,6 +144,17 @@ It has no `npx` fallback. A plugin install gives the launcher behaviour above.
           {
             "type": "command",
             "command": "om-memory-system claude-hook user-prompt-submit",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "om-memory-system claude-hook subagent-start",
             "timeout": 10
           }
         ]
@@ -177,8 +188,10 @@ hosts. See [Configuration](configuration.md).
 - The hook command reads the global config only (`~/.config/omms/omms.jsonc`). It uses `webServerEnabled`, `webServerHost`, `webServerPort`, and the Basic Auth settings to find the web app.
 - The hook uses only the configured `webServerPort`. In rare cases the web app cannot take that port and moves to a nearby one, up to the port plus 10. The hook does not look there. It gets no memories and exits with code 0, until the web app is back on the configured port.
 - The web app reads the project config for the session's working directory before each request.
-- Retrieval uses `chatMessage.enabled`, `chatMessage.maxMemories`, `chatMessage.excludeCurrentSession`, and `chatMessage.maxAgeDays`.
-- Retrieval after compaction uses `compaction.enabled` and `compaction.memoryLimit`.
+- Retrieval for a prompt uses `chatMessage.enabled` and `chatMessage.excludeCurrentSession`. `chatMessage.enabled` also turns the opening search and subagent memory on or off.
+- The opening search on the first prompt uses `openingContext` and `openingContextQuery`. Subagent memory uses `subagentMemory`. See [Configuration: Memory injection](configuration.md#memory-injection).
+- Restore after compaction or resume uses `compaction.enabled` and `compaction.memoryLimit`.
+- Recall rows use `visibleRecall`. See [Recall rows](#memory-tool-and-recall-rows).
 - Capture uses `autoCaptureEnabled` and `autoCaptureMaxRetries`.
 - Profile learning uses `userProfileAnalysisInterval`.
 
@@ -224,6 +237,7 @@ blocks Claude Code.
 | ------------------ | -------------------- | ------------ | -------------- | ----- |
 | `SessionStart`     | 20 s                 | 15 s         | 3 s            | sync  |
 | `UserPromptSubmit` | 10 s                 | 5 s          | 3 s            | sync  |
+| `SubagentStart`    | 10 s                 | 5 s          | 3 s            | sync  |
 | `Stop`             | 60 s                 | 30 s         | 5 s            | async |
 
 The hook reads the API token from `~/.omms/.auth-token`, the same file the web
@@ -242,7 +256,7 @@ web app answers or the start budget ends.
 - The web app keeps running after the Claude Code session ends.
 - When OpenCode, Pi, the login item, or `om-memory-system web` already serves the web app, the hook uses it and starts nothing.
 - When two hooks, or a hook and another host, start the web app at the same time, the start lock (`~/.omms/web-start.lock`) lets one start it. The others wait for it.
-- When a web app answers with a version older than the newest recorded copy, `SessionStart` asks it to step aside and starts the newest copy through the launcher. `UserPromptSubmit` and `Stop` use any running web app, whatever its version.
+- When a web app answers with a version older than the newest recorded copy, `SessionStart` asks it to step aside and starts the newest copy through the launcher. `UserPromptSubmit`, `SubagentStart` and `Stop` use any running web app, whatever its version.
 - Set `webServerEnabled` to `false` in the global config to keep the web app off. The hook then starts nothing and logs `server-disabled`.
 - The first `SessionStart` of the day can take some seconds. A prompt sent before the web app is ready gets no added context.
 
@@ -255,10 +269,10 @@ The web app has two routes for the hooks. Both need the local token
 (`~/.omms/.auth-token`) or an API token, like the other `/api/` routes. The hook
 sends the local token. A request without a valid token gets `401 Unauthorized`.
 
-| Route                       | Used by                            | Answer                                       |
-| --------------------------- | ---------------------------------- | -------------------------------------------- |
-| `POST /api/claude/retrieve` | `SessionStart`, `UserPromptSubmit` | `{ "additionalContext": "<text or empty>" }` |
-| `POST /api/claude/capture`  | `Stop`                             | `202 { "queued": true }` at once             |
+| Route                       | Used by                                             | Answer                                       |
+| --------------------------- | --------------------------------------------------- | -------------------------------------------- |
+| `POST /api/claude/retrieve` | `SessionStart`, `UserPromptSubmit`, `SubagentStart` | `{ "additionalContext": "<text or empty>" }` |
+| `POST /api/claude/capture`  | `Stop`                                              | `202 { "queued": true }` at once             |
 
 The routes are in `src/services/web-server.ts`. The handlers are in
 `src/importer/claude-hook-api.ts`, because they use the transcript reader. The
@@ -266,15 +280,37 @@ web server loads them with a dynamic `import()`.
 
 ### Retrieval
 
-| Hook                                         | Added context                                                                                                     |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `SessionStart`, source `startup` or `clear`  | The project's recent memories. This is the same list and count that OpenCode adds to the first message.           |
-| `SessionStart`, source `compact` or `resume` | The memories captured from this session, in the compaction format that the other hosts use.                       |
-| `UserPromptSubmit`                           | The shared retrieval section for the prompt. Nothing when no memory matches, or when the prompt is fully private. |
+| Hook                                         | Added context                                                                                                                                                                                                 |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SessionStart`, source `startup` or `clear`  | Nothing. The hook still starts the web app, the backfill and the plugin self-update check.                                                                                                                    |
+| `SessionStart`, source `compact` or `resume` | The memories captured from this session on Claude Code, in the compaction format that the other hosts use. Off when `compaction.enabled` is `false`.                                                          |
+| `UserPromptSubmit`                           | The shared retrieval section for the prompt. Nothing when no memory matches, or when the prompt is fully private. On the first prompt of a session, with `openingContext` on, the opening section follows it. |
+| `SubagentStart`                              | The retrieval section for the subagent's task, when `subagentMemory` is on. See [Subagent memory](#subagent-memory).                                                                                          |
 
 - Every added text is inside `<omms-retrieval>` tags.
 - The hook cuts the text to 9,500 characters and keeps the closing tag. Claude Code accepts at most 10,000 characters.
 - Capture removes the `<omms-retrieval>` section from each prompt, so injected memories are never captured again.
+- `chatMessage.enabled` set to `false` turns off the prompt recall, the opening section and subagent memory. The restore after compaction or resume has its own switch, `compaction.enabled`.
+
+### Opening context
+
+With `openingContext` on, the first prompt of a session also runs one search with `openingContextQuery`. The matches go into the same added context, after the prompt's own section. A project with no matching memory adds nothing. Both searches use the same relevance filter, result limit and size budget as every prompt recall. The default is off. See [Configuration: Memory injection](configuration.md#memory-injection).
+
+- OMMS reads the session transcript to decide whether a prompt is the first one. A transcript that is missing counts as a new session. A transcript that cannot be read, has no valid path, or is larger than 1 MB counts as not first, and the opening section is skipped.
+- A session that this web app process has already seen, or that started with `compact` or `resume`, never gets an opening section.
+- Claude Code keeps added context in the session transcript. The opening section stays in the model context until a compaction.
+
+### Subagent memory
+
+With `subagentMemory` on (the default), a starting subagent gets the memories that match its task.
+
+1. Claude Code sends `SubagentStart` with the subagent type and the path of the parent transcript. The event carries no task text.
+2. OMMS reads the end of the parent transcript. It looks for the oldest `Agent` or `Task` call of the same `subagent_type` that has no result yet and has not fed a subagent already. The "Async agent launched" receipt of a background agent does not count as a result.
+3. OMMS searches with that call's `prompt` and adds the matches to the subagent's context.
+
+When OMMS finds no matching call, it adds nothing. Parallel subagents of the same type take their calls in order, oldest first, and each call is used once. A background call stays open until its agent ends, so a later start with no new call finds nothing. The subagent session draws no recall rows. OMMS registers no `SubagentStop` hook, so subagent turns are not captured on their own.
+
+Subagent memory costs up to one retrieval budget (`retrievalMaxTokens`) of extra context for each subagent session, and one search for each subagent prompt.
 
 ### Capture
 
@@ -460,12 +496,25 @@ of the next reply:
 ▸ ● memory [mode=search, query="how did we handle om-pi-todo", limit=3]
 ```
 
-- `mode=search` is the recall for your prompt. `mode=recent` is the recall at
-  the start of a session, or after a compaction or a resume.
+- `mode=search` is the recall for your prompt. `mode=opening` is the opening
+  search on the first prompt, and its row shows the configured query.
+  `mode=restore` is the restore after a compaction or a resume.
 - Press the row to unfold it. It then lists the query and each memory with its
-  relevance, its id, and a one-line headline. Press it again to fold it.
+  relevance, its id, and a one-line headline. Press it again to fold it. The
+  fold state lasts for the session only. There is no `/omms-recall` command on
+  Claude Code.
 - The rows read the context that the hooks already inject. They run no second
-  search, and nothing is sent to Claude.
+  search.
+- The global `visibleRecall` and a project `visibleRecall` of `false` turn the
+  rows off. While rows are off, the hook adds one marker line,
+  `<!--omms:rows-off-->` (21 bytes), right after the opening tag of each
+  injected section. The module reads the marker and draws no row. It holds no
+  memory text. The marker is the only way the hook command can tell the module.
+  It counts in the size budget.
+- With rows on, the opening section carries the line
+  `<!--omms:opening query="..."-->`. It holds your own `openingContextQuery`, cut
+  to 300 characters. It is sent to the model once per session.
+- Subagent sessions draw no rows.
 
 **New sessions only.** The tool is registered when a session starts.
 `/reload-plugins` does not start the session again, so the tool shows in the
@@ -575,20 +624,20 @@ run. The line holds the event, a code, the elapsed time, whether the hook
 started the web app, and the input and output sizes. It never holds prompt or
 reply text.
 
-| Code                 | Meaning                                                                  | What to do                                                             |
-| -------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| `ok`                 | The request succeeded.                                                   | Nothing.                                                               |
-| `no-input`           | The hook got no input in 2 seconds.                                      | Check the hook command in `hooks.json` or `settings.json`.             |
-| `bad-input`          | The input was not the expected JSON.                                     | Check that the event name in the command matches the hook.             |
-| `bad-event`          | The event name after `claude-hook` is unknown.                           | Use `session-start`, `user-prompt-submit`, or `stop`.                  |
-| `server-disabled`    | `webServerEnabled` is `false` in the global config.                      | Set `webServerEnabled` to `true`.                                      |
-| `server-unreachable` | No web app answered, and OMMS found no Node or Bun runtime to start one. | Install Node or Bun, or run `om-memory-system web install`.            |
-| `start-timeout`      | The hook started the web app, but it did not answer within the budget.   | Run `om-memory-system web` in a terminal and read its error.           |
-| `timeout`            | The web app did not answer the request in time.                          | Check that the web app is not busy with a large import.                |
-| `network-error`      | The request failed before an answer.                                     | Run `om-memory-system web status`.                                     |
-| `http-401`           | The web app rejected the token.                                          | Check that the hook and the web app run as the same user.              |
-| `http-<status>`      | The web app returned another error.                                      | Read the web app's log lines around the same time.                     |
-| `bad-response`       | The retrieval answer had no `additionalContext` text.                    | Update OMMS so that the command and the web app have the same version. |
+| Code                 | Meaning                                                                  | What to do                                                              |
+| -------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| `ok`                 | The request succeeded.                                                   | Nothing.                                                                |
+| `no-input`           | The hook got no input in 2 seconds.                                      | Check the hook command in `hooks.json` or `settings.json`.              |
+| `bad-input`          | The input was not the expected JSON.                                     | Check that the event name in the command matches the hook.              |
+| `bad-event`          | The event name after `claude-hook` is unknown.                           | Use `session-start`, `user-prompt-submit`, `subagent-start`, or `stop`. |
+| `server-disabled`    | `webServerEnabled` is `false` in the global config.                      | Set `webServerEnabled` to `true`.                                       |
+| `server-unreachable` | No web app answered, and OMMS found no Node or Bun runtime to start one. | Install Node or Bun, or run `om-memory-system web install`.             |
+| `start-timeout`      | The hook started the web app, but it did not answer within the budget.   | Run `om-memory-system web` in a terminal and read its error.            |
+| `timeout`            | The web app did not answer the request in time.                          | Check that the web app is not busy with a large import.                 |
+| `network-error`      | The request failed before an answer.                                     | Run `om-memory-system web status`.                                      |
+| `http-401`           | The web app rejected the token.                                          | Check that the hook and the web app run as the same user.               |
+| `http-<status>`      | The web app returned another error.                                      | Read the web app's log lines around the same time.                      |
+| `bad-response`       | The retrieval answer had no `additionalContext` text.                    | Update OMMS so that the command and the web app have the same version.  |
 
 Other checks:
 
@@ -620,7 +669,7 @@ To remove the plugin:
 1. Run `/plugin uninstall omms@omms` in Claude Code.
 2. Optional: run `/plugin marketplace remove omms` to remove the marketplace.
 
-If you added the hooks by hand, remove the three hook entries from
+If you added the hooks by hand, remove the four hook entries from
 `~/.claude/settings.json`.
 
 - Memories captured with host `claude-code` stay in the store. OpenCode and Pi can still retrieve them.
@@ -632,5 +681,6 @@ If you added the hooks by hand, remove the three hook entries from
 - Capture and profile learning need the external API. There is no session model path.
 - Claude Code has no in-session import command. Use `om-memory-system import-claude-history` or the Settings page. See [claude-code-history-import.md](claude-code-history-import.md).
 - One user prompt is one work unit. OMMS does not capture single tool calls.
-- Subagent (sidechain) turns are not captured.
+- Subagent (sidechain) turns are not captured. OMMS registers no `SubagentStop` hook.
+- The fold state of recall rows is lost when the session ends. See [Host differences](using-memory.md#host-differences).
 - The transcript format is internal to Claude Code. A new Claude Code version can change it.

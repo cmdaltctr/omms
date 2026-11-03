@@ -125,7 +125,7 @@ History backfill (automatic history import) uses `opencodeBackfillModel`. See
 | `prompt` + `context` (V2)                    | Record the prompt once OpenCode admits it; semantic retrieval injected as a delimited `<omms-retrieval>` system section                                                                                                                                                                                                                                                                                                                                                                                   |
 | `chat.params`                                | Record the prompt's model when capture follows the session model                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `session.idle`                               | After 10 seconds of quiet, capture every uncaptured prompt in the session; run profile learning and daily cleanup                                                                                                                                                                                                                                                                                                                                                                                         |
-| `session.compacted` (V1) / `compaction` (V2) | Restore the session's own memories after compaction                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `session.compacted` (V1) / `compaction` (V2) | Restore the session's own memories after compaction (V2 also after resume)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `command.execute.before` (V1) / command (V2) | Run `/memory-import-opencode-history`; see [opencode-history-import.md](opencode-history-import.md)                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `memory` tool                                | Shared add/search/profile/list/forget/help plus migrate/list-shards/export/import                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `skills` tool                                | Shared skill-learning modes list/ideas/draft/evidence/propose/proposals/show/apply/reject/undo/help. Arguments: `mode`, `skill`, `idea` (`name`, `description`), `folder`, `state`, `order`, `id`, `limit`, `content`, `summary`, `evidence`. A draft saves a pending proposal and changes no file; `evidence` then `propose` let the agent fix a skill with no external API call; `apply` records the agent. See [the `skills` command](cli.md#skills-and-proposals). V2 gets it from V1, like `memory`. |
@@ -164,6 +164,8 @@ A collapsed row looks like this:
 ```
 
 - `mode=search` is the recall for your prompt. The query is cut to 60 characters.
+- `mode=opening` is the opening search on the first message of a new session, when `openingContext` is on. Its row shows the configured query.
+- `mode=restore` is the restore after a compaction or a resume. The row has no query.
 - `limit` is the number of memories OMMS added.
 - Click the row, or run the `/omms-recall` slash command, to unfold it. The row then lists the mode, the query (up to 300 characters), the limit, and each memory with its relevance, its id and a one-line headline.
 - `/omms-recall` unfolds all rows in view. If every row is already unfolded, it folds them all. It is also in the command palette. The `./tui` entry registers it from an app-level slot, so it stays available for the whole TUI run, also when no session is on screen.
@@ -188,10 +190,10 @@ How it works:
 Limits:
 
 - OpenChamber and other frontends that do not load the OpenCode TUI entry show nothing new. Their recall stays as before.
-- V2 has no opening "recent memories" injection. So every row on OpenCode V2 is `mode=search`. The shared builder also supports `mode=recent` for hosts that inject recent memories.
+- OpenCode V2 draws `mode=search`, `mode=opening` and `mode=restore` rows. OpenCode V1 injects its recent list on the first message and draws no rows.
 - The server keeps summaries in memory only. They are not stored on disk. They are lost when OpenCode restarts.
-- Subagent sessions do not show rows. OMMS records no summary for a session that has a parent session.
-- The rows and `/omms-recall` exist only in the OpenCode terminal TUI. Claude Code draws its own recall rows from a separate module (`hooks/omms-recall.jsx`) and has no such slash command. Pi shows no rows yet. See [Host parity](#host-parity).
+- Subagent sessions do not show rows. OMMS records no summary for a session that has a parent session, whatever `visibleRecall` says.
+- The rows and `/omms-recall` exist in the OpenCode terminal TUI and in the interactive terminal of Pi. Claude Code draws its own recall rows from a separate module (`hooks/omms-recall.jsx`) and has no such slash command. See [Using memory: Host differences](using-memory.md#host-differences).
 
 ### Capture boundary
 
@@ -203,13 +205,23 @@ to the next user prompt.
 - The plugin claims a prompt before capture. So repeated idle events or several windows never capture it twice.
 - A failed capture tries again up to `autoCaptureMaxRetries` times (default 3), 2 and 4 seconds apart. If the last try fails because the model cannot be reached, the turn goes to the [capture retry queue](configuration.md#capture-retry-queue).
 
-### Compaction
+### Injection at session start, subagents and restore
+
+OpenCode V2 adds only the recall for the current prompt by default. Two options change this. See [Configuration: Memory injection](configuration.md#memory-injection).
+
+- With `openingContext` on, the first message of a new session also gets the memories that match `openingContextQuery`. OpenCode V2 has no model request before the first prompt, so the opening section goes with that message.
+- Child sessions (subagents) get the prompt recall when `subagentMemory` is on (the default). A child gets no opening section and no restore after a resume.
+- OpenCode V1 adds its recent list to the first message and ignores both settings.
+
+### Compaction and resume
 
 The plugin does not replace OpenCode's compaction. After compaction, it
 restores up to `compaction.memoryLimit` memories from that session:
 
 - On V1, it adds them as a synthetic, no-reply message for the session's own agent.
 - On V2, it adds them to the system prompt of later turns.
+
+OpenCode V2 also restores after a resume. OpenCode V2 has no resume event. OMMS finds a resumed session when the first prompt it sees in this process finds earlier user messages in the history. This also happens after an OpenCode restart. The full history stays, so the restore is a short reminder. `compaction.enabled` set to `false` turns off both restores.
 
 ### Automatic profile cleanup
 
@@ -244,10 +256,12 @@ OpenCode and Pi can run in separate processes against the same store.
 
 ## Limitations
 
-- V1 adds recent memories. It does not run a semantic search for each prompt. V2 and Pi search for each prompt.
+- V1 adds recent memories. It does not run a semantic search for each prompt. V2, Pi and Claude Code search for each prompt.
 - Profile learning and cleanup run in every OpenCode process. Cleanup runs at most once a day in each process.
 - Manual history import covers the current project by default. See [opencode-history-import.md](opencode-history-import.md).
 
 ## Host parity
 
-Pi and OpenCode offer the same user capabilities, with one recorded exception. The recall rows are an OpenCode V2 terminal feature. Pi shows no recall rows. The shared builder in `src/core/recall-summary.ts` is ready for a Pi surface. Pi rows are a follow-up change.
+Pi, OpenCode V2 and Claude Code offer the same memory injection: the recall for each prompt, an optional opening context, subagent memory and a restore after compaction or resume. The differences that stay, with their reasons, are in [Using memory: Host differences](using-memory.md#host-differences).
+
+Pi and OpenCode offer the same user capabilities. Both hosts show the recall rows in their terminal UI, built by the shared builder in `src/core/recall-summary.ts`. See [Pi adapter: Recall rows](pi-adapter.md#recall-rows).

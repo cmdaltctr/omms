@@ -372,4 +372,25 @@ scenario = result;
     expect(output.results.reason).toBe("no-window");
     expect(output.summarizeCalls).toBe(0);
   });
+  // Task 6.3 of align-recall-host-parity. om-pi-subagents starts a child with `--no-session` and
+  // OMPS_CHILD=1. Capture does not read OMPS_CHILD: a settled child turn is captured like any
+  // other Pi turn. The change that gates recall for children leaves this rule as it is.
+  it("captures a settled turn in an OMPS_CHILD=1 child the same as in a main session", () => {
+    const output = runScenario({
+      code: `
+process.env.OMPS_CHILD = "1";
+const state = createPiCaptureState();
+scenario = await capturePiSettledWorkUnit({
+  sessionId: "child-session", directory: "/workspace",
+  entries: [userEntry("u-1", "child task"), assistantEntry("a-1", "child work")],
+  provider, state,
+});
+`,
+    });
+
+    expect(output.results.status).toBe("captured");
+    expect(output.addCalls).toHaveLength(1);
+    expect(output.addCalls[0].metadata.host).toBe("pi");
+    expect(output.summarizeCalls).toBe(1);
+  });
 });

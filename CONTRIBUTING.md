@@ -38,9 +38,8 @@ needs internet access once.
 2. Keep the change focused on one thing.
 3. If you change a feature for one host (OpenCode, Pi, or Claude Code),
    change it for the other hosts too. All hosts must offer the same
-   capabilities.
-   One recorded exception: the OpenCode V2 recall rows. Pi rows are a
-   follow-up change. See [docs/opencode-adapter.md](docs/opencode-adapter.md#host-parity).
+   capabilities. A difference that must stay needs a row with its reason in
+   [Host differences](docs/using-memory.md#host-differences).
 4. Add or update tests. Every bug fix needs a test that fails without the fix.
 5. Update the matching guide in `docs/` when user-visible behaviour changes.
    Keep `README.md` short; detail belongs in `docs/`.
