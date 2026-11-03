@@ -41,7 +41,7 @@ Code facts this design relies on:
 - An opt-in opening context adds the memories that match a user-editable query to the first prompt, the same way on OpenCode V2, Pi and Claude Code.
 - Subagent sessions get the memories that match their task, on by default, with one switch on every host.
 - Memories restore after compaction and after resume on every host.
-- All three settings can be changed in the config file and on the web Settings page.
+- All the settings can be changed in the config file and in the Memory injection section of the web Memory page.
 - Claude Code rows honour `visibleRecall` per prompt, for global and project values.
 - Every row label says what the section is.
 - Subagent sessions draw no rows on any host.
@@ -50,7 +50,7 @@ Code facts this design relies on:
 **Non-Goals:**
 
 - OpenCode V1 (`chat.message` in `src/index.ts:601`). It keeps its first-message recent list and ignores the new settings. AGENTS.md says OpenCode work is V2 only. V1 stays a known remaining difference, listed in the host-differences table.
-- The om-pi-subagents change (open question 6).
+- The om-pi-subagents change (open question 1).
 - New capture paths for subagent turns.
 - Removing the `recent` mode from `src/core/recall-summary.ts` or the `opencode-visible-recall` spec.
 
@@ -228,7 +228,7 @@ One setting controls the restore after compaction and after resume on all three 
 
 Why reuse and not a new key: the existing key already means "restore after compaction" on every host that restores, its default already matches the wanted behaviour, and a second key would let two switches disagree. The name says "compaction" while it also covers resume; the config template, the docs and the web label say "after compaction or resume" to make that plain.
 
-Project rule, kept as it is today (no silent change): a project config can set `compaction.enabled` to `true` or `false`, because `src/config.ts` does not strip `compaction` from project overrides. This differs from the off-only rule of `visibleRecall`, `openingContext` and `subagentMemory`. The web card note says so. Changing it would be a separate decision.
+Project rule, kept as it is today (no silent change): a project config can set `compaction.enabled` to `true` or `false`, because `src/config.ts` does not strip `compaction` from project overrides. This differs from the off-only rule of `visibleRecall`, `openingContext` and `subagentMemory`. The note in the Memory injection section says so. Changing it would be a separate decision.
 
 Proposed issue (not a task, score below 5): **"A project `compaction` object resets `compaction.memoryLimit` to the built-in default."** Likelihood 2 (a project must set only `compaction.enabled`), impact 2 (the restore count uses 10, not the global value; no data loss), product 4. Trigger: the global file sets `memoryLimit: 20` and a project sets `"compaction": { "enabled": true }`; the shallow merge at `src/config.ts:876` drops the global limit. Do not create the issue until the user says yes.
 
@@ -243,14 +243,16 @@ Proposed issue (not a task, score below 5): **"A project `compaction` object res
 - Pi uses `session_compact`, not `session_before_compact`: OMMS does not replace Pi's native compaction summary (`docs/pi-adapter.md`, "Compaction").
 - Pi children (`OMPS_CHILD=1`, `--no-session`) get no restore.
 
-### D6. Web Settings: the Memory injection card
+### D6. Web Memory page: the Memory injection section
 
-- New component `web/src/lib/components/settings/MemoryInjectionSection.tsx`, placed after the Memory limits card and listed in the Settings sidebar. It follows the `SkillLearningSection.tsx` and Memory card patterns and the `omms-design` skill.
+- Location (user decision N11): the Memory page, route `/memory`, not the Settings page. `MemoryOverview.tsx` draws the four host cards (Pi, OpenCode, Claude Code, Shared) and then the "Import all hosts" row (`web/src/lib/components/memory/MemoryOverview.tsx:45-62`). The new section goes below that row, as the last block of the overview, with the heading "Memory injection" and the anchor `id="memory-injection"`. The `web-memory-hosts` capability owns this page (archived change `2026-10-18-memory-host-cards`), so its spec gets the delta.
+- New component `web/src/lib/components/memory/MemoryInjectionSection.tsx`. It follows the patterns of the Shared view sections (`MemorySection.tsx`, `RerankerSection.tsx`) and the `omms-design` skill.
+- Shared view: `/memory/shared` ("Settings for every host", `SharedView.tsx`) gets one row "Memory injection" whose summary shows the three switch states and which links to `/memory#memory-injection`. It does not repeat the controls. Recommendation, and the default: one editing surface on the overview, and a link from the Shared view, so the two can never show different unsaved values. The Settings page does not change.
 - Contents: a switch labelled "Inject memories at session start", with the help text "Added to the first message of a new session. OMMS searches with the query below and adds only matching memories."; a text area for `openingContextQuery` with a 500-character limit and a counter; a "Subagent memory" switch, with the help text "Subagents get memories that match their task. No rows are shown for them."; a "Restore memories after compaction or resume" switch for `compaction.enabled`, with a number field for `compaction.memoryLimit` ("Most memories to restore"); Save; Reset to default (opening off, query removed, subagent memory on, restore on, limit 10); a host note "Applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. On Pi, subagent memory needs om-pi-subagents to load OMMS."; and a project note "A project config can turn the session-start and subagent options off. It can turn the restore on or off."
-- Restore limit, memory-limits pattern: `compaction.memoryLimit` becomes a rule in `src/utils/memory-limits.ts` (path `["compaction", "memoryLimit"]`, default 10, unit "memories", positive safe integers), like `chatMessage.maxMemories`. The settings snapshot and the writer then validate, show and reset it (`null` removes the key) with no new code paths. The Memory card keeps its list in `web/src/lib/memory-controls.ts` and does not show it; only the Memory injection card does. Update the "six settings" doc comment and any test that counts the rules.
+- Restore limit, memory-limits pattern: `compaction.memoryLimit` becomes a rule in `src/utils/memory-limits.ts` (path `["compaction", "memoryLimit"]`, default 10, unit "memories", positive safe integers), like `chatMessage.maxMemories`. The settings snapshot and the writer then validate, show and reset it (`null` removes the key) with no new code paths. The Memory limits section in the Shared view keeps its list in `web/src/lib/memory-controls.ts` and does not show it; only the Memory injection section does. Update the "six settings" doc comment and any test that counts the rules.
 - Restore switch: `compaction.enabled` joins the writer allowlist as a boolean and the settings snapshot with its value and default. The writer writes it at the JSONC path `["compaction", "enabled"]`, as it writes nested memory limits, so the rest of the `compaction` object stays.
 - Save goes through the existing settings API and `global-config-writer.ts` (D1b). A rejected value shows the writer's message, which names the key and the rule and does not repeat the submitted value.
-- Strings in `web/src/lib/i18n/settings.ts` with English, Chinese and Arabic, like the other cards.
+- Strings in `web/src/lib/i18n/settings.ts` (the file that holds the Memory page strings, such as "Import all hosts") with English, Chinese and Arabic.
 
 ## Risks / Trade-offs
 
@@ -265,9 +267,11 @@ Proposed issue (not a task, score below 5): **"A project `compaction` object res
 - [Docs drift for `chatMessage.*`] → Task 8.2 greps `docs/` and `README.md` for "Claude Code" next to those settings.
 - [Background-subagent report-back draws a `mode=search` row with the notification text as the query] → Not verified. Look for it during the live check (task 9.5). No code for it in this change.
 - [Change ordering with `add-pi-visible-recall`] → That active change says the Pi adapter records `search` summaries only and no opening recall. Archive it before this change; this change's `opening-context` and `pi-agent-adapter` deltas then extend it.
-- [Change size] → About 45 files. See "Delivery order".
+- [Change size] → About 47 files. See "Delivery order".
 
 ## Delivery order
+
+Apply this change in a new session in this worktree (`omms-feat-host-parity`, branch `feat/recall-host-parity`). The branch already holds the Pi rows work and its ADR and TDR, so everything goes out as one pull request. First archive `add-pi-visible-recall` (task 0.1), then implement in the order below.
 
 One pull request is still workable if the commits follow the task groups, so each commit builds and passes its own tests:
 
@@ -275,7 +279,7 @@ One pull request is still workable if the commits follow the task groups, so eac
 2. Claude Code: no opening list, labels, `visibleRecall` marker, opening section, `SubagentStart`, restore pins (group 3 and 4).
 3. OpenCode V2: opening section, subagent gate, resume restore, rows (group 5).
 4. Pi: opening section, child gate, compaction and resume restore, rows (group 6).
-5. Web Settings card (group 7).
+5. Web Memory page section (group 7).
 6. Docs, ADR and host-differences table (group 8).
 7. Gate and live checks (group 9).
 
@@ -283,11 +287,11 @@ If review finds the pull request too large, the natural cut is after step 2 (Cla
 
 ## Migration Plan
 
-No data migration. The new settings are absent from existing config files, so the opening context starts off and subagent memory starts on. `compaction.enabled` and `compaction.memoryLimit` keep their current values and defaults; the web card only makes them editable. Rollback is a revert: the old module and the old server each work alone (see version skew in D2), and an old version ignores the new keys.
+No data migration. The new settings are absent from existing config files, so the opening context starts off and subagent memory starts on. `compaction.enabled` and `compaction.memoryLimit` keep their current values and defaults; the web section only makes them editable. Rollback is a revert: the old module and the old server each work alone (see version skew in D2), and an old version ignores the new keys.
 
 ## Follow-ups
 
-- om-pi-subagents: load the OMMS extension in child sessions so `subagentMemory` reaches Pi subagents (open question 3). This is the future `recall-for-subagents` work for Pi.
+- om-pi-subagents: load the OMMS extension in child sessions so `subagentMemory` reaches Pi subagents (open question 1). This is the future `recall-for-subagents` work for Pi.
 - Remove the unused `recent` mode once OpenCode V1 support ends.
 
 ## Decisions from the user (2026-11-03)
@@ -297,13 +301,15 @@ No data migration. The new settings are absent from existing config files, so th
 - **Live checks:** approved (tasks 4.0 and 9.5), to run when implementation reaches them, with a scratch `HOME`, their own port and store, and `--model haiku`. If Claude Code login fails under a scratch `HOME`, stop and ask for a second approval before touching the real config.
 - **Session start wording:** one `openingContext` option on all three hosts, delivered with the first message of a new session.
 - **Subagent memory:** `subagentMemory`, on by default. The om-pi-subagents side is a separate change in that repository.
-- **Restore after compaction and resume:** on all three hosts, controlled by one setting, `compaction.enabled` (with `compaction.memoryLimit`), editable on the web Memory injection card and in the config file (D5, D6). The current project rule (a project can turn it on or off) stays.
+- **Restore after compaction and resume:** on all three hosts, controlled by one setting, `compaction.enabled` (with `compaction.memoryLimit`), editable in the web Memory injection section and in the config file (D5, D6). The current project rule (a project can turn it on or off) stays.
 - **OpenCode:** V2 only (AGENTS.md rule added in this branch).
+- **Opening label:** `mode=opening` accepted (D1e).
+- **Default query:** `project architecture, setup, conventions and key decisions` accepted, because it stays editable in the web app (D6).
+- **Claude Code subagent query fallback:** if spike 4.0 shows the parent transcript does not hold the `Agent` tool call at `SubagentStart` time, use the `PreToolUse` stash (matcher `Agent|Task`) (D4). Accepted.
+- **Location of the settings:** the Memory page (`/memory`), in a "Memory injection" section below the host cards and the "Import all hosts" row, not the Settings page (D6).
+- **Apply:** in a new session in this worktree, as one pull request; archive `add-pi-visible-recall` first (Delivery order).
 
 ## Open Questions
 
-1. Is `mode=opening` the label you want for the opening search (D1e)? On Claude Code it puts the configured query in a marker that the model also reads.
-2. Is the default query `project architecture, setup, conventions and key decisions` what you want?
-3. om-pi-subagents: recommendation is a separate change in that repository, after this OMMS release ships the child gate (see D4).
-4. Claude Code subagent query (D4): if task 4.0 shows the parent transcript does not hold the `Agent` tool call at `SubagentStart` time, is the `PreToolUse` stash (a fourth registered hook, matcher `Agent|Task`) acceptable?
-5. The active change `add-pi-visible-recall` says Pi records `search` rows only. It must be archived before this change is applied.
+1. om-pi-subagents: recommendation is a separate change in that repository, after this OMMS release ships the child gate (see D4). Kept as a recommendation.
+2. The active change `add-pi-visible-recall` says Pi records `search` rows only. It must be archived before this change is applied (task 0.1).
