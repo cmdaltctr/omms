@@ -4,7 +4,7 @@ Open `http://127.0.0.1:4747/memory` or select **Memory** in the sidebar. The pag
 
 | View        | App URL               | What it shows                                                                                                                                         |
 | ----------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Overview    | `/memory`             | The four cards and [Import all hosts](#import-chat-history).                                                                                          |
+| Overview    | `/memory`             | The four cards, [Import all hosts](#import-chat-history) and [Memory injection](#memory-injection).                                                   |
 | Pi          | `/memory/pi`          | Pi's [status and main action](#a-host-view), [sessions](#import-chat-history), [folders that need a map](#resolve-missing-project-folders), settings. |
 | OpenCode    | `/memory/opencode`    | The same for OpenCode.                                                                                                                                |
 | Claude Code | `/memory/claude-code` | The same for Claude Code.                                                                                                                             |
@@ -34,6 +34,25 @@ When the check fails, each set-up host card turns amber and reads **Memories not
 Use the pencil on a host card, **Change icon**. **Upload image** accepts PNG, JPEG, WebP and GIF up to 20 MB. SVG is refused. OMMS crops the middle square, redraws it at 128 × 128 pixels in your browser, and saves only that PNG, so any image size gives the same avatar size and photo location data is dropped. **Choose icon** offers a searchable set of about 60 icons. **Reset to default** restores the host's two-letter mark.
 
 The choice is saved in `appearance.json` and `<host>.png` under `host-appearance/` in the OMMS data folder (`~/.omms/data/host-appearance/` by default). It applies in every project.
+
+### Memory injection
+
+The **Memory injection** section sits below the host cards and the **Import all hosts** row on the overview (`/memory#memory-injection`). It sets how OMMS adds memories to the model's context. It applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. The **Shared** view holds one **Memory injection** row that shows the switch states and links here, so the controls exist in one place only.
+
+| Control                                         | Key                      | Default                                                      |
+| ----------------------------------------------- | ------------------------ | ------------------------------------------------------------ |
+| **Inject memories at session start**            | `openingContext`         | Off                                                          |
+| **Session-start search query**                  | `openingContextQuery`    | `project architecture, setup, conventions and key decisions` |
+| **Subagent memory**                             | `subagentMemory`         | On                                                           |
+| **Restore memories after compaction or resume** | `compaction.enabled`     | On                                                           |
+| **Most memories to restore**                    | `compaction.memoryLimit` | 10                                                           |
+
+- Session start means the first message of a new session. OMMS searches with the query and adds only matching memories. The query holds up to 500 characters. An empty query runs no search. The text area shows a counter.
+- Subagents get the memories that match their task, and no recall rows. On Pi, a subagent gets memories only when om-pi-subagents loads OMMS in it.
+- **Most memories to restore** takes a positive whole number.
+- **Save** writes only the changed keys to the global file, through the [safe global save](web-ui-settings.md#how-saving-works). A rejected value shows a message that names the key and the rule.
+- **Reset to default** returns the form to the defaults. Select **Save** after it. The save removes the five keys from the file, so each value follows its default again.
+- A project config can turn the session-start and subagent options off, never on. It can turn the restore on or off. See [Configuration: Memory injection](configuration.md#memory-injection).
 
 ## A host view
 
@@ -253,7 +272,7 @@ Open **Shared** (`/memory/shared`) and expand **Memory limits**. The table has *
 | Setting                      | Default                                        | Unit               | Accepted values          | Affects                                                                                                                                                     |
 | ---------------------------- | ---------------------------------------------- | ------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `maxMemories`                | 10                                             | Results            | Positive safe integers   | Maximum search results; manual searches can request fewer. Prompt retrieval uses this ceiling.                                                              |
-| `chatMessage.maxMemories`    | 3                                              | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 search each prompt.                                                     |
+| `chatMessage.maxMemories`    | 3                                              | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 only. OpenCode V2, Pi and Claude Code search each prompt.                                                   |
 | `autoCaptureMaxContextBytes` | 131072                                         | Bytes              | 16384–16777216 inclusive | Conversation input sent through the shared memory-summary pipeline.                                                                                         |
 | `userProfileMaxContextBytes` | 32768                                          | Bytes              | 1024–16777216 inclusive  | OpenCode profile-learning input, including its truncation marker. Other hosts' profile input is outside this control.                                       |
 | `retrievalMaxTokens`         | 2000                                           | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text, formatting and retrieval wrappers.                                                       |

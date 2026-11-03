@@ -82,6 +82,10 @@ Each host starts the shared web app when needed, unless it is disabled. Browse
 captured notes on **Project memories**, or ask your agent to search memory for
 an earlier decision.
 
+Each host adds only the memories that match your prompt. An optional setting
+also adds matching memories to the first message of a new session. See
+[Host differences](docs/using-memory.md#host-differences).
+
 ### Terminal command (optional)
 
 A global install puts `om-memory-system` on your `PATH`:

@@ -98,7 +98,8 @@ History backfill (automatic history import) uses `piBackfillModel`. See
 | Pi event                    | omms behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `session_start`             | Load shared config for `ctx.cwd`, remove old capture traces, update the web login item when `webServerAutoStart` is set, register the Pi backfill model resolver, start automatic backfill when `autoBackfill` is on, warm storage and embeddings in the background                                                                                                                                                                                                    |
-| `before_agent_start`        | Semantic retrieval: search project memory with the incoming prompt, inject results as a delimited `<omms-retrieval>` system-prompt section (never a fake user message). In the interactive terminal, also draw a recall row above the editor; see [Recall rows](#recall-rows)                                                                                                                                                                                          |
+| `before_agent_start`        | Semantic retrieval: search project memory with the incoming prompt, inject results as a delimited `<omms-retrieval>` system-prompt section (never a fake user message). On the first prompt of a session, with `openingContext` on, add the opening section after it. After a compaction or a resume, add the restored session memories. In the interactive terminal, also draw a recall row above the editor; see [Recall rows](#recall-rows)                         |
+| `session_compact`           | Load the session's own memories for the restore. OMMS adds them to the next runs. Pi's own compaction summary is not changed. See [Compaction and resume](#compaction-and-resume)                                                                                                                                                                                                                                                                                      |
 | `agent_settled`             | Automatic capture of the settled work unit: the last user prompt plus its assistant/tool response window from the active branch                                                                                                                                                                                                                                                                                                                                        |
 | `session_shutdown`          | Cleanup that is safe to repeat (quit, reload, new, resume, fork). Clears the recall rows, stops a running automatic backfill and closes the store                                                                                                                                                                                                                                                                                                                      |
 | `/omms-recall`              | Unfold or fold the recall rows; see [Recall rows](#recall-rows)                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -139,7 +140,7 @@ Limits:
 
 - Rows show only in Pi's interactive terminal. RPC, JSON and print runs (`--mode rpc`, `--mode json`, `-p`) show no rows. This includes child sessions that a subagent extension starts in those modes.
 - Summaries and fold state live in memory only. A restart, a session switch or `session_shutdown` removes the rows. Pi offers no extension store outside the session file, so the fold state is not kept on disk. See [TDR-062](tdr/062-pi-widget-surface-for-visible-recall.md).
-- Pi has no opening "recent memories" injection, so every row is `mode=search`.
+- Rows have three modes. `mode=search` is the recall for your prompt. `mode=opening` is the opening search on the first prompt, with the configured query. `mode=restore` is the restore after a compaction or a resume, with no query. A subagent session shows no rows.
 
 The rows are on by default. To turn them off:
 
@@ -159,10 +160,23 @@ purpose.
 - From assistant entries, capture takes only visible text and tool-call inputs.
 - It leaves out hidden thinking blocks and tool results. It cuts tool inputs to 100 characters.
 
-### Compaction
+### Injection at session start and subagents
 
-The adapter does not replace or change Pi's native compaction. If compaction
-happens during a run, capture waits for the settled point. The work unit then
+Pi adds only the recall for the current prompt by default. Pi has no model request before the first prompt, so the opening context goes with the first prompt. See [Configuration: Memory injection](configuration.md#memory-injection).
+
+- With `openingContext` on, the first prompt of a new session also gets the memories that match `openingContextQuery`. A resumed session gets the restore and no opening section.
+- Pi starts subagents with `--no-extensions`, so OMMS is not loaded in them. OMMS has a gate ready for children (`OMPS_CHILD=1`): a child gets the prompt recall only when `subagentMemory` is on, and gets no opening section, no restore and no rows. The memories reach a Pi subagent only when om-pi-subagents loads the OMMS extension in the child. That change is in another repository and is not done.
+- The other host differences are in [Using memory: Host differences](using-memory.md#host-differences).
+
+### Compaction and resume
+
+OMMS restores memories after a compaction and after a resume, and still does not replace or change Pi's native compaction summary. The restore adds the session's own memories from Pi, up to `compaction.memoryLimit`, as a short reminder after the prompt's recall. Pi keeps the restore for later runs until the next compaction or the end of the session. `compaction.enabled` set to `false` turns it off.
+
+- After a compaction, `session_compact` loads the memories.
+- After a resume, `session_start` with the reason `resume` loads them. A first prompt in this process on a branch that already holds earlier user entries does the same.
+- A subagent session gets no restore.
+
+If compaction happens during a run, capture waits for the settled point. The work unit then
 covers both sides of the compaction, and each part is captured once.
 
 ### Automatic profile cleanup
@@ -199,3 +213,4 @@ OpenCode and Pi can run in separate processes against the same store.
 
 - Pi profile learning applies analysed batches directly. It does not have the decay, validation-task, and conflict-retry steps of the OpenCode idle path.
 - Manual history import covers the current project by default. See [pi-history-import.md](pi-history-import.md).
+- Subagent memory on Pi needs om-pi-subagents to load OMMS in the child session. See [Using memory: Host differences](using-memory.md#host-differences).

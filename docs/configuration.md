@@ -45,6 +45,10 @@ On first start, if no config exists at all, the plugin creates a full commented 
   "skillLearningRedact": true,
   // "skillFolders": ["~/.agents/skills"],
   "visibleRecall": true,
+  // Memory injection: see "Memory injection" below.
+  // "openingContext": false,
+  // "openingContextQuery": "project architecture, setup, conventions and key decisions",
+  // "subagentMemory": true,
   // "auto" detects the language of your prompt. Latin-script prompts under 100
   // characters count as English, because short text is detected unreliably.
   // Set a fixed code such as "en" to always write memories in that language.
@@ -84,7 +88,7 @@ On first start, if no config exists at all, the plugin creates a full commented 
     "maxMemories": 3,
     "excludeCurrentSession": true,
     "maxAgeDays": undefined,
-    "injectOn": "first", // OpenCode v1 only; v2 and Pi search on every prompt
+    "injectOn": "first", // OpenCode V1 only; V2, Pi and Claude Code search on every prompt
   },
 }
 ```
@@ -107,7 +111,65 @@ Open the Settings page in the login web app, in OpenCode, or with `om-memory-sys
 - OpenCode, Pi, and the web app that serves Claude Code reload changed config files at the next capture or profile-learning run. You do not need to restart.
 - On a legacy-only install, the first save copies the old config and its comments to `~/.config/omms/omms.jsonc`. OMMS reads the new file from then on. The old file stays unchanged.
 - The page rejects a save if the file changed since the page loaded it. Check the refreshed values, then save again.
+- The **Memory injection** section of the [Memory page](web-ui-memory.md#memory-injection) edits `openingContext`, `openingContextQuery`, `subagentMemory`, `compaction.enabled` and `compaction.memoryLimit`.
 - The **Memory** card edits the six [memory limits](#memory-limits) below, including the nested `chatMessage.maxMemories` leaf and `similarityThreshold`. Every row has a **Reset to default** action that removes the key from the global file so the value follows the default again.
+
+## Memory injection
+
+OMMS adds memories to the model's context in four ways. Each way has its own setting. They apply to OpenCode V2, Pi and Claude Code.
+
+| Setting                  | Default                                                      | Effect                                                                                                                |
+| ------------------------ | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `chatMessage.enabled`    | `true`                                                       | Turns the prompt recall off when `false`. The opening search and subagent memory turn off with it.                    |
+| `openingContext`         | `false`                                                      | When `true`, the first message of a new session also gets the memories that match `openingContextQuery`.              |
+| `openingContextQuery`    | `project architecture, setup, conventions and key decisions` | The search text for the opening context. Global only. Trimmed, 500 characters at most. An empty query runs no search. |
+| `subagentMemory`         | `true`                                                       | Gives each subagent session the memories that match its task.                                                         |
+| `compaction.enabled`     | `true`                                                       | Restores the session's own memories after a compaction and after a resume.                                            |
+| `compaction.memoryLimit` | 10                                                           | The most memories that the restore adds.                                                                              |
+
+```jsonc
+{
+  // Add memories that match the query to the first message of a new session.
+  "openingContext": false,
+  "openingContextQuery": "project architecture, setup, conventions and key decisions",
+  // Give subagents the memories that match their task.
+  "subagentMemory": true,
+  "compaction": {
+    "enabled": true,
+    "memoryLimit": 10,
+  },
+}
+```
+
+### Opening context
+
+"Injection at session start" means the first message of a new session, on every host. OpenCode V2 and Pi send no model request before the first prompt, so there is nothing earlier to add to. Claude Code could add text when the session starts. It uses its first `UserPromptSubmit` instead, so all three hosts behave the same. Claude Code adds nothing at `SessionStart` for `startup` and `clear`.
+
+- The opening search uses the same relevance filter, result limit and size budget (`retrievalMaxTokens`) as the prompt recall. The prompt's own section is packed first. The opening section gets what is left.
+- A project with no matching memory adds nothing.
+- A resumed or compacted session gets the restore, not an opening section.
+- OpenCode V1 ignores these settings. It adds its recent-memory list to the first message (`chatMessage.maxMemories`, `chatMessage.maxAgeDays`).
+
+### Subagent memory
+
+A subagent session gets up to one retrieval budget (`retrievalMaxTokens`) of extra context, and OMMS runs one search for each subagent prompt. Set `subagentMemory` to `false` to turn this off.
+
+- OpenCode V2 gives child sessions the prompt recall. A child gets no opening section and no resume restore.
+- Claude Code adds the memories when the subagent starts. See [Claude Code adapter: Subagent memory](claude-code-adapter.md#subagent-memory).
+- Pi children start without extensions, so OMMS side is ready but a Pi subagent gets memories only when om-pi-subagents loads the OMMS extension in the child. That change is in another repository.
+- No host shows recall rows in a subagent session.
+
+### Restore after compaction or resume
+
+`compaction.enabled` and `compaction.memoryLimit` control one restore on all three hosts. OMMS adds the session's own memories from the same host, up to `compaction.memoryLimit`, as a short reminder. On OpenCode V2 and Pi the full history stays after a resume, so the restore is a reminder only. Pi's own compaction summary is not replaced.
+
+### Project config
+
+- A project config can set `openingContext` and `subagentMemory` to `false`. A project value of `true` is ignored and logged.
+- A project value for `openingContextQuery` is ignored and logged.
+- A project config can turn `compaction.enabled` on or off. The merge is shallow: a project `compaction` object replaces the global one, and a key it leaves out uses the built-in default.
+
+The Memory injection section of the Memory page edits all five global keys. **Reset to default** followed by **Save** removes the keys from the file. See [Memory page: Memory injection](web-ui-memory.md#memory-injection).
 
 ## Profile retention
 
@@ -126,7 +188,7 @@ Edit `~/.config/omms/omms.jsonc` directly, or use **Settings → Memory**. File 
 | Setting                      | Default                                        | Unit               | Accepted values          | Affects                                                                                                                |
 | ---------------------------- | ---------------------------------------------- | ------------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
 | `maxMemories`                | 10                                             | Results            | Positive safe integers   | Maximum memory search results. Manual searches can request fewer.                                                      |
-| `chatMessage.maxMemories`    | 3                                              | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 search each prompt.                |
+| `chatMessage.maxMemories`    | 3                                              | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 only. OpenCode V2, Pi and Claude Code search each prompt.              |
 | `autoCaptureMaxContextBytes` | 131072                                         | UTF-8 bytes        | 16384–16777216 inclusive | Conversation input to the shared memory-summary pipeline.                                                              |
 | `userProfileMaxContextBytes` | 32768                                          | UTF-8 bytes        | 1024–16777216 inclusive  | OpenCode profile-learning input, including the truncation marker. Other hosts' profile input is outside this control.  |
 | `retrievalMaxTokens`         | 2000                                           | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text and formatting.                                      |
@@ -141,7 +203,7 @@ The threshold default follows the active embedding model: 0.5 for `qwen3-embeddi
   // Maximum search results.
   "maxMemories": 10,
   "chatMessage": {
-    // Recent memories at session start in OpenCode V1 and Claude Code.
+    // Recent memories at session start in OpenCode V1 only.
     "maxMemories": 3,
   },
   // Memory-summary conversation input, in UTF-8 bytes.
@@ -164,7 +226,7 @@ Project files at `<project>/.opencode/omms.jsonc` can override these limits. The
 
 OMMS estimates tokens as `Math.ceil(utf8ByteLength(text) / 4)`. The final emitted memory text fits within `retrievalMaxTokens * 4` UTF-8 bytes. This includes headings, explanatory text, omission markers, delimiters, and retrieval wrappers. Host prompts are outside this allowance. A provider can count more or fewer tokens.
 
-- The allowance covers supported prompt retrieval, recent-memory injection, and memory restoration after compaction or resume.
+- The allowance covers supported prompt retrieval, the opening context, subagent memory, OpenCode V1's recent-memory list, and memory restoration after compaction or resume.
 - Sections added in one host request share one allowance. Claude Code also keeps its existing 9500-character hook limit.
 - Profile text uses at most one quarter of the payload space after fixed formatting. Unused profile space goes to memories.
 - Memories keep their incoming order. OMMS shortens the first entry that exceeds the remaining space, marks it, and stops.
@@ -313,7 +375,9 @@ On the Settings page you can **Pause** and **Resume** each host's backfill.
 
 ## Visible recall
 
-`visibleRecall` controls whether OMMS draws a row for each memory recall in the OpenCode terminal TUI (the `tui` entrypoint) and in Pi's interactive terminal. It does not change what OMMS recalls or injects into the model context. See [OpenCode adapter: Recall rows](opencode-adapter.md#recall-rows) and [Pi adapter: Recall rows](pi-adapter.md#recall-rows).
+`visibleRecall` controls whether OMMS draws a row for each memory recall in the OpenCode terminal TUI (the `tui` entrypoint), in Pi's interactive terminal and in Claude Code. See [OpenCode adapter: Recall rows](opencode-adapter.md#recall-rows), [Pi adapter: Recall rows](pi-adapter.md#recall-rows) and [Claude Code adapter: Recall rows](claude-code-adapter.md#memory-tool-and-recall-rows).
+
+On OpenCode and Pi the setting does not change what OMMS recalls or injects. On Claude Code, the hook command can reach the recall module only through the injected text. While rows are off, each injected section carries one marker line, `<!--omms:rows-off-->` (21 bytes), right after the opening tag. The marker holds no memory text and counts in the size budget.
 
 ```jsonc
 {
@@ -342,6 +406,7 @@ Some settings are read only from the global file.
 - A project config cannot turn `captureTrace` on. See [Capture traces](#capture-traces-opt-in).
 - A project config cannot turn `skillLearning` on, and it cannot set `skillLearningRedact` or `skillFolders`. See [Skill learning](#skill-learning).
 - A project config cannot turn `visibleRecall` on. It can turn it off. See [Visible recall](#visible-recall).
+- A project config cannot turn `openingContext` or `subagentMemory` on, and it cannot set `openingContextQuery`. See [Memory injection](#memory-injection).
 - A project config that sets `embeddingApiUrl`, `embeddingApiKey`, `memoryProvider`, `memoryApiUrl`, or `memoryApiKey` is an error. Move those to the global file.
 
 See [Web UI settings](web-ui-settings.md) for backfill status and [CLI](cli.md#web-app-commands) for the login-item commands.

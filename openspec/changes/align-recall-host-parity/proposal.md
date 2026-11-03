@@ -50,6 +50,7 @@ The user decided on 2026-11-03:
 - `opencode-visible-recall`: a summary can have mode `opening` (with its query) or `restore` (no query).
 - `pi-agent-adapter`: Pi restores the session's memories after compaction and resume.
 - `web-memory-hosts`: the Memory overview gains the Memory injection section below the host cards, and the Shared view links to it.
+- `web-memory-chat`: a model server on this machine (`localhost`, `127.0.0.1`, `::1`) needs no key. Added at the user's request during implementation. Capture, profile and import keep the key rule.
 
 ## Impact
 

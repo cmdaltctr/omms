@@ -220,6 +220,11 @@ The plugin SHALL register a `SubagentStart` hook. When `subagentMemory` is on, i
 - **WHEN** the parent transcript holds no unanswered `Agent` or `Task` tool call for the subagent's type
 - **THEN** the hook SHALL return no added context
 
+#### Scenario: A background subagent
+
+- **WHEN** the parent transcript holds an `Agent` or `Task` call for the subagent's type whose only result is the "Async agent launched" receipt that Claude Code writes when it starts a background agent
+- **THEN** the hook SHALL treat the call as unanswered and search with its `prompt`
+
 #### Scenario: A section in a subagent's conversation
 
 - **WHEN** hook context with an OMMS retrieval section is appended to a subagent's conversation
