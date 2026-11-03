@@ -51,7 +51,7 @@ export function ChatInput({ projects, scope, scopeMissing, disabled, onScope, on
         maxLength={4000}
         placeholder={t("chat-input-placeholder")}
         aria-label={t("chat-input-placeholder")}
-        className="min-h-14 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
+        className="min-h-14 resize-none bg-transparent"
         onChange={(event) => setText(event.target.value)}
         onKeyDown={onKeyDown}
       />

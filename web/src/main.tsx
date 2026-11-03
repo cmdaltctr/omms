@@ -3,9 +3,11 @@ import { createRoot } from "react-dom/client";
 import "./app.css";
 import App from "./App";
 import { I18nProvider } from "$lib/i18n";
+import { initFocusMode } from "$lib/focus-mode";
 import { initTheme } from "$lib/theme";
 
 initTheme();
+initFocusMode();
 
 const root = document.getElementById("app");
 if (!root) {
