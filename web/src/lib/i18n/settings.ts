@@ -1300,35 +1300,37 @@ const text = {
     "随第一条消息注入记忆",
     "حقن الذكريات مع الرسالة الأولى",
   ],
-  "Added once, with the first message of a new session. Nothing is added when the session opens. OMMS searches the query below and adds only matching memories.":
+  "Added once, with the first message of a new session. Nothing is added when a new session opens. OMMS searches the query below and adds only matching memories.":
     [
-      "仅随新会话的第一条消息添加一次。会话打开时不会添加任何内容。OMMS 会用下面的查询进行搜索，只添加匹配的记忆。",
-      "تُضاف مرة واحدة مع أول رسالة في جلسة جديدة. لا يُضاف شيء عند فتح الجلسة. يبحث OMMS بالاستعلام أدناه ويضيف الذكريات المطابقة فقط.",
+      "仅随新会话的第一条消息添加一次。新会话打开时不会添加任何内容。OMMS 会用下面的查询进行搜索，只添加匹配的记忆。",
+      "تُضاف مرة واحدة مع أول رسالة في جلسة جديدة. لا يُضاف شيء عند فتح جلسة جديدة. يبحث OMMS بالاستعلام أدناه ويضيف الذكريات المطابقة فقط.",
     ],
   "Memories are added at these moments:": [
     "记忆会在这些时刻添加：",
     "تُضاف الذكريات في هذه اللحظات:",
   ],
-  "With every message: the memories that match that message. Always on.": [
-    "随每条消息：与该消息匹配的记忆。始终开启。",
-    "مع كل رسالة: الذكريات المطابقة لتلك الرسالة. دائمًا مفعّلة.",
-  ],
+  "With every message: the memories that match that message. On by default. chatMessage.enabled in the config file turns it off, and the first-message and subagent options with it.":
+    [
+      "随每条消息：与该消息匹配的记忆。默认开启。配置文件中的 chatMessage.enabled 可将其关闭，第一条消息和子代理选项也会随之关闭。",
+      "مع كل رسالة: الذكريات المطابقة لتلك الرسالة. مفعّلة افتراضيًا. يوقفها chatMessage.enabled في ملف الإعدادات، وتتوقف معها خيارات الرسالة الأولى والوكلاء الفرعيين.",
+    ],
   "With the first message of a new session: the memories that match the query below. Needs the first switch.":
     [
       "随新会话的第一条消息：与下面查询匹配的记忆。需要打开第一个开关。",
       "مع أول رسالة في جلسة جديدة: الذكريات المطابقة للاستعلام أدناه. تتطلب المفتاح الأول.",
     ],
-  "When a subagent starts: the memories that match its task. Needs the Subagent memory switch.": [
-    "子代理启动时：与其任务匹配的记忆。需要打开“子代理记忆”开关。",
-    "عند بدء وكيل فرعي: الذكريات المطابقة لمهمته. تتطلب مفتاح ذاكرة الوكلاء الفرعيين.",
-  ],
+  "For a subagent: the memories that match its task. Claude Code adds them once, when the subagent starts. OpenCode V2 and Pi add them with each prompt the subagent gets. Needs the Subagent memory switch.":
+    [
+      "对于子代理：与其任务匹配的记忆。Claude Code 在子代理启动时添加一次。OpenCode V2 和 Pi 在子代理收到的每条提示时添加。需要打开“子代理记忆”开关。",
+      "للوكيل الفرعي: الذكريات المطابقة لمهمته. يضيفها Claude Code مرة واحدة عند بدء الوكيل. ويضيفها OpenCode V2 وPi مع كل طلب يتلقاه الوكيل. يتطلب مفتاح ذاكرة الوكلاء الفرعيين.",
+    ],
   "After a compaction or resume: the memories that session captured. Needs the Restore switch.": [
     "压缩或恢复之后：该会话捕获的记忆。需要打开“还原”开关。",
     "بعد الضغط أو الاستئناف: الذكريات التي التقطتها تلك الجلسة. تتطلب مفتاح الاستعادة.",
   ],
-  "Nothing is added when a session opens.": [
-    "会话打开时不会添加任何内容。",
-    "لا يُضاف شيء عند فتح الجلسة.",
+  "Nothing is added when a new session opens.": [
+    "新会话打开时不会添加任何内容。",
+    "لا يُضاف شيء عند فتح جلسة جديدة.",
   ],
   "Claude Code can add memories when a session opens. Pi and OpenCode V2 cannot. To keep all three the same, OMMS adds them with the first message on every host.":
     [
@@ -1345,10 +1347,10 @@ const text = {
     "يحدد كيفية إضافة OMMS للذكريات إلى سياق النموذج.",
   ],
   "Subagent memory": ["子代理记忆", "ذاكرة الوكلاء الفرعيين"],
-  "Added when a subagent starts. Subagents get memories that match their task. No rows are shown for them.":
+  "Subagents get memories that match their task. Claude Code adds them once, at start. OpenCode V2 and Pi add them with each subagent prompt. No rows are shown for them.":
     [
-      "子代理启动时添加。子代理会获得与其任务匹配的记忆。不会为它们显示记忆行。",
-      "تُضاف عند بدء وكيل فرعي. يحصل الوكلاء الفرعيون على الذكريات المطابقة لمهمتهم. لا تُعرض لهم أي صفوف.",
+      "子代理会获得与其任务匹配的记忆。Claude Code 在启动时添加一次。OpenCode V2 和 Pi 在每条子代理提示时添加。不会为它们显示记忆行。",
+      "يحصل الوكلاء الفرعيون على الذكريات المطابقة لمهمتهم. يضيفها Claude Code مرة واحدة عند البدء. ويضيفها OpenCode V2 وPi مع كل طلب للوكيل الفرعي. لا تُعرض لهم أي صفوف.",
     ],
   "Restore memories after compaction or resume": [
     "压缩或恢复后还原记忆",

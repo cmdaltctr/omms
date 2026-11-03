@@ -131,7 +131,11 @@ export function MemoryInjectionSection() {
       <Callout tone="success">
         <p>{s("Memories are added at these moments:")}</p>
         <ul className="list-disc space-y-1 ps-5">
-          <li>{s("With every message: the memories that match that message. Always on.")}</li>
+          <li>
+            {s(
+              "With every message: the memories that match that message. On by default. chatMessage.enabled in the config file turns it off, and the first-message and subagent options with it."
+            )}
+          </li>
           <li>
             {s(
               "With the first message of a new session: the memories that match the query below. Needs the first switch."
@@ -139,7 +143,7 @@ export function MemoryInjectionSection() {
           </li>
           <li>
             {s(
-              "When a subagent starts: the memories that match its task. Needs the Subagent memory switch."
+              "For a subagent: the memories that match its task. Claude Code adds them once, when the subagent starts. OpenCode V2 and Pi add them with each prompt the subagent gets. Needs the Subagent memory switch."
             )}
           </li>
           <li>
@@ -148,7 +152,7 @@ export function MemoryInjectionSection() {
             )}
           </li>
         </ul>
-        <p>{s("Nothing is added when a session opens.")}</p>
+        <p>{s("Nothing is added when a new session opens.")}</p>
       </Callout>
       <p className="text-xs text-muted-foreground">
         {s(
@@ -177,7 +181,7 @@ export function MemoryInjectionSection() {
           </div>
           <p id="injection-opening-help" className="text-xs text-muted-foreground">
             {s(
-              "Added once, with the first message of a new session. Nothing is added when the session opens. OMMS searches the query below and adds only matching memories."
+              "Added once, with the first message of a new session. Nothing is added when a new session opens. OMMS searches the query below and adds only matching memories."
             )}
           </p>
           <Callout tone="info">
@@ -223,7 +227,7 @@ export function MemoryInjectionSection() {
           </div>
           <p id="injection-subagent-help" className="text-xs text-muted-foreground">
             {s(
-              "Added when a subagent starts. Subagents get memories that match their task. No rows are shown for them."
+              "Subagents get memories that match their task. Claude Code adds them once, at start. OpenCode V2 and Pi add them with each subagent prompt. No rows are shown for them."
             )}
           </p>
           <Callout tone="warning">

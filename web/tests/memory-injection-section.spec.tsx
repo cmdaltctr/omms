@@ -94,16 +94,16 @@ it("limits the query to 500 characters and counts them", () => {
 it("has the help texts, the host note and the project note", () => {
   const html = section();
   expect(html).toContain(
-    "Added once, with the first message of a new session. Nothing is added when the session opens. OMMS searches the query below and adds only matching memories."
+    "Added once, with the first message of a new session. Nothing is added when a new session opens. OMMS searches the query below and adds only matching memories."
   );
   expect(html).toContain(
-    "Added when a subagent starts. Subagents get memories that match their task. No rows are shown for them."
+    "Subagents get memories that match their task. Claude Code adds them once, at start. OpenCode V2 and Pi add them with each subagent prompt. No rows are shown for them."
   );
   expect(html).toContain(
     "Applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. On Pi, a subagent gets memory only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in /omps-settings, Agent capabilities, Memory."
   );
   expect(html.indexOf("Applies to OpenCode V2")).toBeGreaterThan(
-    html.indexOf("Added when a subagent starts.")
+    html.indexOf("Subagents get memories that match their task.")
   );
   expect(html).toContain("Sets how OMMS adds memories to the context the model sees.");
   expect(html).toContain(

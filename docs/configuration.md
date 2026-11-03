@@ -156,7 +156,7 @@ A subagent session gets up to one retrieval budget (`retrievalMaxTokens`) of ext
 
 - OpenCode V2 gives child sessions the prompt recall. A child gets no opening section and no resume restore.
 - Claude Code adds the memories when the subagent starts. See [Claude Code adapter: Subagent memory](claude-code-adapter.md#subagent-memory).
-- Pi children start without extensions, so OMMS side is ready but a Pi subagent gets memories only when om-pi-subagents loads the OMMS extension in the child. That change is in another repository.
+- Pi children start without extensions. A Pi subagent gets memories only when its agent maps the OMMS extension in om-pi-subagents (`/omps-settings`, Agent capabilities, Memory).
 - No host shows recall rows in a subagent session.
 
 ### Restore after compaction or resume

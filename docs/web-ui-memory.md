@@ -48,14 +48,14 @@ The **Memory injection** section sits below the host cards and the **Import all 
 | **Most memories to restore**                    | `compaction.memoryLimit` | 10                                                           |
 
 - A green note at the top of the card lists when memories are added:
-  - With every message: the memories that match that message. Always on.
+  - With every message: the memories that match that message. On by default. `chatMessage.enabled` in the config file turns it off, and the first-message and subagent options with it.
   - With the first message of a new session: the memories that match the query. Needs the first switch.
-  - When a subagent starts: the memories that match its task. Needs the **Subagent memory** switch.
+  - For a subagent: the memories that match its task. Claude Code adds them once, when the subagent starts. OpenCode V2 and Pi add them with each prompt the subagent gets. Needs the **Subagent memory** switch.
   - After a compaction or resume: the memories that session captured. Needs the restore switch.
-  - Nothing is added when a session opens, including a fresh or cleared Claude Code session.
+  - Nothing is added when a new session opens, including a fresh or cleared Claude Code session.
 - Claude Code can add memories when a session opens. Pi and OpenCode V2 cannot. To keep all three the same, OMMS adds them with the first message on every host. The panel shows this as a note under the switch.
 - The first-message option adds memories once, with the first message of a new session, on every host. Claude Code does this on its first prompt, not at its `SessionStart` hook. OMMS searches with the query and adds only matching memories. The query holds up to 500 characters. An empty query runs no search. The text area shows a counter.
-- Subagents get the memories that match their task when they start, and no recall rows. On Pi, a subagent gets memories only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in `/omps-settings`, Agent capabilities, Memory.
+- Subagents get the memories that match their task, and no recall rows. Claude Code adds them once, when the subagent starts. OpenCode V2 and Pi add them with each prompt the subagent gets. On Pi, a subagent gets memories only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in `/omps-settings`, Agent capabilities, Memory.
 - The restore switch adds the memories that the session captured when it resumes or compacts. **Most memories to restore** takes a positive whole number.
 - **Save** writes only the changed keys to the global file, through the [safe global save](web-ui-settings.md#how-saving-works). A rejected value shows a message that names the key and the rule.
 - **Reset to default** returns the form to the defaults. Select **Save** after it. The save removes the five keys from the file, so each value follows its default again.
