@@ -29,6 +29,14 @@ function payload(event: string, extra: Record<string, unknown> = {}) {
     return { ...base, hook_event_name: "SessionStart", source: "startup", ...extra };
   if (event === "user-prompt-submit")
     return { ...base, hook_event_name: "UserPromptSubmit", prompt: SECRET_PROMPT, ...extra };
+  if (event === "subagent-start")
+    return {
+      ...base,
+      hook_event_name: "SubagentStart",
+      agent_id: "agent-1",
+      agent_type: "Explore",
+      ...extra,
+    };
   return {
     ...base,
     hook_event_name: "Stop",
@@ -241,6 +249,20 @@ describe("claude-hook command", () => {
       source: "compact",
     });
     expect(JSON.parse(h.out[0]!).hookSpecificOutput.hookEventName).toBe("SessionStart");
+  });
+
+  it("sends the subagent type and prints SubagentStart context", async () => {
+    const h = harness(JSON.stringify(payload("subagent-start")));
+    expect(await runClaudeHookCommand(["subagent-start"], h.options)).toBe(0);
+    expect(posts(h)[0]?.body).toEqual({
+      event: "subagent-start",
+      session_id: "s-1",
+      cwd: "/work/project",
+      transcript_path: "/tmp/t.jsonl",
+      agent_type: "Explore",
+    });
+    expect(JSON.parse(h.out[0]!).hookSpecificOutput.hookEventName).toBe("SubagentStart");
+    expect(logged(h)?.event).toBe("subagent-start");
   });
 
   it("prints nothing when the server returns empty context", async () => {
@@ -511,7 +533,7 @@ describe("replacing an older web app", () => {
     expect(stepAside(h)[0]?.headers.authorization).toBeUndefined();
   });
 
-  for (const event of ["user-prompt-submit", "stop"] as const) {
+  for (const event of ["user-prompt-submit", "subagent-start", "stop"] as const) {
     it(`does not look at the web app version at ${event}`, async () => {
       const h = harness(JSON.stringify(payload(event)), {
         recordedVersion: "4.3.3",

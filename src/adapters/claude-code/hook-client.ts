@@ -6,7 +6,12 @@ import type { EnsureDeps } from "../../services/web-ensure.js";
 // app, send one request, print the added context, and log one metadata line.
 // It loads no store, embedding model, or engine; the web app does that work.
 
-export const CLAUDE_HOOK_EVENTS = ["session-start", "user-prompt-submit", "stop"] as const;
+export const CLAUDE_HOOK_EVENTS = [
+  "session-start",
+  "user-prompt-submit",
+  "subagent-start",
+  "stop",
+] as const;
 export type ClaudeHookEvent = (typeof CLAUDE_HOOK_EVENTS)[number];
 
 /** Claude Code caps added context at 10,000 characters; keep a margin. */
@@ -23,12 +28,14 @@ const MAX_INPUT_BYTES = 1024 * 1024;
 const BUDGETS: Record<ClaudeHookEvent, { startMs: number; requestMs: number }> = {
   "session-start": { startMs: 15_000, requestMs: 3_000 },
   "user-prompt-submit": { startMs: 5_000, requestMs: 3_000 },
+  "subagent-start": { startMs: 5_000, requestMs: 3_000 },
   stop: { startMs: 30_000, requestMs: 5_000 },
 };
 
 const HOOK_EVENT_NAMES: Record<ClaudeHookEvent, string> = {
   "session-start": "SessionStart",
   "user-prompt-submit": "UserPromptSubmit",
+  "subagent-start": "SubagentStart",
   stop: "Stop",
 };
 
@@ -150,6 +157,13 @@ function parseInput(text: string, event: ClaudeHookEvent): HookInput | null {
   return input as HookInput;
 }
 
+/** The one input field each retrieval event adds to the request, beside the common ones. */
+const RETRIEVE_FIELD = {
+  "session-start": "source",
+  "user-prompt-submit": "prompt",
+  "subagent-start": "agent_type",
+} as const;
+
 function requestFor(event: ClaudeHookEvent, input: HookInput): { path: string; body: object } {
   const optional = (key: string) => (input[key] === undefined ? {} : { [key]: input[key] });
   if (event === "stop")
@@ -170,7 +184,7 @@ function requestFor(event: ClaudeHookEvent, input: HookInput): { path: string; b
       session_id: input.session_id,
       cwd: input.cwd,
       ...optional("transcript_path"),
-      ...optional(event === "session-start" ? "source" : "prompt"),
+      ...optional(RETRIEVE_FIELD[event]),
     },
   };
 }

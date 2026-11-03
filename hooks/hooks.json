@@ -1,5 +1,5 @@
 {
-  "description": "OMMS memory: inject memories at session start and per prompt, capture each finished turn",
+  "description": "OMMS memory: add the memories that match each prompt and subagent task, restore them after compaction, capture each finished turn",
   "modules": ["./omms.jsx"],
   "hooks": {
     "SessionStart": [
@@ -19,6 +19,17 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/omms-launch.mjs\" --at-least-own-version claude-hook user-prompt-submit",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/omms-launch.mjs\" --at-least-own-version claude-hook subagent-start",
             "timeout": 10
           }
         ]
