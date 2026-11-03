@@ -31,5 +31,5 @@
 
 - [x] 6.1 Update the OpenCode guide (`docs/`) with the visible-recall rows, the `visibleRecall` setting, and the OpenChamber limitation; add the guide entry to `docs/README.md` index if a new file is created. Check: docs mention the default and both off paths.
 - [x] 6.2 Full gate: `bun run ci:local` green. Check: command output shows every file passing.
-- [ ] 6.3 Live check in the real terminal TUI (2.2.5): a prompt shows a `▸ ● memory [mode=search, query="…", limit=N]` row (no `recent` row at open, since v2 has none); folding works; turning the setting off removes the rows; OpenChamber shows no change. Check: notes recorded in the change folder or the TDR from 1.1.
+- [x] 6.3 Live check in the real terminal TUI (2.2.5): a prompt shows a `▸ ● memory [mode=search, query="…", limit=N]` row (no `recent` row at open, since v2 has none); folding works; turning the setting off removes the rows. OpenChamber is not run live: it does not load the TUI entry (proposal non-goal), and the unchanged injection is pinned by the `v2-recall-reporting` test. Check: notes recorded in TDR-060 ("Live check of the finished change").
 - [x] 6.4 Host-parity note: the summary builder is shared in `src/core/`; record in the docs that Pi rendering is a future change. Check: `CONTRIBUTING.md` host-parity wording still holds or is updated in the same change.

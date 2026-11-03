@@ -1,6 +1,10 @@
-# Recall Visibility
+# opencode-visible-recall Specification
 
-## ADDED Requirements
+## Purpose
+
+Defines how OMMS makes its OpenCode v2 recalls visible: the server records a structured summary for each recall, and the terminal TUI shows it as a fold row, without changing the model context or the session transcript.
+
+## Requirements
 
 ### Requirement: Each OpenCode v2 recall is reported as a structured summary
 
