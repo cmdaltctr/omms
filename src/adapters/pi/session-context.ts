@@ -13,6 +13,10 @@ import { getTags } from "../../services/tags.js";
 import { utf8ByteLength } from "../../utils/context-limit.js";
 import type { PiRecallRows } from "./recall-rows.js";
 
+/** The blank line before each section. The budget counts it for the second section on. */
+const SECTION_SEPARATOR = "\n\n";
+const SECTION_SEPARATOR_BYTES = 2;
+
 /**
  * What Pi adds to the system prompt of one run beyond the prompt's own recall (change
  * align-recall-host-parity, design D1d, D4, D5): the opening section on the first prompt of a
@@ -116,7 +120,7 @@ export function createPiSessionContext(rows: PiRecallRows): PiSessionContext {
             directory: ctx.cwd,
             sessionId,
             budget,
-            openingReserveBytes: 0,
+            openingReserveBytes: SECTION_SEPARATOR_BYTES,
           }));
         } else {
           const section = await buildRetrievalSection(prompt, ctx.cwd, sessionId, budget);
@@ -128,7 +132,9 @@ export function createPiSessionContext(rows: PiRecallRows): PiSessionContext {
       let restoredSection: string | null = null;
       const entry = restoreEnabled() ? restored.get(sessionId) : undefined;
       if (entry) {
-        const left = budgetBytes - (promptSection ? utf8ByteLength(promptSection) : 0);
+        const left =
+          budgetBytes -
+          (promptSection ? utf8ByteLength(promptSection) + SECTION_SEPARATOR_BYTES : 0);
         const text =
           left > budget.wrapperBytes
             ? formatMemoriesForCompaction(entry.memories, {
@@ -149,7 +155,7 @@ export function createPiSessionContext(rows: PiRecallRows): PiSessionContext {
       }
 
       const parts = [promptSection, openingSection, restoredSection].filter(Boolean);
-      return parts.length > 0 ? "\n\n" + parts.join("\n\n") : null;
+      return parts.length > 0 ? SECTION_SEPARATOR + parts.join(SECTION_SEPARATOR) : null;
     },
 
     reset() {

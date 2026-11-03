@@ -98,7 +98,8 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${this.config.apiKey}`,
+            // A keyless server on this machine gets no Authorization header.
+            ...(this.config.apiKey ? { Authorization: `Bearer ${this.config.apiKey}` } : {}),
           },
           body: JSON.stringify(requestBody),
           signal: controller.signal,

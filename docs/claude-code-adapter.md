@@ -305,10 +305,10 @@ With `openingContext` on, the first prompt of a session also runs one search wit
 With `subagentMemory` on (the default), a starting subagent gets the memories that match its task.
 
 1. Claude Code sends `SubagentStart` with the subagent type and the path of the parent transcript. The event carries no task text.
-2. OMMS reads the end of the parent transcript. It looks for the newest `Agent` or `Task` call of the same `subagent_type` that has no result yet. The "Async agent launched" receipt of a background agent does not count as a result.
+2. OMMS reads the end of the parent transcript. It looks for the oldest `Agent` or `Task` call of the same `subagent_type` that has no result yet and has not fed a subagent already. The "Async agent launched" receipt of a background agent does not count as a result.
 3. OMMS searches with that call's `prompt` and adds the matches to the subagent's context.
 
-When OMMS finds no matching call, it adds nothing. Two parallel subagents of the same type both take the newest call that has no result. The subagent session draws no recall rows. OMMS registers no `SubagentStop` hook, so subagent turns are not captured on their own.
+When OMMS finds no matching call, it adds nothing. Parallel subagents of the same type take their calls in order, oldest first, and each call is used once. A background call stays open until its agent ends, so a later start with no new call finds nothing. The subagent session draws no recall rows. OMMS registers no `SubagentStop` hook, so subagent turns are not captured on their own.
 
 Subagent memory costs up to one retrieval budget (`retrievalMaxTokens`) of extra context for each subagent session, and one search for each subagent prompt.
 
@@ -512,7 +512,7 @@ of the next reply:
   memory text. The marker is the only way the hook command can tell the module.
   It counts in the size budget.
 - With rows on, the opening section carries the line
-  `<!--omms:opening query="...">`. It holds your own `openingContextQuery`, cut
+  `<!--omms:opening query="..."-->`. It holds your own `openingContextQuery`, cut
   to 300 characters. It is sent to the model once per session.
 - Subagent sessions draw no rows.
 

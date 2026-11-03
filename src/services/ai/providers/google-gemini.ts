@@ -159,7 +159,8 @@ export class GoogleGeminiProvider extends BaseAIProvider {
 
       try {
         const baseUrl = this.config.apiUrl || "https://generativelanguage.googleapis.com/v1beta";
-        const url = `${baseUrl}/models/${this.config.model}:generateContent?key=${this.config.apiKey}`;
+        const keyQuery = this.config.apiKey ? `?key=${this.config.apiKey}` : "";
+        const url = `${baseUrl}/models/${this.config.model}:generateContent${keyQuery}`;
 
         const requestBody: any = {
           contents,

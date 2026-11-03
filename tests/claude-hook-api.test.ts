@@ -359,6 +359,15 @@ scenario = (await ask()).additionalContext;
     expect(scenario).toContain(OPEN_MARKER);
   });
 
+  it("does not count a slash command or skill entry as an earlier prompt", async () => {
+    // Claude Code writes `<command-message>` entries for a custom command or a skill.
+    const scenario = await createHarness(OPENING_ON).run(`${OPENING_SETUP}
+appendFileSync(transcript, entry("user", "cmd-1", "<command-message>fixture-skill</command-message>\\n<command-name>/fixture-skill</command-name>\\n<command-args>tidy notes</command-args>"));
+scenario = (await ask({ prompt: "/fixture-skill tidy notes" })).additionalContext;
+`);
+    expect(scenario).toContain(OPEN_MARKER);
+  });
+
   it("counts a missing transcript file as first, and a missing or invalid path as not first", async () => {
     const scenario = await createHarness(OPENING_ON).run(`${OPENING_SETUP}
 const missingFile = join(transcriptDir, "ses-missing.jsonl");
@@ -556,36 +565,48 @@ scenario = {
     });
   });
 
-  it("skips an answered call, and takes the newest unanswered one", async () => {
+  it("gives parallel subagents of one type their own task, oldest call first, and each call once", async () => {
     const scenario = await createHarness().run(`${SUBAGENT_SETUP}
 call("t1", "Agent", { prompt: "first task", subagent_type: "Explore" });
 call("t2", "Agent", { prompt: "second task", subagent_type: "Explore" });
-const bothOpen = await start("Explore");
-answer("t2");
-const firstOnly = await start("Explore");
-scenario = { bothOpen, firstOnly, searched };
+const first = await start("Explore");
+const second = await start("Explore");
+// Both calls are used. A start with no new call must not reuse one.
+const third = await start("Explore");
+scenario = { first, second, third, searched };
 `);
-    expect(scenario.bothOpen).toContain("Memory for the second task");
-    expect(scenario.firstOnly).toContain("Memory for the first task");
-    expect(scenario.searched).toEqual(["second task", "first task"]);
+    expect(scenario.first).toContain("Memory for the first task");
+    expect(scenario.second).toContain("Memory for the second task");
+    expect(scenario.third).toBe("");
+    expect(scenario.searched).toEqual(["first task", "second task"]);
   });
 
-  it("treats a background launch receipt as no answer, so a background subagent gets its task memories", async () => {
+  it("skips an answered call", async () => {
+    const scenario = await createHarness().run(`${SUBAGENT_SETUP}
+call("t1", "Agent", { prompt: "first task", subagent_type: "Explore" });
+call("t2", "Agent", { prompt: "second task", subagent_type: "Explore" });
+answer("t1");
+const open = await start("Explore");
+scenario = { open, searched };
+`);
+    expect(scenario.open).toContain("Memory for the second task");
+    expect(scenario.searched).toEqual(["second task"]);
+  });
+
+  it("treats a background launch receipt as no answer, and uses the call once", async () => {
     // Claude Code writes the receipt as the call's tool_result as soon as it launches the agent.
     const scenario = await createHarness().run(`${SUBAGENT_SETUP}
 call("t1", "Agent", { prompt: "first task", subagent_type: "Explore" });
 appendFileSync(transcript, entry("user", "r-t1", [{ type: "tool_result", tool_use_id: "t1",
   content: "Async agent launched successfully.\\nagentId: a123 (internal ID)\\nThe agent is working in the background." }]));
 const launched = await start("Explore");
-call("t2", "Agent", { prompt: "second task", subagent_type: "Explore" });
-answer("t2");
-const afterRealAnswer = await start("Explore");
-scenario = { launched, afterRealAnswer, searched };
+// The receipt keeps t1 open, but it was used: a later start with no new call finds nothing.
+const later = await start("Explore");
+scenario = { launched, later, searched };
 `);
     expect(scenario.launched).toContain("Memory for the first task");
-    // A real answer still ends a call, and the receipt of t1 keeps it open as the newest one.
-    expect(scenario.afterRealAnswer).toContain("Memory for the first task");
-    expect(scenario.searched).toEqual(["first task", "first task"]);
+    expect(scenario.later).toBe("");
+    expect(scenario.searched).toEqual(["first task"]);
   });
 
   it("matches a call with no subagent_type to general-purpose, and reads the Task tool name", async () => {

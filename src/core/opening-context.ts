@@ -2,7 +2,12 @@ import { formatContextForPrompt } from "../services/context.js";
 import { getTags } from "../services/tags.js";
 import { utf8ByteLength } from "../utils/context-limit.js";
 import { resolveCeiling, type ContextBudgetOptions } from "./context-budget.js";
-import { retrievalWrapperBytes, searchSectionMemories, wrapRetrievalSection } from "./retrieval.js";
+import {
+  retrievalWrapperBytes,
+  searchablePrompt,
+  searchSectionMemories,
+  wrapRetrievalSection,
+} from "./retrieval.js";
 
 /**
  * The opening context (design D1c of change align-recall-host-parity): on the
@@ -53,11 +58,13 @@ export interface FirstPromptSectionsInput {
 export async function buildFirstPromptSections(
   input: FirstPromptSectionsInput
 ): Promise<{ promptSection: string | null; openingSection: string | null }> {
-  if (!input.prompt.trim()) return { promptSection: null, openingSection: null };
+  // A fully private prompt gets no section at all, the opening section included.
+  const promptQuery = searchablePrompt(input.prompt);
+  if (!promptQuery) return { promptSection: null, openingSection: null };
 
   const tags = getTags(input.directory);
   const [promptSearch, openingSearch] = await Promise.all([
-    searchSectionMemories(input.prompt, tags.project.tag, input.sessionId),
+    searchSectionMemories(promptQuery, tags.project.tag, input.sessionId),
     input.openingQuery
       ? searchSectionMemories(input.openingQuery, tags.project.tag, input.sessionId)
       : null,

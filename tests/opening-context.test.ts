@@ -112,6 +112,30 @@ describe("openingQueryFor", () => {
 });
 
 describe("buildFirstPromptSections", () => {
+  it("runs no search for a fully private prompt, and searches without the private part otherwise", () => {
+    const fully = runScenario(`
+results = { "project setup": [memory("b")] };
+captured = await buildFirstPromptSections({ prompt: "<private>token rotation plan</private>", openingQuery: "project setup",
+  directory: "/repo", sessionId: "ses-1", budget: { maxBytes: 4000, wrapperBytes: wrapper }, openingReserveBytes: 50 });
+captured.single = await buildRetrievalSection("<private>token rotation plan</private>", "/repo", "ses-1");
+`);
+    expect(fully.captured.promptSection).toBeNull();
+    expect(fully.captured.openingSection).toBeNull();
+    expect(fully.captured.single).toBeNull();
+    expect(fully.searchQueries).toEqual([]);
+
+    const partly = runScenario(`
+results = { "fix the queue": [memory("a")], "project setup": [memory("b")] };
+captured = await buildFirstPromptSections({ prompt: "fix the queue <private>token rotation plan</private>", openingQuery: "project setup",
+  directory: "/repo", sessionId: "ses-1", budget: { maxBytes: 4000, wrapperBytes: wrapper }, openingReserveBytes: 50 });
+await buildRetrievalSection("fix the queue <private>token rotation plan</private>", "/repo", "ses-1");
+`);
+    const queries = partly.searchQueries.map((args: string[]) => args[0]);
+    expect(queries.join("|")).not.toContain("token rotation");
+    expect(queries.join("|")).not.toContain("private");
+    expect(queries.filter((query: string) => query.startsWith("fix the queue"))).toHaveLength(2);
+  });
+
   it("runs both searches in parallel, with the same arguments as buildRetrievalSection", () => {
     const output = runScenario(`
 results = { "fix the queue": [memory("a")], "project setup": [memory("b")] };

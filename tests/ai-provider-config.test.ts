@@ -7,6 +7,7 @@ import { isLocalApiUrl } from "../src/services/ai/local-api-url.js";
 import { applySafeExtraParams } from "../src/services/ai/providers/base-provider.js";
 import { OpenAIChatCompletionProvider } from "../src/services/ai/providers/openai-chat-completion.js";
 import { OpenAIResponsesProvider } from "../src/services/ai/providers/openai-responses.js";
+import { GoogleGeminiProvider } from "../src/services/ai/providers/google-gemini.js";
 import type { ChatCompletionTool } from "../src/services/ai/tools/tool-schema.js";
 
 const toolSchema: ChatCompletionTool = {
@@ -339,6 +340,45 @@ describe("AI provider config", () => {
 
     expect(capturedBody).toBeDefined();
     expect(capturedBody?.temperature).toBeUndefined();
+  });
+
+  it("sends no credential when the key is empty, for openai-responses and gemini", async () => {
+    const seen: { url: string; headers: Record<string, string> }[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      seen.push({ url: String(input), headers: { ...(init?.headers as Record<string, string>) } });
+      return {
+        ok: false,
+        status: 400,
+        statusText: "Bad Request",
+        text: async () => "x",
+      } as Response;
+    }) as typeof fetch;
+    const config = (apiKey: string) => ({
+      model: "m",
+      apiUrl: "http://127.0.0.1:8080/v1",
+      apiKey,
+      memoryTemperature: false as const,
+      maxIterations: 1,
+    });
+
+    await new OpenAIResponsesProvider(config(""), new FakeSessionManager() as any)
+      .executeToolCall("system", "user", toolSchema, "session-id")
+      .catch(() => undefined);
+    await new GoogleGeminiProvider(config(""), new FakeSessionManager() as any)
+      .executeToolCall("system", "user", toolSchema, "session-id")
+      .catch(() => undefined);
+    expect(seen).toHaveLength(2);
+    expect(Object.keys(seen[0]!.headers).map((name) => name.toLowerCase())).not.toContain(
+      "authorization"
+    );
+    expect(seen[1]!.url).not.toContain("key=");
+
+    // A key that is set is still sent.
+    seen.length = 0;
+    await new OpenAIResponsesProvider(config("real-key"), new FakeSessionManager() as any)
+      .executeToolCall("system", "user", toolSchema, "session-id")
+      .catch(() => undefined);
+    expect(seen[0]!.headers.Authorization).toBe("Bearer real-key");
   });
 
   describe("applySafeExtraParams", () => {

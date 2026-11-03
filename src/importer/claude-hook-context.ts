@@ -92,7 +92,13 @@ export function markSessionSeen(sessionId: string): void {
 
 // User entries that Claude Code writes itself (command output, shell mode,
 // background task notices) are not prompts.
-const NOT_PROMPT_PREFIXES = ["<local-command-", "<command-name>", "<bash-", "<task-notification>"];
+const NOT_PROMPT_PREFIXES = [
+  "<local-command-",
+  "<command-name>",
+  "<command-message>",
+  "<bash-",
+  "<task-notification>",
+];
 
 function contentBlocks(entry: ClaudeTranscriptEntry) {
   const content = entry.message?.content;
@@ -218,13 +224,31 @@ function isLaunchReceipt(content: unknown): boolean {
   return typeof text === "string" && text.startsWith(LAUNCH_RECEIPT_PREFIX);
 }
 
+/** Calls that already fed a subagent, per parent session. Bounded, in memory only. */
+const claimedCalls = new Map<string, Set<string>>();
+const CLAIMED_SESSIONS_MAX = 500;
+const CLAIMED_CALLS_MAX = 200;
+
+function claimCall(sessionId: string, callId: string): void {
+  const used = claimedCalls.get(sessionId) ?? new Set<string>();
+  claimedCalls.delete(sessionId);
+  used.add(callId);
+  if (used.size > CLAIMED_CALLS_MAX) used.delete(used.values().next().value as string);
+  claimedCalls.set(sessionId, used);
+  if (claimedCalls.size > CLAIMED_SESSIONS_MAX) {
+    claimedCalls.delete(claimedCalls.keys().next().value as string);
+  }
+}
+
 /**
- * The task prompt of the newest `Agent` or `Task` call of `agentType` that has no result yet.
+ * The task prompt of the oldest `Agent` or `Task` call of `agentType` that has no result yet and
+ * has not fed a subagent already.
  * A background launch receipt does not count as a result.
  */
 async function subagentTaskPrompt(
   transcriptPath: string,
-  agentType: string
+  agentType: string,
+  sessionId: string
 ): Promise<string | null> {
   const handle = await open(transcriptPath, "r");
   let text: string;
@@ -253,10 +277,17 @@ async function subagentTaskPrompt(
       calls.push({ id: block.id, type: type || "general-purpose", prompt: input.prompt });
     }
   }
-  return (
-    calls.reverse().find((call) => call.type === agentType && !answered.has(call.id))?.prompt ??
-    null
+  // Oldest first: parallel subagents start in the order of their calls. A call that already
+  // fed a subagent is not used again, so a background call (open until its agent ends) or a
+  // second start with no new call gets nothing.
+  const used = claimedCalls.get(sessionId);
+  const call = calls.find(
+    (candidate) =>
+      candidate.type === agentType && !answered.has(candidate.id) && !used?.has(candidate.id)
   );
+  if (!call) return null;
+  claimCall(sessionId, call.id);
+  return call.prompt;
 }
 
 export interface SubagentContextInput {
@@ -277,7 +308,11 @@ export async function subagentContext(
 ): Promise<string> {
   if (!CONFIG.subagentMemory || !CONFIG.chatMessage.enabled) return "";
   if (!input.transcriptPath || !input.agentType) return "";
-  const task = await subagentTaskPrompt(input.transcriptPath, input.agentType).catch(() => null);
+  const task = await subagentTaskPrompt(
+    input.transcriptPath,
+    input.agentType,
+    input.sessionId
+  ).catch(() => null);
   const prompt = stripPrivateContent(task ?? "").trim();
   if (!task || !prompt || isFullyPrivate(task)) return "";
   const limits = { budgetBytes, rowsOff: true };

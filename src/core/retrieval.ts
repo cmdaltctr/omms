@@ -2,6 +2,7 @@ import { CONFIG } from "../config.js";
 import { formatContextForPrompt } from "../services/context.js";
 import { memoryClient } from "../services/client.js";
 import { getTags } from "../services/tags.js";
+import { isFullyPrivate, stripPrivateContent } from "../services/privacy.js";
 import { utf8ByteLength } from "../utils/context-limit.js";
 import { packContextSection, type ContextBudgetOptions } from "./context-budget.js";
 
@@ -33,6 +34,15 @@ export async function searchSectionMemories(
 }
 
 /**
+ * The prompt text that may reach a search: `<private>` regions removed. Null when nothing is
+ * left, so a fully private prompt runs no search and nothing of it reaches an embedding provider.
+ */
+export function searchablePrompt(prompt: string): string | null {
+  if (isFullyPrivate(prompt)) return null;
+  return stripPrivateContent(prompt).trim() || null;
+}
+
+/**
  * Prompt-aware semantic retrieval shared by every host (Pi `before_agent_start`,
  * OpenCode v2 `prompt`/`context` hooks): search the shared project memory with
  * the incoming prompt and format a bounded context section (memory + user
@@ -44,10 +54,11 @@ export async function buildRetrievalSection(
   sessionId: string,
   budget?: ContextBudgetOptions
 ): Promise<string | null> {
-  if (!prompt.trim()) return null;
+  const query = searchablePrompt(prompt);
+  if (!query) return null;
 
   const tags = getTags(directory);
-  const search = await searchSectionMemories(prompt, tags.project.tag, sessionId);
+  const search = await searchSectionMemories(query, tags.project.tag, sessionId);
   if (!search || search.results.length === 0) return null;
 
   const memoryContext = await formatContextForPrompt(

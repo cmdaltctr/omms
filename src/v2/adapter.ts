@@ -116,7 +116,8 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
   // Sessions this process has seen a prompt or compaction for. The first prompt of a session not
   // in it is a first prompt (new session) or a resume, decided in the context hook.
   const seen = new Map<string, true>();
-  const firstPending = new Map<string, true>();
+  // Per session whose first request is still to come: ids of the prompts this process admitted.
+  const firstPending = new Map<string, Set<string>>();
   const messageIDs = new Map<string, string>();
   // The prompt hook runs before OpenCode admits a prompt, so prompts wait here
   // until their message appears in a model request's history (the context
@@ -200,9 +201,14 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
     messages: ReadonlyArray<{ readonly id?: string; readonly role?: string }>,
     retrieval: Retrieval | undefined
   ) => {
+    const ours = firstPending.get(sessionID);
     if (!firstPending.delete(sessionID)) return;
-    const current = messageIDs.get(sessionID);
-    if (!messages.some((message) => message.role === "user" && message.id !== current)) return;
+    // History is a user message with an id that none of this process's prompts own.
+    const earlier = messages.some(
+      (message) =>
+        message.role === "user" && typeof message.id === "string" && !ours?.has(message.id)
+    );
+    if (!earlier) return;
     if (retrieval) retrieval.resumed = true;
     if (!memory.isCompactionEnabled()) return;
     const subagent = await withTimeout(
@@ -291,8 +297,9 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
     const first = !seen.has(sessionID);
     if (first) {
       setBounded(seen, sessionID, true, MAX_SEEN_SESSIONS);
-      setBounded(firstPending, sessionID, true);
+      setBounded(firstPending, sessionID, new Set<string>());
     }
+    firstPending.get(sessionID)?.add(event.messageID);
     if (!memory.isInjectionEnabled()) return;
 
     // A subagent session gets the prompt recall only when `subagentMemory` is on, and never the

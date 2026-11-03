@@ -615,6 +615,42 @@ describe("OpenCode v2 first prompt, resume and subagent sessions", () => {
     await cleanup();
   });
 
+  it("does not read two quick prompts of a new session as a resumed session", async () => {
+    const h = createHarness({ memory: withOpening() });
+    const cleanup = await h.register();
+
+    // The second prompt arrives before the first request: both are in the history, both are ours.
+    await h.prompt("ses-1", "first question");
+    await h.prompt("ses-1", "second question");
+    await h.context("ses-1");
+
+    expect(h.calls.restore).toEqual([]);
+
+    await cleanup();
+  });
+
+  it("does not read a user message without an id as an earlier prompt", async () => {
+    const h = createHarness({ memory: withOpening() });
+    const cleanup = await h.register();
+
+    await h.prompt("ses-1", "first question");
+    const event = {
+      sessionID: "ses-1",
+      model: { providerID: "anthropic", id: "claude" },
+      system: [] as SystemPart[],
+      messages: [{ role: "user" }],
+    };
+    await h.hooks.get("context")!(event);
+
+    expect(h.calls.restore).toEqual([]);
+    expect(event.system.map((part) => part.text)).toEqual([
+      PROMPT_SECTION("first question"),
+      OPENING_SECTION,
+    ]);
+
+    await cleanup();
+  });
+
   it("restores nothing on resume when compaction restore is disabled, and still drops the opening section", async () => {
     const h = createHarness({
       memory: { ...withOpening(), isCompactionEnabled: () => false },

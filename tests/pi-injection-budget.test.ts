@@ -308,4 +308,38 @@ scenario = rows;
     expect(output[3].restored).toBe(true);
     expect(output[3].count).toBe(2);
   });
+
+  it("counts the blank lines between sections in the budget, across a sweep of budgets", () => {
+    const output = runScenario(`
+stubConfig.openingContext = true;
+const worst = { opening: 0, restore: 0, withBoth: 0 };
+const total = (reply) => {
+  const parts = sections(reply);
+  // Two bytes of blank line sit before each part that follows another one.
+  return { bytes: parts.reduce((sum, part) => sum + byteLength(part), 0) + 2 * Math.max(0, parts.length - 1), count: parts.length };
+};
+for (let tokens = 200; tokens <= 1300; tokens += 3) {
+  state.retrievalMaxTokens = tokens;
+  const open = await handlers["before_agent_start"](
+    { prompt: "how does the retry queue work?", systemPrompt: "BASE" },
+    { ...ctx, sessionManager: { getSessionId: () => "o-" + tokens, getBranch: () => [] } }
+  );
+  const o = total(open);
+  if (o.count > 1) worst.withBoth += 1;
+  worst.opening = Math.max(worst.opening, o.bytes - tokens * 4);
+  const ctxR = { ...ctx, sessionManager: { getSessionId: () => "r-" + tokens, getBranch: () => [] } };
+  await handlers["session_compact"]({ compactionEntry: {} }, ctxR);
+  const restore = await handlers["before_agent_start"](
+    { prompt: "how does the retry queue work?", systemPrompt: "BASE" },
+    ctxR
+  );
+  worst.restore = Math.max(worst.restore, total(restore).bytes - tokens * 4);
+}
+scenario = worst;
+`);
+    // Over the budget by at most 0 bytes at every step; the sweep also reached two-section replies.
+    expect(output.withBoth).toBeGreaterThan(0);
+    expect(output.opening).toBeLessThanOrEqual(0);
+    expect(output.restore).toBeLessThanOrEqual(0);
+  });
 });
