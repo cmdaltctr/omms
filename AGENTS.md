@@ -103,6 +103,11 @@ Commit OpenSpec artifacts with the code change they describe. Commit the archive
 - If `query_graph` output says `TRUNCATED`, run it again with `token_budget: 8000` before you decide the graph has no answer. If 8000 also truncates, narrow with `context_filter` or `depth`.
 - After you change code, run `graphify update .`. It reads the syntax tree only and makes no API calls.
 
+## Local models
+
+- The default local model runtime is llama.cpp. Keep llama.cpp as the default in code, docs, config and tests.
+- Do not change a default to Ollama. Ollama stays as one option in the preset list in `web/src/lib/embedding-settings.ts`.
+
 ## Commands
 
 Run all commands from the repository root. Bun and Node 24 are required; the package supports Node 22.14 or later.
