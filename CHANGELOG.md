@@ -2,6 +2,29 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.3.0](https://github.com/cmdaltctr/omms/compare/v5.2.0...v5.3.0) (2026-11-03)
+
+
+### Features
+
+* **core:** add recall summary builder and visibleRecall setting ([0a257ee](https://github.com/cmdaltctr/omms/commit/0a257ee55731821305e1ea9dd9883be192b4cfbb))
+* **opencode:** show recalls as fold rows in the terminal TUI ([1541654](https://github.com/cmdaltctr/omms/commit/1541654848ec85534f60e4a417e3d09a87207faa))
+* **opencode:** show recalls as fold rows in the terminal TUI ([0ddefe8](https://github.com/cmdaltctr/omms/commit/0ddefe871127db81fad446ce71b86cdfec22019d))
+
+
+### Bug Fixes
+
+* address review findings on the recall rows ([1ad4153](https://github.com/cmdaltctr/omms/commit/1ad415304bd84baf2d1d0212c592a0b394c058d7))
+* harden the recall row parser, title and row keys ([af7a638](https://github.com/cmdaltctr/omms/commit/af7a638df3f92e7ce31dfea01510c524cb0864d5))
+* **opencode:** silence host-fetch warning for the in-process V2 client ([6aadea8](https://github.com/cmdaltctr/omms/commit/6aadea823e991db4a82d5e7122e3c46ea161d737))
+* **web:** give the takeover health check 8s and log the failure reason ([dc8239e](https://github.com/cmdaltctr/omms/commit/dc8239e15c6e01d02a36fb68422674c2fdeaab5e))
+
+
+### Documentation
+
+* document OpenCode recall rows and record the TUI spike ([87b490c](https://github.com/cmdaltctr/omms/commit/87b490c1d205a865605b0910c0663f2ca2858c4c))
+* record the Pi exception to the host parity rule ([1c63e9b](https://github.com/cmdaltctr/omms/commit/1c63e9bc43bbeeffe937a9aff0e6cdf290dede1c))
+
 ## [5.2.0](https://github.com/cmdaltctr/omms/compare/v5.1.0...v5.2.0) (2026-11-01)
 
 
