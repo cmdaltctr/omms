@@ -54,9 +54,9 @@ On OpenCode v2, retrieved memory SHALL be added as a system-context section deli
 - **THEN** it SHALL appear only in the model request's system context
 - **AND** the session transcript SHALL NOT gain a message containing the memory text
 
-### Requirement: OpenCode v2 restores session memories after compaction through v2 hooks
+### Requirement: OpenCode v2 restores session memories after compaction or resume through v2 hooks
 
-When compaction restore is enabled, the plugin SHALL use OpenCode v2 session hooks to make the compacted session's own captured memories available to that session's requests after compaction. It SHALL NOT send a prompt or synthetic message into the session to do so.
+Only when `compaction.enabled` is on, the plugin SHALL use OpenCode v2 session hooks to make a session's own captured memories available to its later requests after compaction, and after resume. A resumed session SHALL be the first prompt this process sees for a session whose history already holds an earlier user prompt. The plugin SHALL NOT send a prompt or synthetic message into the session to do so.
 
 #### Scenario: A session is compacted
 
@@ -64,10 +64,21 @@ When compaction restore is enabled, the plugin SHALL use OpenCode v2 session hoo
 - **THEN** subsequent model requests in that session SHALL include a bounded restored-session memory section, limited by `compaction.memoryLimit`
 - **AND** no prompt, synthetic message, or queued turn SHALL be added to the session by the plugin
 
+#### Scenario: A session is resumed
+
+- **WHEN** the user opens an earlier OpenCode v2 session that has captured memories and sends a prompt
+- **THEN** that prompt's model requests and the later ones SHALL include the restored-session memory section
+- **AND** the restored section SHALL be loaded once for that resume
+
+#### Scenario: A new session is not a resume
+
+- **WHEN** the first prompt of a new session arrives
+- **THEN** no restored-session memory section SHALL be added
+
 #### Scenario: Compaction restore disabled
 
 - **WHEN** `compaction.enabled` is false
-- **THEN** no restored-session memory section SHALL be added
+- **THEN** no restored-session memory section SHALL be added after compaction or resume
 
 #### Scenario: Compaction event arrives on the event stream
 
