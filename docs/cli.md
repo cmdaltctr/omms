@@ -25,14 +25,15 @@ The npm package ships one terminal command, `om-memory-system`. Use it to import
 
 Slash commands inside a session:
 
-| Host     | Command                                   | What it does                                      |
-| -------- | ----------------------------------------- | ------------------------------------------------- |
-| OpenCode | `/memory-import-opencode-history [flags]` | Import OpenCode history with the session's model. |
-| Pi       | `/memory-import-pi-history [flags]`       | Import Pi history with the session's model.       |
+| Host     | Command                                   | What it does                                                                                                              |
+| -------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| OpenCode | `/memory-import-opencode-history [flags]` | Import OpenCode history with the session's model.                                                                         |
+| Pi       | `/memory-import-pi-history [flags]`       | Import Pi history with the session's model.                                                                               |
+| OpenCode | `/omms-recall`                            | Unfold or fold the recall rows in the terminal TUI. See [OpenCode adapter: Recall rows](opencode-adapter.md#recall-rows). |
 
-- Both slash commands take the [import flags](#import-options), except `--provider`, `--api-url`, and `--api-key-env`.
+- Both import slash commands take the [import flags](#import-options), except `--provider`, `--api-url`, and `--api-key-env`.
 - `--help` on a slash command shows its flags.
-- Claude Code has no slash command. Use `import-claude-history` or the Settings page.
+- Claude Code has no import slash command. Use `import-claude-history` or the Settings page.
 - You can also run imports, backfills, and directory maps from the web Settings page. See [Web UI settings](web-ui-settings.md).
 
 ## Global install (optional)
