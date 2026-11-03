@@ -234,6 +234,158 @@ describe("settings API", () => {
     expect(JSON.stringify(result.body)).not.toContain("private-test-value");
   });
 
+  it("lists the memory injection settings as global-only, with values and defaults", async () => {
+    const defaults = await scenario(
+      `return (await (await send("/api/settings")).json()).settings;`
+    );
+    expect(defaults.openingContext).toEqual({
+      value: false,
+      source: "default",
+      globalValue: false,
+      default: false,
+      hasGlobal: false,
+    });
+    const query = "project architecture, setup, conventions and key decisions";
+    expect(defaults.openingContextQuery).toEqual({
+      value: query,
+      source: "default",
+      globalValue: query,
+      default: query,
+      hasGlobal: false,
+    });
+    expect(defaults.subagentMemory).toEqual({
+      value: true,
+      source: "default",
+      globalValue: true,
+      default: true,
+      hasGlobal: false,
+    });
+  });
+
+  it("never shows a project memory injection value as the global value", async () => {
+    const configUrl = pathToFileURL(join(import.meta.dir, "../src/config.ts")).href;
+    const result = await scenario(
+      `
+      // The web app's config can hold a project's values (a Claude Code hook refreshes it).
+      const cfg = await import(${JSON.stringify(configUrl)});
+      const { join } = await import("node:path");
+      cfg.initConfig(join(configPath, "..", "..", "..", "project"));
+      const runtime = { openingContext: cfg.CONFIG.openingContext, subagentMemory: cfg.CONFIG.subagentMemory };
+      return { runtime, body: await (await send("/api/settings")).json() };
+    `,
+      '{ "openingContext": true, "openingContextQuery": "  global query  " }',
+      '{ "openingContext": false, "subagentMemory": false, "openingContextQuery": "PROJECTMARK" }'
+    );
+    // The project values are in force at run time ...
+    expect(result.runtime).toEqual({ openingContext: false, subagentMemory: false });
+    // ... but the page shows the global file and the defaults.
+    const settings = result.body.settings;
+    expect(settings.openingContext).toEqual({
+      value: true,
+      source: "global",
+      globalValue: true,
+      default: false,
+      hasGlobal: true,
+    });
+    expect(settings.openingContextQuery).toMatchObject({
+      value: "global query",
+      source: "global",
+      globalValue: "global query",
+      hasGlobal: true,
+    });
+    expect(settings.subagentMemory).toEqual({
+      value: true,
+      source: "default",
+      globalValue: true,
+      default: true,
+      hasGlobal: false,
+    });
+    expect(JSON.stringify(result.body)).not.toContain("PROJECTMARK");
+  });
+
+  it("shows the restore switch and limit with value and default", async () => {
+    const defaults = await scenario(
+      `return (await (await send("/api/settings")).json()).settings;`
+    );
+    expect(defaults["compaction.enabled"]).toEqual({
+      value: true,
+      source: "default",
+      globalValue: true,
+      default: true,
+      hasGlobal: false,
+    });
+    expect(defaults["compaction.memoryLimit"]).toEqual({
+      value: 10,
+      source: "default",
+      globalValue: 10,
+      default: 10,
+      hasGlobal: false,
+    });
+    const global = await scenario(
+      `return (await (await send("/api/settings")).json()).settings;`,
+      '{ "compaction": { "enabled": false, "memoryLimit": 20 } }'
+    );
+    expect(global["compaction.enabled"]).toEqual({
+      value: false,
+      source: "global",
+      globalValue: false,
+      default: true,
+      hasGlobal: true,
+    });
+    expect(global["compaction.memoryLimit"]).toEqual({
+      value: 20,
+      source: "global",
+      globalValue: 20,
+      default: 10,
+      hasGlobal: true,
+    });
+  });
+
+  it("shows a project restore switch as the project value, never as the global one", async () => {
+    const settings = await scenario(
+      `return (await (await send("/api/settings")).json()).settings;`,
+      '{ "compaction": { "enabled": false, "memoryLimit": 20 } }',
+      '{ "compaction": { "enabled": true } }'
+    );
+    expect(settings["compaction.enabled"]).toEqual({
+      value: true,
+      source: "project",
+      globalValue: false,
+      default: true,
+      hasGlobal: true,
+    });
+    // The merge is shallow: the project object replaces the global one.
+    expect(settings["compaction.memoryLimit"]).toEqual({
+      value: 10,
+      source: "default",
+      globalValue: 20,
+      default: 10,
+      hasGlobal: true,
+    });
+  });
+
+  it("lets a project config turn the restore on and off, as before this change", async () => {
+    const configUrl = pathToFileURL(join(import.meta.dir, "../src/config.ts")).href;
+    const body = `
+      const cfg = await import(${JSON.stringify(configUrl)});
+      const { join } = await import("node:path");
+      cfg.initConfig(join(configPath, "..", "..", "..", "project"));
+      return cfg.CONFIG.compaction;
+    `;
+    const off = await scenario(
+      body,
+      '{ "compaction": { "enabled": true } }',
+      '{ "compaction": { "enabled": false } }'
+    );
+    const on = await scenario(
+      body,
+      '{ "compaction": { "enabled": false } }',
+      '{ "compaction": { "enabled": true } }'
+    );
+    expect(off.enabled).toBe(false);
+    expect(on.enabled).toBe(true);
+  });
+
   it("saves all automatic import and web app settings without changing live model keys", async () => {
     const result = await scenario(
       `

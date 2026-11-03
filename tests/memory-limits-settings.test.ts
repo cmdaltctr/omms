@@ -304,6 +304,28 @@ describe("memory settings snapshot", () => {
   });
 });
 
+describe("restore limit rule", () => {
+  it("has a compaction.memoryLimit rule that the Memory card does not list", async () => {
+    const { getMemoryLimitRule } = await import("../src/utils/memory-limits.js");
+    const { MEMORY_CONTROLS } = await import("../web/src/lib/memory-controls.js");
+    const rule = getMemoryLimitRule("compaction.memoryLimit");
+    expect(rule).toMatchObject({
+      setting: "compaction.memoryLimit",
+      path: ["compaction", "memoryLimit"],
+      default: 10,
+      unit: "memories",
+      accepted: "positive safe integers",
+    });
+    for (const value of [1, 10, Number.MAX_SAFE_INTEGER]) expect(rule!.isValid(value)).toBe(true);
+    for (const value of [0, -3, 2.5, "10", null, Number.NaN, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(rule!.isValid(value)).toBe(false);
+    }
+    expect(MEMORY_CONTROLS.map((control) => control.key as string)).not.toContain(
+      "compaction.memoryLimit"
+    );
+  });
+});
+
 describe("memory settings saves", () => {
   it("saves all five settings, refreshes the revision, and lets another card save afterwards", async () => {
     const result = await scenario(`

@@ -77,7 +77,8 @@ export interface PackedSection {
   bytesUsed: number;
 }
 
-function resolveCeiling(options: ContextBudgetOptions): number {
+/** The byte ceiling of a budget: `maxBytes` when set, else `maxTokens` (default 2000) in bytes. */
+export function resolveCeiling(options: ContextBudgetOptions): number {
   if (options.maxBytes !== undefined) return options.maxBytes;
   return tokensToByteCeiling(options.maxTokens ?? DEFAULT_RETRIEVAL_MAX_TOKENS);
 }

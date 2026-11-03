@@ -260,6 +260,16 @@ export const CONFIG_TEMPLATE = `{
   // off but never on.
   // "visibleRecall": true,
 
+  // Memory injection, on OpenCode V2, Pi and Claude Code. Each prompt gets the
+  // memories that match it. openingContext also searches memory with
+  // openingContextQuery and adds the matches to the
+  // first message of a new session. The query is global only, trimmed, and
+  // 500 characters at most. subagentMemory gives each subagent the memories
+  // that match its task. For both switches, a project config can only turn these off.
+  // "openingContext": false,
+  // "openingContextQuery": "project architecture, setup, conventions and key decisions",
+  // "subagentMemory": true,
+
   // Capture retry queue: when a live capture fails because the model cannot be
   // reached (network error, timeout, HTTP 408, 429 or 5xx), OMMS keeps a copy of
   // the turn in ~/.omms/data and tries it again later. The copy has <private>
@@ -392,6 +402,11 @@ export const CONFIG_TEMPLATE = `{
   // Covers prompt retrieval, recent-memory injection, and session-memory
   // restoration. Not an exact provider token limit or a spending limit.
   "retrievalMaxTokens": 2000,
+
+  // Restore a session's own memories after compaction and after resume, on
+  // OpenCode V2, Pi and Claude Code. memoryLimit is the most memories to
+  // restore. A project config can turn it on or off.
+  // "compaction": { "enabled": true, "memoryLimit": 10 },
 
   // ============================================
   // Advanced Settings

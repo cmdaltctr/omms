@@ -14,6 +14,7 @@ import {
   projectSkillOverride,
 } from "./services/skill-learning/skill-config.js";
 import * as visibleRecall from "./services/visible-recall-config.js";
+import * as injectionOptions from "./services/injection-options-config.js";
 import { checkedMemoryLimit, MEMORY_LIMITS, type MemoryLimitRule } from "./utils/memory-limits.js";
 import { defaultSimilarityThreshold } from "./utils/threshold-default.js";
 import { RERANKER_TIMEOUT_DEFAULT_MS } from "./services/request-timeouts.js";
@@ -44,13 +45,8 @@ const CONFIG_FILES = [
   ...LEGACY_CONFIG_FILES,
 ];
 
-if (!existsSync(OMMS_CONFIG_DIR)) {
-  mkdirSync(OMMS_CONFIG_DIR, { recursive: true });
-}
-
-if (!existsSync(DATA_DIR)) {
-  mkdirSync(DATA_DIR, { recursive: true });
-}
+if (!existsSync(OMMS_CONFIG_DIR)) mkdirSync(OMMS_CONFIG_DIR, { recursive: true });
+if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 
 interface OmmsConfig {
   storagePath?: string;
@@ -645,6 +641,7 @@ function buildConfig(fileConfig: OmmsConfig) {
     ),
     ...normaliseSkillConfig(fileConfig),
     ...visibleRecall.visibleRecallFromFile(fileConfig),
+    ...injectionOptions.injectionOptionsFromFile(fileConfig, log),
     autoBackfill: fileConfig.autoBackfill ?? DEFAULTS.autoBackfill,
     opencodeBackfillModel: fileConfig.opencodeBackfillModel ?? DEFAULTS.opencodeBackfillModel,
     piBackfillModel: fileConfig.piBackfillModel ?? DEFAULTS.piBackfillModel,
@@ -856,6 +853,7 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   delete projectOverrides.skillFolders;
   Object.assign(projectOverrides, skillRule.override);
   visibleRecall.applyProjectVisibleRecall(projectConfig, projectOverrides, directory, log);
+  injectionOptions.applyProjectInjectionOptions(projectConfig, projectOverrides, directory, log);
   delete projectOverrides.autoBackfill;
   delete projectOverrides.opencodeBackfillModel;
   delete projectOverrides.piBackfillModel;

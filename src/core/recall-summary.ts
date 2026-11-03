@@ -1,9 +1,12 @@
-/** One memory a recall injected, reduced to what a fold row shows. */
-export type RecallItem = { relevance: number; id?: string; headline: string };
+/** One memory a recall injected, reduced to what a fold row shows. A restored memory has no relevance. */
+export type RecallItem = { relevance: number | null; id?: string; headline: string };
 
-/** One recall as OMMS made it: a prompt search, or the recent memories a session opens with. */
+/**
+ * One recall as OMMS made it: a prompt search, the opening search with the configured query, a
+ * restored session after compaction or resume, or the recent memories a session opens with.
+ */
 export type RecallSummary = {
-  mode: "search" | "recent";
+  mode: "search" | "recent" | "opening" | "restore";
   query: string | null;
   items: RecallItem[];
   /** Per-session counter the v2 reporter sets when it stores the summary; the TUI keys rows by it. */
@@ -32,6 +35,11 @@ const MEMORY_ENTRY = new RegExp(
   "g"
 );
 
+// A restored-session section from `formatMemoriesForCompaction`: `### Memory N (id)`, no relevance.
+// Same rule as the Claude Code parser (`hooks/omms-recall-parse.js`).
+const RESTORED_ENTRY =
+  /### Memory \d+(?: \(([^)\n]+)\))?\n([\s\S]*?)(?=### Memory \d+|<\/omms-retrieval>|$)/g;
+
 /** One line that names a memory: the first line under `## Request`, else the first line. */
 export function headline(body: string): string {
   const lines = body
@@ -46,24 +54,26 @@ export function headline(body: string): string {
 
 /**
  * Summarise a formatted retrieval section for a host to show. Returns null when the section holds
- * no memory (a profile-only section included), so the host draws nothing. A `recent` recall has
- * no query, whatever the caller passes.
+ * no memory (a profile-only section included), so the host draws nothing. A `restore` summary
+ * reads the restored-session entries, with no relevance. A `restore` or `recent` recall has no
+ * query, whatever the caller passes.
  */
 export function buildRecallSummary(
   section: string,
-  mode: "search" | "recent",
+  mode: RecallSummary["mode"],
   query: string | null
 ): RecallSummary | null {
   const items: RecallItem[] = [];
-  for (const match of section.matchAll(MEMORY_ENTRY)) {
-    const text = headline(match[3] ?? "");
+  const restore = mode === "restore";
+  for (const match of section.matchAll(restore ? RESTORED_ENTRY : MEMORY_ENTRY)) {
+    const text = headline((restore ? match[2] : match[3]) ?? "");
     if (!text) continue;
-    const item: RecallItem = { relevance: Number(match[2]), headline: text };
+    const item: RecallItem = { relevance: restore ? null : Number(match[2]), headline: text };
     if (match[1]) item.id = match[1];
     items.push(item);
   }
   if (items.length === 0) return null;
-  return { mode, query: mode === "recent" ? null : query, items };
+  return { mode, query: restore || mode === "recent" ? null : query, items };
 }
 
 /** Escape backslashes and double quotes so the quoted value in the title reads as one string. */
@@ -85,8 +95,9 @@ export function unfoldLines(summary: RecallSummary): string[] {
   if (summary.query) lines.push(`query: ${queryLine(summary.query, UNFOLDED_QUERY_CUT)}`);
   lines.push(`limit: ${summary.items.length}`);
   summary.items.forEach((item, index) => {
-    const id = item.id ? ` id=${item.id}` : "";
-    lines.push(`${index + 1}. ${item.relevance}%${id} ${item.headline}`);
+    const relevance = item.relevance === null ? "" : `${item.relevance}%`;
+    const id = item.id ? `id=${item.id}` : "";
+    lines.push(`${index + 1}. ${[relevance, id, item.headline].filter(Boolean).join(" ")}`);
   });
   return lines;
 }

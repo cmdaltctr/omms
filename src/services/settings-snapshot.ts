@@ -5,11 +5,8 @@ import { CONFIG, getGlobalConfigSourcePath } from "../config.js";
 import { hasUnexpiredApiToken } from "./api-tokens.js";
 import { resolveClaudeFolder } from "./claude-folder.js";
 import { readGlobalConfigRevision } from "./global-config-writer.js";
-import {
-  getMemoryLimitRule,
-  MEMORY_LIMIT_SETTINGS,
-  type MemoryLimitRule,
-} from "../utils/memory-limits.js";
+import { injectionOptionsFromFile } from "./injection-options-config.js";
+import { getMemoryLimitRule, MEMORY_LIMIT_SETTINGS } from "../utils/memory-limits.js";
 import {
   getAutoCaptureProviderStatus,
   isExternalModelReady,
@@ -47,8 +44,22 @@ const editable = [
   "skillLearning",
   "skillLearningRedact",
   "skillFolders",
+  "openingContext",
+  "openingContextQuery",
+  "subagentMemory",
+  "compaction.enabled",
   ...MEMORY_LIMIT_SETTINGS,
 ] as const;
+
+/**
+ * The memory injection settings (change align-recall-host-parity). They are
+ * global-only on the page, so each shows the global file's value read with the
+ * runtime rules, never the runtime value, which can hold a project's.
+ */
+const injectionKeys = ["openingContext", "openingContextQuery", "subagentMemory"] as const;
+
+/** `DEFAULTS.compaction.enabled` in src/config.ts. */
+const COMPACTION_ENABLED_DEFAULT = true;
 
 /** Keys a project config cannot override, so the page always shows the global value. */
 const globalOnly = [
@@ -90,18 +101,19 @@ function projectFile(directory: string): string | undefined {
 }
 
 /**
- * Snapshot entry for a nested limit (chatMessage.maxMemories). The runtime
- * merge is shallow, so a project chatMessage object replaces the global one:
- * a missing count means the default even when the global file sets a value,
- * and the source must not be inferred from dotted-key presence alone.
+ * Snapshot entry for a nested setting (chatMessage.maxMemories, compaction.*).
+ * The runtime merge is shallow, so a project chatMessage object replaces the
+ * global one: a missing count means the default even when the global file sets
+ * a value, and the source must not be inferred from dotted-key presence alone.
  */
-function nestedMemorySetting(
-  rule: MemoryLimitRule,
+function nestedSetting(
+  path: readonly string[],
+  defaultValue: unknown,
   global: Record<string, unknown>,
   project: Record<string, unknown>
 ) {
-  const parent = rule.path[0]!;
-  const leaf = rule.path[1]!;
+  const parent = path[0]!;
+  const leaf = path[1]!;
   const container = (source: Record<string, unknown>): Record<string, unknown> | undefined => {
     const raw = source[parent];
     return raw && typeof raw === "object" && !Array.isArray(raw)
@@ -114,10 +126,10 @@ function nestedMemorySetting(
   const hasValue = effective !== undefined && Object.hasOwn(effective, leaf);
   const hasGlobal = globalContainer !== undefined && Object.hasOwn(globalContainer, leaf);
   return {
-    value: hasValue ? effective![leaf] : rule.default,
+    value: hasValue ? effective![leaf] : defaultValue,
     source: hasValue ? (projectHasParent ? "project" : "global") : "default",
-    globalValue: hasGlobal ? globalContainer![leaf] : rule.default,
-    default: rule.default,
+    globalValue: hasGlobal ? globalContainer![leaf] : defaultValue,
+    default: defaultValue,
     // Whether the leaf exists in the global file: the Reset action needs it.
     hasGlobal,
   };
@@ -129,11 +141,30 @@ export function getSettingsSnapshot(directory: string) {
   // Dotted limit identifiers (chatMessage.maxMemories) are resolved by the
   // nested rule above, so the runtime lookup only handles flat keys.
   const runtime = CONFIG as unknown as Record<string, unknown>;
+  const injection = injectionOptionsFromFile(global);
+  const injectionDefaults = injectionOptionsFromFile({});
   const settings = Object.fromEntries(
     editable.map((key) => {
       const limitRule = getMemoryLimitRule(key);
       if (limitRule && limitRule.path.length > 1) {
-        return [key, nestedMemorySetting(limitRule, global, project)];
+        return [key, nestedSetting(limitRule.path, limitRule.default, global, project)];
+      }
+      if (key === "compaction.enabled") {
+        return [key, nestedSetting(key.split("."), COMPACTION_ENABLED_DEFAULT, global, project)];
+      }
+      const injectionKey = injectionKeys.find((name) => name === key);
+      if (injectionKey) {
+        const hasGlobal = Object.hasOwn(global, key);
+        return [
+          key,
+          {
+            value: injection[injectionKey],
+            source: hasGlobal ? "global" : "default",
+            globalValue: injection[injectionKey],
+            default: injectionDefaults[injectionKey],
+            hasGlobal,
+          },
+        ];
       }
       const projectOverrides =
         Object.hasOwn(project, key) &&

@@ -8,6 +8,31 @@ import { packContextSection, type ContextBudgetOptions } from "./context-budget.
 export const RETRIEVAL_SECTION_TAG = "omms-retrieval";
 
 /**
+ * The search step of every query-driven section (`buildRetrievalSection` and
+ * the opening search in `opening-context.ts`), so they share one rule set: the
+ * store applies the result limit and the relevance threshold, then memories
+ * from the current session are dropped when `chatMessage.excludeCurrentSession`
+ * is on. Returns null when the search failed.
+ */
+export async function searchSectionMemories(
+  query: string,
+  projectTag: string,
+  sessionId: string
+): Promise<{ results: any[]; queryVector?: ArrayLike<number> } | null> {
+  // Snapshot before the async search: an excludeCurrentSession edit during
+  // the search must not change this operation's filtering.
+  const excludeCurrentSession = CONFIG.chatMessage.excludeCurrentSession;
+
+  const search = await memoryClient.searchMemories(query, projectTag);
+  if (!search.success) return null;
+
+  const results = excludeCurrentSession
+    ? search.results.filter((result: any) => result.metadata?.sessionID !== sessionId)
+    : search.results;
+  return { results, queryVector: search.queryVector };
+}
+
+/**
  * Prompt-aware semantic retrieval shared by every host (Pi `before_agent_start`,
  * OpenCode v2 `prompt`/`context` hooks): search the shared project memory with
  * the incoming prompt and format a bounded context section (memory + user
@@ -21,23 +46,13 @@ export async function buildRetrievalSection(
 ): Promise<string | null> {
   if (!prompt.trim()) return null;
 
-  // Snapshot before the async search: an excludeCurrentSession edit during
-  // the search must not change this operation's filtering.
-  const excludeCurrentSession = CONFIG.chatMessage.excludeCurrentSession;
-
   const tags = getTags(directory);
-  const search = await memoryClient.searchMemories(prompt, tags.project.tag);
-  if (!search.success) return null;
-
-  const results = excludeCurrentSession
-    ? search.results.filter((result: any) => result.metadata?.sessionID !== sessionId)
-    : search.results;
-
-  if (results.length === 0) return null;
+  const search = await searchSectionMemories(prompt, tags.project.tag, sessionId);
+  if (!search || search.results.length === 0) return null;
 
   const memoryContext = await formatContextForPrompt(
     tags.user.userEmail || null,
-    { results },
+    { results: search.results },
     budget,
     search.queryVector
   );
