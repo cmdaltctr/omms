@@ -2,6 +2,15 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.4.1](https://github.com/cmdaltctr/omms/compare/v5.4.0...v5.4.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **web:** address review on the memory injection copy ([d439885](https://github.com/cmdaltctr/omms/commit/d439885eb2620739b38aa28a0a2e2c0f4baa8029))
+* **web:** say when memory injection runs and what each switch adds ([f7ff08f](https://github.com/cmdaltctr/omms/commit/f7ff08f1cc3a10d23169b4aa0cdbac1367488541))
+* **web:** say when memory injection runs and what each switch adds ([e276929](https://github.com/cmdaltctr/omms/commit/e2769296a7c2cc81036ea0f259284d687e65ab32))
+
 ## [5.4.0](https://github.com/cmdaltctr/omms/compare/v5.3.1...v5.4.0) (2026-11-03)
 
 
