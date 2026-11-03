@@ -13,6 +13,7 @@ import {
   normaliseSkillConfig,
   projectSkillOverride,
 } from "./services/skill-learning/skill-config.js";
+import * as visibleRecall from "./services/visible-recall-config.js";
 import { checkedMemoryLimit, MEMORY_LIMITS, type MemoryLimitRule } from "./utils/memory-limits.js";
 import { defaultSimilarityThreshold } from "./utils/threshold-default.js";
 import { RERANKER_TIMEOUT_DEFAULT_MS } from "./services/request-timeouts.js";
@@ -643,6 +644,7 @@ function buildConfig(fileConfig: OmmsConfig) {
       fileConfig.captureRetryRetentionHours
     ),
     ...normaliseSkillConfig(fileConfig),
+    ...visibleRecall.visibleRecallFromFile(fileConfig),
     autoBackfill: fileConfig.autoBackfill ?? DEFAULTS.autoBackfill,
     opencodeBackfillModel: fileConfig.opencodeBackfillModel ?? DEFAULTS.opencodeBackfillModel,
     piBackfillModel: fileConfig.piBackfillModel ?? DEFAULTS.piBackfillModel,
@@ -853,6 +855,7 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   delete projectOverrides.skillLearningRedact;
   delete projectOverrides.skillFolders;
   Object.assign(projectOverrides, skillRule.override);
+  visibleRecall.applyProjectVisibleRecall(projectConfig, projectOverrides, directory, log);
   delete projectOverrides.autoBackfill;
   delete projectOverrides.opencodeBackfillModel;
   delete projectOverrides.piBackfillModel;

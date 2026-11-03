@@ -44,6 +44,7 @@ On first start, if no config exists at all, the plugin creates a full commented 
   "skillLearning": false,
   "skillLearningRedact": true,
   // "skillFolders": ["~/.agents/skills"],
+  "visibleRecall": true,
   // "auto" detects the language of your prompt. Latin-script prompts under 100
   // characters count as English, because short text is detected unreliably.
   // Set a fixed code such as "en" to always write memories in that language.
@@ -310,6 +311,22 @@ On the Settings page you can **Pause** and **Resume** each host's backfill.
 - Folders with the same real path are watched once, under the first spelling. A `~/.claude/skills` link to `~/.agents/skills` does not list each skill twice.
 - All three settings must be set in the global file. A project config can set `"skillLearning": false` to stop recording in that project. A project value of `true` is ignored and logged. A project value for `skillLearningRedact` or `skillFolders` is ignored.
 
+## Visible recall
+
+`visibleRecall` controls whether the OpenCode `tui` entrypoint draws a row in the session for each memory recall. It does not change what OMMS recalls or injects into the model context.
+
+```jsonc
+{
+  "visibleRecall": true, // default true
+}
+```
+
+- `visibleRecall` is `true` by default.
+- Set `"visibleRecall": false` in the global file to turn the rows off everywhere.
+- Set `"visibleRecall": false` in a project's `.opencode/omms.jsonc` to turn the rows off for that project only. This wins even when the global value is `true`.
+- A project value of `true` is ignored and logged, so the global value decides. A project cannot turn the rows on when the global value is `false`.
+- When the setting is `false`, OMMS may still record and serve recall summaries.
+
 ## Web app access
 
 - `webServerHost` defaults to `127.0.0.1`. A non-loopback host needs an unexpired API token or a browser password, or the web app refuses to start.
@@ -324,6 +341,7 @@ Some settings are read only from the global file.
 - OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoCleanupEnabled`, `autoCleanupRetentionDays`, and the five `reranker*` settings. This stops one project from, for example, turning off the shared web server for another, or sending a user's memories to its own reranker server.
 - A project config cannot turn `captureTrace` on. See [Capture traces](#capture-traces-opt-in).
 - A project config cannot turn `skillLearning` on, and it cannot set `skillLearningRedact` or `skillFolders`. See [Skill learning](#skill-learning).
+- A project config cannot turn `visibleRecall` on. It can turn it off. See [Visible recall](#visible-recall).
 - A project config that sets `embeddingApiUrl`, `embeddingApiKey`, `memoryProvider`, `memoryApiUrl`, or `memoryApiKey` is an error. Move those to the global file.
 
 See [Web UI settings](web-ui-settings.md) for backfill status and [CLI](cli.md#web-app-commands) for the login-item commands.
