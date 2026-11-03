@@ -6,6 +6,8 @@ export type RecallSummary = {
   mode: "search" | "recent";
   query: string | null;
   items: RecallItem[];
+  /** Per-session counter the v2 reporter sets when it stores the summary; the TUI keys rows by it. */
+  seq?: number;
 };
 
 const QUERY_CUT = 60;
@@ -21,14 +23,12 @@ export function queryLine(query: string, max = QUERY_CUT): string {
 // Entry shape comes from `formatContextForPrompt`: `<memory id="..." relevance="N%">`, with the
 // id missing when the result had none. A body ends at its own `</memory>` when another entry, a
 // section close or the end of the text follows it. The Claude Code hook can cut a block short and
-// leave tags open, so a body also ends at an opening tag that starts a line, at a section close,
-// or at the end of the text. A bare `<memory ` inside the text does not end it: a memory can
-// quote the tag.
-const ENTRY_OPEN = String.raw`<memory(?:\s+id="[^"]*")?\s+relevance="\d+%">`;
+// leave tags open, so a body also ends at a section close or at the end of the text. An opening
+// tag inside the text, even at the start of a line, does not end it: a memory can quote the tag.
 const SECTION_CLOSE = String.raw`<\/project_knowledge>|<\/memory_context>|<\/omms-retrieval>`;
 const MEMORY_ENTRY = new RegExp(
   String.raw`<memory(?:\s+id="([^"]*)")?\s+relevance="(\d+)%">([\s\S]*?)` +
-    String.raw`(?=<\/memory>\s*(?:<memory\s|${SECTION_CLOSE}|$)|\n${ENTRY_OPEN}|${SECTION_CLOSE}|$)`,
+    String.raw`(?=<\/memory>\s*(?:<memory\s|${SECTION_CLOSE}|$)|${SECTION_CLOSE}|$)`,
   "g"
 );
 
@@ -39,7 +39,7 @@ export function headline(body: string): string {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-  const heading = lines.findIndex((line) => /^##\s*request/i.test(line));
+  const heading = lines.findIndex((line) => /^##\s*request\s*$/i.test(line));
   const line = (heading >= 0 ? lines[heading + 1] : lines[0]) ?? "";
   return line.length > HEADLINE_CUT ? `${line.slice(0, HEADLINE_CUT - 3)}...` : line;
 }
@@ -66,10 +66,15 @@ export function buildRecallSummary(
   return { mode, query: mode === "recent" ? null : query, items };
 }
 
+/** Escape backslashes and double quotes so the quoted value in the title reads as one string. */
+function escapeQuoted(text: string): string {
+  return text.replace(/[\\"]/g, "\\$&");
+}
+
 /** `memory [mode=search, query="...", limit=4]`: the call's name and arguments, as a tool row shows them. */
 export function callTitle(summary: RecallSummary): string {
   const args = [`mode=${summary.mode}`];
-  if (summary.query) args.push(`query="${queryLine(summary.query)}"`);
+  if (summary.query) args.push(`query="${escapeQuoted(queryLine(summary.query))}"`);
   args.push(`limit=${summary.items.length}`);
   return `memory [${args.join(", ")}]`;
 }

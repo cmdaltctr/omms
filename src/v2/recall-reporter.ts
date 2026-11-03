@@ -34,6 +34,8 @@ export async function createRecallReporter(
   bound: Bound
 ): Promise<RecallReporter> {
   const rings = new Map<string, RecallSummary[]>();
+  // Last number given per session. It keeps rising when the ring drops old entries.
+  const sequences = new Map<string, number>();
   const recorded = new WeakSet<object>();
   // One lookup per session. The promise is cached so concurrent records keep their order.
   const subagents = new Map<string, Promise<boolean>>();
@@ -83,7 +85,10 @@ export async function createRecallReporter(
     return lookup;
   };
 
-  const store = (sessionID: string, summary: RecallSummary) => {
+  const store = (sessionID: string, built: RecallSummary) => {
+    const seq = (sequences.get(sessionID) ?? 0) + 1;
+    bound(sequences, sessionID, seq);
+    const summary = { ...built, seq };
     const ring = [...(rings.get(sessionID) ?? []), summary].slice(-MAX_RECALL_SUMMARIES);
     bound(rings, sessionID, ring);
     log("v2 recall: summary recorded", {
@@ -129,12 +134,14 @@ export async function createRecallReporter(
       for (const ticket of pending.get(sessionID) ?? []) ticket.cancelled = true;
       pending.delete(sessionID);
       rings.delete(sessionID);
+      sequences.delete(sessionID);
       subagents.delete(sessionID);
     },
     clear: () => {
       for (const tickets of pending.values()) for (const ticket of tickets) ticket.cancelled = true;
       pending.clear();
       rings.clear();
+      sequences.clear();
       subagents.clear();
     },
   };

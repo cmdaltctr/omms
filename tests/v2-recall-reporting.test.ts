@@ -449,6 +449,28 @@ describe("OpenCode v2 recall reporting", () => {
     await cleanupG();
   });
 
+  it("numbers summaries per session and never reuses a number after the ring drops entries", async () => {
+    const h = createHarness();
+    const cleanup = await h.register();
+
+    const total = MAX_RECALL_SUMMARIES + 3;
+    for (let i = 0; i < total; i++) {
+      await h.prompt("ses-1", `q${i}`);
+      await h.context("ses-1");
+    }
+    await h.prompt("ses-2", "other");
+    await h.context("ses-2");
+
+    const seqs = (await h.list("ses-1")).items.map((item: any) => item.seq);
+    expect(seqs).toHaveLength(MAX_RECALL_SUMMARIES);
+    expect(seqs[0]).toBe(4);
+    expect(seqs.at(-1)).toBe(total);
+    expect(seqs).toEqual(seqs.map((_: number, index: number) => index + 4));
+    expect((await h.list("ses-2")).items.map((item: any) => item.seq)).toEqual([1]);
+
+    await cleanup();
+  });
+
   it("drops a deleted session's summaries", async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {

@@ -321,6 +321,27 @@ describe("recall fold rows", () => {
     expect(dump(root).join("\n")).not.toContain("id=m0");
   });
 
+  it("keeps a row open by its sequence number when the oldest identical summary drops", async () => {
+    let seqs = [1, 2, 3];
+    const host = makeHost({
+      list: async () => ({
+        enabled: true,
+        items: seqs.map((seq) => ({ ...recent, seq })),
+      }),
+    });
+    startTuiRecall(host.deps);
+    const root: any = host.draw("s1");
+    await settle();
+    press(root, 2);
+    const open = () => (root.props.children as Node[]).map((row) => dump(row).length > 1);
+    expect(open()).toEqual([false, false, true]);
+
+    seqs = [2, 3, 4];
+    host.push("s1");
+    await settle();
+    expect(open()).toEqual([false, true, false]);
+  });
+
   it("toggles every row of the session in view with /omms-recall", async () => {
     const host = makeHost({
       list: async () => ({ enabled: true, items: [search, recent] }),
@@ -485,5 +506,20 @@ describe("row keys", () => {
     expect(rowKeys("s2", [recent])[0]).not.toBe(b);
     const [x, y] = rowKeys("s1", [recent, recent]);
     expect(x).not.toBe(y);
+  });
+
+  it("use the sequence number when present and ignore the position", () => {
+    const keys = rowKeys("s1", [
+      { ...recent, seq: 7 },
+      { ...recent, seq: 9 },
+    ]);
+    expect(keys).toEqual(["s1:7", "s1:9"]);
+    expect(rowKeys("s1", [{ ...recent, seq: 9 }])).toEqual(["s1:9"]);
+  });
+
+  it("fall back to the hash when seq is missing or not a number", () => {
+    const [x, y] = rowKeys("s1", [recent, { ...recent, seq: "3" as unknown as number }]);
+    expect(x).toMatch(/^s1:[0-9a-f]+$/);
+    expect(y).toBe(`${x}#1`);
   });
 });

@@ -102,13 +102,15 @@ function hash(text: string): string {
 }
 
 /**
- * Stable per-summary key: the session id, a hash of mode, query and each memory's id (or headline
- * when it has none), and a counter for identical summaries. It does not use the ring index, so the
- * key survives the ring dropping older entries.
+ * Stable per-summary key. A summary with a server sequence number is keyed by session id and that
+ * number, so it survives the ring dropping older entries. An older server sends none, so the key
+ * falls back to the session id, a hash of mode, query and each memory's id (or headline when it
+ * has none), and a counter for identical summaries.
  */
 export function rowKeys(sessionID: string, summaries: RecallSummary[]): string[] {
   const seen = new Map<string, number>();
   return summaries.map((summary) => {
+    if (typeof summary.seq === "number") return `${sessionID}:${summary.seq}`;
     const body = [
       summary.mode,
       summary.query ?? "",

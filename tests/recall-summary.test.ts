@@ -83,7 +83,7 @@ describe("buildRecallSummary", () => {
 
   it("keeps memories when the block was cut short and left tags open", () => {
     const cut =
-      '<omms-retrieval><project_knowledge><memory id="m1" relevance="80%">\nFirst fact.\n<memory relevance="70%">\nSecond fact.';
+      '<omms-retrieval><project_knowledge><memory id="m1" relevance="80%">\nFirst fact.\n</memory>\n<memory relevance="70%">\nSecond fact.';
     expect(buildRecallSummary(cut, "search", "q")?.items).toEqual([
       { relevance: 80, id: "m1", headline: "First fact." },
       { relevance: 70, headline: "Second fact." },
@@ -117,6 +117,21 @@ Second memory.
     expect(summary?.items[0]?.headline).toBe("Fix ids in the section.");
   });
 
+  it("keeps one item when a body has a line that is a complete opening tag", () => {
+    const section = `<project_knowledge>
+<memory id="mem_q1" relevance="90%">
+Quoted tag on its own line:
+<memory relevance="73%">
+More text.
+</memory>
+</project_knowledge>`;
+    const summary = buildRecallSummary(section, "search", "q");
+    expect(summary?.items).toEqual([
+      { relevance: 90, id: "mem_q1", headline: "Quoted tag on its own line:" },
+    ]);
+    expect(callTitle(summary!)).toContain("limit=1");
+  });
+
   it("skips a memory whose body is empty", () => {
     const empty =
       '<memory relevance="90%">\n\n</memory>\n<memory relevance="50%">\nKept.\n</memory>';
@@ -137,6 +152,11 @@ describe("headline", () => {
 
   it("takes the first non-empty line when there is no ## Request", () => {
     expect(headline("\n\nFirst line.\nSecond line.")).toBe("First line.");
+  });
+
+  it("does not treat ## Requester as the ## Request heading", () => {
+    expect(headline("## Requester\nAlice")).toBe("## Requester");
+    expect(headline("## Request\nText")).toBe("Text");
   });
 
   it("returns an empty string for an empty body", () => {
@@ -183,6 +203,15 @@ describe("callTitle", () => {
     };
     expect(callTitle(summary)).toBe(
       'memory [mode=search, query="how did we handle om-pi-todo", limit=3]'
+    );
+  });
+
+  it("escapes double quotes and backslashes in the query", () => {
+    expect(callTitle({ mode: "search", query: 'find "WAL" settings', items: [items[0]!] })).toBe(
+      'memory [mode=search, query="find \\"WAL\\" settings", limit=1]'
+    );
+    expect(callTitle({ mode: "search", query: "a\\b", items: [items[0]!] })).toBe(
+      'memory [mode=search, query="a\\\\b", limit=1]'
     );
   });
 
