@@ -79,6 +79,27 @@ describe("chat routes", () => {
     expect(JSON.stringify(ready.json)).not.toContain("SECRET");
   });
 
+  it("needs no key for a model server on this machine, and still needs one for a remote server", async () => {
+    CONFIG.memoryModel = "qwen";
+    CONFIG.memoryApiKey = "";
+    CONFIG.memoryApiUrl = "http://127.0.0.1:9931/v1";
+    const local = await call("GET", "/api/chat/status");
+    expect(local.json.data).toMatchObject({ ready: true, missing: [], apiHost: "127.0.0.1:9931" });
+
+    CONFIG.memoryApiUrl = "https://api.example.com/v1";
+    const remote = await call("GET", "/api/chat/status");
+    expect(remote.json.data).toMatchObject({ ready: false, missing: ["memoryApiKey"] });
+
+    // A placeholder that the user left in the box is still flagged for a local URL.
+    CONFIG.memoryApiUrl = "http://localhost:8080/v1";
+    CONFIG.memoryApiKey = "sk-...";
+    const placeholder = await call("GET", "/api/chat/status");
+    expect(placeholder.json.data).toMatchObject({ ready: false, missing: ["memoryApiKey"] });
+
+    CONFIG.memoryApiUrl = "https://api.example.com/v1";
+    CONFIG.memoryApiKey = "sk-real-SECRET-value";
+  });
+
   it("creates, lists, gets, renames, moves, and deletes conversations", async () => {
     const folder = await call("POST", "/api/chat/folders", { name: "Thesis" });
     expect(folder.status).toBe(200);

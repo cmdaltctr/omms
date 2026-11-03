@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildMemoryProviderConfig } from "../src/services/ai/provider-config.js";
+import { isLocalApiUrl } from "../src/services/ai/local-api-url.js";
 import { applySafeExtraParams } from "../src/services/ai/providers/base-provider.js";
 import { OpenAIChatCompletionProvider } from "../src/services/ai/providers/openai-chat-completion.js";
 import { OpenAIResponsesProvider } from "../src/services/ai/providers/openai-responses.js";
@@ -117,6 +118,52 @@ describe("AI provider config", () => {
     ).toThrow(
       "missing memoryModel; missing memoryApiUrl; replace the placeholder memoryApiKey value"
     );
+  });
+
+  it("recognises only an address on this machine as a local API URL", () => {
+    for (const url of [
+      "http://localhost:8080/v1",
+      "http://127.0.0.1:9931/v1",
+      "http://[::1]:8080/v1",
+      "HTTP://LocalHost/v1",
+    ]) {
+      expect(isLocalApiUrl(url)).toBe(true);
+    }
+    for (const url of [
+      "https://api.openai.com/v1",
+      "http://localhost.example.com/v1",
+      "http://192.168.1.20:8080/v1",
+      "http://127.0.0.1.example.com/v1",
+      "not a url",
+      "",
+      undefined,
+    ]) {
+      expect(isLocalApiUrl(url)).toBe(false);
+    }
+  });
+
+  it("lets a caller that opts in skip the key for a local URL only", () => {
+    const local = { memoryModel: "qwen", memoryApiUrl: "http://127.0.0.1:9931/v1" };
+    expect(buildMemoryProviderConfig(local, { keylessForLocalUrl: true }).apiKey).toBe("");
+    // Without the opt-in, capture, profile and import still need a key.
+    expect(() => buildMemoryProviderConfig(local)).toThrow("missing memoryApiKey");
+    // A remote URL needs a key even with the opt-in.
+    expect(() =>
+      buildMemoryProviderConfig(
+        { memoryModel: "m", memoryApiUrl: "https://api.openai.com/v1" },
+        { keylessForLocalUrl: true }
+      )
+    ).toThrow("missing memoryApiKey");
+    // A key that is set still goes through, and a placeholder is still refused.
+    expect(
+      buildMemoryProviderConfig(
+        { ...local, memoryApiKey: "real-key" },
+        { keylessForLocalUrl: true }
+      ).apiKey
+    ).toBe("real-key");
+    expect(() =>
+      buildMemoryProviderConfig({ ...local, memoryApiKey: "sk-..." }, { keylessForLocalUrl: true })
+    ).toThrow("replace the placeholder memoryApiKey value");
   });
 
   it("requires an API key for manual provider endpoints", () => {

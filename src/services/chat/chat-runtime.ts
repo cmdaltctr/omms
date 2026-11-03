@@ -50,7 +50,11 @@ export async function callTool(
   const { aiSessionManager } = await import("../ai/session/ai-session-manager.js");
   const provider = AIProviderFactory.createProvider(
     config.memoryProvider as Parameters<typeof AIProviderFactory.createProvider>[0],
-    buildMemoryProviderConfig(config, { maxIterations: 1, iterationTimeout: timeoutMs })
+    buildMemoryProviderConfig(config, {
+      maxIterations: 1,
+      iterationTimeout: timeoutMs,
+      keylessForLocalUrl: true,
+    })
   );
   const sessionId = `chat_${crypto.randomUUID()}`;
   try {
