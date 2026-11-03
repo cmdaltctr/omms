@@ -63,6 +63,7 @@ Read `docs/shared-core.md` before you change a port or move code between layers.
 
 Pi and OpenCode must have the same user capabilities.
 
+- For OpenCode, work only on the V2 plugin (`src/v2/`, the V2 parts of `src/adapters/opencode/`, and `opencode/tui.tsx`). Do not add or change features in the V1 hooks (for example `chat.message` in `src/index.ts`) unless the user asks.
 - When you add or change a feature for one host, add the same feature to the other host in the same change.
 - Put shared behaviour in `src/core/`, `src/services/`, or `src/importer/`. Keep adapters thin.
 - Live capture and profile learning choose a model in this order:
