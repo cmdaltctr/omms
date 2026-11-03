@@ -81,6 +81,19 @@ No finding contradicts the design.
 - Pi changes how it resolves `@earendil-works/pi-tui` for extensions, or caps factory widgets.
 - Pi adds an event for `ctrl+o` that reaches widgets.
 
+## Live check of the finished change (2026-11-03)
+
+Pi 1.4.0 in an Orca terminal, with a scratch `HOME`, a scratch OMMS store (3 seeded memories), a scratch agent folder with a local Ollama model (`qwen3:0.6b`, no credentials, no network) and `pi -ne --no-mcp -ns -nc -np -e <worktree>`. Your real `~/.omms` and `~/.pi/agent` were not used.
+
+- **Finding that changed the plan:** with no model configured, Pi stops at "No API key found" before `before_agent_start`, so no row can appear. The check therefore needs a model. A local one costs nothing.
+- **(a) Row above the editor.** After the prompt "how did we handle om-pi-todo", the screen showed `▸ ● memory [mode=search, query="how did we handle om-pi-todo", limit=3]` above the editor rule. The log recorded one summary (mode `search`, count 3).
+- **(b) Fold and unfold.** `/omms-recall` showed `▾ ● memory [...]` with `mode: search`, `query: how did we handle om-pi-todo`, `limit: 3` and 3 memories with relevance and id. A second `/omms-recall` folded it back to `▸`.
+- **(c) Width.** At 103 columns the long headlines ended in `...` at exactly 103 characters. In a second Pi in an 80-column pane, every row line was at most 80 characters, with the headlines cut by `...`.
+- **(d) Setting off.** `"visibleRecall": false` in the scratch global config removed the row on the next prompt. The summary was still recorded.
+- **(e) Session file.** The scratch session file held 6 entries (`session`, `model_change`, `thinking_level_change`, 3 `message`). It had no custom entry, no row text and no memory text.
+- **Not run:** a real mouse (the design has no click handling), Pi RPC or print mode, and the project-level `visibleRecall: false` path.
+- **Trust prompt:** Pi asks about project extensions when it starts in a project folder. "Trust" was saved in the scratch agent folder only.
+
 ## Limits of the method
 
 - No prompt ran, so the real OMMS row was not drawn here. The live check in task 5.2 covers that.
