@@ -63,6 +63,7 @@ function createHarness(
     isConfigured: () => true,
     isInjectionEnabled: options.canInject ?? (() => true),
     isCompactionEnabled: options.canCompact ?? (() => true),
+    isVisibleRecallEnabled: () => true,
     isInternalPrompt: () => false,
     recordPrompt: options.recordPrompt ?? (async () => {}),
     snapshotRequestBudget() {

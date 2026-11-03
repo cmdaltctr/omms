@@ -168,3 +168,4 @@ OpenCode and Pi can run in separate processes against the same store.
 
 - Pi profile learning applies analysed batches directly. It does not have the decay, validation-task, and conflict-retry steps of the OpenCode idle path.
 - Manual history import covers the current project by default. See [pi-history-import.md](pi-history-import.md).
+- Pi shows no recall rows. OpenCode V2 shows one fold row for each recall in its terminal TUI. See [OpenCode adapter: Recall rows](opencode-adapter.md#recall-rows). A Pi surface is a follow-up change.

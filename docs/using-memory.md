@@ -19,6 +19,8 @@ settings, memory builds up as you work.
    - On OpenCode v2 and Pi, every prompt runs a semantic search of the project
      memory. The matches go in an `<omms-retrieval>` system section, never in
      a chat message.
+     In the OpenCode terminal TUI, each recall also shows as a fold row above
+     the prompt. See [OpenCode adapter: Recall rows](opencode-adapter.md#recall-rows).
    - On OpenCode v1, the most recent memories go into the first message of a
      session (`chatMessage.injectOn`).
    - After compaction, the session's own memories are put back.
@@ -230,7 +232,7 @@ See [Moving projects](moving-projects.md) for `list-shards`, `migrate`,
 
 OMMS adds the closest matches to the agent's context. These are not all your memories. The header of that context says so. It tells the agent to search the full store before it investigates a problem, or when you refer to earlier work.
 
-Each added memory shows its id beside its relevance, for example `<memory id="mem_…" relevance="82%">`. After a compaction or a resume, the heading shows it: `### Memory 1 (mem_…)`. The agent can pass that id to `forget` with no search first. In Claude Code, the recall rows at the top of each reply show the same ids. See [Claude Code adapter: Memory tool and recall rows](claude-code-adapter.md#memory-tool-and-recall-rows).
+Each added memory shows its id beside its relevance, for example `<memory id="mem_…" relevance="82%">`. After a compaction or a resume, the heading shows it: `### Memory 1 (mem_…)`. The agent can pass that id to `forget` with no search first. In Claude Code, the recall rows at the top of each reply show the same ids. See [Claude Code adapter: Memory tool and recall rows](claude-code-adapter.md#memory-tool-and-recall-rows). The OpenCode TUI rows show them too.
 
 The agent should search the full store:
 

@@ -153,6 +153,46 @@ OpenCode 2.0.22 and later load the plugin's `./tui` entry. It shows OMMS's state
 
 The footer reads only the health route and the npm registry's `latest` version. It sends nothing about your sessions.
 
+### Recall rows
+
+On OpenCode V2, OMMS searches memory for each prompt and adds the matches to the model's system context. The same `./tui` entry shows each recall as a fold row in the terminal TUI. The row sits in the session view, above the prompt box. Tested on OpenCode 2.2.5.
+
+A collapsed row looks like this:
+
+```text
+▸ ● memory [mode=search, query="how did we handle om-pi-todo", limit=3]
+```
+
+- `mode=search` is the recall for your prompt. The query is cut to 60 characters.
+- `limit` is the number of memories OMMS added.
+- Click the row, or run the `/omms-recall` slash command, to unfold it. The row then lists the mode, the query (up to 300 characters), the limit, and each memory with its relevance, its id and a one-line headline.
+- `/omms-recall` unfolds all rows in view. If every row is already unfolded, it folds them all. It is also in the command palette.
+- The TUI shows the latest 5 rows of the session in view. OMMS remembers which rows you unfolded.
+- A prompt with no matching memories adds no row.
+
+The rows are on your screen only.
+
+- They read the recall that OMMS already made. They run no second search.
+- They add no message to the session transcript.
+- They do not change what the model sees.
+
+To turn the rows off, set `visibleRecall` to `false`. A project config can turn them off but never on. See [Configuration: Visible recall](configuration.md#visible-recall). OMMS still records the summaries when the setting is off.
+
+How it works:
+
+1. The V2 server entry builds a short summary of each recall. The shared builder is `src/core/recall-summary.ts`.
+2. The server keeps the latest 20 summaries for each session in memory, and serves them over plugin RPC (`list`). It also sends a `recalled` message as a hint to refresh.
+3. The `./tui` entry asks for the summaries and draws them with the `session.composer.top` slot. It treats `recalled` as a hint only, so rows still appear when the push does not arrive.
+4. If the RPC handler is missing or a draw call fails, the TUI shows no rows. The footer and OpenCode keep working.
+
+Limits:
+
+- OpenChamber and other frontends that do not load the OpenCode TUI entry show nothing new. Their recall stays as before.
+- V2 has no opening "recent memories" injection. So every row on OpenCode V2 is `mode=search`. The shared builder also supports `mode=recent` for hosts that inject recent memories.
+- The server keeps summaries in memory only. They are not stored on disk. They are lost when OpenCode restarts.
+- Subagent sessions do not show rows. OMMS records no summary for a session that has a parent session.
+- Pi shows no rows yet. See [Host parity](#host-parity).
+
 ### Capture boundary
 
 Each user prompt is one work unit: the prompt plus the assistant messages up
@@ -207,3 +247,7 @@ OpenCode and Pi can run in separate processes against the same store.
 - V1 adds recent memories. It does not run a semantic search for each prompt. V2 and Pi search for each prompt.
 - Profile learning and cleanup run in every OpenCode process. Cleanup runs at most once a day in each process.
 - Manual history import covers the current project by default. See [opencode-history-import.md](opencode-history-import.md).
+
+## Host parity
+
+Pi and OpenCode offer the same user capabilities, with one recorded exception. The recall rows are an OpenCode V2 terminal feature. Pi shows no recall rows. The shared builder in `src/core/recall-summary.ts` is ready for a Pi surface. Pi rows are a follow-up change.

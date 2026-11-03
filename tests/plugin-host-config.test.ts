@@ -18,6 +18,7 @@ import {
   STRUCTURED_OUTPUT_AGENT,
   STRUCTURED_OUTPUT_TOOLS,
 } from "../src/adapters/opencode/opencode-provider.js";
+import { createLegacyClient } from "../src/v2/legacy-client.js";
 import { z } from "zod";
 
 function sdkService(config: Record<string, unknown>): Record<string, unknown> {
@@ -128,6 +129,43 @@ describe("OpenCode host client config", () => {
       if (previousLogFile === undefined) delete process.env.OMMS_LOG_FILE;
       else process.env.OMMS_LOG_FILE = previousLogFile;
     }
+  });
+});
+
+describe("OpenCode v2 in-process host client", () => {
+  async function transportLog(client: unknown, serverUrl?: string): Promise<string> {
+    const logFile = join(mkdtempSync(join(tmpdir(), "opencode-mem-test-")), "opencode-mem.log");
+    const previousLogFile = process.env.OMMS_LOG_FILE;
+    process.env.OMMS_LOG_FILE = logFile;
+    try {
+      await configureOpencodeHostTransport({ client, serverUrl });
+      try {
+        return readFileSync(logFile, "utf-8");
+      } catch {
+        return "";
+      }
+    } finally {
+      resetHostFetch();
+      if (previousLogFile === undefined) delete process.env.OMMS_LOG_FILE;
+      else process.env.OMMS_LOG_FILE = previousLogFile;
+    }
+  }
+
+  const v2Context = {
+    location: { directory: "/w", project: { id: "p", directory: "/w", canonical: "p" } },
+    model: { list: async () => ({ data: [] }) },
+    generate: { text: async () => ({ text: "" }) },
+    session: {},
+  } as any;
+
+  it("does not warn about a missing host fetch for the V2 legacy client", async () => {
+    const log = await transportLog(createLegacyClient(v2Context));
+    expect(log).not.toContain("OpenCode host fetch unavailable");
+  });
+
+  it("still warns for a client with no host fetch that is not in-process", async () => {
+    const log = await transportLog({ provider: { list: async () => ({ data: {} }) } });
+    expect(log).toContain("OpenCode host fetch unavailable");
   });
 });
 

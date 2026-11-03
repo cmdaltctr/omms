@@ -255,6 +255,11 @@ export const CONFIG_TEMPLATE = `{
   // only. Unset: ~/.agents/skills and the Claude Code folder's skills folder.
   // "skillFolders": ["~/.agents/skills"],
 
+  // Visible recall: the OpenCode tui entrypoint draws a row in the session for
+  // each memory recall. On by default. A project config can turn it off but
+  // never on.
+  // "visibleRecall": true,
+
   // Capture retry queue: when a live capture fails because the model cannot be
   // reached (network error, timeout, HTTP 408, 429 or 5xx), OMMS keeps a copy of
   // the turn in ~/.omms/data and tries it again later. The copy has <private>

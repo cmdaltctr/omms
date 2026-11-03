@@ -78,6 +78,7 @@ function createHarness(
     isConfigured: () => true,
     isInjectionEnabled: () => true,
     isCompactionEnabled: () => true,
+    isVisibleRecallEnabled: () => true,
     isInternalPrompt: () => false,
     recordPrompt: async (sessionID, messageID, text) => {
       calls.record.push([sessionID, messageID, text]);

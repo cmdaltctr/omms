@@ -55,6 +55,51 @@ describe("web server health check", () => {
     }
   });
 
+  it("treats an owner that answers after a few seconds as alive", async () => {
+    // A busy owner (for example a long profile job on the same event loop)
+    // can answer late. It must not be mistaken for a dead one.
+    const slow = createServer((_req, res) => {
+      setTimeout(() => {
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ success: true, status: "ok" }));
+      }, 3_000);
+    });
+    await new Promise<void>((resolve) => slow.listen(0, "127.0.0.1", resolve));
+    const address = slow.address();
+    if (!address || typeof address === "string") throw new Error("No free port");
+    try {
+      const server = new WebServer({ enabled: true, host: "127.0.0.1", port: address.port });
+      expect(await server.checkServerAvailable()).toBe(true);
+    } finally {
+      slow.closeAllConnections();
+      await new Promise<void>((resolve) => slow.close(() => resolve()));
+    }
+  }, 15_000);
+
+  it("records why the last health check failed", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+
+      globalThis.fetch = async () => new Response("no", { status: 503 });
+      expect(await server.checkServerAvailable()).toBe(false);
+      expect(server.getLastHealthFailure()).toBe("http 503");
+
+      globalThis.fetch = async () => {
+        throw new DOMException("The operation timed out.", "TimeoutError");
+      };
+      expect(await server.checkServerAvailable()).toBe(false);
+      expect(server.getLastHealthFailure()).toBe("timeout");
+
+      globalThis.fetch = async () =>
+        new Response(JSON.stringify({ success: true, status: "ok" }), { status: 200 });
+      expect(await server.checkServerAvailable()).toBe(true);
+      expect(server.getLastHealthFailure()).toBeNull();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("reports the process instance on health even behind basic auth", async () => {
     const server = new WebServer({
       enabled: true,
@@ -232,5 +277,49 @@ describe("web server health check", () => {
       Math.random = originalRandom;
       await new Promise<void>((resolve) => occupy.close(() => resolve()));
     }
+  });
+
+  it("skips a waiter tick while the previous tick is still checking the owner", async () => {
+    // The takeover health check can outlast the 5 second tick. A second tick
+    // must not count the same unresponsive owner as another failed takeover.
+    const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+    let release: (available: boolean) => void = () => {};
+    let checks = 0;
+    let takeovers = 0;
+    server.checkServerAvailable = () => {
+      checks += 1;
+      return new Promise<boolean>((resolve) => {
+        release = resolve;
+      });
+    };
+    (server as unknown as { attemptTakeover(): Promise<void> }).attemptTakeover = async () => {
+      takeovers += 1;
+    };
+
+    const realSetInterval = globalThis.setInterval;
+    let tick: () => void = () => {};
+    globalThis.setInterval = ((callback: () => void) => {
+      tick = callback;
+      return realSetInterval(() => {}, 1_000_000);
+    }) as unknown as typeof setInterval;
+    try {
+      (server as unknown as { startHealthCheckLoop(): void }).startHealthCheckLoop();
+    } finally {
+      globalThis.setInterval = realSetInterval;
+    }
+
+    tick();
+    tick();
+    expect(checks).toBe(1);
+    release(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(takeovers).toBe(1);
+
+    // The busy flag clears, so the next interval runs a fresh tick.
+    tick();
+    expect(checks).toBe(2);
+    release(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(takeovers).toBe(2);
   });
 });

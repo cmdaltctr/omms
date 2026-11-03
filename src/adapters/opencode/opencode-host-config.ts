@@ -2,9 +2,14 @@ export type HostClientConfig = {
   readonly baseUrl: string | undefined;
   readonly fetch: typeof fetch | undefined;
   readonly headers?: RequestInit["headers"];
+  /** Present when the host client runs in-process (OpenCode v2): no HTTP
+   * transport, so a missing fetch is expected and not worth a warning. */
+  readonly inProcess?: true;
   readonly clientKeys: readonly string[];
   readonly sdkConfigCount: number;
 };
+
+import { isInProcessClient } from "./in-process-client.js";
 
 export function getHostClientConfig(ctx: { readonly client: unknown }): HostClientConfig {
   const client = toRecord(ctx.client);
@@ -21,6 +26,7 @@ export function getHostClientConfig(ctx: { readonly client: unknown }): HostClie
     baseUrl: typeof baseUrl === "string" ? baseUrl : undefined,
     fetch: isFetch(customFetch) ? customFetch : undefined,
     ...(isHeadersInit(headers) ? { headers } : {}),
+    ...(isInProcessClient(client) ? { inProcess: true } : {}),
     clientKeys: Object.keys(client),
     sdkConfigCount: configs.length,
   };
