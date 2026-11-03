@@ -166,7 +166,7 @@ A collapsed row looks like this:
 - `mode=search` is the recall for your prompt. The query is cut to 60 characters.
 - `limit` is the number of memories OMMS added.
 - Click the row, or run the `/omms-recall` slash command, to unfold it. The row then lists the mode, the query (up to 300 characters), the limit, and each memory with its relevance, its id and a one-line headline.
-- `/omms-recall` unfolds all rows in view. If every row is already unfolded, it folds them all. It is also in the command palette.
+- `/omms-recall` unfolds all rows in view. If every row is already unfolded, it folds them all. It is also in the command palette. The `./tui` entry registers it from an app-level slot, so it stays available for the whole TUI run, also when no session is on screen.
 - The TUI shows the latest 5 rows of the session in view. OMMS remembers which rows you unfolded.
 - A prompt with no matching memories adds no row.
 
@@ -182,7 +182,7 @@ How it works:
 
 1. The V2 server entry builds a short summary of each recall. The shared builder is `src/core/recall-summary.ts`.
 2. The server keeps the latest 20 summaries for each session in memory, and serves them over plugin RPC (`list`). It also sends a `recalled` message as a hint to refresh.
-3. The `./tui` entry asks for the summaries and draws them with the `session.composer.top` slot. It treats `recalled` as a hint only, so rows still appear when the push does not arrive.
+3. The `./tui` entry asks for the summaries and draws them with the `session.composer.top` slot. It registers `/omms-recall` with a second claim on the `app` slot. It treats `recalled` as a hint only, so rows still appear when the push does not arrive.
 4. If the RPC handler is missing or a draw call fails, the TUI shows no rows. The footer and OpenCode keep working.
 
 Limits:
@@ -191,7 +191,7 @@ Limits:
 - V2 has no opening "recent memories" injection. So every row on OpenCode V2 is `mode=search`. The shared builder also supports `mode=recent` for hosts that inject recent memories.
 - The server keeps summaries in memory only. They are not stored on disk. They are lost when OpenCode restarts.
 - Subagent sessions do not show rows. OMMS records no summary for a session that has a parent session.
-- Pi shows no rows yet. See [Host parity](#host-parity).
+- The rows and `/omms-recall` exist only in the OpenCode terminal TUI. Claude Code draws its own recall rows from a separate module (`hooks/omms-recall.jsx`) and has no such slash command. Pi shows no rows yet. See [Host parity](#host-parity).
 
 ### Capture boundary
 

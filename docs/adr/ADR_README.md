@@ -42,3 +42,4 @@ Local decision records for OMMS maintainers.
 | [036](./036-skill-learning-stores-full-turns-in-skills-db.md)               | Skill learning stores full turns in skills.db                                   | 2026-10-30 | Accepted           |
 | [037](./037-windows-tests-run-on-pull-requests-as-their-own-check.md)       | Windows tests run on pull requests as their own check                           | 2026-10-31 | Proposed           |
 | [038](./038-chat-reads-skill-facts-from-skills-db.md)                       | The chat reads skill facts from skills.db                                       | 2026-10-31 | Accepted           |
+| [039](./039-recall-rows-come-from-the-tui-entry-not-the-transcript.md)      | Recall rows come from the TUI entry, not the transcript                         | 2026-11-03 | Accepted           |
