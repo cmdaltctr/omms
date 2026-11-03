@@ -3,6 +3,7 @@ import { buildRecallSummary, type RecallSummary } from "../core/recall-summary.j
 import { log } from "../services/logger.js";
 import type { V2MemoryBridge } from "./memory-bridge.js";
 import { recallRpc } from "./recall-rpc.js";
+import type { SessionParents } from "./session-parent.js";
 
 /** Latest summaries kept per session. The TUI shows recent rows, so older ones are dropped. */
 export const MAX_RECALL_SUMMARIES = 20;
@@ -14,11 +15,18 @@ type Bound = <V>(map: Map<string, V>, key: string, value: V) => void;
 
 export interface RecallReporter {
   /**
-   * Record the summary of one prompt retrieval. `token` identifies the retrieval: model steps
+   * Record the summary of one section as `mode`. `token` identifies the section: model steps
    * that reuse it record once. A section with no memory entries records nothing, and neither
    * does a subagent session (one with a parent). The call does not wait for the session lookup.
+   * The query is kept for `search` and `opening`, and dropped for `restore`.
    */
-  record(sessionID: string, token: object, query: string, section: string | null): void;
+  record(
+    sessionID: string,
+    token: object,
+    mode: RecallSummary["mode"],
+    query: string | null,
+    section: string | null
+  ): void;
   forget(sessionID: string): void;
   clear(): void;
 }
@@ -31,14 +39,13 @@ export interface RecallReporter {
 export async function createRecallReporter(
   ctx: Context,
   memory: V2MemoryBridge,
-  bound: Bound
+  bound: Bound,
+  parents: SessionParents
 ): Promise<RecallReporter> {
   const rings = new Map<string, RecallSummary[]>();
   // Last number given per session. It keeps rising when the ring drops old entries.
   const sequences = new Map<string, number>();
   const recorded = new WeakSet<object>();
-  // One lookup per session. The promise is cached so concurrent records keep their order.
-  const subagents = new Map<string, Promise<boolean>>();
   // Records waiting on a session lookup. `forget` and `clear` cancel them, so a late lookup cannot
   // store a summary for a session whose state is gone. Entries leave when their lookup settles.
   const pending = new Map<string, Set<{ cancelled: boolean }>>();
@@ -67,24 +74,6 @@ export async function createRecallReporter(
     }
   };
 
-  // A session with a parent is a subagent session. A failed lookup counts as a root session, so
-  // the summary still shows.
-  const isSubagent = (sessionID: string): Promise<boolean> => {
-    const known = subagents.get(sessionID);
-    if (known) return known;
-    const lookup = (async () => {
-      try {
-        const info = await ctx.session.get({ sessionID });
-        return Boolean(info?.parentID);
-      } catch (error) {
-        log("v2 recall: session lookup failed", { sessionID, error: String(error) }, "error");
-        return false;
-      }
-    })();
-    bound(subagents, sessionID, lookup);
-    return lookup;
-  };
-
   const store = (sessionID: string, built: RecallSummary) => {
     const seq = (sequences.get(sessionID) ?? 0) + 1;
     bound(sequences, sessionID, seq);
@@ -100,19 +89,19 @@ export async function createRecallReporter(
   };
 
   return {
-    record(sessionID, token, query, section) {
+    record(sessionID, token, mode, query, section) {
       if (recorded.has(token)) return;
       recorded.add(token);
       try {
         const summary = section
-          ? buildRecallSummary(section, "search", query.slice(0, MAX_RECALL_QUERY_CHARS))
+          ? buildRecallSummary(section, mode, query?.slice(0, MAX_RECALL_QUERY_CHARS) ?? null)
           : null;
         if (!summary) return;
         const ticket = { cancelled: false };
         const tickets = pending.get(sessionID) ?? new Set();
         tickets.add(ticket);
         pending.set(sessionID, tickets);
-        void isSubagent(sessionID).then((subagent) => {
+        void parents.isSubagent(sessionID).then((subagent) => {
           tickets.delete(ticket);
           if (tickets.size === 0 && pending.get(sessionID) === tickets) pending.delete(sessionID);
           if (subagent || ticket.cancelled) return;
@@ -135,14 +124,12 @@ export async function createRecallReporter(
       pending.delete(sessionID);
       rings.delete(sessionID);
       sequences.delete(sessionID);
-      subagents.delete(sessionID);
     },
     clear: () => {
       for (const tickets of pending.values()) for (const ticket of tickets) ticket.cancelled = true;
       pending.clear();
       rings.clear();
       sequences.clear();
-      subagents.clear();
     },
   };
 }
