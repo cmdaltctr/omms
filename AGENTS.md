@@ -105,8 +105,9 @@ Commit OpenSpec artifacts with the code change they describe. Commit the archive
 
 ## Local models
 
-- The default local model runtime is llama.cpp. Keep llama.cpp as the default in code, docs, config and tests.
+- The default local runtime for embeddings is llama.cpp. Keep llama.cpp as the default in code, docs, config and tests.
 - Do not change a default to Ollama. Ollama stays as one option in the preset list in `web/src/lib/embedding-settings.ts`.
+- Chat, capture and profile models use the external API (`memoryModel`, `memoryApiUrl`, `memoryApiKey`), never a local runtime by default.
 
 ## Commands
 
