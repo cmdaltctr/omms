@@ -49,6 +49,10 @@ let searchError = false;
 let warmupError = false;
 const widgetCalls = [];
 let formattedContext = null;
+let formatFn = null;
+let resultsFor = null;
+let sessionMemories = [];
+const sessionSearches = [];
 
 const stubConfig = {
     autoCaptureEnabled: false,
@@ -80,12 +84,16 @@ mock.module(${JSON.stringify(clientUrl)}, () => ({
       searchQueries.push(query);
       return {
         success: true,
-        results: [
+        results: resultsFor ? resultsFor(query) : [
           { id: "mem-1", memory: "Use WAL mode for the queue", similarity: 0.8, metadata: { sessionID: "other-session" } },
         ],
         total: 1,
         timing: 0,
       };
+    },
+    searchMemoriesBySessionID: async (sessionId, tag, limit) => {
+      sessionSearches.push({ sessionId, tag, limit });
+      return { success: true, results: sessionMemories, total: sessionMemories.length, timing: 0 };
     },
     addMemory: async () => ({ success: true, id: "mem-new" }),
     deleteMemory: async () => ({ success: true }),
@@ -156,7 +164,9 @@ mock.module(${JSON.stringify(languageUrl)}, () => ({
 
 mock.module(${JSON.stringify(contextServiceUrl)}, () => ({
   formatContextForPrompt: async (_userId, memories) =>
-    memories.results.length > 0 ? (formattedContext ?? "<memory_context>injected</memory_context>") : "",
+    memories.results.length > 0
+      ? (formatFn ? formatFn(memories.results) : (formattedContext ?? "<memory_context>injected</memory_context>"))
+      : "",
 }));
 
 const profileCreates = [];
@@ -253,9 +263,29 @@ async function waitFor(condition, timeoutMs = 1000) {
   }
 }
 
+function ctxWith(branch = [], sessionId = "pi-session-1", extra = {}) {
+  return makeCtx({ sessionManager: { getSessionId: () => sessionId, getBranch: () => branch }, ...extra });
+}
+const USER_ENTRY = { type: "message", id: "u-0", parentId: null, timestamp: "2026-01-01T10:00:00.000Z", message: { role: "user", content: "an earlier prompt" } };
+const sectionsOf = (reply) => (reply && reply.systemPrompt ? reply.systemPrompt.match(/<omms-retrieval>[\\s\\S]*?<\\/omms-retrieval>/g) ?? [] : []);
+function useOpeningFixtures() {
+  formatFn = (results) => "<memory_context>" + results.map((r) => '<memory id="' + r.id + '" relevance="80%">' + r.memory + "</memory>").join("\\n") + "</memory_context>";
+  const promptMemory = { id: "mem-prompt", memory: "Prompt memory", similarity: 0.8, metadata: { sessionID: "other" } };
+  const openingMemory = { id: "mem-open", memory: "Opening memory", similarity: 0.8, metadata: { sessionID: "other" } };
+  resultsFor = (query) => (query === "project setup" ? [openingMemory, promptMemory] : [promptMemory]);
+  sessionMemories = [
+    { id: "mem-r1", memory: "Restore one", tags: [], metadata: { host: "pi" } },
+    { id: "mem-x", memory: "Other host memory", tags: [], metadata: { host: "opencode" } },
+  ];
+  stubConfig.openingContext = true;
+  stubConfig.openingContextQuery = "project setup";
+  stubConfig.subagentMemory = true;
+  stubConfig.compaction = { enabled: true, memoryLimit: 7 };
+}
+
 ${code}
 
-console.log("RESULT:" + JSON.stringify({ widgetCalls, registeredTools, registeredCommands, toolCalls, closeCalls, statusCalls, searchQueries, profileCreates, profileUpdates, captured: typeof captured !== "undefined" ? captured : null }));
+console.log("RESULT:" + JSON.stringify({ sessionSearches, widgetCalls, registeredTools, registeredCommands, toolCalls, closeCalls, statusCalls, searchQueries, profileCreates, profileUpdates, captured: typeof captured !== "undefined" ? captured : null }));
 `;
 
   writeFileSync(scriptPath, script);
@@ -751,5 +781,232 @@ captured = settled ?? "no-throw";
     // autoCaptureEnabled is false in this scenario; handler must not throw
     expect(output.captured).toBe("no-throw");
     expect(output.toolCalls.length).toBe(0);
+  });
+});
+
+// Change align-recall-host-parity, tasks 6.1 and 6.2: opening section, restore after
+// compaction and resume, child gate, and the rows that report them.
+describe("Pi extension opening context and restore", () => {
+  const PROMPT_EVENT = `{ prompt: "how do we run the queue?", systemPrompt: "BASE" }`;
+
+  it("adds the prompt's section then the opening section on the first prompt only", () => {
+    const output = runScenario(`
+useOpeningFixtures();
+const first = await handlers["before_agent_start"](${PROMPT_EVENT}, ctxWith());
+const second = await handlers["before_agent_start"](${PROMPT_EVENT}, ctxWith());
+captured = { first: sectionsOf(first), second: sectionsOf(second) };
+    `);
+    expect(output.captured.first).toHaveLength(2);
+    expect(output.captured.first[0]).toContain("mem-prompt");
+    expect(output.captured.first[0]).not.toContain("mem-open");
+    expect(output.captured.first[1]).toContain("mem-open");
+    expect(output.captured.first[1]).not.toContain("mem-prompt");
+    expect(output.captured.second).toHaveLength(1);
+    expect(output.searchQueries).toEqual([
+      "how do we run the queue?",
+      "project setup",
+      "how do we run the queue?",
+    ]);
+  });
+
+  it("adds no opening section while the option is off", () => {
+    const output = runScenario(`
+useOpeningFixtures();
+stubConfig.openingContext = false;
+captured = sectionsOf(await handlers["before_agent_start"](${PROMPT_EVENT}, ctxWith()));
+    `);
+    expect(output.captured).toHaveLength(1);
+    expect(output.searchQueries).toEqual(["how do we run the queue?"]);
+  });
+
+  it("restores the session's own memories after session_compact and keeps them on later runs", () => {
+    const output = runScenario(`
+useOpeningFixtures();
+const ctx = ctxWith();
+const compactResult = await handlers["session_compact"]({ compactionEntry: {} }, ctx);
+const one = await handlers["before_agent_start"](${PROMPT_EVENT}, ctx);
+const two = await handlers["before_agent_start"](${PROMPT_EVENT}, ctx);
+sessionMemories = [{ id: "mem-r2", memory: "Restore two", tags: [], metadata: { host: "pi" } }];
+await handlers["session_compact"]({ compactionEntry: {} }, ctx);
+const three = await handlers["before_agent_start"](${PROMPT_EVENT}, ctx);
+captured = {
+  compactResult: compactResult ?? null,
+  one: sectionsOf(one), two: sectionsOf(two), three: sectionsOf(three),
+};
+    `);
+    const { one, two, three } = output.captured;
+    // The compaction already marked the session as seen: no opening section.
+    expect(one).toHaveLength(2);
+    expect(one[0]).toContain("mem-prompt");
+    expect(one[1]).toContain("## Restored Session Memory");
+    expect(one[1]).toContain("Restore one");
+    expect(one[1]).not.toContain("Other host memory");
+    expect(two[1]).toContain("Restore one");
+    expect(three[1]).toContain("Restore two");
+    expect(three[1]).not.toContain("Restore one");
+    expect(output.captured.compactResult).toBeNull();
+    expect(output.sessionSearches).toEqual([
+      { sessionId: "pi-session-1", tag: "opencode_project_test", limit: 7 },
+      { sessionId: "pi-session-1", tag: "opencode_project_test", limit: 7 },
+    ]);
+  });
+
+  it("leaves Pi's compaction summary alone", () => {
+    const output = runScenario(`
+useOpeningFixtures();
+captured = { beforeCompact: Object.keys(handlers).includes("session_before_compact") };
+    `);
+    expect(output.captured).toEqual({ beforeCompact: false });
+  });
+
+  it("restores after a session_start with reason resume and adds no opening section", () => {
+    const output = runScenario(`
+useOpeningFixtures();
+const ctx = ctxWith([USER_ENTRY]);
+await handlers["session_start"]({ reason: "resume" }, ctx);
+const reply = await handlers["before_agent_start"](${PROMPT_EVENT}, ctx);
+captured = sectionsOf(reply);
+    `);
+    expect(output.captured).toHaveLength(2);
+    expect(output.captured[1]).toContain("Restore one");
+    expect(output.searchQueries).toEqual(["how do we run the queue?"]);
+    expect(output.sessionSearches).toHaveLength(1);
+  });
+
+  it("restores, with no opening section, on the first prompt of a branch with earlier user entries", () => {
+    const output = runScenario(`
+useOpeningFixtures();
+const ctx = ctxWith([USER_ENTRY]);
+const one = await handlers["before_agent_start"](${PROMPT_EVENT}, ctx);
+const two = await handlers["before_agent_start"](${PROMPT_EVENT}, ctx);
+captured = { one: sectionsOf(one), two: sectionsOf(two) };
+    `);
+    expect(output.captured.one).toHaveLength(2);
+    expect(output.captured.one[1]).toContain("Restore one");
+    expect(output.captured.two).toHaveLength(2);
+    expect(output.searchQueries).toEqual(["how do we run the queue?", "how do we run the queue?"]);
+    // Loaded once for the session, not on every run.
+    expect(output.sessionSearches).toHaveLength(1);
+  });
+
+  it("restores nothing when compaction.enabled is false", () => {
+    const output = runScenario(`
+useOpeningFixtures();
+stubConfig.compaction = { enabled: false, memoryLimit: 7 };
+const compacted = ctxWith();
+await handlers["session_compact"]({ compactionEntry: {} }, compacted);
+const a = await handlers["before_agent_start"](${PROMPT_EVENT}, compacted);
+const resumed = ctxWith([USER_ENTRY], "pi-session-2");
+await handlers["session_start"]({ reason: "resume" }, resumed);
+const b = await handlers["before_agent_start"](${PROMPT_EVENT}, resumed);
+const c = await handlers["before_agent_start"](${PROMPT_EVENT}, ctxWith([USER_ENTRY], "pi-session-3"));
+captured = { a: sectionsOf(a), b: sectionsOf(b), c: sectionsOf(c) };
+    `);
+    expect(output.captured.a).toHaveLength(1);
+    expect(output.captured.b).toHaveLength(1);
+    expect(output.captured.c).toHaveLength(1);
+    expect(output.sessionSearches).toEqual([]);
+  });
+
+  it("clears the restored section on session_shutdown", () => {
+    const output = runScenario(`
+useOpeningFixtures();
+const ctx = ctxWith();
+await handlers["session_compact"]({ compactionEntry: {} }, ctx);
+const before = await handlers["before_agent_start"](${PROMPT_EVENT}, ctx);
+await handlers["session_shutdown"]({}, ctx);
+const after = await handlers["before_agent_start"](${PROMPT_EVENT}, ctx);
+captured = { before: sectionsOf(before), after: sectionsOf(after) };
+    `);
+    expect(output.captured.before).toHaveLength(2);
+    expect(output.captured.after).toHaveLength(1);
+  });
+
+  it("gives a child (OMPS_CHILD=1) the prompt's recall only when subagentMemory is on", () => {
+    const output = runScenario(`
+useOpeningFixtures();
+process.env.OMPS_CHILD = "1";
+const ctx = ctxWith([USER_ENTRY], "pi-child-1", { mode: "rpc" });
+await handlers["session_start"]({ reason: "resume" }, ctx);
+await handlers["session_compact"]({ compactionEntry: {} }, ctx);
+const on = await handlers["before_agent_start"](${PROMPT_EVENT}, ctx);
+const onQueries = searchQueries.splice(0);
+stubConfig.subagentMemory = false;
+const off = await handlers["before_agent_start"](${PROMPT_EVENT}, ctx);
+captured = { on: sectionsOf(on), off: off ?? null, onQueries, offQueries: searchQueries };
+    `);
+    expect(output.captured.on).toHaveLength(1);
+    expect(output.captured.on[0]).toContain("mem-prompt");
+    expect(output.captured.onQueries).toEqual(["how do we run the queue?"]);
+    expect(output.captured.off).toBeNull();
+    expect(output.captured.offQueries).toEqual([]);
+    expect(output.sessionSearches).toEqual([]);
+  });
+
+  it("gives a first-prompt child no opening section", () => {
+    const output = runScenario(`
+useOpeningFixtures();
+process.env.OMPS_CHILD = "1";
+captured = sectionsOf(await handlers["before_agent_start"](${PROMPT_EVENT}, ctxWith([], "pi-child-2", { mode: "rpc" })));
+    `);
+    expect(output.captured).toHaveLength(1);
+    expect(output.searchQueries).toEqual(["how do we run the queue?"]);
+  });
+
+  const widgetRows = (calls: any[]) => calls.at(-1)?.[1] ?? null;
+
+  it("draws an opening row after the prompt's row, and one restore row per restore", () => {
+    const output = runScenario(`
+useOpeningFixtures();
+const first = ctxWith();
+await handlers["before_agent_start"](${PROMPT_EVENT}, first);
+const afterFirst = widgetCalls.at(-1);
+widgetCalls.splice(0);
+await handlers["session_compact"]({ compactionEntry: {} }, first);
+await handlers["before_agent_start"](${PROMPT_EVENT}, first);
+await handlers["before_agent_start"](${PROMPT_EVENT}, first);
+const afterTwoRuns = widgetCalls.at(-1);
+await handlers["session_compact"]({ compactionEntry: {} }, first);
+await handlers["before_agent_start"](${PROMPT_EVENT}, first);
+captured = { afterFirst, afterTwoRuns, afterSecondRestore: widgetCalls.at(-1) };
+    `);
+    expect(widgetRows([output.captured.afterFirst])).toEqual([
+      '▸ ● memory [mode=search, query="how do we run the queue?", limit=1]',
+      '▸ ● memory [mode=opening, query="project setup", limit=1]',
+    ]);
+    const restoreRow = "▸ ● memory [mode=restore, limit=1]";
+    const search = '▸ ● memory [mode=search, query="how do we run the queue?", limit=1]';
+    // The first prompt's search row stays; two runs after one compaction add two search rows and
+    // one restore row.
+    expect(
+      widgetRows([output.captured.afterTwoRuns]).filter((l: string) => l === restoreRow)
+    ).toHaveLength(1);
+    expect(
+      widgetRows([output.captured.afterTwoRuns]).filter((l: string) => l === search)
+    ).toHaveLength(3);
+    // The second compaction replaces the restore, so one more restore row.
+    const lines = widgetRows([output.captured.afterSecondRestore]);
+    expect(lines.filter((l: string) => l === restoreRow)).toHaveLength(2);
+  });
+
+  it("draws no opening or restore row in RPC mode or with visibleRecall off, and still injects", () => {
+    const output = runScenario(`
+useOpeningFixtures();
+const rpc = await handlers["before_agent_start"](${PROMPT_EVENT}, ctxWith([], "pi-rpc", { mode: "rpc" }));
+const rpcWidgets = widgetCalls.splice(0);
+stubConfig.visibleRecall = false;
+const off = await handlers["before_agent_start"](${PROMPT_EVENT}, ctxWith([], "pi-off"));
+await handlers["session_compact"]({ compactionEntry: {} }, ctxWith([], "pi-off"));
+const offRestore = await handlers["before_agent_start"](${PROMPT_EVENT}, ctxWith([], "pi-off"));
+captured = {
+  rpc: sectionsOf(rpc), rpcWidgets, off: sectionsOf(off), offRestore: sectionsOf(offRestore),
+  offWidgetsAllCleared: widgetCalls.every((call) => call[1] === null),
+};
+    `);
+    expect(output.captured.rpc).toHaveLength(2);
+    expect(output.captured.rpcWidgets).toEqual([]);
+    expect(output.captured.off).toHaveLength(2);
+    expect(output.captured.offRestore).toHaveLength(2);
+    expect(output.captured.offWidgetsAllCleared).toBe(true);
   });
 });

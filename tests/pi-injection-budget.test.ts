@@ -45,8 +45,11 @@ const searches = [];
 // Runs while the retrieval's search is in flight, before it resolves.
 let mutateDuringSearch = null;
 
-mock.module(${JSON.stringify(configUrl)}, () => ({
-  CONFIG: {
+const stubConfig = {
+    openingContext: false,
+    openingContextQuery: "project setup",
+    compaction: { enabled: true, memoryLimit: 10 },
+    subagentMemory: true,
     autoCaptureEnabled: false,
     autoCaptureLanguage: "en",
     chatMessage: { enabled: true, excludeCurrentSession: true },
@@ -59,7 +62,9 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
     get retrievalMaxTokens() {
       return state.retrievalMaxTokens;
     },
-  },
+};
+mock.module(${JSON.stringify(configUrl)}, () => ({
+  CONFIG: stubConfig,
   isConfigured: () => true,
   initConfig: () => {},
   initConfigWithLegacyMigration: () => {},
@@ -72,9 +77,19 @@ mock.module(${JSON.stringify(clientUrl)}, () => ({
   memoryClient: {
     warmup: async () => {},
     getEmbeddingInitError: () => undefined,
+    searchMemoriesBySessionID: async () => ({
+      success: true,
+      results: [1, 2, 3].map((n) => ({ id: "res-" + n, memory: ("Restored memory " + n + " ").repeat(40), tags: [], metadata: { host: "pi" } })),
+    }),
     searchMemories: async (query) => {
       searches.push({ query, refreshes: state.refreshes, tokens: state.retrievalMaxTokens });
       if (mutateDuringSearch) mutateDuringSearch();
+      if (query === "project setup") {
+        return {
+          success: true,
+          results: [1, 2, 3].map((n) => ({ id: "open-" + n, memory: ("Opening memory " + n + " ").repeat(40), similarity: 0.9, metadata: { sessionID: "other" } })),
+        };
+      }
       return {
         success: true,
         results: [
@@ -148,6 +163,9 @@ async function recall(handlers, ctx) {
   );
   return reply?.systemPrompt ?? null;
 }
+
+const sections = (reply) =>
+  reply && reply.systemPrompt ? (reply.systemPrompt.match(/<omms-retrieval>[\\s\\S]*?<\\/omms-retrieval>/g) ?? []) : [];
 
 let scenario;
 ${code}
@@ -230,5 +248,64 @@ scenario = {
     // The next request uses the new, smaller budget.
     expect(output.secondBytes).toBeLessThanOrEqual(output.newBudgetBytes);
     expect(output.secondClosed).toBe(true);
+  });
+  it("keeps the prompt's section and the opening section within one budget", () => {
+    const output = runScenario(`
+stubConfig.openingContext = true;
+const sizes = [];
+for (const tokens of [250, 400, 600, 1200]) {
+  state.retrievalMaxTokens = tokens;
+  const reply = await handlers["before_agent_start"](
+    { prompt: "how does the retry queue work?", systemPrompt: "BASE" },
+    { ...ctx, sessionManager: { getSessionId: () => "s-" + tokens, getBranch: () => [] } }
+  );
+  const parts = sections(reply);
+  sizes.push({
+    budget: tokens * 4,
+    count: parts.length,
+    total: parts.reduce((sum, part) => sum + byteLength(part), 0),
+    closed: parts.every((part) => part.startsWith("<omms-retrieval>") && part.endsWith("</omms-retrieval>")),
+    opening: parts.length > 1 && parts[1].includes("Opening memory"),
+  });
+}
+scenario = sizes;
+`);
+
+    for (const row of output) {
+      expect(row.total).toBeLessThanOrEqual(row.budget);
+      expect(row.closed).toBe(true);
+    }
+    // A budget the prompt's section fills leaves nothing for the opening section.
+    expect(output[0].count).toBe(1);
+    // A roomy budget holds both.
+    expect(output[3].count).toBe(2);
+    expect(output[3].opening).toBe(true);
+  });
+
+  it("packs the restored section into what the prompt's section left", () => {
+    const output = runScenario(`
+const rows = [];
+for (const tokens of [250, 400, 600, 1200]) {
+  state.retrievalMaxTokens = tokens;
+  const ctxN = { ...ctx, sessionManager: { getSessionId: () => "r-" + tokens, getBranch: () => [] } };
+  await handlers["session_compact"]({ compactionEntry: {} }, ctxN);
+  const reply = await handlers["before_agent_start"](
+    { prompt: "how does the retry queue work?", systemPrompt: "BASE" },
+    ctxN
+  );
+  const parts = sections(reply);
+  rows.push({
+    budget: tokens * 4,
+    count: parts.length,
+    total: parts.reduce((sum, part) => sum + byteLength(part), 0),
+    restored: parts.some((part) => part.includes("Restored Session Memory")),
+  });
+}
+scenario = rows;
+`);
+
+    for (const row of output) expect(row.total).toBeLessThanOrEqual(row.budget);
+    expect(output[3].restored).toBe(true);
+    expect(output[3].count).toBe(2);
   });
 });

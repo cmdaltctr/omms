@@ -20,11 +20,7 @@ import { registerPiHistoryImportCommand } from "./import-command.js";
 import { registerPiSkillsTool } from "./skills-tool.js";
 import { performPiProfileLearning } from "./profile.js";
 import { createPiRecallRows } from "./recall-rows.js";
-import {
-  buildRetrievalSection,
-  retrievalWrapperBytes,
-  wrapRetrievalSection,
-} from "../../core/retrieval.js";
+import { createPiSessionContext } from "./session-context.js";
 import { DEFAULT_RETRIEVAL_MAX_TOKENS, tokensToByteCeiling } from "../../core/context-budget.js";
 import { ommsStatusLabel, type StatusGlyphState } from "../../services/status-glyphs.js";
 
@@ -96,6 +92,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
   let backfillSessionId: string | null = null;
   let statusVersion = 0;
   const recallRows = createPiRecallRows();
+  const sessionContext = createPiSessionContext(recallRows);
 
   const startStatus = (ctx: ExtensionContext, status: StatusGlyphState): number => {
     const version = ++statusVersion;
@@ -130,7 +127,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
       ctx.ui.notify(`${notification.title}: ${notification.message}`, level);
     };
 
-  pi.on("session_start", async (_event, ctx) => {
+  pi.on("session_start", async (event, ctx) => {
     const status = startStatus(ctx, "warming");
     try {
       latestCtx = ctx;
@@ -279,6 +276,10 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
       } else {
         finishStatus(ctx, status, "connected");
       }
+      if (event.reason === "resume") {
+        sessionContext.markSeen(sessionId);
+        await sessionContext.loadRestore(ctx);
+      }
     } catch (error) {
       log("Pi session_start error", { error: String(error) }, "error");
       finishStatus(ctx, status, "error");
@@ -294,31 +295,25 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     const budgetBytes = tokensToByteCeiling(
       CONFIG.retrievalMaxTokens ?? DEFAULT_RETRIEVAL_MAX_TOKENS
     );
-    if (!isConfigured() || !CONFIG.chatMessage.enabled) return;
+    if (!isConfigured() || (!CONFIG.chatMessage.enabled && !CONFIG.compaction?.enabled)) return;
 
     const status = startStatus(ctx, "recalling");
     try {
-      // The wrapper counts against the captured allowance, so the packed
-      // section reserves its bytes.
-      const section = await buildRetrievalSection(
-        event.prompt,
-        ctx.cwd,
-        ctx.sessionManager.getSessionId(),
-        { maxBytes: budgetBytes, wrapperBytes: retrievalWrapperBytes() }
-      );
+      const extra = await sessionContext.recall(ctx, event.prompt, budgetBytes);
       finishStatus(ctx, status, "connected");
-      if (!section) return;
-      // Screen-only rows; the returned system prompt stays the same with them on or off.
-      await recallRows.record(ctx, event.prompt, section, CONFIG.visibleRecall !== false);
-
-      return {
-        systemPrompt: event.systemPrompt + "\n\n" + wrapRetrievalSection(section),
-      };
+      return extra ? { systemPrompt: event.systemPrompt + extra } : undefined;
     } catch (error) {
       log("Pi before_agent_start retrieval error", { error: String(error) }, "error");
       finishStatus(ctx, status, "error");
       return undefined;
     }
+  });
+
+  // OMMS adds memories after compaction; it never replaces Pi's own summary (no
+  // session_before_compact handler).
+  pi.on("session_compact", async (_event, ctx) => {
+    sessionContext.markSeen(ctx.sessionManager.getSessionId());
+    await sessionContext.loadRestore(ctx);
   });
 
   pi.on("agent_settled", async (_event, ctx) => {
@@ -374,6 +369,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
   pi.on("session_shutdown", async (_event, ctx) => {
     clearStatus(ctx);
     recallRows.reset(ctx);
+    sessionContext.reset();
     latestCtx = null;
     captureState = createPiCaptureState();
     promptsSinceProfileAnalysis = [];

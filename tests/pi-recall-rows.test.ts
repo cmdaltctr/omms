@@ -160,6 +160,80 @@ describe("Pi recall rows: recording", () => {
   });
 });
 
+const RESTORED = [
+  "<omms-retrieval>",
+  "## Restored Session Memory",
+  "",
+  "### Memory 1 (r1)",
+  "Restored one",
+  "",
+  "### Memory 2 (r2)",
+  "Restored two",
+  "</omms-retrieval>",
+].join("\n");
+
+describe("Pi recall rows: opening and restore modes", () => {
+  it("draws an opening row with the configured query, after the prompt's row", async () => {
+    const rows = createPiRecallRows();
+    const { ctx, calls } = makeCtx();
+    await rows.record(ctx, QUERY, THREE, true);
+    await rows.record(ctx, "project setup", THREE, true, "opening");
+
+    expect(rows.summaries().map((s) => s.mode)).toEqual(["search", "opening"]);
+    expect(drawn(calls)).toEqual([
+      COLLAPSED,
+      '▸ ● memory [mode=opening, query="project setup", limit=3]',
+    ]);
+  });
+
+  it("draws a restore row with a limit and no query", async () => {
+    const rows = createPiRecallRows();
+    const { ctx, calls } = makeCtx();
+    await rows.record(ctx, "ignored", RESTORED, true, "restore");
+
+    expect(rows.summaries()[0]).toMatchObject({ mode: "restore", query: null });
+    expect(drawn(calls)).toEqual(["▸ ● memory [mode=restore, limit=2]"]);
+  });
+
+  it("unfolds a restore row into its memories without a relevance", async () => {
+    const rows = createPiRecallRows();
+    const { ctx, calls } = makeCtx();
+    await rows.record(ctx, "", RESTORED, true, "restore");
+    await rows.toggleAll(ctx, true);
+
+    expect(drawn(calls)!.join("\n")).toContain("id=r1 Restored one");
+  });
+
+  for (const mode of ["opening", "restore"] as const) {
+    it(`draws no ${mode} row outside the terminal mode`, async () => {
+      const rows = createPiRecallRows();
+      const { ctx, calls } = makeCtx({ mode: "rpc" });
+      await rows.record(ctx, "project setup", mode === "restore" ? RESTORED : THREE, true, mode);
+
+      expect(rows.summaries()).toEqual([]);
+      expect(calls).toEqual([]);
+    });
+
+    it(`draws no ${mode} row when visible recall is off`, async () => {
+      const rows = createPiRecallRows();
+      const { ctx, calls } = makeCtx();
+      await rows.record(ctx, "project setup", mode === "restore" ? RESTORED : THREE, false, mode);
+
+      expect(drawn(calls)).toBeNull();
+    });
+  }
+
+  it("logs the mode and count of an opening summary, never its query", async () => {
+    logged.length = 0;
+    const rows = createPiRecallRows();
+    await rows.record(makeCtx().ctx, "secret opening query", THREE, true, "opening");
+
+    const recorded = logged.find((entry) => entry.message.includes("summary recorded"));
+    expect(recorded!.data).toEqual({ sessionID: "pi-session-1", mode: "opening", count: 3 });
+    expect(JSON.stringify(logged)).not.toContain("secret opening query");
+  });
+});
+
 describe("Pi recall rows: drawing", () => {
   it("shows only the latest 5 rows for 7 summaries", async () => {
     const rows = createPiRecallRows();

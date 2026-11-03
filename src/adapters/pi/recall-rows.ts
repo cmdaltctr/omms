@@ -61,12 +61,16 @@ function errorCode(error: unknown): string {
 }
 
 export interface PiRecallRows {
-  /** Record the recall of one prompt and redraw. Does nothing outside the interactive terminal. */
+  /**
+   * Record one recall and redraw. Does nothing outside the interactive terminal. `query` is the
+   * prompt for a `search` row, the configured query for an `opening` row, and ignored for `restore`.
+   */
   record(
     ctx: ExtensionContext,
-    prompt: string,
+    query: string,
     section: string | null,
-    enabled: boolean
+    enabled: boolean,
+    mode?: "search" | "opening" | "restore"
   ): Promise<void>;
   /** `/omms-recall`: unfold every shown row, or fold them all when all are open. */
   toggleAll(ctx: ExtensionContext, enabled: boolean): Promise<void>;
@@ -129,14 +133,10 @@ export function createPiRecallRows(): PiRecallRows {
   };
 
   return {
-    async record(ctx, prompt, section, enabled) {
+    async record(ctx, query, section, enabled, mode = "search") {
       try {
         if (ctx.mode !== "tui" || !section) return;
-        const built = buildRecallSummary(
-          section,
-          "search",
-          prompt.slice(0, MAX_RECALL_QUERY_CHARS)
-        );
+        const built = buildRecallSummary(section, mode, query.slice(0, MAX_RECALL_QUERY_CHARS));
         if (!built) return;
         const id = ctx.sessionManager.getSessionId();
         if (id !== sessionID) {
