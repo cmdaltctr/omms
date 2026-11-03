@@ -15,7 +15,7 @@
  * which is why they compare with `=== false`.
  */
 export interface VisibleRecallFileKey {
-  /** Draw a row in the OpenCode TUI for each memory recall. Default true. A project can only turn it off. */
+  /** Draw a row in the OpenCode TUI and the Pi terminal for each memory recall. Default true. A project can only turn it off. */
   visibleRecall?: boolean;
 }
 

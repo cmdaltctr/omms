@@ -47,6 +47,8 @@ const handlers = {};
 let searchQueries = [];
 let searchError = false;
 let warmupError = false;
+const widgetCalls = [];
+let formattedContext = null;
 
 const stubConfig = {
     autoCaptureEnabled: false,
@@ -154,7 +156,7 @@ mock.module(${JSON.stringify(languageUrl)}, () => ({
 
 mock.module(${JSON.stringify(contextServiceUrl)}, () => ({
   formatContextForPrompt: async (_userId, memories) =>
-    memories.results.length > 0 ? "<memory_context>injected</memory_context>" : "",
+    memories.results.length > 0 ? (formattedContext ?? "<memory_context>injected</memory_context>") : "",
 }));
 
 const profileCreates = [];
@@ -209,6 +211,12 @@ function makeCtx(overrides = {}) {
     ui: {
       notify: () => {},
       setStatus: (key, value) => statusCalls.push([key, value ?? null]),
+      setWidget: (key, content, options) =>
+        widgetCalls.push([
+          key,
+          content ? content({}, { fg: (_colour, text) => text }).render(200) : null,
+          options?.placement ?? null,
+        ]),
     },
     sessionManager: {
       getSessionId: () => "pi-session-1",
@@ -247,7 +255,7 @@ async function waitFor(condition, timeoutMs = 1000) {
 
 ${code}
 
-console.log("RESULT:" + JSON.stringify({ registeredTools, registeredCommands, toolCalls, closeCalls, statusCalls, searchQueries, profileCreates, profileUpdates, captured: typeof captured !== "undefined" ? captured : null }));
+console.log("RESULT:" + JSON.stringify({ widgetCalls, registeredTools, registeredCommands, toolCalls, closeCalls, statusCalls, searchQueries, profileCreates, profileUpdates, captured: typeof captured !== "undefined" ? captured : null }));
 `;
 
   writeFileSync(scriptPath, script);
@@ -453,7 +461,7 @@ captured = { closedBeforeBackfillSettled, signalled, scheduled: backfillCalls.le
 captured = registeredCommands.map((c) => c.name);
 `);
 
-    expect(output.captured).toEqual(["memory-import-pi-history"]);
+    expect(output.captured).toEqual(["omms-recall", "memory-import-pi-history"]);
   });
 
   it("removes expired trace files at session start even with tracing off", async () => {
@@ -604,6 +612,65 @@ captured = before;
 `);
 
     expect(output.captured).toBeNull();
+  });
+
+  const RECALL_SECTION = [
+    "<memory_context>",
+    '<memory id="mem-1" relevance="80%">',
+    "Use WAL mode for queue",
+    "</memory>",
+    "</memory_context>",
+  ].join("\n");
+  const RECALL_ROW = '▸ ● memory [mode=search, query="how do we run the queue?", limit=1]';
+  const PROMPT_EVENT = `{ prompt: "how do we run the queue?", systemPrompt: "BASE PROMPT" }`;
+
+  it("draws a recall row and returns the same system prompt with rows on or off", async () => {
+    const output = runScenario(`
+formattedContext = ${JSON.stringify(RECALL_SECTION)};
+const on = await handlers["before_agent_start"](${PROMPT_EVENT}, makeCtx());
+const onWidgets = widgetCalls.splice(0);
+stubConfig.visibleRecall = false;
+const off = await handlers["before_agent_start"](${PROMPT_EVENT}, makeCtx());
+const offWidgets = widgetCalls.splice(0);
+stubConfig.visibleRecall = true;
+await handlers["before_agent_start"](${PROMPT_EVENT}, makeCtx());
+captured = { on, off, onWidgets, offWidgets, againWidgets: widgetCalls };
+`);
+
+    expect(output.captured.on.systemPrompt).toContain("Use WAL mode for queue");
+    expect(output.captured.off.systemPrompt).toBe(output.captured.on.systemPrompt);
+    expect(output.captured.onWidgets).toEqual([["omms-recall", [RECALL_ROW], "aboveEditor"]]);
+    // A config edit applies from the next prompt: off clears the rows, on draws them again.
+    expect(output.captured.offWidgets).toEqual([["omms-recall", null, null]]);
+    expect(output.captured.againWidgets).toEqual([
+      ["omms-recall", [RECALL_ROW, RECALL_ROW, RECALL_ROW], "aboveEditor"],
+    ]);
+  });
+
+  it("draws no recall row in RPC mode", async () => {
+    const output = runScenario(`
+formattedContext = ${JSON.stringify(RECALL_SECTION)};
+captured = await handlers["before_agent_start"](${PROMPT_EVENT}, makeCtx({ mode: "rpc" }));
+`);
+
+    expect(output.captured.systemPrompt).toContain("Use WAL mode for queue");
+    expect(output.widgetCalls).toEqual([]);
+  });
+
+  it("toggles the rows with /omms-recall and clears them on session_shutdown", async () => {
+    const output = runScenario(`
+formattedContext = ${JSON.stringify(RECALL_SECTION)};
+await handlers["before_agent_start"](${PROMPT_EVENT}, makeCtx());
+const command = registeredCommands.find((entry) => entry.name === "omms-recall");
+await command.options.handler("", makeCtx());
+const unfolded = widgetCalls.at(-1);
+await handlers["session_shutdown"]({}, makeCtx());
+captured = { unfolded, afterShutdown: widgetCalls.at(-1) };
+`);
+
+    expect(output.captured.unfolded[1][0]).toStartWith("▾ ● memory");
+    expect(output.captured.unfolded[1]).toContain("  1. 80% id=mem-1 Use WAL mode for queue");
+    expect(output.captured.afterShutdown).toEqual(["omms-recall", null, null]);
   });
 
   it("shows capturing then connected when settled work is processed", async () => {

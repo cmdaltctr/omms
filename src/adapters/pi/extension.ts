@@ -19,6 +19,7 @@ import { createPiLiveModels } from "./live-model.js";
 import { registerPiHistoryImportCommand } from "./import-command.js";
 import { registerPiSkillsTool } from "./skills-tool.js";
 import { performPiProfileLearning } from "./profile.js";
+import { createPiRecallRows } from "./recall-rows.js";
 import {
   buildRetrievalSection,
   retrievalWrapperBytes,
@@ -81,6 +82,7 @@ function lastSettledUserPrompt(entries: PiSessionEntry[]): string | null {
  * - `memory` tool          -> shared add/search/profile/list/forget/help and
  *                             portability operations
  * - `skills` tool          -> shared skill-learning operations (skills-tool.ts)
+ * - `/omms-recall`        -> fold or unfold the recall rows (recall-rows.ts)
  *
  * Pi types are imported type-only: the compiled extension carries no Pi
  * runtime dependency and uses the host Pi runtime provided at load time.
@@ -93,6 +95,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
   let latestCtx: ExtensionContext | null = null;
   let backfillSessionId: string | null = null;
   let statusVersion = 0;
+  const recallRows = createPiRecallRows();
 
   const startStatus = (ctx: ExtensionContext, status: StatusGlyphState): number => {
     const version = ++statusVersion;
@@ -305,6 +308,8 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
       );
       finishStatus(ctx, status, "connected");
       if (!section) return;
+      // Screen-only rows; the returned system prompt stays the same with them on or off.
+      await recallRows.record(ctx, event.prompt, section, CONFIG.visibleRecall !== false);
 
       return {
         systemPrompt: event.systemPrompt + "\n\n" + wrapRetrievalSection(section),
@@ -368,6 +373,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
 
   pi.on("session_shutdown", async (_event, ctx) => {
     clearStatus(ctx);
+    recallRows.reset(ctx);
     latestCtx = null;
     captureState = createPiCaptureState();
     promptsSinceProfileAnalysis = [];
@@ -414,6 +420,14 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
         content: [{ type: "text" as const, text: JSON.stringify(result) }],
         details: {},
       };
+    },
+  });
+
+  pi.registerCommand("omms-recall", {
+    description: "Unfold or fold the OMMS recall rows",
+    handler: async (_args, ctx) => {
+      refreshConfigIfChanged(ctx.cwd);
+      await recallRows.toggleAll(ctx, CONFIG.visibleRecall !== false);
     },
   });
 

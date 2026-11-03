@@ -255,9 +255,9 @@ export const CONFIG_TEMPLATE = `{
   // only. Unset: ~/.agents/skills and the Claude Code folder's skills folder.
   // "skillFolders": ["~/.agents/skills"],
 
-  // Visible recall: the OpenCode tui entrypoint draws a row in the session for
-  // each memory recall. On by default. A project config can turn it off but
-  // never on.
+  // Visible recall: the OpenCode terminal TUI and Pi's interactive terminal draw
+  // a row for each memory recall. On by default. A project config can turn it
+  // off but never on.
   // "visibleRecall": true,
 
   // Capture retry queue: when a live capture fails because the model cannot be
