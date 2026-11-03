@@ -2,6 +2,34 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.4.0](https://github.com/cmdaltctr/omms/compare/v5.3.1...v5.4.0) (2026-11-03)
+
+
+### Features
+
+* align memory injection across OpenCode V2, Pi and Claude Code ([a5a5e10](https://github.com/cmdaltctr/omms/commit/a5a5e10044dc85038b5a6027a9a5a5356f137e5c))
+* **chat:** need no key for a model server on this machine ([8507c58](https://github.com/cmdaltctr/omms/commit/8507c58ed327b310ac4bb29b2642e821f5928e5e))
+* **claude-code:** add opening context, subagent memory and visibleRecall ([143c9d4](https://github.com/cmdaltctr/omms/commit/143c9d4388082b97d20f17afd07c4411dcff8202))
+* **core:** add the opening context and subagent memory settings ([8fbce2e](https://github.com/cmdaltctr/omms/commit/8fbce2e7db8cb359d2b58dc205f21331f6f8c552))
+* **opencode:** add opening context, resume restore and the subagent gate to V2 ([a7e2c6e](https://github.com/cmdaltctr/omms/commit/a7e2c6ee16a9851bf70873c9e414c1fd3773df58))
+* **pi:** add opening context and restore after compaction and resume ([cf609a5](https://github.com/cmdaltctr/omms/commit/cf609a55db88aa22b9ddd9872f4b4d052b6f5497))
+* **web:** add the Memory injection section to the Memory page ([4b73ee7](https://github.com/cmdaltctr/omms/commit/4b73ee70e0ddafef8b2a12424cce8b5be2dd5460))
+
+
+### Bug Fixes
+
+* close seven review findings in the host parity work ([72f844d](https://github.com/cmdaltctr/omms/commit/72f844d2b891c3e805dfc252a9a9e29f369dda68))
+* **web:** show a thin, soft outline while typing in a text field ([3c1a271](https://github.com/cmdaltctr/omms/commit/3c1a271fa39bc73c9f1dc231f842eaac7e3a1874))
+
+
+### Documentation
+
+* document memory injection, host differences and ADR-040; archive add-pi-visible-recall ([f599c37](https://github.com/cmdaltctr/omms/commit/f599c37e73e8a34aa7e24441fb74f39753b428e6))
+* **openspec:** move the Memory injection section to the Memory page ([87c5b74](https://github.com/cmdaltctr/omms/commit/87c5b74b8f411a7c57146ecf544397f96680eaa7))
+* **openspec:** propose align-recall-host-parity ([d85f0c6](https://github.com/cmdaltctr/omms/commit/d85f0c653ebc24259acd25fe24b003e54a58a83c))
+* record the Pi live check in TDR-062 and tick tasks 5.1 and 5.2 ([f1a4c84](https://github.com/cmdaltctr/omms/commit/f1a4c848cc1ed6b9ba4422b74aebfc64c8b00614))
+* say chat can use a self-hosted OpenAI-compatible server ([86a9e12](https://github.com/cmdaltctr/omms/commit/86a9e12073af89177325eddc1b62b604266ad9e2))
+
 ## [5.3.1](https://github.com/cmdaltctr/omms/compare/v5.3.0...v5.3.1) (2026-11-03)
 
 
