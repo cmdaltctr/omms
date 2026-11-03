@@ -10,6 +10,7 @@ import { log } from "../services/logger.js";
 import { utf8ByteLength } from "../utils/context-limit.js";
 import { eventBelongsToLocation, legacyToolResult, toLegacyEvent } from "./legacy-client.js";
 import type { V2MemoryBridge } from "./memory-bridge.js";
+import { createRecallReporter } from "./recall-reporter.js";
 
 const memoryInput = {
   type: "object",
@@ -59,6 +60,8 @@ type Retrieval = {
   readonly promise: Promise<string | null>;
   /** The request's captured byte allowance, taken before the search started. */
   readonly budgetBytes: number;
+  /** The user prompt the search ran for; the recall summary shows it as the query. */
+  readonly query: string;
   settled?: { value: string | null };
 };
 type PendingPrompt = { readonly messageID: string; readonly text: string };
@@ -95,8 +98,10 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
   // until their message appears in a model request's history (the context
   // hook), and are only then recorded for auto-capture and profile learning.
   const pendingPrompts = new Map<string, PendingPrompt[]>();
+  const recall = await createRecallReporter(ctx, memory, setBounded);
 
   const forgetSession = (sessionID: string) => {
+    recall.forget(sessionID);
     retrievals.delete(sessionID);
     restored.delete(sessionID);
     messageIDs.delete(sessionID);
@@ -222,7 +227,7 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
       log("v2 prompt: memory retrieval failed", { sessionID, error: String(error) }, "error");
       return null;
     });
-    setBounded(retrievals, sessionID, { promise, budgetBytes });
+    setBounded(retrievals, sessionID, { promise, budgetBytes, query: text });
   });
 
   await ctx.session.hook("context", async (event) => {
@@ -239,6 +244,7 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
       const section = await settledRetrieval(retrieval);
       if (section) {
         event.system.push({ type: "text", text: section });
+        recall.record(sessionID, retrieval, retrieval.query, section);
         remainingBytes = retrieval.budgetBytes - utf8ByteLength(section);
       } else {
         remainingBytes = retrieval.budgetBytes;
@@ -304,6 +310,7 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
     restored.clear();
     messageIDs.clear();
     pendingPrompts.clear();
+    recall.clear();
     await legacy.dispose?.();
   };
 }

@@ -21,6 +21,8 @@ export interface V2MemoryBridge {
   isConfigured(): boolean;
   isInjectionEnabled(): boolean;
   isCompactionEnabled(): boolean;
+  /** Effective `visibleRecall` setting for this project, from a fresh config read. */
+  isVisibleRecallEnabled(): boolean;
   isInternalPrompt(sessionID: string, text: string): boolean;
   recordPrompt(sessionID: string, messageID: string, text: string): Promise<void>;
   /**
@@ -43,6 +45,10 @@ export function createV2MemoryBridge(directory: string): V2MemoryBridge {
     isConfigured,
     isInjectionEnabled: () => isConfigured() && Boolean(CONFIG.chatMessage.enabled),
     isCompactionEnabled: () => isConfigured() && Boolean(CONFIG.compaction.enabled),
+    isVisibleRecallEnabled() {
+      refreshConfigIfChanged(directory);
+      return CONFIG.visibleRecall !== false;
+    },
     isInternalPrompt,
     async recordPrompt(sessionID, messageID, text) {
       await recordUserPrompt(sessionID, messageID, directory, text);

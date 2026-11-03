@@ -1,7 +1,8 @@
 /**
- * OpenCode TUI entry: shows "omms: ✔" in the prompt footer, and a toast
- * when a newer om-memory-system is on npm. OpenCode compiles this file itself;
- * the logic lives in dist/adapters/opencode/tui-status.js.
+ * OpenCode TUI entry: shows "omms: ✔" in the prompt footer, a toast when a
+ * newer om-memory-system is on npm, and one fold row per OMMS recall above the
+ * prompt. OpenCode compiles this file itself; the logic lives in
+ * dist/adapters/opencode/tui-status.js and tui-recall.js.
  *
  * Installed from npm, this file sits in node_modules, where OpenCode does not
  * map bare `solid-js` or JSX runtime imports to its own copies. The
@@ -41,7 +42,25 @@ export default {
     } catch {
       setText("omms: ✘");
     }
+    // Recall rows are independent of the footer: a failure here leaves the footer as it is.
+    let stopRecall: (() => void) | undefined;
+    try {
+      const { startTuiRecall } = await import("../dist/adapters/opencode/tui-recall.js");
+      stopRecall = startTuiRecall({
+        client: context.client,
+        data: context.data,
+        ui: context.ui,
+        keymap: context.keymap,
+        storage: context.storage,
+        createSignal,
+        jsx,
+        muted: () => context.theme?.text?.muted,
+      });
+    } catch {
+      // No rows; the footer keeps working.
+    }
     return () => {
+      stopRecall?.();
       stop?.();
       removeSlot();
     };
