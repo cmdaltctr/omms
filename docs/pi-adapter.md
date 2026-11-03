@@ -160,12 +160,12 @@ purpose.
 - From assistant entries, capture takes only visible text and tool-call inputs.
 - It leaves out hidden thinking blocks and tool results. It cuts tool inputs to 100 characters.
 
-### Injection at session start and subagents
+### Injection with the first message and subagents
 
 Pi adds only the recall for the current prompt by default. Pi has no model request before the first prompt, so the opening context goes with the first prompt. See [Configuration: Memory injection](configuration.md#memory-injection).
 
 - With `openingContext` on, the first prompt of a new session also gets the memories that match `openingContextQuery`. A resumed session gets the restore and no opening section.
-- Pi starts subagents with `--no-extensions`, so OMMS is not loaded in them. OMMS has a gate ready for children (`OMPS_CHILD=1`): a child gets the prompt recall only when `subagentMemory` is on, and gets no opening section, no restore and no rows. The memories reach a Pi subagent only when om-pi-subagents loads the OMMS extension in the child. That change is in another repository and is not done.
+- Pi starts subagents with `--no-extensions` and adds only the extensions that each agent maps. OMMS loads in a child only when its agent maps the OMMS extension in om-pi-subagents (`/omps-settings`, Agent capabilities, Memory). OMMS has a gate for children (`OMPS_CHILD=1`): a child gets the prompt recall only when `subagentMemory` is on, and gets no opening section, no restore and no rows.
 - The other host differences are in [Using memory: Host differences](using-memory.md#host-differences).
 
 ### Compaction and resume
@@ -213,4 +213,4 @@ OpenCode and Pi can run in separate processes against the same store.
 
 - Pi profile learning applies analysed batches directly. It does not have the decay, validation-task, and conflict-retry steps of the OpenCode idle path.
 - Manual history import covers the current project by default. See [pi-history-import.md](pi-history-import.md).
-- Subagent memory on Pi needs om-pi-subagents to load OMMS in the child session. See [Using memory: Host differences](using-memory.md#host-differences).
+- Subagent memory on Pi works only when the subagent's agent maps the OMMS extension in om-pi-subagents (`/omps-settings`, Agent capabilities, Memory). See [Using memory: Host differences](using-memory.md#host-differences).

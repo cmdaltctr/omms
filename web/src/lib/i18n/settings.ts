@@ -1296,32 +1296,76 @@ const text = {
   "How to set up": ["如何设置", "كيفية الإعداد"],
   "Ignore all": ["全部忽略", "تجاهل الكل"],
   "Memory injection": ["记忆注入", "حقن الذاكرة"],
-  "Inject memories at session start": ["在会话开始时注入记忆", "حقن الذكريات عند بدء الجلسة"],
-  "Added to the first message of a new session. OMMS searches the query below and adds only matching memories.":
-    [
-      "添加到新会话的第一条消息中。OMMS 会用下面的查询进行搜索，只添加匹配的记忆。",
-      "تُضاف إلى أول رسالة في جلسة جديدة. يبحث OMMS بالاستعلام أدناه ويضيف الذكريات المطابقة فقط.",
-    ],
-  "Session-start search query": ["会话开始搜索查询", "استعلام البحث عند بدء الجلسة"],
-  "Subagent memory": ["子代理记忆", "ذاكرة الوكلاء الفرعيين"],
-  "Subagents get memories that match their task. No rows are shown for them.": [
-    "子代理会获得与其任务匹配的记忆。不会为它们显示记忆行。",
-    "يحصل الوكلاء الفرعيون على الذكريات المطابقة لمهمتهم. لا تُعرض لهم أي صفوف.",
+  "Inject memories with the first message": [
+    "随第一条消息注入记忆",
+    "حقن الذكريات مع الرسالة الأولى",
   ],
+  "Added once, with the first message of a new session. Nothing is added when a new session opens. OMMS searches the query below and adds only matching memories.":
+    [
+      "仅随新会话的第一条消息添加一次。新会话打开时不会添加任何内容。OMMS 会用下面的查询进行搜索，只添加匹配的记忆。",
+      "تُضاف مرة واحدة مع أول رسالة في جلسة جديدة. لا يُضاف شيء عند فتح جلسة جديدة. يبحث OMMS بالاستعلام أدناه ويضيف الذكريات المطابقة فقط.",
+    ],
+  "Memories are added at these moments:": [
+    "记忆会在这些时刻添加：",
+    "تُضاف الذكريات في هذه اللحظات:",
+  ],
+  "With every message: the memories that match that message. On by default. chatMessage.enabled in the config file turns it off, and the first-message and subagent options with it.":
+    [
+      "随每条消息：与该消息匹配的记忆。默认开启。配置文件中的 chatMessage.enabled 可将其关闭，第一条消息和子代理选项也会随之关闭。",
+      "مع كل رسالة: الذكريات المطابقة لتلك الرسالة. مفعّلة افتراضيًا. يوقفها chatMessage.enabled في ملف الإعدادات، وتتوقف معها خيارات الرسالة الأولى والوكلاء الفرعيين.",
+    ],
+  "With the first message of a new session: the memories that match the query below. Needs the first switch.":
+    [
+      "随新会话的第一条消息：与下面查询匹配的记忆。需要打开第一个开关。",
+      "مع أول رسالة في جلسة جديدة: الذكريات المطابقة للاستعلام أدناه. تتطلب المفتاح الأول.",
+    ],
+  "For a subagent: the memories that match its task. Claude Code adds them once, when the subagent starts. OpenCode V2 and Pi add them with each prompt the subagent gets. Needs the Subagent memory switch.":
+    [
+      "对于子代理：与其任务匹配的记忆。Claude Code 在子代理启动时添加一次。OpenCode V2 和 Pi 在子代理收到的每条提示时添加。需要打开“子代理记忆”开关。",
+      "للوكيل الفرعي: الذكريات المطابقة لمهمته. يضيفها Claude Code مرة واحدة عند بدء الوكيل. ويضيفها OpenCode V2 وPi مع كل طلب يتلقاه الوكيل. يتطلب مفتاح ذاكرة الوكلاء الفرعيين.",
+    ],
+  "After a compaction or resume: the memories that session captured. Needs the Restore switch.": [
+    "压缩或恢复之后：该会话捕获的记忆。需要打开“还原”开关。",
+    "بعد الضغط أو الاستئناف: الذكريات التي التقطتها تلك الجلسة. تتطلب مفتاح الاستعادة.",
+  ],
+  "Nothing is added when a new session opens.": [
+    "新会话打开时不会添加任何内容。",
+    "لا يُضاف شيء عند فتح جلسة جديدة.",
+  ],
+  "Claude Code can add memories when a session opens. Pi and OpenCode V2 cannot. To keep all three the same, OMMS adds them with the first message on every host.":
+    [
+      "Claude Code 可以在会话打开时添加记忆，Pi 和 OpenCode V2 不能。为了让三者保持一致，OMMS 在所有宿主上都随第一条消息添加记忆。",
+      "يمكن لـ Claude Code إضافة الذكريات عند فتح الجلسة، ولا يمكن ذلك لـ Pi وOpenCode V2. للإبقاء على الثلاثة متطابقة، يضيف OMMS الذكريات مع الرسالة الأولى على كل مضيف.",
+    ],
+  "Added when a session resumes or compacts. Restores the memories that session captured.": [
+    "会话恢复或压缩时添加。还原该会话捕获的记忆。",
+    "تُضاف عند استئناف الجلسة أو ضغطها. تستعيد الذكريات التي التقطتها تلك الجلسة.",
+  ],
+  "First-message search query": ["第一条消息的搜索查询", "استعلام البحث للرسالة الأولى"],
+  "Sets how OMMS adds memories to the context the model sees.": [
+    "设置 OMMS 如何将记忆添加到模型的上下文中。",
+    "يحدد كيفية إضافة OMMS للذكريات إلى سياق النموذج.",
+  ],
+  "Subagent memory": ["子代理记忆", "ذاكرة الوكلاء الفرعيين"],
+  "Subagents get memories that match their task. Claude Code adds them once, at start. OpenCode V2 and Pi add them with each subagent prompt. No rows are shown for them.":
+    [
+      "子代理会获得与其任务匹配的记忆。Claude Code 在启动时添加一次。OpenCode V2 和 Pi 在每条子代理提示时添加。不会为它们显示记忆行。",
+      "يحصل الوكلاء الفرعيون على الذكريات المطابقة لمهمتهم. يضيفها Claude Code مرة واحدة عند البدء. ويضيفها OpenCode V2 وPi مع كل طلب للوكيل الفرعي. لا تُعرض لهم أي صفوف.",
+    ],
   "Restore memories after compaction or resume": [
     "压缩或恢复后还原记忆",
     "استعادة الذكريات بعد الضغط أو الاستئناف",
   ],
   "Most memories to restore": ["最多还原的记忆数", "أقصى عدد من الذكريات للاستعادة"],
-  "Applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. On Pi, subagent memory needs om-pi-subagents to load OMMS.":
+  "Applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. On Pi, a subagent gets memory only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in /omps-settings, Agent capabilities, Memory.":
     [
-      "适用于 OpenCode V2、Pi 和 Claude Code，不包括 OpenCode V1。在 Pi 上，子代理记忆需要 om-pi-subagents 来加载 OMMS。",
-      "ينطبق على OpenCode V2 وPi وClaude Code. لا يشمل OpenCode V1. على Pi تحتاج ذاكرة الوكلاء الفرعيين إلى om-pi-subagents لتحميل OMMS.",
+      "适用于 OpenCode V2、Pi 和 Claude Code，不包括 OpenCode V1。在 Pi 上，只有当子代理的 agent 在 om-pi-subagents 中映射了 OMMS 扩展时，子代理才会获得记忆。请在 /omps-settings 的 Agent capabilities 中打开 Memory。",
+      "ينطبق على OpenCode V2 وPi وClaude Code. لا يشمل OpenCode V1. على Pi لا يحصل الوكيل الفرعي على الذكريات إلا إذا ربط وكيله امتداد OMMS في om-pi-subagents. فعّل ذلك من /omps-settings ثم Agent capabilities ثم Memory.",
     ],
-  "A project config can turn the session-start and subagent options off. It can turn restore on or off.":
+  "A project config can turn the first-message and subagent options off. It can turn restore on or off.":
     [
-      "项目配置只能关闭会话开始和子代理选项，但可以开启或关闭还原。",
-      "يمكن لإعدادات المشروع إيقاف خياري بدء الجلسة والوكلاء الفرعيين فقط، ويمكنها تشغيل الاستعادة أو إيقافها.",
+      "项目配置只能关闭第一条消息和子代理选项，但可以开启或关闭还原。",
+      "يمكن لإعدادات المشروع إيقاف خياري الرسالة الأولى والوكلاء الفرعيين فقط، ويمكنها تشغيل الاستعادة أو إيقافها.",
     ],
   "Saved. The next session uses these options.": [
     "已保存。下一个会话将使用这些选项。",
@@ -1331,9 +1375,9 @@ const text = {
     "无法加载记忆注入设置。请重新加载页面后重试。",
     "تعذّر تحميل إعدادات حقن الذاكرة. أعد تحميل الصفحة للمحاولة مرة أخرى.",
   ],
-  "Session start {opening} · Subagents {subagent} · Restore {restore}": [
-    "会话开始 {opening} · 子代理 {subagent} · 还原 {restore}",
-    "بدء الجلسة {opening} · الوكلاء الفرعيون {subagent} · الاستعادة {restore}",
+  "First message {opening} · Subagents {subagent} · Restore {restore}": [
+    "第一条消息 {opening} · 子代理 {subagent} · 还原 {restore}",
+    "الرسالة الأولى {opening} · الوكلاء الفرعيون {subagent} · الاستعادة {restore}",
   ],
   "Invalid openingContext setting": ["openingContext 设置无效", "إعداد openingContext غير صالح"],
   "Invalid subagentMemory setting": ["subagentMemory 设置无效", "إعداد subagentMemory غير صالح"],

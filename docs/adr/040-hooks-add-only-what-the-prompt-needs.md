@@ -21,7 +21,7 @@ Other gaps made the hosts behave differently:
 1. **The hook is an intermediary. It adds only what the prompt needs.** By default every host adds the recall for the current prompt and nothing else before the first prompt.
 2. **Injection at session start is an option, off by default, and driven by a query.** `openingContext` (default `false`) and `openingContextQuery` (default `project architecture, setup, conventions and key decisions`, global only, 500 characters at most) add the memories that match the query. They use the same relevance filter, result limit and size budget as the prompt recall.
 3. **"Session start" means the first message of a new session on all three hosts.** OpenCode V2 and Pi send no model request before the first prompt. Claude Code could add text at `SessionStart`. It uses its first `UserPromptSubmit` instead, so the three hosts behave the same. `SessionStart` with source `startup` or `clear` adds nothing. The hook still starts the web app, the backfill and the plugin self-update check.
-4. **Subagent memory is on by default.** `subagentMemory` (default `true`) gives a subagent session the memories that match its task. OpenCode V2 child sessions get the prompt recall. Claude Code has a new `SubagentStart` hook that reads the parent transcript for the unanswered `Agent` or `Task` call of the same `subagent_type`, and uses its prompt as the search. With no match it adds nothing. Pi has a child gate in the extension, and the injection waits for om-pi-subagents to load OMMS in children. No host shows rows in a subagent session. The plugin registers no `SubagentStop` hook, so subagent turns are not captured on their own.
+4. **Subagent memory is on by default.** `subagentMemory` (default `true`) gives a subagent session the memories that match its task. OpenCode V2 child sessions get the prompt recall. Claude Code has a new `SubagentStart` hook that reads the parent transcript for the unanswered `Agent` or `Task` call of the same `subagent_type`, and uses its prompt as the search. With no match it adds nothing. Pi has a child gate in the extension, and a child gets the injection only when its agent maps the OMMS extension in om-pi-subagents. No host shows rows in a subagent session. The plugin registers no `SubagentStop` hook, so subagent turns are not captured on their own.
 5. **Restore after compaction and after resume works on all three hosts**, controlled by the existing `compaction.enabled` and `compaction.memoryLimit`. A project config can turn it on or off. Only the session's own memories from the same host come back, as a short reminder. Pi's own compaction summary is not replaced.
 6. **Rows say what the section is.** Row modes are `search`, `opening` and `restore` on every host. Claude Code draws no `mode=recent` row.
 7. **Claude Code honours `visibleRecall` with a marker.** The hook command can reach the recall module only through the injected text. While rows are off, each injected section carries the line `<!--omms:rows-off-->` (21 bytes) right after the opening tag. The opening section carries `<!--omms:opening query="...">` when rows are on.
@@ -58,7 +58,7 @@ Negative:
 - Subagent memory costs up to one retrieval budget (`retrievalMaxTokens`) of extra context for each subagent session, and one search for each subagent prompt.
 - Claude Code reads the task of a subagent from the parent transcript. That is not documented Claude Code behaviour. It was checked on Claude Code 2.1.317.
 - Trade-off: while rows are off, the Claude Code injected text carries one 21-byte marker line for each section. With rows on, the opening section carries the configured query once per session. Both markers count in the size budget and hold no memory text.
-- Pi subagents get memories only after om-pi-subagents loads OMMS in children. That change is in another repository.
+- Pi subagents get memories only when their agent maps the OMMS extension in om-pi-subagents (`/omps-settings`, Agent capabilities, Memory). om-pi-subagents starts children with `--no-extensions` and adds only the mapped ones.
 
 Neutral:
 
@@ -67,5 +67,5 @@ Neutral:
 ## Revisit triggers
 
 - Claude Code adds the task prompt to the `SubagentStart` input. OMMS could stop reading the parent transcript.
-- om-pi-subagents loads OMMS in children. Pi subagent memory then works, and the host difference closes.
+- The user maps the OMMS extension for an agent in om-pi-subagents. Pi subagent memory then works for that agent, and the host difference closes.
 - OpenCode V1 support ends. The `recent` mode and the V1 first-message list can go.

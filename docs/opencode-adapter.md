@@ -205,7 +205,7 @@ to the next user prompt.
 - The plugin claims a prompt before capture. So repeated idle events or several windows never capture it twice.
 - A failed capture tries again up to `autoCaptureMaxRetries` times (default 3), 2 and 4 seconds apart. If the last try fails because the model cannot be reached, the turn goes to the [capture retry queue](configuration.md#capture-retry-queue).
 
-### Injection at session start, subagents and restore
+### Injection with the first message, subagents and restore
 
 OpenCode V2 adds only the recall for the current prompt by default. Two options change this. See [Configuration: Memory injection](configuration.md#memory-injection).
 

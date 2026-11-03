@@ -69,7 +69,7 @@ it("shows the defaults: opening off, the default query, subagent on, restore on 
   expect(box("injection-subagent")).toContain("checked");
   expect(box("injection-restore")).toContain("checked");
   expect(box("injection-opening")).toContain('role="switch"');
-  expect(html).toContain(">Inject memories at session start<");
+  expect(html).toContain(">Inject memories with the first message<");
   expect(html).toContain(">Subagent memory<");
   expect(html).toContain(">Restore memories after compaction or resume<");
   expect(html).toContain(DEFAULT_QUERY);
@@ -94,16 +94,20 @@ it("limits the query to 500 characters and counts them", () => {
 it("has the help texts, the host note and the project note", () => {
   const html = section();
   expect(html).toContain(
-    "Added to the first message of a new session. OMMS searches the query below and adds only matching memories."
+    "Added once, with the first message of a new session. Nothing is added when a new session opens. OMMS searches the query below and adds only matching memories."
   );
   expect(html).toContain(
-    "Subagents get memories that match their task. No rows are shown for them."
+    "Subagents get memories that match their task. Claude Code adds them once, at start. OpenCode V2 and Pi add them with each subagent prompt. No rows are shown for them."
   );
   expect(html).toContain(
-    "Applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. On Pi, subagent memory needs om-pi-subagents to load OMMS."
+    "Applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. On Pi, a subagent gets memory only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in /omps-settings, Agent capabilities, Memory."
   );
+  expect(html.indexOf("Applies to OpenCode V2")).toBeGreaterThan(
+    html.indexOf("Subagents get memories that match their task.")
+  );
+  expect(html).toContain("Sets how OMMS adds memories to the context the model sees.");
   expect(html).toContain(
-    "A project config can turn the session-start and subagent options off. It can turn restore on or off."
+    "A project config can turn the first-message and subagent options off. It can turn restore on or off."
   );
 });
 
@@ -134,10 +138,10 @@ it("shows the writer's message when a save is rejected, and the saved line after
 
 it("shows every label in Chinese and Arabic", () => {
   setLanguage("zh");
-  expect(section()).not.toContain(">Inject memories at session start<");
+  expect(section()).not.toContain(">Inject memories with the first message<");
   setLanguage("ar");
   const html = section();
-  expect(html).not.toContain("Inject memories at session start");
+  expect(html).not.toContain("Inject memories with the first message");
   expect(html).not.toContain("Reset to default");
   expect(html).not.toContain("Most memories to restore");
 });
@@ -153,7 +157,7 @@ it("gives the Shared view one link row with the switch states and no controls", 
   const row = html.slice(html.lastIndexOf("<a ", start), html.indexOf("</a>", start) + 4);
   expect(row).toContain('href="/memory#memory-injection"');
   expect(row).toContain("Memory injection");
-  expect(row).toMatch(/Session start Off · Subagents On · Restore On/);
+  expect(row).toMatch(/First message Off · Subagents On · Restore On/);
   expect(row).not.toMatch(/<(input|textarea|select|button)/);
   expect(html).not.toContain('id="memory-injection"');
 });
