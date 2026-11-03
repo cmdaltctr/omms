@@ -191,7 +191,7 @@ Limits:
 - V2 has no opening "recent memories" injection. So every row on OpenCode V2 is `mode=search`. The shared builder also supports `mode=recent` for hosts that inject recent memories.
 - The server keeps summaries in memory only. They are not stored on disk. They are lost when OpenCode restarts.
 - Subagent sessions do not show rows. OMMS records no summary for a session that has a parent session.
-- The rows and `/omms-recall` exist only in the OpenCode terminal TUI. Claude Code draws its own recall rows from a separate module (`hooks/omms-recall.jsx`) and has no such slash command. Pi shows no rows yet. See [Host parity](#host-parity).
+- The rows and `/omms-recall` exist in the OpenCode terminal TUI and in the interactive terminal of Pi. Claude Code draws its own recall rows from a separate module (`hooks/omms-recall.jsx`) and has no such slash command.
 
 ### Capture boundary
 
@@ -250,4 +250,4 @@ OpenCode and Pi can run in separate processes against the same store.
 
 ## Host parity
 
-Pi and OpenCode offer the same user capabilities, with one recorded exception. The recall rows are an OpenCode V2 terminal feature. Pi shows no recall rows. The shared builder in `src/core/recall-summary.ts` is ready for a Pi surface. Pi rows are a follow-up change.
+Pi and OpenCode offer the same user capabilities. Both hosts show the recall rows in their terminal UI, built by the shared builder in `src/core/recall-summary.ts`. See [Pi adapter: Recall rows](pi-adapter.md#recall-rows).

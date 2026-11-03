@@ -98,9 +98,10 @@ History backfill (automatic history import) uses `piBackfillModel`. See
 | Pi event                    | omms behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `session_start`             | Load shared config for `ctx.cwd`, remove old capture traces, update the web login item when `webServerAutoStart` is set, register the Pi backfill model resolver, start automatic backfill when `autoBackfill` is on, warm storage and embeddings in the background                                                                                                                                                                                                    |
-| `before_agent_start`        | Semantic retrieval: search project memory with the incoming prompt, inject results as a delimited `<omms-retrieval>` system-prompt section (never a fake user message)                                                                                                                                                                                                                                                                                                 |
+| `before_agent_start`        | Semantic retrieval: search project memory with the incoming prompt, inject results as a delimited `<omms-retrieval>` system-prompt section (never a fake user message). In the interactive terminal, also draw a recall row above the editor; see [Recall rows](#recall-rows)                                                                                                                                                                                          |
 | `agent_settled`             | Automatic capture of the settled work unit: the last user prompt plus its assistant/tool response window from the active branch                                                                                                                                                                                                                                                                                                                                        |
-| `session_shutdown`          | Cleanup that is safe to repeat (quit, reload, new, resume, fork). Stops a running automatic backfill and closes the store                                                                                                                                                                                                                                                                                                                                              |
+| `session_shutdown`          | Cleanup that is safe to repeat (quit, reload, new, resume, fork). Clears the recall rows, stops a running automatic backfill and closes the store                                                                                                                                                                                                                                                                                                                      |
+| `/omms-recall`              | Unfold or fold the recall rows; see [Recall rows](#recall-rows)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `/memory-import-pi-history` | Import Pi session history; see [pi-history-import.md](pi-history-import.md)                                                                                                                                                                                                                                                                                                                                                                                            |
 | `memory` tool               | Shared add/search/profile/list/forget/help plus migrate/list-shards/export/import                                                                                                                                                                                                                                                                                                                                                                                      |
 | `skills` tool               | Shared skill-learning modes list/ideas/draft/evidence/propose/proposals/show/apply/reject/undo/help. Arguments: `mode`, `skill`, `idea` (`name`, `description`), `folder`, `state`, `order`, `id`, `limit`, `content`, `summary`, `evidence`. A draft saves a pending proposal and changes no file; `evidence` then `propose` let the agent fix a skill with no external API call; `apply` records the agent. See [the `skills` command](cli.md#skills-and-proposals). |
@@ -116,6 +117,36 @@ The Pi adapter shows its current state in Pi's footer as `omms: <glyph>`:
 - `omms: ✘` when an OMMS operation fails
 
 The adapter clears the status when the Pi session shuts down.
+
+### Recall rows
+
+Each prompt that recalls memories shows a fold row above the Pi editor:
+
+```text
+▸ ● memory [mode=search, query="how did we handle om-pi-todo", limit=3]
+```
+
+- Run `/omms-recall` to unfold the rows. An unfolded row lists the mode, the query (up to 300 characters), the limit, and each memory with its relevance, its id and a one-line headline.
+- `/omms-recall` unfolds every shown row. If every shown row is already unfolded, it folds them all. It is the only toggle: a click on a row does nothing.
+- A new row starts folded. Rows you unfolded stay unfolded.
+- Pi shows the latest 5 rows. OMMS keeps the latest 20 summaries for the session.
+- Each line is cut to the terminal width. A resize redraws the rows.
+- A prompt with no recalled memory, or a failed retrieval, adds no row.
+
+The rows are for your screen only. The injected `<omms-retrieval>` section stays the same, with the rows on or off. OMMS writes no row, summary or fold state to the Pi session file or to the model context. It logs only the mode, the memory count and the session id.
+
+Limits:
+
+- Rows show only in Pi's interactive terminal. RPC, JSON and print runs (`--mode rpc`, `--mode json`, `-p`) show no rows. This includes child sessions that a subagent extension starts in those modes.
+- Summaries and fold state live in memory only. A restart, a session switch or `session_shutdown` removes the rows. Pi offers no extension store outside the session file, so the fold state is not kept on disk. See [TDR-062](tdr/062-pi-widget-surface-for-visible-recall.md).
+- Pi has no opening "recent memories" injection, so every row is `mode=search`.
+
+The rows are on by default. To turn them off:
+
+- Set `"visibleRecall": false` in `~/.config/omms/omms.jsonc` to turn them off everywhere.
+- Set `"visibleRecall": false` in `<project>/.opencode/omms.jsonc` to turn them off for one project. A project config can turn the rows off but never on.
+
+A change applies from the next prompt. OMMS still records the summaries when the setting is off, so turning it back on shows them. See [Configuration: Visible recall](configuration.md#visible-recall).
 
 ### Capture boundary
 
@@ -168,4 +199,3 @@ OpenCode and Pi can run in separate processes against the same store.
 
 - Pi profile learning applies analysed batches directly. It does not have the decay, validation-task, and conflict-retry steps of the OpenCode idle path.
 - Manual history import covers the current project by default. See [pi-history-import.md](pi-history-import.md).
-- Pi shows no recall rows. OpenCode V2 shows one fold row for each recall in its terminal TUI. See [OpenCode adapter: Recall rows](opencode-adapter.md#recall-rows). A Pi surface is a follow-up change.

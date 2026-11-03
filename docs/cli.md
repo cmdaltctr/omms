@@ -30,6 +30,7 @@ Slash commands inside a session:
 | OpenCode | `/memory-import-opencode-history [flags]` | Import OpenCode history with the session's model.                                                                         |
 | Pi       | `/memory-import-pi-history [flags]`       | Import Pi history with the session's model.                                                                               |
 | OpenCode | `/omms-recall`                            | Unfold or fold the recall rows in the terminal TUI. See [OpenCode adapter: Recall rows](opencode-adapter.md#recall-rows). |
+| Pi       | `/omms-recall`                            | Unfold or fold the recall rows above the editor. See [Pi adapter: Recall rows](pi-adapter.md#recall-rows).                |
 
 - Both import slash commands take the [import flags](#import-options), except `--provider`, `--api-url`, and `--api-key-env`.
 - `--help` on a slash command shows its flags.

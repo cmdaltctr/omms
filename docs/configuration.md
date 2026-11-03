@@ -313,7 +313,7 @@ On the Settings page you can **Pause** and **Resume** each host's backfill.
 
 ## Visible recall
 
-`visibleRecall` controls whether the OpenCode `tui` entrypoint draws a row in the session for each memory recall. It does not change what OMMS recalls or injects into the model context.
+`visibleRecall` controls whether OMMS draws a row for each memory recall in the OpenCode terminal TUI (the `tui` entrypoint) and in Pi's interactive terminal. It does not change what OMMS recalls or injects into the model context. See [OpenCode adapter: Recall rows](opencode-adapter.md#recall-rows) and [Pi adapter: Recall rows](pi-adapter.md#recall-rows).
 
 ```jsonc
 {

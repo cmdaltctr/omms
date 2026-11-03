@@ -19,8 +19,10 @@ settings, memory builds up as you work.
    - On OpenCode v2 and Pi, every prompt runs a semantic search of the project
      memory. The matches go in an `<omms-retrieval>` system section, never in
      a chat message.
-     In the OpenCode terminal TUI, each recall also shows as a fold row above
-     the prompt. See [OpenCode adapter: Recall rows](opencode-adapter.md#recall-rows).
+     In the OpenCode terminal TUI and Pi's interactive terminal, each recall
+     also shows as a fold row above the prompt. See
+     [OpenCode adapter: Recall rows](opencode-adapter.md#recall-rows) and
+     [Pi adapter: Recall rows](pi-adapter.md#recall-rows).
    - On OpenCode v1, the most recent memories go into the first message of a
      session (`chatMessage.injectOn`).
    - After compaction, the session's own memories are put back.
