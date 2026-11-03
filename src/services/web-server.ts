@@ -20,6 +20,7 @@ import { AUTH_HEADER, getOrCreateAuthToken, isAuthorizedApiRequest } from "./aut
 import { WebAuth } from "./web-auth.js";
 import { NODE_HTTP_IDLE_TIMEOUT_MS } from "./request-timeouts.js";
 import { testReranker } from "./reranker-test.js";
+import { setSingleFlightInterval } from "./single-flight.js";
 import {
   handleListTags,
   handleListKeywords,
@@ -769,7 +770,7 @@ export class WebServer {
       return;
     }
 
-    this.healthCheckInterval = setInterval(() => void this.waiterTick(), 5000);
+    this.healthCheckInterval = setSingleFlightInterval(() => this.waiterTick(), 5000);
   }
 
   /** One check of a web app that waits for the port. */

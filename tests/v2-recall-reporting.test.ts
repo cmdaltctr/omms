@@ -3,6 +3,7 @@ import { MAX_TRACKED_SESSIONS, registerV2Adapter } from "../src/v2/adapter.js";
 import type { V2MemoryBridge } from "../src/v2/memory-bridge.js";
 import { MAX_RECALL_SUMMARIES } from "../src/v2/recall-reporter.js";
 import { RECALL_RPC_ID } from "../src/v2/recall-rpc.js";
+import { callTitle } from "../src/core/recall-summary.js";
 
 const THREE_MEMORIES = [
   "<omms-retrieval>",
@@ -304,6 +305,97 @@ describe("OpenCode v2 recall reporting", () => {
       expect(lookups).toBe(2);
       await cleanup();
     });
+  });
+
+  describe("a lookup that is still pending", () => {
+    /** A lookup that settles only when the test says so. */
+    function pendingLookup() {
+      let settle!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        settle = resolve;
+      });
+      return {
+        settle,
+        getSession: async ({ sessionID }: { sessionID: string }) => {
+          await gate;
+          return { id: sessionID };
+        },
+      };
+    }
+
+    it("stores nothing for a session deleted while the lookup was pending", async () => {
+      let release!: () => void;
+      const events = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const lookup = pendingLookup();
+      const h = createHarness({
+        gate: events,
+        events: [{ type: "session.deleted", data: { sessionID: "ses-1" } }],
+        getSession: lookup.getSession,
+      });
+      const cleanup = await h.register();
+
+      await h.prompt("ses-1", "question");
+      await h.context("ses-1");
+      release();
+      await Bun.sleep(0);
+      await Bun.sleep(0);
+      lookup.settle();
+      await Bun.sleep(0);
+      await Bun.sleep(0);
+
+      expect((await h.list("ses-1")).items).toEqual([]);
+      expect(h.emitted).toEqual([]);
+      await cleanup();
+    });
+
+    it("stores nothing when the reporter is cleared while the lookup was pending", async () => {
+      const lookup = pendingLookup();
+      const h = createHarness({ getSession: lookup.getSession });
+      const cleanup = await h.register();
+
+      await h.prompt("ses-1", "question");
+      await h.context("ses-1");
+      await cleanup();
+      lookup.settle();
+      await Bun.sleep(0);
+      await Bun.sleep(0);
+
+      expect((await h.list("ses-1")).items).toEqual([]);
+      expect(h.emitted).toEqual([]);
+    });
+
+    it("still stores for a session that was not deleted", async () => {
+      const lookup = pendingLookup();
+      const h = createHarness({ getSession: lookup.getSession });
+      const cleanup = await h.register();
+
+      await h.prompt("ses-1", "question");
+      await h.context("ses-1");
+      lookup.settle();
+      await Bun.sleep(0);
+      await Bun.sleep(0);
+
+      expect((await h.list("ses-1")).items).toHaveLength(1);
+      await cleanup();
+    });
+  });
+
+  it("caps the stored query at 300 characters and keeps the row title the same", async () => {
+    const h = createHarness();
+    const cleanup = await h.register();
+    const long = `where do we keep ${"x".repeat(100_000)}`;
+
+    await h.prompt("ses-1", long);
+    await h.context("ses-1");
+
+    const { items } = await h.list("ses-1");
+    expect(items[0].query.length).toBeLessThanOrEqual(300);
+    const title = (query: string) => callTitle({ mode: "search", query, items: items[0].items });
+    expect(title(items[0].query)).toBe(title(long));
+
+    await cleanup();
   });
 
   it("lists only the asked session and carries the enabled setting", async () => {

@@ -190,7 +190,7 @@ Limits:
 - OpenChamber and other frontends that do not load the OpenCode TUI entry show nothing new. Their recall stays as before.
 - V2 has no opening "recent memories" injection. So every row on OpenCode V2 is `mode=search`. The shared builder also supports `mode=recent` for hosts that inject recent memories.
 - The server keeps summaries in memory only. They are not stored on disk. They are lost when OpenCode restarts.
-- Subagent sessions are not excluded. V2 injects memories into them, so they can show rows.
+- Subagent sessions do not show rows. OMMS records no summary for a session that has a parent session.
 - Pi shows no rows yet. See [Host parity](#host-parity).
 
 ### Capture boundary

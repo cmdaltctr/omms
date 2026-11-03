@@ -19,6 +19,9 @@ const DEFAULT_DEBOUNCE_MS = 150;
  * Host events that pull the recall list. The server records a recall when a model step starts (the
  * `context` hook), so only the events around a step, plus session creation and view changes, can
  * coincide with a new recall. The end events catch a missed `recalled` push right after the step.
+ * The failure events are end events too: the summary is recorded in the `context` hook after
+ * `session.step.started` fires, so if the push is absent and the step then fails, no later event
+ * in this set would pull it.
  * Streaming, part, message, inbox and instruction events fire dozens of times per reply and never
  * change the list, so they must stay out of this set.
  */
@@ -29,6 +32,8 @@ const PULL_EVENT_TYPES: ReadonlySet<string> = new Set([
   "session.step.started",
   "session.step.ended",
   "session.execution.succeeded",
+  "session.step.failed",
+  "session.execution.failed",
 ]);
 
 /** Persisted fold state: only open rows are stored, keyed by `rowKey`. */

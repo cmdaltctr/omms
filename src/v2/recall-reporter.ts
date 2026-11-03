@@ -7,6 +7,9 @@ import { recallRpc } from "./recall-rpc.js";
 /** Latest summaries kept per session. The TUI shows recent rows, so older ones are dropped. */
 export const MAX_RECALL_SUMMARIES = 20;
 
+/** Longest query kept per summary. The TUI shows at most 300 characters of it. */
+export const MAX_RECALL_QUERY_CHARS = 300;
+
 type Bound = <V>(map: Map<string, V>, key: string, value: V) => void;
 
 export interface RecallReporter {
@@ -34,6 +37,9 @@ export async function createRecallReporter(
   const recorded = new WeakSet<object>();
   // One lookup per session. The promise is cached so concurrent records keep their order.
   const subagents = new Map<string, Promise<boolean>>();
+  // Records waiting on a session lookup. `forget` and `clear` cancel them, so a late lookup cannot
+  // store a summary for a session whose state is gone. Entries leave when their lookup settles.
+  const pending = new Map<string, Set<{ cancelled: boolean }>>();
   let emit: ((sessionID: string) => Promise<void>) | undefined;
 
   try {
@@ -93,10 +99,18 @@ export async function createRecallReporter(
       if (recorded.has(token)) return;
       recorded.add(token);
       try {
-        const summary = section ? buildRecallSummary(section, "search", query) : null;
+        const summary = section
+          ? buildRecallSummary(section, "search", query.slice(0, MAX_RECALL_QUERY_CHARS))
+          : null;
         if (!summary) return;
+        const ticket = { cancelled: false };
+        const tickets = pending.get(sessionID) ?? new Set();
+        tickets.add(ticket);
+        pending.set(sessionID, tickets);
         void isSubagent(sessionID).then((subagent) => {
-          if (subagent) return;
+          tickets.delete(ticket);
+          if (tickets.size === 0 && pending.get(sessionID) === tickets) pending.delete(sessionID);
+          if (subagent || ticket.cancelled) return;
           try {
             store(sessionID, summary);
           } catch (error) {
@@ -112,10 +126,14 @@ export async function createRecallReporter(
       }
     },
     forget: (sessionID) => {
+      for (const ticket of pending.get(sessionID) ?? []) ticket.cancelled = true;
+      pending.delete(sessionID);
       rings.delete(sessionID);
       subagents.delete(sessionID);
     },
     clear: () => {
+      for (const tickets of pending.values()) for (const ticket of tickets) ticket.cancelled = true;
+      pending.clear();
       rings.clear();
       subagents.clear();
     },

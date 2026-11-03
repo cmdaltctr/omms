@@ -255,6 +255,8 @@ describe("recall fold rows", () => {
     "session.step.started",
     "session.step.ended",
     "session.execution.succeeded",
+    "session.step.failed",
+    "session.execution.failed",
   ])("pulls for a tracked session on %s", async (type) => {
     const host = makeHost();
     startTuiRecall(host.deps);

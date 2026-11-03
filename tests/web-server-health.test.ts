@@ -278,4 +278,48 @@ describe("web server health check", () => {
       await new Promise<void>((resolve) => occupy.close(() => resolve()));
     }
   });
+
+  it("skips a waiter tick while the previous tick is still checking the owner", async () => {
+    // The takeover health check can outlast the 5 second tick. A second tick
+    // must not count the same unresponsive owner as another failed takeover.
+    const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+    let release: (available: boolean) => void = () => {};
+    let checks = 0;
+    let takeovers = 0;
+    server.checkServerAvailable = () => {
+      checks += 1;
+      return new Promise<boolean>((resolve) => {
+        release = resolve;
+      });
+    };
+    (server as unknown as { attemptTakeover(): Promise<void> }).attemptTakeover = async () => {
+      takeovers += 1;
+    };
+
+    const realSetInterval = globalThis.setInterval;
+    let tick: () => void = () => {};
+    globalThis.setInterval = ((callback: () => void) => {
+      tick = callback;
+      return realSetInterval(() => {}, 1_000_000);
+    }) as unknown as typeof setInterval;
+    try {
+      (server as unknown as { startHealthCheckLoop(): void }).startHealthCheckLoop();
+    } finally {
+      globalThis.setInterval = realSetInterval;
+    }
+
+    tick();
+    tick();
+    expect(checks).toBe(1);
+    release(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(takeovers).toBe(1);
+
+    // The busy flag clears, so the next interval runs a fresh tick.
+    tick();
+    expect(checks).toBe(2);
+    release(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(takeovers).toBe(2);
+  });
 });
