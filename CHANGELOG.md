@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.3.1](https://github.com/cmdaltctr/omms/compare/v5.3.0...v5.3.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **opencode:** keep /omms-recall registered while the TUI runs ([d20c536](https://github.com/cmdaltctr/omms/commit/d20c5362f42fe216f0853e6fd7888fd8748e7b00))
+* **opencode:** keep /omms-recall registered while the TUI runs ([fe5e098](https://github.com/cmdaltctr/omms/commit/fe5e0987a079b5b681adf9fac82e4c3b2e5dbf12))
+
+
+### Documentation
+
+* add ADR-039 and TDR-061 for the OpenCode recall rows ([bd04dca](https://github.com/cmdaltctr/omms/commit/bd04dca43b01aa843ee0deb0b4ac087e80eaed4b))
+
 ## [5.3.0](https://github.com/cmdaltctr/omms/compare/v5.2.0...v5.3.0) (2026-11-03)
 
 
