@@ -143,7 +143,7 @@ OMMS adds memories to the model's context in four ways. Each way has its own set
 
 ### Opening context
 
-"Injection at session start" means the first message of a new session, on every host. OpenCode V2 and Pi send no model request before the first prompt, so there is nothing earlier to add to. Claude Code could add text when the session starts. It uses its first `UserPromptSubmit` instead, so all three hosts behave the same. Claude Code adds nothing at `SessionStart` for `startup` and `clear`.
+"Injection with the first message" means the first message of a new session, on every host. OpenCode V2 and Pi send no model request before the first prompt, so there is nothing earlier to add to. Claude Code could add text when the session starts. It uses its first `UserPromptSubmit` instead, so all three hosts behave the same. Claude Code adds nothing at `SessionStart` for `startup` and `clear`.
 
 - The opening search uses the same relevance filter, result limit and size budget (`retrievalMaxTokens`) as the prompt recall. The prompt's own section is packed first. The opening section gets what is left.
 - A project with no matching memory adds nothing.

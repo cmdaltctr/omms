@@ -160,7 +160,7 @@ purpose.
 - From assistant entries, capture takes only visible text and tool-call inputs.
 - It leaves out hidden thinking blocks and tool results. It cuts tool inputs to 100 characters.
 
-### Injection at session start and subagents
+### Injection with the first message and subagents
 
 Pi adds only the recall for the current prompt by default. Pi has no model request before the first prompt, so the opening context goes with the first prompt. See [Configuration: Memory injection](configuration.md#memory-injection).
 
@@ -213,4 +213,4 @@ OpenCode and Pi can run in separate processes against the same store.
 
 - Pi profile learning applies analysed batches directly. It does not have the decay, validation-task, and conflict-retry steps of the OpenCode idle path.
 - Manual history import covers the current project by default. See [pi-history-import.md](pi-history-import.md).
-- Subagent memory on Pi needs om-pi-subagents to load OMMS in the child session. See [Using memory: Host differences](using-memory.md#host-differences).
+- Subagent memory on Pi works only when the subagent's agent maps the OMMS extension in om-pi-subagents (`/omps-settings`, Agent capabilities, Memory). See [Using memory: Host differences](using-memory.md#host-differences).

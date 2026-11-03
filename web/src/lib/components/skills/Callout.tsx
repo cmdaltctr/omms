@@ -1,8 +1,13 @@
 import type { ReactNode } from "react";
-import { Info, OctagonAlert, TriangleAlert } from "lucide-react";
+import { CircleCheck, Info, OctagonAlert, TriangleAlert } from "lucide-react";
 import { cn } from "$lib/utils";
 
 const TONES = {
+  success: {
+    box: "border-status-success/25 bg-status-success/10",
+    icon: "text-status-success",
+    Icon: CircleCheck,
+  },
   info: {
     box: "border-status-info/25 bg-status-info/10",
     icon: "text-status-info",

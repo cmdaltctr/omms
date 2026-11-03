@@ -96,7 +96,7 @@ export function SharedView({
   const injection = injectionDraftFromSettings(settings);
   const state = (on: boolean) => s(on ? "On" : "Off");
   const injectionLine = statusText(s, {
-    text: "Session start {opening} · Subagents {subagent} · Restore {restore}",
+    text: "First message {opening} · Subagents {subagent} · Restore {restore}",
     params: {
       opening: state(injection.opening),
       subagent: state(injection.subagent),

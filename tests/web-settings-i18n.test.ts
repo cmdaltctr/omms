@@ -102,7 +102,7 @@ it("has Chinese and Arabic text for the Memory injection section and the Shared 
   // The section's own labels, the notes, the messages and the Shared view row.
   for (const required of [
     "Memory injection",
-    "Inject memories at session start",
+    "Inject memories with the first message",
     "Subagent memory",
     "Restore memories after compaction or resume",
     "Most memories to restore",
@@ -110,7 +110,7 @@ it("has Chinese and Arabic text for the Memory injection section and the Shared 
     expect(labels).toContain(required);
   }
   // The Shared view row's summary is a template, not an s("...") literal.
-  labels.push("Session start {opening} · Subagents {subagent} · Restore {restore}");
+  labels.push("First message {opening} · Subagents {subagent} · Restore {restore}");
   expect(labels.length).toBeGreaterThanOrEqual(15);
   const missing = labels.filter(
     (label) => translateSettings(label, "zh") === label || translateSettings(label, "ar") === label

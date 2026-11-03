@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
+import { Callout } from "$lib/components/skills/Callout";
 import { Textarea } from "$lib/components/ui/textarea";
 import { useSettingsText } from "$lib/i18n/settings";
 import {
@@ -125,13 +126,33 @@ export function MemoryInjectionSection() {
     >
       <h2 className="text-section-title font-semibold">{s("Memory injection")}</h2>
       <p className="text-xs text-muted-foreground">
-        {s(
-          "Applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. On Pi, subagent memory needs om-pi-subagents to load OMMS."
-        )}
+        {s("Sets how OMMS adds memories to the context the model sees.")}
       </p>
+      <Callout tone="success">
+        <p>{s("Memories are added at these moments:")}</p>
+        <ul className="list-disc space-y-1 ps-5">
+          <li>{s("With every message: the memories that match that message. Always on.")}</li>
+          <li>
+            {s(
+              "With the first message of a new session: the memories that match the query below. Needs the first switch."
+            )}
+          </li>
+          <li>
+            {s(
+              "When a subagent starts: the memories that match its task. Needs the Subagent memory switch."
+            )}
+          </li>
+          <li>
+            {s(
+              "After a compaction or resume: the memories that session captured. Needs the Restore switch."
+            )}
+          </li>
+        </ul>
+        <p>{s("Nothing is added when a session opens.")}</p>
+      </Callout>
       <p className="text-xs text-muted-foreground">
         {s(
-          "A project config can turn the session-start and subagent options off. It can turn restore on or off."
+          "A project config can turn the first-message and subagent options off. It can turn restore on or off."
         )}
       </p>
       <form
@@ -152,16 +173,23 @@ export function MemoryInjectionSection() {
               aria-describedby="injection-opening-help"
               onChange={(event) => update({ opening: event.target.checked })}
             />
-            <Label htmlFor="injection-opening">{s("Inject memories at session start")}</Label>
+            <Label htmlFor="injection-opening">{s("Inject memories with the first message")}</Label>
           </div>
           <p id="injection-opening-help" className="text-xs text-muted-foreground">
             {s(
-              "Added to the first message of a new session. OMMS searches the query below and adds only matching memories."
+              "Added once, with the first message of a new session. Nothing is added when the session opens. OMMS searches the query below and adds only matching memories."
             )}
           </p>
+          <Callout tone="info">
+            <p>
+              {s(
+                "Claude Code can add memories when a session opens. Pi and OpenCode V2 cannot. To keep all three the same, OMMS adds them with the first message on every host."
+              )}
+            </p>
+          </Callout>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="injection-query">{s("Session-start search query")}</Label>
+          <Label htmlFor="injection-query">{s("First-message search query")}</Label>
           <Textarea
             id="injection-query"
             maxLength={OPENING_QUERY_MAX}
@@ -194,8 +222,17 @@ export function MemoryInjectionSection() {
             <Label htmlFor="injection-subagent">{s("Subagent memory")}</Label>
           </div>
           <p id="injection-subagent-help" className="text-xs text-muted-foreground">
-            {s("Subagents get memories that match their task. No rows are shown for them.")}
+            {s(
+              "Added when a subagent starts. Subagents get memories that match their task. No rows are shown for them."
+            )}
           </p>
+          <Callout tone="warning">
+            <p>
+              {s(
+                "Applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. On Pi, a subagent gets memory only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in /omps-settings, Agent capabilities, Memory."
+              )}
+            </p>
+          </Callout>
         </div>
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -211,6 +248,11 @@ export function MemoryInjectionSection() {
               {s("Restore memories after compaction or resume")}
             </Label>
           </div>
+          <p className="text-xs text-muted-foreground">
+            {s(
+              "Added when a session resumes or compacts. Restores the memories that session captured."
+            )}
+          </p>
           <Label htmlFor="injection-limit">{s("Most memories to restore")}</Label>
           <Input
             type="number"
