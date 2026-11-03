@@ -89,3 +89,46 @@ it("translates the fixed import failure sentences, which carry no number", async
     expect(translateSettings(message, "ar")).not.toBe(message);
   }
 });
+
+it("has Chinese and Arabic text for the Memory injection section and the Shared view link row", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const read = (file: string) =>
+    readFileSync(join(import.meta.dir, "../web/src/lib/components/memory", file), "utf8");
+  const labels = [
+    ...read("MemoryInjectionSection.tsx").matchAll(/\bs\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g),
+    ...read("SharedView.tsx").matchAll(/\bs\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g),
+  ].map((match) => JSON.parse(`"${match[1]}"`) as string);
+  // The section's own labels, the notes, the messages and the Shared view row.
+  for (const required of [
+    "Memory injection",
+    "Inject memories at session start",
+    "Subagent memory",
+    "Restore memories after compaction or resume",
+    "Most memories to restore",
+  ]) {
+    expect(labels).toContain(required);
+  }
+  // The Shared view row's summary is a template, not an s("...") literal.
+  labels.push("Session start {opening} · Subagents {subagent} · Restore {restore}");
+  expect(labels.length).toBeGreaterThanOrEqual(15);
+  const missing = labels.filter(
+    (label) => translateSettings(label, "zh") === label || translateSettings(label, "ar") === label
+  );
+  expect(missing).toEqual([]);
+});
+
+it("has Chinese and Arabic text for every message the writer returns for the injection keys", () => {
+  const messages = [
+    "Invalid openingContext setting",
+    "Invalid subagentMemory setting",
+    "Invalid compaction.enabled setting",
+    "Invalid compaction.memoryLimit setting: accepted positive safe integers",
+    "openingContextQuery must be text of 500 characters or fewer",
+  ];
+  const missing = messages.filter(
+    (message) =>
+      translateSettings(message, "zh") === message || translateSettings(message, "ar") === message
+  );
+  expect(missing).toEqual([]);
+});

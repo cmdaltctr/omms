@@ -5,6 +5,7 @@ import { MEMORY_VIEWS } from "$lib/routes";
 import { useWriteHealth } from "$lib/write-health-store";
 import { HostCard } from "./HostCard";
 import { ImportSection } from "./ImportSection";
+import { MemoryInjectionSection } from "./MemoryInjectionSection";
 import { statusText, type StatusText } from "./host-status";
 import type { HostStatuses } from "./use-host-statuses";
 
@@ -61,6 +62,7 @@ export function MemoryOverview({
           {importOpen && <ImportSection profilePreset={profilePreset} />}
         </div>
       </section>
+      <MemoryInjectionSection />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -128,4 +128,78 @@ it("reports whether memories can be saved without exposing a stack", async () =>
   expect(typeof result.body.reason).toBe("string");
   expect(result.body.reason).not.toContain("\n");
   expect(typeof result.body.checkedAt).toBe("number");
+});
+
+const web = (path: string) => readFileSync(join(import.meta.dir, "../web/src", path), "utf8");
+
+it("gives the Shared view one Memory injection link row and no controls of its own", () => {
+  const shared = web("lib/components/memory/SharedView.tsx");
+  expect(shared).toContain('id="shared-memory-injection"');
+  expect(shared).toContain("/memory#memory-injection");
+  expect(shared).not.toContain("MemoryInjectionSection");
+  const row = shared.slice(shared.indexOf("shared-memory-injection"));
+  const end = row.indexOf("</a>");
+  expect(end).toBeGreaterThan(0);
+  expect(row.slice(0, end)).not.toMatch(/<(input|textarea|select|button|Switch)/);
+});
+
+it("keeps the Settings page free of a Memory injection section", () => {
+  expect(web("lib/components/settings/SettingsView.tsx")).not.toContain("MemoryInjection");
+  expect(web("lib/settings-sections.ts")).not.toMatch(/injection/i);
+});
+
+it("saves, rejects and resets the Memory injection options through the settings route", async () => {
+  const controls = JSON.stringify(
+    pathToFileURL(join(import.meta.dir, "../web/src/lib/injection-controls.ts")).href
+  );
+  const { result } = await scenario(`
+    const { injectionSaveEdits, DEFAULT_INJECTION_DRAFT } = await import(${controls});
+    const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+    const auth = { "x-omms-token": token };
+    const read = async () => (await (await call(server, "/api/settings", { headers: auth })).json());
+    const patch = async (edits) => {
+      const { revision } = await read();
+      const response = await call(server, "/api/settings", { method: "PATCH", headers: auth, body: { edits, revision } });
+      return { status: response.status, body: await response.json() };
+    };
+    const custom = { opening: true, query: "  release notes  ", subagent: false, restore: false, limit: "25" };
+    const saved = await patch(injectionSaveEdits(custom, DEFAULT_INJECTION_DRAFT));
+    const afterSave = (await read()).settings;
+    const tooLong = await patch({ openingContextQuery: "SECRETMARK".repeat(60) });
+    const badLimit = await patch({ "compaction.memoryLimit": 0 });
+    const reset = await patch(injectionSaveEdits(DEFAULT_INJECTION_DRAFT, custom));
+    const afterReset = (await read()).settings;
+    const pick = (settings) => Object.fromEntries(
+      ["openingContext", "openingContextQuery", "subagentMemory", "compaction.enabled", "compaction.memoryLimit"]
+        .map((key) => [key, settings[key].globalValue]));
+    const inFile = (settings) => Object.fromEntries(
+      ["openingContext", "openingContextQuery", "subagentMemory", "compaction.enabled", "compaction.memoryLimit"]
+        .map((key) => [key, settings[key].hasGlobal]));
+    return { saved: saved.status, afterSave: pick(afterSave), tooLong, badLimit, reset: reset.status, afterReset: pick(afterReset), afterResetInFile: inFile(afterReset) };
+  `);
+  expect(result.saved).toBe(200);
+  expect(result.afterSave).toEqual({
+    openingContext: true,
+    openingContextQuery: "release notes",
+    subagentMemory: false,
+    "compaction.enabled": false,
+    "compaction.memoryLimit": 25,
+  });
+  expect(result.tooLong.status).toBe(400);
+  expect(result.tooLong.body.error).toBe(
+    "openingContextQuery must be text of 500 characters or fewer"
+  );
+  expect(JSON.stringify(result.tooLong)).not.toContain("SECRETMARK");
+  expect(result.badLimit.status).toBe(400);
+  expect(result.badLimit.body.error).toContain("compaction.memoryLimit");
+  expect(result.reset).toBe(200);
+  expect(result.afterReset).toEqual({
+    openingContext: false,
+    openingContextQuery: "project architecture, setup, conventions and key decisions",
+    subagentMemory: true,
+    "compaction.enabled": true,
+    "compaction.memoryLimit": 10,
+  });
+  // Reset removes the keys from the file; the section then shows the defaults.
+  expect(Object.values(result.afterResetInFile).some(Boolean)).toBe(false);
 });
