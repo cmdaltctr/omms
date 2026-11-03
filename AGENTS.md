@@ -61,7 +61,7 @@ Read `docs/shared-core.md` before you change a port or move code between layers.
 
 ## Host parity
 
-Pi and OpenCode must have the same user capabilities.
+Pi and OpenCode must have the same user capabilities. One recorded exception: the OpenCode V2 recall rows, which Pi does not show yet. See [Host parity](docs/opencode-adapter.md#host-parity).
 
 - When you add or change a feature for one host, add the same feature to the other host in the same change.
 - Put shared behaviour in `src/core/`, `src/services/`, or `src/importer/`. Keep adapters thin.
