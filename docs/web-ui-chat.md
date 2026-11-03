@@ -6,7 +6,7 @@ Select **Chat** in the sidebar, or open `http://127.0.0.1:4747/chat`.
 
 ## Setup
 
-Chat uses the external memory model only. Set these in **Settings**:
+Chat uses the memory model that you set in **Settings**. It can be a hosted API or a server you run, such as llama.cpp or Ollama with an OpenAI-compatible URL. Chat never uses the OpenCode or Pi session model. A local server still needs a key value. Set these in **Settings**:
 
 - `memoryProvider` (default `openai-chat`)
 - `memoryModel`
