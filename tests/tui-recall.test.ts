@@ -123,13 +123,15 @@ function makeHost(options: HostOptions = {}) {
   const push = (sessionID: string) =>
     pushHandlers.forEach((handler) => handler({ data: { sessionID } }));
   const draw = (sessionID: string) => slots[0]!.render({ sessionID });
+  /** Mount the "app" claim, as the host does once for the whole TUI. */
+  const mountApp = () => slots.find((spec) => spec.append === "app")!.render({});
   /** All text shown for a session after it settles. */
   const shown = async (sessionID: string) => {
     const root = draw(sessionID);
     await settle();
     return dump(root);
   };
-  return { deps, calls, emit, push, draw, shown, commands, removed, slots, persisted };
+  return { deps, calls, emit, push, draw, mountApp, shown, commands, removed, slots, persisted };
 }
 
 /** Press a row: find the box with onMouseDown whose first text starts with the title. */
@@ -347,6 +349,7 @@ describe("recall fold rows", () => {
       list: async () => ({ enabled: true, items: [search, recent] }),
     });
     startTuiRecall(host.deps);
+    host.mountApp();
     const root = host.draw("s1");
     await settle();
     expect(host.commands).toHaveLength(1);
@@ -394,15 +397,42 @@ describe("recall fold rows", () => {
     expect(host.calls).toEqual([]);
   });
 
-  it("registers the keymap layer on every render, so a remount restores the command", async () => {
+  it("registers /omms-recall from the app slot, with no row slot render", () => {
+    const host = makeHost();
+    startTuiRecall(host.deps);
+    const claim = host.slots.find((spec) => spec.append === "app");
+    expect(claim).toBeDefined();
+    expect(host.slots.map((spec) => spec.append)).toEqual(["session.composer.top", "app"]);
+    // The row slot is never rendered here: the command must not depend on it.
+    expect(host.commands).toHaveLength(0);
+    host.mountApp();
+    expect(host.commands).toHaveLength(1);
+    expect(host.commands[0].id).toBe("omms.recall.fold");
+    expect(host.commands[0].palette).toBe(true);
+    expect(host.commands[0].slash.name).toBe("omms-recall");
+  });
+
+  it("does not register a keymap layer when the row slot renders", () => {
     const host = makeHost();
     startTuiRecall(host.deps);
     host.draw("s1");
-    expect(host.commands).toHaveLength(1);
     host.draw("s1");
     host.draw("s2");
-    expect(host.commands).toHaveLength(3);
-    expect(host.commands.every((command) => command.slash.name === "omms-recall")).toBe(true);
+    expect(host.commands).toHaveLength(0);
+  });
+
+  it("draws nothing from the app slot and survives a throwing keymap layer", () => {
+    const host = makeHost();
+    startTuiRecall(host.deps);
+    expect(host.mountApp()).toBeNull();
+
+    const broken = makeHost();
+    broken.deps.keymap.layer = () => {
+      throw new Error("host broke");
+    };
+    startTuiRecall(broken.deps);
+    expect(() => broken.mountApp()).not.toThrow();
+    expect(broken.mountApp()).toBeNull();
   });
 
   it("keeps a row open across a restart through storage", async () => {
@@ -432,8 +462,9 @@ describe("recall fold rows", () => {
     const host = makeHost();
     const stop = startTuiRecall(host.deps);
     host.draw("s1");
+    host.mountApp();
     stop();
-    expect(host.removed.sort()).toEqual(["data", "keymap", "push", "slot"]);
+    expect(host.removed.sort()).toEqual(["data", "keymap", "push", "slot", "slot"]);
     host.calls.length = 0;
     host.emit("session.step.started", "s1");
     await settle(40);

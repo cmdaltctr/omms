@@ -13,6 +13,7 @@ import { recallRpc } from "../../v2/recall-rpc.js";
 export const MAX_ROWS = 5;
 const FOLD_STORE_KEY = "omms.recall.fold";
 const SLOT = "session.composer.top";
+const APP_SLOT = "app";
 const DEFAULT_DEBOUNCE_MS = 150;
 
 /**
@@ -250,7 +251,8 @@ export function startTuiRecall(deps: TuiRecallDeps): () => void {
   };
 
   // The host owns a keymap layer through the component that created it and removes it when that
-  // component is disposed. A slot remount therefore needs a fresh layer, so this runs once per render.
+  // component is disposed. The row slot unmounts on screen changes, so the layer lives in the
+  // "app" slot instead, which stays mounted for the whole TUI.
   const registerCommand = () => {
     layerHandle = guard(() =>
       deps.keymap.layer(() => ({
@@ -323,7 +325,6 @@ export function startTuiRecall(deps: TuiRecallDeps): () => void {
         return id;
       };
       follow();
-      registerCommand();
       return deps.jsx("box", {
         flexDirection: "column",
         get children() {
@@ -338,6 +339,17 @@ export function startTuiRecall(deps: TuiRecallDeps): () => void {
   };
 
   const removeSlot = guard(() => deps.ui.slot({ append: SLOT, render }));
+
+  // Draws nothing. It exists so the command layer is owned by a component that is not disposed
+  // when the session view changes.
+  const renderCommandOwner = () => {
+    registerCommand();
+    return null;
+  };
+
+  const removeCommandSlot = guard(() =>
+    deps.ui.slot({ append: APP_SLOT, render: renderCommandOwner })
+  );
 
   const offPush = guard(() =>
     rpc?.events.on("recalled", (event) => {
@@ -362,6 +374,7 @@ export function startTuiRecall(deps: TuiRecallDeps): () => void {
     release(offData);
     release(offPush);
     release(removeSlot);
+    release(removeCommandSlot);
     release(layerHandle);
   };
 }
