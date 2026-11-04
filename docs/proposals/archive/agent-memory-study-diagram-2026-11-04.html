@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Memory Study</title>
+<style>
+:root {
+  --bg: #f7f6f2; --panel: #ffffff; --ink: #20242a; --muted: #5d646e; --line: #d8d6ce;
+  --none: #6b7280; --none-bg: #eef0f2;
+  --digest: #1f5fa8; --digest-bg: #e4eefa;
+  --raw: #a4570f; --raw-bg: #fbeedd;
+  --persona: #6b3fa0; --persona-bg: #f0e9f9;
+  --ok: #1d7a55; --ok-bg: #e2f4ec;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15181c; --panel: #1e2227; --ink: #e8e9ea; --muted: #a2a8b0; --line: #363b42;
+    --none: #a2a8b0; --none-bg: #2a2e34;
+    --digest: #80b4ee; --digest-bg: #1b2d42;
+    --raw: #eaa862; --raw-bg: #3a2915;
+    --persona: #bd9ceb; --persona-bg: #2e2340;
+    --ok: #6fd0a6; --ok-bg: #173228;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 8px; }
+h2 { font-size: 1.3rem; margin: 0 0 4px; }
+h3 { font-size: 1rem; margin: 0 0 6px; }
+p { margin: 0 0 10px; }
+.lead { font-size: 1.1rem; color: var(--muted); margin-bottom: 0; }
+section { margin-top: 36px; }
+.sub { color: var(--muted); margin-bottom: 14px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.small { font-size: .875rem; color: var(--muted); }
+.tag { display: inline-block; font-size: .75rem; font-weight: 600; padding: 1px 7px; border-radius: 99px; white-space: nowrap; }
+.t-none { background: var(--none-bg); color: var(--none); }
+.t-digest { background: var(--digest-bg); color: var(--digest); }
+.t-raw { background: var(--raw-bg); color: var(--raw); }
+.t-persona { background: var(--persona-bg); color: var(--persona); }
+.t-ok { background: var(--ok-bg); color: var(--ok); }
+
+/* Timeline */
+.timeline { display: grid; gap: 0; }
+.stage { display: grid; grid-template-columns: 44px 1fr; gap: 12px; }
+.rail { display: flex; flex-direction: column; align-items: center; }
+.num { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .9rem; background: var(--none-bg); color: var(--ink); flex: none; }
+.rail::after { content: ""; width: 2px; flex: 1; background: var(--line); }
+.stage:last-child .rail::after { display: none; }
+.stage .body { padding-bottom: 14px; }
+.stage .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.card-top { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.runs { font-weight: 700; font-variant-numeric: tabular-nums; }
+.gate { margin-top: 6px; font-size: .875rem; color: var(--ok); }
+.num.s1 { background: var(--digest-bg); color: var(--digest); }
+.num.s2 { background: var(--persona-bg); color: var(--persona); }
+.num.ok { background: var(--ok-bg); color: var(--ok); }
+
+/* Flow row */
+.flow { display: flex; align-items: stretch; flex-wrap: wrap; gap: 6px; }
+.box { flex: 1 1 110px; min-width: 96px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: .875rem; }
+.box b { display: block; }
+.box.d { background: var(--digest-bg); border-color: var(--digest); }
+.box.r { background: var(--raw-bg); border-color: var(--raw); }
+.box.p { background: var(--persona-bg); border-color: var(--persona); }
+.arrow { flex: none; align-self: center; color: var(--muted); font-size: 1.1rem; }
+.path + .path { margin-top: 16px; }
+.path h3 { margin-bottom: 8px; }
+
+/* Grid table */
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+th { background: var(--none-bg); font-weight: 600; }
+td.cell-d { background: var(--digest-bg); }
+td.cell-r { background: var(--raw-bg); }
+td.primary { outline: 3px solid var(--ok); outline-offset: -3px; font-weight: 600; }
+.code { font-weight: 700; display: block; }
+
+/* Task strip */
+.strip { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
+.task { text-align: center; font-size: .8rem; font-weight: 600; padding: 6px 0; border-radius: 6px; background: var(--none-bg); }
+.fill { height: 10px; border-radius: 3px; background: var(--digest); margin-top: 3px; }
+.strip-label { font-size: .875rem; margin: 10px 0 4px; font-weight: 600; }
+.bar-cell { display: flex; align-items: flex-end; height: 44px; }
+.bar-cell i { display: block; width: 100%; background: var(--digest); border-radius: 3px 3px 0 0; }
+
+/* Persona lanes */
+.lanes { display: grid; grid-template-columns: 96px repeat(3, 1fr); gap: 4px; align-items: stretch; font-size: .85rem; }
+.lane-h { font-weight: 600; text-align: center; padding: 6px 4px; background: var(--none-bg); border-radius: 6px; }
+.lane-l { font-weight: 600; align-self: center; }
+.seg { border-radius: 6px; padding: 8px 6px; text-align: center; }
+.seg.d { background: var(--digest-bg); color: var(--digest); }
+.seg.p { background: var(--persona-bg); color: var(--persona); grid-column: span 3; }
+.seg.n { background: var(--none-bg); color: var(--none); grid-column: span 3; }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.layers { display: grid; gap: 6px; }
+.layer { display: grid; grid-template-columns: 30px 1fr; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.layer .n { font-weight: 700; color: var(--muted); }
+ul.tight { margin: 0; padding-left: 18px; }
+ul.tight li { margin-bottom: 4px; }
+ol.tight { margin: 0; padding-left: 20px; }
+ol.tight li { margin-bottom: 5px; }
+@media (max-width: 620px) {
+  .flow { flex-direction: column; }
+  .arrow { transform: rotate(90deg); }
+  .box { flex: none; }
+  .strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .lanes { grid-template-columns: 62px repeat(3, 1fr); font-size: .78rem; }
+}
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>Does persistent memory make coding agents better, and at what token cost?</h1>
+  <p class="lead">A visual guide to one paper, with two studies on two harnesses. OMMS is the system under test. Nothing here has run yet.</p>
+</header>
+
+<section>
+  <h2>The whole work, start to finish</h2>
+  <p class="sub">Each stage has a gate. Do not move on until the gate passes. Cost per run stays unknown until stage 2.</p>
+  <div class="timeline">
+    <div class="stage"><div class="rail"><div class="num">1</div></div><div class="body"><div class="card">
+      <div class="card-top"><h3>Build the measuring tools</h3><span class="runs">0 runs</span></div>
+      <p class="small">OMMS: token ledger, capture-idle route and BM25 index. Study scripts: runner, raw-turn harness, grader wrapper and analysis.</p>
+      <div class="gate">Gate: ledger rows appear on a real session on both harnesses.</div>
+    </div></div></div>
+    <div class="stage"><div class="rail"><div class="num">2</div></div><div class="body"><div class="card">
+      <div class="card-top"><h3>Pilot</h3><span class="runs">48 per harness</span></div>
+      <p class="small">8 Django tasks kept out of the main list, 3 arms, 2 repeats. Answers 14 checks, for example "do hooks fire?" and "does capture finish?".</p>
+      <div class="gate">Gate: all checks pass, and you know the cost per run. Then set the budget, or fall back to 3 repositories.</div>
+    </div></div></div>
+    <div class="stage"><div class="rail"><div class="num s1">3</div></div><div class="body"><div class="card">
+      <div class="card-top"><h3>Study 1: project memory</h3><span class="runs">2,520 + 630 short probes</span></div>
+      <p class="small">Does memory help? Does the digest beat raw history? 7 arms, 5 repositories, 12 tasks each, 3 repeats, on Pi and Claude Code.</p>
+      <div class="gate">Gate: analysis plan frozen before this stage starts.</div>
+    </div></div></div>
+    <div class="stage"><div class="rail"><div class="num s2">4</div></div><div class="body"><div class="card">
+      <div class="card-top"><h3>Build the persona</h3><span class="runs">0 runs</span></div>
+      <p class="small">Items with a state and evidence, injection under a token budget, and a readable <code>user-persona.md</code>.</p>
+      <div class="gate">Gate: the persona confirms and injects on a test sequence.</div>
+    </div></div></div>
+    <div class="stage"><div class="rail"><div class="num s2">5</div></div><div class="body"><div class="card">
+      <div class="card-top"><h3>Persona pilot</h3><span class="runs">about 16</span></div>
+      <p class="small">Test the 10 approved preferences. Keep a preference only if the no-memory agent breaks it in at least half of the runs.</p>
+      <div class="gate">Gate: at least 5 preferences survive.</div>
+    </div></div></div>
+    <div class="stage"><div class="rail"><div class="num s2">6</div></div><div class="body"><div class="card">
+      <div class="card-top"><h3>Study 2: user memory</h3><span class="runs">288</span></div>
+      <p class="small">Does a persona carry across projects and cut the corrections needed? 4 arms, 12 tasks over 3 repositories, 3 repeats, on both harnesses.</p>
+    </div></div></div>
+    <div class="stage"><div class="rail"><div class="num ok">7</div></div><div class="body"><div class="card">
+      <div class="card-top"><h3>Analyse, write and release</h3><span class="runs">about 2,920 full runs in all</span></div>
+      <p class="small">One paper. Public release of tasks, transcripts, ledgers, patches, scripts and results, after a scan for personal data.</p>
+    </div></div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Study 1: the 7 arms</h2>
+  <p class="sub">Two things vary: how memory is stored, and how it is retrieved. Green outlines mark the two arms used in the primary tests, because they match the raw-RAG paper's method.</p>
+  <div class="panel">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Memory</th><th>Plain<br><span class="small">dense only</span></th><th>Reranker<br><span class="small">dense + cross-encoder</span></th><th>Hybrid + reranker<br><span class="small">dense + BM25, then cross-encoder</span></th></tr></thead>
+      <tbody>
+        <tr><th>OMMS digest</th><td class="cell-d"><span class="code">D-P</span>OMMS as it ships today</td><td class="cell-d primary"><span class="code">D-X</span>Primary</td><td class="cell-d"><span class="code">D-H</span>Needs BM25 in OMMS</td></tr>
+        <tr><th>Raw windows</th><td class="cell-r"><span class="code">R-P</span>Raw, simplest form</td><td class="cell-r primary"><span class="code">R-X</span>Primary, the paper's method</td><td class="cell-r"><span class="code">R-H</span>BM25 in the study harness</td></tr>
+        <tr><th>No memory</th><td colspan="3"><span class="code">N</span>The control. The harness alone.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small" style="margin:10px 0 0">Per harness: 5 repositories × 12 tasks × 7 arms × 3 repeats = 1,260 runs. Two harnesses: 2,520.</p>
+  </div>
+</section>
+
+<section>
+  <h2>How memory reaches the agent</h2>
+  <p class="sub">Both paths start from the finished task and end in the next task's prompt. The digest step is the difference under test.</p>
+  <div class="panel">
+    <div class="path">
+      <h3><span class="tag t-digest">Digest arms, D</span></h3>
+      <div class="flow">
+        <div class="box"><b>Earlier task ends</b>Transcript is saved</div><span class="arrow" aria-hidden="true">→</span>
+        <div class="box d"><b>Model digests it</b>A chat-model call. Its cost counts.</div><span class="arrow" aria-hidden="true">→</span>
+        <div class="box d"><b>Short memories</b>Stored by OMMS</div><span class="arrow" aria-hidden="true">→</span>
+        <div class="box"><b>Retrieve</b>Plain, reranker or hybrid</div><span class="arrow" aria-hidden="true">→</span>
+        <div class="box"><b>Inject</b>Into the next prompt</div>
+      </div>
+    </div>
+    <div class="path">
+      <h3><span class="tag t-raw">Raw arms, R</span></h3>
+      <div class="flow">
+        <div class="box"><b>Earlier task ends</b>Transcript is saved</div><span class="arrow" aria-hidden="true">→</span>
+        <div class="box r"><b>Cut into windows</b>256 tokens, 32 overlap. No chat model.</div><span class="arrow" aria-hidden="true">→</span>
+        <div class="box r"><b>Raw windows</b>Stored by the study harness</div><span class="arrow" aria-hidden="true">→</span>
+        <div class="box"><b>Retrieve</b>Same method as its D partner</div><span class="arrow" aria-hidden="true">→</span>
+        <div class="box"><b>Inject</b>Capped at what D injected</div>
+      </div>
+    </div>
+    <p class="small" style="margin:14px 0 0"><b>Why the cap:</b> digested memories are short, and raw windows would fill any limit. The cap makes the token budget equal for real. Run D first for each repository, then cap R at D's mean tokens per recall.</p>
+  </div>
+</section>
+
+<section>
+  <h2>One Study 1 sequence</h2>
+  <p class="sub">One repository, one arm, one repeat. The store starts empty and grows, so later tasks have more to recall. The bars show the idea only, and they are not data.</p>
+  <div class="panel">
+    <div class="strip-label">Memory store as the sequence goes on</div>
+    <div class="strip" aria-hidden="true">
+      <div class="bar-cell"><i style="height:2px"></i></div><div class="bar-cell"><i style="height:6px"></i></div><div class="bar-cell"><i style="height:10px"></i></div><div class="bar-cell"><i style="height:14px"></i></div><div class="bar-cell"><i style="height:18px"></i></div><div class="bar-cell"><i style="height:22px"></i></div><div class="bar-cell"><i style="height:26px"></i></div><div class="bar-cell"><i style="height:30px"></i></div><div class="bar-cell"><i style="height:33px"></i></div><div class="bar-cell"><i style="height:36px"></i></div><div class="bar-cell"><i style="height:40px"></i></div><div class="bar-cell"><i style="height:44px"></i></div>
+    </div>
+    <div class="strip" style="margin-top:4px">
+      <div class="task">1</div><div class="task">2</div><div class="task">3</div><div class="task">4</div><div class="task">5</div><div class="task">6</div><div class="task">7</div><div class="task">8</div><div class="task">9</div><div class="task">10</div><div class="task">11</div><div class="task">12</div>
+    </div>
+    <p class="small" style="margin-top:6px">12 tasks close together in date. Task 1 has no memory in any arm, so it checks that the arms start level.</p>
+
+    <h3 style="margin-top:16px">Repeat for each task</h3>
+    <div class="flow">
+      <div class="box"><b>1. Rebuild folder</b>Base commit, one commit, no history</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="box"><b>2. Run agent</b>Headless, memory injected</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="box"><b>3. Save</b>Result, transcript, patch</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="box"><b>4. Memory ready</b>Wait for capture, or index the windows</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="box"><b>5. Fixed gap</b>In every arm, longer than the cache lifetime</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="box"><b>6. Ledger</b>Export token rows</div>
+    </div>
+    <h3 style="margin-top:16px">After task 12</h3>
+    <div class="flow">
+      <div class="box"><b>3 recall probes</b>Questions built from this run's own earlier tasks</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="box"><b>Grade patches</b>Official SWE-Bench grader</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="box"><b>Clean up</b>Stop server, archive folder</div>
+    </div>
+    <p class="small" style="margin:12px 0 0"><b>Isolation:</b> each sequence has its own scratch <code>HOME</code>, its own port and an empty store, so your real OMMS data stays out.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Study 2: the persona across projects</h2>
+  <p class="sub">A scripted user corrects the agent on every task. Project memory starts empty at each new repository. The persona carries on.</p>
+  <div class="panel">
+    <div class="lanes">
+      <div></div><div class="lane-h">Block 1<br>tasks 1 to 4</div><div class="lane-h">Block 2<br>tasks 5 to 8</div><div class="lane-h">Block 3<br>tasks 9 to 12</div>
+      <div class="lane-l">Repeat 1</div><div class="seg" style="background:var(--none-bg)">Django</div><div class="seg" style="background:var(--none-bg)">scikit-learn</div><div class="seg" style="background:var(--none-bg)">Sphinx</div>
+      <div class="lane-l">Repeat 2</div><div class="seg" style="background:var(--none-bg)">scikit-learn</div><div class="seg" style="background:var(--none-bg)">Sphinx</div><div class="seg" style="background:var(--none-bg)">Django</div>
+      <div class="lane-l">Repeat 3</div><div class="seg" style="background:var(--none-bg)">Sphinx</div><div class="seg" style="background:var(--none-bg)">Django</div><div class="seg" style="background:var(--none-bg)">scikit-learn</div>
+    </div>
+    <h3 style="margin-top:18px">What each arm keeps</h3>
+    <div class="lanes">
+      <div class="lane-l">N</div><div class="seg n">No memory. The agent is corrected every time.</div>
+      <div class="lane-l">M</div><div class="seg d">Project store</div><div class="seg d">New, empty store</div><div class="seg d">New, empty store</div>
+      <div class="lane-l">P</div><div class="seg p">Project stores, plus one persona that carries across all three</div>
+      <div class="lane-l">O</div><div class="seg n">Oracle. All preferences stated in every prompt. The upper bound.</div>
+    </div>
+    <h3 style="margin-top:18px">How a preference is learned</h3>
+    <div class="flow">
+      <div class="box"><b>Agent answers</b>First answer on the task</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="box"><b>Script checks rules</b>Broken? Send a plain correction</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="box p"><b>Candidate</b>Persona reads the conversation text only</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="box p"><b>Confirmed</b>Support in 3 tasks with different files</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="box p"><b>Injected</b>Under a token budget, and logged</div>
+    </div>
+    <p class="small" style="margin:12px 0 0"><b>Main test:</b> preferences broken in the first answer, block 3, P against M. M cannot carry across projects by design, so the paper also compares P and M inside one project (tasks 3 and 4). <b>Not tested:</b> retirement on contradiction, because the scripted user never changes their mind.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What gets measured</h2>
+  <p class="sub">Four layers. If the agent does not improve, the lower layers show why.</p>
+  <div class="two">
+    <div class="layers">
+      <div class="layer"><span class="n">1</span><div><b>Memory quality</b><br><span class="small">Can retrieval find the right items? Existing experiments.</span></div></div>
+      <div class="layer"><span class="n">2</span><div><b>Context quality</b><br><span class="small">Coverage: did the text hold what the task needed? Utilisation: did the agent use it?</span></div></div>
+      <div class="layer"><span class="n">3</span><div><b>Agent outcome</b><br><span class="small">Pass rate per task, recall probes, preferences broken.</span></div></div>
+      <div class="layer"><span class="n">4</span><div><b>Token cost</b><br><span class="small">Input, cache write, cache read and output, plus OMMS's own capture calls.</span></div></div>
+    </div>
+    <div class="panel">
+      <h3>The 6 primary tests</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Test</th><th>Compare</th><th>Measure</th></tr></thead>
+        <tbody>
+          <tr><td>H1</td><td>D-X against N</td><td>Pass rate</td></tr>
+          <tr><td>H3</td><td>D-X against R-X</td><td>Pass rate</td></tr>
+          <tr><td>H4</td><td>P against M</td><td>Preferences broken</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small" style="margin:10px 0 0">Each runs on Pi and on Claude Code, so 6 in all, with a Holm correction. Cost and the other arms are estimates with intervals. The study cannot see pass-rate gaps below roughly 8 points (a rough estimate).</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What the paper can say</h2>
+  <p class="sub">Each result is publishable. The most likely Study 1 headline is "no detectable effect on pass rate at this size".</p>
+  <div class="panel"><div class="table-wrap"><table>
+    <thead><tr><th>If this happens</th><th>The paper says</th></tr></thead>
+    <tbody>
+      <tr><td>D beats N on pass rate</td><td>Memory improves outcomes on independent issues, at a stated token cost.</td></tr>
+      <tr><td>D and N look the same, probes favour D</td><td>Memory carries facts forward, but this does not show as more tasks solved at this size.</td></tr>
+      <tr><td>R at least as good as D</td><td>The digest does not earn its cost in coding. This extends the chat finding. The raw-RAG paper's evidence points this way, so OMMS may lose.</td></tr>
+      <tr><td>D beats R</td><td>Digesting helps in coding, unlike chat.</td></tr>
+      <tr><td>P beats M after a project change</td><td>User memory carries across projects where project memory cannot.</td></tr>
+      <tr><td>P costs more than it saves</td><td>Following preferences has a token price. The oracle arm gives the reference.</td></tr>
+    </tbody>
+  </table></div></div>
+</section>
+
+<section>
+  <h2>Who builds what</h2>
+  <div class="two">
+    <div class="panel"><h3><span class="tag t-digest">OMMS change: cost ledger</span></h3><ul class="tight small">
+      <li>Read token usage per turn, on Claude Code and Pi</li><li>New ledger store with no text</li><li>Keep the tokens of capture calls</li><li>Log recalled ids and bytes cut</li><li>Route to ask whether capture has finished</li></ul></div>
+    <div class="panel"><h3><span class="tag t-digest">OMMS, for arm D-H</span></h3><ul class="tight small"><li>BM25 index over memory text, behind a setting</li></ul>
+      <h3 style="margin-top:12px"><span class="tag t-persona">OMMS change: persona</span></h3><ul class="tight small">
+      <li>Extend or replace the user profile</li><li>Lifecycle rules and budgeted injection</li><li>Readable <code>user-persona.md</code> with undo</li></ul></div>
+    <div class="panel"><h3><span class="tag t-raw">Study harness, outside OMMS</span></h3><ul class="tight small">
+      <li>Runner and scripted user</li><li>Raw-turn indexer, one transcript reader per harness</li><li>Injector plugin for Pi and Claude Code</li><li>BM25 for arm R-H</li><li>Grader wrapper and analysis</li></ul>
+      <p class="small" style="margin:8px 0 0">Lives in experiment folder 29. Needs no OMMS spec change.</p></div>
+  </div>
+  <p class="small" style="margin-top:10px">Each OMMS change needs its own OpenSpec proposal before any code. Host parity means OpenCode gets the code too, although the paper does not measure it.</p>
+</section>
+
+<section>
+  <h2>Decisions recorded</h2>
+  <div class="panel"><ol class="tight">
+    <li><b>Model:</b> Claude Sonnet 5.5 at medium, on both harnesses.</li>
+    <li><b>Capture model:</b> DeepSeek flash, the current OMMS setting.</li>
+    <li><b>Where to run:</b> start on the Mac. Rent x86 Linux if the pilot is too slow.</li>
+    <li><b>Access and budget:</b> API key by default, subscription login retested in the pilot. Set the limit after the pilot. Fallback is 3 repositories (756 runs per harness).</li>
+    <li><b>The 10 preferences:</b> approved. The persona pilot filters them.</li>
+    <li><b>Reranker model:</b> Qwen3-Reranker-4B.</li>
+  </ol>
+  <p class="small" style="margin:10px 0 0">Full detail is in <code>agent-memory-study.md</code>.</p></div>
+</section>
+
+</main>
+</body>
+</html>
