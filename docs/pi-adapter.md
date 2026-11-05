@@ -134,6 +134,12 @@ Each prompt that recalls memories shows a fold row above the Pi editor:
 - Each line is cut to the terminal width. A resize redraws the rows.
 - A prompt with no recalled memory, or a failed retrieval, adds no row.
 
+#### Where the rows sit
+
+The recall rows work the same on Pi, OpenCode and Claude Code: one row for each recall, folded by default, with the mode, query, limit and memories when unfolded. Only the position differs. OpenCode and Claude Code draw the row as a line in the conversation, so it scrolls with the chat. Pi draws the rows as one block above the editor, so the block stays in view and does not scroll with the chat. This position suits the Pi terminal: the rows sit next to the prompt and stay out of the session file.
+
+Pi can also draw a row inside the conversation. A scratch extension on Pi 1.5.0 showed that `pi.appendEntry` with `pi.registerEntryRenderer` draws a row in the transcript, that `ctrl+o` expands it, and that the entry does not reach the model context. Pi writes each such entry to the session file. OMMS does not use this option so that no recall data goes into the session file. See [TDR-062](tdr/062-pi-widget-surface-for-visible-recall.md#inline-rows-with-registerentryrenderer-2026-11-05).
+
 The rows are for your screen only. The injected `<omms-retrieval>` section stays the same, with the rows on or off. OMMS writes no row, summary or fold state to the Pi session file or to the model context. It logs only the mode, the memory count and the session id.
 
 Limits:

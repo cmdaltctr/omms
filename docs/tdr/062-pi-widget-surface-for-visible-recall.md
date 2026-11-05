@@ -62,12 +62,13 @@ No finding contradicts the design.
 
 ## Alternatives Considered
 
-| Option                                  | Rejected Because                                                                            |
-| --------------------------------------- | ------------------------------------------------------------------------------------------- |
-| String-array widget                     | Capped at 10 lines, and the host cannot cut lines to the width.                             |
-| `pi.appendEntry` for fold state         | Writes to the Pi session file, which the rules forbid.                                      |
-| Static `import { truncateToWidth }`     | `tests/pi-adapter-boundary.test.ts` forbids a static runtime import from `@earendil-works`. |
-| Own width code with an East Asian table | More code for a case Pi's own helper already handles.                                       |
+| Option                                                           | Rejected Because                                                                                                                                               |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| String-array widget                                              | Capped at 10 lines, and the host cannot cut lines to the width.                                                                                                |
+| `pi.appendEntry` for fold state                                  | Writes to the Pi session file, which the rules forbid.                                                                                                         |
+| Inline rows with `pi.appendEntry` and `pi.registerEntryRenderer` | Works, but Pi writes every entry to the session file (see "Inline rows with registerEntryRenderer"). The widget gives the same row with no session file write. |
+| Static `import { truncateToWidth }`                              | `tests/pi-adapter-boundary.test.ts` forbids a static runtime import from `@earendil-works`.                                                                    |
+| Own width code with an East Asian table                          | More code for a case Pi's own helper already handles.                                                                                                          |
 
 ## How to Recognise / Handle This Again
 
@@ -93,6 +94,18 @@ Pi 1.4.0 in an Orca terminal, with a scratch `HOME`, a scratch OMMS store (3 see
 - **(e) Session file.** The scratch session file held 6 entries (`session`, `model_change`, `thinking_level_change`, 3 `message`). It had no custom entry, no row text and no memory text.
 - **Not run:** a real mouse (the design has no click handling), Pi RPC or print mode, and the project-level `visibleRecall: false` path.
 - **Trust prompt:** Pi asks about project extensions when it starts in a project folder. "Trust" was saved in the scratch agent folder only.
+
+## Inline rows with registerEntryRenderer (2026-11-05)
+
+The spike above checked `pi.appendEntry` only as a place to keep fold state. It did not check `pi.registerEntryRenderer`, which draws a custom entry inside the chat. A second spike checked it. The widget decision stays. The recall row works the same in the widget as it would inline. Only the position differs, and the widget position suits the Pi terminal.
+
+- **Setup:** Pi 1.5.0 in an Orca terminal, scratch `HOME`, scratch agent and session folders, `PI_OFFLINE=1`, no credentials, no model call. A scratch extension registered an entry renderer and a command that called `pi.appendEntry` with `{ mode, query, count, ids }`.
+- **Row in the chat:** two entries drew two rows in the transcript, as `▸ ● memory [mode=search, query="continue", limit=7]`.
+- **Expand:** `ctrl+o` expanded both rows in place (`▾`, with the ids), and `render` ran with `expanded=true`.
+- **Model context:** `sessionManager.buildSessionContext().messages` was `[]` while both entries were in the session. The Pi docs say the same: custom entries do not take part in the LLM context.
+- **Session file:** Pi creates the file after the first assistant message, so the spike did not write it. In `session-manager.js`, `_persist` writes every entry as JSON once an assistant message exists. The entry data would go to disk.
+- **Why the widget stays:** an inline row needs `appendEntry`, and so a session file write of the recall data. The widget writes nothing to the session file (finding 8). An entry that holds only ids and counts would avoid memory text, but then the headlines would need a lookup on expand.
+- **Revisit:** if the rows should scroll with the chat like OpenCode and Claude Code, use `appendEntry` with an ids-only entry, and look up the headlines when the row expands. Cache them, because `render` runs on every frame.
 
 ## Limits of the method
 
