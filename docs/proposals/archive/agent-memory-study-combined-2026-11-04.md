@@ -11,19 +11,21 @@ Date: 2026-11-04
 **What is under test.** The question is about agent memory. OMMS is the system under test. OMMS uses a "digest, then retrieve" design: a model extracts memories after each turn, and embedding retrieval recalls them. The result covers this class of memory in coding agents. One system cannot support a claim about every memory design.
 
 **Two outcomes, in this order.**
+
 1. Effectiveness: does the agent do better work?
 2. Token cost: what does the memory add or save, counting its own model calls?
 
 **Two studies, one paper.**
 
-| Study | Question | Arms |
-|---|---|---|
-| Study 1, project memory | Does memory help on real issues? Does the digest step beat plain retrieval over raw history? | N no memory, then OMMS (D) and raw-turn retrieval (R), each under three retrieval methods: plain, reranker, hybrid plus reranker |
-| Study 2, user memory | Does a persona learned from corrections carry across projects and cut the corrections needed? | N no memory, M project memory only, P persona, O oracle |
+| Study                   | Question                                                                                      | Arms                                                                                                                             |
+| ----------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Study 1, project memory | Does memory help on real issues? Does the digest step beat plain retrieval over raw history?  | N no memory, then OMMS (D) and raw-turn retrieval (R), each under three retrieval methods: plain, reranker, hybrid plus reranker |
+| Study 2, user memory    | Does a persona learned from corrections carry across projects and cut the corrections needed? | N no memory, M project memory only, P persona, O oracle                                                                          |
 
 **Two harnesses.** Pi, which is open source, and Claude Code. The TokenEconomizer paper names Pi as untested, so a Pi result fills a gap its authors state.
 
 **What is new in this paper.**
+
 1. A controlled test of memory in coding agents, with a no-memory control and cache-aware token cost.
 2. The first test of digest against raw retrieval in coding sessions, as far as we know. A recent paper tested this in chat only (arXiv 2610.30755).
 3. A user-level memory that crosses projects, tested against project memory.
@@ -33,14 +35,14 @@ The literature search so far is small (section 13). Check these claims with a pr
 
 **What the paper can say under each result.**
 
-| Result | What the paper says |
-|---|---|
-| D beats N on pass rate | Memory improves agent outcomes on independent issues, at a stated token cost. |
+| Result                                                  | What the paper says                                                                                                  |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| D beats N on pass rate                                  | Memory improves agent outcomes on independent issues, at a stated token cost.                                        |
 | D and N are not distinguishable, recall probes favour D | Memory carries facts forward. On independent issues that does not show up as more tasks solved, at this sample size. |
-| R is at least as good as D | The digest step does not earn its cost in coding sessions. This extends the chat finding. |
-| D beats R | Digesting helps in coding, unlike chat. |
-| P beats M after a project change | User memory carries across projects where project memory cannot. |
-| P costs more than it saves | Following preferences has a token price. The paper states it, with the oracle arm as the reference. |
+| R is at least as good as D                              | The digest step does not earn its cost in coding sessions. This extends the chat finding.                            |
+| D beats R                                               | Digesting helps in coding, unlike chat.                                                                              |
+| P beats M after a project change                        | User memory carries across projects where project memory cannot.                                                     |
+| P costs more than it saves                              | Following preferences has a token price. The paper states it, with the oracle arm as the reference.                  |
 
 Each row is publishable. The most likely headline for Study 1 is "no detectable effect on pass rate at this size". Study 1's recall probes and Study 2 show where memory does work. A paper that reports this plainly is stronger than one that hopes for a large gain.
 
@@ -50,21 +52,22 @@ Each row is publishable. The most likely headline for Study 1 is "no detectable 
 
 **From TokenEconomizer (arXiv 2610.22732), the evaluation method.** It controls the cost of coding agents from outside, and cuts cost by 18.4 to 30.9 percent.
 
-| Part of the paper | Our use |
-|---|---|
-| SWE-Bench tasks in date order inside each repository | Same. |
-| Tasks chosen close together in date, on purpose (xarray median 4 days) | Same idea. Section 4 has the rule. |
-| Cache-aware cost: uncached input, cache read and output tokens, each with a price weight | Same, plus a cache-write term. |
-| Helper calls charged to the task that caused them | Same. OMMS capture calls count. |
-| Failed tasks keep their cost in the mean | Same. |
-| Three runs per setting, official grader, Pass@1 | Same. |
-| Standard deviation over runs, no confidence intervals | We report both. |
-| Block GitHub so the agent cannot read the fix | Weaker version on a Mac (section 8.5). |
-| Micro-skill rule: confirm after 3 tasks with non-overlapping edited files | Used for the persona (section 6.1). |
+| Part of the paper                                                                        | Our use                                |
+| ---------------------------------------------------------------------------------------- | -------------------------------------- |
+| SWE-Bench tasks in date order inside each repository                                     | Same.                                  |
+| Tasks chosen close together in date, on purpose (xarray median 4 days)                   | Same idea. Section 4 has the rule.     |
+| Cache-aware cost: uncached input, cache read and output tokens, each with a price weight | Same, plus a cache-write term.         |
+| Helper calls charged to the task that caused them                                        | Same. OMMS capture calls count.        |
+| Failed tasks keep their cost in the mean                                                 | Same.                                  |
+| Three runs per setting, official grader, Pass@1                                          | Same.                                  |
+| Standard deviation over runs, no confidence intervals                                    | We report both.                        |
+| Block GitHub so the agent cannot read the fix                                            | Weaker version on a Mac (section 8.5). |
+| Micro-skill rule: confirm after 3 tasks with non-overlapping edited files                | Used for the persona (section 6.1).    |
 
 We leave out its controller, tool pruning, failure-loop guard, and its comparison arms (RTK, RepoMap, lower effort). Those are cost-control methods. They answer a different question from "does memory help?", and they would double the run count. Section 12 lists them as later work.
 
 **From the raw-RAG paper (arXiv 2610.30755), the memory comparison.** "Is Complex Agentic Memory Always Needed? Naive RAG Is Stronger Than We Thought".
+
 - It reports that dense retrieval over raw chat history, plus a cross-encoder reranker, beats most agent memory systems on chat benchmarks. It does not test BM25 or hybrid search.
 - It also tested digest-like steps on top of raw retrieval. Atomic-fact extraction lowered accuracy by 19.62 points and summaries by 5.81.
 - It reports ingestion cost in LLM tokens and hours. It has a full-context arm, and controls at 5,000 tokens.
@@ -80,15 +83,15 @@ We take its raw baseline, its retrieval method (dense plus cross-encoder), its w
 **RQ3, digest or raw.** Does digest-then-retrieve beat raw retrieval on effectiveness and on cost?
 **RQ4, user memory.** Does a persona cut preference violations after a project change, and at what token cost?
 
-| Test | Comparison | Measure | Role |
-|---|---|---|---|
-| H1 | D against N, in Study 1 | Pass rate per task | Primary |
-| H3 | D against R, in Study 1 | Pass rate per task | Primary, two-sided |
-| H4 | P against M, in Study 2, final block | Preferences broken per task | Primary |
-| Cost of D against N | Study 1 | Paired change in cost | Estimate with interval, no test |
-| Cost of D against R | Study 1 | Paired change in cost | Estimate with interval, no test |
-| Cost of P against M and O | Study 2 | Paired change in cost | Estimate with interval, no test |
-| Recall probes | D, R, N | Correct answers, turns and tokens | Key secondary |
+| Test                      | Comparison                           | Measure                           | Role                            |
+| ------------------------- | ------------------------------------ | --------------------------------- | ------------------------------- |
+| H1                        | D against N, in Study 1              | Pass rate per task                | Primary                         |
+| H3                        | D against R, in Study 1              | Pass rate per task                | Primary, two-sided              |
+| H4                        | P against M, in Study 2, final block | Preferences broken per task       | Primary                         |
+| Cost of D against N       | Study 1                              | Paired change in cost             | Estimate with interval, no test |
+| Cost of D against R       | Study 1                              | Paired change in cost             | Estimate with interval, no test |
+| Cost of P against M and O | Study 2                              | Paired change in cost             | Estimate with interval, no test |
+| Recall probes             | D, R, N                              | Correct answers, turns and tokens | Key secondary                   |
 
 **The rule for many comparisons.** There are 6 primary tests: H1, H3 and H4 on each of two harnesses. Apply a Holm correction across the 6. Everything else is an estimate with an interval, or is labelled exploratory.
 
@@ -102,13 +105,13 @@ We take its raw baseline, its retrieval method (dense plus cross-encoder), its w
 
 **Repositories.** The TokenEconomizer paper uses six. We take five, and drop xarray because only 9 of the paper's 39 xarray tasks are Verified.
 
-| Repository | Licence (checked 2026-11-04) | Tasks the paper used |
-|---|---|---|
-| Django | BSD-3-Clause | 40 Verified (earliest 40 of 231) |
-| scikit-learn | BSD-3-Clause | 60 (31 Verified, 29 full split) |
-| SymPy | BSD-3-Clause style (GitHub shows "unknown" because of bundled parts) | 60 (41 Verified, 19 full split) |
-| Sphinx | BSD-2-Clause | 44 Verified |
-| Matplotlib | Matplotlib licence (PSF based, permissive) | 34 Verified |
+| Repository   | Licence (checked 2026-11-04)                                         | Tasks the paper used             |
+| ------------ | -------------------------------------------------------------------- | -------------------------------- |
+| Django       | BSD-3-Clause                                                         | 40 Verified (earliest 40 of 231) |
+| scikit-learn | BSD-3-Clause                                                         | 60 (31 Verified, 29 full split)  |
+| SymPy        | BSD-3-Clause style (GitHub shows "unknown" because of bundled parts) | 60 (41 Verified, 19 full split)  |
+| Sphinx       | BSD-2-Clause                                                         | 44 Verified                      |
+| Matplotlib   | Matplotlib licence (PSF based, permissive)                           | 34 Verified                      |
 
 All five allow redistribution if we keep the copyright notice. The release includes a `NOTICE` file.
 
@@ -119,6 +122,7 @@ All five allow redistribution if we keep the copyright notice. The release inclu
 **Pilot tasks.** Use Django tasks outside the chosen window. Fix every setting before the main run. Do not change a setting after you see main-run results.
 
 **Recall probes.** Independent issues are a hard test for memory. The probes are the direct test. After task 12 of each sequence, a script writes 3 questions from that run's own earlier tasks:
+
 1. "An earlier task fixed this issue: <title>. Which file did the fix change?" The answer comes from that run's own patch.
 2. "Which command runs the tests for <module>?" The answer is a command that worked earlier in that run.
 3. "An earlier task hit this error: <message>. What caused it?" Scored by whether the answer names the file from that run's own patch.
@@ -129,23 +133,23 @@ The working folder holds no git history, so the agent cannot look these up in co
 
 ### 5.1 Arms
 
-| Arm | What it is |
-|---|---|
-| N. No memory | The harness with no memory system. |
-| D. OMMS | OMMS recall and capture on, with its reranker setting on. A model extracts memories after each task, and dense retrieval plus a cross-encoder reranker recalls them. |
+| Arm                   | What it is                                                                                                                                                                                                                        |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| N. No memory          | The harness with no memory system.                                                                                                                                                                                                |
+| D. OMMS               | OMMS recall and capture on, with its reranker setting on. A model extracts memories after each task, and dense retrieval plus a cross-encoder reranker recalls them.                                                              |
 | R. Raw-turn retrieval | No digest and no chat-model call. A study harness indexes the raw transcripts of earlier tasks and retrieves windows with dense retrieval plus the same cross-encoder reranker (section 8.8). This is the raw-RAG paper's method. |
 
 **All three retrieval methods are live arms.** That makes 7 arms:
 
-| Arm | Memory | Retrieval |
-|---|---|---|
-| N | None | None |
-| D-P | OMMS digest | Plain: dense only. This is OMMS's shipped default. |
-| D (D-X) | OMMS digest | Dense plus cross-encoder reranker |
-| D-H | OMMS digest | Hybrid: dense plus BM25, then the reranker |
-| R-P | Raw windows | Plain: dense only |
+| Arm     | Memory      | Retrieval                                                      |
+| ------- | ----------- | -------------------------------------------------------------- |
+| N       | None        | None                                                           |
+| D-P     | OMMS digest | Plain: dense only. This is OMMS's shipped default.             |
+| D (D-X) | OMMS digest | Dense plus cross-encoder reranker                              |
+| D-H     | OMMS digest | Hybrid: dense plus BM25, then the reranker                     |
+| R-P     | Raw windows | Plain: dense only                                              |
 | R (R-X) | Raw windows | Dense plus cross-encoder reranker. The raw-RAG paper's method. |
-| R-H | Raw windows | Hybrid: dense plus BM25, then the reranker |
+| R-H     | Raw windows | Hybrid: dense plus BM25, then the reranker                     |
 
 In this document, D and R with no suffix mean the reranker arms D-X and R-X. The primary tests in section 3 use these two, because they match the raw-RAG paper. The other four arms are reported with intervals as secondary results.
 
@@ -153,18 +157,18 @@ In this document, D and R with no suffix mean the reranker arms D-X and R-X. The
 
 ### 5.2 Fixed settings
 
-| Setting | Value |
-|---|---|
-| Harness | Pi 1.4.0 and Claude Code 2.1.318 (installed on 2026-11-04). Pin both. Switch auto-update off. |
-| Model | `claude-sonnet-5-5` on both harnesses. Never an alias. |
-| Effort | Medium on both harnesses. The paper uses high. |
-| Repeats | 3 per task and arm. LLM runs cannot be seeded, so a repeat is only a second run. |
-| Task prompt | The issue text plus one fixed instruction. |
-| Limits | The same turn and budget limits for all arms. Record when a run hits one. |
-| Profile learning | Off (`injectProfile` off), so it adds no uncounted calls or text. |
-| Skill learning | Off. |
-| Reranker | The same model in every arm that uses it (section 5.3). |
-| Embedding model | Pinned, and the same in D and R. Record the `similarityThreshold`, because its default depends on the embedder. |
+| Setting            | Value                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Harness            | Pi 1.4.0 and Claude Code 2.1.318 (installed on 2026-11-04). Pin both. Switch auto-update off.                                   |
+| Model              | `claude-sonnet-5-5` on both harnesses. Never an alias.                                                                          |
+| Effort             | Medium on both harnesses. The paper uses high.                                                                                  |
+| Repeats            | 3 per task and arm. LLM runs cannot be seeded, so a repeat is only a second run.                                                |
+| Task prompt        | The issue text plus one fixed instruction.                                                                                      |
+| Limits             | The same turn and budget limits for all arms. Record when a run hits one.                                                       |
+| Profile learning   | Off (`injectProfile` off), so it adds no uncounted calls or text.                                                               |
+| Skill learning     | Off.                                                                                                                            |
+| Reranker           | The same model in every arm that uses it (section 5.3).                                                                         |
+| Embedding model    | Pinned, and the same in D and R. Record the `similarityThreshold`, because its default depends on the embedder.                 |
 | Memory search tool | Off, so memory reaches the agent only by injection. OMMS has no setting for this, so use the harness tool filter (section 8.4). |
 
 A scripted task has one user prompt, so recall happens about once per task. The injected text stays in the prompt for every later step. Its token cost is mostly cache reads.
@@ -174,11 +178,13 @@ A scripted task has one user prompt, so recall happens about once per task. The 
 Arms D and R both use the retrieval method the raw-RAG paper tested: dense retrieval plus a cross-encoder reranker. This tests what that paper said, in coding sessions. It also keeps the arms equal, so D against R tests the digest step alone. Using the reranker in R only would mix two effects: if R won, nobody could say whether the digest or the reranker caused it.
 
 **Settings.**
+
 - The same reranker model and server in both arms. Use Qwen3-Reranker-4B, which the paper uses in one of its settings (section 15, item 7).
 - Follow the paper's pool where OMMS allows it: 128 dense candidates, reranked to 15, then packed to the budget in section 5.4. Use the same pool in both arms. Check in the pilot whether OMMS can do this.
 - OMMS falls back to its normal order when the reranker times out. So raise `rerankerTimeoutMs` well above the delays seen in the pilot, and log every fallback. Drop no run for this, but report the count per arm.
 
 **What the paper must state.**
+
 1. **This is not OMMS's default.** `rerankerEnabled` defaults to false, and the `memory-reranker` spec makes it opt-in. The study tests OMMS with a setting it already has, and says so.
 2. **The delay is outside the question.** Experiment 24 measured a median delay of 2.46 s per prompt and p95 9.52 s, against a product limit of 0.5 s, and it needs a second model server. A batch study can absorb that, but a daily user may not. Report the delay per arm. A result that needs the reranker carries this price.
 3. **Our earlier evidence differs.** Experiment 24 found little gain over digested memories (recall@10 from 0.66 to 0.68, p 0.44; a stricter key reached 0.75, p 0.058; validity INCONCLUSIVE). The raw-RAG paper finds 3.92 points in chat. This study measures the reranker's own effect on digested and raw memory: D-P against D, and R-P against R.
@@ -186,6 +192,7 @@ Arms D and R both use the retrieval method the raw-RAG paper tested: dense retri
 ### 5.4 Equal budget between D and R
 
 `retrievalMaxTokens` is a cap, not a target. Digested memories are short and rarely fill 2000 tokens. OMMS can also inject nothing, when no memory clears the threshold. Raw windows would fill any cap. Calling that "equal budget" would be false. So:
+
 1. **Run D before R for each repository and harness.** Record D's injected tokens per recall.
 2. **Cap R at D's realised amount.** Each raw arm's cap is the mean injected tokens per recall of the digest arm with the same retrieval method, for that repository and harness.
 3. **Give R a score cutoff, so it can inject nothing.** Set it by rule on the pilot tasks: the cutoff at which R injects on the same share of recalls as D. This rule looks at no outcome.
@@ -194,10 +201,10 @@ Arms D and R both use the retrieval method the raw-RAG paper tested: dense retri
 
 ### 5.5 Runs
 
-| Harness | Repositories | Tasks | Arms | Repeats | Runs |
-|---|---|---|---|---|---|
-| Pi | 5 | 12 each | 7 | 3 | 1,260 |
-| Claude Code | 5 | 12 each | 7 | 3 | 1,260 |
+| Harness     | Repositories | Tasks   | Arms | Repeats | Runs  |
+| ----------- | ------------ | ------- | ---- | ------- | ----- |
+| Pi          | 5            | 12 each | 7    | 3       | 1,260 |
+| Claude Code | 5            | 12 each | 7    | 3       | 1,260 |
 
 Recall probes add 3 short runs per sequence: 105 sequences per harness, so 315 short runs per harness.
 
@@ -214,6 +221,7 @@ This is the main selling point. Project memory lives in one project. A persona b
 A short, readable list of preferences, for example "add a regression test with every fix". It lives in a file such as `user-persona.md`, which you can read, edit and delete from. Each item has the preference text, a state (candidate, confirmed or retired) and its evidence.
 
 Rules, adapted from the paper's micro-skill design:
+
 1. A new preference starts as a candidate. It comes from what the user writes, by the same model step OMMS uses for its profile.
 2. It becomes confirmed after support in 3 separate tasks that edit different files.
 3. A contradiction retires it. You can also retire or edit it by hand.
@@ -223,29 +231,29 @@ This stays review-first. You can see and undo every item, unlike a hidden user m
 
 ### 6.2 Arms
 
-| Arm | What it is |
-|---|---|
-| N. No memory | The harness with no memory system. |
-| M. Project memory | OMMS as in Study 1, with no persona. Corrections may be captured as project memories. This is what OMMS does today. |
-| P. Persona | Arm M plus the persona. |
-| O. Oracle | No memory. All preferences are stated in every task prompt. This is the upper bound on benefit, and the price of always stating everything. |
+| Arm               | What it is                                                                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| N. No memory      | The harness with no memory system.                                                                                                          |
+| M. Project memory | OMMS as in Study 1, with no persona. Corrections may be captured as project memories. This is what OMMS does today.                         |
+| P. Persona        | Arm M plus the persona.                                                                                                                     |
+| O. Oracle         | No memory. All preferences are stated in every task prompt. This is the upper bound on benefit, and the price of always stating everything. |
 
 ### 6.3 Protocol
 
 **The scripted user.** The 10 preferences are fixed below, each with a rule that decides from the patch or final message whether the agent followed it.
 
-| # | Preference | Checked in |
-|---|---|---|
-| 1 | Adds a regression test | Patch |
-| 2 | Adds no new dependency | Patch |
-| 3 | Leaves no debug `print` lines | Patch |
-| 4 | Adds no commented-out code | Patch |
-| 5 | Adds no TODO or FIXME | Patch |
-| 6 | Gives each new function a docstring | Patch |
-| 7 | Uses British spelling in new comments | Patch |
-| 8 | Changes at most 3 non-test files | Patch |
-| 9 | Ends the final message with a `Summary:` of at most 3 bullets | Final message |
-| 10 | States the test command used, as `Tested with:` | Final message |
+| #   | Preference                                                    | Checked in    |
+| --- | ------------------------------------------------------------- | ------------- |
+| 1   | Adds a regression test                                        | Patch         |
+| 2   | Adds no new dependency                                        | Patch         |
+| 3   | Leaves no debug `print` lines                                 | Patch         |
+| 4   | Adds no commented-out code                                    | Patch         |
+| 5   | Adds no TODO or FIXME                                         | Patch         |
+| 6   | Gives each new function a docstring                           | Patch         |
+| 7   | Uses British spelling in new comments                         | Patch         |
+| 8   | Changes at most 3 non-test files                              | Patch         |
+| 9   | Ends the final message with a `Summary:` of at most 3 bullets | Final message |
+| 10  | States the test command used, as `Tested with:`               | Final message |
 
 In the pilot, run arm N and keep a preference only if the agent breaks it in at least half of the runs. Without that, there is nothing to learn.
 
@@ -254,10 +262,10 @@ In the pilot, run arm N and keep a preference only if the agent breaks it in at 
 **Crossing projects.** One sequence is 12 tasks over 3 repositories: 4 tasks each from Django, scikit-learn and Sphinx, using the first 4 tasks of each Study 1 window. Each repeat rotates the order, so that every repository appears in the final block:
 
 | Repeat | Block 1 (tasks 1 to 4) | Block 2 (tasks 5 to 8) | Block 3 (tasks 9 to 12) |
-|---|---|---|---|
-| 1 | Django | scikit-learn | Sphinx |
-| 2 | scikit-learn | Sphinx | Django |
-| 3 | Sphinx | Django | scikit-learn |
+| ------ | ---------------------- | ---------------------- | ----------------------- |
+| 1      | Django                 | scikit-learn           | Sphinx                  |
+| 2      | scikit-learn           | Sphinx                 | Django                  |
+| 3      | Sphinx                 | Django                 | scikit-learn            |
 
 OMMS keeps one memory store per project, so arm M starts empty at each new repository. The persona does not.
 
@@ -286,12 +294,12 @@ OMMS keeps one memory store per project, so arm M starts empty at each new repos
 
 The study evaluates in layers. If the agent does not improve, the lower layers show why.
 
-| Layer | Question | Measure |
-|---|---|---|
-| 1. Memory quality | Can the retriever find the right items? | Existing retrieval experiments (`experiments/`) |
-| 2. Context quality | Did the injected text hold what the task needed? Did the agent use it? | Coverage, utilisation |
-| 3. Agent outcome | Did the agent do better work? | Pass rate, recall probes, preferences broken |
-| 4. Cost | What did it cost? | Cache-aware cost per task |
+| Layer              | Question                                                               | Measure                                         |
+| ------------------ | ---------------------------------------------------------------------- | ----------------------------------------------- |
+| 1. Memory quality  | Can the retriever find the right items?                                | Existing retrieval experiments (`experiments/`) |
+| 2. Context quality | Did the injected text hold what the task needed? Did the agent use it? | Coverage, utilisation                           |
+| 3. Agent outcome   | Did the agent do better work?                                          | Pass rate, recall probes, preferences broken    |
+| 4. Cost            | What did it cost?                                                      | Cache-aware cost per task                       |
 
 **Pass rate per task (primary for Study 1).** The share of a task's 3 runs that pass the official grader. This is Pass@1 with the field's usual meaning.
 
@@ -317,6 +325,7 @@ cost = uncached_input x p_in
 - Arm R makes no chat-model call for its index, because embeddings run locally. So D against R shows what the digest costs.
 
 **Analysis.**
+
 1. **Unit.** One task on one harness. Its result is the mean over its 3 runs. Run k of one arm has nothing in common with run k of another, so pair by task.
 2. **Cost change.** The mean over tasks of log(cost_arm / cost_N), shown as a percent change. Also report the ratio of total costs, and each repository.
 3. **Intervals.** A paired bootstrap over tasks, 10,000 draws. Tasks in one sequence share a memory store, so they are not independent. Say so in the paper, and report the main results leaving out one repository at a time.
@@ -404,6 +413,7 @@ Arm N on each harness is the same command without OMMS.
 ### 8.5 Keeping the answer out of reach
 
 The paper blocks GitHub inside its container. We use four weaker steps:
+
 1. The working folder is a new repository with one commit, so no future commits are in it.
 2. No web tools, and a short Bash allow list. Python can still reach the network, so add a pre-tool hook or extension that refuses shell commands naming GitHub, as the paper does.
 3. Scan every transcript for `github.com`, `pip download` and similar. Drop any flagged run, in all arms.
@@ -414,6 +424,7 @@ A stronger option: a Docker container with a proxy that allows only the model AP
 ### 8.6 Python environment and grading
 
 Each task needs its own Python version and packages. Without them, `pytest` fails on imports and the agent spends turns on setup. Two options, and the pilot decides:
+
 1. Run the harness inside the task's container image, with the run's `HOME` mounted. This matches the grader.
 2. Build a virtual environment per task from the harness install steps.
 
@@ -422,6 +433,7 @@ Each task needs its own Python version and packages. Without them, `pytest` fail
 **Where to run.** Start on the Mac. The bigger question is the full run, because the agents may also need the x86 task images. The fixed gap alone comes to about 252 hours if Study 1 runs one sequence at a time (210 sequences, 72 minutes each), so it needs parallel runs. Those also load the Mac with the embedder and reranker. If the pilot is too slow, rent an x86 Linux machine for the main run.
 
 Grading on Apple silicon, in the order we suggest:
+
 1. Build arm64 images with the official harness. Check a few tasks against published results.
 2. Grade on a rented x86 Linux machine. Only patches and the grader go there.
 3. Run x86 images under emulation. Slow, but it works.
@@ -454,35 +466,35 @@ Log the injected window ids and tokens in the same ledger format as arm D.
 
 ## 9. Controls and threats to validity
 
-| Threat | Control |
-|---|---|
-| Run-to-run variation | Three repeats. Paired by task. Report spread. |
-| Cache effects | Same cache setting. A fixed gap in every arm. Report cache tokens apart from fresh tokens. |
-| OMMS capture cost hidden | Capture calls charged to the task. |
-| Memory missing because capture was slow | The runner waits, and logs the wait. |
-| Tuning on test tasks | Separate pilot tasks. Settings frozen before the main run. |
-| Model has seen the tasks | Stated limit. Compare arms, not absolute pass rates. |
-| Price changes | Store the price table and date. Report token counts. |
-| Raw arm given too much or too little | Budget rule in section 5.4. Cutoff set by rule. Report injected tokens. |
-| Reranker mixed with the digest effect | Same reranker and pool in D and R (section 5.3). |
-| Reranker timeouts differ by arm | Raised timeout. Log and report fallbacks per arm. |
-| One system stands in for all memory | State the scope. Do not generalise beyond digest-then-retrieve. |
-| Independent issues hide a benefit | Tasks close in date, recall probes, order plot. |
-| Scripted user is artificial | Label it. State what it can and cannot show. |
-| Grading rules may be wrong | Hand check of 20 patches. Rules hidden from the persona. |
-| Harness differences | Compare inside a harness. Same repositories on both. Report base prompt size. |
-| Real data leaks into the study | Scratch `HOME`, backfill off, own port. |
+| Threat                                  | Control                                                                                    |
+| --------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Run-to-run variation                    | Three repeats. Paired by task. Report spread.                                              |
+| Cache effects                           | Same cache setting. A fixed gap in every arm. Report cache tokens apart from fresh tokens. |
+| OMMS capture cost hidden                | Capture calls charged to the task.                                                         |
+| Memory missing because capture was slow | The runner waits, and logs the wait.                                                       |
+| Tuning on test tasks                    | Separate pilot tasks. Settings frozen before the main run.                                 |
+| Model has seen the tasks                | Stated limit. Compare arms, not absolute pass rates.                                       |
+| Price changes                           | Store the price table and date. Report token counts.                                       |
+| Raw arm given too much or too little    | Budget rule in section 5.4. Cutoff set by rule. Report injected tokens.                    |
+| Reranker mixed with the digest effect   | Same reranker and pool in D and R (section 5.3).                                           |
+| Reranker timeouts differ by arm         | Raised timeout. Log and report fallbacks per arm.                                          |
+| One system stands in for all memory     | State the scope. Do not generalise beyond digest-then-retrieve.                            |
+| Independent issues hide a benefit       | Tasks close in date, recall probes, order plot.                                            |
+| Scripted user is artificial             | Label it. State what it can and cannot show.                                               |
+| Grading rules may be wrong              | Hand check of 20 patches. Rules hidden from the persona.                                   |
+| Harness differences                     | Compare inside a harness. Same repositories on both. Report base prompt size.              |
+| Real data leaks into the study          | Scratch `HOME`, backfill off, own port.                                                    |
 
 ## 10. Staged plan and gates
 
-| Stage | Content | Runs | Gate to the next stage |
-|---|---|---|---|
-| 0. Build | OMMS items 1 to 5 and 9 with tests, and the raw-turn harness | none | Ledger rows appear on a real session on both harnesses. |
-| 1. Pilot | Django pilot tasks, 8 tasks, arms N, D and R, 2 repeats, on each harness | 48 per harness | All checks below pass. Cost per run known. |
-| 2. Study 1 | Section 5 | 2,520, plus 630 short probes | Analysis plan frozen before this starts. |
-| 3. Build persona | OMMS items 6 to 8, with tests | none | Persona confirms and injects on a test sequence. |
-| 4. Persona pilot | Arm N on pilot tasks, to filter the 10 preferences | about 16 | At least 5 preferences survive the filter. |
-| 5. Study 2 | Section 6 | 288 | None. |
+| Stage            | Content                                                                  | Runs                         | Gate to the next stage                                  |
+| ---------------- | ------------------------------------------------------------------------ | ---------------------------- | ------------------------------------------------------- |
+| 0. Build         | OMMS items 1 to 5 and 9 with tests, and the raw-turn harness             | none                         | Ledger rows appear on a real session on both harnesses. |
+| 1. Pilot         | Django pilot tasks, 8 tasks, arms N, D and R, 2 repeats, on each harness | 48 per harness               | All checks below pass. Cost per run known.              |
+| 2. Study 1       | Section 5                                                                | 2,520, plus 630 short probes | Analysis plan frozen before this starts.                |
+| 3. Build persona | OMMS items 6 to 8, with tests                                            | none                         | Persona confirms and injects on a test sequence.        |
+| 4. Persona pilot | Arm N on pilot tasks, to filter the 10 preferences                       | about 16                     | At least 5 preferences survive the filter.              |
+| 5. Study 2       | Section 6                                                                | 288                          | None.                                                   |
 
 Total: about 2,920 full runs plus the short probes. Cost is runs times cost per run, and the cost per run is unknown until the pilot. Do not start stage 2 before you know it.
 
@@ -509,31 +521,32 @@ Each group needs an OpenSpec proposal before code.
 
 **Change 1, cost ledger (Study 1).**
 
-| # | Where | Change |
-|---|---|---|
-| 1 | Claude Code: `src/importer/claude-conversation.ts`. Pi: `PiSessionEntry` in `src/importer/pi-conversation.ts`. | Read token usage per turn. Claude Code has `message.usage` in the transcript. Pi has `usage` (input, output, cacheRead, cacheWrite, cost) in the session file. |
-| 2 | New ledger store, for example `ledger.db` beside `skills.db` | One row per turn with no text: hashed ids, model, the four token counts, recalled ids, bytes cut by the budget, arm label. Written whether or not `skillLearning` is on. `skills.db` is not changed. |
-| 3 | `src/services/capture-attempt-store.ts`. Pi: `registry.complete()` and `PiAssistantReply` in `src/adapters/pi/provider.ts`. | Keep the token usage of OMMS's own capture calls. Pi drops it today. |
-| 4 | `src/importer/claude-hook-context.ts` and `buildRetrievalSection` in `src/core/retrieval.ts`. Pi: at injection, because the recall code returns early outside the TUI. | Log the recalled ids and the bytes cut by the budget. |
-| 5 | `src/importer/claude-hook-api.ts` or the web server routes | Expose `whenClaudeCaptureIdle()` through an HTTP route, so a runner can wait for capture. Today only tests call it. |
+| #   | Where                                                                                                                                                                  | Change                                                                                                                                                                                               |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Claude Code: `src/importer/claude-conversation.ts`. Pi: `PiSessionEntry` in `src/importer/pi-conversation.ts`.                                                         | Read token usage per turn. Claude Code has `message.usage` in the transcript. Pi has `usage` (input, output, cacheRead, cacheWrite, cost) in the session file.                                       |
+| 2   | New ledger store, for example `ledger.db` beside `skills.db`                                                                                                           | One row per turn with no text: hashed ids, model, the four token counts, recalled ids, bytes cut by the budget, arm label. Written whether or not `skillLearning` is on. `skills.db` is not changed. |
+| 3   | `src/services/capture-attempt-store.ts`. Pi: `registry.complete()` and `PiAssistantReply` in `src/adapters/pi/provider.ts`.                                            | Keep the token usage of OMMS's own capture calls. Pi drops it today.                                                                                                                                 |
+| 4   | `src/importer/claude-hook-context.ts` and `buildRetrievalSection` in `src/core/retrieval.ts`. Pi: at injection, because the recall code returns early outside the TUI. | Log the recalled ids and the bytes cut by the budget.                                                                                                                                                |
+| 5   | `src/importer/claude-hook-api.ts` or the web server routes                                                                                                             | Expose `whenClaudeCaptureIdle()` through an HTTP route, so a runner can wait for capture. Today only tests call it.                                                                                  |
 
 **Study-only change, hybrid arm.**
 
-| # | Where | Change |
-|---|---|---|
-| 9 | `src/services/turso/vector-search.ts` and `src/services/retrieval-rerank.ts`, behind a setting | A BM25 index over memory text (for example SQLite FTS5), fused with dense candidates. The keyword boost today matches tags only. Needed for arm D-H. Arm R-H does this in the study harness. |
+| #   | Where                                                                                          | Change                                                                                                                                                                                       |
+| --- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 9   | `src/services/turso/vector-search.ts` and `src/services/retrieval-rerank.ts`, behind a setting | A BM25 index over memory text (for example SQLite FTS5), fused with dense candidates. The keyword boost today matches tags only. Needed for arm D-H. Arm R-H does this in the study harness. |
 
 **Change 2, persona (Study 2).**
 
-| # | Where | Change |
-|---|---|---|
-| 6 | `src/services/user-profile/` (read first; `injectProfile`, `userProfileAnalysisInterval`) | Decide: extend the profile, or replace it with persona items that have a state and evidence. |
-| 7 | New pure module, with `CONFIG` passed as an argument | Lifecycle rules (section 6.1) and injection under a token budget. Config key `persona.mode`: `off` or `on`. Log the injected ids and tokens to the ledger. |
-| 8 | New `user-persona.md` export | A readable, editable file with review and undo, like skill drafts. Correction events go to the ledger. |
+| #   | Where                                                                                     | Change                                                                                                                                                     |
+| --- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 6   | `src/services/user-profile/` (read first; `injectProfile`, `userProfileAnalysisInterval`) | Decide: extend the profile, or replace it with persona items that have a state and evidence.                                                               |
+| 7   | New pure module, with `CONFIG` passed as an argument                                      | Lifecycle rules (section 6.1) and injection under a token budget. Config key `persona.mode`: `off` or `on`. Log the injected ids and tokens to the ledger. |
+| 8   | New `user-persona.md` export                                                              | A readable, editable file with review and undo, like skill drafts. Correction events go to the ledger.                                                     |
 
 Host parity (`AGENTS.md`) asks for OpenCode as well. The ledger and persona should reach OpenCode in the same changes, even though the paper does not measure it.
 
 **Notes from reading the code.**
+
 - `turns` in `skills.db` fills only when `skillLearning` is on, so the ledger needs its own store.
 - Project memories and `user-prompts.db` must not read `skills.db`. The ledger follows this rule.
 - Never log raw prompts or replies in the ledger.
@@ -565,6 +578,7 @@ Left out to keep one clear paper. Each could come later.
 Task lists, run records, transcripts, results, patches, ledger, grader output, scripts, price table, `NOTICE` with the five licences, the 10 preferences and rules, and the OMMS version used. Study 2's persona is synthetic, so it can be released in full.
 
 Before release:
+
 - Search for personal names, home paths (`/Users/<name>/`), email addresses, API keys and tokens. Replace paths with `~` or a placeholder. Do not edit data files that have recorded checksums without asking.
 - Record a SHA-256 checksum for each large archive. Keep a second copy on another device. Large files live in `~/Development/DATA/`, not in git.
 - Check the SWE-Bench dataset licence.
@@ -574,12 +588,12 @@ Before release:
 
 Recorded on 2026-11-04. Items 1 to 3 and 5 can change before the main run, but not after it starts.
 
-| # | Decision | Choice | Reason |
-|---|---|---|---|
-| 1 | Model | Claude Sonnet 5.5 at medium effort, pinned as `claude-sonnet-5-5`, on both harnesses | Cheaper than Opus, and the TokenEconomizer paper also tested a Sonnet model. GLM 5.3 stays out, because a second model would double the runs and its cache token reporting is unchecked. It is good later work. |
-| 2 | Capture model | DeepSeek flash (`deepseek-flash`), with reasoning off through `memoryExtraParams` | It is the current OMMS setting, so the study tests the real setup. Earlier timing work stalled on z.ai and ran well on DeepSeek. Add its prices to the price table. |
-| 3 | Where to run and grade | Start on the Mac (M5 Pro, 64 GB, 344 GB free). Rent an x86 Linux machine for the main run if the pilot is too slow. | Section 8.6. |
-| 4 | Access and budget | Use `ANTHROPIC_API_KEY` by default. Retest subscription login with `--bare` in the pilot. Set the spend limit after the pilot gives the cost per run. | `--bare` is documented to ignore login, and an earlier test lost Keychain access under a scratch `HOME`. A subscription limit could stop a run partway, or hit one arm more than another. |
-| 5 | The preferences | The 10 in section 6.3 | Drafted for this study and approved. The persona pilot filters them. |
-| 6 | Ethics | Public tasks and your own data need no approval. Volunteer data would, so ask Edinburgh Napier before you collect any. | The paper uses no volunteer data. |
-| 7 | Reranker model | Qwen3-Reranker-4B | The raw-RAG paper uses it in one of its settings. The pilot checks its speed when sequences run in parallel. |
+| #   | Decision               | Choice                                                                                                                                                | Reason                                                                                                                                                                                                          |
+| --- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Model                  | Claude Sonnet 5.5 at medium effort, pinned as `claude-sonnet-5-5`, on both harnesses                                                                  | Cheaper than Opus, and the TokenEconomizer paper also tested a Sonnet model. GLM 5.3 stays out, because a second model would double the runs and its cache token reporting is unchecked. It is good later work. |
+| 2   | Capture model          | DeepSeek flash (`deepseek-flash`), with reasoning off through `memoryExtraParams`                                                                     | It is the current OMMS setting, so the study tests the real setup. Earlier timing work stalled on z.ai and ran well on DeepSeek. Add its prices to the price table.                                             |
+| 3   | Where to run and grade | Start on the Mac (M5 Pro, 64 GB, 344 GB free). Rent an x86 Linux machine for the main run if the pilot is too slow.                                   | Section 8.6.                                                                                                                                                                                                    |
+| 4   | Access and budget      | Use `ANTHROPIC_API_KEY` by default. Retest subscription login with `--bare` in the pilot. Set the spend limit after the pilot gives the cost per run. | `--bare` is documented to ignore login, and an earlier test lost Keychain access under a scratch `HOME`. A subscription limit could stop a run partway, or hit one arm more than another.                       |
+| 5   | The preferences        | The 10 in section 6.3                                                                                                                                 | Drafted for this study and approved. The persona pilot filters them.                                                                                                                                            |
+| 6   | Ethics                 | Public tasks and your own data need no approval. Volunteer data would, so ask Edinburgh Napier before you collect any.                                | The paper uses no volunteer data.                                                                                                                                                                               |
+| 7   | Reranker model         | Qwen3-Reranker-4B                                                                                                                                     | The raw-RAG paper uses it in one of its settings. The pilot checks its speed when sequences run in parallel.                                                                                                    |
