@@ -1,4 +1,5 @@
-import { CONFIG } from "../config.js";
+import * as configModule from "../config.js";
+import { activeSpaceLine } from "./spaces/context-line.js";
 import { getUserProfileContext } from "./user-profile/profile-context.js";
 import {
   packContextSection,
@@ -15,6 +16,12 @@ interface MemoryResultMinimal {
 
 interface MemoriesResponseMinimal {
   results?: MemoryResultMinimal[];
+}
+
+/** Tests that stub `config.js` may leave out `getActiveSpace`, so a missing one means Default. */
+function spaceLine(): string {
+  const space = configModule.getActiveSpace?.() ?? { name: "Default", customStoragePath: false };
+  return activeSpaceLine(space);
 }
 
 const HEADER_TEXT =
@@ -40,7 +47,7 @@ export async function formatContextForPrompt(
 ): Promise<string> {
   const blocks: BudgetedBlock[] = [];
 
-  if (CONFIG.injectProfile && userId) {
+  if (configModule.CONFIG.injectProfile && userId) {
     const profileContext = await getUserProfileContext(userId, queryVector);
     if (profileContext) {
       blocks.push({
@@ -79,7 +86,7 @@ export async function formatContextForPrompt(
 
   const packed = packContextSection({
     ...(budget ?? {}),
-    header: `<memory_context>\n${HEADER_TEXT}\n\n`,
+    header: `<memory_context>\n${HEADER_TEXT}\n${spaceLine()}\n\n`,
     footer: "\n</memory_context>",
     blockSeparator: "\n",
     blocks,

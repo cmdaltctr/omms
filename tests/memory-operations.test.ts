@@ -260,6 +260,7 @@ describe("memory operations (shared tool path) characterisation", () => {
       "search",
       "profile",
       "list",
+      "space",
       "forget",
       "list-shards",
       "migrate",

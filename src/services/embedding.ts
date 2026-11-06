@@ -81,7 +81,8 @@ async function ensureTransformersLoaded(): Promise<NonNullable<typeof _transform
   const mod = requireFromHere(transformersEntry) as HfTransformers;
   mod.env.allowLocalModels = true;
   mod.env.allowRemoteModels = true;
-  mod.env.cacheDir = join(CONFIG.storagePath, ".cache");
+  // The model cache is shared by every memory space, so it stays in the global path (ADR-041).
+  mod.env.cacheDir = join(CONFIG.skillStoragePath ?? CONFIG.storagePath, ".cache");
   // Keep ONNX WASM single-threaded for Bun/Node runtimes without SharedArrayBuffer.
   try {
     (mod.env as any).backends.onnx.wasm.numThreads = 1;

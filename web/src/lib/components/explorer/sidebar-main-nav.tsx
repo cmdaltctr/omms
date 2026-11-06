@@ -2,11 +2,15 @@ import type { ComponentProps, ComponentType, MouseEvent, ReactElement } from "re
 import { Folder, MessageSquare, Sparkles, User } from "lucide-react";
 import { ProfileTree } from "./ProfileTree";
 import { SidebarNavLink } from "./SidebarNavLink";
+import { SpaceNav } from "$lib/components/spaces";
 import { ROUTES, type AppView } from "$lib/router";
 
 type NavIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 
-/** The sidebar's main links in order. Memory and Settings follow, each with its own tree. */
+/**
+ * The sidebar's main links in order, after the Spaces item. Memory and Settings follow,
+ * each with its own tree.
+ */
 export const MAIN_NAV = [
   { view: "project", href: ROUTES.project, icon: Folder },
   { view: "chat", href: ROUTES.chat, icon: MessageSquare },
@@ -41,7 +45,17 @@ export function mainNavEntries({
   profileTree,
   skillsTree,
 }: Options): ReactElement[] {
-  return MAIN_NAV.map(({ view, href, icon }) => {
+  const space = (
+    <SpaceNav
+      key="spaces"
+      className={navClass(currentView === "spaces" || currentView === "spaces-archive")}
+      collapsed={collapsed}
+      currentView={currentView}
+      hideWhenCollapsed={profileTree.hideWhenCollapsed}
+      onNavigate={onNavigate}
+    />
+  );
+  const links = MAIN_NAV.map(({ view, href, icon }) => {
     const label = labels[view];
     const entry = (
       <SidebarNavLink
@@ -66,4 +80,5 @@ export function mainNavEntries({
       );
     return entry;
   });
+  return [space, ...links];
 }

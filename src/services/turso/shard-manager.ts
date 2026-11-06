@@ -2,7 +2,7 @@ import { join, basename, resolve, relative } from "node:path";
 import { existsSync, renameSync, unlinkSync } from "node:fs";
 import { CONFIG } from "../../config.js";
 import { assertSafeScopeHash } from "../memory-scope.js";
-import { tursoConnectionManager } from "./connection-manager.js";
+import { resettable, tursoConnectionManager } from "./connection-manager.js";
 import { log } from "../logger.js";
 import { assertNoTursoMigrationInProgress } from "./operation-lock.js";
 import { withCrossProcessWriteLock } from "./cross-process-write-lock.js";
@@ -621,4 +621,4 @@ export class TursoShardManager {
   }
 }
 
-export const tursoShardManager = new TursoShardManager();
+export const tursoShardManager = resettable("shards", new TursoShardManager());

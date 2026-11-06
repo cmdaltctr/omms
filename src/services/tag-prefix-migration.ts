@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
 import { CONFIG, getExplicitContainerTagPrefix } from "../config.js";
 import { log } from "./logger.js";
+import { writeBackupManifest } from "./spaces/backup.js";
 import {
   copyFilesWithVerification,
   timestampSlug,
@@ -49,7 +50,6 @@ const FROM_PREFIX = "opencode";
 const TO_PREFIX = "omms";
 const TO_PREFIX_WITH_SEP = "omms_";
 const METADATA_DB_NAME = "metadata.db";
-const MANIFEST_FILE = "manifest.json";
 const COMPLETION_TABLE = "tag_prefix_migration";
 const SHARD_MARKER_TABLE = "shard_metadata";
 const BACKUPS_DIR_NAME = "backups";
@@ -414,21 +414,13 @@ async function createVerifiedBackup(storePath: string, targets: ShardTarget[]): 
   }
   manifest.push(...copyFilesWithVerification(storePath, backupRoot, remaining));
 
-  writeFileSync(
-    join(backupRoot, MANIFEST_FILE),
-    JSON.stringify(
-      {
-        createdAt: new Date().toISOString(),
-        kind: "tag-prefix-migration",
-        source: storePath,
-        fileCount: manifest.length,
-        files: manifest,
-      },
-      null,
-      2
-    ),
-    "utf-8"
-  );
+  writeBackupManifest(backupRoot, {
+    createdAt: new Date().toISOString(),
+    kind: "tag-prefix-migration",
+    source: storePath,
+    fileCount: manifest.length,
+    files: manifest,
+  });
   return backupRoot;
 }
 

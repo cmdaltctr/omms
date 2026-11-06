@@ -2,6 +2,7 @@ import { useEffect, useState, type MouseEvent } from "react";
 import { Select } from "$lib/components/ui/select";
 import { Loader, Menu, Plus, RefreshCw, Search, Trash, TriangleAlert, X } from "lucide-react";
 import { useMemoriesExplorer } from "@/hooks/useMemoriesExplorer";
+import { useSpaceReload } from "@/hooks/useSpaceReload";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { AiCleanupDialog } from "$lib/components/explorer/AiCleanupDialog";
 import { AiCleanupPill } from "$lib/components/explorer/AiCleanupPill";
@@ -16,6 +17,7 @@ import { SettingsView } from "$lib/components/settings/SettingsView";
 import { MemoryView } from "$lib/components/memory/MemoryView";
 import { ChatView } from "$lib/components/chat/ChatView";
 import { SkillsView } from "$lib/components/skills/SkillsView";
+import { ArchiveView, SpacesView } from "$lib/components/spaces";
 import { Alert, AlertDescription } from "$lib/components/ui/alert";
 import { Button } from "$lib/components/ui/button";
 import { Checkbox } from "$lib/components/ui/checkbox";
@@ -33,19 +35,7 @@ import { SETTINGS_SECTIONS } from "$lib/settings-sections";
 import { clearTagMigrationClose, rememberTagMigrationClose } from "$lib/tag-migration-prompt";
 import { initRouter, navigate, ROUTES, useAppView } from "$lib/router";
 import { useMemorySidebar } from "$lib/memory-sidebar";
-
-const MEMORY_TYPES = [
-  "",
-  "feature",
-  "bug-fix",
-  "refactor",
-  "architecture",
-  "rule",
-  "documentation",
-  "discussion",
-  "analysis",
-  "configuration",
-] as const;
+import { MEMORY_TYPES } from "$lib/memory-types";
 
 export default function App() {
   const { t, language } = useI18n();
@@ -55,6 +45,7 @@ export default function App() {
 
   const explorer = useMemoriesExplorer();
   const profile = useUserProfile();
+  const spaceEpoch = useSpaceReload(explorer, profile);
 
   useEffect(() => {
     const stopRouter = initRouter();
@@ -180,7 +171,11 @@ export default function App() {
                         ? t("nav-chat")
                         : currentView === "skills"
                           ? t("nav-skills")
-                          : t("nav-settings")}
+                          : currentView === "spaces"
+                            ? t("nav-spaces")
+                            : currentView === "spaces-archive"
+                              ? t("nav-spaces-archive")
+                              : t("nav-settings")}
               </h1>
               {currentView === "project" ? (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -432,11 +427,15 @@ export default function App() {
                 </section>
               </>
             ) : currentView === "memory" ? (
-              <MemoryView />
+              <MemoryView key={spaceEpoch} />
             ) : currentView === "chat" ? (
-              <ChatView />
+              <ChatView key={spaceEpoch} />
             ) : currentView === "skills" ? (
               <SkillsView />
+            ) : currentView === "spaces" ? (
+              <SpacesView />
+            ) : currentView === "spaces-archive" ? (
+              <ArchiveView />
             ) : currentView === "settings" ? (
               <SettingsView />
             ) : (

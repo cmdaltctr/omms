@@ -4,6 +4,10 @@ import { HostAppearanceError, createHostAppearance } from "./host-appearance.js"
 type Appearance = ReturnType<typeof createHostAppearance>;
 const instances = new Map<string, Appearance>();
 
+/** Host icons are global: a memory space switch must not hide them (ADR-041). */
+const globalFolder = (config: { storagePath: string; skillStoragePath?: string }) =>
+  config.skillStoragePath ?? config.storagePath;
+
 function appearanceFor(storagePath: string): Appearance {
   const directory = join(storagePath, "host-appearance");
   let appearance = instances.get(directory);
@@ -31,7 +35,7 @@ export async function routeMemoryHosts(
   method: string,
   url: URL,
   readBody: () => Promise<any>,
-  config: { storagePath: string }
+  config: { storagePath: string; skillStoragePath?: string }
 ): Promise<{ status: number; body: unknown } | undefined> {
   if (path === "/api/memory/write-health" && method === "GET") {
     const { checkWriteHealth } = await import("./write-health-checks.js");
@@ -39,12 +43,12 @@ export async function routeMemoryHosts(
   }
 
   if (path === "/api/host-appearance" && method === "GET") {
-    return { status: 200, body: { hosts: await appearanceFor(config.storagePath).read() } };
+    return { status: 200, body: { hosts: await appearanceFor(globalFolder(config)).read() } };
   }
 
   const host = /^\/api\/host-appearance\/([^/]+)$/.exec(path)?.[1];
   if (!host) return undefined;
-  const appearance = appearanceFor(config.storagePath);
+  const appearance = appearanceFor(globalFolder(config));
   try {
     if (method === "PUT") {
       const body = await readBody();

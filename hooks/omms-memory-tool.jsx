@@ -13,7 +13,7 @@ const REASON_LIMIT = 500;
 
 // `import`, `export`, `migrate` and `list-shards` are left out on purpose: they
 // move or rewrite whole stores and files. The user runs them in a terminal.
-const MODES = ["search", "add", "list", "profile", "forget", "help"];
+const MODES = ["search", "add", "list", "profile", "forget", "space", "help"];
 
 export const DESCRIPTION = [
   "Search and save OMMS project memory: earlier fixes, decisions and conventions. Use this tool instead of running `om-memory-system memory` through Bash; it runs the same command.",
@@ -21,6 +21,7 @@ export const DESCRIPTION = [
   'If a project search finds nothing, retry with other keywords, then scope "all-projects".',
   'mode "add" (content, type, tags): save one short memory after a decision, a bug fix or a stated preference. Never store secrets.',
   'mode "list" (limit, scope), "profile" (content saves a personal preference), "forget" (id; only when the user asks), "help".',
+  'mode "space" (action, name): memory spaces keep separate stores. Actions: list, status, create, use (make a space active for every host), archive, unarchive. Deleting a space is only possible in the web app.',
 ].join(" ");
 
 export const INPUT_SCHEMA = {
@@ -36,6 +37,11 @@ export const INPUT_SCHEMA = {
     },
     tags: { type: "string", description: "Comma-separated tags (add)." },
     id: { type: "string", description: "Memory id (forget)." },
+    action: {
+      type: "string",
+      description: "list, status, create, use, archive or unarchive (space). Default list.",
+    },
+    name: { type: "string", description: "Space name or id (space)." },
     limit: { type: "number", description: "Most results to return (search, list)." },
     scope: {
       type: "string",
@@ -76,6 +82,10 @@ function memoryArgs(input) {
     const id = text(input.id);
     if (!id) return { error: "forget needs an id." };
     flag("id", id);
+  }
+  if (mode === "space") {
+    flag("action", text(input.action));
+    flag("name", text(input.name));
   }
   if (mode === "search" || mode === "list") {
     const limit = Number(input.limit);

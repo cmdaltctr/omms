@@ -70,6 +70,29 @@ it("requires the web token for every host appearance request", async () => {
   expect(result).toEqual({ readNoToken: 401, putNoToken: 401, deleteNoToken: 401, readToken: 200 });
 });
 
+it("keeps the host icons when the active memory space changes", async () => {
+  const { result } = await scenario(`
+    const { initConfig } = await import(${src("config.ts")});
+    initConfig(process.cwd());
+    const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+    const auth = { "x-omms-token": token };
+    const read = async () => (await (await call(server, "/api/host-appearance", { headers: auth })).json()).hosts.pi;
+    await call(server, "/api/host-appearance/pi", { method: "PUT", headers: auth, body: { kind: "icon", icon: "bot" } });
+    const before = await read();
+    const created = (await call(server, "/api/spaces", { method: "POST", headers: auth, body: { name: "Other" } })).status;
+    const switched = (await call(server, "/api/spaces/other/switch", { method: "POST", headers: auth })).status;
+    const active = (await (await call(server, "/api/web/status", { headers: auth })).json()).activeSpace.id;
+    const inOther = await read();
+    await call(server, "/api/host-appearance/pi", { method: "PUT", headers: auth, body: { kind: "icon", icon: "cat" } });
+    await call(server, "/api/spaces/default/switch", { method: "POST", headers: auth });
+    return { created, switched, active, before, inOther, back: await read() };
+  `);
+  expect([result.created, result.switched, result.active]).toEqual([200, 200, "other"]);
+  expect(result.before).toEqual({ kind: "icon", icon: "bot" });
+  expect(result.inOther).toEqual({ kind: "icon", icon: "bot" });
+  expect(result.back).toEqual({ kind: "icon", icon: "cat" });
+});
+
 it("saves, shows and resets a host icon through the web server", async () => {
   const { result } = await scenario(`
     const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });

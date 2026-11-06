@@ -5,6 +5,9 @@ import { CONFIG } from "../../config.js";
 import { log } from "../logger.js";
 import { collectReleasedSqliteHandles } from "./sqlite-handle-release.js";
 import { TursoDb } from "./turso-db.js";
+import { resettable } from "../spaces/store-handles.js";
+
+export { resettable };
 
 function toFileUrl(dbPath: string): string {
   return dbPath.startsWith("file:") ? dbPath : `file:${dbPath}`;
@@ -177,4 +180,6 @@ export class TursoConnectionManager {
   }
 }
 
-export const tursoConnectionManager = new TursoConnectionManager();
+export const tursoConnectionManager = resettable("connections", new TursoConnectionManager(), (m) =>
+  m.closeAll()
+);

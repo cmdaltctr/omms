@@ -5,6 +5,7 @@ The [project README](../README.md#documentation) lists the user and developer gu
 ## Using OMMS
 
 - [Using memory](using-memory.md) explains capture, retrieval and profile learning.
+- [Memory spaces](memory-spaces.md) covers separate stores, the globe switcher, backups and the `space` command.
 - [Configuration](configuration.md) covers config files, model selection, privacy and embeddings.
 - [CLI reference](cli.md) lists the terminal commands.
 - [Skill learning](skill-learning.md) covers recording turns, ranking skills, drafting improvements, and apply and undo.

@@ -93,3 +93,5 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 - **Deprecated**: No longer relevant.
 
 Once a TDR is **Accepted**, supersede its decision with a new TDR rather than editing it.
+| [063](./063-profile-cold-buffers-followed-a-storage-switch.md) | Profile cold buffers followed a storage switch | Accepted | 2026-11-06 |
+| [064](./064-host-icons-lived-in-the-active-space-folder.md) | Host icons lived in the active space folder | Accepted | 2026-11-06 |

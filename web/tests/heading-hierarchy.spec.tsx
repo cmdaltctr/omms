@@ -110,6 +110,24 @@ for (const [view, key] of [
   });
 }
 
+for (const language of ["en", "zh", "ar"] as const) {
+  it(`presents the ${language} Spaces H1 as the translated page title`, () => {
+    const heading = pageHeading("spaces", language);
+    expect(heading.children).toBe(t("nav-spaces", {}, language));
+    expect(heading.children).not.toBe(t("nav-settings", {}, language));
+    expect(heading.className.split(/\s+/)).not.toContain("uppercase");
+  });
+}
+
+for (const language of ["en", "zh", "ar"] as const) {
+  it(`presents the ${language} Archive H1 as the translated page title`, () => {
+    const heading = pageHeading("spaces-archive", language);
+    expect(heading.children).toBe(t("nav-spaces-archive", {}, language));
+    expect(heading.children).not.toBe(t("nav-spaces", {}, language));
+    expect(heading.className.split(/\s+/)).not.toContain("uppercase");
+  });
+}
+
 for (const language of ["zh", "ar"] as const) {
   for (const view of ["memory", "settings"] as const) {
     it(`keeps the ${language} ${view} H1 translation and casing unchanged`, () => {

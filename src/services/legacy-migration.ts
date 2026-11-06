@@ -168,7 +168,7 @@ function timestampSlug(date = new Date()): string {
     .replace(/\.\d{3}Z$/, "Z");
 }
 
-export { timestampSlug };
+export { sha256File, timestampSlug, verifyManifest };
 
 function isProcessAlive(pid: number): boolean {
   try {

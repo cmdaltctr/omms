@@ -13,7 +13,7 @@ import type { FirstPromptSections, V2MemoryBridge } from "./memory-bridge.js";
 import { createRecallReporter } from "./recall-reporter.js";
 import { createSessionParents } from "./session-parent.js";
 
-const memoryInput = {
+export const memoryInput = {
   type: "object",
   properties: {
     mode: {
@@ -29,6 +29,7 @@ const memoryInput = {
         "list-shards",
         "export",
         "import",
+        "space",
       ],
     },
     content: { type: "string" },
@@ -44,6 +45,8 @@ const memoryInput = {
     inputPath: { type: "string" },
     dryRun: { type: "boolean" },
     allowLinkedSource: { type: "boolean" },
+    spaceAction: { type: "string" },
+    spaceName: { type: "string" },
   },
   additionalProperties: false,
 } as const;

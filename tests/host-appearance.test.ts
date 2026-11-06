@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HostAppearanceError, createHostAppearance } from "../src/services/host-appearance.js";
+import {
+  HostAppearanceError,
+  createAppearance,
+  createHostAppearance,
+} from "../src/services/host-appearance.js";
+import { isValidSpaceId } from "../src/services/spaces/registry.js";
 
 const directories: string[] = [];
 afterEach(() => {
@@ -134,5 +139,28 @@ describe("host appearance", () => {
     const directory = folder();
     await Bun.write(join(directory, "appearance.json"), "{not json");
     expect((await createHostAppearance(directory).read()).pi).toEqual({ kind: "default" });
+  });
+});
+
+describe("createAppearance for spaces", () => {
+  const spaces = (directory: string) =>
+    createAppearance(directory, isValidSpaceId, "Unknown space");
+
+  it("refuses a key that is not a safe space id and writes nothing outside its folder", async () => {
+    const directory = folder();
+    for (const key of ["../outside", "a/b", "A B", ""]) {
+      await expect(spaces(directory).setIcon(key, "boxes")).rejects.toThrow("Unknown space");
+      await expect(spaces(directory).reset(key)).rejects.toThrow(HostAppearanceError);
+    }
+    expect(readdirSync(directory)).toEqual([]);
+  });
+
+  it("reads the default look for a space with no saved choice and the icon for one with a choice", async () => {
+    const directory = folder();
+    await spaces(directory).setIcon("client-work", "boxes");
+    expect(await spaces(directory).read(["default", "client-work"])).toEqual({
+      default: { kind: "default" },
+      "client-work": { kind: "icon", icon: "boxes" },
+    });
   });
 });

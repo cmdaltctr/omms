@@ -48,7 +48,7 @@ import {
   handleRefreshProfile,
   handleUpdateProfileItem,
 } from "./api-handlers.js";
-import { routeModules } from "./web-route-modules.js";
+import { routeModules, spaceStatus } from "./web-route-modules.js";
 
 /**
  * Runtime-portable HTTP server handle.
@@ -1154,6 +1154,7 @@ export class WebServer {
           isLocal: isLoopbackAddress(remoteAddress),
           instance: PROCESS_INSTANCE,
           update: this.webUpdate?.status() ?? NO_UPDATE,
+          activeSpace: spaceStatus(this.config.directory ?? process.cwd()),
         });
       }
 

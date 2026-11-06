@@ -92,6 +92,7 @@ result.own = own;
         isLocal: true,
         instance: expect.any(String),
         update: { available: null, state: "idle", code: null, canInstall: false },
+        activeSpace: { id: "default", name: "Default", customStoragePath: false },
       },
     });
     expect(result.loopback.body).toEqual({
@@ -100,6 +101,7 @@ result.own = own;
       isLocal: true,
       instance: expect.any(String),
       update: { available: null, state: "idle", code: null, canInstall: false },
+      activeSpace: { id: "default", name: "Default", customStoragePath: false },
     });
     expect(result.mapped.body.canControl).toBe(true);
     expect(result.remote).toEqual({
@@ -110,6 +112,7 @@ result.own = own;
         isLocal: false,
         instance: expect.any(String),
         update: { available: null, state: "idle", code: null, canInstall: false },
+        activeSpace: { id: "default", name: "Default", customStoragePath: false },
       },
     });
     expect(result.noToken).toBe(401);

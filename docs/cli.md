@@ -18,6 +18,7 @@ The npm package ships one terminal command, `om-memory-system`. Use it to import
 | `om-memory-system --help`, `-h`, or no arguments        | Print the command list.                                                                                             |
 | `om-memory-system <import command> --help`              | Print the flags for that import command.                                                                            |
 | `om-memory-system memory <mode> [options]`              | Run one memory operation and print JSON. See [The memory command](#the-memory-command).                             |
+| `om-memory-system space <action> [name]`                | List, create, switch or archive memory spaces. See [Memory spaces](#memory-spaces).                                 |
 | `om-memory-system claude-hook <event>`                  | Run a Claude Code hook. The Claude Code plugin calls it. See [Claude Code hook command](#claude-code-hook-command). |
 | `om-memory-system profile-catch-up [flags]`             | Analyse every prompt that waits for profile learning. See [Profile catch-up](#profile-catch-up).                    |
 | `om-memory-system profile-normalise-categories [flags]` | Preview or confirm category renames. See [Normalise profile categories](#normalise-profile-categories).             |
@@ -399,7 +400,7 @@ om-memory-system memory search "database choice"
 om-memory-system memory add --content "Use libSQL for the store" --type decision
 ```
 
-- Modes: `add`, `search`, `list`, `forget`, `profile`, `help`, `list-shards`, `migrate`, `export`, and `import`.
+- Modes: `add`, `search`, `list`, `forget`, `profile`, `help`, `list-shards`, `migrate`, `export`, `import`, and `space`.
 - The command works on the project in the working directory. `--directory <path>` chooses another project.
 - It prints one JSON document with the same fields as the `memory` tool.
 - Memories added with it have host `claude-code`.
@@ -409,6 +410,29 @@ om-memory-system memory add --content "Use libSQL for the store" --type decision
 
 The full table of modes and flags is in
 [Claude Code adapter: The memory command](claude-code-adapter.md#the-memory-command).
+
+## Memory spaces
+
+`om-memory-system space <action> [name]` manages [memory spaces](memory-spaces.md). It prints one JSON document.
+
+| Action             | What it does                                            |
+| ------------------ | ------------------------------------------------------- |
+| `list`             | List the spaces and show the active one.                |
+| `status`           | Show the space this project uses now.                   |
+| `create <name>`    | Add an empty space. It does not become active.          |
+| `use <name>`       | Make a space active for every host, from the next turn. |
+| `archive <name>`   | Hide a space from the sidebar tree and keep its data.   |
+| `unarchive <name>` | Show an archived space again.                           |
+
+- `<name>` is a space name or id. Names are not case sensitive.
+- The command exits with code 1 for a refused action. It lists the spaces that can become active when a switch is refused.
+- It cannot delete, rename, back up or restore a space. Those actions are only in the web app.
+- `om-memory-system memory space --action <action> --name <name>` runs the same operation.
+
+```bash
+om-memory-system space create "Client work"
+om-memory-system space use "Client work"
+```
 
 ## Claude Code hook command
 

@@ -15,7 +15,8 @@ export type MemoryOperationMode =
   | "migrate"
   | "list-shards"
   | "export"
-  | "import";
+  | "import"
+  | "space";
 
 export interface MemoryOperationArgs {
   mode?: MemoryOperationMode;
@@ -32,6 +33,10 @@ export interface MemoryOperationArgs {
   inputPath?: string;
   dryRun?: boolean;
   allowLinkedSource?: boolean;
+  /** `space` mode: list, status, create, archive, unarchive or use. */
+  spaceAction?: string;
+  /** `space` mode: the space name or id. */
+  spaceName?: string;
 }
 
 export interface MemoryOperationContext {
@@ -71,6 +76,10 @@ export async function executeMemoryOperation(
   }
 
   const mode = args.mode || "help";
+  if (mode === "space") {
+    const { runSpaceMode } = await import("./space-tool.js");
+    return runSpaceMode(args, context.directory);
+  }
   const needsEmbedding = !["help", "list-shards", "migrate", "export"].includes(mode);
 
   if (needsEmbedding) {
@@ -121,6 +130,12 @@ export async function executeMemoryOperation(
               args: ["content?"],
             },
             { command: "list", description: "List recent memories", args: ["limit?"] },
+            {
+              command: "space",
+              description:
+                "Manage memory spaces: list, status, create, archive, unarchive, use. Deleting a space is only possible in the web app",
+              args: ["spaceAction?", "spaceName?"],
+            },
             { command: "forget", description: "Remove memory", args: ["memoryId"] },
             {
               command: "list-shards",
