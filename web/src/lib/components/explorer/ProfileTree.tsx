@@ -48,7 +48,20 @@ export function ProfileTree({
   base = ROUTES.profile,
 }: {
   link: ReactNode;
-  sections: { id: string; label: string }[];
+  sections: {
+    id: string;
+    label: string;
+    /** A chip before the label. With it, a long label ends in an ellipsis. */
+    leading?: ReactNode;
+    /** A mark after the label. */
+    trailing?: ReactNode;
+    /** Hover text, for a label that may be cut. */
+    title?: string;
+    /** A page of its own. Without it the row links to an anchor on `base`. */
+    href?: string;
+    /** The row is the page on screen. */
+    current?: boolean;
+  }[];
   open: boolean;
   onToggle: () => void;
   label: string;
@@ -68,7 +81,7 @@ export function ProfileTree({
           <button
             type="button"
             className={cn(
-              "inline-flex min-h-11 min-w-11 md:min-h-7 md:min-w-7 shrink-0 items-center justify-center rounded-lg p-1.5 text-muted-foreground hover:bg-interactive-hover focus-visible:outline-2 focus-visible:outline-ring",
+              "inline-flex min-h-11 min-w-11 md:min-h-7 md:min-w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg p-1.5 text-muted-foreground hover:bg-interactive-hover focus-visible:outline-2 focus-visible:outline-ring",
               hideWhenCollapsed
             )}
             onClick={onToggle}
@@ -94,11 +107,21 @@ export function ProfileTree({
           {sections.map((section) => (
             <li key={section.id}>
               <a
-                href={`${base}#${section.id}`}
-                className="flex min-h-11 md:min-h-7 items-center break-words rounded-lg px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+                href={section.href ?? `${base}#${section.id}`}
+                title={section.title}
+                aria-current={section.current ? "page" : undefined}
+                className="flex min-h-11 md:min-h-7 items-center gap-2 break-words rounded-lg px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-150 hover:bg-interactive-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground"
                 onClick={(event) => onSectionClick(event, section.id)}
               >
-                {section.label}
+                {section.leading || section.trailing ? (
+                  <>
+                    {section.leading}
+                    <span className="min-w-0 flex-1 truncate">{section.label}</span>
+                    {section.trailing}
+                  </>
+                ) : (
+                  section.label
+                )}
               </a>
             </li>
           ))}

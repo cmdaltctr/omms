@@ -1,8 +1,10 @@
 import { useI18n } from "./index";
 import { skillText } from "./skills";
+import { spaceSettingText } from "./spaces";
 
 const text = {
   ...skillText,
+  ...spaceSettingText,
   "Import chat history": ["导入聊天记录", "استيراد سجل المحادثات"],
   "Memory limits": ["记忆限制", "حدود الذاكرة"],
   "Resolve missing project folders": ["解析缺失的项目文件夹", "حل مجلدات المشاريع المفقودة"],

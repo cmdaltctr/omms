@@ -91,7 +91,7 @@ captured = await buildRecentMemoriesSection(base);
 `);
     expect(output.listCalls).toEqual([["omms_project_test", 3]]);
     expect(output.captured).toBe(
-      `<memory_context>\n${HEADER}\n\n<project_knowledge>\n` +
+      `<memory_context>\n${HEADER}\nActive memory space: Default\n\n<project_knowledge>\n` +
         `<memory id="mem_1" relevance="100%">\nfirst\n</memory>\n` +
         `<memory id="mem_2" relevance="100%">\nsecond\n</memory>\n` +
         `<memory id="mem_3" relevance="100%">\nthird\n</memory>\n` +

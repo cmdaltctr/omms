@@ -133,6 +133,35 @@ describe("calls", () => {
     expect(memoryArgs(runs[0]!)).toEqual(["memory", "forget", "--id", "mem_alpha"]);
   });
 
+  test("space passes the action and the name to the shared command", async ($, on) => {
+    const { runs } = await start($, on);
+    await $.tool.call({ tool: FULL as any, mode: "space", action: "use", name: "Experiments" });
+    await $.tool.call({ tool: FULL as any, mode: "space" });
+    expect(memoryArgs(runs[0]!)).toEqual([
+      "memory",
+      "space",
+      "--action",
+      "use",
+      "--name",
+      "Experiments",
+    ]);
+    expect(memoryArgs(runs[1]!)).toEqual(["memory", "space"]);
+  });
+
+  test("space has no delete: the command refuses it", async ($, on) => {
+    const { runs } = await start($, on, () =>
+      ok('{"success":false,"error":"Only the web app can delete a space."}')
+    );
+    const out = await $.tool.call({
+      tool: FULL as any,
+      mode: "space",
+      action: "delete",
+      name: "A",
+    });
+    expect(textOf(out)).toBe("memory failed: Only the web app can delete a space.");
+    expect(memoryArgs(runs[0]!)).toContain("delete");
+  });
+
   test("drops a bad limit and an unknown scope instead of passing them on", async ($, on) => {
     const { runs } = await start($, on);
     await $.tool.call({ tool: FULL as any, mode: "list", limit: -3, scope: "../etc" });
@@ -158,7 +187,7 @@ describe("calls", () => {
     for (const mode of ["import", "export", "migrate", "list-shards", "anything"]) {
       const reason = textOf(await $.tool.call({ tool: FULL as any, mode, query: "x" }));
       expect(reason).toContain(`Unknown mode "${mode}"`);
-      expect(reason).toContain("search, add, list, profile, forget, help");
+      expect(reason).toContain("search, add, list, profile, forget, space, help");
     }
     expect(runs).toHaveLength(0);
   });

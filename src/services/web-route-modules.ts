@@ -2,6 +2,9 @@ import { routeChat, type RouteResult } from "./chat/chat-routes.js";
 import { routeMemoryHosts } from "./memory-host-routes.js";
 import { routeProfileCleanup } from "./profile-cleanup-routes.js";
 import type { SkillRouteContext } from "./skill-routes.js";
+import { routeSpaces } from "./space-routes.js";
+
+export { spaceStatus } from "./space-routes.js";
 
 /**
  * Route modules that live outside web-server.ts, which sits at its size
@@ -29,6 +32,9 @@ export async function routeModules(
     const { routeSkills } = await import("./skill-routes.js");
     return routeSkills(path, method, url, readBody, ctx);
   }
+
+  const spaces = await routeSpaces(path, method, readBody, ctx.cwd);
+  if (spaces !== undefined) return spaces;
 
   return routeChat(path, method, readBody, config);
 }

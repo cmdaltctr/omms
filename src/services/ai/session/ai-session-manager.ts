@@ -6,7 +6,7 @@ import type {
   AIProviderType,
   AIMessage,
 } from "./session-types.js";
-import { tursoConnectionManager } from "../../turso/connection-manager.js";
+import { resettable, tursoConnectionManager } from "../../turso/connection-manager.js";
 import { CONFIG } from "../../../config.js";
 import type { InValue } from "@libsql/client";
 import type { TursoDb } from "../../turso/turso-db.js";
@@ -278,4 +278,4 @@ export class AISessionManager {
   }
 }
 
-export const aiSessionManager = new AISessionManager();
+export const aiSessionManager = resettable("ai-sessions", new AISessionManager());

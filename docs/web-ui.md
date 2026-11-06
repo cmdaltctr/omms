@@ -24,6 +24,61 @@ OpenCode does not run a web server inside its session. The web app has no OpenCo
 
 The sidebar header shows the name **OMMS** in the brand green `#678D6C`. The version of the running web app follows in a smaller font, for example `v4.9.0`. The page reads the version from `GET /api/web/status`. The power button uses the same call every 15 seconds. When a restart brings a new version, the header shows it at the next call, without a page reload. Before the first call answers, the header shows only the name. On a narrow screen, the top bar shows the same name and version. When you collapse the sidebar on a desktop, the header shows only the icon.
 
+## Spaces item and tree
+
+The first sidebar item is a **Boxes** icon labelled **Spaces**. It sits above **Project memories** and uses the same row style. Select it to open the Spaces page. When you collapse the sidebar on a desktop, the item shows only the icon. Point at the icon to see the name of the active space. The narrow-screen menu shows the same item.
+
+An arrow beside the item opens or closes a tree, like the tree of **Memory**. The tree has one row for each space that is not archived, and a last row, **Archive**, that always shows. Each row shows the avatar of the space as a small rounded chip, the name of the space, and a small green dot on the active space. The avatar is the two letters of the name, an icon, or an image (see below). The colour of the two letters comes from the name. A long name ends with an ellipsis. Point at the row to see the full name. The **Archive** row has the layers mark that **Shared** has in the Memory tree. It is marked as the current page when the Archive page is open. The tree remembers whether you left it open. It starts open on the Spaces and Archive pages.
+
+Select a space row to open the card of that space on the Spaces page. Select **Archive** to open the Archive page. The page scrolls to the card and outlines it for a moment. Selecting a row does not switch the active space. Use **Activate** on the card for that.
+
+The item and the tree read the active space from the status call that the header and the power button already use. They add no poll. The tree loads the list from `GET /api/spaces` when the active space changes, and when you change a space on the Spaces page. When you switch space with the CLI or the `memory` tool, the dot moves at the next status call. You do not need to reload the page.
+
+When a config file sets `storagePath` for the project, that folder overrides the active space. The item then shows the words **Custom storage folder** under the label, and the Spaces page shows a note.
+
+## Spaces page
+
+Select **Spaces** or open `http://127.0.0.1:4747/spaces`. The page has three sections:
+
+| Section            | What it does                                                                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| **Create a space** | Type a name and select **Create space**. The page then offers to switch to the new space.                             |
+| **All spaces**     | Shows a card for each space that is not archived. Default is first. The others follow in the order they were created. |
+| **Backups**        | Lists the backups in `~/.omms/backups/` with the space name, the date and the size.                                   |
+
+The cards use the look of the cards on the Memory page. They sit in two columns, and in one column on a narrow phone. Two icon buttons next to **All spaces** switch between **Grid view** and **List view**. List view shows one space on each row. The browser remembers your choice. Each card shows the avatar, the name, the state (**State: Active** or **State: Available**), the folder size and the creation date. The card of the active space has a green outline and a green state line. An archived space has no card. It is on the Archive page.
+
+A pencil button sits at the top-end corner of each card, like the pencil on the host cards of the Memory page. Select it to open **Edit space**. The dialog is the host **Change icon** dialog with a **Name** field added. You can upload an image, choose an icon, or select **Reset to default** for the two letters. PNG, JPEG, WebP and GIF files up to 20 MB are accepted, and the page crops an image to a square. **Save** renames the space first, if you changed the name, and then saves the avatar. Then the page loads the list again, and the sidebar tree shows the new name and avatar. If the server refuses a step, the dialog stays open and shows the reason. The name field of the Default space is disabled, and the dialog says why. The Default space can still have an avatar. The folder keeps its name when you rename a space.
+
+Each card has these actions: **Activate** (a play button, like the host cards), **Archive**, **Back up** and **Delete**. **Archive**, **Back up** and **Delete** are icon-only buttons. Point at a button to see its name in a tooltip. **Delete** is red. Every enabled button shows a pointer cursor. A disabled button does not. The server blocks some actions. A blocked button stays visible and is disabled. Point at it, or tab to it, and the tooltip gives the reason. Screen readers read the same reason. The Default space cannot be archived or deleted. The active space cannot be archived or deleted. The active space has no **Activate** button, because it is already active. In list view, the buttons sit at the end of the row.
+
+**Activate**, **Archive**, **Restore** (on the Archive page) and **Back up** each open a confirmation dialog first. The dialog names the space and says what the action does. Nothing is sent until you select the confirm button. **Cancel** changes nothing. While the request runs, the dialog shows progress. If the server refuses, the dialog stays open and shows the reason. When the request succeeds, the dialog closes and the page shows the result. The **Activate** button that follows **Create space** opens the same confirmation.
+
+- **Activate** tells you that every host and the web app use the space from their next turn. Nothing is moved or deleted. After it succeeds, the page reloads the memories, the user profile and the chats from the new space. If the server refuses, the previous space stays active.
+- **Archive** tells you that the space leaves the sidebar tree and cannot be activated, and that its memories stay on disk. When it succeeds, the page says "Archived <name>. It is now in the Archive." and links to the Archive page.
+- **Restore** tells you that the space returns to the tree and can be activated again, and that its memories are unchanged.
+- **Back up** tells you that OMMS copies the space to a backup folder and checks the copy. The space does not change. When it ends, the page shows the backup location.
+
+**Delete** asks for more than the other four. It opens a dialog that asks for the name. The dialog says that OMMS makes a backup first and then removes the space. Type the exact display name of the space to confirm. The **Delete space** button stays disabled until the text matches. While the delete runs, the dialog shows progress. When it ends, the dialog shows the backup location. If OMMS cannot remove the whole folder, the dialog shows a warning with the path of the folder that remains.
+
+Each backup has **Restore as new space**. A restore never overwrites a space. It creates a new space named like `Experiments (restored 2026-11-06)`. If a backup file is damaged, the page shows the server message. The message names the damaged file.
+
+The Backups list uses the shared paged list: 5 rows to a page, a sort menu and a custom page size. The page has English, Chinese and Arabic text. See [Memory spaces](memory-spaces.md) for what a space is and for the CLI commands.
+
+## Archive page
+
+Select **Archive** in the Spaces tree or open `http://127.0.0.1:4747/spaces/archive`. The page lists the archived spaces. It uses the style of the Backups list on the Spaces page: the shared paged-list toolbar (**Show** _N_ **results**, **Custom**, **Sort by** with a direction button, and **Archived spaces:** _N_ at the end), then one bordered card for each space. The list pages at 5 rows by default.
+
+Each card shows the avatar and the name, then one line: **Archived:** the date and time, **Created:** the date, and **Size:**. A space that was archived before OMMS recorded the date reads **Archived: not recorded**, and it always sorts last. The default sort is **Newest archived**. You can also sort by name, by creation date and by size.
+
+Each card has **Restore**, a **Back up** icon button and a red **Delete** icon button. Every button has a pointer cursor and a tooltip for the icon buttons.
+
+- **Restore** opens a confirmation. It says that the space returns to the sidebar tree and can be activated again, and that its memories are unchanged. When you confirm, the space leaves the list. It returns to the tree and to the Spaces page as a card. It does not become the active space. Use **Activate** on its card for that.
+- **Back up** opens the same confirmation as on the Spaces page.
+- **Delete** asks for the exact name, as on the Spaces page.
+
+With no archived space, the page says "No space is archived."
+
 ## Power button
 
 When you open the page from the same computer, the sidebar footer shows a power button. It is green while the web app answers, and grey when the last check failed. The page checks every 15 seconds. Select it to open a dialog with two actions:

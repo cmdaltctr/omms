@@ -11,7 +11,7 @@ export type HostLooks = Record<AppearanceHost, HostLook>;
 
 /** A refused change; `status` is the HTTP status. */
 export class HostAppearanceError extends Error {
-  readonly status = 400;
+  readonly status: number = 400;
   constructor(message: string) {
     super(message);
     this.name = "HostAppearanceError";
@@ -24,14 +24,8 @@ const SIZE = 128;
 const MAX_BYTES = 256 * 1024;
 const ICON_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-function assertHost(host: string): asserts host is AppearanceHost {
-  if (!(APPEARANCE_HOSTS as readonly string[]).includes(host)) {
-    throw new HostAppearanceError("Unknown host");
-  }
-}
-
-/** Decode and check a host image: a 128 by 128 PNG of at most 256 KB. Nothing else is stored. */
-function decodeImage(encoded: unknown): Buffer {
+/** Decode and check an avatar image: a 128 by 128 PNG of at most 256 KB. Nothing else is stored. */
+export function decodeImage(encoded: unknown): Buffer {
   if (typeof encoded !== "string" || encoded.length === 0 || encoded.length > MAX_BYTES * 2) {
     throw new HostAppearanceError("The image must be a 128 by 128 PNG of at most 256 KB");
   }
@@ -50,16 +44,24 @@ function decodeImage(encoded: unknown): Buffer {
   return bytes;
 }
 
-type Saved = Partial<Record<AppearanceHost, { kind: "icon"; icon: string } | { kind: "image" }>>;
+export type Look = HostLook;
+type Saved = Record<string, { kind: "icon"; icon: string } | { kind: "image" }>;
 
 /**
- * Per-host avatar choices in one global folder. `appearance.json` holds the
- * choices and `<host>.png` holds an uploaded image. Files are written to a
- * temporary name and renamed, so a crash leaves the previous avatar.
+ * Avatar choices in one global folder. `appearance.json` holds the choices and `<key>.png` holds
+ * an uploaded image. `accepts` says which keys exist: the fixed hosts, or the ids of the spaces.
+ * Files are written to a temporary name and renamed, so a crash leaves the previous avatar.
  */
-export function createHostAppearance(directory: string) {
+export function createAppearance(
+  directory: string,
+  accepts: (key: string) => boolean,
+  unknownMessage: string
+) {
   const settingsPath = join(directory, "appearance.json");
-  const imagePath = (host: AppearanceHost) => join(directory, `${host}.png`);
+  const imagePath = (key: string) => join(directory, `${key}.png`);
+  const assertKey = (key: string) => {
+    if (!accepts(key)) throw new HostAppearanceError(unknownMessage);
+  };
 
   async function readSaved(): Promise<Saved> {
     try {
@@ -77,26 +79,27 @@ export function createHostAppearance(directory: string) {
     await rename(temporary, path);
   }
 
-  async function save(host: AppearanceHost, value: Saved[AppearanceHost] | undefined) {
+  async function save(key: string, value: Saved[string] | undefined) {
     const saved = await readSaved();
-    if (value) saved[host] = value;
-    else delete saved[host];
+    if (value) saved[key] = value;
+    else delete saved[key];
     await atomicWrite(settingsPath, JSON.stringify(saved));
   }
 
   return {
-    async read(): Promise<HostLooks> {
+    /** The look of each listed key. A key with no saved choice shows the default. */
+    async read(keys: readonly string[]): Promise<Record<string, Look>> {
       const saved = await readSaved();
-      const looks = {} as HostLooks;
-      for (const host of APPEARANCE_HOSTS) {
-        const entry = saved[host];
-        looks[host] = { kind: "default" };
+      const looks: Record<string, Look> = {};
+      for (const key of keys) {
+        const entry = saved[key];
+        looks[key] = { kind: "default" };
         if (entry?.kind === "icon" && ICON_NAME.test(String(entry.icon))) {
-          looks[host] = { kind: "icon", icon: entry.icon };
+          looks[key] = { kind: "icon", icon: entry.icon };
         } else if (entry?.kind === "image") {
           try {
-            const bytes = await readFile(imagePath(host));
-            looks[host] = {
+            const bytes = await readFile(imagePath(key));
+            looks[key] = {
               kind: "image",
               image: `data:image/png;base64,${bytes.toString("base64")}`,
             };
@@ -108,26 +111,41 @@ export function createHostAppearance(directory: string) {
       return looks;
     },
 
-    async setIcon(host: string, icon: unknown): Promise<void> {
-      assertHost(host);
+    async setIcon(key: string, icon: unknown): Promise<void> {
+      assertKey(key);
       if (typeof icon !== "string" || icon.length > 40 || !ICON_NAME.test(icon)) {
         throw new HostAppearanceError("Invalid icon name");
       }
-      await save(host, { kind: "icon", icon });
-      await rm(imagePath(host), { force: true });
+      await save(key, { kind: "icon", icon });
+      await rm(imagePath(key), { force: true });
     },
 
-    async setImage(host: string, encoded: unknown): Promise<void> {
-      assertHost(host);
+    async setImage(key: string, encoded: unknown): Promise<void> {
+      assertKey(key);
       const bytes = decodeImage(encoded);
-      await atomicWrite(imagePath(host), bytes);
-      await save(host, { kind: "image" });
+      await atomicWrite(imagePath(key), bytes);
+      await save(key, { kind: "image" });
     },
 
-    async reset(host: string): Promise<void> {
-      assertHost(host);
-      await save(host, undefined);
-      await rm(imagePath(host), { force: true });
+    async reset(key: string): Promise<void> {
+      assertKey(key);
+      await save(key, undefined);
+      await rm(imagePath(key), { force: true });
+    },
+  };
+}
+
+/** Per-host avatar choices (Pi, OpenCode, Claude Code). */
+export function createHostAppearance(directory: string) {
+  const appearance = createAppearance(
+    directory,
+    (key) => (APPEARANCE_HOSTS as readonly string[]).includes(key),
+    "Unknown host"
+  );
+  return {
+    ...appearance,
+    async read(): Promise<HostLooks> {
+      return (await appearance.read(APPEARANCE_HOSTS)) as HostLooks;
     },
   };
 }

@@ -25,6 +25,7 @@ Commands:
   web install|uninstall|status  Manage the web app login item
   web update                Update the global install and restart the web app
   memory <mode> [options]   Search, add, list, or forget memories (run with --help)
+  space <action> [name]     List, create, switch, or archive memory spaces (run with --help)
   skills <mode> [options]   List skills, review proposals, record or delete turns (run with --help)
   profile-catch-up          Analyse every prompt waiting for profile learning (run with --help)
   profile-normalise-categories  Preview or confirm profile category renames (run with --help)
@@ -75,6 +76,10 @@ export async function runCli(argv: string[]): Promise<number> {
   if (argv[0] === "memory") {
     const { runMemoryCommand } = await import("./memory-command.js");
     return await runMemoryCommand(argv.slice(1));
+  }
+  if (argv[0] === "space") {
+    const { runSpaceCommand } = await import("./space-command.js");
+    return await runSpaceCommand(argv.slice(1));
   }
   if (argv[0] === "skills") {
     const { runSkillsCommand } = await import("./skills-command.js");

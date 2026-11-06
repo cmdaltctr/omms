@@ -12,6 +12,7 @@ const files = [
   "lib/components/memory/SharedView.tsx",
   "lib/components/memory/WriteHealthStrip.tsx",
   "lib/components/memory/AvatarDialog.tsx",
+  "lib/components/avatar/AvatarEditorDialog.tsx",
   "lib/components/memory/host-status.ts",
   "lib/components/memory/shared-summary.ts",
   "lib/components/settings/IgnoreAllDialog.tsx",

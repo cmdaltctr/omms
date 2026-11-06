@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { tursoConnectionManager } from "../turso/connection-manager.js";
+import { resettable, tursoConnectionManager } from "../turso/connection-manager.js";
 import type { TursoDb } from "../turso/turso-db.js";
 import { CONFIG } from "../../config.js";
 import { hasEnoughWorkflowSteps } from "../../core/extraction.js";
@@ -80,26 +80,26 @@ const COLD_BUFFER_DEFAULT_KEY = "__unattributed__";
 
 export class UserProfileManager {
   private db: TursoDb | null = null;
-  private dbPath: string;
+  private dbPath = "";
   private initPromise: Promise<void> | null = null;
   // Cold-start buffers are keyed by profileId so items observed for one user never
   // drain into another user's merge (cross-user contamination). The unattributed bucket
   // (COLD_BUFFER_DEFAULT_KEY) only holds items from merges that ran without a profileId.
-  private coldBuffers: Map<string, { preferences: any[]; patterns: any[]; workflows: any[] }>;
-  private coldBufferPath: string;
+  private coldBuffers!: Map<string, { preferences: any[]; patterns: any[]; workflows: any[] }>;
+  private coldBufferPath = "";
   private dedupCheckedCache: Set<string> = new Set();
 
   constructor() {
-    this.dbPath = join(CONFIG.storagePath || "", USER_PROFILES_DB_NAME);
-    this.coldBufferPath = join(CONFIG.storagePath || "", "cold-buffer.json");
-    this.coldBuffers = this.loadColdBuffers();
+    this.reset();
   }
 
   reset(): void {
     this.db = null;
     this.initPromise = null;
+    this.dedupCheckedCache.clear();
     this.dbPath = join(CONFIG.storagePath || "", USER_PROFILES_DB_NAME);
     this.coldBufferPath = join(CONFIG.storagePath || "", "cold-buffer.json");
+    this.coldBuffers = this.loadColdBuffers();
   }
 
   private async initialize(): Promise<void> {
@@ -1944,4 +1944,4 @@ Generate a concise, abstract description of the user's general behavioral tenden
   }
 }
 
-export const userProfileManager = new UserProfileManager();
+export const userProfileManager = resettable("user-profiles", new UserProfileManager());

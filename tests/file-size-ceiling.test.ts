@@ -24,7 +24,7 @@ const overCeilingBaseline: Record<string, number> = {
   "src/importer/importer.ts": 616,
   "src/importer/claude-hook-api.ts": 552,
   "web/src/lib/components/explorer/AppSidebar.tsx": 571,
-  "src/services/tag-prefix-migration.ts": 567,
+  "src/services/tag-prefix-migration.ts": 559,
   "web/src/lib/components/explorer/AiCleanupDialog.tsx": 523,
   "src/services/ai/providers/openai-chat-completion.ts": 548,
   "src/services/turso/vector-search.ts": 533,

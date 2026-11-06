@@ -11,7 +11,8 @@ const HEADER =
   "refers to earlier work, search the full memory store with the memory tool or the " +
   "omms-memory skill.";
 
-const CONTEXT_HEADER_TEXT = `<memory_context>\n${HEADER}\n\n`;
+// The block names the active memory space on its own line after the header text.
+const CONTEXT_HEADER_TEXT = `<memory_context>\n${HEADER}\nActive memory space: Default\n\n`;
 const CONTEXT_FOOTER_TEXT = `\n</memory_context>`;
 const CONTEXT_FIXED_BYTES =
   utf8ByteLength(CONTEXT_HEADER_TEXT) + utf8ByteLength(CONTEXT_FOOTER_TEXT);
@@ -379,7 +380,7 @@ describe("formatContextForPrompt budget", () => {
       { injectProfile: false }
     );
     expect(output.text).toBe(
-      `<memory_context>\n${HEADER}\n\n<project_knowledge>\n` +
+      `${CONTEXT_HEADER_TEXT}<project_knowledge>\n` +
         `<memory id="mem_port" relevance="80%">\nFixed the port clash by binding 4748.\n</memory>\n` +
         `</project_knowledge>\n</memory_context>`
     );

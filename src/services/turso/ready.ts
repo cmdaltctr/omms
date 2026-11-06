@@ -1,6 +1,7 @@
 import { runLegacyTursoMigration } from "./legacy-migrator.js";
 import { runStartupTagPrefixGate } from "../tag-prefix-migration.js";
 import { tursoShardManager } from "./shard-manager.js";
+import { resettable } from "./connection-manager.js";
 import { log } from "../logger.js";
 
 let initPromise: Promise<void> | null = null;
@@ -36,3 +37,5 @@ export function resetTursoReady(): void {
   isReady = false;
   initPromise = null;
 }
+
+resettable("turso-ready", null, resetTursoReady);

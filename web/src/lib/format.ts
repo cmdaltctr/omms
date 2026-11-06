@@ -43,3 +43,21 @@ export function dateContext(): { locale: string; choice: DateFormatChoice } {
 export function formatDateOnlyAs(value: DateValue, choice: DateFormatChoice): string {
   return formatDateOnlyWith(toDate(value), choice, locale());
 }
+
+const BYTE_UNITS = ["byte", "kilobyte", "megabyte", "gigabyte"] as const;
+
+/** A size in the page language, for example `1.5 MB`. */
+export function formatBytes(bytes: number): string {
+  let value = Math.max(0, bytes);
+  let step = 0;
+  while (value >= 1024 && step < BYTE_UNITS.length - 1) {
+    value /= 1024;
+    step++;
+  }
+  return new Intl.NumberFormat(locale(), {
+    style: "unit",
+    unit: BYTE_UNITS[step],
+    unitDisplay: "short",
+    maximumFractionDigits: step === 0 ? 0 : 1,
+  }).format(value);
+}

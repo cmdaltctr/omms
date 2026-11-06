@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { tursoConnectionManager } from "../turso/connection-manager.js";
+import { resettable, tursoConnectionManager } from "../turso/connection-manager.js";
 import { CONFIG } from "../../config.js";
 import type { InValue } from "@libsql/client";
 import type { TursoDb } from "../turso/turso-db.js";
@@ -454,4 +454,4 @@ export class UserPromptManager {
   }
 }
 
-export const userPromptManager = new UserPromptManager();
+export const userPromptManager = resettable("user-prompts", new UserPromptManager());

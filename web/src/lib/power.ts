@@ -12,6 +12,18 @@ export interface PowerStatus {
   instance?: string;
   /** The npm release check; absent on an older web app. */
   update?: UpdateInfo;
+  /** The memory space this web app serves; absent on an older web app. */
+  activeSpace?: ActiveSpace;
+}
+
+/** The `activeSpace` field of `/api/web/status`. */
+export interface ActiveSpace {
+  id: string;
+  name: string;
+  /** A config file sets `storagePath`, which overrides the active space. */
+  customStoragePath: boolean;
+  /** Why the registry fell back to Default, when it did. */
+  problem?: string;
 }
 
 /** The `update` field of `/api/web/status`. */
@@ -53,6 +65,18 @@ function parseUpdate(value: unknown): UpdateInfo | undefined {
   };
 }
 
+function parseActiveSpace(value: unknown): ActiveSpace | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const space = value as Record<string, unknown>;
+  if (typeof space.id !== "string" || typeof space.name !== "string") return undefined;
+  return {
+    id: space.id,
+    name: space.name,
+    customStoragePath: space.customStoragePath === true,
+    ...(typeof space.problem === "string" ? { problem: space.problem } : {}),
+  };
+}
+
 const authHeaders = () => ({ "x-omms-token": window.__OMMS_TOKEN__ ?? "" });
 
 /** The web app's status, or null when the call fails. */
@@ -66,11 +90,13 @@ export async function readPowerStatus(): Promise<PowerStatus | null> {
     const body = (await response.json()) as Partial<PowerStatus>;
     if (typeof body.version !== "string" || typeof body.canControl !== "boolean") return null;
     const update = parseUpdate(body.update);
+    const activeSpace = parseActiveSpace(body.activeSpace);
     return {
       version: body.version,
       canControl: body.canControl,
       ...(typeof body.instance === "string" ? { instance: body.instance } : {}),
       ...(update ? { update } : {}),
+      ...(activeSpace ? { activeSpace } : {}),
     };
   } catch {
     return null;

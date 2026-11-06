@@ -26,6 +26,7 @@ const MODES: Record<MemoryOperationMode, string> = {
   migrate: "Reassociate orphaned shards after a directory move (--from-path or --from-hash)",
   export: "Export project memories to a portable JSON file (--output)",
   import: "Import memories from a portable JSON file (--input)",
+  space: "Manage memory spaces: list, status, create, archive, unarchive, use (--action, --name)",
 };
 
 const VALUE_FLAGS: Record<string, keyof MemoryOperationArgs | "directory"> = {
@@ -40,6 +41,8 @@ const VALUE_FLAGS: Record<string, keyof MemoryOperationArgs | "directory"> = {
   "--from-hash": "fromHash",
   "--output": "outputPath",
   "--input": "inputPath",
+  "--action": "spaceAction",
+  "--name": "spaceName",
   "--directory": "directory",
 };
 
@@ -70,6 +73,8 @@ Options:
   --from-hash <hash>      Old project hash (migrate)
   --output <file>         Export file (export)
   --input <file>          Import file (import)
+  --action <action>       Space action: list, status, create, archive, unarchive, use (space)
+  --name <name>           Space name or id (space)
   --dry-run               Report without writing (migrate, import)
   --allow-linked-source   Allow a linked source directory (migrate)
   --directory <path>      Project directory (default: the working directory)
@@ -132,7 +137,19 @@ export function parseMemoryCommandArgs(argv: string[]): ParsedMemoryCommand {
     values[key] = value;
   }
 
-  if (positionals.length > 0) {
+  if (mode === "space") {
+    // `space <action> [name]`
+    const [action, name, ...extra] = positionals;
+    if (extra.length > 0) throw new Error(`Unexpected argument "${extra[0]}"`);
+    if (action !== undefined) {
+      if (values.spaceAction !== undefined) throw new Error(`Unexpected argument "${action}"`);
+      values.spaceAction = action;
+    }
+    if (name !== undefined) {
+      if (values.spaceName !== undefined) throw new Error(`Unexpected argument "${name}"`);
+      values.spaceName = name;
+    }
+  } else if (positionals.length > 0) {
     if (mode !== "search" || positionals.length > 1 || values.query !== undefined) {
       throw new Error(`Unexpected argument "${positionals[0]}"`);
     }

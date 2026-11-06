@@ -7,7 +7,7 @@ OMMS works with no configuration. This page covers the settings you may want to 
 - **Global file:** `~/.config/omms/omms.jsonc`. On Windows this is `%USERPROFILE%\.config\omms\omms.jsonc`, not AppData.
 - **Legacy global file:** while the global file does not exist, OMMS still reads `~/.config/opencode/opencode-mem.jsonc`. It never writes to it.
 - **Project file:** `<project>/.opencode/omms.jsonc` overrides the global file for that project. OMMS still reads a legacy `.opencode/opencode-mem.jsonc` when no `omms.jsonc` exists. Some settings are [global only](#global-only-settings).
-- **Default store:** `~/.omms/data` (`%USERPROFILE%\.omms\data` on Windows). A legacy `~/.opencode-mem/data` store moves to the new path at first start. Saved chats are in the same folder, in `chats.db` (see [Chat page: Where chats are stored](web-ui-chat.md#where-chats-are-stored)).
+- **Default store:** `~/.omms/data` (`%USERPROFILE%\.omms\data` on Windows). This is the store of the Default [memory space](memory-spaces.md). Another active space uses `~/.omms/spaces/<id>/` instead. The active space is in `~/.omms/spaces.json`, not in this config file. A project config that sets `storagePath` wins over the active space. A legacy `~/.opencode-mem/data` store moves to the new path at first start. Saved chats are in the same folder, in `chats.db` (see [Chat page: Where chats are stored](web-ui-chat.md#where-chats-are-stored)).
 
 On first start, if no config exists at all, the plugin creates a full commented template. This shorter example shows the most common settings:
 
@@ -366,7 +366,7 @@ On the Settings page you can **Pause** and **Resume** each host's backfill.
 
 - `skillLearning` is `false` by default. Recording makes no model call.
 - A recorded turn holds the prompt, every reply, and every tool call with its outcome and error text. It does not hold tool output.
-- `skills.db` is in the global storage path (`~/.omms/data` by default), never inside a project folder. A project config's `storagePath` moves memories only; `skills.db` always uses the global storage path. Treat it as private.
+- `skills.db` is in the global storage path (`~/.omms/data` by default), never inside a project folder. A project config's `storagePath` moves memories only; `skills.db` always uses the global storage path. Treat it as private. The same holds for the active memory space: `skills.db` and the embedding model cache stay in the global storage path.
 - `skillLearningRedact` is `true` by default. OMMS then removes `<private>` text and redacts secrets with the capture trace rules before it stores a turn. Set it to `false` to store text as written.
 - `skillFolders` lists the folders OMMS reads skills from. Each entry must be an absolute path or start with `~/`. Any other entry is a config error.
 - When `skillFolders` is unset, OMMS watches `~/.agents/skills` and the `skills` folder in the [Claude Code folder](#claude-code-folder), each only when it exists.

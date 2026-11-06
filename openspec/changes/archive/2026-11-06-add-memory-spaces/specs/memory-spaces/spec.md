@@ -8,7 +8,7 @@ Lets one user keep separate memory stores, called spaces, and choose one active 
 
 ### Requirement: Each space is one storage folder
 
-Each space SHALL be one storage folder with the layout of the current store: memory shards, `metadata.db`, `user-profiles.db`, `user-prompts.db`, `chats.db` and `import-ledger.db`. The Default space SHALL use the global `storagePath`. Other spaces SHALL use `~/.omms/spaces/<id>/`. `skills.db` SHALL stay in the global storage path and SHALL be shared by all spaces.
+Each space SHALL be one storage folder with the layout of the current store: memory shards, `metadata.db`, `user-profiles.db`, `user-prompts.db`, `chats.db` and `import-ledger.db`. The Default space SHALL use the global `storagePath`. Other spaces SHALL use `~/.omms/spaces/<id>/`. `skills.db` and the embedding model cache (`.cache`) SHALL stay in the global storage path and SHALL be shared by all spaces.
 
 #### Scenario: The user upgrades with an existing store
 
@@ -29,7 +29,7 @@ Each space SHALL be one storage folder with the layout of the current store: mem
 
 ### Requirement: A registry records the spaces and the active space
 
-OMMS SHALL keep a registry at `~/.omms/spaces.json`. Each entry SHALL hold an id, a display name, the creation time and an archived flag. The registry SHALL name exactly one active space. When the file does not exist, the Default space SHALL be the only space and SHALL be active. OMMS SHALL write the registry atomically.
+OMMS SHALL keep a registry at `~/.omms/spaces.json`. Each entry SHALL hold an id, a display name, the creation time, an archived flag and, for an archived space, the time of the archive. The registry SHALL name exactly one active space. When the file does not exist, the Default space SHALL be the only space and SHALL be active. OMMS SHALL write the registry atomically.
 
 #### Scenario: The registry is written
 
@@ -87,12 +87,12 @@ Every memory context block that OMMS adds to a session SHALL include one line th
 
 ### Requirement: The user can archive and unarchive a space
 
-Archiving SHALL hide a space from the switcher and SHALL keep its folder unchanged. An archived space SHALL NOT become active until the user unarchives it. The Default space and the active space SHALL NOT be archived.
+Archiving SHALL hide a space from the sidebar tree and SHALL keep its folder unchanged. An archived space SHALL NOT become active until the user unarchives it. The Default space and the active space SHALL NOT be archived.
 
 #### Scenario: Archive a space
 
 - **WHEN** the user archives `Experiments` while Default is active
-- **THEN** `Experiments` SHALL disappear from the switcher and SHALL stay on the Spaces page as archived
+- **THEN** `Experiments` SHALL disappear from the sidebar tree and SHALL appear on the Archive page
 - **AND** its folder SHALL be unchanged
 
 #### Scenario: Archive the active space

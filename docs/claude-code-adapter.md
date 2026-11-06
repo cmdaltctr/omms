@@ -454,7 +454,7 @@ memory visible in the chat.
 tool list from the first prompt. Each call shows as its own tool row, which you
 can unfold to read the JSON result.
 
-- It offers the modes `search`, `add`, `list`, `profile`, `forget`, and `help`.
+- It offers the modes `search`, `add`, `list`, `profile`, `forget`, `space`, and `help`.
 - It refuses `import`, `export`, `migrate`, and `list-shards`, because they
   move or rewrite whole stores. Run those with
   [the `memory` command](#the-memory-command) in a terminal.
@@ -551,24 +551,27 @@ tool returns. Memories added with it have host `claude-code`.
 | `migrate`     | Link orphaned shards again after a folder move            | `--from-path` or `--from-hash`, `--dry-run`, `--allow-linked-source` |
 | `export`      | Export project memories to a portable JSON file           | `--output`                                                           |
 | `import`      | Import memories from a portable JSON file                 | `--input`, `--dry-run`                                               |
+| `space`       | List, create, switch or archive memory spaces             | `--action`, `--name`                                                 |
 
-| Option                  | Effect                                                      |
-| ----------------------- | ----------------------------------------------------------- |
-| `--content <text>`      | Memory text (`add`) or preference text (`profile`)          |
-| `--query <text>`        | Search text (`search`)                                      |
-| `--type <type>`         | Memory type, for example `decision` or `bug-fix` (`add`)    |
-| `--tags <a,b>`          | Comma-separated tags (`add`)                                |
-| `--id <id>`             | Memory ID (`forget`)                                        |
-| `--limit <n>`           | Maximum results (`search`, `list`). A positive whole number |
-| `--scope <scope>`       | `project` or `all-projects` (`search`, `list`)              |
-| `--from-path <path>`    | Old project path (`migrate`)                                |
-| `--from-hash <hash>`    | Old project hash (`migrate`)                                |
-| `--output <file>`       | Export file (`export`)                                      |
-| `--input <file>`        | Import file (`import`)                                      |
-| `--dry-run`             | Report without writing (`migrate`, `import`)                |
-| `--allow-linked-source` | Allow a linked source folder (`migrate`)                    |
-| `--directory <path>`    | Project folder. The default is the working directory        |
-| `--help`, `-h`          | Print the help                                              |
+| Option                  | Effect                                                                            |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| `--content <text>`      | Memory text (`add`) or preference text (`profile`)                                |
+| `--query <text>`        | Search text (`search`)                                                            |
+| `--type <type>`         | Memory type, for example `decision` or `bug-fix` (`add`)                          |
+| `--tags <a,b>`          | Comma-separated tags (`add`)                                                      |
+| `--action <action>`     | Space action: `list`, `status`, `create`, `use`, `archive`, `unarchive` (`space`) |
+| `--name <name>`         | Space name or id (`space`)                                                        |
+| `--id <id>`             | Memory ID (`forget`)                                                              |
+| `--limit <n>`           | Maximum results (`search`, `list`). A positive whole number                       |
+| `--scope <scope>`       | `project` or `all-projects` (`search`, `list`)                                    |
+| `--from-path <path>`    | Old project path (`migrate`)                                                      |
+| `--from-hash <hash>`    | Old project hash (`migrate`)                                                      |
+| `--output <file>`       | Export file (`export`)                                                            |
+| `--input <file>`        | Import file (`import`)                                                            |
+| `--dry-run`             | Report without writing (`migrate`, `import`)                                      |
+| `--allow-linked-source` | Allow a linked source folder (`migrate`)                                          |
+| `--directory <path>`    | Project folder. The default is the working directory                              |
+| `--help`, `-h`          | Print the help                                                                    |
 
 Examples:
 

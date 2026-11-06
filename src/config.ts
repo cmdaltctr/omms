@@ -24,11 +24,14 @@ import {
   checkedKeywordMode,
   type KeywordMode,
 } from "./utils/keyword-boost.js";
+import { runLegacyStoreMigration, legacyMigrationPaths } from "./services/legacy-migration.js";
 import {
-  resolveDefaultStoragePath,
-  runLegacyStoreMigration,
-  legacyMigrationPaths,
-} from "./services/legacy-migration.js";
+  expandPath,
+  storagePathFrom,
+  withSkillStorage,
+} from "./services/spaces/storage-resolution.js";
+import { resolveActiveSpace, type ActiveSpace } from "./services/spaces/active-space.js";
+import { resetStoreHandles } from "./services/spaces/store-handles.js";
 
 const OMMS_CONFIG_DIR = join(homedir(), ".config", "omms");
 const DATA_DIR = join(homedir(), ".omms");
@@ -312,26 +315,6 @@ const DEFAULTS: Required<
     injectOn: "first",
   },
 };
-
-function expandPath(path: string): string {
-  if (path.startsWith("~/")) {
-    return join(homedir(), path.slice(2));
-  }
-  if (path === "~") {
-    return homedir();
-  }
-  return path;
-}
-
-function storagePathFrom(fileConfig: OmmsConfig): string {
-  return fileConfig.storagePath ? expandPath(fileConfig.storagePath) : resolveDefaultStoragePath();
-}
-
-/** Keeps skills.db in the global storage path when a project config moves storagePath (ADR-036). */
-function withSkillStorage<T extends { storagePath: string }>(config: T, global: OmmsConfig): T {
-  const path = storagePathFrom(global);
-  return { ...config, skillStoragePath: path === config.storagePath ? undefined : path };
-}
 
 /**
  * Load the first config file that exists, in priority order. A file that
@@ -778,7 +761,7 @@ function projectConfigPaths(directory: string): string[] {
 }
 
 function configSignature(directory: string): string {
-  return [...CONFIG_FILES, ...projectConfigPaths(directory)]
+  return [...CONFIG_FILES, ...projectConfigPaths(directory), join(DATA_DIR, "spaces.json")]
     .filter((path) => existsSync(path))
     .map((path) => {
       try {
@@ -796,6 +779,10 @@ let lastConfigDirectory: string | undefined;
 let lastConfigSignature: string | undefined;
 /** Directory and signature of the last reload that failed. */
 let lastFailedConfig: string | undefined;
+
+let activeSpace: ActiveSpace = { id: "default", name: "Default", customStoragePath: false };
+/** The memory space in use, as of the last config load. */
+export const getActiveSpace = (): ActiveSpace => activeSpace;
 
 export function refreshConfigIfChanged(directory: string): void {
   // Both hosts initialise their config at startup. Direct callers that have
@@ -872,10 +859,20 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   delete projectOverrides.webServerAutoStart;
   delete projectOverrides.webServerEnabled;
   const merged: OmmsConfig = { ...globalConfig, ...projectOverrides };
+  // The active memory space picks the storage folder unless the project sets its own (ADR-041).
+  activeSpace = resolveActiveSpace(
+    DATA_DIR,
+    storagePathFrom(globalConfig),
+    "storagePath" in projectConfig
+  );
+  if (activeSpace.storagePath) merged.storagePath = activeSpace.storagePath;
   const nextConfig = withSkillStorage(buildConfig(merged), globalConfig);
   lastFileConfig = merged;
   lastGlobalFileConfig = globalConfig;
+  const storageMoved = nextConfig.storagePath !== CONFIG.storagePath;
   CONFIG = nextConfig;
+  // A new storage folder (another memory space) needs fresh store handles (ADR-041).
+  if (storageMoved) void resetStoreHandles();
   lastConfigDirectory = directory;
   lastConfigSignature = configSignature(directory);
 }

@@ -44,3 +44,4 @@ Local decision records for OMMS maintainers.
 | [038](./038-chat-reads-skill-facts-from-skills-db.md)                       | The chat reads skill facts from skills.db                                       | 2026-10-31 | Accepted           |
 | [039](./039-recall-rows-come-from-the-tui-entry-not-the-transcript.md)      | Recall rows come from the TUI entry, not the transcript                         | 2026-11-03 | Accepted           |
 | [040](./040-hooks-add-only-what-the-prompt-needs.md)                        | Hooks add only what the prompt needs                                            | 2026-11-03 | Proposed           |
+| [041](./041-a-memory-space-is-a-storage-folder.md)                          | A memory space is a storage folder                                              | 2026-11-06 | Proposed           |

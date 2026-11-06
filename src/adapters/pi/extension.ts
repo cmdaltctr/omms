@@ -40,6 +40,7 @@ const MEMORY_TOOL_MODES = [
   "list-shards",
   "export",
   "import",
+  "space",
 ] as const;
 
 function toSessionEntries(branch: unknown): PiSessionEntry[] {
@@ -405,6 +406,8 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
       inputPath: Type.Optional(Type.String()),
       dryRun: Type.Optional(Type.Boolean()),
       allowLinkedSource: Type.Optional(Type.Boolean()),
+      spaceAction: Type.Optional(Type.String()),
+      spaceName: Type.Optional(Type.String()),
     }),
     async execute(_toolCallId, args, _signal, _onUpdate, ctx) {
       const result = await executeMemoryOperation(args as any, {
