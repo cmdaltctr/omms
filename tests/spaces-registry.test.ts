@@ -261,7 +261,7 @@ describe("resolveSpaceFolder", () => {
   });
 
   it("maps another space to its own folder under the spaces root", () => {
-    expect(resolveSpaceFolder("team-b", paths)).toBe("/home/u/.omms/spaces/team-b");
+    expect(resolveSpaceFolder("team-b", paths)).toBe(join(paths.spacesRoot, "team-b"));
   });
 
   it("refuses an id that could leave the spaces root", () => {

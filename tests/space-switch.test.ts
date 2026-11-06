@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
+import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -106,10 +107,11 @@ beforeAll(() => {
   );
   initConfig(project);
 });
-afterAll(() => {
-  rmSync(project, { recursive: true, force: true });
+afterAll(async () => {
+  // Windows keeps a database file locked until its handle is released (TDR-018).
+  await cleanupTursoTestDirectory(files.spacesRoot);
+  await cleanupTursoTestDirectory(project);
   rmSync(files.registryPath, { force: true });
-  rmSync(files.spacesRoot, { recursive: true, force: true });
 });
 
 describe("switching the active space in a running process", () => {

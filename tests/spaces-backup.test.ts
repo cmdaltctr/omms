@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { createClient } from "@libsql/client";
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 import { backupSpace, readBackupManifest } from "../src/services/spaces/backup.js";
 
 let root: string;
@@ -44,7 +45,8 @@ beforeEach(async () => {
   writeFileSync(join(folder, "metadata.db-journal"), "half written");
   writeFileSync(join(folder, ".write-locks", "x.lock"), "lock");
 });
-afterEach(() => rmSync(root, { recursive: true, force: true }));
+// Windows keeps a database file locked until its handle is released (TDR-018).
+afterEach(() => cleanupTursoTestDirectory(root));
 
 describe("backupSpace", () => {
   it("copies the store files, skips the model cache, lock files and SQLite journals, and writes a manifest", async () => {

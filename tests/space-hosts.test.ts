@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, mock } from "bun:test";
+import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
@@ -82,10 +83,11 @@ beforeAll(async () => {
   await switchStoredSpace(files, "default");
   refreshConfigIfChanged(project);
 });
-afterAll(() => {
-  rmSync(project, { recursive: true, force: true });
+afterAll(async () => {
+  // Windows keeps a database file locked until its handle is released (TDR-018).
+  await cleanupTursoTestDirectory(files.spacesRoot);
+  await cleanupTursoTestDirectory(project);
   rmSync(files.registryPath, { force: true });
-  rmSync(files.spacesRoot, { recursive: true, force: true });
 });
 
 describe("hosts follow a space switch on the next turn", () => {
