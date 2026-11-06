@@ -2,6 +2,20 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.5.0](https://github.com/cmdaltctr/omms/compare/v5.4.1...v5.5.0) (2026-11-06)
+
+
+### Features
+
+* add memory spaces ([eac29d8](https://github.com/cmdaltctr/omms/commit/eac29d86fe9ffc15de938a8fbeedfb900215d1ce))
+* add memory spaces ([ccbc9e2](https://github.com/cmdaltctr/omms/commit/ccbc9e2c2021e135d06c02c284a8300b5195a5d8))
+
+
+### Documentation
+
+* **pi:** explain recall row position and the inline entry option ([50c99b6](https://github.com/cmdaltctr/omms/commit/50c99b61defc68ca5941d783c06a351ba0fda007))
+* **pi:** explain recall row position and the inline entry option ([0224549](https://github.com/cmdaltctr/omms/commit/022454996dc1490fbac3d194a70c22a3fbb7046b))
+
 ## [5.4.1](https://github.com/cmdaltctr/omms/compare/v5.4.0...v5.4.1) (2026-11-03)
 
 
