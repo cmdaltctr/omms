@@ -6,9 +6,9 @@ See proposal.md for the reason. These facts about the code at `main` (eac29d8) d
 
 - The store classes are singletons bound to `CONFIG.storagePath`. `TursoShardManager` builds the `metadata.db` path and every shard path from it (`shard-manager.ts`). `TursoConnectionManager` refuses any database outside `CONFIG.storagePath` and `CONFIG.skillStoragePath` (`assertPathInsideStorage`). `withCrossProcessWriteLock` and `acquireTursoOperationLock` take the lock folder from `CONFIG.storagePath`. `UserProfileManager` takes its database and `cold-buffer.json` paths from `CONFIG.storagePath`.
 - A space is one folder with the layout of the Default store (ADR-041). A switch resets every registered handle through `resettable()`.
-- A memory is one row in a shard database. The row holds the project tag (`omms_project_<hash>` or `omms_user_<hash>`), text, tags, type, times, metadata, project fields, `is_pinned` and two vectors. A project tag is a hash of the git remote URL when there is one (`remote:<url>`), so a colleague on the same repository gets the same tag.
+- A memory is one row in a shard database. The row holds the project tag (`omms_project_<hash>` or `omms_user_<hash>`), text, tags, type, times, metadata, project fields, `is_pinned` and two vectors. A project tag hashes a project identity (`src/services/tags.ts`): a marker root (`path:`), else the local git common directory (`git-common:<absolute path>`), else the remote URL (`remote:<url>`). In a normal clone the identity is the local `.git` path, so tags are machine-local and a colleague on the same repository gets a different tag.
 - The embedding settings are global (`CONFIG.embeddingModel`, `embeddingDimensions`). Every space created on this machine uses them, so a copy between two local spaces can reuse the stored vectors.
-- All hosts call `memoryClient.searchMemories` (`src/services/client.ts`). Not every caller is a recall: the capture step uses it to find existing memories, and the profile step and the chat use it too.
+- All hosts recall through `memoryClient.searchMemories` (`src/services/client.ts`): the retrieval sections (`src/core/retrieval.ts`), the `memory` tool `search` and the chat retrieve. The list surfaces go through `memoryClient.listMemories`: the capture step reads the latest memory (`src/core/capture.ts`), the session-start recent list and the `memory` tool `list` use it too. The profile step uses `searchMemoriesBySessionID`, and the dedupe service reads shard rows directly.
 - `executeSpaceOperation` (`src/services/spaces/operations.ts`) is the one function behind the CLI `space` command, the `memory` tool `space` mode and the Claude Code tool. It needs no open store today.
 - `src/services/memory-portability-service.ts` exports and imports one **project** for the **active** space, keeps `userName`, `userEmail`, `projectPath` and `gitRepoUrl`, and maps every memory onto the importing project's tag. It stays as it is.
 
@@ -25,7 +25,7 @@ See proposal.md for the reason. These facts about the code at `main` (eac29d8) d
 
 - Changing `memory-portability-service.ts` or its `export` and `import` commands.
 - Transitive links, two-way sync, or merging user profiles between spaces.
-- Mapping an imported project onto a different local project. Imported memories keep their project tags.
+- Mapping each imported project onto its own local project. Import keeps the project tags by default, or maps all of them onto one project the user names (D7).
 - Per-space embedding settings.
 - A background job queue. A transfer runs inside the request.
 
@@ -37,7 +37,7 @@ Add `src/services/spaces/space-store.ts` with `openSpaceStore(folder, mode)`. It
 
 - `TursoConnectionManager` takes an optional `allowedRoots: () => string[]` (default: the two `CONFIG` roots).
 - `TursoShardManager` takes `{ root: () => string, connections }` (default: `CONFIG.storagePath` and the shared manager).
-- `withCrossProcessWriteLock` and `acquireTursoOperationLock` take an optional `root`.
+- `withCrossProcessWriteLock`, `acquireTursoOperationLock` and `assertNoTursoMigrationInProgress` take an optional `root`. The write path of `getWriteShard` checks the migration lock, so a space-bound store must check its own folder, not the active space's.
 - `UserProfileManager` takes an optional `root` (needed only for profile import, D8).
 
 The singletons keep their current constructor defaults, so hosts see no change. The space store uses the **same lock files** as a host that has that space active, so a transfer and a capture exclude each other.
@@ -62,7 +62,7 @@ A read store for a linked space is cached by folder for the life of the process 
 1. **Select.** Read source rows with `created_at` in the range and, when given, the project filter. A "project" is the value of `project_name` with its tag. User-scope rows appear as one group named "Personal".
 2. **Skip duplicates.** Load the target's ids and its `container_tag` + text keys once. Drop a source row that matches either (spec: exact duplicates).
 3. **Preview** stops here: count, groups, five examples (text cut to 160 characters, for the screen only and never logged) and the skipped count.
-4. **Write.** Group the rows by scope and hash. For each group, write in batches that fit the shard's free room (`maxVectorsPerShard`) in one transaction per shard, then set the shard's vector count. The stored vectors are reused when source and target dimensions equal `CONFIG.embeddingDimensions`. Otherwise the engine embeds again.
+4. **Write.** Group the rows by scope and hash. For each group, write in batches that fit the shard's free room (`maxVectorsPerShard`) in one transaction per shard, then set the shard's vector count. The stored vectors are reused only when the source shard's model and dimensions equal the current settings (the spec's rule). Otherwise the engine embeds again.
 5. **Check.** Select the copied ids from the target. Every id must be present.
 6. **Remove (move only).** Delete the checked ids from the source in one transaction per shard and fix the counts. A missing id at step 5 aborts before this step.
 
@@ -72,7 +72,7 @@ A crash between steps 5 and 6 leaves memories in both spaces. A re-run reports t
 
 ### D4. One transfer at a time per process
 
-The web server holds an in-process mutex for apply calls and answers 409 `transfer-busy` to a second one. The cross-process write lock covers the other processes.
+The web server holds an in-process mutex for apply calls and answers 409 `transfer-busy` to a second one, without touching either space. The dialog shows the refusal in words and keeps the preview, so the user can retry (web spec: only one transfer applies at a time). The cross-process write lock covers the other processes.
 
 ### D5. Links live in the registry
 
@@ -80,16 +80,18 @@ The web server holds an in-process mutex for apply calls and answers 409 `transf
 
 ### D6. Linked search is opt-in per caller
 
-`searchMemories(query, tag, scope, { includeLinked })` defaults to `false`. Recall surfaces pass `true`: the retrieval section for the three hosts (`src/core/retrieval.ts`), the `memory` tool `search` and `list`, and the chat retrieve. The capture step, the profile step and the duplicate checks keep the default, so a capture never decides on a linked memory and never writes to one.
+`searchMemories(query, tag, scope, { includeLinked })` and `listMemories(tag, limit, scope, { includeLinked })` default to `false`. Recall surfaces pass `true`: the retrieval sections for the three hosts (`src/core/retrieval.ts`), the session-start recent list (`buildRecentMemoriesSection`), the `memory` tool `search` and `list`, and the chat retrieve. The capture step, the profile step (`searchMemoriesBySessionID`), the dedupe reads and the duplicate checks keep the default, so a capture never decides on a linked memory and never writes to one.
 
 With `includeLinked`:
 
 1. Run today's own search unchanged (reranker included).
-2. For each linked space that is available, open a cached read store, check the dimensions, and call `searchAcrossShards` with the **same query vector** and the same threshold.
+2. For each linked space that is available, open a cached read store, check the dimensions and, when the space records an embedding model, the model, then call `searchAcrossShards` with the **same query vector** and the same threshold.
+   Skip the space with a warning on any difference. A space that records no model (a legacy shard) passes on the dimensions alone, so existing spaces keep working. The model rule is stricter than today's `hasMatchingEmbeddingDimensions` check on the own space, on purpose: a linked space is searched with a vector it never produced, and a model mismatch with equal dimensions returns wrong results without any error. This is the same rule D3 uses for vector reuse.
 3. Append linked results after the own results, sorted by similarity, up to the result limit (`CONFIG.maxMemories`). The reranker does not see linked results.
 4. Set `spaceName` on each linked result. Add a warning for each skipped link.
+5. A list with `includeLinked` appends linked rows after the own rows, newest first, up to the limit. No query vector is involved.
 
-`src/services/context.ts` prints a `space="<name>"` attribute on a linked `<memory>` element. The Claude Code recall parser (`hooks/*.jsx`) must still read the block, so `bash scripts/test-claude-mod.sh` is a gate.
+`src/services/context.ts` prints a `space="<name>"` attribute on a linked `<memory>` element, after the `relevance` attribute: the Claude Code recall parser (`hooks/omms-recall-parse.js`) matches `<memory id="..." relevance="...">` in that order, and `ci:local` never runs `test-claude-mod.sh`, so a wrong order would break Claude Code recall unnoticed. That script stays a gate.
 
 `forget` and `edit` look in the own space first. On "not found" they check the linked read stores and, when the id is there, refuse with the space name.
 
@@ -99,19 +101,19 @@ Alternative rejected: always search linked spaces. The capture step would then s
 
 New files in `src/services/spaces/`: `export-space.ts`, `import-space.ts`, `identifier-scrub.ts` and a schema `src/shared/api/space-export-schemas.ts` (`format: "omms-space-export"`, `schemaVersion: 1`). The v1 project export stays untouched.
 
-**Export.** Read the source (read store). For each memory keep id, text, tags, type, times, pin and project tag. Drop `displayName`, `userName`, `userEmail`, `projectPath`, `projectName`, `gitRepoUrl` and the metadata keys that hold them. Run every remaining string (text, tags, metadata values) through `identifier-scrub.ts`: home-folder paths (`/Users/<x>/`, `/home/<x>/`, `C:\Users\<x>\`) become `~/`, email addresses become `<email>`, and `<private>` regions are removed (`stripPrivateContent`). The scrubber returns counts. As a last step the exporter scans the serialised file for the home path of the exporting user, any absolute path pattern and any email pattern, and **fails the export** if one is left. A test feeds hostile metadata to prove this.
+**Export.** Read the source (read store). For each memory keep id, text, tags, type, times, pin and project tag. Drop `displayName`, `userName`, `userEmail`, `projectPath`, `projectName`, `gitRepoUrl` and any metadata key whose value is a path or one of those identifiers. Run every remaining string (text, tags, metadata values) through `identifier-scrub.ts`: home-folder paths (`/Users/<x>/`, `/home/<x>/`, `C:\Users\<x>\`) become `~/`, email addresses become `<email>`, and `<private>` regions are removed (`stripPrivateContent`). The scrubber returns counts. As a last step the exporter scans the serialised file for the home path of the exporting user, any other home-folder path shape and any email pattern, and **fails the export** if one is left. Other absolute paths (a system path or a URL) stay in free text and the scan does not fail on them, because memories often quote such paths. A test feeds hostile metadata to prove this.
 
 The opt-in adds the user-scope memories and the profile. Profile items keep category, description, confidence, frequency, evidence and times. They lose `centroid`, `anchor` and the other vector fields, and every string is scrubbed.
 
 The file is a JSON document. The web route returns it as a download (`Content-Disposition`). The CLI writes it atomically (temporary file, then rename) to `--out`.
 
-**Import.** Validate first (size cap 100 MB, schema, version). Compare `embedding.model` and `dimensions` with `CONFIG` and return the warning. Create the new space (`createStoredSpace`). Open a write store on its folder. Embed every memory with the current model, in batches, then write with the same shard code as D3. User-scope memories are written under the importing user's user tag. The profile, when present, is created through a `UserProfileManager` rooted at the new folder. If anything fails, remove the registry entry and the folder of the new space (it was never active and holds only imported data, so no backup is needed) and report the error.
+**Import.** Validate first (size cap 100 MB, schema, version). Compare `embedding.model` and `dimensions` with `CONFIG` and return the warning. The user names the new space and the file holds no space name. Create the new space (`createStoredSpace`). Open a write store on its folder. Embed every memory with the current model, in batches, then write with the same shard code as D3. User-scope memories are written under the importing user's user tag. Project memories keep the exporter's tags by default, so a round trip on one machine and a same-machine backup restore stay exact. A project-scope search on another machine then finds them only when that project's identity hash matches; an all-projects search always finds them (see Risks). With the option `retagToProject` (a folder), the import computes that folder's tag once with `getProjectTagInfo(folder)` and gives it to every project memory. The folder must exist, and the check runs before the space is created. The folder is used for the hash only and is stored nowhere. This merges the file's projects into one, and the dialog and CLI say so with the project count from the file. User-scope memories are not affected. The profile, when present, is created through a `UserProfileManager` rooted at the new folder. If anything fails, remove the registry entry and the folder of the new space (it was never active and holds only imported data, so no backup is needed) and report the error.
 
 ### D8. Surfaces and parity
 
 - `operations.ts` gains the actions `preview`, `copy`, `link` and `unlink`, and the refusals: `move` is web only; `export` and `import` are refused for the tool and allowed for the CLI.
 - New tool arguments on `MemoryOperationArgs`: `spaceTo`, `spaceSince`, `spaceUntil`, `spaceProject`, `spaceIn` (the space that owns a link; default is the active space). Dates are ISO 8601.
-- CLI: `space preview|copy --from <a> --to <b> [--since D] [--until D] [--project P]`, `space link|unlink <name> [--in <space>]`, `space export <name> --out <file> [--since D] [--until D] [--include-profile]`, `space import <file> --name <new>`.
+- CLI: `space preview|copy --from <a> --to <b> [--since D] [--until D] [--project P]`, `space link|unlink <name> [--in <space>]`, `space export <name> --out <file> [--since D] [--until D] [--include-profile]`, `space import <file> --name <new> [--retag-to-project <folder>]`.
 - The Pi extension, the OpenCode V2 adapter and the Claude Code tool schema carry the new arguments. `tests/memory-space-tool-parity.test.ts` grows to cover them.
 - Because the new actions open stores, `runSpaceMode` loads them with dynamic `import()` only for those actions, so `list`, `use` and `create` stay light.
 
@@ -125,10 +127,10 @@ All under `/api/spaces`, in a new `space-transfer-routes.ts` (kept apart so `spa
 | `POST /api/spaces/transfer`         | Same body plus `confirm: true`. Runs copy or move. Returns the result. |
 | `POST /api/spaces/:id/export`       | Body: since, until, `includeProfile`. Returns counts and a download.   |
 | `POST /api/spaces/import/check`     | Uploads the file, returns counts, projects and the model warning.      |
-| `POST /api/spaces/import`           | Uploads the file with the new name. Returns the new space.             |
+| `POST /api/spaces/import`           | Uploads the file with the new name and optional `retagToProject`.      |
 | `POST /api/spaces/:id/links`        | Body: `{ add }` or `{ remove }`.                                       |
 
-`GET /api/spaces` adds `links: [{ id, name, available }]` to each space. The upload handler must take bodies up to 100 MB. Task 6.x checks the current body limit of the web server and raises it for this route only.
+`GET /api/spaces` adds `links: [{ id, name, available }]` to each space. The upload handler must take bodies up to 100 MB. Task 8.1 checks the current body limit of the web server and raises it for this route only.
 
 ### D10. Web UI
 
@@ -144,6 +146,7 @@ New components in `web/src/lib/components/spaces/`: `TransferDialog`, `TransferP
 - [Linked results change recall quality] → Own results always rank first and linked ones only fill the remaining places. Linking is off by default.
 - [Large exports and imports] → The 100 MB cap stays. Import embeds in batches and reports progress.
 - [A space imported with another model than its stored vectors] → Import always embeds again, so vectors match the settings.
+- [Imported memories carry the exporter's project tags] → Tags are machine-local (Context), so a project-scope search on the importing machine finds them only under a matching identity hash. An all-projects search always finds them. The user can map them onto one local project with `retagToProject` (D7). The guide and the import result say so.
 
 ## Migration Plan
 

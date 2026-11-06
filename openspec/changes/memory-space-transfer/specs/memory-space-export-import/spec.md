@@ -84,7 +84,7 @@ Export SHALL leave out the learned user profile and the personal (user-scope) me
 
 ### Requirement: Import creates a new space
 
-Import SHALL read an export file into a new space, named from the file or by the user. Import SHALL NOT write into an existing space. Import SHALL NOT change the active space. A name that is already taken SHALL be refused.
+Import SHALL read an export file into a new space that the user names. The file SHALL hold no space name. Import SHALL NOT write into an existing space. Import SHALL NOT change the active space. A name that is already taken SHALL be refused.
 
 #### Scenario: Import into a new space
 
@@ -96,6 +96,31 @@ Import SHALL read an export file into a new space, named from the file or by the
 
 - **WHEN** the user names a space that already exists
 - **THEN** OMMS SHALL refuse, SHALL create no space and SHALL change no existing space
+
+#### Scenario: The file holds no space name
+
+- **WHEN** the exported space was named `Sam client work`
+- **THEN** the file SHALL hold that name nowhere
+
+### Requirement: Import keeps project tags unless the user picks one project
+
+Import SHALL keep the project tag of each memory by default. When the user gives a project folder, Import SHALL give every project memory the project tag of that folder on the importing machine. User-scope memories SHALL always take the importing user's tag. A folder that does not exist SHALL be refused before any space is created.
+
+#### Scenario: Default keeps the tags
+
+- **WHEN** the user imports a file without a project folder
+- **THEN** each project memory SHALL keep the project tag it had in the file
+
+#### Scenario: Retag to one project
+
+- **WHEN** the user imports a file that holds memories of three projects and gives the folder `~/work/app`
+- **THEN** every project memory SHALL carry the project tag of `~/work/app`
+- **AND** a project-scope search from `~/work/app` SHALL find them
+
+#### Scenario: Folder does not exist
+
+- **WHEN** the user gives a project folder that does not exist
+- **THEN** OMMS SHALL refuse with the reason and SHALL create no space
 
 ### Requirement: Import embeds again and warns on a model mismatch
 

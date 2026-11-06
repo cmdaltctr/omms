@@ -39,9 +39,24 @@ Choosing Apply with the Move mode SHALL open a confirm dialog that names the sou
 - **WHEN** the user confirms a move of 20 memories with 3 skipped duplicates
 - **THEN** the dialog SHALL show 17 moved and 3 skipped, and the 3 SHALL be described as kept in the source
 
+### Requirement: Only one transfer applies at a time
+
+The web server SHALL run one transfer apply at a time. A second apply that arrives while one runs SHALL be refused with status 409 and the code `transfer-busy`, and SHALL change nothing. The dialog SHALL show that another transfer is running, SHALL keep the preview and SHALL let the user try again.
+
+#### Scenario: A second transfer starts
+
+- **WHEN** a transfer apply is running and a second browser tab sends another apply
+- **THEN** the server SHALL answer 409 `transfer-busy` and the second request SHALL change neither space
+- **AND** the first transfer SHALL finish unchanged
+
+#### Scenario: Busy message in the dialog
+
+- **WHEN** the dialog receives `transfer-busy`
+- **THEN** it SHALL say in words that another transfer is running, SHALL keep the preview and SHALL leave Apply available for a retry
+
 ### Requirement: Export and Import have their own dialogs
 
-The Export button of a card SHALL open a dialog with an optional date range and an unticked checkbox for the profile and personal memories. It SHALL show the counts of paths and emails replaced, then offer the file as a browser download. The page SHALL have an Import control that takes a file and a new space name, shows the model and dimension warning when it applies, and asks for confirmation before it runs.
+The Export button of a card SHALL open a dialog with an optional date range and an unticked checkbox for the profile and personal memories. It SHALL show the counts of paths and emails replaced, then offer the file as a browser download. The page SHALL have an Import control that takes a file, a new space name and an optional project folder, shows the model and dimension warning when it applies, and asks for confirmation before it runs.
 
 #### Scenario: Export defaults
 
@@ -52,6 +67,12 @@ The Export button of a card SHALL open a dialog with an optional date range and 
 
 - **WHEN** the user picks a file whose embedding model differs from the current settings
 - **THEN** the dialog SHALL show the warning with both models before the user confirms
+
+#### Scenario: Import with a project folder
+
+- **WHEN** the user enters a project folder in the Import dialog
+- **THEN** the dialog SHALL say in words that the projects of the file will merge into that one project and SHALL show how many projects the file holds
+- **AND** with the field empty, the dialog SHALL say that project labels are kept
 
 #### Scenario: Import name taken
 

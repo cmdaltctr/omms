@@ -28,7 +28,7 @@ Each space SHALL have a list of linked spaces. A link is one-way: it lets the sp
 
 ### Requirement: Memory search also reads linked spaces
 
-A memory search in a space SHALL also search its linked spaces, for the project in use and for an all-projects search. A linked space that is archived, whose folder is missing or whose embedding dimensions differ from the current settings SHALL be skipped, and the result SHALL carry a warning that names it.
+A memory search in a space SHALL also search its linked spaces, for the project in use and for an all-projects search. A linked space SHALL be skipped, and the result SHALL carry a warning that names it, when the space is archived, its folder is missing, its embedding dimensions differ from the current settings, or it records an embedding model that differs from the current model. A space that records no model SHALL be checked by its dimensions only.
 
 #### Scenario: Recall from a linked space
 
@@ -44,6 +44,16 @@ A memory search in a space SHALL also search its linked spaces, for the project 
 
 - **WHEN** a linked space was embedded with other dimensions than the current settings
 - **THEN** the search SHALL skip it and SHALL warn that it needs a re-embed
+
+#### Scenario: Linked space with another model and the same dimensions
+
+- **WHEN** a linked space records `model-a` with 768 dimensions and the current settings use `model-b` with 768 dimensions
+- **THEN** the search SHALL skip it and SHALL warn that it needs a re-embed
+
+#### Scenario: Linked space with no recorded model
+
+- **WHEN** a linked space records no embedding model and its dimensions equal the current settings
+- **THEN** the search SHALL read it
 
 ### Requirement: Own-space results rank first
 
