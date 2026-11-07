@@ -2,7 +2,7 @@
 
 ### Requirement: OpenCode tells the user about a newer OMMS release
 
-At start and every 6 hours, OMMS in OpenCode SHALL read the `latest` version of `om-memory-system` from the npm registry. When it is newer than the running version and is not a prerelease, the footer SHALL add `· <version> available`, and OMMS SHALL show one toast that names `opencode plugin update om-memory-system`. When OMMS has started a background update for that version, the toast SHALL say that the update is installing instead of naming the command. The check SHALL send no session content. `OMMS_DISABLE_UPDATE_CHECK=1` SHALL turn the check off. A failed check SHALL show no notice.
+At start and every 6 hours, OMMS in OpenCode SHALL read the `latest` version of `om-memory-system` from the npm registry. When it is newer than the running version and is not a prerelease, the footer SHALL add `· <version> available`, and OMMS SHALL show one toast that names `opencode plugin update om-memory-system`. The check SHALL send no session content. `OMMS_DISABLE_UPDATE_CHECK=1` SHALL turn the check off. A failed check SHALL show no notice.
 
 #### Scenario: A newer release exists
 
@@ -16,6 +16,15 @@ At start and every 6 hours, OMMS in OpenCode SHALL read the `latest` version of 
 - **THEN** OMMS SHALL NOT contact the npm registry
 
 ## ADDED Requirements
+
+### Requirement: OpenCode says when a background update is installing
+
+When OMMS has started a background update for a newer version, the toast SHALL say that the update is installing instead of naming the update command.
+
+#### Scenario: The background update has started
+
+- **WHEN** OMMS starts the background update for 4.3.0
+- **THEN** one toast SHALL say that om-memory-system 4.3.0 is installing in the background
 
 ### Requirement: OpenCode installs a newer OMMS release in the background
 
