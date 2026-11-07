@@ -33,10 +33,20 @@ export interface MemoryOperationArgs {
   inputPath?: string;
   dryRun?: boolean;
   allowLinkedSource?: boolean;
-  /** `space` mode: list, status, create, archive, unarchive or use. */
+  /** `space` mode: list, status, create, archive, unarchive, use, preview, copy, link or unlink. */
   spaceAction?: string;
-  /** `space` mode: the space name or id. */
+  /** `space` mode: the space name or id; the transfer source or the link target. */
   spaceName?: string;
+  /** `space` mode: the transfer target (preview, copy). */
+  spaceTo?: string;
+  /** `space` mode: inclusive ISO 8601 lower bound on the creation time (preview, copy). */
+  spaceSince?: string;
+  /** `space` mode: inclusive ISO 8601 upper bound on the creation time (preview, copy). */
+  spaceUntil?: string;
+  /** `space` mode: only memories with this project tag (preview, copy). */
+  spaceProject?: string;
+  /** `space` mode: the space that owns a link (link, unlink); the active space when omitted. */
+  spaceIn?: string;
 }
 
 export interface MemoryOperationContext {
@@ -57,6 +67,8 @@ function formatSearchResults(query: string, results: any, limit?: number) {
       content: result.memory || result.chunk,
       type: result.type,
       similarity: Math.round(result.similarity * 100),
+      // A linked result carries its space so the caller can tell it is read-only.
+      ...(result.spaceName ? { space: result.spaceName } : {}),
     })),
   };
 }
@@ -133,8 +145,16 @@ export async function executeMemoryOperation(
             {
               command: "space",
               description:
-                "Manage memory spaces: list, status, create, archive, unarchive, use. Deleting a space is only possible in the web app",
-              args: ["spaceAction?", "spaceName?"],
+                "Manage memory spaces: list, status, create, archive, unarchive, use, preview, copy, link, unlink. Moving, deleting, exporting and importing are not offered here",
+              args: [
+                "spaceAction?",
+                "spaceName?",
+                "spaceTo?",
+                "spaceSince?",
+                "spaceUntil?",
+                "spaceProject?",
+                "spaceIn?",
+              ],
             },
             { command: "forget", description: "Remove memory", args: ["memoryId"] },
             {
@@ -200,7 +220,8 @@ export async function executeMemoryOperation(
         const result = await memoryClient.searchMemories(
           args.query,
           tags.project.tag,
-          args.scope ?? CONFIG.memory.defaultScope
+          args.scope ?? CONFIG.memory.defaultScope,
+          { includeLinked: true }
         );
         if (!result.success) return { success: false, error: result.error };
         return formatSearchResults(args.query, result, args.limit);
@@ -303,7 +324,8 @@ export async function executeMemoryOperation(
         const result = await memoryClient.listMemories(
           tags.project.tag,
           args.limit || 20,
-          args.scope ?? CONFIG.memory.defaultScope
+          args.scope ?? CONFIG.memory.defaultScope,
+          { includeLinked: true }
         );
         if (!result.success) return { success: false, error: result.error };
         return {

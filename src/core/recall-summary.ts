@@ -24,13 +24,15 @@ export function queryLine(query: string, max = QUERY_CUT): string {
 }
 
 // Entry shape comes from `formatContextForPrompt`: `<memory id="..." relevance="N%">`, with the
-// id missing when the result had none. A body ends at its own `</memory>` when another entry, a
-// section close or the end of the text follows it. The Claude Code hook can cut a block short and
-// leave tags open, so a body also ends at a section close or at the end of the text. An opening
-// tag inside the text, even at the start of a line, does not end it: a memory can quote the tag.
+// id missing when the result had none. A linked memory carries further attributes after the
+// relevance (`space="..."`), so any number of them may sit before the tag closes. A body ends at
+// its own `</memory>` when another entry, a section close or the end of the text follows it. The
+// Claude Code hook can cut a block short and leave tags open, so a body also ends at a section
+// close or at the end of the text. An opening tag inside the text, even at the start of a line,
+// does not end it: a memory can quote the tag.
 const SECTION_CLOSE = String.raw`<\/project_knowledge>|<\/memory_context>|<\/omms-retrieval>`;
 const MEMORY_ENTRY = new RegExp(
-  String.raw`<memory(?:\s+id="([^"]*)")?\s+relevance="(\d+)%">([\s\S]*?)` +
+  String.raw`<memory(?:\s+id="([^"]*)")?\s+relevance="(\d+)%"(?:\s+[a-z][a-z-]*="[^"]*")*>([\s\S]*?)` +
     String.raw`(?=<\/memory>\s*(?:<memory\s|${SECTION_CLOSE}|$)|${SECTION_CLOSE}|$)`,
   "g"
 );

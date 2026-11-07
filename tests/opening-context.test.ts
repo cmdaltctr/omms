@@ -142,13 +142,15 @@ results = { "fix the queue": [memory("a")], "project setup": [memory("b")] };
 ${call()}
 `);
     expect(output.searchQueries).toEqual([
-      ["fix the queue", "omms_project_test"],
-      ["project setup", "omms_project_test"],
+      ["fix the queue", "omms_project_test", "project", { includeLinked: true }],
+      ["project setup", "omms_project_test", "project", { includeLinked: true }],
     ]);
     // Each search saw the other one start before it finished.
     expect(output.overlap).toEqual([2, 2]);
     const single = runScenario(`await buildRetrievalSection("fix the queue", "/repo", "ses-1");`);
-    expect(single.searchQueries).toEqual([["fix the queue", "omms_project_test"]]);
+    expect(single.searchQueries).toEqual([
+      ["fix the queue", "omms_project_test", "project", { includeLinked: true }],
+    ]);
   });
 
   it("returns the prompt section first, wrapped as hosts wrap buildRetrievalSection", () => {
@@ -286,7 +288,9 @@ captured = await buildFirstPromptSections({ prompt: "fix the queue", openingQuer
   directory: "/repo", sessionId: "ses-1", budget: { maxBytes: 4000, wrapperBytes: wrapper },
   openingReserveBytes: 0 });
 `);
-    expect(output.searchQueries).toEqual([["fix the queue", "omms_project_test"]]);
+    expect(output.searchQueries).toEqual([
+      ["fix the queue", "omms_project_test", "project", { includeLinked: true }],
+    ]);
     expect(output.captured.openingSection).toBeNull();
     expect(output.captured.promptSection).toContain("a");
   });

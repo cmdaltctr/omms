@@ -1,6 +1,6 @@
 # Memory spaces
 
-A memory space is a separate store. Each space has its own memories and its own learned user profile. Use a space to start clean for an experiment, or to keep two lines of work apart.
+A memory space is a separate store. Each space has its own memories and its own learned user profile. Use a space to start clean for an experiment, or to keep two lines of work apart. Memories can move between spaces, a space can be written to a file for a colleague, and a space can read the spaces it links.
 
 ## How spaces work
 
@@ -29,8 +29,12 @@ On the Spaces page, each space is a card. On a card you can:
 | Back up   | Copies the space to `~/.omms/backups/space-<id>-<time>/` and checks the copy.                       |
 | Delete    | Makes a verified backup, removes the space, and shows where the backup is. You type the space name. |
 | Restore   | Creates a new space from a backup, named `<name> (restored <date>)`. It never overwrites a space.   |
+| Transfer  | Opens the Transfer dialog. Preview first, then copy or move memories into another space.            |
+| Export    | Opens the Export dialog. Writes the space to a file you can share.                                  |
 
 The Default space and the active space cannot be archived or deleted. The page disables those actions and says why.
+
+Next to the space list, **Import** reads an export file into a new space. Each card also has a **Linked spaces** section. See [Web UI: Spaces page](web-ui.md#spaces-page).
 
 ## Use spaces from a terminal or an agent
 
@@ -39,13 +43,75 @@ om-memory-system space list
 om-memory-system space create "Client work"
 om-memory-system space use "Client work"
 om-memory-system space archive "Client work"
+om-memory-system space copy --from Experiments --to "Client work" --since 2026-10-01
+om-memory-system space link "Client work" --in Experiments
 ```
 
-The `memory` tool has a `space` mode with the same actions: `list`, `status`, `create`, `use`, `archive` and `unarchive`. Pi, OpenCode V2 and Claude Code get the same mode. For example, tell the agent "save my work in the space Aizat" and it switches.
+The `memory` tool has a `space` mode with the same actions: `list`, `status`, `create`, `use`, `archive`, `unarchive`, `preview`, `copy`, `link` and `unlink`. Pi, OpenCode V2 and Claude Code get the same mode. For example, tell the agent "save my work in the space Aizat" and it switches.
 
-An agent or a terminal cannot delete, rename, back up or restore a space. They answer "Only the web app can delete a space." Use the web app for those actions.
+An agent or a terminal cannot delete, rename, back up, restore or move a space's memories. They answer "Only the web app can delete a space." and "Only the web app can move memories between spaces." Use the web app for those actions. Export and import run in the web app and the CLI. The `memory` tool refuses them: "The memory tool cannot export a space. Use the web app or the CLI."
 
 See [CLI reference](cli.md#memory-spaces) for the command.
+
+## Transfer memories between spaces
+
+A transfer names a source space and a target space. Neither needs to be the active space. A transfer can filter by a date range on the creation time of a memory, and by source project.
+
+1. Preview first. The preview shows the count of memories, the source projects with a count each, up to five example memories, and how many exact duplicates the target already holds. A preview changes nothing.
+2. Apply. Copy adds the memories to the target and leaves the source unchanged. Move is only in the web app, after a confirm dialog.
+
+A memory is skipped when the target already holds the same id, or the same text under the same project tag. Similar memories are copied. The result reports how many memories were copied and how many were skipped. When both spaces use the same embedding model and dimensions, the copy reuses the stored vectors. Otherwise OMMS embeds again.
+
+Move removes a memory from the source only after the copy in the target is checked. Skipped duplicates stay in the source. If the check fails, OMMS removes nothing.
+
+**The move window.** A crash between the check and the removal leaves the memory in both spaces. No memory is lost. A re-run reports the leftover as an exact duplicate and does not remove it. Delete the leftover yourself if this happens. The window is a few milliseconds long.
+
+The web app runs one transfer at a time. A second apply while one runs is refused with "Another transfer is running", and both spaces stay unchanged.
+
+```bash
+om-memory-system space preview --from Experiments --to "Client work" --since 2026-10-01
+om-memory-system space copy --from Experiments --to "Client work" --since 2026-10-01
+```
+
+## Export a space to a file
+
+`om-memory-system space export <name> --out <file>` writes one space to a JSON file that is safe to hand to a colleague. The **Export** button on a card does the same and offers the file as a download.
+
+- The file holds each memory's id, text, tags, type, times, pin state and project tag. It holds no vectors.
+- The file holds no absolute path, user name, display name, email address or repository URL in a structured field.
+- OMMS replaces a home-folder path in memory text with `~` and an email address with `<email>`. Text inside `<private>` tags is removed. The result reports how many paths and emails it replaced.
+- A final scan checks the finished file. When a home path or an email address survives, the export fails and OMMS writes no file.
+- Free-text names are not detected. Check the file before you share it.
+- The learned profile and the personal (user-scope) memories stay out unless you pass `--include-profile`.
+- `--since` and `--until` limit the export by creation time. When the selection holds no memory, OMMS writes no file and says so.
+
+## Import a space from a file
+
+`om-memory-system space import <file> --name <new>` reads an export file into a new space. Import never writes into an existing space and never changes the active space. A name that is already taken is refused.
+
+- Import embeds every memory again with this machine's embedding model. When the file's model or dimensions differ from the settings, OMMS warns and names both. The warning does not block the import.
+- Project memories keep the file's project tags by default. A project tag hashes a project identity, so tags are machine-local: a project-scope search finds the imported memories only when that project's identity hash matches. An all-projects search always finds them.
+- `--retag-to-project <folder>` gives every project memory the project tag of that folder on this machine. The folder must exist, and the check runs before any space is created. User-scope memories always take the importing user's tag.
+- The file must be at most 100 MB.
+- When the import fails after the new space exists, OMMS removes the new space and its folder and reports the failure.
+
+## Linked spaces
+
+A space can list other spaces it reads. A link is one-way: it lets the space read the linked space and gives the linked space nothing in return. Links are not followed further. When A links B and B links C, a search in A reads A and B only.
+
+- A memory search in a space also searches its linked spaces. Results of the space in use rank first. Linked results fill the remaining places, and each carries the name of its space.
+- Capture and profile learning never read or write linked spaces. A capture writes only to the space in use.
+- `forget` and `edit` refuse a memory of a linked space and name the space.
+- A linked space is skipped with a warning when it is archived, its folder is missing, or its embedding model or dimensions differ from the current settings.
+- The Default space cannot own links. Other spaces can link it.
+- Deleting or archiving a linked space leaves the link in place. It shows as unavailable.
+
+```bash
+om-memory-system space link "Client work" --in Experiments
+om-memory-system space unlink "Client work" --in Experiments
+```
+
+`--in` names the space that owns the link. Without it, the active space owns the link.
 
 ## Backups
 
@@ -67,10 +133,15 @@ If OMMS cannot remove the folder after the backup and the registry entry, it sho
 ## Limits
 
 - A switch does not stop work in progress. A turn that began before the switch can finish in the old space.
-- Spaces do not share memories. Moving, merging and exporting memories between spaces is planned as a later change.
+- A move has a short window between the checked copy and the removal from the source. A crash inside the window leaves the memory in both spaces. See [Transfer memories between spaces](#transfer-memories-between-spaces).
+- The one-transfer-at-a-time rule applies inside the web app. A transfer in a terminal and one in the web app exclude each other through the store's write locks.
+- An export file holds no free-text names, and the scrubber reports only paths and emails. Check the file before you share it.
+- Import re-embeds every memory, so a large file takes time.
+- Linked spaces are read in recall only. They hold no write path, so they never receive new memories.
 - If the active space's folder is missing, OMMS uses the Default space and shows the problem.
 
 ## See also
 
 - [Configuration](configuration.md) for `storagePath`.
-- [ADR-041](adr/041-a-memory-space-is-a-storage-folder.md) for the decision.
+- [ADR-041](adr/041-a-memory-space-is-a-storage-folder.md) for the space decision.
+- [ADR-042](adr/042-a-space-bound-store-and-linked-read-only-spaces.md) for the transfer, export and link decision.

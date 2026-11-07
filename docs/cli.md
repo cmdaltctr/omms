@@ -4,25 +4,25 @@ The npm package ships one terminal command, `om-memory-system`. Use it to import
 
 ## Command reference
 
-| Command                                                 | What it does                                                                                                        |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `om-memory-system import-opencode-history [flags]`      | Import OpenCode history with the external API.                                                                      |
-| `om-memory-system import-pi-history [flags]`            | Import Pi history with the external API.                                                                            |
-| `om-memory-system import-claude-history [flags]`        | Import Claude Code history with the external API.                                                                   |
-| `om-memory-system web`                                  | Start the web app in the foreground.                                                                                |
-| `om-memory-system web install`                          | Set `webServerAutoStart` to `true` and install the login item.                                                      |
-| `om-memory-system web uninstall`                        | Set `webServerAutoStart` to `false` and remove the login item.                                                      |
-| `om-memory-system web status`                           | Print the setting, the login item state, the URL, and whether the web app is up.                                    |
-| `om-memory-system web update`                           | Update the global install to npm `latest`, then replace the web app with a fresh one.                               |
-| `om-memory-system --version`, `-v`                      | Print the installed version and exit with code `0`.                                                                 |
-| `om-memory-system --help`, `-h`, or no arguments        | Print the command list.                                                                                             |
-| `om-memory-system <import command> --help`              | Print the flags for that import command.                                                                            |
-| `om-memory-system memory <mode> [options]`              | Run one memory operation and print JSON. See [The memory command](#the-memory-command).                             |
-| `om-memory-system space <action> [name]`                | List, create, switch or archive memory spaces. See [Memory spaces](#memory-spaces).                                 |
-| `om-memory-system claude-hook <event>`                  | Run a Claude Code hook. The Claude Code plugin calls it. See [Claude Code hook command](#claude-code-hook-command). |
-| `om-memory-system profile-catch-up [flags]`             | Analyse every prompt that waits for profile learning. See [Profile catch-up](#profile-catch-up).                    |
-| `om-memory-system profile-normalise-categories [flags]` | Preview or confirm category renames. See [Normalise profile categories](#normalise-profile-categories).             |
-| `om-memory-system skills <mode> [flags]`                | List skills, review proposals, record or delete turns. See [Skill turns](#skill-turns).                             |
+| Command                                                 | What it does                                                                                                           |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `om-memory-system import-opencode-history [flags]`      | Import OpenCode history with the external API.                                                                         |
+| `om-memory-system import-pi-history [flags]`            | Import Pi history with the external API.                                                                               |
+| `om-memory-system import-claude-history [flags]`        | Import Claude Code history with the external API.                                                                      |
+| `om-memory-system web`                                  | Start the web app in the foreground.                                                                                   |
+| `om-memory-system web install`                          | Set `webServerAutoStart` to `true` and install the login item.                                                         |
+| `om-memory-system web uninstall`                        | Set `webServerAutoStart` to `false` and remove the login item.                                                         |
+| `om-memory-system web status`                           | Print the setting, the login item state, the URL, and whether the web app is up.                                       |
+| `om-memory-system web update`                           | Update the global install to npm `latest`, then replace the web app with a fresh one.                                  |
+| `om-memory-system --version`, `-v`                      | Print the installed version and exit with code `0`.                                                                    |
+| `om-memory-system --help`, `-h`, or no arguments        | Print the command list.                                                                                                |
+| `om-memory-system <import command> --help`              | Print the flags for that import command.                                                                               |
+| `om-memory-system memory <mode> [options]`              | Run one memory operation and print JSON. See [The memory command](#the-memory-command).                                |
+| `om-memory-system space <action> [name]`                | List, create, switch or archive memory spaces, transfer, export, import and link. See [Memory spaces](#memory-spaces). |
+| `om-memory-system claude-hook <event>`                  | Run a Claude Code hook. The Claude Code plugin calls it. See [Claude Code hook command](#claude-code-hook-command).    |
+| `om-memory-system profile-catch-up [flags]`             | Analyse every prompt that waits for profile learning. See [Profile catch-up](#profile-catch-up).                       |
+| `om-memory-system profile-normalise-categories [flags]` | Preview or confirm category renames. See [Normalise profile categories](#normalise-profile-categories).                |
+| `om-memory-system skills <mode> [flags]`                | List skills, review proposals, record or delete turns. See [Skill turns](#skill-turns).                                |
 
 Slash commands inside a session:
 
@@ -415,24 +415,42 @@ The full table of modes and flags is in
 
 `om-memory-system space <action> [name]` manages [memory spaces](memory-spaces.md). It prints one JSON document.
 
-| Action             | What it does                                            |
-| ------------------ | ------------------------------------------------------- |
-| `list`             | List the spaces and show the active one.                |
-| `status`           | Show the space this project uses now.                   |
-| `create <name>`    | Add an empty space. It does not become active.          |
-| `use <name>`       | Make a space active for every host, from the next turn. |
-| `archive <name>`   | Hide a space from the sidebar tree and keep its data.   |
-| `unarchive <name>` | Show an archived space again.                           |
+| Action                                | What it does                                                          |
+| ------------------------------------- | --------------------------------------------------------------------- |
+| `list`                                | List the spaces and show the active one.                              |
+| `status`                              | Show the space this project uses now.                                 |
+| `create <name>`                       | Add an empty space. It does not become active.                        |
+| `use <name>`                          | Make a space active for every host, from the next turn.               |
+| `archive <name>`                      | Hide a space from the sidebar tree and keep its data.                 |
+| `unarchive <name>`                    | Show an archived space again.                                         |
+| `preview --from <a> --to <b> [flags]` | Count the memories a copy would carry. Writes nothing.                |
+| `copy --from <a> --to <b> [flags]`    | Copy memories into another space. The source stays unchanged.         |
+| `link <name> [--in <space>]`          | Make `<name>` searchable from `<space>`. The active space by default. |
+| `unlink <name> [--in <space>]`        | Remove that link. No memory is deleted.                               |
+| `export <name> --out <file> [flags]`  | Write one space to a JSON file that is safe to share.                 |
+| `import <file> --name <new> [flags]`  | Create a new space from an export file.                               |
+
+Transfer flags: `--since <date>`, `--until <date>`, `--project <tag>`. Export flags: `--since <date>`, `--until <date>`, `--include-profile`. Import flags: `--retag-to-project <folder>`.
 
 - `<name>` is a space name or id. Names are not case sensitive.
+- Dates are ISO 8601 and both bounds are inclusive. A date-only `--until` means midnight at the start of that day, so give a time to cover a whole day.
+- `--project` takes the project's container tag (`omms_project_<hash>`), as a preview's groups show it.
+- `--retag-to-project` gives every imported project memory the project tag of that folder. The folder must exist.
 - The command exits with code 1 for a refused action. It lists the spaces that can become active when a switch is refused.
-- It cannot delete, rename, back up or restore a space. Those actions are only in the web app.
-- `om-memory-system memory space --action <action> --name <name>` runs the same operation.
+- It cannot delete, rename, back up or restore a space, and it cannot move memories. Those actions are only in the web app.
+- `om-memory-system memory space --action <action> --name <name>` runs the same operation, except `export` and `import`: the `memory` tool refuses them.
 
 ```bash
 om-memory-system space create "Client work"
 om-memory-system space use "Client work"
+om-memory-system space preview --from Experiments --to "Client work" --since 2026-10-01
+om-memory-system space copy --from Experiments --to "Client work" --since 2026-10-01
+om-memory-system space link "Client work" --in Experiments
+om-memory-system space export "Client work" --out client.json
+om-memory-system space import client.json --name "Client work copy"
 ```
+
+See [Memory spaces](memory-spaces.md) for what each transfer, export, import and link action does.
 
 ## Claude Code hook command
 

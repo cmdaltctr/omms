@@ -39,9 +39,9 @@ function readLiveLock(path: string): LockState | null {
   return null;
 }
 
-export function assertNoTursoMigrationInProgress(): void {
+export function assertNoTursoMigrationInProgress(root: string = CONFIG.storagePath): void {
   for (const file of [OPERATION_LOCK, LEGACY_MIGRATION_LOCK]) {
-    const path = join(CONFIG.storagePath, file);
+    const path = join(root, file);
     const state = readLiveLock(path);
     if (state) {
       throw new Error(
@@ -52,9 +52,12 @@ export function assertNoTursoMigrationInProgress(): void {
   }
 }
 
-export function acquireTursoOperationLock(operation: string): () => void {
-  assertNoTursoMigrationInProgress();
-  const path = join(CONFIG.storagePath, OPERATION_LOCK);
+export function acquireTursoOperationLock(
+  operation: string,
+  root: string = CONFIG.storagePath
+): () => void {
+  assertNoTursoMigrationInProgress(root);
+  const path = join(root, OPERATION_LOCK);
   const state: LockState = {
     pid: process.pid,
     timestamp: new Date().toISOString(),

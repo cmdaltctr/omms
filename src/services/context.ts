@@ -12,6 +12,8 @@ interface MemoryResultMinimal {
   similarity: number;
   memory?: string;
   chunk?: string;
+  /** The linked space a result came from (D6). Own memories carry none. */
+  spaceName?: string;
 }
 
 interface MemoriesResponseMinimal {
@@ -22,6 +24,15 @@ interface MemoriesResponseMinimal {
 function spaceLine(): string {
   const space = configModule.getActiveSpace?.() ?? { name: "Default", customStoragePath: false };
   return activeSpaceLine(space);
+}
+
+/** A space label must never break out of the attribute or the element. */
+function sanitiseSpaceLabel(name: string): string {
+  return name
+    .replace(/["<>\n\r]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60);
 }
 
 const HEADER_TEXT =
@@ -71,8 +82,11 @@ export async function formatContextForPrompt(
         const content = mem.memory || mem.chunk || "";
         // The id lets the agent pass a recalled memory to `forget` with no search first.
         const id = mem.id ? `id="${mem.id}" ` : "";
+        // The space label must stay after relevance: the Claude Code recall parser
+        // (hooks/omms-recall-parse.js) reads `id` then `relevance` in that order.
+        const space = mem.spaceName ? ` space="${sanitiseSpaceLabel(mem.spaceName)}"` : "";
         return {
-          prefix: `<memory ${id}relevance="${similarity}%">\n`,
+          prefix: `<memory ${id}relevance="${similarity}%"${space}>\n`,
           body: content,
           suffix: "\n</memory>",
         };

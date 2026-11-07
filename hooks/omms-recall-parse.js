@@ -13,9 +13,10 @@
 
 const SECTION = /<omms-retrieval>[\s\S]*?(?:<\/omms-retrieval>|$)/g;
 // A memory runs to the next one, the end of the section or the end of the text:
-// the hook can cut a section short, so the closing tag is optional.
+// the hook can cut a section short, so the closing tag is optional. A linked
+// memory carries `space="..."` after `relevance`; the rows do not show it.
 const MEMORY =
-  /<memory (?:id="([^"]*)" )?relevance="(\d+)%">([\s\S]*?)(?=<memory |<\/project_knowledge>|<\/omms-retrieval>|$)/g;
+  /<memory (?:id="([^"]*)" )?relevance="(\d+)%"(?: space="[^"]*")?>([\s\S]*?)(?=<memory |<\/project_knowledge>|<\/omms-retrieval>|$)/g;
 // A restored-session section after compaction or a resume: `### Memory N (id)`.
 const RESTORED_HEADER = "## Restored Session Memory";
 const ROWS_OFF = "<omms-retrieval>\n<!--omms:rows-off-->\n";

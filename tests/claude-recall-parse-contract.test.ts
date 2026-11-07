@@ -39,7 +39,9 @@ import { mock } from "bun:test";
 
 const rows = [
   { id: "mem_alpha", similarity: 0.67, memory: "## Request\\nUser asked to add a claude-adapter.\\n\\n## Outcome\\nStarted." },
-  { id: "mem_beta", similarity: 0.62, memory: "OMMS global embeddings use llama.cpp." },
+  // A linked-space result carries spaceName, which context.ts prints as a
+  // space attribute after relevance. The parser must still read it.
+  { id: "mem_beta", similarity: 0.62, memory: "OMMS global embeddings use llama.cpp.", spaceName: "Beta" },
 ];
 const openingRows = [
   { id: "mem_open", similarity: 0.7, memory: "## Request\\nSet up the project with bun." },

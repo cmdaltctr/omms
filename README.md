@@ -119,7 +119,7 @@ cannot be saved.
 
 ### Memory spaces
 
-Keep separate stores for separate lines of work. The Spaces item in the web app sidebar opens a page with one card for each space. Switching a space applies to every host. See [Memory spaces](docs/memory-spaces.md).
+Keep separate stores for separate lines of work. The Spaces item in the web app sidebar opens a page with one card for each space. Switching a space applies to every host. Memories can be copied or moved between spaces, exported to a shareable file and imported into a new space, and a space can read the spaces it links. See [Memory spaces](docs/memory-spaces.md).
 
 ### Settings
 

@@ -23,6 +23,8 @@ export interface SpaceEntry {
   archived: boolean;
   /** ISO 8601 time of the archive. Absent for a space archived before OMMS recorded it. */
   archivedAt?: string;
+  /** Ids of linked spaces (design D5). A link is one-way and read-only. */
+  links?: string[];
 }
 
 export interface SpaceRegistry {
@@ -242,6 +244,81 @@ export function removeSpace(registry: SpaceRegistry, idOrName: string): SpaceReg
   return { ...registry, spaces: registry.spaces.filter((s) => s.id !== space.id) };
 }
 
+/**
+ * Adds a one-way link from one space to another (design D5). The linked space must
+ * exist, must not be the linking space itself and must not repeat. The link is
+ * stored on the linking space only, and the linked space's own links are not
+ * copied: the registry holds one level, and search follows no further.
+ *
+ * The Default space holds no links because it has no entry in `spaces.json`.
+ */
+export function linkSpace(
+  registry: SpaceRegistry,
+  idOrName: string,
+  targetIdOrName: string
+): SpaceRegistry {
+  const space = requireSpace(registry, idOrName);
+  if (space.id === DEFAULT_SPACE_ID) {
+    throw new SpaceError("protected", "The Default space cannot link other spaces.");
+  }
+  const target = requireSpace(registry, targetIdOrName);
+  if (target.id === space.id) {
+    // Code "protected" follows the "cannot do this to itself/Default" refusals.
+    throw new SpaceError("protected", `"${space.name}" cannot link to itself.`);
+  }
+  const links = space.links ?? [];
+  if (links.includes(target.id)) {
+    // Code "name-taken" is the duplicate refusal; a repeated link is the same conflict.
+    throw new SpaceError("name-taken", `"${space.name}" already links "${target.name}".`);
+  }
+  return updateSpace(registry, space.id, { links: [...links, target.id] });
+}
+
+/**
+ * Removes a link. The linked space may be gone from the registry, so its id is
+ * matched by id or name when it still exists and as a raw id otherwise. Removing
+ * a link deletes no memory and leaves every other link alone.
+ */
+export function unlinkSpace(
+  registry: SpaceRegistry,
+  idOrName: string,
+  targetIdOrName: string
+): SpaceRegistry {
+  const space = requireSpace(registry, idOrName);
+  if (space.id === DEFAULT_SPACE_ID) {
+    throw new SpaceError("protected", "The Default space cannot link other spaces.");
+  }
+  const target = findSpace(registry, targetIdOrName);
+  const linkedId = target ? target.id : targetIdOrName.trim();
+  const links = space.links ?? [];
+  if (!links.includes(linkedId)) {
+    throw new SpaceError("unknown", `"${space.name}" does not link "${targetIdOrName}".`);
+  }
+  const rest = links.filter((id) => id !== linkedId);
+  return updateSpace(registry, space.id, { links: rest.length > 0 ? rest : undefined });
+}
+
+export interface SpaceLinkInfo {
+  id: string;
+  /** The display name, or the id when the linked space is gone from the registry. */
+  name: string;
+  /** False when the linked space was deleted or archived. The link itself stays. */
+  available: boolean;
+}
+
+/**
+ * The links of a space with their availability, for the read paths (web layer, CLI
+ * listing). A link to a deleted or archived space stays in the registry and reads
+ * as unavailable here; search-time code skips it with a warning.
+ */
+export function spaceLinks(registry: SpaceRegistry, idOrName: string): SpaceLinkInfo[] {
+  const space = requireSpace(registry, idOrName);
+  return (space.links ?? []).map((id) => {
+    const target = findSpace(registry, id);
+    return { id, name: target?.name ?? id, available: target !== undefined && !target.archived };
+  });
+}
+
 /** The folder of a space. Refuses an id that is not safe, so a path cannot leave the spaces root. */
 export function resolveSpaceFolder(id: string, paths: SpacePaths): string {
   if (id === DEFAULT_SPACE_ID) return paths.globalStoragePath;
@@ -262,6 +339,10 @@ export interface RegistryReadResult {
   problem?: string;
 }
 
+function isLinkIdList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((id) => typeof id === "string");
+}
+
 function parseEntry(raw: unknown): SpaceEntry | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
   const entry = raw as Record<string, unknown>;
@@ -273,7 +354,8 @@ function parseEntry(raw: unknown): SpaceEntry | undefined {
     entry.name.trim() === "" ||
     typeof entry.createdAt !== "string" ||
     typeof entry.archived !== "boolean" ||
-    (entry.archivedAt !== undefined && typeof entry.archivedAt !== "string")
+    (entry.archivedAt !== undefined && typeof entry.archivedAt !== "string") ||
+    (entry.links !== undefined && !isLinkIdList(entry.links))
   ) {
     return undefined;
   }
@@ -283,6 +365,7 @@ function parseEntry(raw: unknown): SpaceEntry | undefined {
     createdAt: entry.createdAt,
     archived: entry.archived,
     ...(typeof entry.archivedAt === "string" ? { archivedAt: entry.archivedAt } : {}),
+    ...(isLinkIdList(entry.links) ? { links: entry.links } : {}),
   };
 }
 

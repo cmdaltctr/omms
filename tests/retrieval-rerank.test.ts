@@ -237,6 +237,7 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
     chatMessage: { excludeCurrentSession: true },
     ...JSON.parse(process.env.OMMS_TEST_CONFIG_EXTRA ?? "{}"),
   },
+  getActiveSpace: () => ({ id: "default", customStoragePath: false }),
 }));
 mock.module(${JSON.stringify(loggerUrl)}, () => ({
   log: (message, meta) => logs.push({ message, ...meta }),
@@ -331,6 +332,7 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
   },
   isConfigured: () => true,
   refreshConfigIfChanged: () => {},
+  getActiveSpace: () => ({ id: "default", customStoragePath: false }),
 }));
 mock.module(${JSON.stringify(loggerUrl)}, () => ({ log: () => {} }));
 mock.module(${JSON.stringify(embeddingUrl)}, () => ({

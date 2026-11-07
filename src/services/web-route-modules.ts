@@ -2,9 +2,13 @@ import { routeChat, type RouteResult } from "./chat/chat-routes.js";
 import { routeMemoryHosts } from "./memory-host-routes.js";
 import { routeProfileCleanup } from "./profile-cleanup-routes.js";
 import type { SkillRouteContext } from "./skill-routes.js";
+import { routeSpaceTransfers } from "./space-transfer-routes.js";
 import { routeSpaces } from "./space-routes.js";
 
 export { spaceStatus } from "./space-routes.js";
+
+/** A route result; `response` overrides the JSON envelope (the export download). */
+export type RouteModuleResult = RouteResult & { response?: Response };
 
 /**
  * Route modules that live outside web-server.ts, which sits at its size
@@ -17,7 +21,7 @@ export async function routeModules(
   url: URL,
   req: Request,
   ctx: SkillRouteContext
-): Promise<RouteResult | undefined> {
+): Promise<RouteModuleResult | undefined> {
   const { CONFIG: config } = await import("../config.js");
   let body: Promise<any> | undefined;
   const readBody = () => (body ??= req.json().catch(() => ({})));
@@ -32,6 +36,9 @@ export async function routeModules(
     const { routeSkills } = await import("./skill-routes.js");
     return routeSkills(path, method, url, readBody, ctx);
   }
+
+  const transfers = await routeSpaceTransfers(path, method, req, ctx.cwd);
+  if (transfers !== undefined) return transfers;
 
   const spaces = await routeSpaces(path, method, readBody, ctx.cwd);
   if (spaces !== undefined) return spaces;

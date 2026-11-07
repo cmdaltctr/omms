@@ -3,6 +3,7 @@ import { existsSync, renameSync, unlinkSync } from "node:fs";
 import { CONFIG } from "../../config.js";
 import { assertSafeScopeHash } from "../memory-scope.js";
 import { resettable, tursoConnectionManager } from "./connection-manager.js";
+import type { TursoConnectionManager } from "./connection-manager.js";
 import { log } from "../logger.js";
 import { assertNoTursoMigrationInProgress } from "./operation-lock.js";
 import { withCrossProcessWriteLock } from "./cross-process-write-lock.js";
@@ -30,6 +31,13 @@ export class TursoShardManager {
   private metadataPath = "";
   private initPromise: Promise<void> | null = null;
   private readonly writeLocks = new Map<string, Promise<unknown>>();
+  private readonly getRoot: () => string;
+  private readonly connections: TursoConnectionManager;
+  /** Space-bound stores pass their own root and connections (D1); defaults keep CONFIG. */
+  constructor(options: { root?: () => string; connections?: TursoConnectionManager } = {}) {
+    this.getRoot = options.root ?? ((): string => CONFIG.storagePath);
+    this.connections = options.connections ?? tursoConnectionManager;
+  }
 
   reset(): void {
     this.metadataDb = null;
@@ -59,7 +67,7 @@ export class TursoShardManager {
       // between processes (OpenCode + Pi, or any two writers) so that shard
       // allocation, vector-count sync, and the insert itself run as one
       // critical section per scope.
-      return await withCrossProcessWriteLock(scope, scopeHash, fn);
+      return await withCrossProcessWriteLock(scope, scopeHash, fn, this.getRoot());
     } finally {
       release();
       if (this.writeLocks.get(key) === next) {
@@ -81,8 +89,8 @@ export class TursoShardManager {
 
     this.initPromise = (async () => {
       try {
-        this.metadataPath = join(CONFIG.storagePath, METADATA_DB_NAME);
-        this.metadataDb = await tursoConnectionManager.getConnection(this.metadataPath);
+        this.metadataPath = join(this.getRoot(), METADATA_DB_NAME);
+        this.metadataDb = await this.connections.getConnection(this.metadataPath);
         await this.initMetadataDb(this.metadataDb);
       } catch (error) {
         this.initPromise = null;
@@ -123,7 +131,7 @@ export class TursoShardManager {
 
   getShardPath(scope: "user" | "project", scopeHash: string, shardIndex: number): string {
     assertSafeScopeHash(scopeHash);
-    const scopeDir = resolve(CONFIG.storagePath, `${scope}s`);
+    const scopeDir = resolve(this.getRoot(), `${scope}s`);
     const fullPath = resolve(join(scopeDir, `${scope}_${scopeHash}_shard_${shardIndex}.db`));
     const relativePath = relative(scopeDir, fullPath);
     if (relativePath.startsWith("..") || relativePath.includes("..")) {
@@ -134,7 +142,7 @@ export class TursoShardManager {
 
   private resolveStoredPath(storedPath: string, scope: string): string {
     const fileName = basename(storedPath);
-    return join(CONFIG.storagePath, `${scope}s`, fileName);
+    return join(this.getRoot(), `${scope}s`, fileName);
   }
 
   async getActiveShard(scope: "user" | "project", scopeHash: string): Promise<ShardInfo | null> {
@@ -190,7 +198,7 @@ export class TursoShardManager {
     // (disk full, permissions), the registry stays free of an orphan row that points
     // at an uninitialized file — such a row would later fail isShardValid on every
     // getWriteShard and brick all writes to this scope. initShardDb is idempotent.
-    const shardDb = await tursoConnectionManager.getConnection(fullPath);
+    const shardDb = await this.connections.getConnection(fullPath);
     await this.initShardDb(shardDb);
 
     let result;
@@ -211,9 +219,7 @@ export class TursoShardManager {
         `,
           [scope, scopeHash, shardIndex]
         );
-        if (existing) {
-          return this.rowToShardInfo(existing);
-        }
+        if (existing) return this.rowToShardInfo(existing);
       }
       throw error;
     }
@@ -395,7 +401,7 @@ export class TursoShardManager {
   }
 
   private async syncShardVectorCount(shard: ShardInfo): Promise<ShardInfo> {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
+    const db = await this.connections.getConnection(shard.dbPath);
     const row = await db.get(`SELECT COUNT(*) as count FROM memories`);
     const count = Number(row?.count ?? 0);
 
@@ -415,15 +421,12 @@ export class TursoShardManager {
     }
 
     try {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
+      const db = await this.connections.getConnection(shard.dbPath);
       const result = await db.get(
         `SELECT name FROM sqlite_master WHERE type='table' AND name='memories'`
       );
       if (!result) {
-        log("Shard DB missing 'memories' table", {
-          dbPath: shard.dbPath,
-          shardId: shard.id,
-        });
+        log("Shard DB missing 'memories' table", { dbPath: shard.dbPath, shardId: shard.id });
         return false;
       }
 
@@ -446,13 +449,11 @@ export class TursoShardManager {
   }
 
   async getWriteShard(scope: "user" | "project", scopeHash: string): Promise<ShardInfo> {
-    assertNoTursoMigrationInProgress();
+    assertNoTursoMigrationInProgress(this.getRoot());
     for (let attempt = 0; attempt < 3; attempt++) {
       let shard = await this.getActiveShard(scope, scopeHash);
 
-      if (!shard) {
-        return this.createShard(scope, scopeHash, 0);
-      }
+      if (!shard) return this.createShard(scope, scopeHash, 0);
 
       if (!(await this.isShardValid(shard))) {
         throw new Error(
@@ -530,12 +531,10 @@ export class TursoShardManager {
     if (!row) return;
 
     const fullPath = this.resolveStoredPath(String(row.db_path), String(row.scope));
-    await tursoConnectionManager.closeConnection(fullPath);
+    await this.connections.closeConnection(fullPath);
 
     try {
-      if (existsSync(fullPath)) {
-        await withSqliteFileLockRetry(() => unlinkSync(fullPath));
-      }
+      if (existsSync(fullPath)) await withSqliteFileLockRetry(() => unlinkSync(fullPath));
     } catch (error) {
       log(
         "Error deleting shard file",
@@ -560,10 +559,10 @@ export class TursoShardManager {
     if (!row) return null;
 
     const fullPath = this.resolveStoredPath(String(row.db_path), String(row.scope));
-    await tursoConnectionManager.closeConnection(fullPath);
+    await this.connections.closeConnection(fullPath);
     const archivePath =
       archivePathOverride ?? `${fullPath}.${reason}-${process.pid}-${Date.now()}.bak`;
-    const scopeDir = resolve(CONFIG.storagePath, `${String(row.scope)}s`);
+    const scopeDir = resolve(this.getRoot(), `${String(row.scope)}s`);
     const archiveRelativePath = relative(scopeDir, resolve(archivePath));
     if (archiveRelativePath.startsWith("..") || archiveRelativePath.includes("..")) {
       throw new Error(`Archive path escapes storage directory: ${archivePath}`);

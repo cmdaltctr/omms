@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resettable, tursoConnectionManager } from "../turso/connection-manager.js";
+import type { TursoConnectionManager } from "../turso/connection-manager.js";
 import type { TursoDb } from "../turso/turso-db.js";
 import { CONFIG } from "../../config.js";
 import { hasEnoughWorkflowSteps } from "../../core/extraction.js";
@@ -89,7 +90,11 @@ export class UserProfileManager {
   private coldBufferPath = "";
   private dedupCheckedCache: Set<string> = new Set();
 
-  constructor() {
+  /** A rooted manager (profile import, design D1) reads and writes only `root`. */
+  constructor(
+    private readonly root?: string,
+    private readonly connections: TursoConnectionManager = tursoConnectionManager
+  ) {
     this.reset();
   }
 
@@ -97,21 +102,18 @@ export class UserProfileManager {
     this.db = null;
     this.initPromise = null;
     this.dedupCheckedCache.clear();
-    this.dbPath = join(CONFIG.storagePath || "", USER_PROFILES_DB_NAME);
-    this.coldBufferPath = join(CONFIG.storagePath || "", "cold-buffer.json");
+    this.dbPath = join(this.root ?? (CONFIG.storagePath || ""), USER_PROFILES_DB_NAME);
+    this.coldBufferPath = join(this.root ?? (CONFIG.storagePath || ""), "cold-buffer.json");
     this.coldBuffers = this.loadColdBuffers();
   }
 
   private async initialize(): Promise<void> {
-    if (this.initPromise) {
-      return this.initPromise;
-    }
-
+    if (this.initPromise) return this.initPromise;
     this.initPromise = (async () => {
       try {
-        this.dbPath = join(CONFIG.storagePath || "", USER_PROFILES_DB_NAME);
-        this.coldBufferPath = join(CONFIG.storagePath || "", "cold-buffer.json");
-        this.db = await tursoConnectionManager.getConnection(this.dbPath);
+        this.dbPath = join(this.root ?? (CONFIG.storagePath || ""), USER_PROFILES_DB_NAME);
+        this.coldBufferPath = join(this.root ?? (CONFIG.storagePath || ""), "cold-buffer.json");
+        this.db = await this.connections.getConnection(this.dbPath);
         await this.initDatabase();
       } catch (error) {
         this.initPromise = null;
@@ -131,9 +133,7 @@ export class UserProfileManager {
       await this.initPromise;
     }
 
-    if (!this.db) {
-      throw new Error("UserProfileManager: database not initialized");
-    }
+    if (!this.db) throw new Error("UserProfileManager: database not initialized");
 
     return this.db;
   }

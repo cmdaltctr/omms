@@ -47,6 +47,11 @@ export const memoryInput = {
     allowLinkedSource: { type: "boolean" },
     spaceAction: { type: "string" },
     spaceName: { type: "string" },
+    spaceTo: { type: "string" },
+    spaceSince: { type: "string" },
+    spaceUntil: { type: "string" },
+    spaceProject: { type: "string" },
+    spaceIn: { type: "string" },
   },
   additionalProperties: false,
 } as const;

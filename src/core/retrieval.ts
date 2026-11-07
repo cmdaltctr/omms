@@ -24,7 +24,10 @@ export async function searchSectionMemories(
   // the search must not change this operation's filtering.
   const excludeCurrentSession = CONFIG.chatMessage.excludeCurrentSession;
 
-  const search = await memoryClient.searchMemories(query, projectTag);
+  // Recall reads linked spaces too (D6); capture and profile steps keep the default.
+  const search = await memoryClient.searchMemories(query, projectTag, "project", {
+    includeLinked: true,
+  });
   if (!search.success) return null;
 
   const results = excludeCurrentSession
@@ -95,7 +98,12 @@ export interface RecentMemoriesOptions {
 export async function buildRecentMemoriesSection(
   options: RecentMemoriesOptions
 ): Promise<string | null> {
-  const listResult = await memoryClient.listMemories(options.projectTag, options.maxMemories);
+  const listResult = await memoryClient.listMemories(
+    options.projectTag,
+    options.maxMemories,
+    "project",
+    { includeLinked: true }
+  );
 
   let memories = listResult.success ? listResult.memories : [];
 

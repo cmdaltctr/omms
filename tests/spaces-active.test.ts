@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveActiveSpace } from "../src/services/spaces/active-space.js";
@@ -57,8 +57,18 @@ describe("resolveActiveSpace", () => {
 
   it("falls back to Default with a problem when the registry cannot be read", () => {
     writeFileSync(join(omms, "spaces.json"), "{broken");
-    const space = resolveActiveSpace(omms, global(), false);
-    expect(space.id).toBe("default");
-    expect(space.problem).toContain("spaces.json");
+    // A private log file, so this test reads only its own lines.
+    const logFile = join(omms, "omms.log");
+    const previousLogFile = process.env.OMMS_LOG_FILE;
+    process.env.OMMS_LOG_FILE = logFile;
+    try {
+      const space = resolveActiveSpace(omms, global(), false);
+      expect(space.id).toBe("default");
+      expect(space.problem).toContain("spaces.json");
+      expect(readFileSync(logFile, "utf-8")).toContain("Active space fallback to Default");
+    } finally {
+      if (previousLogFile === undefined) delete process.env.OMMS_LOG_FILE;
+      else process.env.OMMS_LOG_FILE = previousLogFile;
+    }
   });
 });

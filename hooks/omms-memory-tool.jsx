@@ -21,7 +21,7 @@ export const DESCRIPTION = [
   'If a project search finds nothing, retry with other keywords, then scope "all-projects".',
   'mode "add" (content, type, tags): save one short memory after a decision, a bug fix or a stated preference. Never store secrets.',
   'mode "list" (limit, scope), "profile" (content saves a personal preference), "forget" (id; only when the user asks), "help".',
-  'mode "space" (action, name): memory spaces keep separate stores. Actions: list, status, create, use (make a space active for every host), archive, unarchive. Deleting a space is only possible in the web app.',
+  'mode "space" (action, name, to, since, until, project, in): memory spaces keep separate stores. Actions: list, status, create, use (make a space active for every host), archive, unarchive, preview and copy (to a target space, optional since, until dates and project tag), link and unlink (in names the linking space). Moving, deleting, exporting and importing are not offered here; use the web app or the CLI.',
 ].join(" ");
 
 export const INPUT_SCHEMA = {
@@ -39,9 +39,32 @@ export const INPUT_SCHEMA = {
     id: { type: "string", description: "Memory id (forget)." },
     action: {
       type: "string",
-      description: "list, status, create, use, archive or unarchive (space). Default list.",
+      description:
+        "list, status, create, use, archive, unarchive, preview, copy, link or unlink (space). Default list.",
     },
-    name: { type: "string", description: "Space name or id (space)." },
+    name: {
+      type: "string",
+      description:
+        "Space name or id: the space acted on, the transfer source or the link target (space).",
+    },
+    to: { type: "string", description: "Target space of the transfer (space: preview, copy)." },
+    since: {
+      type: "string",
+      description: "ISO 8601 inclusive lower bound on the creation time (space: preview, copy).",
+    },
+    until: {
+      type: "string",
+      description: "ISO 8601 inclusive upper bound on the creation time (space: preview, copy).",
+    },
+    project: {
+      type: "string",
+      description:
+        "Only memories with this project tag, as a preview's groups show it (space: preview, copy).",
+    },
+    in: {
+      type: "string",
+      description: "Space that owns the link; the active space when omitted (space: link, unlink).",
+    },
     limit: { type: "number", description: "Most results to return (search, list)." },
     scope: {
       type: "string",
@@ -54,7 +77,7 @@ export const INPUT_SCHEMA = {
 const text = (value) => (typeof value === "string" ? value.trim() : "");
 
 /** The `memory <mode> ...` arguments for one tool call, or the reason the call is refused. */
-function memoryArgs(input) {
+export function memoryArgs(input) {
   const mode = text(input.mode) || "search";
   if (!MODES.includes(mode)) {
     return { error: `Unknown mode "${mode}". Use one of: ${MODES.join(", ")}.` };
@@ -84,8 +107,30 @@ function memoryArgs(input) {
     flag("id", id);
   }
   if (mode === "space") {
-    flag("action", text(input.action));
-    flag("name", text(input.name));
+    const to = text(input.to);
+    const since = text(input.since);
+    const until = text(input.until);
+    const project = text(input.project);
+    const owner = text(input.in);
+    if (to || since || until || project || owner) {
+      // The transfer flags exist only on the `space` command, whose parser knows
+      // them, so this call runs that command directly instead of `memory space`.
+      // The shared operation still refuses move, export and import.
+      args.length = 0;
+      args.push("space");
+      const action = text(input.action);
+      if (action) args.push(action);
+      const name = text(input.name);
+      if (name) args.push(name);
+      flag("to", to);
+      flag("since", since);
+      flag("until", until);
+      flag("project", project);
+      flag("in", owner);
+    } else {
+      flag("action", text(input.action));
+      flag("name", text(input.name));
+    }
   }
   if (mode === "search" || mode === "list") {
     const limit = Number(input.limit);

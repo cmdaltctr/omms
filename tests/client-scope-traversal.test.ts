@@ -68,6 +68,7 @@ mock.module(${JSON.stringify(readyUrl)}, () => ({
 
 mock.module(${JSON.stringify(configUrl)}, () => ({
   CONFIG: { maxMemories: 20, similarityThreshold: 0.5 },
+  getActiveSpace: () => ({ id: "default", customStoragePath: false }),
 }));
 
 mock.module(${JSON.stringify(loggerUrl)}, () => ({

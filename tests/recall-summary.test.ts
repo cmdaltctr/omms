@@ -101,6 +101,18 @@ describe("buildRecallSummary", () => {
     expect(buildRecallSummary(wrapped, "search", "q")?.items).toHaveLength(3);
   });
 
+  it("reads a linked memory that carries a space attribute after relevance", () => {
+    const linked =
+      '<project_knowledge>\n<memory id="mem_1" relevance="65%" space="ClientX">\nThe transfer engine copies memories in batches.\n</memory>\n</project_knowledge>';
+    expect(buildRecallSummary(linked, "search", "q")?.items).toEqual([
+      {
+        relevance: 65,
+        id: "mem_1",
+        headline: "The transfer engine copies memories in batches.",
+      },
+    ]);
+  });
+
   it("returns null when the section holds no memory", () => {
     expect(buildRecallSummary("", "search", "q")).toBeNull();
     expect(buildRecallSummary("plain hook context", "search", "q")).toBeNull();
