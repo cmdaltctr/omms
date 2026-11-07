@@ -149,7 +149,10 @@ OpenCode 2.0.22 and later load the plugin's `./tui` entry. It shows OMMS's state
 - `omms: ⧖` at start, then `omms: ✔` when the web app answers on `webServerPort`.
 - `omms: ✘ web app off` when the web app does not answer. Capture and retrieval keep working.
 - `omms: ✘` when the footer cannot start its status check.
-- `· <version> available` when npm has a newer release. A toast also names the update command once per start. The plugin checks npm at start and every 6 hours. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn the check off.
+- `· <version> available` when npm has a newer release and OMMS does not install it (local checkout, pinned version, or a failed update). A toast also names the update command once per start.
+- `· <version> installed, restart` after OMMS installs the newer release in the background. A toast tells you to restart OpenCode. While the update installs, a toast says so.
+
+The plugin checks npm at start and every 6 hours. When npm has a newer release, it runs `opencode plugin update om-memory-system` in the background. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn the check and the update off. See [Updating and upgrading](upgrading.md#updating-omms).
 
 The footer reads only the health route and the npm registry's `latest` version. It sends nothing about your sessions.
 

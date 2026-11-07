@@ -7,25 +7,25 @@
 
 ## 2. OpenCode V2
 
-- [ ] 2.1 Write failing tests in the `tui-status` test file for: update started (installing toast), installed (footer `· <v> installed, restart` and restart toast), failed (command toast), pinned or local path (today's text).
-- [ ] 2.2 Wire `src/adapters/opencode/tui-status.ts` to the shared module: start the update after the npm check, poll the marker every 60 seconds for at most 10 minutes, change footer and toast text.
-- [ ] 2.3 Log one `OpenCode plugin self-update` record with code and versions on start or failed start. No prompt or reply text.
+- [x] 2.1 Write failing tests in the `tui-status` test file for: update started (installing toast), installed (footer `· <v> installed, restart` and restart toast), failed (command toast), pinned or local path (today's text).
+- [x] 2.2 Wire `src/adapters/opencode/tui-status.ts` to the shared module: start the update after the npm check, poll the marker every 60 seconds for at most 10 minutes, change footer and toast text.
+- [x] 2.3 Log one `OpenCode plugin self-update` record with code and versions on start or failed start. No prompt or reply text.
 
 ## 3. Pi
 
-- [ ] 3.1 Write failing tests for the Pi adapter: start on `session_start`, no delay to `session_start`, 30-minute de-dup, restart notification, failed notification, suffix kept for `↻` and `✎`, no label without a user interface, poll stops on `session_shutdown`.
-- [ ] 3.2 Wire `src/adapters/pi/extension.ts` to the shared module. Keep the adapter thin. Add the suffix to the status label.
-- [ ] 3.3 Log one `Pi plugin self-update` record with code and versions on start or failed start.
+- [x] 3.1 Write failing tests for the Pi adapter: start on `session_start`, no delay to `session_start`, 30-minute de-dup, restart notification, failed notification, suffix kept for `↻` and `✎`, no label without a user interface, poll stops on `session_shutdown`.
+- [x] 3.2 Wire `src/adapters/pi/extension.ts` to the shared module. Keep the adapter thin. Add the suffix to the status label.
+- [x] 3.3 Log one `Pi plugin self-update` record with code and versions on start or failed start.
 
 ## 4. Docs
 
-- [ ] 4.1 Update `docs/upgrading.md`: Pi and OpenCode install updates by themselves, then ask for a restart; pinned and local installs do not; `OMMS_DISABLE_UPDATE_CHECK=1` turns it off.
-- [ ] 4.2 Update `UPDATES.md` to match.
-- [ ] 4.3 Check `README.md` and `docs/` for text that says Pi or OpenCode never update by themselves, and fix each hit.
+- [x] 4.1 Update `docs/upgrading.md`: Pi and OpenCode install updates by themselves, then ask for a restart; pinned and local installs do not; `OMMS_DISABLE_UPDATE_CHECK=1` turns it off.
+- [x] 4.2 Update `UPDATES.md` to match.
+- [x] 4.3 Check `README.md` and `docs/` for text that says Pi or OpenCode never update by themselves, and fix each hit.
 
 ## 5. Verify
 
-- [ ] 5.1 Run each new and changed test file with `bash scripts/run-tests-isolated.sh <file>`. Break the code once and confirm the tests fail.
-- [ ] 5.2 Run `bun run check` and confirm the file-size ceiling test passes for `tui-status.ts` and `extension.ts`.
+- [x] 5.1 Run each new and changed test file with `bash scripts/run-tests-isolated.sh <file>`. Break the code once and confirm the tests fail.
+- [x] 5.2 Run `bun run check` and confirm the file-size ceiling test passes for `tui-status.ts` and `extension.ts`.
 - [ ] 5.3 Live check in a scratch HOME with its own store: install an older OMMS in Pi and in OpenCode, start a session, confirm the update command runs once, the marker says `installed`, and the footer shows `installed, restart`. Restart and confirm the new version loads.
 - [ ] 5.4 Run `bun run ci:local` and read the exit line.

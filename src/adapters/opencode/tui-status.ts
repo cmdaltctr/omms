@@ -1,15 +1,37 @@
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  hostSelfUpdateDeps,
+  installedFromNpm,
+  markerStatus,
+  readMarkerFile,
+  startHostSelfUpdate,
+  unpinnedCacheFolder,
+  updateNotice,
+  updateSuffix,
+  watchHostUpdate,
+  type HostSelfUpdateResult,
+  type HostUpdateStatus,
+} from "../../services/host-self-update.js";
 import { ommsStatusLabel } from "../../services/status-glyphs.js";
 import { availableUpdate, latestNpmVersion } from "../../services/update-check.js";
+
+const UPDATE_COMMAND = "opencode plugin update om-memory-system";
 
 /** What the OpenCode footer shows: the web app's state and a newer release, if any. */
 export interface TuiStatusState {
   web: "warming" | "connected" | "offline";
   update: string | null;
+  /** "installed" once the background update has finished; otherwise "available". */
+  updateState?: "available" | "installed";
 }
 
 export function tuiStatusText(state: TuiStatusState): string {
   const web = ommsStatusLabel(state.web === "offline" ? "web app off" : state.web);
-  return state.update ? `${web} · ${state.update} available` : web;
+  return state.update
+    ? `${web}${updateSuffix(state.update, state.updateState ?? "available")}`
+    : web;
 }
 
 export interface TuiStatusDeps {
@@ -17,21 +39,29 @@ export interface TuiStatusDeps {
   healthUrl: string;
   fetch: typeof fetch;
   setText: (text: string) => void;
-  /** Shown once per start when a newer release is on npm. */
+  /** Shown once per update state and version. */
   notify: (message: string) => void;
   checkUpdates?: boolean;
   healthIntervalMs?: number;
   updateIntervalMs?: number;
+  /** Reads npm and starts the background update. Without it the check only reads npm. */
+  selfUpdate?: () => Promise<HostSelfUpdateResult>;
+  /** The state the update marker records for a version. */
+  readUpdateStatus?: (version: string) => HostUpdateStatus | null;
+  watchIntervalMs?: number;
+  watchLimitMs?: number;
 }
 
 /**
  * Keep the footer text current: the web app is polled, and npm is asked for a
- * newer release at start and then every few hours. Returns a stop function.
+ * newer release at start and then every few hours. A newer release installs in
+ * the background when the host allows it. Returns a stop function.
  */
 export function startTuiStatus(deps: TuiStatusDeps): () => void {
   const state: TuiStatusState = { web: "warming", update: null };
   let stopped = false;
-  let notified: string | null = null;
+  let stopWatch: (() => void) | undefined;
+  const shown = new Set<string>();
   const show = () => {
     if (!stopped) deps.setText(tuiStatusText(state));
   };
@@ -46,15 +76,63 @@ export function startTuiStatus(deps: TuiStatusDeps): () => void {
     show();
   };
 
-  const checkUpdate = async () => {
-    const update = availableUpdate(deps.currentVersion, await latestNpmVersion(deps.fetch));
-    state.update = update;
+  /** One toast per update state and version. */
+  const toast = (update: string, notice: "available" | "installing" | "installed") => {
+    const key = `${notice}:${update}`;
+    if (stopped || shown.has(key)) return;
+    shown.add(key);
+    deps.notify(
+      updateNotice({
+        hostName: "OpenCode",
+        command: UPDATE_COMMAND,
+        current: deps.currentVersion,
+        update,
+        state: notice,
+      })
+    );
+  };
+
+  const settle = (update: string, outcome: "installed" | "failed") => {
+    state.updateState = outcome === "installed" ? "installed" : "available";
     show();
-    if (update && notified !== update && !stopped) {
-      notified = update;
-      deps.notify(
-        `om-memory-system ${update} is available (running ${deps.currentVersion}). Run: opencode plugin update om-memory-system, then restart OpenCode.`
-      );
+    toast(update, outcome === "installed" ? "installed" : "available");
+  };
+
+  const selfUpdate =
+    deps.selfUpdate ??
+    (async (): Promise<HostSelfUpdateResult> => ({
+      code: "local",
+      update: availableUpdate(deps.currentVersion, await latestNpmVersion(deps.fetch)),
+    }));
+
+  const checkUpdate = async () => {
+    try {
+      // The restart installs the release; there is nothing more to ask npm.
+      if (state.updateState === "installed") return;
+      const { code, update } = await selfUpdate();
+      state.update = update;
+      state.updateState = "available";
+      show();
+      if (!update || stopped) return;
+      if (code !== "started" && code !== "recent") return toast(update, "available");
+      const status = (deps.readUpdateStatus ?? (() => null))(update);
+      if (status === "installed" || status === "failed") return settle(update, status);
+      toast(update, "installing");
+      stopWatch?.();
+      stopWatch = watchHostUpdate({
+        read: () => (deps.readUpdateStatus ?? (() => null))(update),
+        onSettled: (outcome) => {
+          try {
+            settle(update, outcome);
+          } catch {
+            // A failed toast must not break the timer.
+          }
+        },
+        intervalMs: deps.watchIntervalMs,
+        maxMs: deps.watchLimitMs,
+      });
+    } catch {
+      // A failed update check must not break the footer.
     }
   };
 
@@ -68,6 +146,7 @@ export function startTuiStatus(deps: TuiStatusDeps): () => void {
   for (const timer of timers) timer.unref?.();
   return () => {
     stopped = true;
+    stopWatch?.();
     for (const timer of timers) clearInterval(timer);
   };
 }
@@ -76,14 +155,30 @@ export function startTuiStatus(deps: TuiStatusDeps): () => void {
 export async function startInstalledTuiStatus(
   callbacks: Pick<TuiStatusDeps, "setText" | "notify">
 ): Promise<() => void> {
-  const [{ CONFIG }, { packageVersion }] = await Promise.all([
+  const [{ CONFIG }, { packageVersion }, { log }] = await Promise.all([
     import("../../config.js"),
     import("../../services/package-version.js"),
+    import("../../services/logger.js"),
   ]);
   const host = CONFIG.webServerHost === "0.0.0.0" ? "127.0.0.1" : CONFIG.webServerHost;
+  const currentVersion = packageVersion();
+  const modulePath = fileURLToPath(import.meta.url);
+  const markerPath = join(homedir(), ".omms", "opencode-plugin-update.json");
+  const update = hostSelfUpdateDeps({
+    logLabel: "OpenCode plugin self-update",
+    currentVersion,
+    command: "opencode",
+    args: ["plugin", "update", "om-memory-system"],
+    markerPath,
+    installSource: () =>
+      !installedFromNpm(modulePath) ? "local" : unpinnedCacheFolder(modulePath) ? "npm" : "pinned",
+    log: (message, data) => log(message, data),
+  });
   return startTuiStatus({
     ...callbacks,
-    currentVersion: packageVersion(),
+    currentVersion,
+    selfUpdate: () => startHostSelfUpdate(update),
+    readUpdateStatus: (version) => markerStatus(readMarkerFile(markerPath), version),
     healthUrl: `http://${host.includes(":") ? `[${host}]` : host}:${CONFIG.webServerPort}/api/health`,
     fetch: globalThis.fetch.bind(globalThis),
     checkUpdates: process.env.OMMS_DISABLE_UPDATE_CHECK !== "1",

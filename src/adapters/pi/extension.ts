@@ -21,6 +21,7 @@ import { registerPiSkillsTool } from "./skills-tool.js";
 import { performPiProfileLearning } from "./profile.js";
 import { createPiRecallRows } from "./recall-rows.js";
 import { createPiSessionContext } from "./session-context.js";
+import { createPiSelfUpdate } from "./self-update.js";
 import { DEFAULT_RETRIEVAL_MAX_TOKENS, tokensToByteCeiling } from "../../core/context-budget.js";
 import { ommsStatusLabel, type StatusGlyphState } from "../../services/status-glyphs.js";
 
@@ -92,12 +93,21 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
   let latestCtx: ExtensionContext | null = null;
   let backfillSessionId: string | null = null;
   let statusVersion = 0;
+  // The glyph on screen, so a new update suffix can redraw the label. Null once cleared.
+  let shownStatus: StatusGlyphState | null = null;
+  const selfUpdate = createPiSelfUpdate();
   const recallRows = createPiRecallRows();
   const sessionContext = createPiSessionContext(recallRows);
 
+  // Every label carries the update suffix, so it stays when the glyph changes.
+  const drawStatus = (ctx: ExtensionContext, status: StatusGlyphState): void => {
+    shownStatus = status;
+    if (ctx.hasUI) ctx.ui.setStatus(OMMS_STATUS_KEY, ommsStatusLabel(status) + selfUpdate.suffix());
+  };
+
   const startStatus = (ctx: ExtensionContext, status: StatusGlyphState): number => {
     const version = ++statusVersion;
-    if (ctx.hasUI) ctx.ui.setStatus(OMMS_STATUS_KEY, ommsStatusLabel(status));
+    drawStatus(ctx, status);
     return version;
   };
 
@@ -107,11 +117,12 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     status: "connected" | "error"
   ): void => {
     if (version !== statusVersion || !ctx.hasUI) return;
-    ctx.ui.setStatus(OMMS_STATUS_KEY, ommsStatusLabel(status));
+    drawStatus(ctx, status);
   };
 
   const clearStatus = (ctx: ExtensionContext): void => {
     statusVersion++;
+    shownStatus = null;
     if (ctx.hasUI) ctx.ui.setStatus(OMMS_STATUS_KEY, undefined);
   };
 
@@ -130,6 +141,13 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
 
   pi.on("session_start", async (event, ctx) => {
     const status = startStatus(ctx, "warming");
+    // The update check does not delay the session and cannot stop memory work.
+    void selfUpdate.start(
+      { hasUI: ctx.hasUI, notify: (message, level) => ctx.ui.notify(message, level) },
+      () => {
+        if (shownStatus) drawStatus(ctx, shownStatus);
+      }
+    );
     try {
       latestCtx = ctx;
       initConfigWithLegacyMigration(ctx.cwd);
@@ -368,6 +386,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
+    selfUpdate.stop();
     clearStatus(ctx);
     recallRows.reset(ctx);
     sessionContext.reset();
