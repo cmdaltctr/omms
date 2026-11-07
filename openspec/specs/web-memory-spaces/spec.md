@@ -139,19 +139,19 @@ Choosing Archive in the tree SHALL open a page with a list of the archived space
 - **WHEN** no space is archived
 - **THEN** the page SHALL say that no space is archived
 
-### Requirement: A pencil on each card edits the name and the icon
+### Requirement: A pencil on every card edits the name and the icon, Default included
 
-Each card SHALL have a pencil button that opens a dialog in the design of the Change icon dialog on the Memory page. The dialog SHALL let the user change the display name, upload an image, pick an icon from a searchable list, or reset to the default avatar. The Default space name SHALL NOT be editable, and the dialog SHALL say why. The new avatar SHALL show on the card and in the sidebar tree. The choices SHALL be saved outside every space folder, so a switch does not hide them.
+Each card, including the Default card, SHALL have a pencil button that opens a dialog in the design of the Change icon dialog on the Memory page. The dialog SHALL let the user change the display name, upload an image, pick an icon from a searchable list, or reset to the default avatar. The new avatar SHALL show on the card and in the sidebar tree. The choices SHALL be saved outside every space folder, so a switch does not hide them.
 
 #### Scenario: Rename and pick an icon
 
 - **WHEN** the user opens the pencil dialog of `Experiments`, enters `Lab`, picks an icon and saves
 - **THEN** the card and the tree child SHALL show `Lab` with the chosen icon
 
-#### Scenario: The Default name is fixed
+#### Scenario: The Default name can be edited
 
-- **WHEN** the user opens the pencil dialog of Default
-- **THEN** the name field SHALL be disabled with a reason, and the icon controls SHALL work
+- **WHEN** the user opens the pencil dialog of Default, enters `Main` and saves
+- **THEN** the name field SHALL be enabled, and the card, the tree item and the status SHALL show `Main`
 
 #### Scenario: Icons survive a switch
 

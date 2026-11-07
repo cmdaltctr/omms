@@ -89,7 +89,7 @@ beforeEach(() => {
               ...row,
               createdAt: row.id === "default" ? null : "2026-11-01T10:00:00.000Z",
               active: row.id === "default",
-              disabled: row.id === "default" ? { rename: "default", archive: "default" } : {},
+              disabled: row.id === "default" ? { archive: "default" } : {},
             })),
           },
         },
@@ -255,20 +255,21 @@ it("resets the look with a DELETE", async () => {
   ]);
 });
 
-it("disables the name field of Default and says why, but still lets its icon change", async () => {
+// Reversal with rename-default-space: the old test here asserted the blocked field.
+it("lets Default be renamed like any other space", async () => {
   let tree = await open("default", "Default");
-  expect(input(tree, "space-edit-name").props.disabled).toBe(true);
-  const reason = byType(tree, "p").find(
-    (n) => text(n.props.children) === "The Default space cannot be renamed."
-  )!;
-  expect(reason).toBeDefined();
-  expect(input(tree, "space-edit-name").props["aria-describedby"]).toBe(reason.props.id);
+  expect(input(tree, "space-edit-name").props.disabled).toBeFalsy();
+  expect(
+    byType(tree, "p").find((n) => text(n.props.children) === "The Default space cannot be renamed.")
+  ).toBeUndefined();
   const before = requests.length;
-  iconButton(tree, "bot").props.onClick();
+  type(input(tree, "space-edit-name"), "Main");
   tree = await settle(page, own);
   buttonText(tree, "Save").props.onClick();
-  await settle(page, own);
-  expect(calls().slice(before)).toEqual(["PUT /api/spaces/default/appearance", "GET /api/spaces"]);
+  tree = await settle(page, own);
+  expect(calls().slice(before)).toEqual(["POST /api/spaces/default/rename", "GET /api/spaces"]);
+  expect(requests[before]!.body).toEqual({ name: "Main" });
+  expect(allText(tree)).toContain("Saved Main.");
 });
 
 it("keeps the dialog open and shows the server reason when the rename fails", async () => {

@@ -75,6 +75,20 @@ describe("registry store", () => {
     expect(listSpaces(read).find((s) => s.id === "client-work")?.archived).toBe(false);
   });
 
+  it("writes a Default rename as a top-level defaultName and changes nothing else", async () => {
+    const lab = await createStoredSpace(files, "Lab");
+    await switchStoredSpace(files, "lab");
+    await renameStoredSpace(files, "default", "Main");
+    const read = readRegistryFile(files.registryPath);
+    expect(read.problem).toBeUndefined();
+    expect(read.registry.defaultName).toBe("Main");
+    expect(read.registry.spaces).toEqual([lab]);
+    expect(read.registry.activeSpaceId).toBe("lab");
+    const raw = JSON.parse(readFileSync(files.registryPath, "utf-8")) as Record<string, unknown>;
+    expect(Object.keys(raw).sort()).toEqual(["activeSpaceId", "defaultName", "spaces", "version"]);
+    expect(listSpaces(read.registry).map((s) => s.name)).toEqual(["Main", "Lab"]);
+  });
+
   it("refuses to archive the active space and to switch to an archived one", async () => {
     await createStoredSpace(files, "Experiments");
     await switchStoredSpace(files, "experiments");

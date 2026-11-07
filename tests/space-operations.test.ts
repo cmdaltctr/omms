@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { executeSpaceOperation } from "../src/services/spaces/operations.js";
 import { readRegistryFile } from "../src/services/spaces/registry.js";
-import { spaceFiles } from "../src/services/spaces/registry-store.js";
+import { renameStoredSpace, spaceFiles } from "../src/services/spaces/registry-store.js";
 
 let root: string;
 let files: ReturnType<typeof spaceFiles>;
@@ -25,6 +25,16 @@ describe("executeSpaceOperation", () => {
       success: true,
       activeSpace: { id: "default", name: "Default" },
       spaces: [{ id: "default", name: "Default", active: true, archived: false }],
+    });
+  });
+
+  it("lists the Default entry under its renamed name", async () => {
+    await renameStoredSpace(files, "default", "Main");
+    const result = await run("list");
+    expect(result).toMatchObject({
+      success: true,
+      activeSpace: { id: "default", name: "Main" },
+      spaces: [{ id: "default", name: "Main", active: true, archived: false }],
     });
   });
 
@@ -81,12 +91,28 @@ describe("executeSpaceOperation", () => {
     }
   );
 
+  it("still refuses to rename the Default space under its renamed name", async () => {
+    await renameStoredSpace(files, "default", "Main");
+    const result = (await run("rename", "Main")) as { success: boolean; error: string };
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Only the web app can rename a space.");
+  });
+
   it("reports the status of the space in use, including a custom folder", async () => {
     const status = await executeSpaceOperation(
       { action: "status" },
       { files, current: { id: "default", name: "Default", customStoragePath: true } }
     );
     expect(status).toMatchObject({ success: true, activeSpace: { customStoragePath: true } });
+  });
+
+  it("reports the renamed Default name in the status", async () => {
+    await renameStoredSpace(files, "default", "Main");
+    const result = await run("status");
+    expect(result).toMatchObject({
+      success: true,
+      registryActiveSpace: { id: "default", name: "Main" },
+    });
   });
 
   it("asks for a name when one is needed and rejects an unknown action", async () => {

@@ -13,6 +13,8 @@ A memory space is a separate store. Each space has its own memories and its own 
 
 The registry is `~/.omms/spaces.json`. It lists the spaces and the active one. OMMS writes it in one step, so a reader never sees half a file. Do not edit it by hand. If the file cannot be read, OMMS uses the Default space, leaves the file unchanged and shows the problem in the web app status.
 
+The Default space has no entry of its own. When you rename it, the name lives in an optional top-level `defaultName` field in the registry. Rename stays in the web app for every space, Default included; the CLI and the `memory` tool refuse it. When the field is absent, or the registry cannot be read, the name is "Default". Renaming the space back to "Default" removes the field. An older OMMS ignores the field. One that rewrites the registry drops it, and the name falls back to "Default".
+
 ## Use spaces in the web app
 
 The **Spaces** item (a boxes icon) at the top of the sidebar opens the Spaces page. Its tree lists the spaces that are not archived, like the Memory tree. The active space has a green dot. A click on a space in the tree opens its card. It does not switch the space. The **Activate** button on the card does. The last row of the tree, **Archive**, opens the Archive page, which lists the archived spaces.
