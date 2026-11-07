@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { Loader } from "lucide-react";
+import { Loader, Upload } from "lucide-react";
 import { SpaceBackups } from "./SpaceBackups";
 import { SpaceEditDialog } from "./SpaceEditDialog";
+import { ExportDialog } from "./ExportDialog";
+import { ImportDialog } from "./ImportDialog";
+import { TransferDialog } from "./TransferDialog";
 import { SpaceCard, type SpaceCardActions } from "./SpaceCard";
 import { SpaceViewToggle, useSpacesLayout } from "./SpaceViewToggle";
 import { useSpaceActions } from "@/hooks/useSpaceActions";
@@ -33,6 +36,9 @@ export function SpacesView() {
   const { load } = spaces;
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [transferFor, setTransferFor] = useState<Space | null>(null);
+  const [exportFor, setExportFor] = useState<Space | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const cards = inCardOrder((spaces.snapshot?.spaces ?? []).filter((space) => !space.archived));
   const editing = cards.find((space) => space.id === editingId) ?? null;
   const loaded = spaces.snapshot !== null;
@@ -49,6 +55,8 @@ export function SpacesView() {
   const actions: SpaceCardActions = {
     onSwitch: ask("switch"),
     onEdit: (space) => setEditingId(space.id),
+    onTransfer: setTransferFor,
+    onExport: setExportFor,
     onArchive: ask("archive"),
     onBackUp: ask("backup"),
     onDelete: askDelete,
@@ -114,7 +122,13 @@ export function SpacesView() {
           <h2 id="spaces-list" className="text-section-title font-semibold text-muted-foreground">
             {t("spaces-list-title")}
           </h2>
-          <SpaceViewToggle layout={layout} onChange={setLayout} />
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+              <Upload className="size-4" aria-hidden="true" />
+              {t("spaces-action-import")}
+            </Button>
+            <SpaceViewToggle layout={layout} onChange={setLayout} />
+          </div>
         </div>
         {feedbackFor("spaces")}
         {spaces.loading && !spaces.snapshot ? (
@@ -145,6 +159,8 @@ export function SpacesView() {
                 space={space}
                 busy={spaces.busy !== null}
                 actions={actions}
+                linkSpaces={cards}
+                onLinksChanged={() => void load()}
               />
             ))}
           </ul>
@@ -176,6 +192,25 @@ export function SpacesView() {
         </section>
       ) : null}
 
+      {transferFor ? (
+        <TransferDialog
+          key={transferFor.id}
+          source={transferFor}
+          spaces={cards}
+          onApplied={() => void load()}
+          onClose={() => setTransferFor(null)}
+        />
+      ) : null}
+      {exportFor ? (
+        <ExportDialog key={exportFor.id} space={exportFor} onClose={() => setExportFor(null)} />
+      ) : null}
+      {importOpen ? (
+        <ImportDialog
+          spaces={cards}
+          onImported={() => void load()}
+          onClose={() => setImportOpen(false)}
+        />
+      ) : null}
       {editing ? (
         <SpaceEditDialog
           key={editing.id}

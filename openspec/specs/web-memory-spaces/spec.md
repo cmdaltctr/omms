@@ -75,7 +75,7 @@ The web app SHALL have a Spaces page, reached from the Spaces item. It SHALL sho
 
 ### Requirement: Card actions are a play button and icon buttons
 
-A card SHALL have an Activate button with a play icon, and icon-only buttons to archive or unarchive, to back up and to delete, each with a tooltip that names the action. The active space SHALL have no Activate button. The page SHALL disable each action that the space does not allow, and the tooltip of a disabled button SHALL say why.
+A card SHALL have an Activate button with a play icon, and icon-only buttons to transfer, export, archive or unarchive, to back up and to delete, each with a tooltip that names the action. The active space SHALL have no Activate button. The page SHALL disable each action that the space does not allow, and the tooltip of a disabled button SHALL say why.
 
 #### Scenario: Blocked actions explain themselves
 
@@ -86,6 +86,11 @@ A card SHALL have an Activate button with a play icon, and icon-only buttons to 
 
 - **WHEN** the user chooses Activate on the card of `Client work`
 - **THEN** `Client work` SHALL become the active space
+
+#### Scenario: Transfer and export are present
+
+- **WHEN** the user views the card of `Client work`
+- **THEN** the card SHALL show a transfer button and an export button with tooltips
 
 ### Requirement: Activate, archive, unarchive and back up ask first
 

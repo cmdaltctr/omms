@@ -19,7 +19,7 @@ OMMS keeps memories for each project: earlier fixes, decisions, and conventions.
 - The tool refuses the `import`, `export`, `migrate` and `list-shards` modes. Tell the user to run them with `om-memory-system memory` in a terminal.
 - With hand-written hooks or an older plugin, no `memory` tool is listed. Then run `om-memory-system memory` through Bash.
 - Each injected memory shows its id. When the user asks you to remove that memory, pass the id to `forget`.
-- Memory spaces keep separate stores. The context line `Active memory space: <name>` names the one in use. Use `space` mode to list or switch spaces when the user asks. Deleting a space is only possible in the web app.
+- Memory spaces keep separate stores. The context line `Active memory space: <name>` names the one in use. Use `space` mode to list or switch spaces when the user asks. Deleting a space and moving memories between spaces are only possible in the web app. Export and import of a space run in the web app or with `om-memory-system space` in a terminal; the tool refuses them.
 - Capture runs after each reply in the background. Do not save the same turn again, unless it holds a decision, a fix or a preference that the user asked you to keep.
 
 ## When to search
@@ -81,21 +81,23 @@ Types:
 
 ## Modes
 
-| Mode          | Options                                                                  |
-| ------------- | ------------------------------------------------------------------------ |
-| `search`      | query, limit, scope                                                      |
-| `add`         | content, type, tags                                                      |
-| `list`        | limit, scope                                                             |
-| `forget`      | the memory id                                                            |
-| `space`       | action (`list`, `status`, `create`, `use`, `archive`, `unarchive`), name |
-| `profile`     | no options to show the profile; content to save a preference             |
-| `list-shards` | none                                                                     |
-| `migrate`     | the old path or hash, dry run                                            |
-| `export`      | the output file                                                          |
-| `import`      | the input file, dry run                                                  |
-| `help`        | none                                                                     |
+| Mode          | Options                                                                                                                                      |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `search`      | query, limit, scope                                                                                                                          |
+| `add`         | content, type, tags                                                                                                                          |
+| `list`        | limit, scope                                                                                                                                 |
+| `forget`      | the memory id                                                                                                                                |
+| `space`       | action (`list`, `status`, `create`, `use`, `archive`, `unarchive`, `preview`, `copy`, `link`, `unlink`), name, to, since, until, project, in |
+| `profile`     | no options to show the profile; content to save a preference                                                                                 |
+| `list-shards` | none                                                                                                                                         |
+| `migrate`     | the old path or hash, dry run                                                                                                                |
+| `export`      | the output file                                                                                                                              |
+| `import`      | the input file, dry run                                                                                                                      |
+| `help`        | none                                                                                                                                         |
 
 The command takes each option as a flag, for example `--query`, `--limit`, `--scope`, `--id`, and `--directory <path>` for a different project. Run `om-memory-system memory --help` for the full list.
+
+Space options: `to` names the target space of a preview or copy; `since` and `until` are inclusive ISO 8601 dates; `project` is the project tag; `in` names the space that owns a link (the active space by default). A recalled memory from a linked space carries `space="<name>"`. `forget` and `edit` refuse such a memory and name its space.
 
 ## Safety
 

@@ -1,4 +1,13 @@
-import { Archive, DatabaseBackup, Pencil, Play, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ArrowLeftRight,
+  DatabaseBackup,
+  Download,
+  Pencil,
+  Play,
+  Trash2,
+} from "lucide-react";
+import { SpaceLinks } from "./SpaceLinks";
 import { SpaceActionButton } from "./SpaceActionButton";
 import { SpaceChip } from "./SpaceChip";
 import type { SpacesLayout } from "./SpaceViewToggle";
@@ -13,6 +22,10 @@ export type SpaceCardActions = {
   onSwitch: (space: SpaceRow) => void;
   /** The pencil: the name, the icon and the image. */
   onEdit: (space: SpaceRow) => void;
+  /** The ArrowLeftRight button: opens the Transfer dialog with this space as the source. */
+  onTransfer: (space: SpaceRow) => void;
+  /** The Download button: opens the Export dialog of this space. */
+  onExport: (space: SpaceRow) => void;
   onArchive: (space: SpaceRow) => void;
   onBackUp: (space: SpaceRow) => void;
   onDelete: (space: SpaceRow) => void;
@@ -30,6 +43,8 @@ export function SpaceCard({
   busy,
   actions,
   layout = "grid",
+  linkSpaces,
+  onLinksChanged,
 }: {
   space: SpaceRow;
   /** An action is running; every button waits. */
@@ -37,6 +52,10 @@ export function SpaceCard({
   actions: SpaceCardActions;
   /** In a list the card is one row: the chip and facts, then the actions. */
   layout?: SpacesLayout;
+  /** Every space of the page, for the linked-spaces picker. */
+  linkSpaces?: SpaceRow[];
+  /** The page reloads its list after a link changed. */
+  onLinksChanged?: () => void;
 }) {
   const { t } = useI18n();
   const nameId = `space-${space.id}-name`;
@@ -85,6 +104,10 @@ export function SpaceCard({
               ? t("spaces-created", { date: formatDateOnly(space.createdAt) })
               : t("spaces-created-none")}
           </p>
+          {/* The Default space holds every project already, so it has no links. */}
+          {space.id !== "default" && linkSpaces && onLinksChanged ? (
+            <SpaceLinks space={space} spaces={linkSpaces} busy={busy} onChanged={onLinksChanged} />
+          ) : null}
         </div>
         <div
           className={cn(
@@ -100,6 +123,24 @@ export function SpaceCard({
               onClick={() => actions.onSwitch(space)}
             />
           )}
+          <SpaceActionButton
+            reasonId={reasonId("transfer")}
+            busy={busy}
+            iconOnly
+            variant="outline"
+            label={t("spaces-action-transfer")}
+            icon={ArrowLeftRight}
+            onClick={() => actions.onTransfer(space)}
+          />
+          <SpaceActionButton
+            reasonId={reasonId("export")}
+            busy={busy}
+            iconOnly
+            variant="outline"
+            label={t("spaces-action-export")}
+            icon={Download}
+            onClick={() => actions.onExport(space)}
+          />
           <SpaceActionButton
             {...shared("archive")}
             iconOnly

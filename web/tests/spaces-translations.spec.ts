@@ -125,3 +125,21 @@ it("translates the sort labels of the Archive list", () => {
   expect(translateSettings("Newest archived", "zh")).not.toBe("Newest archived");
   expect(translateSettings("Newest archived", "ar")).not.toBe("Newest archived");
 });
+
+it("mirrors the document for Arabic and restores it for other languages", async () => {
+  const { setLanguage } = await import("../src/lib/i18n/index.ts");
+  const globalScope = globalThis as unknown as { document?: unknown };
+  const savedDocument = globalScope.document;
+  const element = { dir: "", lang: "" };
+  globalScope.document = { documentElement: element };
+  try {
+    setLanguage("ar");
+    expect(element.dir).toBe("rtl");
+    setLanguage("en");
+    expect(element.dir).toBe("ltr");
+  } finally {
+    if (savedDocument === undefined) delete globalScope.document;
+    else globalScope.document = savedDocument;
+    setLanguage("en");
+  }
+});

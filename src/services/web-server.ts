@@ -1701,7 +1701,7 @@ export class WebServer {
         startRecordPast: async (cwd) =>
           (await import("../importer/web-import-api.js")).startRecordPast(this.importJobs, cwd),
       });
-      if (routed) return this.jsonResponse(routed.body, routed.status);
+      if (routed) return routed.response ?? this.jsonResponse(routed.body, routed.status);
 
       if (path === "/api/user-profile/item" && method === "PATCH") {
         const body = (await req.json().catch(() => ({}))) as any;

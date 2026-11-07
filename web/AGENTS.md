@@ -45,6 +45,17 @@ A sidebar item with children uses `ProfileTree` and `useSavedOpen` from `src/lib
 - `AppSidebar.tsx` is over the file size ceiling. It must not grow. Add new items in `sidebar-main-nav.tsx` or a new file.
 - Data for a tree comes from a hook that reloads when the state it shows changes (`useSpaceTree`). Do not add a poll. A page that changes the data announces it (`spaces-store.ts`).
 
+### Transfer, export and import dialogs
+
+One dialog per space operation, in `src/lib/components/spaces/`. The owners are `TransferDialog.tsx` (with `TransferPreview.tsx`), `ExportDialog.tsx`, `ImportDialog.tsx` and `SpaceLinks.tsx`.
+
+- A transfer applies nothing until the user has seen a preview. Apply stays disabled until a preview reports rows to copy, and any filter change clears the preview and disables Apply again.
+- A move confirms with the counts before the request runs. A `transfer-busy` reply is said in words, keeps the preview and leaves Apply available.
+- An export downloads raw bytes: read `response.blob()`, take the counts and warnings from the `x-omms-export-info` header, and offer the file through an anchor with `download`. Do not wrap this route in `fetchAPI`; an empty selection comes back as JSON, so branch on `content-type`. The profile opt-in checkbox is unticked by default.
+- An import needs a file before anything else: the submit button stays disabled without one. Read the file in the browser (`await file.text()`, `JSON.parse`) and POST JSON; there is no multipart. Compose the model-mismatch warning on the client from the structured `embedding` fields of the check reply so the sentence is localised; never print the English `warning` string.
+- Links list each linked space in a `<bdi>`, mark an unavailable link in words, and confirm both link and unlink first. Default never owns links.
+- Every wait shows a `role="status"` line with a spinning `Loader`, and every result reports counts.
+
 ### Actions
 
 - Every action that sends a request shows a visible answer at once and again when it ends (see the "Feedback after a click" section of the design reference).

@@ -84,6 +84,14 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [060](./060-opencode-tui-plugin-surface-for-visible-recall.md)                 | OpenCode 2.2.5 TUI plugin surface for visible recall                    | Accepted              | 2026-11-03 |
 | [061](./061-opencode-removes-a-keymap-command-with-its-component.md)           | OpenCode removes a keymap command with the component that registered it | Accepted              | 2026-11-03 |
 | [062](./062-pi-widget-surface-for-visible-recall.md)                           | Pi 1.4.0 widget surface for visible recall                              | Accepted              | 2026-11-03 |
+| [063](./063-profile-cold-buffers-followed-a-storage-switch.md)                 | Profile cold buffers followed a storage switch                          | Accepted              | 2026-11-06 |
+| [064](./064-host-icons-lived-in-the-active-space-folder.md)                    | Host icons lived in the active space folder                             | Accepted              | 2026-11-06 |
+| [065](./065-windows-home-paths-are-scrubbed-before-posix-paths.md)             | Windows home paths are scrubbed before POSIX paths                      | Accepted              | 2026-11-06 |
+| [066](./066-transfer-preview-ran-vector-extract-on-a-null-tags-vector.md)      | Transfer preview ran vector_extract on a NULL tags vector               | Accepted              | 2026-11-06 |
+| [067](./067-import-routes-enforce-the-web-servers-missing-body-cap.md)         | Import routes enforce the web server's missing body cap                 | Accepted              | 2026-11-06 |
+| [068](./068-the-claude-recall-parser-fixes-the-space-attribute-order.md)       | The Claude recall parser fixes the space attribute order                | Accepted              | 2026-11-06 |
+| [069](./069-the-claude-memory-tool-routes-space-flags-to-the-space-command.md) | The Claude memory tool routes space transfer flags to the space command | Accepted              | 2026-11-07 |
+| [070](./070-the-pi-recall-row-parser-rejected-the-space-attribute.md)          | The Pi recall row parser rejected the space attribute                   | Accepted              | 2026-11-07 |
 
 ## Status values
 
@@ -93,5 +101,3 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 - **Deprecated**: No longer relevant.
 
 Once a TDR is **Accepted**, supersede its decision with a new TDR rather than editing it.
-| [063](./063-profile-cold-buffers-followed-a-storage-switch.md) | Profile cold buffers followed a storage switch | Accepted | 2026-11-06 |
-| [064](./064-host-icons-lived-in-the-active-space-folder.md) | Host icons lived in the active space folder | Accepted | 2026-11-06 |

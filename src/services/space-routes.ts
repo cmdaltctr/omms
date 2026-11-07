@@ -16,6 +16,7 @@ import {
   readRegistryFile,
   removeSpace,
   resolveSpaceFolder,
+  spaceLinks,
   type SpaceEntry,
   type SpaceErrorCode,
   type SpaceRegistry,
@@ -46,7 +47,7 @@ const fail = (status: number, code: string, error: string): RouteResult => ({
   body: { success: false, code, error },
 });
 
-const STATUS_BY_CODE: Record<SpaceErrorCode, number> = {
+export const STATUS_BY_CODE: Record<SpaceErrorCode | "transfer-busy", number> = {
   "invalid-name": 400,
   "invalid-id": 400,
   reserved: 400,
@@ -59,6 +60,7 @@ const STATUS_BY_CODE: Record<SpaceErrorCode, number> = {
   "not-archived": 409,
   unreadable: 500,
   "lock-timeout": 503,
+  "transfer-busy": 409,
 };
 
 /** What the status call reports: the space this process uses now. */
@@ -108,6 +110,7 @@ function describeSpaces(
       })
     ),
     disabled: disabledReasons(space, registry.activeSpaceId),
+    links: spaceLinks(registry, space.id),
   }));
 }
 

@@ -1,4 +1,5 @@
 import { spaceText } from "./spaces";
+import { spaceTransferText } from "./spaces-transfer";
 
 export const translations = {
   en: {
@@ -380,6 +381,7 @@ export const translations = {
       "Model mismatch: Config uses {configDimensions}D ({configModel}), but {shardInfo}.",
     "auth-warning-text": "Cross-origin editing disabled. Set webServerAuthPassword to enable.",
     ...spaceText.en,
+    ...spaceTransferText.en,
   },
   zh: {
     brand: "OMMS",
@@ -745,6 +747,7 @@ export const translations = {
       "模型不匹配：配置使用 {configDimensions}D ({configModel})，但{shardInfo}。",
     "auth-warning-text": "跨源编辑已禁用. 设置 webServerAuthPassword 即可启用.",
     ...spaceText.zh,
+    ...spaceTransferText.zh,
   },
   ar: {
     brand: "OMMS",
@@ -1163,6 +1166,7 @@ export const translations = {
 
     "auth-warning-text": "التحرير عبر المصادر معطّل. قم بتعيين webServerAuthPassword لتفعيله.",
     ...spaceText.ar,
+    ...spaceTransferText.ar,
   },
 } as const;
 export type Lang = keyof typeof translations;

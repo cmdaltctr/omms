@@ -50,7 +50,7 @@ The cards use the look of the cards on the Memory page. They sit in two columns,
 
 A pencil button sits at the top-end corner of each card, like the pencil on the host cards of the Memory page. Select it to open **Edit space**. The dialog is the host **Change icon** dialog with a **Name** field added. You can upload an image, choose an icon, or select **Reset to default** for the two letters. PNG, JPEG, WebP and GIF files up to 20 MB are accepted, and the page crops an image to a square. **Save** renames the space first, if you changed the name, and then saves the avatar. Then the page loads the list again, and the sidebar tree shows the new name and avatar. If the server refuses a step, the dialog stays open and shows the reason. The name field of the Default space is disabled, and the dialog says why. The Default space can still have an avatar. The folder keeps its name when you rename a space.
 
-Each card has these actions: **Activate** (a play button, like the host cards), **Archive**, **Back up** and **Delete**. **Archive**, **Back up** and **Delete** are icon-only buttons. Point at a button to see its name in a tooltip. **Delete** is red. Every enabled button shows a pointer cursor. A disabled button does not. The server blocks some actions. A blocked button stays visible and is disabled. Point at it, or tab to it, and the tooltip gives the reason. Screen readers read the same reason. The Default space cannot be archived or deleted. The active space cannot be archived or deleted. The active space has no **Activate** button, because it is already active. In list view, the buttons sit at the end of the row.
+Each card has these actions: **Activate** (a play button, like the host cards), **Transfer**, **Export**, **Archive**, **Back up** and **Delete**. Every action except **Activate** is an icon-only button. Point at a button to see its name in a tooltip. **Delete** is red. Every enabled button shows a pointer cursor. A disabled button does not. The server blocks some actions. A blocked button stays visible and is disabled. Point at it, or tab to it, and the tooltip gives the reason. Screen readers read the same reason. The Default space cannot be archived or deleted. The active space cannot be archived or deleted. The active space has no **Activate** button, because it is already active. In list view, the buttons sit at the end of the row.
 
 **Activate**, **Archive**, **Restore** (on the Archive page) and **Back up** each open a confirmation dialog first. The dialog names the space and says what the action does. Nothing is sent until you select the confirm button. **Cancel** changes nothing. While the request runs, the dialog shows progress. If the server refuses, the dialog stays open and shows the reason. When the request succeeds, the dialog closes and the page shows the result. The **Activate** button that follows **Create space** opens the same confirmation.
 
@@ -60,6 +60,24 @@ Each card has these actions: **Activate** (a play button, like the host cards), 
 - **Back up** tells you that OMMS copies the space to a backup folder and checks the copy. The space does not change. When it ends, the page shows the backup location.
 
 **Delete** asks for more than the other four. It opens a dialog that asks for the name. The dialog says that OMMS makes a backup first and then removes the space. Type the exact display name of the space to confirm. The **Delete space** button stays disabled until the text matches. While the delete runs, the dialog shows progress. When it ends, the dialog shows the backup location. If OMMS cannot remove the whole folder, the dialog shows a warning with the path of the folder that remains.
+
+### Transfer, Export and Import
+
+**Transfer** opens the Transfer dialog with the card's space as the source. Pick a target space, a mode of **Copy** or **Move**, an optional date range and an optional project, then select **Preview**. The preview shows the count, the source projects with a count each, up to five examples, and how many exact duplicates the target already holds. **Apply** turns on only after a preview. Any change to the filter clears the preview, and you must run it again. When no memory matches, the dialog says so and **Apply** stays off.
+
+**Apply** with **Move** opens a confirm dialog. It names the source space, the target space and the count, and says that the memories leave the source only after the copy is checked. **Copy** uses the same dialog without that sentence. Nothing is sent until you confirm. The result says how many memories were copied or moved and how many duplicates were skipped and stay in the source.
+
+The web app runs one transfer at a time. When a second apply arrives while one runs, the dialog says that another transfer is running, keeps the preview and lets you try again.
+
+**Export** opens the Export dialog. It has an optional date range and an unticked box for the profile and personal memories, with a note that ticking it adds personal data. When the export ends, the dialog shows how many home paths and email addresses were replaced, says that names typed inside memory text are not detected, and offers the file as a download. When the range holds no memory, the dialog says so and offers no file.
+
+Next to the space list, **Import** reads an export file into a new space. Pick a file, type a name for the new space and optionally a project folder. With the folder empty, the dialog says that the project labels of the file are kept. With a folder, it says that all projects of the file merge into that one project and shows how many projects the file holds. When the file's embedding model differs from the settings, the dialog shows the warning with both models. It asks for confirmation before it runs. A taken name or a missing folder is shown in the dialog, and nothing is imported.
+
+See [Memory spaces](memory-spaces.md) for the rules of each action.
+
+### Linked spaces
+
+Each card has a **Linked spaces** section. It lists the linked spaces by name. A linked space that is archived or deleted is marked **Unavailable**. **Link a space** adds a link after a confirmation that says searches in this space can then also read the memories of the linked one. Each row has an **Unlink** button with a confirmation that says no memory is deleted. Search results from a linked space carry its name, and results of the space in use rank first.
 
 Each backup has **Restore as new space**. A restore never overwrites a space. It creates a new space named like `Experiments (restored 2026-11-06)`. If a backup file is damaged, the page shows the server message. The message names the damaged file.
 
