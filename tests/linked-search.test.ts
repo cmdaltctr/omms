@@ -185,6 +185,9 @@ async function spySearchAcrossShards() {
   };
 }
 
+// On CI the model cache starts empty, so the warmup downloads the embedding
+// model. That takes about 4 s on a quiet runner and more when Hugging Face is
+// slow, so the hook needs more than Bun's default 5 s.
 beforeAll(async () => {
   useRegistry(["beta"]);
   // initConfig resolves the active space from the registry written above.
@@ -192,7 +195,7 @@ beforeAll(async () => {
   initConfig(process.cwd());
   const { embeddingService } = await import("../src/services/embedding.js");
   await embeddingService.warmup();
-});
+}, 120_000);
 
 // The run's test home is shared between files, and this file leaves the active
 // space as "alpha". Later files (for example web-space-routes) read that state,
