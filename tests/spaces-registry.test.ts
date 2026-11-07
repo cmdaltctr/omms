@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   DEFAULT_SPACE_ID,
+  DEFAULT_SPACE_NAME,
   SpaceError,
   archiveSpace,
   createSpace,
@@ -327,11 +328,58 @@ describe("renameSpace", () => {
     expect(space?.name).toBe("Lab");
   });
 
-  it("refuses a name that another space uses and refuses to rename Default", () => {
+  it("refuses a name that another space uses", () => {
     const first = createSpace(emptyRegistry(), "A", NOW).registry;
     const { registry } = createSpace(first, "B", NOW);
     expect(codeOf(() => renameSpace(registry, "b", "a"))).toBe("name-taken");
-    expect(codeOf(() => renameSpace(registry, DEFAULT_SPACE_ID, "Home"))).toBe("protected");
+  });
+
+  it("renames Default through a top-level defaultName and lists it first", () => {
+    const { registry } = createSpace(emptyRegistry(), "Experiments", NOW);
+    const renamed = renameSpace(registry, DEFAULT_SPACE_ID, "Main");
+    expect(renamed.defaultName).toBe("Main");
+    expect(renamed.spaces).toEqual(registry.spaces);
+    const first = listSpaces(renamed)[0]!;
+    expect(first.id).toBe(DEFAULT_SPACE_ID);
+    expect(first.name).toBe("Main");
+  });
+
+  it("drops defaultName when Default is renamed back to Default, whatever the case", () => {
+    const renamed = renameSpace(emptyRegistry(), DEFAULT_SPACE_ID, "Main");
+    expect("defaultName" in renamed).toBe(true);
+    expect("defaultName" in renameSpace(renamed, DEFAULT_SPACE_ID, "Default")).toBe(false);
+    expect("defaultName" in renameSpace(renamed, DEFAULT_SPACE_ID, "default")).toBe(false);
+    expect(listSpaces(renameSpace(renamed, DEFAULT_SPACE_ID, "Default"))[0]!.name).toBe(
+      DEFAULT_SPACE_NAME
+    );
+  });
+
+  it("refuses a Default name that another space uses and names that space", () => {
+    const { registry } = createSpace(emptyRegistry(), "Experiments", NOW);
+    expect(codeOf(() => renameSpace(registry, DEFAULT_SPACE_ID, "experiments"))).toBe("name-taken");
+    try {
+      renameSpace(registry, DEFAULT_SPACE_ID, "experiments");
+    } catch (error) {
+      expect((error as Error).message).toContain("Experiments");
+    }
+  });
+
+  it("checks the length of a Default name like any other name", () => {
+    expect(codeOf(() => renameSpace(emptyRegistry(), DEFAULT_SPACE_ID, "   "))).toBe(
+      "invalid-name"
+    );
+    expect(codeOf(() => renameSpace(emptyRegistry(), DEFAULT_SPACE_ID, "x".repeat(61)))).toBe(
+      "invalid-name"
+    );
+    expect(renameSpace(emptyRegistry(), DEFAULT_SPACE_ID, "y".repeat(60)).defaultName).toBe(
+      "y".repeat(60)
+    );
+  });
+
+  it("refuses to rename another space to the custom Default name", () => {
+    const renamed = renameSpace(emptyRegistry(), DEFAULT_SPACE_ID, "Main");
+    const { registry } = createSpace(renamed, "Lab", NOW);
+    expect(codeOf(() => renameSpace(registry, "lab", "main"))).toBe("name-taken");
   });
 });
 

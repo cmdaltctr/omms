@@ -55,8 +55,9 @@ describe("space routes", () => {
       id: "default",
       name: "Default",
       active: true,
-      disabled: { archive: "default", delete: "default", rename: "default" },
+      disabled: { archive: "default", delete: "default" },
     });
+    expect(listed.spaces[0].disabled.rename).toBeUndefined();
     expect(typeof listed.spaces[0].sizeBytes).toBe("number");
   });
 
@@ -114,6 +115,13 @@ describe("space routes", () => {
     const listed = data(await call("GET", "/api/spaces"));
     expect(listed.spaces.find((s: any) => s.id === "old").name).toBe("Older");
     expect(existsSync(join(omms, "spaces", "old"))).toBe(true);
+  });
+
+  it("renames the Default space and keeps its id", async () => {
+    const renamed = await call("POST", "/api/spaces/default/rename", { name: "Main" });
+    expect(renamed!.status).toBe(200);
+    const row = data(await call("GET", "/api/spaces")).spaces.find((s: any) => s.id === "default");
+    expect(row.name).toBe("Main");
   });
 
   it("backs up a space, lists the backup and restores it as a new space", async () => {

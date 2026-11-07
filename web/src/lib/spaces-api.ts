@@ -120,7 +120,6 @@ export function whyKey(action: SpaceAction, reason: string): string {
   return KNOWN_WHY.has(key) ? key : "spaces-why-other";
 }
 const KNOWN_WHY = new Set([
-  "spaces-why-default-rename",
   "spaces-why-default-archive",
   "spaces-why-default-delete",
   "spaces-why-active-switch",

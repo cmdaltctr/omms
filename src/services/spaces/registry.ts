@@ -30,6 +30,8 @@ export interface SpaceEntry {
 export interface SpaceRegistry {
   version: number;
   activeSpaceId: string;
+  /** Custom display name of the Default space. Absent means "Default". */
+  defaultName?: string;
   /** User-created spaces only. Default is added by `listSpaces`. */
   spaces: SpaceEntry[];
 }
@@ -70,13 +72,18 @@ export function emptyRegistry(): SpaceRegistry {
   return { version: REGISTRY_VERSION, activeSpaceId: DEFAULT_SPACE_ID, spaces: [] };
 }
 
-function defaultEntry(): SpaceEntry {
-  return { id: DEFAULT_SPACE_ID, name: DEFAULT_SPACE_NAME, createdAt: "", archived: false };
+function defaultEntry(registry: SpaceRegistry): SpaceEntry {
+  return {
+    id: DEFAULT_SPACE_ID,
+    name: registry.defaultName ?? DEFAULT_SPACE_NAME,
+    createdAt: "",
+    archived: false,
+  };
 }
 
 /** Every space in display order: Default first, then user spaces in creation order. */
 export function listSpaces(registry: SpaceRegistry): SpaceEntry[] {
-  return [defaultEntry(), ...registry.spaces];
+  return [defaultEntry(registry), ...registry.spaces];
 }
 
 /** Lowercase letters, digits and single hyphens, at most 40 characters. Empty when the name has none. */
@@ -181,13 +188,18 @@ export function renameSpace(
   name: string
 ): SpaceRegistry {
   const space = requireSpace(registry, idOrName);
-  if (space.id === DEFAULT_SPACE_ID) {
-    throw new SpaceError("protected", "The Default space cannot be renamed.");
-  }
   const display = checkedName(name);
   const clash = findByName(registry, display);
   if (clash && clash.id !== space.id) {
     throw new SpaceError("name-taken", `A space named "${clash.name}" already exists.`);
+  }
+  if (space.id === DEFAULT_SPACE_ID) {
+    if (display.toLowerCase() === DEFAULT_SPACE_NAME.toLowerCase()) {
+      // "Default" means no custom name: the field is removed, not stored (design D2).
+      const { defaultName: _drop, ...rest } = registry;
+      return rest;
+    }
+    return { ...registry, defaultName: display };
   }
   return updateSpace(registry, space.id, { name: display });
 }
@@ -400,6 +412,9 @@ export function readRegistryFile(path: string): RegistryReadResult {
     version: typeof file.version === "number" ? file.version : REGISTRY_VERSION,
     activeSpaceId: file.activeSpaceId,
     spaces,
+    ...(typeof file.defaultName === "string" && file.defaultName.trim() !== ""
+      ? { defaultName: file.defaultName }
+      : {}),
   };
   if (!listSpaces(registry).some((space) => space.id === registry.activeSpaceId)) {
     return unusable(`active space "${registry.activeSpaceId}" is not in the list`);

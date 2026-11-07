@@ -94,6 +94,22 @@ describe("memory context block", () => {
     expect(await contextText()).toContain("\nActive memory space: Default\n");
   });
 
+  it("names a renamed Default space once", async () => {
+    writeFileSync(
+      join(omms, "spaces.json"),
+      JSON.stringify({
+        version: 1,
+        activeSpaceId: "default",
+        defaultName: "Main",
+        spaces: [],
+      })
+    );
+    initConfig(project);
+    const text = await contextText();
+    expect(text).toContain("\nActive memory space: Main\n");
+    expect(text.match(/Active memory space:/g)?.length).toBe(1);
+  });
+
   it("names a non-default space once", async () => {
     useSpace("experiments", "Experiments");
     initConfig(project);

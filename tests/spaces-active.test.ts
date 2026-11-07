@@ -7,14 +7,17 @@ import { resolveActiveSpace } from "../src/services/spaces/active-space.js";
 let omms: string;
 const global = () => join(omms, "data");
 
-function writeRegistry(activeSpaceId: string, names: string[]) {
+function writeRegistry(activeSpaceId: string, names: string[], defaultName?: string) {
   const spaces = names.map((name) => ({
     id: name.toLowerCase(),
     name,
     createdAt: "2026-11-06T10:00:00.000Z",
     archived: false,
   }));
-  writeFileSync(join(omms, "spaces.json"), JSON.stringify({ version: 1, activeSpaceId, spaces }));
+  writeFileSync(
+    join(omms, "spaces.json"),
+    JSON.stringify({ version: 1, activeSpaceId, ...(defaultName ? { defaultName } : {}), spaces })
+  );
 }
 
 beforeEach(() => {
@@ -28,6 +31,30 @@ describe("resolveActiveSpace", () => {
     expect(space).toMatchObject({ id: "default", name: "Default", customStoragePath: false });
     expect(space.storagePath).toBeUndefined();
     expect(space.problem).toBeUndefined();
+  });
+
+  it("uses the registry's custom name when Default is active", () => {
+    writeRegistry("default", [], "Main");
+    const space = resolveActiveSpace(omms, global(), false);
+    expect(space).toMatchObject({ id: "default", name: "Main", customStoragePath: false });
+    expect(space.storagePath).toBeUndefined();
+    expect(space.problem).toBeUndefined();
+  });
+
+  it("keeps the name Default when the registry file is missing", () => {
+    writeRegistry("default", [], "Main");
+    rmSync(join(omms, "spaces.json"));
+    const space = resolveActiveSpace(omms, global(), false);
+    expect(space).toMatchObject({ id: "default", name: "Default" });
+    expect(space.problem).toBeUndefined();
+  });
+
+  it("keeps the name Default when the registry cannot be read", () => {
+    writeRegistry("default", [], "Main");
+    writeFileSync(join(omms, "spaces.json"), "{broken");
+    const space = resolveActiveSpace(omms, global(), false);
+    expect(space).toMatchObject({ id: "default", name: "Default" });
+    expect(space.problem).toContain("spaces.json");
   });
 
   it("gives the space folder for a non-default active space", () => {

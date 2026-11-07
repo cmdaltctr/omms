@@ -30,12 +30,12 @@ export function resolveActiveSpace(
   globalStoragePath: string,
   projectSetsStoragePath: boolean
 ): ActiveSpace {
-  const fallback = (problem?: string): ActiveSpace => {
+  const fallback = (problem?: string, name: string = DEFAULT_SPACE_NAME): ActiveSpace => {
     // The spec wants an unusable registry named in the log, not only in the web status.
     if (problem) log("Active space fallback to Default", { problem }, "warn");
     return {
       id: DEFAULT_SPACE_ID,
-      name: DEFAULT_SPACE_NAME,
+      name,
       customStoragePath: projectSetsStoragePath,
       problem,
     };
@@ -43,7 +43,8 @@ export function resolveActiveSpace(
   const { registry, problem } = readRegistryFile(join(ommsDir, "spaces.json"));
   if (problem) return fallback(problem);
   const space = findSpace(registry, registry.activeSpaceId);
-  if (!space || space.id === DEFAULT_SPACE_ID) return fallback();
+  // Default may carry a custom registry name; an unreadable registry stays "Default" (D4).
+  if (!space || space.id === DEFAULT_SPACE_ID) return fallback(undefined, space?.name);
   if (projectSetsStoragePath) {
     return { id: space.id, name: space.name, customStoragePath: true };
   }

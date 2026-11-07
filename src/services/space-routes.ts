@@ -76,7 +76,6 @@ function disabledReasons(space: SpaceEntry, activeId: string) {
   const isActive = space.id === activeId;
   const reason = (blocked: boolean, code: string) => (blocked ? code : undefined);
   const disabled = {
-    rename: reason(isDefault, "default"),
     archive: isDefault ? "default" : reason(isActive, "active"),
     delete: isDefault ? "default" : reason(isActive, "active"),
     switch: space.archived ? "archived" : reason(isActive, "active"),
