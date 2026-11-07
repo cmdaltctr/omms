@@ -198,7 +198,12 @@ beforeAll(async () => {
 // space as "alpha". Later files (for example web-space-routes) read that state,
 // so the registry, the space folders and the archive backups this file writes
 // must not outlive it.
-afterAll(() => {
+afterAll(async () => {
+  // Windows refuses to delete a folder a cached read store still holds open,
+  // and a throw here would also skip the backups cleanup below.
+  const { closeAllCachedSpaceReadStores } =
+    await import("../src/services/spaces/read-store-cache.js");
+  await closeAllCachedSpaceReadStores();
   rmSync(join(OMMS, "spaces.json"), { force: true });
   rmSync(SPACES_ROOT, { recursive: true, force: true });
   rmSync(join(OMMS, "backups"), { recursive: true, force: true });
