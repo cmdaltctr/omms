@@ -46,13 +46,14 @@ describe("om-memory-system space", () => {
   });
 
   it("creates, switches, archives and unarchives", async () => {
-    expect((await run("create", "Experiments")).code).toBe(0);
+    const created = JSON.parse((await run("create", "Experiments")).out);
+    expect(created.space.id).toMatch(/^space-[a-z0-9]{10}$/);
     expect((await run("create", "Spike")).code).toBe(0);
     const used = JSON.parse((await run("use", "Experiments")).out);
-    expect(used.activeSpace.id).toBe("experiments");
+    expect(used.activeSpace.id).toBe(created.space.id);
     expect((await run("archive", "Spike")).code).toBe(0);
     expect((await run("unarchive", "Spike")).code).toBe(0);
-    expect(JSON.parse((await run("status")).out).activeSpace.id).toBe("experiments");
+    expect(JSON.parse((await run("status")).out).activeSpace.id).toBe(created.space.id);
   });
 
   it("exits 1 and lists valid spaces when the switch is refused", async () => {

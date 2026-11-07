@@ -15,7 +15,6 @@ import {
   removeSpace,
   renameSpace,
   resolveSpaceFolder,
-  spaceIdFromName,
   spaceLinks,
   switchSpace,
   unarchiveSpace,
@@ -33,26 +32,6 @@ function codeOf(fn: () => unknown): string | undefined {
   }
   return undefined;
 }
-
-describe("spaceIdFromName", () => {
-  it("turns an unsafe name into a safe id", () => {
-    expect(spaceIdFromName("../Team B")).toBe("team-b");
-  });
-
-  it("collapses repeated separators and trims hyphens", () => {
-    expect(spaceIdFromName("  --Client   work!! ")).toBe("client-work");
-  });
-
-  it("limits the id to 40 characters without a trailing hyphen", () => {
-    const id = spaceIdFromName("a".repeat(39) + " b" + "c".repeat(20));
-    expect(id.length).toBeLessThanOrEqual(40);
-    expect(id.endsWith("-")).toBe(false);
-  });
-
-  it("returns an empty id when the name has no letters or digits", () => {
-    expect(spaceIdFromName("!!!")).toBe("");
-  });
-});
 
 describe("readRegistryFile", () => {
   function withFile(content: string | undefined, run: (path: string) => void) {
@@ -115,13 +94,6 @@ describe("readRegistryFile", () => {
 });
 
 describe("createSpace", () => {
-  it("derives the id from the name", () => {
-    const { registry, space } = createSpace(emptyRegistry(), "../Team B", NOW);
-    expect(space.id).toBe("team-b");
-    expect(space.name).toBe("../Team B");
-    expect(listSpaces(registry).some((s) => s.id === "team-b")).toBe(true);
-  });
-
   it("refuses a duplicate name without regard to case and names the existing space", () => {
     const { registry } = createSpace(emptyRegistry(), "Experiments", NOW);
     expect(codeOf(() => createSpace(registry, "experiments", NOW))).toBe("name-taken");
@@ -132,69 +104,132 @@ describe("createSpace", () => {
     }
   });
 
-  it("refuses the reserved Default name and id", () => {
+  it("refuses the Default name without regard to case", () => {
     expect(codeOf(() => createSpace(emptyRegistry(), "default", NOW))).toBe("name-taken");
-    expect(codeOf(() => createSpace(emptyRegistry(), "DEFAULT!", NOW))).toBe("reserved");
+    expect(codeOf(() => createSpace(emptyRegistry(), "DEFAULT", NOW))).toBe("name-taken");
   });
 
-  it("refuses two names that give the same id", () => {
-    const { registry } = createSpace(emptyRegistry(), "Team B", NOW);
-    expect(codeOf(() => createSpace(registry, "Team-B", NOW))).toBe("id-taken");
-  });
-
-  it("refuses an empty or too long name", () => {
+  it("refuses an empty or too long name and accepts a name without letters or digits", () => {
     expect(codeOf(() => createSpace(emptyRegistry(), "   ", NOW))).toBe("invalid-name");
     expect(codeOf(() => createSpace(emptyRegistry(), "x".repeat(61), NOW))).toBe("invalid-name");
-    expect(codeOf(() => createSpace(emptyRegistry(), "!!!", NOW))).toBe("invalid-name");
+    expect(createSpace(emptyRegistry(), "!!!", NOW).space.id).toMatch(/^space-[a-z0-9]{10}$/);
+  });
+});
+
+describe("createSpace with random ids", () => {
+  it("gives a new space a random id, whatever the name", () => {
+    const { registry, space } = createSpace(emptyRegistry(), "../Team B", NOW);
+    expect(space.id).toMatch(/^space-[a-z0-9]{10}$/);
+    expect(space.name).toBe("../Team B");
+    expect(listSpaces(registry).some((s) => s.id === space.id)).toBe(true);
+  });
+
+  it("frees a renamed space's old name", () => {
+    const { registry, space } = createSpace(emptyRegistry(), "Work", NOW);
+    const renamed = renameSpace(registry, space.id, "Tech");
+    const again = createSpace(renamed, "Work", NOW);
+    expect(again.space.name).toBe("Work");
+    expect(again.space.id).toMatch(/^space-[a-z0-9]{10}$/);
+    expect(again.space.id).not.toBe(space.id);
+    const tech = listSpaces(again.registry).find((s) => s.name === "Tech");
+    expect(tech?.id).toBe(space.id);
+  });
+
+  it("keeps the id of a space that the registry already holds", () => {
+    const dir = mkdtempSync(join(tmpdir(), "omms-spaces-"));
+    try {
+      const path = join(dir, "spaces.json");
+      writeFileSync(
+        path,
+        JSON.stringify({
+          version: 1,
+          activeSpaceId: "default",
+          spaces: [{ id: "work", name: "Work", createdAt: NOW, archived: false }],
+        })
+      );
+      const read = readRegistryFile(path);
+      const next = createSpace(read.registry, "Lab", NOW);
+      expect(listSpaces(next.registry).find((s) => s.name === "Work")?.id).toBe("work");
+      expect(listSpaces(read.registry)).toHaveLength(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("redraws a drawn id that is already taken", () => {
+    const { registry } = createSpace(emptyRegistry(), "First", NOW);
+    const firstId = registry.spaces[0]!.id;
+    const draws = [firstId, "space-aaaaaaaaaa"];
+    const second = createSpace(registry, "Second", NOW, { drawId: () => draws.shift()! });
+    expect(second.space.id).toBe("space-aaaaaaaaaa");
+    expect(listSpaces(second.registry).some((s) => s.id === firstId)).toBe(true);
+  });
+
+  it("redraws a drawn id whose folder already exists on disk", () => {
+    const draws = ["space-bbbbbbbbbb", "space-cccccccccc"];
+    const { space } = createSpace(emptyRegistry(), "Lab", NOW, {
+      drawId: () => draws.shift()!,
+      avoidIds: ["space-bbbbbbbbbb"],
+    });
+    expect(space.id).toBe("space-cccccccccc");
   });
 });
 
 describe("archive, unarchive and switch", () => {
-  const base = () => createSpace(emptyRegistry(), "Experiments", NOW).registry;
+  const base = () => {
+    const created = createSpace(emptyRegistry(), "Experiments", NOW);
+    return { registry: created.registry, id: created.space.id };
+  };
 
   it("archives and unarchives a space", () => {
-    const archived = archiveSpace(base(), "experiments");
-    expect(listSpaces(archived).find((s) => s.id === "experiments")?.archived).toBe(true);
-    const back = unarchiveSpace(archived, "experiments");
-    expect(listSpaces(back).find((s) => s.id === "experiments")?.archived).toBe(false);
+    const { registry, id } = base();
+    const archived = archiveSpace(registry, id);
+    expect(listSpaces(archived).find((s) => s.id === id)?.archived).toBe(true);
+    const back = unarchiveSpace(archived, id);
+    expect(listSpaces(back).find((s) => s.id === id)?.archived).toBe(false);
   });
 
   it("refuses to archive Default or the active space", () => {
-    expect(codeOf(() => archiveSpace(base(), DEFAULT_SPACE_ID))).toBe("protected");
-    const active = switchSpace(base(), "experiments");
-    expect(codeOf(() => archiveSpace(active, "experiments"))).toBe("active");
+    expect(codeOf(() => archiveSpace(base().registry, DEFAULT_SPACE_ID))).toBe("protected");
+    const { registry, id } = base();
+    const active = switchSpace(registry, id);
+    expect(codeOf(() => archiveSpace(active, id))).toBe("active");
   });
 
   it("refuses to switch to an archived or unknown space and lists valid targets", () => {
-    const archived = archiveSpace(base(), "experiments");
-    expect(codeOf(() => switchSpace(archived, "experiments"))).toBe("archived");
-    expect(codeOf(() => switchSpace(base(), "nope"))).toBe("unknown");
+    const { registry, id } = base();
+    const archived = archiveSpace(registry, id);
+    expect(codeOf(() => switchSpace(archived, id))).toBe("archived");
+    expect(codeOf(() => switchSpace(registry, "nope"))).toBe("unknown");
     try {
       switchSpace(archived, "nope");
     } catch (error) {
       expect((error as Error).message).toContain("default");
-      expect((error as Error).message).not.toContain("experiments");
+      expect((error as Error).message).not.toContain(id);
     }
   });
 
   it("switches by id or by name without regard to case", () => {
-    expect(switchSpace(base(), "Experiments").activeSpaceId).toBe("experiments");
-    expect(switchSpace(base(), "EXPERIMENTS").activeSpaceId).toBe("experiments");
-    expect(switchSpace(switchSpace(base(), "experiments"), "default").activeSpaceId).toBe(
-      DEFAULT_SPACE_ID
-    );
+    const { registry, id } = base();
+    expect(switchSpace(registry, "Experiments").activeSpaceId).toBe(id);
+    expect(switchSpace(registry, "EXPERIMENTS").activeSpaceId).toBe(id);
+    expect(switchSpace(switchSpace(registry, id), "default").activeSpaceId).toBe(DEFAULT_SPACE_ID);
   });
 });
 
 describe("archive date", () => {
-  const base = () => createSpace(emptyRegistry(), "Experiments", NOW).registry;
+  const base = () => {
+    const created = createSpace(emptyRegistry(), "Experiments", NOW);
+    return { registry: created.registry, id: created.space.id };
+  };
   const later = "2026-11-07T08:30:00.000Z";
 
   it("records when a space was archived and clears it on unarchive", () => {
-    const archived = archiveSpace(base(), "experiments", later);
-    expect(listSpaces(archived).find((s) => s.id === "experiments")?.archivedAt).toBe(later);
-    const back = unarchiveSpace(archived, "experiments");
-    expect(listSpaces(back).find((s) => s.id === "experiments")?.archivedAt).toBeUndefined();
+    const { registry, id } = base();
+    const archived = archiveSpace(registry, id, later);
+    expect(listSpaces(archived).find((s) => s.id === id)?.archivedAt).toBe(later);
+    const back = unarchiveSpace(archived, id);
+    expect(listSpaces(back).find((s) => s.id === id)?.archivedAt).toBeUndefined();
   });
 
   it("reads an archived entry without a date, as an older file has it", () => {
@@ -322,10 +357,10 @@ describe("links in the registry file", () => {
 
 describe("renameSpace", () => {
   it("changes the name and keeps the id", () => {
-    const { registry } = createSpace(emptyRegistry(), "Experiments", NOW);
-    const renamed = renameSpace(registry, "experiments", "Lab");
-    const space = listSpaces(renamed).find((s) => s.id === "experiments");
-    expect(space?.name).toBe("Lab");
+    const { registry, space } = createSpace(emptyRegistry(), "Experiments", NOW);
+    const renamed = renameSpace(registry, space.id, "Lab");
+    const entry = listSpaces(renamed).find((s) => s.id === space.id);
+    expect(entry?.name).toBe("Lab");
   });
 
   it("refuses a name that another space uses", () => {
@@ -385,92 +420,114 @@ describe("renameSpace", () => {
 
 describe("linkSpace", () => {
   const base = () => {
-    let registry = createSpace(emptyRegistry(), "Experiments", NOW).registry;
-    registry = createSpace(registry, "Client work", NOW).registry;
-    return createSpace(registry, "Third", NOW).registry;
+    let current = createSpace(emptyRegistry(), "Experiments", NOW);
+    const experiments = current.space.id;
+    current = createSpace(current.registry, "Client work", NOW);
+    const clientWork = current.space.id;
+    current = createSpace(current.registry, "Third", NOW);
+    return {
+      registry: current.registry,
+      ids: { experiments, clientWork, third: current.space.id },
+    };
   };
-  const entry = (registry: ReturnType<typeof base>, id: string) =>
+  const entry = (registry: ReturnType<typeof base>["registry"], id: string) =>
     registry.spaces.find((s) => s.id === id);
 
   it("adds a one-way link on the linking space only", () => {
-    const linked = linkSpace(base(), "experiments", "default");
-    expect(entry(linked, "experiments")?.links).toEqual(["default"]);
-    expect(spaceLinks(linked, "experiments")).toEqual([
+    const { registry, ids } = base();
+    const linked = linkSpace(registry, ids.experiments, "default");
+    expect(entry(linked, ids.experiments)?.links).toEqual(["default"]);
+    expect(spaceLinks(linked, ids.experiments)).toEqual([
       { id: "default", name: "Default", available: true },
     ]);
     expect(spaceLinks(linked, "default")).toEqual([]);
   });
 
   it("refuses a self-link and a repeat link", () => {
-    const registry = base();
-    expect(codeOf(() => linkSpace(registry, "experiments", "Experiments"))).toBe("protected");
-    const linked = linkSpace(registry, "experiments", "default");
-    expect(codeOf(() => linkSpace(linked, "experiments", "Default"))).toBe("name-taken");
-    expect(entry(linked, "experiments")?.links).toEqual(["default"]);
+    const { registry, ids } = base();
+    expect(codeOf(() => linkSpace(registry, ids.experiments, "Experiments"))).toBe("protected");
+    const linked = linkSpace(registry, ids.experiments, "default");
+    expect(codeOf(() => linkSpace(linked, ids.experiments, "Default"))).toBe("name-taken");
+    expect(entry(linked, ids.experiments)?.links).toEqual(["default"]);
   });
 
   it("refuses a link to a space that does not exist and a link held by Default", () => {
-    expect(codeOf(() => linkSpace(base(), "experiments", "nope"))).toBe("unknown");
-    expect(codeOf(() => linkSpace(base(), DEFAULT_SPACE_ID, "experiments"))).toBe("protected");
+    const { registry, ids } = base();
+    expect(codeOf(() => linkSpace(registry, ids.experiments, "nope"))).toBe("unknown");
+    expect(codeOf(() => linkSpace(registry, DEFAULT_SPACE_ID, ids.experiments))).toBe("protected");
   });
 
   it("does not copy the links of the linked space", () => {
-    let registry = linkSpace(base(), "client-work", "third");
-    registry = linkSpace(registry, "experiments", "client-work");
-    expect(entry(registry, "experiments")?.links).toEqual(["client-work"]);
+    const { registry, ids } = base();
+    let linked = linkSpace(registry, ids.clientWork, ids.third);
+    linked = linkSpace(linked, ids.experiments, ids.clientWork);
+    expect(entry(linked, ids.experiments)?.links).toEqual([ids.clientWork]);
   });
 });
 
 describe("unlinkSpace", () => {
   const base = () => {
-    let registry = createSpace(emptyRegistry(), "Experiments", NOW).registry;
-    registry = createSpace(registry, "Third", NOW).registry;
-    const linked = linkSpace(registry, "experiments", "default");
-    return linkSpace(linked, "experiments", "third");
+    let current = createSpace(emptyRegistry(), "Experiments", NOW);
+    const experiments = current.space.id;
+    current = createSpace(current.registry, "Third", NOW);
+    const third = current.space.id;
+    let registry = linkSpace(current.registry, experiments, "default");
+    registry = linkSpace(registry, experiments, third);
+    return { registry, ids: { experiments, third } };
   };
-  const entry = (registry: ReturnType<typeof base>, id: string) =>
+  const entry = (registry: ReturnType<typeof base>["registry"], id: string) =>
     registry.spaces.find((s) => s.id === id);
 
   it("removes one link and keeps the others", () => {
-    const unlinked = unlinkSpace(base(), "experiments", "default");
-    expect(entry(unlinked, "experiments")?.links).toEqual(["third"]);
-    expect(codeOf(() => unlinkSpace(unlinked, "experiments", "nope"))).toBe("unknown");
+    const { registry, ids } = base();
+    const unlinked = unlinkSpace(registry, ids.experiments, "default");
+    expect(entry(unlinked, ids.experiments)?.links).toEqual([ids.third]);
+    expect(codeOf(() => unlinkSpace(unlinked, ids.experiments, "nope"))).toBe("unknown");
   });
 
   it("removes the last link and leaves no empty links field", () => {
-    let registry = unlinkSpace(base(), "experiments", "default");
-    registry = unlinkSpace(registry, "experiments", "third");
-    expect(entry(registry, "experiments")?.links).toBeUndefined();
+    const { registry, ids } = base();
+    let current = unlinkSpace(registry, ids.experiments, "default");
+    current = unlinkSpace(current, ids.experiments, ids.third);
+    expect(entry(current, ids.experiments)?.links).toBeUndefined();
   });
 
   it("unlinks by id a linked space that is gone from the registry", () => {
-    let registry = removeSpace(base(), "third");
-    expect(entry(registry, "experiments")?.links).toEqual(["default", "third"]);
-    registry = unlinkSpace(registry, "experiments", "third");
-    expect(entry(registry, "experiments")?.links).toEqual(["default"]);
+    const { registry, ids } = base();
+    let current = removeSpace(registry, ids.third);
+    expect(entry(current, ids.experiments)?.links).toEqual(["default", ids.third]);
+    current = unlinkSpace(current, ids.experiments, ids.third);
+    expect(entry(current, ids.experiments)?.links).toEqual(["default"]);
   });
 });
 
 describe("link availability", () => {
   const base = () => {
-    let registry = createSpace(emptyRegistry(), "Experiments", NOW).registry;
-    registry = createSpace(registry, "Third", NOW).registry;
-    return linkSpace(registry, "experiments", "third");
+    let current = createSpace(emptyRegistry(), "Experiments", NOW);
+    const experiments = current.space.id;
+    current = createSpace(current.registry, "Third", NOW);
+    const third = current.space.id;
+    return {
+      registry: linkSpace(current.registry, experiments, third),
+      ids: { experiments, third },
+    };
   };
 
   it("reads an archived linked space as unavailable and keeps the link", () => {
-    const registry = archiveSpace(base(), "third", NOW);
-    expect(registry.spaces.find((s) => s.id === "experiments")?.links).toEqual(["third"]);
-    expect(spaceLinks(registry, "experiments")).toEqual([
-      { id: "third", name: "Third", available: false },
+    const { registry, ids } = base();
+    const archived = archiveSpace(registry, ids.third, NOW);
+    expect(archived.spaces.find((s) => s.id === ids.experiments)?.links).toEqual([ids.third]);
+    expect(spaceLinks(archived, ids.experiments)).toEqual([
+      { id: ids.third, name: "Third", available: false },
     ]);
   });
 
   it("reads a removed linked space as unavailable with the id as name", () => {
-    const registry = removeSpace(base(), "third");
-    expect(registry.spaces.find((s) => s.id === "experiments")?.links).toEqual(["third"]);
-    expect(spaceLinks(registry, "experiments")).toEqual([
-      { id: "third", name: "third", available: false },
+    const { registry, ids } = base();
+    const removed = removeSpace(registry, ids.third);
+    expect(removed.spaces.find((s) => s.id === ids.experiments)?.links).toEqual([ids.third]);
+    expect(spaceLinks(removed, ids.experiments)).toEqual([
+      { id: ids.third, name: ids.third, available: false },
     ]);
   });
 });

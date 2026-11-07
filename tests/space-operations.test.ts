@@ -39,36 +39,40 @@ describe("executeSpaceOperation", () => {
   });
 
   it("creates a space without making it active", async () => {
-    const result = await run("create", "Experiments");
-    expect(result).toMatchObject({ success: true, space: { id: "experiments" } });
+    const result = (await run("create", "Experiments")) as {
+      success: boolean;
+      space: { id: string };
+    };
+    expect(result.success).toBe(true);
+    expect(result.space.id).toMatch(/^space-[a-z0-9]{10}$/);
     expect(readRegistryFile(files.registryPath).registry.activeSpaceId).toBe("default");
-    expect(existsSync(join(files.spacesRoot, "experiments"))).toBe(true);
+    expect(existsSync(join(files.spacesRoot, result.space.id))).toBe(true);
   });
 
   it("switches by name and reports the new active space", async () => {
-    await run("create", "Experiments");
+    const created = (await run("create", "Experiments")) as { space: { id: string } };
     const result = await run("use", "experiments");
-    expect(result).toMatchObject({ success: true, activeSpace: { id: "experiments" } });
-    expect(readRegistryFile(files.registryPath).registry.activeSpaceId).toBe("experiments");
+    expect(result).toMatchObject({ success: true, activeSpace: { id: created.space.id } });
+    expect(readRegistryFile(files.registryPath).registry.activeSpaceId).toBe(created.space.id);
   });
 
   it("creates then archives a space while another is active, and keeps its folder", async () => {
-    await run("create", "Spike");
+    const created = (await run("create", "Spike")) as { space: { id: string } };
     const result = await run("archive", "Spike");
     expect(result).toMatchObject({ success: true });
-    expect(existsSync(join(files.spacesRoot, "spike"))).toBe(true);
+    expect(existsSync(join(files.spacesRoot, created.space.id))).toBe(true);
     const listed = (await run("list")) as { spaces: { id: string; archived: boolean }[] };
-    expect(listed.spaces.find((s) => s.id === "spike")?.archived).toBe(true);
+    expect(listed.spaces.find((s) => s.id === created.space.id)?.archived).toBe(true);
     expect(await run("unarchive", "Spike")).toMatchObject({ success: true });
   });
 
   it("refuses to switch to an archived or unknown space and lists the valid ones", async () => {
-    await run("create", "Spike");
+    const created = (await run("create", "Spike")) as { space: { id: string } };
     await run("archive", "Spike");
     const archived = (await run("use", "Spike")) as { success: boolean; error: string };
     expect(archived.success).toBe(false);
     expect(archived.error).toContain("default");
-    expect(archived.error).not.toContain("spike,");
+    expect(archived.error).not.toContain(created.space.id);
     expect(((await run("use", "nope")) as { success: boolean }).success).toBe(false);
   });
 
@@ -83,11 +87,11 @@ describe("executeSpaceOperation", () => {
   it.each(["delete", "rename", "backup", "restore"])(
     "refuses %s and says only the web app can do it",
     async (action) => {
-      await run("create", "Experiments");
+      const created = (await run("create", "Experiments")) as { space: { id: string } };
       const result = (await run(action, "Experiments")) as { success: boolean; error: string };
       expect(result.success).toBe(false);
       expect(result.error).toBe(`Only the web app can ${action} a space.`);
-      expect(existsSync(join(files.spacesRoot, "experiments"))).toBe(true);
+      expect(existsSync(join(files.spacesRoot, created.space.id))).toBe(true);
     }
   );
 

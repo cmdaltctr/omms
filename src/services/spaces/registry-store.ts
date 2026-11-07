@@ -2,6 +2,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   renameSync,
   statSync,
   unlinkSync,
@@ -19,6 +20,7 @@ import {
   switchSpace,
   unarchiveSpace,
   unlinkSpace,
+  type CreateSpaceOptions,
   type SpaceEntry,
   type SpaceRegistry,
 } from "./registry.js";
@@ -150,9 +152,18 @@ export async function updateRegistry<T>(
   }
 }
 
-export async function createStoredSpace(files: SpaceFiles, name: string): Promise<SpaceEntry> {
+export async function createStoredSpace(
+  files: SpaceFiles,
+  name: string,
+  options: CreateSpaceOptions = {}
+): Promise<SpaceEntry> {
   const { result } = await updateRegistry(files, (registry) => {
-    const created = createSpace(registry, name, new Date().toISOString());
+    // A leftover folder must not be adopted by a new space, so its name counts as a taken id.
+    const folderIds = existsSync(files.spacesRoot) ? readdirSync(files.spacesRoot) : [];
+    const created = createSpace(registry, name, new Date().toISOString(), {
+      ...options,
+      avoidIds: [...(options.avoidIds ?? []), ...folderIds],
+    });
     // The folder comes first, so the registry never names a space that has no folder.
     mkdirSync(join(files.spacesRoot, created.space.id), { recursive: true });
     return { registry: created.registry, result: created.space };

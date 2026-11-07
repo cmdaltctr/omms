@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
 
@@ -39,8 +40,6 @@ export interface SpaceRegistry {
 export type SpaceErrorCode =
   | "invalid-name"
   | "name-taken"
-  | "id-taken"
-  | "reserved"
   | "protected"
   | "active"
   | "archived"
@@ -84,15 +83,6 @@ function defaultEntry(registry: SpaceRegistry): SpaceEntry {
 /** Every space in display order: Default first, then user spaces in creation order. */
 export function listSpaces(registry: SpaceRegistry): SpaceEntry[] {
   return [defaultEntry(registry), ...registry.spaces];
-}
-
-/** Lowercase letters, digits and single hyphens, at most 40 characters. Empty when the name has none. */
-export function spaceIdFromName(name: string): string {
-  const id = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return id.slice(0, MAX_SPACE_ID_LENGTH).replace(/-+$/, "");
 }
 
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -142,30 +132,52 @@ function checkedName(name: string): string {
   return trimmed;
 }
 
-/** Adds a space. Returns the new registry and the new entry. The active space does not change. */
+const RANDOM_ID_SUFFIX_LENGTH = 10;
+const ID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
+/** The most draws before createSpace gives up, so a broken source cannot loop forever. */
+const MAX_ID_DRAWS = 100;
+
+/** Draws a random space id: `space-` plus 10 lowercase letters and digits (ADR for random ids). */
+export function drawRandomSpaceId(): string {
+  let suffix = "";
+  for (let i = 0; i < RANDOM_ID_SUFFIX_LENGTH; i++) {
+    suffix += ID_ALPHABET[randomInt(ID_ALPHABET.length)];
+  }
+  return `space-${suffix}`;
+}
+
+export interface CreateSpaceOptions {
+  /** Draws a candidate id. Tests inject a fixed source. */
+  drawId?: () => string;
+  /** Ids to refuse beyond the registry, such as folders already on disk. */
+  avoidIds?: readonly string[];
+}
+
+/** Adds a space with a random id. Returns the new registry and the new entry. The active space does not change. */
 export function createSpace(
   registry: SpaceRegistry,
   name: string,
-  now: string
+  now: string,
+  options: CreateSpaceOptions = {}
 ): { registry: SpaceRegistry; space: SpaceEntry } {
   const display = checkedName(name);
   const existing = findByName(registry, display);
   if (existing) {
     throw new SpaceError("name-taken", `A space named "${existing.name}" already exists.`);
   }
-  const id = spaceIdFromName(display);
-  if (id === "") {
-    throw new SpaceError("invalid-name", "A space name needs at least one letter or digit.");
-  }
-  if (id === DEFAULT_SPACE_ID) {
-    throw new SpaceError("reserved", `The id "${DEFAULT_SPACE_ID}" belongs to the Default space.`);
-  }
-  const clash = registry.spaces.find((space) => space.id === id);
-  if (clash) {
-    throw new SpaceError(
-      "id-taken",
-      `The name "${display}" gives the same folder id as "${clash.name}". Choose another name.`
-    );
+  const drawId = options.drawId ?? drawRandomSpaceId;
+  const avoid = options.avoidIds ?? [];
+  let id = "";
+  for (let draws = 0; ; draws++) {
+    if (draws >= MAX_ID_DRAWS) {
+      throw new SpaceError("invalid-id", "Could not draw an unused space id. Try again.");
+    }
+    id = drawId();
+    const taken =
+      id === DEFAULT_SPACE_ID ||
+      avoid.includes(id) ||
+      registry.spaces.some((space) => space.id === id);
+    if (isValidSpaceId(id) && !taken) break;
   }
   const space: SpaceEntry = { id, name: display, createdAt: now, archived: false };
   return { registry: { ...registry, spaces: [...registry.spaces, space] }, space };

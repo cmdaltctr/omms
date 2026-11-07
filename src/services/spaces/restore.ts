@@ -90,7 +90,7 @@ async function createWithFreeName(files: SpaceFiles, name: string, now: Date): P
     try {
       return await createStoredSpace(files, restoredName(name, now, attempt));
     } catch (error) {
-      const taken = error instanceof SpaceError && ["name-taken", "id-taken"].includes(error.code);
+      const taken = error instanceof SpaceError && error.code === "name-taken";
       if (!taken || attempt >= 50) throw error;
     }
   }

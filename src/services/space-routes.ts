@@ -50,10 +50,8 @@ const fail = (status: number, code: string, error: string): RouteResult => ({
 export const STATUS_BY_CODE: Record<SpaceErrorCode | "transfer-busy", number> = {
   "invalid-name": 400,
   "invalid-id": 400,
-  reserved: 400,
   unknown: 404,
   "name-taken": 409,
-  "id-taken": 409,
   protected: 409,
   active: 409,
   archived: 409,
