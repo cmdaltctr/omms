@@ -61,10 +61,19 @@ When a background update installs the newer release, the footer SHALL show `· <
 
 - **WHEN** the background update for 4.3.0 exits with success
 - **THEN** the footer SHALL show `omms: ✔ · 4.3.0 installed, restart`
-- **AND** one toast SHALL tell the user to restart OpenCode
+- **AND** one toast SHALL tell the user to restart OpenCode and run `opencode service restart`
 
 #### Scenario: The background update fails
 
 - **WHEN** the background update for 4.3.0 exits with an error
 - **THEN** the footer SHALL show `omms: ✔ · 4.3.0 available`
 - **AND** one toast SHALL name `opencode plugin update om-memory-system`
+
+### Requirement: The OpenCode restart notice names the background service
+
+OpenCode's background service keeps the old OMMS copy loaded after the TUI restarts. The restart toast SHALL name `opencode service restart`.
+
+#### Scenario: The restart toast names the service command
+
+- **WHEN** the background update for 4.3.0 exits with success
+- **THEN** the toast SHALL name `opencode service restart`

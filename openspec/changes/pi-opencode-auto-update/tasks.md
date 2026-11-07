@@ -27,5 +27,5 @@
 
 - [x] 5.1 Run each new and changed test file with `bash scripts/run-tests-isolated.sh <file>`. Break the code once and confirm the tests fail.
 - [x] 5.2 Run `bun run check` and confirm the file-size ceiling test passes for `tui-status.ts` and `extension.ts`.
-- [ ] 5.3 Live check in a scratch HOME with its own store: install an older OMMS in Pi and in OpenCode, start a session, confirm the update command runs once, the marker says `installed`, and the footer shows `installed, restart`. Restart and confirm the new version loads.
+- [x] 5.3 Live check in a scratch HOME with its own store: install an older OMMS in Pi and in OpenCode, start a session, confirm the update command runs once, the marker says `installed`, and the footer shows `installed, restart`. Restart and confirm the new version loads.
 - [ ] 5.4 Run `bun run ci:local` and read the exit line.

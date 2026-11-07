@@ -230,6 +230,10 @@ it("treats an OpenCode cache folder as unpinned only for latest or no version", 
   expect(unpinnedCacheFolder(path("om-memory-system"))).toBe(true);
   expect(unpinnedCacheFolder(path("om-memory-system@4.2.0"))).toBe(false);
   expect(unpinnedCacheFolder(path("om-memory-system@^4"))).toBe(false);
+  // OpenCode 2.2 puts a timestamp folder between the spec folder and node_modules.
+  expect(unpinnedCacheFolder(path("om-memory-system@latest/1794091868583"))).toBe(true);
+  expect(unpinnedCacheFolder(path("om-memory-system@4.2.0/1794091868583"))).toBe(false);
+  expect(unpinnedCacheFolder(path("other@latest/1794091868583"))).toBe(false);
   expect(unpinnedCacheFolder("/home/u/.config/opencode/node_modules/om-memory-system/x.js")).toBe(
     false
   );
@@ -264,6 +268,21 @@ it("words the footer suffix and the one-time notices for each state", () => {
   );
   expect(notice("installing")).toBe("om-memory-system 4.3.0 is installing in the background.");
   expect(notice("installed")).toBe("om-memory-system 4.3.0 installed. Restart Pi to use it.");
+  const service = (state: "available" | "installed") =>
+    updateNotice({
+      hostName: "OpenCode",
+      command: "opencode plugin update om-memory-system",
+      restart: "restart OpenCode and run opencode service restart",
+      current: "4.2.0",
+      update: "4.3.0",
+      state,
+    });
+  expect(service("installed")).toBe(
+    "om-memory-system 4.3.0 installed. Restart OpenCode and run opencode service restart to use it."
+  );
+  expect(service("available")).toBe(
+    "om-memory-system 4.3.0 is available (running 4.2.0). Run: opencode plugin update om-memory-system, then restart OpenCode and run opencode service restart."
+  );
 });
 
 it("watches the marker every interval until it settles, for at most the limit", async () => {

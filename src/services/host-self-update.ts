@@ -225,13 +225,15 @@ export function installedFromNpm(modulePath: string): boolean {
 /**
  * True when the module sits in a host package cache folder named
  * `om-memory-system` or `om-memory-system@latest`. Any other folder, such as
- * one with a version, counts as pinned.
+ * one with a version, counts as pinned. OpenCode 2.2 adds a timestamp folder
+ * between that folder and `node_modules`.
  */
 export function unpinnedCacheFolder(modulePath: string): boolean {
   const parts = modulePath.replaceAll("\\", "/").split("/");
   const index = parts.lastIndexOf("node_modules");
   if (index < 1 || parts[index + 1] !== "om-memory-system") return false;
-  const folder = parts[index - 1];
+  const above = parts[index - 1]!;
+  const folder = /^\d+$/.test(above) ? parts[index - 2] : above;
   return folder === "om-memory-system" || folder === "om-memory-system@latest";
 }
 
@@ -264,15 +266,18 @@ export function updateSuffix(update: string, state: "available" | "installed"): 
 export function updateNotice(options: {
   hostName: string;
   command: string;
+  /** How to restart the host, in lower case. Defaults to `restart <hostName>`. */
+  restart?: string;
   current: string;
   update: string;
   state: "available" | "installing" | "installed";
 }): string {
   const { hostName, command, current, update, state } = options;
+  const restart = options.restart ?? `restart ${hostName}`;
   if (state === "installing") return `om-memory-system ${update} is installing in the background.`;
   if (state === "installed")
-    return `om-memory-system ${update} installed. Restart ${hostName} to use it.`;
-  return `om-memory-system ${update} is available (running ${current}). Run: ${command}, then restart ${hostName}.`;
+    return `om-memory-system ${update} installed. ${restart[0]!.toUpperCase()}${restart.slice(1)} to use it.`;
+  return `om-memory-system ${update} is available (running ${current}). Run: ${command}, then ${restart}.`;
 }
 
 /** Production inputs: npm, the marker file, and a detached script runner. */

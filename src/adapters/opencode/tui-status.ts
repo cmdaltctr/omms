@@ -18,6 +18,8 @@ import { ommsStatusLabel } from "../../services/status-glyphs.js";
 import { availableUpdate, latestNpmVersion } from "../../services/update-check.js";
 
 const UPDATE_COMMAND = "opencode plugin update om-memory-system";
+// The background service keeps the old copy loaded until it restarts too.
+const RESTART = "restart OpenCode and run opencode service restart";
 
 /** What the OpenCode footer shows: the web app's state and a newer release, if any. */
 export interface TuiStatusState {
@@ -85,6 +87,7 @@ export function startTuiStatus(deps: TuiStatusDeps): () => void {
       updateNotice({
         hostName: "OpenCode",
         command: UPDATE_COMMAND,
+        restart: RESTART,
         current: deps.currentVersion,
         update,
         state: notice,

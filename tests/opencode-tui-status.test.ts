@@ -98,7 +98,7 @@ describe("OpenCode footer status", () => {
 });
 
 const COMMAND = "opencode plugin update om-memory-system";
-const AVAILABLE_TEXT = `om-memory-system 4.3.0 is available (running 4.2.0). Run: ${COMMAND}, then restart OpenCode.`;
+const AVAILABLE_TEXT = `om-memory-system 4.3.0 is available (running 4.2.0). Run: ${COMMAND}, then restart OpenCode and run opencode service restart.`;
 
 /** Start the status with a fake self-update and a fake marker; nothing touches npm, a process or ~/.omms. */
 function selfUpdateHarness(
@@ -145,7 +145,9 @@ describe("OpenCode footer background update", () => {
     h.stop();
     expect(h.texts.at(-1)).toBe("omms: ✔ · 4.3.0 installed, restart");
     expect(h.notes).toHaveLength(2);
-    expect(h.notes[1]).toBe("om-memory-system 4.3.0 installed. Restart OpenCode to use it.");
+    expect(h.notes[1]).toBe(
+      "om-memory-system 4.3.0 installed. Restart OpenCode and run opencode service restart to use it."
+    );
   });
 
   it("shows installed at once when another session already finished the update", async () => {
@@ -156,7 +158,9 @@ describe("OpenCode footer background update", () => {
     await settle();
     h.stop();
     expect(h.texts.at(-1)).toBe("omms: ✔ · 4.3.0 installed, restart");
-    expect(h.notes).toEqual(["om-memory-system 4.3.0 installed. Restart OpenCode to use it."]);
+    expect(h.notes).toEqual([
+      "om-memory-system 4.3.0 installed. Restart OpenCode and run opencode service restart to use it.",
+    ]);
   });
 
   it("names the command when the update has already failed", async () => {

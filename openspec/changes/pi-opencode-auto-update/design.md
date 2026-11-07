@@ -9,7 +9,7 @@ Pi has no OMMS update check. The Pi adapter shows a status label (`ctx.ui.setSta
 Both hosts install OMMS from npm into their own folders:
 
 - Pi: `~/.pi/agent/npm/node_modules/om-memory-system/`, source `npm:om-memory-system` in `~/.pi/agent/settings.json`.
-- OpenCode: `~/.cache/opencode/npm/om-memory-system@<spec>/node_modules/om-memory-system/`. The `@<spec>` part is `latest` unless the user pinned a version.
+- OpenCode: `~/.cache/opencode/npm/om-memory-system@<spec>/node_modules/om-memory-system/`. The `@<spec>` part is `latest` unless the user pinned a version. OpenCode 2.2 adds a timestamp folder before `node_modules` (`om-memory-system@latest/<timestamp>/node_modules/`), found in the live check (task 5.3).
 
 A running host keeps the loaded copy in memory. A new copy loads only after a restart. Past updates (4.27.0, 4.28.0) showed that OpenCode's background service keeps the old copy until it restarts.
 
@@ -51,7 +51,7 @@ OMMS runs the update only when all are true:
 
 - `OMMS_DISABLE_UPDATE_CHECK` is not `1`.
 - The running module file sits under a `node_modules/om-memory-system/` folder. A local path, such as a dev checkout, skips the update.
-- The install is not pinned. OpenCode: the cache folder name ends in `@latest` or has no version. Pi: the `packages` entry in `~/.pi/agent/settings.json` is `npm:om-memory-system` with no `@<version>`. A settings file that cannot be read counts as pinned, so OMMS does nothing.
+- The install is not pinned. OpenCode: the cache folder name ends in `@latest` or has no version. An all-digit timestamp folder below it is skipped. Pi: the `packages` entry in `~/.pi/agent/settings.json` is `npm:om-memory-system` with no `@<version>`. A settings file that cannot be read counts as pinned, so OMMS does nothing.
 
 When the update is skipped for a pin or a local path, the notice keeps today's "available, run <command>" text.
 
@@ -62,7 +62,9 @@ When the update is skipped for a pin or a local path, the notice keeps today's "
 | Newer, update skipped | `· <v> available`          | names the update command                               |
 | Newer, update running | `· <v> available`          | "om-memory-system <v> is installing in the background" |
 | Update installed      | `· <v> installed, restart` | "<v> installed. Restart <host> to use it."             |
-| Update failed         | `· <v> available`          | names the update command                               |
+
+OpenCode's restart text also names `opencode service restart`: the live check (task 5.3) showed that the background service keeps the old copy after the TUI restarts.
+| Update failed | `· <v> available` | names the update command |
 
 Pi's suffix is added to the status label after the glyph, so `↻` and `✎` keep the suffix.
 

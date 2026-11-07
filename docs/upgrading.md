@@ -23,8 +23,8 @@ of these:
 
 - `omms: ✔ · <version> installed, restart`, with one message that tells you to
   restart the agent. The new copy loads only after you restart Pi or OpenCode.
-  OMMS never restarts the agent. OpenCode's background service can keep the old
-  copy in memory until it restarts.
+  OMMS never restarts the agent. OpenCode's background service keeps the old
+  copy in memory. For OpenCode, also run `opencode service restart`.
 - `omms: ✔ · <version> available`, with one message that names the update
   command. This means the background update failed. Run the command yourself.
 
