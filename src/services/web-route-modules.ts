@@ -20,7 +20,7 @@ export async function routeModules(
   method: string,
   url: URL,
   req: Request,
-  ctx: SkillRouteContext
+  ctx: SkillRouteContext & { remoteAddress?: string }
 ): Promise<RouteModuleResult | undefined> {
   const { CONFIG: config } = await import("../config.js");
   let body: Promise<any> | undefined;
@@ -40,7 +40,9 @@ export async function routeModules(
   const transfers = await routeSpaceTransfers(path, method, req, ctx.cwd);
   if (transfers !== undefined) return transfers;
 
-  const spaces = await routeSpaces(path, method, readBody, ctx.cwd);
+  const spaces = await routeSpaces(path, method, readBody, ctx.cwd, {
+    remoteAddress: ctx.remoteAddress,
+  });
   if (spaces !== undefined) return spaces;
 
   return routeChat(path, method, readBody, config);

@@ -1,4 +1,7 @@
+import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { basename } from "node:path";
+import { promisify } from "node:util";
 import * as config from "../config.js";
 import type { RouteResult } from "./chat/chat-routes.js";
 import { HostAppearanceError, createAppearance } from "./host-appearance.js";
@@ -32,6 +35,7 @@ import {
 } from "./spaces/registry-store.js";
 import { listBackups, restoreBackup } from "./spaces/restore.js";
 import { ommsHomeDir } from "./spaces/storage-resolution.js";
+import { isLoopbackAddress } from "./web-api-auth.js";
 
 /**
  * `/api/spaces` routes (design D10). The web app is the only surface that can delete, rename, back
@@ -60,6 +64,17 @@ export const STATUS_BY_CODE: Record<SpaceErrorCode | "transfer-busy", number> = 
   "lock-timeout": 503,
   "transfer-busy": 409,
 };
+
+/** Starts a program with arguments, without a shell. Tests inject a fake. */
+export type FolderOpener = (command: string, args: string[]) => Promise<void>;
+
+/** What a spaces request carries besides its path. */
+export interface SpaceRouteOptions {
+  /** Peer address of the caller. Only a loopback caller may start a file manager. */
+  remoteAddress?: string;
+  /** Starts the platform file manager. Defaults to the real one; tests inject a recorder. */
+  startOpener?: FolderOpener;
+}
 
 /** What the status call reports: the space this process uses now. */
 export function spaceStatus(directory: string) {
@@ -92,23 +107,25 @@ function describeSpaces(
   globalFolder: string,
   looks: Record<string, unknown>
 ) {
-  return listSpaces(registry).map((space) => ({
-    look: looks[space.id] ?? { kind: "default" },
-    id: space.id,
-    name: space.name,
-    createdAt: space.createdAt || null,
-    archived: space.archived,
-    archivedAt: space.archivedAt ?? null,
-    active: space.id === registry.activeSpaceId,
-    sizeBytes: folderSize(
-      resolveSpaceFolder(space.id, {
-        globalStoragePath: globalFolder,
-        spacesRoot: files.spacesRoot,
-      })
-    ),
-    disabled: disabledReasons(space, registry.activeSpaceId),
-    links: spaceLinks(registry, space.id),
-  }));
+  return listSpaces(registry).map((space) => {
+    const folder = resolveSpaceFolder(space.id, {
+      globalStoragePath: globalFolder,
+      spacesRoot: files.spacesRoot,
+    });
+    return {
+      look: looks[space.id] ?? { kind: "default" },
+      id: space.id,
+      name: space.name,
+      createdAt: space.createdAt || null,
+      archived: space.archived,
+      archivedAt: space.archivedAt ?? null,
+      active: space.id === registry.activeSpaceId,
+      folder,
+      sizeBytes: folderSize(folder),
+      disabled: disabledReasons(space, registry.activeSpaceId),
+      links: spaceLinks(registry, space.id),
+    };
+  });
 }
 
 function describeBackup(path: string, summary: ReturnType<typeof listBackups>[number]) {
@@ -147,12 +164,13 @@ export async function routeSpaces(
   path: string,
   method: string,
   readBody: () => Promise<Body>,
-  cwd: string
+  cwd: string,
+  options: SpaceRouteOptions = {}
 ): Promise<RouteResult | undefined> {
   if (path !== "/api/spaces" && !path.startsWith("/api/spaces/")) return undefined;
   const files = spaceFiles(ommsHomeDir());
   try {
-    return await dispatch(path, method, readBody, cwd, files);
+    return await dispatch(path, method, readBody, cwd, files, options);
   } catch (error) {
     if (error instanceof SpaceError) {
       return fail(STATUS_BY_CODE[error.code] ?? 400, error.code, error.message);
@@ -172,7 +190,8 @@ async function dispatch(
   method: string,
   readBody: () => Promise<Body>,
   cwd: string,
-  files: SpaceFiles
+  files: SpaceFiles,
+  options: SpaceRouteOptions
 ): Promise<RouteResult | undefined> {
   if (path === "/api/spaces" && method === "GET") return ok(await snapshot(files, cwd));
   if (path === "/api/spaces" && method === "POST") {
@@ -204,9 +223,10 @@ async function dispatch(
     return ok({ look: (await appearance.read([space.id]))[space.id] });
   }
 
-  const match = /^\/api\/spaces\/([^/]+)(?:\/(switch|rename|archive|unarchive|backup))?$/.exec(
-    path
-  );
+  const match =
+    /^\/api\/spaces\/([^/]+)(?:\/(switch|rename|archive|unarchive|backup|open-folder))?$/.exec(
+      path
+    );
   if (!match) return undefined;
   const id = decodeURIComponent(match[1]!);
   const action = match[2];
@@ -215,7 +235,11 @@ async function dispatch(
     if (action === "switch") await switchStoredSpace(files, id);
     else if (action === "archive") await archiveStoredSpace(files, id);
     else if (action === "unarchive") await unarchiveStoredSpace(files, id);
-    else if (action === "rename") await renameStoredSpace(files, id, nameOf(await readBody()));
+    else if (action === "rename")
+      await renameStoredSpace(files, id, nameOf(await readBody()), {
+        defaultFolder: globalFolder(),
+      });
+    else if (action === "open-folder") return await openFolder(files, id, options);
     else return ok(await backUp(files, id));
     config.refreshConfigIfChanged(cwd);
     return ok({ activeSpaceId: readRegistryFile(files.registryPath).registry.activeSpaceId });
@@ -227,6 +251,61 @@ async function dispatch(
 
 function globalFolder(): string {
   return config.CONFIG.skillStoragePath ?? config.CONFIG.storagePath;
+}
+
+/** The file manager command of this platform. The folder is its only argument. */
+const openerCommand =
+  process.platform === "win32" ? "explorer" : process.platform === "darwin" ? "open" : "xdg-open";
+
+const execFileAsync = promisify(execFile);
+
+/** The real opener. execFile runs no shell, so a path can never be reinterpreted as a command. */
+async function startFileManager(command: string, args: string[]): Promise<void> {
+  // The opener hands off to the file manager and exits, so this await reports a missing
+  // opener without waiting on the file manager itself.
+  await execFileAsync(command, args);
+}
+
+/**
+ * Opens the space folder in the platform file manager. Refused unless the caller is this
+ * machine, and the folder always comes from the registry, never from the request.
+ */
+async function openFolder(
+  files: SpaceFiles,
+  id: string,
+  options: SpaceRouteOptions
+): Promise<RouteResult> {
+  if (!isLoopbackAddress(options.remoteAddress)) {
+    return fail(
+      403,
+      "forbidden",
+      "Only the local machine can open a space folder. Use the web app on this computer."
+    );
+  }
+  const space = requireSpace(files, id);
+  const folder = resolveSpaceFolder(space.id, {
+    globalStoragePath: globalFolder(),
+    spacesRoot: files.spacesRoot,
+  });
+  if (!existsSync(folder)) {
+    return fail(
+      409,
+      "missing-folder",
+      `The space folder is missing: ${folder}. Restore the space from a backup, then try again.`
+    );
+  }
+  try {
+    await (options.startOpener ?? startFileManager)(openerCommand, [folder]);
+  } catch (error) {
+    return fail(
+      500,
+      "opener",
+      `Could not open the folder: ${folder}. ${
+        error instanceof Error ? error.message : "The file manager did not start."
+      }`
+    );
+  }
+  return ok({ folder });
 }
 
 async function backUp(files: SpaceFiles, id: string) {

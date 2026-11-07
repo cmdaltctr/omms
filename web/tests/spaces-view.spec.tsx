@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, mock } from "bun:test";
-import { Archive, DatabaseBackup, Play, Trash2, Bot } from "lucide-react";
+import { Archive, DatabaseBackup, FolderOpen, Play, Trash2, Bot } from "lucide-react";
 import {
   allText,
   byType,
@@ -66,6 +66,7 @@ type Row = {
   createdAt: string | null;
   sizeBytes: number;
   look?: unknown;
+  folder?: string;
 };
 let rows: Row[] = [];
 let backups: { folder: string; spaceName: string }[] = [];
@@ -75,6 +76,7 @@ let leftover: string | undefined;
 let customFolder = false;
 let refuseSwitch = "";
 let refuseAction = "";
+let refuseFolder = "";
 let restoreError = "";
 let requests: Request[] = [];
 
@@ -114,15 +116,24 @@ beforeEach(() => {
   customFolder = false;
   refuseSwitch = "";
   refuseAction = "";
+  refuseFolder = "";
   restoreError = "";
   rows = [
-    { id: "default", name: "Default", archived: false, createdAt: null, sizeBytes: 1572864 },
+    {
+      id: "default",
+      name: "Default",
+      archived: false,
+      createdAt: null,
+      sizeBytes: 1572864,
+      folder: "/home/someone/.omms/data",
+    },
     {
       id: "experiments",
       name: "Experiments",
       archived: false,
       createdAt: "2026-11-01T10:00:00.000Z",
       sizeBytes: 2048,
+      folder: "/home/someone/.omms/spaces/experiments",
     },
     {
       id: "old-work",
@@ -189,6 +200,13 @@ beforeEach(() => {
         sizeBytes: 10,
       });
       return { body: { success: true, data: { space: { id: "experiments-restored", name } } } };
+    }
+    if (method === "POST" && path.endsWith("/open-folder")) {
+      const row = rows.find((candidate) => candidate.id === path.split("/")[3]);
+      if (!row) return { status: 404, body: { success: false, error: "No such space." } };
+      if (refuseFolder)
+        return { status: 500, body: { success: false, code: "opener", error: refuseFolder } };
+      return { body: { success: true, data: { folder: row.folder ?? "" } } };
     }
     const match = /^\/api\/spaces\/([^/]+)(?:\/(\w+))?$/.exec(path);
     const row = rows.find((candidate) => candidate.id === match?.[1]);
@@ -385,6 +403,62 @@ it("draws Archive, Back up and Delete as icon-only buttons with a name, and Dele
       .flat()
       .some((c) => (c as Node)?.type === Trash2)
   ).toBe(true);
+});
+
+const FOLDERS: Record<string, string> = {
+  default: "/home/someone/.omms/data",
+  experiments: "/home/someone/.omms/spaces/experiments",
+};
+
+it("draws an Open folder icon button on every card, with the folder path in its name and tooltip", async () => {
+  const tree = await settle(page, own);
+  for (const [name, id] of [
+    ["Default", "default"],
+    ["Experiments", "experiments"],
+  ] as const) {
+    const card = rowOf(tree, name);
+    const label = `Open folder: ${FOLDERS[id]}`;
+    const button = buttonOf(card, label);
+    expect(button, `${name} button`).toBeDefined();
+    expect(button.props.size).toBe("icon-sm");
+    expect(button.props["aria-label"]).toBe(label);
+    expect(button.props.variant).toBe("outline");
+    expect(
+      [button.props.children].flat().some((c) => (c as Node | undefined)?.type === FolderOpen)
+    ).toBe(true);
+    expect(tipOf(card, button).props.content).toBe(label);
+  }
+});
+
+it("falls back to the plain Open folder name when the list carries no folder path", async () => {
+  rows[1]!.folder = undefined;
+  const tree = await settle(page, own);
+  const card = rowOf(tree, "Experiments");
+  const button = buttonOf(card, "Open folder");
+  expect(button.props["aria-label"]).toBe("Open folder");
+  expect(tipOf(card, button).props.content).toBe("Open folder");
+});
+
+it("opens the folder with one POST and no confirmation dialog", async () => {
+  let tree = await settle(page, own);
+  buttonOf(rowOf(tree, "Experiments"), `Open folder: ${FOLDERS.experiments}`).props.onClick();
+  tree = await settle(page, own);
+  expect(changes().map((r) => `${r.method} ${r.path}`)).toEqual([
+    "POST /api/spaces/experiments/open-folder",
+  ]);
+  expect(titleOf(tree)).toBe("");
+  expect(rowOf(tree, "Experiments").some((n) => n.props.role === "alert")).toBe(false);
+});
+
+it("shows the server reason on the card when the folder cannot be opened", async () => {
+  refuseFolder = "xdg-open is not installed.";
+  let tree = await settle(page, own);
+  buttonOf(rowOf(tree, "Experiments"), `Open folder: ${FOLDERS.experiments}`).props.onClick();
+  tree = await settle(page, own);
+  const card = rowOf(tree, "Experiments");
+  expect(allText(card)).toContain("xdg-open is not installed.");
+  const alert = card.find((n) => n.props.role === "alert")!;
+  expect(text(alert.props.children)).toBe("xdg-open is not installed.");
 });
 
 it("shows only spaces that are not archived, and no Unarchive button", async () => {

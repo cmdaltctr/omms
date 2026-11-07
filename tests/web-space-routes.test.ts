@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG, initConfig } from "../src/config.js";
-import { routeSpaces } from "../src/services/space-routes.js";
+import { routeSpaces, type SpaceRouteOptions } from "../src/services/space-routes.js";
 
 function pngBase64(width = 128, height = 128): string {
   const header = Buffer.alloc(25);
@@ -29,6 +29,12 @@ let iconSpaceId: string;
 type Result = { status: number; body: any } | undefined;
 const call = async (method: string, path: string, body: Record<string, unknown> = {}) =>
   (await routeSpaces(path, method, async () => body, project)) as Result;
+const callFrom = async (
+  method: string,
+  path: string,
+  options: SpaceRouteOptions,
+  body: Record<string, unknown> = {}
+) => (await routeSpaces(path, method, async () => body, project, options)) as Result;
 const data = (result: Result) => result!.body.data;
 
 beforeAll(() => {
@@ -240,5 +246,99 @@ describe("space icons", () => {
       readFileSync(join(omms, "space-appearance", "appearance.json"), "utf8")
     );
     expect(saved[goneSoonId]).toBeUndefined();
+  });
+});
+
+describe("open folder", () => {
+  /** The file manager command the route must start on this platform. */
+  const expectedOpener =
+    process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
+
+  /** Records what the route asked to start, so a test never opens a real file manager. */
+  function recordingOpener(failure?: Error) {
+    const calls: { command: string; args: string[] }[] = [];
+    const start = async (command: string, args: string[]) => {
+      calls.push({ command, args });
+      if (failure) throw failure;
+    };
+    return { calls, start };
+  }
+
+  it("opens the folder of a known space for a loopback caller", async () => {
+    const openId = data(await call("POST", "/api/spaces", { name: "Folder target" })).space.id;
+    const folder = join(omms, "spaces", openId);
+    const opener = recordingOpener();
+    const result = await callFrom("POST", `/api/spaces/${openId}/open-folder`, {
+      remoteAddress: "127.0.0.1",
+      startOpener: opener.start,
+    });
+    expect(result!.status).toBe(200);
+    expect(data(result).folder).toBe(folder);
+    expect(opener.calls).toEqual([{ command: expectedOpener, args: [folder] }]);
+  });
+
+  it("refuses a caller from another machine and starts nothing", async () => {
+    const openId = data(await call("GET", "/api/spaces")).spaces.find(
+      (s: any) => s.name === "Folder target"
+    ).id;
+    const opener = recordingOpener();
+    const result = await callFrom("POST", `/api/spaces/${openId}/open-folder`, {
+      remoteAddress: "192.168.1.5",
+      startOpener: opener.start,
+    });
+    expect(result!.status).toBe(403);
+    expect(result!.body).toMatchObject({ success: false, code: "forbidden" });
+    expect(result!.body.error).toMatch(/local machine/);
+    expect(opener.calls).toEqual([]);
+  });
+
+  it("refuses an unknown space id", async () => {
+    const opener = recordingOpener();
+    const result = await callFrom("POST", "/api/spaces/ghost/open-folder", {
+      remoteAddress: "::1",
+      startOpener: opener.start,
+    });
+    expect(result!.status).toBe(404);
+    expect(result!.body.code).toBe("unknown");
+    expect(opener.calls).toEqual([]);
+  });
+
+  it("reports a folder that is missing on disk and starts nothing", async () => {
+    const goneId = data(await call("POST", "/api/spaces", { name: "Gone folder" })).space.id;
+    const folder = join(omms, "spaces", goneId);
+    rmSync(folder, { recursive: true, force: true });
+    const opener = recordingOpener();
+    const result = await callFrom("POST", `/api/spaces/${goneId}/open-folder`, {
+      remoteAddress: "127.0.0.1",
+      startOpener: opener.start,
+    });
+    expect(result!.status).toBe(409);
+    expect(result!.body.code).toBe("missing-folder");
+    expect(result!.body.error).toContain(folder);
+    expect(opener.calls).toEqual([]);
+  });
+
+  it("reports a failed opener", async () => {
+    const openId = data(await call("GET", "/api/spaces")).spaces.find(
+      (s: any) => s.name === "Folder target"
+    ).id;
+    const opener = recordingOpener(new Error("spawn xdg-open ENOENT"));
+    const result = await callFrom("POST", `/api/spaces/${openId}/open-folder`, {
+      remoteAddress: "127.0.0.1",
+      startOpener: opener.start,
+    });
+    expect(result!.status).toBe(500);
+    expect(result!.body.code).toBe("opener");
+  });
+
+  it("lists the folder of every space, Default's being the global one", async () => {
+    const listed = data(await call("GET", "/api/spaces"));
+    expect(listed.spaces.length).toBeGreaterThan(1);
+    for (const space of listed.spaces) expect(typeof space.folder).toBe("string");
+    expect(listed.spaces.find((s: any) => s.id === "default").folder).toBe(
+      CONFIG.skillStoragePath ?? CONFIG.storagePath
+    );
+    const target = listed.spaces.find((s: any) => s.name === "Folder target");
+    expect(target.folder).toBe(join(omms, "spaces", target.id));
   });
 });

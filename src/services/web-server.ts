@@ -1695,9 +1695,9 @@ export class WebServer {
         const result = await handleRefreshProfile(userId);
         return this.jsonResponse(result);
       }
-
       const routed = await routeModules(path, method, url, req, {
         cwd: this.config.directory ?? process.cwd(),
+        remoteAddress,
         startRecordPast: async (cwd) =>
           (await import("../importer/web-import-api.js")).startRecordPast(this.importJobs, cwd),
       });

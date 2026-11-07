@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -17,6 +18,7 @@ import {
   readRegistryFile,
   spaceLinks,
 } from "../src/services/spaces/registry.js";
+import { backfillSpaceLabels } from "../src/services/spaces/space-label.js";
 import {
   archiveStoredSpace,
   createStoredSpace,
@@ -220,5 +222,124 @@ describe("registry store links", () => {
     const before = signaturePart();
     await linkStoredSpace(files, "experiments", "default");
     expect(signaturePart()).not.toBe(before);
+  });
+});
+
+describe("space.json label", () => {
+  type Label = { id: string; name: string; createdAt: string; note?: string };
+
+  function labelOf(id: string): Label {
+    return JSON.parse(readFileSync(join(files.spacesRoot, id, "space.json"), "utf-8"));
+  }
+
+  function putRegistry(spaces: { id: string; name: string; createdAt: string }[]) {
+    writeFileSync(
+      files.registryPath,
+      JSON.stringify({
+        version: 1,
+        activeSpaceId: "default",
+        spaces: spaces.map((space) => ({ ...space, archived: false })),
+      })
+    );
+  }
+
+  it("writes a label with the id, name and createdAt when a space is created", async () => {
+    const space = await createStoredSpace(files, "Client work");
+    expect(existsSync(join(files.spacesRoot, space.id, "space.json"))).toBe(true);
+    expect(labelOf(space.id)).toEqual({
+      id: space.id,
+      name: "Client work",
+      createdAt: space.createdAt,
+    });
+  });
+
+  it("rewrites the label with the new name and the same id when a space is renamed", async () => {
+    const space = await createStoredSpace(files, "Work");
+    await renameStoredSpace(files, space.id, "Tech");
+    expect(labelOf(space.id)).toEqual({ id: space.id, name: "Tech", createdAt: space.createdAt });
+  });
+
+  it("renames by name without touching the folder of a space whose id matches the new name", async () => {
+    const legacy = await createStoredSpace(files, "Old notes", { drawId: () => "work" });
+    const fresh = await createStoredSpace(files, "Stuff", { drawId: () => "space-aaaaaaaaaa" });
+    await renameStoredSpace(files, "Stuff", "Work");
+    expect(labelOf(fresh.id).name).toBe("Work");
+    expect(labelOf(legacy.id).name).toBe("Old notes");
+  });
+
+  it("writes the Default label into the given global folder on a Default rename", async () => {
+    const globalFolder = join(dir, "global-data");
+    mkdirSync(globalFolder);
+    await renameStoredSpace(files, "default", "Personal", { defaultFolder: globalFolder });
+    expect(JSON.parse(readFileSync(join(globalFolder, "space.json"), "utf-8"))).toEqual({
+      id: "default",
+      name: "Personal",
+      createdAt: "",
+    });
+  });
+
+  it("renames Default without a global folder and still updates the registry", async () => {
+    await renameStoredSpace(files, "default", "Main");
+    const read = readRegistryFile(files.registryPath);
+    expect(read.problem).toBeUndefined();
+    expect(read.registry.defaultName).toBe("Main");
+  });
+
+  it("backfills a missing label and repairs a stale or broken one", () => {
+    mkdirSync(join(files.spacesRoot, "work"), { recursive: true });
+    mkdirSync(join(files.spacesRoot, "tech"), { recursive: true });
+    putRegistry([
+      { id: "work", name: "Work", createdAt: "2026-11-01T10:00:00.000Z" },
+      { id: "tech", name: "Tech", createdAt: "2026-11-02T10:00:00.000Z" },
+    ]);
+    writeFileSync(join(files.spacesRoot, "tech", "space.json"), "{not json");
+    // A broken label never changes the listed name: the registry is the source.
+    expect(listSpaces(readRegistryFile(files.registryPath).registry).map((s) => s.name)).toEqual([
+      "Default",
+      "Work",
+      "Tech",
+    ]);
+    backfillSpaceLabels(readRegistryFile(files.registryPath).registry, files, join(dir, "nowhere"));
+    expect(labelOf("work")).toEqual({
+      id: "work",
+      name: "Work",
+      createdAt: "2026-11-01T10:00:00.000Z",
+    });
+    expect(labelOf("tech")).toEqual({
+      id: "tech",
+      name: "Tech",
+      createdAt: "2026-11-02T10:00:00.000Z",
+    });
+    // The Default folder is missing, so the pass skips it and creates nothing.
+    expect(existsSync(join(dir, "nowhere"))).toBe(false);
+  });
+
+  it("leaves a label alone when its name already matches the registry", () => {
+    mkdirSync(join(files.spacesRoot, "work"), { recursive: true });
+    putRegistry([{ id: "work", name: "Work", createdAt: "2026-11-01T10:00:00.000Z" }]);
+    writeFileSync(
+      join(files.spacesRoot, "work", "space.json"),
+      `${JSON.stringify({
+        id: "work",
+        name: "Work",
+        createdAt: "2026-11-01T10:00:00.000Z",
+        note: "hand edit",
+      })}\n`
+    );
+    backfillSpaceLabels(readRegistryFile(files.registryPath).registry, files, join(dir, "nowhere"));
+    expect(labelOf("work").note).toBe("hand edit");
+  });
+
+  it("keeps the rename working when the label cannot be written", async () => {
+    const space = await createStoredSpace(files, "Work");
+    chmodSync(join(files.spacesRoot, space.id), 0o500);
+    try {
+      await renameStoredSpace(files, space.id, "Tech");
+    } finally {
+      chmodSync(join(files.spacesRoot, space.id), 0o700);
+    }
+    const read = readRegistryFile(files.registryPath);
+    expect(read.problem).toBeUndefined();
+    expect(listSpaces(read.registry).find((s) => s.id === space.id)?.name).toBe("Tech");
   });
 });

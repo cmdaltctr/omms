@@ -8,20 +8,20 @@
 
 ## 2. space.json label
 
-- [ ] 2.1 Write failing tests: create writes `space.json` with id, name and createdAt; rename rewrites it; Default rename writes it into the Default storage folder; start-up adds a missing file and fixes a stale name; a broken file does not change the listed name; a write failure does not fail the rename.
-- [ ] 2.2 Add a small module in `src/services/spaces/` that writes the label atomically, and call it from `registry-store.ts` create and rename paths.
-- [ ] 2.3 Add the start-up pass where the registry is first read, without touching any other file in the folder.
+- [x] 2.1 Write failing tests: create writes `space.json` with id, name and createdAt; rename rewrites it; Default rename writes it into the Default storage folder; start-up adds a missing file and fixes a stale name; a broken file does not change the listed name; a write failure does not fail the rename.
+- [x] 2.2 Add a small module in `src/services/spaces/` that writes the label atomically, and call it from `registry-store.ts` create and rename paths.
+- [x] 2.3 Add the start-up pass where the registry is first read, without touching any other file in the folder.
 
 ## 3. Open folder route
 
-- [ ] 3.1 Write failing route tests: a loopback request for a known id starts the opener with the folder from the registry; a non-loopback request is refused and starts nothing; an unknown id is refused; a missing folder returns an error; the opener is called with an argument array per platform (inject the process starter).
-- [ ] 3.2 Add `POST /api/spaces/:id/open-folder` in `src/services/space-routes.ts`, and a `folder` field to the spaces list response if it is missing.
+- [x] 3.1 Write failing route tests: a loopback request for a known id starts the opener with the folder from the registry; a non-loopback request is refused and starts nothing; an unknown id is refused; a missing folder returns an error; the opener is called with an argument array per platform (inject the process starter).
+- [x] 3.2 Add `POST /api/spaces/:id/open-folder` in `src/services/space-routes.ts`, and a `folder` field to the spaces list response if it is missing.
 
 ## 4. Web card and dialog
 
-- [ ] 4.1 Write failing web tests: each card has an Open folder icon button whose tooltip shows "Open folder" and the path; selecting it posts to the route; an error shows on the card; the edit dialog no longer contains the folder note.
-- [ ] 4.2 Add the button to `SpaceCard.tsx` with `SpaceActionButton` and a folder icon; add strings in all three languages in `web/src/lib/i18n/spaces.ts`.
-- [ ] 4.3 Remove `spaces-edit-name-note` from `SpaceEditDialog.tsx` and from every language.
+- [x] 4.1 Write failing web tests: each card has an Open folder icon button whose tooltip shows "Open folder" and the path; selecting it posts to the route; an error shows on the card; the edit dialog no longer contains the folder note.
+- [x] 4.2 Add the button to `SpaceCard.tsx` with `SpaceActionButton` and a folder icon; add strings in all three languages in `web/src/lib/i18n/spaces.ts`.
+- [x] 4.3 Remove `spaces-edit-name-note` from `SpaceEditDialog.tsx` and from every language.
 
 ## 5. Name-first output
 

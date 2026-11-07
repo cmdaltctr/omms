@@ -54,7 +54,6 @@ it("has the texts of the edit dialog, the icon buttons and the saved line", () =
       "spaces-edit-title",
       "spaces-edit",
       "spaces-edit-name",
-      "spaces-edit-name-note",
       "spaces-saving",
       "spaces-saved",
     ]) {
@@ -63,6 +62,19 @@ it("has the texts of the edit dialog, the icon buttons and the saved line", () =
   }
   expect(spaceText.en["spaces-edit-title"]).toBe("Edit space: {name}");
   expect(spaceText.ar["spaces-edit-title"]).toContain("{name}");
+});
+
+it("has the Open folder action text in every language and drops the folder note", () => {
+  for (const lang of ["en", "zh", "ar"] as const) {
+    const table = spaceText[lang] as Record<string, string>;
+    expect(table["spaces-action-open-folder"], `${lang} spaces-action-open-folder`).toBeTruthy();
+    expect(Object.keys(table), `${lang} spaces-edit-name-note`).not.toContain(
+      "spaces-edit-name-note"
+    );
+  }
+  expect(spaceText.en["spaces-action-open-folder"]).toBe("Open folder");
+  expect(spaceText.zh["spaces-action-open-folder"]).toBe("打开文件夹");
+  expect(spaceText.ar["spaces-action-open-folder"]).toBe("فتح المجلد");
 });
 
 it("drops the texts of the old Rename button and dialog", () => {

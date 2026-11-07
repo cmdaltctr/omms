@@ -13,17 +13,21 @@ import {
   SpaceError,
   archiveSpace,
   createSpace,
+  findSpace,
   linkSpace,
+  listSpaces,
   readRegistryFile,
   removeSpace,
   renameSpace,
   switchSpace,
   unarchiveSpace,
   unlinkSpace,
+  DEFAULT_SPACE_ID,
   type CreateSpaceOptions,
   type SpaceEntry,
   type SpaceRegistry,
 } from "./registry.js";
+import { writeSpaceLabel } from "./space-label.js";
 
 /**
  * The one write path for `spaces.json` (design D5). The web server, the CLI and the
@@ -168,6 +172,12 @@ export async function createStoredSpace(
     mkdirSync(join(files.spacesRoot, created.space.id), { recursive: true });
     return { registry: created.registry, result: created.space };
   });
+  // The label only names the folder; a failed write must not fail the create.
+  try {
+    writeSpaceLabel(join(files.spacesRoot, result.id), result);
+  } catch {
+    // Start-up backfills the label later.
+  }
   return result;
 }
 
@@ -189,14 +199,29 @@ export const removeStoredSpace = simple(removeSpace);
 export async function renameStoredSpace(
   files: SpaceFiles,
   idOrName: string,
-  name: string
+  name: string,
+  options: { defaultFolder?: string } = {}
 ): Promise<SpaceRegistry> {
-  return (
-    await updateRegistry(files, (registry) => ({
-      registry: renameSpace(registry, idOrName, name),
-      result: 0,
-    }))
-  ).registry;
+  const { registry, result: renamed } = await updateRegistry(files, (current) => {
+    // Found by id: the new name may equal another space's id, which findSpace would pick.
+    const id = findSpace(current, idOrName)?.id;
+    const next = renameSpace(current, idOrName, name);
+    return { registry: next, result: listSpaces(next).find((space) => space.id === id) };
+  });
+  if (renamed) {
+    // Default lives in the global storage folder, which only the caller knows.
+    const folder =
+      renamed.id === DEFAULT_SPACE_ID ? options.defaultFolder : join(files.spacesRoot, renamed.id);
+    if (folder) {
+      // The label only names the folder; a failed write must not fail the rename.
+      try {
+        writeSpaceLabel(folder, renamed);
+      } catch {
+        // Start-up backfills the label later.
+      }
+    }
+  }
+  return registry;
 }
 
 /** Adds a link between two stored spaces under the lock (design D5). */

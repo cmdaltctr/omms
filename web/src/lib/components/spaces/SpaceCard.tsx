@@ -1,8 +1,10 @@
+import { useState } from "react";
 import {
   Archive,
   ArrowLeftRight,
   DatabaseBackup,
   Download,
+  FolderOpen,
   Pencil,
   Play,
   Trash2,
@@ -15,7 +17,7 @@ import { Button } from "$lib/components/ui/button";
 import { formatBytes, formatDateOnly } from "$lib/format";
 import { useI18n } from "$lib/i18n";
 import { spaceCardId } from "$lib/space-chip";
-import { whyKey, type SpaceAction, type SpaceRow } from "$lib/spaces-api";
+import { spacesApi, whyKey, type SpaceAction, type SpaceRow } from "$lib/spaces-api";
 import { cn } from "$lib/utils";
 
 export type SpaceCardActions = {
@@ -34,7 +36,7 @@ export type SpaceCardActions = {
 /**
  * One space as a card, in the design of the Memory page host cards: a chip, the name, a state
  * line and the facts, a pencil at the top-end corner, then the actions. Activate is a text
- * button. Archive, Back up and Delete are icon-only buttons with a tooltip. An archived space has no card: it lives on the Archive page. A blocked action
+ * button. Archive, Back up, Open folder and Delete are icon-only buttons with a tooltip. An archived space has no card: it lives on the Archive page. A blocked action
  * stays visible and disabled, and its tooltip gives the reason. The card's id is the target of
  * its sidebar tree link.
  */
@@ -58,6 +60,7 @@ export function SpaceCard({
   onLinksChanged?: () => void;
 }) {
   const { t } = useI18n();
+  const [folderError, setFolderError] = useState<string | null>(null);
   const nameId = `space-${space.id}-name`;
   const status = space.active ? "active" : "available";
   const reasonOf = (action: SpaceAction): string | undefined => {
@@ -72,6 +75,16 @@ export function SpaceCard({
     reasonId: reasonId(action),
     busy,
   });
+  // The name and the tooltip carry the folder path, because the folder id no longer mirrors the name.
+  const openFolderLabel = space.folder
+    ? `${t("spaces-action-open-folder")}: ${space.folder}`
+    : t("spaces-action-open-folder");
+  // The server opens the folder in the system file manager; only a failure needs words here.
+  const openFolder = async () => {
+    setFolderError(null);
+    const result = await spacesApi.openFolder(space.id);
+    if (!result.success) setFolderError(result.error ?? "");
+  };
 
   return (
     <li className="min-w-0">
@@ -107,6 +120,11 @@ export function SpaceCard({
           {/* The Default space holds every project already, so it has no links. */}
           {space.id !== "default" && linkSpaces && onLinksChanged ? (
             <SpaceLinks space={space} spaces={linkSpaces} busy={busy} onChanged={onLinksChanged} />
+          ) : null}
+          {folderError ? (
+            <p role="alert" className="break-words text-xs text-destructive-label">
+              {folderError}
+            </p>
           ) : null}
         </div>
         <div
@@ -157,6 +175,15 @@ export function SpaceCard({
             label={t("spaces-action-backup")}
             icon={DatabaseBackup}
             onClick={() => actions.onBackUp(space)}
+          />
+          <SpaceActionButton
+            reasonId={reasonId("open-folder")}
+            busy={busy}
+            iconOnly
+            variant="outline"
+            label={openFolderLabel}
+            icon={FolderOpen}
+            onClick={() => void openFolder()}
           />
           <SpaceActionButton
             {...shared("delete")}
