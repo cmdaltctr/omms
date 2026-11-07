@@ -1,6 +1,7 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { backupSpace } from "./backup.js";
+import { closeCachedSpaceReadStore } from "./read-store-cache.js";
 import {
   SpaceError,
   findSpace,
@@ -14,11 +15,14 @@ export interface DeleteDeps {
   /** Replaced in tests only. */
   backup: typeof backupSpace;
   removeFolder(folder: string): void;
+  /** Releases the cached read store before the folder goes (design D2, Windows-safe). */
+  closeReadStore(folder: string): Promise<void>;
 }
 
 const defaultDeps: DeleteDeps = {
   backup: backupSpace,
   removeFolder: (folder) => rmSync(folder, { recursive: true, force: false }),
+  closeReadStore: (folder) => closeCachedSpaceReadStore(folder),
 };
 
 export interface DeleteResult {
@@ -55,6 +59,8 @@ export async function deleteSpace(
   });
   await removeStoredSpace(files, checked.id);
   try {
+    // A linked search may still hold the folder open through the cached read store.
+    await deps.closeReadStore(folder);
     deps.removeFolder(folder);
     return { backupPath, space: checked };
   } catch {

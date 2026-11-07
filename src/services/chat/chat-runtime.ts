@@ -121,7 +121,8 @@ export async function chatServiceDeps(config: ChatRuntimeConfig): Promise<ChatSe
         const result = await memoryClient.searchMemories(
           query,
           scopeTag ?? "",
-          scopeTag ? "project" : "all-projects"
+          scopeTag ? "project" : "all-projects",
+          { includeLinked: true }
         );
         return result.success ? (result.results as MemoryHit[]) : [];
       },

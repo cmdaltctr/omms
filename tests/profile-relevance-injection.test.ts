@@ -64,6 +64,8 @@ mock.module(${JSON.stringify(url("../src/services/embedding.js"))}, () => ({
 }));
 mock.module(${JSON.stringify(url("../src/services/turso/shard-manager.js"))}, () => ({
   tursoShardManager: { getAllShards: async () => [{ id: 1, dbPath: "/tmp/none.db" }] },
+  // The space-bound store constructs the class for linked-space reads (D6).
+  TursoShardManager: class {},
 }));
 mock.module(${JSON.stringify(url("../src/services/turso/vector-search.js"))}, () => ({
   tursoVectorSearch: {
@@ -78,6 +80,8 @@ mock.module(${JSON.stringify(url("../src/services/turso/vector-search.js"))}, ()
 }));
 mock.module(${JSON.stringify(url("../src/services/turso/connection-manager.js"))}, () => ({
   tursoConnectionManager: { getConnection: async () => ({}), closeAll: async () => {} },
+  // The space-bound store constructs the class for linked-space reads (D6).
+  TursoConnectionManager: class {},
 }));
 mock.module(${JSON.stringify(url("../src/services/turso/ready.js"))}, () => ({ ensureTursoReady: async () => {} }));
 mock.module(${JSON.stringify(url("../src/services/logger.js"))}, () => ({

@@ -10,6 +10,7 @@ await import("../src/services/turso/ready.js");
 await import("../src/services/user-prompt/user-prompt-manager.js");
 await import("../src/services/user-profile/user-profile-manager.js");
 await import("../src/services/ai/session/ai-session-manager.js");
+await import("../src/services/spaces/read-store-cache.js");
 
 const srcRoot = join(import.meta.dir, "../src");
 
@@ -42,6 +43,7 @@ describe("memory space store reset coverage", () => {
         "ai-sessions",
         "connections",
         "shards",
+        "space-read-stores",
         "turso-ready",
         "user-profiles",
         "user-prompts",

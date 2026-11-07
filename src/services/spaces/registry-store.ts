@@ -12,11 +12,13 @@ import {
   SpaceError,
   archiveSpace,
   createSpace,
+  linkSpace,
   readRegistryFile,
   removeSpace,
   renameSpace,
   switchSpace,
   unarchiveSpace,
+  unlinkSpace,
   type SpaceEntry,
   type SpaceRegistry,
 } from "./registry.js";
@@ -181,6 +183,34 @@ export async function renameStoredSpace(
   return (
     await updateRegistry(files, (registry) => ({
       registry: renameSpace(registry, idOrName, name),
+      result: 0,
+    }))
+  ).registry;
+}
+
+/** Adds a link between two stored spaces under the lock (design D5). */
+export async function linkStoredSpace(
+  files: SpaceFiles,
+  idOrName: string,
+  targetIdOrName: string
+): Promise<SpaceRegistry> {
+  return (
+    await updateRegistry(files, (registry) => ({
+      registry: linkSpace(registry, idOrName, targetIdOrName),
+      result: 0,
+    }))
+  ).registry;
+}
+
+/** Removes a link between two stored spaces under the lock (design D5). */
+export async function unlinkStoredSpace(
+  files: SpaceFiles,
+  idOrName: string,
+  targetIdOrName: string
+): Promise<SpaceRegistry> {
+  return (
+    await updateRegistry(files, (registry) => ({
+      registry: unlinkSpace(registry, idOrName, targetIdOrName),
       result: 0,
     }))
   ).registry;

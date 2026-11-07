@@ -8,13 +8,17 @@ import {
   archiveSpace,
   createSpace,
   emptyRegistry,
+  linkSpace,
   listSpaces,
   readRegistryFile,
+  removeSpace,
   renameSpace,
   resolveSpaceFolder,
   spaceIdFromName,
+  spaceLinks,
   switchSpace,
   unarchiveSpace,
+  unlinkSpace,
 } from "../src/services/spaces/registry.js";
 
 const NOW = "2026-11-06T10:00:00.000Z";
@@ -237,6 +241,84 @@ describe("archive date", () => {
   });
 });
 
+describe("links in the registry file", () => {
+  function withFile(content: string, run: (path: string) => void) {
+    const dir = mkdtempSync(join(tmpdir(), "omms-spaces-"));
+    try {
+      const path = join(dir, "spaces.json");
+      writeFileSync(path, content);
+      run(path);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("reads an older file without links as valid and treats the space as unlinked", () => {
+    withFile(
+      JSON.stringify({
+        version: 1,
+        activeSpaceId: "default",
+        spaces: [{ id: "old", name: "Old", createdAt: NOW, archived: false }],
+      }),
+      (path) => {
+        const read = readRegistryFile(path);
+        expect(read.problem).toBeUndefined();
+        expect(listSpaces(read.registry)[1]!.links).toBeUndefined();
+      }
+    );
+  });
+
+  it("reads an entry that carries links", () => {
+    withFile(
+      JSON.stringify({
+        version: 1,
+        activeSpaceId: "default",
+        spaces: [
+          {
+            id: "old",
+            name: "Old",
+            createdAt: NOW,
+            archived: false,
+            links: ["default", "second"],
+          },
+          { id: "second", name: "Second", createdAt: NOW, archived: false },
+        ],
+      }),
+      (path) => {
+        const read = readRegistryFile(path);
+        expect(read.problem).toBeUndefined();
+        expect(listSpaces(read.registry)[1]!.links).toEqual(["default", "second"]);
+      }
+    );
+  });
+
+  it("rejects an entry whose links field is not an array", () => {
+    withFile(
+      JSON.stringify({
+        version: 1,
+        activeSpaceId: "default",
+        spaces: [{ id: "old", name: "Old", createdAt: NOW, archived: false, links: "default" }],
+      }),
+      (path) => {
+        expect(readRegistryFile(path).problem).toBeDefined();
+      }
+    );
+  });
+
+  it("rejects an entry whose links hold a value that is not text", () => {
+    withFile(
+      JSON.stringify({
+        version: 1,
+        activeSpaceId: "default",
+        spaces: [{ id: "old", name: "Old", createdAt: NOW, archived: false, links: ["second", 5] }],
+      }),
+      (path) => {
+        expect(readRegistryFile(path).problem).toBeDefined();
+      }
+    );
+  });
+});
+
 describe("renameSpace", () => {
   it("changes the name and keeps the id", () => {
     const { registry } = createSpace(emptyRegistry(), "Experiments", NOW);
@@ -250,6 +332,98 @@ describe("renameSpace", () => {
     const { registry } = createSpace(first, "B", NOW);
     expect(codeOf(() => renameSpace(registry, "b", "a"))).toBe("name-taken");
     expect(codeOf(() => renameSpace(registry, DEFAULT_SPACE_ID, "Home"))).toBe("protected");
+  });
+});
+
+describe("linkSpace", () => {
+  const base = () => {
+    let registry = createSpace(emptyRegistry(), "Experiments", NOW).registry;
+    registry = createSpace(registry, "Client work", NOW).registry;
+    return createSpace(registry, "Third", NOW).registry;
+  };
+  const entry = (registry: ReturnType<typeof base>, id: string) =>
+    registry.spaces.find((s) => s.id === id);
+
+  it("adds a one-way link on the linking space only", () => {
+    const linked = linkSpace(base(), "experiments", "default");
+    expect(entry(linked, "experiments")?.links).toEqual(["default"]);
+    expect(spaceLinks(linked, "experiments")).toEqual([
+      { id: "default", name: "Default", available: true },
+    ]);
+    expect(spaceLinks(linked, "default")).toEqual([]);
+  });
+
+  it("refuses a self-link and a repeat link", () => {
+    const registry = base();
+    expect(codeOf(() => linkSpace(registry, "experiments", "Experiments"))).toBe("protected");
+    const linked = linkSpace(registry, "experiments", "default");
+    expect(codeOf(() => linkSpace(linked, "experiments", "Default"))).toBe("name-taken");
+    expect(entry(linked, "experiments")?.links).toEqual(["default"]);
+  });
+
+  it("refuses a link to a space that does not exist and a link held by Default", () => {
+    expect(codeOf(() => linkSpace(base(), "experiments", "nope"))).toBe("unknown");
+    expect(codeOf(() => linkSpace(base(), DEFAULT_SPACE_ID, "experiments"))).toBe("protected");
+  });
+
+  it("does not copy the links of the linked space", () => {
+    let registry = linkSpace(base(), "client-work", "third");
+    registry = linkSpace(registry, "experiments", "client-work");
+    expect(entry(registry, "experiments")?.links).toEqual(["client-work"]);
+  });
+});
+
+describe("unlinkSpace", () => {
+  const base = () => {
+    let registry = createSpace(emptyRegistry(), "Experiments", NOW).registry;
+    registry = createSpace(registry, "Third", NOW).registry;
+    const linked = linkSpace(registry, "experiments", "default");
+    return linkSpace(linked, "experiments", "third");
+  };
+  const entry = (registry: ReturnType<typeof base>, id: string) =>
+    registry.spaces.find((s) => s.id === id);
+
+  it("removes one link and keeps the others", () => {
+    const unlinked = unlinkSpace(base(), "experiments", "default");
+    expect(entry(unlinked, "experiments")?.links).toEqual(["third"]);
+    expect(codeOf(() => unlinkSpace(unlinked, "experiments", "nope"))).toBe("unknown");
+  });
+
+  it("removes the last link and leaves no empty links field", () => {
+    let registry = unlinkSpace(base(), "experiments", "default");
+    registry = unlinkSpace(registry, "experiments", "third");
+    expect(entry(registry, "experiments")?.links).toBeUndefined();
+  });
+
+  it("unlinks by id a linked space that is gone from the registry", () => {
+    let registry = removeSpace(base(), "third");
+    expect(entry(registry, "experiments")?.links).toEqual(["default", "third"]);
+    registry = unlinkSpace(registry, "experiments", "third");
+    expect(entry(registry, "experiments")?.links).toEqual(["default"]);
+  });
+});
+
+describe("link availability", () => {
+  const base = () => {
+    let registry = createSpace(emptyRegistry(), "Experiments", NOW).registry;
+    registry = createSpace(registry, "Third", NOW).registry;
+    return linkSpace(registry, "experiments", "third");
+  };
+
+  it("reads an archived linked space as unavailable and keeps the link", () => {
+    const registry = archiveSpace(base(), "third", NOW);
+    expect(registry.spaces.find((s) => s.id === "experiments")?.links).toEqual(["third"]);
+    expect(spaceLinks(registry, "experiments")).toEqual([
+      { id: "third", name: "Third", available: false },
+    ]);
+  });
+
+  it("reads a removed linked space as unavailable with the id as name", () => {
+    const registry = removeSpace(base(), "third");
+    expect(registry.spaces.find((s) => s.id === "experiments")?.links).toEqual(["third"]);
+    expect(spaceLinks(registry, "experiments")).toEqual([
+      { id: "third", name: "third", available: false },
+    ]);
   });
 });
 

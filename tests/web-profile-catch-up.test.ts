@@ -29,6 +29,8 @@ it.skipIf(SKIP_ON_SLOW_WINDOWS)(
     }));
     mock.module(${src("services/tags.ts")}, () => ({
       getTags: () => ({ user: { userEmail: "me@example.invalid", displayName: "Me", userName: "me" } }),
+      getProjectTagInfo: () => ({ tag: "stub-project", displayName: "Stub Project" }),
+      getUserTagInfo: () => ({ tag: "stub-user", displayName: "stub@example.invalid" }),
     }));
     const { WebServer } = await import(${src("services/web-server.ts")});
     const { getOrCreateAuthToken } = await import(${src("services/auth-token.ts")});
@@ -108,6 +110,8 @@ it.skipIf(SKIP_ON_SLOW_WINDOWS)(
     }));
     mock.module(${src("services/tags.ts")}, () => ({
       getTags: () => ({ user: { userEmail: "me@example.invalid", displayName: "Me", userName: "me" } }),
+      getProjectTagInfo: () => ({ tag: "stub-project", displayName: "Stub Project" }),
+      getUserTagInfo: () => ({ tag: "stub-user", displayName: "stub@example.invalid" }),
     }));
     const { WebServer } = await import(${src("services/web-server.ts")});
     const { getOrCreateAuthToken } = await import(${src("services/auth-token.ts")});
@@ -167,6 +171,8 @@ it("frees the in-process lock when the run record cannot be taken", async () => 
     }));
     mock.module(${src("services/tags.ts")}, () => ({
       getTags: () => ({ user: { userEmail: "me@example.invalid" } }),
+      getProjectTagInfo: () => ({ tag: "stub-project", displayName: "Stub Project" }),
+      getUserTagInfo: () => ({ tag: "stub-user", displayName: "stub@example.invalid" }),
     }));
     let fail = true;
     const real = await import(${src("services/user-prompt/profile-catch-up-lease.ts")});

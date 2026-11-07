@@ -45,3 +45,4 @@ Local decision records for OMMS maintainers.
 | [039](./039-recall-rows-come-from-the-tui-entry-not-the-transcript.md)      | Recall rows come from the TUI entry, not the transcript                         | 2026-11-03 | Accepted           |
 | [040](./040-hooks-add-only-what-the-prompt-needs.md)                        | Hooks add only what the prompt needs                                            | 2026-11-03 | Proposed           |
 | [041](./041-a-memory-space-is-a-storage-folder.md)                          | A memory space is a storage folder                                              | 2026-11-06 | Proposed           |
+| [042](./042-a-space-bound-store-and-linked-read-only-spaces.md)             | A space-bound store and linked read-only spaces                                 | 2026-11-06 | Proposed           |

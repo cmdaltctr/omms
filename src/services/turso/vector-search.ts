@@ -115,9 +115,12 @@ export class TursoVectorSearch {
     limit: number,
     queryText?: string,
     keywordBoost = 0,
-    keywordMode: KeywordMode = "boost"
+    keywordMode: KeywordMode = "boost",
+    /** Opens the shard database; linked-space searches pass a read-only opener. */
+    openDb: (dbPath: string) => Promise<TursoDb> = (dbPath) =>
+      tursoConnectionManager.getConnection(dbPath)
   ): Promise<SearchResult[]> {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
+    const db = await openDb(shard.dbPath);
     const queryJson = vectorToJson(queryVector);
     // Over-fetch aggressively when filtering by container_tag after ANN,
     // because post-filtering can discard many DiskANN neighbors.
@@ -274,7 +277,9 @@ export class TursoVectorSearch {
     similarityThreshold: number,
     queryText?: string,
     keywordBoost = 0,
-    keywordMode: KeywordMode = "boost"
+    keywordMode: KeywordMode = "boost",
+    /** Opens each shard database; linked-space searches pass a read-only opener. */
+    openDb?: (dbPath: string) => Promise<TursoDb>
   ): Promise<{ results: SearchResult[]; warnings: string[] }> {
     const shardErrors: Array<{ shardId: number; error: string }> = [];
 
@@ -287,7 +292,8 @@ export class TursoVectorSearch {
           limit,
           queryText,
           keywordBoost,
-          keywordMode
+          keywordMode,
+          openDb
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

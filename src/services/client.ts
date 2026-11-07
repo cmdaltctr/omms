@@ -4,51 +4,25 @@ import { tursoVectorSearch } from "./turso/vector-search.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { ensureTursoReady } from "./turso/ready.js";
 import { formatTagsForEmbedding } from "./turso/vector-utils.js";
-import {
-  extractScopeFromContainerTag,
-  resolveMemoryScope,
-  type MemoryScopeRef,
-} from "./memory-scope.js";
+import { extractScopeFromContainerTag, resolveMemoryScope } from "./memory-scope.js";
 import { rerankSettingsFrom } from "./reranker.js";
 import { rerankedSearch } from "./retrieval-rerank.js";
+import {
+  findLinkedMemoryOwner,
+  linkedRefusal,
+  linkedSettingsFrom,
+  listLinkedSpaces,
+  mapListedMemory,
+  searchLinkedSpaces,
+  type MemoryReadOptions,
+} from "./linked-search.js";
 import { CONFIG } from "../config.js";
+import { activeOwner } from "./active-space-access.js";
 import { log } from "./logger.js";
 import type { MemoryType } from "../types/index.js";
-import type { MemoryRecord } from "./turso/types.js";
+import type { MemoryRecord, SearchResult } from "./turso/types.js";
 
 export type MemoryScope = "project" | "all-projects";
-
-function safeToISOString(timestamp: any): string {
-  try {
-    if (timestamp === null || timestamp === undefined) {
-      return new Date().toISOString();
-    }
-    const numValue = typeof timestamp === "bigint" ? Number(timestamp) : Number(timestamp);
-
-    if (isNaN(numValue) || numValue < 0) {
-      return new Date().toISOString();
-    }
-
-    return new Date(numValue).toISOString();
-  } catch {
-    return new Date().toISOString();
-  }
-}
-
-function safeJSONParse(jsonString: any): any {
-  if (!jsonString || typeof jsonString !== "string") {
-    return undefined;
-  }
-  try {
-    return JSON.parse(jsonString);
-  } catch {
-    return undefined;
-  }
-}
-
-function resolveScopeValue(scope: MemoryScope, containerTag: string): MemoryScopeRef[] {
-  return resolveMemoryScope(scope, containerTag);
-}
 
 export class LocalMemoryClient {
   private initPromise: Promise<void> | null = null;
@@ -112,7 +86,12 @@ export class LocalMemoryClient {
     this.reset();
   }
 
-  async searchMemories(query: string, containerTag: string, scope: MemoryScope = "project") {
+  async searchMemories(
+    query: string,
+    containerTag: string,
+    scope: MemoryScope = "project",
+    options: MemoryReadOptions = {}
+  ) {
     // Capture the result count and the reranker settings at entry: initialize,
     // embedding, and shard reads all await, and a config edit during them must
     // not change this search's limit or reranker target.
@@ -131,20 +110,19 @@ export class LocalMemoryClient {
       await this.initialize();
 
       const queryVector = await embeddingService.embedWithTimeout(query, { task: "query" });
-      const resolved = resolveScopeValue(scope, containerTag);
+      const resolved = resolveMemoryScope(scope, containerTag);
       const shards = (
         await Promise.all(
           resolved.map((ref) => tursoShardManager.getAllShards(ref.scope, ref.hash))
         )
       ).flat();
 
+      let results: SearchResult[], warnings: string[];
       if (shards.length === 0) {
-        return { success: true as const, results: [], total: 0, timing: 0, queryVector };
-      }
-
-      let results;
-      let warnings: string[];
-      if (reranker) {
+        // An empty own space still reads linked spaces when asked.
+        results = [];
+        warnings = [];
+      } else if (reranker) {
         // One shard read with no threshold feeds both the reranker and the
         // fallback path (retrieval-rerank.ts, design decision 7).
         ({ results, warnings } = await rerankedSearch(
@@ -182,6 +160,21 @@ export class LocalMemoryClient {
           keywordBoost,
           keywordMode
         ));
+      }
+
+      // Linked spaces fill only the places the own search left (D6); the reranker never sees them.
+      if (options.includeLinked) {
+        const linked = await searchLinkedSpaces({
+          query,
+          queryVector,
+          scope,
+          containerTag,
+          ownCount: results.length,
+          owner: activeOwner(),
+          settings: linkedSettingsFrom(CONFIG),
+        });
+        results = [...results, ...linked.results];
+        warnings = [...warnings, ...linked.warnings];
       }
 
       return {
@@ -308,6 +301,14 @@ export class LocalMemoryClient {
         }
       }
 
+      // A linked space is read-only: refuse with its name instead of "not found".
+      const owner = await findLinkedMemoryOwner(
+        memoryId,
+        activeOwner(),
+        linkedSettingsFrom(CONFIG)
+      );
+      if (owner) return linkedRefusal(owner.name);
+
       return { success: false, error: "Memory not found" };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -316,52 +317,56 @@ export class LocalMemoryClient {
     }
   }
 
-  async listMemories(containerTag: string, limit = 20, scope: MemoryScope = "project") {
+  async listMemories(
+    containerTag: string,
+    limit = 20,
+    scope: MemoryScope = "project",
+    options: MemoryReadOptions = {}
+  ) {
     try {
       await this.initialize();
 
-      const resolved = resolveScopeValue(scope, containerTag);
+      const resolved = resolveMemoryScope(scope, containerTag);
       const shards = (
         await Promise.all(
           resolved.map((ref) => tursoShardManager.getAllShards(ref.scope, ref.hash))
         )
       ).flat();
 
+      let memories: any[];
+
       if (shards.length === 0) {
-        return {
-          success: true as const,
-          memories: [],
-          pagination: { currentPage: 1, totalItems: 0, totalPages: 0 },
-        };
+        // An empty own space still lists linked spaces when asked.
+        memories = [];
+      } else {
+        const allMemories: any[] = [];
+
+        for (const shard of shards) {
+          const db = await tursoConnectionManager.getConnection(shard.dbPath);
+          const rows = await tursoVectorSearch.listMemories(
+            db,
+            scope === "all-projects" ? "" : containerTag,
+            limit
+          );
+          allMemories.push(...rows);
+        }
+
+        allMemories.sort((a, b) => Number(b.created_at) - Number(a.created_at));
+        memories = allMemories.slice(0, limit).map((r: any) => mapListedMemory(r));
       }
 
-      const allMemories: any[] = [];
-
-      for (const shard of shards) {
-        const db = await tursoConnectionManager.getConnection(shard.dbPath);
-        const memories = await tursoVectorSearch.listMemories(
-          db,
-          scope === "all-projects" ? "" : containerTag,
-          limit
-        );
-        allMemories.push(...memories);
+      // Linked rows follow the own rows, newest first, within the limit (D6).
+      if (options.includeLinked) {
+        const linked = await listLinkedSpaces({
+          scope,
+          containerTag,
+          limit,
+          ownCount: memories.length,
+          owner: activeOwner(),
+          settings: linkedSettingsFrom(CONFIG),
+        });
+        memories = [...memories, ...linked.memories];
       }
-
-      allMemories.sort((a, b) => Number(b.created_at) - Number(a.created_at));
-
-      const memories = allMemories.slice(0, limit).map((r: any) => ({
-        id: r.id,
-        summary: r.content,
-        type: r.type ? String(r.type) : undefined,
-        createdAt: safeToISOString(r.created_at),
-        metadata: safeJSONParse(r.metadata),
-        displayName: r.display_name,
-        userName: r.user_name,
-        userEmail: r.user_email,
-        projectPath: r.project_path,
-        projectName: r.project_name,
-        gitRepoUrl: r.git_repo_url,
-      }));
 
       return {
         success: true as const,

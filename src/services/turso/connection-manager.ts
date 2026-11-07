@@ -23,9 +23,13 @@ function insideRoot(root: string, dbPath: string): boolean {
   );
 }
 
-function assertPathInsideStorage(dbPath: string): void {
+/** The default allowed roots: the active storage path plus the global skills path. */
+function defaultAllowedRoots(): string[] {
   // skills.db stays in the global storage path when a project moves storagePath.
-  const roots = [CONFIG.storagePath, CONFIG.skillStoragePath].filter((root) => root !== undefined);
+  return [CONFIG.storagePath, CONFIG.skillStoragePath].filter((root) => root !== undefined);
+}
+
+function assertPathInsideStorage(dbPath: string, roots: string[]): void {
   if (!roots.some((root) => insideRoot(root, dbPath))) {
     throw new Error(`Refusing to open database outside storagePath: ${dbPath}`);
   }
@@ -36,8 +40,17 @@ export class TursoConnectionManager {
   private readonly pending = new Map<string, Promise<TursoDb>>();
   private readonly closingConnections = new Map<string, Promise<void>>();
   private closingPromise: Promise<void> | null = null;
+  private readonly clientFactory: typeof createClient;
+  /** Roots whose subfolders this manager may open. Default: the two CONFIG roots. */
+  private readonly allowedRoots: () => string[];
 
-  constructor(private readonly clientFactory: typeof createClient = createClient) {}
+  constructor(
+    clientFactory: typeof createClient = createClient,
+    allowedRoots: () => string[] = defaultAllowedRoots
+  ) {
+    this.clientFactory = clientFactory;
+    this.allowedRoots = allowedRoots;
+  }
 
   async getConnection(dbPath: string): Promise<TursoDb> {
     if (this.closingPromise) {
@@ -47,7 +60,7 @@ export class TursoConnectionManager {
     if (closingConnection) {
       await closingConnection;
     }
-    assertPathInsideStorage(dbPath);
+    assertPathInsideStorage(dbPath, this.allowedRoots());
 
     const existing = this.connections.get(dbPath);
     if (existing) {

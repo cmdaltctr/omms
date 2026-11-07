@@ -55,8 +55,8 @@ function readLiveLock(path: string): LockState | null {
   return null;
 }
 
-function lockFilePath(scope: string, hash: string): string {
-  return join(CONFIG.storagePath, WRITE_LOCK_DIR, `${scope}_${hash}.lock`);
+function lockFilePath(root: string, scope: string, hash: string): string {
+  return join(root, WRITE_LOCK_DIR, `${scope}_${hash}.lock`);
 }
 
 async function publishLock(candidate: string, path: string): Promise<void> {
@@ -84,13 +84,14 @@ async function publishLock(candidate: string, path: string): Promise<void> {
 export async function withCrossProcessWriteLock<T>(
   scope: "user" | "project",
   hash: string,
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
+  root: string = CONFIG.storagePath
 ): Promise<T> {
-  const dir = join(CONFIG.storagePath, WRITE_LOCK_DIR);
+  const dir = join(root, WRITE_LOCK_DIR);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  const path = lockFilePath(scope, hash);
+  const path = lockFilePath(root, scope, hash);
   const state: LockState = { pid: process.pid, timestamp: new Date().toISOString() };
   const deadline = Date.now() + LOCK_TIMEOUT_MS;
 

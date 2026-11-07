@@ -67,8 +67,9 @@ mock.module(${JSON.stringify(clientUrl)}, () => ({
       results: [
         { id: "mem-1", memory: "result text", similarity: 0.87 },
         { id: "mem-2", chunk: "chunk text", similarity: 0.61 },
+        { id: "mem-3", memory: "linked text", similarity: 0.55, spaceName: "Archive Old" },
       ],
-      total: 2,
+      total: 3,
       timing: 0,
     }),
     listMemories: async (containerTag, limit) => ({
@@ -227,11 +228,28 @@ describe("memory operations (shared tool path) characterisation", () => {
     const result = runScenario(run({ mode: "search", query: "env management", limit: 5 }, context));
 
     expect(result.output.success).toBe(true);
-    expect(result.output.count).toBe(2);
+    expect(result.output.count).toBe(3);
     expect(result.output.results).toEqual([
       { id: "mem-1", content: "result text", similarity: 87 },
       { id: "mem-2", content: "chunk text", similarity: 61 },
+      { id: "mem-3", content: "linked text", similarity: 55, space: "Archive Old" },
     ]);
+  });
+
+  it("search names the linked space of a linked result and leaves own results unlabelled", () => {
+    const result = runScenario(run({ mode: "search", query: "env management" }, context));
+
+    expect(result.output.success).toBe(true);
+    const linked = result.output.results.find((row: any) => row.id === "mem-3");
+    expect(linked).toEqual({
+      id: "mem-3",
+      content: "linked text",
+      similarity: 55,
+      space: "Archive Old",
+    });
+    for (const row of result.output.results) {
+      if (row.id !== "mem-3") expect("space" in row).toBe(false);
+    }
   });
 
   it("list returns recent memories with count", () => {

@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { log } from "../logger.js";
 import {
   DEFAULT_SPACE_ID,
   DEFAULT_SPACE_NAME,
@@ -29,12 +30,16 @@ export function resolveActiveSpace(
   globalStoragePath: string,
   projectSetsStoragePath: boolean
 ): ActiveSpace {
-  const fallback = (problem?: string): ActiveSpace => ({
-    id: DEFAULT_SPACE_ID,
-    name: DEFAULT_SPACE_NAME,
-    customStoragePath: projectSetsStoragePath,
-    problem,
-  });
+  const fallback = (problem?: string): ActiveSpace => {
+    // The spec wants an unusable registry named in the log, not only in the web status.
+    if (problem) log("Active space fallback to Default", { problem }, "warn");
+    return {
+      id: DEFAULT_SPACE_ID,
+      name: DEFAULT_SPACE_NAME,
+      customStoragePath: projectSetsStoragePath,
+      problem,
+    };
+  };
   const { registry, problem } = readRegistryFile(join(ommsDir, "spaces.json"));
   if (problem) return fallback(problem);
   const space = findSpace(registry, registry.activeSpaceId);

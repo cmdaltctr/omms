@@ -29,17 +29,22 @@ Each space SHALL be one storage folder with the layout of the current store: mem
 
 ### Requirement: A registry records the spaces and the active space
 
-OMMS SHALL keep a registry at `~/.omms/spaces.json`. Each entry SHALL hold an id, a display name, the creation time, an archived flag and, for an archived space, the time of the archive. The registry SHALL name exactly one active space. When the file does not exist, the Default space SHALL be the only space and SHALL be active. OMMS SHALL write the registry atomically.
+OMMS SHALL keep a registry at `~/.omms/spaces.json`. Each entry SHALL hold an id, a display name, the creation time, an archived flag, for an archived space the time of the archive, and an optional list of linked space ids. The registry SHALL name exactly one active space. When the file does not exist, the Default space SHALL be the only space and SHALL be active. OMMS SHALL write the registry atomically.
 
 #### Scenario: The registry is written
 
-- **WHEN** the user creates, renames, archives, unarchives, deletes or switches a space
+- **WHEN** the user creates, renames, archives, unarchives, deletes, links, unlinks or switches a space
 - **THEN** OMMS SHALL replace `spaces.json` in one atomic step, so a reader sees either the old file or the new file
 
 #### Scenario: The registry cannot be read
 
 - **WHEN** `spaces.json` exists but is not valid
 - **THEN** OMMS SHALL use the Default space, SHALL leave the file unchanged, and SHALL report the problem in the log and in the web app status
+
+#### Scenario: An older registry without links
+
+- **WHEN** `spaces.json` was written before links existed
+- **THEN** OMMS SHALL read it as valid and SHALL treat every space as having no linked spaces
 
 ### Requirement: Space ids and names are safe and unique
 
@@ -146,7 +151,7 @@ Restore SHALL check every file against the backup manifest and SHALL then copy t
 
 ### Requirement: The CLI and the memory tool manage spaces
 
-The `om-memory-system space` command SHALL list spaces, show the active space, create, archive and unarchive a space, and switch the active space by name or id. The `memory` tool SHALL offer a `space` mode with the same operations. Neither SHALL delete a space. Pi, OpenCode V2 and Claude Code SHALL offer the same `space` operations.
+The `om-memory-system space` command SHALL list spaces, show the active space, create, archive and unarchive a space, switch the active space by name or id, preview and copy memories between spaces, and link and unlink spaces. The `memory` tool SHALL offer a `space` mode with the same operations. Neither SHALL delete a space or move memories. Pi, OpenCode V2 and Claude Code SHALL offer the same `space` operations.
 
 #### Scenario: The user asks the agent to switch
 
@@ -167,3 +172,8 @@ The `om-memory-system space` command SHALL list spaces, show the active space, c
 
 - **WHEN** the CLI or the tool asks to switch to a space that is archived or does not exist
 - **THEN** OMMS SHALL refuse and SHALL list the spaces that can become active
+
+#### Scenario: The same operations in every host
+
+- **WHEN** Pi, OpenCode V2 and Claude Code each call `space` mode with the preview, copy, link and unlink actions
+- **THEN** each host SHALL accept the actions and SHALL return the same result for the same input
