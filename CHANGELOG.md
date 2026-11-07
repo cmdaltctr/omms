@@ -2,6 +2,22 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.6.0](https://github.com/cmdaltctr/omms/compare/v5.5.0...v5.6.0) (2026-11-07)
+
+
+### Features
+
+* add a space-bound store, registry links and linked search ([bfe7645](https://github.com/cmdaltctr/omms/commit/bfe76453d61f8de1f1c514eee09fcf8c4aa824c7))
+* add space transfer, export, import and their surfaces ([6afb961](https://github.com/cmdaltctr/omms/commit/6afb961f9bf94a37f59d06d6ba53dcbb91bc9312))
+* let the Default memory space be renamed in the web app ([01c85be](https://github.com/cmdaltctr/omms/commit/01c85be10c5f12f9ce1c3959197d8c2b9013f920))
+* let the Default memory space be renamed in the web app ([72a3237](https://github.com/cmdaltctr/omms/commit/72a32379acd6e966cca5637fbe9786ff08b8d497))
+* memory space transfer, export and import ([98cbef4](https://github.com/cmdaltctr/omms/commit/98cbef40c12df9b45b56e8f2b1240965b20763c7))
+
+
+### Bug Fixes
+
+* close cached read stores before the shared-home cleanup on Windows ([89dc6ab](https://github.com/cmdaltctr/omms/commit/89dc6ab2a30e244c1884f3d350b2258b2e57b66e))
+
 ## [5.5.0](https://github.com/cmdaltctr/omms/compare/v5.4.1...v5.5.0) (2026-11-06)
 
 
