@@ -74,3 +74,20 @@ export async function startStandaloneWeb(version?: string) {
   }
   return { home, port, token, child, root };
 }
+
+/** Bind the port once the old web app lets go, and answer health like an OMMS web app. */
+export async function takePort(port: number): Promise<ReturnType<typeof Bun.serve>> {
+  const deadline = Date.now() + 5_000;
+  for (;;) {
+    try {
+      return Bun.serve({
+        port,
+        hostname: "127.0.0.1",
+        fetch: () => Response.json({ success: true, status: "ok" }),
+      });
+    } catch (error) {
+      if (Date.now() > deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+}

@@ -26,7 +26,7 @@ The sidebar header shows the name **OMMS** in the brand green `#678D6C`. The ver
 
 ## Spaces item and tree
 
-The first sidebar item is a **Boxes** icon labelled **Spaces**. It sits above **Project memories** and uses the same row style. Select it to open the Spaces page. When you collapse the sidebar on a desktop, the item shows only the icon. Point at the icon to see the name of the active space. The narrow-screen menu shows the same item.
+The first sidebar item is a **Boxes** icon labelled **Spaces**. It sits above **Chat**, which comes before **Project memories**, and uses the same row style. Select it to open the Spaces page. When you collapse the sidebar on a desktop, the item shows only the icon. Point at the icon to see the name of the active space. The narrow-screen menu shows the same item.
 
 An arrow beside the item opens or closes a tree, like the tree of **Memory**. The tree has one row for each space that is not archived, and a last row, **Archive**, that always shows. Each row shows the avatar of the space as a small rounded chip, the name of the space, and a small green dot on the active space. The avatar is the two letters of the name, an icon, or an image (see below). The colour of the two letters comes from the name. A long name ends with an ellipsis. Point at the row to see the full name. The **Archive** row has the layers mark that **Shared** has in the Memory tree. It is marked as the current page when the Archive page is open. The tree remembers whether you left it open. It starts open on the Spaces and Archive pages.
 
@@ -136,7 +136,7 @@ A standalone web app that waits exits with code `0` when the owner runs a newer 
 
 `om-memory-system web install` can ask an older owner to step aside. The request is `POST /api/web/step-aside`. It needs the local API token (`~/.omms/.auth-token`) and a loopback caller. The owner refuses with `409` when the caller is not newer than itself.
 
-- A standalone web app (`om-memory-system web` or the login item) exits with code `0`.
+- A standalone web app (`om-memory-system web` or the login item) stops serving and waits up to 30 seconds for the caller's copy to take the port. Then it exits with code `0`. If no web app takes the port, it restarts onto the newest copy through the launcher and logs `Web app step-aside` with the code `no-new-owner`. If that restart fails, it serves again itself.
 - A web app inside an OpenCode session stops serving. The session keeps running. The web app waits 60 seconds before it can take the port back, so the login item can bind first. Only an older OpenCode plugin runs a web app in its session.
 - Each request writes one log record with the outcome (`stepped_aside`, `refused_not_newer`, or `refused_auth`) and both versions. The log never holds the token.
 
@@ -195,7 +195,7 @@ The web app keeps serving its current version when a step fails. The `code` name
 
 Each update writes `Web app update` log records with the outcome, the code, both versions, the npm exit code, and the duration. The log never holds npm output or the token.
 
-The install can also start by itself. When the check finds a newer release, the standalone web app starts the same install the **Update web app** action starts, with no button pressed and no page open. An open page shows the same progress through the `state` field: `installing`, then `restarting`. When the restarted web app answers with a new `instance`, the page reloads itself on the new version, also when no dialog is open. The same reload follows a power-button restart. The page skips the reload before the first status answer and while the call fails, so a brief outage during the handover does not reload it.
+The install can also start by itself. The check compares npm `latest` with the older of the running copy and the global install, so a web app that runs from a current host copy still updates a global install that is behind. When the check finds a newer release, the standalone web app starts the same install the **Update web app** action starts, with no button pressed and no page open. An open page shows the same progress through the `state` field: `installing`, then `restarting`. When the restarted web app answers with a new `instance`, the page reloads itself on the new version, also when no dialog is open. The same reload follows a power-button restart. The page skips the reload before the first status answer and while the call fails, so a brief outage during the handover does not reload it.
 
 The automatic install obeys the same gates as the button: it does not run when the check is off, when no npm sits beside the web app's Node.js, when the launcher at `~/.omms/bin/omms-launch.mjs` is missing, or while another install or restart runs. A web app that serves inside a Pi or OpenCode session never updates itself. After a failed automatic install, the web app waits 30 minutes before another automatic attempt; the **Update** button still starts a manual install during that wait. No new settings were added: `OMMS_DISABLE_UPDATE_CHECK=1`, which turns the check off, is the only off switch.
 
