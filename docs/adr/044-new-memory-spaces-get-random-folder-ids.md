@@ -3,7 +3,7 @@
 - **Date:** 2026-11-07
 - **Status:** Proposed
 - **Deciders:** Aizat Hawari
-- **Change:** [`space-folder-ids`](../../openspec/changes/space-folder-ids/proposal.md)
+- **Change:** [`space-folder-ids`](../../openspec/changes/archive/space-folder-ids/proposal.md)
 
 ## Context
 

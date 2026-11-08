@@ -2,7 +2,7 @@
 
 ### Requirement: Space ids and names are safe and unique
 
-A new space SHALL get a random id: `space-` followed by 10 characters from lowercase letters and digits. The id SHALL NOT come from the display name. OMMS SHALL draw a new id when the drawn id is already in the registry or a folder with that id exists. Every id SHALL be lowercase letters, digits and single hyphens, 1 to 40 characters. The id `default` SHALL be reserved for the Default space. A display name SHALL be 1 to 60 characters and unique without regard to case. A space id SHALL NOT change after creation, and OMMS SHALL keep the ids of spaces created before this change.
+A new space SHALL get a random id: `space-` plus 10 lowercase letters and digits, never derived from the display name. OMMS SHALL redraw an id that the registry or a folder already holds. Every id SHALL be lowercase letters, digits and single hyphens, 1 to 40 characters, and `default` SHALL be reserved for the Default space. A display name SHALL be 1 to 60 characters and unique without regard to case. A space id SHALL NOT change after creation, and OMMS SHALL keep existing ids.
 
 #### Scenario: The user creates a space with an unsafe name
 

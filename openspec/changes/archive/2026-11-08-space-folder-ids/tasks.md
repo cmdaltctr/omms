@@ -36,6 +36,6 @@
 
 ## 7. Verify
 
-- [ ] 7.1 Run `bun run ci:local` and read the exit line.
-- [ ] 7.2 Live check in a scratch HOME on a free port: create `Work`, rename to `Tech`, create `Work` again, open each folder from the card, read each `space.json`.
-- [ ] 7.3 Run `openspec validate space-folder-ids --strict`.
+- [x] 7.1 Run `bun run ci:local` and read the exit line.
+- [x] 7.2 Live check in a scratch HOME on a free port: create `Work`, rename to `Tech`, create `Work` again, open each folder from the card, read each `space.json`.
+- [x] 7.3 Run `openspec validate space-folder-ids --strict`.
