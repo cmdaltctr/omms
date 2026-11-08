@@ -131,6 +131,7 @@ export function ProposalCard({
   const pending = proposal.state === "pending";
   const hintId = useId();
   const detailsId = useId();
+  const evidenceId = useId();
   // The list says false when a newer applied change superseded this one.
   // A proposal applied just now carries no flag and can be undone.
   const canUndo = proposal.canUndo !== false;
@@ -175,19 +176,26 @@ export function ProposalCard({
         />
         <ProposalTimes proposal={proposal} />
       </header>
-      {proposal.summary ? (
-        <p className={cn("break-words text-sm", open ? "" : "line-clamp-2")} dir="auto">
-          {proposal.summary}
-        </p>
+      {proposal.summary || proposal.added || proposal.removed || open ? (
+        <div className="space-y-2 rounded-lg border border-border bg-muted p-3">
+          {proposal.summary ? (
+            <p className={cn("break-words text-sm", open ? "" : "line-clamp-2")} dir="auto">
+              {proposal.summary}
+            </p>
+          ) : null}
+          <DiffStat proposal={proposal} />
+          <div id={detailsId} hidden={!open} className="space-y-3">
+            {open ? <ProposalDetail detail={detail} part="content" /> : null}
+          </div>
+        </div>
       ) : null}
-      <DiffStat proposal={proposal} />
       {proposal.state === "stale" ? (
         <Callout tone="warning">
           <p>{s("Stale: the file changed since this draft")}</p>
         </Callout>
       ) : null}
-      <div id={detailsId} hidden={!open} className="space-y-3">
-        {open ? <ProposalDetail detail={detail} /> : null}
+      <div id={evidenceId} hidden={!open}>
+        {open ? <ProposalDetail detail={detail} part="evidence" /> : null}
       </div>
       {pending || proposal.state === "applied" ? (
         <div className="flex flex-wrap gap-2">
@@ -247,7 +255,7 @@ export function ProposalCard({
           variant="ghost"
           size="sm"
           aria-expanded={open}
-          aria-controls={detailsId}
+          aria-controls={`${detailsId} ${evidenceId}`}
           onClick={() => setOpen((value) => !value)}
         >
           <Chevron aria-hidden="true" />

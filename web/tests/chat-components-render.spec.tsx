@@ -103,7 +103,7 @@ it("explains the S and P labels with the same badges the citations use", () => {
   const classOf = (html: string, text: string) =>
     html.match(new RegExp(`class="([^"]*)"[^>]*>${text}<`))?.[1];
   // The legend badge has the colour classes of the chip with the same letter.
-  const memoryColours = classOf(memoryChip, "S1")?.match(/border-primary\/30[^"]*/)?.[0];
+  const memoryColours = classOf(memoryChip, "S1")?.match(/border-orange-600\/40[^"]*/)?.[0];
   const profileColours = classOf(profileChip, "P1")?.match(/border-blue-600\/40[^"]*/)?.[0];
   expect(memoryColours).toBeDefined();
   expect(profileColours).toBeDefined();
@@ -111,6 +111,19 @@ it("explains the S and P labels with the same badges the citations use", () => {
   expect(classOf(legend, "P")).toContain(profileColours as string);
   expect(legend).toContain("memory (a note saved from your sessions)");
   expect(legend).toContain("profile item (a preference, pattern or workflow)");
+});
+
+it("gives S, P and K fixed hues that no theme accent can change", () => {
+  const classes = ["S1", "P1", "K1"].map(
+    (label) =>
+      renderToStaticMarkup(<CitationChip label={label} onOpen={() => {}} />).match(
+        /class="([^"]*)"/
+      )?.[1] ?? ""
+  );
+  // A theme with a blue accent made S look like P when S used the primary colour.
+  for (const cls of classes) expect(cls).not.toMatch(/primary/);
+  const hues = classes.map((cls) => cls.match(/border-(\w+)-600/)?.[1]);
+  expect(new Set(hues).size).toBe(3);
 });
 
 it("shows the K badge in the legend only when asked, with the colours of the K chip", () => {

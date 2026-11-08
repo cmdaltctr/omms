@@ -8,12 +8,12 @@ Shows the active memory space in the web app and lets the user see the spaces in
 
 ### Requirement: The sidebar has a Spaces item
 
-The first sidebar navigation item SHALL be a boxes icon labelled `Spaces`, above Project memories, styled like the other items. It SHALL link to the Spaces page. A collapsed desktop sidebar SHALL show the icon only, and its hover text SHALL name the active space. The narrow-screen sidebar menu SHALL show the same item. The item SHALL read the active space from the existing status calls, with no new request schedule.
+The first sidebar navigation item SHALL be a boxes icon labelled `Spaces`, above Chat, styled like the other items. It SHALL link to the Spaces page. A collapsed desktop sidebar SHALL show the icon only, and its hover text SHALL name the active space. The narrow-screen sidebar menu SHALL show the same item. The item SHALL read the active space from the existing status calls, with no new request schedule.
 
 #### Scenario: The page opens in a non-default space
 
 - **WHEN** `Experiments` is active and the page opens
-- **THEN** the first sidebar item SHALL be `Spaces`, above Project memories
+- **THEN** the first sidebar item SHALL be `Spaces`, above Chat
 
 #### Scenario: The sidebar is collapsed
 

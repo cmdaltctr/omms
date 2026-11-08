@@ -33,6 +33,10 @@ One card for each thing the user can open or manage. The owners are `src/lib/com
 - Give each card an `id` so a link can open it. The Spaces page uses `space-card-<id>`. Add a new id prefix to `revealPageAnchor` in `src/lib/settings-navigation.ts`.
 - Show a status in words ("Active", "Archived"). Never use colour alone.
 
+### Content cards
+
+- A card that shows stored text (memory, profile item, skill proposal) puts the body in one inner card: `rounded-lg border border-border bg-muted p-3`. Header, actions and footer stay outside it. A `MemoryCard` user prompt is the one exception: its label and date sit inside its own inner card. See `omms-design` (`references/components.md`, "Content cards").
+
 ### Sidebar tree
 
 A sidebar item with children uses `ProfileTree` and `useSavedOpen` from `src/lib/components/explorer/ProfileTree.tsx`. Do not build a second tree.

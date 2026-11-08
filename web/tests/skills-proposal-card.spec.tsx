@@ -156,8 +156,10 @@ it("collapses a card to header, clamped summary, diffstat, actions and Show more
   expect(html).toContain("Show more");
   expect(html).not.toContain("Show less");
   expect(html).not.toContain("Show changes");
-  const id = html.match(/aria-controls="([^"]+)"/)![1];
-  expect(html).toContain(`id="${id}"`);
+  // Show more controls the inner-card detail and the evidence turns below it.
+  const ids = html.match(/aria-controls="([^"]+)"/)![1]!.split(" ");
+  expect(ids).toHaveLength(2);
+  for (const id of ids) expect(html).toContain(`id="${id}"`);
 });
 
 it("expands to the full summary, the diff, the evidence turns and Show less", () => {

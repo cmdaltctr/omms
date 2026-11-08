@@ -1,6 +1,7 @@
 import { posix, win32 } from "node:path";
 import type { LogLevel } from "./logger.js";
 import { availableUpdate, latestNpmVersion } from "./update-check.js";
+import { compareVersions } from "./version-compare.js";
 
 // The web app's npm release check. It reads npm `latest` at start, every 10
 // minutes, and when an open page reads the status and the last check is over a
@@ -51,7 +52,7 @@ export interface WebUpdateDeps {
     args: string[],
     options: { shell: boolean; path?: string }
   ) => InstallChild;
-  /** The version of the global install after npm ran, or null. */
+  /** The version of the global install (also read before npm runs), or null. */
   globalVersion: () => string | null;
   /** False when no restart could serve the new copy, such as a missing launcher. Checked before npm runs. */
   canRestart: () => boolean;
@@ -118,8 +119,19 @@ export class WebUpdate {
       this.deps.log("Web app update check failed", { code: "unreachable" }, "error");
       return;
     }
-    this.available = availableUpdate(this.deps.version, latest);
+    this.available = availableUpdate(this.installedVersion(), latest);
     this.maybeAutoInstall();
+  }
+
+  /**
+   * The older of the running copy and the global install. A web app can run from a
+   * host's cache copy that is already current while the global install stays behind.
+   */
+  private installedVersion(): string {
+    const global = this.deps.globalVersion();
+    return global !== null && compareVersions(global, this.deps.version) === -1
+      ? global
+      : this.deps.version;
   }
 
   /** Start the install the Update button starts, once a check found a release. */

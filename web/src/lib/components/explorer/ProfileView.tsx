@@ -217,22 +217,24 @@ export function ProfileView({
             {pct}%
           </div>
         </div>
-        <p className="text-sm break-words">{item.description || ""}</p>
-        {item.steps?.length ? (
-          <ol className="flex flex-col items-start gap-1.5">
-            {item.steps.map((step, i) => (
-              <li
-                key={i}
-                className="flex min-w-0 max-w-full items-start gap-2 rounded-2xl border border-blue-600/40 bg-blue-500/15 py-1 ps-1 pe-3 text-xs leading-5 text-blue-700 dark:text-blue-400"
-              >
-                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-blue-500/30 text-[11px] font-medium tabular-nums dark:bg-blue-400/30">
-                  {i + 1}
-                </span>
-                <span className="min-w-0 break-words">{step}</span>
-              </li>
-            ))}
-          </ol>
-        ) : null}
+        <div className="space-y-3 rounded-lg border border-border bg-muted p-3">
+          <p className="text-sm break-words">{item.description || ""}</p>
+          {item.steps?.length ? (
+            <ol className="flex flex-col items-start gap-1.5">
+              {item.steps.map((step, i) => (
+                <li
+                  key={i}
+                  className="flex min-w-0 max-w-full items-start gap-2 rounded-2xl border border-blue-600/40 bg-blue-500/15 py-1 ps-1 pe-3 text-xs leading-5 text-blue-700 dark:text-blue-400"
+                >
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-blue-500/30 text-[11px] font-medium tabular-nums dark:bg-blue-400/30">
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 break-words">{step}</span>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+        </div>
         {item.evidence || item.frequency ? (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span

@@ -99,7 +99,7 @@ The hooks run through the launcher in the plugin. The launcher runs the newest O
 
 OMMS keeps one record of the newest copy on the machine: `~/.omms/runtime.json`. OpenCode, Pi, and each `om-memory-system` run write their own copy to the record when that copy is newer. You update one host. Every other part then runs that copy:
 
-- **Login item.** The login item runs `~/.omms/bin/omms-launch.mjs`. The launcher starts the newest valid copy at the next login.
+- **Login item.** The login item runs `~/.omms/bin/omms-launch.mjs`. The launcher starts the newest valid copy at the next login. When the global install and the recorded copy have the same version, the launcher runs the global install.
 - **Running web app.** An OpenCode start, a Pi start, or a Claude Code `SessionStart` replaces a web app that is older than the newest copy. The old web app steps aside and the newest copy starts. You do not sign in again.
 - **Terminal command.** An old `om-memory-system` command runs the newest copy with the same arguments, input, and exit code. `om-memory-system --version` prints the version of the copy that runs. Set `OMMS_NO_HANDOFF=1` to turn this off for one command.
 - **Claude Code hooks.** The hooks use the launcher in the plugin, as described above.

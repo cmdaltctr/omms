@@ -73,12 +73,12 @@ it("resolves /spaces to the Spaces page", () => {
   expect(resolveAppPath("/spaces")).toBe("/spaces");
 });
 
-it("puts the space item first, above Project memories", () => {
+it("puts the space item first, above Chat", () => {
   for (const collapsed of [false, true]) {
     const items = navItems(sidebar("project", collapsed));
     expect(items[0]!.type).toBe(SpaceNav);
     expect(items[1]!.type).toBe(SidebarNavLink);
-    expect(items[1]!.props.href).toBe(ROUTES.project);
+    expect(items[1]!.props.href).toBe(ROUTES.chat);
     expect(items[0]!.props.collapsed).toBe(collapsed);
     expect(items[0]!.props.hideWhenCollapsed).toBe(collapsed ? "md:hidden" : "");
   }

@@ -5,8 +5,8 @@
 //
 //   node omms-launch.mjs [--at-least-own-version] <om-memory-system arguments>
 //
-// Candidates: the copy named in ~/.omms/runtime.json, the global install beside
-// the running Node.js, and the copy that holds this file. With
+// Candidates: the global install beside the running Node.js, the copy named in
+// ~/.omms/runtime.json, and the copy that holds this file. On a tie the first wins. With
 // `--at-least-own-version`, the version in the `package.json` beside this file is
 // the minimum. When no candidate reaches it, the launcher runs
 // `npx --yes om-memory-system@<that version>`.
@@ -96,7 +96,11 @@ export function globalPackageRoots(execPath, platform = process.platform) {
   return brew ? [direct, join(brew[1], "lib", "node_modules", "om-memory-system")] : [direct];
 }
 
-/** The record's copy, the global installs, and the own copy, in that order. Invalid ones are null. */
+/**
+ * The global installs, the record's copy, and the own copy, in that order. Invalid
+ * ones are null. On a tie the global install wins, so a host's cache copy does not
+ * keep serving after the global install catches up.
+ */
 export function findCandidates({ dir, execPath, ownRoot }) {
   let recorded = null;
   try {
@@ -106,7 +110,7 @@ export function findCandidates({ dir, execPath, ownRoot }) {
     /* No record, or an unreadable one: the other candidates still work. */
   }
   const globals = globalPackageRoots(execPath).map((root) => readCopy(root));
-  return [recorded, ...globals, ownRoot ? readCopy(ownRoot) : null];
+  return [...globals, recorded, ownRoot ? readCopy(ownRoot) : null];
 }
 
 /**

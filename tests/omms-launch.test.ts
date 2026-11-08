@@ -146,7 +146,7 @@ describe("findCandidates", () => {
     expect(found.filter(Boolean)).toEqual([{ root: global, version: "4.3.0" }]);
   });
 
-  it("lists the record, the global install, and the own root in that order", () => {
+  it("lists the global install, the record, and the own root in that order", () => {
     const home = join(base, ".omms");
     const recorded = makeCopy("recorded", "4.3.2");
     registerCopy({ dir: home, root: recorded });
@@ -157,10 +157,27 @@ describe("findCandidates", () => {
       ownRoot: own,
     });
     expect(found).toEqual([
-      { root: recorded, version: "4.3.2" },
       null,
+      { root: recorded, version: "4.3.2" },
       { root: own, version: "4.3.3" },
     ]);
+  });
+
+  it("runs the global install over a recorded host cache copy of the same version", () => {
+    // A host's cache copy in runtime.json kept serving after `npm i -g` caught up.
+    const home = join(base, ".omms");
+    const recorded = makeCopy("recorded", "4.3.2");
+    registerCopy({ dir: home, root: recorded });
+    const execPath = join(base, "prefix", "bin", "node");
+    const global = globalPackageRoot(execPath)!;
+    mkdirSync(join(global, "dist", "cli"), { recursive: true });
+    writeFileSync(
+      join(global, "package.json"),
+      JSON.stringify({ name: "om-memory-system", version: "4.3.2" })
+    );
+    writeFileSync(join(global, "dist", "cli", "index.js"), "");
+    const choice = chooseCopy(findCandidates({ dir: home, execPath, ownRoot: null }));
+    expect(choice).toEqual({ kind: "copy", copy: { root: global, version: "4.3.2" } });
   });
 
   it("finds a Homebrew global install above the versioned Cellar folder", () => {

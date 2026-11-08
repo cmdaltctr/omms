@@ -3,7 +3,11 @@ import { cn } from "$lib/utils";
 
 type Props = { label: string; deleted?: boolean; onOpen: () => void };
 
-/** Colours of a citation label: orange for a memory (S), blue for a profile item (P), violet for a skill (K). */
+/**
+ * Colours of a citation label: orange for a memory (S), blue for a profile item (P),
+ * violet for a skill (K). Fixed hues, not the theme accent: a theme with a blue or
+ * cyan accent would make S look like P.
+ */
 export function citationColours(label: string): string {
   if (label.startsWith("P")) {
     return "border-blue-600/40 bg-blue-500/10 text-blue-700 hover:bg-blue-500/20 dark:text-blue-400";
@@ -11,7 +15,7 @@ export function citationColours(label: string): string {
   if (label.startsWith("K")) {
     return "border-violet-600/40 bg-violet-500/10 text-violet-700 hover:bg-violet-500/20 dark:text-violet-400";
   }
-  return "border-primary/30 bg-primary/10 text-primary-label hover:bg-primary/20";
+  return "border-orange-600/40 bg-orange-500/10 text-orange-700 hover:bg-orange-500/20 dark:text-orange-400";
 }
 
 /** A citation marker such as [S1], shown as a small button that opens its source. */

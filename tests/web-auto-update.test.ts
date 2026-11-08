@@ -19,6 +19,10 @@ type NpmEnd = { exit: number; stderr?: string } | { hang: true };
 function fake(
   config: {
     latest?: (string | null)[];
+    /** The running version; 4.9.0 when unset. */
+    version?: string;
+    /** The global install's version; 4.10.0 when unset. */
+    global?: string | null;
     npm?: NpmEnd;
     canRestart?: boolean;
     enabled?: boolean;
@@ -32,7 +36,7 @@ function fake(
   const clock = { ms: 0 };
   const flags = { autoBlocked: config.autoBlocked ?? false };
   const deps: WebUpdateDeps = {
-    version: "4.9.0",
+    version: config.version ?? "4.9.0",
     enabled: config.enabled ?? true,
     fetch: (async (url: string) => {
       requests.push(url);
@@ -60,7 +64,7 @@ function fake(
       }, 0);
       return child;
     },
-    globalVersion: () => "4.10.0",
+    globalVersion: () => (config.global === undefined ? "4.10.0" : config.global),
     restart: async () => undefined,
     canRestart: () => config.canRestart ?? true,
     killTree: async () => {},
@@ -82,6 +86,28 @@ it("a check that finds a newer release starts the install by itself", async () =
     { command: "/opt/node/bin/npm", args: ["install", "-g", "om-memory-system@4.10.0"] },
   ]);
   expect(f.update.status().state).toBe("installing");
+});
+
+it("installs the release when the global install is behind a newer running copy", async () => {
+  // The web app ran from a host's cache copy at the npm version, so it never updated `npm i -g`.
+  const f = fake({ version: "4.10.0", global: "4.9.0", npm: { hang: true } });
+  await f.update.check();
+  expect(f.spawns).toEqual([
+    { command: "/opt/node/bin/npm", args: ["install", "-g", "om-memory-system@4.10.0"] },
+  ]);
+});
+
+it("installs nothing when the running copy and the global install are both current", async () => {
+  const f = fake({ version: "4.10.0", global: "4.10.0" });
+  await f.update.check();
+  expect(f.spawns).toEqual([]);
+  expect(f.update.status().available).toBeNull();
+});
+
+it("compares with the running copy when there is no global install", async () => {
+  const f = fake({ version: "4.10.0", global: null });
+  await f.update.check();
+  expect(f.spawns).toEqual([]);
 });
 
 it("starts nothing when the check is turned off", async () => {

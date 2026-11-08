@@ -167,6 +167,17 @@ export async function runWebCommand(
   process.once("SIGTERM", stop);
   // The page's Stop and Restart buttons reach the same process through this callback.
   const { createPowerAction } = await import("./web-power.js");
+  // A restart whose copy failed serves again from this process.
+  // Safe to call twice: it replaces the keeper and the signal handlers instead of adding more.
+  const resumeServer = async () => {
+    clearInterval(keeper);
+    keeper = setInterval(() => {}, 60_000);
+    process.off("SIGINT", stop);
+    process.off("SIGTERM", stop);
+    process.once("SIGINT", stop);
+    process.once("SIGTERM", stop);
+    await server.start();
+  };
   const powerAction = createPowerAction({
     stopServer: async () => {
       clearInterval(keeper);
@@ -174,13 +185,7 @@ export async function runWebCommand(
       process.off("SIGTERM", stop);
       await server.stop();
     },
-    // A restart whose copy failed serves again from this process.
-    resumeServer: async () => {
-      keeper = setInterval(() => {}, 60_000);
-      process.once("SIGINT", stop);
-      process.once("SIGTERM", stop);
-      await server.start();
-    },
+    resumeServer,
     baseUrl: server.getUrl(),
     loginItem: action === "--login-item",
     autostart: options,
@@ -200,11 +205,22 @@ export async function runWebCommand(
       () => server.powerActionRunning
     )
   );
-  // A newer `web install` asked this web app to give up the port.
+  // A newer caller asked this web app to give up the port. If the caller's copy
+  // never takes it, restart onto the newest copy instead of leaving it empty.
+  const { leaveAfterStepAside } = await import("./web-step-aside.js");
+  const { log } = await import("../services/logger.js");
   server.setOnStepAside(async () => {
     clearInterval(keeper);
     await server.stop();
-    process.exit(0);
+    await leaveAfterStepAside({
+      ownerAnswers: () => server.checkServerAvailable(),
+      restartNewest: () => powerAction("update"),
+      resume: resumeServer,
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      now: () => Date.now(),
+      exit: (code) => process.exit(code),
+      log,
+    });
   });
   return 0;
 }
