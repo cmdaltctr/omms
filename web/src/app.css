@@ -330,10 +330,11 @@ html[data-focus-mode="typing"] :is([data-slot="input"], [data-slot="textarea"]):
   padding: 0 0.375rem;
   align-items: center;
   cursor: pointer;
-  border: 1px solid color-mix(in oklab, var(--primary) 30%, transparent);
+  /* A fixed orange, not the theme accent, so S never looks like P or K. */
+  border: 1px solid color-mix(in oklab, #ea580c 40%, transparent);
   border-radius: 0.375rem;
-  background: color-mix(in oklab, var(--primary) 10%, transparent);
-  color: var(--primary-label);
+  background: color-mix(in oklab, #f97316 10%, transparent);
+  color: #c2410c;
   font-size: 11px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -341,7 +342,10 @@ html[data-focus-mode="typing"] :is([data-slot="input"], [data-slot="textarea"]):
   transition: background-color 200ms ease-in;
 }
 .markdown-content .cite-chip:hover {
-  background: color-mix(in oklab, var(--primary) 20%, transparent);
+  background: color-mix(in oklab, #f97316 20%, transparent);
+}
+.dark .markdown-content .cite-chip {
+  color: #fb923c;
 }
 .markdown-content .cite-chip:focus-visible {
   outline: 2px solid var(--ring);

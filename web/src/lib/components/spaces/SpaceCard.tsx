@@ -3,11 +3,11 @@ import {
   Archive,
   ArrowLeftRight,
   DatabaseBackup,
-  Download,
   FolderOpen,
   Pencil,
   Play,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { SpaceLinks } from "./SpaceLinks";
 import { SpaceActionButton } from "./SpaceActionButton";
@@ -156,7 +156,7 @@ export function SpaceCard({
             iconOnly
             variant="outline"
             label={t("spaces-action-export")}
-            icon={Download}
+            icon={Upload}
             onClick={() => actions.onExport(space)}
           />
           <SpaceActionButton

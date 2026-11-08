@@ -8,12 +8,12 @@ import { ROUTES, type AppView } from "$lib/router";
 type NavIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 
 /**
- * The sidebar's main links in order, after the Spaces item. Memory and Settings follow,
+ * The sidebar's main links in order, after the Spaces item: Chat comes first. Memory and Settings follow,
  * each with its own tree.
  */
 export const MAIN_NAV = [
-  { view: "project", href: ROUTES.project, icon: Folder },
   { view: "chat", href: ROUTES.chat, icon: MessageSquare },
+  { view: "project", href: ROUTES.project, icon: Folder },
   { view: "profile", href: ROUTES.profile, icon: User },
   { view: "skills", href: ROUTES.skills, icon: Sparkles },
 ] as const satisfies readonly { view: AppView; href: string; icon: NavIcon }[];

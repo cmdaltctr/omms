@@ -4,6 +4,7 @@ import { useSettingsText } from "$lib/i18n/settings";
 import { formatDate } from "$lib/format";
 import { skillsApi, type FailedCall, type TurnSummary } from "$lib/skills-api";
 import { fill } from "$lib/skills-model";
+import { cn } from "$lib/utils";
 import { FailedCallsDialog } from "./FailedCallsDialog";
 
 /** The failed-call label of one row; the request starts when the dialog opens. */
@@ -55,8 +56,11 @@ function FailedCallsButton({ turn }: { turn: TurnSummary }) {
   );
 }
 
-/** Recorded turns as short rows: prompt preview, host, project, time and failed tool calls. */
-export function TurnList({ turns }: { turns: TurnSummary[] }) {
+/**
+ * Recorded turns as short rows: prompt preview, host, project, time and failed tool calls.
+ * `nested` rows sit inside a proposal card, so they take the inner-card look.
+ */
+export function TurnList({ turns, nested = false }: { turns: TurnSummary[]; nested?: boolean }) {
   const s = useSettingsText();
   if (turns.length === 0) {
     return <p className="text-sm text-muted-foreground">{s("No recorded turns.")}</p>;
@@ -66,7 +70,10 @@ export function TurnList({ turns }: { turns: TurnSummary[] }) {
       {turns.map((turn) => (
         <li
           key={turn.id}
-          className="min-w-0 space-y-1 rounded-xl border border-border bg-card px-3 py-2.5"
+          className={cn(
+            "min-w-0 space-y-1 border border-border px-3 py-2.5",
+            nested ? "rounded-lg bg-muted" : "rounded-xl bg-card"
+          )}
         >
           <p className="line-clamp-3 break-words text-sm" dir="auto">
             {turn.promptPreview || s("(empty prompt)")}

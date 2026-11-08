@@ -115,9 +115,21 @@ Style the shared dialog with elevated background, restrained border/shadow, and 
 
 The current shared close button contains English `Close` and physical `right-4` positioning. When touching this primitive, route its accessible label through OMMS i18n and check logical end positioning for Arabic. This is an implementation requirement to verify, not a claim that the current dialog already satisfies it.
 
+## Content cards: inner card for the body text
+
+A card that shows stored content (a project memory, a profile preference, pattern or workflow, a skill proposal) has two layers. The outer card is `rounded-xl border border-border bg-card p-4` (`p-3` for a proposal). It holds the header (chip, actions, confidence, times) and the footer (evidence, tags, buttons). The body text sits in one inner card: `rounded-lg border border-border bg-muted p-3`, with `space-y-3` (or `space-y-2`) between its parts.
+
+- Owners: `MemoryCard.tsx` (memory text and the user prompt), `ProfileView.tsx` (description and workflow steps), `ProposalCard.tsx` (summary, line-count chip and, once open, the diff or new skill text).
+- A list of rows inside a content card, such as a proposal's evidence turns, sits below the inner card. Its rows take the inner look (`rounded-lg bg-muted`) so they do not repeat the outer card. The same rows on their own section keep `rounded-xl bg-card` (`TurnList` `nested`).
+- Citation chips use fixed hues: S orange, P blue, K violet (`CitationChip.tsx`, `.cite-chip` in `app.css`). Never the theme accent, because a theme with a blue or cyan accent makes S look like P.
+- Put everything that belongs to the content in the same inner card: a workflow's steps go below its description, a proposal's line-count chip below its summary.
+- Keep headers, actions and footers outside the inner card.
+- Do not nest a third card inside the inner card. A code block or a pasted item may use `bg-background` inside it.
+- A new card type that shows stored text follows the same two layers.
+
 ## Sidebar
 
-Keep `AppSidebar` and its current props. `App.tsx` supplies translated labels. Preserve routes, profile/settings anchors, mobile dismissal, desktop collapse, language-menu keyboard handling, and persisted collapse/tree state. Every main link that has sections (User profile, Skills, Memory, Settings) gets the same arrow and indented list. A section link needs a page element with the same id and `scroll-mt-4`, and its id pattern in `revealPageAnchor` (`web/src/lib/settings-navigation.ts`).
+Keep `AppSidebar` and its current props. `App.tsx` supplies translated labels. The main links run Spaces, Chat, Project memories, User profile, Skills, then Memory and Settings. `MAIN_NAV` in `sidebar-main-nav.tsx` holds the order after Spaces. Preserve routes, profile/settings anchors, mobile dismissal, desktop collapse, language-menu keyboard handling, and persisted collapse/tree state. Every main link that has sections (User profile, Skills, Memory, Settings) gets the same arrow and indented list. A section link needs a page element with the same id and `scroll-mt-4`, and its id pattern in `revealPageAnchor` (`web/src/lib/settings-navigation.ts`).
 
 The present expanded width is `w-64`, with `md:w-14` when collapsed. The first styling pass keeps these dimensions. It already uses logical `start-0` and `border-e`; preserve its directional drawer transforms.
 

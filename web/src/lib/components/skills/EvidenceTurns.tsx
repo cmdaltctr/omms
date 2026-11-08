@@ -42,7 +42,7 @@ export function EvidenceTurnsView({ turns, expanded, page, onToggle, onPage }: V
   return (
     <div className="space-y-3">
       <div id={listId}>
-        <TurnList turns={view.items} />
+        <TurnList turns={view.items} nested />
       </div>
       {view.canExpand ? (
         <Button

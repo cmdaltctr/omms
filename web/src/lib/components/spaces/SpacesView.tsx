@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader, Upload } from "lucide-react";
+import { Download, Loader } from "lucide-react";
 import { SpaceBackups } from "./SpaceBackups";
 import { SpaceEditDialog } from "./SpaceEditDialog";
 import { ExportDialog } from "./ExportDialog";
@@ -124,7 +124,7 @@ export function SpacesView() {
           </h2>
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-              <Upload className="size-4" aria-hidden="true" />
+              <Download className="size-4" aria-hidden="true" />
               {t("spaces-action-import")}
             </Button>
             <SpaceViewToggle layout={layout} onChange={setLayout} />
