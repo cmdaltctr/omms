@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.9.0](https://github.com/cmdaltctr/omms/compare/v5.8.0...v5.9.0) (2026-11-08)
+
+
+### Features
+
+* web app self-update and compact settings widths ([75ff932](https://github.com/cmdaltctr/omms/commit/75ff932ef4f4dcc645c8c5b8cd2c2db086c62b36))
+* web app self-update and compact settings widths ([5a78e60](https://github.com/cmdaltctr/omms/commit/5a78e608e65e0898e00746a650d2d9c26c5edc28))
+
+
+### Bug Fixes
+
+* address review on web auto-update ([e1d7de5](https://github.com/cmdaltctr/omms/commit/e1d7de53024117345b04ff751cd9f516b9847819))
+
 ## [5.8.0](https://github.com/cmdaltctr/omms/compare/v5.7.0...v5.8.0) (2026-11-08)
 
 
