@@ -5,17 +5,67 @@ This page covers updates, pinning a version, and older stores.
 ## Updating OMMS
 
 Install OMMS without a version number, as the [README](../README.md#set-up)
-shows. Your agent can then tell you when a new release is out. Neither agent
-installs updates by itself. You choose when to update.
+shows. Pi and OpenCode then install each new release by themselves.
 
-| Agent       | How you hear about a new release                                                                                      | Update with                                                             |
-| ----------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Pi          | Pi shows an update notice while you work                                                                              | `pi update npm:om-memory-system` (or `pi update --extensions` for all)  |
-| OpenCode v2 | The footer shows `omms: ✔ · <version> available` and a toast names the command. `opencode plugin check` also lists it | `opencode plugin update om-memory-system` (or `opencode plugin update`) |
+When a Pi or OpenCode session starts, OMMS compares its version with npm
+`latest`. If npm has a newer release (not a prerelease), OMMS runs the host
+update command in the background. OpenCode also checks every 6 hours. The
+OpenCode background service runs the same check, so OpenCode without its TUI
+(for example OpenChamber) also updates. A second session does not start another update for the same release within 30 minutes.
+
+| Agent       | Command that OMMS runs. You can run it by hand too.                     |
+| ----------- | ----------------------------------------------------------------------- |
+| Pi          | `pi update npm:om-memory-system` (or `pi update --extensions` for all)  |
+| OpenCode v2 | `opencode plugin update om-memory-system` (or `opencode plugin update`) |
+
+While the update installs, OMMS shows one message: `om-memory-system <version>
+is installing in the background.` When it ends, the OMMS footer label shows one
+of these:
+
+- `omms: ✔ · <version> installed, restart`, with one message that tells you to
+  restart the agent. OMMS shows this only after it finds the new version on
+  disk. The new copy loads only after you restart Pi or OpenCode.
+  OMMS never restarts the agent. OpenCode's background service keeps the old
+  copy in memory. For OpenCode, also run `opencode service restart`.
+- `omms: ✔ · <version> available`, with one message that names the update
+  command. This means the background update failed, or the update command
+  ended with success but the new version is not on disk. Run the command
+  yourself.
+
+OMMS does not run the update for these installs. The notice shows `<version>
+available` and the command to run:
+
+- A local checkout. OMMS does not load from a `node_modules/om-memory-system/`
+  folder.
+- A pinned version. OpenCode skips an exact pin, so the command in the notice
+  does not update it. Install without the version number to receive updates.
+  See [Pinning a version](#pinning-a-version).
+
+Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn off both the npm check and the
+update. For OpenCode, set it in the environment that starts the background
+service, then run `opencode service restart`. A service that is already running
+keeps checking npm and updating. The check reads the npm registry. It sends no
+session content.
+`opencode plugin check` also lists a new OpenCode release.
+
+OpenCode 2.2 and later store each plugin install in a new folder:
+`~/.cache/opencode/npm/om-memory-system@latest/<timestamp>/`. Each folder holds
+about 900 MB. OpenCode never removes the old folders. When the OpenCode
+background service starts, OMMS removes the older OMMS folders in the background.
+OMMS keeps these folders:
+
+- The folder that runs now, and every newer folder.
+- The folder that `~/.omms/runtime.json` records.
+- Any folder without a readable version.
+
+OMMS removes nothing while the running folder is less than 24 hours old. A
+folder that OMMS cannot remove stays. Each pass writes one `OpenCode cache
+clean-up` record to the log, with counts only. Pi updates its copy in place, so
+Pi needs no clean-up.
 
 The web page tells you too. Its sidebar header shows the running version. When npm has a newer release, an **Update** button shows in the sidebar footer on this computer. Its dialog lists the command for each host. **Update web app** installs the release globally with npm and restarts the web app on it. See [Web UI: Update button](web-ui.md#update-button).
 
-Restart the agent after you update. OpenCode resolves "latest" once and keeps that copy in `~/.cache/opencode/npm/`, so it does not update by itself. Set `OMMS_DISABLE_UPDATE_CHECK=1` to stop the npm check. [UPDATES.md](../UPDATES.md) has a one-page summary for every host.
+[UPDATES.md](../UPDATES.md) is a one-page summary for every host.
 
 ### Claude Code
 
@@ -88,9 +138,12 @@ To stay on one version, install it with the version number:
 - OpenCode: `opencode plugin add om-memory-system@3.1.1`
 
 OpenCode skips exact versions during `plugin check` and `plugin update`.
-OMMS can still show its own newer-release notice for a pinned OpenCode install.
-Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn that notice off. To receive updates
-again, install without the number.
+OMMS also does not update a pinned install in the background. It can still show
+its own newer-release notice. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn that
+notice off. To receive updates again, install without the number.
+
+OMMS treats these Pi installs as pinned: a `packages` entry of
+`npm:om-memory-system@<version>`, or a Pi settings file that OMMS cannot read.
 
 ### Trying unreleased changes (`next`)
 

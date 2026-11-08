@@ -370,8 +370,9 @@ Versions come from commit messages. Use `feat:` (minor), `fix:` (patch),
    registry. It reads the stage ID from the newest GitHub Release note. If npm
    does not show the version within 150 seconds, the script stops. Wait a few
    minutes and run it again. It does not approve a second time.
-7. Users with marketplace auto-update get the plugin at their next check. Users
-   on an unpinned npm install get an update notice.
+7. Users with marketplace auto-update get the plugin at their next check. Pi and
+   OpenCode users on an unpinned npm install get the release installed in the
+   background and a restart notice.
 
 If you approve another way, run `bun run release:approve` again. It sees the
 version on npm, skips the approval, and moves `stable`. Do not wait for the

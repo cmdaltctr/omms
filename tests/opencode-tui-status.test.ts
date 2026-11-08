@@ -1,6 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { fileURLToPath } from "node:url";
 import { startTuiStatus, tuiStatusText } from "../src/adapters/opencode/tui-status.js";
+import {
+  hostUpdateStatus,
+  type HostSelfUpdateDeps,
+  type HostSelfUpdateResult,
+  type HostUpdateMarker,
+  type HostUpdateStatus,
+} from "../src/services/host-self-update.js";
 import { availableUpdate, latestNpmVersion } from "../src/services/update-check.js";
 
 const json = (body: unknown, status = 200) =>
@@ -93,5 +100,226 @@ describe("OpenCode footer status", () => {
     stop();
     expect(texts.at(-1)).toBe("omms: ✘ web app off");
     expect(calls.every((url) => !url.includes("registry"))).toBe(true);
+  });
+});
+
+const COMMAND = "opencode plugin update om-memory-system";
+const AVAILABLE_TEXT = `om-memory-system 4.3.0 is available (running 4.2.0). Run: ${COMMAND}, then restart OpenCode and run opencode service restart.`;
+
+/** Start the status with a fake self-update and a fake marker; nothing touches npm, a process or ~/.omms. */
+function selfUpdateHarness(
+  options: {
+    result?: HostSelfUpdateResult | (() => Promise<HostSelfUpdateResult>);
+    status?: { value: HostUpdateStatus | null; reads: number };
+    updateIntervalMs?: number;
+  } = {}
+) {
+  const texts: string[] = [];
+  const notes: string[] = [];
+  const status = options.status ?? { value: null, reads: 0 };
+  const result = options.result ?? { code: "started" as const, update: "4.3.0" };
+  const calls = { selfUpdate: 0 };
+  const stop = startTuiStatus({
+    currentVersion: "4.2.0",
+    healthUrl: "http://127.0.0.1:4747/api/health",
+    fetch: (async () => json({ status: "ok" })) as any,
+    setText: (text) => texts.push(text),
+    notify: (message) => notes.push(message),
+    selfUpdate: async () => {
+      calls.selfUpdate += 1;
+      return typeof result === "function" ? result() : result;
+    },
+    readUpdateStatus: () => {
+      status.reads += 1;
+      return status.value;
+    },
+    watchIntervalMs: 5,
+    watchLimitMs: 2_000,
+    updateIntervalMs: options.updateIntervalMs,
+  });
+  return { texts, notes, status, calls, stop };
+}
+
+describe("OpenCode footer background update", () => {
+  it("says the update is installing, then asks for a restart when it installs", async () => {
+    const h = selfUpdateHarness({ status: { value: "pending", reads: 0 } });
+    await settle();
+    expect(h.notes).toEqual(["om-memory-system 4.3.0 is installing in the background."]);
+    expect(h.texts.at(-1)).toBe("omms: ✔ · 4.3.0 available");
+    h.status.value = "installed";
+    await settle();
+    h.stop();
+    expect(h.texts.at(-1)).toBe("omms: ✔ · 4.3.0 installed, restart");
+    expect(h.notes).toHaveLength(2);
+    expect(h.notes[1]).toBe(
+      "om-memory-system 4.3.0 installed. Restart OpenCode and run opencode service restart to use it."
+    );
+  });
+
+  it("shows installed at once when another session already finished the update", async () => {
+    const h = selfUpdateHarness({
+      result: { code: "recent", update: "4.3.0" },
+      status: { value: "installed", reads: 0 },
+    });
+    await settle();
+    h.stop();
+    expect(h.texts.at(-1)).toBe("omms: ✔ · 4.3.0 installed, restart");
+    expect(h.notes).toEqual([
+      "om-memory-system 4.3.0 installed. Restart OpenCode and run opencode service restart to use it.",
+    ]);
+  });
+
+  it("names the command when the update has already failed", async () => {
+    const h = selfUpdateHarness({ status: { value: "failed", reads: 0 } });
+    await settle();
+    h.stop();
+    expect(h.texts.at(-1)).toBe("omms: ✔ · 4.3.0 available");
+    expect(h.notes).toEqual([AVAILABLE_TEXT]);
+  });
+
+  it("names the command when a pending update later fails", async () => {
+    const h = selfUpdateHarness({ status: { value: "pending", reads: 0 } });
+    await settle();
+    h.status.value = "failed";
+    await settle();
+    h.stop();
+    expect(h.texts.at(-1)).toBe("omms: ✔ · 4.3.0 available");
+    expect(h.notes).toEqual([
+      "om-memory-system 4.3.0 is installing in the background.",
+      AVAILABLE_TEXT,
+    ]);
+  });
+
+  for (const code of ["local", "pinned", "spawn-failed"] as const) {
+    it(`keeps today's text when the install source is ${code}`, async () => {
+      const h = selfUpdateHarness({ result: { code, update: "4.3.0" } });
+      await settle();
+      h.stop();
+      expect(h.texts.at(-1)).toBe("omms: ✔ · 4.3.0 available");
+      expect(h.notes).toEqual([AVAILABLE_TEXT]);
+      expect(h.status.reads).toBe(0);
+    });
+  }
+
+  it("shows no notice when there is nothing newer", async () => {
+    const h = selfUpdateHarness({ result: { code: "current", update: null } });
+    await settle();
+    h.stop();
+    expect(h.texts.at(-1)).toBe("omms: ✔");
+    expect(h.notes).toEqual([]);
+  });
+
+  it("does not repeat a toast on the recheck", async () => {
+    const h = selfUpdateHarness({
+      result: { code: "pinned", update: "4.3.0" },
+      updateIntervalMs: 15,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    h.stop();
+    expect(h.calls.selfUpdate).toBeGreaterThan(2);
+    expect(h.notes).toEqual([AVAILABLE_TEXT]);
+  });
+
+  it("stops asking once the release is installed", async () => {
+    const h = selfUpdateHarness({
+      result: { code: "recent", update: "4.3.0" },
+      status: { value: "installed", reads: 0 },
+      updateIntervalMs: 15,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    h.stop();
+    expect(h.calls.selfUpdate).toBe(1);
+    expect(h.notes).toHaveLength(1);
+  });
+
+  it("stops the marker watcher with the status", async () => {
+    const h = selfUpdateHarness({ status: { value: "pending", reads: 0 } });
+    await settle();
+    h.stop();
+    const reads = h.status.reads;
+    expect(reads).toBeGreaterThan(0);
+    h.status.value = "installed";
+    await settle();
+    expect(h.status.reads).toBe(reads);
+    expect(h.notes).toEqual(["om-memory-system 4.3.0 is installing in the background."]);
+  });
+
+  it("keeps the footer working when the update path throws", async () => {
+    const h = selfUpdateHarness({
+      result: async () => {
+        throw new Error("boom");
+      },
+    });
+    await settle();
+    h.stop();
+    expect(h.texts.at(-1)).toBe("omms: ✔");
+    expect(h.notes).toEqual([]);
+  });
+
+  it("does not start an update when the check is turned off", async () => {
+    const texts: string[] = [];
+    let called = false;
+    const stop = startTuiStatus({
+      currentVersion: "4.2.0",
+      healthUrl: "http://127.0.0.1:4747/api/health",
+      fetch: (async () => json({ status: "ok" })) as any,
+      setText: (text) => texts.push(text),
+      notify: () => {},
+      checkUpdates: false,
+      selfUpdate: async () => {
+        called = true;
+        return { code: "started", update: "4.3.0" };
+      },
+    });
+    await settle();
+    stop();
+    expect(called).toBe(false);
+    expect(texts.at(-1)).toBe("omms: ✔");
+  });
+
+  it("shows available and names the command when the marker says installed but no copy has the version", async () => {
+    // The same status read that startInstalledTuiStatus wires in: marker plus installed copies.
+    const marker: HostUpdateMarker = {
+      version: "4.3.0",
+      startedAt: 1,
+      outcome: "installed",
+      finishedAt: 2,
+    };
+    const installedCopies = { versions: ["4.2.0"] };
+    const deps = {
+      readMarker: () => marker,
+      installedVersions: () => installedCopies.versions,
+    } as unknown as HostSelfUpdateDeps;
+    const texts: string[] = [];
+    const notes: string[] = [];
+    const stop = startTuiStatus({
+      currentVersion: "4.2.0",
+      healthUrl: "http://127.0.0.1:4747/api/health",
+      fetch: (async () => json({ status: "ok" })) as any,
+      setText: (text) => texts.push(text),
+      notify: (message) => notes.push(message),
+      selfUpdate: async () => ({ code: "recent", update: "4.3.0" }),
+      readUpdateStatus: (version) => hostUpdateStatus(deps, version),
+    });
+    await settle();
+    stop();
+    expect(texts.at(-1)).toBe("omms: ✔ · 4.3.0 available");
+    expect(notes).toEqual([AVAILABLE_TEXT]);
+
+    // With the new copy on disk the same read gives installed.
+    installedCopies.versions = ["4.2.0", "4.3.0"];
+    const texts2: string[] = [];
+    const stop2 = startTuiStatus({
+      currentVersion: "4.2.0",
+      healthUrl: "http://127.0.0.1:4747/api/health",
+      fetch: (async () => json({ status: "ok" })) as any,
+      setText: (text) => texts2.push(text),
+      notify: () => {},
+      selfUpdate: async () => ({ code: "recent", update: "4.3.0" }),
+      readUpdateStatus: (version) => hostUpdateStatus(deps, version),
+    });
+    await settle();
+    stop2();
+    expect(texts2.at(-1)).toBe("omms: ✔ · 4.3.0 installed, restart");
   });
 });

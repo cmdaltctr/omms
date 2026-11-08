@@ -154,7 +154,7 @@ At start and every 6 hours, OMMS in OpenCode SHALL read the `latest` version of 
 
 #### Scenario: A newer release exists
 
-- **WHEN** OpenCode runs OMMS 4.2.0 and npm `latest` is 4.3.0
+- **WHEN** OpenCode runs OMMS 4.2.0 from a local path and npm `latest` is 4.3.0
 - **THEN** the footer SHALL show `omms: ✔ · 4.3.0 available`
 - **AND** a toast SHALL name `opencode plugin update om-memory-system`
 
@@ -162,3 +162,126 @@ At start and every 6 hours, OMMS in OpenCode SHALL read the `latest` version of 
 
 - **WHEN** `OMMS_DISABLE_UPDATE_CHECK=1` is set
 - **THEN** OMMS SHALL NOT contact the npm registry
+
+### Requirement: OpenCode says when a background update is installing
+
+When OMMS has started a background update for a newer version, the toast SHALL say that the update is installing instead of naming the update command.
+
+#### Scenario: The background update has started
+
+- **WHEN** OMMS starts the background update for 4.3.0
+- **THEN** one toast SHALL say that om-memory-system 4.3.0 is installing in the background
+
+### Requirement: OpenCode installs a newer OMMS release in the background
+
+When OMMS in OpenCode was installed from npm without a pinned version, and the update check finds a newer release that is not a prerelease, OMMS SHALL run `opencode plugin update om-memory-system` in a detached process and SHALL NOT wait for it. OMMS SHALL NOT start a second update for the same release within 30 minutes, across all OpenCode sessions on the computer.
+
+#### Scenario: A release is approved while OpenCode is closed
+
+- **WHEN** OpenCode starts with OMMS 4.2.0 from npm and npm `latest` is 4.3.0
+- **THEN** OMMS SHALL start `opencode plugin update om-memory-system` in the background
+- **AND** the log SHALL hold an `OpenCode plugin self-update` record with code `started`
+
+#### Scenario: A second session starts soon after
+
+- **WHEN** an update for 4.3.0 started less than 30 minutes ago
+- **THEN** a new OpenCode session SHALL NOT start another update
+
+#### Scenario: OMMS runs from a local checkout or a pinned version
+
+- **WHEN** OpenCode loads OMMS from a local path, or the configured package names a version
+- **THEN** OMMS SHALL NOT run the update command
+- **AND** the footer and toast SHALL behave as in the newer-release requirement
+
+### Requirement: The OpenCode background update is safe and logged
+
+The background update SHALL run apart from memory work. `OMMS_DISABLE_UPDATE_CHECK=1` SHALL turn the update off. A failure SHALL NOT stop memory capture, retrieval, or the `memory` tool. A started or failed start SHALL write one `OpenCode plugin self-update` log record with a code and the two versions.
+
+#### Scenario: The update command cannot start
+
+- **WHEN** the update command cannot be started
+- **THEN** memory capture, retrieval and the `memory` tool SHALL keep working
+- **AND** the log SHALL hold one `OpenCode plugin self-update` record with code `spawn-failed` and no session content
+
+#### Scenario: Updates are turned off
+
+- **WHEN** `OMMS_DISABLE_UPDATE_CHECK=1` is set
+- **THEN** OMMS SHALL NOT run the update command
+
+### Requirement: OpenCode tells the user to restart after a background update
+
+When a background update installs the newer release, the footer SHALL show `· <version> installed, restart` in place of `· <version> available`, and OMMS SHALL show one toast that says the release is installed and OpenCode must restart to use it. When the update command fails, the footer SHALL keep `· <version> available` and OMMS SHALL show one toast that names `opencode plugin update om-memory-system`.
+
+#### Scenario: The background update succeeds
+
+- **WHEN** the background update for 4.3.0 exits with success
+- **THEN** the footer SHALL show `omms: ✔ · 4.3.0 installed, restart`
+- **AND** one toast SHALL tell the user to restart OpenCode and run `opencode service restart`
+
+#### Scenario: The background update fails
+
+- **WHEN** the background update for 4.3.0 exits with an error
+- **THEN** the footer SHALL show `omms: ✔ · 4.3.0 available`
+- **AND** one toast SHALL name `opencode plugin update om-memory-system`
+
+### Requirement: The OpenCode restart notice names the background service
+
+OpenCode's background service keeps the old OMMS copy loaded after the TUI restarts. The restart toast SHALL name `opencode service restart`.
+
+#### Scenario: The restart toast names the service command
+
+- **WHEN** the background update for 4.3.0 exits with success
+- **THEN** the toast SHALL name `opencode service restart`
+
+### Requirement: OpenCode reports an installed update only when the new copy is on disk
+
+When the background update exits with success, OMMS SHALL read the installed OMMS copies before it shows `· <version> installed, restart`. When no installed copy holds the new version, OMMS SHALL treat the update as failed: the footer SHALL keep `· <version> available` and one toast SHALL name `opencode plugin update om-memory-system`.
+
+#### Scenario: The update command changed nothing
+
+- **WHEN** the background update for 4.3.0 exits with success and no installed copy holds 4.3.0
+- **THEN** the footer SHALL show `omms: ✔ · 4.3.0 available`
+- **AND** one toast SHALL name `opencode plugin update om-memory-system`
+
+#### Scenario: The new copy is on disk
+
+- **WHEN** the background update for 4.3.0 exits with success and a timestamped cache copy holds 4.3.0
+- **THEN** the footer SHALL show `omms: ✔ · 4.3.0 installed, restart`
+
+### Requirement: OpenCode removes old OMMS cache copies
+
+When the OpenCode background service starts OMMS from a timestamped cache folder, OMMS SHALL remove each older OMMS copy in the same cache folder, without delaying the service. A copy that cannot be removed SHALL stay. Each pass SHALL write one `OpenCode cache clean-up` log record with counts only.
+
+#### Scenario: An old copy is removed
+
+- **WHEN** the service runs 4.3.0 from a folder installed 2 days ago and the cache holds 4.2.0 in an older folder
+- **THEN** OMMS SHALL remove the 4.2.0 folder
+
+#### Scenario: The update is recent
+
+- **WHEN** the running folder was installed 3 hours ago
+- **THEN** OMMS SHALL remove no folder
+
+#### Scenario: The recorded copy is kept
+
+- **WHEN** `~/.omms/runtime.json` records the 4.2.0 folder
+- **THEN** OMMS SHALL keep the 4.2.0 folder
+
+#### Scenario: A folder cannot be removed
+
+- **WHEN** the removal of an old folder fails
+- **THEN** the folder SHALL stay, the service SHALL keep working, and the log record SHALL count it as kept
+
+### Requirement: The OpenCode cache clean-up keeps copies that may still run
+
+The clean-up SHALL keep the running copy, every newer copy, the copy that `~/.omms/runtime.json` records, and every copy without a readable version. It SHALL remove no copy while the running copy is less than 24 hours old.
+
+#### Scenario: A newer copy is kept
+
+- **WHEN** the service runs 4.3.0 and the cache also holds 4.4.0 in a newer folder
+- **THEN** OMMS SHALL keep the 4.4.0 folder
+
+#### Scenario: A copy without a version is kept
+
+- **WHEN** an older folder has no readable `package.json`
+- **THEN** OMMS SHALL keep that folder

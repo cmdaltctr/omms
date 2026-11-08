@@ -117,6 +117,8 @@ The Pi adapter shows its current state in Pi's footer as `omms: <glyph>`:
 - `omms: ✎` while settled work is processed
 - `omms: ✘` when an OMMS operation fails
 
+When npm has a newer release, the label adds a suffix after the glyph, for example `omms: ✔ · 4.3.0 installed, restart`. At session start, OMMS runs `pi update npm:om-memory-system` in the background, and one notification tells you to restart Pi when the install ends. If the update fails, or OMMS runs from a local checkout or a pinned version, the suffix is `· <version> available` and the notification names the command. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn the check and the update off. See [Updating and upgrading](upgrading.md#updating-omms).
+
 The adapter clears the status when the Pi session shuts down.
 
 ### Recall rows

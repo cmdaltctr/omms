@@ -17,6 +17,7 @@ const autostartUrl = new URL("../src/services/web-autostart.js", import.meta.url
 const ensureUrl = new URL("../src/services/web-ensure.js", import.meta.url).href;
 const handoffUrl = new URL("../src/services/runtime-handoff.js", import.meta.url).href;
 const clientUrl = new URL("../src/services/client.js", import.meta.url).href;
+const selfUpdateUrl = new URL("../src/adapters/pi/self-update.js", import.meta.url).href;
 const configUrl = new URL("../src/config.js", import.meta.url).href;
 const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
 const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
@@ -198,6 +199,23 @@ mock.module(${JSON.stringify(profileManagerUrl)}, () => ({
       return true;
     },
   },
+}));
+
+// The real module asks npm and may start Pi's update command. A scenario drives this fake instead.
+const selfUpdateCalls = [];
+let selfUpdateSuffix = "";
+let selfUpdateChanged = () => {};
+mock.module(${JSON.stringify(selfUpdateUrl)}, () => ({
+  createPiSelfUpdate: () => ({
+    start: (session, onChange) => {
+      selfUpdateCalls.push(["start", session.hasUI]);
+      selfUpdateChanged = onChange;
+      // Never settles: a session start must not wait for the update.
+      return new Promise(() => {});
+    },
+    suffix: () => selfUpdateSuffix,
+    stop: () => selfUpdateCalls.push(["stop"]),
+  }),
 }));
 
 const skillOperationCalls = [];
@@ -582,6 +600,69 @@ captured = statusCalls;
       ["omms", "omms: ⧖"],
       ["omms", "omms: ✔"],
     ]);
+  });
+
+  it("starts the self-update at session start without waiting for it", () => {
+    const output = runScenario(`
+await handlers["session_start"]({}, makeCtx());
+captured = selfUpdateCalls;
+`);
+    expect(output.captured).toEqual([["start", true]]);
+  });
+
+  it("starts the self-update with no user interface, and stops it at shutdown", () => {
+    const output = runScenario(`
+const ctx = makeCtx({ hasUI: false });
+await handlers["session_start"]({}, ctx);
+await handlers["session_shutdown"]({}, ctx);
+captured = selfUpdateCalls;
+`);
+    expect(output.captured).toEqual([["start", false], ["stop"]]);
+  });
+
+  it("keeps the update suffix when the glyph changes to recalling and capturing", () => {
+    const output = runScenario(`
+selfUpdateSuffix = " · 4.3.0 installed, restart";
+stubConfig.autoCaptureEnabled = true;
+await handlers["before_agent_start"](
+  { prompt: "how do we run the queue?", systemPrompt: "BASE PROMPT" },
+  makeCtx()
+);
+await handlers["agent_settled"]({}, makeCtx());
+captured = statusCalls.map((call) => call[1]);
+`);
+    expect(output.captured.slice(0, 2)).toEqual([
+      "omms: ↻ · 4.3.0 installed, restart",
+      "omms: ✔ · 4.3.0 installed, restart",
+    ]);
+    expect(output.captured).toContain("omms: ✎ · 4.3.0 installed, restart");
+    expect(
+      output.captured.every((label: string) => label.endsWith(" · 4.3.0 installed, restart"))
+    ).toBe(true);
+  });
+
+  it("refreshes the label with the current glyph when the update suffix changes", () => {
+    const output = runScenario(`
+await handlers["session_start"]({}, makeCtx());
+await new Promise((resolve) => setTimeout(resolve, 0));
+selfUpdateSuffix = " · 4.3.0 installed, restart";
+selfUpdateChanged();
+captured = statusCalls.map((call) => call[1]);
+`);
+    expect(output.captured).toEqual(["omms: ⧖", "omms: ✔", "omms: ✔ · 4.3.0 installed, restart"]);
+  });
+
+  it("does not redraw the label after the session shut down", () => {
+    const output = runScenario(`
+const ctx = makeCtx();
+await handlers["session_start"]({}, ctx);
+await new Promise((resolve) => setTimeout(resolve, 0));
+await handlers["session_shutdown"]({}, ctx);
+selfUpdateSuffix = " · 4.3.0 available";
+selfUpdateChanged();
+captured = statusCalls.map((call) => call[1]);
+`);
+    expect(output.captured).toEqual(["omms: ⧖", "omms: ✔", null]);
   });
 
   it("shows recalling then connected during retrieval", async () => {
