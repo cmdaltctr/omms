@@ -2,6 +2,16 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.7.0](https://github.com/cmdaltctr/omms/compare/v5.6.1...v5.7.0) (2026-11-08)
+
+
+### Features
+
+* give new memory spaces random folder ids ([e307367](https://github.com/cmdaltctr/omms/commit/e3073678920334780b21739591fed6dbb805502b))
+* give new memory spaces random folder ids ([22b65f3](https://github.com/cmdaltctr/omms/commit/22b65f3bedfe9df0e2aa837889a4a60fc6103a96))
+* label space folders and open them from the web card ([d8ccf3c](https://github.com/cmdaltctr/omms/commit/d8ccf3ce1d62e7cc95a1677c3492fa2d6786284a))
+* name spaces by display name in text output ([e12c256](https://github.com/cmdaltctr/omms/commit/e12c256d4a9148acc9054fadcea4e38b30aaa06b))
+
 ## [5.6.1](https://github.com/cmdaltctr/omms/compare/v5.6.0...v5.6.1) (2026-11-07)
 
 
