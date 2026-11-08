@@ -2,6 +2,16 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.9.1](https://github.com/cmdaltctr/omms/compare/v5.9.0...v5.9.1) (2026-11-08)
+
+
+### Bug Fixes
+
+* address review on the web handover and content cards ([0cbb146](https://github.com/cmdaltctr/omms/commit/0cbb146c5d92bd32377c5b86261fc962e3275f17))
+* give content cards one inner card, put Chat after Spaces, and fix icon and chip colours ([0a25c0c](https://github.com/cmdaltctr/omms/commit/0a25c0c9ea935bd559461fee3e6a8c2c7ff74203))
+* keep the web app port served during a handover and update a stale global install ([64313db](https://github.com/cmdaltctr/omms/commit/64313dbb6fa70a98c41be8749aadb145e2f0ea48))
+* keep the web app port served during a handover, update a stale global install, and tidy content cards ([38d638c](https://github.com/cmdaltctr/omms/commit/38d638c0ebc15ee3bd3ae5cc8392f11a010720fd))
+
 ## [5.9.0](https://github.com/cmdaltctr/omms/compare/v5.8.0...v5.9.0) (2026-11-08)
 
 
