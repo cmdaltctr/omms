@@ -2,6 +2,18 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.8.0](https://github.com/cmdaltctr/omms/compare/v5.7.0...v5.8.0) (2026-11-08)
+
+
+### Features
+
+* Pi and OpenCode install OMMS updates in the background ([4750543](https://github.com/cmdaltctr/omms/commit/4750543bd0d6eb6602d12ef44b28f7a97ce6a804))
+
+
+### Bug Fixes
+
+* address second review round on host self-update ([a2dae42](https://github.com/cmdaltctr/omms/commit/a2dae42f78318c7cae64ff498420e79bcaad5730))
+
 ## [5.7.0](https://github.com/cmdaltctr/omms/compare/v5.6.1...v5.7.0) (2026-11-08)
 
 
