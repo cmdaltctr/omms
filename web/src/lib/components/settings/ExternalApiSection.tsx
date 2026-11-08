@@ -167,23 +167,27 @@ export function ExternalApiSection() {
       </label>
       <label className="block text-sm">
         {s("API URL")}
-        <input
-          dir="ltr"
-          className="mt-1 block w-full rounded border border-border bg-background p-2 font-mono"
-          placeholder="https://api.example.com/v1"
-          value={value("memoryApiUrl")}
-          onChange={(event) => setFields({ ...fields, memoryApiUrl: event.target.value })}
-        />
+        <div className={compactField}>
+          <input
+            dir="ltr"
+            className="mt-1 block w-full rounded border border-border bg-background p-2 font-mono"
+            placeholder="https://api.example.com/v1"
+            value={value("memoryApiUrl")}
+            onChange={(event) => setFields({ ...fields, memoryApiUrl: event.target.value })}
+          />
+        </div>
       </label>
       <label className="block text-sm">
         {s("Model")}
-        <input
-          dir="ltr"
-          className="mt-1 block w-full rounded border border-border bg-background p-2 font-mono"
-          placeholder="glm-5-turbo"
-          value={value("memoryModel")}
-          onChange={(event) => setFields({ ...fields, memoryModel: event.target.value })}
-        />
+        <div className={compactField}>
+          <input
+            dir="ltr"
+            className="mt-1 block w-full rounded border border-border bg-background p-2 font-mono"
+            placeholder="glm-5-turbo"
+            value={value("memoryModel")}
+            onChange={(event) => setFields({ ...fields, memoryModel: event.target.value })}
+          />
+        </div>
       </label>
       <button
         type="button"
@@ -194,7 +198,7 @@ export function ExternalApiSection() {
         {s("Save endpoint")}
       </button>
 
-      <fieldset className="space-y-2 rounded-lg border border-border p-3 text-sm">
+      <fieldset className={`${compactField} space-y-2 rounded-lg border border-border p-3 text-sm`}>
         <legend className="px-1 font-medium">{s("API key")}</legend>
         <p className="text-xs text-muted-foreground">
           {s("Key source")}:{" "}
@@ -220,65 +224,67 @@ export function ExternalApiSection() {
             {s("The key does not resolve in this web app. Save it to a key file instead.")}
           </p>
         )}
-        {(
-          [
-            ["env", "Environment variable"],
-            ["file", "Key file"],
-            ["paste", "Save key to a private file"],
-          ] as const
-        ).map(([id, label]) => (
-          <label key={id} className="flex items-center gap-2">
+        <div className="space-y-2">
+          {(
+            [
+              ["env", "Environment variable"],
+              ["file", "Key file"],
+              ["paste", "Save key to a private file"],
+            ] as const
+          ).map(([id, label]) => (
+            <label key={id} className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="omms-key-source"
+                checked={source === id}
+                onChange={() => setSource(id)}
+              />
+              {s(label)}
+            </label>
+          ))}
+          {source === "env" && (
             <input
-              type="radio"
-              name="omms-key-source"
-              checked={source === id}
-              onChange={() => setSource(id)}
-            />
-            {s(label)}
-          </label>
-        ))}
-        {source === "env" && (
-          <input
-            aria-label={s("Variable name")}
-            className="w-full rounded border border-border bg-background p-2"
-            placeholder="ZAI_API_KEY"
-            value={keyInput.name}
-            onChange={(event) => setKeyInput({ ...keyInput, name: event.target.value })}
-          />
-        )}
-        {source === "file" && (
-          <input
-            aria-label={s("Key file path")}
-            className="w-full rounded border border-border bg-background p-2"
-            placeholder="~/.config/omms/secrets/zai.key"
-            value={keyInput.path}
-            onChange={(event) => setKeyInput({ ...keyInput, path: event.target.value })}
-          />
-        )}
-        {source === "paste" && (
-          <>
-            <input
-              aria-label={s("Key file name")}
+              aria-label={s("Variable name")}
               className="w-full rounded border border-border bg-background p-2"
-              placeholder="memory-api"
+              placeholder="ZAI_API_KEY"
               value={keyInput.name}
               onChange={(event) => setKeyInput({ ...keyInput, name: event.target.value })}
             />
+          )}
+          {source === "file" && (
             <input
-              aria-label={s("API key")}
-              type="password"
-              autoComplete="off"
+              aria-label={s("Key file path")}
               className="w-full rounded border border-border bg-background p-2"
-              value={keyInput.value}
-              onChange={(event) => setKeyInput({ ...keyInput, value: event.target.value })}
+              placeholder="~/.config/omms/secrets/zai.key"
+              value={keyInput.path}
+              onChange={(event) => setKeyInput({ ...keyInput, path: event.target.value })}
             />
-            <p className="text-xs text-muted-foreground">
-              {s(
-                "The key is written to ~/.config/omms/secrets/ readable only by you. It is never shown again."
-              )}
-            </p>
-          </>
-        )}
+          )}
+          {source === "paste" && (
+            <>
+              <input
+                aria-label={s("Key file name")}
+                className="w-full rounded border border-border bg-background p-2"
+                placeholder="memory-api"
+                value={keyInput.name}
+                onChange={(event) => setKeyInput({ ...keyInput, name: event.target.value })}
+              />
+              <input
+                aria-label={s("API key")}
+                type="password"
+                autoComplete="off"
+                className="w-full rounded border border-border bg-background p-2"
+                value={keyInput.value}
+                onChange={(event) => setKeyInput({ ...keyInput, value: event.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                {s(
+                  "The key is written to ~/.config/omms/secrets/ readable only by you. It is never shown again."
+                )}
+              </p>
+            </>
+          )}
+        </div>
         <button
           type="button"
           className="rounded border border-border px-3 py-1.5"

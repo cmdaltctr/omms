@@ -22,7 +22,7 @@ OpenCode does not run a web server inside its session. The web app has no OpenCo
 
 ## Sidebar header
 
-The sidebar header shows the name **OMMS** in the brand green `#678D6C`. The version of the running web app follows in a smaller font, for example `v4.9.0`. The page reads the version from `GET /api/web/status`. The power button uses the same call every 15 seconds. When a restart brings a new version, the header shows it at the next call, without a page reload. Before the first call answers, the header shows only the name. On a narrow screen, the top bar shows the same name and version. When you collapse the sidebar on a desktop, the header shows only the icon.
+The sidebar header shows the name **OMMS** in the brand green `#678D6C`. The version of the running web app follows in a smaller font, for example `v4.9.0`. The page reads the version from `GET /api/web/status`. The power button uses the same call every 15 seconds. When a restart brings a new version, the page reloads onto the new copy (see [Update button](#update-button)), so the header shows it at the next call. Before the first call answers, the header shows only the name. On a narrow screen, the top bar shows the same name and version. When you collapse the sidebar on a desktop, the header shows only the icon.
 
 ## Spaces item and tree
 
@@ -194,6 +194,10 @@ The web app keeps serving its current version when a step fails. The `code` name
 | `copy-exit`, `handoff`, `other-owner` | The restart failed. See [How Restart works](#power-button).                                                                                                                                     |
 
 Each update writes `Web app update` log records with the outcome, the code, both versions, the npm exit code, and the duration. The log never holds npm output or the token.
+
+The install can also start by itself. When the check finds a newer release, the standalone web app starts the same install the **Update web app** action starts, with no button pressed and no page open. An open page shows the same progress through the `state` field: `installing`, then `restarting`. When the restarted web app answers with a new `instance`, the page reloads itself on the new version, also when no dialog is open. The same reload follows a power-button restart. The page skips the reload before the first status answer and while the call fails, so a brief outage during the handover does not reload it.
+
+The automatic install obeys the same gates as the button: it does not run when the check is off, when no npm sits beside the web app's Node.js, when the launcher at `~/.omms/bin/omms-launch.mjs` is missing, or while another install or restart runs. A web app that serves inside a Pi or OpenCode session never updates itself. After a failed automatic install, the web app waits 30 minutes before another automatic attempt; the **Update** button still starts a manual install during that wait. No new settings were added: `OMMS_DISABLE_UPDATE_CHECK=1`, which turns the check off, is the only off switch.
 
 ## Filters and memory cards
 

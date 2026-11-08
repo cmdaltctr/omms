@@ -12,6 +12,8 @@ export const UPDATE_CHECK_INTERVAL_MS = 10 * 60 * 1000;
 export const STATUS_RECHECK_AFTER_MS = 60 * 1000;
 /** An install that takes longer is stopped, and the web app keeps serving. */
 export const INSTALL_TIMEOUT_MS = 5 * 60 * 1000;
+/** An automatic start waits this long after a failed automatic install. */
+export const AUTO_RETRY_AFTER_MS = 30 * 60 * 1000;
 /** Only a plain release reaches the npm arguments; the value comes from the registry. */
 const PLAIN_VERSION = /^\d+\.\d+\.\d+$/;
 /** Enough of npm's error stream to find a code; the rest is dropped. */
@@ -87,6 +89,8 @@ export class WebUpdate {
   private started = false;
   private lastCheck = -Infinity;
   private checking: Promise<void> | null = null;
+  private autoRetryAt = -Infinity;
+  private autoAttempt = false;
 
   constructor(private readonly deps: WebUpdateDeps) {}
 
@@ -113,6 +117,18 @@ export class WebUpdate {
       return;
     }
     this.available = availableUpdate(this.deps.version, latest);
+    this.maybeAutoInstall();
+  }
+
+  /** Start the install the Update button starts, once a check found a release. */
+  private maybeAutoInstall(): void {
+    if (this.state === "installing" || this.state === "restarting") return;
+    if (!this.available) return;
+    if (this.deps.now() < this.autoRetryAt) return;
+    if (!this.canInstall()) return;
+    if (this.requestInstall() !== "accepted") return;
+    this.autoAttempt = true;
+    this.deps.log("Web app auto-update started", { from: this.deps.version, to: this.available });
   }
 
   status(): UpdateStatus {
@@ -135,6 +151,7 @@ export class WebUpdate {
     if (this.state === "installing" || this.state === "restarting") return "accepted";
     if (!this.available) return "no-update";
     if (!this.canInstall()) return "cannot-install";
+    this.autoAttempt = false;
     this.state = "installing";
     this.code = null;
     void this.install(this.available);
@@ -155,6 +172,8 @@ export class WebUpdate {
     const fail = (code: string, exitCode?: number | null) => {
       this.state = "failed";
       this.code = code;
+      // Only an automatic start waits before trying again; the button always works.
+      if (this.autoAttempt) this.autoRetryAt = this.deps.now() + AUTO_RETRY_AFTER_MS;
       record("failed", code, exitCode);
     };
     const { code, exitCode } = await runGlobalInstall(this.deps, target);

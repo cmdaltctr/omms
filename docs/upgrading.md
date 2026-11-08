@@ -5,7 +5,8 @@ This page covers updates, pinning a version, and older stores.
 ## Updating OMMS
 
 Install OMMS without a version number, as the [README](../README.md#set-up)
-shows. Pi and OpenCode then install each new release by themselves.
+shows. Pi and OpenCode then install each new release by themselves. The
+standalone web app does the same and restarts itself on the new copy.
 
 When a Pi or OpenCode session starts, OMMS compares its version with npm
 `latest`. If npm has a newer release (not a prerelease), OMMS runs the host
@@ -63,7 +64,7 @@ folder that OMMS cannot remove stays. Each pass writes one `OpenCode cache
 clean-up` record to the log, with counts only. Pi updates its copy in place, so
 Pi needs no clean-up.
 
-The web page tells you too. Its sidebar header shows the running version. When npm has a newer release, an **Update** button shows in the sidebar footer on this computer. Its dialog lists the command for each host. **Update web app** installs the release globally with npm and restarts the web app on it. See [Web UI: Update button](web-ui.md#update-button).
+The web app installs each new release by itself. When its npm check finds one, it installs the release globally with npm and restarts on it; an open page reloads on the new version. You can still update by hand: the **Update** button in the sidebar footer opens a dialog that lists the command for each host, and **Update web app** runs the same install. After a failed automatic install, the web app waits 30 minutes before the next automatic try; the button and `om-memory-system web update` work at any time. `OMMS_DISABLE_UPDATE_CHECK=1` turns the npm check and the automatic install off. A web app inside a Pi or OpenCode session never updates itself. See [Web UI: Update button](web-ui.md#update-button).
 
 [UPDATES.md](../UPDATES.md) is a one-page summary for every host.
 
@@ -110,7 +111,7 @@ npm i -g om-memory-system@latest   # or: bun add -g om-memory-system@latest
 om-memory-system --version
 ```
 
-A host update does not update the global install. To update the global install and restart the web app in one step, run:
+A host update does not update the global install. A running standalone web app installs each new release into the global install by itself, as described above. To do it by hand and restart the web app in one step, run:
 
 ```bash
 om-memory-system web update

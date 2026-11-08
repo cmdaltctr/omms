@@ -16,6 +16,8 @@ const listeners = new Set<(status: WebStatus) => void>();
 let timer: ReturnType<typeof setInterval> | null = null;
 let sent = 0;
 let applied = 0;
+/** The instance of the last applied reply; a change means a new web app process. */
+let lastInstance: string | null = null;
 
 /**
  * Read the status and tell every reader. Requests can finish out of order, so a
@@ -27,7 +29,21 @@ export async function refreshWebStatus(): Promise<void> {
   if (id < applied) return;
   applied = id;
   snapshot = status ? { ok: true, status } : { ...snapshot, ok: false };
+  if (status) applyInstance(status.instance);
   for (const listener of listeners) listener(snapshot);
+}
+
+/**
+ * Reload once when a restarted web app answers with a new instance. A failed
+ * call never reaches here and an older web app sends no instance, so neither
+ * reloads the page. Without a real reload (a test), the remembered instance
+ * keeps a later reply with the same instance from reloading again.
+ */
+function applyInstance(instance: string | undefined): void {
+  if (instance === undefined) return;
+  const changed = lastInstance !== null && instance !== lastInstance;
+  lastInstance = instance;
+  if (changed) globalThis.window?.location?.reload?.();
 }
 
 /** Follow the status. The first reader starts the poll and the last one stops it. */

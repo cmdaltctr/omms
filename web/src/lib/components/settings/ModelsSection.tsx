@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Select } from "$lib/components/ui/select";
+import { compactField, Select } from "$lib/components/ui/select";
 import {
   beginSettingsRead,
   onSettingsSnapshot,
@@ -206,18 +206,20 @@ function ModelCard({
       <label className="block text-sm" htmlFor={`${host}-model`}>
         {s("Model choice")}
       </label>
-      <Select
-        id={`${host}-model`}
-        className="w-full rounded-lg border border-border bg-background p-2 text-sm"
-        value={current}
-        onChange={(event) => setChoice(event.target.value as "inherit" | "manual" | "external")}
-      >
-        <option value="inherit">{s("Session model")}</option>
-        <option value="manual">{s("Manual model")}</option>
-        <option value="external" disabled={externalMissing.length > 0}>
-          {s("External API")}
-        </option>
-      </Select>
+      <div className={compactField}>
+        <Select
+          id={`${host}-model`}
+          className="w-full rounded-lg border border-border bg-background p-2 text-sm"
+          value={current}
+          onChange={(event) => setChoice(event.target.value as "inherit" | "manual" | "external")}
+        >
+          <option value="inherit">{s("Session model")}</option>
+          <option value="manual">{s("Manual model")}</option>
+          <option value="external" disabled={externalMissing.length > 0}>
+            {s("External API")}
+          </option>
+        </Select>
+      </div>
       {externalMissing.length > 0 && (
         <p className="text-xs text-muted-foreground">
           {s("External API needs")}: {externalMissing.join(", ")}
