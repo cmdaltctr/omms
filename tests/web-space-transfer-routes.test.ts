@@ -131,10 +131,14 @@ const call = async (path: string, body: unknown, deps?: SpaceTransferRouteDeps) 
   (await routeSpaceTransfers(path, "POST", request(path, body), project, deps)) as Result;
 const data = (result: Result) => (result!.body as any).data;
 
+/** Drawn ids of the spaces the suite creates, kept by display name. */
+const spaceIds: Record<string, string> = {};
 async function spaceId(name: string): Promise<string> {
   const space = await createStoredSpace(files, name);
+  spaceIds[name] = space.id;
   return space.id;
 }
+const spaceFolder = (name: string) => join(omms, "spaces", spaceIds[name]!);
 
 function exportDocument(model = EMBED_MODEL) {
   return {
@@ -191,7 +195,7 @@ describe("transfer preview route", () => {
   beforeAll(async () => {
     await spaceId("Alpha");
     await spaceId("Beta");
-    await seed(join(omms, "spaces", "alpha"), alphaRows());
+    await seed(spaceFolder("Alpha"), alphaRows());
   });
 
   it("ignores paths it does not own", async () => {
@@ -219,11 +223,11 @@ describe("transfer preview route", () => {
     ]);
     expect(preview.examples).toHaveLength(3);
     expect(preview.examples[0].text.length).toBeLessThanOrEqual(160);
-    expect(await readRows(join(omms, "spaces", "beta"))).toEqual([]);
+    expect(await readRows(spaceFolder("Beta"))).toEqual([]);
   });
 
   it("filters by one project tag and reports duplicates the target holds", async () => {
-    await seed(join(omms, "spaces", "beta"), [
+    await seed(spaceFolder("Beta"), [
       {
         id: "b-dup",
         text: "probe project memory one",
@@ -265,10 +269,10 @@ describe("transfer preview route", () => {
     expect(same!.body).toMatchObject({ success: false, code: "same-space" });
 
     await spaceId("Old Transfer");
-    await archiveStoredSpace(files, "old-transfer");
+    await archiveStoredSpace(files, spaceIds["Old Transfer"]!);
     const archived = await call("/api/spaces/transfer/preview", {
       from: "alpha",
-      to: "old-transfer",
+      to: spaceIds["Old Transfer"]!,
       ...RANGE,
     });
     expect(archived!.status).toBe(409);
@@ -332,8 +336,8 @@ describe("transfer apply route", () => {
     expect(result!.status).toBe(200);
     const applied = data(result).result;
     expect(applied).toMatchObject({ ok: true, mode: "copy", copied: 3, skipped: 0, removed: 0 });
-    expect((await readRows(join(omms, "spaces", "alpha"))).length).toBe(4);
-    expect((await readRows(join(omms, "spaces", "gamma"))).length).toBe(3);
+    expect((await readRows(spaceFolder("Alpha"))).length).toBe(4);
+    expect((await readRows(spaceFolder("Gamma"))).length).toBe(3);
   });
 
   it("moves: the web route allows what the agent tool refuses", async () => {
@@ -348,16 +352,16 @@ describe("transfer apply route", () => {
     expect(result!.status).toBe(200);
     const applied = data(result).result;
     expect(applied).toMatchObject({ ok: true, mode: "move", copied: 3, removed: 3 });
-    const source = await readRows(join(omms, "spaces", "alpha"));
+    const source = await readRows(spaceFolder("Alpha"));
     expect(source.map((row) => row.id)).toEqual(["a-three"]);
-    expect((await readRows(join(omms, "spaces", "delta"))).length).toBe(3);
+    expect((await readRows(spaceFolder("Delta"))).length).toBe(3);
   });
 
   it("answers 409 transfer-busy to a second apply and lets previews run", async () => {
     await spaceId("Busy Source");
     await spaceId("Busy Target");
     await seed(
-      join(omms, "spaces", "busy-source"),
+      spaceFolder("Busy Source"),
       alphaRows().map((row) => ({ ...row, id: `busy-${row.id}` }))
     );
     // A model change after seeding forces the engine to embed again, which is
@@ -377,8 +381,8 @@ describe("transfer apply route", () => {
     };
     try {
       const body = {
-        from: "busy-source",
-        to: "busy-target",
+        from: spaceIds["Busy Source"]!,
+        to: spaceIds["Busy Target"]!,
         mode: "copy",
         confirm: true,
         ...RANGE,
@@ -395,8 +399,8 @@ describe("transfer apply route", () => {
       const finished = await first;
       expect(finished!.status).toBe(200);
       expect(data(finished).result.copied).toBe(3);
-      expect((await readRows(join(omms, "spaces", "busy-target"))).length).toBe(3);
-      expect((await readRows(join(omms, "spaces", "busy-source"))).length).toBe(4);
+      expect((await readRows(spaceFolder("Busy Target"))).length).toBe(3);
+      expect((await readRows(spaceFolder("Busy Source"))).length).toBe(4);
     } finally {
       release();
       CONFIG.embeddingModel = recordedModel;
@@ -408,7 +412,7 @@ describe("export download route", () => {
   beforeAll(async () => {
     await spaceId("Export Space");
     await spaceId("Empty Space");
-    await seed(join(omms, "spaces", "export-space"), [
+    await seed(spaceFolder("Export Space"), [
       {
         id: "e-one",
         text: "export probe one",
@@ -435,22 +439,27 @@ describe("export download route", () => {
   });
 
   it("returns written:false and no download for an empty selection", async () => {
-    const result = await call("/api/spaces/empty-space/export", {});
+    const result = await call(`/api/spaces/${spaceIds["Empty Space"]}/export`, {});
     expect(result!.status).toBe(200);
     expect(data(result).written).toBe(false);
     expect(typeof data(result).reason).toBe("string");
   });
 
   it("streams the file as an attachment with the same bytes the CLI writes", async () => {
-    const response = await fetch(`http://127.0.0.1:${port}/api/spaces/export-space/export`, {
-      method: "POST",
-      headers: { "x-omms-token": getOrCreateAuthToken(), "content-type": "application/json" },
-      body: "{}",
-    });
+    const response = await fetch(
+      `http://127.0.0.1:${port}/api/spaces/${spaceIds["Export Space"]}/export`,
+      {
+        method: "POST",
+        headers: { "x-omms-token": getOrCreateAuthToken(), "content-type": "application/json" },
+        body: "{}",
+      }
+    );
     expect(response.status).toBe(200);
     const disposition = response.headers.get("content-disposition") ?? "";
     expect(disposition).toMatch(
-      /^attachment; filename="omms-space-export-export-space-[^"]+\.json"$/
+      new RegExp(
+        `^attachment; filename="omms-space-export-${spaceIds["Export Space"]}-[^"]+\\.json"$`
+      )
     );
     const info = JSON.parse(response.headers.get("x-omms-export-info") ?? "{}");
     expect(info.counts).toMatchObject({ projectMemories: 2, userMemories: 0 });
@@ -459,7 +468,7 @@ describe("export download route", () => {
     const downloaded = JSON.parse(await response.text());
     const cliPath = join(project, "cli-export.json");
     const cli = await exportSpace({
-      folder: join(omms, "spaces", "export-space"),
+      folder: spaceFolder("Export Space"),
       outPath: cliPath,
       embeddingModel: downloaded.embedding.model,
       embeddingDimensions: downloaded.embedding.dimensions,
@@ -477,7 +486,7 @@ describe("export download route", () => {
     expect(routeDoc).toEqual(cliDoc);
     // The temporary file behind the download is gone.
     const leftovers = readdirSync(tmpdir()).filter((name) =>
-      name.startsWith("omms-space-export-export-space-")
+      name.startsWith(`omms-space-export-${spaceIds["Export Space"]}-`)
     );
     expect(leftovers).toEqual([]);
   });
@@ -533,9 +542,10 @@ describe("import routes", () => {
       fakeEmbed
     );
     expect(result!.status).toBe(200);
-    expect(data(result)).toMatchObject({ ok: true, spaceId: "imported", spaceName: "Imported" });
+    expect(data(result)).toMatchObject({ ok: true, spaceName: "Imported" });
+    expect(data(result).spaceId).toMatch(/^space-[a-z0-9]{10}$/);
     expect(data(result).counts).toMatchObject({ projectMemories: 1, userMemories: 1 });
-    expect((await readRows(join(omms, "spaces", "imported"))).length).toBe(2);
+    expect((await readRows(join(omms, "spaces", data(result).spaceId))).length).toBe(2);
     expect(readRegistryFile(files.registryPath).registry.activeSpaceId).toBe(activeBefore);
   });
 
@@ -587,59 +597,69 @@ describe("links routes", () => {
   });
 
   it("links a space and lists it on the card", async () => {
-    const result = await call("/api/spaces/links-one/links", { add: "links-two" });
+    const result = await call(`/api/spaces/${spaceIds["Links One"]}/links`, {
+      add: spaceIds["Links Two"],
+    });
     expect(result!.status).toBe(200);
-    expect(data(result).links).toEqual([{ id: "links-two", name: "Links Two", available: true }]);
+    expect(data(result).links).toEqual([
+      { id: spaceIds["Links Two"], name: "Links Two", available: true },
+    ]);
 
     const listed = await (
       await routeSpaces("/api/spaces", "GET", async () => ({}), project)
     )?.body.data.spaces;
-    expect(listed.find((s: any) => s.id === "links-one").links).toEqual([
-      { id: "links-two", name: "Links Two", available: true },
+    expect(listed.find((s: any) => s.id === spaceIds["Links One"]).links).toEqual([
+      { id: spaceIds["Links Two"], name: "Links Two", available: true },
     ]);
   });
 
   it("refuses a repeat, a self-link, Default as owner and an unknown space", async () => {
-    const repeat = await call("/api/spaces/links-one/links", { add: "Links Two" });
+    const repeat = await call(`/api/spaces/${spaceIds["Links One"]}/links`, { add: "Links Two" });
     expect(repeat!.status).toBe(409);
     expect(repeat!.body).toMatchObject({ success: false, code: "name-taken" });
 
-    const self = await call("/api/spaces/links-one/links", { add: "links-one" });
+    const self = await call(`/api/spaces/${spaceIds["Links One"]}/links`, {
+      add: spaceIds["Links One"],
+    });
     expect(self!.status).toBe(409);
     expect(self!.body).toMatchObject({ success: false, code: "protected" });
 
-    const deflt = await call("/api/spaces/default/links", { add: "links-one" });
+    const deflt = await call("/api/spaces/default/links", { add: spaceIds["Links One"] });
     expect(deflt!.status).toBe(409);
     expect(deflt!.body).toMatchObject({ success: false, code: "protected" });
 
-    const unknown = await call("/api/spaces/links-one/links", { add: "ghost" });
+    const unknown = await call(`/api/spaces/${spaceIds["Links One"]}/links`, { add: "ghost" });
     expect(unknown!.status).toBe(404);
     expect(unknown!.body).toMatchObject({ success: false, code: "unknown" });
 
-    const unknownOwner = await call("/api/spaces/ghost/links", { add: "links-one" });
+    const unknownOwner = await call("/api/spaces/ghost/links", { add: spaceIds["Links One"] });
     expect(unknownOwner!.status).toBe(404);
   });
 
   it("marks an archived linked space unavailable, then unlinks it", async () => {
-    await archiveStoredSpace(files, "links-two");
+    await archiveStoredSpace(files, spaceIds["Links Two"]!);
     const listed = await (
       await routeSpaces("/api/spaces", "GET", async () => ({}), project)
     )?.body.data.spaces;
-    expect(listed.find((s: any) => s.id === "links-one").links).toEqual([
-      { id: "links-two", name: "Links Two", available: false },
+    expect(listed.find((s: any) => s.id === spaceIds["Links One"]).links).toEqual([
+      { id: spaceIds["Links Two"], name: "Links Two", available: false },
     ]);
 
-    const removed = await call("/api/spaces/links-one/links", { remove: "links-two" });
+    const removed = await call(`/api/spaces/${spaceIds["Links One"]}/links`, {
+      remove: spaceIds["Links Two"],
+    });
     expect(removed!.status).toBe(200);
     expect(data(removed).links).toEqual([]);
 
-    const missing = await call("/api/spaces/links-one/links", { remove: "links-three" });
+    const missing = await call(`/api/spaces/${spaceIds["Links One"]}/links`, {
+      remove: spaceIds["Links Three"],
+    });
     expect(missing!.status).toBe(404);
     expect(missing!.body).toMatchObject({ success: false, code: "unknown" });
   });
 
   it("refuses a body with neither add nor remove", async () => {
-    const result = await call("/api/spaces/links-one/links", {});
+    const result = await call(`/api/spaces/${spaceIds["Links One"]}/links`, {});
     expect(result!.status).toBe(400);
     expect(result!.body).toMatchObject({ success: false, code: "invalid" });
   });
