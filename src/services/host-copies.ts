@@ -14,8 +14,12 @@ import { isOlderVersion } from "./version-compare.js";
 export const CACHE_PRUNE_MIN_AGE_MS = 24 * 60 * 60 * 1000;
 
 const PACKAGE_FOLDER = "/node_modules/om-memory-system";
-/** OpenCode names the cache folder after the package and the version spec, such as `om-memory-system@latest`. */
-const CACHE_FOLDER = /^om-memory-system(@.+)?$/;
+/**
+ * OpenCode names the cache folder after the package and the version spec, such as
+ * `om-memory-system@latest`. The `@` is required: a plain `om-memory-system` folder is
+ * a checkout or project, and its numeric folders are not OpenCode installs.
+ */
+const CACHE_FOLDER = /^om-memory-system@.+$/;
 
 export interface HostCopy {
   /** The package folder: `.../node_modules/om-memory-system`. */

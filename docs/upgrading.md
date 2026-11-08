@@ -37,10 +37,15 @@ available` and the command to run:
 
 - A local checkout. OMMS does not load from a `node_modules/om-memory-system/`
   folder.
-- A pinned version. See [Pinning a version](#pinning-a-version).
+- A pinned version. OpenCode skips an exact pin, so the command in the notice
+  does not update it. Install without the version number to receive updates.
+  See [Pinning a version](#pinning-a-version).
 
 Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn off both the npm check and the
-update. The check reads the npm registry. It sends no session content.
+update. For OpenCode, set it in the environment that starts the background
+service, then run `opencode service restart`. A service that is already running
+keeps checking npm and updating. The check reads the npm registry. It sends no
+session content.
 `opencode plugin check` also lists a new OpenCode release.
 
 OpenCode 2.2 and later store each plugin install in a new folder:

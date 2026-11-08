@@ -328,7 +328,8 @@ console.log("SOURCE:" + deps.installSource());
   const env = { ...process.env, HOME: home, USERPROFILE: home };
   delete env.PI_CODING_AGENT_DIR;
   const child = spawnSync(process.execPath, ["-e", script], { env, encoding: "utf8" });
-  expect(`${child.stdout}${child.stderr}`).toContain("SOURCE:npm");
+  expect(child.status).toBe(0);
+  expect(child.stdout).toContain("SOURCE:npm");
 });
 
 it("does not run the update again in a later session once it installed", async () => {

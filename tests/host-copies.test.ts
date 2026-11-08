@@ -315,6 +315,27 @@ it("removes nothing when the numeric folders are not an OpenCode cache", async (
   expect(existsSync(join(projects, "2023", "keep-me.txt"))).toBe(true);
 });
 
+it("removes nothing under a project folder named like the package, without a version spec", async () => {
+  // A checkout named om-memory-system with numeric folders is not OpenCode's om-memory-system@latest cache.
+  const dir = mkdtempSync(join(tmpdir(), "omms-host-copies-"));
+  tempDirs.push(dir);
+  const project = join(dir, "om-memory-system");
+  const running = addCopy(project, 2024, "4.3.0");
+  const other = addCopy(project, 2023, "4.2.0");
+  writeFileSync(join(project, "2023", "keep-me.txt"), "user data");
+  expect(listHostCopies(modulePathOf(running))!.stamp).toBeNull();
+  const result = await pruneOldCacheCopies({
+    modulePath: modulePathOf(running),
+    runningVersion: "4.3.0",
+    keepRoots: [],
+    now: Date.now(),
+    log: () => {},
+  });
+  expect(result).toEqual({ removed: 0, kept: 0 });
+  expect(existsSync(other)).toBe(true);
+  expect(existsSync(join(project, "2023", "keep-me.txt"))).toBe(true);
+});
+
 it("does nothing and writes no record outside a timestamp folder", async () => {
   const logs: unknown[] = [];
   const result = await pruneOldCacheCopies({
@@ -372,6 +393,7 @@ it("waits for an asynchronous removal and counts a rejected one as kept", async 
 
 it("keeps a recorded copy named through a symbolic link", async () => {
   const links = mkdtempSync(join(tmpdir(), "omms-copy-link-"));
+  tempDirs.push(links);
   const t = await prune({
     copies: [[RUNNING - 1_000, "4.2.0"]],
     keep: (cache) => {

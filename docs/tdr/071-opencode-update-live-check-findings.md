@@ -34,7 +34,7 @@ The change `pi-opencode-auto-update` (ADR-045) makes Pi and OpenCode run their o
 
 ### Negative
 
-- The clean-up depends on OpenCode's cache layout. A new layout turns the clean-up into a no-op. The install check reads the running copy only.
+- The clean-up depends on OpenCode's cache layout. A new layout turns the clean-up into a no-op. The install check reads the running copy and its readable timestamp siblings in the same cache folder.
 - A TUI or web app that runs an old copy for more than 24 hours can fail to load a module until it restarts.
 
 ### Neutral
