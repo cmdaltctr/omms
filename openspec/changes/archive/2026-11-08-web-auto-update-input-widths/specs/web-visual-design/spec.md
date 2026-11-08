@@ -4,7 +4,7 @@
 
 ### Requirement: Dropdowns with short options use a compact width
 
-A dropdown whose options are short words or names SHALL use a compact width of about 18rem, capped at the available width: Scope in Sessions, Provider in External API, Memory language, the embedding Preset, the date and time formats, and Model choice in each host's model card. The listed Settings inputs and control groups, including the key-source group's bordered box, SHALL use the same compact width. A control that holds long values SHALL keep the full width.
+A dropdown whose options are short words or names SHALL use a compact width of about 18rem, capped at the available width: Scope in Sessions, Provider in External API, Memory language, the embedding Preset, the date and time formats, and Model choice in each host's model card. The named Settings inputs and control groups, including the key-source group's bordered box, SHALL use the same compact width. A control that holds long values SHALL keep the full width, except the controls named above.
 
 #### Scenario: Scope in Sessions
 

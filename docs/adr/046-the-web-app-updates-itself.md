@@ -3,7 +3,7 @@
 - **Date:** 2026-11-08
 - **Status:** Accepted
 - **Deciders:** Aizat Hawari
-- **Change:** [`web-auto-update-input-widths`](../../openspec/changes/web-auto-update-input-widths/proposal.md)
+- **Change:** [`web-auto-update-input-widths`](../../openspec/changes/archive/2026-11-08-web-auto-update-input-widths/proposal.md)
 
 ## Context
 

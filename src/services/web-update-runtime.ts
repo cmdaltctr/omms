@@ -8,7 +8,8 @@ import { WebUpdate, type InstallChild, type InstallDeps } from "./web-update.js"
 /** The npm check and installer of a standalone web app, with the real process, npm, and clock. */
 export function startWebUpdate(
   restart: () => Promise<string | undefined>,
-  canRestart: () => boolean
+  canRestart: () => boolean,
+  autoBlocked?: () => boolean
 ): WebUpdate {
   const update = new WebUpdate({
     version: packageVersion(),
@@ -22,6 +23,7 @@ export function startWebUpdate(
     globalVersion: () => globalCommandVersion({ find: () => null }).version,
     restart,
     canRestart,
+    autoBlocked,
     now: () => Date.now(),
   });
   update.start();

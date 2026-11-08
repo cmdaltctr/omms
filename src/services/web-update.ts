@@ -55,6 +55,8 @@ export interface WebUpdateDeps {
   globalVersion: () => string | null;
   /** False when no restart could serve the new copy, such as a missing launcher. Checked before npm runs. */
   canRestart: () => boolean;
+  /** True while a Stop or Restart runs; the automatic start stays quiet then. */
+  autoBlocked?: () => boolean;
   /** Stop npm and its children. On Windows the shell wrapper alone would leave npm running. */
   killTree: (child: InstallChild) => Promise<void>;
   /** Restart onto the newest copy. Returns a failure code when this web app keeps serving. */
@@ -125,6 +127,8 @@ export class WebUpdate {
     if (this.state === "installing" || this.state === "restarting") return;
     if (!this.available) return;
     if (this.deps.now() < this.autoRetryAt) return;
+    // A check can finish while a Stop or Restart runs; the manual route has the same gate.
+    if (this.deps.autoBlocked?.()) return;
     if (!this.canInstall()) return;
     if (this.requestInstall() !== "accepted") return;
     this.autoAttempt = true;

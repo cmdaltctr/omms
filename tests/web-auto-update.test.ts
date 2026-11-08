@@ -17,13 +17,20 @@ type NpmEnd = { exit: number; stderr?: string } | { hang: true };
 
 /** A web app 4.9.0 whose npm answers `latest` in turn and runs a fake npm. */
 function fake(
-  config: { latest?: (string | null)[]; npm?: NpmEnd; canRestart?: boolean; enabled?: boolean } = {}
+  config: {
+    latest?: (string | null)[];
+    npm?: NpmEnd;
+    canRestart?: boolean;
+    enabled?: boolean;
+    autoBlocked?: boolean;
+  } = {}
 ) {
   const answers = config.latest ?? ["4.10.0"];
   const requests: string[] = [];
   const spawns: { command: string; args: string[] }[] = [];
   const logs: { message: string; data: Record<string, unknown> }[] = [];
   const clock = { ms: 0 };
+  const flags = { autoBlocked: config.autoBlocked ?? false };
   const deps: WebUpdateDeps = {
     version: "4.9.0",
     enabled: config.enabled ?? true,
@@ -60,8 +67,9 @@ function fake(
     setTimeout: () => 0,
     clearTimeout: () => {},
     now: () => clock.ms,
+    autoBlocked: () => flags.autoBlocked,
   };
-  return { update: new WebUpdate(deps), requests, spawns, logs, clock };
+  return { update: new WebUpdate(deps), requests, spawns, logs, clock, flags };
 }
 const settle = async () => {
   for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
@@ -129,6 +137,20 @@ it("logs one record for the automatic start, with versions only", async () => {
     { message: "Web app auto-update started", data: { from: "4.9.0", to: "4.10.0" } },
   ]);
   expect(JSON.stringify(f.logs)).not.toContain("secret-noise");
+});
+
+it("starts nothing while a stop or restart runs, and installs on a later check", async () => {
+  const f = fake({ latest: ["4.10.0", "4.10.0"], autoBlocked: true, npm: { hang: true } });
+  await f.update.check();
+  expect(f.spawns).toEqual([]);
+  expect(f.logs).toEqual([]);
+  // The release stays reported; once the power action ends, a fresh check installs.
+  expect(f.update.status()).toMatchObject({ available: "4.10.0", state: "idle" });
+  f.flags.autoBlocked = false;
+  f.clock.ms = STATUS_RECHECK_AFTER_MS + 1000;
+  f.update.status();
+  await settle();
+  expect(f.spawns).toHaveLength(1);
 });
 
 it("a status read that triggers a fresh check also starts the automatic install", async () => {
