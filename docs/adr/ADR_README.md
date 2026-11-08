@@ -47,3 +47,4 @@ Local decision records for OMMS maintainers.
 | [041](./041-a-memory-space-is-a-storage-folder.md)                          | A memory space is a storage folder                                              | 2026-11-06 | Proposed           |
 | [042](./042-a-space-bound-store-and-linked-read-only-spaces.md)             | A space-bound store and linked read-only spaces                                 | 2026-11-06 | Proposed           |
 | [043](./043-the-default-space-name-lives-in-the-registry.md)                | The Default space name lives in the registry                                    | 2026-11-07 | Proposed           |
+| [044](./044-hosts-update-omms-with-their-own-command.md)                    | Pi and OpenCode update OMMS by running the host's own update command            | 2026-11-07 | Accepted           |

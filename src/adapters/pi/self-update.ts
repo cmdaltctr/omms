@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   hostSelfUpdateDeps,
+  hostUpdateStatus,
   installedFromNpm,
-  markerStatus,
   startHostSelfUpdate,
   unpinnedPackageSource,
   updateNotice,
@@ -74,6 +74,7 @@ export function piHostSelfUpdateDeps(
     command: "pi",
     args: PI_UPDATE_ARGS,
     markerPath: join(homedir(), ".omms", "pi-plugin-update.json"),
+    modulePath,
     installSource,
     log,
     env,
@@ -153,7 +154,7 @@ export function createPiSelfUpdate(options: PiSelfUpdateOptions = {}): PiSelfUpd
           show(deps, update, "available");
           return;
         }
-        const read = () => markerStatus(deps.readMarker(), update);
+        const read = () => hostUpdateStatus(deps, update);
         const status = read();
         if (status === "installed") show(deps, update, "installed");
         else if (status === "failed") show(deps, update, "available");

@@ -1,7 +1,9 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { installedVersions } from "./host-copies.js";
 import { availableUpdate, latestNpmVersion } from "./update-check.js";
+import { compareVersions } from "./version-compare.js";
 
 // Pi and OpenCode install OMMS from npm, but neither updates its plugins by
 // itself. At session start OMMS compares the running copy with npm `latest`
@@ -57,6 +59,8 @@ export interface HostSelfUpdateDeps {
   now: () => number;
   readMarker: () => HostUpdateMarker | null;
   writeMarker: (value: HostUpdateMarker) => void;
+  /** The OMMS versions found on disk: the running copy's and, for OpenCode, its cache siblings. */
+  installedVersions: () => string[];
   /** Start a process that outlives this session. */
   spawnDetached: (command: string, args: string[]) => void;
   log: (message: string, data: Record<string, unknown>) => void | Promise<void>;
@@ -163,6 +167,35 @@ export function markerStatus(
 ): HostUpdateStatus | null {
   if (!marker || marker.version !== version) return null;
   return marker.outcome ?? "pending";
+}
+
+/**
+ * `installed` holds only when a copy on disk has the release (or a newer one,
+ * when a release landed during the update). The host command can exit with 0
+ * and install nothing; that outcome reads as `failed`. Other states pass through.
+ */
+export function confirmedStatus(
+  status: HostUpdateStatus | null,
+  version: string,
+  installed: string[]
+): HostUpdateStatus | null {
+  if (status !== "installed") return status;
+  const found = installed.some(
+    (have) => have === version || (compareVersions(have, version) ?? -1) >= 0
+  );
+  return found ? "installed" : "failed";
+}
+
+/** The marker's state for `version`, with `installed` confirmed against the copies on disk. */
+export function hostUpdateStatus(
+  deps: Pick<HostSelfUpdateDeps, "readMarker" | "installedVersions">,
+  version: string
+): HostUpdateStatus | null {
+  return confirmedStatus(
+    markerStatus(deps.readMarker(), version),
+    version,
+    deps.installedVersions()
+  );
 }
 
 /** Read a marker file. A missing, unreadable or malformed file is no marker. */
@@ -287,17 +320,21 @@ export function hostSelfUpdateDeps(options: {
   command: string;
   args: string[];
   markerPath: string;
+  /** The file of the running module. The installed copies are found from it. */
+  modulePath: string;
   installSource: () => HostInstallSource;
   log: HostSelfUpdateDeps["log"];
   env?: NodeJS.ProcessEnv;
 }): HostSelfUpdateDeps {
   const env = options.env ?? process.env;
+  const { modulePath, ...rest } = options;
   return {
-    ...options,
+    ...rest,
     enabled: env.OMMS_DISABLE_UPDATE_CHECK !== "1",
     fetch: globalThis.fetch.bind(globalThis),
     now: Date.now,
     readMarker: () => readMarkerFile(options.markerPath),
+    installedVersions: () => installedVersions(modulePath),
     writeMarker: (value) => {
       mkdirSync(dirname(options.markerPath), { recursive: true });
       writeFileSync(options.markerPath, JSON.stringify(value));

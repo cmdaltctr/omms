@@ -15,8 +15,8 @@ When a Pi or OpenCode V2 session starts, OMMS compares its version with npm `lat
 
 While the update installs, OMMS shows `om-memory-system <version> is installing in the background.` When it ends:
 
-- Success: the footer shows `omms: ✔ · <version> installed, restart`, and one message tells you to restart the host.
-- Failure: the footer shows `· <version> available`, and one message names the update command. Run it yourself.
+- Success: OMMS checks that the new version is on disk. The footer then shows `omms: ✔ · <version> installed, restart`, and one message tells you to restart the host.
+- Failure: the footer shows `· <version> available`, and one message names the update command. Run it yourself. OMMS also shows this when the update command ends with success but the new version is not on disk.
 
 You must restart Pi or OpenCode to load the new copy. OMMS never restarts the host. OpenCode's background server keeps the old copy in memory. For OpenCode, also run `opencode service restart`.
 
@@ -28,6 +28,8 @@ OMMS does not run the update in two cases. The notice then shows `<version> avai
 Your OpenCode config names the plugin without a version: `"om-memory-system"`. That means "latest". OpenCode resolves "latest" once and saves that version in `~/.cache/opencode/npm/`. The OMMS update refreshes that copy. The `opencode plugin update` command reads `~/.config/opencode/cli.json`, so add `"plugins": ["om-memory-system"]` there too. See [OpenCode setup](docs/opencode-adapter.md).
 
 Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn off the npm check and the update. The check sends no session content.
+
+OpenCode keeps each update in a new folder under `~/.cache/opencode/npm/om-memory-system@latest/`, about 900 MB each, and never removes the old ones. When the OpenCode background service starts, OMMS removes the older OMMS folders. It keeps the running folder, newer folders, the folder in `~/.omms/runtime.json`, and folders without a readable version. It removes nothing while the running folder is less than 24 hours old. See [Updating and upgrading](docs/upgrading.md#updating-omms).
 
 ## Claude Code updates
 

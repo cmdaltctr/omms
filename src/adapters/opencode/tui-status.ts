@@ -3,9 +3,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   hostSelfUpdateDeps,
+  hostUpdateStatus,
   installedFromNpm,
-  markerStatus,
-  readMarkerFile,
   startHostSelfUpdate,
   unpinnedCacheFolder,
   updateNotice,
@@ -173,6 +172,7 @@ export async function startInstalledTuiStatus(
     command: "opencode",
     args: ["plugin", "update", "om-memory-system"],
     markerPath,
+    modulePath,
     installSource: () =>
       !installedFromNpm(modulePath) ? "local" : unpinnedCacheFolder(modulePath) ? "npm" : "pinned",
     log: (message, data) => log(message, data),
@@ -181,7 +181,7 @@ export async function startInstalledTuiStatus(
     ...callbacks,
     currentVersion,
     selfUpdate: () => startHostSelfUpdate(update),
-    readUpdateStatus: (version) => markerStatus(readMarkerFile(markerPath), version),
+    readUpdateStatus: (version) => hostUpdateStatus(update, version),
     healthUrl: `http://${host.includes(":") ? `[${host}]` : host}:${CONFIG.webServerPort}/api/health`,
     fetch: globalThis.fetch.bind(globalThis),
     checkUpdates: process.env.OMMS_DISABLE_UPDATE_CHECK !== "1",

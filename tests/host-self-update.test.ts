@@ -1,11 +1,14 @@
 import { expect, it } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   HOST_SELF_UPDATE_RETRY_MS,
+  confirmedStatus,
+  hostSelfUpdateDeps,
   hostUpdateRunnerArgs,
+  hostUpdateStatus,
   installedFromNpm,
   markerStatus,
   readMarkerFile,
@@ -28,6 +31,8 @@ function fake(options: {
   marker?: HostUpdateMarker | null;
   now?: number;
   spawnThrows?: boolean;
+  /** The versions found on disk. Defaults to the new release being there. */
+  installed?: string[];
 }) {
   const spawned: { command: string; args: string[] }[] = [];
   const logs: { message: string; data: Record<string, unknown> }[] = [];
@@ -51,6 +56,7 @@ function fake(options: {
     writeMarker: (value) => {
       marker = value;
     },
+    installedVersions: () => options.installed ?? ["4.3.0"],
     spawnDetached: (command, args) => {
       if (options.spawnThrows) throw new Error("ENOENT");
       spawned.push({ command, args });
@@ -349,4 +355,52 @@ it("stops watching after the limit and on stop", async () => {
   stop();
   await Bun.sleep(20);
   expect(stoppedReads).toBe(1);
+});
+
+it("confirms an installed outcome only when a copy holds the new version", () => {
+  expect(confirmedStatus("installed", "4.3.0", ["4.2.0", "4.3.0"])).toBe("installed");
+  expect(confirmedStatus("installed", "4.3.0", ["4.2.0"])).toBe("failed");
+  expect(confirmedStatus("installed", "4.3.0", [])).toBe("failed");
+  // A release that landed during the update still satisfies it.
+  expect(confirmedStatus("installed", "4.3.0", ["4.3.1"])).toBe("installed");
+  // The other states pass through unchanged.
+  expect(confirmedStatus("pending", "4.3.0", [])).toBe("pending");
+  expect(confirmedStatus("failed", "4.3.0", ["4.3.0"])).toBe("failed");
+  expect(confirmedStatus(null, "4.3.0", ["4.3.0"])).toBeNull();
+});
+
+it("reads the marker and the installed copies together", () => {
+  const done = (outcome?: "installed" | "failed"): HostUpdateMarker => ({
+    version: "4.3.0",
+    startedAt: 1,
+    ...(outcome ? { outcome, finishedAt: 2 } : {}),
+  });
+  expect(hostUpdateStatus(fake({ marker: done("installed") }).deps, "4.3.0")).toBe("installed");
+  expect(
+    hostUpdateStatus(fake({ marker: done("installed"), installed: ["4.2.0"] }).deps, "4.3.0")
+  ).toBe("failed");
+  expect(hostUpdateStatus(fake({ marker: done(), installed: [] }).deps, "4.3.0")).toBe("pending");
+  expect(hostUpdateStatus(fake({ marker: null }).deps, "4.3.0")).toBeNull();
+});
+
+it("builds production inputs that list the versions on disk from the module path", () => {
+  const dir = mkdtempSync(join(tmpdir(), "omms-host-update-"));
+  const root = join(dir, "node_modules", "om-memory-system");
+  mkdirSync(join(root, "dist"), { recursive: true });
+  writeFileSync(
+    join(root, "package.json"),
+    JSON.stringify({ name: "om-memory-system", version: "4.3.0" })
+  );
+  const deps = hostSelfUpdateDeps({
+    logLabel: "Test plugin self-update",
+    currentVersion: "4.2.0",
+    command: "testhost",
+    args: [],
+    markerPath: join(dir, "marker.json"),
+    modulePath: join(root, "dist", "plugin.js"),
+    installSource: () => "npm",
+    log: () => {},
+    env: {},
+  });
+  expect(deps.installedVersions()).toEqual(["4.3.0"]);
 });

@@ -28,11 +28,14 @@ function fakeHost(options: {
   latest?: string | null;
   enabled?: boolean;
   source?: "npm" | "local" | "pinned";
+  /** The versions found on disk. Defaults to the new release being there. */
+  installed?: string[];
   marker?: HostUpdateMarker | null;
 }) {
   const spawned: { command: string; args: string[] }[] = [];
   const logs: { message: string; data: Record<string, unknown> }[] = [];
   let marker = options.marker ?? null;
+  let installed = options.installed ?? ["4.3.0"];
   const deps: HostSelfUpdateDeps = {
     enabled: options.enabled ?? true,
     logLabel: "Pi plugin self-update",
@@ -50,10 +53,17 @@ function fakeHost(options: {
     writeMarker: (value) => {
       marker = value;
     },
+    installedVersions: () => installed,
     spawnDetached: (command, args) => spawned.push({ command, args }),
     log: (message, data) => logs.push({ message, data }),
   };
-  return { deps, spawned, logs, setMarker: (value: HostUpdateMarker | null) => (marker = value) };
+  return {
+    deps,
+    spawned,
+    logs,
+    setMarker: (value: HostUpdateMarker | null) => (marker = value),
+    setInstalled: (value: string[]) => (installed = value),
+  };
 }
 
 /** A controller with a fake poll, plus the messages and label changes it produced. */
@@ -338,4 +348,42 @@ it("shares one check between sessions that start while it runs", async () => {
   await Promise.all([first, t.start()]);
   expect(fetches).toBe(1);
   expect(t.host.spawned).toHaveLength(1);
+});
+
+it("treats an installed marker as failed when the new version is not on disk", async () => {
+  // The marker says installed, but the Pi package still holds 4.2.0.
+  const t = setup({
+    marker: { version: "4.3.0", startedAt: 999_000, outcome: "installed", finishedAt: 999_500 },
+    installed: ["4.2.0"],
+  });
+  await t.start();
+  expect(t.update.suffix()).toBe(" · 4.3.0 available");
+  expect(t.notices.map((n) => n.message)).toEqual([expect.stringContaining(COMMAND)]);
+  expect(t.notices[0]!.level).toBe("warning");
+  expect(t.watches).toHaveLength(0);
+});
+
+it("confirms the install again each time the poll reads the marker", async () => {
+  const t = setup();
+  await t.start();
+  const read = t.watches[0]!.read;
+  expect(read()).toBe("pending");
+  t.host.setMarker({ version: "4.3.0", startedAt: 1, outcome: "installed", finishedAt: 2 });
+  t.host.setInstalled(["4.2.0"]);
+  expect(read()).toBe("failed");
+  t.host.setInstalled(["4.3.0"]);
+  expect(read()).toBe("installed");
+});
+
+it("builds production inputs for Pi that read the installed versions from the module path", () => {
+  const dir = mkdtempSync(join(tmpdir(), "omms-pi-self-update-"));
+  tempDirs.push(dir);
+  const root = join(dir, "npm", "node_modules", "om-memory-system");
+  mkdirSync(join(root, "dist"), { recursive: true });
+  writeFileSync(
+    join(root, "package.json"),
+    JSON.stringify({ name: "om-memory-system", version: "4.3.0" })
+  );
+  const modulePath = join(root, "dist", "x.js");
+  expect(piHostSelfUpdateDeps({ env: {}, modulePath }).installedVersions()).toEqual(["4.3.0"]);
 });

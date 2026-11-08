@@ -1,7 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import { fileURLToPath } from "node:url";
 import { startTuiStatus, tuiStatusText } from "../src/adapters/opencode/tui-status.js";
-import type { HostSelfUpdateResult, HostUpdateStatus } from "../src/services/host-self-update.js";
+import {
+  hostUpdateStatus,
+  type HostSelfUpdateDeps,
+  type HostSelfUpdateResult,
+  type HostUpdateMarker,
+  type HostUpdateStatus,
+} from "../src/services/host-self-update.js";
 import { availableUpdate, latestNpmVersion } from "../src/services/update-check.js";
 
 const json = (body: unknown, status = 200) =>
@@ -269,5 +275,51 @@ describe("OpenCode footer background update", () => {
     stop();
     expect(called).toBe(false);
     expect(texts.at(-1)).toBe("omms: ✔");
+  });
+
+  it("shows available and names the command when the marker says installed but no copy has the version", async () => {
+    // The same status read that startInstalledTuiStatus wires in: marker plus installed copies.
+    const marker: HostUpdateMarker = {
+      version: "4.3.0",
+      startedAt: 1,
+      outcome: "installed",
+      finishedAt: 2,
+    };
+    const installedCopies = { versions: ["4.2.0"] };
+    const deps = {
+      readMarker: () => marker,
+      installedVersions: () => installedCopies.versions,
+    } as unknown as HostSelfUpdateDeps;
+    const texts: string[] = [];
+    const notes: string[] = [];
+    const stop = startTuiStatus({
+      currentVersion: "4.2.0",
+      healthUrl: "http://127.0.0.1:4747/api/health",
+      fetch: (async () => json({ status: "ok" })) as any,
+      setText: (text) => texts.push(text),
+      notify: (message) => notes.push(message),
+      selfUpdate: async () => ({ code: "recent", update: "4.3.0" }),
+      readUpdateStatus: (version) => hostUpdateStatus(deps, version),
+    });
+    await settle();
+    stop();
+    expect(texts.at(-1)).toBe("omms: ✔ · 4.3.0 available");
+    expect(notes).toEqual([AVAILABLE_TEXT]);
+
+    // With the new copy on disk the same read gives installed.
+    installedCopies.versions = ["4.2.0", "4.3.0"];
+    const texts2: string[] = [];
+    const stop2 = startTuiStatus({
+      currentVersion: "4.2.0",
+      healthUrl: "http://127.0.0.1:4747/api/health",
+      fetch: (async () => json({ status: "ok" })) as any,
+      setText: (text) => texts2.push(text),
+      notify: () => {},
+      selfUpdate: async () => ({ code: "recent", update: "4.3.0" }),
+      readUpdateStatus: (version) => hostUpdateStatus(deps, version),
+    });
+    await settle();
+    stop2();
+    expect(texts2.at(-1)).toBe("omms: ✔ · 4.3.0 installed, restart");
   });
 });

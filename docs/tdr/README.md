@@ -92,6 +92,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [068](./068-the-claude-recall-parser-fixes-the-space-attribute-order.md)       | The Claude recall parser fixes the space attribute order                | Accepted              | 2026-11-06 |
 | [069](./069-the-claude-memory-tool-routes-space-flags-to-the-space-command.md) | The Claude memory tool routes space transfer flags to the space command | Accepted              | 2026-11-07 |
 | [070](./070-the-pi-recall-row-parser-rejected-the-space-attribute.md)          | The Pi recall row parser rejected the space attribute                   | Accepted              | 2026-11-07 |
+| [071](./071-opencode-update-live-check-findings.md)                            | The live check of the OpenCode update found four faults                 | Accepted              | 2026-11-07 |
 
 ## Status values
 

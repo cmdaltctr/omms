@@ -22,11 +22,14 @@ is installing in the background.` When it ends, the OMMS footer label shows one
 of these:
 
 - `omms: ✔ · <version> installed, restart`, with one message that tells you to
-  restart the agent. The new copy loads only after you restart Pi or OpenCode.
+  restart the agent. OMMS shows this only after it finds the new version on
+  disk. The new copy loads only after you restart Pi or OpenCode.
   OMMS never restarts the agent. OpenCode's background service keeps the old
   copy in memory. For OpenCode, also run `opencode service restart`.
 - `omms: ✔ · <version> available`, with one message that names the update
-  command. This means the background update failed. Run the command yourself.
+  command. This means the background update failed, or the update command
+  ended with success but the new version is not on disk. Run the command
+  yourself.
 
 OMMS does not run the update for these installs. The notice shows `<version>
 available` and the command to run:
@@ -38,6 +41,21 @@ available` and the command to run:
 Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn off both the npm check and the
 update. The check reads the npm registry. It sends no session content.
 `opencode plugin check` also lists a new OpenCode release.
+
+OpenCode 2.2 and later store each plugin install in a new folder:
+`~/.cache/opencode/npm/om-memory-system@latest/<timestamp>/`. Each folder holds
+about 900 MB. OpenCode never removes the old folders. When the OpenCode
+background service starts, OMMS removes the older OMMS folders in the background.
+OMMS keeps these folders:
+
+- The folder that runs now, and every newer folder.
+- The folder that `~/.omms/runtime.json` records.
+- Any folder without a readable version.
+
+OMMS removes nothing while the running folder is less than 24 hours old. A
+folder that OMMS cannot remove stays. Each pass writes one `OpenCode cache
+clean-up` record to the log, with counts only. Pi updates its copy in place, so
+Pi needs no clean-up.
 
 The web page tells you too. Its sidebar header shows the running version. When npm has a newer release, an **Update** button shows in the sidebar footer on this computer. Its dialog lists the command for each host. **Update web app** installs the release globally with npm and restarts the web app on it. See [Web UI: Update button](web-ui.md#update-button).
 
