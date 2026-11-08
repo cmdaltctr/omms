@@ -10,7 +10,6 @@ import { whyKey, type SpaceRow } from "$lib/spaces-api";
 /**
  * The pencil dialog of a space: the shared avatar dialog with a name field. The name field is
  * disabled when the server does not allow a rename (Default), and the reason shows beside it.
- * The folder keeps its name when the display name changes.
  */
 export function SpaceEditDialog({
   space,
@@ -28,7 +27,6 @@ export function SpaceEditDialog({
   const blocked = space.disabled.rename;
   const changed = blocked === undefined && name.trim() !== "" && name !== space.name;
   const reasonId = `space-${space.id}-edit-why`;
-  const noteId = `space-${space.id}-edit-note`;
 
   return (
     <AvatarEditorDialog
@@ -45,18 +43,14 @@ export function SpaceEditDialog({
             id="space-edit-name"
             value={name}
             disabled={blocked !== undefined}
-            aria-describedby={blocked ? reasonId : noteId}
+            aria-describedby={blocked ? reasonId : undefined}
             onChange={(event) => setDraft(event.target.value)}
           />
           {blocked ? (
             <p id={reasonId} className="text-xs text-muted-foreground">
               {t(whyKey("rename", blocked))}
             </p>
-          ) : (
-            <p id={noteId} className="text-xs text-muted-foreground">
-              {t("spaces-edit-name-note")}
-            </p>
-          )}
+          ) : null}
         </div>
       }
     />

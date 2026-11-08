@@ -23,6 +23,7 @@ import { listBackups, restoreBackup } from "../src/services/spaces/restore.js";
 
 let root: string;
 let files: ReturnType<typeof spaceFiles>;
+let experimentsId: string;
 const version = "9.9.9";
 
 function folderOf(id: string) {
@@ -58,23 +59,23 @@ async function codeOf(run: () => Promise<unknown>): Promise<string | undefined> 
 beforeEach(async () => {
   root = mkdtempSync(join(tmpdir(), "omms-restore-"));
   files = spaceFiles(root);
-  await createStoredSpace(files, "Experiments");
-  writeFileSync(join(folderOf("experiments"), "cold-buffer.json"), '{"keep":"me"}');
-  mkdirSync(join(folderOf("experiments"), "projects"), { recursive: true });
-  writeFileSync(join(folderOf("experiments"), "projects", "note.txt"), "project file");
+  experimentsId = (await createStoredSpace(files, "Experiments")).id;
+  writeFileSync(join(folderOf(experimentsId), "cold-buffer.json"), '{"keep":"me"}');
+  mkdirSync(join(folderOf(experimentsId), "projects"), { recursive: true });
+  writeFileSync(join(folderOf(experimentsId), "projects", "note.txt"), "project file");
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 describe("restoreBackup", () => {
   it("creates a new space named after the backup and leaves the original untouched", async () => {
     const { backupPath } = await backupSpace({
-      space: { id: "experiments", name: "Experiments" },
-      spaceFolder: folderOf("experiments"),
+      space: { id: experimentsId, name: "Experiments" },
+      spaceFolder: folderOf(experimentsId),
       backupsRoot: files.backupsRoot,
       ommsVersion: version,
       now: new Date("2026-11-06T10:00:00Z"),
     });
-    const before = treeHash(folderOf("experiments"));
+    const before = treeHash(folderOf(experimentsId));
     const restored = await restoreBackup(files, backupPath, new Date("2026-11-07T09:00:00Z"));
     expect(restored.name).toBe("Experiments (restored 2026-11-07)");
     expect(readFileSync(join(folderOf(restored.id), "cold-buffer.json"), "utf-8")).toBe(
@@ -83,25 +84,25 @@ describe("restoreBackup", () => {
     expect(readFileSync(join(folderOf(restored.id), "projects", "note.txt"), "utf-8")).toBe(
       "project file"
     );
-    expect(treeHash(folderOf("experiments"))).toBe(before);
+    expect(treeHash(folderOf(experimentsId))).toBe(before);
   });
 
   it("does not change the active space", async () => {
     const { backupPath } = await backupSpace({
-      space: { id: "experiments", name: "Experiments" },
-      spaceFolder: folderOf("experiments"),
+      space: { id: experimentsId, name: "Experiments" },
+      spaceFolder: folderOf(experimentsId),
       backupsRoot: files.backupsRoot,
       ommsVersion: version,
     });
-    await switchStoredSpace(files, "experiments");
+    await switchStoredSpace(files, experimentsId);
     await restoreBackup(files, backupPath);
-    expect(readRegistryFile(files.registryPath).registry.activeSpaceId).toBe("experiments");
+    expect(readRegistryFile(files.registryPath).registry.activeSpaceId).toBe(experimentsId);
   });
 
   it("restores the same backup twice into two different spaces", async () => {
     const { backupPath } = await backupSpace({
-      space: { id: "experiments", name: "Experiments" },
-      spaceFolder: folderOf("experiments"),
+      space: { id: experimentsId, name: "Experiments" },
+      spaceFolder: folderOf(experimentsId),
       backupsRoot: files.backupsRoot,
       ommsVersion: version,
     });
@@ -113,8 +114,8 @@ describe("restoreBackup", () => {
 
   it("refuses a damaged backup, names the file and creates no space", async () => {
     const { backupPath } = await backupSpace({
-      space: { id: "experiments", name: "Experiments" },
-      spaceFolder: folderOf("experiments"),
+      space: { id: experimentsId, name: "Experiments" },
+      spaceFolder: folderOf(experimentsId),
       backupsRoot: files.backupsRoot,
       ommsVersion: version,
     });
@@ -122,7 +123,7 @@ describe("restoreBackup", () => {
     const before = listSpaces(readRegistryFile(files.registryPath).registry).length;
     await expect(restoreBackup(files, backupPath)).rejects.toThrow(/cold-buffer\.json/);
     expect(listSpaces(readRegistryFile(files.registryPath).registry).length).toBe(before);
-    expect(readdirSync(files.spacesRoot)).toEqual(["experiments"]);
+    expect(readdirSync(files.spacesRoot)).toEqual([experimentsId]);
   });
 
   it("refuses a folder that is not a space backup", async () => {
@@ -136,8 +137,8 @@ describe("listBackups", () => {
   it("lists space backups newest first with name, date and size", async () => {
     const make = (iso: string) =>
       backupSpace({
-        space: { id: "experiments", name: "Experiments" },
-        spaceFolder: folderOf("experiments"),
+        space: { id: experimentsId, name: "Experiments" },
+        spaceFolder: folderOf(experimentsId),
         backupsRoot: files.backupsRoot,
         ommsVersion: version,
         now: new Date(iso),
@@ -164,19 +165,19 @@ describe("deleteSpace", () => {
     expect(await codeOf(() => deleteSpace(files, "default", { ommsVersion: version }))).toBe(
       "protected"
     );
-    await switchStoredSpace(files, "experiments");
-    expect(await codeOf(() => deleteSpace(files, "experiments", { ommsVersion: version }))).toBe(
+    await switchStoredSpace(files, experimentsId);
+    expect(await codeOf(() => deleteSpace(files, experimentsId, { ommsVersion: version }))).toBe(
       "active"
     );
-    expect(existsSync(folderOf("experiments"))).toBe(true);
+    expect(existsSync(folderOf(experimentsId))).toBe(true);
     expect(existsSync(files.backupsRoot)).toBe(false);
   });
 
   it("makes a verified backup, removes the entry and the folder, and returns the backup path", async () => {
-    const result = await deleteSpace(files, "experiments", { ommsVersion: version });
-    expect(existsSync(folderOf("experiments"))).toBe(false);
+    const result = await deleteSpace(files, experimentsId, { ommsVersion: version });
+    expect(existsSync(folderOf(experimentsId))).toBe(false);
     expect(
-      listSpaces(readRegistryFile(files.registryPath).registry).some((s) => s.id === "experiments")
+      listSpaces(readRegistryFile(files.registryPath).registry).some((s) => s.id === experimentsId)
     ).toBe(false);
     expect(readFileSync(join(result.backupPath, "cold-buffer.json"), "utf-8")).toBe(
       '{"keep":"me"}'
@@ -191,11 +192,11 @@ describe("deleteSpace", () => {
       },
     };
     await expect(
-      deleteSpace(files, "experiments", { ommsVersion: version }, failing)
+      deleteSpace(files, experimentsId, { ommsVersion: version }, failing)
     ).rejects.toThrow(/disk full/);
-    expect(existsSync(folderOf("experiments"))).toBe(true);
+    expect(existsSync(folderOf(experimentsId))).toBe(true);
     expect(
-      listSpaces(readRegistryFile(files.registryPath).registry).some((s) => s.id === "experiments")
+      listSpaces(readRegistryFile(files.registryPath).registry).some((s) => s.id === experimentsId)
     ).toBe(true);
   });
 
@@ -205,10 +206,10 @@ describe("deleteSpace", () => {
         throw new Error("in use");
       },
     };
-    const result = await deleteSpace(files, "experiments", { ommsVersion: version }, stuck);
-    expect(result.leftoverFolder).toBe(folderOf("experiments"));
+    const result = await deleteSpace(files, experimentsId, { ommsVersion: version }, stuck);
+    expect(result.leftoverFolder).toBe(folderOf(experimentsId));
     expect(
-      listSpaces(readRegistryFile(files.registryPath).registry).some((s) => s.id === "experiments")
+      listSpaces(readRegistryFile(files.registryPath).registry).some((s) => s.id === experimentsId)
     ).toBe(false);
   });
 

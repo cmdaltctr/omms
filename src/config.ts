@@ -31,6 +31,7 @@ import {
   withSkillStorage,
 } from "./services/spaces/storage-resolution.js";
 import { resolveActiveSpace, type ActiveSpace } from "./services/spaces/active-space.js";
+import { backfillSpaceLabelsFromDisk } from "./services/spaces/space-label.js";
 import { resetStoreHandles } from "./services/spaces/store-handles.js";
 
 const OMMS_CONFIG_DIR = join(homedir(), ".config", "omms");
@@ -860,11 +861,15 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   delete projectOverrides.webServerEnabled;
   const merged: OmmsConfig = { ...globalConfig, ...projectOverrides };
   // The active memory space picks the storage folder unless the project sets its own (ADR-041).
-  activeSpace = resolveActiveSpace(
-    DATA_DIR,
-    storagePathFrom(globalConfig),
-    "storagePath" in projectConfig
-  );
+  const globalStoragePath = storagePathFrom(globalConfig);
+  activeSpace = resolveActiveSpace(DATA_DIR, globalStoragePath, "storagePath" in projectConfig);
+  // The label pass repairs space.json files at the first registry read. It is
+  // metadata only, so a failure must never block start-up.
+  try {
+    backfillSpaceLabelsFromDisk(DATA_DIR, globalStoragePath);
+  } catch {
+    // Best effort: the registry stays the source of truth for names.
+  }
   if (activeSpace.storagePath) merged.storagePath = activeSpace.storagePath;
   const nextConfig = withSkillStorage(buildConfig(merged), globalConfig);
   lastFileConfig = merged;

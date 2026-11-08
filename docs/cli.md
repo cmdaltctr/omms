@@ -413,7 +413,7 @@ The full table of modes and flags is in
 
 ## Memory spaces
 
-`om-memory-system space <action> [name]` manages [memory spaces](memory-spaces.md). It prints one JSON document.
+`om-memory-system space <action> [name]` manages [memory spaces](memory-spaces.md). `list` prints one line per space: `Name (id)`, with ` [active]` for the active space and ` [archived]` for an archived one. Every other action prints one JSON document.
 
 | Action                                | What it does                                                          |
 | ------------------------------------- | --------------------------------------------------------------------- |
@@ -436,7 +436,7 @@ Transfer flags: `--since <date>`, `--until <date>`, `--project <tag>`. Export fl
 - Dates are ISO 8601 and both bounds are inclusive. A date-only `--until` means midnight at the start of that day, so give a time to cover a whole day.
 - `--project` takes the project's container tag (`omms_project_<hash>`), as a preview's groups show it.
 - `--retag-to-project` gives every imported project memory the project tag of that folder. The folder must exist.
-- The command exits with code 1 for a refused action. It lists the spaces that can become active when a switch is refused.
+- The command exits with code 1 for a refused action. It lists the spaces that can become active when a switch is refused, as `Name (id)` entries.
 - It cannot delete, rename, back up or restore a space, and it cannot move memories. Those actions are only in the web app.
 - `om-memory-system memory space --action <action> --name <name>` runs the same operation, except `export` and `import`: the `memory` tool refuses them.
 

@@ -18,6 +18,8 @@ export type SpaceRow = {
   archivedAt: string | null;
   active: boolean;
   sizeBytes: number;
+  /** The absolute path of the space's storage folder, when the server sends it. */
+  folder?: string;
   /** The avatar the space shows: default letters, a chosen icon or an uploaded image. */
   look: AvatarLook;
   disabled: Partial<Record<SpaceAction, DisabledReason>>;
@@ -71,6 +73,7 @@ export const spacesApi = {
   archive: (id: string) => call(one(id, "archive"), "POST"),
   unarchive: (id: string) => call(one(id, "unarchive"), "POST"),
   backUp: (id: string) => call<BackupDone>(one(id, "backup"), "POST", {}, SLOW_MS),
+  openFolder: (id: string) => call<{ folder: string }>(one(id, "open-folder"), "POST"),
   remove: (id: string, confirmName: string) =>
     call<DeleteDone>(`/api/spaces/${encodeURIComponent(id)}`, "DELETE", { confirmName }, SLOW_MS),
   setLook: (id: string, change: AvatarChange) =>

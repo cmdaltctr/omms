@@ -6,6 +6,8 @@ A memory space is a separate store. Each space has its own memories and its own 
 
 - The **Default** space is your existing store (`~/.omms/data`). It stays where it is. Nothing moves when you upgrade.
 - A new space lives in `~/.omms/spaces/<id>/` and starts empty.
+- A new space gets a random id: `space-` plus 10 lowercase letters and digits, for example `space-2sjlnd1x8q`. The id never comes from the name and never changes. A rename changes the display name only, and the old name is free for a new space. Existing spaces and Default keep the ids they already have. A name needs 1 to 60 characters and must be unique without regard to case.
+- Every space folder, the Default store folder included, holds a `space.json` file with the id, the display name and the creation time. OMMS writes it when a space is created, rewrites it on rename, and adds or fixes it at start-up when it is missing or stale. It is a label for a person who browses the folders. OMMS never reads it for behaviour. The registry stays the only source of truth.
 - One space is **active** at a time. Pi, OpenCode V2, Claude Code and the web app all use it. A switch applies from the next turn or request.
 - `skills.db`, the downloaded embedding model and the icons (of the spaces and of the hosts) are shared by all spaces.
 - Every memory context block that OMMS adds to a session carries the line `Active memory space: <name>`. You and the agent always see which space is in use.
@@ -21,18 +23,19 @@ The **Spaces** item (a boxes icon) at the top of the sidebar opens the Spaces pa
 
 On the Spaces page, each space is a card. On a card you can:
 
-| Action    | What happens                                                                                        |
-| --------- | --------------------------------------------------------------------------------------------------- |
-| Create    | Adds an empty space. It does not become active.                                                     |
-| Rename    | Changes the display name. The folder name stays the same.                                           |
-| Switch    | Makes the space active.                                                                             |
-| Archive   | Moves the space to the Archive page and hides it from the sidebar tree. The data stays.             |
-| Unarchive | The **Restore** button on the Archive page (or `space unarchive`) returns the space to the tree.    |
-| Back up   | Copies the space to `~/.omms/backups/space-<id>-<time>/` and checks the copy.                       |
-| Delete    | Makes a verified backup, removes the space, and shows where the backup is. You type the space name. |
-| Restore   | Creates a new space from a backup, named `<name> (restored <date>)`. It never overwrites a space.   |
-| Transfer  | Opens the Transfer dialog. Preview first, then copy or move memories into another space.            |
-| Export    | Opens the Export dialog. Writes the space to a file you can share.                                  |
+| Action      | What happens                                                                                        |
+| ----------- | --------------------------------------------------------------------------------------------------- |
+| Create      | Adds an empty space. It does not become active.                                                     |
+| Rename      | Changes the display name only. The id and the folder stay the same.                                 |
+| Switch      | Makes the space active.                                                                             |
+| Archive     | Moves the space to the Archive page and hides it from the sidebar tree. The data stays.             |
+| Unarchive   | The **Restore** button on the Archive page (or `space unarchive`) returns the space to the tree.    |
+| Back up     | Copies the space to `~/.omms/backups/space-<id>-<time>/` and checks the copy.                       |
+| Delete      | Makes a verified backup, removes the space, and shows where the backup is. You type the space name. |
+| Restore     | Creates a new space from a backup, named `<name> (restored <date>)`. It never overwrites a space.   |
+| Transfer    | Opens the Transfer dialog. Preview first, then copy or move memories into another space.            |
+| Export      | Opens the Export dialog. Writes the space to a file you can share.                                  |
+| Open folder | Opens the space's folder in the system file manager.                                                |
 
 The Default space and the active space cannot be archived or deleted. The page disables those actions and says why.
 
@@ -48,6 +51,8 @@ om-memory-system space archive "Client work"
 om-memory-system space copy --from Experiments --to "Client work" --since 2026-10-01
 om-memory-system space link "Client work" --in Experiments
 ```
+
+`space list` prints one line per space: `Name (id)`, with ` [active]` for the active space and ` [archived]` for an archived one, for example `Default (default) [active]` and `Old (space-zyx0000000) [archived]`.
 
 The `memory` tool has a `space` mode with the same actions: `list`, `status`, `create`, `use`, `archive`, `unarchive`, `preview`, `copy`, `link` and `unlink`. Pi, OpenCode V2 and Claude Code get the same mode. For example, tell the agent "save my work in the space Aizat" and it switches.
 
@@ -120,6 +125,7 @@ om-memory-system space unlink "Client work" --in Experiments
 - A backup holds a copy of every store file and a `manifest.json` with a SHA-256 checksum for each file, and the space id, name and OMMS version.
 - SQLite files are copied with `VACUUM INTO`. A backup of the active space is consistent while hosts write.
 - The model cache is not part of a backup.
+- `space.json` is not part of a backup. A restored space writes a fresh label.
 - OMMS checks the copy before it reports success. If a copy does not match, the backup fails and OMMS removes the incomplete folder.
 - Restore checks every file against the manifest first. A damaged backup creates no space, and the message names the damaged file.
 
@@ -147,3 +153,4 @@ If OMMS cannot remove the folder after the backup and the registry entry, it sho
 - [Configuration](configuration.md) for `storagePath`.
 - [ADR-041](adr/041-a-memory-space-is-a-storage-folder.md) for the space decision.
 - [ADR-042](adr/042-a-space-bound-store-and-linked-read-only-spaces.md) for the transfer, export and link decision.
+- [ADR-044](adr/044-new-memory-spaces-get-random-folder-ids.md) for the random folder id decision.

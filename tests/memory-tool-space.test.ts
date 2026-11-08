@@ -9,6 +9,9 @@ import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
 const omms = join(homedir(), ".omms");
 let project: string;
+/** Random ids of the spaces the earlier tests create; the file shares one registry. */
+let sourceId: string;
+let targetId: string;
 const space = (spaceAction?: string, spaceName?: string) =>
   executeMemoryOperation({ mode: "space", spaceAction, spaceName }, { directory: project });
 /** A `space` mode call with the transfer arguments of design D8. */
@@ -39,14 +42,15 @@ describe("memory tool space mode", () => {
   });
 
   it("creates a space, switches to it, and the process follows at once", async () => {
-    expect(await space("create", "Aizat")).toMatchObject({ success: true });
+    const created = (await space("create", "Aizat")) as { space: { id: string } };
+    expect(created).toMatchObject({ success: true });
     expect(await space("use", "Aizat")).toMatchObject({
       success: true,
       activeSpace: { name: "Aizat" },
     });
-    expect(CONFIG.storagePath).toBe(join(omms, "spaces", "aizat"));
+    expect(CONFIG.storagePath).toBe(join(omms, "spaces", created.space.id));
     expect(getActiveSpace().name).toBe("Aizat");
-    expect(await space("status")).toMatchObject({ activeSpace: { id: "aizat" } });
+    expect(await space("status")).toMatchObject({ activeSpace: { id: created.space.id } });
   });
 
   it("refuses delete and says only the web app can delete a space", async () => {
@@ -103,9 +107,9 @@ describe("memory tool space transfer actions", () => {
   const CREATED_AT = Date.UTC(2026, 9, 15);
 
   it("previews a transfer by date range without changing either space", async () => {
-    await space("create", "Source");
-    await space("create", "Target");
-    await seedMemory(join(omms, "spaces", "source"), "mem-tool-1", "tool probe memory", CREATED_AT);
+    sourceId = ((await space("create", "Source")) as { space: { id: string } }).space.id;
+    targetId = ((await space("create", "Target")) as { space: { id: string } }).space.id;
+    await seedMemory(join(omms, "spaces", sourceId), "mem-tool-1", "tool probe memory", CREATED_AT);
     const result = (await spaceCall({
       spaceAction: "preview",
       spaceName: "Source",
@@ -163,7 +167,7 @@ describe("memory tool space transfer actions", () => {
     };
     expect(linked.success).toBe(true);
     expect(linked.message).toBe('Space "Source" now links "Target".');
-    expect(linked.links).toEqual([{ id: "target", name: "Target", available: true }]);
+    expect(linked.links).toEqual([{ id: targetId, name: "Target", available: true }]);
     const unlinked = (await spaceCall({
       spaceAction: "unlink",
       spaceName: "Target",

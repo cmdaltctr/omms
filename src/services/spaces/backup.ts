@@ -99,6 +99,8 @@ export function verifyBackup(backupRoot: string, manifest: BackupManifest): void
 function isStoreFile(relPath: string): boolean {
   const parts = relPath.split("/");
   if (parts.some((part) => SKIPPED_FOLDERS.includes(part))) return false;
+  // The root space.json label is live-instance state; a restored space gets a fresh one.
+  if (parts.length === 1 && parts[0] === "space.json") return false;
   return !SKIPPED_SUFFIXES.some((suffix) => relPath.endsWith(suffix));
 }
 

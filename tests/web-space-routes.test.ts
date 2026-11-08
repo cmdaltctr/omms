@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG, initConfig } from "../src/config.js";
-import { routeSpaces } from "../src/services/space-routes.js";
+import { routeSpaces, type SpaceRouteOptions } from "../src/services/space-routes.js";
 
 function pngBase64(width = 128, height = 128): string {
   const header = Buffer.alloc(25);
@@ -21,10 +21,20 @@ function pngBase64(width = 128, height = 128): string {
 
 const omms = join(homedir(), ".omms");
 let project: string;
+/** Random ids of the spaces the earlier tests create; the tests share one registry. */
+let clientWorkId: string;
+let oldId: string;
+let iconSpaceId: string;
 
 type Result = { status: number; body: any } | undefined;
 const call = async (method: string, path: string, body: Record<string, unknown> = {}) =>
   (await routeSpaces(path, method, async () => body, project)) as Result;
+const callFrom = async (
+  method: string,
+  path: string,
+  options: SpaceRouteOptions,
+  body: Record<string, unknown> = {}
+) => (await routeSpaces(path, method, async () => body, project, options)) as Result;
 const data = (result: Result) => result!.body.data;
 
 beforeAll(() => {
@@ -64,7 +74,8 @@ describe("space routes", () => {
   it("creates a space and refuses a duplicate name", async () => {
     const created = await call("POST", "/api/spaces", { name: "Client work" });
     expect(created!.status).toBe(200);
-    expect(data(created).space.id).toBe("client-work");
+    clientWorkId = data(created).space.id;
+    expect(clientWorkId).toMatch(/^space-[a-z0-9]{10}$/);
     const again = await call("POST", "/api/spaces", { name: "client WORK" });
     expect(again!.status).toBe(409);
     expect(again!.body).toMatchObject({ success: false, code: "name-taken" });
@@ -72,49 +83,49 @@ describe("space routes", () => {
   });
 
   it("switches, and the web app follows at once", async () => {
-    const switched = await call("POST", "/api/spaces/client-work/switch");
+    const switched = await call("POST", `/api/spaces/${clientWorkId}/switch`);
     expect(switched!.status).toBe(200);
-    expect(CONFIG.storagePath).toBe(join(omms, "spaces", "client-work"));
+    expect(CONFIG.storagePath).toBe(join(omms, "spaces", clientWorkId));
     const listed = data(await call("GET", "/api/spaces"));
-    expect(listed.activeSpaceId).toBe("client-work");
-    const active = listed.spaces.find((s: any) => s.id === "client-work");
+    expect(listed.activeSpaceId).toBe(clientWorkId);
+    const active = listed.spaces.find((s: any) => s.id === clientWorkId);
     expect(active.disabled).toMatchObject({ archive: "active", delete: "active" });
   });
 
   it("refuses to switch to an archived or unknown space", async () => {
-    await call("POST", "/api/spaces", { name: "Old" });
-    await call("POST", "/api/spaces/old/archive");
-    expect((await call("POST", "/api/spaces/old/switch"))!.status).toBe(409);
+    oldId = data(await call("POST", "/api/spaces", { name: "Old" })).space.id;
+    await call("POST", `/api/spaces/${oldId}/archive`);
+    expect((await call("POST", `/api/spaces/${oldId}/switch`))!.status).toBe(409);
     expect((await call("POST", "/api/spaces/ghost/switch"))!.status).toBe(404);
-    expect((await call("POST", "/api/spaces/old/unarchive"))!.status).toBe(200);
+    expect((await call("POST", `/api/spaces/${oldId}/unarchive`))!.status).toBe(200);
   });
 
   it("reports when a space was archived and nothing for one that is not", async () => {
-    await call("POST", "/api/spaces", { name: "Dated" });
-    await call("POST", "/api/spaces/dated/archive");
+    const datedId = data(await call("POST", "/api/spaces", { name: "Dated" })).space.id;
+    await call("POST", `/api/spaces/${datedId}/archive`);
     const rows = data(await call("GET", "/api/spaces")).spaces;
-    const dated = rows.find((s: any) => s.id === "dated");
+    const dated = rows.find((s: any) => s.id === datedId);
     expect(dated.archived).toBe(true);
     expect(Number.isNaN(Date.parse(dated.archivedAt))).toBe(false);
     expect(rows.find((s: any) => s.id === "default").archivedAt).toBeNull();
-    await call("POST", "/api/spaces/dated/unarchive");
+    await call("POST", `/api/spaces/${datedId}/unarchive`);
     expect(
-      data(await call("GET", "/api/spaces")).spaces.find((s: any) => s.id === "dated").archivedAt
+      data(await call("GET", "/api/spaces")).spaces.find((s: any) => s.id === datedId).archivedAt
     ).toBeNull();
   });
 
   it("refuses to archive the active space", async () => {
-    const result = await call("POST", "/api/spaces/client-work/archive");
+    const result = await call("POST", `/api/spaces/${clientWorkId}/archive`);
     expect(result!.status).toBe(409);
     expect(result!.body.code).toBe("active");
   });
 
   it("renames a space and keeps its folder", async () => {
-    const renamed = await call("POST", "/api/spaces/old/rename", { name: "Older" });
+    const renamed = await call("POST", `/api/spaces/${oldId}/rename`, { name: "Older" });
     expect(renamed!.status).toBe(200);
     const listed = data(await call("GET", "/api/spaces"));
-    expect(listed.spaces.find((s: any) => s.id === "old").name).toBe("Older");
-    expect(existsSync(join(omms, "spaces", "old"))).toBe(true);
+    expect(listed.spaces.find((s: any) => s.id === oldId).name).toBe("Older");
+    expect(existsSync(join(omms, "spaces", oldId))).toBe(true);
   });
 
   it("renames the Default space and keeps its id", async () => {
@@ -125,8 +136,8 @@ describe("space routes", () => {
   });
 
   it("backs up a space, lists the backup and restores it as a new space", async () => {
-    writeFileSync(join(omms, "spaces", "old", "cold-buffer.json"), '{"a":1}');
-    const backup = await call("POST", "/api/spaces/old/backup");
+    writeFileSync(join(omms, "spaces", oldId, "cold-buffer.json"), '{"a":1}');
+    const backup = await call("POST", `/api/spaces/${oldId}/backup`);
     expect(backup!.status).toBe(200);
     expect(data(backup).backup.spaceName).toBe("Older");
     const listed = data(await call("GET", "/api/spaces"));
@@ -146,22 +157,24 @@ describe("space routes", () => {
   });
 
   it("does not delete without the typed name, and refuses Default and the active space", async () => {
-    expect((await call("DELETE", "/api/spaces/old", { confirmName: "nope" }))!.status).toBe(400);
-    expect(existsSync(join(omms, "spaces", "old"))).toBe(true);
+    expect((await call("DELETE", `/api/spaces/${oldId}`, { confirmName: "nope" }))!.status).toBe(
+      400
+    );
+    expect(existsSync(join(omms, "spaces", oldId))).toBe(true);
     expect((await call("DELETE", "/api/spaces/default", { confirmName: "Default" }))!.status).toBe(
       409
     );
     expect(
-      (await call("DELETE", "/api/spaces/client-work", { confirmName: "Client work" }))!.status
+      (await call("DELETE", `/api/spaces/${clientWorkId}`, { confirmName: "Client work" }))!.status
     ).toBe(409);
   });
 
   it("deletes after a verified backup and returns the backup location", async () => {
     const before = readdirSync(join(omms, "backups")).length;
-    const result = await call("DELETE", "/api/spaces/old", { confirmName: "Older" });
+    const result = await call("DELETE", `/api/spaces/${oldId}`, { confirmName: "Older" });
     expect(result!.status).toBe(200);
-    expect(data(result).backup.folder).toMatch(/^space-old-/);
-    expect(existsSync(join(omms, "spaces", "old"))).toBe(false);
+    expect(data(result).backup.folder).toMatch(new RegExp(`^space-${oldId}-`));
+    expect(existsSync(join(omms, "spaces", oldId))).toBe(false);
     expect(readdirSync(join(omms, "backups")).length).toBe(before + 1);
   });
 });
@@ -173,46 +186,46 @@ describe("space icons", () => {
     );
 
   it("lists every space with a default look first", async () => {
-    await call("POST", "/api/spaces", { name: "Icon space" });
-    expect((await looks())["icon-space"]).toEqual({ kind: "default" });
+    iconSpaceId = data(await call("POST", "/api/spaces", { name: "Icon space" })).space.id;
+    expect((await looks())[iconSpaceId]).toEqual({ kind: "default" });
     expect((await looks()).default).toEqual({ kind: "default" });
   });
 
   it("saves an icon, then an image, then resets to the default", async () => {
-    const icon = await call("PUT", "/api/spaces/icon-space/appearance", {
+    const icon = await call("PUT", `/api/spaces/${iconSpaceId}/appearance`, {
       kind: "icon",
       icon: "boxes",
     });
     expect(icon!.status).toBe(200);
-    expect((await looks())["icon-space"]).toEqual({ kind: "icon", icon: "boxes" });
+    expect((await looks())[iconSpaceId]).toEqual({ kind: "icon", icon: "boxes" });
     const png = pngBase64();
     expect(
-      (await call("PUT", "/api/spaces/icon-space/appearance", { kind: "image", png }))!.status
+      (await call("PUT", `/api/spaces/${iconSpaceId}/appearance`, { kind: "image", png }))!.status
     ).toBe(200);
-    expect((await looks())["icon-space"]).toEqual({
+    expect((await looks())[iconSpaceId]).toEqual({
       kind: "image",
       image: `data:image/png;base64,${png}`,
     });
-    expect((await call("DELETE", "/api/spaces/icon-space/appearance"))!.status).toBe(200);
-    expect((await looks())["icon-space"]).toEqual({ kind: "default" });
+    expect((await call("DELETE", `/api/spaces/${iconSpaceId}/appearance`))!.status).toBe(200);
+    expect((await looks())[iconSpaceId]).toEqual({ kind: "default" });
   });
 
   it("keeps the icons outside every space folder, so a switch never hides them", async () => {
     await call("PUT", "/api/spaces/default/appearance", { kind: "icon", icon: "cat" });
     expect(existsSync(join(omms, "space-appearance", "appearance.json"))).toBe(true);
-    expect(existsSync(join(omms, "spaces", "icon-space", "appearance.json"))).toBe(false);
-    await call("POST", "/api/spaces/icon-space/switch");
+    expect(existsSync(join(omms, "spaces", iconSpaceId, "appearance.json"))).toBe(false);
+    await call("POST", `/api/spaces/${iconSpaceId}/switch`);
     expect((await looks()).default).toEqual({ kind: "icon", icon: "cat" });
     await call("POST", "/api/spaces/default/switch");
   });
 
   it("refuses a bad icon name, a wrong image and an unknown space", async () => {
     expect(
-      (await call("PUT", "/api/spaces/icon-space/appearance", { kind: "icon", icon: "../x" }))!
+      (await call("PUT", `/api/spaces/${iconSpaceId}/appearance`, { kind: "icon", icon: "../x" }))!
         .status
     ).toBe(400);
     expect(
-      (await call("PUT", "/api/spaces/icon-space/appearance", {
+      (await call("PUT", `/api/spaces/${iconSpaceId}/appearance`, {
         kind: "image",
         png: pngBase64(64, 64),
       }))!.status
@@ -224,14 +237,108 @@ describe("space icons", () => {
   });
 
   it("removes the icon of a deleted space", async () => {
-    await call("POST", "/api/spaces", { name: "Gone soon" });
-    await call("PUT", "/api/spaces/gone-soon/appearance", { kind: "icon", icon: "bot" });
-    const removed = await call("DELETE", "/api/spaces/gone-soon", { confirmName: "Gone soon" });
+    const goneSoonId = data(await call("POST", "/api/spaces", { name: "Gone soon" })).space.id;
+    await call("PUT", `/api/spaces/${goneSoonId}/appearance`, { kind: "icon", icon: "bot" });
+    const removed = await call("DELETE", `/api/spaces/${goneSoonId}`, { confirmName: "Gone soon" });
     expect(removed!.status).toBe(200);
-    expect(existsSync(join(omms, "space-appearance", "gone-soon.png"))).toBe(false);
+    expect(existsSync(join(omms, "space-appearance", `${goneSoonId}.png`))).toBe(false);
     const saved = JSON.parse(
       readFileSync(join(omms, "space-appearance", "appearance.json"), "utf8")
     );
-    expect(saved["gone-soon"]).toBeUndefined();
+    expect(saved[goneSoonId]).toBeUndefined();
+  });
+});
+
+describe("open folder", () => {
+  /** The file manager command the route must start on this platform. */
+  const expectedOpener =
+    process.platform === "darwin" ? "open" : process.platform === "win32" ? "explorer" : "xdg-open";
+
+  /** Records what the route asked to start, so a test never opens a real file manager. */
+  function recordingOpener(failure?: Error) {
+    const calls: { command: string; args: string[] }[] = [];
+    const start = async (command: string, args: string[]) => {
+      calls.push({ command, args });
+      if (failure) throw failure;
+    };
+    return { calls, start };
+  }
+
+  it("opens the folder of a known space for a loopback caller", async () => {
+    const openId = data(await call("POST", "/api/spaces", { name: "Folder target" })).space.id;
+    const folder = join(omms, "spaces", openId);
+    const opener = recordingOpener();
+    const result = await callFrom("POST", `/api/spaces/${openId}/open-folder`, {
+      remoteAddress: "127.0.0.1",
+      startOpener: opener.start,
+    });
+    expect(result!.status).toBe(200);
+    expect(data(result).folder).toBe(folder);
+    expect(opener.calls).toEqual([{ command: expectedOpener, args: [folder] }]);
+  });
+
+  it("refuses a caller from another machine and starts nothing", async () => {
+    const openId = data(await call("GET", "/api/spaces")).spaces.find(
+      (s: any) => s.name === "Folder target"
+    ).id;
+    const opener = recordingOpener();
+    const result = await callFrom("POST", `/api/spaces/${openId}/open-folder`, {
+      remoteAddress: "192.168.1.5",
+      startOpener: opener.start,
+    });
+    expect(result!.status).toBe(403);
+    expect(result!.body).toMatchObject({ success: false, code: "forbidden" });
+    expect(result!.body.error).toMatch(/local machine/);
+    expect(opener.calls).toEqual([]);
+  });
+
+  it("refuses an unknown space id", async () => {
+    const opener = recordingOpener();
+    const result = await callFrom("POST", "/api/spaces/ghost/open-folder", {
+      remoteAddress: "::1",
+      startOpener: opener.start,
+    });
+    expect(result!.status).toBe(404);
+    expect(result!.body.code).toBe("unknown");
+    expect(opener.calls).toEqual([]);
+  });
+
+  it("reports a folder that is missing on disk and starts nothing", async () => {
+    const goneId = data(await call("POST", "/api/spaces", { name: "Gone folder" })).space.id;
+    const folder = join(omms, "spaces", goneId);
+    rmSync(folder, { recursive: true, force: true });
+    const opener = recordingOpener();
+    const result = await callFrom("POST", `/api/spaces/${goneId}/open-folder`, {
+      remoteAddress: "127.0.0.1",
+      startOpener: opener.start,
+    });
+    expect(result!.status).toBe(409);
+    expect(result!.body.code).toBe("missing-folder");
+    expect(result!.body.error).toContain(folder);
+    expect(opener.calls).toEqual([]);
+  });
+
+  it("reports a failed opener", async () => {
+    const openId = data(await call("GET", "/api/spaces")).spaces.find(
+      (s: any) => s.name === "Folder target"
+    ).id;
+    const opener = recordingOpener(new Error("spawn xdg-open ENOENT"));
+    const result = await callFrom("POST", `/api/spaces/${openId}/open-folder`, {
+      remoteAddress: "127.0.0.1",
+      startOpener: opener.start,
+    });
+    expect(result!.status).toBe(500);
+    expect(result!.body.code).toBe("opener");
+  });
+
+  it("lists the folder of every space, Default's being the global one", async () => {
+    const listed = data(await call("GET", "/api/spaces"));
+    expect(listed.spaces.length).toBeGreaterThan(1);
+    for (const space of listed.spaces) expect(typeof space.folder).toBe("string");
+    expect(listed.spaces.find((s: any) => s.id === "default").folder).toBe(
+      CONFIG.skillStoragePath ?? CONFIG.storagePath
+    );
+    const target = listed.spaces.find((s: any) => s.name === "Folder target");
+    expect(target.folder).toBe(join(omms, "spaces", target.id));
   });
 });

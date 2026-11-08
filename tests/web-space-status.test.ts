@@ -17,6 +17,8 @@ const files = spaceFiles(omms);
 const port = 49100 + (process.pid % 500);
 let project: string;
 let server: WebServer;
+/** Random id of the Aizat space that the switch test creates. */
+let aizatId: string;
 
 async function api(path: string, init: RequestInit = {}) {
   const response = await fetch(`http://127.0.0.1:${port}${path}`, {
@@ -49,15 +51,16 @@ describe("web server space support", () => {
 
   it("shows a switch made outside the web app on the next status call", async () => {
     const space = await createStoredSpace(files, "Aizat");
+    aizatId = space.id;
     await switchStoredSpace(files, space.id);
     const { body } = await api("/api/web/status");
-    expect(body.activeSpace).toMatchObject({ id: "aizat", name: "Aizat" });
+    expect(body.activeSpace).toMatchObject({ id: aizatId, name: "Aizat" });
   });
 
   it("serves the spaces API behind the same token", async () => {
     const listed = await api("/api/spaces");
     expect(listed.status).toBe(200);
-    expect(listed.body.data.activeSpaceId).toBe("aizat");
+    expect(listed.body.data.activeSpaceId).toBe(aizatId);
     const denied = await fetch(`http://127.0.0.1:${port}/api/spaces`);
     expect(denied.status).toBe(401);
   });
