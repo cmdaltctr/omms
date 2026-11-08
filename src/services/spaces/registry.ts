@@ -115,10 +115,10 @@ function requireSpace(registry: SpaceRegistry, idOrName: string): SpaceEntry {
 }
 
 function validTargets(registry: SpaceRegistry): string {
-  const names = listSpaces(registry)
+  const targets = listSpaces(registry)
     .filter((space) => !space.archived)
-    .map((space) => space.id);
-  return `Spaces that can become active: ${names.join(", ")}.`;
+    .map((space) => `${space.name} (${space.id})`);
+  return `Spaces that can become active: ${targets.join(", ")}.`;
 }
 
 function checkedName(name: string): string {

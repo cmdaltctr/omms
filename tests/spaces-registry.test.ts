@@ -204,7 +204,9 @@ describe("archive, unarchive and switch", () => {
     try {
       switchSpace(archived, "nope");
     } catch (error) {
-      expect((error as Error).message).toContain("default");
+      expect((error as Error).message).toContain(
+        "Spaces that can become active: Default (default)."
+      );
       expect((error as Error).message).not.toContain(id);
     }
   });

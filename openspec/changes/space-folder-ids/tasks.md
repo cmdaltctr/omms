@@ -25,14 +25,14 @@
 
 ## 5. Name-first output
 
-- [ ] 5.1 Write failing tests for CLI `space list` and the `memory` tool space replies: each line starts with the display name, the id follows.
-- [ ] 5.2 Update the text formatters; keep JSON output unchanged.
-- [ ] 5.3 Check the Pi and OpenCode tool replies use the same shared formatter, so all hosts change together.
+- [x] 5.1 Write failing tests for CLI `space list` and the `memory` tool space replies: each line starts with the display name, the id follows.
+- [x] 5.2 Update the text formatters; keep JSON output unchanged.
+- [x] 5.3 Check the Pi and OpenCode tool replies use the same shared formatter, so all hosts change together.
 
 ## 6. Docs and records
 
-- [ ] 6.1 Update `docs/memory-spaces.md` (random ids, `space.json`, Open folder) and `docs/web-ui.md` (remove the folder-name sentence, add the button).
-- [ ] 6.2 Write an ADR for random space ids and add it to the ADR index.
+- [x] 6.1 Update `docs/memory-spaces.md` (random ids, `space.json`, Open folder) and `docs/web-ui.md` (remove the folder-name sentence, add the button).
+- [x] 6.2 Write an ADR for random space ids and add it to the ADR index.
 
 ## 7. Verify
 

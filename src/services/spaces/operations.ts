@@ -334,13 +334,15 @@ export async function executeSpaceOperation(
     }[action as "archive" | "unarchive" | "use"];
     const registry = await change(context.files, name!);
     const active = activeOf(registry);
+    // The caller may have passed the id, so the message names the display name.
+    const displayName = findSpace(registry, name!)!.name;
     return {
       success: true,
       activeSpace: active,
       message:
         action === "use"
           ? `Active space is now "${active.name}". It applies from the next turn.`
-          : `Space "${name}" is now ${action === "archive" ? "archived" : "not archived"}.`,
+          : `Space "${displayName}" is now ${action === "archive" ? "archived" : "not archived"}.`,
     };
   } catch (error) {
     if (error instanceof SpaceError) return { success: false, error: error.message };
