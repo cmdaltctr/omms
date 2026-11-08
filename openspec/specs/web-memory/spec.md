@@ -224,7 +224,7 @@ In English, every sidebar entry and every page title SHALL use a capital first l
 #### Scenario: English sidebar
 
 - **WHEN** the language is English and the sidebar is open
-- **THEN** the entries read Chat, Project memories, User profile, Memory and Settings
+- **THEN** the entries read Spaces, Chat, Project memories, User profile, Skills, Memory and Settings
 - **AND** no label has a capitals style applied
 
 #### Scenario: Page title

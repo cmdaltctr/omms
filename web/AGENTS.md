@@ -35,7 +35,7 @@ One card for each thing the user can open or manage. The owners are `src/lib/com
 
 ### Content cards
 
-- A card that shows stored text (memory, profile item, skill proposal) puts the body in one inner card: `rounded-lg border border-border bg-muted p-3`. Header, actions and footer stay outside it. See `omms-design` (`references/components.md`, "Content cards").
+- A card that shows stored text (memory, profile item, skill proposal) puts the body in one inner card: `rounded-lg border border-border bg-muted p-3`. Header, actions and footer stay outside it. A `MemoryCard` user prompt is the one exception: its label and date sit inside its own inner card. See `omms-design` (`references/components.md`, "Content cards").
 
 ### Sidebar tree
 

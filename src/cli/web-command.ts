@@ -168,8 +168,12 @@ export async function runWebCommand(
   // The page's Stop and Restart buttons reach the same process through this callback.
   const { createPowerAction } = await import("./web-power.js");
   // A restart whose copy failed serves again from this process.
+  // Safe to call twice: it replaces the keeper and the signal handlers instead of adding more.
   const resumeServer = async () => {
+    clearInterval(keeper);
     keeper = setInterval(() => {}, 60_000);
+    process.off("SIGINT", stop);
+    process.off("SIGTERM", stop);
     process.once("SIGINT", stop);
     process.once("SIGTERM", stop);
     await server.start();

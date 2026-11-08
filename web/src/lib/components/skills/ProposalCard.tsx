@@ -131,6 +131,7 @@ export function ProposalCard({
   const pending = proposal.state === "pending";
   const hintId = useId();
   const detailsId = useId();
+  const evidenceId = useId();
   // The list says false when a newer applied change superseded this one.
   // A proposal applied just now carries no flag and can be undone.
   const canUndo = proposal.canUndo !== false;
@@ -193,7 +194,9 @@ export function ProposalCard({
           <p>{s("Stale: the file changed since this draft")}</p>
         </Callout>
       ) : null}
-      {open ? <ProposalDetail detail={detail} part="evidence" /> : null}
+      <div id={evidenceId} hidden={!open}>
+        {open ? <ProposalDetail detail={detail} part="evidence" /> : null}
+      </div>
       {pending || proposal.state === "applied" ? (
         <div className="flex flex-wrap gap-2">
           {pending ? (
@@ -252,7 +255,7 @@ export function ProposalCard({
           variant="ghost"
           size="sm"
           aria-expanded={open}
-          aria-controls={detailsId}
+          aria-controls={`${detailsId} ${evidenceId}`}
           onClick={() => setOpen((value) => !value)}
         >
           <Chevron aria-hidden="true" />
