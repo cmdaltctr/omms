@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG, getActiveSpace, initConfig, refreshConfigIfChanged } from "../src/config.js";
@@ -77,5 +77,25 @@ describe("storagePath from the active space", () => {
     rmSync(registryPath);
     refreshConfigIfChanged(project);
     expect(CONFIG.storagePath).toBe(globalData);
+  });
+});
+
+describe("space.json label backfill", () => {
+  it("adds the label to a space folder on the first registry read", () => {
+    useSpace("experiments", "Experiments");
+    initConfig(project);
+    expect(
+      JSON.parse(readFileSync(join(omms, "spaces", "experiments", "space.json"), "utf-8"))
+    ).toEqual({ id: "experiments", name: "Experiments", createdAt: "2026-11-06T10:00:00.000Z" });
+  });
+
+  it("adds the Default label to the global storage folder when it exists", () => {
+    mkdirSync(globalData, { recursive: true });
+    initConfig(project);
+    expect(JSON.parse(readFileSync(join(globalData, "space.json"), "utf-8"))).toEqual({
+      id: "default",
+      name: "Default",
+      createdAt: "",
+    });
   });
 });

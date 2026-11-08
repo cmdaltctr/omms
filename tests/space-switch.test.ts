@@ -43,6 +43,8 @@ const files = spaceFiles(omms);
 const defaultFolder = join(omms, "data");
 const TAG = "omms_project_0123456789abcdef";
 let project: string;
+/** The random id of the Experiments space that the first test creates. */
+let experimentsId: string;
 
 /** One hash over every file under a folder, so any change to a space's files shows up. */
 function folderHash(folder: string): string {
@@ -121,9 +123,10 @@ describe("switching the active space in a running process", () => {
     expect((await readAll()).memories.join()).toContain("memory A");
 
     const space = await createStoredSpace(files, "Experiments");
+    experimentsId = space.id;
     await switchStoredSpace(files, space.id);
     refreshConfigIfChanged(project);
-    expect(config.CONFIG.storagePath).toBe(join(files.spacesRoot, "experiments"));
+    expect(config.CONFIG.storagePath).toBe(join(files.spacesRoot, space.id));
 
     // The first read in the new space sees nothing of A.
     const empty = await readAll();
@@ -173,13 +176,13 @@ describe("switching the active space in a running process", () => {
     profiles.dedupCheckedCache.add("pair-a");
     profiles.saveColdBuffers();
 
-    await switchStoredSpace(files, "experiments");
+    await switchStoredSpace(files, experimentsId);
     refreshConfigIfChanged(project);
     expect(profiles.coldBuffers.size).toBe(0);
     expect(profiles.dedupCheckedCache.size).toBe(0);
     profiles.saveColdBuffers();
-    expect(existsSync(join(files.spacesRoot, "experiments", "cold-buffer.json"))).toBe(true);
-    expect(readFileSync(join(files.spacesRoot, "experiments", "cold-buffer.json"), "utf-8")).toBe(
+    expect(existsSync(join(files.spacesRoot, experimentsId, "cold-buffer.json"))).toBe(true);
+    expect(readFileSync(join(files.spacesRoot, experimentsId, "cold-buffer.json"), "utf-8")).toBe(
       "{}"
     );
 

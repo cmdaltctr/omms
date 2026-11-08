@@ -146,7 +146,9 @@ console.log(JSON.stringify({
     expect(result.stderr).toBe("");
     expect(result.parsed?.status).toBe("captured");
     expect(result.parsed?.linkedReads).toBe(0);
-    expect(result.parsed?.betaFiles).toEqual([]);
+    // The start-up pass writes the space.json label into every space folder,
+    // so the linked folder holds exactly that label and no store file.
+    expect(result.parsed?.betaFiles).toEqual(["space.json"]);
     expect(result.parsed?.alphaHasFiles).toBe(true);
     // The profile step found the turn the capture wrote, in the own space.
     expect(result.parsed?.profileResults).toBe(1);

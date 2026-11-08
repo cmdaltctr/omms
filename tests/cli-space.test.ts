@@ -42,24 +42,29 @@ describe("om-memory-system space", () => {
   it("lists Default as the only space at first", async () => {
     const result = await run("list");
     expect(result.code).toBe(0);
-    expect(JSON.parse(result.out)).toMatchObject({ spaces: [{ id: "default", active: true }] });
+    expect(result.out).toBe("Default (default) [active]");
   });
 
   it("creates, switches, archives and unarchives", async () => {
-    expect((await run("create", "Experiments")).code).toBe(0);
+    const created = JSON.parse((await run("create", "Experiments")).out);
+    expect(created.space.id).toMatch(/^space-[a-z0-9]{10}$/);
     expect((await run("create", "Spike")).code).toBe(0);
     const used = JSON.parse((await run("use", "Experiments")).out);
-    expect(used.activeSpace.id).toBe("experiments");
+    expect(used.activeSpace.id).toBe(created.space.id);
     expect((await run("archive", "Spike")).code).toBe(0);
     expect((await run("unarchive", "Spike")).code).toBe(0);
-    expect(JSON.parse((await run("status")).out).activeSpace.id).toBe("experiments");
+    expect(JSON.parse((await run("status")).out).activeSpace.id).toBe(created.space.id);
   });
 
   it("exits 1 and lists valid spaces when the switch is refused", async () => {
     await run("archive", "Spike");
     const result = await run("use", "Spike");
     expect(result.code).toBe(1);
-    expect(JSON.parse(result.out).error).toContain("Spaces that can become active");
+    const error = JSON.parse(result.out).error as string;
+    expect(error).toContain("Spaces that can become active");
+    expect(error).toContain("Default (default)");
+    expect(error).toMatch(/Experiments \(space-[a-z0-9]{10}\)/);
+    expect(error).not.toMatch(/Spike \(/);
   });
 
   it("exits 1 when archiving the active space", async () => {
@@ -78,6 +83,33 @@ describe("om-memory-system space", () => {
     const result = await run("explode");
     expect(result.code).toBe(1);
     expect(result.err).toContain("Usage: om-memory-system space");
+  });
+
+  it("lists each space by display name, with the id after it", async () => {
+    const work = JSON.parse((await run("create", "Work")).out);
+    const old = JSON.parse((await run("create", "Old")).out);
+    await run("use", "Work");
+    await run("archive", "Old");
+    const result = await run("list");
+    expect(result.code).toBe(0);
+    const lines = result.out.split("\n");
+    expect(lines.find((line) => line.startsWith("Work ("))).toBe(
+      `Work (${work.space.id}) [active]`
+    );
+    expect(lines.find((line) => line.startsWith("Old ("))).toBe(`Old (${old.space.id}) [archived]`);
+    expect(lines).toContain("Default (default)");
+    expect(lines.filter((line) => line.includes("[active]"))).toHaveLength(1);
+    for (const line of lines) {
+      expect(line).toMatch(/^.+ \([a-z0-9-]+\)( \[(active|archived)\])?$/);
+    }
+  });
+
+  it("names a space by display name when the caller passed the id", async () => {
+    const created = JSON.parse((await run("create", "By id")).out);
+    const archived = JSON.parse((await run("archive", created.space.id)).out);
+    expect(archived.message).toBe('Space "By id" is now archived.');
+    const back = JSON.parse((await run("unarchive", created.space.id)).out);
+    expect(back.message).toBe('Space "By id" is now not archived.');
   });
 });
 
@@ -187,10 +219,8 @@ describe("om-memory-system space transfers, links and portability", () => {
     const result = await run("import", file, "--name", "From file", "--retag-to-project", missing);
     expect(result.code).toBe(1);
     expect(JSON.parse(result.out).error).toContain("does not exist, so no space was created");
-    const spaces = JSON.parse((await run("list")).out);
-    expect((spaces.spaces as { name: string }[]).some((space) => space.name === "From file")).toBe(
-      false
-    );
+    const listed = await run("list");
+    expect(listed.out.split("\n").some((line) => line.startsWith("From file ("))).toBe(false);
   });
 });
 

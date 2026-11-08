@@ -1,4 +1,4 @@
-# ADR-044: Pi and OpenCode update OMMS by running the host's own update command
+# ADR-045: Pi and OpenCode update OMMS by running the host's own update command
 
 - **Date:** 2026-11-07
 - **Status:** Accepted

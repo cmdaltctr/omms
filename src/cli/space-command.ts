@@ -132,6 +132,22 @@ function parseSpaceArgs(argv: string[]): ParsedSpaceCommand | string {
   return parsed;
 }
 
+/** One line per space for the list action: the display name first, the id after it. */
+function spaceListLines(result: Record<string, unknown>): string[] {
+  const spaces = (result.spaces ?? []) as {
+    id: string;
+    name: string;
+    active?: boolean;
+    archived?: boolean;
+  }[];
+  return spaces.map((space) => {
+    let line = `${space.name} (${space.id})`;
+    if (space.active) line += " [active]";
+    if (space.archived) line += " [archived]";
+    return line;
+  });
+}
+
 /** Run `om-memory-system space ...` and return the process exit code. */
 export async function runSpaceCommand(argv: string[], io: SpaceCommandIO = {}): Promise<number> {
   const stdout = io.stdout ?? ((text: string) => console.log(text));
@@ -214,6 +230,12 @@ export async function runSpaceCommand(argv: string[], io: SpaceCommandIO = {}): 
   } catch (error) {
     result = { success: false, error: error instanceof Error ? error.message : String(error) };
   }
-  stdout(JSON.stringify(result, null, 2));
+  if (action === "list" && result.success !== false) {
+    // The list action prints one text line per space; every other action prints JSON.
+    if (typeof result.problem === "string") stderr(result.problem);
+    stdout(spaceListLines(result).join("\n"));
+  } else {
+    stdout(JSON.stringify(result, null, 2));
+  }
   return result.success === false ? 1 : 0;
 }

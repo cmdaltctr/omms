@@ -173,6 +173,13 @@ it("opens the edit dialog with a name field and the avatar controls of the host 
   expect(byType(tree, "input").some((n) => n.props.type === "file")).toBe(true);
 });
 
+it("shows no note about the folder under the name field", async () => {
+  const tree = await open("experiments", "Experiments");
+  const words = allText(tree);
+  expect(words).not.toContain("Only the name changes. The folder keeps its name.");
+  expect(input(tree, "space-edit-name").props["aria-describedby"]).toBeUndefined();
+});
+
 it("keeps Save disabled until the name or the look changes", async () => {
   let tree = await open("experiments", "Experiments");
   expect(buttonText(tree, "Save").props.disabled).toBe(true);

@@ -7,7 +7,7 @@
 
 ## Context
 
-The change `pi-opencode-auto-update` (ADR-044) makes Pi and OpenCode run their own update command. A live check on 2026-11-07 used OpenCode 2.2.5 in a scratch home folder. It found four faults. Unit tests had passed because they used the folder layout and the exit code that the code expected.
+The change `pi-opencode-auto-update` (ADR-045) makes Pi and OpenCode run their own update command. A live check on 2026-11-07 used OpenCode 2.2.5 in a scratch home folder. It found four faults. Unit tests had passed because they used the folder layout and the exit code that the code expected.
 
 ### Root Cause Analysis
 
@@ -64,7 +64,7 @@ The change `pi-opencode-auto-update` (ADR-044) makes Pi and OpenCode run their o
 
 ## References
 
-- [ADR-044](../adr/044-hosts-update-omms-with-their-own-command.md)
+- [ADR-045](../adr/045-hosts-update-omms-with-their-own-command.md)
 - [Updating and upgrading](../upgrading.md#updating-omms)
 - `openspec/changes/archive/2026-11-07-pi-opencode-auto-update/`
 - `src/services/host-self-update.ts`
