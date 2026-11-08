@@ -269,7 +269,7 @@ export class WebServer {
   private readonly startedAt = Date.now();
   private onPowerActionCallback: ((action: PowerAction) => unknown) | null = null;
   private webUpdate: Pick<WebUpdate, "status" | "requestInstall"> | null = null;
-  private powerActionRunning = false;
+  powerActionRunning = false; // public: the automatic update stays quiet while one runs
   private stepAsideTimer: NodeJS.Timeout | null = null;
   private holdOffTimer: NodeJS.Timeout | null = null;
   private portsExhaustedNotified = false;

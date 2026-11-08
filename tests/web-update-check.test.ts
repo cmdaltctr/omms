@@ -33,7 +33,8 @@ function fake(version: string, latest: (string | null)[], enabled = true) {
     },
     globalVersion: () => null,
     restart: async () => undefined,
-    canRestart: () => true,
+    // No restart path, so a check records a release without an automatic install.
+    canRestart: () => false,
     killTree: async () => {},
     setTimeout: () => 0,
     clearTimeout: () => {},

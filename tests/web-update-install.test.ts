@@ -32,6 +32,9 @@ async function fake(
   const timeouts: { ms: number; callback: () => void }[] = [];
   let restarts = 0;
   const npm = config.npm ?? { exit: 0 };
+  // The setup check records the release with the restart gate closed, so no
+  // automatic install starts; each test then drives requestInstall itself.
+  let canRestart = false;
   const deps: WebUpdateDeps = {
     version: "4.9.0",
     enabled: true,
@@ -43,7 +46,7 @@ async function fake(
     log: (message, data) => logs.push({ message, data }),
     execPath: config.execPath ?? "/opt/node/bin/node",
     pathEnv: "pathEnv" in config ? config.pathEnv : "/usr/bin:/bin",
-    canRestart: () => config.canRestart ?? true,
+    canRestart: () => canRestart,
     killTree: async (child) => {
       (child as InstallChild & { killed: boolean }).killed = true;
       await killDone.promise;
@@ -87,6 +90,7 @@ async function fake(
   };
   const update = new WebUpdate(deps);
   await update.check();
+  canRestart = config.canRestart ?? true;
   return { update, spawns, logs, children, timeouts, restarts: () => restarts };
 }
 /** Resolves when the fake npm tree has stopped; a test can hold it open. */

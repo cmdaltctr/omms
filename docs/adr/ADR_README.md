@@ -49,3 +49,4 @@ Local decision records for OMMS maintainers.
 | [043](./043-the-default-space-name-lives-in-the-registry.md)                | The Default space name lives in the registry                                    | 2026-11-07 | Proposed           |
 | [044](./044-new-memory-spaces-get-random-folder-ids.md)                     | New memory spaces get random folder ids                                         | 2026-11-07 | Proposed           |
 | [045](./045-hosts-update-omms-with-their-own-command.md)                    | Pi and OpenCode update OMMS by running the host's own update command            | 2026-11-07 | Accepted           |
+| [046](./046-the-web-app-updates-itself.md)                                  | The web app updates itself                                                      | 2026-11-08 | Accepted           |

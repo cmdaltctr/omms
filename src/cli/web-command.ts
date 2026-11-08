@@ -193,7 +193,13 @@ export async function runWebCommand(
   const { existsSync } = await import("node:fs");
   // Every restart onto the new copy runs the launcher, the login item's included.
   const canRestart = () => existsSync(launcherPath(ommsDir()));
-  server.setWebUpdate(startWebUpdate(() => powerAction("update"), canRestart));
+  server.setWebUpdate(
+    startWebUpdate(
+      () => powerAction("update"),
+      canRestart,
+      () => server.powerActionRunning
+    )
+  );
   // A newer `web install` asked this web app to give up the port.
   server.setOnStepAside(async () => {
     clearInterval(keeper);
