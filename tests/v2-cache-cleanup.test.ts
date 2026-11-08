@@ -10,6 +10,7 @@ const state = {
   } | null,
   prune: (async () => ({ removed: 0, kept: 0 })) as (options: any) => Promise<unknown>,
   calls: [] as any[],
+  serviceUpdates: [] as string[],
   logs: [] as { message: string; data: unknown }[],
 };
 
@@ -20,13 +21,24 @@ mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
 mock.module("../src/v2/adapter.js", () => ({ registerV2Adapter: async () => "adapter" }));
 mock.module("../src/v2/memory-bridge.js", () => ({ createV2MemoryBridge: () => ({}) }));
 mock.module("../src/v2/legacy-client.js", () => ({ createLegacyClient: () => ({}) }));
-mock.module("../src/services/host-self-update.js", () => ({
-  installedFromNpm: () => state.npm,
-}));
 mock.module("../src/services/host-copies.js", () => ({
   pruneOldCacheCopies: (options: any) => {
     state.calls.push(options);
     return state.prune(options);
+  },
+}));
+mock.module("../src/adapters/opencode/self-update.js", () => ({
+  opencodeSelfUpdateDeps: (options: any) => options,
+  startOpencodeServiceSelfUpdate: (options: any) => {
+    options.run();
+    return () => {};
+  },
+}));
+mock.module("../src/services/host-self-update.js", () => ({
+  installedFromNpm: () => state.npm,
+  startHostSelfUpdate: async (deps: any) => {
+    state.serviceUpdates.push(deps.modulePath);
+    return { code: "current", update: null };
   },
 }));
 mock.module("../src/services/runtime-record.js", () => ({
@@ -132,4 +144,12 @@ it("still runs the clean-up when the update check is turned off", async () => {
   await plugin.setup(ctx);
   await until(() => state.calls.length > 0);
   expect(state.calls).toHaveLength(1);
+});
+
+it("starts the background update check once per service, even after several setups", async () => {
+  await plugin.setup(ctx);
+  await plugin.setup(ctx);
+  await until(() => state.serviceUpdates.length > 0);
+  expect(state.serviceUpdates).toHaveLength(1);
+  expect(state.serviceUpdates[0]!.replaceAll("\\", "/")).toEndWith("/src/v2/plugin.ts");
 });

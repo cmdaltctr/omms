@@ -14,6 +14,8 @@ import { isOlderVersion } from "./version-compare.js";
 export const CACHE_PRUNE_MIN_AGE_MS = 24 * 60 * 60 * 1000;
 
 const PACKAGE_FOLDER = "/node_modules/om-memory-system";
+/** OpenCode names the cache folder after the package and the version spec, such as `om-memory-system@latest`. */
+const CACHE_FOLDER = /^om-memory-system(@.+)?$/;
 
 export interface HostCopy {
   /** The package folder: `.../node_modules/om-memory-system`. */
@@ -27,7 +29,7 @@ export interface HostCopy {
 export interface HostCopies {
   root: string;
   version: string | null;
-  /** The running copy's timestamp, or null when its folder is not a timestamp folder. */
+  /** The running copy's timestamp, or null when its folder is not a timestamp folder in an OpenCode cache. */
   stamp: number | null;
   /** Every other timestamp folder in the same cache folder. Empty without a timestamp. */
   siblings: HostCopy[];
@@ -78,8 +80,12 @@ export function listHostCopies(modulePath: string): HostCopies | null {
   const name = parts[parts.length - 1] ?? "";
   const result: HostCopies = { root, version: versionAt(root), stamp: null, siblings: [] };
   if (!/^\d+$/.test(name)) return result;
-  result.stamp = Number(name);
   const cache = stampFolder.slice(0, stampFolder.length - name.length);
+  // Only OpenCode's `om-memory-system@<spec>` folder holds timestamp copies. A project
+  // folder with a number for a name is not one, and the clean-up must never delete its siblings.
+  const cacheName = cache.replaceAll("\\", "/").split("/").filter(Boolean).pop() ?? "";
+  if (!CACHE_FOLDER.test(cacheName)) return result;
+  result.stamp = Number(name);
   try {
     const names = readdirSync(cache, { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && /^\d+$/.test(entry.name) && entry.name !== name)
@@ -127,8 +133,8 @@ export interface PruneOptions {
  * when its timestamp and its version are both older than the running copy's,
  * it is not in `keepRoots`, and the running copy is at least
  * `CACHE_PRUNE_MIN_AGE_MS` old. A copy that cannot be removed stays. Logs one
- * `OpenCode cache clean-up` record with counts when an older copy was
- * considered, so a pass with nothing to do stays silent. Never throws.
+ * `OpenCode cache clean-up` record with counts for each pass in a timestamp
+ * folder, also when the counts are zero. Never throws.
  */
 export async function pruneOldCacheCopies(
   options: PruneOptions
@@ -138,7 +144,6 @@ export async function pruneOldCacheCopies(
     const copies = listHostCopies(options.modulePath);
     if (!copies || copies.stamp === null) return counts;
     const older = copies.siblings.filter((copy) => copy.stamp < copies.stamp!);
-    if (older.length === 0) return counts;
     const keep = new Set(options.keepRoots.map(folderKey));
     const old = options.now - copies.stamp >= CACHE_PRUNE_MIN_AGE_MS;
     const remove = options.remove ?? ((folder) => rm(folder, { recursive: true, force: true }));

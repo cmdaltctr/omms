@@ -1,7 +1,9 @@
 import { afterEach, expect, it } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   createPiSelfUpdate,
   piHostSelfUpdateDeps,
@@ -306,15 +308,27 @@ it("finds the install source from the module path and Pi's settings file", () =>
 });
 
 it("reads Pi's settings file from ~/.pi/agent when PI_CODING_AGENT_DIR is not set", () => {
-  const agentDir = join(homedir(), ".pi", "agent");
+  // The default path comes from the home folder, which Bun fixes at process start. A child
+  // process with its own temporary home keeps the test away from the real ~/.pi.
+  const home = mkdtempSync(join(tmpdir(), "omms-pi-home-"));
+  tempDirs.push(home);
+  const agentDir = join(home, ".pi", "agent");
   mkdirSync(agentDir, { recursive: true });
-  tempDirs.push(join(homedir(), ".pi"));
   writeFileSync(
     join(agentDir, "settings.json"),
     JSON.stringify({ packages: [{ source: "npm:om-memory-system" }] })
   );
+  const module = pathToFileURL(join(import.meta.dir, "../src/adapters/pi/self-update.ts")).href;
   const npmPath = "/home/u/.pi/agent/npm/node_modules/om-memory-system/dist/x.js";
-  expect(piHostSelfUpdateDeps({ env: {}, modulePath: npmPath }).installSource()).toBe("npm");
+  const script = `
+const { piHostSelfUpdateDeps } = await import(${JSON.stringify(module)});
+const deps = piHostSelfUpdateDeps({ env: {}, modulePath: ${JSON.stringify(npmPath)} });
+console.log("SOURCE:" + deps.installSource());
+`;
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  delete env.PI_CODING_AGENT_DIR;
+  const child = spawnSync(process.execPath, ["-e", script], { env, encoding: "utf8" });
+  expect(`${child.stdout}${child.stderr}`).toContain("SOURCE:npm");
 });
 
 it("does not run the update again in a later session once it installed", async () => {

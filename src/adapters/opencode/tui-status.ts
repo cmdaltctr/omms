@@ -1,12 +1,7 @@
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  hostSelfUpdateDeps,
   hostUpdateStatus,
-  installedFromNpm,
   startHostSelfUpdate,
-  unpinnedCacheFolder,
   updateNotice,
   updateSuffix,
   watchHostUpdate,
@@ -14,6 +9,7 @@ import {
   type HostUpdateStatus,
 } from "../../services/host-self-update.js";
 import { ommsStatusLabel } from "../../services/status-glyphs.js";
+import { opencodeSelfUpdateDeps } from "./self-update.js";
 import { availableUpdate, latestNpmVersion } from "../../services/update-check.js";
 
 const UPDATE_COMMAND = "opencode plugin update om-memory-system";
@@ -165,16 +161,9 @@ export async function startInstalledTuiStatus(
   const host = CONFIG.webServerHost === "0.0.0.0" ? "127.0.0.1" : CONFIG.webServerHost;
   const currentVersion = packageVersion();
   const modulePath = fileURLToPath(import.meta.url);
-  const markerPath = join(homedir(), ".omms", "opencode-plugin-update.json");
-  const update = hostSelfUpdateDeps({
-    logLabel: "OpenCode plugin self-update",
-    currentVersion,
-    command: "opencode",
-    args: ["plugin", "update", "om-memory-system"],
-    markerPath,
+  const update = opencodeSelfUpdateDeps({
     modulePath,
-    installSource: () =>
-      !installedFromNpm(modulePath) ? "local" : unpinnedCacheFolder(modulePath) ? "npm" : "pinned",
+    currentVersion,
     log: (message, data) => log(message, data),
   });
   return startTuiStatus({

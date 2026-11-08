@@ -42,6 +42,38 @@ function startCacheCleanup(): void {
   })().catch(() => {});
 }
 
+let serviceUpdateStarted = false;
+
+/**
+ * Check npm for a newer OMMS from the background service too, so OpenCode
+ * without a TUI (OpenChamber, `opencode serve`) also updates. Once per
+ * process: setup can run for each project. Not awaited; a failure is ignored.
+ */
+function startServiceSelfUpdate(): void {
+  if (serviceUpdateStarted) return;
+  serviceUpdateStarted = true;
+  void (async () => {
+    const modulePath = fileURLToPath(import.meta.url);
+    const [
+      { opencodeSelfUpdateDeps, startOpencodeServiceSelfUpdate },
+      { startHostSelfUpdate },
+      { packageVersion },
+      { log },
+    ] = await Promise.all([
+      import("../adapters/opencode/self-update.js"),
+      import("../services/host-self-update.js"),
+      import("../services/package-version.js"),
+      import("../services/logger.js"),
+    ]);
+    const deps = opencodeSelfUpdateDeps({
+      modulePath,
+      currentVersion: packageVersion(),
+      log: (message, data) => log(message, data),
+    });
+    startOpencodeServiceSelfUpdate({ run: () => startHostSelfUpdate(deps) });
+  })().catch(() => {});
+}
+
 const OmmsPluginV2: Plugin = {
   id: "omms",
   async setup(ctx) {
@@ -65,6 +97,7 @@ const OmmsPluginV2: Plugin = {
       createV2MemoryBridge(ctx.location.directory)
     );
     startCacheCleanup();
+    startServiceSelfUpdate();
     return adapter;
   },
 };

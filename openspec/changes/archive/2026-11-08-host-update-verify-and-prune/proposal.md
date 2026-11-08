@@ -8,7 +8,7 @@ The live check of `pi-opencode-auto-update` found two gaps:
 ## What Changes
 
 - Before OMMS reports `installed`, it reads the installed copy and confirms that it holds the new version. When it does not, OMMS reports the update as failed: the footer keeps `· <version> available` and the message names the update command. This applies to Pi and OpenCode.
-- When the OpenCode background service starts OMMS from a timestamped cache folder, OMMS removes older OMMS copies in the same cache folder. It keeps the copy that runs, every newer copy, the copy that `~/.omms/runtime.json` records, and every copy installed less than 24 hours before the running copy. A copy that cannot be removed stays. Each pass logs one record with counts only.
+- When the OpenCode background service starts OMMS from a timestamped cache folder, OMMS removes older OMMS copies with older versions in the same cache folder. It keeps the copy that runs, every newer copy, the copy that `~/.omms/runtime.json` records, and every copy without a readable version. It removes nothing while the running copy is less than 24 hours old. A copy that cannot be removed stays. Each pass logs one record with counts only.
 - Docs say that OMMS removes old OpenCode copies.
 
 ## Capabilities

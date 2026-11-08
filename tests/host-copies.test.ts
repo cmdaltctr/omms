@@ -284,10 +284,35 @@ it("writes the record even when the 24 hour wait keeps every older copy", async 
   expect(t.logs).toEqual([{ message: "OpenCode cache clean-up", data: { removed: 0, kept: 1 } }]);
 });
 
-it("writes no record when no older copy exists", async () => {
+it("writes a zero-count record when no older copy exists, so the pass is visible", async () => {
   const none = await prune({ copies: [[RUNNING + 1_000, "4.4.0"]] });
   expect(none.result).toEqual({ removed: 0, kept: 0 });
-  expect(none.logs).toEqual([]);
+  expect(none.logs).toEqual([
+    { message: "OpenCode cache clean-up", data: { removed: 0, kept: 0 } },
+  ]);
+});
+
+it("removes nothing when the numeric folders are not an OpenCode cache", async () => {
+  // A project folder named with digits, next to another one that also holds an older OMMS.
+  const dir = mkdtempSync(join(tmpdir(), "omms-host-copies-"));
+  tempDirs.push(dir);
+  const projects = join(dir, "projects");
+  const running = addCopy(projects, 2024, "4.3.0");
+  const other = addCopy(projects, 2023, "4.2.0");
+  writeFileSync(join(projects, "2023", "keep-me.txt"), "user data");
+  expect(listHostCopies(modulePathOf(running))!.stamp).toBeNull();
+  const logs: unknown[] = [];
+  const result = await pruneOldCacheCopies({
+    modulePath: modulePathOf(running),
+    runningVersion: "4.3.0",
+    keepRoots: [],
+    now: Date.now(),
+    log: (message) => void logs.push(message),
+  });
+  expect(result).toEqual({ removed: 0, kept: 0 });
+  expect(logs).toEqual([]);
+  expect(existsSync(other)).toBe(true);
+  expect(existsSync(join(projects, "2023", "keep-me.txt"))).toBe(true);
 });
 
 it("does nothing and writes no record outside a timestamp folder", async () => {
@@ -351,7 +376,12 @@ it("keeps a recorded copy named through a symbolic link", async () => {
     copies: [[RUNNING - 1_000, "4.2.0"]],
     keep: (cache) => {
       const link = join(links, "recorded");
-      symlinkSync(join(cache, String(RUNNING - 1_000), "node_modules", "om-memory-system"), link);
+      // A junction needs no symbolic-link privilege on Windows; other systems treat it as a symbolic link.
+      symlinkSync(
+        join(cache, String(RUNNING - 1_000), "node_modules", "om-memory-system"),
+        link,
+        "junction"
+      );
       return [link];
     },
   });

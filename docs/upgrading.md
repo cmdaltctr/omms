@@ -9,8 +9,9 @@ shows. Pi and OpenCode then install each new release by themselves.
 
 When a Pi or OpenCode session starts, OMMS compares its version with npm
 `latest`. If npm has a newer release (not a prerelease), OMMS runs the host
-update command in the background. OpenCode also checks every 6 hours. A second
-session does not start another update for the same release within 30 minutes.
+update command in the background. OpenCode also checks every 6 hours. The
+OpenCode background service runs the same check, so OpenCode without its TUI
+(for example OpenChamber) also updates. A second session does not start another update for the same release within 30 minutes.
 
 | Agent       | Command that OMMS runs. You can run it by hand too.                     |
 | ----------- | ----------------------------------------------------------------------- |
