@@ -2,6 +2,25 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.10.0](https://github.com/cmdaltctr/omms/compare/v5.9.1...v5.10.0) (2026-11-10)
+
+
+### Features
+
+* add memorisations, short saved snapshots with ms- IDs ([7dd3563](https://github.com/cmdaltctr/omms/commit/7dd3563973f67ce588f2a41c8578050b90b848e5))
+* add memorisations, short saved snapshots with ms- IDs ([24ed99a](https://github.com/cmdaltctr/omms/commit/24ed99a3c507bf7564d25a5acef2dbd674e8333c))
+
+
+### Bug Fixes
+
+* search recall with the user's words, not the skill text ([91f861f](https://github.com/cmdaltctr/omms/commit/91f861ffdb0ef36e0c3b85b6423acbcb32c62da5))
+* use a new temp file name for each lock replace retry ([17d83f6](https://github.com/cmdaltctr/omms/commit/17d83f6ac99c6a4aac10579e3983517e8ca6215f))
+
+
+### Documentation
+
+* propose add-memorisation OpenSpec change ([c5867df](https://github.com/cmdaltctr/omms/commit/c5867df21b2f9be4115bd7bf92cfbfb99e74ffed))
+
 ## [5.9.1](https://github.com/cmdaltctr/omms/compare/v5.9.0...v5.9.1) (2026-11-08)
 
 
