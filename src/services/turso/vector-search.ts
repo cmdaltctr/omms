@@ -1,6 +1,6 @@
 import { tursoConnectionManager } from "./connection-manager.js";
 import { log } from "../logger.js";
-import type { MemoryRecord, SearchResult, ShardInfo } from "./types.js";
+import type { SearchResult, ShardInfo } from "./types.js";
 import { distanceToSimilarity, vectorToJson } from "./vector-utils.js";
 import { tagMatchBoost } from "./tag-match.js";
 import { exactScanKind } from "./exact-scan.js";
@@ -8,7 +8,8 @@ import { boostedSimilarity, searchKeywords } from "./keyword-search.js";
 import { fuseShardResults } from "./rank-fusion.js";
 import type { KeywordMode } from "../../utils/keyword-boost.js";
 import type { TursoDb } from "./turso-db.js";
-import type { Transaction } from "@libsql/client";
+import { tursoVectorWrites } from "./vector-writes.js";
+import { memoryKindPredicate, type MemoryKind } from "../memory-kind.js";
 
 function parseMetadata(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "string") return undefined;
@@ -20,93 +21,8 @@ function parseMetadata(value: unknown): Record<string, unknown> | undefined {
 }
 
 export class TursoVectorSearch {
-  async insertVectorInTransaction(tx: Transaction, record: MemoryRecord): Promise<void> {
-    const contentVector = vectorToJson(record.vector);
-    const commonArgs = [
-      record.containerTag,
-      record.tags || null,
-      record.type || null,
-      record.createdAt,
-      record.updatedAt,
-      record.metadata || null,
-      record.displayName || null,
-      record.userName || null,
-      record.userEmail || null,
-      record.projectPath || null,
-      record.projectName || null,
-      record.gitRepoUrl || null,
-    ];
-
-    if (record.tagsVector) {
-      await tx.execute({
-        sql: `
-        INSERT INTO memories (
-          id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-          metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url
-        ) VALUES (?, ?, vector32(?), vector32(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-        args: [
-          record.id,
-          record.content,
-          contentVector,
-          vectorToJson(record.tagsVector),
-          ...commonArgs,
-        ],
-      });
-      return;
-    }
-
-    await tx.execute({
-      sql: `
-      INSERT INTO memories (
-        id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-        metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url
-      ) VALUES (?, ?, vector32(?), NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-      args: [record.id, record.content, contentVector, ...commonArgs],
-    });
-  }
-
-  async insertVector(db: TursoDb, record: MemoryRecord): Promise<void> {
-    const contentVector = vectorToJson(record.vector);
-    const commonArgs = [
-      record.containerTag,
-      record.tags || null,
-      record.type || null,
-      record.createdAt,
-      record.updatedAt,
-      record.metadata || null,
-      record.displayName || null,
-      record.userName || null,
-      record.userEmail || null,
-      record.projectPath || null,
-      record.projectName || null,
-      record.gitRepoUrl || null,
-    ];
-
-    if (record.tagsVector) {
-      await db.execute(
-        `
-        INSERT INTO memories (
-          id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-          metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url
-        ) VALUES (?, ?, vector32(?), vector32(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-        [record.id, record.content, contentVector, vectorToJson(record.tagsVector), ...commonArgs]
-      );
-      return;
-    }
-
-    await db.execute(
-      `
-      INSERT INTO memories (
-        id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-        metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url
-      ) VALUES (?, ?, vector32(?), NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-      [record.id, record.content, contentVector, ...commonArgs]
-    );
-  }
+  insertVectorInTransaction = tursoVectorWrites.insertVectorInTransaction.bind(tursoVectorWrites);
+  insertVector = tursoVectorWrites.insertVector.bind(tursoVectorWrites);
 
   async searchInShard(
     shard: ShardInfo,
@@ -118,7 +34,8 @@ export class TursoVectorSearch {
     keywordMode: KeywordMode = "boost",
     /** Opens the shard database; linked-space searches pass a read-only opener. */
     openDb: (dbPath: string) => Promise<TursoDb> = (dbPath) =>
-      tursoConnectionManager.getConnection(dbPath)
+      tursoConnectionManager.getConnection(dbPath),
+    kind: MemoryKind = "normal"
   ): Promise<SearchResult[]> {
     const db = await openDb(shard.dbPath);
     const queryJson = vectorToJson(queryVector);
@@ -132,7 +49,9 @@ export class TursoVectorSearch {
       k,
       containerTag,
       "memories_vec_idx",
-      "vector"
+      "vector",
+      kind,
+      limit
     );
     const tagsResults = await this.searchKind(
       db,
@@ -140,7 +59,9 @@ export class TursoVectorSearch {
       k,
       containerTag,
       "memories_tags_vec_idx",
-      "tags_vector"
+      "tags_vector",
+      kind,
+      limit
     );
 
     const candidateIds = new Set<string>();
@@ -148,7 +69,7 @@ export class TursoVectorSearch {
     for (const result of tagsResults) candidateIds.add(result.id);
     const kwHits =
       keywordBoost > 0
-        ? await searchKeywords(db, queryText, containerTag, Math.max(limit * 4, 32))
+        ? await searchKeywords(db, queryText, containerTag, Math.max(limit * 4, 32), kind)
         : null;
     for (const id of kwHits?.scores.keys() ?? []) candidateIds.add(id);
 
@@ -169,7 +90,7 @@ export class TursoVectorSearch {
                THEN vector_distance_cos(tags_vector, vector32(?))
                ELSE NULL END AS tags_dist
       FROM memories
-      WHERE id IN (${placeholders})
+      WHERE id IN (${placeholders}) AND ${memoryKindPredicate("type", kind)}
     `
         : `
       SELECT id, content, tags, type, created_at, metadata, container_tag,
@@ -180,7 +101,7 @@ export class TursoVectorSearch {
                THEN vector_distance_cos(tags_vector, vector32(?))
                ELSE NULL END AS tags_dist
       FROM memories
-      WHERE id IN (${placeholders}) AND container_tag = ?
+      WHERE id IN (${placeholders}) AND container_tag = ? AND ${memoryKindPredicate("type", kind)}
     `,
       containerTag === ""
         ? [queryJson, queryJson, ...ids]
@@ -197,7 +118,9 @@ export class TursoVectorSearch {
       const exactMatchBoost = tagMatchBoost(queryText, memoryTagsStr);
 
       const finalTagsSim = Math.max(tagsSim, exactMatchBoost);
-      const base = contentSim * 0.6 + finalTagsSim * 0.4;
+      // Every memorisation carries the same tag, so the tags half is near constant and
+      // pulls a close match down. Score memorisations by content alone.
+      const base = kind === "memorisation" ? contentSim : contentSim * 0.6 + finalTagsSim * 0.4;
       const similarity = boostedSimilarity(base, kwHits, String(row.id), keywordBoost, keywordMode);
 
       return {
@@ -232,8 +155,16 @@ export class TursoVectorSearch {
     k: number,
     containerTag: string,
     indexName: string,
-    columnName: string
+    columnName: string,
+    kind: MemoryKind = "normal",
+    wanted = 0
   ): Promise<Array<{ id: string; similarity: number }>> {
+    // The ANN index covers every row, and the kind filter runs after it. Normal rows
+    // can fill all k candidates and hide the few memorisations. Memorisations are few,
+    // so scan them exactly; the exact scan filters by kind in SQL.
+    if (kind === "memorisation") {
+      return exactScanKind(db, queryJson, k, containerTag, columnName, kind);
+    }
     try {
       const rows = await db.all(
         containerTag === ""
@@ -241,16 +172,22 @@ export class TursoVectorSearch {
           SELECT m.id AS id, vector_distance_cos(m.${columnName}, vector32(?)) AS dist
           FROM vector_top_k('${indexName}', vector32(?), ?) AS v
           CROSS JOIN memories m ON m.rowid = v.id
-          WHERE m.${columnName} IS NOT NULL
+          WHERE m.${columnName} IS NOT NULL AND ${memoryKindPredicate("m.type", kind)}
         `
           : `
           SELECT m.id AS id, vector_distance_cos(m.${columnName}, vector32(?)) AS dist
           FROM vector_top_k('${indexName}', vector32(?), ?) AS v
           CROSS JOIN memories m ON m.rowid = v.id
-          WHERE m.${columnName} IS NOT NULL AND m.container_tag = ?
+          WHERE m.${columnName} IS NOT NULL AND m.container_tag = ? AND ${memoryKindPredicate("m.type", kind)}
         `,
         containerTag === "" ? [queryJson, queryJson, k] : [queryJson, queryJson, k, containerTag]
       );
+
+      // Memorisations or other projects can fill the k candidates and the filters then
+      // drop them all. A short result is rare, so only then pay for the exact scan.
+      if (rows.length < wanted) {
+        return exactScanKind(db, queryJson, k, containerTag, columnName, kind);
+      }
 
       return rows.map((row) => ({
         id: String(row.id),
@@ -265,7 +202,7 @@ export class TursoVectorSearch {
         },
         "warn"
       );
-      return exactScanKind(db, queryJson, k, containerTag, columnName);
+      return exactScanKind(db, queryJson, k, containerTag, columnName, kind);
     }
   }
 
@@ -279,7 +216,8 @@ export class TursoVectorSearch {
     keywordBoost = 0,
     keywordMode: KeywordMode = "boost",
     /** Opens each shard database; linked-space searches pass a read-only opener. */
-    openDb?: (dbPath: string) => Promise<TursoDb>
+    openDb?: (dbPath: string) => Promise<TursoDb>,
+    kind: MemoryKind = "normal"
   ): Promise<{ results: SearchResult[]; warnings: string[] }> {
     const shardErrors: Array<{ shardId: number; error: string }> = [];
 
@@ -293,7 +231,8 @@ export class TursoVectorSearch {
           queryText,
           keywordBoost,
           keywordMode,
-          openDb
+          openDb,
+          kind
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -377,12 +316,14 @@ export class TursoVectorSearch {
   async listMemories(
     db: TursoDb,
     containerTag: string,
-    limit: number
+    limit: number,
+    kind: MemoryKind = "normal"
   ): Promise<Record<string, unknown>[]> {
     return containerTag === ""
       ? db.all(
           `
       SELECT * FROM memories
+      WHERE ${memoryKindPredicate("type", kind)}
       ORDER BY created_at DESC
       LIMIT ?
     `,
@@ -391,7 +332,7 @@ export class TursoVectorSearch {
       : db.all(
           `
       SELECT * FROM memories
-      WHERE container_tag = ?
+      WHERE container_tag = ? AND ${memoryKindPredicate("type", kind)}
       ORDER BY created_at DESC
       LIMIT ?
     `,
@@ -399,8 +340,14 @@ export class TursoVectorSearch {
         );
   }
 
-  async getAllMemories(db: TursoDb): Promise<Record<string, unknown>[]> {
-    return db.all(`SELECT * FROM memories ORDER BY created_at DESC`);
+  /** Every row of one kind. Pass "all" only for kind-neutral readers such as export. */
+  async getAllMemories(
+    db: TursoDb,
+    kind: MemoryKind | "all" = "normal"
+  ): Promise<Record<string, unknown>[]> {
+    return db.all(
+      `SELECT * FROM memories WHERE ${kind === "all" ? "1 = 1" : memoryKindPredicate("type", kind)} ORDER BY created_at DESC`
+    );
   }
 
   async getAllMemoriesWithExtractedVectors(
@@ -422,11 +369,15 @@ export class TursoVectorSearch {
     return db.get(`SELECT * FROM memories WHERE id = ?`, [memoryId]);
   }
 
-  async getMemoriesBySessionID(db: TursoDb, sessionID: string): Promise<Record<string, unknown>[]> {
+  async getMemoriesBySessionID(
+    db: TursoDb,
+    sessionID: string,
+    kind: MemoryKind = "normal"
+  ): Promise<Record<string, unknown>[]> {
     const rows = await db.all(
       `
       SELECT * FROM memories
-      WHERE metadata LIKE ?
+      WHERE metadata LIKE ? AND ${memoryKindPredicate("type", kind)}
       ORDER BY created_at DESC
     `,
       [`%"sessionID":"${sessionID}"%`]

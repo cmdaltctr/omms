@@ -32,6 +32,9 @@ type PiBackfillTask = { controller: AbortController; promise: Promise<void> };
 
 const MEMORY_TOOL_MODES = [
   "add",
+  "memorise",
+  "memorize",
+  "recall",
   "search",
   "profile",
   "list",
@@ -416,6 +419,10 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
       query: Type.Optional(Type.String()),
       tags: Type.Optional(Type.String()),
       type: Type.Optional(Type.String()),
+      topic: Type.Optional(Type.String()),
+      done: Type.Optional(Type.String()),
+      doing: Type.Optional(Type.String()),
+      next: Type.Optional(Type.String()),
       memoryId: Type.Optional(Type.String()),
       limit: Type.Optional(Type.Number()),
       scope: Type.Optional(Type.Union([Type.Literal("project"), Type.Literal("all-projects")])),

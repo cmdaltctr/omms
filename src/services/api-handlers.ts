@@ -15,6 +15,14 @@ import { saveProfile } from "./user-profile/merge-and-save.js";
 import { sortProfileItems, stripProfileVectors } from "../utils/profile.js";
 import { resolveWebProfileUserId } from "./profile-identity.js";
 import type { ShardInfo } from "./turso/types.js";
+import { UNTAGGED_NORMAL_PREDICATE } from "./memory-kind.js";
+import {
+  loadMemoryRows,
+  memorisationIdsAmong,
+  MEMORISATION_EDIT_REFUSAL,
+  MEMORISATION_TYPE_REFUSAL,
+  webUpdateRefusal,
+} from "./web-memory-rows.js";
 
 async function getAllMemoryShards(): Promise<ShardInfo[]> {
   await ensureTursoReady();
@@ -148,41 +156,6 @@ export async function handleListTags(): Promise<ApiResponse<{ project: TagInfo[]
     log("handleListTags: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
   }
-}
-
-/** Reads stored memory rows for one project tag, or for every project and user shard. */
-async function loadMemoryRows(tag?: string): Promise<any[]> {
-  const allMemories: any[] = [];
-  if (tag) {
-    const { scope: tagScope, hash } = extractScopeFromTag(tag);
-    const shards = await tursoShardManager.getAllShards(tagScope, hash);
-    for (const shard of shards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const memories = await tursoVectorSearch.listMemories(db, tag, 10000);
-      allMemories.push(...memories);
-    }
-  } else {
-    // Iterate both project- and user-scoped shards. Previously this only
-    // walked project shards, which silently hid user-scope memories from the
-    // listing endpoint (Web UI navigation, /api/memories without a tag
-    // filter, …). User-scope memories still showed up in /api/search and
-    // /api/stats `byType`, but were invisible in /api/stats `byScope` and
-    // unbrowseable in the UI — a confusing UX gap. The filter keeps the
-    // defense-in-depth check on container_tag, just widens it to both
-    // canonical scope markers.
-    const projectShards = await tursoShardManager.getAllShards("project", "");
-    const userShards = await tursoShardManager.getAllShards("user", "");
-    for (const shard of [...projectShards, ...userShards]) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const memories = await tursoVectorSearch.getAllMemories(db);
-      allMemories.push(
-        ...memories.filter(
-          (m: any) => m.container_tag?.includes("_project_") || m.container_tag?.includes("_user_")
-        )
-      );
-    }
-  }
-  return allMemories;
 }
 
 /** Labels (comma-separated memory tags) with how many memories carry each one. */
@@ -361,6 +334,7 @@ export async function handleAddMemory(data: {
     if (!data.content || !data.containerTag) {
       return { success: false, error: "content and containerTag are required" };
     }
+    if (data.type === "memorisation") return { success: false, error: MEMORISATION_TYPE_REFUSAL };
     await ensureTursoReady();
     await embeddingService.warmup();
     const tags = (data.tags || []).map((t) => t.trim().toLowerCase());
@@ -449,6 +423,9 @@ export async function handleBulkDelete(
 ): Promise<ApiResponse<{ deleted: number }>> {
   try {
     if (!ids || ids.length === 0) return { success: false, error: "ids array is required" };
+    if ((await memorisationIdsAmong(ids)).length > 0) {
+      return { success: false, error: MEMORISATION_EDIT_REFUSAL };
+    }
     let deleted = 0;
     for (const id of ids) {
       const result = await handleDeleteMemory(id, cascade);
@@ -467,6 +444,8 @@ export async function handleUpdateMemory(
 ): Promise<ApiResponse<void>> {
   try {
     if (!id) return { success: false, error: "id is required" };
+    const refusal = await webUpdateRefusal(id, data);
+    if (refusal) return { success: false, error: refusal };
     await embeddingService.warmup();
 
     // Find the existing memory first (read-only — no data modified yet)
@@ -1212,12 +1191,11 @@ export async function handleDetectTagMigration(): Promise<
 > {
   try {
     await ensureTursoReady();
-    const projectShards = await tursoShardManager.getAllShards("project", "");
     let untaggedCount = 0;
-    for (const shard of projectShards) {
+    for (const shard of await tursoShardManager.getAllShards("project", "")) {
       const db = await tursoConnectionManager.getConnection(shard.dbPath);
       const row = await db.get(
-        "SELECT COUNT(*) as count FROM memories WHERE tags IS NULL OR tags = ''"
+        `SELECT COUNT(*) as count FROM memories WHERE ${UNTAGGED_NORMAL_PREDICATE}`
       );
       untaggedCount += Number(row?.count ?? 0);
     }
@@ -1276,7 +1254,7 @@ export async function handleRunTagMigrationBatch(
       for (const shard of await tursoShardManager.getAllShards("project", "")) {
         const db = await tursoConnectionManager.getConnection(shard.dbPath);
         const rows = await db.all(
-          "SELECT id FROM memories WHERE tags IS NULL OR tags = '' ORDER BY id"
+          `SELECT id FROM memories WHERE ${UNTAGGED_NORMAL_PREDICATE} ORDER BY id`
         );
         for (const row of rows) migrationQueue.push({ id: String(row.id), dbPath: shard.dbPath });
       }

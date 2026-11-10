@@ -4,6 +4,7 @@ export const ROUTES = {
   profile: "/user-profile",
   settings: "/settings",
   memory: "/memory",
+  memorisation: "/memorisation",
   chat: "/chat",
   skills: "/skills",
   spaces: "/spaces",
@@ -11,7 +12,15 @@ export const ROUTES = {
 } as const;
 
 export type AppView =
-  "project" | "profile" | "settings" | "memory" | "chat" | "skills" | "spaces" | "spaces-archive";
+  | "project"
+  | "profile"
+  | "settings"
+  | "memory"
+  | "memorisation"
+  | "chat"
+  | "skills"
+  | "spaces"
+  | "spaces-archive";
 
 /** The Memory page's views after the overview, in sidebar order. */
 export const MEMORY_VIEWS = ["pi", "opencode", "claude-code", "shared"] as const;
@@ -39,6 +48,7 @@ export function viewFromPath(pathname: string): AppView {
   const path = normalizePath(pathname);
   if (isMemoryPath(path)) return "memory";
   if (path === ROUTES.settings) return "settings";
+  if (path === ROUTES.memorisation) return "memorisation";
   if (path === ROUTES.chat) return "chat";
   if (path === ROUTES.skills) return "skills";
   if (path === ROUTES.spaces) return "spaces";
@@ -49,6 +59,7 @@ export function viewFromPath(pathname: string): AppView {
 export function pathForView(view: AppView): string {
   if (view === "memory") return ROUTES.memory;
   if (view === "settings") return ROUTES.settings;
+  if (view === "memorisation") return ROUTES.memorisation;
   if (view === "chat") return ROUTES.chat;
   if (view === "skills") return ROUTES.skills;
   if (view === "spaces") return ROUTES.spaces;
@@ -63,6 +74,7 @@ export function isAppPath(pathname: string): boolean {
     path === ROUTES.project ||
     path === ROUTES.profile ||
     path === ROUTES.settings ||
+    path === ROUTES.memorisation ||
     isMemoryPath(path) ||
     path === ROUTES.chat ||
     path === ROUTES.skills ||

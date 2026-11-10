@@ -16,6 +16,7 @@ const requiredFiles = [
   "dist/adapters/pi/extension.js",
   "dist/web/index.html",
   "skills/omms-memory/SKILL.md",
+  "skills/omms-remember/SKILL.md",
 ];
 
 const missing = requiredFiles.filter((file) => !existsSync(join(root, file)));

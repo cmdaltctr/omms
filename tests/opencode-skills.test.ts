@@ -37,7 +37,7 @@ it("skips a missing folder and leaves the config unchanged", () => {
   }
 });
 
-it("adds the omms-memory skill to the V2 skill list once", () => {
+it("adds the omms-memory and omms-remember skills to the V2 skill list once", () => {
   const skills: any[] = [];
   const editor = {
     get: (id: string) => skills.find((skill) => skill.id === id),
@@ -45,7 +45,7 @@ it("adds the omms-memory skill to the V2 skill list once", () => {
   };
   addPackageSkill(editor, folder);
   addPackageSkill(editor, folder);
-  expect(skills).toHaveLength(1);
+  expect(skills).toHaveLength(2);
   expect(skills[0]).toMatchObject({
     id: "omms-memory",
     name: "omms-memory",
@@ -53,6 +53,12 @@ it("adds the omms-memory skill to the V2 skill list once", () => {
   });
   expect(skills[0].description).toContain("debug");
   expect(skills[0].content).toContain("om-memory-system memory search");
+  expect(skills[1]).toMatchObject({
+    id: "omms-remember",
+    name: "omms-remember",
+    path: join(folder, "omms-remember", "SKILL.md"),
+  });
+  expect(skills[1].description).toContain("snapshot");
 });
 
 it("wires both OpenCode hooks to the shared helper", async () => {

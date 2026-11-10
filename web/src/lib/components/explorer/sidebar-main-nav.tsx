@@ -1,5 +1,5 @@
 import type { ComponentProps, ComponentType, MouseEvent, ReactElement } from "react";
-import { Folder, MessageSquare, Sparkles, User } from "lucide-react";
+import { BookOpen, Folder, MessageSquare, Sparkles, User } from "lucide-react";
 import { ProfileTree } from "./ProfileTree";
 import { SidebarNavLink } from "./SidebarNavLink";
 import { SpaceNav } from "$lib/components/spaces";
@@ -8,13 +8,14 @@ import { ROUTES, type AppView } from "$lib/router";
 type NavIcon = ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
 
 /**
- * The sidebar's main links in order, after the Spaces item: Chat comes first. Memory and Settings follow,
+ * The sidebar's main links in order, after the Spaces item: Chat comes first, Memorisation follows Project memories. Memory and Settings follow,
  * each with its own tree.
  */
 export const MAIN_NAV = [
   { view: "chat", href: ROUTES.chat, icon: MessageSquare },
   { view: "project", href: ROUTES.project, icon: Folder },
   { view: "profile", href: ROUTES.profile, icon: User },
+  { view: "memorisation", href: ROUTES.memorisation, icon: BookOpen },
   { view: "skills", href: ROUTES.skills, icon: Sparkles },
 ] as const satisfies readonly { view: AppView; href: string; icon: NavIcon }[];
 

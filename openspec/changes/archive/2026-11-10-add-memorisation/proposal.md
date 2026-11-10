@@ -2,11 +2,11 @@
 
 ## Why
 
-Agents lose track of where work stopped between sessions. Today the only way to keep a note is `memory add`. That note joins the general store, ranks by fuzzy search, can be deleted as an exact duplicate, and shows up in automatic recall whether the user wants it or not. Users need a small, exact record they save on purpose and fetch on purpose: "what were we going to do with xyz", or "recall mz-4k7q2p".
+Agents lose track of where work stopped between sessions. Today the only way to keep a note is `memory add`. That note joins the general store, ranks by fuzzy search, can be deleted as an exact duplicate, and shows up in automatic recall whether the user wants it or not. Users need a small, exact record they save on purpose and fetch on purpose: "what were we going to do with xyz", or "recall ms-4k7q2p".
 
 ## What Changes
 
-- New record kind: a **memorisation**. It is stored word for word with a short ID (for example `mz-4k7q2p`) and the label `memorisation`. Nothing merges, rewrites or ages it out.
+- New record kind: a **memorisation**. It is stored word for word with a short ID (for example `ms-4k7q2p`) and the label `memorisation`. Nothing merges, rewrites or ages it out.
 - Two kinds of memorisation:
   - **Session snapshot**: short fields for done, doing and next, written by the agent from what it already holds in context. It never reads the whole session history.
   - **Explicit**: text the user gives, stored as given.
@@ -35,7 +35,7 @@ Agents lose track of where work stopped between sessions. Today the only way to 
 - Maintenance paths: `deduplication-service.ts`, `cleanup-service.ts`, the AI tag backfill in `api-handlers.ts`, `src/core/capture.ts`.
 - Tool and CLI: `src/core/memory-operations.ts`, `memory-tool-text.ts`, `src/v2/adapter.ts`, `src/index.ts` (V1 executor that V2 delegates to), `src/adapters/pi/extension.ts`, `hooks/omms-memory-tool.jsx`, `src/cli/memory-command.ts`.
 - Config: `src/config.ts`, `config-template.ts`, `global-config-writer.ts`, `settings-snapshot.ts`.
-- Web: `web/src/lib/routes.ts`, sidebar nav, `App.tsx`, a new page, i18n tables, new API routes in `web-server.ts`.
+- Web: `web/src/lib/routes.ts`, sidebar nav, `App.tsx`, a new page, i18n tables, new API routes in `src/services/memorisation-routes.ts`, registered in `src/services/web-route-modules.ts`.
 - Skills: new `skills/omms-remember/`, an update to `skills/omms-memory/SKILL.md`, OpenCode skill registration in `package-skills.ts`.
 - Docs: `docs/using-memory.md`, `docs/cli.md`, `docs/configuration.md`, `docs/web-ui-memory.md`, `docs/README.md`.
 - No new dependency. No schema migration: the existing `type` column and `tags` carry the marker.

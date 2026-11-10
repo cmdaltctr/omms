@@ -32,7 +32,7 @@ The omms-remember skill SHALL tell the agent to save the snapshot with the `memo
 #### Scenario: Claude Code with the OMMS plugin
 
 - **WHEN** the skill runs in Claude Code and `mcp__omms__memory` is in the tool list
-- **THEN** the agent saves through that tool with mode `memorise` and replies with the `mz-` ID
+- **THEN** the agent saves through that tool with mode `memorise` and replies with the `ms-` ID
 
 ### Requirement: Skills route "what were we going to do" questions to recall
 
@@ -45,5 +45,19 @@ The omms-memory and omms-remember skills SHALL tell the agent to use mode `recal
 
 #### Scenario: Quoted ID
 
-- **WHEN** the user writes "recall mz-4k7q2p"
-- **THEN** the skill directs the agent to call `recall` with `mz-4k7q2p`
+- **WHEN** the user writes "recall ms-4k7q2p"
+- **THEN** the skill directs the agent to call `recall` with `ms-4k7q2p`
+
+### Requirement: omms-remember keeps the labels the user names
+
+The omms-remember skill SHALL tell the agent that, when the user names labels, it SHALL pass every one of them in `tags` exactly as written and never drop one. It SHALL also tell the agent to add 1 to 3 labels of its own. The omms-memory and omms-remember skills SHALL tell the agent to recall by label with mode `recall` and `tags`, and SHALL treat "the memorisation labelled X" as that call, not as `search`.
+
+#### Scenario: User names labels
+
+- **WHEN** the user says "memorise this, we should do a, b, c, label it release, wip"
+- **THEN** the skill directs the agent to call `memorise` with `tags` that holds `release` and `wip` plus 1 to 3 labels the agent chose
+
+#### Scenario: Recall by label
+
+- **WHEN** the user asks for "the memorisation labelled release"
+- **THEN** the skill directs the agent to call `memory` with mode `recall` and `tags` "release"

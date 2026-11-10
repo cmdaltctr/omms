@@ -30,6 +30,22 @@ Search first:
 - when the user refers to earlier work, for example "we fixed this before", "last time", "remember", or "did we";
 - before a decision about project conventions, tools, or structure.
 
+Use `recall` instead when the user quotes a memorisation ID or asks what was planned or memorised, for example "what were we gonna do with the release notes" or "what did I memorise". Recall searches memorisations only. When the user asks for the memorisation labelled X, use `recall` with `tags: "X"`, not `search`. Use `search` for other questions about earlier work.
+
+```text
+memory({ mode: "recall", query: "<ms- ID or topic>" })
+memory({ mode: "recall", tags: "<label1,label2>" })
+```
+
+With the command:
+
+```bash
+om-memory-system memory recall "<ms- ID or topic>"
+om-memory-system memory recall --tags "<label1,label2>"
+```
+
+A labelled recall returns only memorisations that carry every label. Add a query to narrow by text as well.
+
 With the `memory` tool:
 
 ```text
@@ -84,6 +100,8 @@ Types:
 | Mode          | Options                                                                                                                                      |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `search`      | query, limit, scope                                                                                                                          |
+| `memorise`    | content, or topic, done, doing and next for a session snapshot; tags (labels)                                                                |
+| `recall`      | query (a memorisation ID or topic), tags (labels), limit                                                                                     |
 | `add`         | content, type, tags                                                                                                                          |
 | `list`        | limit, scope                                                                                                                                 |
 | `forget`      | the memory id                                                                                                                                |

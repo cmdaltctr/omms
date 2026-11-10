@@ -460,6 +460,49 @@ scenario = {
     expect(out.sourcesUnchanged).toBe(true);
   });
 
+  it("skips a turn that saved a memorisation and records the reason in the ledger", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot, { recursive: true });
+writeV3Session({
+  file: sessionRoot + "/s1.jsonl",
+  sessionId: "sess-memorise",
+  cwd: projectA,
+  windows: [
+    {
+      userText: "Save where we are",
+      assistantText: "Snapshot saved as ms-ke8zw6",
+      toolCall: { name: "memory", args: { mode: "memorise", topic: "Rollout", next: "widen" } },
+      toolResultText: '{"success":true,"id":"ms-ke8zw6"}',
+      timestamp: "2026-01-01T10:00:00.000Z",
+    },
+    {
+      userText: "Add retry to uploader",
+      assistantText: "Added backoff",
+      toolCall: { name: "memory", args: { mode: "memorise", topic: "Retry" } },
+      toolResultText: '{"success":false,"error":"refused"}',
+      timestamp: "2026-01-02T10:00:00.000Z",
+    },
+  ],
+});
+const report = await importPiHistory(
+  { loadSession: loadPiSessionForImport, provider },
+  { ...${JSON.stringify(DEFAULT_FILTERS)}, root: sessionRoot }
+);
+scenario = {
+  report,
+  providerCalls: providerCalls.length,
+  memories: (await storedMemories()).length,
+  rows: (await ledgerRows()).map((r) => ({ status: r.status, skip_reason: r.skip_reason })),
+};
+`);
+    expect(out.report.unitsSkipped).toBe(1);
+    expect(out.report.unitsImported).toBe(1);
+    expect(out.providerCalls).toBe(1);
+    expect(out.memories).toBe(1);
+    expect(out.rows.find((r: any) => r.status === "skipped").skip_reason).toBe("memorisation-turn");
+  });
+
   it("reconciles a crash between memory insert and ledger commit", () => {
     const out = runScenario(`
 const { mkdirSync } = await import("node:fs");

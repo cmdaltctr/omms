@@ -1,4 +1,5 @@
 import { describe, expect, test } from "claude-code/testing";
+import { registerMemoryTool } from "./omms-memory-tool.jsx";
 
 // Run with `claude plugin test` (`bash scripts/test-claude-mod.sh`). `bun test`
 // does not run this file: the engine's own test kit supplies `claude-code/testing`.
@@ -17,7 +18,12 @@ const ok = (stdout: string) => ({
 type Run = { argv: readonly string[]; cwd?: string; timeoutMs?: number };
 
 /** Starts a session with stand-ins for tool registration and the launcher. */
-async function start($: any, on: any, answer: (argv: readonly string[]) => any = () => ok("{}")) {
+async function start(
+  $: any,
+  on: any,
+  answer: (argv: readonly string[]) => any = () => ok("{}"),
+  sessionId: string | null = "ses-42"
+) {
   const runs: Run[] = [];
   const registered: any[] = [];
   on("session.start", (_$: any, e: any) => ({ cwd: e.cwd }));
@@ -30,6 +36,10 @@ async function start($: any, on: any, answer: (argv: readonly string[]) => any =
     return { value: answer(e.argv) };
   });
   on("session.cwd", () => ({ value: "/work" }));
+  on("session.id", () => {
+    if (sessionId === null) throw new Error("no session");
+    return { value: sessionId };
+  });
   on("tool.call", { tool: "Read" }, () => ({ result: "file text" }));
   await $.session.start({ cwd: "/work", surface: null, isInteractive: false });
   return { runs, registered };
@@ -55,6 +65,12 @@ describe("registration", () => {
     expect(registered[0].isDeferred).toBe(false);
     expect(registered[0].description).toContain("instead of running `om-memory-system memory`");
     expect(registered[0].description).toContain("Bash");
+  });
+
+  test("tells the agent to use recall, not search, for what was planned or memorised", async ($, on) => {
+    const { registered } = await start($, on);
+    expect(registered[0].description).toContain("what was planned or memorised");
+    expect(registered[0].description).toContain("use recall, not search");
   });
 
   test("a registration that fails is shown in the transcript and does not stop the session", async ($, on) => {
@@ -162,6 +178,119 @@ describe("calls", () => {
     expect(memoryArgs(runs[0]!)).toContain("delete");
   });
 
+  test("memorise passes the snapshot fields, the tags and the session ID", async ($, on) => {
+    const { runs } = await start($, on);
+    await $.tool.call({
+      tool: FULL as any,
+      mode: "memorise",
+      topic: "Auth",
+      done: "Login form",
+      doing: "Token refresh",
+      next: "Tests",
+      tags: "auth",
+    });
+    expect(memoryArgs(runs[0]!)).toEqual([
+      "memory",
+      "memorise",
+      "--topic",
+      "Auth",
+      "--done",
+      "Login form",
+      "--doing",
+      "Token refresh",
+      "--next",
+      "Tests",
+      "--tags",
+      "auth",
+      "--session-id",
+      "ses-42",
+    ]);
+  });
+
+  test("memorize is the same mode and passes exact content", async ($, on) => {
+    const { runs } = await start($, on);
+    await $.tool.call({ tool: FULL as any, mode: "memorize", content: "Exact text" });
+    expect(memoryArgs(runs[0]!)).toEqual([
+      "memory",
+      "memorize",
+      "--content",
+      "Exact text",
+      "--session-id",
+      "ses-42",
+    ]);
+  });
+
+  test("memorise still runs when the session ID is not available", async ($, on) => {
+    const { runs } = await start($, on, () => ok("{}"), null);
+    await $.tool.call({ tool: FULL as any, mode: "memorise", content: "Exact text" });
+    expect(memoryArgs(runs[0]!)).toEqual(["memory", "memorise", "--content", "Exact text"]);
+  });
+
+  test("memorise saves without --session-id when the host has no session.id function", async () => {
+    let handler: any;
+    registerMemoryTool((_event: string, fn: any) => {
+      handler = fn;
+    });
+    const argvs: string[][] = [];
+    // An older Claude Code has no `$.session.id`, so calling it throws a TypeError.
+    const host = {
+      session: { cwd: async () => "/work" },
+      plugin: { root: "/plugin" },
+      process: {
+        run: async (argv: string[]) => {
+          argvs.push(argv);
+          return ok("{}");
+        },
+      },
+    };
+    const out = await handler(host, { tool: FULL, mode: "memorise", content: "Exact text" }, () => {
+      throw new Error("next must not run");
+    });
+    expect(out.deny).toBeUndefined();
+    expect(out.result).toBe("{}");
+    expect(argvs).toHaveLength(1);
+    expect(argvs[0]).toContain("--content");
+    expect(argvs[0]).not.toContain("--session-id");
+  });
+
+  test("recall passes the query and the limit, and needs a query", async ($, on) => {
+    const { runs } = await start($, on);
+    await $.tool.call({ tool: FULL as any, mode: "recall", query: "ms-4k7q2p", limit: 2 });
+    expect(memoryArgs(runs[0]!)).toEqual([
+      "memory",
+      "recall",
+      "--query",
+      "ms-4k7q2p",
+      "--limit",
+      "2",
+    ]);
+    const refused = await $.tool.call({ tool: FULL as any, mode: "recall" });
+    expect(textOf(refused)).toBe("recall needs a query or tags.");
+    expect(runs).toHaveLength(1);
+  });
+
+  test("recall passes labels as --tags, with or without a query", async ($, on) => {
+    const { runs } = await start($, on);
+    await $.tool.call({ tool: FULL as any, mode: "recall", tags: " Auth, WIP " });
+    expect(memoryArgs(runs[0]!)).toEqual(["memory", "recall", "--tags", "Auth, WIP"]);
+    await $.tool.call({ tool: FULL as any, mode: "recall", query: "token", tags: "auth" });
+    expect(memoryArgs(runs[1]!)).toEqual([
+      "memory",
+      "recall",
+      "--query",
+      "token",
+      "--tags",
+      "auth",
+    ]);
+  });
+
+  test("search ignores tags, and the description tells the model recall takes them", async ($, on) => {
+    const { runs, registered } = await start($, on);
+    await $.tool.call({ tool: FULL as any, mode: "search", query: "x", tags: "auth" });
+    expect(memoryArgs(runs[0]!)).toEqual(["memory", "search", "--query", "x"]);
+    expect(registered[0].description).toContain('mode "recall" (query, tags, limit)');
+  });
+
   test("drops a bad limit and an unknown scope instead of passing them on", async ($, on) => {
     const { runs } = await start($, on);
     await $.tool.call({ tool: FULL as any, mode: "list", limit: -3, scope: "../etc" });
@@ -187,7 +316,9 @@ describe("calls", () => {
     for (const mode of ["import", "export", "migrate", "list-shards", "anything"]) {
       const reason = textOf(await $.tool.call({ tool: FULL as any, mode, query: "x" }));
       expect(reason).toContain(`Unknown mode "${mode}"`);
-      expect(reason).toContain("search, add, list, profile, forget, space, help");
+      expect(reason).toContain(
+        "search, add, memorise, memorize, recall, list, profile, forget, space, help"
+      );
     }
     expect(runs).toHaveLength(0);
   });

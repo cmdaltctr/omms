@@ -15,6 +15,7 @@ import { ProfileView } from "$lib/components/explorer/ProfileView";
 import { TagMigrationDialog } from "$lib/components/explorer/TagMigrationDialog";
 import { SettingsView } from "$lib/components/settings/SettingsView";
 import { MemoryView } from "$lib/components/memory/MemoryView";
+import { MemorisationView } from "$lib/components/memorisation/MemorisationView";
 import { ChatView } from "$lib/components/chat/ChatView";
 import { SkillsView } from "$lib/components/skills/SkillsView";
 import { ArchiveView, SpacesView } from "$lib/components/spaces";
@@ -112,6 +113,7 @@ export default function App() {
           projectLabel={t("tab-project")}
           profileLabel={t("tab-profile")}
           chatLabel={t("nav-chat")}
+          memorisationLabel={t("nav-memorisation")}
           skillsLabel={t("nav-skills")}
           profileSections={[
             { id: "profile-preferences", label: t("profile-preferences") },
@@ -167,15 +169,7 @@ export default function App() {
                     ? t("tab-profile")
                     : currentView === "memory"
                       ? translateSettings("Memory", language)
-                      : currentView === "chat"
-                        ? t("nav-chat")
-                        : currentView === "skills"
-                          ? t("nav-skills")
-                          : currentView === "spaces"
-                            ? t("nav-spaces")
-                            : currentView === "spaces-archive"
-                              ? t("nav-spaces-archive")
-                              : t("nav-settings")}
+                      : t(`nav-${currentView}`)}
               </h1>
               {currentView === "project" ? (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -428,6 +422,8 @@ export default function App() {
               </>
             ) : currentView === "memory" ? (
               <MemoryView key={spaceEpoch} />
+            ) : currentView === "memorisation" ? (
+              <MemorisationView key={spaceEpoch} />
             ) : currentView === "chat" ? (
               <ChatView key={spaceEpoch} />
             ) : currentView === "skills" ? (

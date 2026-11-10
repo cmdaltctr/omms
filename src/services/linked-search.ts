@@ -13,6 +13,7 @@ import type { SpaceReadStore } from "./spaces/space-store.js";
 import { tursoVectorSearch } from "./turso/vector-search.js";
 import type { SearchResult, ShardInfo } from "./turso/types.js";
 import type { KeywordMode } from "../utils/keyword-boost.js";
+import type { MemoryKind } from "./memory-kind.js";
 
 /**
  * Linked-space reads (design D6): the active space may link other spaces and
@@ -31,6 +32,9 @@ export type LinkedScope = "project" | "all-projects";
 /** Options shared by the search and list reads: `includeLinked` reads linked spaces too (D6). */
 export interface MemoryReadOptions {
   includeLinked?: boolean;
+  kind?: MemoryKind;
+  /** Search only: the result limit for this read, instead of `maxMemories`. */
+  limit?: number;
 }
 
 /** The settings a linked search needs; the caller snapshots them from CONFIG. */
@@ -87,6 +91,7 @@ export interface ListedMemory {
   type: string | undefined;
   createdAt: string;
   metadata: Record<string, unknown> | undefined;
+  tags: string[];
   displayName: unknown;
   userName: unknown;
   userEmail: unknown;
@@ -132,6 +137,7 @@ export function mapListedMemory(row: Record<string, unknown>): ListedMemory {
     type: row.type ? String(row.type) : undefined,
     createdAt: safeToISOString(row.created_at),
     metadata: safeJSONParse(row.metadata),
+    tags: typeof row.tags === "string" ? row.tags.split(",").filter(Boolean) : [],
     displayName: row.display_name,
     userName: row.user_name,
     userEmail: row.user_email,
@@ -240,6 +246,7 @@ export async function searchLinkedSpaces(input: {
   ownCount: number;
   owner: LinkedOwner;
   settings: LinkedSearchSettings;
+  kind?: MemoryKind;
 }): Promise<{ results: LinkedSearchResult[]; warnings: string[] }> {
   const warnings: string[] = [];
   const room = input.settings.maxMemories - input.ownCount;
@@ -268,7 +275,8 @@ export async function searchLinkedSpaces(input: {
         input.query,
         input.settings.keywordBoost,
         input.settings.keywordMode,
-        (dbPath) => target.store.openShard(dbPath)
+        (dbPath) => target.store.openShard(dbPath),
+        input.kind ?? "normal"
       );
       linked.push(...results.map((result) => ({ ...result, spaceName: target.name })));
     } catch (error) {
@@ -290,6 +298,7 @@ export async function listLinkedSpaces(input: {
   ownCount: number;
   owner: LinkedOwner;
   settings: LinkedSearchSettings;
+  kind?: MemoryKind;
 }): Promise<{ memories: ListedMemory[]; warnings: string[] }> {
   const warnings: string[] = [];
   const room = input.limit - input.ownCount;
@@ -314,7 +323,8 @@ export async function listLinkedSpaces(input: {
         const rows = await tursoVectorSearch.listMemories(
           db,
           input.scope === "all-projects" ? "" : input.containerTag,
-          room
+          room,
+          input.kind ?? "normal"
         );
         linked.push(...rows.map((row) => ({ ...mapListedMemory(row), spaceName: target.name })));
       }
@@ -358,6 +368,34 @@ export async function findLinkedMemoryOwner(
       const db = await target.store.openShard(shard.dbPath);
       const row = await db.get(`SELECT id FROM memories WHERE id = ?`, [memoryId]);
       if (row) return { name: target.name };
+    }
+  }
+  return null;
+}
+
+/**
+ * Reads one memory row by id from the linked spaces, with the space name. Read-only.
+ * A `containerTag` keeps only rows of that project; null accepts any project.
+ */
+export async function readLinkedMemory(
+  memoryId: string,
+  owner: LinkedOwner,
+  settings: LinkedSearchSettings,
+  containerTag: string | null
+): Promise<{ name: string; row: Record<string, unknown> } | null> {
+  const warnings: string[] = [];
+  for (const target of await linkedTargets(owner, settings, warnings)) {
+    const shards = [
+      ...(await target.store.listShards("user", "")),
+      ...(await target.store.listShards("project", "")),
+    ];
+    for (const shard of shards) {
+      const db = await target.store.openShard(shard.dbPath);
+      const row = await db.get(
+        `SELECT * FROM memories WHERE id = ? AND (? IS NULL OR container_tag = ?)`,
+        [memoryId, containerTag, containerTag]
+      );
+      if (row) return { name: target.name, row };
     }
   }
   return null;

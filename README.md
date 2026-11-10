@@ -23,7 +23,7 @@ for model choices and privacy controls.
 ## Set up
 
 Use Node.js **22.14 or later** for the terminal command and Claude Code hooks.
-OpenCode v1 needs **1.18.29 or later**. OMMS also supports OpenCode v2 and the
+OMMS supports OpenCode v2, Claude Code and the
 [Pi coding agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent).
 
 > Automatic history import is enabled by default and makes model calls.
@@ -35,19 +35,11 @@ OpenCode v1 needs **1.18.29 or later**. OMMS also supports OpenCode v2 and the
 Add the package to `~/.config/opencode/opencode.json`. Keep your existing settings.
 On Windows, use `%USERPROFILE%\.config\opencode\opencode.json`.
 
-**OpenCode v2:**
-
 ```json
 { "plugins": ["om-memory-system"] }
 ```
 
-**OpenCode v1:**
-
-```json
-{ "plugin": ["om-memory-system"] }
-```
-
-OpenCode v2 also supports:
+Or run:
 
 ```bash
 opencode plugin add om-memory-system
@@ -121,6 +113,10 @@ cannot be saved.
 
 Keep separate stores for separate lines of work. The Spaces item in the web app sidebar opens a page with one card for each space. Switching a space applies to every host. Memories can be copied or moved between spaces, exported to a shareable file and imported into a new space, and a space can read the spaces it links. See [Memory spaces](docs/memory-spaces.md).
 
+### Memorisations
+
+Save an exact note on purpose and fetch it later by ID, such as `ms-4k7q2p`, or by a close description. A memorisation stays out of automatic recall and cleanup, and the Memorisation page lists, labels, filters and deletes them. See [Memorise and recall](docs/using-memory.md#memorise-and-recall).
+
 ### Settings
 
 Choose models and manage access. Diagnostics show capture outcomes and component health.
@@ -131,7 +127,7 @@ Choose models and manage access. Diagnostics show capture outcomes and component
 
 | Guide                                       | Covers                                                            |
 | ------------------------------------------- | ----------------------------------------------------------------- |
-| [Using memory](docs/using-memory.md)        | Daily use, capture, recall and the user profile                   |
+| [Using memory](docs/using-memory.md)        | Daily use, capture, recall, memorisations and the user profile    |
 | [Web UI](docs/web-ui.md)                    | Starting the app, browsing memories and safe network access       |
 | [Memory page](docs/web-ui-memory.md)        | One card per host, imports, shared settings and avatars           |
 | [Settings page](docs/web-ui-settings.md)    | Models, credentials, diagnostics and profile identities           |

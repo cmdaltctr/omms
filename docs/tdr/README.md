@@ -94,6 +94,11 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [070](./070-the-pi-recall-row-parser-rejected-the-space-attribute.md)          | The Pi recall row parser rejected the space attribute                   | Accepted              | 2026-11-07 |
 | [071](./071-opencode-update-live-check-findings.md)                            | The live check of the OpenCode update found four faults                 | Accepted              | 2026-11-07 |
 | [072](./072-web-app-handover-left-the-port-empty.md)                           | The web app handover left the port empty and the global install behind  | Accepted              | 2026-11-08 |
+| [073](./073-text-recall-missed-memorisations-behind-the-ann-candidates.md)     | Text recall missed memorisations behind the ANN candidates              | Accepted              | 2026-11-10 |
+| [074](./074-memorisation-confidence-scores-were-flattened.md)                  | Memorisation confidence scores were flattened by the shared tag         | Accepted              | 2026-11-10 |
+| [075](./075-claude-code-live-checks-ran-the-global-cli-copy.md)                | Claude Code live checks ran the global CLI copy                         | Accepted              | 2026-11-10 |
+| [076](./076-memory-replace-imported-the-vector-writes-module-directly.md)      | memory-replace imported the vector writes module directly               | Accepted              | 2026-11-10 |
+| [077](./077-ordinary-search-missed-normal-memories-behind-memorisations.md)    | Ordinary search missed normal memories behind memorisations             | Accepted              | 2026-11-10 |
 
 ## Status values
 

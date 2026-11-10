@@ -412,11 +412,11 @@ export async function importHistorySource(
       );
 
       if (result.status === "skipped") {
-        await ledger.skip(key, `extractor-skip:${result.type ?? "unknown"}`);
+        const reason = result.reason ?? `extractor-skip:${result.type ?? "unknown"}`;
+        await ledger.skip(key, reason);
         unit.status = "skipped";
-        unit.reason = `extractor-skip:${result.type ?? "unknown"}`;
+        unit.reason = reason;
         report.unitsSkipped++;
-        const reason = unit.reason!;
         report.skipReasons[reason] = (report.skipReasons[reason] ?? 0) + 1;
       } else {
         await ledger.complete(key, result.memoryId);

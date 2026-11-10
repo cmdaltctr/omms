@@ -13,13 +13,27 @@ const REASON_LIMIT = 500;
 
 // `import`, `export`, `migrate` and `list-shards` are left out on purpose: they
 // move or rewrite whole stores and files. The user runs them in a terminal.
-const MODES = ["search", "add", "list", "profile", "forget", "space", "help"];
+const MODES = [
+  "search",
+  "add",
+  "memorise",
+  "memorize",
+  "recall",
+  "list",
+  "profile",
+  "forget",
+  "space",
+  "help",
+];
+const MEMORISE_MODES = ["memorise", "memorize"];
 
 export const DESCRIPTION = [
   "Search and save OMMS project memory: earlier fixes, decisions and conventions. Use this tool instead of running `om-memory-system memory` through Bash; it runs the same command.",
   'mode "search" (query, limit, scope): search before you debug, when the user refers to earlier work, and before a decision about conventions.',
   'If a project search finds nothing, retry with other keywords, then scope "all-projects".',
   'mode "add" (content, type, tags): save one short memory after a decision, a bug fix or a stated preference. Never store secrets.',
+  'mode "memorise" (content, or topic, done, doing, next; tags): save an exact memorisation with a short ms- ID, for example a session snapshot. It never reads session history. "memorize" is the same mode.',
+  'mode "recall" (query, tags, limit): fetch memorisations only. Pass an ms- ID for the exact text, or text for ranked matches with a confidence score. Pass tags (the labels) to keep only memorisations that carry all of them; tags with no query lists the newest ones. When the user quotes an ms- ID or asks what was planned or memorised ("what were we going to do with X"), use recall, not search.',
   'mode "list" (limit, scope), "profile" (content saves a personal preference), "forget" (id; only when the user asks), "help".',
   'mode "space" (action, name, to, since, until, project, in): memory spaces keep separate stores. Actions: list, status, create, use (make a space active for every host), archive, unarchive, preview and copy (to a target space, optional since, until dates and project tag), link and unlink (in names the linking space). Moving, deleting, exporting and importing are not offered here; use the web app or the CLI.',
 ].join(" ");
@@ -28,14 +42,25 @@ export const INPUT_SCHEMA = {
   type: "object",
   properties: {
     mode: { type: "string", enum: MODES, description: 'Which operation to run. Default "search".' },
-    query: { type: "string", description: "Keywords to search for (search)." },
-    content: { type: "string", description: "Memory text (add) or preference text (profile)." },
+    query: {
+      type: "string",
+      description: "Keywords to search for (search), or an ms- ID or text (recall).",
+    },
+    content: {
+      type: "string",
+      description:
+        "Memory text (add), exact memorisation text (memorise) or preference text (profile).",
+    },
     type: {
       type: "string",
       description:
         "decision, bug-fix, feature, refactor, configuration, analysis, discussion or other (add).",
     },
-    tags: { type: "string", description: "Comma-separated tags (add)." },
+    tags: { type: "string", description: "Comma-separated tags (add, memorise, recall)." },
+    topic: { type: "string", description: "Snapshot topic (memorise)." },
+    done: { type: "string", description: "Snapshot: what is done (memorise)." },
+    doing: { type: "string", description: "Snapshot: what is in progress (memorise)." },
+    next: { type: "string", description: "Snapshot: what comes next (memorise)." },
     id: { type: "string", description: "Memory id (forget)." },
     action: {
       type: "string",
@@ -76,8 +101,11 @@ export const INPUT_SCHEMA = {
 
 const text = (value) => (typeof value === "string" ? value.trim() : "");
 
-/** The `memory <mode> ...` arguments for one tool call, or the reason the call is refused. */
-export function memoryArgs(input) {
+/**
+ * The `memory <mode> ...` arguments for one tool call, or the reason the call is refused.
+ * `sessionId` is the Claude Code session ID, passed on as `--session-id` for `memorise`.
+ */
+export function memoryArgs(input, sessionId) {
   const mode = text(input.mode) || "search";
   if (!MODES.includes(mode)) {
     return { error: `Unknown mode "${mode}". Use one of: ${MODES.join(", ")}.` };
@@ -87,10 +115,22 @@ export function memoryArgs(input) {
     if (value) args.push(`--${name}`, value);
   };
 
-  if (mode === "search") {
+  if (mode === "search" || mode === "recall") {
     const query = text(input.query);
-    if (!query) return { error: "search needs a query." };
+    const labels = mode === "recall" ? text(input.tags) : "";
+    if (!query && !labels) {
+      return {
+        error: mode === "recall" ? "recall needs a query or tags." : "search needs a query.",
+      };
+    }
     flag("query", query);
+    flag("tags", labels);
+  }
+  if (MEMORISE_MODES.includes(mode)) {
+    for (const name of ["content", "topic", "done", "doing", "next", "tags"]) {
+      flag(name, text(input[name]));
+    }
+    flag("session-id", text(sessionId));
   }
   if (mode === "add" || mode === "profile") {
     const content = text(input.content);
@@ -132,7 +172,7 @@ export function memoryArgs(input) {
       flag("name", text(input.name));
     }
   }
-  if (mode === "search" || mode === "list") {
+  if (mode === "search" || mode === "recall" || mode === "list") {
     const limit = Number(input.limit);
     if (Number.isInteger(limit) && limit > 0) flag("limit", String(limit));
     const scope = text(input.scope);
@@ -161,12 +201,26 @@ function readOutcome(run) {
   return failed(reason);
 }
 
+/**
+ * The Claude Code session ID, or undefined. An older Claude Code has no `$.session.id`
+ * (calling it throws a TypeError) and the call can also reject. Without a session ID,
+ * `memorise` still saves. It just cannot replace an earlier snapshot.
+ */
+async function readSessionId($) {
+  try {
+    return await $.session.id();
+  } catch {
+    return undefined;
+  }
+}
+
 export const registerMemoryTool = (on) => {
   on("tool.call", async ($, e, next) => {
     if (String(e.tool) !== FULL_NAME) return next(e);
-    const parsed = memoryArgs(e);
-    if ("error" in parsed) return { deny: parsed.error };
     try {
+      const sessionId = MEMORISE_MODES.includes(text(e.mode)) ? await readSessionId($) : undefined;
+      const parsed = memoryArgs(e, sessionId);
+      if ("error" in parsed) return { deny: parsed.error };
       const cwd = await $.session.cwd();
       // The launcher's npx fallback runs from the temp folder, so name the project folder too.
       const run = await $.process.run(

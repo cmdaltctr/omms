@@ -30,8 +30,6 @@ settings, memory builds up as you work.
      hosts. See [Configuration: Memory injection](configuration.md#memory-injection).
    - Subagents get the memories that match their task (`subagentMemory`, on by
      default). On Pi, a subagent gets them only when its agent maps the OMMS extension in om-pi-subagents.
-   - On OpenCode v1, the most recent memories go into the first message of a
-     session (`chatMessage.injectOn`). OpenCode v1 ignores the new settings.
    - After compaction and after a resume, the session's own memories are put
      back as a short reminder, on every host (`compaction.enabled`).
    - The added memories are the closest matches only. Their header tells the agent to search the full store. See [When agents search memory](#when-agents-search-memory).
@@ -218,16 +216,16 @@ OpenCode v2, Pi and Claude Code share one store and one set of settings. These
 differences stay, each for a reason. When a new difference appears, add a row
 with its reason.
 
-| Capability                         | OpenCode v2                             | Pi                                          | Claude Code                                      | Why                                                                                                                                                                                                                  |
-| ---------------------------------- | --------------------------------------- | ------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fold or unfold recall rows         | Click the row, or `/omms-recall`        | `/omms-recall`                              | Press the row                                    | Claude Code draws each row inside its reply, and the module handles the press there. OMMS has no in-session command on Claude Code.                                                                                  |
-| In-session history import          | `/memory-import-opencode-history`       | `/memory-import-pi-history`                 | None: automatic backfill or the terminal command | The import uses the session model. Claude Code hooks cannot call it, and OMMS has no in-session command on Claude Code.                                                                                              |
-| Fold state after a restart         | Kept                                    | Lost                                        | Lost                                             | OpenCode offers a TUI store. Pi has no safe store for an extension ([TDR-062](tdr/062-pi-widget-surface-for-visible-recall.md)). Claude Code holds the fold state for the session only.                              |
-| Injection with the first message   | First message, when on                  | First message, when on                      | First message, when on                           | Same on all three ([ADR-040](adr/040-hooks-add-only-what-the-prompt-needs.md)). OpenCode v2 and Pi have no earlier model request. OpenCode v1 still adds a recent list to the first message and ignores the setting. |
-| How long an injected section stays | That prompt's model requests            | That prompt's agent run                     | In the transcript until a compaction             | Each host offers a different channel: system context for each request on OpenCode v2, the system prompt for each run on Pi, and `additionalContext` in the transcript on Claude Code.                                |
-| Subagent memory                    | Child sessions, for each prompt         | Only when the agent maps the OMMS extension | Once, when the subagent starts                   | OpenCode v2 runs its prompt hook in child sessions. Pi children start with `--no-extensions`. Claude Code has only `SubagentStart`, which carries no task text, so OMMS reads the task from the parent transcript.   |
-| Subagent rows                      | None                                    | None                                        | None                                             | Rows are for your main conversation.                                                                                                                                                                                 |
-| Capture and profile model          | Host model, external API, session model | Host model, external API, session model     | External API only                                | Claude Code hooks cannot call the session model.                                                                                                                                                                     |
+| Capability                         | OpenCode v2                             | Pi                                          | Claude Code                                      | Why                                                                                                                                                                                                                |
+| ---------------------------------- | --------------------------------------- | ------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Fold or unfold recall rows         | Click the row, or `/omms-recall`        | `/omms-recall`                              | Press the row                                    | Claude Code draws each row inside its reply, and the module handles the press there. OMMS has no in-session command on Claude Code.                                                                                |
+| In-session history import          | `/memory-import-opencode-history`       | `/memory-import-pi-history`                 | None: automatic backfill or the terminal command | The import uses the session model. Claude Code hooks cannot call it, and OMMS has no in-session command on Claude Code.                                                                                            |
+| Fold state after a restart         | Kept                                    | Lost                                        | Lost                                             | OpenCode offers a TUI store. Pi has no safe store for an extension ([TDR-062](tdr/062-pi-widget-surface-for-visible-recall.md)). Claude Code holds the fold state for the session only.                            |
+| Injection with the first message   | First message, when on                  | First message, when on                      | First message, when on                           | Same on all three ([ADR-040](adr/040-hooks-add-only-what-the-prompt-needs.md)). OpenCode v2 and Pi have no earlier model request.                                                                                  |
+| How long an injected section stays | That prompt's model requests            | That prompt's agent run                     | In the transcript until a compaction             | Each host offers a different channel: system context for each request on OpenCode v2, the system prompt for each run on Pi, and `additionalContext` in the transcript on Claude Code.                              |
+| Subagent memory                    | Child sessions, for each prompt         | Only when the agent maps the OMMS extension | Once, when the subagent starts                   | OpenCode v2 runs its prompt hook in child sessions. Pi children start with `--no-extensions`. Claude Code has only `SubagentStart`, which carries no task text, so OMMS reads the task from the parent transcript. |
+| Subagent rows                      | None                                    | None                                        | None                                             | Rows are for your main conversation.                                                                                                                                                                               |
+| Capture and profile model          | Host model, external API, session model | Host model, external API, session model     | External API only                                | Claude Code hooks cannot call the session model.                                                                                                                                                                   |
 
 ## Web UI
 
@@ -255,6 +253,62 @@ See [Moving projects](moving-projects.md) for `list-shards`, `migrate`,
 `export` and `import`. See [Configuration](configuration.md#memory-scope) for
 `scope`.
 
+### Memorise and recall
+
+A memorisation is a short note that you save on purpose and fetch on purpose.
+OMMS stores it word for word and gives it an ID such as `ms-4k7q2p`. It never
+merges, rewrites or removes a memorisation by itself.
+
+```typescript
+memory({ mode: "memorise", content: "Use port 4747 for the scratch web app" });
+memory({
+  mode: "memorise",
+  topic: "memorisation proposal",
+  done: "proposal written",
+  doing: "validating specs",
+  next: "wait for approval",
+});
+memory({ mode: "recall", query: "ms-4k7q2p" });
+memory({ mode: "recall", query: "release notes" });
+memory({ mode: "recall", tags: "release,wip" });
+memory({ mode: "recall", query: "release notes", tags: "release" });
+```
+
+`memorize` works the same as `memorise`.
+
+- Give either `content` or snapshot fields (`topic`, `done`, `doing`, `next`), not both. A snapshot stores the fields as labelled lines. Empty fields are left out.
+- `tags` are optional. They hold your labels, separated by commas. Say "memorise this, label it release, wip" and the agent passes both labels, plus one to three labels of its own. OMMS trims each label, writes it in lower case and keeps one copy of a repeat. It always adds the tag `memorisation`, which the pages do not show as a label.
+- OMMS removes `<private>` text first. It refuses a note that is entirely private.
+- A note over the size cap is refused with the limit and the actual size. OMMS never shortens it. See [Configuration: Memorisation](configuration.md#memorisation).
+- `add` mode refuses `type: "memorisation"`. Use `memorise` to save one, so no other record carries that kind.
+- A saved result returns `id`. A snapshot saved again for the same session follows the `memorisationRepeat` setting.
+- A call with snapshot fields and no `mode` returns an error. It does not return the help text, so the agent learns that nothing was saved.
+- Automatic capture skips a turn in which a memorise call succeeded. This keeps the snapshot out of per-prompt recall, so it reaches an agent only through `recall`. A failed memorise call does not cause a skip. The skip shows in the capture log as the reason `memorisation-turn`, and the history import skips the same turns.
+
+`recall` with an ID returns that record's full text, its ID and its creation
+time. It looks in the active space and in linked spaces. An unknown ID returns an
+error.
+
+`recall` with text searches memorisations only. Each match has an ID, the full
+text and a confidence score from 0 to 100. If the best match scores 80 or more
+and leads the next by 10 points or more, only that match returns. Otherwise three
+return by default, or up to your `limit` when you pass one, above or below three. If nothing is close
+enough, the reply says no memorisation matched.
+
+`recall` also takes `tags`, a list of labels. A memorisation matches only when it carries every label. Case and spaces do not matter. When you ask for "the memorisation labelled release", the agent calls `recall` with `tags: "release"`.
+
+- `tags` with no `query` returns the newest labelled memorisations, 10 by default, with no confidence score. Use `limit` to change the number.
+- `tags` with a `query` ranks by text first, then keeps the matches that carry every label. Each match has a confidence score.
+- An exact `ms-` ID ignores `tags`.
+- A `recall` with no `query` and no `tags` is refused.
+
+The Memorisation page shows the labels as pills, filters by them, and reads `label:name` in its recall box. See [Web UI: Memorisation page](web-ui-memory.md#memorisation-page).
+
+Memorisations stay out of `search`, `list`, per-prompt recall, opening context,
+restore after compaction, capture context and the web memory chat. Duplicate
+removal and retention cleanup skip them. They reach an agent only through
+`recall`.
+
 ## When agents search memory
 
 OMMS adds the closest matches to the agent's context. These are not all your memories. The header of that context says so. It tells the agent to search the full store before it investigates a problem, or when you refer to earlier work.
@@ -278,11 +332,22 @@ The `omms-memory` skill tells the agent when and how to search and save memory. 
 
 Each host loads the skill by itself. You do not copy any files.
 
-| Host        | How the skill loads                                                      | Start it by name                              |
-| ----------- | ------------------------------------------------------------------------ | --------------------------------------------- |
-| Pi          | The npm package lists the skill in its `pi` manifest.                    | `/skill:omms-memory`                          |
-| OpenCode v1 | The plugin adds the package's `skills` folder to OpenCode's skill paths. | Ask the agent to use the `omms-memory` skill. |
-| OpenCode v2 | The plugin adds the skill to OpenCode's skill list.                      | `/omms-memory`                                |
-| Claude Code | The Claude Code plugin includes the skill.                               | `/omms:omms-memory`                           |
+| Host        | How the skill loads                                   | Start it by name     |
+| ----------- | ----------------------------------------------------- | -------------------- |
+| Pi          | The npm package lists the skill in its `pi` manifest. | `/skill:omms-memory` |
+| OpenCode v2 | The plugin adds the skill to OpenCode's skill list.   | `/omms-memory`       |
+| Claude Code | The Claude Code plugin includes the skill.            | `/omms:omms-memory`  |
 
 The agent also loads the skill by itself when a task matches its description.
+
+## The omms-remember skill
+
+`/omms-remember` saves a short snapshot of the current session as a memorisation, then reports its `ms-` ID. The agent writes the snapshot from the context it already holds. It does not read session history, and it never saves secrets. A later session fetches the snapshot with `recall`. See [Memorise and recall](#memorise-and-recall).
+
+| Host        | Start it by name       |
+| ----------- | ---------------------- |
+| Pi          | `/skill:omms-remember` |
+| OpenCode v2 | `/omms-remember`       |
+| Claude Code | `/omms:omms-remember`  |
+
+Each host loads the skill the same way as `omms-memory`. You do not copy any files. The agent also loads it when you ask it to memorise or save the session.

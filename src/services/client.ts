@@ -21,6 +21,9 @@ import { activeOwner } from "./active-space-access.js";
 import { log } from "./logger.js";
 import type { MemoryType } from "../types/index.js";
 import type { MemoryRecord, SearchResult } from "./turso/types.js";
+import type { MemoryKind } from "./memory-kind.js";
+import { replaceMemoryRow } from "./memory-replace.js";
+import { searchMemoriesBySessionID as readSessionMemories } from "./client-session-read.js";
 
 export type MemoryScope = "project" | "all-projects";
 
@@ -95,7 +98,7 @@ export class LocalMemoryClient {
     // Capture the result count and the reranker settings at entry: initialize,
     // embedding, and shard reads all await, and a config edit during them must
     // not change this search's limit or reranker target.
-    const maxMemories = CONFIG.maxMemories;
+    const maxMemories = options.limit ?? CONFIG.maxMemories;
     const keywordBoost = CONFIG.keywordBoost;
     const reranker = rerankSettingsFrom(CONFIG);
     // The reranker path below always uses the boost: it needs a full pool on the similarity scale.
@@ -133,10 +136,11 @@ export class LocalMemoryClient {
             queryText: query,
             maxMemories,
             similarityThreshold: CONFIG.similarityThreshold,
+            kind: options.kind ?? "normal",
           },
           reranker,
           {
-            search: (shardList, vector, tag, limit, threshold, queryText) =>
+            search: (shardList, vector, tag, limit, threshold, queryText, kind) =>
               tursoVectorSearch.searchAcrossShards(
                 shardList,
                 vector,
@@ -144,7 +148,10 @@ export class LocalMemoryClient {
                 limit,
                 threshold,
                 queryText,
-                keywordBoost
+                keywordBoost,
+                "boost",
+                undefined,
+                kind
               ),
             log: (message, meta) => log(message, meta),
           }
@@ -158,7 +165,9 @@ export class LocalMemoryClient {
           CONFIG.similarityThreshold,
           query,
           keywordBoost,
-          keywordMode
+          keywordMode,
+          undefined,
+          options.kind ?? "normal"
         ));
       }
 
@@ -171,7 +180,11 @@ export class LocalMemoryClient {
           containerTag,
           ownCount: results.length,
           owner: activeOwner(),
-          settings: linkedSettingsFrom(CONFIG),
+          settings:
+            options.limit === undefined
+              ? linkedSettingsFrom(CONFIG)
+              : { ...linkedSettingsFrom(CONFIG), maxMemories: options.limit },
+          kind: options.kind ?? "normal",
         });
         results = [...results, ...linked.results];
         warnings = [...warnings, ...linked.warnings];
@@ -197,6 +210,10 @@ export class LocalMemoryClient {
     content: string,
     containerTag: string,
     metadata?: {
+      /** A caller-chosen record ID, such as a memorisation `ms-` ID. Default: a generated `mem_` ID. */
+      id?: string;
+      /** Overwrite the row with `id` in one transaction, so a failed write keeps the old row. */
+      replaceExisting?: boolean;
       type?: MemoryType;
       source?: "manual" | "auto-capture" | "import" | "api";
       tags?: string[];
@@ -228,13 +245,14 @@ export class LocalMemoryClient {
 
       const { scope, hash } = extractScopeFromContainerTag(containerTag);
 
-      return tursoShardManager.withScopeWriteLock(scope, hash, async () => {
+      return await tursoShardManager.withScopeWriteLock(scope, hash, async () => {
         const shard = await tursoShardManager.getWriteShard(scope, hash);
 
-        const id = `mem_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
         const now = Date.now();
 
         const {
+          id: customId,
+          replaceExisting,
           displayName,
           userName,
           userEmail,
@@ -245,6 +263,7 @@ export class LocalMemoryClient {
           tags: _tags,
           ...dynamicMetadata
         } = metadata || {};
+        const id = customId ?? `mem_${now}_${Math.random().toString(36).substring(2, 11)}`;
 
         const record: MemoryRecord = {
           id,
@@ -266,6 +285,9 @@ export class LocalMemoryClient {
             Object.keys(dynamicMetadata).length > 0 ? JSON.stringify(dynamicMetadata) : undefined,
         };
 
+        if (replaceExisting && customId && (await replaceMemoryRow(record))) {
+          return { success: true as const, id };
+        }
         const db = await tursoConnectionManager.getConnection(shard.dbPath);
         await tursoVectorSearch.insertVector(db, record);
         await tursoShardManager.incrementVectorCount(shard.id);
@@ -346,7 +368,8 @@ export class LocalMemoryClient {
           const rows = await tursoVectorSearch.listMemories(
             db,
             scope === "all-projects" ? "" : containerTag,
-            limit
+            limit,
+            options.kind ?? "normal"
           );
           allMemories.push(...rows);
         }
@@ -364,6 +387,7 @@ export class LocalMemoryClient {
           ownCount: memories.length,
           owner: activeOwner(),
           settings: linkedSettingsFrom(CONFIG),
+          kind: options.kind ?? "normal",
         });
         memories = [...memories, ...linked.memories];
       }
@@ -447,43 +471,16 @@ export class LocalMemoryClient {
     }
   }
 
-  async searchMemoriesBySessionID(sessionID: string, containerTag: string, limit: number = 10) {
+  async searchMemoriesBySessionID(
+    sessionID: string,
+    containerTag: string,
+    limit = 10,
+    kind: MemoryKind = "normal"
+  ) {
     try {
       await this.initialize();
 
-      const { scope, hash } = extractScopeFromContainerTag(containerTag);
-      const shards = await tursoShardManager.getAllShards(scope, hash);
-
-      if (shards.length === 0) {
-        return { success: true as const, results: [], total: 0, timing: 0 };
-      }
-
-      const allMemories: any[] = [];
-
-      for (const shard of shards) {
-        const db = await tursoConnectionManager.getConnection(shard.dbPath);
-        const memories = await tursoVectorSearch.getMemoriesBySessionID(db, sessionID);
-        allMemories.push(...memories);
-      }
-
-      allMemories.sort((a, b) => Number(b.created_at) - Number(a.created_at));
-
-      const results = allMemories.slice(0, limit).map((row: any) => ({
-        id: row.id,
-        memory: row.content,
-        similarity: 1.0,
-        tags: row.tags || [],
-        metadata: row.metadata || {},
-        containerTag: row.container_tag,
-        displayName: row.display_name,
-        userName: row.user_name,
-        userEmail: row.user_email,
-        projectPath: row.project_path,
-        projectName: row.project_name,
-        gitRepoUrl: row.git_repo_url,
-        createdAt: row.created_at,
-      }));
-
+      const results = await readSessionMemories(sessionID, containerTag, limit, kind);
       return { success: true as const, results, total: results.length, timing: 0 };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

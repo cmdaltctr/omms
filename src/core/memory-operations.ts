@@ -1,5 +1,8 @@
 import { CONFIG, isConfigured, refreshConfigIfChanged } from "../config.js";
 import { memoryClient, type MemoryScope } from "../services/client.js";
+import { runMemorise, runRecall } from "./memorisation-operations.js";
+import { memorisationSettingsFrom } from "./memorisation-settings.js";
+import { linkedSettingsFrom } from "../services/linked-search.js";
 import { getLanguageName } from "../services/language-detector.js";
 import { stripPrivateContent, isFullyPrivate } from "../services/privacy.js";
 import { getTags } from "../services/tags.js";
@@ -7,6 +10,9 @@ import type { MemoryHost, MemoryType } from "../types/index.js";
 
 export type MemoryOperationMode =
   | "add"
+  | "memorise"
+  | "memorize"
+  | "recall"
   | "search"
   | "profile"
   | "list"
@@ -27,6 +33,11 @@ export interface MemoryOperationArgs {
   memoryId?: string;
   limit?: number;
   scope?: MemoryScope;
+  /** `memorise` mode: session snapshot fields, used instead of `content`. */
+  topic?: string;
+  done?: string;
+  doing?: string;
+  next?: string;
   fromPath?: string;
   fromHash?: string;
   outputPath?: string;
@@ -87,6 +98,12 @@ export async function executeMemoryOperation(
     };
   }
 
+  // Snapshot fields without a mode are a memorise call that lost its mode. Help
+  // text would read as success, so the model would never learn nothing was saved.
+  if (!args.mode && [args.topic, args.done, args.doing, args.next].some((v) => v !== undefined)) {
+    return { success: false, error: "mode is required: use memorise for snapshot fields" };
+  }
+
   const mode = args.mode || "help";
   if (mode === "space") {
     const { runSpaceMode } = await import("./space-tool.js");
@@ -129,6 +146,17 @@ export async function executeMemoryOperation(
               command: "add",
               description: `Store new memory (MATCH USER LANGUAGE: ${langName})`,
               args: ["content", "type?", "tags?"],
+            },
+            {
+              command: "memorise",
+              description: `Save an exact memorisation with a short ms- ID: give content, or a session snapshot with topic, done, doing and next. Never reads session history (MATCH USER LANGUAGE: ${langName})`,
+              args: ["content?", "topic?", "done?", "doing?", "next?", "tags?"],
+            },
+            {
+              command: "recall",
+              description:
+                "Fetch memorisations only: pass an ms- ID for the exact text, or text for ranked matches with a confidence score. Pass tags (the labels) to keep only memorisations that carry all of them; tags with no query lists the newest ones",
+              args: ["query?", "tags?", "limit?"],
             },
             {
               command: "search",
@@ -185,6 +213,12 @@ export async function executeMemoryOperation(
 
       case "add": {
         if (!args.content) return { success: false, error: "content required" };
+        if (args.type === "memorisation") {
+          return {
+            success: false,
+            error: 'type "memorisation" is reserved. Use memorise mode to save a memorisation.',
+          };
+        }
         const sanitizedContent = stripPrivateContent(args.content);
         if (isFullyPrivate(args.content)) {
           return { success: false, error: "Private content blocked" };
@@ -214,6 +248,24 @@ export async function executeMemoryOperation(
           tags: parsedTags,
         };
       }
+
+      case "memorise":
+      case "memorize":
+        return await runMemorise(
+          args,
+          context,
+          tags,
+          memorisationSettingsFrom(CONFIG),
+          linkedSettingsFrom(CONFIG)
+        );
+
+      case "recall":
+        return await runRecall(
+          args,
+          tags,
+          args.scope ?? CONFIG.memory.defaultScope,
+          linkedSettingsFrom(CONFIG)
+        );
 
       case "search": {
         if (!args.query) return { success: false, error: "query required" };

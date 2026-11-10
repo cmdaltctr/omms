@@ -10,7 +10,8 @@ const LEGACY_NAME = /opencode-mem|OpenCodeMem|OPENCODE_MEM/;
  * opencode-v2-native, design D7). Every other source file must use omms names.
  */
 const LEGACY_FALLBACK_FILES = new Set([
-  "src/config.ts", // legacy global and project config paths, legacy storage layout
+  "src/config.ts", // legacy project config paths, legacy storage layout
+  "src/config-paths.ts", // legacy global config paths (moved from config.ts)
   "src/config-template.ts", // template comments document the legacy store migration
   "src/services/legacy-migration.ts", // ~/.opencode-mem -> ~/.omms store migration
   "src/services/settings-snapshot.ts", // reads legacy project config overrides

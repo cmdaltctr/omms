@@ -275,3 +275,44 @@ it("keeps the real error when switching from an in-place read to a copy fails", 
     await removeTestDir(directory);
   }
 });
+
+it("marks a memorise call from the stored part state and its reply", async () => {
+  const { path, directory } = fixture();
+  const writer = new DatabaseSync(path);
+  try {
+    writer
+      .prepare("INSERT INTO session VALUES (?, ?, ?, ?, ?)")
+      .run("mem", "p", null, directory, 60);
+    const insertMessage = writer.prepare("INSERT INTO message VALUES (?, ?, ?, ?)");
+    const insertPart = writer.prepare("INSERT INTO part VALUES (?, ?, ?, ?, ?)");
+    insertMessage.run("mu", "mem", 61, JSON.stringify({ role: "user" }));
+    insertPart.run("mu-0", "mu", "mem", 61, JSON.stringify({ type: "text", text: "Save it" }));
+    insertMessage.run("ma", "mem", 62, JSON.stringify({ role: "assistant" }));
+    const args = { mode: "memorise", topic: "Rollout" };
+    const parts = [
+      { status: "completed", input: args, output: '{"success":true,"id":"ms-1"}' },
+      { status: "completed", input: args, output: '{"success":false,"error":"no"}' },
+      { status: "error", input: args, error: "boom" },
+      { status: "completed", input: { mode: "recall", query: "x" }, output: "{}" },
+    ];
+    parts.forEach((state, index) =>
+      insertPart.run(
+        `ma-${index}`,
+        "ma",
+        "mem",
+        62 + index,
+        JSON.stringify({ type: "tool", tool: "memory", state })
+      )
+    );
+  } finally {
+    writer.close();
+  }
+  try {
+    const { sessions } = await readAll(path);
+    const session = sessions.find((entry) => entry.sessionId === "mem");
+    const calls = session?.units[0]?.toolCalls ?? [];
+    expect(calls.map((call) => call.memorise)).toEqual(["saved", "failed", "failed", undefined]);
+  } finally {
+    await removeTestDir(directory);
+  }
+});

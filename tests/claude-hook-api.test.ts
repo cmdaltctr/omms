@@ -717,6 +717,57 @@ scenario = { afterPrivate, calls, rows: await stored() };
     expect(scenario.rows).toHaveLength(1);
   });
 
+  // A turn where the agent saved a memorisation must not also become an ordinary memory.
+  const MEMORISE_TURN = `
+function memoriseTurn(id, resultText, isError = false) {
+  appendFileSync(transcript, entry("user", "u-" + id, "Save where we are"));
+  appendFileSync(transcript, entry("assistant", "a-" + id, [
+    { type: "tool_use", id: "t-" + id, name: "mcp__omms__memory", input: { mode: "memorise", topic: "Rollout", next: "widen" } },
+  ]));
+  appendFileSync(transcript, entry("user", "r-" + id, [
+    { type: "tool_result", tool_use_id: "t-" + id, is_error: isError, content: [{ type: "text", text: resultText }] },
+  ]));
+  appendFileSync(transcript, entry("assistant", "f-" + id, [{ type: "text", text: "Snapshot saved as ms-ke8zw6" }]));
+}
+`;
+
+  it("does not capture a turn in which a memorisation was saved", async () => {
+    const { run } = createHarness();
+    const scenario = await run(`${MEMORISE_TURN}
+memoriseTurn("1", '{"success":true,"id":"ms-ke8zw6"}');
+await capture();
+scenario = { calls: calls.length, rows: await stored() };
+`);
+    expect(scenario.calls).toBe(0);
+    expect(scenario.rows).toHaveLength(0);
+  });
+
+  it("captures a turn whose memorise call failed", async () => {
+    const { run } = createHarness();
+    const scenario = await run(`${MEMORISE_TURN}
+memoriseTurn("1", "memory failed: content required", true);
+await capture();
+scenario = { calls: calls.length, rows: await stored() };
+`);
+    expect(scenario.calls).toBe(1);
+    expect(scenario.rows).toHaveLength(1);
+  });
+
+  it("captures an ordinary turn and still moves the cursor past a skipped memorise turn", async () => {
+    const { run } = createHarness();
+    const scenario = await run(`${MEMORISE_TURN}
+memoriseTurn("1", '{"success":true,"id":"ms-ke8zw6"}');
+turn("2", "Ordinary question", "Ordinary answer");
+await capture();
+const afterFirst = calls.length;
+await capture();
+scenario = { afterFirst, calls: calls.length, prompts: calls.map((c) => c.userPrompt) };
+`);
+    expect(scenario.afterFirst).toBe(1);
+    expect(scenario.calls).toBe(1);
+    expect(scenario.prompts).toEqual(["Ordinary question"]);
+  });
+
   it("queues a retryable failure and moves the cursor on", async () => {
     const { run } = createHarness();
     const scenario = await run(`

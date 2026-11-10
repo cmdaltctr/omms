@@ -67,6 +67,7 @@ export function workUnitOf(
     toolCalls: window.toolCalls.map((call) => ({
       name: call.name,
       input: stripPrivateContent(call.input),
+      ...(call.memorise ? { memorise: call.memorise } : {}),
     })),
     sourceEntryIds: window.sourceEntryIds,
     ...(window.sourceTimestamp !== undefined ? { sourceTimestamp: window.sourceTimestamp } : {}),

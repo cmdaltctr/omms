@@ -5,6 +5,7 @@ import type {
   CaptureAttemptOutcome,
   CaptureExtractionPath,
   CaptureFailureReason,
+  CaptureSkipReason,
 } from "../core/host.js";
 import type { MemoryHost, MemorySourceType } from "../types/index.js";
 import { getLogDirPath } from "./log-path.js";
@@ -49,7 +50,8 @@ export interface CaptureAttemptRecord {
   replyChars: number | null;
   durationMs: number;
   outcome: CaptureAttemptOutcome;
-  reason: CaptureFailureReason | null;
+  /** The failure code of a failed attempt, or the skip code of a turn skipped before the model ran. */
+  reason: CaptureFailureReason | CaptureSkipReason | null;
 }
 
 export const DEFAULT_CAPTURE_TRACE_RETENTION_DAYS = 7;
@@ -80,7 +82,12 @@ export function buildCaptureAttemptRecord(
     replyChars: diagnostics.rawReply?.length ?? null,
     durationMs,
     outcome,
-    reason: outcome === "failed" ? (diagnostics.failureReason ?? "call-error") : null,
+    reason:
+      outcome === "failed"
+        ? (diagnostics.failureReason ?? "call-error")
+        : outcome === "skipped"
+          ? (diagnostics.skipReason ?? null)
+          : null,
   };
 }
 

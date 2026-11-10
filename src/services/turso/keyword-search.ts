@@ -6,6 +6,7 @@
 import { log } from "../logger.js";
 import type { KeywordMode } from "../../utils/keyword-boost.js";
 import type { TursoDb } from "./turso-db.js";
+import { memoryKindPredicate, type MemoryKind } from "../memory-kind.js";
 
 const MAX_TERMS = 24;
 
@@ -141,7 +142,8 @@ export async function searchKeywords(
   db: TursoDb,
   queryText: string | undefined,
   containerTag: string,
-  limit: number
+  limit: number,
+  kind: MemoryKind = "normal"
 ): Promise<KeywordHits | null> {
   const match = buildKeywordQuery(queryText);
   if (!match) return null;
@@ -150,7 +152,7 @@ export async function searchKeywords(
     const rows = await db.all(
       `SELECT m.id AS id, -bm25(memories_fts) AS score
        FROM memories_fts JOIN memories m ON m.rowid = memories_fts.rowid
-       WHERE memories_fts MATCH ?${containerTag === "" ? "" : " AND m.container_tag = ?"}
+       WHERE memories_fts MATCH ? AND ${memoryKindPredicate("m.type", kind)}${containerTag === "" ? "" : " AND m.container_tag = ?"}
        ORDER BY score DESC LIMIT ?`,
       containerTag === "" ? [match, limit] : [match, containerTag, limit]
     );

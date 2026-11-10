@@ -275,6 +275,8 @@ describe("memory operations (shared tool path) characterisation", () => {
     const commands = result.output.commands.map((c: any) => c.command);
     expect(commands).toEqual([
       "add",
+      "memorise",
+      "recall",
       "search",
       "profile",
       "list",

@@ -5,8 +5,7 @@ the Pi extension. Both hosts read and write one store for each project. So
 Pi can find memories that OpenCode captured, and OpenCode can find memories
 that Pi captured.
 
-- The package supports both OpenCode plugin APIs: V1 (OpenCode 1.18.29 or later) and V2 (native `plugins` list).
-- The installed entry point (`dist/plugin.js`) exports both. OpenCode loads the one it understands.
+- The package supports the OpenCode V2 plugin API (native `plugins` list).
 - The plugin id is always `omms`, whatever the npm package name.
 
 ## Installation
@@ -14,17 +13,13 @@ that Pi captured.
 From npm, add the package to `~/.config/opencode/opencode.json`
 (`%USERPROFILE%\.config\opencode\opencode.json` on Windows):
 
-```jsonc
-// OpenCode v2
+```json
 { "plugins": ["om-memory-system"] }
-
-// OpenCode v1
-{ "plugin": ["om-memory-system"] }
 ```
 
-On OpenCode v2 you can run `opencode plugin add om-memory-system` instead.
+You can run `opencode plugin add om-memory-system` instead.
 
-On OpenCode v2, `opencode plugin list` and `opencode plugin update` also read `~/.config/opencode/cli.json`. Add the same entry there, and keep any other keys in that file:
+`opencode plugin list` and `opencode plugin update` also read `~/.config/opencode/cli.json`. Add the same entry there, and keep any other keys in that file:
 
 ```json
 { "plugins": ["om-memory-system"] }
@@ -49,11 +44,19 @@ CI checks for a packed build.
 
 The package ships the `omms-memory` skill. The plugin adds it to OpenCode, so you do not copy any files.
 
-- OpenCode v1: the plugin's `config` hook adds the package's `skills` folder to `skills.paths`. It keeps your other paths. When the folder is missing, the plugin writes a log line and skips it.
-- OpenCode v2: the plugin adds the skill to OpenCode's skill list. Start it by name with `/omms-memory`.
+- The plugin adds the skill to OpenCode's skill list. Start it by name with `/omms-memory`.
 - The skill tells the agent to search memory with the `memory` tool before it debugs or investigates, and when you refer to earlier work. The `memory` tool description gives the same instruction.
 
 See [Using memory: The omms-memory skill](using-memory.md#the-omms-memory-skill).
+
+### The omms-remember skill
+
+The package ships the `omms-remember` skill beside `omms-memory`. The plugin adds both the same way.
+
+- OpenCode v2: start it with `/omms-remember`.
+- It saves a short snapshot of the session with the `memorise` mode of the `memory` tool and reports the `ms-` ID. OpenCode passes its session ID to the tool, so a repeat snapshot can replace the earlier one when `memorisationRepeat` is `replace`.
+
+See [Using memory: The omms-remember skill](using-memory.md#the-omms-remember-skill).
 
 ## Configuration
 
@@ -117,18 +120,17 @@ History backfill (automatic history import) uses `opencodeBackfillModel`. See
 
 ## Lifecycle mapping
 
-| OpenCode hook                                | omms behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Plugin start                                 | Load shared config for the project directory, remove old capture traces, update the web login item when `webServerAutoStart` is set, warm storage and embeddings, read connected providers, register the OpenCode backfill model resolver, the profile model, and the import models, start automatic backfill when `autoBackfill` is on, check for the shared web app and start it when none runs                                                                                                         |
-| `config`                                     | Register the `omms-structured` agent and the `/memory-import-opencode-history` command                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `chat.message` (V1)                          | Record the user prompt for capture and profile learning; inject recent project memories (`chatMessage.injectOn`: first or every prompt)                                                                                                                                                                                                                                                                                                                                                                   |
-| `prompt` + `context` (V2)                    | Record the prompt once OpenCode admits it; semantic retrieval injected as a delimited `<omms-retrieval>` system section                                                                                                                                                                                                                                                                                                                                                                                   |
-| `chat.params`                                | Record the prompt's model when capture follows the session model                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `session.idle`                               | After 10 seconds of quiet, capture every uncaptured prompt in the session; run profile learning and daily cleanup                                                                                                                                                                                                                                                                                                                                                                                         |
-| `session.compacted` (V1) / `compaction` (V2) | Restore the session's own memories after compaction (V2 also after resume)                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `command.execute.before` (V1) / command (V2) | Run `/memory-import-opencode-history`; see [opencode-history-import.md](opencode-history-import.md)                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `memory` tool                                | Shared add/search/profile/list/forget/help plus migrate/list-shards/export/import                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `skills` tool                                | Shared skill-learning modes list/ideas/draft/evidence/propose/proposals/show/apply/reject/undo/help. Arguments: `mode`, `skill`, `idea` (`name`, `description`), `folder`, `state`, `order`, `id`, `limit`, `content`, `summary`, `evidence`. A draft saves a pending proposal and changes no file; `evidence` then `propose` let the agent fix a skill with no external API call; `apply` records the agent. See [the `skills` command](cli.md#skills-and-proposals). V2 gets it from V1, like `memory`. |
+| OpenCode hook        | omms behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plugin start         | Load shared config for the project directory, remove old capture traces, update the web login item when `webServerAutoStart` is set, warm storage and embeddings, read connected providers, register the OpenCode backfill model resolver, the profile model, and the import models, start automatic backfill when `autoBackfill` is on, check for the shared web app and start it when none runs                                                                      |
+| `config`             | Register the `omms-structured` agent and the `/memory-import-opencode-history` command                                                                                                                                                                                                                                                                                                                                                                                 |
+| `prompt` + `context` | Record the prompt once OpenCode admits it; semantic retrieval injected as a delimited `<omms-retrieval>` system section                                                                                                                                                                                                                                                                                                                                                |
+| `chat.params`        | Record the prompt's model when capture follows the session model                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `session.idle`       | After 10 seconds of quiet, capture every uncaptured prompt in the session; run profile learning and daily cleanup                                                                                                                                                                                                                                                                                                                                                      |
+| `compaction`         | Restore the session's own memories after compaction and after resume                                                                                                                                                                                                                                                                                                                                                                                                   |
+| command              | Run `/memory-import-opencode-history`; see [opencode-history-import.md](opencode-history-import.md)                                                                                                                                                                                                                                                                                                                                                                    |
+| `memory` tool        | Shared add/memorise/memorize/recall/search/profile/list/forget/help plus migrate/list-shards/export/import                                                                                                                                                                                                                                                                                                                                                             |
+| `skills` tool        | Shared skill-learning modes list/ideas/draft/evidence/propose/proposals/show/apply/reject/undo/help. Arguments: `mode`, `skill`, `idea` (`name`, `description`), `folder`, `state`, `order`, `id`, `limit`, `content`, `summary`, `evidence`. A draft saves a pending proposal and changes no file; `evidence` then `propose` let the agent fix a skill with no external API call; `apply` records the agent. See [the `skills` command](cli.md#skills-and-proposals). |
 
 ### Toasts
 
@@ -195,7 +197,7 @@ How it works:
 Limits:
 
 - OpenChamber and other frontends that do not load the OpenCode TUI entry show nothing new. Their recall stays as before.
-- OpenCode V2 draws `mode=search`, `mode=opening` and `mode=restore` rows. OpenCode V1 injects its recent list on the first message and draws no rows.
+- OpenCode draws `mode=search`, `mode=opening` and `mode=restore` rows.
 - The server keeps summaries in memory only. They are not stored on disk. They are lost when OpenCode restarts.
 - Subagent sessions do not show rows. OMMS records no summary for a session that has a parent session, whatever `visibleRecall` says.
 - The rows and `/omms-recall` exist in the OpenCode terminal TUI and in the interactive terminal of Pi. Claude Code draws its own recall rows from a separate module (`hooks/omms-recall.jsx`) and has no such slash command. See [Using memory: Host differences](using-memory.md#host-differences).
@@ -216,15 +218,13 @@ OpenCode V2 adds only the recall for the current prompt by default. Two options 
 
 - With `openingContext` on, the first message of a new session also gets the memories that match `openingContextQuery`. OpenCode V2 has no model request before the first prompt, so the opening section goes with that message.
 - Child sessions (subagents) get the prompt recall when `subagentMemory` is on (the default). A child gets no opening section and no restore after a resume.
-- OpenCode V1 adds its recent list to the first message and ignores both settings.
 
 ### Compaction and resume
 
 The plugin does not replace OpenCode's compaction. After compaction, it
 restores up to `compaction.memoryLimit` memories from that session:
 
-- On V1, it adds them as a synthetic, no-reply message for the session's own agent.
-- On V2, it adds them to the system prompt of later turns.
+It adds them to the system prompt of later turns.
 
 OpenCode V2 also restores after a resume. OpenCode V2 has no resume event. OMMS finds a resumed session when the first prompt it sees in this process finds earlier user messages in the history. This also happens after an OpenCode restart. The full history stays, so the restore is a short reminder. `compaction.enabled` set to `false` turns off both restores.
 
@@ -261,7 +261,6 @@ OpenCode and Pi can run in separate processes against the same store.
 
 ## Limitations
 
-- V1 adds recent memories. It does not run a semantic search for each prompt. V2, Pi and Claude Code search for each prompt.
 - Profile learning and cleanup run in every OpenCode process. Cleanup runs at most once a day in each process.
 - Manual history import covers the current project by default. See [opencode-history-import.md](opencode-history-import.md).
 

@@ -35,7 +35,7 @@ it("opens /skills directly and on reload, with or without a trailing slash", () 
 
 it("lists Skills after User profile in the sidebar main list", () => {
   const views = MAIN_NAV.map((entry) => entry.view);
-  expect(views).toEqual(["chat", "project", "profile", "skills"]);
+  expect(views).toEqual(["chat", "project", "profile", "memorisation", "skills"]);
 });
 
 it("translates the Skills entry in every language", () => {
