@@ -428,6 +428,22 @@ describe("replaceRetrying", () => {
     expect(renames.length).toBe(3);
   });
 
+  it("uses a new temp file name for each retry", () => {
+    let remaining = 2;
+    const writes: string[] = [];
+    replaceRetrying(join(tmpdir(), "lock"), "data", {
+      mkdir: () => {},
+      write: (file) => writes.push(file),
+      rename: () => {
+        if (remaining-- > 0) throw enoent();
+      },
+      remove: () => {},
+    });
+    // A Bun rename fault can stick to one temp path (TDR-030), so a retry
+    // with the same name cannot recover.
+    expect(new Set(writes).size).toBe(3);
+  });
+
   it("still throws when rename keeps reporting ENOENT past the budget", () => {
     expect(() =>
       replaceRetrying(join(tmpdir(), "lock"), "data", {

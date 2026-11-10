@@ -183,6 +183,7 @@ export function replaceRetrying(
     mkdir?: (dir: string) => void;
     write?: (path: string, text: string) => void;
     rename?: (from: string, to: string) => void;
+    remove?: (path: string) => void;
     rewrites?: number;
   } = {},
   rewrites: number = deps.rewrites ?? REPLACE_ENOENT_REWRITES
@@ -191,15 +192,19 @@ export function replaceRetrying(
   const write =
     deps.write ?? ((file: string, body: string) => writeFileSync(file, body, { mode: 0o600 }));
   const rename = deps.rename ?? ((from: string, to: string) => renameRetrying(from, to));
+  const remove = deps.remove ?? ((file: string) => rmSync(file, { force: true }));
   mkdir(dirname(path));
-  const temp = `${path}.${process.pid}.tmp`;
   for (let attempt = 0; ; attempt++) {
+    // A new name for each attempt: the Bun rename fault can stick to one
+    // temp path, so a retry with the same name fails again (TDR-030).
+    const temp = `${path}.${process.pid}.${attempt}.tmp`;
     write(temp, text);
     try {
       rename(temp, path);
       return;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT" || attempt >= rewrites) throw error;
+      remove(temp);
     }
   }
 }

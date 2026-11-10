@@ -128,6 +128,23 @@ swallowed. The recovery is covered by unit tests with an injected rename; the or
 loop test is unchanged. The upstream cause stays unknown, so the open questions above
 remain open.
 
+## Update (2026-11-10): a new temp name for each retry
+
+The flake came back once in a full `ci:local` run under Bun 1.4.4. The test threw
+ENOENT from `nodeLockFs.replace`. No assertion failed.
+
+A stress probe caught the fault once, after about 184,000 renames under CPU load.
+From that point every write and rename with the same temp path failed, 5,670 times in
+a row. The target already held the new text, and the folder held only the target, but
+Bun still reported the temp file as present. A retry that rewrites the same temp name
+therefore cannot recover.
+
+`replaceRetrying` now uses a new temp name for each attempt
+(`<path>.<pid>.<attempt>.tmp`) and removes the failed temp file before the next one.
+A unit test checks that each attempt writes a different name. About 6 million further
+renames did not reproduce the fault, so no run proves that this change heals it. It is
+a low-risk change: a genuine failure still throws after the retry budget.
+
 ## References
 
 - [Original test](../../tests/web-ensure.test.ts)
