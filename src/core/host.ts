@@ -2,6 +2,13 @@ import type { MemoryHost, MemorySourceType } from "../types/index.js";
 
 export type CaptureToolOutcome = "ok" | "error" | "unknown";
 
+/**
+ * Set only on a `memory` tool call in `memorise` mode: `saved` once its result
+ * reported success, `failed` when it did not, `unknown` until a result answers.
+ * Automatic capture skips a turn that holds a `saved` call.
+ */
+export type CaptureMemoriseState = "saved" | "failed" | "unknown";
+
 export interface CaptureToolCall {
   name: string;
   input: string;
@@ -11,6 +18,8 @@ export interface CaptureToolCall {
   error?: string;
   /** Full path of a read-type call, for skill detection. Memory capture ignores it. */
   path?: string;
+  /** Set by the host readers on a memorise call. Capture skips the turn when it is `saved`. */
+  memorise?: CaptureMemoriseState;
 }
 
 export interface CaptureConversation {
@@ -46,6 +55,9 @@ export const CAPTURE_FAILURE_REASONS = [
 
 export type CaptureFailureReason = (typeof CAPTURE_FAILURE_REASONS)[number];
 
+/** Why capture ended a turn as skipped before the capture model ran. */
+export type CaptureSkipReason = "memorisation-turn";
+
 export type CaptureExtractionPath = "host-model" | "external-api";
 
 /**
@@ -64,6 +76,8 @@ export interface CaptureAttemptDiagnostics {
   userPrompt?: string;
   rawReply?: string;
   failureReason?: CaptureFailureReason;
+  /** Set when capture skipped the turn without calling the capture model. */
+  skipReason?: CaptureSkipReason;
   /** HTTP status of a failed model call, when the path knows it. */
   httpStatus?: number;
   /** The wait a failed model call asked for in its `Retry-After` header. */

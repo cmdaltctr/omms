@@ -37,12 +37,20 @@ export async function searchSectionMemories(
 }
 
 /**
- * The prompt text that may reach a search: `<private>` regions removed. Null when nothing is
- * left, so a fully private prompt runs no search and nothing of it reaches an embedding provider.
+ * Pi expands `/skill:<name> text` into `<skill ...>skill body</skill>` followed by the user's text.
+ * The search uses the user's own words, so the whole block is cut out.
+ */
+const SKILL_BLOCK = /<skill\b[^>]*>[\s\S]*?<\/skill>/gi;
+
+/**
+ * The prompt text that may reach a search: skill blocks and `<private>` regions removed. Null when
+ * nothing is left, so a fully private prompt, or a skill run with no text of its own, runs no
+ * search and nothing of it reaches an embedding provider.
  */
 export function searchablePrompt(prompt: string): string | null {
-  if (isFullyPrivate(prompt)) return null;
-  return stripPrivateContent(prompt).trim() || null;
+  const text = prompt.replace(SKILL_BLOCK, "");
+  if (isFullyPrivate(text)) return null;
+  return stripPrivateContent(text).trim() || null;
 }
 
 /**

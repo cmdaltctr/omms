@@ -126,7 +126,8 @@ export class MemoryPortabilityService {
     for (const shard of shards) {
       if (!existsSync(shard.dbPath)) continue;
       const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const rows = await tursoVectorSearch.getAllMemories(db);
+      // An export keeps every kind, memorisations included.
+      const rows = await tursoVectorSearch.getAllMemories(db, "all");
       for (const row of rows) {
         const exported = rowToExportedMemory(row);
         if (exported) memories.push(exported);

@@ -6,6 +6,7 @@ import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
 import { cosineSimilarity } from "../utils/math.js";
 import { parseExtractedVector } from "./turso/vector-utils.js";
+import { memoryKindPredicate } from "./memory-kind.js";
 
 interface DuplicateGroup {
   representative: {
@@ -51,7 +52,17 @@ export class DeduplicationService {
 
       for (const shard of allShards) {
         const db = await tursoConnectionManager.getConnection(shard.dbPath);
-        const memories = await tursoVectorSearch.getAllMemoriesWithExtractedVectors(db);
+        const memories = await db.all(`
+          SELECT
+            id,
+            content,
+            container_tag,
+            created_at,
+            vector_extract(vector) AS vector_json
+          FROM memories
+          WHERE ${memoryKindPredicate()}
+          ORDER BY created_at DESC
+        `);
 
         const contentMap = new Map<string, (typeof memories)[number][]>();
 

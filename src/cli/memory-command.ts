@@ -17,6 +17,9 @@ export interface MemoryCommandIO {
 
 const MODES: Record<MemoryOperationMode, string> = {
   add: "Store a memory (--content, optional --type and --tags)",
+  memorise: "Save an exact memorisation (text, or --topic --done --doing --next; optional --tags)",
+  memorize: "Same as memorise",
+  recall: "Fetch memorisations by ms- ID, text or label (argument or --query, optional --tags)",
   search: "Search project memories (query as an argument or --query)",
   profile: "Show the user profile, or save a preference with --content",
   list: "List recent memories (--limit, default 20)",
@@ -29,11 +32,16 @@ const MODES: Record<MemoryOperationMode, string> = {
   space: "Manage memory spaces: list, status, create, archive, unarchive, use (--action, --name)",
 };
 
-const VALUE_FLAGS: Record<string, keyof MemoryOperationArgs | "directory"> = {
+const VALUE_FLAGS: Record<string, keyof MemoryOperationArgs | "directory" | "hostSessionId"> = {
   "--content": "content",
   "--query": "query",
   "--type": "type",
   "--tags": "tags",
+  "--topic": "topic",
+  "--done": "done",
+  "--doing": "doing",
+  "--next": "next",
+  "--session-id": "hostSessionId",
   "--id": "memoryId",
   "--limit": "limit",
   "--scope": "scope",
@@ -62,10 +70,15 @@ ${Object.entries(MODES)
   .join("\n")}
 
 Options:
-  --content <text>        Memory text (add) or preference text (profile)
-  --query <text>          Search text (search)
+  --content <text>        Memory text (add), exact text (memorise) or preference text (profile)
+  --query <text>          Search text (search), or an ms- ID or text (recall)
   --type <type>           Memory type, for example decision or bug-fix (add)
-  --tags <a,b>            Comma-separated tags (add)
+  --tags <a,b>            Comma-separated tags (add, memorise, recall)
+  --topic <text>          Snapshot topic (memorise)
+  --done <text>           Snapshot: what is done (memorise)
+  --doing <text>          Snapshot: what is in progress (memorise)
+  --next <text>           Snapshot: what comes next (memorise)
+  --session-id <id>       Host session ID, so a repeat snapshot can replace its earlier one (memorise)
   --id <id>               Memory id (forget)
   --limit <n>             Maximum results (search, list)
   --scope <scope>         project or all-projects (search, list)
@@ -84,12 +97,17 @@ Text inside <private>...</private> is removed before storage.
 
 Examples:
   om-memory-system memory search "database choice"
-  om-memory-system memory add --content "Use libSQL for the store" --type decision`;
+  om-memory-system memory add --content "Use libSQL for the store" --type decision
+  om-memory-system memory memorise --topic "Auth" --doing "Token refresh" --next "Tests"
+  om-memory-system memory recall ms-4k7q2p
+  om-memory-system memory recall --tags release,wip "token refresh"`;
 
 interface ParsedMemoryCommand {
   help: boolean;
   args: MemoryOperationArgs;
   directory?: string;
+  /** From `--session-id`; becomes the operation context's `hostSessionId`. */
+  hostSessionId?: string;
 }
 
 function isMode(value: string): value is MemoryOperationMode {
@@ -150,10 +168,17 @@ export function parseMemoryCommandArgs(argv: string[]): ParsedMemoryCommand {
       values.spaceName = name;
     }
   } else if (positionals.length > 0) {
-    if (mode !== "search" || positionals.length > 1 || values.query !== undefined) {
+    // One positional: search and recall read it as the query, memorise as the text.
+    const target =
+      mode === "search" || mode === "recall"
+        ? "query"
+        : mode === "memorise" || mode === "memorize"
+          ? "content"
+          : undefined;
+    if (!target || positionals.length > 1 || values[target] !== undefined) {
       throw new Error(`Unexpected argument "${positionals[0]}"`);
     }
-    values.query = positionals[0]!;
+    values[target] = positionals[0]!;
   }
 
   for (const [key, value] of Object.entries(values)) {
@@ -168,11 +193,11 @@ export function parseMemoryCommandArgs(argv: string[]): ParsedMemoryCommand {
         throw new Error("--scope must be project or all-projects");
       }
       args.scope = value;
-    } else if (key !== "directory") {
+    } else if (key !== "directory" && key !== "hostSessionId") {
       (args as Record<string, unknown>)[key] = value;
     }
   }
-  return { help: false, args, directory: values.directory };
+  return { help: false, args, directory: values.directory, hostSessionId: values.hostSessionId };
 }
 
 /** Run `om-memory-system memory ...` and return the process exit code. */
@@ -204,7 +229,11 @@ export async function runMemoryCommand(argv: string[], io: MemoryCommandIO = {})
     const { executeMemoryOperation } = await import("../core/memory-operations.js");
     const { memoryClient } = await import("../services/client.js");
     try {
-      result = await executeMemoryOperation(parsed.args, { directory, host: "claude-code" });
+      result = await executeMemoryOperation(parsed.args, {
+        directory,
+        host: "claude-code",
+        hostSessionId: parsed.hostSessionId,
+      });
     } finally {
       // Release the store so the process can exit once the reply is printed.
       await memoryClient.close().catch(() => {});

@@ -1,6 +1,5 @@
 import { existsSync, readFileSync, mkdirSync, writeFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { homedir } from "node:os";
 import { stripJsoncComments } from "./services/jsonc.js";
 import { isValidClaudeConfigDir } from "./services/claude-folder.js";
 import { log } from "./services/logger.js";
@@ -33,21 +32,8 @@ import {
 import { resolveActiveSpace, type ActiveSpace } from "./services/spaces/active-space.js";
 import { backfillSpaceLabelsFromDisk } from "./services/spaces/space-label.js";
 import { resetStoreHandles } from "./services/spaces/store-handles.js";
-
-const OMMS_CONFIG_DIR = join(homedir(), ".config", "omms");
-const DATA_DIR = join(homedir(), ".omms");
-const LEGACY_CONFIG_FILES = [
-  join(homedir(), ".config", "opencode", "opencode-mem.jsonc"),
-  join(homedir(), ".config", "opencode", "opencode-mem.json"),
-];
-// Dual-read: the omms config wins; the legacy opencode-mem config is read
-// only when no omms config file exists (decision D13 rule 6). The legacy
-// file is never written.
-const CONFIG_FILES = [
-  join(OMMS_CONFIG_DIR, "omms.jsonc"),
-  join(OMMS_CONFIG_DIR, "omms.json"),
-  ...LEGACY_CONFIG_FILES,
-];
+import * as memorisation from "./core/memorisation-settings.js";
+import { CONFIG_FILES, DATA_DIR, LEGACY_CONFIG_FILES, OMMS_CONFIG_DIR } from "./config-paths.js";
 
 if (!existsSync(OMMS_CONFIG_DIR)) mkdirSync(OMMS_CONFIG_DIR, { recursive: true });
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -79,6 +65,10 @@ interface OmmsConfig {
   keywordMode?: KeywordMode;
   /** Shared budget for automatic memory context in approximate tokens (ceil(UTF-8 bytes / 4)). */
   retrievalMaxTokens?: number;
+  /** Memorisation size and repeat behaviour. Global config only. */
+  memorisationMaxSize?: number;
+  memorisationSizeUnit?: memorisation.MemorisationSettings["memorisationSizeUnit"];
+  memorisationRepeat?: memorisation.MemorisationSettings["memorisationRepeat"];
   maxProfileItems?: number;
   injectProfile?: boolean;
   containerTagPrefix?: string;
@@ -243,6 +233,9 @@ const DEFAULTS: Required<
   rerankerEnabled: false,
   rerankerTimeoutMs: RERANKER_TIMEOUT_DEFAULT_MS,
   retrievalMaxTokens: 2000,
+  memorisationMaxSize: 2000,
+  memorisationSizeUnit: "characters",
+  memorisationRepeat: "add",
   maxProfileItems: 5,
   injectProfile: true,
   // omms since the tag prefix migration: new memories carry the fork's
@@ -581,6 +574,7 @@ function buildConfig(fileConfig: OmmsConfig) {
     keywordMode: checkedKeywordMode(fileConfig.keywordMode),
     maxMemories,
     retrievalMaxTokens,
+    ...memorisation.settingsFrom(fileConfig),
     maxProfileItems: fileConfig.maxProfileItems ?? DEFAULTS.maxProfileItems,
     injectProfile: fileConfig.injectProfile ?? DEFAULTS.injectProfile,
     containerTagPrefix: fileConfig.containerTagPrefix ?? DEFAULTS.containerTagPrefix,
@@ -831,6 +825,7 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   delete projectOverrides.captureTraceRetentionDays;
   // The queue holds conversation text, so only the global file sets how long.
   delete projectOverrides.captureRetryRetentionHours;
+  for (const key of memorisation.MEMORISATION_KEYS) delete projectOverrides[key];
   // Skill learning stores full turns: a project may only turn it off.
   const skillRule = projectSkillOverride(projectConfig);
   if (skillRule.ignoredTurnOn) {

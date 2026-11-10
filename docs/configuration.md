@@ -234,6 +234,37 @@ OMMS estimates tokens as `Math.ceil(utf8ByteLength(text) / 4)`. The final emitte
 
 Smaller limits can omit conversation input or show fewer or shorter injected memories. Stored memories, profiles, prompts, and manual tool or CLI search content remain complete. These controls do not set a spending limit, limit model replies, or control Graphify output.
 
+## Memorisation
+
+These settings control [memorisations](using-memory.md#memorise-and-recall):
+exact notes that the `memorise` mode saves and the `recall` mode fetches. They
+are global-only. A project config cannot change them.
+
+| Setting                | Default      | Accepted values                                                      | Meaning                                                                   |
+| ---------------------- | ------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `memorisationMaxSize`  | `2000`       | Whole number. 100 to 20000 for `characters`, 25 to 5000 for `tokens` | Largest memorisation that OMMS accepts.                                   |
+| `memorisationSizeUnit` | `characters` | `characters` or `tokens`                                             | The unit of `memorisationMaxSize`.                                        |
+| `memorisationRepeat`   | `add`        | `add` or `replace`                                                   | What happens when a session snapshot is saved again for the same session. |
+
+- `tokens` use the same estimate as the memory context budget: UTF-8 bytes divided by 4, rounded up.
+- OMMS checks the size and the unit as a pair. An edit that leaves the number outside the range for its unit is refused, and the previous values stay.
+- OMMS measures the stored text, after `<private>` removal and after the snapshot labels are added. A note over the cap is refused and nothing is stored.
+- Lowering the cap never changes records that are already stored. They can still be recalled.
+- `add` keeps every snapshot, each with its own ID. `replace` deletes the earlier snapshot of the same host session and keeps its ID, so an ID that you quoted still works.
+- `replace` applies to session snapshots only. A note saved with `content` is always added.
+- If the host gives no session ID, `replace` adds the snapshot and the reply says it could not replace.
+
+```jsonc
+{
+  // Largest memorisation, in the unit below.
+  "memorisationMaxSize": 2000,
+  // "characters" or "tokens".
+  "memorisationSizeUnit": "characters",
+  // "add" keeps every snapshot. "replace" overwrites the earlier snapshot of the same session.
+  "memorisationRepeat": "add",
+}
+```
+
 ## Keyword matching
 
 Search finds memories by meaning and by exact words. A memory that contains a word of the prompt (in its text or its tags) gains a boost, and a memory that only matches by word can still be returned. Rare words count more than common ones.
@@ -402,7 +433,7 @@ On OpenCode and Pi the setting does not change what OMMS recalls or injects. On 
 
 Some settings are read only from the global file.
 
-- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoCleanupEnabled`, `autoCleanupRetentionDays`, and the five `reranker*` settings. This stops one project from, for example, turning off the shared web server for another, or sending a user's memories to its own reranker server.
+- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoCleanupEnabled`, `autoCleanupRetentionDays`, the three `memorisation*` settings, and the five `reranker*` settings. This stops one project from, for example, turning off the shared web server for another, or sending a user's memories to its own reranker server.
 - A project config cannot turn `captureTrace` on. See [Capture traces](#capture-traces-opt-in).
 - A project config cannot turn `skillLearning` on, and it cannot set `skillLearningRedact` or `skillFolders`. See [Skill learning](#skill-learning).
 - A project config cannot turn `visibleRecall` on. It can turn it off. See [Visible recall](#visible-recall).

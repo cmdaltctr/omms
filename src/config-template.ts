@@ -403,6 +403,14 @@ export const CONFIG_TEMPLATE = `{
   // restoration. Not an exact provider token limit or a spending limit.
   "retrievalMaxTokens": 2000,
 
+  // Memorisation settings (global config only).
+  // Repeat for a session snapshot: "add" or "replace" (default "add").
+  // "memorisationRepeat": "add",
+  // Maximum stored text: 100 to 20,000 characters or 25 to 5,000 tokens.
+  // Tokens are estimated with the same rule as retrievalMaxTokens.
+  // "memorisationMaxSize": 2000,
+  // "memorisationSizeUnit": "characters", // or "tokens"
+
   // Restore a session's own memories after compaction and after resume, on
   // OpenCode V2, Pi and Claude Code. memoryLimit is the most memories to
   // restore. A project config can turn it on or off.

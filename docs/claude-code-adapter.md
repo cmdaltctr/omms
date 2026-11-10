@@ -61,6 +61,12 @@ The plugin files are in the repository root:
 
 The same skill file serves Pi and OpenCode. In Claude Code, start it by name
 with `/omms:omms-memory`. See [Using memory: The omms-memory skill](using-memory.md#the-omms-memory-skill).
+
+The plugin also ships the `omms-remember` skill (`skills/omms-remember/SKILL.md`).
+Start it with `/omms:omms-remember`. It saves a short snapshot of the session
+with the `memorise` mode of the `memory` tool and reports the `ms-` ID. A new
+session fetches it with `recall`. See
+[Using memory: The omms-remember skill](using-memory.md#the-omms-remember-skill).
 The plugin manifest, the marketplace file, and the hooks file are not in the
 npm package. Install the plugin from the repository.
 
@@ -454,7 +460,8 @@ memory visible in the chat.
 tool list from the first prompt. Each call shows as its own tool row, which you
 can unfold to read the JSON result.
 
-- It offers the modes `search`, `add`, `list`, `profile`, `forget`, `space`, and `help`.
+- It offers the modes `search`, `add`, `memorise`, `memorize`, `recall`, `list`, `profile`, `forget`, `space`, and `help`.
+- For `memorise` and `memorize`, the module reads the session ID with `$.session.id()` and passes it as `--session-id`. If the ID is not available, the note is still saved, and a repeat snapshot cannot replace the earlier one.
 - It refuses `import`, `export`, `migrate`, and `list-shards`, because they
   move or rewrite whole stores. Run those with
   [the `memory` command](#the-memory-command) in a terminal.
@@ -539,39 +546,44 @@ The command runs one memory operation for the project in the working
 directory. It prints one JSON document with the same fields that the `memory`
 tool returns. Memories added with it have host `claude-code`.
 
-| Mode          | What it does                                              | Options                                                              |
-| ------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
-| `add`         | Store a memory                                            | `--content`, `--type`, `--tags`                                      |
-| `search`      | Search project memories                                   | `"<query>"` or `--query`, `--limit`, `--scope`                       |
-| `list`        | List recent memories (default 20)                         | `--limit`, `--scope`                                                 |
-| `forget`      | Remove a memory                                           | `--id`                                                               |
-| `profile`     | Show the user profile, or save a preference               | `--content`                                                          |
-| `help`        | Print the memory tool guide as JSON                       | none                                                                 |
-| `list-shards` | List project memory shards and orphaned path associations | none                                                                 |
-| `migrate`     | Link orphaned shards again after a folder move            | `--from-path` or `--from-hash`, `--dry-run`, `--allow-linked-source` |
-| `export`      | Export project memories to a portable JSON file           | `--output`                                                           |
-| `import`      | Import memories from a portable JSON file                 | `--input`, `--dry-run`                                               |
-| `space`       | List, create, switch or archive memory spaces             | `--action`, `--name`                                                 |
+| Mode          | What it does                                              | Options                                                                                          |
+| ------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `add`         | Store a memory                                            | `--content`, `--type`, `--tags`                                                                  |
+| `search`      | Search project memories                                   | `"<query>"` or `--query`, `--limit`, `--scope`                                                   |
+| `memorise`    | Save an exact memorisation with an `ms-` ID               | `"<text>"` or `--content`, or `--topic`, `--done`, `--doing`, `--next`; `--tags`, `--session-id` |
+| `memorize`    | Same as `memorise`                                        | same as `memorise`                                                                               |
+| `recall`      | Fetch memorisations by `ms-` ID or text                   | `"<id or text>"` or `--query`, `--limit`, `--scope`                                              |
+| `list`        | List recent memories (default 20)                         | `--limit`, `--scope`                                                                             |
+| `forget`      | Remove a memory                                           | `--id`                                                                                           |
+| `profile`     | Show the user profile, or save a preference               | `--content`                                                                                      |
+| `help`        | Print the memory tool guide as JSON                       | none                                                                                             |
+| `list-shards` | List project memory shards and orphaned path associations | none                                                                                             |
+| `migrate`     | Link orphaned shards again after a folder move            | `--from-path` or `--from-hash`, `--dry-run`, `--allow-linked-source`                             |
+| `export`      | Export project memories to a portable JSON file           | `--output`                                                                                       |
+| `import`      | Import memories from a portable JSON file                 | `--input`, `--dry-run`                                                                           |
+| `space`       | List, create, switch or archive memory spaces             | `--action`, `--name`                                                                             |
 
-| Option                  | Effect                                                                            |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| `--content <text>`      | Memory text (`add`) or preference text (`profile`)                                |
-| `--query <text>`        | Search text (`search`)                                                            |
-| `--type <type>`         | Memory type, for example `decision` or `bug-fix` (`add`)                          |
-| `--tags <a,b>`          | Comma-separated tags (`add`)                                                      |
-| `--action <action>`     | Space action: `list`, `status`, `create`, `use`, `archive`, `unarchive` (`space`) |
-| `--name <name>`         | Space name or id (`space`)                                                        |
-| `--id <id>`             | Memory ID (`forget`)                                                              |
-| `--limit <n>`           | Maximum results (`search`, `list`). A positive whole number                       |
-| `--scope <scope>`       | `project` or `all-projects` (`search`, `list`)                                    |
-| `--from-path <path>`    | Old project path (`migrate`)                                                      |
-| `--from-hash <hash>`    | Old project hash (`migrate`)                                                      |
-| `--output <file>`       | Export file (`export`)                                                            |
-| `--input <file>`        | Import file (`import`)                                                            |
-| `--dry-run`             | Report without writing (`migrate`, `import`)                                      |
-| `--allow-linked-source` | Allow a linked source folder (`migrate`)                                          |
-| `--directory <path>`    | Project folder. The default is the working directory                              |
-| `--help`, `-h`          | Print the help                                                                    |
+| Option                                   | Effect                                                                            |
+| ---------------------------------------- | --------------------------------------------------------------------------------- |
+| `--content <text>`                       | Memory text (`add`) or preference text (`profile`)                                |
+| `--query <text>`                         | Search text (`search`), or an `ms-` ID or text (`recall`)                         |
+| `--topic`, `--done`, `--doing`, `--next` | Session snapshot fields (`memorise`, `memorize`)                                  |
+| `--session-id <id>`                      | Host session ID, so a repeat snapshot can replace the earlier one (`memorise`)    |
+| `--type <type>`                          | Memory type, for example `decision` or `bug-fix` (`add`)                          |
+| `--tags <a,b>`                           | Comma-separated tags (`add`)                                                      |
+| `--action <action>`                      | Space action: `list`, `status`, `create`, `use`, `archive`, `unarchive` (`space`) |
+| `--name <name>`                          | Space name or id (`space`)                                                        |
+| `--id <id>`                              | Memory ID (`forget`)                                                              |
+| `--limit <n>`                            | Maximum results (`search`, `list`). A positive whole number                       |
+| `--scope <scope>`                        | `project` or `all-projects` (`search`, `list`)                                    |
+| `--from-path <path>`                     | Old project path (`migrate`)                                                      |
+| `--from-hash <hash>`                     | Old project hash (`migrate`)                                                      |
+| `--output <file>`                        | Export file (`export`)                                                            |
+| `--input <file>`                         | Import file (`import`)                                                            |
+| `--dry-run`                              | Report without writing (`migrate`, `import`)                                      |
+| `--allow-linked-source`                  | Allow a linked source folder (`migrate`)                                          |
+| `--directory <path>`                     | Project folder. The default is the working directory                              |
+| `--help`, `-h`                           | Print the help                                                                    |
 
 Examples:
 

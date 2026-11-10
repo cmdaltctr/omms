@@ -4,9 +4,9 @@ The [project README](../README.md#documentation) lists the user and developer gu
 
 ## Using OMMS
 
-- [Using memory](using-memory.md) explains capture, retrieval and profile learning.
+- [Using memory](using-memory.md) explains capture, retrieval, profile learning and [memorisations](using-memory.md#memorise-and-recall), the exact notes that you save and recall on purpose.
 - [Memory spaces](memory-spaces.md) covers separate stores, transfer, export, import, linked spaces, backups and the `space` command.
-- [Configuration](configuration.md) covers config files, model selection, privacy and embeddings.
+- [Configuration](configuration.md) covers config files, model selection, privacy, embeddings and the [memorisation settings](configuration.md#memorisation).
 - [CLI reference](cli.md) lists the terminal commands.
 - [Skill learning](skill-learning.md) covers recording turns, ranking skills, drafting improvements, and apply and undo.
 - [Updating and upgrading](upgrading.md) covers updates, version pinning and older stores.
@@ -16,7 +16,7 @@ The [project README](../README.md#documentation) lists the user and developer gu
 ## Web UI
 
 - [Web UI](web-ui.md) covers app startup, navigation and access.
-- [Memory page](web-ui-memory.md) covers the host cards, each host's imports and status, shared settings, host avatars and the memories-not-saved warning.
+- [Memory page](web-ui-memory.md) covers the host cards, each host's imports and status, shared settings, host avatars and the memories-not-saved warning. It also covers the [Memorisation page](web-ui-memory.md#memorisation-page): the list, recall, Copy ID, delete, the repeat choice and the size cap.
 - [Settings page](web-ui-settings.md) covers models, access, diagnostics and profile identity controls.
 - [Chat page](web-ui-chat.md) covers asking questions about memories, citations, folders, deleting chats and copying `chats.db`.
 

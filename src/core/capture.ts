@@ -3,6 +3,7 @@ import { buildCaptureAttemptRecord, emitCaptureAttempt } from "../services/captu
 import { memoryClient } from "../services/client.js";
 import { getTags } from "../services/tags.js";
 import { buildMarkdownContext, getAutoCaptureMarkdownBudget } from "./capture-context.js";
+import { turnSavedMemorisation } from "./memorise-turn.js";
 import {
   errorHttpStatus,
   errorRetryAfterMs,
@@ -14,6 +15,7 @@ import type {
   CaptureConversation,
   CapturePromptContext,
   CaptureProvenance,
+  CaptureSkipReason,
   CaptureSummaryProvider,
 } from "./host.js";
 
@@ -25,7 +27,8 @@ export interface CaptureWorkUnit extends CaptureProvenance, CaptureConversation 
 }
 
 export type CaptureResult =
-  { status: "captured"; memoryId: string } | { status: "skipped"; type?: string };
+  | { status: "captured"; memoryId: string }
+  | { status: "skipped"; type?: string; reason?: CaptureSkipReason };
 
 /**
  * Thrown by `captureConversation` for a failed attempt. Keeps the original
@@ -43,7 +46,7 @@ export class CaptureAttemptError extends Error {
 
 async function getLatestProjectMemory(containerTag: string): Promise<string | null> {
   try {
-    const result = await memoryClient.listMemories(containerTag, 1);
+    const result = await memoryClient.listMemories(containerTag, 1, "project", { kind: "normal" });
     if (!result.success || result.memories.length === 0) return null;
 
     const latest = result.memories[0];
@@ -102,6 +105,12 @@ async function runCapture(
   diagnostics: CaptureAttemptDiagnostics,
   markdownBudget: number
 ): Promise<CaptureResult> {
+  // A memorisation reaches an agent only through `recall`. Capturing the turn
+  // that saved one would put the snapshot back into per-prompt recall.
+  if (turnSavedMemorisation(workUnit.toolCalls)) {
+    diagnostics.skipReason = "memorisation-turn";
+    return { status: "skipped", reason: "memorisation-turn" };
+  }
   const tags = getTags(workUnit.projectDirectory);
   const latestMemory = await getLatestProjectMemory(tags.project.tag);
   const context = buildMarkdownContext(

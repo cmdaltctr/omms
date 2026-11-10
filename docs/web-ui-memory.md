@@ -403,6 +403,99 @@ Existing Markdown section anchors in the [Settings guide](web-ui-settings.md) li
 
 Import and automatic import name no host, so they open the overview. A Shared row opens when a link names it. Legacy navigation replaces the old history entry, so Back does not cycle between the two URLs. Unrelated Settings anchors remain there; profile identities use `/settings#settings-section-profiles`.
 
+## Memorisation page
+
+Open `http://127.0.0.1:4747/memorisation` or select **Memorisation** in the sidebar. The entry sits directly after **User profile**. The page works in English, Chinese and Arabic. A reload keeps the page.
+
+A memorisation is an exact note that you save on purpose, with an ID such as `ms-4k7q2p`. Agents and the terminal save it with the `memorise` mode. See [Using memory](using-memory.md). This page lists, finds, copies and deletes them. It shows the records of the current project in the active space and in linked spaces.
+
+| Part                    | What it does                                                                                                                       |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Recall**              | Runs the same recall as the `recall` mode. An ID shows that one record. Words show the best matches, each with a confidence score. |
+| **Saved memorisations** | Lists the records, newest first, five to a page. The toolbar changes the sort and the page size.                                   |
+| **Settings**            | Sets what a repeat does and the size cap. Both are global settings.                                                                |
+
+### The list
+
+Each row shows the first line of the note (the topic, for a session snapshot), the ID, the time it was saved, and coloured labels for the kind, the host and the linked space. Memorisations never appear on **Project memories**, in its keyword list, in the **Total** and type counts, or in automatic recall. The **Project memories** page cannot edit a memorisation. To change one, delete it here, or replace it by memorising again.
+
+| Button             | What it does                                                                                                                                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Show full text** | Opens the stored text in the row. **Hide full text** closes it.                                                                                                                                                         |
+| **Copy ID**        | Puts the ID on the clipboard and says so. If the browser refuses, select the ID in the row and copy it.                                                                                                                 |
+| **Delete**         | Asks first, then removes the record. The row disappears and a line confirms it. A record in a linked space is read-only, so **Delete** is off and the row says which space holds it. Switch to that space to delete it. |
+
+With no records, the page shows how to make the first one.
+
+### Recall
+
+Type an ID or words from the note and select **Recall**. A match shows its confidence score as a percentage. One clear match is shown alone. Otherwise the page shows up to three. An ID that does not exist gives a clear message. **Clear search** returns to the list. Add `label:name` to narrow by label, for example `label:release token refresh`. Use quotes for a label with spaces: `label:"two words"`. Repeat `label:` for more labels. A search with labels and no words returns the newest records with those labels. The `label:` words in the box do not change the list filter.
+
+### Labels
+
+Each card shows the labels of the record as coloured pills, beside the kind and host pills. A label always has the same colour. The fixed tag `memorisation` is not shown. A label is whatever you name when you memorise ("label it release, wip") plus the one to three labels the agent adds.
+
+| Control          | What it does                                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Label pill**   | Adds that label to the filter. A label already in the filter shows as pressed.                                                 |
+| **Filter chips** | A bar above the list shows each label of the filter with an x. The x removes that label. **Clear labels** removes all of them. |
+
+- The list shows only records that carry every label in the filter. Case does not matter.
+- The filter goes in the address as `?labels=release,auth`. A reload keeps it, and you can share the address. Changing the filter does not add a history entry.
+- A new filter returns the list to page 1.
+- When no record has all the labels, the page says so. The chips stay, so you can clear them.
+- A label pill in the recall results adds to the same filter.
+
+### Select and delete several
+
+Select **Select** above the list to turn on select mode. Each card gets a checkbox.
+
+| Control             | What it does                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| **Select all**      | Ticks every selectable card on the current page. It does not reach other pages.            |
+| **Delete selected** | Off until one card is ticked. Opens one confirmation that states how many records will go. |
+| **Cancel**          | Leaves select mode and drops every tick.                                                   |
+
+- A card from a linked space cannot be selected. Its checkbox is off and the card says which space holds it.
+- A tick on a card that a new filter hides is dropped, so you never delete a card you cannot see.
+- After you confirm, the page leaves select mode, reloads the list and shows a result line: "Deleted 2." and one line for each skipped ID with its reason.
+- A skipped record stays as it was. The reasons are: it no longer exists, it is in a linked space (read-only), or it is not a memorisation.
+- If the request fails, the dialog stays open with an error and the ticks stay. Try again or select **Cancel**.
+- Bulk delete works on the active space only.
+
+### Repeat choice
+
+**Repeat memorisation** sets `memorisationRepeat`. It saves when you select a choice.
+
+| Choice                      | Key value | Effect                                                                                   |
+| --------------------------- | --------- | ---------------------------------------------------------------------------------------- |
+| **Add a new memorisation**  | `add`     | Each snapshot of a session gets its own ID. Earlier snapshots stay. This is the default. |
+| **Replace the earlier one** | `replace` | The new snapshot keeps the ID of the earlier one from the same session.                  |
+
+### Size cap
+
+**Size cap** sets `memorisationMaxSize` and `memorisationSizeUnit`. Enter a number, choose **Characters** or **Tokens**, then select **Save**. The two values save together, because the allowed range depends on the unit.
+
+| Unit       | Allowed range | Note                                                       |
+| ---------- | ------------- | ---------------------------------------------------------- |
+| Characters | 100 to 20,000 | The default is 2,000 characters.                           |
+| Tokens     | 25 to 5,000   | An estimate: about one token for every four bytes of text. |
+
+A number outside the range saves nothing. The page then shows the range for the unit you chose. Lowering the cap does not change records that you saved before. Both settings are global. A project config file cannot change them. Saving uses the [safe global save](web-ui-settings.md#how-saving-works).
+
+### API
+
+| Route                                           | Returns                                                                                                                                                                                                                                                                                        |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/memorisations`                        | `data.memorisations`: `id`, `content`, `createdAt`, `host`, `kind`, `space` and `tags` (the labels, without the fixed tag). Optional `tags=a,b` keeps only records that carry every label, from the active and linked spaces. The filter runs before the cap of 200 rows.                      |
+| `GET /api/memorisations/recall?q=&tags=&limit=` | `data.count` and `data.matches`. Give `q`, `tags` or both. A match has `confidence` when `q` is text. With `tags` and no `q` it returns the newest labelled records. Status 400 when both are empty, 404 for an unknown ID.                                                                    |
+| `POST /api/memorisations/bulk-delete`           | Body `{"ids": ["ms-4k7q2p"]}` with 1 to 500 `ms-` IDs, else status 400. Returns `data.deleted` (IDs) and `data.skipped` (`id` and `reason`: `not-found`, `linked` or `not-memorisation`). It deletes from the active space only, handles a repeated ID once, and never changes a linked space. |
+| `DELETE /api/memories/:id`                      | The existing memory delete route. It removes a memorisation too.                                                                                                                                                                                                                               |
+
+`PUT /api/memories/:id` and `POST /api/memories/bulk-delete` refuse a memorisation. `POST /api/memories` refuses the type `memorisation`. Each refusal returns an error that names the Memorisation page.
+
+The routes need the same web token as the other `/api/` routes.
+
 ## Troubleshooting
 
 | What you see                      | What to do                                                                                         |
@@ -415,5 +508,6 @@ Import and automatic import name no host, so they open the overview. A Shared ro
 | Memories not saved                | Fix the service in the reason, such as the embedding server, then select **Check again**.          |
 | Resume is greyed out              | Read the sentence under it. Select **Use external API** or open the host.                          |
 | Config changed before save        | Review refreshed values and save again.                                                            |
+| Size cap is refused               | Enter a whole number inside the range shown for the unit, then save again.                         |
 
 For the additive grouped API and legacy response fields, see [For developers: Web history-import API](developers.md#web-history-import-api).

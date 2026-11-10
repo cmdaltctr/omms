@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { boundToolInput, readToolPath } from "../core/tool-input.js";
-import { opencodeToolOutcome } from "../core/tool-outcome.js";
+import { opencodeMemorise, opencodeToolOutcome } from "../core/tool-outcome.js";
 import { INTERNAL_CAPTURE_SESSION_TITLES } from "./opencode-internal-sessions.js";
 import type { ImportWindow } from "./importer.js";
 import {
@@ -175,6 +175,7 @@ function buildWindows(
           name,
           input: boundToolInput(formatInput(args)),
           ...opencodeToolOutcome(state),
+          ...opencodeMemorise(name, args, state),
           ...(path === undefined ? {} : { path }),
         });
       }

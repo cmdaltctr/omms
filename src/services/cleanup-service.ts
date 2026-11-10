@@ -5,6 +5,7 @@ import { ensureTursoReady } from "./turso/ready.js";
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
+import { memoryKindPredicate } from "./memory-kind.js";
 
 interface CleanupResult {
   deletedCount: number;
@@ -71,7 +72,7 @@ export class CleanupService {
         const oldMemories = await db.all(
           `
           SELECT id, container_tag, is_pinned FROM memories
-          WHERE updated_at < ?
+          WHERE updated_at < ? AND ${memoryKindPredicate()}
         `,
           [cutoffTime]
         );

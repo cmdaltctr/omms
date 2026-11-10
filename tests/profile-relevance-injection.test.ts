@@ -153,7 +153,9 @@ describe("profile block follows the prompt", () => {
       false,
       `keywordMode: "rrf", rerankerEnabled: true, rerankerApiUrl: "http://127.0.0.1:1", rerankerModel: "m", rerankerTimeoutMs: 500,`
     );
-    expect(calls.keywordMode).toBeUndefined();
+    // The reranked search now passes the trailing memory kind, so it names "boost"
+    // explicitly instead of leaving keywordMode to its "boost" default.
+    expect(calls.keywordMode).toBe("boost");
     expect(calls.keywordBoost).toBe(0.15);
   });
 

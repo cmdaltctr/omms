@@ -1,5 +1,6 @@
 import type { CaptureConversation, CaptureToolCall } from "../core/host.js";
 import { boundToolInput, readToolPath } from "../core/tool-input.js";
+import { memoriseCallState, memoriseResultState } from "../core/memorise-turn.js";
 import { errorOutcome } from "../core/tool-outcome.js";
 
 /**
@@ -65,11 +66,11 @@ function isToolResultEntry(entry: PiSessionEntry): boolean {
 function applyToolResult(entry: PiSessionEntry, callsById: Map<string, CaptureToolCall>): void {
   const call = callsById.get(entry.message?.toolCallId ?? "");
   if (!call) return;
-  if (entry.message?.isError === true) {
-    Object.assign(call, errorOutcome(entryText(entry.message.content)));
-  } else {
-    call.outcome = "ok";
-  }
+  const text = entryText(entry.message?.content);
+  const isError = entry.message?.isError === true;
+  if (isError) Object.assign(call, errorOutcome(text));
+  else call.outcome = "ok";
+  if (call.memorise) call.memorise = memoriseResultState(isError, text);
 }
 
 function formatToolInput(args: unknown): string {
@@ -133,6 +134,8 @@ function buildWindow(entries: PiSessionEntry[], userIndex: number): PiConversati
       };
       const path = readToolPath(name, block.arguments);
       if (path !== undefined) call.path = path;
+      const memorise = memoriseCallState(name, block.arguments);
+      if (memorise) call.memorise = memorise;
       toolCalls.push(call);
       if (typeof block.id === "string") callsById.set(block.id, call);
     }

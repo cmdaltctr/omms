@@ -1,6 +1,6 @@
 import type { CaptureConversation, CaptureToolCall } from "../../core/host.js";
 import { boundToolInput, readToolPath } from "../../core/tool-input.js";
-import { opencodeToolOutcome } from "../../core/tool-outcome.js";
+import { opencodeMemorise, opencodeToolOutcome } from "../../core/tool-outcome.js";
 
 function formatToolInput(inputValue: unknown): string {
   if (!inputValue) return "";
@@ -48,13 +48,15 @@ export function extractOpenCodeConversation(
     }
 
     for (const tool of message.parts.filter((part: any) => part.type === "tool")) {
-      const name = tool.tool || "unknown";
+      // V1 parts name the tool `tool`; the V2 plugin API names it `name`.
+      const name = tool.tool || tool.name || "unknown";
       const input = boundToolInput(formatToolInput(tool.state?.input));
       const path = readToolPath(name, tool.state?.input);
       toolCalls.push({
         name,
         input,
         ...opencodeToolOutcome(tool.state),
+        ...opencodeMemorise(name, tool.state?.input, tool.state),
         ...(path === undefined ? {} : { path }),
       });
     }

@@ -30,6 +30,7 @@ type Props = {
   projectLabel: string;
   profileLabel: string;
   chatLabel: string;
+  memorisationLabel?: string;
   skillsLabel?: string;
   profileSections: { id: string; label: string }[];
   skillsSections?: { id: string; label: string }[];
@@ -93,6 +94,7 @@ export function AppSidebar({
   projectLabel,
   profileLabel,
   chatLabel,
+  memorisationLabel = "Memorisation",
   skillsLabel = "Skills",
   profileSections,
   skillsSections = [],
@@ -126,14 +128,10 @@ export function AppSidebar({
     () => readSettingsTreeOpen() ?? currentView === "settings"
   );
 
-  const [memoryTreeOpen, setMemoryTreeOpen] = useState(() => {
-    try {
-      const saved = localStorage.getItem(MEMORY_TREE_KEY);
-      return saved === null ? currentView === "memory" : saved === "1";
-    } catch {
-      return currentView === "memory";
-    }
-  });
+  const [memoryTreeOpen, toggleMemoryTree] = useSavedOpen(
+    MEMORY_TREE_KEY,
+    currentView === "memory"
+  );
 
   // With no saved choice, the profile tree starts open on the User profile page only.
   const [profileTreeOpen, toggleProfileTree] = useSavedOpen(
@@ -146,16 +144,6 @@ export function AppSidebar({
     SKILLS_TREE_KEY,
     currentView === "skills"
   );
-
-  function toggleMemoryTree() {
-    const next = !memoryTreeOpen;
-    setMemoryTreeOpen(next);
-    try {
-      localStorage.setItem(MEMORY_TREE_KEY, next ? "1" : "0");
-    } catch {
-      // Navigation remains available when storage is blocked.
-    }
-  }
 
   function toggleSettingsTree() {
     const next = !settingsTreeOpen;
@@ -328,6 +316,7 @@ export function AppSidebar({
             labels: {
               project: projectLabel,
               chat: chatLabel,
+              memorisation: memorisationLabel,
               profile: profileLabel,
               skills: skillsLabel,
             },

@@ -290,8 +290,10 @@ describe("linked search", () => {
       spy.restore();
     }
     expect(result.success).toBe(true);
-    // The 9-argument call is the linked one: it carries the read-only db opener.
-    const linkedCall = spy.calls.find((call) => call.length === 9 && typeof call[8] === "function");
+    // The 10-argument call is the linked one: it carries the read-only db opener.
+    const linkedCall = spy.calls.find(
+      (call) => call.length === 10 && typeof call[8] === "function"
+    );
     expect(linkedCall).toBeDefined();
     expect(linkedCall![1]).toBe(result.queryVector);
     expect(linkedCall![4]).toBe(thresholdUsed);

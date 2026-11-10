@@ -45,6 +45,10 @@ The package ships the `omms-memory` skill. The `pi` manifest in `package.json` l
 
 See [Using memory: The omms-memory skill](using-memory.md#the-omms-memory-skill).
 
+### The omms-remember skill
+
+The same `skills` folder holds the `omms-remember` skill. Start it with `/skill:omms-remember`. It saves a short snapshot of the session with the `memorise` mode of the `memory` tool and reports the `ms-` ID. Pi passes its session ID to the tool, so a repeat snapshot can replace the earlier one when `memorisationRepeat` is `replace`. See [Using memory: The omms-remember skill](using-memory.md#the-omms-remember-skill).
+
 ## Configuration
 
 The extension reads the same configuration files as the OpenCode plugin:
@@ -104,7 +108,7 @@ History backfill (automatic history import) uses `piBackfillModel`. See
 | `session_shutdown`          | Cleanup that is safe to repeat (quit, reload, new, resume, fork). Clears the recall rows, stops a running automatic backfill and closes the store                                                                                                                                                                                                                                                                                                                      |
 | `/omms-recall`              | Unfold or fold the recall rows; see [Recall rows](#recall-rows)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `/memory-import-pi-history` | Import Pi session history; see [pi-history-import.md](pi-history-import.md)                                                                                                                                                                                                                                                                                                                                                                                            |
-| `memory` tool               | Shared add/search/profile/list/forget/help plus migrate/list-shards/export/import                                                                                                                                                                                                                                                                                                                                                                                      |
+| `memory` tool               | Shared add/memorise/memorize/recall/search/profile/list/forget/help plus migrate/list-shards/export/import                                                                                                                                                                                                                                                                                                                                                             |
 | `skills` tool               | Shared skill-learning modes list/ideas/draft/evidence/propose/proposals/show/apply/reject/undo/help. Arguments: `mode`, `skill`, `idea` (`name`, `description`), `folder`, `state`, `order`, `id`, `limit`, `content`, `summary`, `evidence`. A draft saves a pending proposal and changes no file; `evidence` then `propose` let the agent fix a skill with no external API call; `apply` records the agent. See [the `skills` command](cli.md#skills-and-proposals). |
 
 ### Footer status

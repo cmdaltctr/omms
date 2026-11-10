@@ -398,15 +398,46 @@ in-process `memory` tool. OpenCode and Pi keep their `memory` tool.
 ```bash
 om-memory-system memory search "database choice"
 om-memory-system memory add --content "Use libSQL for the store" --type decision
+om-memory-system memory memorise --topic "Auth" --doing "Token refresh" --next "Tests"
+om-memory-system memory recall ms-4k7q2p
 ```
 
-- Modes: `add`, `search`, `list`, `forget`, `profile`, `help`, `list-shards`, `migrate`, `export`, `import`, and `space`.
+- Modes: `add`, `memorise`, `memorize`, `recall`, `search`, `list`, `forget`, `profile`, `help`, `list-shards`, `migrate`, `export`, `import`, and `space`.
 - The command works on the project in the working directory. `--directory <path>` chooses another project.
 - It prints one JSON document with the same fields as the `memory` tool.
 - Memories added with it have host `claude-code`.
 - It opens the store directly. It does not need the web app.
 - It exits with code 1 for a bad option or a result with `"success": false`.
 - `om-memory-system memory --help` prints every mode and flag.
+
+### Memorise and recall
+
+`memorise` saves an exact note with a short `ms-` ID. `memorize` is the same mode. `recall` fetches it again. See [Using memory: Memorise and recall](using-memory.md#memorise-and-recall).
+
+```bash
+om-memory-system memory memorise "Use port 4747 for the scratch web app"
+om-memory-system memory memorise --topic "Auth" --done "Login form" \
+  --doing "Token refresh" --next "Tests" --session-id "$SESSION_ID"
+om-memory-system memory recall ms-4k7q2p
+om-memory-system memory recall "release notes" --limit 2
+om-memory-system memory recall --tags release,wip
+om-memory-system memory recall "token refresh" --tags auth
+```
+
+| Flag                | Mode                             | Effect                                                                                                                                                                                                                |
+| ------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `"<text>"`          | `memorise`, `memorize`           | The exact text to save. You can also use `--content`.                                                                                                                                                                 |
+| `--topic <text>`    | `memorise`, `memorize`           | Snapshot topic. Use the snapshot flags instead of the text, not with it.                                                                                                                                              |
+| `--done <text>`     | `memorise`, `memorize`           | Snapshot: what is done.                                                                                                                                                                                               |
+| `--doing <text>`    | `memorise`, `memorize`           | Snapshot: what is in progress.                                                                                                                                                                                        |
+| `--next <text>`     | `memorise`, `memorize`           | Snapshot: what comes next.                                                                                                                                                                                            |
+| `--tags <a,b>`      | `memorise`, `memorize`, `recall` | Labels, separated by commas. `memorise` keeps every label you give, in lower case, and always adds `memorisation`. `recall` keeps only memorisations that carry every label. With no text it returns the newest ones. |
+| `--session-id <id>` | `memorise`, `memorize`           | The host session ID. With `memorisationRepeat` set to `replace`, a snapshot with the same ID replaces the earlier one.                                                                                                |
+| `"<id or text>"`    | `recall`                         | An `ms-` ID returns that record. Text returns ranked matches with a confidence score. You can also use `--query`. Leave it out when you pass `--tags`.                                                                |
+| `--limit <n>`       | `recall`                         | Maximum matches. Text returns up to three by default. Labels with no text return up to 10.                                                                                                                            |
+
+- Without `--session-id`, `replace` cannot find an earlier snapshot, so the command adds a new one and says so in the reply.
+- The size cap and the repeat choice are settings. See [Configuration: Memorisation](configuration.md#memorisation).
 
 The full table of modes and flags is in
 [Claude Code adapter: The memory command](claude-code-adapter.md#the-memory-command).

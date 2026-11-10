@@ -135,6 +135,85 @@ const listed = await memoryClient.listMemories(getTags(projectDir).project.tag, 
 const rows = listed.memories.map((m) => ({ id: m.id, summary: m.summary, metadata: m.metadata }));
 `;
 
+describe("om-memory-system memory memorise and recall", () => {
+  it("saves with host claude-code, replaces a snapshot of the same --session-id, and recalls by ID and text", async () => {
+    const { home, run } = createHarness();
+    const configDir = join(home, ".config", "omms");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(
+      join(configDir, "omms.jsonc"),
+      JSON.stringify({
+        storagePath: join(home, "store"),
+        embeddingDimensions: 4,
+        memorisationRepeat: "replace",
+      })
+    );
+    const scenario = await run(`
+const explicit = await cli(["memorise", "Deploy with bun run release on Fridays"]);
+const first = await cli(["memorise", "--topic", "Auth", "--doing", "Token refresh", "--session-id", "ses-1"]);
+const second = await cli(["memorize", "--topic", "Auth", "--doing", "Retry logic", "--session-id", "ses-1"]);
+const byId = await cli(["recall", JSON.parse(second.stdout[0]).id]);
+const byText = await cli(["recall", "Retry logic"]);
+const missing = await cli(["recall", "ms-zzzzzz"]);
+${LOAD_STORED_ROWS}
+scenario = { explicit, first, second, byId, byText, missing, rows };
+`);
+
+    const explicit = onlyJson(scenario.explicit);
+    const first = onlyJson(scenario.first);
+    const second = onlyJson(scenario.second);
+    expect(explicit).toMatchObject({ success: true, replaced: false });
+    expect(explicit.id).toMatch(/^ms-/);
+    expect(first.replaced).toBe(false);
+    // The same --session-id reached the operation as hostSessionId, so the second call replaced it.
+    expect(second).toMatchObject({ success: true, replaced: true, id: first.id });
+
+    const byId = onlyJson(scenario.byId);
+    expect(byId.matches[0].content).toContain("Retry logic");
+    expect(byId.matches[0].content).not.toContain("Token refresh");
+    expect(onlyJson(scenario.byText).count).toBeGreaterThan(0);
+    expect(scenario.missing.code).toBe(1);
+    // Memorisations stay out of the normal listing.
+    expect(scenario.rows).toEqual([]);
+  });
+});
+
+describe("om-memory-system memory recall --tags", () => {
+  it("saves labels with memorise and recalls by label, with or without text", async () => {
+    const { home, run } = createHarness();
+    const configDir = join(home, ".config", "omms");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(
+      join(configDir, "omms.jsonc"),
+      JSON.stringify({ storagePath: join(home, "store"), embeddingDimensions: 4 })
+    );
+    const scenario = await run(`
+const a = await cli(["memorise", "Plan A: ship the web page", "--tags", "Release, WIP"]);
+const b = await cli(["memorise", "Plan B: rewrite the importer", "--tags", "importer"]);
+const byLabel = await cli(["recall", "--tags", "release"]);
+const both = await cli(["recall", "--tags", "RELEASE,wip"]);
+const withText = await cli(["recall", "Plan", "--tags", "importer"]);
+const none = await cli(["recall", "--tags", "ghost"]);
+const bare = await cli(["recall"]);
+scenario = { a, b, byLabel, both, withText, none, bare };
+`);
+
+    const a = onlyJson(scenario.a);
+    const b = onlyJson(scenario.b);
+    const byLabel = onlyJson(scenario.byLabel);
+    expect(byLabel.matches.map((match: any) => match.id)).toEqual([a.id]);
+    expect(byLabel.matches[0]).toMatchObject({ content: "Plan A: ship the web page" });
+    expect(byLabel.matches[0].tags).toEqual(["release", "wip"]);
+    expect(byLabel.matches[0]).not.toHaveProperty("confidence");
+    expect(onlyJson(scenario.both).matches.map((match: any) => match.id)).toEqual([a.id]);
+    const withText = onlyJson(scenario.withText);
+    expect(withText.matches.map((match: any) => match.id)).toEqual([b.id]);
+    expect(withText.matches[0].confidence).toBeGreaterThan(0);
+    expect(onlyJson(scenario.none)).toMatchObject({ success: true, count: 0, matches: [] });
+    expect(scenario.bare.code).toBe(1);
+  });
+});
+
 describe("om-memory-system memory", () => {
   it("prints usage with every mode for --help and no mode, without loading the engine", async () => {
     const { home, run } = createHarness();

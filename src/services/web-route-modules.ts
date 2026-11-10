@@ -1,4 +1,6 @@
 import { routeChat, type RouteResult } from "./chat/chat-routes.js";
+import { linkedSettingsFrom } from "./linked-search.js";
+import { routeMemorisations } from "./memorisation-routes.js";
 import { routeMemoryHosts } from "./memory-host-routes.js";
 import { routeProfileCleanup } from "./profile-cleanup-routes.js";
 import type { SkillRouteContext } from "./skill-routes.js";
@@ -44,6 +46,16 @@ export async function routeModules(
     remoteAddress: ctx.remoteAddress,
   });
   if (spaces !== undefined) return spaces;
+
+  const memorisations = await routeMemorisations(
+    path,
+    method,
+    url,
+    ctx.cwd,
+    { defaultScope: config.memory.defaultScope, linked: linkedSettingsFrom(config) },
+    readBody
+  );
+  if (memorisations !== undefined) return memorisations;
 
   return routeChat(path, method, readBody, config);
 }

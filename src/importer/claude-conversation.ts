@@ -1,5 +1,6 @@
 import type { CaptureToolCall } from "../core/host.js";
 import { boundToolInput, readToolPath } from "../core/tool-input.js";
+import { memoriseCallState, memoriseResultState } from "../core/memorise-turn.js";
 import { errorOutcome } from "../core/tool-outcome.js";
 import type { ImportWindow } from "./importer.js";
 
@@ -219,6 +220,8 @@ function addAssistantWork(open: OpenWindow, entry: ClaudeTranscriptEntry): void 
     };
     const path = readToolPath(name, block.input);
     if (path !== undefined) call.path = path;
+    const memorise = memoriseCallState(name, block.input);
+    if (memorise) call.memorise = memorise;
     open.toolCalls.push(call);
     if (typeof block.id === "string") open.callsById.set(block.id, call);
   }
@@ -242,8 +245,10 @@ function addToolResults(open: OpenWindow, entry: ClaudeTranscriptEntry): void {
   for (const block of blocksOf(entry).filter((item) => item.type === "tool_result")) {
     const call = open.callsById.get(block.tool_use_id ?? "");
     if (!call) continue;
-    if (block.is_error === true) Object.assign(call, errorOutcome(toolResultText(block.content)));
+    const text = toolResultText(block.content);
+    if (block.is_error === true) Object.assign(call, errorOutcome(text));
     else call.outcome = "ok";
+    if (call.memorise) call.memorise = memoriseResultState(block.is_error === true, text);
   }
 }
 

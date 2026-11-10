@@ -1,3 +1,4 @@
+import { memorisationText } from "./memorisation";
 import { spaceText } from "./spaces";
 import { spaceTransferText } from "./spaces-transfer";
 
@@ -382,6 +383,7 @@ export const translations = {
     "auth-warning-text": "Cross-origin editing disabled. Set webServerAuthPassword to enable.",
     ...spaceText.en,
     ...spaceTransferText.en,
+    ...memorisationText.en,
   },
   zh: {
     brand: "OMMS",
@@ -748,6 +750,7 @@ export const translations = {
     "auth-warning-text": "跨源编辑已禁用. 设置 webServerAuthPassword 即可启用.",
     ...spaceText.zh,
     ...spaceTransferText.zh,
+    ...memorisationText.zh,
   },
   ar: {
     brand: "OMMS",
@@ -1167,6 +1170,7 @@ export const translations = {
     "auth-warning-text": "التحرير عبر المصادر معطّل. قم بتعيين webServerAuthPassword لتفعيله.",
     ...spaceText.ar,
     ...spaceTransferText.ar,
+    ...memorisationText.ar,
   },
 } as const;
 export type Lang = keyof typeof translations;

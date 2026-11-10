@@ -14,6 +14,10 @@ import { KEYWORD_MODES } from "../utils/keyword-boost.js";
 import { getMemoryLimitRule } from "../utils/memory-limits.js";
 import { OPENING_CONTEXT_QUERY_MAX_LENGTH } from "./injection-options-config.js";
 import { RERANKER_TIMEOUT_MAX_MS, RERANKER_TIMEOUT_MIN_MS } from "./request-timeouts.js";
+import {
+  checkMemorisationSettingsEdits,
+  memorisationSettingsFrom,
+} from "../core/memorisation-settings.js";
 
 const keys = new Set([
   "opencodeProvider",
@@ -58,6 +62,9 @@ const keys = new Set([
   "subagentMemory",
   "compaction.enabled",
   "compaction.memoryLimit",
+  "memorisationRepeat",
+  "memorisationMaxSize",
+  "memorisationSizeUnit",
 ]);
 
 function isFolder(path: string): boolean {
@@ -121,6 +128,8 @@ function isValidEdit(key: string, value: unknown): boolean {
   if (key === "skillFolders" && value === null) return true;
   // keywordMode: null removes the key, so the mode follows the default again.
   if (key === "keywordMode") return value === null || KEYWORD_MODES.includes(value as never);
+  if (key === "memorisationSizeUnit") return value === "characters" || value === "tokens";
+  if (key === "memorisationRepeat" || key === "memorisationMaxSize") return true;
   // The opening context query: null removes it; an empty query means no opening search.
   if (key === "openingContextQuery") {
     return (
@@ -289,6 +298,15 @@ export async function writeGlobalConfigKeys(
       throw new ConfigConflictError();
     }
     let content = original.content;
+    const errors: ParseError[] = [];
+    const current: unknown = parse(content, errors, { allowTrailingComma: true });
+    if (errors.length || !current || typeof current !== "object" || Array.isArray(current)) {
+      throw new Error("Config contains invalid JSONC");
+    }
+    checkMemorisationSettingsEdits(
+      edits,
+      memorisationSettingsFrom(current as Record<string, unknown>)
+    );
     for (const [key, value] of Object.entries(edits)) {
       // A nested identifier maps to its JSONC leaf path, so chatMessage.maxMemories
       // and compaction.enabled write the leaf, never a literal dotted key.
@@ -309,7 +327,6 @@ export async function writeGlobalConfigKeys(
         })
       );
     }
-    const errors: ParseError[] = [];
     const parsed: unknown = parse(content, errors, { allowTrailingComma: true });
     if (errors.length) throw new Error("Config contains invalid JSONC");
     validateGlobalConfig(parsed);

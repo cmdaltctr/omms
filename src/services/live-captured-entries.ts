@@ -4,6 +4,7 @@ import { CONFIG } from "../config.js";
 import type { MemoryHost } from "../types/index.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { tursoShardManager } from "./turso/shard-manager.js";
+import { memoryKindPredicate } from "./memory-kind.js";
 
 /** Read user and assistant IDs saved by live capture in one project session. */
 export async function findLiveCapturedEntryIds(
@@ -17,7 +18,7 @@ export async function findLiveCapturedEntryIds(
   for (const shard of shards) {
     const db = await tursoConnectionManager.getConnection(shard.dbPath);
     const rows = await db.all<{ metadata: string }>(
-      `SELECT metadata FROM memories WHERE json_valid(metadata)
+      `SELECT metadata FROM memories WHERE json_valid(metadata) AND ${memoryKindPredicate()}
        AND json_extract(metadata, '$.host') = ?
        AND json_extract(metadata, '$.hostSessionId') = ?
        AND json_extract(metadata, '$.sourceType') != 'history-import'`,

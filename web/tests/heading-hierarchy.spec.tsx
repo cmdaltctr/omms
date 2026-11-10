@@ -128,6 +128,14 @@ for (const language of ["en", "zh", "ar"] as const) {
   });
 }
 
+for (const language of ["en", "zh", "ar"] as const) {
+  it(`presents the ${language} Memorisation H1 as the translated page title`, () => {
+    const heading = pageHeading("memorisation", language);
+    expect(heading.children).toBe(t("nav-memorisation", {}, language));
+    expect(heading.className.split(/\s+/)).not.toContain("uppercase");
+  });
+}
+
 for (const language of ["zh", "ar"] as const) {
   for (const view of ["memory", "settings"] as const) {
     it(`keeps the ${language} ${view} H1 translation and casing unchanged`, () => {

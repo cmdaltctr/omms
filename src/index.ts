@@ -1,6 +1,5 @@
 import type { Plugin, PluginInput } from "@opencode-ai/plugin";
 import type { Part } from "@opencode-ai/sdk";
-import { tool } from "@opencode-ai/plugin";
 
 import { memoryClient } from "./services/client.js";
 import { getTags } from "./services/tags.js";
@@ -11,7 +10,6 @@ import {
   isStructuredSummaryPromptMessage,
   recordUserPrompt,
 } from "./adapters/opencode/user-prompt.js";
-import { executeMemoryOperation, type MemoryOperationArgs } from "./core/memory-operations.js";
 import { memoryToolDescription } from "./core/memory-tool-text.js";
 import {
   OPENCODE_IMPORT_COMMAND,
@@ -39,6 +37,7 @@ import { getHostClientConfig } from "./adapters/opencode/opencode-host-config.js
 import { applySkillsPathConfig } from "./adapters/opencode/package-skills.js";
 import { loadOpencodeProvider } from "./adapters/opencode/opencode-provider-loader.js";
 import { opencodeSkillsTool } from "./adapters/opencode/skills-tool.js";
+import { opencodeMemoryTool } from "./adapters/opencode/memory-tool.js";
 import {
   STRUCTURED_OUTPUT_AGENT,
   STRUCTURED_OUTPUT_TOOLS,
@@ -650,46 +649,10 @@ export const OmmsPlugin: Plugin = async (ctx: PluginInput) => {
     },
 
     tool: {
-      memory: tool({
-        description: memoryToolDescription(getLanguageName(CONFIG.autoCaptureLanguage || "en")),
-        args: {
-          mode: tool.schema
-            .enum([
-              "add",
-              "search",
-              "profile",
-              "list",
-              "forget",
-              "help",
-              "migrate",
-              "list-shards",
-              "export",
-              "import",
-            ])
-            .optional(),
-          content: tool.schema.string().optional(),
-          query: tool.schema.string().optional(),
-          tags: tool.schema.string().optional(),
-          type: tool.schema.string().optional(),
-          memoryId: tool.schema.string().optional(),
-          limit: tool.schema.number().optional(),
-          scope: tool.schema.enum(["project", "all-projects"]).optional(),
-          fromPath: tool.schema.string().optional(),
-          fromHash: tool.schema.string().optional(),
-          outputPath: tool.schema.string().optional(),
-          inputPath: tool.schema.string().optional(),
-          dryRun: tool.schema.boolean().optional(),
-          allowLinkedSource: tool.schema.boolean().optional(),
-        },
-        async execute(args: MemoryOperationArgs) {
-          const result = await executeMemoryOperation(args, {
-            directory,
-            tags,
-            host: "opencode",
-          });
-          return JSON.stringify(result);
-        },
-      }),
+      memory: opencodeMemoryTool(
+        memoryToolDescription(getLanguageName(CONFIG.autoCaptureLanguage || "en")),
+        { directory, tags }
+      ),
       skills: opencodeSkillsTool(directory),
     },
     event: async (input: { event: { type: string; properties?: any } }) => {

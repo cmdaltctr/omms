@@ -50,3 +50,4 @@ Local decision records for OMMS maintainers.
 | [044](./044-new-memory-spaces-get-random-folder-ids.md)                     | New memory spaces get random folder ids                                         | 2026-11-07 | Proposed           |
 | [045](./045-hosts-update-omms-with-their-own-command.md)                    | Pi and OpenCode update OMMS by running the host's own update command            | 2026-11-07 | Accepted           |
 | [046](./046-the-web-app-updates-itself.md)                                  | The web app updates itself                                                      | 2026-11-08 | Accepted           |
+| [047](./047-memorisations-are-a-record-kind-in-the-memory-store.md)         | Memorisations are a record kind in the memory store                             | 2026-11-10 | Proposed           |

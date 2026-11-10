@@ -12,6 +12,8 @@ export interface FixtureWindow {
   assistantText?: string;
   assistantThinking?: string;
   toolCall?: { name: string; args: Record<string, unknown> };
+  /** Writes a `toolResult` entry that answers `toolCall`. */
+  toolResultText?: string;
   /** ISO timestamp for the user entry; assistant entries follow in sequence. */
   timestamp?: string;
 }
@@ -94,6 +96,23 @@ export function writeV3Session(options: FixtureSessionOptions): string {
       };
       parentId = assistantEntry.id;
       lines.push(JSON.stringify(assistantEntry));
+      if (window.toolCall && window.toolResultText !== undefined) {
+        const resultEntry = {
+          type: "message",
+          id: nextId(),
+          parentId,
+          timestamp: window.timestamp ?? "2026-01-01T10:00:06.000Z",
+          message: {
+            role: "toolResult",
+            toolCallId: content.find((block) => block.type === "toolCall").id,
+            toolName: window.toolCall.name,
+            isError: false,
+            content: [{ type: "text", text: window.toolResultText }],
+          },
+        };
+        parentId = resultEntry.id;
+        lines.push(JSON.stringify(resultEntry));
+      }
     }
   }
 

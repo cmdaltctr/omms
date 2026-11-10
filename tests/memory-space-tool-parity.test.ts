@@ -190,3 +190,78 @@ describe("the space transfer actions are the same on every host", () => {
     );
   });
 });
+
+const MEMORISE_MODES = ["memorise", "memorize", "recall"];
+const SNAPSHOT_FIELDS = ["topic", "done", "doing", "next"];
+
+describe("memorise and recall are the same on every host", () => {
+  it("Pi accepts the three modes and the snapshot fields", () => {
+    const tool = piMemoryTool();
+    const modes = tool.parameters.properties.mode.anyOf.map((entry: any) => entry.const);
+    expect(modes).toEqual(expect.arrayContaining(MEMORISE_MODES));
+    expect(Object.keys(tool.parameters.properties)).toEqual(
+      expect.arrayContaining(SNAPSHOT_FIELDS)
+    );
+  });
+
+  it("OpenCode V2 accepts the three modes and the snapshot fields", () => {
+    expect(memoryInput.properties.mode.enum).toEqual(expect.arrayContaining(MEMORISE_MODES));
+    for (const key of SNAPSHOT_FIELDS) {
+      expect((memoryInput.properties as Record<string, unknown>)[key]).toEqual({ type: "string" });
+    }
+  });
+
+  it("the OpenCode V1 executor accepts the three modes and the snapshot fields", async () => {
+    const { opencodeMemoryTool } = await import("../src/adapters/opencode/memory-tool.js");
+    const memoryToolArgs = (opencodeMemoryTool("description", { directory: project }) as any).args;
+    for (const mode of MEMORISE_MODES) {
+      expect(memoryToolArgs.mode.safeParse(mode).success).toBe(true);
+    }
+    expect(memoryToolArgs.mode.safeParse("nonsense").success).toBe(false);
+    for (const key of SNAPSHOT_FIELDS) {
+      expect(memoryToolArgs[key].safeParse("text").success).toBe(true);
+    }
+  });
+
+  it("the Claude Code tool accepts the three modes and maps them onto the memory command", () => {
+    expect(claudeSpaceSchema.properties.mode.enum).toEqual(expect.arrayContaining(MEMORISE_MODES));
+    for (const key of SNAPSHOT_FIELDS) {
+      expect(claudeSpaceSchema.properties[key]?.type).toBe("string");
+    }
+    expect(
+      claudeMemoryArgs(
+        { mode: "memorise", topic: "T", done: "D", doing: "G", next: "N", tags: "a,b" },
+        "sess-1"
+      ).args
+    ).toEqual([
+      "memory",
+      "memorise",
+      "--topic",
+      "T",
+      "--done",
+      "D",
+      "--doing",
+      "G",
+      "--next",
+      "N",
+      "--tags",
+      "a,b",
+      "--session-id",
+      "sess-1",
+    ]);
+    expect(claudeMemoryArgs({ mode: "memorize", content: "exact text" }).args).toEqual([
+      "memory",
+      "memorize",
+      "--content",
+      "exact text",
+    ]);
+    expect(claudeMemoryArgs({ mode: "recall", query: "ms-4k7q2p", limit: 2 }).args).toEqual([
+      "memory",
+      "recall",
+      "--query",
+      "ms-4k7q2p",
+      "--limit",
+      "2",
+    ]);
+  });
+});

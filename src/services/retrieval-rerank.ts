@@ -11,6 +11,7 @@
 import type { SearchResult, ShardInfo } from "./turso/types.js";
 import { RERANKER_POOL_SIZE } from "./request-timeouts.js";
 import { rerankDocuments, type RerankerSettings } from "./reranker.js";
+import type { MemoryKind } from "./memory-kind.js";
 
 /** The shape of tursoVectorSearch.searchAcrossShards, injectable for tests. */
 export type SearchAcrossShards = (
@@ -19,7 +20,8 @@ export type SearchAcrossShards = (
   containerTag: string,
   limit: number,
   similarityThreshold: number,
-  queryText?: string
+  queryText?: string,
+  kind?: MemoryKind
 ) => Promise<{ results: SearchResult[]; warnings: string[] }>;
 
 export interface RerankedSearchOptions {
@@ -29,6 +31,7 @@ export interface RerankedSearchOptions {
   queryText: string;
   maxMemories: number;
   similarityThreshold: number;
+  kind?: MemoryKind;
 }
 
 export interface RerankedSearchDeps {
@@ -57,7 +60,8 @@ export async function rerankedSearch(
     options.containerTag,
     Math.max(options.maxMemories, RERANKER_POOL_SIZE),
     0,
-    options.queryText
+    options.queryText,
+    options.kind ?? "normal"
   );
   // Nothing to reorder: skip the server round trip for an empty search.
   if (candidates.length === 0) return { results: [], warnings, reranked: false };

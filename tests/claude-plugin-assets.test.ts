@@ -133,11 +133,69 @@ describe("Claude Code plugin assets", () => {
     expect(skill).toMatch(/Never store secrets/);
   });
 
+  it("omms-remember saves a context snapshot and tells the user how to recall it", () => {
+    const skill = readFileSync(join(root, "skills/omms-remember/SKILL.md"), "utf8");
+    const frontmatter = skill.match(/^---\n([\s\S]*?)\n---\n/)?.[1];
+
+    expect(frontmatter).toMatch(/^name: omms-remember$/m);
+    expect(frontmatter).toMatch(/^description: \S.+$/m);
+    expect(skill).toContain('mode: "memorise"');
+    for (const field of ["topic", "done", "doing", "next"]) {
+      expect(skill).toContain(`${field}:`);
+    }
+    expect(skill).toContain("`mcp__omms__memory`");
+    expect(skill).toContain("om-memory-system memory memorise");
+    expect(skill).toMatch(/branch/i);
+    expect(skill).toMatch(/head/i);
+    expect(skill).toMatch(/read-only/i);
+    expect(skill).toMatch(/history|transcript/i);
+    expect(skill).toMatch(/size cap/i);
+    expect(skill).toMatch(/Never store secrets/);
+    expect(skill).toContain('mode: "recall"');
+    expect(skill).toContain("/omms:omms-remember");
+    expect(skill).toContain("/skill:omms-remember");
+    expect(skill).toContain("/omms-remember");
+  });
+
+  it("omms-remember passes every label the user names in tags and recalls by label", () => {
+    const skill = readFileSync(join(root, "skills/omms-remember/SKILL.md"), "utf8");
+    // The save example carries a tags field, and the rule says to keep every user label.
+    expect(skill).toMatch(/tags: "<[^"]*label/i);
+    expect(skill).toMatch(/every label the user names/i);
+    expect(skill).toMatch(/exactly as (the user )?written/i);
+    expect(skill).toMatch(/never drop/i);
+    expect(skill).toMatch(/1 to 3 (labels|tags)/i);
+    expect(skill).toContain("--tags");
+    // Recall by label uses recall with tags.
+    expect(skill).toMatch(/mode: "recall", tags: "<label/);
+    expect(skill).toContain("om-memory-system memory recall --tags");
+  });
+
+  it("omms-memory routes 'the memorisation labelled X' to recall with tags", () => {
+    const skill = readFileSync(join(root, "skills/omms-memory/SKILL.md"), "utf8");
+    expect(skill).toMatch(/the memorisation labelled/);
+    expect(skill).toMatch(/mode: "recall", tags:/);
+    const modes = skill.match(/## Modes\n([\s\S]*?)(?=\n## |$)/)?.[1] ?? "";
+    expect(modes).toMatch(/`recall`[^\n]*tags/);
+    expect(modes).toMatch(/`memorise`[^\n]*tags/);
+  });
+
   it("skill names the Claude Code tool in How to call OMMS", () => {
     const skill = readFileSync(join(root, "skills/omms-memory/SKILL.md"), "utf8");
     const howTo = skill.match(/## How to call OMMS\n([\s\S]*?)\n## /)?.[1] ?? "";
     expect(howTo).toContain("`mcp__omms__memory`");
     expect(howTo).toContain("om-memory-system memory");
+  });
+
+  it("omms-memory routes planned-work questions and IDs to recall", () => {
+    const skill = readFileSync(join(root, "skills/omms-memory/SKILL.md"), "utf8");
+    const modes = skill.match(/## Modes\n([\s\S]*?)(?=\n## |$)/)?.[1] ?? "";
+
+    expect(skill).toContain("what were we gonna do with");
+    expect(skill).toContain("what did I memorise");
+    expect(skill).toContain('mode: "recall"');
+    expect(modes).toMatch(/`memorise`/);
+    expect(modes).toMatch(/`recall`/);
   });
 
   it("skill has a short Using OMMS in Claude Code section", () => {

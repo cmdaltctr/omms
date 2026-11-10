@@ -48,6 +48,9 @@ const editable = [
   "openingContextQuery",
   "subagentMemory",
   "compaction.enabled",
+  "memorisationRepeat",
+  "memorisationMaxSize",
+  "memorisationSizeUnit",
   ...MEMORY_LIMIT_SETTINGS,
 ] as const;
 
@@ -82,6 +85,9 @@ const globalOnly = [
   "rerankerTimeoutMs",
   "skillLearningRedact",
   "skillFolders",
+  "memorisationRepeat",
+  "memorisationMaxSize",
+  "memorisationSizeUnit",
 ];
 
 function readSettingsFile(path: string | undefined): Record<string, unknown> {
