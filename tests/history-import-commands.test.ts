@@ -42,7 +42,7 @@ const connected = new Set(["zai", "other"]);
 mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
   loadOpencodeProvider: async () => ({
     isProviderConnected: (provider: string) => connected.has(provider),
-    getV2Client: () => ({}),
+    getOpencodeHost: () => ({}),
     generateStructuredOutput: async (opts: { providerID: string; modelID: string }) => {
       structuredCalls.push({ providerID: opts.providerID, modelID: opts.modelID });
       return { type: "skip" };
@@ -288,11 +288,65 @@ describe("V2 command registration", () => {
         },
       },
     } as any;
-    const dispose = await registerV2Adapter(ctx, { tool: { memory: {}, skills: {} } }, {} as never);
+    const dispose = await registerV2Adapter(
+      ctx,
+      { tools: { memory: {}, skills: {} } } as never,
+      {} as never
+    );
     expect(command.name).toBe(OPENCODE_IMPORT_COMMAND);
     await command.execute({ sessionID: "s1", prompt: { text: "--help" } });
     expect(posted[0]).toMatchObject({ sessionID: "s1", resume: false });
     expect(posted[0]!.text).toContain("/memory-import-opencode-history");
+    await (dispose as any)?.();
+  });
+
+  it("reads the invoking session's model from ctx.session.get", async () => {
+    const { registerV2Adapter } = await import("../src/v2/adapter.js");
+    const data = fixture();
+    await useStore(data.root);
+    let command: any;
+    const asked: string[] = [];
+    const posted: Array<{ text: string }> = [];
+    const sessions: Record<string, unknown> = {
+      withModel: { id: "withModel", model: { providerID: "gone", id: "x" } },
+      noModel: { id: "noModel" },
+    };
+    const ctx = {
+      location: { directory: data.project, project: { directory: data.project } },
+      tool: { transform: async (callback: (editor: any) => void) => callback({ add: () => {} }) },
+      command: {
+        transform: async (callback: (editor: any) => void) =>
+          callback({ add: (definition: any) => (command = definition) }),
+      },
+      session: {
+        hook: async () => {},
+        get: async ({ sessionID }: { sessionID: string }) => {
+          asked.push(sessionID);
+          return sessions[sessionID];
+        },
+        synthetic: async (input: any) => {
+          posted.push(input);
+        },
+      },
+      event: {
+        async *subscribe({ signal }: { signal: AbortSignal }) {
+          yield* [] as unknown[];
+          await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve()));
+        },
+      },
+    } as any;
+    const dispose = await registerV2Adapter(
+      ctx,
+      { tools: { memory: {}, skills: {} } } as never,
+      {} as never
+    );
+    const text = `--db ${data.dbPath} --skip-profile`;
+    await command.execute({ sessionID: "withModel", prompt: { text } });
+    await command.execute({ sessionID: "noModel", prompt: { text } });
+    expect(asked).toEqual(["withModel", "noModel"]);
+    // The first session's model reaches the connection check; the second has none.
+    expect(posted[0]!.text).toContain('OpenCode provider "gone" is not connected');
+    expect(posted[1]!.text).toContain("this session has no model yet");
     await (dispose as any)?.();
   });
 });

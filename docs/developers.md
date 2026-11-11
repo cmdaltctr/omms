@@ -6,8 +6,8 @@ The package has one stable subpath that other OpenCode plugins can import.
 Use it to read or write the same memory store without copying the
 container tag rules.
 
-The other exports are plugin entry points: `.` and `./server` (V1 and V2
-plugin, `dist/plugin.js`) and `./v2` (`dist/v2/plugin.js`).
+The other exports are plugin entry points: `.` (the OpenCode V2 plugin,
+`dist/plugin.js`) and `./v2` (`dist/v2/plugin.js`).
 
 ### `om-memory-system/tags`
 

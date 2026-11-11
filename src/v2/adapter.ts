@@ -5,63 +5,15 @@ import {
   runOpencodeImportCommand,
 } from "../adapters/opencode/import-command.js";
 import { addPackageSkill } from "../adapters/opencode/package-skills.js";
-import { SKILLS_TOOL_INPUT_SCHEMA } from "../core/skills-tool.js";
 import { log } from "../services/logger.js";
 import { utf8ByteLength } from "../utils/context-limit.js";
-import { eventBelongsToLocation, legacyToolResult, toLegacyEvent } from "./legacy-client.js";
+import { eventBelongsToLocation, toSessionEvent, type SessionEvent } from "./session-events.js";
+import { registerOpencodeTools, type OpencodeTools } from "./tools.js";
 import type { FirstPromptSections, V2MemoryBridge } from "./memory-bridge.js";
 import { createRecallReporter } from "./recall-reporter.js";
 import { createSessionParents } from "./session-parent.js";
 
-export const memoryInput = {
-  type: "object",
-  properties: {
-    mode: {
-      type: "string",
-      enum: [
-        "add",
-        "memorise",
-        "memorize",
-        "recall",
-        "search",
-        "profile",
-        "list",
-        "forget",
-        "help",
-        "migrate",
-        "list-shards",
-        "export",
-        "import",
-        "space",
-      ],
-    },
-    content: { type: "string" },
-    query: { type: "string" },
-    tags: { type: "string" },
-    type: { type: "string" },
-    topic: { type: "string" },
-    done: { type: "string" },
-    doing: { type: "string" },
-    next: { type: "string" },
-    memoryId: { type: "string" },
-    limit: { type: "number" },
-    scope: { type: "string", enum: ["project", "all-projects"] },
-    fromPath: { type: "string" },
-    fromHash: { type: "string" },
-    outputPath: { type: "string" },
-    inputPath: { type: "string" },
-    dryRun: { type: "boolean" },
-    allowLinkedSource: { type: "boolean" },
-    spaceAction: { type: "string" },
-    spaceName: { type: "string" },
-    spaceTo: { type: "string" },
-    spaceSince: { type: "string" },
-    spaceUntil: { type: "string" },
-    spaceProject: { type: "string" },
-    spaceIn: { type: "string" },
-  },
-  additionalProperties: false,
-} as const;
+export { memoryInput } from "./tools.js";
 
 /** Per-session state is bounded so long-running servers cannot grow it without limit. */
 export const MAX_TRACKED_SESSIONS = 256;
@@ -72,7 +24,7 @@ export const MAX_SEEN_SESSIONS = 500;
 /** Unadmitted prompts kept per session before the oldest is dropped. */
 const MAX_PENDING_PROMPTS = 16;
 
-/** Compaction is restored natively through the `compaction` hook, never via the V1 event path. */
+/** Compaction is restored through the `compaction` hook, never from the event stream. */
 const COMPACTION_EVENT_TYPES = new Set(["session.compacted", "session.compaction.ended"]);
 
 type Retrieval = {
@@ -119,13 +71,26 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-function deletedSessionID(event: { type: string; properties?: any }): string | undefined {
+function deletedSessionID(event: SessionEvent): string | undefined {
   if (event.type !== "session.deleted") return undefined;
   const props = event.properties ?? {};
   return props.sessionID ?? props.info?.id ?? props.session?.id;
 }
 
-export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2MemoryBridge) {
+/** The OpenCode work the adapter wires into the V2 context. */
+export type V2AdapterDeps = {
+  readonly tools: OpencodeTools;
+  /** Store a model request's model on the recorded prompt row. */
+  readonly recordPromptModel?: (
+    messageID: string,
+    model: { readonly providerID: string; readonly id: string }
+  ) => Promise<void>;
+  /** Session events of this plugin's directory, compaction excluded. */
+  readonly onEvent?: (event: SessionEvent) => Promise<void>;
+  readonly dispose?: () => Promise<void>;
+};
+
+export async function registerV2Adapter(ctx: Context, deps: V2AdapterDeps, memory: V2MemoryBridge) {
   const retrievals = new Map<string, Retrieval>();
   const restored = new Map<string, Restored>();
   // Sessions this process has seen a prompt or compaction for. The first prompt of a session not
@@ -234,36 +199,12 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
     if (!subagent) await loadRestored(sessionID, memory.retrievalTimeoutMs);
   };
 
-  // Each V1 tool becomes a direct V2 tool, like OpenCode's own read/grep/skill, not a
-  // Code Mode catalog entry, so the model can always see and call it (as on V1 and Pi).
-  const legacyTool = (name: "memory" | "skills", input: unknown) => ({
-    name,
-    description: legacy.tool[name].description,
-    input: input as any,
-    options: { codemode: false },
-    execute: async (args: any, toolContext: any) =>
-      legacyToolResult(
-        await legacy.tool[name].execute(args, {
-          sessionID: toolContext.sessionID,
-          messageID: toolContext.messageID,
-          agent: toolContext.agent,
-          directory: ctx.location.directory,
-          worktree: ctx.location.project.directory,
-          abort: new AbortController().signal,
-          metadata() {},
-          async ask() {},
-        })
-      ) as any,
-  });
-  await ctx.tool.transform((editor) => {
-    editor.add(legacyTool("memory", memoryInput) as any);
-    editor.add(legacyTool("skills", SKILLS_TOOL_INPUT_SCHEMA) as any);
-  });
+  await registerOpencodeTools(ctx, deps.tools);
 
-  // The omms-memory skill ships in the package; V1 loads it through the config hook.
+  // The omms-memory and omms-remember skills ship in the package.
   await (ctx as any).skill?.transform?.((editor: any) => addPackageSkill(editor));
 
-  // Same command as V1 and Pi. V2 runs it natively, so no model turn relays the report.
+  // Same command as Pi. V2 runs it natively, so no model turn relays the report.
   await (ctx as any).command?.transform?.((editor: any) =>
     editor.add({
       name: OPENCODE_IMPORT_COMMAND,
@@ -349,7 +290,7 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
     const retrieval = retrievals.get(sessionID);
     const budgetBytes = retrieval?.budgetBytes ?? memory.snapshotRequestBudget();
 
-    // Before chat.params, which stores the model on the recorded prompt row.
+    // Before the model is stored on the recorded prompt row, below.
     await recordAdmittedPrompts(sessionID, event.messages);
     await decideFirstRequest(sessionID, event.messages as any, retrieval);
     // The retrieval sections and the restored section share one request budget: the
@@ -382,12 +323,10 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
       }
     }
 
-    if (legacy["chat.params"]) {
-      await legacy["chat.params"]({
-        message: { id: messageIDs.get(sessionID) ?? sessionID },
-        model: { providerID: event.model.providerID, id: event.model.id },
-      });
-    }
+    await deps.recordPromptModel?.(messageIDs.get(sessionID) ?? sessionID, {
+      providerID: event.model.providerID,
+      id: event.model.id,
+    });
   });
 
   await ctx.session.hook("compaction", async (event) => {
@@ -403,12 +342,12 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
   const watcher = (async () => {
     try {
       for await (const raw of ctx.event.subscribe({ signal: controller.signal })) {
-        const event = toLegacyEvent(raw);
+        const event = toSessionEvent(raw);
         const deleted = deletedSessionID(event);
         if (deleted) forgetSession(deleted);
-        if (!legacy.event || COMPACTION_EVENT_TYPES.has(event.type)) continue;
+        if (!deps.onEvent || COMPACTION_EVENT_TYPES.has(event.type)) continue;
         if (await eventBelongsToLocation(ctx, raw)) {
-          await legacy.event({ event });
+          await deps.onEvent(event);
         }
       }
     } catch (error) {
@@ -429,6 +368,6 @@ export async function registerV2Adapter(ctx: Context, legacy: any, memory: V2Mem
     firstPending.clear();
     parents.clear();
     recall.clear();
-    await legacy.dispose?.();
+    await deps.dispose?.();
   };
 }

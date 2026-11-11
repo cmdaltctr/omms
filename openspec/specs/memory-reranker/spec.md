@@ -52,7 +52,7 @@ When the reranker is on, a memory search SHALL:
 3. Order the candidates by the returned `relevance_score`, highest first, with ties broken by memory id.
 4. Return the first `maxMemories` of them.
 
-The search SHALL send the key as a bearer token when `rerankerApiKey` is set. The same steps SHALL apply to prompt retrieval and to manual memory search, because both use the shared search. Recent-memory and session-memory lists SHALL NOT change.
+The search SHALL send the key as a bearer token when `rerankerApiKey` is set. The same steps SHALL apply to prompt retrieval and to manual memory search, because both use the shared search. Session-memory lists SHALL NOT change.
 
 #### Scenario: Reranker lifts a memory above the threshold
 
@@ -67,7 +67,7 @@ The search SHALL send the key as a bearer token when `rerankerApiKey` is set. Th
 #### Scenario: Every host
 
 - **WHEN** the reranker is on
-- **THEN** OpenCode V1, OpenCode V2, Pi, and Claude Code SHALL each use it for prompt retrieval
+- **THEN** OpenCode V2, Pi, and Claude Code SHALL each use it for prompt retrieval
 - **AND** no host SHALL need its own setting
 
 ### Requirement: A reranker failure never blocks search

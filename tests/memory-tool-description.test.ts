@@ -25,7 +25,7 @@ it("tells the agent to use recall, not search, for what was planned or memorised
 });
 
 it("gives Pi and OpenCode the same description from one function", () => {
-  for (const file of ["src/index.ts", "src/adapters/pi/extension.ts"]) {
+  for (const file of ["src/v2/tools.ts", "src/adapters/pi/extension.ts"]) {
     const source = readFileSync(join(import.meta.dir, "..", file), "utf8");
     expect(source).toContain("memoryToolDescription(");
     expect(source).not.toContain("Manage and query project memory");

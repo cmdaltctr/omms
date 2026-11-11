@@ -99,6 +99,9 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [075](./075-claude-code-live-checks-ran-the-global-cli-copy.md)                | Claude Code live checks ran the global CLI copy                         | Accepted              | 2026-11-10 |
 | [076](./076-memory-replace-imported-the-vector-writes-module-directly.md)      | memory-replace imported the vector writes module directly               | Accepted              | 2026-11-10 |
 | [077](./077-ordinary-search-missed-normal-memories-behind-memorisations.md)    | Ordinary search missed normal memories behind memorisations             | Accepted              | 2026-11-10 |
+| [078](./078-opencode-importer-missed-v2-session-tables.md)                     | The OpenCode importer missed the V2 session tables                      | Proposed              | 2026-11-11 |
+| [079](./079-untagged-memories-scored-below-the-search-threshold.md)            | Untagged memories scored below the search threshold                     | Proposed              | 2026-11-11 |
+| [080](./080-inherit-failed-without-opencode-model-json.md)                     | `inherit` failed when OpenCode had no model.json                        | Proposed              | 2026-11-11 |
 
 ## Status values
 

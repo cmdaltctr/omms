@@ -15,7 +15,7 @@ const specifierPattern =
 
 // Areas are `src/`-relative folders or files.
 const claudeCodeAdapter = ["adapters/claude-code"];
-const openCodeHost = ["adapters/opencode", "v2", "index.ts", "plugin.ts"];
+const openCodeHost = ["adapters/opencode", "v2", "plugin.ts"];
 const piHost = ["adapters/pi"];
 const sharedLayers = ["core", "services", "importer", "types"];
 

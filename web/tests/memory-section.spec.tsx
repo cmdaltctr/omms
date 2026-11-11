@@ -53,7 +53,6 @@ type Setting = {
 type Snapshot = { revision: string; settings: Record<string, Setting> };
 const KEYS = [
   "maxMemories",
-  "chatMessage.maxMemories",
   "autoCaptureMaxContextBytes",
   "userProfileMaxContextBytes",
   "retrievalMaxTokens",
@@ -61,7 +60,6 @@ const KEYS = [
 ] as const;
 const DEFAULTS: Record<(typeof KEYS)[number], number> = {
   maxMemories: 10,
-  "chatMessage.maxMemories": 3,
   autoCaptureMaxContextBytes: 131072,
   userProfileMaxContextBytes: 32768,
   retrievalMaxTokens: 2000,
@@ -133,7 +131,7 @@ const flush = async () => {
   for (let i = 0; i < 4; i++) await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
-it("defines the six memory controls with exact keys, defaults, units, and kinds", () => {
+it("defines the five memory controls with exact keys, defaults, units, and kinds", () => {
   expect(controls.MEMORY_CONTROLS.map((control) => control.key)).toEqual([...KEYS]);
   for (const control of controls.MEMORY_CONTROLS) {
     expect(control.default).toBe(DEFAULTS[control.key]);
@@ -144,7 +142,7 @@ it("defines the six memory controls with exact keys, defaults, units, and kinds"
   }
   const units = controls.MEMORY_CONTROLS.map((control) => control.unit);
   expect(units).toContain("Results");
-  expect(units).toContain("Memories");
+  expect(units).not.toContain("Memories");
   expect(units).toContain("Bytes");
   expect(units).toContain("Approximate tokens");
   expect(units).toContain("Similarity score");
@@ -152,7 +150,7 @@ it("defines the six memory controls with exact keys, defaults, units, and kinds"
 
 it("accepts spec boundaries and rejects invalid values", () => {
   const byKey = (key: string) => controls.MEMORY_CONTROLS.find((control) => control.key === key)!;
-  for (const key of ["maxMemories", "chatMessage.maxMemories"]) {
+  for (const key of ["maxMemories"]) {
     const control = byKey(key);
     expect(controls.parseMemoryValue(control, "1")).toBe(1);
     expect(controls.parseMemoryValue(control, "9007199254740991")).toBe(9007199254740991);
@@ -210,16 +208,16 @@ it("computes the save plan from drafts against the loaded global values", () => 
   expect(controls.memorySaveEdits({ retrievalMaxTokens: "3000" }, loaded)).toEqual({
     retrievalMaxTokens: 3000,
   });
-  // Only changed fields are sent, and the nested field keeps its dotted request id.
+  // Only changed fields are sent.
   expect(
-    controls.memorySaveEdits({ "chatMessage.maxMemories": "2", retrievalMaxTokens: "2000" }, loaded)
-  ).toEqual({ "chatMessage.maxMemories": 2 });
+    controls.memorySaveEdits({ maxMemories: "2", retrievalMaxTokens: "2000" }, loaded)
+  ).toEqual({ maxMemories: 2 });
 });
 
-it("renders one Memory card with an H2 section title and six labelled rows", () => {
+it("renders one Memory card with an H2 section title and five labelled rows", () => {
   const html = render();
   expect(html.match(/<section/g)).toHaveLength(1);
-  // One form holds the six rows and the Save/Cancel controls (design 7).
+  // One form holds the five rows and the Save/Cancel controls (design 7).
   expect(html.match(/<form/g)).toHaveLength(1);
   expect(html).toMatch(
     /<h2 class="[^"]*text-section-title[^"]*font-semibold[^"]*">Memory limits<\/h2>/
@@ -233,7 +231,7 @@ it("renders one Memory card with an H2 section title and six labelled rows", () 
     // Identifiers stay literal and isolated left-to-right, including in Arabic.
     expect(html).toContain(`<code dir="ltr">${key}</code>`);
   }
-  expect(html.match(/type="number"/g)).toHaveLength(6);
+  expect(html.match(/type="number"/g)).toHaveLength(5);
   for (const control of controls.MEMORY_CONTROLS) {
     expect(html).toContain(`aria-label="${control.key} Value"`);
   }
@@ -244,10 +242,10 @@ it("renders one Memory card with an H2 section title and six labelled rows", () 
 
 it("shows defaults, units, and a visible Affects cell beside each control", () => {
   const html = render();
-  for (const value of ["10", "3", "131,072", "32,768", "2,000", "0.6"]) {
+  for (const value of ["10", "131,072", "32,768", "2,000", "0.6"]) {
     expect(html).toContain(`>${value}</td>`);
   }
-  for (const unit of ["Results", "Memories", "Bytes", "Approximate tokens", "Similarity score"]) {
+  for (const unit of ["Results", "Bytes", "Approximate tokens", "Similarity score"]) {
     expect(html).toContain(`>${unit}</td>`);
   }
   for (const control of controls.MEMORY_CONTROLS) {
@@ -351,7 +349,7 @@ it("reads the threshold default from the snapshot, so the embedder drives it", (
 it("offers a Reset to default button on every row, disabled when the key is absent", () => {
   const nodes = tree();
   const resets = nodes.filter((node) => node.type === "button" && node.props["data-reset"]);
-  expect(resets).toHaveLength(6);
+  expect(resets).toHaveLength(5);
   for (const node of resets) expect(node.props.disabled).toBe(true);
   // A saved global value enables the reset for that row only.
   states = [
@@ -474,13 +472,13 @@ it("saves through the shared settings flow and refreshes the revision", async ()
           })
         )
   );
-  const nodes = tree({ "chatMessage.maxMemories": "2", retrievalMaxTokens: "3000" });
+  const nodes = tree({ maxMemories: "2", retrievalMaxTokens: "3000" });
   await (button("Save memory limits", nodes).props.onClick as () => void)();
   await flush();
   const patch = calls.find((call) => call.init?.method === "PATCH");
   expect(patch?.url).toBe("/api/settings");
   expect(JSON.parse(String(patch?.init?.body))).toEqual({
-    edits: { "chatMessage.maxMemories": 2, retrievalMaxTokens: 3000 },
+    edits: { maxMemories: 2, retrievalMaxTokens: 3000 },
     revision: "rev-1",
   });
   expect(new Headers(patch?.init?.headers).get("x-omms-token")).toBe("page-token");
@@ -601,7 +599,7 @@ it("maps invalid five-setting rejections to translated accepted values", async (
         )
       : Response.json(snapshotFixture())
   );
-  const nodes = tree({ "chatMessage.maxMemories": "2" });
+  const nodes = tree({ maxMemories: "2" });
   await (button("Save memory limits", nodes).props.onClick as () => void)();
   await flush();
   expect(states[3]).toEqual({

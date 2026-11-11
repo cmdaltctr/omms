@@ -1086,18 +1086,12 @@ const text = {
   Unit: ["单位", "الوحدة"],
   Affects: ["影响", "التأثير"],
   Results: ["条结果", "نتائج"],
-  Memories: ["条记忆", "ذكريات"],
   Bytes: ["字节", "بايت"],
   "Approximate tokens": ["约计令牌", "رموز تقريبية"],
   "Maximum memory search results. Manual searches can request fewer; prompt retrieval uses this ceiling.":
     [
       "记忆搜索结果的最大数量。手动搜索可以请求更少；提示词检索使用此上限。",
       "الحد الأقصى لنتائج بحث الذاكرة. يمكن للبحث اليدوي طلب عدد أقل؛ ويستخدم استرجاع الطلب هذا السقف.",
-    ],
-  "Recent memories added at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 use prompt-based search instead.":
-    [
-      "会话开始时在 OpenCode V1 和 Claude Code 中加入的近期记忆。Pi 和 OpenCode V2 改用基于提示词的搜索。",
-      "الذكريات الحديثة التي تُضاف عند بدء الجلسة في OpenCode V1 و Claude Code. أما Pi و OpenCode V2 فيستخدمان البحث عبر الطلب بدلاً منها.",
     ],
   "Conversation input sent to the memory-summary model through the shared capture pipeline. Smaller values can omit conversation text.":
     [
@@ -1359,10 +1353,10 @@ const text = {
     "استعادة الذكريات بعد الضغط أو الاستئناف",
   ],
   "Most memories to restore": ["最多还原的记忆数", "أقصى عدد من الذكريات للاستعادة"],
-  "Applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. On Pi, a subagent gets memory only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in /omps-settings, Agent capabilities, Memory.":
+  "Applies to OpenCode V2, Pi and Claude Code. On Pi, a subagent gets memory only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in /omps-settings, Agent capabilities, Memory.":
     [
-      "适用于 OpenCode V2、Pi 和 Claude Code，不包括 OpenCode V1。在 Pi 上，只有当子代理的 agent 在 om-pi-subagents 中映射了 OMMS 扩展时，子代理才会获得记忆。请在 /omps-settings 的 Agent capabilities 中打开 Memory。",
-      "ينطبق على OpenCode V2 وPi وClaude Code. لا يشمل OpenCode V1. على Pi لا يحصل الوكيل الفرعي على الذكريات إلا إذا ربط وكيله امتداد OMMS في om-pi-subagents. فعّل ذلك من /omps-settings ثم Agent capabilities ثم Memory.",
+      "适用于 OpenCode V2、Pi 和 Claude Code。在 Pi 上，只有当子代理的 agent 在 om-pi-subagents 中映射了 OMMS 扩展时，子代理才会获得记忆。请在 /omps-settings 的 Agent capabilities 中打开 Memory。",
+      "ينطبق على OpenCode V2 وPi وClaude Code. على Pi لا يحصل الوكيل الفرعي على الذكريات إلا إذا ربط وكيله امتداد OMMS في om-pi-subagents. فعّل ذلك من /omps-settings ثم Agent capabilities ثم Memory.",
     ],
   "A project config can turn the first-message and subagent options off. It can turn restore on or off.":
     [

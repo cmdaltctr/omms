@@ -11,7 +11,8 @@ afterEach(() => {
   }
 });
 
-const indexUrl = new URL("../src/index.js", import.meta.url).href;
+const pluginUrl = new URL("../src/v2/plugin.js", import.meta.url).href;
+const fakeContextUrl = new URL("./fake-v2-context.ts", import.meta.url).href;
 const clientUrl = new URL("../src/services/client.js", import.meta.url).href;
 const configUrl = new URL("../src/config.js", import.meta.url).href;
 const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
@@ -94,15 +95,14 @@ mock.module(${JSON.stringify(promptManagerUrl)}, () => ({ userPromptManager: { s
 mock.module(${JSON.stringify(loggerUrl)}, () => ({ log: () => {} }));
 mock.module(${JSON.stringify(languageUrl)}, () => ({ getLanguageName: () => "English" }));
 
-const { OmmsPlugin } = await import(${JSON.stringify(indexUrl)});
-const plugin = await OmmsPlugin({ directory: "/workspace", client: {} });
-const memoryTool = plugin.tool?.memory;
+const { createFakeV2Context } = await import(${JSON.stringify(fakeContextUrl)});
+const plugin = (await import(${JSON.stringify(pluginUrl)})).default;
+const fake = createFakeV2Context({ directory: "/workspace" });
+const cleanup = await plugin.setup(fake.ctx);
 
-if (!memoryTool) {
-  throw new Error("memory tool not available");
-}
-
-await memoryTool.execute(${JSON.stringify(input.args)}, { sessionID: "s1" });
+// runTool throws when the memory tool is not registered.
+await fake.runTool("memory", ${JSON.stringify(input.args)}, { sessionID: "s1" });
+await cleanup();
 
 console.log(
   JSON.stringify({
@@ -116,6 +116,14 @@ console.log(
 
   const result = Bun.spawnSync({
     cmd: [process.execPath, scriptPath],
+    env: {
+      ...process.env,
+      HOME: join(dir, "home"),
+      USERPROFILE: join(dir, "home"),
+      OMMS_DISABLE_WEB_AUTOSTART: "1",
+      OMMS_DISABLE_AUTO_BACKFILL: "1",
+      OMMS_DISABLE_UPDATE_CHECK: "1",
+    },
     stdout: "pipe",
     stderr: "pipe",
   });

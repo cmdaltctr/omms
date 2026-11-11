@@ -78,8 +78,9 @@ When `openingContext` is on and the query is not empty, OMMS SHALL search memory
 
 #### Scenario: OpenCode V1
 
-- **WHEN** OMMS runs under OpenCode V1
-- **THEN** `openingContext` SHALL have no effect
+- **WHEN** OMMS is installed in OpenCode V1
+- **THEN** OpenCode V1 SHALL NOT load OMMS
+- **AND** no opening section SHALL be added
 
 ### Requirement: The opening search uses the per-prompt search rules and budget
 

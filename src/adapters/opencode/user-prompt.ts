@@ -1,18 +1,17 @@
 import { isStructuredSummaryPromptMessage } from "../../core/internal-prompt.js";
-import { isInternalStructuredSession } from "./opencode-provider.js";
 import { userPromptManager } from "../../services/user-prompt/user-prompt-manager.js";
 import { isFullyPrivate, stripPrivateContent } from "../../services/privacy.js";
 
 export { isStructuredSummaryPromptMessage };
 
 /** True when a prompt is omms's own internal traffic and must not be recorded or searched. */
-export function isInternalPrompt(sessionID: string, userMessage: string): boolean {
-  return isStructuredSummaryPromptMessage(userMessage) || isInternalStructuredSession(sessionID);
+export function isInternalPrompt(userMessage: string): boolean {
+  return isStructuredSummaryPromptMessage(userMessage);
 }
 
 /**
  * Record a real user prompt so idle auto-capture can pair it with the session's
- * response. Shared by the V1 `chat.message` hook and the v2 `prompt` hook.
+ * response. The V2 `context` hook records each admitted prompt.
  * Returns false when the prompt is empty or internal and was not recorded.
  */
 export async function recordUserPrompt(
@@ -21,7 +20,7 @@ export async function recordUserPrompt(
   directory: string,
   userMessage: string
 ): Promise<boolean> {
-  if (!userMessage.trim() || isInternalPrompt(sessionID, userMessage)) return false;
+  if (!userMessage.trim() || isInternalPrompt(userMessage)) return false;
   // Profile learning quotes saved prompts as evidence, so <private> text must
   // never reach the store (the Claude Code hook strips it the same way).
   if (isFullyPrivate(userMessage)) return false;

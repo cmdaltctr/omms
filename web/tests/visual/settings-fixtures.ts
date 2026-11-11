@@ -18,14 +18,12 @@ const values: Record<string, unknown> = {
   claudeConfigDir: "/synthetic/claude",
   webServerAutoStart: false,
   maxMemories: 10,
-  "chatMessage.maxMemories": 3,
   autoCaptureMaxContextBytes: 131072,
   userProfileMaxContextBytes: 32768,
   retrievalMaxTokens: 2000,
 };
 const memoryDefaults: Record<string, number> = {
   maxMemories: 10,
-  "chatMessage.maxMemories": 3,
   autoCaptureMaxContextBytes: 131072,
   userProfileMaxContextBytes: 32768,
   retrievalMaxTokens: 2000,

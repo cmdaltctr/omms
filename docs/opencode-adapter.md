@@ -5,7 +5,7 @@ the Pi extension. Both hosts read and write one store for each project. So
 Pi can find memories that OpenCode captured, and OpenCode can find memories
 that Pi captured.
 
-- The package supports the OpenCode V2 plugin API (native `plugins` list).
+- The package supports the OpenCode V2 plugin API (native `plugins` list). The package loads under OpenCode V2 only. See [ADR-048](adr/048-omms-supports-opencode-v2-only.md).
 - The plugin id is always `omms`, whatever the npm package name.
 
 ## Installation
@@ -90,14 +90,14 @@ The plugin chooses the capture model with the same rule as Pi (see
 3. The session's model.
 
 - The provider name must appear in `opencode providers list`.
-- The model must support structured output.
-- If the OpenCode model fails and the external API is configured, the plugin uses the external API. It shows a "Using fallback provider" toast.
+- The model must return JSON that matches the schema in the prompt.
+- If the OpenCode model fails and the external API is configured, the plugin uses the external API. It writes a "Using fallback provider" notice to the OpenCode log.
 
-Model calls run in short internal OpenCode sessions titled `omms capture`:
+Each model call is one text generation through the OpenCode plugin context (`ctx.generate.text`):
 
-- They use `omms-structured`, a least-privilege agent that the plugin registers.
+- The call creates no session, and it uses no agent or tool.
 - OpenCode owns the sign-in, so a host model needs no key.
-- These sessions never start a capture and are never imported as history.
+- Old versions of OMMS left sessions titled `omms capture`. The plugin ignores them and the importer skips them.
 
 Each capture attempt writes a metadata line to the OMMS log. It can also
 write a full trace. See [Configuration: Capture diagnostics](configuration.md#capture-diagnostics).
@@ -105,8 +105,8 @@ write a full trace. See [Configuration: Capture diagnostics](configuration.md#ca
 The OpenCode plugin does not run a web server inside the session. At start it
 checks for the shared web app (`http://127.0.0.1:4747`). If one answers, the
 plugin uses it. If none answers, it starts one `om-memory-system web` in the
-background and shows one toast with the address. If another program holds the
-port, the toast says so. Set `webServerEnabled` to `false` to keep the web app
+background and writes one notice with the address to the OpenCode log. If another
+program holds the port, the notice says so. Set `webServerEnabled` to `false` to keep the web app
 off. See [Web UI](web-ui.md#starting-the-web-app).
 
 The web app has no OpenCode session, so the page cannot use OpenCode's signed-in
@@ -122,27 +122,24 @@ History backfill (automatic history import) uses `opencodeBackfillModel`. See
 
 | OpenCode hook        | omms behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Plugin start         | Load shared config for the project directory, remove old capture traces, update the web login item when `webServerAutoStart` is set, warm storage and embeddings, read connected providers, register the OpenCode backfill model resolver, the profile model, and the import models, start automatic backfill when `autoBackfill` is on, check for the shared web app and start it when none runs                                                                      |
-| `config`             | Register the `omms-structured` agent and the `/memory-import-opencode-history` command                                                                                                                                                                                                                                                                                                                                                                                 |
-| `prompt` + `context` | Record the prompt once OpenCode admits it; semantic retrieval injected as a delimited `<omms-retrieval>` system section                                                                                                                                                                                                                                                                                                                                                |
-| `chat.params`        | Record the prompt's model when capture follows the session model                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `session.idle`       | After 10 seconds of quiet, capture every uncaptured prompt in the session; run profile learning and daily cleanup                                                                                                                                                                                                                                                                                                                                                      |
+| `setup`              | Load shared config for the project directory, remove old capture traces, update the web login item when `webServerAutoStart` is set, warm storage and embeddings, read connected providers, register the OpenCode backfill model resolver, the profile model, and the import models, start automatic backfill when `autoBackfill` is on, check for the shared web app and start it when none runs                                                                      |
+| command              | Register the `/memory-import-opencode-history` command and the `omms-memory` and `omms-remember` skills                                                                                                                                                                                                                                                                                                                                                                |
+| `prompt` + `context` | Record the prompt once OpenCode admits it; semantic retrieval injected as a delimited `<omms-retrieval>` system section. The `context` hook also records the session model when capture follows it (`opencodeModel` is `inherit`)                                                                                                                                                                                                                                      |
+| `session.idle` event | After 10 seconds of quiet, capture every uncaptured prompt in the session; run profile learning and daily cleanup. A `session.created` event starts the capture retry drain. The plugin only reads events for its own directory                                                                                                                                                                                                                                        |
 | `compaction`         | Restore the session's own memories after compaction and after resume                                                                                                                                                                                                                                                                                                                                                                                                   |
 | command              | Run `/memory-import-opencode-history`; see [opencode-history-import.md](opencode-history-import.md)                                                                                                                                                                                                                                                                                                                                                                    |
 | `memory` tool        | Shared add/memorise/memorize/recall/search/profile/list/forget/help plus migrate/list-shards/export/import                                                                                                                                                                                                                                                                                                                                                             |
 | `skills` tool        | Shared skill-learning modes list/ideas/draft/evidence/propose/proposals/show/apply/reject/undo/help. Arguments: `mode`, `skill`, `idea` (`name`, `description`), `folder`, `state`, `order`, `id`, `limit`, `content`, `summary`, `evidence`. A draft saves a pending proposal and changes no file; `evidence` then `propose` let the agent fix a skill with no external API call; `apply` records the agent. See [the `skills` command](cli.md#skills-and-proposals). |
 
-### Toasts
+### Notices
 
-With `showAutoCaptureToasts`, `showUserProfileToasts` and `showErrorToasts`,
-the plugin shows OpenCode toasts for:
+The OpenCode V2 server plugin has no toast API. With `showAutoCaptureToasts`, `showUserProfileToasts` and `showErrorToasts`, the plugin writes a notice to the OpenCode log for:
 
 - captured memories and profile updates
-- memories restored after compaction
 - changes to the fallback provider
 - errors
 
-Pi reports the same events through its footer status and notifications.
+The footer status below shows the state of OMMS in the terminal. Pi reports the same events through its footer status and notifications.
 
 ### Footer status
 

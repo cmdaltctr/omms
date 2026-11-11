@@ -37,7 +37,7 @@ Each recorded turn SHALL hold the host, session id, project tag and name, model 
 
 ### Requirement: Every host records turns the same way
 
-Pi, OpenCode (V1 and V2) and Claude Code SHALL record a turn when it ends, through shared code, with the same fields. Each host reader SHALL give each tool call an outcome of `ok`, `error` or `unknown`, and an error text of at most 2,000 characters when the host reports one.
+Pi, OpenCode V2 and Claude Code SHALL record a turn when it ends, through shared code, with the same fields. Each host reader SHALL give each tool call an outcome of `ok`, `error` or `unknown`, and an error text of at most 2,000 characters when the host reports one.
 
 #### Scenario: Same turn on each host
 

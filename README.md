@@ -23,7 +23,7 @@ for model choices and privacy controls.
 ## Set up
 
 Use Node.js **22.14 or later** for the terminal command and Claude Code hooks.
-OMMS supports OpenCode v2, Claude Code and the
+OMMS supports OpenCode v2 (not older OpenCode versions), Claude Code and the
 [Pi coding agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent).
 
 > Automatic history import is enabled by default and makes model calls.

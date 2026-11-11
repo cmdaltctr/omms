@@ -10,7 +10,8 @@ import { drainOpencodeCaptureRetries } from "../../services/auto-capture.js";
 import { registerCaptureRetryDrain } from "../../services/capture-retry-drain.js";
 import { resolveOpencodeBackfillModels } from "./backfill-models.js";
 import { createOpencodeImportModels } from "./opencode-import-models.js";
-import { getV2Client, isProviderConnected } from "./opencode-provider.js";
+import { listOpencodeModels } from "./opencode-host.js";
+import { getOpencodeHost, isProviderConnected } from "./opencode-provider.js";
 
 /** Start after connected providers load, without delaying plugin initialisation. */
 export function startOpencodeBackfill(input: {
@@ -40,10 +41,10 @@ export function registerOpencodeBackfillModels(input: {
 export function registerOpencodeImportModels(): void {
   registerOpencodeHostModels({
     isProviderConnected: (providerID) => isProviderConnected(providerID),
-    createImportModels: (ref, directory) => createOpencodeImportModels(ref, directory),
+    createImportModels: (ref) => createOpencodeImportModels(ref),
     async listSettingsModels() {
-      const client = getV2Client();
-      return client ? listOpencodeClientModels(client) : null;
+      const host = getOpencodeHost();
+      return host ? listOpencodeClientModels(() => listOpencodeModels(host)) : null;
     },
   });
 }

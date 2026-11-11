@@ -15,14 +15,14 @@ the Pi coding-agent extension, and the Claude Code hooks. This page sets out:
                   ▲               ▲               ▲
                   │               │               │
      src/adapters/opencode   src/adapters/pi   src/adapters/claude-code
-     + src/index.ts          (Pi extension)    (hook client, reached
-     + src/v2 (compat)                         through src/cli)
+     + src/v2                (Pi extension)    (hook client, reached
+                                               through src/cli)
 ```
 
 Rules:
 
 - `src/core/*` and `src/services/*` must not import host SDKs
-  (`@opencode-ai/*`, `@earendil-works/*`) or anything from `src/adapters/*`.
+  (`@opencode/*`, `@earendil-works/*`) or anything from `src/adapters/*`.
   `tests/host-neutral-capture-boundary.test.ts` and
   `tests/pi-adapter-boundary.test.ts` enforce this.
 - `src/core/*`, `src/services/*`, and `src/types/*` must not import
@@ -32,8 +32,8 @@ Rules:
   `src/importer/web-import-jobs.ts`, `src/importer/settings-models.ts`, and
   `src/importer/claude-hook-api.ts`. `tests/pi-adapter-boundary.test.ts`
   enforces this.
-- The OpenCode entry points (`src/index.ts`, `src/v2/adapter.ts`,
-  `src/v2/plugin.ts`) must not import `importer/` or `@earendil-works`
+- The OpenCode entry points (`src/v2/adapter.ts`, `src/v2/plugin.ts`,
+  `src/v2/startup.ts`) must not import `importer/` or `@earendil-works`
   directly. They load importer code through `src/adapters/opencode/*`.
 - Adapters own everything that is specific to a host: lifecycle events,
   session reading, host UI, host model access, and tool registration.
@@ -104,14 +104,14 @@ Hidden reasoning and host SDK objects never go into it.
 
 ## What each layer owns
 
-| Layer                                               | Owns                                                                                                                                                                                  |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/core`                                          | Ports, capture pipeline, context budgeting, shared extraction schema and parsing, retrieval, `memory` tool operations                                                                 |
-| `src/services`                                      | Storage (Turso/libSQL), embeddings, vector search, privacy, deduplication, project identity, profiles, portability, cleanup, web backend, live-model rule (`ai/live-model-choice.ts`) |
-| `src/importer`                                      | History import and automatic backfill, import ledger, import runs and progress, backfill controls, path maps, the web import API                                                      |
-| `src/adapters/opencode` + `src/index.ts` + `src/v2` | OpenCode lifecycle, session reading, provider bridge, OpenCode model code and profile learning, OpenCode backfill model resolver, V2 compatibility                                    |
-| `src/adapters/pi`                                   | Pi lifecycle (`session_start`, `before_agent_start`, `agent_settled`, `session_shutdown`), retrieval injection, model bridge, Pi backfill model resolver, `memory` tool registration  |
-| `src/adapters/claude-code`                          | The `claude-hook <event>` command: hook input, finding or starting the web app, one request, added context output, one log line. No store and no model                                |
+| Layer                              | Owns                                                                                                                                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/core`                         | Ports, capture pipeline, context budgeting, shared extraction schema and parsing, retrieval, `memory` tool operations                                                                 |
+| `src/services`                     | Storage (Turso/libSQL), embeddings, vector search, privacy, deduplication, project identity, profiles, portability, cleanup, web backend, live-model rule (`ai/live-model-choice.ts`) |
+| `src/importer`                     | History import and automatic backfill, import ledger, import runs and progress, backfill controls, path maps, the web import API                                                      |
+| `src/adapters/opencode` + `src/v2` | OpenCode lifecycle, session reading, provider bridge, OpenCode model code and profile learning, OpenCode backfill model resolver, the V2 plugin (startup, tools, events, hooks)       |
+| `src/adapters/pi`                  | Pi lifecycle (`session_start`, `before_agent_start`, `agent_settled`, `session_shutdown`), retrieval injection, model bridge, Pi backfill model resolver, `memory` tool registration  |
+| `src/adapters/claude-code`         | The `claude-hook <event>` command: hook input, finding or starting the web app, one request, added context output, one log line. No store and no model                                |
 
 ### Shared modules added for import and settings
 
@@ -187,7 +187,7 @@ Phase 1 kept these, and later phases must keep them:
    metadata. It never controls retrieval.
 3. An upgrade never needs new embeddings. Schema changes must only add, and
    must be safe to run again on open.
-4. The OpenCode V1 entry point (`src/index.ts`) keeps its behaviour.
+4. The OpenCode plugin is V2 only. Older OpenCode versions cannot load it.
    - The V2 entry (`src/v2/adapter.ts`) uses native V2 session hooks.
    - It retrieves for each prompt through the shared `src/core/retrieval.ts`, the same code Pi uses.
    - It restores memories after compaction through the `compaction` hook.

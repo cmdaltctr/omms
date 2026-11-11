@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { extractTextFromPromptResult } from "../src/adapters/opencode/profile-model.js";
 
 const tempDirs: string[] = [];
 
@@ -10,56 +9,6 @@ afterEach(() => {
   for (const dir of tempDirs.splice(0)) {
     rmSync(dir, { recursive: true, force: true });
   }
-});
-
-describe("extractTextFromPromptResult", () => {
-  it("reads text from data.parts (SDK wrapped shape)", () => {
-    const { info, rawText } = extractTextFromPromptResult({
-      data: {
-        info: {},
-        parts: [
-          { type: "text", text: '{"mapping":{"kept":["pref_0"],"merged":[],"removed":[]}}' },
-          { type: "step-finish" },
-        ],
-      },
-    });
-
-    expect(info).toEqual({});
-    expect(rawText).toContain('"kept":["pref_0"]');
-  });
-
-  it("reads text from top-level parts when data wrapper is absent", () => {
-    const { info, rawText } = extractTextFromPromptResult({
-      info: {},
-      parts: [{ type: "text", text: '{"ok":true}' }],
-    });
-
-    expect(info).toEqual({});
-    expect(rawText).toBe('{"ok":true}');
-  });
-
-  it("does not use nonexistent info.text", () => {
-    const { rawText } = extractTextFromPromptResult({
-      data: {
-        info: { text: '{"fromInfo":true}' },
-        parts: [],
-      },
-    });
-
-    expect(rawText).toBe("");
-  });
-
-  it("surfaces assistant errors from info", () => {
-    const { info, rawText } = extractTextFromPromptResult({
-      data: {
-        info: { error: { name: "ApiError", data: { message: "boom" } } },
-        parts: [],
-      },
-    });
-
-    expect(info?.error?.name).toBe("ApiError");
-    expect(rawText).toBe("");
-  });
 });
 
 const aiCleanupUrl = new URL("../src/services/user-profile/ai-cleanup.js", import.meta.url).href;
@@ -76,22 +25,21 @@ const opencodeProviderLoaderUrl = new URL(
 ).href;
 
 function runCleanupScenario(opts: {
-  promptThrows?: boolean;
-  clientAvailable?: boolean;
+  generateThrows?: boolean;
+  hostAvailable?: boolean;
   withExternalApi?: boolean;
 }) {
   const dir = mkdtempSync(join(tmpdir(), "opencode-mem-ai-cleanup-"));
   tempDirs.push(dir);
   const scriptPath = join(dir, "scenario.mjs");
-  const promptThrows = opts.promptThrows ?? false;
-  const clientAvailable = opts.clientAvailable ?? true;
+  const generateThrows = opts.generateThrows ?? false;
+  const hostAvailable = opts.hostAvailable ?? true;
   const withExternalApi = opts.withExternalApi ?? false;
 
   const script = `
 import { mock } from "bun:test";
 
-const promptCalls = [];
-const deleteCalls = [];
+const generateCalls = [];
 let externalFetchCalled = false;
 let externalRequestBody = null;
 
@@ -129,29 +77,20 @@ mock.module(${JSON.stringify(loggerUrl)}, () => ({ log: () => {} }));
 
 mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
   loadOpencodeProvider: async () => ({
-    getV2Client: () =>
-      ${clientAvailable}
+    getOpencodeHost: () =>
+      ${hostAvailable}
         ? {
-            session: {
-              create: async () => ({ data: { id: "sess-cleanup-1" } }),
-              prompt: async (args) => {
-                promptCalls.push(args);
-                if (${promptThrows}) {
-                  throw new Error("prompt failed for test");
+            generate: {
+              text: async (args) => {
+                generateCalls.push(args);
+                if (${generateThrows}) {
+                  throw new Error("generate failed for test");
                 }
-                return {
-                  data: {
-                    info: {},
-                    parts: [{ type: "text", text: cleanupJson }],
-                  },
-                };
-              },
-              delete: async (args) => {
-                deleteCalls.push(args);
+                return { text: cleanupJson };
               },
             },
           }
-        : null,
+        : undefined,
   }),
 }));
 
@@ -195,13 +134,11 @@ try {
 console.log(
   JSON.stringify({
     errorMessage,
-    promptCalls,
-    deleteCalls,
+    generateCalls,
     externalFetchCalled,
     externalRequestBody,
     kept: result?.diff?.kept ?? null,
     removed: result?.diff?.removed?.map((r) => r.id) ?? null,
-    noReply: promptCalls[0]?.noReply,
   })
 );
 `;
@@ -226,39 +163,38 @@ console.log(
 }
 
 describe("AI cleanup opencode provider path (#177)", () => {
-  it("succeeds with noReply false and text parts", () => {
+  it("succeeds through one sessionless host generation", () => {
     const result = runCleanupScenario({});
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
     expect(result.parsed?.errorMessage).toBeNull();
-    expect(result.parsed?.noReply).toBe(false);
-    expect(result.parsed?.promptCalls).toHaveLength(1);
-    expect(result.parsed?.deleteCalls).toEqual([{ sessionID: "sess-cleanup-1" }]);
+    expect(result.parsed?.generateCalls).toHaveLength(1);
+    expect(result.parsed?.generateCalls[0].model).toEqual({ providerID: "openai", id: "gpt-test" });
     expect(result.parsed?.kept).toEqual(["Prefer concise answers"]);
     expect(result.parsed?.removed).toEqual(["pref_1"]);
     expect(result.parsed?.externalFetchCalled).toBe(false);
   });
 
   it("surfaces opencode errors instead of masking as missing provider", () => {
-    const result = runCleanupScenario({ promptThrows: true, withExternalApi: false });
+    const result = runCleanupScenario({ generateThrows: true, withExternalApi: false });
 
     expect(result.exitCode).toBe(0);
-    expect(result.parsed?.errorMessage).toContain("prompt failed for test");
+    expect(result.parsed?.errorMessage).toContain("generate failed for test");
     expect(result.parsed?.errorMessage).not.toContain("No AI provider configured");
     expect(result.parsed?.externalFetchCalled).toBe(false);
   });
 
-  it("does not fall back to external API when opencode client is available and fails", () => {
-    const result = runCleanupScenario({ promptThrows: true, withExternalApi: true });
+  it("does not fall back to external API when OpenCode host is available and fails", () => {
+    const result = runCleanupScenario({ generateThrows: true, withExternalApi: true });
 
     expect(result.exitCode).toBe(0);
-    expect(result.parsed?.errorMessage).toContain("prompt failed for test");
+    expect(result.parsed?.errorMessage).toContain("generate failed for test");
     expect(result.parsed?.externalFetchCalled).toBe(false);
   });
 
-  it("falls back to external API when opencode client is unavailable", () => {
-    const result = runCleanupScenario({ clientAvailable: false, withExternalApi: true });
+  it("falls back to external API when OpenCode host is unavailable", () => {
+    const result = runCleanupScenario({ hostAvailable: false, withExternalApi: true });
 
     expect(result.exitCode).toBe(0);
     expect(result.parsed?.errorMessage).toBeNull();

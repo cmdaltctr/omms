@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { OPENCODE_EMPTY_REPLY, OPENCODE_NO_JSON_REPLY } from "./opencode-provider.js";
 import { CONFIG } from "../../config.js";
 import { resolveOpencodeHostModel } from "../../services/ai/live-model-choice.js";
 import { buildBoundedSummaryPrompt } from "../../core/capture-context.js";
@@ -45,7 +46,8 @@ CAPTURE if: code changed, bug fixed, feature added, decision made`;
 /** Reason code for an error thrown on the OpenCode host-model path. */
 function hostModelFailureReason(error: unknown): CaptureFailureReason {
   if (error instanceof Error && error.name === "ZodError") return "schema-mismatch";
-  if (String(error).includes("returned no structured output")) return "empty-text";
+  if (String(error).includes(OPENCODE_EMPTY_REPLY)) return "empty-text";
+  if (String(error).includes(OPENCODE_NO_JSON_REPLY)) return "invalid-json";
   return "call-error";
 }
 
@@ -67,7 +69,7 @@ export async function generateOpenCodeAutoCaptureSummary(
 
       const {
         isProviderConnected,
-        getV2Client,
+        getOpencodeHost,
         generateStructuredOutput,
         resolveOpencodeModelRef,
       } = await loadOpencodeProvider();
@@ -87,10 +89,10 @@ export async function generateOpenCodeAutoCaptureSummary(
         );
       }
 
-      const v2Client = getV2Client();
-      if (!v2Client) {
+      const host = getOpencodeHost();
+      if (!host) {
         throw new Error(
-          "omms: v2 client not initialized; cannot perform structured-output capture"
+          "omms: the OpenCode plugin context is not ready; cannot perform structured-output capture"
         );
       }
 
@@ -117,7 +119,7 @@ export async function generateOpenCodeAutoCaptureSummary(
       diagnostics.userPrompt = aiPrompt;
 
       const result = await generateStructuredOutput({
-        client: v2Client,
+        host,
         providerID,
         modelID,
         systemPrompt,

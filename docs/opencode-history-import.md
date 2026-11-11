@@ -1,6 +1,6 @@
 # Import OpenCode history
 
-Import past OpenCode V1 conversations into OMMS memories and the user profile.
+Import past OpenCode conversations into OMMS memories and the user profile.
 
 - The importer reads OpenCode's SQLite database without changing it.
 - OpenCode can stay open. When the database has a write-ahead log (WAL), the importer reads a temporary copy of the database and its log. Recent turns are then included. It deletes the copy when it finishes.
@@ -29,12 +29,12 @@ The command uses this session's model through OpenCode's own sign-in, so you nee
 
 - `--model` takes `provider/id`. Everything after the first `/` is the model id.
 - The session's own model stays unchanged.
-- On the V1 plugin API, OpenCode runs one short turn with the session model to show the finished report.
+- The finished report appears in the session. OpenCode makes no extra model call to show it.
 
 Other defaults:
 
 - Only sessions recorded for the current project are imported. Add `--scope all-projects` to import every project.
-- The importer reads `~/.local/share/opencode/opencode.db`. Use `--db <path>` for another OpenCode V1 database.
+- The importer reads `~/.local/share/opencode/opencode.db`. Use `--db <path>` for another OpenCode database, such as a backup copy.
 - One OpenCode import runs at a time. A second one stops with an "already running" message.
 
 ## Automatic import
@@ -114,7 +114,7 @@ The OpenCode and Pi commands take the same options, in a session or a terminal. 
 | `--since <date>`, `--until <date>`  | Include work units inside these dates, inclusive.                                     |
 | `--max-sessions <n>`                | Read at most this many sessions, oldest first.                                        |
 | `--map <old>=<new>`                 | Remap a missing session directory for this run. Adds to `importPathMaps`. Repeatable. |
-| `--db <path>`                       | Read this V1 SQLite database.                                                         |
+| `--db <path>`                       | Read this OpenCode SQLite database.                                                   |
 | `--skip-memories`                   | Save no memories.                                                                     |
 | `--skip-profile`                    | Record no profile prompts.                                                            |
 | `--skip-skills`                     | Record no skill turns. Skill turns are recorded only while `skillLearning` is on.     |
@@ -131,12 +131,26 @@ The OpenCode and Pi commands take the same options, in a session or a terminal. 
 
 ## How it works
 
-1. The importer reads top-level sessions from the database, oldest first. If a `-wal` file exists, it reads a temporary copy of the database and its WAL. Turns that OpenCode has not yet checkpointed are then included. The copy is deleted afterwards. OpenCode's own files stay unchanged.
+1. The importer reads top-level sessions from the database, oldest first. See [Database tables](#database-tables). If a `-wal` file exists, it reads a temporary copy of the database and its WAL. Turns that OpenCode has not yet checkpointed are then included. The copy is deleted afterwards. OpenCode's own files stay unchanged.
 2. Child sessions (subagents) are folded into their parent. Sessions that OMMS created for its own model calls are skipped.
 3. Each session's directory resolves to a project through the same project identity as live capture. Imported memories land in the namespace you already use. See [Project resolution](#project-resolution).
-4. Each user prompt becomes one work unit with its assistant text and tool inputs. Reasoning, synthetic parts, and tool outputs are left out. Tool inputs are shortened.
+4. Each user prompt becomes one work unit with its assistant text and tool inputs. Reasoning, synthetic messages, and tool outputs are left out. Tool inputs are shortened.
 5. Every unit goes through the live-capture pipeline: privacy filter, extraction, dedup, embedding, and storage. Provenance records `host=opencode`, `sourceType=history-import`, the session id, source file, and timestamps.
 6. Each past prompt is recorded once for profile learning. It is then analysed in batches to create or update your user profile.
+
+### Database tables
+
+OpenCode 2.x stores sessions in the tables `session_v2` and `session_message`. The message content sits in the `data` column of `session_message`. The importer reads these tables first.
+
+- A `user` message starts a work unit. Its text is the prompt.
+- An `assistant` message adds its text and its tool calls to the unit.
+- A `synthetic` or `compaction` message ends the unit. OMMS context that was added to a session never becomes a prompt or a reply.
+- Other message types, such as `system` and `idle`, are ignored.
+- A session with a `parent_id` is a subagent session. It is folded into its parent.
+
+Older OpenCode versions used the tables `session`, `message` and `part`. The importer reads a session from these tables only when `session_v2` has no row with the same id. A copy of the database that was made before the OpenCode upgrade still imports this way. A session is read from one set of tables only.
+
+If the database has neither set, the import stops with an error that names the missing tables. It writes nothing.
 
 ### Project resolution
 
@@ -185,6 +199,8 @@ om-memory-system import-opencode-history --scope all-projects --skip-memories --
 The importer records work unit outcomes in `<storagePath>/import-ledger.db`.
 
 - A rerun skips handled memories and removes duplicate profile prompts.
+- OpenCode units match the ledger by session id and user message id. The id of the last answering message is not part of the match, because OpenCode can delete old messages. A unit that an earlier import saved from the older tables is therefore not saved again.
+- Pi and Claude Code units match by their full key.
 - Failed work stays retryable.
 - If a process stops after a memory write but before the ledger update, the next run checks the stored import identifier. It does not create a duplicate.
 - A failed profile batch keeps its prompts for the next run.

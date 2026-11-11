@@ -276,7 +276,7 @@ Advanced options SHALL let the user choose a Pi sessions directory, one Pi `.jso
 
 The server SHALL reject relative paths, paths with `..` segments, and unsupported formats. It SHALL resolve accepted paths to their real path, so symlinks at or above the chosen path are allowed. Symlinked entries inside a Pi folder SHALL be skipped. It SHALL pin the source's real path, device, and inode, and SHALL refuse a job when these have changed since validation.
 
-The source, session list, and job endpoints SHALL be JSON `POST`s under the Settings mutation rules, apart from the side-effect-free readiness check. They SHALL return metadata only, and errors SHALL NOT contain file contents. Pi header reads SHALL be bounded to the start of each file. A selected Pi file SHALL be validated and imported as one session. A Pi file whose loaded session ID differs from its header ID SHALL be reported as a load error. A selected OpenCode database SHALL first list its contained top-level sessions.
+The source, session list, and job endpoints SHALL be JSON `POST`s under the Settings mutation rules, apart from the side-effect-free readiness check. They SHALL return metadata only, and errors SHALL NOT contain file contents. Pi header reads SHALL be bounded to the start of each file. A selected Pi file SHALL be validated and imported as one session. A Pi file whose loaded session ID differs from its header ID SHALL be reported as a load error. A selected OpenCode database SHALL first list its contained top-level sessions. The schema check SHALL accept a database that has the OpenCode V2 session tables, and an older copy that has only the V1 tables.
 
 Original history files and OpenCode database, WAL, and shared-memory files SHALL remain unchanged. OpenCode snapshots SHALL be copied asynchronously and SHALL be cancellable. The server SHALL check free space before copying. A snapshot SHALL be reused by the listing, the preview, and the import of the same source. It SHALL be removed on success, failure, cancellation, expiry, and shutdown. When the web server starts, and before each new copy, snapshots left by processes that no longer run SHALL be removed.
 
@@ -288,7 +288,7 @@ Original history files and OpenCode database, WAL, and shared-memory files SHALL
 
 #### Scenario: Choosing an OpenCode database
 
-- **WHEN** the user chooses a file that passes the OpenCode V1 schema check
+- **WHEN** the user chooses a file that passes the OpenCode database schema check
 - **THEN** the page SHALL list its top-level sessions for selection
 - **AND** it SHALL NOT treat the database as one session
 
@@ -324,6 +324,11 @@ Original history files and OpenCode database, WAL, and shared-memory files SHALL
 
 - **WHEN** the server is bound to a non-loopback host and a request asks to browse folders
 - **THEN** the server SHALL refuse it and the page SHALL offer only the path field
+
+#### Scenario: Choosing an older V1-only database copy
+
+- **WHEN** the user chooses an OpenCode database copy that has the V1 tables and no `session_v2` table
+- **THEN** the page SHALL list its top-level sessions for selection
 
 ### Requirement: The page shows the OMMS log
 
@@ -786,7 +791,6 @@ The rows SHALL cover:
 | Setting                      | Default                                        | Unit               | Affects                                                                                                                                                                                    |
 | ---------------------------- | ---------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `maxMemories`                | 10                                             | Results            | Maximum memory search results. Manual searches can request fewer; prompt retrieval uses this ceiling.                                                                                      |
-| `chatMessage.maxMemories`    | 3                                              | Memories           | Recent memories added at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 use prompt-based search instead.                                                                 |
 | `autoCaptureMaxContextBytes` | 131072                                         | Bytes              | Conversation input sent to the memory-summary model through the shared capture pipeline. Smaller values can omit conversation text.                                                        |
 | `userProfileMaxContextBytes` | 32768                                          | Bytes              | OpenCode profile-learning input. Smaller values can omit prompts from that input. This control does not limit the other hosts' profile input.                                              |
 | `retrievalMaxTokens`         | 2000                                           | Approximate tokens | Automatic memory context, including profile text and formatting, added to agent requests across all hosts. Smaller values can show fewer or shorter memories.                              |
@@ -799,14 +803,15 @@ The card SHALL use the existing table appearance and support horizontal scrollin
 #### Scenario: Reading the default limits
 
 - **WHEN** the user opens Memory limits with no saved overrides
-- **THEN** the six rows SHALL show defaults of 10, 3, 131072, 32768, 2000, and 0.5 (0.6 when the embedder is not `qwen3-embedding:0.6b`)
+- **THEN** the five rows SHALL show defaults of 10, 131072, 32768, 2000, and 0.5 (0.6 when the embedder is not `qwen3-embedding:0.6b`)
 - **AND** each input SHALL have its effect and unit visible beside it
 
 #### Scenario: Reading host-specific effects
 
-- **WHEN** a Pi user reads the recent-memory and profile-input rows
-- **THEN** the page SHALL explain their existing host coverage
-- **AND** it SHALL NOT suggest that either setting limits Pi's profile-learning input
+- **WHEN** a Pi user reads the profile-input row
+- **THEN** the page SHALL explain its existing host coverage
+- **AND** it SHALL NOT suggest that the setting limits Pi's profile-learning input
+- **AND** no row SHALL name `chatMessage.maxMemories` or OpenCode V1
 
 #### Scenario: Viewing a narrow Arabic layout
 
@@ -837,16 +842,15 @@ The card SHALL use the existing table appearance and support horizontal scrollin
 
 The Memory limits card SHALL offer **Save** and **Cancel**. Save SHALL be available only when a valid draft differs from the loaded global values. Cancel SHALL restore the loaded values without writing. While a save runs, the card SHALL prevent duplicate submissions and show its result. Successful saves SHALL refresh the shared Settings revision used by both pages.
 
-The save SHALL use the existing Settings authentication, origin, JSON request, validation, conflict, and legacy-file rules. It SHALL change only edited values in the global config. Saving `chatMessage.maxMemories` SHALL update that nested property while preserving the other `chatMessage` properties, their comments, and every unrelated key. A save SHALL NOT create a literal `chatMessage.maxMemories` key or allow arbitrary nested settings to be edited.
+The save SHALL use the existing Settings authentication, origin, JSON request, validation, conflict, and legacy-file rules. It SHALL change only edited values in the global config. A save SHALL preserve every unrelated key and its comments. A save SHALL NOT create a literal dotted key or allow arbitrary nested settings to be edited, and the server SHALL reject `chatMessage.maxMemories` as an unsupported edit.
 
 The card SHALL show the effective value and the source when the selected project's config overrides a row. It SHALL still edit the global value and SHALL say that the project override remains in force. Values SHALL follow the validation and next-operation behaviour of the memory-context-controls capability. A rejected save SHALL leave the file unchanged and show the setting's accepted values, or the stale-file recovery action.
 
 #### Scenario: Saving one nested value
 
-- **WHEN** the user changes `chatMessage.maxMemories` from 3 to 2 and saves
-- **THEN** the global file SHALL contain `"maxMemories": 2` inside its `chatMessage` object
-- **AND** `enabled`, `injectOn`, `excludeCurrentSession`, `maxAgeDays`, and their comments SHALL be unchanged
-- **AND** the top-level `maxMemories` SHALL be unchanged
+- **WHEN** a request to save Memory limits tries to edit `chatMessage.maxMemories`
+- **THEN** the server SHALL reject that unsupported edit without writing any part of the request
+- **AND** the `chatMessage` object and its comments SHALL be unchanged
 
 #### Scenario: Rejecting an unrelated nested edit
 
@@ -961,7 +965,7 @@ The switch SHALL NOT be savable as on while the URL or model is blank. The card 
 
 ### Requirement: Each Memory limit can be reset to its default
 
-Each row of the Memory limits card SHALL offer **Reset to default**. Selecting it SHALL remove that key from the global config through the existing safe save flow (authentication, origin, JSON request, validation, conflict, and legacy-file rules), so the value follows the default again. For `chatMessage.maxMemories` it SHALL remove only that leaf and keep the other `chatMessage` properties and their comments. A row whose saved value differs from its default SHALL show a visible marker with the text **Differs from default**. A row with no saved value, or one equal to the default, SHALL show no marker, and its Reset action SHALL be disabled when the key is absent from the file. Reset SHALL NOT change a project file.
+Each row of the Memory limits card SHALL offer **Reset to default**. Selecting it SHALL remove that key from the global config through the existing safe save flow (authentication, origin, JSON request, validation, conflict, and legacy-file rules), so the value follows the default again. A row whose saved value differs from its default SHALL show a visible marker with the text **Differs from default**. A row with no saved value, or one equal to the default, SHALL show no marker, and its Reset action SHALL be disabled when the key is absent from the file. Reset SHALL NOT change a project file.
 
 #### Scenario: Resetting the threshold
 
@@ -971,9 +975,9 @@ Each row of the Memory limits card SHALL offer **Reset to default**. Selecting i
 
 #### Scenario: Resetting a nested value
 
-- **WHEN** the user resets `chatMessage.maxMemories`
-- **THEN** only the `maxMemories` leaf inside `chatMessage` SHALL be removed
-- **AND** `enabled`, `injectOn`, `excludeCurrentSession`, `maxAgeDays`, and their comments SHALL be unchanged
+- **WHEN** the global file still has `"maxMemories": 3` inside its `chatMessage` object
+- **THEN** the card SHALL show no row and no Reset action for it
+- **AND** a reset of another row SHALL leave the `chatMessage` object and its comments unchanged
 
 #### Scenario: Marker for a changed value
 

@@ -160,7 +160,7 @@ mock.module(${JSON.stringify(languageUrl)}, () => ({
 mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
   loadOpencodeProvider: async () => ({
     isProviderConnected: () => true,
-    getV2Client: () => ({}),
+    getOpencodeHost: () => ({}),
     generateStructuredOutput: async ({ userPrompt }) => {
       summaryPrompts.push(userPrompt);
       return {
@@ -305,7 +305,7 @@ mock.module(${JSON.stringify(languageUrl)}, () => ({
 mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
   loadOpencodeProvider: async () => ({
     isProviderConnected: () => true,
-    getV2Client: () => ({}),
+    getOpencodeHost: () => ({}),
     generateStructuredOutput: async () => {
       throw new Error(
         "omms: opencode reported APIError: Thinking mode does not support this tool_choice"

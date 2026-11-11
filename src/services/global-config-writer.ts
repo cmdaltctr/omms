@@ -43,7 +43,6 @@ const keys = new Set([
   "claudeConfigDir",
   "autoCaptureLanguage",
   "maxMemories",
-  "chatMessage.maxMemories",
   "autoCaptureMaxContextBytes",
   "userProfileMaxContextBytes",
   "retrievalMaxTokens",
@@ -308,8 +307,8 @@ export async function writeGlobalConfigKeys(
       memorisationSettingsFrom(current as Record<string, unknown>)
     );
     for (const [key, value] of Object.entries(edits)) {
-      // A nested identifier maps to its JSONC leaf path, so chatMessage.maxMemories
-      // and compaction.enabled write the leaf, never a literal dotted key.
+      // A nested identifier maps to its JSONC leaf path, so compaction.enabled
+      // writes the leaf, never a literal dotted key.
       const jsoncPath = (getMemoryLimitRule(key)?.path ?? key.split(".")) as string[];
       // null is the wire form of "reset to default": remove the key so the
       // value follows the default again (undefined removes in jsonc modify).

@@ -92,7 +92,7 @@ const { loadPiSessionForImport } = await import(${JSON.stringify(loaderUrl)});
 const { PiImportLedger, importLedgerDbPath } = await import(${JSON.stringify(ledgerUrl)});
 const { writeV3Session, writeLegacyV1Session, writeNonSessionArtifact, makeProjectDir } = await import(${JSON.stringify(fixturesUrl)});
 CONFIG.injectProfile = false;
-CONFIG.chatMessage = { enabled: true, maxMemories: 10, excludeCurrentSession: true, injectOn: "first" };
+CONFIG.chatMessage = { enabled: true, excludeCurrentSession: true };
 
 const sessionRoot = base + "/sessions";
 const projectA = makeProjectDir(base, "project-a");

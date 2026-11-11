@@ -73,12 +73,12 @@ mock.module(${JSON.stringify(url("../src/adapters/opencode/opencode-provider-loa
   }),
 }));
 mock.module(${JSON.stringify(url("../src/adapters/opencode/profile-llm-client.js"))}, () => ({
-  getOpenCodeClient: async () => ({}),
+  getOpencodeProfileHost: async () => ({}),
 }));
 
 const { performUserProfileLearning } = await import(${JSON.stringify(url("../src/adapters/opencode/profile-learning.js"))});
 const { profileBackoff } = await import(${JSON.stringify(url("../src/core/profile-backoff.js"))});
-await performUserProfileLearning({}, "/workspace");
+await performUserProfileLearning("/workspace");
 console.log(JSON.stringify({ saves, marked: marked.length, canRun: profileBackoff.canRun() }));
 process.exit(0);
 `;

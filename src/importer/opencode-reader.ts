@@ -6,6 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { boundToolInput, readToolPath } from "../core/tool-input.js";
 import { opencodeMemorise, opencodeToolOutcome } from "../core/tool-outcome.js";
 import { INTERNAL_CAPTURE_SESSION_TITLES } from "./opencode-internal-sessions.js";
+import { buildV2Windows } from "./opencode-v2-units.js";
 import type { ImportWindow } from "./importer.js";
 import {
   acquirePrivateSnapshot,
@@ -65,28 +66,70 @@ export interface OpencodeOpenOptions {
   signal?: AbortSignal;
 }
 
-function validateSchema(db: DatabaseSync): void {
-  const required: Record<string, string[]> = {
-    session: ["id", "directory", "project_id", "parent_id", "time_created"],
-    project: ["id", "worktree"],
-    message: ["id", "session_id", "time_created", "data"],
-    part: ["id", "message_id", "session_id", "time_created", "data"],
-  };
-  for (const [table, columns] of Object.entries(required)) {
-    const found = db
-      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-      .get(table);
-    if (!found) throw new Error(`Unsupported OpenCode V1 database: missing ${table} table`);
-    const names = new Set(
-      (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map(
-        (column) => column.name
-      )
-    );
+/** Which OpenCode table sets a database holds; at least one is always true. */
+interface TableSets {
+  v2: boolean;
+  v1: boolean;
+  /** `session_v2` and `session` have a `title` column. */
+  titled: { v2: boolean; v1: boolean };
+}
+
+function columnsOf(db: DatabaseSync, table: string): Set<string> | null {
+  const found = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .get(table);
+  if (!found) return null;
+  return new Set(
+    (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map(
+      (column) => column.name
+    )
+  );
+}
+
+function requireColumns(db: DatabaseSync, required: Record<string, string[]>): Set<string>[] {
+  return Object.entries(required).map(([table, columns]) => {
+    const names = columnsOf(db, table);
+    if (!names) throw new Error(`Unsupported OpenCode database: missing ${table} table`);
     for (const column of columns) {
       if (!names.has(column))
-        throw new Error(`Unsupported OpenCode V1 database: missing ${table}.${column}`);
+        throw new Error(`Unsupported OpenCode database: missing ${table}.${column}`);
     }
+    return names;
+  });
+}
+
+/**
+ * OpenCode 2.x keeps sessions in `session_v2` and `session_message`; older
+ * copies have `session`, `message` and `part`. A set counts as present when
+ * its session table exists, and is then checked in full.
+ */
+function detectTableSets(db: DatabaseSync): TableSets {
+  const v2 = columnsOf(db, "session_v2") !== null;
+  const v1 = columnsOf(db, "session") !== null;
+  if (!v2 && !v1) {
+    throw new Error(
+      "Unsupported OpenCode database: missing session_v2 and session_message tables, " +
+        "and missing session and message tables"
+    );
   }
+  const titled = { v2: false, v1: false };
+  if (v2) {
+    const [sessions] = requireColumns(db, {
+      session_v2: ["id", "directory", "project_id", "parent_id", "time_created"],
+      session_message: ["id", "session_id", "type", "time_created", "data"],
+    });
+    titled.v2 = sessions!.has("title");
+  }
+  if (v1) {
+    const [sessions] = requireColumns(db, {
+      session: ["id", "directory", "project_id", "parent_id", "time_created"],
+      message: ["id", "session_id", "time_created", "data"],
+      part: ["id", "message_id", "session_id", "time_created", "data"],
+    });
+    titled.v1 = sessions!.has("title");
+  }
+  requireColumns(db, { project: ["id", "worktree"] });
+  return { v2, v1, titled };
 }
 
 function parseData(json: string): Record<string, unknown> {
@@ -233,29 +276,45 @@ function changedSinceOpen(dbPath: string, source: OpenedSource): boolean {
   return existsSync(`${dbPath}-wal`) || fileStamp(dbPath) !== source.stamp;
 }
 
-function readSessions(
-  db: DatabaseSync,
-  filters: OpencodeReaderFilters
-): Omit<OpencodeHistory, "loadUnits" | "close"> {
-  validateSchema(db);
+/**
+ * Every session once: `session_v2` rows, plus `session` rows whose id has no
+ * `session_v2` row. A session therefore comes from one table set only.
+ */
+function sessionSourcesSql(sets: TableSets): string {
+  const parts: string[] = [];
+  if (sets.v2) {
+    parts.push(`SELECT s.id, s.parent_id, ${sets.titled.v2 ? "s.title" : "NULL"} AS title,
+      s.directory, s.project_id, s.time_created, 'v2' AS source FROM session_v2 s`);
+  }
+  if (sets.v1) {
+    parts.push(`SELECT s.id, s.parent_id, ${sets.titled.v1 ? "s.title" : "NULL"} AS title,
+      s.directory, s.project_id, s.time_created, 'v1' AS source FROM session s
+      ${sets.v2 ? "WHERE NOT EXISTS (SELECT 1 FROM session_v2 v WHERE v.id = s.id)" : ""}`);
+  }
+  return parts.join(" UNION ALL ");
+}
+
+interface ListedSessions extends Omit<OpencodeHistory, "loadUnits" | "close"> {
+  /** Which table set holds each listed session. */
+  origin: Map<string, "v2" | "v1">;
+}
+
+function readSessions(db: DatabaseSync, filters: OpencodeReaderFilters): ListedSessions {
+  const sets = detectTableSets(db);
   // omms's own capture/profile calls run in OpenCode sessions; never import them as history.
-  const hasTitle = (db.prepare("PRAGMA table_info(session)").all() as { name: string }[]).some(
-    (column) => column.name === "title"
-  );
-  const notInternal = hasTitle
-    ? `AND (s.title IS NULL OR s.title NOT IN (${INTERNAL_CAPTURE_SESSION_TITLES.map(() => "?").join(", ")}))`
-    : "";
-  const internalArgs: string[] = hasTitle ? [...INTERNAL_CAPTURE_SESSION_TITLES] : [];
+  const notInternal = `AND (s.title IS NULL OR s.title NOT IN (${INTERNAL_CAPTURE_SESSION_TITLES.map(() => "?").join(", ")}))`;
+  const internalArgs: string[] = [...INTERNAL_CAPTURE_SESSION_TITLES];
+  const sources = sessionSourcesSql(sets);
   const count = (where: string) =>
     Number(
       (
         db
-          .prepare(`SELECT COUNT(*) AS count FROM session s WHERE ${where} ${notInternal}`)
+          .prepare(`SELECT COUNT(*) AS count FROM (${sources}) s WHERE ${where} ${notInternal}`)
           .get(...internalArgs) as { count: number }
       ).count
     );
-  const query = `SELECT s.id, s.directory, p.worktree AS project_worktree, s.time_created
-    FROM session s LEFT JOIN project p ON p.id = s.project_id
+  const query = `SELECT s.id, s.directory, p.worktree AS project_worktree, s.time_created, s.source
+    FROM (${sources}) s LEFT JOIN project p ON p.id = s.project_id
     WHERE s.parent_id IS NULL ${notInternal} ${filters.session ? "AND s.id = ?" : ""}
     ${filters.sessionIds ? "AND s.id IN (SELECT value FROM json_each(?))" : ""}
     ORDER BY s.time_created, s.id ${filters.maxSessions ? "LIMIT ?" : ""}`;
@@ -263,20 +322,21 @@ function readSessions(
   if (filters.session) args.push(filters.session);
   if (filters.sessionIds) args.push(JSON.stringify(filters.sessionIds));
   if (filters.maxSessions) args.push(filters.maxSessions);
-  const sessions = (db.prepare(query).all(...args) as unknown as SessionRow[]).map((row) => ({
-    sessionId: row.id,
-    recordedDirectory: row.directory,
-    projectWorktree: row.project_worktree,
-    timeCreated: Number(row.time_created),
-  }));
+  const rows = db.prepare(query).all(...args) as unknown as Array<SessionRow & { source: string }>;
   return {
     childSessions: count("s.parent_id IS NOT NULL"),
     topLevelSessions: count("s.parent_id IS NULL"),
-    sessions,
+    sessions: rows.map((row) => ({
+      sessionId: row.id,
+      recordedDirectory: row.directory,
+      projectWorktree: row.project_worktree,
+      timeCreated: Number(row.time_created),
+    })),
+    origin: new Map(rows.map((row) => [row.id, row.source === "v2" ? "v2" : "v1"])),
   };
 }
 
-/** Read V1 OpenCode history without changing its database or WAL sidecars. */
+/** Read OpenCode history without changing its database or WAL sidecars. */
 export async function openOpencodeHistory(
   dbPath: string,
   filters: OpencodeReaderFilters = {},
@@ -284,7 +344,7 @@ export async function openOpencodeHistory(
 ): Promise<OpencodeHistory> {
   if (!existsSync(dbPath)) throw new Error("OpenCode database not found");
   let source: OpenedSource | undefined = await openSource(dbPath, options);
-  let listed: Omit<OpencodeHistory, "loadUnits" | "close">;
+  let listed: ListedSessions;
   try {
     listed = readSessions(source.db, filters);
     if (changedSinceOpen(dbPath, source)) {
@@ -301,10 +361,15 @@ export async function openOpencodeHistory(
     throw error;
   }
   const opened = source;
+  const { origin, ...summary } = listed;
   let closed = false;
   return {
-    ...listed,
-    loadUnits: (sessionId) => buildWindows(opened.db, sessionId, filters),
+    ...summary,
+    loadUnits: (sessionId) => {
+      const from = origin.get(sessionId);
+      if (from === "v2") return buildV2Windows(opened.db, sessionId, filters);
+      return from === "v1" ? buildWindows(opened.db, sessionId, filters) : [];
+    },
     close: async () => {
       if (closed) return;
       closed = true;

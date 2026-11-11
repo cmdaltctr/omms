@@ -51,3 +51,4 @@ Local decision records for OMMS maintainers.
 | [045](./045-hosts-update-omms-with-their-own-command.md)                    | Pi and OpenCode update OMMS by running the host's own update command            | 2026-11-07 | Accepted           |
 | [046](./046-the-web-app-updates-itself.md)                                  | The web app updates itself                                                      | 2026-11-08 | Accepted           |
 | [047](./047-memorisations-are-a-record-kind-in-the-memory-store.md)         | Memorisations are a record kind in the memory store                             | 2026-11-10 | Proposed           |
+| [048](./048-omms-supports-opencode-v2-only.md)                              | OMMS supports OpenCode V2 only                                                  | 2026-11-11 | Proposed           |

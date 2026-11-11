@@ -54,14 +54,23 @@ mock.module(${JSON.stringify(url("../src/services/language-detector.js"))}, () =
   getLanguageName: () => "English",
 }));
 mock.module(${JSON.stringify(url("../src/services/logger.js"))}, () => ({ log: () => {} }));
-const { OmmsPlugin } = await import(${JSON.stringify(url("../src/index.js"))});
-await OmmsPlugin({ directory: "/workspace", client: {} });
+const { createFakeV2Context } = await import(${JSON.stringify(url("./fake-v2-context.ts"))});
+const { default: plugin } = await import(${JSON.stringify(url("../src/v2/plugin.js"))});
+const fake = createFakeV2Context({ directory: "/workspace" });
+const stop = await plugin.setup(fake.ctx);
+await stop();
 `
     );
 
     const result = Bun.spawnSync({
       cmd: [process.execPath, scriptPath],
-      env: { ...process.env, OMMS_LOG_FILE: join(dir, "omms.log") },
+      env: {
+        ...process.env,
+        HOME: dir,
+        USERPROFILE: dir,
+        OMMS_LOG_FILE: join(dir, "omms.log"),
+        OMMS_DISABLE_UPDATE_CHECK: "1",
+      },
       stdout: "pipe",
       stderr: "pipe",
     });

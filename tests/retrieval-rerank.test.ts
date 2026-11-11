@@ -456,22 +456,6 @@ captured = await executeMemoryOperation({ mode: "search", query: "queue?" }, { d
     expect(output.captured.results[0].content).toBe("below the threshold");
   });
 
-  it("the recent-memory list never calls the reranker or the search", () => {
-    const output = runHostScenario(
-      `
-const { buildRecentMemoriesSection } = await import(${JSON.stringify(retrievalUrl)});
-captured = await buildRecentMemoriesSection({
-  projectTag: "omms_project_0123456789abcdef",
-  userEmail: "user@example.com",
-  sessionId: "ses-1",
-});
-`,
-      { configExtra: RERANKER_ON }
-    );
-    expect(output.fetchCalls).toEqual([]);
-    expect(output.searchCalls).toEqual([]);
-  });
-
   it("every host prompt path routes through buildRetrievalSection", () => {
     const repoRoot = join(import.meta.dir, "..");
     for (const relative of [

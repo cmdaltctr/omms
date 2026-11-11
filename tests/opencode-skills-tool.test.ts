@@ -6,8 +6,8 @@ import { join } from "node:path";
 const url = (path: string) => new URL(path, import.meta.url).href;
 
 /**
- * The OpenCode V1 `skills` tool (task 6.3). The plugin starts with stubbed
- * services, and the shared skill operations are stubbed to record each call.
+ * The OpenCode V2 `skills` tool (task 6.3), registered by the V2 plugin's `setup`. The plugin
+ * starts with stubbed services, and the shared skill operations are stubbed to record each call.
  */
 function runScenario(): any {
   const dir = mkdtempSync(join(tmpdir(), "omms-opencode-skills-tool-"));
@@ -27,8 +27,7 @@ mock.module(${JSON.stringify(url("../src/services/client.js"))}, () => ({ memory
 mock.module(${JSON.stringify(url("../src/services/tags.js"))}, () => ({ getTags: () => ({
   project: { tag: "test" }, user: { userEmail: "test@example.invalid" } }) }));
 mock.module(${JSON.stringify(url("../src/adapters/opencode/opencode-provider-loader.js"))}, () => ({
-  loadOpencodeProvider: async () => ({ resetHostFetch: () => {}, setHostFetch: () => {},
-    setV2Client: () => {}, createV2Client: () => ({}), setConnectedProviders: () => {} }) }));
+  loadOpencodeProvider: async () => ({ setConnectedProviders: () => {} }) }));
 mock.module(${JSON.stringify(url("../src/importer/auto-backfill.js"))}, () => ({
   scheduleAutoBackfill: async () => {} }));
 mock.module(${JSON.stringify(url("../src/services/logger.js"))}, () => ({ log: () => {} }));
@@ -44,22 +43,29 @@ mock.module(${JSON.stringify(url("../src/core/skill-operations.js"))}, () => ({
   } }));
 mock.module(${JSON.stringify(url("../src/services/skill-learning/operations-deps.js"))}, () => ({
   skillOperationsDeps: (directory, appliedBy) => ({ directory, appliedBy }) }));
-const { OmmsPlugin } = await import(${JSON.stringify(url("../src/index.js"))});
-const hooks = await OmmsPlugin({ directory: ${JSON.stringify(dir)}, client: {
-  provider: { list: async () => ({ data: { connected: [] } }) },
-  config: { get: async () => ({ data: {} }) },
-} });
-const skills = hooks.tool.skills;
-const reply = await skills.execute({ mode: "apply", id: "p-1" }, {});
-console.log("RESULT:" + JSON.stringify({ tools: Object.keys(hooks.tool),
-  description: skills.description, modes: skills.args.mode.unwrap().options,
-  argNames: Object.keys(skills.args).sort(), reply: JSON.parse(reply), calls }));
-await hooks.dispose();
+const { createFakeV2Context } = await import(${JSON.stringify(url("./fake-v2-context.ts"))});
+const plugin = (await import(${JSON.stringify(url("../src/v2/plugin.js"))})).default;
+const fake = createFakeV2Context({ directory: ${JSON.stringify(dir)} });
+const cleanup = await plugin.setup(fake.ctx);
+const skills = fake.tools.get("skills");
+const reply = await fake.runTool("skills", { mode: "apply", id: "p-1" }, {});
+console.log("RESULT:" + JSON.stringify({ tools: [...fake.tools.keys()].sort(),
+  description: skills.description, codemode: skills.options?.codemode,
+  modes: skills.input.properties.mode.enum,
+  argNames: Object.keys(skills.input.properties).sort(), reply: JSON.parse(reply.content), calls }));
+await cleanup();
 `
     );
     const child = Bun.spawnSync(["bun", "run", script], {
       cwd: dir,
-      env: { ...process.env, OMMS_DISABLE_AUTO_BACKFILL: "1", OMMS_DISABLE_WEB_AUTOSTART: "1" },
+      env: {
+        ...process.env,
+        HOME: join(dir, "home"),
+        USERPROFILE: join(dir, "home"),
+        OMMS_DISABLE_AUTO_BACKFILL: "1",
+        OMMS_DISABLE_WEB_AUTOSTART: "1",
+        OMMS_DISABLE_UPDATE_CHECK: "1",
+      },
     });
     const stdout = child.stdout.toString();
     const match = stdout.match(/RESULT:(.*)$/m);
@@ -73,6 +79,7 @@ await hooks.dispose();
 it("registers the skills tool beside memory and runs the shared operations as the agent", () => {
   const out = runScenario();
   expect(out.tools).toEqual(["memory", "skills"]);
+  expect(out.codemode).toBe(false);
   expect(out.description).toContain("ranked by use");
   expect(out.description).toContain("only when the user asks");
   expect(out.modes).toEqual([

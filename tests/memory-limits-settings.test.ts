@@ -72,7 +72,7 @@ async function scenario(
 }
 
 describe("memory settings snapshot", () => {
-  it("shows the six fields with their defaults and sources", async () => {
+  it("shows the five fields with their defaults and sources", async () => {
     const result = await scenario(`return (await (await send("/api/settings")).json()).settings;`);
     expect(result.maxMemories).toEqual({
       value: 10,
@@ -81,13 +81,7 @@ describe("memory settings snapshot", () => {
       default: 10,
       hasGlobal: false,
     });
-    expect(result["chatMessage.maxMemories"]).toEqual({
-      value: 3,
-      source: "default",
-      globalValue: 3,
-      default: 3,
-      hasGlobal: false,
-    });
+    expect(result["chatMessage.maxMemories"]).toBeUndefined();
     expect(result.autoCaptureMaxContextBytes).toEqual({
       value: 131072,
       source: "default",
@@ -115,7 +109,6 @@ describe("memory settings snapshot", () => {
     const result = await scenario(`return (await (await send("/api/settings")).json()).settings;`, {
       globalConfig: JSON.stringify({
         maxMemories: 8,
-        chatMessage: { maxMemories: 4 },
         autoCaptureMaxContextBytes: 65536,
         userProfileMaxContextBytes: 8192,
         retrievalMaxTokens: 3000,
@@ -134,13 +127,6 @@ describe("memory settings snapshot", () => {
       source: "global",
       globalValue: 8,
       default: 10,
-      hasGlobal: true,
-    });
-    expect(result["chatMessage.maxMemories"]).toEqual({
-      value: 4,
-      source: "global",
-      globalValue: 4,
-      default: 3,
       hasGlobal: true,
     });
     expect(result.autoCaptureMaxContextBytes).toEqual({
@@ -249,21 +235,19 @@ describe("memory settings snapshot", () => {
     });
   });
 
-  it("resolves the nested chatMessage.maxMemories with the runtime merge rules", async () => {
-    const result = await scenario(
-      `return (await (await send("/api/settings")).json()).settings["chatMessage.maxMemories"];`,
-      {
-        globalConfig: JSON.stringify({ chatMessage: { enabled: true, maxMemories: 5 } }),
-        projectConfig: JSON.stringify({ chatMessage: { enabled: true } }),
-      }
-    );
-    expect(result).toEqual({
-      value: 3,
-      source: "default",
-      globalValue: 5,
-      default: 3,
-      hasGlobal: true,
+  it("lists no chatMessage.maxMemories row and the Memory card has five controls", async () => {
+    const result = await scenario(`return (await (await send("/api/settings")).json()).settings;`, {
+      globalConfig: JSON.stringify({ chatMessage: { enabled: true, maxMemories: 5 } }),
     });
+    expect(result["chatMessage.maxMemories"]).toBeUndefined();
+    const { MEMORY_CONTROLS } = await import("../web/src/lib/memory-controls.js");
+    expect(MEMORY_CONTROLS.map((control) => control.key as string)).toEqual([
+      "maxMemories",
+      "autoCaptureMaxContextBytes",
+      "userProfileMaxContextBytes",
+      "retrievalMaxTokens",
+      "similarityThreshold",
+    ]);
   });
 
   it("shows the similarityThreshold row with the embedder-aware default", async () => {
@@ -332,7 +316,7 @@ describe("memory settings saves", () => {
       const json = { "content-type": "application/json" };
       const before = await (await send("/api/settings")).json();
       const saved = await send("/api/settings", "PATCH", { edits: {
-        maxMemories: 7, "chatMessage.maxMemories": 2, autoCaptureMaxContextBytes: 65536,
+        maxMemories: 7, autoCaptureMaxContextBytes: 65536,
         userProfileMaxContextBytes: 8192, retrievalMaxTokens: 3000 }, revision: before.revision }, json);
       const savedStatus = saved.status;
       const after = await (await send("/api/settings")).json();
@@ -347,87 +331,13 @@ describe("memory settings saves", () => {
     expect(result.savedStatus).toBe(200);
     expect(result.revisionChanged).toBe(true);
     expect(result.settings.maxMemories.globalValue).toBe(7);
-    expect(result.settings["chatMessage.maxMemories"].globalValue).toBe(2);
     expect(result.settings.autoCaptureMaxContextBytes.globalValue).toBe(65536);
     expect(result.settings.userProfileMaxContextBytes.globalValue).toBe(8192);
     expect(result.settings.retrievalMaxTokens.globalValue).toBe(3000);
     expect(result.text).toContain('"retrievalMaxTokens": 3000');
-    expect(result.text).toContain('"maxMemories": 2');
-    expect(result.text).not.toContain('"chatMessage.maxMemories"');
+    expect(result.text).toMatch(/"maxMemories":\s*7/);
     expect(result.otherStatus).toBe(200);
     expect(result.staleStatus).toBe(409);
-  });
-
-  it("writes the nested leaf while preserving siblings, comments, order, and unrelated keys", async () => {
-    const seed = [
-      "{",
-      "  // owner comment",
-      '  "maxMemories": 12,',
-      '  "memoryModel": "keep-model",',
-      '  "chatMessage": {',
-      "    // recent memories at session start",
-      '    "enabled": true,',
-      '    "excludeCurrentSession": false,',
-      '    "maxAgeDays": 14,',
-      '    "injectOn": "always"',
-      "  }",
-      "}",
-      "",
-    ].join("\n");
-    const result = await scenario(
-      `
-        const json = { "content-type": "application/json" };
-        const before = await (await send("/api/settings")).json();
-        const saved = await send("/api/settings", "PATCH",
-          { edits: { "chatMessage.maxMemories": 2 }, revision: before.revision }, json);
-        return { status: saved.status, text: readFileSync(configPath, "utf8") };
-      `,
-      { globalConfig: seed }
-    );
-    expect(result.status).toBe(200);
-    expect(result.text).toContain("// owner comment");
-    expect(result.text).toContain("// recent memories at session start");
-    expect(result.text).toContain('"maxMemories": 12');
-    expect(result.text).toContain('"memoryModel": "keep-model"');
-    expect(result.text).toContain('"enabled": true');
-    expect(result.text).toContain('"excludeCurrentSession": false');
-    expect(result.text).toContain('"maxAgeDays": 14');
-    expect(result.text).toContain('"injectOn": "always"');
-    expect(result.text).toContain('"maxMemories": 2');
-    expect(result.text).not.toContain('"chatMessage.maxMemories"');
-    // Key order stays: top-level maxMemories and memoryModel before chatMessage.
-    expect(result.text.indexOf('"maxMemories": 12')).toBeLessThan(
-      result.text.indexOf('"chatMessage"')
-    );
-    expect(result.text.indexOf('"memoryModel"')).toBeLessThan(result.text.indexOf('"chatMessage"'));
-  });
-
-  it("creates the chatMessage object when absent and leaves other keys untouched", async () => {
-    const result = await scenario(
-      `
-        const json = { "content-type": "application/json" };
-        const before = await (await send("/api/settings")).json();
-        const saved = await send("/api/settings", "PATCH",
-          { edits: { "chatMessage.maxMemories": 2 }, revision: before.revision }, json);
-        const after = await (await send("/api/settings")).json();
-        return { status: saved.status, text: readFileSync(configPath, "utf8"),
-          snapshot: after.settings["chatMessage.maxMemories"] };
-      `,
-      { globalConfig: '{ "maxMemories": 12, "piModel": "keep" }\n' }
-    );
-    expect(result.status).toBe(200);
-    expect(result.snapshot).toEqual({
-      value: 2,
-      source: "global",
-      globalValue: 2,
-      default: 3,
-      hasGlobal: true,
-    });
-    expect(result.text).toContain('"piModel": "keep"');
-    expect(result.text).toContain('"maxMemories": 12');
-    expect(result.text).toMatch(/"chatMessage"\s*:\s*\{/);
-    expect(result.text).toContain('"maxMemories": 2');
-    expect(result.text).not.toContain('"chatMessage.maxMemories"');
   });
 });
 
@@ -473,16 +383,16 @@ describe("memory settings reset to default", () => {
     });
   });
 
-  it("removes only the chatMessage.maxMemories leaf and keeps siblings and comments", async () => {
+  it("leaves an old chatMessage object and its comments unchanged when another row resets", async () => {
     const seed = [
       "{",
+      '  "maxMemories": 6,',
       '  "chatMessage": {',
       "    // recent memories at session start",
       '    "enabled": true,',
       '    "excludeCurrentSession": false,',
       '    "maxAgeDays": 14,',
       '    "injectOn": "always",',
-      "    // recent memories injected at session start",
       '    "maxMemories": 4',
       "  }",
       "}",
@@ -493,29 +403,18 @@ describe("memory settings reset to default", () => {
         const json = { "content-type": "application/json" };
         const before = await (await send("/api/settings")).json();
         const reset = await send("/api/settings", "PATCH",
-          { edits: { "chatMessage.maxMemories": null }, revision: before.revision }, json);
-        const after = await (await send("/api/settings")).json();
-        return { status: reset.status, text: readFileSync(configPath, "utf8"),
-          chatMax: after.settings["chatMessage.maxMemories"] };
+          { edits: { maxMemories: null }, revision: before.revision }, json);
+        return { status: reset.status, text: readFileSync(configPath, "utf8") };
       `,
       { globalConfig: seed }
     );
     expect(result.status).toBe(200);
     expect(result.text).toContain("    // recent memories at session start");
-    expect(result.text).toContain('"enabled": true');
-    expect(result.text).toContain('"excludeCurrentSession": false');
     expect(result.text).toContain('"maxAgeDays": 14');
     expect(result.text).toContain('"injectOn": "always"');
-    // The removed leaf is the nested one only.
-    expect(result.text).toMatch(/"chatMessage"\s*:\s*\{/);
-    expect(result.text).not.toMatch(/"maxMemories"\s*:/);
-    expect(result.chatMax).toEqual({
-      value: 3,
-      source: "default",
-      globalValue: 3,
-      default: 3,
-      hasGlobal: false,
-    });
+    expect(result.text).toContain('"maxMemories": 4');
+    // Only the top-level key was removed.
+    expect(result.text).not.toContain('"maxMemories": 6');
   });
 
   it("resets similarityThreshold so the default follows the embedder again", async () => {
@@ -631,7 +530,6 @@ describe("memory settings rejections", () => {
           ["retrievalMaxTokens", 0], ["retrievalMaxTokens", 255], ["retrievalMaxTokens", 65537],
           ["retrievalMaxTokens", 2000.5], ["retrievalMaxTokens", "3000"], ["retrievalMaxTokens", true],
           ["maxMemories", -1], ["maxMemories", 1.5], ["maxMemories", "4"],
-          ["chatMessage.maxMemories", 0], ["chatMessage.maxMemories", 2.5],
           ["userProfileMaxContextBytes", 1023], ["userProfileMaxContextBytes", 16777217],
           ["autoCaptureMaxContextBytes", 16383], ["autoCaptureMaxContextBytes", 16777217],
         ];
@@ -655,7 +553,6 @@ describe("memory settings rejections", () => {
     const ranges: Record<string, string[]> = {
       retrievalMaxTokens: ["256", "65536"],
       maxMemories: ["positive"],
-      "chatMessage.maxMemories": ["positive"],
       userProfileMaxContextBytes: ["1024", "16777216"],
       autoCaptureMaxContextBytes: ["16384", "16777216"],
     };
@@ -685,6 +582,39 @@ describe("memory settings rejections", () => {
     );
     expect(result.mixed).toBe(400);
     expect(result.maxAge).toBe(400);
+    expect(result.text).toBe(seed);
+  });
+
+  it("rejects an edit to the removed chatMessage.maxMemories and leaves the file unchanged", async () => {
+    const seed = [
+      "{",
+      '  "retrievalMaxTokens": 2500,',
+      '  "chatMessage": {',
+      "    // recent memories at session start",
+      '    "enabled": true,',
+      '    "maxMemories": 4',
+      "  }",
+      "}",
+      "",
+    ].join("\n");
+    const result = await scenario(
+      `
+        const json = { "content-type": "application/json" };
+        const revision = (await (await send("/api/settings")).json()).revision;
+        const alone = await send("/api/settings", "PATCH",
+          { edits: { "chatMessage.maxMemories": 2 }, revision }, json);
+        const withValid = await send("/api/settings", "PATCH",
+          { edits: { retrievalMaxTokens: 3000, "chatMessage.maxMemories": 2 }, revision }, json);
+        const reset = await send("/api/settings", "PATCH",
+          { edits: { "chatMessage.maxMemories": null }, revision }, json);
+        return { alone: alone.status, withValid: withValid.status, reset: reset.status,
+          text: readFileSync(configPath, "utf8") };
+      `,
+      { globalConfig: seed }
+    );
+    expect(result.alone).toBe(400);
+    expect(result.withValid).toBe(400);
+    expect(result.reset).toBe(400);
     expect(result.text).toBe(seed);
   });
 
@@ -722,12 +652,12 @@ describe("memory settings rejections", () => {
         const json = { "content-type": "application/json" };
         const before = await (await send("/api/settings")).json();
         const saved = await send("/api/settings", "PATCH",
-          { edits: { "chatMessage.maxMemories": 2 }, revision: before.revision }, json);
+          { edits: { retrievalMaxTokens: 3000 }, revision: before.revision }, json);
         const after = await (await send("/api/settings")).json();
         return { status: saved.status, body: await saved.json(),
           migrated: existsSync(configPath) ? readFileSync(configPath, "utf8") : null,
           legacyText: readFileSync(legacyPath, "utf8"),
-          snapshot: after.settings["chatMessage.maxMemories"],
+          snapshot: after.settings.retrievalMaxTokens,
           maxMemories: after.settings.maxMemories.globalValue };
       `,
       { legacyConfig: legacy }
@@ -738,13 +668,12 @@ describe("memory settings rejections", () => {
     expect(result.migrated).toContain("// legacy note");
     expect(result.migrated).toContain('"maxMemories": 11');
     expect(result.migrated).toContain('"memoryModel": "keep-model"');
-    expect(result.migrated).toContain('"maxMemories": 2');
-    expect(result.migrated).not.toContain('"chatMessage.maxMemories"');
+    expect(result.migrated).toMatch(/"retrievalMaxTokens":\s*3000/);
     expect(result.snapshot).toEqual({
-      value: 2,
+      value: 3000,
       source: "global",
-      globalValue: 2,
-      default: 3,
+      globalValue: 3000,
+      default: 2000,
       hasGlobal: true,
     });
     expect(result.maxMemories).toBe(11);

@@ -76,8 +76,7 @@ export async function runOpencodeImportCommand(input: OpencodeImportCommandInput
         return `${name}: OpenCode provider "${ref.providerID}" is not connected`;
       }
     }
-    const models =
-      ref && !parsed.dryRun ? await createOpencodeImportModels(ref, input.directory) : {};
+    const models = ref && !parsed.dryRun ? await createOpencodeImportModels(ref) : {};
     if (!parsed.dryRun) {
       try {
         await memoryClient.warmup();
@@ -112,23 +111,4 @@ export async function runOpencodeImportCommand(input: OpencodeImportCommandInput
     endManualImport();
     importCommandRunning = false;
   }
-}
-
-/** The model of the session's latest user message, from the V1 message list. */
-export async function latestUserMessageModel(
-  client: { session: { messages: (input: { path: { id: string } }) => Promise<{ data?: any }> } },
-  sessionID: string
-): Promise<OpencodeModelRef | null> {
-  try {
-    const messages: any[] = (await client.session.messages({ path: { id: sessionID } })).data ?? [];
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const model = messages[i]?.info?.role === "user" ? messages[i].info.model : undefined;
-      if (model?.providerID && model?.modelID) {
-        return { providerID: model.providerID, modelID: model.modelID };
-      }
-    }
-  } catch (error) {
-    log("OpenCode import: could not read the session model", { error: String(error) });
-  }
-  return null;
 }

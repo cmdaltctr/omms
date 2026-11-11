@@ -6,6 +6,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { removeTestDir } from "./turso-test-utils.js";
+import { createOpencodeFixture } from "./opencode-v2-fixture.js";
 
 setDefaultTimeout(30_000);
 const dirs: string[] = [];
@@ -226,4 +227,30 @@ it("never writes the source database, WAL, or SHM while listing and previewing",
   } finally {
     live.db.close();
   }
+});
+
+it("accepts a database with only the OpenCode 2.x tables and lists its sessions", async () => {
+  const root = mkdtempSync(join(tmpdir(), "omms-oc-web-v2-"));
+  dirs.push(root);
+  const projectA = project(root, "a");
+  const data = createOpencodeFixture({ root, project: projectA, fileName: "opencode-v2.db" });
+  data.v2Session("v2-only", { at: 10 });
+  data.v2Turn("v2-only", "u1", "a1", 11, "Second generation prompt", "Done");
+  data.v2Session("v2-child", { parentId: "v2-only", at: 12 });
+  data.close();
+  const { CONFIG } = await import("../src/config.js");
+  CONFIG.storagePath = join(root, "store");
+  CONFIG.embeddingDimensions = 4;
+  const { validateImportSource } = await import("../src/importer/import-sources.js");
+  const { listImportSessions } = await import("../src/importer/import-sessions.js");
+
+  const source = validateImportSource("opencode", data.path);
+  expect(source.kind).toBe("opencode-db");
+  const list = await listImportSessions(
+    { sourceToken: source.sourceToken, refresh: true },
+    { host: "opencode", scope: "all-projects", pathMaps: [], cwd: projectA }
+  );
+
+  expect(list.rows.map((row) => [row.key, row.via])).toEqual([["v2-only", "recorded"]]);
+  expect(JSON.stringify(list)).not.toContain("Second generation prompt");
 });

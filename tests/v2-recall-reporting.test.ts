@@ -108,7 +108,12 @@ function createHarness(
     ...options.memory,
   };
 
-  const legacy = { tool: { memory: { description: "m" }, skills: { description: "s" } } };
+  const deps = {
+    tools: {
+      memory: { description: "m", execute: async () => "{}" },
+      skills: { description: "s", execute: async () => "{}" },
+    },
+  };
   const ids = new Map<string, string[]>();
 
   const prompt = (sessionID: string, text: string) => {
@@ -147,7 +152,7 @@ function createHarness(
     compaction,
     list,
     definitionID: () => definitionID,
-    register: () => registerV2Adapter(ctx, legacy, memory),
+    register: () => registerV2Adapter(ctx, deps, memory),
   };
 }
 

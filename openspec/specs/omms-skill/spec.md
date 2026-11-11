@@ -8,7 +8,7 @@ One `omms-memory` agent skill that every host loads, and memory context that tel
 
 ### Requirement: Every host loads the omms-memory skill
 
-OMMS SHALL ship one agent skill named `omms-memory`, and every host SHALL load it with no manual copy: the Claude Code plugin, the Pi package, and the OpenCode plugin (V1 and V2). The user SHALL be able to invoke it by name in each host: `/omms:omms-memory` in Claude Code, `/skill:omms-memory` in Pi, and `/omms-memory` in OpenCode.
+OMMS SHALL ship one agent skill named `omms-memory`, and every host SHALL load it with no manual copy: the Claude Code plugin, the Pi package, and the OpenCode V2 plugin. The user SHALL be able to invoke it by name in each host: `/omms:omms-memory` in Claude Code, `/skill:omms-memory` in Pi, and `/omms-memory` in OpenCode.
 
 #### Scenario: Pi session
 

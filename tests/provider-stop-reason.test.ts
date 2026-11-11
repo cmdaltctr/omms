@@ -4,7 +4,6 @@ import { GoogleGeminiProvider } from "../src/services/ai/providers/google-gemini
 import { OpenAIChatCompletionProvider } from "../src/services/ai/providers/openai-chat-completion.js";
 import { OpenAIResponsesProvider } from "../src/services/ai/providers/openai-responses.js";
 import type { ChatCompletionTool } from "../src/services/ai/tools/tool-schema.js";
-import { readJson } from "../src/adapters/opencode/opencode-diagnostics.js";
 
 const toolSchema: ChatCompletionTool = {
   type: "function",
@@ -167,12 +166,4 @@ describe("model call failures report their HTTP status", () => {
       expect(bad.httpStatus).toBeUndefined();
     }
   );
-
-  it("OpenCode server calls attach httpStatus to the thrown error", async () => {
-    const res = new Response("busy", { status: 503 });
-    const error = await readJson(res, { label: "POST /session", url: "http://x/session" }).catch(
-      (e: unknown) => e
-    );
-    expect((error as { httpStatus?: number }).httpStatus).toBe(503);
-  });
 });

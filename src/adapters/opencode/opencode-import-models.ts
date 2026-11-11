@@ -9,14 +9,13 @@ export interface OpencodeModelRef {
   modelID: string;
 }
 
-/** Capture and profile calls routed through OpenCode's structured-output sessions. */
+/** Capture and profile calls routed through OpenCode's sessionless generation. */
 export async function createOpencodeImportModels(
-  ref: OpencodeModelRef,
-  directory: string
+  ref: OpencodeModelRef
 ): Promise<{ capture: CaptureSummaryProvider; profile: ModelPort }> {
-  const { getV2Client, generateStructuredOutput } = await loadOpencodeProvider();
-  const client = getV2Client();
-  if (!client) throw new Error("the OpenCode client is not ready; retry in a moment");
+  const { getOpencodeHost, generateStructuredOutput } = await loadOpencodeProvider();
+  const host = getOpencodeHost();
+  if (!host) throw new Error("the OpenCode plugin context is not ready; retry in a moment");
   const { z } = await import("zod");
   const { buildCaptureSystemPrompt, createUserProfileAnalysisSchema, parseCaptureSummary } =
     await import("../../core/extraction.js");
@@ -35,7 +34,7 @@ export async function createOpencodeImportModels(
           : detectLanguage(request.userPrompt);
       const systemPrompt = buildCaptureSystemPrompt(getLanguageName(target));
       const result = await generateStructuredOutput({
-        client,
+        host,
         ...ref,
         systemPrompt,
         userPrompt: buildBoundedSummaryPrompt(
@@ -44,7 +43,6 @@ export async function createOpencodeImportModels(
           z.toJSONSchema(captureSchema)
         ),
         schema: captureSchema,
-        directory,
       });
       const parsed = parseCaptureSummary(JSON.stringify(result));
       if (!parsed) throw new Error("History capture returned an invalid summary");
@@ -57,12 +55,11 @@ export async function createOpencodeImportModels(
     modelId: ref.modelID,
     async complete(systemPrompt, userPrompt) {
       const result = await generateStructuredOutput({
-        client,
+        host,
         ...ref,
         systemPrompt,
         userPrompt,
         schema: profileSchema,
-        directory,
       });
       return JSON.stringify(result);
     },

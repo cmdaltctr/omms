@@ -92,11 +92,20 @@ it("every host's skills tool takes the idea's reason and evidence turns", async 
   const tools: any[] = [];
   registerPiSkillsTool({ registerTool: (def: any) => tools.push(def) } as any);
   expect(Object.keys(tools[0].parameters.properties.idea.properties).sort()).toEqual(want);
-  const { opencodeSkillsTool } = await import("../src/adapters/opencode/skills-tool.js");
-  const opencode: any = opencodeSkillsTool(baseDir);
-  const idea = { name: "deploy", description: "d", reason: "Seen often", evidenceTurnIds: [3] };
-  // OpenCode parses the arguments with the schema, which drops unknown keys.
-  expect(opencode.args.idea.parse(idea)).toEqual(idea);
+  // OpenCode V2 registers the shared JSON schema as the skills tool input.
+  const { registerOpencodeTools, createOpencodeTools } = await import("../src/v2/tools.js");
+  const registered = new Map<string, any>();
+  await registerOpencodeTools(
+    {
+      tool: {
+        transform: async (edit: any) => edit({ add: (d: any) => registered.set(d.name, d) }),
+      },
+    } as any,
+    createOpencodeTools({ directory: baseDir }, "English")
+  );
+  expect(Object.keys(registered.get("skills").input.properties.idea.properties).sort()).toEqual(
+    want
+  );
 });
 
 describe("the agent fixes a skill through the host tool", () => {
@@ -115,9 +124,10 @@ describe("the agent fixes a skill through the host tool", () => {
   });
 
   it("OpenCode", async () => {
-    const { opencodeSkillsTool } = await import("../src/adapters/opencode/skills-tool.js");
-    const skills: any = opencodeSkillsTool(baseDir);
-    expect(Object.keys(skills.args)).toEqual(
+    const { SKILLS_TOOL_INPUT_SCHEMA } = await import("../src/core/skills-tool.js");
+    const { createOpencodeTools } = await import("../src/v2/tools.js");
+    const skills = createOpencodeTools({ directory: baseDir }, "English").skills;
+    expect(Object.keys(SKILLS_TOOL_INPUT_SCHEMA.properties)).toEqual(
       expect.arrayContaining(["content", "summary", "evidence", "limit"])
     );
     await agentPath(async (args) => JSON.parse(await skills.execute(args, {})));

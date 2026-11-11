@@ -25,23 +25,17 @@ const standalone = (result: StandaloneResult) => {
 };
 
 describe("settings model lists", () => {
-  it("lists connected OpenCode provider models", async () => {
-    const result = await listOpencodeSettingsModels({
-      provider: {
-        list: async () => ({
-          data: {
-            connected: ["zai"],
-            all: [
-              { id: "zai", models: { "glm-5.3": { name: "GLM 5.3" } } },
-              { id: "other", models: { hidden: { name: "Hidden" } } },
-            ],
-          },
-        }),
-      },
-    } as never);
+  it("lists the models a running OpenCode plugin reports", async () => {
+    const result = await listOpencodeSettingsModels(async () => [
+      { providerID: "zai", id: "glm-5.3", name: "GLM 5.3" },
+      { providerID: "other", id: "plain", name: "plain" },
+    ]);
     expect(result).toEqual({
       available: true,
-      models: [{ provider: "zai", model: "glm-5.3", name: "GLM 5.3" }],
+      models: [
+        { provider: "zai", model: "glm-5.3", name: "GLM 5.3" },
+        { provider: "other", model: "plain", name: "plain" },
+      ],
     });
   });
   it("uses the typed fallback when the Pi SDK cannot load", async () => {
@@ -94,7 +88,7 @@ describe("settings model lists", () => {
 describe("OpenCode model list without a session", () => {
   const zai = [{ provider: "zai-coding-plan", model: "glm-5.3", name: "GLM-5.3" }];
 
-  it("lists the standalone models when no client or host is present", async () => {
+  it("lists the standalone models when no lister or host is present", async () => {
     const { read, calls } = standalone({ outcome: "listed", models: zai });
     expect(await listOpencodeSettingsModels(undefined, read)).toEqual({
       available: true,
@@ -119,10 +113,12 @@ describe("OpenCode model list without a session", () => {
     }
   });
 
-  it("does not start OpenCode when a client is passed", async () => {
+  it("does not start OpenCode when a model lister is passed", async () => {
     const { read, calls } = standalone({ outcome: "listed", models: zai });
-    const client = { provider: { list: async () => ({ data: undefined }) } };
-    expect(await listOpencodeSettingsModels(client as never, read)).toEqual({
+    const listModels = async () => {
+      throw new Error("model list failed");
+    };
+    expect(await listOpencodeSettingsModels(listModels, read)).toEqual({
       available: false,
       reason: OPENCODE_LIST_UNAVAILABLE,
     });

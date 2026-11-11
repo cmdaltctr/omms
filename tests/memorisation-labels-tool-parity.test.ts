@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { initConfig } from "../src/config.js";
 import { memoryToolDescription } from "../src/core/memory-tool-text.js";
 import ommsPiExtension from "../src/adapters/pi/extension.js";
-import { opencodeMemoryTool } from "../src/adapters/opencode/memory-tool.js";
+import { createOpencodeTools } from "../src/v2/tools.js";
 import { memoryInput } from "../src/v2/adapter.js";
 import { memoryArgs as claudeMemoryArgs, DESCRIPTION } from "../hooks/omms-memory-tool.jsx";
 
@@ -54,15 +54,13 @@ describe("recall by label on every host", () => {
   });
 
   it("accepts tags in the OpenCode V2 schema and the OpenCode tool", () => {
-    expect(memoryInput.properties.tags).toBeDefined();
-    const tool = opencodeMemoryTool("d", { directory: project });
-    expect(Object.keys(tool.args)).toContain("tags");
+    expect(memoryInput.properties.tags).toEqual({ type: "string" });
   });
 
   it("memorises with labels and recalls by label through the OpenCode tool", async () => {
-    const tool = opencodeMemoryTool("d", { directory: project });
+    const tool = createOpencodeTools({ directory: project }, "English").memory;
     const run = async (args: Record<string, unknown>) =>
-      JSON.parse(await tool.execute(args as never, { sessionID: "s1" } as never));
+      JSON.parse(await tool.execute(args, { sessionID: "s1" }));
     const saved = await run({
       mode: "memorise",
       content: "opencode labelled note",
