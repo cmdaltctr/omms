@@ -126,3 +126,29 @@ it("handledSessionIds reads a missing file or table as empty and creates nothing
   );
   expect(tables).toEqual(["unrelated"]);
 });
+
+it("the OpenCode handled lookup ignores profile rows of the same prompt", async () => {
+  CONFIG.storagePath = storage;
+  const { handledLookupFor } = await import("../src/importer/handled-lookup.js");
+  const lookup = handledLookupFor("opencode");
+  const ledger = new ImportLedger();
+  const query = (userEntryId: string, answer: string) => ({
+    key: `opencode:ses:${userEntryId}:${answer}`,
+    sessionId: "ses",
+    window: { userEntryId } as never,
+    readOnly: false,
+  });
+
+  // A failed memory unit whose profile step still recorded the prompt stays retryable.
+  await seed(ledger, [
+    { key: "opencode:ses:u1:a1", session: "ses", hash: "h", end: "failed" },
+    { key: "opencode:ses:u1:a1#profile", session: "ses", hash: "profile", end: "imported" },
+    { key: "opencode:ses:u2:a2#profile", session: "ses", hash: "profile", end: "imported" },
+    { key: "opencode:ses:u3:old", session: "ses", hash: "h", end: "imported" },
+  ]);
+  expect((await lookup(ledger, query("u1", "a1")))?.status).toBe("failed");
+  // A profile-only earlier run does not count as an imported memory.
+  expect(await lookup(ledger, query("u2", "a2"))).toBeNull();
+  // A memory imported under another last answer id still counts.
+  expect((await lookup(ledger, query("u3", "new")))?.key).toBe("opencode:ses:u3:old");
+});

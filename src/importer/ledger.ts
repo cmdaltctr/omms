@@ -112,8 +112,9 @@ export class ImportLedger {
   }
 
   /**
-   * An imported or skipped row of one session whose key starts with `prefix`.
-   * Rows are found through the `session_id` index, then prefix-checked.
+   * An imported or skipped memory row of one session whose key starts with `prefix`.
+   * Rows are found through the `session_id` index, then prefix-checked. Profile rows
+   * (`#profile` keys) share the prefix but do not show that a memory was imported.
    * With `readOnly` it never creates the table, like `peek`.
    */
   async findHandledByPrefix(
@@ -133,6 +134,7 @@ export class ImportLedger {
     const row = await db.get(
       `SELECT * FROM import_ledger
        WHERE session_id = ? AND status IN ('imported', 'skipped') AND substr(key, 1, ?) = ?
+         AND project_hash <> 'profile'
        LIMIT 1`,
       [sessionId, prefix.length, prefix]
     );
