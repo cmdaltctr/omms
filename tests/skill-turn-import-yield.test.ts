@@ -78,5 +78,6 @@ describe("recording imported skill turns", () => {
     expect(report).toMatchObject({ skillTurnsRecorded: total });
     expect(recordedWhenAnswered).toBeGreaterThan(0);
     expect(recordedWhenAnswered).toBeLessThan(total);
-  }, 30_000);
+    // 120 skills.db writes took 26 s on a Windows runner, so 30 s was too close.
+  }, 60_000);
 });
