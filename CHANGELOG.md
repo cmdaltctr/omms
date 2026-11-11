@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [5.10.1](https://github.com/cmdaltctr/omms/compare/v5.10.0...v5.10.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* make the memorisation tests pass on Windows ([e98a74e](https://github.com/cmdaltctr/omms/commit/e98a74e3aba7951187fbafc6a06cae430b6ca057))
+* make the memorisation tests pass on Windows ([92a93e8](https://github.com/cmdaltctr/omms/commit/92a93e8ea35e9349ecc262623869a59c8739410c))
+
 ## [5.10.0](https://github.com/cmdaltctr/omms/compare/v5.9.1...v5.10.0) (2026-11-10)
 
 
