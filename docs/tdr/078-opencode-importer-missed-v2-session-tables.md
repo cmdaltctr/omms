@@ -55,6 +55,7 @@ Bug score for the ledger match: likelihood 7 (every rerun or backfill over this 
 
 - A unit that gained new answers after its import counts as handled. OpenCode adds new turns as new user messages, so this is rare.
 - The importer keeps two readers, one for each table set.
+- Profile rows share the prefix (`…#profile`, `…#profile-rebuild`). The first version of the match counted them as imported memories, so a failed unit with a recorded profile prompt was never retried. The match now skips rows with `project_hash = 'profile'` (`tests/import-ledger.test.ts`).
 
 ### Neutral
 

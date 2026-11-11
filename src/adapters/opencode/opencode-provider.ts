@@ -142,7 +142,11 @@ export function parseJsonReply(text: string): unknown {
     const start = candidate.indexOf("{");
     const end = candidate.lastIndexOf("}");
     if (start >= 0 && end > start) {
-      return JSON.parse(candidate.slice(start, end + 1));
+      try {
+        return JSON.parse(candidate.slice(start, end + 1));
+      } catch {
+        // The parser's own message can quote the reply, which must not reach the log.
+      }
     }
     throw new Error(OPENCODE_NO_JSON_REPLY);
   }

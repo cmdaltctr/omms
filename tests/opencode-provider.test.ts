@@ -175,6 +175,19 @@ describe("parseJsonReply", () => {
   it("parses a fenced block without a language tag", () => {
     expect(parseJsonReply('```\n{"a":1}\n```')).toEqual({ a: 1 });
   });
+
+  it("reports invalid JSON inside braces as no JSON object, without the reply text", () => {
+    const reply = 'Here: {"summary": my private note}';
+    let error: unknown;
+    try {
+      parseJsonReply(reply);
+    } catch (caught) {
+      error = caught;
+    }
+    // Node's SyntaxError quotes part of the reply; the log must never carry it.
+    expect(String(error)).toContain("did not return a JSON object");
+    expect(String(error)).not.toContain("private");
+  });
 });
 
 describe("resolveOpencodeModelRef / inherit", () => {
