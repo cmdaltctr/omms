@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { memoryQueries } from "./memory-sql-scan.js";
 
 const root = join(import.meta.dir, "..");
@@ -201,7 +201,8 @@ function sourceFiles(directory: string): string[] {
 function allQueries() {
   const found: Array<{ file: string; line: number; sql: string; filtered: boolean }> = [];
   for (const path of sourceFiles(join(root, "src"))) {
-    const file = relative(root, path);
+    // Allow-list entries use "/" paths; Windows gives "\\" from relative().
+    const file = relative(root, path).split(sep).join("/");
     const { queries, clean } = memoryQueries(readFileSync(path, "utf8"));
     expect(clean, `${file} tokenises cleanly`).toBe(true);
     for (const query of queries) found.push({ file, ...query });
