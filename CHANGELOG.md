@@ -2,6 +2,17 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [6.0.0](https://github.com/cmdaltctr/omms/compare/v5.10.1...v6.0.0) (2026-11-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* OpenCode V1 can no longer load OMMS. The package has no ./server export and no @opencode-ai/plugin or @opencode-ai/sdk dependency. The settings chatMessage.maxMemories, chatMessage.maxAgeDays and chatMessage.injectOn are removed; old config files keep loading and the keys are ignored. The Memory limits card shows five rows.
+
+### Features
+
+* support OpenCode V2 only ([ca2a8ce](https://github.com/cmdaltctr/omms/commit/ca2a8ced648cd4a555cdb71261a72e086185b4e7))
+
 ## [5.10.1](https://github.com/cmdaltctr/omms/compare/v5.10.0...v5.10.1) (2026-11-11)
 
 
