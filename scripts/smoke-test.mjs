@@ -18,7 +18,7 @@ const tagsModule = await import("om-memory-system/tags");
 
 assert.equal(typeof pluginModule.default, "object", "default export must be a plugin object");
 assert.equal(pluginModule.default.id, "omms", "plugin id must stay omms");
-assert.equal(typeof pluginModule.default.server, "function", "plugin server must be callable");
+assert.equal(typeof pluginModule.default.setup, "function", "plugin setup must be callable");
 
 assert.equal(typeof tagsModule.getTags, "function", "getTags export must be callable");
 assert.equal(
