@@ -201,6 +201,7 @@ import { mock } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 process.env.HOME = ${JSON.stringify(join(dir, "home"))};
+process.env.USERPROFILE = ${JSON.stringify(join(dir, "home"))};
 const root = ${JSON.stringify(dir)};
 const home = join(root, "home");
 const alpha = join(home, ".omms", "spaces", "kind-alpha");
@@ -263,7 +264,7 @@ console.log(JSON.stringify({
 `
     );
     const result = Bun.spawnSync(["bun", scenario], {
-      env: { ...process.env, HOME: join(dir, "home") },
+      env: { ...process.env, HOME: join(dir, "home"), USERPROFILE: join(dir, "home") },
       stdout: "pipe",
       stderr: "pipe",
     });
