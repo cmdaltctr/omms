@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 const url = (path: string) => new URL(path, import.meta.url).href;
 
-it("starts OpenCode backfill after providers load and uses the configured default", () => {
+it("starts OpenCode backfill after providers load with the default model and connected providers", () => {
   const dir = mkdtempSync(join(tmpdir(), "omms-opencode-backfill-test-"));
   try {
     const script = join(dir, "scenario.mjs");
@@ -24,8 +24,7 @@ mock.module(${JSON.stringify(url("../src/services/client.js"))}, () => ({ memory
 mock.module(${JSON.stringify(url("../src/services/tags.js"))}, () => ({ getTags: () => ({
   project: { tag: "test" }, user: { userEmail: "test@example.invalid" } }) }));
 mock.module(${JSON.stringify(url("../src/adapters/opencode/opencode-provider-loader.js"))}, () => ({
-  loadOpencodeProvider: async () => ({ resetHostFetch: () => {}, setHostFetch: () => {},
-    setV2Client: () => {}, createV2Client: () => ({}), setConnectedProviders: () => {} }) }));
+  loadOpencodeProvider: async () => ({ setConnectedProviders: () => {} }) }));
 mock.module(${JSON.stringify(url("../src/importer/auto-backfill.js"))}, () => ({
   scheduleAutoBackfill: async (options) => { calls.push(options); } }));
 const logs = [];
@@ -36,28 +35,43 @@ mock.module(${JSON.stringify(url("../src/services/web-autostart.js"))}, () => ({
 mock.module(${JSON.stringify(url("../src/services/user-prompt/user-prompt-manager.js"))}, () => ({
   userPromptManager: { savePrompt: async () => {} } }));
 mock.module(${JSON.stringify(url("../src/adapters/opencode/backfill-models.js"))}, () => ({
+  // configModel reads OpenCode's default model through ctx.model.default().
   resolveOpencodeBackfillModels: async (_config, ctx) => ({ model: await ctx.configModel(),
     models: {}, connected: ctx.connected }) }));
-const { OmmsPlugin } = await import(${JSON.stringify(url("../src/index.js"))});
+const { createFakeV2Context } = await import(${JSON.stringify(url("./fake-v2-context.ts"))});
+const { default: plugin } = await import(${JSON.stringify(url("../src/v2/plugin.js"))});
+const models = [{ providerID: "zai", id: "default-model", name: "Default model" }];
+const fake = createFakeV2Context({
+  directory: ${JSON.stringify(dir)},
+  models,
+  defaultModel: models[0],
+});
+// Hold the model list back, as a slow OpenCode does. The plugin builds the
+// connected provider list from it.
 let loadProviders;
 const providerReady = new Promise((resolve) => { loadProviders = resolve; });
-const hooks = await OmmsPlugin({ directory: ${JSON.stringify(dir)}, client: {
-  provider: { list: () => providerReady },
-  config: { get: async () => ({ data: { model: "zai/default-model" } }) },
-} });
+fake.ctx.model.list = () => providerReady;
+const stop = await plugin.setup(fake.ctx);
 const before = calls.length;
-loadProviders({ data: { connected: ["zai"] } });
+loadProviders({ location: { directory: ${JSON.stringify(dir)} }, data: models });
 await new Promise((resolve) => setTimeout(resolve, 20));
 const selected = await calls[0]?.resolveModels();
 console.log("RESULT:" + JSON.stringify({ before, count: calls.length,
   model: selected?.model, connected: selected?.connected,
   autostart: autostartCalls.length, logged: logs.some((message) => message.includes("login item")) }));
-await hooks.dispose();
+await stop();
 `
     );
     const child = Bun.spawnSync(["bun", "run", script], {
       cwd: dir,
-      env: { ...process.env, OMMS_DISABLE_AUTO_BACKFILL: "0", OMMS_DISABLE_WEB_AUTOSTART: "0" },
+      env: {
+        ...process.env,
+        HOME: dir,
+        USERPROFILE: dir,
+        OMMS_DISABLE_AUTO_BACKFILL: "0",
+        OMMS_DISABLE_WEB_AUTOSTART: "0",
+        OMMS_DISABLE_UPDATE_CHECK: "1",
+      },
     });
     const stdout = child.stdout.toString();
     const match = stdout.match(/RESULT:(.*)$/m);
@@ -65,6 +79,7 @@ await hooks.dispose();
     expect(JSON.parse(match[1])).toEqual({
       before: 0,
       count: 1,
+      // OpenCode V2 gives the legacy client no config.get, so the configured model is null.
       model: "zai/default-model",
       connected: ["zai"],
       autostart: 1,

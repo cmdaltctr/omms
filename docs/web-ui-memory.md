@@ -37,7 +37,7 @@ The choice is saved in `appearance.json` and `<host>.png` under `host-appearance
 
 ### Memory injection
 
-The **Memory injection** section sits below the host cards and the **Import all hosts** row on the overview (`/memory#memory-injection`). It sets how OMMS adds memories to the model's context. It applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. The **Shared** view holds one **Memory injection** row that shows the switch states and links here, so the controls exist in one place only.
+The **Memory injection** section sits below the host cards and the **Import all hosts** row on the overview (`/memory#memory-injection`). It sets how OMMS adds memories to the model's context. It applies to OpenCode V2, Pi and Claude Code. The **Shared** view holds one **Memory injection** row that shows the switch states and links here, so the controls exist in one place only.
 
 | Control                                         | Key                      | Default                                                      |
 | ----------------------------------------------- | ------------------------ | ------------------------------------------------------------ |
@@ -279,7 +279,6 @@ Open **Shared** (`/memory/shared`) and expand **Memory limits**. The table has *
 | Setting                      | Default                                        | Unit               | Accepted values          | Affects                                                                                                                                                     |
 | ---------------------------- | ---------------------------------------------- | ------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `maxMemories`                | 10                                             | Results            | Positive safe integers   | Maximum search results; manual searches can request fewer. Prompt retrieval uses this ceiling.                                                              |
-| `chatMessage.maxMemories`    | 3                                              | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 only. OpenCode V2, Pi and Claude Code search each prompt.                                                   |
 | `autoCaptureMaxContextBytes` | 131072                                         | Bytes              | 16384–16777216 inclusive | Conversation input sent through the shared memory-summary pipeline.                                                                                         |
 | `userProfileMaxContextBytes` | 32768                                          | Bytes              | 1024–16777216 inclusive  | OpenCode profile-learning input, including its truncation marker. Other hosts' profile input is outside this control.                                       |
 | `retrievalMaxTokens`         | 2000                                           | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text, formatting and retrieval wrappers.                                                       |
@@ -295,13 +294,13 @@ The threshold default follows the active embedding model: 0.5 for `qwen3-embeddi
 
 **Cancel** restores loaded values without writing. Saving prevents duplicate submissions and shows its outcome. A successful save refreshes the shared revision used by Memory and Settings.
 
-A project override shows its effective value and source. Inputs still edit global values; the project override stays in force. The shallow merge also applies to `chatMessage`: a project object replaces the global object, with defaults for omitted siblings.
+A project override shows its effective value and source. Inputs still edit global values; the project override stays in force.
 
-Saving `chatMessage.maxMemories` edits only that leaf inside `chatMessage`. Siblings such as `enabled` and `injectOn`, their comments and unrelated keys retain their values and order. Unsupported nested edits are refused. Invalid or stale saves write nothing. If another editor changed the file, check refreshed values and save again.
+Saving edits only the keys in the table. Comments and unrelated keys retain their values and order. Invalid or stale saves write nothing. If another editor changed the file, check refreshed values and save again.
 
 ### Reset to default
 
-Every row has a **Reset to default** button. Selecting it removes that key from the global file through the same safe save flow, so the value follows the default again. For `chatMessage.maxMemories` only that leaf is removed; the other `chatMessage` properties and their comments stay. Reset never writes a project file. A row whose key is absent from the file has its Reset button disabled.
+Every row has a **Reset to default** button. Selecting it removes that key from the global file through the same safe save flow, so the value follows the default again. Reset never writes a project file. A row whose key is absent from the file has its Reset button disabled.
 
 A row whose saved value differs from its default shows a **Differs from default** marker. This is how a file that still holds the old template's `"similarityThreshold": 0.6` becomes visible: with the `qwen3-embedding:0.6b` embedder the row shows the marker, and Reset removes the line so the default 0.5 applies again. A value equal to the default, or no saved value, shows no marker.
 

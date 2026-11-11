@@ -106,7 +106,14 @@ describe("Pi adapter boundary", () => {
   });
 
   it("keeps the importer and Pi runtime out of the OpenCode entry points", () => {
-    const openCodeEntryPaths = ["src/index.ts", "src/v2/adapter.ts", "src/v2/plugin.ts"];
+    const openCodeEntryPaths = [
+      "src/plugin.ts",
+      "src/v2/plugin.ts",
+      "src/v2/adapter.ts",
+      "src/v2/startup.ts",
+      "src/v2/tools.ts",
+      "src/v2/session-events.ts",
+    ];
     for (const relative of openCodeEntryPaths) {
       const source = readFileSync(join(import.meta.dir, "..", relative), "utf8");
       expect(source).not.toContain("importer/");

@@ -1,4 +1,3 @@
-import type { OpencodeClient } from "@opencode-ai/sdk/v2/client";
 import type { SettingsModel } from "./backfill-controls.js";
 import type { StandaloneResult } from "./opencode-standalone-models.js";
 
@@ -40,7 +39,7 @@ type ProviderList = {
   all: Array<{ id: string; models: Record<string, { name: string }> }>;
 };
 
-/** The models of each connected provider in an OpenCode v1 provider list. */
+/** The models of each connected provider in an OpenCode server provider list. */
 export function connectedProviderModels(list: ProviderList): SettingsModel[] {
   const connected = new Set(list.connected);
   return list.all
@@ -54,13 +53,25 @@ export function connectedProviderModels(list: ProviderList): SettingsModel[] {
     );
 }
 
-/** Connected models from an OpenCode client; null when the client returns no list. */
+/** One model a running host lists, with its provider and display name. */
+export type ListedModel = {
+  readonly providerID: string;
+  readonly id: string;
+  readonly name: string;
+};
+
+/** Settings rows for the models a running OpenCode plugin lists, grouped by provider. */
 export async function listOpencodeClientModels(
-  client: Pick<OpencodeClient, "provider">
-): Promise<SettingsModel[] | null> {
-  const result = await client.provider.list();
-  if (!result.data) return null;
-  return connectedProviderModels(result.data);
+  listModels: () => Promise<readonly ListedModel[]>
+): Promise<SettingsModel[]> {
+  // Providers keep the order they first appear in; models keep their order inside each.
+  const byProvider = new Map<string, SettingsModel[]>();
+  for (const model of await listModels()) {
+    const rows = byProvider.get(model.providerID) ?? [];
+    rows.push({ provider: model.providerID, model: model.id, name: model.name });
+    byProvider.set(model.providerID, rows);
+  }
+  return [...byProvider.values()].flat();
 }
 
 async function readStandaloneModels(): Promise<StandaloneResult> {
@@ -69,19 +80,19 @@ async function readStandaloneModels(): Promise<StandaloneResult> {
 }
 
 /**
- * The OpenCode models for the Settings page. Without a client or a registered
+ * The OpenCode models for the Settings page. Without `listModels` or a registered
  * OpenCode host, this starts a private OpenCode server through `readStandalone`.
  * Pass `null` to skip that, for callers that need a live session.
  */
 export async function listOpencodeSettingsModels(
-  client?: Pick<OpencodeClient, "provider">,
+  listModels?: () => Promise<readonly ListedModel[]>,
   readStandalone: (() => Promise<StandaloneResult>) | null = readStandaloneModels
 ): Promise<{ available: boolean; models?: SettingsModel[]; reason?: string }> {
   const unavailable = (reason: string) => ({ available: false, reason });
   try {
     let models: SettingsModel[] | null;
-    if (client) {
-      models = await listOpencodeClientModels(client);
+    if (listModels) {
+      models = await listOpencodeClientModels(listModels);
     } else {
       const { getOpencodeHostModels } = await import("./backfill-controls.js");
       const opencode = getOpencodeHostModels();

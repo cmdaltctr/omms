@@ -9,10 +9,10 @@ mock.module("../src/services/logger.js", () => ({ log: () => {} }));
 mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
   loadOpencodeProvider: async () => ({
     isProviderConnected: () => true,
-    getV2Client: () => ({}),
+    getOpencodeHost: () => ({}),
     resolveOpencodeModelRef: (ref: { providerID: string; modelID: string }) => ref,
     generateStructuredOutput: async (opts: any) => {
-      opts.onReply({ finish: "stop", partTypes: ["text"], structuredOutput: invalid });
+      opts.onReply({ partTypes: ["text"], structuredOutput: invalid });
       const { z } = await import("zod");
       return z.object({ summary: z.string().min(1) }).parse(invalid);
     },
@@ -98,11 +98,14 @@ describe("capture diagnostics parity", () => {
     for (const record of [pi, hostModel, external]) {
       expect(record.provider).not.toBeNull();
       expect(record.model).not.toBeNull();
-      expect(record.stopReason).toBe("stop");
       expect(record.promptChars).toBeGreaterThan(0);
       expect(record.replyChars).toBeGreaterThan(0);
       expect(record.reason).toBe("schema-mismatch");
     }
+    // OpenCode V2 text generation reports no finish reason; the other two paths do.
+    expect(pi.stopReason).toBe("stop");
+    expect(external.stopReason).toBe("stop");
+    expect(hostModel.stopReason).toBeNull();
     expect(pi.path).toBe("host-model");
     expect(hostModel.path).toBe("host-model");
     expect(external.path).toBe("external-api");

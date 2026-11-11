@@ -24,8 +24,7 @@ mock.module(${JSON.stringify(url("../src/services/client.js"))}, () => ({ memory
 mock.module(${JSON.stringify(url("../src/services/tags.js"))}, () => ({ getTags: () => ({
   project: { tag: "test" }, user: { userEmail: "test@example.invalid" } }) }));
 mock.module(${JSON.stringify(url("../src/adapters/opencode/opencode-provider-loader.js"))}, () => ({
-  loadOpencodeProvider: async () => ({ resetHostFetch: () => {}, setHostFetch: () => {},
-    setV2Client: () => {}, createV2Client: () => ({}), setConnectedProviders: () => {} }) }));
+  loadOpencodeProvider: async () => ({ setConnectedProviders: () => {} }) }));
 mock.module(${JSON.stringify(url("../src/importer/auto-backfill.js"))}, () => ({
   scheduleAutoBackfill: async () => {} }));
 const logs = [];
@@ -39,21 +38,27 @@ mock.module(${JSON.stringify(url("../src/services/runtime-handoff.js"))}, () => 
   } }));
 mock.module(${JSON.stringify(url("../src/services/user-prompt/user-prompt-manager.js"))}, () => ({
   userPromptManager: { savePrompt: async () => {} } }));
-const { OmmsPlugin } = await import(${JSON.stringify(url("../src/index.js"))});
-const hooks = await OmmsPlugin({ directory: ${JSON.stringify(dir)}, client: {
-  provider: { list: async () => ({ data: { connected: [] } }) },
-  config: { get: async () => ({ data: {} }) },
-} });
+const { createFakeV2Context } = await import(${JSON.stringify(url("./fake-v2-context.ts"))});
+const { default: plugin } = await import(${JSON.stringify(url("../src/v2/plugin.js"))});
+const fake = createFakeV2Context({ directory: ${JSON.stringify(dir)} });
+const stop = await plugin.setup(fake.ctx);
 await new Promise((resolve) => setTimeout(resolve, 20));
 console.log("RESULT:" + JSON.stringify({ calls: registerCalls.length,
   logged: logs.some((message) => message.includes("runtime record")) }));
-await hooks.dispose();
+await stop();
 `
     );
     // The web app switches stay off, to show that the record does not depend on them.
     const child = Bun.spawnSync(["bun", "run", script], {
       cwd: dir,
-      env: { ...process.env, OMMS_DISABLE_AUTO_BACKFILL: "1", OMMS_DISABLE_WEB_AUTOSTART: "1" },
+      env: {
+        ...process.env,
+        HOME: dir,
+        USERPROFILE: dir,
+        OMMS_DISABLE_AUTO_BACKFILL: "1",
+        OMMS_DISABLE_WEB_AUTOSTART: "1",
+        OMMS_DISABLE_UPDATE_CHECK: "1",
+      },
     });
     const stdout = child.stdout.toString();
     const match = stdout.match(/RESULT:(.*)$/m);

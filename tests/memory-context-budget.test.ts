@@ -98,7 +98,6 @@ mock.module(${JSON.stringify(tagsUrl)}, () => ({
 const { formatContextForPrompt } = await import(${JSON.stringify(contextServiceUrl)});
 const {
   buildRetrievalSection,
-  buildRecentMemoriesSection,
   formatMemoriesForCompaction,
   retrievalWrapperBytes,
 } = await import(${JSON.stringify(retrievalUrl)});
@@ -589,27 +588,6 @@ describe("budget option propagation", () => {
     );
     expect(output.section).not.toBeNull();
     expect(utf8ByteLength(output.section)).toBeLessThanOrEqual(1200);
-  });
-
-  it("forwards a budget through buildRecentMemoriesSection", () => {
-    const output = runScenario(
-      `out.section = await buildRecentMemoriesSection({
-        projectTag: "omms_project_test",
-        userEmail: "user@example.com",
-        sessionId: "ses-1",
-        maxMemories: 3,
-        budget: { maxBytes: 1500 },
-      });`,
-      {
-        recentMemories: Array.from({ length: 3 }, () => ({
-          summary: "r".repeat(1200),
-          createdAt: new Date().toISOString(),
-          metadata: {},
-        })),
-      }
-    );
-    expect(utf8ByteLength(output.section)).toBeLessThanOrEqual(1500);
-    assertClosedMemoryContext(output.section);
   });
 });
 

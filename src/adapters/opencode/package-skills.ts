@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "../../services/logger.js";
@@ -30,24 +30,7 @@ export function packageSkillsFolder(moduleUrl: string = import.meta.url): string
 
 const defaultFolder = packageSkillsFolder();
 
-type SkillsConfig = { skills?: { paths?: string[]; urls?: string[] } };
-
-/**
- * V1: add the package's skills folder to OpenCode's skill paths once. The V1
- * SDK `Config` type has no `skills` key, although OpenCode reads it.
- */
-export function applySkillsPathConfig(config: object, folder: string = defaultFolder): void {
-  const cfg = config as SkillsConfig;
-  if (!existsSync(folder)) {
-    log("OMMS skills folder not found; the packaged skills are not loaded", { folder });
-    return;
-  }
-  const paths = cfg.skills?.paths ?? [];
-  if (paths.includes(folder)) return;
-  cfg.skills = { ...cfg.skills, paths: [...paths, folder] };
-}
-
-/** V2: add the package's skills to the plugin's skill list once. */
+/** Add the package's skills to the plugin's skill list once. */
 export function addPackageSkill(
   editor: { get(id: string): unknown; add(skill: any): void },
   folder: string = defaultFolder

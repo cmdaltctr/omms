@@ -80,14 +80,11 @@ it("puts exactly the same category list in the OpenCode prompt", async () => {
     }),
   }));
   mock.module("../src/adapters/opencode/profile-llm-client.js", () => ({
-    getOpenCodeClient: async () => ({}),
+    getOpencodeProfileHost: async () => ({}),
   }));
   const { performUserProfileLearning } =
     await import("../src/adapters/opencode/profile-learning.js");
-  await performUserProfileLearning(
-    {} as Parameters<typeof performUserProfileLearning>[0],
-    "/workspace"
-  );
+  await performUserProfileLearning("/workspace");
   const list = buildCategoryList(data);
   expect(list.length).toBeGreaterThan(0);
   expect(await sharedPrompt(stored)).toContain(list);

@@ -1,4 +1,3 @@
-import type { PluginInput } from "@opencode-ai/plugin";
 import { getTags } from "../../services/tags.js";
 import { profileBackoff, recordProfileFailure } from "../../core/profile-backoff.js";
 import { log } from "../../services/logger.js";
@@ -13,13 +12,11 @@ import { sortProfileItems } from "../../utils/profile.js";
 import { truncateToMaxBytes } from "../../utils/context-limit.js";
 import type { UserProfile, UserProfileData } from "../../services/user-profile/types.js";
 import { loadOpencodeProvider } from "./opencode-provider-loader.js";
+import { showOpencodeNotice } from "./toast.js";
 
 let isLearningRunning = false;
 
-export async function performUserProfileLearning(
-  ctx: PluginInput,
-  directory: string
-): Promise<void> {
+export async function performUserProfileLearning(directory: string): Promise<void> {
   if (isLearningRunning) return;
   if (!profileBackoff.canRun()) return;
   refreshConfigIfChanged(directory);
@@ -269,16 +266,11 @@ Rules:
     }
 
     if (CONFIG.showUserProfileToasts) {
-      await ctx.client?.tui
-        .showToast({
-          body: {
-            title: "User Profile Updated",
-            message: `Analyzed ${prompts.length} of ${count} pending prompts and updated your profile`,
-            variant: "success",
-            duration: 3000,
-          },
-        })
-        .catch(() => {});
+      showOpencodeNotice({
+        title: "User Profile Updated",
+        message: `Analyzed ${prompts.length} of ${count} pending prompts and updated your profile`,
+        variant: "success",
+      });
     }
   } catch (error) {
     // Guard against corrupt stored profileData (JSON.parse throws) and any other
@@ -589,14 +581,14 @@ async function analyzeUserProfile(
     log("user-profile-learning: trying opencode provider");
     try {
       const { generateStructuredOutput } = await loadOpencodeProvider();
-      const { getOpenCodeClient } = await import("./profile-llm-client.js");
+      const { getOpencodeProfileHost } = await import("./profile-llm-client.js");
 
       log("user-profile-learning: opencode provider diag", {
         provider: resolveOpencodeHostModel(CONFIG)?.providerID,
         model: resolveOpencodeHostModel(CONFIG)?.modelID,
       });
 
-      const v2Client = await getOpenCodeClient();
+      const host = await getOpencodeProfileHost();
 
       const systemPrompt = `You are a user behavior analyst for a coding assistant.
 
@@ -617,7 +609,7 @@ Use the update_user_profile tool to save the ${existingProfile ? "updated" : "ne
 
       const result = await Promise.race([
         generateStructuredOutput({
-          client: v2Client,
+          host,
           providerID: resolveOpencodeHostModel(CONFIG)!.providerID,
           modelID: resolveOpencodeHostModel(CONFIG)!.modelID,
           systemPrompt,
@@ -743,18 +735,18 @@ If no clear chains, return { "paths": [] }.`;
     try {
       const { z } = await import("zod");
       const { generateStructuredOutput } = await loadOpencodeProvider();
-      const { getOpenCodeClient } = await import("./profile-llm-client.js");
+      const { getOpencodeProfileHost } = await import("./profile-llm-client.js");
 
-      let v2Client;
+      let host;
       try {
-        v2Client = await getOpenCodeClient();
+        host = await getOpencodeProfileHost();
       } catch {
         // provider not available, skip learning paths
       }
-      if (v2Client) {
+      if (host) {
         result = (await Promise.race([
           generateStructuredOutput({
-            client: v2Client,
+            host,
             providerID: resolveOpencodeHostModel(CONFIG)!.providerID,
             modelID: resolveOpencodeHostModel(CONFIG)!.modelID,
             systemPrompt,

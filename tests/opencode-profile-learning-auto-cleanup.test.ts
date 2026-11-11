@@ -75,7 +75,7 @@ mock.module(${JSON.stringify(url("../src/adapters/opencode/opencode-provider-loa
   }),
 }));
 mock.module(${JSON.stringify(url("../src/adapters/opencode/profile-llm-client.js"))}, () => ({
-  getOpenCodeClient: async () => ({}),
+  getOpencodeProfileHost: async () => ({}),
 }));
 mock.module(${JSON.stringify(url("../src/services/user-profile/auto-cleanup.js"))}, () => ({
   startAutoProfileCleanup: (userId) => {
@@ -87,7 +87,7 @@ mock.module(${JSON.stringify(url("../src/services/user-profile/auto-cleanup.js")
 
 const { performUserProfileLearning } = await import(${JSON.stringify(url("../src/adapters/opencode/profile-learning.js"))});
 const { profileBackoff } = await import(${JSON.stringify(url("../src/core/profile-backoff.js"))});
-await performUserProfileLearning({}, "/workspace");
+await performUserProfileLearning("/workspace");
 await new Promise((resolve) => setTimeout(resolve, 50));
 console.log(JSON.stringify({ started, marked: marked.length, canRun: profileBackoff.canRun() }));
 process.exit(0);

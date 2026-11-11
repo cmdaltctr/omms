@@ -233,7 +233,7 @@ export function MemoryInjectionSection() {
           <Callout tone="warning">
             <p>
               {s(
-                "Applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. On Pi, a subagent gets memory only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in /omps-settings, Agent capabilities, Memory."
+                "Applies to OpenCode V2, Pi and Claude Code. On Pi, a subagent gets memory only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in /omps-settings, Agent capabilities, Memory."
               )}
             </p>
           </Callout>

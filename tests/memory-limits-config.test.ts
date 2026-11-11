@@ -58,7 +58,13 @@ try {
   writeFileSync(scriptPath, script);
   const proc = Bun.spawn(["bun", "run", scriptPath], {
     cwd: home,
-    env: { ...process.env, HOME: home, USERPROFILE: home, OMMS_SKIP_LEGACY_MIGRATION: "1" },
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      OMMS_SKIP_LEGACY_MIGRATION: "1",
+      OMMS_LOG_FILE: join(home, "omms.log"),
+    },
   });
   const text = await new Response(proc.stdout).text();
   const error = await new Response(proc.stderr).text();
@@ -76,7 +82,6 @@ describe("memory limit file configuration", () => {
       cfg.initConfig(project);
       return {
         maxMemories: cfg.CONFIG.maxMemories,
-        chatMax: cfg.CONFIG.chatMessage.maxMemories,
         autoCapture: cfg.CONFIG.autoCaptureMaxContextBytes,
         userProfile: cfg.CONFIG.userProfileMaxContextBytes,
         retrieval: cfg.CONFIG.retrievalMaxTokens,
@@ -85,7 +90,6 @@ describe("memory limit file configuration", () => {
     );
     expect(result).toEqual({
       maxMemories: 10,
-      chatMax: 3,
       autoCapture: 131072,
       userProfile: 32768,
       retrieval: 2000,
@@ -97,7 +101,6 @@ describe("memory limit file configuration", () => {
       {
         global: JSON.stringify({
           maxMemories: 6,
-          chatMessage: { maxMemories: 2 },
           autoCaptureMaxContextBytes: 65536,
           userProfileMaxContextBytes: 65536,
           retrievalMaxTokens: 3000,
@@ -107,7 +110,6 @@ describe("memory limit file configuration", () => {
         cfg.initConfig(project);
         return {
           maxMemories: cfg.CONFIG.maxMemories,
-          chatMax: cfg.CONFIG.chatMessage.maxMemories,
           autoCapture: cfg.CONFIG.autoCaptureMaxContextBytes,
           userProfile: cfg.CONFIG.userProfileMaxContextBytes,
           retrieval: cfg.CONFIG.retrievalMaxTokens,
@@ -116,7 +118,6 @@ describe("memory limit file configuration", () => {
     );
     expect(result).toEqual({
       maxMemories: 6,
-      chatMax: 2,
       autoCapture: 65536,
       userProfile: 65536,
       retrieval: 3000,
@@ -130,7 +131,6 @@ describe("memory limit file configuration", () => {
       const accepted = [
         { maxMemories: 1 },
         { maxMemories: Number.MAX_SAFE_INTEGER },
-        { chatMessage: { maxMemories: 1 } },
         { autoCaptureMaxContextBytes: 16384 },
         { autoCaptureMaxContextBytes: 16777216 },
         { userProfileMaxContextBytes: 1024 },
@@ -149,6 +149,46 @@ describe("memory limit file configuration", () => {
     expect(result.errors).toEqual([]);
   });
 
+  it("ignores the removed chatMessage keys in an old file with no error and no log line", async () => {
+    const result = await limitsScenario(
+      {
+        global: JSON.stringify({
+          maxMemories: 6,
+          chatMessage: {
+            enabled: false,
+            excludeCurrentSession: false,
+            maxMemories: 0,
+            injectOn: "always",
+            maxAgeDays: 14,
+          },
+        }),
+      },
+      `
+        const { existsSync } = await import("node:fs");
+        const logPath = join(home, "omms.log");
+        const logText = () => (existsSync(logPath) ? readFileSync(logPath, "utf8") : "");
+        const validated = (() => {
+          try { cfg.validateGlobalConfig(JSON.parse(readFileSync(globalPath, "utf8"))); return null; }
+          catch (error) { return String(error); }
+        })();
+        cfg.initConfig(project);
+        const afterInit = { chatMessage: { ...cfg.CONFIG.chatMessage }, maxMemories: cfg.CONFIG.maxMemories };
+        writeFileSync(globalPath, JSON.stringify({ maxMemories: 7,
+          chatMessage: { maxMemories: 0, injectOn: "always", maxAgeDays: 14 } }));
+        cfg.refreshConfigIfChanged(project);
+        return { validated, afterInit, afterRefresh: cfg.CONFIG.maxMemories, log: logText() };
+      `
+    );
+    expect(result.validated).toBeNull();
+    expect(result.afterInit).toEqual({
+      chatMessage: { enabled: false, excludeCurrentSession: false },
+      maxMemories: 6,
+    });
+    // The old file was read as a valid file: the live reload applied its new value.
+    expect(result.afterRefresh).toBe(7);
+    expect(result.log).toBe("");
+  });
+
   it("rejects wrong types, fractions, and out-of-range values naming the setting and its accepted values", async () => {
     const result = await limitsScenario(
       { global: "{}\n" },
@@ -158,7 +198,6 @@ describe("memory limit file configuration", () => {
         ["retrievalMaxTokens", 2000.5], ["retrievalMaxTokens", null], ["retrievalMaxTokens", "2000"],
         ["maxMemories", 0], ["maxMemories", -1], ["maxMemories", 1.5], ["maxMemories", "3"],
         ["maxMemories", null], ["maxMemories", Number.MAX_SAFE_INTEGER + 1],
-        ["chatMessage.maxMemories", 0], ["chatMessage.maxMemories", 2.5], ["chatMessage.maxMemories", "2"],
         ["userProfileMaxContextBytes", 1023], ["userProfileMaxContextBytes", 16777217],
         ["userProfileMaxContextBytes", 4096.5], ["userProfileMaxContextBytes", null],
         ["autoCaptureMaxContextBytes", 16383], ["autoCaptureMaxContextBytes", 16777217],
@@ -167,9 +206,7 @@ describe("memory limit file configuration", () => {
         ["retrievalMaxTokens", "SECRET-BAD-VALUE"],
       ];
       const rows = invalid.map(([key, value]) => {
-        const config = key === "chatMessage.maxMemories"
-          ? { chatMessage: { maxMemories: value } }
-          : { [key]: value };
+        const config = { [key]: value };
         try { cfg.validateGlobalConfig(config); return { key, error: null }; }
         catch (error) { return { key, error: String(error) }; }
       });
@@ -179,7 +216,6 @@ describe("memory limit file configuration", () => {
     const ranges = {
       retrievalMaxTokens: ["256", "65536"],
       maxMemories: ["positive"],
-      "chatMessage.maxMemories": ["positive"],
       userProfileMaxContextBytes: ["1024", "16777216"],
       autoCaptureMaxContextBytes: ["16384", "16777216"],
     };
@@ -203,12 +239,10 @@ describe("memory limit project overrides", () => {
         global: JSON.stringify({
           retrievalMaxTokens: 3000,
           maxMemories: 10,
-          chatMessage: { maxMemories: 5 },
         }),
         project: JSON.stringify({
           retrievalMaxTokens: 1000,
           maxMemories: 6,
-          chatMessage: { maxMemories: 2 },
           autoCaptureMaxContextBytes: 65536,
           userProfileMaxContextBytes: 8192,
         }),
@@ -219,7 +253,6 @@ describe("memory limit project overrides", () => {
         const inProject = {
           retrieval: cfg.CONFIG.retrievalMaxTokens,
           maxMemories: cfg.CONFIG.maxMemories,
-          chatMax: cfg.CONFIG.chatMessage.maxMemories,
           autoCapture: cfg.CONFIG.autoCaptureMaxContextBytes,
           userProfile: cfg.CONFIG.userProfileMaxContextBytes,
         };
@@ -227,7 +260,6 @@ describe("memory limit project overrides", () => {
         const inOther = {
           retrieval: cfg.CONFIG.retrievalMaxTokens,
           maxMemories: cfg.CONFIG.maxMemories,
-          chatMax: cfg.CONFIG.chatMessage.maxMemories,
         };
         return { inProject, inOther };
       `
@@ -235,37 +267,27 @@ describe("memory limit project overrides", () => {
     expect(result.inProject).toEqual({
       retrieval: 1000,
       maxMemories: 6,
-      chatMax: 2,
       autoCapture: 65536,
       userProfile: 8192,
     });
-    expect(result.inOther).toEqual({ retrieval: 3000, maxMemories: 10, chatMax: 5 });
+    expect(result.inOther).toEqual({ retrieval: 3000, maxMemories: 10 });
   });
 
-  it("a project chatMessage object without a count falls back to the nested default under the shallow merge", async () => {
-    const partial = await limitsScenario(
+  it("a project chatMessage object still replaces the global one under the shallow merge", async () => {
+    const result = await limitsScenario(
       {
-        global: JSON.stringify({ chatMessage: { enabled: false, maxMemories: 5 } }),
+        global: JSON.stringify({
+          chatMessage: { enabled: false, excludeCurrentSession: false, maxMemories: 5 },
+        }),
         project: JSON.stringify({ chatMessage: { enabled: true } }),
       },
       `
         cfg.initConfig(project);
-        return { chatMax: cfg.CONFIG.chatMessage.maxMemories, enabled: cfg.CONFIG.chatMessage.enabled };
+        return { ...cfg.CONFIG.chatMessage };
       `
     );
-    expect(partial).toEqual({ chatMax: 3, enabled: true });
-
-    const empty = await limitsScenario(
-      {
-        global: JSON.stringify({ chatMessage: { maxMemories: 5 } }),
-        project: JSON.stringify({ chatMessage: {} }),
-      },
-      `
-        cfg.initConfig(project);
-        return { chatMax: cfg.CONFIG.chatMessage.maxMemories };
-      `
-    );
-    expect(empty).toEqual({ chatMax: 3 });
+    // The project object has no excludeCurrentSession, so the default (true) applies.
+    expect(result).toEqual({ enabled: true, excludeCurrentSession: true });
   });
 });
 
@@ -305,32 +327,32 @@ describe("memory limit live hand edits", () => {
   it("keeps the last good config when a live project edit is invalid", async () => {
     const result = await limitsScenario(
       {
-        global: JSON.stringify({ chatMessage: { maxMemories: 2 } }),
+        global: JSON.stringify({ maxMemories: 2 }),
         project: JSON.stringify({ retrievalMaxTokens: 1500 }),
       },
       `
         cfg.initConfig(project);
         const before = {
           retrieval: cfg.CONFIG.retrievalMaxTokens,
-          chatMax: cfg.CONFIG.chatMessage.maxMemories,
+          maxMemories: cfg.CONFIG.maxMemories,
         };
         writeFileSync(join(project, ".opencode", "omms.jsonc"),
-          JSON.stringify({ chatMessage: { maxMemories: 0 } }));
+          JSON.stringify({ retrievalMaxTokens: 0 }));
         cfg.refreshConfigIfChanged(project);
         const after = {
           retrieval: cfg.CONFIG.retrievalMaxTokens,
-          chatMax: cfg.CONFIG.chatMessage.maxMemories,
+          maxMemories: cfg.CONFIG.maxMemories,
         };
         return { before, after };
       `
     );
     expect(result.after).toEqual(result.before);
-    expect(result.before).toEqual({ retrieval: 1500, chatMax: 2 });
+    expect(result.before).toEqual({ retrieval: 1500, maxMemories: 2 });
   });
 });
 
 describe("memory limit config template", () => {
-  it("documents all five controls in the generated template with a nested chatMessage.maxMemories", async () => {
+  it("documents all five controls in the generated template and no removed chatMessage keys", async () => {
     const result = await limitsScenario(
       {},
       `
@@ -340,8 +362,8 @@ describe("memory limit config template", () => {
       return {
         matchesTemplate: text === cfg.CONFIG_TEMPLATE,
         maxMemories: parsed.maxMemories,
-        chatMaxNested: parsed.chatMessage === undefined ? undefined : parsed.chatMessage.maxMemories,
-        literalDottedKey: parsed["chatMessage.maxMemories"],
+        chatMessageKeys: Object.keys(parsed.chatMessage ?? {}),
+        templateMentionsRemoved: ["maxAgeDays", "injectOn", "OpenCode V1"].some((term) => text.includes(term)),
         autoCapture: parsed.autoCaptureMaxContextBytes,
         userProfile: parsed.userProfileMaxContextBytes,
         retrieval: parsed.retrievalMaxTokens,
@@ -350,8 +372,8 @@ describe("memory limit config template", () => {
     );
     expect(result.matchesTemplate).toBe(true);
     expect(result.maxMemories).toBe(10);
-    expect(result.chatMaxNested).toBe(3);
-    expect(result.literalDottedKey).toBeUndefined();
+    expect(result.chatMessageKeys).toEqual(["enabled", "excludeCurrentSession"]);
+    expect(result.templateMentionsRemoved).toBe(false);
     expect(result.autoCapture).toBe(131072);
     expect(result.userProfile).toBe(32768);
     expect(result.retrieval).toBe(2000);

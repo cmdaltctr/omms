@@ -13,17 +13,16 @@ OMMS SHALL read these values from the global `~/.config/omms/omms.jsonc`, with t
 | Setting                      | Default                                        | Unit               | Accepted values                           |
 | ---------------------------- | ---------------------------------------------- | ------------------ | ----------------------------------------- |
 | `maxMemories`                | 10                                             | Results            | Positive safe integers                    |
-| `chatMessage.maxMemories`    | 3                                              | Memories           | Positive safe integers                    |
 | `autoCaptureMaxContextBytes` | 131072                                         | UTF-8 bytes        | Integers from 16384 to 16777216 inclusive |
 | `userProfileMaxContextBytes` | 32768                                          | UTF-8 bytes        | Integers from 1024 to 16777216 inclusive  |
 | `retrievalMaxTokens`         | 2000                                           | Approximate tokens | Integers from 256 to 65536 inclusive      |
 | `similarityThreshold`        | 0.5 with `qwen3-embedding:0.6b`, otherwise 0.6 | Similarity score   | Numbers from 0 to 1 inclusive             |
 
-`chatMessage.maxMemories` SHALL be a property of the `chatMessage` object, not a literal dotted key. The four integer defaults other than `similarityThreshold` SHALL remain unchanged. `similarityThreshold` SHALL default to 0.5 when the active embedding model is `qwen3-embedding:0.6b` (or one of its listed aliases) and to 0.6 for every other embedder, including the built-in model. A value present in the file SHALL always be used instead of the default. The default table SHALL be a small list in code, so a measured embedder can be added by one line. A memory is returned by search only when its similarity score is at least this value. A project file at `<project>/.opencode/omms.jsonc` SHALL retain its existing override rules, and SHALL also be able to override `retrievalMaxTokens`. Omitted values SHALL use their defaults. Present values of the wrong type, fractional values for the integer settings, and out-of-range values SHALL fail validation with the setting's name and its accepted values.
+The integer defaults SHALL remain unchanged. `similarityThreshold` SHALL default to 0.5 when the active embedding model is `qwen3-embedding:0.6b` (or one of its listed aliases) and to 0.6 for every other embedder, including the built-in model. A value present in the file SHALL always be used instead of the default. The default table SHALL be a small list in code, so a measured embedder can be added by one line. A memory is returned by search only when its similarity score is at least this value. A project file at `<project>/.opencode/omms.jsonc` SHALL retain its existing override rules, and SHALL also be able to override `retrievalMaxTokens`. Omitted values SHALL use their defaults. Present values of the wrong type, fractional values for the integer settings, and out-of-range values SHALL fail validation with the setting's name and its accepted values.
 
 #### Scenario: Configuring from a terminal editor
 
-- **WHEN** the user sets `maxMemories` to 6, `chatMessage.maxMemories` to 2, both byte limits to 65536, and `retrievalMaxTokens` to 3000 in the global file
+- **WHEN** the user sets `maxMemories` to 6, both byte limits to 65536, and `retrievalMaxTokens` to 3000 in the global file
 - **THEN** OMMS SHALL use those limits without any web UI save
 - **AND** no web server SHALL be required to configure Pi or OpenCode
 
@@ -31,7 +30,7 @@ OMMS SHALL read these values from the global `~/.config/omms/omms.jsonc`, with t
 
 - **WHEN** an existing config omits `retrievalMaxTokens`
 - **THEN** automatic injection SHALL use the new 2000 approximate-token budget
-- **AND** the defaults for the four existing limits SHALL remain unchanged
+- **AND** the defaults for the other limits SHALL remain unchanged
 
 #### Scenario: Invalid file value
 
@@ -83,7 +82,7 @@ OMMS SHALL read these values from the global `~/.config/omms/omms.jsonc`, with t
 
 ### Requirement: Automatic memory injection has one approximate size budget
 
-Automatic memory context SHALL be limited by `retrievalMaxTokens` on OpenCode V1, OpenCode V2, Pi, and Claude Code. The limit SHALL cover prompt-based retrieval, recent-memory injection, and session-memory restoration after compaction or resume where those surfaces exist. It SHALL NOT add an injection surface to a host that lacks it.
+Automatic memory context SHALL be limited by `retrievalMaxTokens` on OpenCode V2, Pi, and Claude Code. The limit SHALL cover prompt-based retrieval, the opening section, subagent memory, and session-memory restoration after compaction or resume where those surfaces exist. It SHALL NOT add an injection surface to a host that lacks it.
 
 The estimate SHALL be `ceil(UTF-8 byte length / 4)` for the final emitted memory text. It SHALL include profile text, explanatory text, headings, delimiters, omission markers, and any retrieval wrapper. It SHALL NOT count the host's own system prompt or the user's prompt. Documentation and the UI SHALL call this an approximate token count, which can differ from a provider's count.
 
@@ -103,8 +102,9 @@ The final emitted text SHALL fit the configured estimate. The budget SHALL chang
 
 #### Scenario: Recent memory and restored session memory
 
-- **WHEN** OpenCode V1 or Claude Code adds recent memories, or a supported host restores its session memories
+- **WHEN** a supported host restores its session memories
 - **THEN** the total automatically emitted memory text SHALL fit the same budget
+- **AND** no host SHALL add a separate recent-memory list
 
 #### Scenario: Claude Code has a stricter transport limit
 
@@ -171,3 +171,39 @@ A valid config change SHALL take effect without restarting the host or web app a
 
 - **WHEN** the profile input fits the configured byte limit
 - **THEN** the input SHALL remain unchanged
+
+### Requirement: Removed chatMessage keys are ignored
+
+OMMS SHALL ignore `chatMessage.maxMemories`, `chatMessage.maxAgeDays` and `chatMessage.injectOn` in the global and project config files. It SHALL NOT validate them, fail on them, log them or rewrite the file to remove them. `chatMessage.enabled` and `chatMessage.excludeCurrentSession` SHALL keep their meaning, and a project `chatMessage` object SHALL still replace the global one as a whole.
+
+#### Scenario: An old file keeps the removed keys
+
+- **WHEN** the global file has `"chatMessage": { "enabled": true, "maxMemories": 3, "injectOn": "first", "maxAgeDays": 30 }`
+- **THEN** OMMS SHALL load the config with no error and no warning
+- **AND** the file SHALL remain unchanged
+
+#### Scenario: A removed key has a value that was invalid before
+
+- **WHEN** the global file sets `chatMessage.maxMemories` to 0
+- **THEN** OMMS SHALL load the config with no validation error
+
+#### Scenario: A project object replaces the global object
+
+- **WHEN** the global file sets `"chatMessage": { "enabled": false, "maxMemories": 5 }` and the project file sets `"chatMessage": { "enabled": true }`
+- **THEN** per-prompt retrieval in that project SHALL be on
+- **AND** `excludeCurrentSession` SHALL use its default
+
+### Requirement: An untagged memory is scored by its content alone
+
+Search SHALL score a memory that has no tags by its content similarity alone, before the `similarityThreshold` check. A memory with tags SHALL keep the score of 60% content similarity and 40% tag similarity.
+
+#### Scenario: A short query finds a new untagged memory
+
+- **WHEN** a memory with no tags is added and a search query matches its content at 0.83
+- **THEN** the memory's score SHALL be 0.83, not 0.6 of it
+- **AND** search SHALL return it when the threshold is 0.5
+
+#### Scenario: A tagged memory keeps the blend
+
+- **WHEN** a memory has tags that do not match the query and its content matches fully
+- **THEN** its score SHALL be 0.6

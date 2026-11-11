@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 // Automatic capture skips a turn in which the agent saved a memorisation, so the
 // snapshot reaches an agent only through `recall`. This file covers the shared
 // pipeline (`captureConversation`) and what each host reader hands to it: the
-// OpenCode live reader (V1 and V2 message shapes), the Pi reader and the Claude
+// OpenCode live reader (V2 session messages), the Pi reader and the Claude
 // Code transcript reader. The host routes have their own tests next to their
 // existing capture tests.
 
@@ -52,7 +52,6 @@ const { captureConversation } = await import("../src/core/capture.js");
 const { extractOpenCodeConversation } = await import("../src/adapters/opencode/conversation.js");
 const { extractPiConversation } = await import("../src/importer/pi-conversation.js");
 const { extractClaudeConversationWindows } = await import("../src/importer/claude-conversation.js");
-const { createLegacyClient } = await import("../src/v2/legacy-client.js");
 const { workUnitOf } = await import("../src/importer/claude-turn-units.js");
 const { performAutoCapture } = await import("../src/services/auto-capture.js");
 const { capturePiSettledWorkUnit, createPiCaptureState } =
@@ -146,156 +145,95 @@ describe("captureConversation and a memorise turn", () => {
 });
 
 describe("OpenCode live reader", () => {
-  const messages = (part: object) => [
-    { info: { id: "u", role: "user" }, parts: [{ type: "text", text: "save where we are" }] },
-    { info: { id: "a", role: "assistant" }, parts: [part] },
+  // OpenCode V2 session messages (`ctx.session.context`): an assistant message holds
+  // `tool` items with the tool `name` and the result in `state.content` text items.
+  const toolItem = (name: string, state: object) => ({ type: "tool", id: "t1", name, state });
+  const messages = (item: object) => [
+    { type: "user", id: "u", text: "save where we are" },
+    { type: "assistant", id: "a", content: [item] },
   ];
+  const completed = (input: object, resultText: string) => ({
+    status: "completed",
+    input,
+    content: [{ type: "text", text: resultText }],
+    structured: {},
+  });
+  const read = (item: object) => extractOpenCodeConversation(messages(item), "u");
 
-  it("marks a V1 tool part whose output reports success as saved", () => {
-    const result = extractOpenCodeConversation(
-      messages({
-        type: "tool",
-        tool: "memory",
-        state: { status: "completed", input: MEMORISE_ARGS, output: SAVED },
-      }),
-      "u"
-    );
+  it("marks a tool item whose result reports success as saved", () => {
+    const result = read(toolItem("memory", completed(MEMORISE_ARGS, SAVED)));
     expect(result?.toolCalls[0]).toMatchObject({ name: "memory", memorise: "saved" });
   });
 
-  it("marks a V1 tool part whose output reports success false as failed", () => {
-    const result = extractOpenCodeConversation(
-      messages({
-        type: "tool",
-        tool: "memory",
-        state: { status: "completed", input: MEMORISE_ARGS, output: REFUSED },
-      }),
-      "u"
-    );
+  it("marks a tool item whose result reports success false as failed", () => {
+    const result = read(toolItem("memory", completed(MEMORISE_ARGS, REFUSED)));
     expect(result?.toolCalls[0]?.memorise).toBe("failed");
   });
 
-  it("marks an errored tool part as failed and a pending one as unknown", () => {
-    const errored = extractOpenCodeConversation(
-      messages({
-        type: "tool",
-        tool: "memory",
-        state: { status: "error", input: MEMORISE_ARGS, error: "boom" },
-      }),
-      "u"
+  it("marks an errored tool item as failed and a pending one as unknown", () => {
+    const errored = read(
+      toolItem("memory", { status: "error", input: MEMORISE_ARGS, error: "boom" })
     );
-    const running = extractOpenCodeConversation(
-      messages({
-        type: "tool",
-        tool: "memory",
-        state: { status: "running", input: MEMORISE_ARGS },
-      }),
-      "u"
-    );
+    const running = read(toolItem("memory", { status: "running", input: MEMORISE_ARGS }));
     expect(errored?.toolCalls[0]?.memorise).toBe("failed");
     expect(running?.toolCalls[0]?.memorise).toBe("unknown");
   });
 
   it("leaves other memory modes and other tools unmarked", () => {
-    const recall = extractOpenCodeConversation(
-      messages({
-        type: "tool",
-        tool: "memory",
-        state: { status: "completed", input: { mode: "recall", query: "x" }, output: SAVED },
-      }),
-      "u"
-    );
+    const recall = read(toolItem("memory", completed({ mode: "recall", query: "x" }, SAVED)));
     expect(recall?.toolCalls[0]).not.toHaveProperty("memorise");
   });
 
   it("reads the key order the model chose: mode last in a long call", () => {
-    const result = extractOpenCodeConversation(
-      messages({
-        type: "tool",
-        tool: "memory",
-        state: {
-          status: "completed",
-          input: { content: "x".repeat(300), mode: "memorise" },
-          output: SAVED,
-        },
-      }),
-      "u"
+    const result = read(
+      toolItem("memory", completed({ content: "x".repeat(300), mode: "memorise" }, SAVED))
     );
     expect(result?.toolCalls[0]?.memorise).toBe("saved");
   });
 
   it("marks a Bash call to the CLI memorise command", () => {
-    const result = extractOpenCodeConversation(
-      messages({
-        type: "tool",
-        tool: "bash",
-        state: {
-          status: "completed",
-          input: { command: 'om-memory-system memory memorise "state of play"' },
-          output: SAVED,
-        },
-      }),
-      "u"
+    const result = read(
+      toolItem(
+        "bash",
+        completed({ command: 'om-memory-system memory memorise "state of play"' }, SAVED)
+      )
     );
     expect(result?.toolCalls[0]?.memorise).toBe("saved");
   });
-});
-
-describe("OpenCode V2 route", () => {
-  // The V2 plugin API names the tool `name` and keeps the result in `state.content`;
-  // the legacy client passes the parts through, so the live reader must read both shapes.
-  async function v2Conversation(state: object) {
-    const ctx = {
-      session: {
-        context: async () => [
-          { type: "user", id: "u", text: "save where we are" },
-          {
-            type: "assistant",
-            id: "a",
-            content: [{ type: "tool", id: "t1", name: "memory", state }],
-          },
-        ],
-      },
-    } as any;
-    const { data } = await createLegacyClient(ctx).session.messages({ sessionID: "ses-1" });
-    return extractOpenCodeConversation(data, "u");
-  }
-
-  it("reads the tool name and a saved result", async () => {
-    const result = await v2Conversation({
-      status: "completed",
-      input: MEMORISE_ARGS,
-      content: [{ type: "text", text: SAVED }],
-      structured: {},
-    });
-    expect(result?.toolCalls[0]).toMatchObject({ name: "memory", memorise: "saved" });
-  });
 
   it("does not skip a refused memorise call", async () => {
-    const result = await v2Conversation({
-      status: "completed",
-      input: MEMORISE_ARGS,
-      content: [{ type: "text", text: REFUSED }],
-      structured: {},
-    });
+    const result = read(toolItem("memory", completed(MEMORISE_ARGS, REFUSED)));
     expect(result?.toolCalls[0]?.memorise).toBe("failed");
     const captured = await captureConversation(unit(result!.toolCalls), provider);
     expect(captured.status).toBe("captured");
   });
 
   it("skips the turn end to end", async () => {
-    const result = await v2Conversation({
-      status: "completed",
-      input: MEMORISE_ARGS,
-      content: [{ type: "text", text: SAVED }],
-      structured: {},
-    });
+    const result = read(toolItem("memory", completed(MEMORISE_ARGS, SAVED)));
     const captured = await captureConversation(
       { ...unit(result!.toolCalls), host: "opencode", textResponses: result!.textResponses },
       provider
     );
     expect(captured).toEqual({ status: "skipped", reason: "memorisation-turn" });
     expect(summarizeCalls).toBe(0);
+  });
+
+  it("ignores a memorise call that belongs to the next turn", () => {
+    const result = extractOpenCodeConversation(
+      [
+        { type: "user", id: "u", text: "what changed?" },
+        { type: "assistant", id: "a", content: [{ type: "text", text: "Two files." }] },
+        { type: "user", id: "u2", text: "save where we are" },
+        {
+          type: "assistant",
+          id: "a2",
+          content: [toolItem("memory", completed(MEMORISE_ARGS, SAVED))],
+        },
+      ],
+      "u"
+    );
+    expect(result?.textResponses).toEqual(["Two files."]);
+    expect(result?.toolCalls).toEqual([]);
   });
 });
 

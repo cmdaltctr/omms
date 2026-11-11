@@ -223,7 +223,8 @@ A running host card SHALL add `last saved` with the time of the host's newest li
 #### Scenario: The host note
 
 - **WHEN** the user reads the section
-- **THEN** it SHALL name OpenCode V2, Pi and Claude Code, and say that OpenCode V1 is not covered
+- **THEN** it SHALL name OpenCode V2, Pi and Claude Code
+- **AND** it SHALL NOT mention OpenCode V1
 
 #### Scenario: The project note
 

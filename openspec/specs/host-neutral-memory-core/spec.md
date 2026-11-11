@@ -89,21 +89,6 @@ From Phase 4 the default shared store SHALL be `~/.omms/data`, established by a 
 - **WHEN** neither directory exists
 - **THEN** the system SHALL start directly at `~/.omms/data` with no migration artefacts
 
-### Requirement: OpenCode behavior remains a compatibility surface
-
-The OpenCode V1 entry SHALL keep its current plugin behavior. The OpenCode v2 entry SHALL reach the same shared memory behavior through native v2 hooks, and it MAY diverge from V1 where the v2 host offers a native surface (per-prompt retrieval, compaction hooks, sessionless structured output).
-
-#### Scenario: OpenCode v2 invokes the memory plugin after extraction
-
-- **WHEN** the v2 adapter handles a v2 lifecycle hook or tool call
-- **THEN** the request SHALL reach the shared memory behavior
-- **AND** the memory tool's operations and results SHALL match the V1 tool for the same arguments
-
-#### Scenario: OpenCode V1 is unchanged
-
-- **WHEN** the package is loaded through the V1 `server` entry
-- **THEN** first-message injection (`chatMessage.injectOn`), idle capture, and post-compaction restore SHALL behave as before this change
-
 ### Requirement: Cross-host provenance is backward-compatible
 
 New automatic memories SHALL support host/source provenance in backward-compatible metadata.
@@ -261,3 +246,19 @@ Each memory that OMMS adds to a session's context SHALL carry its memory id besi
 
 - **WHEN** the agent wants to remove a memory that it read in the injected context
 - **THEN** it SHALL be able to pass that memory's id to the `memory` tool's `forget` mode with no search first
+
+### Requirement: OpenCode v2 reaches the shared memory behaviour through native hooks
+
+The OpenCode v2 entry SHALL reach the shared memory behaviour through native v2 hooks: per-prompt retrieval, compaction hooks, the event stream and sessionless structured output. OMMS SHALL NOT keep an OpenCode V1 entry or V1-only behaviour.
+
+#### Scenario: OpenCode v2 invokes the memory plugin
+
+- **WHEN** the v2 adapter handles a v2 lifecycle hook or tool call
+- **THEN** the request SHALL reach the shared memory behaviour
+- **AND** the memory tool's operations and results SHALL match the Pi tool for the same arguments
+
+#### Scenario: No V1 entry
+
+- **WHEN** a host looks for a V1 `server` entry in the package
+- **THEN** it SHALL find none
+- **AND** no host SHALL add a first-message recent-memory list

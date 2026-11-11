@@ -6,9 +6,8 @@ import { join } from "node:path";
 // Each test spawns a Bun process; a Windows runner can take over 5 seconds.
 setDefaultTimeout(30_000);
 
-const indexUrl = new URL("../src/index.js", import.meta.url).href;
-const adapterUrl = new URL("../src/v2/adapter.js", import.meta.url).href;
-const bridgeUrl = new URL("../src/v2/memory-bridge.js", import.meta.url).href;
+const pluginUrl = new URL("../src/v2/plugin.js", import.meta.url).href;
+const fakeContextUrl = new URL("./fake-v2-context.ts", import.meta.url).href;
 const operationsUrl = new URL("../src/core/memory-operations.js", import.meta.url).href;
 const tempDirs: string[] = [];
 
@@ -17,8 +16,8 @@ afterEach(() => {
 });
 
 /**
- * Run the OpenCode V2 `memory` tool once. The real V1 plugin is the legacy plugin, so the call
- * goes V2 tool -> `legacy.tool.memory.execute` -> `executeMemoryOperation` (mocked to record).
+ * Run the OpenCode V2 `memory` tool once through the V2 plugin's `setup`. The call goes
+ * V2 tool -> `executeMemoryOperation` (mocked to record what it receives).
  */
 function contextSeenByOperation(toolContext: Record<string, unknown>) {
   const dir = mkdtempSync(join(tmpdir(), "opencode-v2-memory-session-id-"));
@@ -38,42 +37,12 @@ mock.module(${JSON.stringify(operationsUrl)}, () => ({
   },
 }));
 globalThis[Symbol.for("omms.plugin.warmedup")] = true;
-const { OmmsPlugin } = await import(${JSON.stringify(indexUrl)});
-const { registerV2Adapter } = await import(${JSON.stringify(adapterUrl)});
-const { createV2MemoryBridge } = await import(${JSON.stringify(bridgeUrl)});
-
-const legacy = await OmmsPlugin({
-  directory: ${JSON.stringify(dir)},
-  worktree: ${JSON.stringify(dir)},
-  project: { id: "test-project" },
-  serverUrl: new URL("http://localhost:4096"),
-  client: {
-    path: { get: async () => ({ data: { state: ${JSON.stringify(join(dir, "state"))} } }) },
-    provider: { list: async () => ({ data: { connected: [] } }) },
-    tui: null,
-  },
-  $: () => {
-    throw new Error("not used in tests");
-  },
-});
-
-const tools = new Map();
-const ctx = {
-  location: {
-    directory: ${JSON.stringify(dir)},
-    project: { id: "test-project", directory: ${JSON.stringify(dir)}, canonical: "test-project" },
-  },
-  tool: { transform: async (callback) => callback({ add: (tool) => tools.set(tool.name, tool) }) },
-  session: {
-    hook: async () => {},
-    get: async () => ({ location: { directory: ${JSON.stringify(dir)} } }),
-    synthetic: async () => {},
-    prompt: async () => {},
-  },
-  event: { subscribe: () => ({ [Symbol.asyncIterator]: () => ({ next: () => new Promise(() => {}) }) }) },
-};
-await registerV2Adapter(ctx, legacy, createV2MemoryBridge(${JSON.stringify(dir)}));
-await tools.get("memory").execute({ mode: "memorise", content: "x" }, ${JSON.stringify(toolContext)});
+const { createFakeV2Context } = await import(${JSON.stringify(fakeContextUrl)});
+const plugin = (await import(${JSON.stringify(pluginUrl)})).default;
+const fake = createFakeV2Context({ directory: ${JSON.stringify(dir)} });
+const cleanup = await plugin.setup(fake.ctx);
+await fake.runTool("memory", { mode: "memorise", content: "x" }, ${JSON.stringify(toolContext)});
+await cleanup();
 console.log("SEEN:" + JSON.stringify(seen));
 process.exit(0);
 `;
@@ -82,7 +51,13 @@ process.exit(0);
   const result = Bun.spawnSync({
     cmd: [process.execPath, scriptPath],
     cwd: dir,
-    env: { ...process.env, HOME: home, USERPROFILE: home },
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      OMMS_DISABLE_WEB_AUTOSTART: "1",
+      OMMS_DISABLE_AUTO_BACKFILL: "1",
+    },
     stdout: "pipe",
     stderr: "pipe",
   });

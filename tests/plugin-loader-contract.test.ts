@@ -1,8 +1,6 @@
 /**
- * Regression guard — verifies opencode-mem satisfies the OpenCode 1.3.x plugin-loader contract.
- * Modern contract: type PluginModule = { id?: string; server: Plugin; tui?: never }
- *
- * All assertions here must PASS. This file guards the fixed contract from regressions.
+ * Regression guard: the package loads as an OpenCode V2 plugin only. OpenCode V1
+ * reads a `server` entry, so the package must not offer one.
  */
 
 import { describe, expect, it } from "bun:test";
@@ -18,7 +16,7 @@ async function loadDistPlugin(): Promise<unknown> {
   return import(modUrl);
 }
 
-describe("OpenCode 1.3.x plugin-loader contract", () => {
+describe("OpenCode V2 plugin-loader contract", () => {
   it("dist shard manager avoids CommonJS fs require in ESM output", () => {
     const source = readFileSync(
       new URL("../dist/services/turso/shard-manager.js", import.meta.url),
@@ -28,10 +26,11 @@ describe("OpenCode 1.3.x plugin-loader contract", () => {
     expect(source).not.toMatch(/require\s*\(\s*["']node:fs["']\s*\)/);
   });
 
-  it('package.json has an exports["./server"] field', () => {
+  it('package.json has no exports["./server"] field', () => {
     const pkg = readPackageJson();
     const exports = pkg["exports"] as Record<string, unknown> | undefined;
-    expect(exports?.["./server"]).toBeDefined();
+    expect(exports).toBeDefined();
+    expect(exports?.["./server"]).toBeUndefined();
   });
 
   it("dist/plugin.js default export is a PluginModule object", async () => {
@@ -39,10 +38,11 @@ describe("OpenCode 1.3.x plugin-loader contract", () => {
     expect(typeof mod.default).toBe("object");
   });
 
-  it('dist/plugin.js default export has a "server" function property', async () => {
+  it('dist/plugin.js default export has no "server" property and a V2 setup', async () => {
     const mod = (await loadDistPlugin()) as { default: unknown };
     const defaultExport = mod.default as Record<string, unknown> | null | undefined;
-    expect(typeof defaultExport?.["server"]).toBe("function");
+    expect(defaultExport && "server" in defaultExport).toBe(false);
+    expect(typeof defaultExport?.["setup"]).toBe("function");
   });
 
   // OpenCode only requires a non-empty string id (the package name is merely the
@@ -53,50 +53,5 @@ describe("OpenCode 1.3.x plugin-loader contract", () => {
     const defaultExport = mod.default as Record<string, unknown> | null | undefined;
 
     expect(defaultExport?.["id"]).toBe("omms");
-  });
-
-  it("server() invocation returns hooks with expected keys (or server is callable)", async () => {
-    const mod = (await loadDistPlugin()) as { default: Record<string, unknown> };
-    const serverFn = mod.default["server"];
-    // Verify the callable surface is correct regardless of warmup outcome
-    expect(typeof serverFn).toBe("function");
-
-    // This is a loader-contract test, not an embedding smoke test. Mark the
-    // process-global warmup as complete so server() does not load the native
-    // ONNX stack in the background. Bun 1.3.14 can crash during process teardown
-    // after that native addon was loaded, even though every assertion passed.
-    const warmupKey = Symbol.for("omms.plugin.warmedup");
-    const hadWarmupState = Object.prototype.hasOwnProperty.call(globalThis, warmupKey);
-    const previousWarmupState = Reflect.get(globalThis, warmupKey);
-    Reflect.set(globalThis, warmupKey, true);
-
-    // Attempt to invoke server with a minimal mock PluginInput.
-    // If it succeeds, assert the returned hooks have the expected shape.
-    const mockInput = {
-      client: {},
-      project: {},
-      directory: "/tmp/test-plugin-contract",
-      worktree: "/tmp/test-plugin-contract",
-      serverUrl: new URL("http://localhost:4096"),
-      $: {},
-    };
-
-    try {
-      const hooks = (await (serverFn as (input: unknown) => Promise<Record<string, unknown>>)(
-        mockInput
-      )) as Record<string, unknown>;
-      // If we reach here, assert expected hook keys exist
-      expect(typeof hooks["chat.message"]).toBe("function");
-      expect(typeof hooks["event"]).toBe("function");
-    } catch {
-      // Other runtime setup failures in the minimal test environment are acceptable.
-      // The callable surface assertion above is sufficient for contract verification.
-    } finally {
-      if (hadWarmupState) {
-        Reflect.set(globalThis, warmupKey, previousWarmupState);
-      } else {
-        Reflect.deleteProperty(globalThis, warmupKey);
-      }
-    }
   });
 });

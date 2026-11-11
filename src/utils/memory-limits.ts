@@ -61,14 +61,6 @@ export const MEMORY_LIMITS = {
     "positive safe integers",
     isPositiveSafeInteger
   ),
-  "chatMessage.maxMemories": rule(
-    "chatMessage.maxMemories",
-    ["chatMessage", "maxMemories"],
-    3,
-    "memories",
-    "positive safe integers",
-    isPositiveSafeInteger
-  ),
   autoCaptureMaxContextBytes: rule(
     "autoCaptureMaxContextBytes",
     ["autoCaptureMaxContextBytes"],

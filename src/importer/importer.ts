@@ -15,6 +15,7 @@ import {
   type PiSessionEntry,
 } from "./pi-conversation.js";
 import { discoverPiSessions } from "./discovery.js";
+import { handledLookupFor } from "./handled-lookup.js";
 import { importDirectory } from "./import-project.js";
 import {
   importSkillTurnOutput,
@@ -286,6 +287,7 @@ export async function importHistorySource(
   const ledger = deps.ledger ?? new PiImportLedger();
   const ledgerFileExists = existsSync(importLedgerDbPath());
   const ledgerAccessible = !dryRun || ledgerFileExists;
+  const lookupHandled = handledLookupFor(host);
   if (!dryRun && memories) {
     // A dry run only reads the ledger (peek), so it never writes its schema.
     await ledger.get("__warmup__");
@@ -351,9 +353,7 @@ export async function importHistorySource(
 
     const existing: ImportLedgerRow | null = !ledgerAccessible
       ? null
-      : dryRun
-        ? await ledger.peek(key)
-        : await ledger.get(key);
+      : await lookupHandled(ledger, { key, sessionId, window, readOnly: dryRun });
 
     const terminalHandled =
       existing &&

@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openOpencodeHistory } from "../src/importer/opencode-reader.js";
 import { resolveOpencodeProject } from "../src/importer/opencode-project.js";
+import { createOpencodeFixture } from "./opencode-v2-fixture.js";
 
 async function readAll(path: string, filters = {}) {
   const history = await openOpencodeHistory(path, filters);
@@ -314,5 +315,252 @@ it("marks a memorise call from the stored part state and its reply", async () =>
     expect(calls.map((call) => call.memorise)).toEqual(["saved", "failed", "failed", undefined]);
   } finally {
     await removeTestDir(directory);
+  }
+});
+
+// OpenCode 2.x tables (session_v2 and session_message).
+
+it("lists a session that exists only in session_v2 and builds its units", async () => {
+  const data = createOpencodeFixture();
+  try {
+    data.v2Session("only-v2", { at: 5 });
+    data.v2Turn("only-v2", "u1", "a1", 10, "Fix the importer", "Updated the importer");
+    data.v2Turn("only-v2", "u2", "a2", 20, "Add tests", "Added tests");
+    data.close();
+
+    const { sessions } = await readAll(data.path);
+
+    expect(sessions.map((session) => session.sessionId)).toEqual(["only-v2"]);
+    expect(sessions[0]?.units.map((unit) => unit.userPrompt)).toEqual([
+      "Fix the importer",
+      "Add tests",
+    ]);
+    expect(sessions[0]?.units[0]?.userEntryId).toBe("u1");
+    expect(sessions[0]?.units[0]?.sourceEntryIds).toEqual(["a1"]);
+    expect(sessions[0]?.units[0]?.textResponses).toEqual(["Updated the importer"]);
+  } finally {
+    await removeTestDir(data.root);
+  }
+});
+
+it("does not treat a synthetic message as a prompt and ends the unit there", async () => {
+  const data = createOpencodeFixture();
+  try {
+    data.v2Session("s");
+    data.v2Turn("s", "u1", "a1", 10, "First prompt", "First reply");
+    data.v2Message("s", "syn", "synthetic", 12, { text: "injected memory context" });
+    data.v2Assistant("s", "a-after", 13, [{ type: "text", text: "Reply after synthetic" }]);
+    data.v2Turn("s", "u2", "a2", 20, "Second prompt", "Second reply");
+    data.close();
+
+    const { sessions } = await readAll(data.path);
+    const units = sessions[0]?.units ?? [];
+
+    expect(units.map((unit) => unit.userPrompt)).toEqual(["First prompt", "Second prompt"]);
+    expect(units[0]?.textResponses).toEqual(["First reply"]);
+    expect(units[0]?.sourceEntryIds).toEqual(["a1"]);
+    expect(JSON.stringify(sessions)).not.toContain("injected memory context");
+    expect(JSON.stringify(sessions)).not.toContain("Reply after synthetic");
+  } finally {
+    await removeTestDir(data.root);
+  }
+});
+
+it("ends the unit at a compaction message", async () => {
+  const data = createOpencodeFixture();
+  try {
+    data.v2Session("s");
+    data.v2Turn("s", "u1", "a1", 10, "First prompt", "First reply");
+    data.v2Message("s", "cmp", "compaction", 12, { text: "summary of earlier work" });
+    data.v2Assistant("s", "a-after", 13, [{ type: "text", text: "Reply after compaction" }]);
+    data.v2Turn("s", "u2", "a2", 20, "Second prompt", "Second reply");
+    data.close();
+
+    const { sessions } = await readAll(data.path);
+    const units = sessions[0]?.units ?? [];
+
+    expect(units.map((unit) => unit.userPrompt)).toEqual(["First prompt", "Second prompt"]);
+    expect(units[0]?.sourceEntryIds).toEqual(["a1"]);
+    expect(units[0]?.textResponses).toEqual(["First reply"]);
+    expect(JSON.stringify(sessions)).not.toContain("Reply after compaction");
+    expect(JSON.stringify(sessions)).not.toContain("summary of earlier work");
+  } finally {
+    await removeTestDir(data.root);
+  }
+});
+
+it("ignores system, idle and switch messages without ending or joining a unit", async () => {
+  const data = createOpencodeFixture();
+  try {
+    data.v2Session("s");
+    data.v2User("s", "u1", 10, "Only prompt");
+    data.v2Message("s", "m-system", "system", 11, { text: "system note" });
+    data.v2Message("s", "m-idle", "idle", 12, {});
+    data.v2Message("s", "m-agent", "agent-switched", 13, { agent: "build" });
+    data.v2Assistant("s", "a1", 14, [{ type: "text", text: "Reply one" }]);
+    data.v2Message("s", "m-model", "model-switched", 15, { model: "x" });
+    data.v2Assistant("s", "a2", 16, [{ type: "text", text: "Reply two" }]);
+    data.v2Message("s", "m-location", "location-switched", 17, { directory: "/elsewhere" });
+    data.v2Assistant("s", "a3", 18, [{ type: "text", text: "Reply three" }]);
+    data.close();
+
+    const { sessions } = await readAll(data.path);
+    const units = sessions[0]?.units ?? [];
+
+    expect(units).toHaveLength(1);
+    expect(units[0]?.userPrompt).toBe("Only prompt");
+    expect(units[0]?.sourceEntryIds).toEqual(["a1", "a2", "a3"]);
+    expect(units[0]?.textResponses).toEqual(["Reply one", "Reply two", "Reply three"]);
+    expect(JSON.stringify(sessions)).not.toContain("system note");
+  } finally {
+    await removeTestDir(data.root);
+  }
+});
+
+it("gives a V2 tool item with state error the outcome error", async () => {
+  const data = createOpencodeFixture();
+  try {
+    data.v2Session("s");
+    data.v2User("s", "u1", 10, "Run it");
+    data.v2Assistant("s", "a1", 11, [
+      { type: "reasoning", text: "hidden thought" },
+      { type: "text", text: "Tried it" },
+      { type: "tool", name: "read", state: { status: "completed", input: "a" } },
+      { type: "tool", name: "bash", state: { status: "error", input: "b", error: "boom" } },
+    ]);
+    data.close();
+
+    const { sessions } = await readAll(data.path);
+    const unit = sessions[0]?.units[0];
+
+    expect(unit?.textResponses).toEqual(["Tried it"]);
+    expect(unit?.toolCalls.map((call) => [call.name, call.outcome])).toEqual([
+      ["read", "ok"],
+      ["bash", "error"],
+    ]);
+    expect(unit?.toolCalls[1]?.error).toBe("boom");
+    expect(JSON.stringify(sessions)).not.toContain("hidden thought");
+  } finally {
+    await removeTestDir(data.root);
+  }
+});
+
+it("counts a V2 child session as folded into its parent", async () => {
+  const data = createOpencodeFixture();
+  try {
+    data.v2Session("parent");
+    data.v2Session("child", { parentId: "parent", at: 2 });
+    data.v2Turn("parent", "u1", "a1", 10, "Parent prompt", "Parent reply");
+    data.v2Turn("child", "cu", "ca", 30, "Delegated work", "Done");
+    data.close();
+
+    const { history, sessions } = await readAll(data.path);
+
+    expect(history.childSessions).toBe(1);
+    expect(history.topLevelSessions).toBe(1);
+    expect(sessions.map((session) => session.sessionId)).toEqual(["parent"]);
+    expect(JSON.stringify(sessions)).not.toContain("Delegated work");
+  } finally {
+    await removeTestDir(data.root);
+  }
+});
+
+it("skips a V2 session titled omms capture and does not count it", async () => {
+  const data = createOpencodeFixture();
+  try {
+    data.v2Session("real", { at: 1 });
+    data.v2Turn("real", "u1", "a1", 10, "Real prompt", "Real reply");
+    data.v2Session("capture", { title: "omms capture", at: 2 });
+    data.v2Turn("capture", "cu", "ca", 20, "Internal prompt", "Internal reply");
+    data.v2Session("legacy", { title: "opencode-mem capture", at: 3 });
+    data.v2Turn("legacy", "lu", "la", 30, "Legacy prompt", "Legacy reply");
+    data.close();
+
+    const { history, sessions } = await readAll(data.path);
+
+    expect(sessions.map((session) => session.sessionId)).toEqual(["real"]);
+    expect(history.topLevelSessions).toBe(1);
+    expect(history.childSessions).toBe(0);
+  } finally {
+    await removeTestDir(data.root);
+  }
+});
+
+// Databases that hold both table sets, or neither.
+
+it("reads a session held in both table sets from the V2 tables only", async () => {
+  const data = createOpencodeFixture({ v1: true });
+  try {
+    data.v1Session("both");
+    data.v1Turn("both", "u1", "a1", 10, "Prompt from V1", "Reply from V1");
+    data.v2Session("both");
+    data.v2Turn("both", "u1", "a1", 10, "Prompt from V2", "Reply from V2");
+    data.close();
+
+    const { sessions } = await readAll(data.path);
+
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]?.units.map((unit) => unit.userPrompt)).toEqual(["Prompt from V2"]);
+    expect(sessions[0]?.units[0]?.textResponses).toEqual(["Reply from V2"]);
+    expect(JSON.stringify(sessions)).not.toContain("from V1");
+  } finally {
+    await removeTestDir(data.root);
+  }
+});
+
+it("reads a V1 session that session_v2 does not hold from the V1 tables", async () => {
+  const data = createOpencodeFixture({ v1: true });
+  try {
+    data.v1Session("old-only", { at: 1 });
+    data.v1Turn("old-only", "u1", "a1", 10, "Old prompt", "Old reply");
+    data.v2Session("new-only", { at: 2 });
+    data.v2Turn("new-only", "n1", "na1", 20, "New prompt", "New reply");
+    data.close();
+
+    const { sessions } = await readAll(data.path);
+
+    expect(sessions.map((session) => [session.sessionId, session.units[0]?.userPrompt])).toEqual([
+      ["old-only", "Old prompt"],
+      ["new-only", "New prompt"],
+    ]);
+  } finally {
+    await removeTestDir(data.root);
+  }
+});
+
+it("imports a database that has only the older tables as before", async () => {
+  const data = createOpencodeFixture({ v2: false, v1: true });
+  try {
+    data.v1Session("old");
+    data.v1Turn("old", "u1", "a1", 10, "Old prompt", "Old reply");
+    data.close();
+
+    const { history, sessions } = await readAll(data.path);
+
+    expect(history.topLevelSessions).toBe(1);
+    expect(sessions[0]?.units.map((unit) => unit.userPrompt)).toEqual(["Old prompt"]);
+    expect(sessions[0]?.units[0]?.sourceEntryIds).toEqual(["a1"]);
+  } finally {
+    await removeTestDir(data.root);
+  }
+});
+
+it("names the missing tables, without saying V1, when neither table set exists", async () => {
+  const data = createOpencodeFixture({ v2: false });
+  try {
+    data.close();
+
+    const error = await openOpencodeHistory(data.path).then(
+      () => null,
+      (caught: unknown) => caught
+    );
+
+    expect(error).toBeInstanceOf(Error);
+    const message = (error as Error).message;
+    expect(message).toContain("session_v2");
+    expect(message).toContain("session_message");
+    expect(message).not.toContain("V1");
+  } finally {
+    await removeTestDir(data.root);
   }
 });

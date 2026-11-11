@@ -59,7 +59,7 @@ describe("host-neutral capture boundary", () => {
     expect(files.length).toBeGreaterThan(0);
     const leaking = files.flatMap((file) =>
       importsOf(file)
-        .filter((spec) => /^@opencode-ai\/|^@earendil-works\/|\/adapters\//.test(spec))
+        .filter((spec) => /^@opencode(-ai)?\/|^@earendil-works\/|\/adapters\//.test(spec))
         .map((spec) => `${file}: ${spec}`)
     );
     expect(leaking).toEqual([]);

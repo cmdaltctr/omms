@@ -136,4 +136,26 @@ captured = await buildRetrievalSection("queue?", "/repo", "ses-1");
       "## Restored Session Memory\n\n### Memory 1\nUse WAL mode\n\nTags: queue, db\n\n"
     );
   });
+
+  // Moved from the V1 compaction test: the V2 compaction hook uses the same formatter.
+  it("appends one Tags line when the restored memory has no footer", () => {
+    const text = formatMemoriesForCompaction([
+      { memory: "Plain memory body without footer.", tags: ["decision"] },
+    ]);
+    expect(text.match(/^Tags: .*/gm) ?? []).toEqual(["Tags: decision"]);
+  });
+
+  it("keeps a trailing Tags line that does not match the structured tags", () => {
+    const text = formatMemoriesForCompaction([
+      {
+        memory: "Imported note from the API.\n\nTags: user-authored evidence",
+        tags: ["canonical"],
+      },
+    ]);
+    expect(text).toContain("Imported note from the API.");
+    expect(text.match(/^Tags: .*/gm) ?? []).toEqual([
+      "Tags: user-authored evidence",
+      "Tags: canonical",
+    ]);
+  });
 });

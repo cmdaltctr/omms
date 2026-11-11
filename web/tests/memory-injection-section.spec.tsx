@@ -100,7 +100,7 @@ it("has the help texts, the host note and the project note", () => {
     "Subagents get memories that match their task. Claude Code adds them once, at start. OpenCode V2 and Pi add them with each subagent prompt. No rows are shown for them."
   );
   expect(html).toContain(
-    "Applies to OpenCode V2, Pi and Claude Code. OpenCode V1 is not covered. On Pi, a subagent gets memory only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in /omps-settings, Agent capabilities, Memory."
+    "Applies to OpenCode V2, Pi and Claude Code. On Pi, a subagent gets memory only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in /omps-settings, Agent capabilities, Memory."
   );
   expect(html.indexOf("Applies to OpenCode V2")).toBeGreaterThan(
     html.indexOf("Subagents get memories that match their task.")

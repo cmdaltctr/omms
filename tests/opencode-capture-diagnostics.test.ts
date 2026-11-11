@@ -10,7 +10,7 @@ mock.module("../src/services/logger.js", () => ({ log: () => {} }));
 mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
   loadOpencodeProvider: async () => ({
     isProviderConnected: () => true,
-    getV2Client: () => ({}),
+    getOpencodeHost: () => ({}),
     resolveOpencodeModelRef: (ref: { providerID: string; modelID: string }) => ref,
     generateStructuredOutput: (opts: any) => structuredBehaviour(opts),
   }),
@@ -69,11 +69,12 @@ describe("OpenCode capture diagnostics", () => {
     toolCallResult = { success: true, data: {} };
   });
 
-  it("records the host model's finish reason and part types on success", async () => {
+  it("records the host model's part types on success, with no stop reason", async () => {
     hostModelConfig();
     structuredBehaviour = async (opts) => {
       const output = { summary: "Did it", type: "feature", tags: [] };
-      opts.onReply({ finish: "stop", partTypes: ["reasoning", "text"], structuredOutput: output });
+      // OpenCode V2 text generation reports no finish reason.
+      opts.onReply({ partTypes: ["text"], structuredOutput: output });
       return output;
     };
     const { error, diagnostics } = await run();
@@ -82,20 +83,34 @@ describe("OpenCode capture diagnostics", () => {
       path: "host-model",
       provider: "anthropic",
       model: "claude-haiku",
-      stopReason: "stop",
-      blockTypes: ["reasoning", "text"],
+      blockTypes: ["text"],
+      rawReply: '{"summary":"Did it","type":"feature","tags":[]}',
     });
+    expect(diagnostics.stopReason).toBeUndefined();
     expect(diagnostics.failureReason).toBeUndefined();
   });
 
-  it("reports no structured output from the host model as empty-text", async () => {
+  it("reports an empty reply from the host model as empty-text", async () => {
     hostModelConfig();
+    const { OPENCODE_EMPTY_REPLY } = await import("../src/adapters/opencode/opencode-provider.js");
     structuredBehaviour = async () => {
-      throw new Error("omms: opencode returned no structured output (info.structured was empty)");
+      throw new Error(OPENCODE_EMPTY_REPLY);
     };
     const { error, diagnostics } = await run();
     expect(error).toBeDefined();
     expect(diagnostics.failureReason).toBe("empty-text");
+  });
+
+  it("reports a host model reply with no JSON object as invalid-json", async () => {
+    hostModelConfig();
+    const { OPENCODE_NO_JSON_REPLY } =
+      await import("../src/adapters/opencode/opencode-provider.js");
+    structuredBehaviour = async () => {
+      throw new Error(OPENCODE_NO_JSON_REPLY);
+    };
+    const { error, diagnostics } = await run();
+    expect(error).toBeDefined();
+    expect(diagnostics.failureReason).toBe("invalid-json");
   });
 
   it("reports a host model schema failure as schema-mismatch", async () => {

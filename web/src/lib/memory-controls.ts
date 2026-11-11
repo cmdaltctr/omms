@@ -1,12 +1,10 @@
 /**
  * The Memory card's editable limits: pure definitions and draft maths, with no
  * React, config, or host imports, so tests and the card share one source.
- * The snapshot keys are also the PATCH request identifiers; the nested field
- * stays dotted and the server maps it to the chatMessage.maxMemories leaf.
+ * The snapshot keys are also the PATCH request identifiers.
  */
 export type MemoryControlKey =
   | "maxMemories"
-  | "chatMessage.maxMemories"
   | "autoCaptureMaxContextBytes"
   | "userProfileMaxContextBytes"
   | "retrievalMaxTokens"
@@ -39,18 +37,6 @@ export const MEMORY_CONTROLS: readonly MemoryControl[] = [
     unit: "Results",
     affects:
       "Maximum memory search results. Manual searches can request fewer; prompt retrieval uses this ceiling.",
-    min: 1,
-    max: Number.MAX_SAFE_INTEGER,
-    accepted: POSITIVE_WHOLE,
-    kind: "integer",
-  },
-  {
-    key: "chatMessage.maxMemories",
-    id: "memory-chatMessage-maxMemories",
-    default: 3,
-    unit: "Memories",
-    affects:
-      "Recent memories added at session start in OpenCode V1 and Claude Code. Pi and OpenCode V2 use prompt-based search instead.",
     min: 1,
     max: Number.MAX_SAFE_INTEGER,
     accepted: POSITIVE_WHOLE,
@@ -117,7 +103,6 @@ export const MEMORY_SETTINGS_MESSAGES: readonly string[] = [
   "Unit",
   "Affects",
   "Results",
-  "Memories",
   "Bytes",
   "Approximate tokens",
   "Similarity score",

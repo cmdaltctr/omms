@@ -119,8 +119,11 @@ export class TursoVectorSearch {
 
       const finalTagsSim = Math.max(tagsSim, exactMatchBoost);
       // Every memorisation carries the same tag, so the tags half is near constant and
-      // pulls a close match down. Score memorisations by content alone.
-      const base = kind === "memorisation" ? contentSim : contentSim * 0.6 + finalTagsSim * 0.4;
+      // pulls a close match down. An untagged memory has no tags half at all, and the
+      // blend would cap it at 0.6 of its content match. Score both by content alone.
+      const untagged = row.tags_dist == null && !memoryTagsStr.trim();
+      const base =
+        kind === "memorisation" || untagged ? contentSim : contentSim * 0.6 + finalTagsSim * 0.4;
       const similarity = boostedSimilarity(base, kwHits, String(row.id), keywordBoost, keywordMode);
 
       return {

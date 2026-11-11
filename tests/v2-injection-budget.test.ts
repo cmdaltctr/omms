@@ -123,7 +123,7 @@ function createHarness(
   } as any;
 
   return {
-    register: () => registerV2Adapter(ctx, minimalLegacy(), memory),
+    register: () => registerV2Adapter(ctx, minimalDeps(), memory),
     prompt: (sessionID, text) => {
       lastMessage.set(sessionID, `msg-${text}`);
       return hooks.get("prompt")!({ sessionID, messageID: `msg-${text}`, prompt: { text } });
@@ -154,13 +154,9 @@ function createHarness(
   };
 }
 
-function minimalLegacy() {
-  return {
-    tool: { memory: { description: "Memory tool", execute: async () => "{}" } },
-    "chat.params": async () => {},
-    event: async () => {},
-    dispose: async () => {},
-  };
+function minimalDeps() {
+  const tool = { description: "Memory tool", execute: async () => "{}" };
+  return { tools: { memory: tool, skills: tool } };
 }
 
 describe("OpenCode v2 request budget (memory-context-controls 4.1/4.2)", () => {

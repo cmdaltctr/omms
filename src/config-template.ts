@@ -382,15 +382,11 @@ export const CONFIG_TEMPLATE = `{
   // Memory Context Controls
   // ============================================
 
-  // Recent memories added at fresh session start (OpenCode V1 and Claude Code).
-  // Pi and OpenCode V2 search the store with each prompt instead.
+  // Per-prompt memory retrieval on every host. "enabled": false turns it off;
+  // "excludeCurrentSession" leaves out memories captured in the current session.
   "chatMessage": {
     "enabled": true,
-    // Recent memories injected at session start.
-    "maxMemories": 3,
     "excludeCurrentSession": true,
-    // When to inject: "first" message of a session or "always".
-    // "injectOn": "first",
   },
 
   // OpenCode profile-learning input limit, in UTF-8 bytes. Smaller values can

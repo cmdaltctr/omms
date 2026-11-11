@@ -1,10 +1,15 @@
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "@opencode/plugin/promise/plugin";
-import { OmmsPlugin } from "../index.js";
-import { loadOpencodeProvider } from "../adapters/opencode/opencode-provider-loader.js";
+import { setOpencodeHost } from "../adapters/opencode/opencode-host.js";
+import { CONFIG } from "../config.js";
+import { recordOpencodePromptModel } from "../adapters/opencode/prompt-model.js";
+import { performUserProfileLearning } from "../adapters/opencode/profile-learning.js";
+import { getLanguageName } from "../services/language-detector.js";
 import { registerV2Adapter } from "./adapter.js";
 import { createV2MemoryBridge } from "./memory-bridge.js";
-import { createLegacyClient } from "./legacy-client.js";
+import { createOpencodeSessionEvents } from "./session-events.js";
+import { startOpencodeRuntime } from "./startup.js";
+import { createOpencodeTools } from "./tools.js";
 
 /**
  * Remove old OMMS copies from the OpenCode cache. It runs in the background and
@@ -77,24 +82,33 @@ function startServiceSelfUpdate(): void {
 const OmmsPluginV2: Plugin = {
   id: "omms",
   async setup(ctx) {
-    const legacyClient = createLegacyClient(ctx);
-    const legacy = (await OmmsPlugin({
-      client: legacyClient,
-      directory: ctx.location.directory,
-      worktree: ctx.location.project.directory,
-      project: ctx.location.project,
-      serverUrl: undefined,
-    } as any)) as any;
+    const directory = ctx.location.directory;
+    // Capture, profile learning, imports and Settings reach OpenCode through the context.
+    setOpencodeHost(ctx);
 
-    // The V1 initializer cannot discover a server URL from a native V2
-    // context. Route internal structured-output calls through the adapter.
-    const { setV2Client } = await loadOpencodeProvider();
-    setV2Client(legacyClient);
+    // The runtime's shutdown drops pending idle work, so it needs the handler created after it.
+    const holder: { events?: ReturnType<typeof createOpencodeSessionEvents> } = {};
+    const runtime = await startOpencodeRuntime(ctx, () => holder.events?.dispose());
+    const events = createOpencodeSessionEvents({
+      session: ctx.session,
+      directory,
+      autoCaptureHost: runtime.autoCaptureHost,
+      learnProfile: () => performUserProfileLearning(directory),
+    });
+    holder.events = events;
 
     const adapter = await registerV2Adapter(
       ctx,
-      legacy,
-      createV2MemoryBridge(ctx.location.directory)
+      {
+        tools: createOpencodeTools(
+          { directory, tags: runtime.tags },
+          getLanguageName(CONFIG.autoCaptureLanguage || "en")
+        ),
+        recordPromptModel: recordOpencodePromptModel,
+        onEvent: (event) => events.handle(event),
+        dispose: () => runtime.dispose(),
+      },
+      createV2MemoryBridge(directory)
     );
     startCacheCleanup();
     startServiceSelfUpdate();

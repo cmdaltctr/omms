@@ -84,6 +84,5 @@ describe("OpenCode plugin loader bundle boundary", () => {
     const provider = await mod.loadOpencodeProvider();
 
     expect(typeof provider.generateStructuredOutput).toBe("function");
-    expect(typeof provider.createV2Client).toBe("function");
   }, 30_000);
 });

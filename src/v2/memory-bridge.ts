@@ -69,7 +69,7 @@ export function createV2MemoryBridge(directory: string): V2MemoryBridge {
       return CONFIG.visibleRecall !== false;
     },
     isSubagentMemoryEnabled: () => CONFIG.subagentMemory !== false,
-    isInternalPrompt,
+    isInternalPrompt: (_sessionID, text) => isInternalPrompt(text),
     async recordPrompt(sessionID, messageID, text) {
       await recordUserPrompt(sessionID, messageID, directory, text);
     },

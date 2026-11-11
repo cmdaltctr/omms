@@ -112,6 +112,34 @@ export class ImportLedger {
   }
 
   /**
+   * An imported or skipped row of one session whose key starts with `prefix`.
+   * Rows are found through the `session_id` index, then prefix-checked.
+   * With `readOnly` it never creates the table, like `peek`.
+   */
+  async findHandledByPrefix(
+    sessionId: string,
+    prefix: string,
+    options: { readOnly?: boolean } = {}
+  ): Promise<ImportLedgerRow | null> {
+    const db = options.readOnly
+      ? await tursoConnectionManager.getConnection(importLedgerDbPath())
+      : await this.db();
+    if (options.readOnly) {
+      const table = await db.get(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'import_ledger'`
+      );
+      if (!table) return null;
+    }
+    const row = await db.get(
+      `SELECT * FROM import_ledger
+       WHERE session_id = ? AND status IN ('imported', 'skipped') AND substr(key, 1, ?) = ?
+       LIMIT 1`,
+      [sessionId, prefix.length, prefix]
+    );
+    return row ? rowToEntry(row) : null;
+  }
+
+  /**
    * Sessions whose ledger rows are all finished for every ticked output.
    * Memory rows and profile rows (`project_hash = 'profile'`) are judged apart.
    * A ticked output passes when the session has at least one row of its kind

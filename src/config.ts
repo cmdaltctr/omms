@@ -158,10 +158,7 @@ interface OmmsConfig {
   };
   chatMessage?: {
     enabled?: boolean;
-    maxMemories?: number;
     excludeCurrentSession?: boolean;
-    maxAgeDays?: number;
-    injectOn?: "first" | "always";
   };
 }
 
@@ -303,10 +300,7 @@ const DEFAULTS: Required<
   },
   chatMessage: {
     enabled: true,
-    maxMemories: 3,
     excludeCurrentSession: true,
-    maxAgeDays: undefined,
-    injectOn: "first",
   },
 };
 
@@ -512,12 +506,6 @@ function buildConfig(fileConfig: OmmsConfig) {
     "userProfileMaxContextBytes",
     DEFAULTS.userProfileMaxContextBytes
   );
-  const chatMessageMaxMemories = checkedMemoryLimit(
-    MEMORY_LIMITS["chatMessage.maxMemories"],
-    fileConfig.chatMessage && Object.hasOwn(fileConfig.chatMessage, "maxMemories")
-      ? fileConfig.chatMessage.maxMemories
-      : DEFAULTS.chatMessage.maxMemories
-  );
   const userProfileAutoCleanupInterval =
     fileConfig.userProfileAutoCleanupInterval ?? DEFAULTS.userProfileAutoCleanupInterval;
   parseBackfillModel(fileConfig, "pi");
@@ -701,12 +689,8 @@ function buildConfig(fileConfig: OmmsConfig) {
     },
     chatMessage: {
       enabled: fileConfig.chatMessage?.enabled ?? DEFAULTS.chatMessage.enabled,
-      maxMemories: chatMessageMaxMemories,
       excludeCurrentSession:
         fileConfig.chatMessage?.excludeCurrentSession ?? DEFAULTS.chatMessage.excludeCurrentSession,
-      maxAgeDays: fileConfig.chatMessage?.maxAgeDays,
-      injectOn: (fileConfig.chatMessage?.injectOn ?? DEFAULTS.chatMessage.injectOn) as
-        "first" | "always",
     },
   };
 }

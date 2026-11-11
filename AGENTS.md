@@ -35,23 +35,23 @@ The main checkout is the folder you cloned the repository into, wherever it is o
 
 ## Architecture
 
-| Path                                     | Responsibility                                                                                               |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `src/core/`                              | Host ports (`host.ts`), capture pipeline, extraction schema, retrieval, `memory` tool operations             |
-| `src/services/`                          | Storage (Turso/libSQL), embeddings, privacy, deduplication, project tags, profiles, web backend              |
-| `src/services/spaces/`                   | Memory spaces: registry, active space, backup, restore, delete, store-handle reset (`docs/memory-spaces.md`) |
-| `src/services/ai/live-model-choice.ts`   | The live-model rule for every host. Pure functions; callers pass `CONFIG`.                                   |
-| `src/importer/`                          | History import: shared option parser (`import-args.ts`), runner (`run-import.ts`), ledger, readers           |
-| `src/adapters/opencode/`, `src/index.ts` | OpenCode V1 plugin hooks, OpenCode model code, profile learning, and the OpenCode import command             |
-| `src/v2/`                                | OpenCode V2 plugin adapter over the V1 plugin                                                                |
-| `src/adapters/pi/`                       | Pi extension, Pi model bridge, Pi import command                                                             |
-| `src/adapters/claude-code/`              | Claude Code hook client (`claude-hook <event>`). The web app does the memory work                            |
-| `src/cli/`                               | `om-memory-system` terminal command for every host, and the `memory` command                                 |
-| `web/`                                   | Web UI (Vite). It has its own `package.json`.                                                                |
+| Path                                   | Responsibility                                                                                                |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `src/core/`                            | Host ports (`host.ts`), capture pipeline, extraction schema, retrieval, `memory` tool operations              |
+| `src/services/`                        | Storage (Turso/libSQL), embeddings, privacy, deduplication, project tags, profiles, web backend               |
+| `src/services/spaces/`                 | Memory spaces: registry, active space, backup, restore, delete, store-handle reset (`docs/memory-spaces.md`)  |
+| `src/services/ai/live-model-choice.ts` | The live-model rule for every host. Pure functions; callers pass `CONFIG`.                                    |
+| `src/importer/`                        | History import: shared option parser (`import-args.ts`), runner (`run-import.ts`), ledger, readers            |
+| `src/adapters/opencode/`               | OpenCode model code, host port (`opencode-host.ts`), prompt-model recording, profile learning, import command |
+| `src/v2/`                              | OpenCode V2 plugin: `setup`, startup (`startup.ts`), tools, session events, session hooks (`adapter.ts`)      |
+| `src/adapters/pi/`                     | Pi extension, Pi model bridge, Pi import command                                                              |
+| `src/adapters/claude-code/`            | Claude Code hook client (`claude-hook <event>`). The web app does the memory work                             |
+| `src/cli/`                             | `om-memory-system` terminal command for every host, and the `memory` command                                  |
+| `web/`                                 | Web UI (Vite). It has its own `package.json`.                                                                 |
 
 Keep these boundaries:
 
-- `src/core/` and `src/services/` must not import `@opencode-ai/*`, `@earendil-works/*`, or `src/adapters/*`. Hosts register their models through `registerHostProfileModel` and `registerOpencodeHostModels`.
+- `src/core/` and `src/services/` must not import `@opencode/*`, `@earendil-works/*`, or `src/adapters/*`. Hosts register their models through `registerHostProfileModel` and `registerOpencodeHostModels`.
 - A long-lived object that holds a database handle or a path built from `storagePath` must register with `resettable()` (`src/services/spaces/store-handles.ts`), so a memory space switch resets it. A new `.db` file name in `src/` must be added to `tests/store-handle-coverage.test.ts`. Keep `skills.db` and the embedding model cache on the global storage path (`CONFIG.skillStoragePath ?? CONFIG.storagePath`).
 - `src/importer/` must not import `src/adapters/*`. Each host's history reader lives in `src/importer/`, and adapters import from it.
 - `tests/host-neutral-capture-boundary.test.ts` and `tests/pi-adapter-boundary.test.ts` enforce that rule.
@@ -65,9 +65,9 @@ Read `docs/shared-core.md` before you change a port or move code between layers.
 
 Pi and OpenCode must have the same user capabilities.
 
-- OMMS supports OpenCode V2 only. OpenCode V1 is not supported. Work only on the V2 plugin (`src/v2/`, the V2 parts of `src/adapters/opencode/`, and `opencode/tui.tsx`).
-- The V1 plugin object in `src/index.ts` stays only because V2 wraps it. V2 calls its tools through `legacy.tool.<name>.execute` (`src/v2/adapter.ts`), so a change to a V1 tool executor is a V2 change. Test it through the V2 adapter.
-- Do not add or change V1-only behaviour (for example the `chat.message` hook in `src/index.ts`). Do not write V1-only tests or V1 docs. Do not mention V1 in user docs.
+- OMMS supports OpenCode V2 only (ADR-048). OpenCode code uses the V2 plugin API only: `src/v2/`, `src/adapters/opencode/`, and `opencode/tui.tsx`.
+- Tests for OpenCode go through the V2 adapter. Call the V2 plugin `setup` with a fake V2 context. Do not build a V1-shaped client or hook object.
+- Do not add hooks, settings or docs for older OpenCode versions. They cannot load OMMS.
 - When you add or change a feature for one host, add the same feature to the other host in the same change.
 - Put shared behaviour in `src/core/`, `src/services/`, or `src/importer/`. Keep adapters thin.
 - Live capture and profile learning choose a model in this order:

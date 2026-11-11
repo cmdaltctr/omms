@@ -354,7 +354,7 @@ mock.module(${JSON.stringify(moduleUrl("src/adapters/opencode/opencode-provider-
   }),
 }));
 mock.module(${JSON.stringify(moduleUrl("src/adapters/opencode/profile-llm-client.js"))}, () => ({
-  getOpenCodeClient: async () => ({}),
+  getOpencodeProfileHost: async () => ({}),
 }));
 const prompts = Array.from({ length: 10 }, (_, i) => ({
   id: "p" + i, sessionId: "ses-1", messageId: "m" + i, projectPath: projectDir,
@@ -398,7 +398,7 @@ const { performUserProfileLearning } = await import(${JSON.stringify(learningUrl
 
 let gateResolve;
 releasePrompts = new Promise((resolve) => { gateResolve = resolve; });
-const firstPromise = performUserProfileLearning({}, projectDir);
+const firstPromise = performUserProfileLearning(projectDir);
 await sleep(20);
 const entryLimit = config.CONFIG.userProfileMaxContextBytes;
 config.CONFIG.userProfileMaxContextBytes = 2048;
@@ -406,7 +406,7 @@ gateResolve();
 await firstPromise;
 releasePrompts = null;
 
-await performUserProfileLearning({}, projectDir);
+await performUserProfileLearning(projectDir);
 scenario = {
   entryLimit,
   firstBytes: contexts[0],

@@ -1,6 +1,6 @@
 /**
  * Tests for explicit user preference writes via UserProfileManager.
- * Exercises the write path added to src/index.ts `profile` mode
+ * Exercises the write path of the `memory` tool's `profile` mode
  * by testing the underlying manager directly (no live plugin context needed).
  */
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";

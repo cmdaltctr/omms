@@ -2,22 +2,9 @@ import { describe, expect, it } from "bun:test";
 import {
   INTERNAL_CAPTURE_SESSION_TITLE,
   isInternalCaptureSessionTitle,
-  isTrackedInternalCaptureSession,
-  trackInternalCaptureSession,
-  untrackInternalCaptureSession,
 } from "../src/adapters/opencode/internal-capture-sessions.js";
 
-describe("internal capture session tracking", () => {
-  it("tracks and untracks session ids with grace", async () => {
-    const id = "ses_live170_test";
-    expect(isTrackedInternalCaptureSession(id)).toBe(false);
-    trackInternalCaptureSession(id);
-    expect(isTrackedInternalCaptureSession(id)).toBe(true);
-    untrackInternalCaptureSession(id);
-    // Still tracked during grace window
-    expect(isTrackedInternalCaptureSession(id)).toBe(true);
-  });
-
+describe("internal capture session title", () => {
   it("matches the shared capture title constant", () => {
     expect(INTERNAL_CAPTURE_SESSION_TITLE).toBe("omms capture");
     expect(isInternalCaptureSessionTitle(INTERNAL_CAPTURE_SESSION_TITLE)).toBe(true);

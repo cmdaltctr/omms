@@ -107,10 +107,10 @@ function projectFile(directory: string): string | undefined {
 }
 
 /**
- * Snapshot entry for a nested setting (chatMessage.maxMemories, compaction.*).
- * The runtime merge is shallow, so a project chatMessage object replaces the
- * global one: a missing count means the default even when the global file sets
- * a value, and the source must not be inferred from dotted-key presence alone.
+ * Snapshot entry for a nested setting (compaction.enabled).
+ * The runtime merge is shallow, so a project object replaces the global one:
+ * a missing leaf means the default even when the global file sets a value, and
+ * the source must not be inferred from dotted-key presence alone.
  */
 function nestedSetting(
   path: readonly string[],
@@ -144,8 +144,8 @@ function nestedSetting(
 export function getSettingsSnapshot(directory: string) {
   const global = readSettingsFile(getGlobalConfigSourcePath());
   const project = readSettingsFile(projectFile(directory));
-  // Dotted limit identifiers (chatMessage.maxMemories) are resolved by the
-  // nested rule above, so the runtime lookup only handles flat keys.
+  // Dotted identifiers (compaction.enabled) are resolved by the nested rule
+  // above, so the runtime lookup only handles flat keys.
   const runtime = CONFIG as unknown as Record<string, unknown>;
   const injection = injectionOptionsFromFile(global);
   const injectionDefaults = injectionOptionsFromFile({});

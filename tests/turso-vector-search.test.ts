@@ -100,6 +100,55 @@ describe("turso vector search", () => {
     expect(limitedResults).toHaveLength(1);
   });
 
+  it("scores an untagged memory by content alone and keeps the blend for a tagged one", async () => {
+    baseDir = mkdtempSync(join(tmpdir(), "turso-vector-untagged-"));
+
+    const { CONFIG } = await import("../src/config.js");
+    CONFIG.storagePath = baseDir;
+
+    const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
+    const { tursoShardManager } = await import("../src/services/turso/shard-manager.js");
+    const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
+
+    const dims = CONFIG.embeddingDimensions;
+    const scopeHash = "b1b2c3d4e5f67890";
+    const containerTag = `opencode_project_${scopeHash}`;
+    const shard = await tursoShardManager.createShard("project", scopeHash, 0);
+    const db = await tursoConnectionManager.getConnection(shard.dbPath);
+
+    const vector = new Float32Array(dims);
+    vector[0] = 1;
+    // A tags vector orthogonal to the query: its tag similarity is 0.
+    const tagsVector = new Float32Array(dims);
+    tagsVector[1] = 1;
+    const now = Date.now();
+    await tursoVectorSearch.insertVector(db, {
+      id: "mem_untagged",
+      content: "Untagged decision",
+      vector,
+      containerTag,
+      tags: "",
+      createdAt: now,
+      updatedAt: now,
+    });
+    await tursoVectorSearch.insertVector(db, {
+      id: "mem_tagged",
+      content: "Tagged decision",
+      vector,
+      tagsVector,
+      containerTag,
+      tags: "unrelated",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const results = await tursoVectorSearch.searchInShard(shard, vector, containerTag, 5, "query");
+    const score = (id: string) => results.find((r) => r.id === id)?.similarity;
+    expect(score("mem_untagged")).toBeCloseTo(1);
+    // Tagged memories keep the 60/40 content and tags blend.
+    expect(score("mem_tagged")).toBeCloseTo(0.6);
+  });
+
   it("keeps vector_top_k before memories for filtered and unfiltered ANN queries", async () => {
     const observedSql: string[] = [];
     const db = {
@@ -193,8 +242,9 @@ describe("turso vector search", () => {
     expect(results.length).toBeGreaterThan(0);
     // The closest target-tag memory must rank first.
     expect(results[0]?.id).toBe("mem_ann_0");
-    // Identical content vector, no tags: content weight 0.6, no tag credit.
-    expect(results[0]?.similarity).toBeCloseTo(0.6);
+    // Identical content vector, no tags: an untagged memory is scored by content alone,
+    // so a missing tags vector does not cap it at 0.6 (below the default threshold).
+    expect(results[0]?.similarity).toBeCloseTo(1);
     // No other-container-tag memories (indices 150-199) should leak through.
     for (const r of results) {
       const idx = Number(r.id.replace("mem_ann_", ""));

@@ -54,15 +54,28 @@ mock.module(${JSON.stringify(url("../src/services/auto-capture.js"))}, () => ({
 const cleanups = [];
 mock.module(${JSON.stringify(url("../src/services/cleanup-service.js"))}, () => ({
   cleanupService: { shouldRunCleanup: async () => true, runCleanup: async () => { cleanups.push(1); } } }));
+// V2 shows no native toast. The legacy client prints "[omms] <title>: <message>" instead.
 const toasts = [];
+for (const method of ["info", "warn", "error"]) {
+  const original = console[method].bind(console);
+  console[method] = (...args) => {
+    if (typeof args[0] === "string" && args[0].startsWith("[omms] ")) toasts.push({ method, text: args[0] });
+    else original(...args);
+  };
+}
 // The plugin starts the web app check in the background. A fixed wait fails on a slow runner,
 // so wait for the call the test expects, up to two seconds.
 const waitFor = async (condition, ms = 2000) => {
   const end = Date.now() + ms;
   while (!condition() && Date.now() < end) await new Promise((resolve) => setTimeout(resolve, 5));
 };
-const client = { tui: { showToast: async ({ body }) => { toasts.push(body); } } };
-const { OmmsPlugin } = await import(${JSON.stringify(url("../src/index.js"))});
+const { createFakeV2Context } = await import(${JSON.stringify(url("./fake-v2-context.ts"))});
+const { default: plugin } = await import(${JSON.stringify(url("../src/v2/plugin.js"))});
+// Runs the V2 setup against a fake context. \`stop\` ends the event subscription.
+const startPlugin = async (options = {}) => {
+  const fake = createFakeV2Context({ directory: "/workspace", ...options });
+  return { fake, stop: await plugin.setup(fake.ctx) };
+};
 ${body}
 `
     );
@@ -75,6 +88,7 @@ ${body}
         USERPROFILE: dir,
         OMMS_DISABLE_AUTO_BACKFILL: "1",
         OMMS_DISABLE_WEB_AUTOSTART: "0",
+        OMMS_DISABLE_UPDATE_CHECK: "1",
       },
     });
     const stdout = child.stdout.toString();
@@ -88,30 +102,30 @@ ${body}
 
 it("checks for the shared web app once, starts no web server, and shows one toast", () => {
   const result = runScenario(`
-const hooks = await OmmsPlugin({ directory: "/workspace", client });
+const { stop } = await startPlugin();
 await waitFor(() => toasts.length > 0);
 console.log("RESULT:" + JSON.stringify({ ensure: ensureCalls, webServerUses, toasts }));
-await hooks.dispose?.();
+await stop();
 `);
   expect(result.webServerUses).toEqual([]);
   expect(result.ensure).toEqual([
     { settings: { enabled: true, baseUrl: "http://127.0.0.1:4747" }, budgetMs: 10000 },
   ]);
   expect(result.toasts).toHaveLength(1);
-  expect(result.toasts[0]).toMatchObject({
-    title: "Memory Explorer",
-    message: "Web UI available at http://127.0.0.1:4747",
-    variant: "info",
+  // `info` is the console method for the `info` variant.
+  expect(result.toasts[0]).toEqual({
+    method: "info",
+    text: "[omms] Memory Explorer: Web UI available at http://127.0.0.1:4747",
   });
 });
 
 it("asks the web app check to replace an older web app with the recorded version", () => {
   const result = runScenario(`
 replaceOlder = { version: "4.3.2", headers: { "x-omms-token": "local" } };
-const hooks = await OmmsPlugin({ directory: "/workspace", client });
+const { stop } = await startPlugin();
 await waitFor(() => ensureCalls.length > 0);
 console.log("RESULT:" + JSON.stringify({ ensure: ensureCalls }));
-await hooks.dispose?.();
+await stop();
 `);
   expect(result.ensure).toEqual([
     {
@@ -125,10 +139,10 @@ await hooks.dispose?.();
 it("gives the browser password settings to the web app replacement", () => {
   const result = runScenario(
     `
-const hooks = await OmmsPlugin({ directory: "/workspace", client });
+const { stop } = await startPlugin();
 await waitFor(() => replaceSettings.length > 0);
 console.log("RESULT:" + JSON.stringify({ settings: replaceSettings[0] }));
-await hooks.dispose?.();
+await stop();
 `,
     { webServerAuthPassword: "pw", webServerAuthUsername: "me" }
   );
@@ -141,23 +155,24 @@ await hooks.dispose?.();
 it("shows an error toast when another program holds the web port", () => {
   const result = runScenario(`
 ensureResult = "port-busy";
-const hooks = await OmmsPlugin({ directory: "/workspace", client });
+const { stop } = await startPlugin();
 await waitFor(() => toasts.length > 0);
 console.log("RESULT:" + JSON.stringify({ toasts }));
-await hooks.dispose?.();
+await stop();
 `);
   expect(result.toasts).toHaveLength(1);
-  expect(result.toasts[0]).toMatchObject({ variant: "error" });
-  expect(result.toasts[0].message).toContain("4747");
+  expect(result.toasts[0]).toMatchObject({ method: "error" });
+  expect(result.toasts[0].text).toContain("Memory Explorer");
+  expect(result.toasts[0].text).toContain("4747");
 });
 
 it("starts nothing when webServerEnabled is false", () => {
   const result = runScenario(
     `
-const hooks = await OmmsPlugin({ directory: "/workspace", client });
+const { stop } = await startPlugin();
 await new Promise((resolve) => setTimeout(resolve, 50));
 console.log("RESULT:" + JSON.stringify({ ensure: ensureCalls, toasts }));
-await hooks.dispose?.();
+await stop();
 `,
     { webServerEnabled: false }
   );
@@ -169,11 +184,15 @@ it("runs profile learning and cleanup on idle with no in-process web server", ()
   const result = runScenario(`
 const realSetTimeout = globalThis.setTimeout;
 globalThis.setTimeout = (fn, ms, ...rest) => realSetTimeout(fn, ms === 10000 ? 0 : ms, ...rest);
-const hooks = await OmmsPlugin({ directory: "/workspace", client: { ...client, session: { get: async () => ({ data: { title: "chat" } }) } } });
-await hooks.event({ event: { type: "session.idle", properties: { sessionID: "s1" } } });
-await new Promise((resolve) => realSetTimeout(resolve, 100));
+const { fake, stop } = await startPlugin({
+  sessions: { s1: { id: "s1", title: "chat", location: { directory: "/workspace" } } },
+});
+// V2 ends a turn with session.execution.succeeded; the legacy bridge maps it to session.idle.
+fake.emit({ type: "session.execution.succeeded", data: { sessionID: "s1" } });
+await waitFor(() => learning.length > 0 && cleanups.length > 0);
+await new Promise((resolve) => realSetTimeout(resolve, 50));
 console.log("RESULT:" + JSON.stringify({ learning: learning.length, cleanups: cleanups.length }));
-await hooks.dispose?.();
+await stop();
 `);
   expect(result).toEqual({ learning: 1, cleanups: 1 });
 });

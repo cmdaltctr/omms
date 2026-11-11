@@ -14,11 +14,6 @@
       "import": "./dist/plugin.js",
       "default": "./dist/plugin.js"
     },
-    "./server": {
-      "types": "./dist/plugin.d.ts",
-      "import": "./dist/plugin.js",
-      "default": "./dist/plugin.js"
-    },
     "./v2": {
       "types": "./dist/v2/plugin.d.ts",
       "import": "./dist/v2/plugin.js",
@@ -80,8 +75,6 @@
   "dependencies": {
     "@huggingface/transformers": "^4.2.0",
     "@libsql/client": "^0.17.4",
-    "@opencode-ai/plugin": "^1.18.15",
-    "@opencode-ai/sdk": "^1.18.15",
     "franc-min": "^6.2.0",
     "hono": "^4.12.32",
     "iso-639-3": "^3.0.1",
@@ -130,12 +123,7 @@
     "typescript-eslint": "^8.70.0"
   },
   "opencode": {
-    "type": "plugin",
-    "hooks": [
-      "chat.message",
-      "chat.params",
-      "event"
-    ]
+    "type": "plugin"
   },
   "pi": {
     "extensions": [

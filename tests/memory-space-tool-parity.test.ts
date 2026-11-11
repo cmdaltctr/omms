@@ -211,18 +211,6 @@ describe("memorise and recall are the same on every host", () => {
     }
   });
 
-  it("the OpenCode V1 executor accepts the three modes and the snapshot fields", async () => {
-    const { opencodeMemoryTool } = await import("../src/adapters/opencode/memory-tool.js");
-    const memoryToolArgs = (opencodeMemoryTool("description", { directory: project }) as any).args;
-    for (const mode of MEMORISE_MODES) {
-      expect(memoryToolArgs.mode.safeParse(mode).success).toBe(true);
-    }
-    expect(memoryToolArgs.mode.safeParse("nonsense").success).toBe(false);
-    for (const key of SNAPSHOT_FIELDS) {
-      expect(memoryToolArgs[key].safeParse("text").success).toBe(true);
-    }
-  });
-
   it("the Claude Code tool accepts the three modes and maps them onto the memory command", () => {
     expect(claudeSpaceSchema.properties.mode.enum).toEqual(expect.arrayContaining(MEMORISE_MODES));
     for (const key of SNAPSHOT_FIELDS) {

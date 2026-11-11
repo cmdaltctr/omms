@@ -2,7 +2,7 @@ import { describe, expect, it, mock } from "bun:test";
 import { z } from "zod";
 
 const structuredCalls: any[] = [];
-const fakeClient = { tag: "opencode-client" };
+const fakeHost = { tag: "opencode-host" };
 
 mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
   loadOpencodeProvider: async () => ({
@@ -11,11 +11,11 @@ mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
       return args.schema.parse({ duplicate: true, reason: "same" });
     },
     resolveOpencodeModelRef: (ref: any) => ref,
-    getV2Client: () => null,
+    getOpencodeHost: () => undefined,
   }),
 }));
 mock.module("../src/adapters/opencode/profile-llm-client.js", () => ({
-  getOpenCodeClient: async () => fakeClient,
+  getOpencodeProfileHost: async () => fakeHost,
 }));
 
 const { adaptOpencodeProfileModel } = await import("../src/adapters/opencode/profile-model.js");
@@ -24,7 +24,7 @@ const hostModel = { providerID: "openai", modelID: "gpt-test" };
 
 describe("adaptOpencodeProfileModel", () => {
   it("sends structured calls to OpenCode structured output with the same prompts", async () => {
-    const port = adaptOpencodeProfileModel({}, hostModel);
+    const port = adaptOpencodeProfileModel({} as any, hostModel);
     const schema = z.object({ duplicate: z.boolean(), reason: z.string() });
 
     const result = await port.completeStructured!("system prompt", "user prompt", schema);
@@ -34,7 +34,7 @@ describe("adaptOpencodeProfileModel", () => {
     expect(port.modelId).toBe("gpt-test");
     expect(structuredCalls).toHaveLength(1);
     expect(structuredCalls[0]).toMatchObject({
-      client: fakeClient,
+      host: fakeHost,
       providerID: "openai",
       modelID: "gpt-test",
       systemPrompt: "system prompt",
@@ -43,34 +43,24 @@ describe("adaptOpencodeProfileModel", () => {
     expect(structuredCalls[0].schema).toBe(schema);
   });
 
-  it("sends plain calls through a cleanup session and deletes it", async () => {
-    const calls: string[] = [];
-    let prompt: any;
-    const v2Client = {
-      session: {
-        create: async (args: any) => {
-          calls.push(`create:${args.title}`);
-          return { data: { id: "s1" } };
-        },
-        prompt: async (args: any) => {
-          prompt = args;
-          return { data: { info: {}, parts: [{ type: "text", text: '{"ok":true}' }] } };
-        },
-        delete: async (args: any) => {
-          calls.push(`delete:${args.sessionID}`);
+  it("sends plain calls as one sessionless generation and trims the reply", async () => {
+    const generateCalls: any[] = [];
+    const host = {
+      generate: {
+        text: async (args: any) => {
+          generateCalls.push(args);
+          return { text: '  {"ok":true}\n' };
         },
       },
     };
-    const port = adaptOpencodeProfileModel(v2Client, hostModel);
+    const port = adaptOpencodeProfileModel(host as any, hostModel);
 
     expect(await port.complete("cleanup system", "cleanup user")).toBe('{"ok":true}');
-    expect(calls).toEqual(["create:omms profile cleanup", "delete:s1"]);
-    expect(prompt).toMatchObject({
-      sessionID: "s1",
-      model: hostModel,
-      system: "cleanup system",
-      parts: [{ type: "text", text: "cleanup user" }],
-      noReply: false,
-    });
+    expect(generateCalls).toEqual([
+      {
+        prompt: "cleanup system\n\ncleanup user",
+        model: { providerID: "openai", id: "gpt-test" },
+      },
+    ]);
   });
 });

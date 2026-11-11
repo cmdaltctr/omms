@@ -11,7 +11,7 @@ function createHarness(
   options: {
     events?: any[];
     memory?: Partial<V2MemoryBridge>;
-    legacy?: Record<string, any>;
+    deps?: Record<string, any>;
     /** Stub for `ctx.session.get`; the default returns a root session. */
     getSession?: (input: { sessionID: string }) => Promise<unknown>;
   } = {}
@@ -22,8 +22,8 @@ function createHarness(
     retrieveFirst: [] as Array<[string, string]>,
     record: [] as Array<[string, string, string]>,
     restore: [] as string[],
-    legacyEvents: [] as any[],
-    chatParams: [] as any[],
+    events: [] as any[],
+    promptModels: [] as any[],
     synthetic: 0,
     prompt: 0,
   };
@@ -117,8 +117,8 @@ function createHarness(
     return firstPromptSearch(prompt, sessionID, budgetBytes);
   };
 
-  const legacy = {
-    tool: {
+  const deps = {
+    tools: {
       memory: {
         description: "Memory tool",
         execute: async (args: any) => JSON.stringify({ success: true, args }),
@@ -128,22 +128,16 @@ function createHarness(
         execute: async (args: any) => JSON.stringify({ success: true, mode: args.mode }),
       },
     },
-    "chat.message": async () => {
-      throw new Error("v2 must not call the V1 chat.message hook");
+    recordPromptModel: async (messageID: string, model: any) => {
+      calls.promptModels.push({ messageID, model });
     },
-    config: async () => {
-      throw new Error("v2 must not call the V1 config hook");
-    },
-    "chat.params": async (input: any) => {
-      calls.chatParams.push(input);
-    },
-    event: async (input: any) => {
-      calls.legacyEvents.push(input.event);
+    onEvent: async (event: any) => {
+      calls.events.push(event);
     },
     dispose: async () => {
       disposed = true;
     },
-    ...options.legacy,
+    ...options.deps,
   };
 
   const sentMessageIDs = new Map<string, string[]>();
@@ -181,7 +175,7 @@ function createHarness(
   return {
     ctx,
     memory,
-    legacy,
+    deps,
     calls,
     hooks,
     prompt,
@@ -195,7 +189,7 @@ function createHarness(
     setRequestBudget: (bytes: number) => {
       requestBudget = bytes;
     },
-    register: () => registerV2Adapter(ctx, legacy, memory),
+    register: () => registerV2Adapter(ctx, deps as any, memory),
   };
 }
 
@@ -215,7 +209,7 @@ describe("OpenCode v2 plugin adapter", () => {
     await cleanup();
   });
 
-  it("registers the V1 skills tool as a direct V2 tool with the shared modes", async () => {
+  it("registers the skills tool as a direct V2 tool with the shared modes", async () => {
     const h = createHarness();
     const cleanup = await h.register();
 
@@ -376,15 +370,15 @@ describe("OpenCode v2 plugin adapter", () => {
     await cleanup();
   });
 
-  it("keeps bridging the prompt model to V1 chat.params", async () => {
+  it("passes each request's model to the prompt-model recorder", async () => {
     const h = createHarness();
     const cleanup = await h.register();
 
     await h.prompt("ses-1", "Implement V2", "msg-1");
     await h.context("ses-1");
 
-    expect(h.calls.chatParams).toEqual([
-      { message: { id: "msg-1" }, model: { providerID: "anthropic", id: "claude" } },
+    expect(h.calls.promptModels).toEqual([
+      { messageID: "msg-1", model: { providerID: "anthropic", id: "claude" } },
     ]);
 
     await cleanup();
@@ -422,7 +416,7 @@ describe("OpenCode v2 plugin adapter", () => {
     await cleanup();
   });
 
-  it("does not forward compaction events to the V1 handler", async () => {
+  it("does not forward compaction events to the session-event handler", async () => {
     const h = createHarness({
       events: [
         {
@@ -446,9 +440,7 @@ describe("OpenCode v2 plugin adapter", () => {
     await h.drained;
     await Bun.sleep(0);
 
-    expect(h.calls.legacyEvents).toEqual([
-      { type: "session.idle", properties: { sessionID: "ses-1" } },
-    ]);
+    expect(h.calls.events).toEqual([{ type: "session.idle", properties: { sessionID: "ses-1" } }]);
 
     await cleanup();
   });
@@ -487,7 +479,7 @@ describe("OpenCode v2 plugin adapter", () => {
     await h.drained;
     await Bun.sleep(0);
 
-    const idle = h.calls.legacyEvents.filter((event: any) => event.type === "session.idle");
+    const idle = h.calls.events.filter((event: any) => event.type === "session.idle");
     expect(idle).toEqual([
       { type: "session.idle", properties: { sessionID: "ses-1" } },
       { type: "session.idle", properties: { sessionID: "ses-2" } },

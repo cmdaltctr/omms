@@ -6,6 +6,7 @@ import { removeTestDir } from "./turso-test-utils.js";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createOpencodeFixture } from "./opencode-v2-fixture.js";
 
 setDefaultTimeout(30_000);
 const dirs: string[] = [];
@@ -322,4 +323,117 @@ it("applies session, project and max-sessions filters before model calls", async
   expect(limited.unitsTotal).toBe(3);
   expect(calls).toHaveLength(3);
   expect(calls).not.toContain("Second session");
+});
+
+it("counts a unit imported from the V1 tables as handled when the V2 tables give a new last answer id", async () => {
+  const data = fixture();
+  const { CONFIG } = await import("../src/config.js");
+  CONFIG.storagePath = join(data.root, "store");
+  CONFIG.embeddingDimensions = 4;
+  CONFIG.autoCaptureMaxContextBytes = 131072;
+  const { importOpencodeHistory } = await import("../src/importer/opencode-import.js");
+  const calls: string[] = [];
+  const provider = {
+    summarize: async ({ userPrompt }: { userPrompt: string }) => {
+      calls.push(userPrompt);
+      return { summary: `Imported ${userPrompt}`, type: "feature", tags: [] };
+    },
+  };
+  const first = await importOpencodeHistory({ dbPath: data.dbPath, provider, skipProfile: true });
+  expect(first.units.find((unit) => unit.userEntryId === "u1")?.key).toBe("opencode:s:u1:a1");
+  expect(first.unitsImported).toBeGreaterThan(0);
+  const { memoryClient } = await import("../src/services/client.js");
+  const { getTags } = await import("../src/services/tags.js");
+  const tag = getTags(data.project).project.tag;
+  const before = (await memoryClient.listMemories(tag, 50)).memories.length;
+  calls.length = 0;
+
+  // The same session and user message, now stored in the V2 tables with another last answer id.
+  const v2 = createOpencodeFixture({
+    root: data.root,
+    project: data.project,
+    fileName: "history-v2.db",
+  });
+  v2.v2Session("s", { at: 10 });
+  v2.v2Turn("s", "u1", "a1-in-v2", 11, "Fix importer", "Fixed it");
+  v2.close();
+
+  const second = await importOpencodeHistory({
+    dbPath: v2.path,
+    provider,
+    skipProfile: true,
+  });
+
+  expect(second.unitsAlreadyHandled).toBe(1);
+  expect(second.unitsImported).toBe(0);
+  expect(second.units.find((unit) => unit.userEntryId === "u1")?.status).toBe("already-handled");
+  expect(calls).toEqual([]);
+  expect((await memoryClient.listMemories(tag, 50)).memories).toHaveLength(before);
+});
+
+it("still matches a Pi unit by its exact key, so a different last entry id is new work", async () => {
+  const data = fixture();
+  const { CONFIG } = await import("../src/config.js");
+  CONFIG.storagePath = join(data.root, "store");
+  CONFIG.embeddingDimensions = 4;
+  const { ImportLedger } = await import("../src/importer/ledger.js");
+  const { importHistorySource } = await import("../src/importer/importer.js");
+  const { getTags } = await import("../src/services/tags.js");
+  const { extractScopeFromContainerTag } = await import("../src/services/memory-scope.js");
+  const hash = extractScopeFromContainerTag(getTags(data.project).project.tag).hash;
+  const ledger = new ImportLedger();
+  await ledger.begin({
+    key: "pi:s:u1:a1",
+    sessionId: "s",
+    sourceFile: "session.jsonl",
+    projectHash: hash,
+  });
+  await ledger.complete("pi:s:u1:a1", "mem-1");
+  const window = (lastEntryId: string) => ({
+    userEntryId: "u1",
+    userPrompt: "Fix importer",
+    textResponses: ["Fixed it"],
+    toolCalls: [],
+    sourceEntryIds: [lastEntryId],
+  });
+  const report = {
+    dryRun: true,
+    root: "",
+    sessionsDiscovered: 0,
+    sessionsLoaded: 0,
+    sessionsFilteredOut: 0,
+    sessionsUnrecognized: 0,
+    unresolvableSessions: [],
+    loadErrors: [],
+    unitsTotal: 0,
+    unitsImported: 0,
+    unitsWouldImport: 0,
+    unitsSkipped: 0,
+    unitsFailed: 0,
+    unitsAlreadyHandled: 0,
+    skipReasons: {},
+    projects: [],
+    units: [],
+  };
+  await importHistorySource(
+    [
+      {
+        sessionId: "s",
+        directory: data.project,
+        sourceFile: "session.jsonl",
+        units: [window("a1"), window("a2")],
+      },
+    ],
+    "pi",
+    { provider: { summarize: async () => ({ summary: "", type: "skip", tags: [] }) }, ledger },
+    { dryRun: true, skipSkills: true },
+    report
+  );
+
+  expect(report.units.map((unit) => [unit.key, unit.status])).toEqual([
+    ["pi:s:u1:a1", "already-handled"],
+    ["pi:s:u1:a2", "would-import"],
+  ]);
+  expect(report.unitsAlreadyHandled).toBe(1);
+  expect(report.unitsWouldImport).toBe(1);
 });

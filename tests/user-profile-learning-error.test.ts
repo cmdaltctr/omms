@@ -100,12 +100,12 @@ mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
 }));
 
 mock.module(${JSON.stringify(profileLlmClientUrl)}, () => ({
-  getOpenCodeClient: async () => ({}),
+  getOpencodeProfileHost: async () => ({}),
 }));
 
 try {
   const { performUserProfileLearning } = await import(${JSON.stringify(learningUrl)});
-  await performUserProfileLearning({}, "/workspace");
+  await performUserProfileLearning("/workspace");
   console.log(JSON.stringify({ error: null }));
 } catch (e) {
   console.log(JSON.stringify({ error: e?.message ?? String(e) }));

@@ -5,7 +5,7 @@ import { resolveSecretValue } from "../src/services/secret-resolver.js";
 const PORT = Number(process.env.PORT ?? 14747);
 const HOST = process.env.HOST ?? "127.0.0.1";
 
-// Mirrors how src/index.ts plumbs the opencode-mem config through to WebAuth:
+// Mirrors how the plugin plumbs the opencode-mem config through to WebAuth:
 // both values are optional in the config file, and `webServerAuthPassword`
 // accepts the same env:// / file:// shorthand as `memoryApiKey`.
 const password = resolveSecretValue(process.env.WEB_AUTH_PASSWORD);

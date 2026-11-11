@@ -85,10 +85,7 @@ On first start, if no config exists at all, the plugin creates a full commented 
   },
   "chatMessage": {
     "enabled": true,
-    "maxMemories": 3,
     "excludeCurrentSession": true,
-    "maxAgeDays": undefined,
-    "injectOn": "first", // OpenCode V1 only; V2, Pi and Claude Code search on every prompt
   },
 }
 ```
@@ -112,7 +109,7 @@ Open the Settings page in the login web app, in OpenCode, or with `om-memory-sys
 - On a legacy-only install, the first save copies the old config and its comments to `~/.config/omms/omms.jsonc`. OMMS reads the new file from then on. The old file stays unchanged.
 - The page rejects a save if the file changed since the page loaded it. Check the refreshed values, then save again.
 - The **Memory injection** section of the [Memory page](web-ui-memory.md#memory-injection) edits `openingContext`, `openingContextQuery`, `subagentMemory`, `compaction.enabled` and `compaction.memoryLimit`.
-- The **Memory** card edits the six [memory limits](#memory-limits) below, including the nested `chatMessage.maxMemories` leaf and `similarityThreshold`. Every row has a **Reset to default** action that removes the key from the global file so the value follows the default again.
+- The **Memory** card edits the five [memory limits](#memory-limits) below, including `similarityThreshold`. Every row has a **Reset to default** action that removes the key from the global file so the value follows the default again.
 
 ## Memory injection
 
@@ -148,7 +145,6 @@ OMMS adds memories to the model's context in four ways. Each way has its own set
 - The opening search uses the same relevance filter, result limit and size budget (`retrievalMaxTokens`) as the prompt recall. The prompt's own section is packed first. The opening section gets what is left.
 - A project with no matching memory adds nothing.
 - A resumed or compacted session gets the restore, not an opening section.
-- OpenCode V1 ignores these settings. It adds its recent-memory list to the first message (`chatMessage.maxMemories`, `chatMessage.maxAgeDays`).
 
 ### Subagent memory
 
@@ -188,7 +184,6 @@ Edit `~/.config/omms/omms.jsonc` directly, or use **Settings → Memory**. File 
 | Setting                      | Default                                        | Unit               | Accepted values          | Affects                                                                                                                |
 | ---------------------------- | ---------------------------------------------- | ------------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
 | `maxMemories`                | 10                                             | Results            | Positive safe integers   | Maximum memory search results. Manual searches can request fewer.                                                      |
-| `chatMessage.maxMemories`    | 3                                              | Memories           | Positive safe integers   | Recent memories at session start in OpenCode V1 only. OpenCode V2, Pi and Claude Code search each prompt.              |
 | `autoCaptureMaxContextBytes` | 131072                                         | UTF-8 bytes        | 16384–16777216 inclusive | Conversation input to the shared memory-summary pipeline.                                                              |
 | `userProfileMaxContextBytes` | 32768                                          | UTF-8 bytes        | 1024–16777216 inclusive  | OpenCode profile-learning input, including the truncation marker. Other hosts' profile input is outside this control.  |
 | `retrievalMaxTokens`         | 2000                                           | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text and formatting.                                      |
@@ -196,16 +191,14 @@ Edit `~/.config/omms/omms.jsonc` directly, or use **Settings → Memory**. File 
 
 All values except `similarityThreshold` must be integers; `similarityThreshold` accepts decimals from 0 to 1. Count limits accept up to `Number.MAX_SAFE_INTEGER` (9007199254740991). Missing values use defaults. Invalid types, fractions on integer settings, and values outside the ranges are refused.
 
+A memory's score is 60% content match and 40% tag match. A memory with no tags, and a memorisation, is scored by its content match alone ([TDR-079](tdr/079-untagged-memories-scored-below-the-search-threshold.md)).
+
 The threshold default follows the active embedding model: 0.5 for `qwen3-embedding:0.6b` and its aliases, 0.6 for every other embedder including the built-in one. The 0.5 value comes from tests with `qwen3-embedding:0.6b` only (Experiments 24 to 26); other embedders keep 0.6 until someone measures them. A value saved in the file always wins and is never rewritten: a file that still holds the old template's `"similarityThreshold": 0.6` keeps 0.6 until you remove the line or select **Reset to default** on the Memory page.
 
 ```jsonc
 {
   // Maximum search results.
   "maxMemories": 10,
-  "chatMessage": {
-    // Recent memories at session start in OpenCode V1 only.
-    "maxMemories": 3,
-  },
   // Memory-summary conversation input, in UTF-8 bytes.
   "autoCaptureMaxContextBytes": 131072,
   // OpenCode profile-learning input, in UTF-8 bytes.
@@ -218,15 +211,15 @@ The threshold default follows the active embedding model: 0.5 for `qwen3-embeddi
 }
 ```
 
-Keep `chatMessage.maxMemories` inside the `chatMessage` object. A literal dotted key does not configure that leaf.
+Project files at `<project>/.opencode/omms.jsonc` can override these limits. The merge is shallow: a project's `chatMessage` object replaces the global object, and missing keys use defaults.
 
-Project files at `<project>/.opencode/omms.jsonc` can override these limits. The existing merge is shallow: a project's `chatMessage` object replaces the global object, and missing siblings use defaults.
+OMMS ignores the removed keys `chatMessage.maxMemories`, `chatMessage.maxAgeDays` and `chatMessage.injectOn` in old config files. You can delete them. A project `chatMessage` object that holds only these keys still replaces the global one, so `chatMessage.enabled` then takes its default, `true`.
 
 ### Automatic context packing
 
 OMMS estimates tokens as `Math.ceil(utf8ByteLength(text) / 4)`. The final emitted memory text fits within `retrievalMaxTokens * 4` UTF-8 bytes. This includes headings, explanatory text, omission markers, delimiters, and retrieval wrappers. Host prompts are outside this allowance. A provider can count more or fewer tokens.
 
-- The allowance covers supported prompt retrieval, the opening context, subagent memory, OpenCode V1's recent-memory list, and memory restoration after compaction or resume.
+- The allowance covers supported prompt retrieval, the opening context, subagent memory, and memory restoration after compaction or resume.
 - Sections added in one host request share one allowance. Claude Code also keeps its existing 9500-character hook limit.
 - Profile text uses at most one quarter of the payload space after fixed formatting. Unused profile space goes to memories.
 - Memories keep their incoming order. OMMS shortens the first entry that exceeds the remaining space, marks it, and stops.
@@ -482,8 +475,8 @@ Host models use OpenCode's or Pi's own sign-in. The host handles the login, toke
 
 **Follow the session model:** `"inherit"`, or no setting at all, picks a concrete model at call time.
 
-- In OpenCode, **auto-capture** records each prompt's model through the `chat.params` hook and uses it again.
-- In OpenCode, **profile learning** and other structured-output paths are not tied to one user message. They use the most recent model in OpenCode's `model.json` recent list. They prefer `opencodeProvider` when it is set.
+- In OpenCode, **auto-capture** records each prompt's model in the `context` hook and uses it again.
+- In OpenCode, **profile learning** and other structured-output paths are not tied to one user message. They use the model of the latest model request the plugin saw. Before the first request, they use the most recent model in OpenCode's `model.json` recent list, preferring `opencodeProvider` when it is set. Headless OpenCode (`opencode run`, `opencode serve`, OpenChamber) writes no `model.json`. See [TDR-080](tdr/080-inherit-failed-without-opencode-model-json.md).
 - In Pi, `"inherit"` is the session's current model.
 
 **External API** (step 2, and the fallback when a host model fails):

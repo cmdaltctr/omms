@@ -59,6 +59,6 @@ export async function resolveOpencodeBackfillModels(
   if (!context.connected.includes(ref.providerID)) {
     throw new Error(`OpenCode backfill provider ${ref.providerID} is not connected`);
   }
-  const models = await (context.makeModels ?? createOpencodeImportModels)(ref, context.directory);
+  const models = await (context.makeModels ?? createOpencodeImportModels)(ref);
   return { model: `${ref.providerID}/${ref.modelID}`, models };
 }

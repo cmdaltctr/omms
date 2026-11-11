@@ -75,12 +75,8 @@ describe("config", () => {
     it("should have chatMessage settings", () => {
       expect(CONFIG.chatMessage).toBeDefined();
       expect(typeof CONFIG.chatMessage.enabled).toBe("boolean");
-      expect(typeof CONFIG.chatMessage.maxMemories).toBe("number");
       expect(typeof CONFIG.chatMessage.excludeCurrentSession).toBe("boolean");
-    });
-
-    it("should have chatMessage.injectOn as 'first' or 'always'", () => {
-      expect(["first", "always"]).toContain(CONFIG.chatMessage.injectOn);
+      expect(Object.keys(CONFIG.chatMessage).sort()).toEqual(["enabled", "excludeCurrentSession"]);
     });
 
     it("should have boolean toggle settings", () => {

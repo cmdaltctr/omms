@@ -2,25 +2,28 @@ import { describe, expect, it } from "bun:test";
 import { extractOpenCodeConversation } from "../src/adapters/opencode/conversation.js";
 
 describe("OpenCode conversation adapter", () => {
-  it("normalizes only the assistant/tool window for the target prompt", () => {
+  it("normalizes only the assistant/tool window for the target V2 prompt", () => {
     const result = extractOpenCodeConversation(
       [
-        { info: { id: "u-1", role: "user" }, parts: [{ type: "text", text: "first" }] },
+        { id: "u-1", type: "user", text: "first" },
         {
-          info: { id: "a-1", role: "assistant" },
-          parts: [
+          id: "a-1",
+          type: "assistant",
+          content: [
             { type: "text", text: "done" },
-            { type: "tool", tool: "read", state: { input: { path: "src/index.ts" } } },
+            { type: "tool", name: "read", state: { input: { path: "src/index.ts" } } },
           ],
         },
         {
-          info: { id: "a-2", role: "assistant" },
-          parts: [{ type: "text", text: "follow-up" }],
+          id: "a-2",
+          type: "assistant",
+          content: [{ type: "text", text: "follow-up" }],
         },
-        { info: { id: "u-2", role: "user" }, parts: [{ type: "text", text: "next" }] },
+        { id: "u-2", type: "user", text: "next" },
         {
-          info: { id: "a-3", role: "assistant" },
-          parts: [{ type: "text", text: "must not leak into the first window" }],
+          id: "a-3",
+          type: "assistant",
+          content: [{ type: "text", text: "must not leak into the first window" }],
         },
       ],
       "u-1"
@@ -41,10 +44,11 @@ describe("OpenCode conversation adapter", () => {
   it("keeps tool input bounded", () => {
     const result = extractOpenCodeConversation(
       [
-        { info: { id: "u", role: "user" }, parts: [] },
+        { id: "u", type: "user", text: "" },
         {
-          info: { id: "a", role: "assistant" },
-          parts: [{ type: "tool", tool: "bash", state: { input: "x".repeat(200) } }],
+          id: "a",
+          type: "assistant",
+          content: [{ type: "tool", name: "bash", state: { input: "x".repeat(200) } }],
         },
       ],
       "u"
@@ -57,17 +61,18 @@ describe("OpenCode conversation adapter", () => {
   it("sets each tool call's outcome from the part state", () => {
     const result = extractOpenCodeConversation(
       [
-        { info: { id: "u", role: "user" }, parts: [{ type: "text", text: "go" }] },
+        { id: "u", type: "user", text: "go" },
         {
-          info: { id: "a", role: "assistant" },
-          parts: [
-            { type: "tool", tool: "read", state: { status: "completed", input: { path: "a" } } },
+          id: "a",
+          type: "assistant",
+          content: [
+            { type: "tool", name: "read", state: { status: "completed", input: { path: "a" } } },
             {
               type: "tool",
-              tool: "bash",
+              name: "bash",
               state: { status: "error", input: { command: "false" }, error: "exit code 1" },
             },
-            { type: "tool", tool: "grep", state: { status: "running", input: { pattern: "x" } } },
+            { type: "tool", name: "grep", state: { status: "running", input: { pattern: "x" } } },
           ],
         },
       ],
@@ -86,13 +91,14 @@ describe("OpenCode conversation adapter", () => {
     expect(skillPath.length).toBe(150);
     const result = extractOpenCodeConversation(
       [
-        { info: { id: "u", role: "user" }, parts: [] },
+        { id: "u", type: "user", text: "" },
         {
-          info: { id: "a", role: "assistant" },
-          parts: [
+          id: "a",
+          type: "assistant",
+          content: [
             {
               type: "tool",
-              tool: "read",
+              name: "read",
               state: { status: "completed", input: { offset: 1, filePath: skillPath, limit: 50 } },
             },
           ],
@@ -109,11 +115,12 @@ describe("OpenCode conversation adapter", () => {
   it("bounds error text to 2,000 characters", () => {
     const result = extractOpenCodeConversation(
       [
-        { info: { id: "u", role: "user" }, parts: [] },
+        { id: "u", type: "user", text: "" },
         {
-          info: { id: "a", role: "assistant" },
-          parts: [
-            { type: "tool", tool: "bash", state: { status: "error", error: "e".repeat(5000) } },
+          id: "a",
+          type: "assistant",
+          content: [
+            { type: "tool", name: "bash", state: { status: "error", error: "e".repeat(5000) } },
           ],
         },
       ],

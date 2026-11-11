@@ -15,7 +15,8 @@ type ScenarioInput = {
 };
 
 const tempDirs: string[] = [];
-const indexUrl = new URL("../src/index.js", import.meta.url).href;
+const pluginUrl = new URL("../src/v2/plugin.js", import.meta.url).href;
+const fakeContextUrl = new URL("./fake-v2-context.ts", import.meta.url).href;
 const clientUrl = new URL("../src/services/client.js", import.meta.url).href;
 const userProfileManagerUrl = new URL(
   "../src/services/user-profile/user-profile-manager.js",
@@ -138,37 +139,32 @@ mock.module(${JSON.stringify(clientUrl)}, async () => ({
 }));
 
 globalThis[WARMUP_KEY] = true;
-const { OmmsPlugin } = await import(${JSON.stringify(indexUrl)});
-const plugin = await OmmsPlugin({
-  directory: tmpDir,
-  worktree: tmpDir,
-  project: { id: "test-project" },
-  serverUrl: new URL("http://localhost:4096"),
-  client: {
-    path: { get: async () => ({ data: { state: join(tmpDir, "state") } }) },
-    provider: { list: async () => ({ data: { connected: [] } }) },
-    tui: null,
-  },
-  $: () => {
-    throw new Error("not used in tests");
-  },
-});
+const { createFakeV2Context } = await import(${JSON.stringify(fakeContextUrl)});
+const plugin = (await import(${JSON.stringify(pluginUrl)})).default;
+const fake = createFakeV2Context({ directory: tmpDir });
+const cleanup = await plugin.setup(fake.ctx);
 
+// The V2 tool result is { content }, where content is the JSON text of the operation result.
 const writeResult = JSON.parse(
-  await plugin.tool.memory.execute(${JSON.stringify(input.args)}, {
-    sessionID: ${JSON.stringify(input.sessionID ?? "s1")},
-  })
+  (
+    await fake.runTool("memory", ${JSON.stringify(input.args)}, {
+      sessionID: ${JSON.stringify(input.sessionID ?? "s1")},
+    })
+  ).content
 );
 
 let readResult = null;
 if (${JSON.stringify(Boolean(input.readAfterWrite))}) {
   readResult = JSON.parse(
-    await plugin.tool.memory.execute({ mode: "profile" }, {
-      sessionID: ${JSON.stringify(input.sessionID ?? "s1")},
-    })
+    (
+      await fake.runTool("memory", { mode: "profile" }, {
+        sessionID: ${JSON.stringify(input.sessionID ?? "s1")},
+      })
+    ).content
   );
 }
 
+await cleanup();
 console.log(JSON.stringify({ writeResult, readResult }));
 `;
 
@@ -176,7 +172,14 @@ console.log(JSON.stringify({ writeResult, readResult }));
   const result = Bun.spawnSync({
     cmd: [process.execPath, scriptPath],
     cwd: dir,
-    env: { ...process.env, HOME: home, USERPROFILE: home },
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      OMMS_DISABLE_WEB_AUTOSTART: "1",
+      OMMS_DISABLE_AUTO_BACKFILL: "1",
+      OMMS_DISABLE_UPDATE_CHECK: "1",
+    },
     stdout: "pipe",
     stderr: "pipe",
   });

@@ -21,7 +21,6 @@ const url = (path: string) => new URL(path, import.meta.url).href;
 /** Builds the three injected sections in a fresh process, so module mocks do not leak. */
 function buildSections(): {
   prompt: string;
-  fresh: string;
   restored: string;
   cut: string;
   off: string;
@@ -71,7 +70,6 @@ mock.module(${JSON.stringify(url("../src/services/client.js"))}, () => ({
 
 const {
   buildRetrievalSection,
-  buildRecentMemoriesSection,
   formatMemoriesForCompaction,
   wrapRetrievalSection,
 } = await import(${JSON.stringify(url("../src/core/retrieval.js"))});
@@ -80,9 +78,6 @@ const { ROWS_OFF_MARKER, openingMarker, insertMarker } = await import(${JSON.str
 const { truncateContext } = await import(${JSON.stringify(url("../src/adapters/claude-code/hook-client.js"))});
 
 const prompt = wrapRetrievalSection(await buildRetrievalSection("how did we add the adapter", "/work", "ses-1"));
-const fresh = wrapRetrievalSection(
-  await buildRecentMemoriesSection({ projectTag: "omms_project_test", userEmail: null, sessionId: "ses-1", maxMemories: 3 })
-);
 const restored = wrapRetrievalSection(
   formatMemoriesForCompaction([
     { id: "mem_wal", memory: "Use WAL mode", tags: ["db"] },
@@ -100,7 +95,7 @@ const first = await buildFirstPromptSections({
 });
 const opening = insertMarker(first.openingSection, openingMarker("project setup"));
 const both = first.promptSection + "\\n" + opening;
-console.log(JSON.stringify({ prompt, fresh, restored, cut, off, restoredOff, opening, both }));
+console.log(JSON.stringify({ prompt, restored, cut, off, restoredOff, opening, both }));
 `
   );
   const proc = Bun.spawnSync(["bun", scriptPath], { stdout: "pipe", stderr: "pipe" });
@@ -117,13 +112,6 @@ describe("recall parser against real OMMS output", () => {
     expect(recalledIn(buildSections().prompt)).toEqual([
       { relevance: 67, id: "mem_alpha", text: "User asked to add a claude-adapter." },
       { relevance: 62, id: "mem_beta", text: "OMMS global embeddings use llama.cpp." },
-    ]);
-  });
-
-  it("reads a fresh-session section", async () => {
-    const { recalledIn } = await loadParser();
-    expect(recalledIn(buildSections().fresh)).toEqual([
-      { relevance: 100, id: "mem_recent", text: "Release 4.4 shipped." },
     ]);
   });
 
