@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [6.0.1](https://github.com/cmdaltctr/omms/compare/v6.0.0...v6.0.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* keep failed OpenCode units retryable when a profile row exists ([cc4db3c](https://github.com/cmdaltctr/omms/commit/cc4db3cb2c4f58d39a49b449e102fd89300c1e41))
+* keep failed OpenCode units retryable when a profile row exists ([e572765](https://github.com/cmdaltctr/omms/commit/e572765d7c0626a9b2a925bcee0fa69723d6ce91))
+
 ## [6.0.0](https://github.com/cmdaltctr/omms/compare/v5.10.1...v6.0.0) (2026-11-11)
 
 
