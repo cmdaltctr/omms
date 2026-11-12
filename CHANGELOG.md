@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [6.1.1](https://github.com/cmdaltctr/omms/compare/v6.1.0...v6.1.1) (2026-11-12)
+
+
+### Bug Fixes
+
+* keep the similarity threshold when memorisation recall is reranked ([d3d7a72](https://github.com/cmdaltctr/omms/commit/d3d7a724888840d449636117ed76b188d8052f01))
+* keep the similarity threshold when memorisation recall is reranked ([acec30d](https://github.com/cmdaltctr/omms/commit/acec30d70a23ca19220b9e1e9952c3d0eac6a88e))
+
 ## [6.1.0](https://github.com/cmdaltctr/omms/compare/v6.0.2...v6.1.0) (2026-11-12)
 
 
