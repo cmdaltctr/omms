@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-07
 - **Status:** Accepted
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Change:** [`pi-opencode-auto-update`](../../openspec/changes/archive/2026-11-07-pi-opencode-auto-update/proposal.md), [`host-update-verify-and-prune`](../../openspec/changes/archive/2026-11-08-host-update-verify-and-prune/proposal.md)
 
 ## Context

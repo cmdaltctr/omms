@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-11
 - **Status:** Proposed
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Change:** [`drop-opencode-v1`](../../openspec/changes/drop-opencode-v1/proposal.md)
 
 ## Context

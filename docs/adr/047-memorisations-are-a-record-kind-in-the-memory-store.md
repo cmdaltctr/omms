@@ -3,7 +3,7 @@
 - **Date:** 2026-11-10
 - **Status:** Proposed
 - **Superseded in part by:** [ADR-049](./049-memorisations-belong-to-the-space.md), which makes every memorisation read cover the whole active space (replaces decisions 5 and 12)
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Change:** [`add-memorisation`](../../openspec/changes/add-memorisation/proposal.md)
 
 ## Context

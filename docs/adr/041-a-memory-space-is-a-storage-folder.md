@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-06
 - **Status:** Proposed
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Change:** [`add-memory-spaces`](../../openspec/changes/archive/2026-11-06-add-memory-spaces/proposal.md)
 
 ## Context

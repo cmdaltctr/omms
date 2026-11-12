@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-16
 - **Status:** Accepted
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 
 ## Context
 

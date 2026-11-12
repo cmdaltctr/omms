@@ -1,7 +1,7 @@
 # ADR-049: Memorisations belong to the space
 
 - **Date:** 2026-11-12
-- **Status:** Proposed
+- **Status:** Accepted
 - **Deciders:** OMMS maintainer
 - **Change:** [`memorisation-space-scope`](../../openspec/changes/archive/2026-11-12-memorisation-space-scope/proposal.md)
 

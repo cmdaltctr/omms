@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-03
 - **Status:** Proposed
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Change:** [`align-recall-host-parity`](../../openspec/changes/archive/2026-11-03-align-recall-host-parity/proposal.md)
 
 ## Context

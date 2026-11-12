@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-18
 - **Status:** Accepted
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Change:** `hook-search-keywords-and-profile` (archived: `openspec/changes/archive/2026-10-18-hook-search-keywords-and-profile/`)
 
 ## Context

@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-06
 - **Status:** Proposed
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Change:** [`memory-space-transfer`](../../openspec/changes/memory-space-transfer/proposal.md)
 
 ## Context

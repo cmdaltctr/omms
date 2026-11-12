@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-03
 - **Status:** Accepted
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Change:** [`add-opencode-v2-visible-recall`](../../openspec/changes/archive/2026-11-03-add-opencode-v2-visible-recall/proposal.md)
 
 ## Context

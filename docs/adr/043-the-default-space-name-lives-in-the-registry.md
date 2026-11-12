@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-07
 - **Status:** Proposed
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Change:** [`rename-default-space`](../../openspec/changes/archive/2026-11-07-rename-default-space/proposal.md)
 
 ## Context
