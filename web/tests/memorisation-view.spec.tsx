@@ -460,7 +460,7 @@ it("saves the rerank switch through the settings route and keeps it on after a r
   expect(box.props.checked).toBe(false);
   expect(box.props.disabled).toBeFalsy();
   expect(allText(tree)).toContain("Rerank text recall (experimental)");
-  box.props.onChange({ target: { checked: true } });
+  box.props.onCheckedChange(true);
   tree = await settle(page, own);
   expect(changes()).toEqual([
     {
@@ -480,7 +480,7 @@ it("returns the rerank switch to its earlier position and shows the server's rea
   rerankReadySettings();
   rerankSaveFails = "Invalid memorisationRerank setting";
   let tree = await settle(page, own);
-  rerankSwitch(tree).props.onChange({ target: { checked: true } });
+  rerankSwitch(tree).props.onCheckedChange(true);
   tree = await settle(page, own);
   expect(rerankSwitch(tree).props.checked).toBe(false);
   expect(allText(tree)).toContain("Invalid memorisationRerank setting");
@@ -764,6 +764,9 @@ it("lets a pill in the recall results add its label to the list filter", async (
 
 // ---- Select mode and bulk delete ----
 
+/** The row checkboxes of select mode; the rerank switch in the settings card is not one. */
+const rowBoxes = (tree: Node[]) =>
+  byType(tree, Checkbox).filter((node) => node.props.id !== "memorisation-rerank");
 const checkboxOf = (tree: Node[], id: string) =>
   tree.find((node) => node.type === Checkbox && node.props["aria-label"] === `Select ${id}`)!;
 const dialogOf = (tree: Node[]) => tree.slice(tree.findIndex((node) => node.type === DialogTitle));
@@ -775,11 +778,11 @@ const startSelecting = async () => {
 
 it("shows no checkboxes until Select is pressed, then one on each card", async () => {
   let tree = await settle(page, own);
-  expect(byType(tree, Checkbox)).toHaveLength(0);
+  expect(rowBoxes(tree)).toHaveLength(0);
   expect(allText(tree)).not.toContain("Delete selected");
   buttonOf(tree, "Select").props.onClick();
   tree = await settle(page, own);
-  expect(byType(tree, Checkbox)).toHaveLength(2);
+  expect(rowBoxes(tree)).toHaveLength(2);
   expect(allText(tree)).toContain("0 selected");
   expect(buttonOf(tree, "Delete selected").props.disabled).toBe(true);
   expect(buttonOf(tree, "Select all")).toBeDefined();
@@ -852,7 +855,7 @@ it("bulk-deletes the ticked ids, reports the result, refreshes and leaves select
   expect(byType(tree, DialogTitle)).toHaveLength(0);
   expect(listCalls().length).toBeGreaterThan(gets);
   expect(allText(tree)).toContain("No memorisations yet");
-  expect(byType(tree, Checkbox)).toHaveLength(0);
+  expect(rowBoxes(tree)).toHaveLength(0);
 });
 
 it("names each skipped id with its reason", async () => {
@@ -905,7 +908,7 @@ it("Cancel leaves select mode and drops the ticks", async () => {
   tree = await settle(page, own);
   buttonOf(tree, "Cancel").props.onClick();
   tree = await settle(page, own);
-  expect(byType(tree, Checkbox)).toHaveLength(0);
+  expect(rowBoxes(tree)).toHaveLength(0);
   expect(changes()).toEqual([]);
   buttonOf(tree, "Select").props.onClick();
   tree = await settle(page, own);

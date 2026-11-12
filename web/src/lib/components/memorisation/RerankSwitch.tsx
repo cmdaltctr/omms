@@ -1,3 +1,4 @@
+import { Checkbox } from "$lib/components/ui/checkbox";
 import { Label } from "$lib/components/ui/label";
 import { Tooltip } from "$lib/components/ui/tooltip";
 import { useI18n } from "$lib/i18n";
@@ -22,14 +23,13 @@ export function RerankSwitch({
   const reason = t("memorisation-rerank-disabled");
   // A disabled checkbox cannot take focus, so the wrapper span stands in for it.
   const box = (
-    <input
+    <Checkbox
       id="memorisation-rerank"
-      type="checkbox"
       role="switch"
       checked={value}
       disabled={busy || !ready}
       aria-describedby={ready ? "memorisation-rerank-help" : "memorisation-rerank-reason"}
-      onChange={(event) => onChange(event.target.checked)}
+      onCheckedChange={(checked) => onChange(checked === true)}
     />
   );
   return (
