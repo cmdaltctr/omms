@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-07
 - **Status:** Proposed
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Change:** [`space-folder-ids`](../../openspec/changes/archive/space-folder-ids/proposal.md)
 
 ## Context

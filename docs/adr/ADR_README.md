@@ -52,4 +52,4 @@ Local decision records for OMMS maintainers.
 | [046](./046-the-web-app-updates-itself.md)                                  | The web app updates itself                                                      | 2026-11-08 | Accepted           |
 | [047](./047-memorisations-are-a-record-kind-in-the-memory-store.md)         | Memorisations are a record kind in the memory store                             | 2026-11-10 | Proposed           |
 | [048](./048-omms-supports-opencode-v2-only.md)                              | OMMS supports OpenCode V2 only                                                  | 2026-11-11 | Proposed           |
-| [049](./049-memorisations-belong-to-the-space.md)                           | Memorisations belong to the space                                               | 2026-11-12 | Proposed           |
+| [049](./049-memorisations-belong-to-the-space.md)                           | Memorisations belong to the space                                               | 2026-11-12 | Accepted           |

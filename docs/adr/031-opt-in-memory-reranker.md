@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-17
 - **Status:** Accepted
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Evidence:** [Experiment 24](../../experiments/24-retrieval-memory-reranker-2026-10-17/report.md), [Experiment 25](../../experiments/25-retrieval-threshold-sweep-2026-10-17/report.md), [Experiment 26](../../experiments/26-retrieval-threshold-fresh-prompts-2026-10-17/report.md)
 
 ## Context

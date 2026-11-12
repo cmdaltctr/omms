@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-30
 - **Status:** Accepted. Decision 4 amended by ADR-038.
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Change:** [`skill-learning`](../../openspec/changes/archive/2026-10-31-skill-learning/proposal.md)
 
 ## Context

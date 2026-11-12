@@ -3,7 +3,7 @@
 - **Date:** 2026-10-17
 - **Status:** Accepted
 - **Supersedes in part:** [ADR-029](029-ai-cleanup-runs-as-a-batched-job.md), decision 5
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 
 ## Context
 

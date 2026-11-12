@@ -2,7 +2,7 @@
 
 - **Date:** 2026-10-18
 - **Status:** Accepted
-- **Deciders:** Aizat Hawari
+- **Deciders:** OMMS maintainer
 - **Change:** [`memory-chat`](../../openspec/changes/archive/2026-10-18-memory-chat/proposal.md)
 
 ## Context
