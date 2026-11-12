@@ -64,9 +64,23 @@ The card SHALL offer **Block providers that may train on or store data** (`data_
 - **WHEN** Zero data retention only is on
 - **THEN** providers labelled May keep or train on data SHALL be shown disabled, with the reason
 
+### Requirement: A provider slug typed by hand may name an endpoint
+
+The manual provider field SHALL accept a provider slug followed by up to two `/` parts that name an endpoint or region, for example `google-vertex/us-east5`.
+
+#### Scenario: Region slug typed by hand
+
+- **WHEN** the user adds `google-vertex/us-east5` by hand and saves
+- **THEN** the saved `order` SHALL contain `google-vertex/us-east5`
+
 ### Requirement: The routing choice is saved to memoryExtraParams.provider
 
-The web app SHALL save the card's routing choice as `memoryExtraParams.provider` in the global config. It SHALL keep every other `memoryExtraParams` member and every `provider` field the card does not manage. It SHALL remove `provider` when the user clears every choice.
+The web app SHALL save the card's routing choice as `memoryExtraParams.provider` in the global config. It SHALL keep every other `memoryExtraParams` member and every `provider` field the card does not manage. It SHALL remove `provider` when the user clears every choice. The routing choice SHALL be global, like the endpoint and the key: a project config that sets `memoryExtraParams` SHALL NOT replace the global `memoryExtraParams.provider`.
+
+#### Scenario: A project config sets memoryExtraParams
+
+- **WHEN** the global config holds `memoryExtraParams.provider` and a project config sets `memoryExtraParams` to `{ "thinking": { "type": "adaptive" } }`
+- **THEN** memory-model calls in that project SHALL send the global `provider` object and the project `thinking` member
 
 #### Scenario: Restricting to chosen providers
 
