@@ -136,6 +136,8 @@ describe("memorisation maintenance", () => {
         processed: 1,
         total: 1,
         hasMore: false,
+        tagged: 1,
+        failed: 0,
       });
       const rows = await db.all("SELECT id, tags FROM memories ORDER BY id");
       expect(rows.map((row) => [row.id, row.tags])).toEqual([

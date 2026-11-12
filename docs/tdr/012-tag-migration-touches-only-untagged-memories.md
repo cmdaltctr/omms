@@ -28,6 +28,10 @@ The run builds its work list once, when it starts, from `SELECT id FROM memories
 
 - A memory whose model call fails stays untagged, so the dialog reappears until a run succeeds.
 
+### Update 2026-11-12: failures are reported, not hidden
+
+A run whose every model call failed with `402 Insufficient Balance` still showed "Migration completed successfully". The dialog then cleared its "closed" note, so it opened again on every page load. Each batch reply now carries `tagged`, `failed`, `errorKind` and the first error with the API key removed. A no-credit or rejected-key error ends the run at once, because every other memory would fail the same way. The dialog shows the reason, keeps itself open with **Try again**, and never reports a run with failures as a success.
+
 ### Neutral
 
 - Migration state is still held in the web server's memory; restarting the server restarts the run.
@@ -51,5 +55,7 @@ The run builds its work list once, when it starts, from `SELECT id FROM memories
 
 ## References
 
-- `src/services/api-handlers.ts` (`handleDetectTagMigration`, `handleRunTagMigrationBatch`)
+- `src/services/tag-migration.ts` (`handleDetectTagMigration`, `runTagMigrationBatch`)
+- `src/services/ai/provider-error-kind.ts`
+- `web/src/lib/tag-migration-result.ts`, `web/src/lib/components/explorer/TagMigrationDialog.tsx`
 - `tests/tag-migration.test.ts`
