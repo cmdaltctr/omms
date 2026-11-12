@@ -11,6 +11,7 @@ await import("../src/services/user-prompt/user-prompt-manager.js");
 await import("../src/services/user-profile/user-profile-manager.js");
 await import("../src/services/ai/session/ai-session-manager.js");
 await import("../src/services/spaces/read-store-cache.js");
+await import("../src/services/tag-migration.js");
 
 const srcRoot = join(import.meta.dir, "../src");
 
@@ -44,6 +45,7 @@ describe("memory space store reset coverage", () => {
         "connections",
         "shards",
         "space-read-stores",
+        "tag-migration",
         "turso-ready",
         "user-profiles",
         "user-prompts",

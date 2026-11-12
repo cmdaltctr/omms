@@ -11,6 +11,8 @@ const { OpenAIChatCompletionProvider } =
 const { AnthropicMessagesProvider } =
   await import("../src/services/ai/providers/anthropic-messages.js");
 const { GoogleGeminiProvider } = await import("../src/services/ai/providers/google-gemini.js");
+const { OpenAIResponsesProvider } =
+  await import("../src/services/ai/providers/openai-responses.js");
 
 // Stands in for conversation content that a reply can echo back.
 const secret = "conversation-secret-sk-proj-abcdefghijklmnop";
@@ -153,4 +155,46 @@ describe("providers never log model reply text", () => {
     expect(result.success).toBe(false);
     expectNoReplyText(result);
   });
+});
+
+describe("providers never log or return the API key from an error reply", () => {
+  const originalFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    logged.length = 0;
+  });
+
+  const apiKey = "sk-echoed-key-0123456789";
+  const keyConfig = { ...config, apiKey };
+  const providers = [
+    [
+      "OpenAI chat",
+      () => new OpenAIChatCompletionProvider(keyConfig, new FakeSessionManager() as any),
+    ],
+    [
+      "OpenAI responses",
+      () => new OpenAIResponsesProvider(keyConfig, new FakeSessionManager() as any),
+    ],
+    ["Anthropic", () => new AnthropicMessagesProvider(keyConfig, new FakeSessionManager() as any)],
+    ["Gemini", () => new GoogleGeminiProvider(keyConfig, new FakeSessionManager() as any)],
+  ] as const;
+
+  for (const [name, make] of providers) {
+    it(`${name}: a 402 reply that echoes the key`, async () => {
+      globalThis.fetch = (async () =>
+        ({
+          ok: false,
+          status: 402,
+          statusText: "Payment Required",
+          headers: new Headers(),
+          text: async () => `{"error":"Insufficient Balance for ${apiKey}"}`,
+        }) as Response) as unknown as typeof fetch;
+      const result = await make().executeToolCall("s", "u", toolSchema, "id");
+      expect(result.success).toBe(false);
+      expect(logged.length).toBeGreaterThan(0);
+      expect(JSON.stringify(logged)).not.toContain(apiKey);
+      expect(result.error ?? "").not.toContain(apiKey);
+      expect(result.error ?? "").toContain("Insufficient Balance");
+    });
+  }
 });

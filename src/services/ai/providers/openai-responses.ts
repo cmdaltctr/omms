@@ -3,6 +3,7 @@ import {
   type ToolCallResult,
   applySafeExtraParams,
   isTransportError,
+  redactApiKey,
 } from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
 import { ToolSchemaConverter, type ChatCompletionTool } from "../tools/tool-schema.js";
@@ -108,7 +109,8 @@ export class OpenAIResponsesProvider extends BaseAIProvider {
         clearTimeout(timeout);
 
         if (!response.ok) {
-          const errorText = await response.text().catch(() => response.statusText);
+          const rawError = await response.text().catch(() => response.statusText);
+          const errorText = redactApiKey(rawError, this.config.apiKey);
           log(
             "OpenAI Responses API error",
             {

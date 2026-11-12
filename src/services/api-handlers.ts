@@ -15,7 +15,7 @@ import { saveProfile } from "./user-profile/merge-and-save.js";
 import { sortProfileItems, stripProfileVectors } from "../utils/profile.js";
 import { resolveWebProfileUserId } from "./profile-identity.js";
 import type { ShardInfo } from "./turso/types.js";
-import { UNTAGGED_NORMAL_PREDICATE } from "./memory-kind.js";
+import { runTagMigrationBatch } from "./tag-migration.js";
 import {
   loadMemoryRows,
   memorisationIdsAmong,
@@ -1186,144 +1186,9 @@ export async function handleUpdateProfileItem(body?: any): Promise<ApiResponse<a
   }
 }
 
-export async function handleDetectTagMigration(): Promise<
-  ApiResponse<{ needsMigration: boolean; count: number }>
-> {
-  try {
-    await ensureTursoReady();
-    let untaggedCount = 0;
-    for (const shard of await tursoShardManager.getAllShards("project", "")) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const row = await db.get(
-        `SELECT COUNT(*) as count FROM memories WHERE ${UNTAGGED_NORMAL_PREDICATE}`
-      );
-      untaggedCount += Number(row?.count ?? 0);
-    }
-    return { success: true, data: { needsMigration: untaggedCount > 0, count: untaggedCount } };
-  } catch (error) {
-    return { success: false, error: String(error) };
-  }
-}
+export { handleDetectTagMigration, handleGetTagMigrationProgress } from "./tag-migration.js";
 
-interface MigrationProgress {
-  processed: number;
-  total: number;
-  currentBatch: number;
-  totalBatches: number;
-  isComplete: boolean;
-  errors: string[];
-}
-
-const idleMigration = (): MigrationProgress => ({
-  processed: 0,
-  total: 0,
-  currentBatch: 0,
-  totalBatches: 0,
-  isComplete: true,
-  errors: [],
-});
-
-let migrationProgress: MigrationProgress = idleMigration();
-/** The untagged memories this migration run covers, fixed when the run starts. */
-let migrationQueue: Array<{ id: string; dbPath: string }> = [];
-
-export async function handleGetTagMigrationProgress(): Promise<ApiResponse<MigrationProgress>> {
-  return { success: true, data: migrationProgress };
-}
-
-/**
- * Tag the memories that have no tags, a few per request. Only untagged
- * memories are touched: tagged ones keep their vectors. A memory that fails
- * is recorded and passed over, so one bad row cannot stall the run.
- */
-export async function handleRunTagMigrationBatch(
-  batchSize: number = 5
-): Promise<ApiResponse<{ processed: number; total: number; hasMore: boolean }>> {
-  try {
-    await ensureTursoReady();
-    const { AIProviderFactory } = await import("./ai/ai-provider-factory.js");
-    const { buildMemoryProviderConfig } = await import("./ai/provider-config.js");
-    const providerConfig = buildMemoryProviderConfig(CONFIG, {
-      maxIterations: 1,
-      iterationTimeout: 30000,
-    });
-    const provider = AIProviderFactory.createProvider(CONFIG.memoryProvider, providerConfig);
-
-    if (migrationProgress.isComplete) {
-      migrationQueue = [];
-      for (const shard of await tursoShardManager.getAllShards("project", "")) {
-        const db = await tursoConnectionManager.getConnection(shard.dbPath);
-        const rows = await db.all(
-          `SELECT id FROM memories WHERE ${UNTAGGED_NORMAL_PREDICATE} ORDER BY id`
-        );
-        for (const row of rows) migrationQueue.push({ id: String(row.id), dbPath: shard.dbPath });
-      }
-      migrationProgress = {
-        ...idleMigration(),
-        total: migrationQueue.length,
-        totalBatches: Math.ceil(migrationQueue.length / batchSize),
-        isComplete: migrationQueue.length === 0,
-      };
-    }
-
-    const batch = migrationQueue.slice(
-      migrationProgress.processed,
-      migrationProgress.processed + batchSize
-    );
-    for (const item of batch) {
-      try {
-        const db = await tursoConnectionManager.getConnection(item.dbPath);
-        const m: any = await db.get("SELECT * FROM memories WHERE id = ?", [item.id]);
-        // Tagged or deleted since the run started: nothing to do.
-        if (!m || (m.tags && String(m.tags).trim())) continue;
-        const prompt = `Generate 2-4 short technical tags for this memory content:\n\n${m.content}\n\nReturn ONLY a comma-separated list of tags.`;
-        const result = await provider.executeToolCall(
-          "You are a technical tagger.",
-          prompt,
-          {
-            type: "function",
-            function: {
-              name: "save_tags",
-              description: "Save generated tags",
-              parameters: {
-                type: "object",
-                properties: { tags: { type: "array", items: { type: "string" } } },
-                required: ["tags"],
-              },
-            },
-          },
-          `migration_${m.id}`
-        );
-        const tags: string[] = Array.isArray(result.data?.tags)
-          ? result.data.tags.map((t: unknown) => String(t).trim().toLowerCase()).filter(Boolean)
-          : [];
-        if (!result.success || tags.length === 0) {
-          throw new Error(result.error ?? "The model returned no tags");
-        }
-        const vector = await embeddingService.embedWithTimeout(m.content, { task: "document" });
-        const tagsVector = await embeddingService.embedWithTimeout(formatTagsForEmbedding(tags), {
-          task: "document",
-        });
-        // One statement, so a memory never ends up tagged with stale vectors.
-        await tursoVectorSearch.updateVector(db, m.id, vector, tagsVector, tags.join(","));
-      } catch (e) {
-        const errorMsg = String(e);
-        migrationProgress.errors.push(errorMsg);
-        log("Migration error for memory", { id: item.id, error: errorMsg }, "error");
-      } finally {
-        migrationProgress.processed++;
-      }
-    }
-
-    migrationProgress.currentBatch++;
-    const hasMore = migrationProgress.processed < migrationProgress.total;
-    if (!hasMore) migrationProgress.isComplete = true;
-
-    return {
-      success: true,
-      data: { processed: migrationProgress.processed, total: migrationProgress.total, hasMore },
-    };
-  } catch (error) {
-    return { success: false, error: String(error) };
-  }
+/** Tags untagged memories with the memory model. The work lives in tag-migration.ts. */
+export async function handleRunTagMigrationBatch(batchSize: number = 5) {
+  return runTagMigrationBatch(CONFIG, batchSize);
 }

@@ -158,7 +158,7 @@ const ALLOWED: AllowedReader[] = [
     why: "Delete by ID inside the update transaction. handleUpdateMemory refuses memorisations before it gets here.",
   },
   {
-    file: "src/services/api-handlers.ts",
+    file: "src/services/tag-migration.ts",
     sql: "SELECT * FROM memories WHERE id = ?",
     why: "By-ID read for the tag backfill. The queue holds only IDs from the filtered untagged query.",
   },

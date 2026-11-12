@@ -450,3 +450,15 @@ A re-embed migrates each memory store file safely:
 3. Only then does it replace the original file.
 
 A failed migration leaves the original file unchanged.
+
+## Memory tagging
+
+The **Memory Tagging Migration** dialog opens when some memories have no tags. **Start Migration** sends each untagged memory to your memory model (Settings > **External API**) and asks it for tags. Each memory is one call to that API, so the run can use paid credit. The dialog says this before you start.
+
+If the run tags every memory, the dialog says so and closes. If any memory fails, the dialog stays open and shows the reason in red:
+
+- **No credit:** the model's account is empty (for example a `402 Insufficient Balance` reply). The run stops at the first such reply. Top up the account, or choose another model, then select **Try again**.
+- **API key not accepted:** the model rejected the key (`401` or `403`). The run stops at once. Fix the key in Settings > **External API**, then select **Try again**.
+- **Other failures:** the dialog shows how many memories failed and the model's reply. The rest of the run continues.
+
+The dialog shows the model's reply with the API key removed. If you close the dialog, it stays closed until more untagged memories appear.
