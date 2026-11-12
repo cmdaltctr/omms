@@ -11,6 +11,7 @@ import { ensureTursoReady } from "./turso/ready.js";
 import { formatTagsForEmbedding } from "./turso/vector-utils.js";
 import { UNTAGGED_NORMAL_PREDICATE } from "./memory-kind.js";
 import { log } from "./logger.js";
+import { resettable } from "./spaces/store-handles.js";
 import { providerErrorKind, type ProviderErrorKind } from "./ai/provider-error-kind.js";
 import type { buildMemoryProviderConfig } from "./ai/provider-config.js";
 import type { AIProviderType } from "./ai/session/session-types.js";
@@ -25,7 +26,10 @@ export type TagMigrationConfig = Parameters<typeof buildMemoryProviderConfig>[0]
   memoryProvider: AIProviderType;
 };
 
-/** One batch's answer. `error` and `errorKind` describe the first failure of the run. */
+/**
+ * One batch's answer. `error` and `errorKind` describe the failure that stopped the run,
+ * or else the first failure of the run.
+ */
 export interface TagMigrationBatch {
   processed: number;
   total: number;
@@ -60,6 +64,17 @@ const idleMigration = (): MigrationProgress => ({
 let migrationProgress: MigrationProgress = idleMigration();
 /** The untagged memories this migration run covers, fixed when the run starts. */
 let migrationQueue: Array<{ id: string; dbPath: string }> = [];
+/** Goes up on a memory space switch, so a batch still running for the old space stops. */
+let spaceGeneration = 0;
+/** The batch now running. Batches run one at a time, so two never take the same memories. */
+let batchInFlight: Promise<unknown> = Promise.resolve();
+
+// The queue holds paths in the active space, so a space switch drops the run.
+// The next batch then builds a new queue for the new space.
+resettable("tag-migration", null, () => {
+  spaceGeneration++;
+  migrationProgress = idleMigration();
+});
 
 /** The longest error text sent to the page. */
 const ERROR_TEXT_LIMIT = 300;
@@ -90,7 +105,7 @@ export async function handleGetTagMigrationProgress(): Promise<ApiResponse<Migra
 /** The error as the page may show it: short, and with the API key removed. */
 function pageErrorText(error: unknown, apiKey: string | undefined): string {
   let text = error instanceof Error ? error.message : String(error);
-  if (apiKey && apiKey.length >= 8) text = text.split(apiKey).join("[redacted]");
+  if (apiKey) text = text.split(apiKey).join("[redacted]");
   return text.length > ERROR_TEXT_LIMIT ? `${text.slice(0, ERROR_TEXT_LIMIT)}…` : text;
 }
 
@@ -101,10 +116,20 @@ function pageErrorText(error: unknown, apiKey: string | undefined): string {
  * that fails every memory the same way (no credit, a rejected key) ends the
  * run at once, so a later run starts over with every untagged memory.
  */
-export async function runTagMigrationBatch(
+export function runTagMigrationBatch(
   config: TagMigrationConfig,
   batchSize: number = 5
 ): Promise<ApiResponse<TagMigrationBatch>> {
+  const run = batchInFlight.then(() => runOneBatch(config, batchSize));
+  batchInFlight = run.catch(() => undefined);
+  return run;
+}
+
+async function runOneBatch(
+  config: TagMigrationConfig,
+  batchSize: number
+): Promise<ApiResponse<TagMigrationBatch>> {
+  const generation = spaceGeneration;
   try {
     await ensureTursoReady();
     const { AIProviderFactory } = await import("./ai/ai-provider-factory.js");
@@ -138,6 +163,9 @@ export async function runTagMigrationBatch(
     );
     let stopped = false;
     for (const item of batch) {
+      if (generation !== spaceGeneration) {
+        return { success: false, error: "The memory space changed during tagging" };
+      }
       try {
         const db = await tursoConnectionManager.getConnection(item.dbPath);
         const m: any = await db.get("SELECT * FROM memories WHERE id = ?", [item.id]);
@@ -177,10 +205,16 @@ export async function runTagMigrationBatch(
       } catch (e) {
         const errorMsg = pageErrorText(e, config.memoryApiKey);
         const kind = providerErrorKind(errorMsg);
-        migrationProgress.errors.push(errorMsg);
-        migrationProgress.errorKind ??= kind;
-        log("Migration error for memory", { id: item.id, error: String(e), kind }, "error");
-        if (kind !== "other") stopped = true;
+        log("Migration error for memory", { id: item.id, error: errorMsg, kind }, "error");
+        if (kind === "other") {
+          migrationProgress.errors.push(errorMsg);
+          migrationProgress.errorKind ??= kind;
+        } else {
+          // This error ends the run, so it is the one the page reports.
+          migrationProgress.errors.unshift(errorMsg);
+          migrationProgress.errorKind = kind;
+          stopped = true;
+        }
       } finally {
         migrationProgress.processed++;
       }
