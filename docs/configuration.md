@@ -247,7 +247,7 @@ are global-only. A project config cannot change them.
 - `add` keeps every snapshot, each with its own ID. `replace` deletes the earlier snapshot of the same host session and keeps its ID, so an ID that you quoted still works.
 - `replace` applies to session snapshots only. A note saved with `content` is always added.
 - If the host gives no session ID, `replace` adds the snapshot and the reply says it could not replace.
-- `memorisationRerank` is experimental. It reranks text recall only, and only when the reranker server URL and model from the [Reranker](#reranker) settings are set. The general `rerankerEnabled` switch does not change memorisation recall. Each match keeps its confidence score, and recall without text (by ID or labels) never calls the reranker.
+- `memorisationRerank` is experimental. It reranks text recall only, and only when the reranker server URL and model from the [Reranker](#reranker) settings are set. The general `rerankerEnabled` switch does not change memorisation recall. Each match keeps its confidence score, matches below `similarityThreshold` are still left out, and recall without text (by ID or labels) never calls the reranker.
 
 ```jsonc
 {

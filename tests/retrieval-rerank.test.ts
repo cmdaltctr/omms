@@ -80,6 +80,30 @@ describe("rerankedSearch", () => {
     expect(result.results.map((r) => r.id)).toEqual(["mem_low", "mem_high"]);
   });
 
+  it("drops reranked candidates below the threshold when thresholdAfterRerank is set", async () => {
+    const low = candidate("mem_low", 0.42);
+    const mid = candidate("mem_mid", 0.6);
+    const high = candidate("mem_high", 0.75);
+    const { search } = searchSpy([high, mid, low]);
+    const result = await rerankedSearch(
+      {
+        shards: [],
+        queryVector: new Float32Array([1]),
+        containerTag: "omms_project_0123456789abcdef",
+        queryText: "the query",
+        maxMemories: 1,
+        similarityThreshold: 0.5,
+        thresholdAfterRerank: true,
+      },
+      SETTINGS,
+      // The reranker puts the 0.42 memory first, then 0.6, then 0.75.
+      { search, fetchImpl: fakeFetchWithScores([0.1, 0.5, 0.9]) }
+    );
+    expect(result.reranked).toBe(true);
+    // The 0.42 memory is dropped before the limit, so the one place goes to 0.6.
+    expect(result.results.map((r) => r.id)).toEqual(["mem_mid"]);
+  });
+
   it("keeps only maxMemories reranked results", async () => {
     const candidates = Array.from({ length: 50 }, (_, i) =>
       candidate(`mem_${String(i).padStart(2, "0")}`, 0.9 - i * 0.01)

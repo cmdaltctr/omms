@@ -37,6 +37,8 @@ export interface MemoryReadOptions {
   limit?: number;
   /** Search only: rerank this read whatever the general `rerankerEnabled` switch says. */
   reranker?: boolean;
+  /** Search only: with the reranker on, still drop hits below `similarityThreshold`. */
+  thresholdAfterRerank?: boolean;
 }
 
 /** The settings a linked search needs; the caller snapshots them from CONFIG. */

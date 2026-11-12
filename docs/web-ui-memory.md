@@ -486,7 +486,7 @@ A number outside the range saves nothing. The page then shows the range for the 
 
 **Rerank text recall (experimental)** sets `memorisationRerank`. It is off by default.
 
-- With the switch on, text recall asks your reranker server to reorder the matches. Each match keeps its own confidence score, and the one-clear-match rule reads the first two in the new order. Linked-space matches still follow own-space matches and are never reranked.
+- With the switch on, text recall asks your reranker server to reorder the matches. Each match keeps its own confidence score, and the one-clear-match rule reads the first two in the new order. A match below the similarity threshold is still left out, so a recall that matches nothing still says so. Linked-space matches still follow own-space matches and are never reranked.
 - The reranker server is the one from the Memory settings page (`rerankerApiUrl` and `rerankerModel`). While its URL or model is missing, the switch stays visible but disabled, with the reason. Set the server first on the Memory settings page.
 - The general reranker switch (`rerankerEnabled`) no longer changes memorisation recall. Only this switch does.
 - If the reranker server fails, text recall falls back to the confidence order.

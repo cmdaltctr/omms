@@ -54,6 +54,11 @@ const TOPICS = {
     note: "The build cache mirrors on port 8333 during the nightly job.",
     query: "which port do I use for the build cache",
   },
+  rerankThreshold: {
+    note: "The garden shed key hangs on the blue hook by the back door.",
+    // Unrelated to every note in this file, so no match clears a real threshold.
+    query: "favourite pizza topping in Naples",
+  },
 };
 
 function toolTags() {
@@ -274,5 +279,46 @@ describe("memorisation recall rerank", () => {
       plain.matches.map((match: any) => match.content)
     );
     expect(newLogLines(before)).toContain("reranker_not_configured");
+  }, 120_000);
+
+  it("keeps the similarity threshold when rerank is on", async () => {
+    await saveNotes(TOPICS.rerankThreshold);
+    // A reranker that ranks every document highly, so only the threshold can drop one.
+    const server = Bun.serve({
+      port: 0,
+      fetch: async (request) => {
+        const body = await request.json();
+        const results = body.documents.map((_: string, index: number) => ({
+          index,
+          relevance_score: 1 - index / 1000,
+        }));
+        return Response.json({ results });
+      },
+    });
+    const { CONFIG } = await import("../src/config.js");
+    const before = {
+      memorisationRerank: CONFIG.memorisationRerank,
+      rerankerApiUrl: CONFIG.rerankerApiUrl,
+      rerankerModel: CONFIG.rerankerModel,
+      similarityThreshold: CONFIG.similarityThreshold,
+    };
+    Object.assign(CONFIG, {
+      memorisationRerank: true,
+      rerankerApiUrl: `http://127.0.0.1:${server.port}/v1`,
+      rerankerModel: "test-reranker",
+      similarityThreshold: 0.6,
+    });
+    try {
+      const recalled: any = await operation({
+        mode: "recall",
+        query: TOPICS.rerankThreshold.query,
+      });
+      expect(recalled.success).toBe(true);
+      for (const match of recalled.matches) expect(match.confidence).toBeGreaterThanOrEqual(60);
+      expect(recalled.matches).toHaveLength(0);
+    } finally {
+      Object.assign(CONFIG, before);
+      server.stop(true);
+    }
   }, 120_000);
 });

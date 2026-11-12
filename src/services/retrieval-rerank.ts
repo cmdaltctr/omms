@@ -32,6 +32,8 @@ export interface RerankedSearchOptions {
   maxMemories: number;
   similarityThreshold: number;
   kind?: MemoryKind;
+  /** Drop reranked candidates below `similarityThreshold` before the limit (memorisation recall). */
+  thresholdAfterRerank?: boolean;
 }
 
 export interface RerankedSearchDeps {
@@ -72,7 +74,10 @@ export async function rerankedSearch(
       candidates,
       deps.fetchImpl
     );
-    return { results: ordered.slice(0, options.maxMemories), warnings, reranked: true };
+    const kept = options.thresholdAfterRerank
+      ? ordered.filter((result) => result.similarity >= options.similarityThreshold)
+      : ordered;
+    return { results: kept.slice(0, options.maxMemories), warnings, reranked: true };
   } catch (error) {
     // Metadata only: the code, the elapsed time, and the candidate count.
     // The query and any memory text never reach the log.
