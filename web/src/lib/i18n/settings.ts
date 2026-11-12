@@ -1,9 +1,11 @@
 import { useI18n } from "./index";
+import { openrouterSettingText } from "./openrouter";
 import { skillText } from "./skills";
 import { spaceSettingText } from "./spaces";
 
 const text = {
   ...skillText,
+  ...openrouterSettingText,
   ...spaceSettingText,
   "Import chat history": ["导入聊天记录", "استيراد سجل المحادثات"],
   "Memory limits": ["记忆限制", "حدود الذاكرة"],

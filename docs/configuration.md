@@ -524,6 +524,34 @@ Host models use OpenCode's or Pi's own sign-in. The host handles the login, toke
     ```
   - [OrcaRouter](https://www.orcarouter.ai) also runs gateway-level security for AI agents on the same endpoint. It screens every prompt and response and controls every tool call on a default-deny basis. You do not need to change application code.
 
+### OpenRouter provider routing
+
+OpenRouter sends each request to one of several providers. To choose which providers may see your memory text, set `provider` inside `memoryExtraParams`. OMMS copies `memoryExtraParams` into the body of every memory-model request, so `provider` reaches OpenRouter on every host and in every call.
+
+```jsonc
+"memoryProvider": "openai-chat",
+"memoryApiUrl": "https://openrouter.ai/api/v1",
+"memoryExtraParams": {
+  "provider": {
+    "data_collection": "deny",
+    "zdr": true,
+    "order": ["deepinfra"],
+    "only": ["deepinfra"],
+    "allow_fallbacks": false
+  }
+}
+```
+
+- `data_collection: "deny"`: OpenRouter skips providers that may store or train on prompts.
+- `zdr: true`: OpenRouter uses only zero data retention endpoints.
+- `order`: provider slugs in the order OpenRouter tries them.
+- `only`: OpenRouter may use only these provider slugs.
+- `allow_fallbacks: false`: OpenRouter fails the request instead of using another provider.
+
+The **OpenRouter routing** block on the **External API** card of the Settings page sets these five fields. It lists the providers of a model, with their data policy. See [OpenRouter routing](web-ui-settings.md#openrouter-routing).
+
+You can set other OpenRouter `provider` fields by hand, for example `sort`. The card keeps them when it saves. It also keeps every other `memoryExtraParams` member.
+
 ## Embeddings
 
 Embeddings power similarity search for memories and the user profile. Set them in the same global file.

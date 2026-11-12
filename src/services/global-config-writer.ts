@@ -119,6 +119,12 @@ const RESETTABLE_KEYS = [
 const QUERY_RULE = `openingContextQuery must be text of ${OPENING_CONTEXT_QUERY_MAX_LENGTH} characters or fewer`;
 
 function isValidEdit(key: string, value: unknown): boolean {
+  // Written only by the OpenRouter routing route; `undefined` removes the key.
+  if (key === "memoryExtraParams" || key === "memoryExtraParams.provider") {
+    return (
+      value === undefined || (typeof value === "object" && value !== null && !Array.isArray(value))
+    );
+  }
   // `undefined` removes the key from the file. `null` is the wire form of
   // "reset to default", accepted for the memory limits and the optional reranker keys.
   const memoryLimit = getMemoryLimitRule(key);
@@ -241,14 +247,19 @@ let pending = 0;
 let lastBaseRevision: string | undefined;
 let lastWrittenRevision: string | undefined;
 
-/** Write only page-editable keys; reject edits based on a stale config revision. */
-export async function writeGlobalConfigKeys(
-  edits: Record<string, unknown>,
-  expectedRevision: string,
+type WriteOptions = {
   /** A route that owns a separate set of keys passes it; the general save may not touch them. */
-  options: { only?: Set<string> } = {}
-): Promise<{ revision: string; migratedLegacy: boolean }> {
-  if (!edits || !Object.keys(edits).length) throw new Error("No settings to save");
+  only?: Set<string>;
+  /**
+   * Builds the edits from the config as read inside the save queue, against the
+   * checked revision, so a read-modify-write cannot lose another save. Returning
+   * no edits writes nothing. `edits` is then ignored.
+   */
+  derive?: (current: Record<string, unknown>) => Record<string, unknown>;
+};
+
+/** Refuse an edit to a key the caller may not write, or a value the key does not accept. */
+function checkEdits(edits: Record<string, unknown>, options: WriteOptions): void {
   for (const [key, value] of Object.entries(edits)) {
     const allowed = options.only ? options.only.has(key) : keys.has(key);
     if (!allowed) throw new Error(`Setting ${key} cannot be edited here`);
@@ -280,6 +291,18 @@ export async function writeGlobalConfigKeys(
         : null;
     if (missing !== null) throw new Error(`Skill folder not found: ${missing}`);
   }
+}
+
+/** Write only page-editable keys; reject edits based on a stale config revision. */
+export async function writeGlobalConfigKeys(
+  edits: Record<string, unknown>,
+  expectedRevision: string,
+  options: WriteOptions = {}
+): Promise<{ revision: string; migratedLegacy: boolean }> {
+  if (!options.derive) {
+    if (!edits || !Object.keys(edits).length) throw new Error("No settings to save");
+    checkEdits(edits, options);
+  }
   const wasQueued = pending > 0;
   pending++;
   const save = queue.then(async () => {
@@ -304,11 +327,18 @@ export async function writeGlobalConfigKeys(
     if (errors.length || !current || typeof current !== "object" || Array.isArray(current)) {
       throw new Error("Config contains invalid JSONC");
     }
+    const applied = options.derive ? options.derive(current as Record<string, unknown>) : edits;
+    if (options.derive) {
+      if (!Object.keys(applied).length) {
+        return { revision: original.revision, migratedLegacy: false };
+      }
+      checkEdits(applied, options);
+    }
     checkMemorisationSettingsEdits(
-      edits,
+      applied,
       memorisationSettingsFrom(current as Record<string, unknown>)
     );
-    for (const [key, value] of Object.entries(edits)) {
+    for (const [key, value] of Object.entries(applied)) {
       // A nested identifier maps to its JSONC leaf path, so compaction.enabled
       // writes the leaf, never a literal dotted key.
       const jsoncPath = (getMemoryLimitRule(key)?.path ?? key.split(".")) as string[];

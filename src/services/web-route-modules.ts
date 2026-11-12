@@ -2,6 +2,7 @@ import { routeChat, type RouteResult } from "./chat/chat-routes.js";
 import { linkedSettingsFrom } from "./linked-search.js";
 import { routeMemorisations } from "./memorisation-routes.js";
 import { routeMemoryHosts } from "./memory-host-routes.js";
+import { routeOpenRouter } from "./openrouter-routes.js";
 import { routeProfileCleanup } from "./profile-cleanup-routes.js";
 import type { SkillRouteContext } from "./skill-routes.js";
 import { routeSpaceTransfers } from "./space-transfer-routes.js";
@@ -33,6 +34,9 @@ export async function routeModules(
 
   const hosts = await routeMemoryHosts(path, method, url, readBody, config);
   if (hosts !== undefined) return hosts;
+
+  const openRouter = await routeOpenRouter(path, method, url, readBody, ctx);
+  if (openRouter !== undefined) return openRouter;
 
   if (path === "/api/skills" || path.startsWith("/api/skills/")) {
     const { routeSkills } = await import("./skill-routes.js");
