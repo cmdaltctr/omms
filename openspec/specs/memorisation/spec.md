@@ -93,7 +93,7 @@ Every memorisation SHALL carry the record kind `memorisation` and the tag `memor
 
 ### Requirement: Recall by ID is exact
 
-The `memory` tool and the CLI SHALL offer a `recall` mode. When its input is a memorisation ID, `recall` SHALL return that record's full stored text unchanged, with its ID and creation time, and no other record. The lookup SHALL cover the current project only, in the active and linked spaces, the same as recall by text.
+The `memory` tool and the CLI SHALL offer a `recall` mode. When its input is a memorisation ID, `recall` SHALL return that record's full stored text unchanged, with its ID and creation time, and no other record. The lookup SHALL cover every project in the active and linked spaces, the same as recall by text.
 
 #### Scenario: Quoted ID
 
@@ -107,12 +107,17 @@ The `memory` tool and the CLI SHALL offer a `recall` mode. When its input is a m
 
 #### Scenario: ID from another project
 
-- **WHEN** `recall` receives the ID of a memorisation saved in a different project
+- **WHEN** `recall` runs in the `omms` repository and receives the ID of a memorisation saved in the `omrs` repository of the same space
+- **THEN** OMMS returns that memorisation
+
+#### Scenario: ID from another space
+
+- **WHEN** `recall` receives the ID of a memorisation that exists only in a space that is neither active nor linked
 - **THEN** OMMS replies that no memorisation has that ID
 
 ### Requirement: Recall by text searches memorisations only
 
-When `recall` receives text that is not a memorisation ID, OMMS SHALL search memorisation records only, in the active and linked spaces, and return each match with its ID, full text and a confidence score from 0 to 100. Profile items, workflows and other memories SHALL never appear in the result.
+When `recall` receives text that is not a memorisation ID, OMMS SHALL search memorisation records only, in every project of the active and linked spaces, and return each match with its ID, full text and a confidence score from 0 to 100. Profile items, workflows and other memories SHALL never appear in the result.
 
 #### Scenario: General question
 
@@ -123,6 +128,11 @@ When `recall` receives text that is not a memorisation ID, OMMS SHALL search mem
 
 - **WHEN** no memorisation clears the search threshold
 - **THEN** OMMS replies that no memorisation matched
+
+#### Scenario: Match from another project
+
+- **WHEN** the web app runs in `/` and the user recalls "runpod auto deploy", which matches a memorisation saved in the `omrs` repository
+- **THEN** OMMS returns that memorisation with its confidence score
 
 ### Requirement: Recall returns one strong match alone
 
@@ -235,7 +245,7 @@ A global setting `memorisationRepeat` SHALL take `add` or `replace`, with `add` 
 
 ### Requirement: Recall by labels
 
-`recall` SHALL accept `tags`, a comma-separated list, on every host and in the CLI (`--tags`). A memorisation SHALL match only when it carries every listed label. OMMS SHALL ignore case and surrounding spaces, and SHALL NOT treat the fixed tag `memorisation` as a label. Each match SHALL list its labels without the fixed tag. Matches SHALL come from the active and linked spaces. `recall` with neither `query` nor `tags` SHALL refuse and name both.
+`recall` SHALL accept `tags`, a comma-separated list, on every host and in the CLI (`--tags`). A memorisation SHALL match only when it carries every listed label. OMMS SHALL ignore case and surrounding spaces, and SHALL NOT treat the fixed tag `memorisation` as a label. Each match SHALL list its labels without the fixed tag. Matches SHALL come from every project of the active and linked spaces. `recall` with neither `query` nor `tags` SHALL refuse and name both.
 
 #### Scenario: Labels only
 
@@ -263,9 +273,14 @@ A global setting `memorisationRepeat` SHALL take `add` or `replace`, with `add` 
 - **WHEN** no memorisation carries every listed label
 - **THEN** OMMS replies that no memorisation matched, and the reply is not an error
 
+#### Scenario: Project label from another folder
+
+- **WHEN** the agent runs in the `omms` repository and calls `recall` with tags "omrs"
+- **THEN** OMMS returns the memorisations that carry `omrs`, from whichever project saved them
+
 ### Requirement: List route accepts labels
 
-`GET /api/memorisations` SHALL accept `tags`, a comma-separated list of labels, and return only records that carry every label, newest first, from the active and linked spaces. The label filter SHALL run before the cap of 200 rows. An empty `tags` value SHALL mean no filter. Each row SHALL carry its labels without the fixed tag.
+`GET /api/memorisations` SHALL accept `tags`, a comma-separated list of labels, and return only records that carry every label, newest first, from every project of the active and linked spaces. The label filter SHALL run before the cap of 200 rows. An empty `tags` value SHALL mean no filter. Each row SHALL carry its labels without the fixed tag.
 
 #### Scenario: List filtered by labels
 
@@ -274,8 +289,13 @@ A global setting `memorisationRepeat` SHALL take `add` or `replace`, with `add` 
 
 #### Scenario: Old labelled record
 
-- **WHEN** the project holds more than 200 newer records without the label, and one older record with it
+- **WHEN** the space holds more than 200 newer records without the label, and one older record with it
 - **THEN** the filtered list still holds the older record
+
+#### Scenario: Web app outside a project
+
+- **WHEN** the web app runs in `/` and the active space holds two memorisations saved in the `omrs` repository
+- **THEN** `GET /api/memorisations` returns both records
 
 ### Requirement: Recall route accepts labels
 
@@ -297,7 +317,7 @@ A global setting `memorisationRepeat` SHALL take `add` or `replace`, with `add` 
 
 #### Scenario: Delete several
 
-- **WHEN** the page posts two IDs of this project's memorisations
+- **WHEN** the page posts two IDs of memorisations in the active space
 - **THEN** both are deleted and the reply lists both in `deleted` and none in `skipped`
 
 #### Scenario: Body out of range
@@ -317,16 +337,16 @@ A global setting `memorisationRepeat` SHALL take `add` or `replace`, with `add` 
 
 ### Requirement: Bulk delete scope
 
-Bulk delete SHALL remove memorisations of the current project from the active memory space only. It SHALL keep every skipped record unchanged, and a skipped ID SHALL NOT stop the others. The general `/api/memories` bulk delete SHALL keep refusing memorisations.
+Bulk delete SHALL remove memorisations of any project from the active memory space only. It SHALL keep every skipped record unchanged, and a skipped ID SHALL NOT stop the others. The general `/api/memories` bulk delete SHALL keep refusing memorisations.
 
 #### Scenario: Another project
 
-- **WHEN** an ID names a memorisation of another project
-- **THEN** OMMS skips it as `not-found` and keeps it
+- **WHEN** the web app runs in `/` and an ID names a memorisation saved in the `omrs` repository of the active space
+- **THEN** OMMS deletes it and lists it in `deleted`
 
 ### Requirement: Bulk delete skipped reasons
 
-Each skipped ID SHALL carry one reason. `not-found` means no record of the current project has that ID. `linked` means the record lives only in a read-only linked space. `not-memorisation` means the record has another type.
+Each skipped ID SHALL carry one reason. `not-found` means no record in the active or linked spaces has that ID. `linked` means the record lives only in a read-only linked space. `not-memorisation` means the record has another type.
 
 #### Scenario: Unknown ID
 
@@ -342,3 +362,55 @@ Each skipped ID SHALL carry one reason. `not-found` means no record of the curre
 
 - **WHEN** an ID names an ordinary memory
 - **THEN** OMMS skips it as `not-memorisation` and keeps it
+
+### Requirement: Project label on save
+
+`memorise` SHALL add the name of the project it runs in as a label, after trimming and lower-casing it like any other label. The name SHALL be the repository folder name for every worktree and branch of one git repository, and the folder name outside git. OMMS SHALL NOT add the label when the caller already gave it.
+
+#### Scenario: Worktree on a feature branch
+
+- **WHEN** the agent memorises from a worktree of the `omrs` repository on branch `feat/exp35`
+- **THEN** the stored record carries the label `omrs`
+
+#### Scenario: Caller already gave the label
+
+- **WHEN** the agent memorises from the `omrs` repository with tags "omrs,runpod"
+- **THEN** the stored record has the labels `omrs` and `runpod`, each once
+
+#### Scenario: Folder outside git
+
+- **WHEN** the agent memorises from the folder `notes` that is not in a git repository
+- **THEN** the stored record carries the label `notes`
+
+### Requirement: Rerank setting for text recall
+
+A global setting `memorisationRerank` SHALL take `true` or `false`, with `false` as the default. A project config SHALL NOT change it. Text recall SHALL use the reranker only when `memorisationRerank` is `true` and the reranker server URL and model are set. The general `rerankerEnabled` setting SHALL NOT change memorisation recall.
+
+#### Scenario: Default
+
+- **WHEN** `memorisationRerank` is not set and `rerankerEnabled` is `true`
+- **THEN** text recall orders matches by confidence and does not call the reranker
+
+#### Scenario: Turned on without a server
+
+- **WHEN** `memorisationRerank` is `true` and no reranker model is set
+- **THEN** text recall orders matches by confidence and does not call the reranker
+
+#### Scenario: Project config
+
+- **WHEN** a project config sets `memorisationRerank` to `true`
+- **THEN** OMMS ignores it and keeps the global value
+
+### Requirement: Reranked recall order
+
+When text recall uses the reranker, OMMS SHALL return the matches in the reranker's order and SHALL keep each match's confidence score. The one-strong-match rule SHALL compare the first and second matches in that order. When the reranker fails, recall SHALL return the matches ordered by confidence, and OMMS SHALL log the failure code without query or memorisation text.
+
+#### Scenario: Reranker reorders
+
+- **WHEN** reranking is on, and the reranker puts a match with confidence 70 above a match with confidence 74
+- **THEN** recall lists the 70 match first, with its score of 70
+
+#### Scenario: Reranker unreachable
+
+- **WHEN** reranking is on and the reranker server does not answer
+- **THEN** recall returns the matches ordered by confidence and the log holds one failure code

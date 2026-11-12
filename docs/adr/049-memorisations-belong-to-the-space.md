@@ -3,7 +3,7 @@
 - **Date:** 2026-11-12
 - **Status:** Proposed
 - **Deciders:** OMMS maintainer
-- **Change:** [`memorisation-space-scope`](../../openspec/changes/memorisation-space-scope/proposal.md)
+- **Change:** [`memorisation-space-scope`](../../openspec/changes/archive/2026-11-12-memorisation-space-scope/proposal.md)
 
 ## Context
 
