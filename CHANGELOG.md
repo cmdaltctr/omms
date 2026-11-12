@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [6.1.0](https://github.com/cmdaltctr/omms/compare/v6.0.2...v6.1.0) (2026-11-12)
+
+
+### Features
+
+* memorisations belong to the memory space ([4554a65](https://github.com/cmdaltctr/omms/commit/4554a6504b31c5f5c46e86f967e62aef28675e53))
+* memorisations belong to the memory space ([35c1a97](https://github.com/cmdaltctr/omms/commit/35c1a97649d4ad1044bf272c9d1e316ff4a37448))
+
+
+### Bug Fixes
+
+* use the shared Checkbox for the memorisation rerank switch ([dd4b1f6](https://github.com/cmdaltctr/omms/commit/dd4b1f64b743e740cbbd3a6a8d5c8d397bd1d411))
+
 ## [6.0.2](https://github.com/cmdaltctr/omms/compare/v6.0.1...v6.0.2) (2026-11-12)
 
 
