@@ -186,6 +186,8 @@ export async function runRecall(
     includeLinked: true,
     kind: "memorisation",
     reranker: rerank,
+    // A reranked recall still answers "no memorisation matched" when nothing clears the threshold.
+    thresholdAfterRerank: true,
     ...(wanted.length > 0 ? { limit: LABEL_SEARCH_POOL } : {}),
   });
   if (!result.success) return { success: false, error: result.error };

@@ -141,6 +141,7 @@ export class LocalMemoryClient {
             maxMemories,
             similarityThreshold: CONFIG.similarityThreshold,
             kind: options.kind ?? "normal",
+            thresholdAfterRerank: options.thresholdAfterRerank,
           },
           reranker,
           {
