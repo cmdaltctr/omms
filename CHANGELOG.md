@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [6.0.2](https://github.com/cmdaltctr/omms/compare/v6.0.1...v6.0.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* check the V2 plugin setup export in the package smoke test ([2ddeab5](https://github.com/cmdaltctr/omms/commit/2ddeab5f771816461efe64c2721da853da7bec7a))
+* check the V2 plugin setup export in the package smoke test ([c7a39d7](https://github.com/cmdaltctr/omms/commit/c7a39d775f82f021f1e50df6a2c736cdb6540048))
+
 ## [6.0.1](https://github.com/cmdaltctr/omms/compare/v6.0.0...v6.0.1) (2026-11-11)
 
 
