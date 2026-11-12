@@ -65,6 +65,12 @@ export const memorisationText = {
     "memorisation-repeat-replace-detail":
       "The new snapshot takes the ID of the earlier one from the same session, so an ID you already shared keeps working.",
     "memorisation-repeat-saved": "Saved. The next snapshot follows this choice.",
+    "memorisation-rerank-label": "Rerank text recall (experimental)",
+    "memorisation-rerank-intro":
+      "The reranker server reorders the matches of a text recall. This setting is experimental.",
+    "memorisation-rerank-saved": "Saved. The next text recall follows this choice.",
+    "memorisation-rerank-disabled":
+      "Set the reranker server URL and model on the Memory settings page first.",
     "memorisation-size-title": "Size cap",
     "memorisation-size-intro":
       "A memorisation above the cap is refused, so a recall stays small. Lowering the cap does not change records you already saved.",
@@ -160,6 +166,10 @@ export const memorisationText = {
     "memorisation-repeat-replace-detail":
       "新快照沿用同一会话中上一个快照的编号，所以已分享的编号仍然有效。",
     "memorisation-repeat-saved": "已保存。下一个快照将按此选择处理。",
+    "memorisation-rerank-label": "文本找回重排序（实验性）",
+    "memorisation-rerank-intro": "重排序服务器会调整文本找回的匹配顺序。此设置为实验性。",
+    "memorisation-rerank-saved": "已保存。下一次文本找回将按此选择处理。",
+    "memorisation-rerank-disabled": "请先在“记忆”设置页填写重排序服务器的网址和模型。",
     "memorisation-size-title": "大小上限",
     "memorisation-size-intro":
       "超过上限的存档会被拒绝，使找回的内容保持精简。降低上限不会改变已保存的记录。",
@@ -254,6 +264,12 @@ export const memorisationText = {
     "memorisation-repeat-replace-detail":
       "تأخذ اللقطة الجديدة معرّف اللقطة السابقة من الجلسة نفسها، فيبقى أي معرّف شاركته صالحاً.",
     "memorisation-repeat-saved": "تم الحفظ. ستتبع اللقطة التالية هذا الاختيار.",
+    "memorisation-rerank-label": "إعادة ترتيب الاسترجاع النصي (تجريبي)",
+    "memorisation-rerank-intro":
+      "يعيد خادم إعادة الترتيب ترتيب نتائج الاسترجاع النصي. هذا الإعداد تجريبي.",
+    "memorisation-rerank-saved": "تم الحفظ. سيتبع الاسترجاع النصي التالي هذا الاختيار.",
+    "memorisation-rerank-disabled":
+      "عيّن أولاً عنوان خادم إعادة الترتيب ونموذجه في صفحة إعدادات الذاكرة.",
     "memorisation-size-title": "الحد الأقصى للحجم",
     "memorisation-size-intro":
       "يُرفض أي عنصر محفوظ يتجاوز الحد، فيبقى الاسترجاع صغيراً. خفض الحد لا يغيّر السجلات المحفوظة سابقاً.",

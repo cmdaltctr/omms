@@ -51,8 +51,7 @@ export async function routeModules(
     path,
     method,
     url,
-    ctx.cwd,
-    { defaultScope: config.memory.defaultScope, linked: linkedSettingsFrom(config) },
+    { linked: linkedSettingsFrom(config), rerank: config.memorisationRerank === true },
     readBody
   );
   if (memorisations !== undefined) return memorisations;

@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { rerankSettingsFor } from "../src/services/reranker.js";
 
 const tempDirs: string[] = [];
 afterEach(() => {
@@ -225,6 +226,45 @@ describe("reranker settings save and snapshot", () => {
 });
 
 describe("reranker config validation", () => {
+  it("lets an override decide for one read: false never reranks", () => {
+    const config = {
+      rerankerEnabled: true,
+      rerankerApiUrl: "http://127.0.0.1:3008/v1",
+      rerankerModel: "Qwen3-Reranker-0.6B",
+    };
+    expect(rerankSettingsFor(config, false)).toBeUndefined();
+  });
+
+  it("lets an override decide for one read: true reranks with a set server even when the switch is off", () => {
+    const config = {
+      rerankerEnabled: false,
+      rerankerApiUrl: "http://127.0.0.1:3008/v1",
+      rerankerModel: "Qwen3-Reranker-0.6B",
+      rerankerTimeoutMs: 6000,
+    };
+    expect(rerankSettingsFor(config, true)).toMatchObject({
+      apiUrl: "http://127.0.0.1:3008/v1",
+      model: "Qwen3-Reranker-0.6B",
+      timeoutMs: 6000,
+    });
+    // An incomplete server stays off, whatever the override says.
+    const noModel = { rerankerEnabled: true, rerankerApiUrl: "http://127.0.0.1:3008/v1" };
+    expect(rerankSettingsFor(noModel, true)).toBeUndefined();
+  });
+
+  it("keeps the general rule when no override is given", () => {
+    const config = {
+      rerankerEnabled: true,
+      rerankerApiUrl: "http://127.0.0.1:3008/v1",
+      rerankerModel: "Qwen3-Reranker-0.6B",
+    };
+    expect(rerankSettingsFor(config)).toMatchObject({ apiUrl: "http://127.0.0.1:3008/v1" });
+    expect(rerankSettingsFor(config, undefined)).toMatchObject({
+      apiUrl: "http://127.0.0.1:3008/v1",
+    });
+    expect(rerankSettingsFor({ ...config, rerankerEnabled: false })).toBeUndefined();
+  });
+
   it("accepts a complete, valid reranker block", async () => {
     const result = await rerankerConfigScenario(
       {

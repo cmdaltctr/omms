@@ -10,11 +10,13 @@ export const MEMORISATION_KEYS = [
   "memorisationMaxSize",
   "memorisationSizeUnit",
   "memorisationRepeat",
+  "memorisationRerank",
 ] as const;
 export const MEMORISATION_DEFAULTS: MemorisationSettings = {
   memorisationMaxSize: 2000,
   memorisationSizeUnit: "characters",
   memorisationRepeat: "add",
+  memorisationRerank: false,
 };
 
 /** Global-only memorisation settings, with defaults for an older config file. */
@@ -30,7 +32,11 @@ export function settingsFrom(config: Partial<MemorisationSettings>): Memorisatio
   if (memorisationRepeat !== "add" && memorisationRepeat !== "replace") {
     throw new Error("Invalid memorisationRepeat config");
   }
-  return { memorisationMaxSize, memorisationSizeUnit, memorisationRepeat };
+  if (config.memorisationRerank !== undefined && typeof config.memorisationRerank !== "boolean") {
+    throw new Error("Invalid memorisationRerank config");
+  }
+  const memorisationRerank = config.memorisationRerank ?? MEMORISATION_DEFAULTS.memorisationRerank;
+  return { memorisationMaxSize, memorisationSizeUnit, memorisationRepeat, memorisationRerank };
 }
 
 /** The web writer validates the pair, so a unit edit cannot strand an invalid number. */
@@ -44,6 +50,9 @@ export function checkMemorisationSettingsEdits(
       throw new Error("memorisationRepeat must be add or replace");
     }
   }
+  if (edits.memorisationRerank !== undefined && typeof edits.memorisationRerank !== "boolean") {
+    throw new Error("memorisationRerank must be true or false");
+  }
   const hasSize = Object.hasOwn(edits, "memorisationMaxSize");
   const hasUnit = Object.hasOwn(edits, "memorisationSizeUnit");
   if (!hasSize && !hasUnit) return;
@@ -56,7 +65,7 @@ export function checkMemorisationSettingsEdits(
 
 export { settingsFrom as memorisationSettingsFrom };
 
-/** The three settings are global-only; a project config cannot replace them. */
+/** The four settings are global-only; a project config cannot replace them. */
 export function removeMemorisationProjectOverrides(config: Record<string, unknown>): void {
   for (const key of MEMORISATION_KEYS) delete config[key];
 }

@@ -13,6 +13,7 @@ import {
   pickRecallMatches,
   snapshotText,
   visibleTags,
+  withProjectLabel,
 } from "../src/core/memorisation.js";
 import {
   checkMemorisationSettingsEdits,
@@ -213,6 +214,7 @@ describe("memorisation settings", () => {
       memorisationMaxSize: 2000,
       memorisationSizeUnit: "characters",
       memorisationRepeat: "add",
+      memorisationRerank: false,
     });
     expect(memorisationSettingsFrom({})).toEqual(MEMORISATION_DEFAULTS);
   });
@@ -228,6 +230,7 @@ describe("memorisation settings", () => {
       memorisationMaxSize: 500,
       memorisationSizeUnit: "tokens",
       memorisationRepeat: "replace",
+      memorisationRerank: false,
     });
     expect(() =>
       memorisationSettingsFrom({ memorisationMaxSize: 24, memorisationSizeUnit: "tokens" })
@@ -325,5 +328,27 @@ describe("memorisation labels", () => {
     expect(hasAllTags(record, ["auth", "release"])).toBe(false);
     expect(hasAllTags(record, [])).toBe(true);
     expect(hasAllTags([], ["auth"])).toBe(false);
+  });
+});
+
+describe("project label", () => {
+  it("adds the project name as one more label, trimmed and lower-cased", () => {
+    expect(withProjectLabel(["memorisation"], "Omrs")).toEqual(["memorisation", "omrs"]);
+    expect(withProjectLabel(["memorisation", "release"], " omrs ")).toEqual([
+      "memorisation",
+      "release",
+      "omrs",
+    ]);
+  });
+
+  it("adds no label for the file-system root or an empty name", () => {
+    expect(withProjectLabel(["memorisation"], "/")).toEqual(["memorisation"]);
+    expect(withProjectLabel(["memorisation"], "")).toEqual(["memorisation"]);
+    expect(withProjectLabel(["memorisation"], "  ")).toEqual(["memorisation"]);
+    expect(withProjectLabel(["memorisation"], undefined)).toEqual(["memorisation"]);
+  });
+
+  it("does not repeat a label the caller already gave", () => {
+    expect(withProjectLabel(["memorisation", "omrs"], "OMRS")).toEqual(["memorisation", "omrs"]);
   });
 });

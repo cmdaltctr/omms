@@ -5,7 +5,7 @@ import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { ensureTursoReady } from "./turso/ready.js";
 import { formatTagsForEmbedding } from "./turso/vector-utils.js";
 import { extractScopeFromContainerTag, resolveMemoryScope } from "./memory-scope.js";
-import { rerankSettingsFrom } from "./reranker.js";
+import { rerankSettingsFor } from "./reranker.js";
 import { rerankedSearch } from "./retrieval-rerank.js";
 import {
   findLinkedMemoryOwner,
@@ -100,12 +100,16 @@ export class LocalMemoryClient {
     // not change this search's limit or reranker target.
     const maxMemories = options.limit ?? CONFIG.maxMemories;
     const keywordBoost = CONFIG.keywordBoost;
-    const reranker = rerankSettingsFrom(CONFIG);
+    const reranker = rerankSettingsFor(CONFIG, options.reranker);
     // The reranker path below always uses the boost: it needs a full pool on the similarity scale.
     const keywordMode = CONFIG.keywordMode;
-    if (CONFIG.rerankerEnabled && !reranker) {
-      // On but incomplete: search must keep working, so treat it as off.
-      log("Reranker enabled without a URL or model; searching without it", {
+    // On but incomplete, through the general switch or a search's own override:
+    // search must keep working, so treat the reranker as off and say so once.
+    if (
+      !reranker &&
+      (options.reranker === true || (CONFIG.rerankerEnabled && options.reranker !== false))
+    ) {
+      log("Reranker asked for without a URL or model; searching without it", {
         code: "reranker_not_configured",
       });
     }

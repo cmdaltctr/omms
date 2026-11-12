@@ -51,6 +51,7 @@ const editable = [
   "memorisationRepeat",
   "memorisationMaxSize",
   "memorisationSizeUnit",
+  "memorisationRerank",
   ...MEMORY_LIMIT_SETTINGS,
 ] as const;
 
@@ -88,6 +89,7 @@ const globalOnly = [
   "memorisationRepeat",
   "memorisationMaxSize",
   "memorisationSizeUnit",
+  "memorisationRerank",
 ];
 
 function readSettingsFile(path: string | undefined): Record<string, unknown> {

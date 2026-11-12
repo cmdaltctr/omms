@@ -1,5 +1,4 @@
 import { isMemorisationId, parseTagList, visibleTags } from "../core/memorisation.js";
-import type { MemoryScope } from "./client.js";
 import type { RouteResult } from "./chat/chat-routes.js";
 import type { LinkedSearchSettings } from "./linked-search.js";
 
@@ -16,47 +15,40 @@ const fail = (status: number, error: string): RouteResult => ({
 
 /** The CONFIG values recall needs. The route registration builds them, so this module has no CONFIG import. */
 export interface MemorisationRouteConfig {
-  defaultScope: MemoryScope | undefined;
   linked: LinkedSearchSettings;
+  /** The global `memorisationRerank` setting, so text recall may use the reranker. */
+  rerank: boolean;
 }
 
 /**
  * Routes for the Memorisation page. Returns undefined for paths it does not own.
  * `GET /api/memorisations?tags=a,b` lists, `GET /api/memorisations/recall?q=&tags=` recalls
- * and `POST /api/memorisations/bulk-delete` deletes. The general `/api/memories` delete
- * routes refuse memorisations by design, so this module owns the bulk delete. Memorisation
- * text is returned to the page and never written to the log.
+ * and `POST /api/memorisations/bulk-delete` deletes. Every read covers the whole active
+ * space and its linked spaces, so the page works from any folder. The general `/api/memories`
+ * delete routes refuse memorisations by design, so this module owns the bulk delete.
+ * Memorisation text is returned to the page and never written to the log.
  */
 export async function routeMemorisations(
   path: string,
   method: string,
   url: URL,
-  cwd: string,
   config: MemorisationRouteConfig,
   readBody?: () => Promise<any>
 ): Promise<RouteResult | undefined> {
   const wanted = parseTagList(url.searchParams.get("tags") ?? undefined);
-  if (method === "GET" && path === "/api/memorisations") return listMemorisations(cwd, wanted);
+  if (method === "GET" && path === "/api/memorisations") return listMemorisations(wanted);
   if (method === "GET" && path === "/api/memorisations/recall") {
-    return recall(url.searchParams, wanted, cwd, config);
+    return recall(url.searchParams, wanted, config);
   }
   if (method === "POST" && path === "/api/memorisations/bulk-delete" && readBody) {
-    return bulkDelete(await readBody(), cwd, config);
+    return bulkDelete(await readBody(), config);
   }
   return undefined;
 }
 
-async function listMemorisations(cwd: string, wanted: string[]): Promise<RouteResult> {
-  const [{ listMemorisationsByTags }, { getTags }] = await Promise.all([
-    import("./memorisation-store.js"),
-    import("./tags.js"),
-  ]);
-  const result = await listMemorisationsByTags(
-    getTags(cwd).project.tag,
-    wanted,
-    "project",
-    LIST_LIMIT
-  );
+async function listMemorisations(wanted: string[]): Promise<RouteResult> {
+  const { listMemorisationsByTags } = await import("./memorisation-store.js");
+  const result = await listMemorisationsByTags("", wanted, "all-projects", LIST_LIMIT);
   if (!result.success) return fail(500, result.error);
   const memorisations = result.memories.map((memory) => ({
     id: memory.id,
@@ -74,25 +66,20 @@ async function listMemorisations(cwd: string, wanted: string[]): Promise<RouteRe
 async function recall(
   params: URLSearchParams,
   wanted: string[],
-  cwd: string,
   config: MemorisationRouteConfig
 ): Promise<RouteResult> {
   const text = params.get("q")?.trim();
   if (!text && wanted.length === 0) return fail(400, "q or tags required: an ID, text or labels");
   const limit = Number(params.get("limit"));
-  const [{ runRecall }, { getTags }] = await Promise.all([
-    import("../core/memorisation-operations.js"),
-    import("./tags.js"),
-  ]);
+  const { runRecall } = await import("../core/memorisation-operations.js");
   const result = await runRecall(
     {
       query: text,
       tags: wanted.join(","),
       ...(Number.isInteger(limit) && limit > 0 ? { limit } : {}),
     },
-    getTags(cwd),
-    config.defaultScope,
-    config.linked
+    config.linked,
+    config.rerank
   );
   if (result.success !== true) {
     // An unknown ID is a missing record. Any other refusal is a server problem.
@@ -102,12 +89,8 @@ async function recall(
   return ok({ count: result.count, matches: result.matches });
 }
 
-/** Deletes memorisations of this project from the active space. Linked spaces are never touched. */
-async function bulkDelete(
-  body: any,
-  cwd: string,
-  config: MemorisationRouteConfig
-): Promise<RouteResult> {
+/** Deletes memorisations of any project from the active space. Linked spaces are never touched. */
+async function bulkDelete(body: any, config: MemorisationRouteConfig): Promise<RouteResult> {
   const ids: unknown = body?.ids;
   if (
     !Array.isArray(ids) ||
@@ -117,15 +100,11 @@ async function bulkDelete(
   ) {
     return fail(400, `ids must be 1 to ${BULK_DELETE_MAX} memorisation IDs (ms-xxxxxx)`);
   }
-  const [{ deleteMemorisation }, { getTags }] = await Promise.all([
-    import("./memorisation-store.js"),
-    import("./tags.js"),
-  ]);
-  const containerTag = getTags(cwd).project.tag;
+  const { deleteMemorisation } = await import("./memorisation-store.js");
   const deleted: string[] = [];
   const skipped: { id: string; reason: string }[] = [];
   for (const id of new Set(ids as string[])) {
-    const outcome = await deleteMemorisation(id, containerTag, config.linked);
+    const outcome = await deleteMemorisation(id, null, config.linked);
     if (outcome === "deleted") deleted.push(id);
     else skipped.push({ id, reason: outcome });
   }

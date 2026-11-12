@@ -14,8 +14,8 @@ import { useI18n } from "$lib/i18n";
 import type { BulkDeleteResult as BulkResult, Memorisation } from "$lib/memorisation-model";
 
 /**
- * The Memorisation page: a recall search, the saved memorisations of this project in the active
- * and linked spaces, and the two settings. A label filter and select mode narrow and clear the
+ * The Memorisation page: a recall search, the saved memorisations of every project in the active
+ * and linked spaces, and the settings. A label filter and select mode narrow and clear the
  * list. Delete asks first and says when it is done.
  */
 export function MemorisationView() {

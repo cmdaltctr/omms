@@ -20,9 +20,12 @@ export type SettingsStatus =
   | { kind: "load-failed" }
   | { kind: "repeat-saved" }
   | { kind: "size-saved" }
+  | { kind: "rerank-saved" }
   /** The number is outside the range of the chosen unit, so nothing was sent or the server refused it. */
   | { kind: "out-of-range"; unit: SizeUnit }
   | { kind: "stale" }
+  /** The rerank save failed; `reason` is the server's message, when it gave one. */
+  | { kind: "rerank-failed"; reason: string }
   | { kind: "failed" };
 
 const saved = (snapshot: Snapshot | undefined, key: string) =>
@@ -71,8 +74,22 @@ export function useMemorisationSettings() {
   const savedRepeat = saved(snapshot, "memorisationRepeat");
   const savedSize = saved(snapshot, "memorisationMaxSize");
   const savedUnit = saved(snapshot, "memorisationSizeUnit");
+  const savedRerank = saved(snapshot, "memorisationRerank");
+  const savedRerankerUrl = saved(snapshot, "rerankerApiUrl");
+  const savedRerankerModel = saved(snapshot, "rerankerModel");
+  const rerankerReady =
+    typeof savedRerankerUrl === "string" &&
+    savedRerankerUrl.trim().length > 0 &&
+    typeof savedRerankerModel === "string" &&
+    savedRerankerModel.trim().length > 0;
 
-  async function patch(edits: Record<string, unknown>, done: SettingsStatus, range?: SizeUnit) {
+  async function patch(
+    edits: Record<string, unknown>,
+    done: SettingsStatus,
+    range?: SizeUnit,
+    /** Builds the failure status from the server's message; default hides the message. */
+    failed?: (message: string) => SettingsStatus
+  ) {
     if (!snapshot || saving.current) return;
     saving.current = true;
     setBusy(true);
@@ -88,7 +105,7 @@ export function useMemorisationSettings() {
       if (message.includes("Config changed")) setStatus({ kind: "stale" });
       else if (range && message.includes("memorisationMaxSize")) {
         setStatus({ kind: "out-of-range", unit: range });
-      } else setStatus({ kind: "failed" });
+      } else setStatus(failed ? failed(message) : { kind: "failed" });
     }
     // Reload either way, so the next save carries the file's current revision.
     await reloadSettingsSnapshot<Snapshot>();
@@ -101,6 +118,8 @@ export function useMemorisationSettings() {
     busy,
     status,
     repeat: isRepeat(savedRepeat) ? savedRepeat : ("add" as Repeat),
+    rerank: savedRerank === true,
+    rerankerReady,
     savedSize: typeof savedSize === "number" ? savedSize : undefined,
     savedUnit: isSizeUnit(savedUnit) ? savedUnit : ("characters" as SizeUnit),
     sizeText,
@@ -108,6 +127,13 @@ export function useMemorisationSettings() {
     setSizeText,
     setUnit,
     chooseRepeat: (value: Repeat) => patch({ memorisationRepeat: value }, { kind: "repeat-saved" }),
+    chooseRerank: (value: boolean) =>
+      patch(
+        { memorisationRerank: value },
+        { kind: "rerank-saved" },
+        undefined,
+        (message): SettingsStatus => ({ kind: "rerank-failed", reason: message })
+      ),
     saveSize: () => {
       const size = parseCap(sizeText, unit);
       if (size === null) return setStatus({ kind: "out-of-range", unit });

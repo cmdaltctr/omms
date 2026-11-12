@@ -64,6 +64,7 @@ const keys = new Set([
   "memorisationRepeat",
   "memorisationMaxSize",
   "memorisationSizeUnit",
+  "memorisationRerank",
 ]);
 
 function isFolder(path: string): boolean {
@@ -128,6 +129,7 @@ function isValidEdit(key: string, value: unknown): boolean {
   // keywordMode: null removes the key, so the mode follows the default again.
   if (key === "keywordMode") return value === null || KEYWORD_MODES.includes(value as never);
   if (key === "memorisationSizeUnit") return value === "characters" || value === "tokens";
+  if (key === "memorisationRerank") return typeof value === "boolean";
   if (key === "memorisationRepeat" || key === "memorisationMaxSize") return true;
   // The opening context query: null removes it; an empty query means no opening search.
   if (key === "openingContextQuery") {

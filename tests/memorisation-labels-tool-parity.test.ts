@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { initConfig } from "../src/config.js";
 import { memoryToolDescription } from "../src/core/memory-tool-text.js";
+import { runMemoryCommand } from "../src/cli/memory-command.js";
 import ommsPiExtension from "../src/adapters/pi/extension.js";
 import { createOpencodeTools } from "../src/v2/tools.js";
 import { memoryInput } from "../src/v2/adapter.js";
@@ -68,7 +69,7 @@ describe("recall by label on every host", () => {
     });
     const found = await run({ mode: "recall", tags: "parity" });
     expect(found.matches.map((match: any) => match.id)).toEqual([saved.id]);
-    expect(found.matches[0].tags).toEqual(["parity"]);
+    expect(found.matches[0].tags).toEqual(["parity", basename(project).toLowerCase()]);
   }, 60_000);
 
   it("accepts tags in the Pi tool and recalls by label with no query", async () => {
@@ -105,4 +106,59 @@ describe("recall by label on every host", () => {
       "x",
     ]);
   });
+
+  it("stores the same project label from every host for the same folder", async () => {
+    const label = basename(project).toLowerCase();
+    const opencode = createOpencodeTools({ directory: project }, "English").memory;
+    const savedOpencode = JSON.parse(
+      await opencode.execute(
+        { mode: "memorise", content: "opencode project label note" },
+        { sessionID: "s1" }
+      )
+    );
+
+    const pi = piMemoryTool();
+    const savedPi = JSON.parse(
+      (
+        await pi.execute(
+          "c",
+          { mode: "memorise", content: "pi project label note" },
+          undefined,
+          undefined,
+          { cwd: project, sessionManager: { getSessionId: () => "pi-1" } }
+        )
+      ).content[0].text
+    );
+
+    // Claude Code shells out to this command, so one run covers both hosts.
+    const lines: string[] = [];
+    await runMemoryCommand(["memorise", "cli project label note"], {
+      cwd: project,
+      stdout: (text) => lines.push(text),
+      stderr: () => {},
+    });
+    const savedCli = JSON.parse(lines[0]!);
+    expect(claudeMemoryArgs({ mode: "memorise", content: "note", tags: "auth" }).args).toEqual([
+      "memory",
+      "memorise",
+      "--content",
+      "note",
+      "--tags",
+      "auth",
+    ]);
+
+    for (const saved of [savedOpencode, savedPi, savedCli]) {
+      expect(saved.success).toBe(true);
+      expect(saved.tags).toEqual(["memorisation", label]);
+    }
+
+    const found = JSON.parse(
+      await opencode.execute({ mode: "recall", tags: label }, { sessionID: "s1" })
+    );
+    expect(found.success).toBe(true);
+    // The folder is shared with the earlier parity test, so its row appears too.
+    const ids = found.matches.map((match: any) => match.id);
+    for (const saved of [savedOpencode, savedPi, savedCli]) expect(ids).toContain(saved.id);
+    expect(found.matches.every((match: any) => match.tags.includes(label))).toBe(true);
+  }, 60_000);
 });

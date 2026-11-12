@@ -238,6 +238,7 @@ are global-only. A project config cannot change them.
 | `memorisationMaxSize`  | `2000`       | Whole number. 100 to 20000 for `characters`, 25 to 5000 for `tokens` | Largest memorisation that OMMS accepts.                                   |
 | `memorisationSizeUnit` | `characters` | `characters` or `tokens`                                             | The unit of `memorisationMaxSize`.                                        |
 | `memorisationRepeat`   | `add`        | `add` or `replace`                                                   | What happens when a session snapshot is saved again for the same session. |
+| `memorisationRerank`   | `false`      | `true` or `false`                                                    | Experimental. Text recall reorders its matches with the reranker server.  |
 
 - `tokens` use the same estimate as the memory context budget: UTF-8 bytes divided by 4, rounded up.
 - OMMS checks the size and the unit as a pair. An edit that leaves the number outside the range for its unit is refused, and the previous values stay.
@@ -246,6 +247,7 @@ are global-only. A project config cannot change them.
 - `add` keeps every snapshot, each with its own ID. `replace` deletes the earlier snapshot of the same host session and keeps its ID, so an ID that you quoted still works.
 - `replace` applies to session snapshots only. A note saved with `content` is always added.
 - If the host gives no session ID, `replace` adds the snapshot and the reply says it could not replace.
+- `memorisationRerank` is experimental. It reranks text recall only, and only when the reranker server URL and model from the [Reranker](#reranker) settings are set. The general `rerankerEnabled` switch does not change memorisation recall. Each match keeps its confidence score, and recall without text (by ID or labels) never calls the reranker.
 
 ```jsonc
 {
@@ -255,6 +257,8 @@ are global-only. A project config cannot change them.
   "memorisationSizeUnit": "characters",
   // "add" keeps every snapshot. "replace" overwrites the earlier snapshot of the same session.
   "memorisationRepeat": "add",
+  // Experimental: rerank text recall with the reranker server. Needs its URL and model.
+  "memorisationRerank": false,
 }
 ```
 
