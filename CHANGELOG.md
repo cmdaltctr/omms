@@ -2,6 +2,16 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [6.1.2](https://github.com/cmdaltctr/omms/compare/v6.1.1...v6.1.2) (2026-11-12)
+
+
+### Bug Fixes
+
+* guard memory tagging runs against key leaks, overlap and space switches ([af3e8d7](https://github.com/cmdaltctr/omms/commit/af3e8d7fd4b9240c4c6e68cec02a5f86837a166e))
+* keep the tagging failure across a language change and redact keys in provider errors ([d8081b4](https://github.com/cmdaltctr/omms/commit/d8081b4cf98e0a4b70392d5d3feb7c34dde89532))
+* report failed memory tagging runs with the reason ([4168f9e](https://github.com/cmdaltctr/omms/commit/4168f9e3ad98939578ae6b0e6ea5c4560019b392))
+* report failed memory tagging runs with the reason ([4e6cf8e](https://github.com/cmdaltctr/omms/commit/4e6cf8eb2f3b50310ed1b84c21f74fad60e761d7))
+
 ## [6.1.1](https://github.com/cmdaltctr/omms/compare/v6.1.0...v6.1.1) (2026-11-12)
 
 
