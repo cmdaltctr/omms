@@ -1,4 +1,4 @@
-import { memoryClient, type MemoryScope } from "../services/client.js";
+import { memoryClient } from "../services/client.js";
 import type { LinkedSearchSettings } from "../services/linked-search.js";
 import {
   findSnapshotByHostSession,
@@ -19,6 +19,7 @@ import {
   pickRecallMatches,
   snapshotText,
   visibleTags,
+  withProjectLabel,
   type MemorisationSettings,
   type MemorisationSnapshot,
 } from "./memorisation.js";
@@ -37,7 +38,6 @@ export interface RecallArgs {
   /** Comma-separated labels. Only memorisations that carry all of them match. */
   tags?: string;
   limit?: number;
-  scope?: MemoryScope;
 }
 
 interface MemorisationContext {
@@ -110,7 +110,9 @@ export async function runMemorise(
   const id =
     earlier?.id ?? (await memorisationId((candidate) => memorisationIdTaken(candidate, linked)));
 
-  const recordTags = callerTags(args.tags);
+  // The project name is one more label, so a label filter narrows by project. It comes after
+  // the fixed tag and the caller's labels and is never doubled.
+  const recordTags = withProjectLabel(callerTags(args.tags), tags.project.projectName);
   const info = tags.project;
   const result = await memoryClient.addMemory(built.text, info.tag, {
     id,
@@ -156,13 +158,15 @@ const LABEL_SEARCH_POOL = 200;
 /**
  * Fetches memorisations by exact ID, or by text across memorisations only. `tags` keeps only
  * memorisations that carry every label. With `tags` and no text it returns the newest ones.
- * An exact ID ignores `tags`.
+ * An exact ID ignores `tags`. Every read covers the whole active space and its linked spaces,
+ * so a memorisation is found from any folder. `rerank` (the `memorisationRerank` setting)
+ * lets the reranker server reorder the text matches; each match keeps its content-only
+ * confidence, and the one-strong-match rule reads the first two in that order.
  */
 export async function runRecall(
   args: RecallArgs,
-  tags: ReturnType<typeof getTags>,
-  scope: MemoryScope | undefined,
-  linked: LinkedSearchSettings
+  linked: LinkedSearchSettings,
+  rerank = false
 ): Promise<Record<string, unknown>> {
   const input = (args.query ?? args.memoryId ?? args.content)?.trim();
   const wanted = parseTagList(args.tags);
@@ -170,22 +174,23 @@ export async function runRecall(
     return { success: false, error: "query or tags required: a memorisation ID, text or labels" };
   }
 
-  if (!input) return recallByLabels(wanted, tags, scope, args.limit);
+  if (!input) return recallByLabels(wanted, args.limit);
 
   if (isMemorisationId(input)) {
-    const found = await getMemorisationById(input, tags.project.tag, linked);
+    const found = await getMemorisationById(input, null, linked);
     if (!found) return { success: false, error: `No memorisation has the ID ${input}` };
     return { success: true, count: 1, matches: [found] };
   }
 
-  const result = await memoryClient.searchMemories(input, tags.project.tag, scope, {
+  const result = await memoryClient.searchMemories(input, "", "all-projects", {
     includeLinked: true,
     kind: "memorisation",
+    reranker: rerank,
     ...(wanted.length > 0 ? { limit: LABEL_SEARCH_POOL } : {}),
   });
   if (!result.success) return { success: false, error: result.error };
 
-  const candidates = (result.results ?? [])
+  const mapped = (result.results ?? [])
     .filter((hit: any) => hasAllTags(hit.tags, wanted))
     .map((hit: any) => ({
       id: hit.id as string,
@@ -194,8 +199,10 @@ export async function runRecall(
       createdAt: toIso(hit.createdAt),
       tags: visibleTags(hit.tags),
       ...(hit.spaceName ? { space: hit.spaceName as string } : {}),
-    }))
-    .sort((a, b) => b.confidence - a.confidence);
+    }));
+  // With the reranker on, the client already ordered the own-space rows and the sort would
+  // undo that order. On a reranker failure the client falls back to the confidence order.
+  const candidates = rerank ? mapped : mapped.sort((a, b) => b.confidence - a.confidence);
   const matches = pickRecallMatches(candidates, args.limit);
   return {
     success: true,
@@ -209,14 +216,12 @@ export async function runRecall(
 /** The newest memorisations that carry every label. They are not ranked, so they have no confidence. */
 async function recallByLabels(
   wanted: string[],
-  tags: ReturnType<typeof getTags>,
-  scope: MemoryScope | undefined,
   limit: number | undefined
 ): Promise<Record<string, unknown>> {
   const listed = await listMemorisationsByTags(
-    tags.project.tag,
+    "",
     wanted,
-    scope ?? "project",
+    "all-projects",
     Math.max(1, limit ?? LABEL_RECALL_LIMIT)
   );
   if (!listed.success) return listed;

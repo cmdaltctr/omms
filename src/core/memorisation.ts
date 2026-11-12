@@ -7,6 +7,7 @@ export interface MemorisationSettings {
   memorisationMaxSize: number;
   memorisationSizeUnit: MemorisationSizeUnit;
   memorisationRepeat: MemorisationRepeat;
+  memorisationRerank: boolean;
 }
 
 export interface MemorisationSnapshot {
@@ -120,4 +121,14 @@ export function visibleTags(tags: string[] | undefined): string[] {
 export function hasAllTags(recordTags: string[] | undefined, wanted: string[]): boolean {
   const have = new Set((recordTags ?? []).map(normaliseTag));
   return wanted.every((tag) => have.has(normaliseTag(tag)));
+}
+
+/**
+ * The project name as one more label, after the fixed tag and the caller's labels. The root
+ * folder name `/` is not a usable label, so a caller there gets no project label.
+ */
+export function withProjectLabel(labels: string[], projectName: string | undefined): string[] {
+  const name = projectName?.trim().toLowerCase();
+  if (!name || name === "/") return labels;
+  return labels.includes(name) ? labels : [...labels, name];
 }

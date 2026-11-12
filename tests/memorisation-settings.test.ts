@@ -187,6 +187,70 @@ describe("memorisation settings", () => {
     expect(result.text).toBe(seed);
   });
 
+  it("defaults memorisationRerank to false, validates booleans, and documents the key", async () => {
+    const result = await scenario(`
+      cfg.initConfig(project);
+      return { value: cfg.CONFIG.memorisationRerank, template: cfg.CONFIG_TEMPLATE };
+    `);
+    expect(result.value).toBe(false);
+    expect(result.template).toContain('// "memorisationRerank"');
+    const checked = await scenario(`
+      const errors = [];
+      for (const value of [true, false]) {
+        try { cfg.validateGlobalConfig({ memorisationRerank: value }); } catch (error) { errors.push(String(error)); }
+      }
+      for (const value of ["yes", 1, null]) {
+        try { cfg.validateGlobalConfig({ memorisationRerank: value }); errors.push("accepted " + JSON.stringify(value)); }
+        catch (error) { if (!String(error).includes("memorisationRerank")) errors.push(String(error)); }
+      }
+      return { errors };
+    `);
+    expect(checked.errors).toEqual([]);
+    const seeded = await scenario(
+      `
+      writeFileSync(target, '{ "memorisationRerank": "yes" }');
+      let error = "";
+      try { cfg.initConfig(project); } catch (caught) { error = String(caught); }
+      return { error };
+    `
+    );
+    expect(seeded.error).toContain("memorisationRerank");
+  });
+
+  it("writes and snapshots memorisationRerank, and refuses non-boolean edits", async () => {
+    const result = await scenario(`
+      await writeGlobalConfigKeys({ memorisationRerank: true }, readGlobalConfigRevision());
+      const errors = [];
+      for (const value of ["yes", 1, null]) {
+        try { await writeGlobalConfigKeys({ memorisationRerank: value }, readGlobalConfigRevision()); }
+        catch (error) { errors.push(error.message); }
+      }
+      return { text: readFileSync(target, "utf8"), errors, snapshot: getSettingsSnapshot(project).settings };
+    `);
+    expect(result.text).toContain('"memorisationRerank": true');
+    expect(result.errors).toHaveLength(3);
+    for (const error of result.errors) expect(error).toContain("memorisationRerank");
+    expect(result.snapshot.memorisationRerank).toMatchObject({
+      value: true,
+      globalValue: true,
+      source: "global",
+    });
+  });
+
+  it("ignores a project config memorisationRerank and unknown keys at load", async () => {
+    const result = await scenario(
+      `
+      mkdirSync(project + "/.opencode", { recursive: true });
+      writeFileSync(project + "/.opencode/omms.jsonc", JSON.stringify({ memorisationRerank: false }));
+      cfg.initConfig(project);
+      return { value: cfg.CONFIG.memorisationRerank };
+    `,
+      '{ "memorisationRerank": true, "aFutureKeyNeitherVersionKnows": 1 }\n'
+    );
+    // The project file cannot turn it off, and the unknown key does not stop the load.
+    expect(result.value).toBe(true);
+  });
+
   it("checks paired edits against the latest queued global file", async () => {
     const result = await scenario(`
       const revision = readGlobalConfigRevision();

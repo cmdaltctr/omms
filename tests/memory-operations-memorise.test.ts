@@ -23,9 +23,10 @@ interface Scenario {
   addCalls: any[];
   deleteCalls: string[];
   searchCalls: any[];
+  labelCalls: any[];
   idLookups: string[];
   linkedArgs: any[];
-  containerArgs: string[];
+  containerArgs: (string | null)[];
 }
 
 /**
@@ -43,12 +44,14 @@ const state = {
   records: {},
   sessions: {},
   searchResults: [],
+  labelled: [],
   failDelete: false,
   failAdd: false,
 };
 const addCalls = [];
 const deleteCalls = [];
 const searchCalls = [];
+const labelCalls = [];
 const idLookups = [];
 const linkedArgs = [];
 const containerArgs = [];
@@ -79,7 +82,11 @@ mock.module(${JSON.stringify(clientUrl)}, () => ({
     },
     searchMemories: async (query, containerTag, scope, options) => {
       searchCalls.push({ query, containerTag, scope, options });
-      return { success: true, results: state.searchResults, total: state.searchResults.length, timing: 0 };
+      // An empty tag reads every project, like the real client in the all-projects scope.
+      const results = state.searchResults.filter(
+        (hit) => containerTag === "" || !hit.containerTag || hit.containerTag === containerTag
+      );
+      return { success: true, results, total: results.length, timing: 0 };
     },
     close() {},
   },
@@ -90,7 +97,12 @@ mock.module(${JSON.stringify(storeUrl)}, () => ({
     idLookups.push(id);
     linkedArgs.push(linked);
     containerArgs.push(containerTag);
-    return state.records[id] ?? null;
+    const record = state.records[id];
+    if (!record || record.unlinked) return null;
+    const recordTag = record.containerTag ?? "opencode_project_test";
+    if (containerTag !== null && recordTag !== containerTag) return null;
+    const { containerTag: _tag, unlinked: _unlinked, ...stored } = record;
+    return stored;
   },
   memorisationIdTaken: async (id, linked) => {
     idLookups.push(id);
@@ -98,8 +110,15 @@ mock.module(${JSON.stringify(storeUrl)}, () => ({
     return Boolean(state.records[id]);
   },
   findSnapshotByHostSession: async (hostSessionId) => state.sessions[hostSessionId] ?? null,
-  // Label recall reads the store for real in memorisation-routes.test.ts.
-  listMemorisationsByTags: async () => ({ success: true, memories: [] }),
+  // Label recall reads the store for real in memorisation-routes.test.ts; here the
+  // rows carry a project tag so the scope of each call is visible.
+  listMemorisationsByTags: async (containerTag, tags, scope, limit) => {
+    labelCalls.push({ containerTag, tags, scope, limit });
+    const memories = state.labelled.filter(
+      (memory) => containerTag === "" || !memory.containerTag || memory.containerTag === containerTag
+    );
+    return { success: true, memories };
+  },
 }));
 
 mock.module(${JSON.stringify(tagsUrl)}, () => ({
@@ -128,7 +147,7 @@ const { executeMemoryOperation } = await import(${JSON.stringify(memoryOperation
 let output;
 ${body}
 
-console.log("RESULT:" + JSON.stringify({ addCalls, deleteCalls, searchCalls, idLookups, linkedArgs, containerArgs, output }));
+console.log("RESULT:" + JSON.stringify({ addCalls, deleteCalls, searchCalls, labelCalls, idLookups, linkedArgs, containerArgs, output }));
 `;
   writeFileSync(scriptPath, script);
   const proc = Bun.spawnSync(["bun", "run", scriptPath], { cwd: dir });
@@ -223,13 +242,29 @@ describe("memory tool: memorise", () => {
     const result = runScenario(
       run({ mode: "memorise", content: "note", tags: "OMMS, release, memorisation" })
     );
-    expect(result.addCalls[0].metadata.tags).toEqual(["memorisation", "omms", "release"]);
-    expect(result.output.tags).toEqual(["memorisation", "omms", "release"]);
+    expect(result.addCalls[0].metadata.tags).toEqual([
+      "memorisation",
+      "omms",
+      "release",
+      "workspace",
+    ]);
+    expect(result.output.tags).toEqual(["memorisation", "omms", "release", "workspace"]);
   });
 
   it("tags a memorisation saved without caller tags", () => {
     const result = runScenario(run({ mode: "memorise", content: "note" }));
-    expect(result.addCalls[0].metadata.tags).toEqual(["memorisation"]);
+    expect(result.addCalls[0].metadata.tags).toEqual(["memorisation", "workspace"]);
+  });
+
+  it("stores the project name as a label and returns it", () => {
+    const result = runScenario(run({ mode: "memorise", content: "note" }));
+    expect(result.addCalls[0].metadata.tags).toEqual(["memorisation", "workspace"]);
+    expect(result.output.tags).toEqual(["memorisation", "workspace"]);
+  });
+
+  it("does not double the project label the caller already gave", () => {
+    const result = runScenario(run({ mode: "memorise", content: "note", tags: "Workspace" }));
+    expect(result.addCalls[0].metadata.tags).toEqual(["memorisation", "workspace"]);
   });
 
   it("refuses when neither content nor a snapshot field is given", () => {
@@ -358,9 +393,9 @@ describe("memory tool: recall", () => {
     expect(result.idLookups).toEqual(["ms-4k7q2p"]);
   });
 
-  it("looks an ID up in the current project only", () => {
+  it("looks an ID up across every project of the space", () => {
     const result = runScenario(run({ mode: "recall", query: "ms-zzzzzz" }));
-    expect(result.containerArgs).toEqual(["opencode_project_test"]);
+    expect(result.containerArgs).toEqual([null]);
   });
 
   it("reports an unknown ID without searching by text", () => {
@@ -378,8 +413,8 @@ describe("memory tool: recall", () => {
     expect(result.searchCalls).toHaveLength(1);
     expect(result.searchCalls[0]).toMatchObject({
       query: "release notes",
-      containerTag: "opencode_project_test",
-      scope: "project",
+      containerTag: "",
+      scope: "all-projects",
       options: { includeLinked: true, kind: "memorisation" },
     });
     // Without labels the search keeps the configured result limit.
@@ -484,6 +519,79 @@ describe("memory tool: recall", () => {
     const result = runScenario(run({ mode: "recall" }));
     expect(result.output.success).toBe(false);
     expect(result.output.error).toContain("query");
+  });
+});
+
+describe("memory tool: recall reads every project of the space", () => {
+  const otherProject = "opencode_project_omrs";
+
+  it("finds by ID a memorisation saved under another project of the same space", () => {
+    const result = runScenario(
+      `state.records["ms-omrs01"] = {
+         id: "ms-omrs01",
+         content: "omrs deploy notes from another project",
+         createdAt: "2026-03-04T05:06:07.000Z",
+         containerTag: ${JSON.stringify(otherProject)},
+       };
+       ${run({ mode: "recall", query: "ms-omrs01" })}`
+    );
+    expect(result.output.success).toBe(true);
+    expect(result.output.matches).toEqual([
+      {
+        id: "ms-omrs01",
+        content: "omrs deploy notes from another project",
+        createdAt: "2026-03-04T05:06:07.000Z",
+      },
+    ]);
+    expect(result.containerArgs).toEqual([null]);
+  });
+
+  it("finds by text a memorisation saved under another project of the same space", () => {
+    const result = runScenario(
+      `state.searchResults = [
+         { id: "ms-omrs02", memory: "omrs runpod notes", similarity: 0.9, createdAt: 1767225600000, containerTag: ${JSON.stringify(otherProject)} },
+       ];
+       ${run({ mode: "recall", query: "runpod notes" })}`
+    );
+    expect(result.searchCalls[0]).toMatchObject({
+      query: "runpod notes",
+      containerTag: "",
+      scope: "all-projects",
+      options: { includeLinked: true, kind: "memorisation" },
+    });
+    expect(result.output.success).toBe(true);
+    expect(result.output.matches.map((match: any) => match.id)).toEqual(["ms-omrs02"]);
+  });
+
+  it("finds by labels a memorisation saved under another project of the same space", () => {
+    const result = runScenario(
+      `state.labelled = [
+         { id: "ms-omrs03", summary: "omrs labelled note", createdAt: "2026-03-04T05:06:07.000Z", tags: ["memorisation", "auth"], containerTag: ${JSON.stringify(otherProject)} },
+       ];
+       ${run({ mode: "recall", tags: "auth" })}`
+    );
+    expect(result.labelCalls[0]).toMatchObject({
+      containerTag: "",
+      tags: ["auth"],
+      scope: "all-projects",
+      limit: 10,
+    });
+    expect(result.output.success).toBe(true);
+    expect(result.output.matches.map((match: any) => match.id)).toEqual(["ms-omrs03"]);
+  });
+
+  it("still reports not found for an ID that exists only in an unlinked space", () => {
+    const result = runScenario(
+      `state.records["ms-gone01"] = {
+         id: "ms-gone01",
+         content: "in a space with no link",
+         createdAt: "2026-03-04T05:06:07.000Z",
+         unlinked: true,
+       };
+       ${run({ mode: "recall", query: "ms-gone01" })}`
+    );
+    expect(result.output.success).toBe(false);
+    expect(result.output.error).toBe("No memorisation has the ID ms-gone01");
   });
 });
 

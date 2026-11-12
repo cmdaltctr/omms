@@ -85,6 +85,20 @@ export function rerankSettingsFrom(config: RerankerConfigSlice): RerankerSetting
   };
 }
 
+/**
+ * Reranker settings for one read. An override decides for that read alone:
+ * `false` never reranks; `true` reranks whenever the server URL and model are
+ * set, even with the general switch off. No override keeps the general rule.
+ */
+export function rerankSettingsFor(
+  config: RerankerConfigSlice,
+  override?: boolean
+): RerankerSettings | undefined {
+  if (override === false) return undefined;
+  if (override === true) return rerankSettingsFrom({ ...config, rerankerEnabled: true });
+  return rerankSettingsFrom(config);
+}
+
 interface RerankReplyEntry {
   index?: unknown;
   relevance_score?: unknown;

@@ -406,13 +406,13 @@ Import and automatic import name no host, so they open the overview. A Shared ro
 
 Open `http://127.0.0.1:4747/memorisation` or select **Memorisation** in the sidebar. The entry sits directly after **User profile**. The page works in English, Chinese and Arabic. A reload keeps the page.
 
-A memorisation is an exact note that you save on purpose, with an ID such as `ms-4k7q2p`. Agents and the terminal save it with the `memorise` mode. See [Using memory](using-memory.md). This page lists, finds, copies and deletes them. It shows the records of the current project in the active space and in linked spaces.
+A memorisation is an exact note that you save on purpose, with an ID such as `ms-4k7q2p`. Agents and the terminal save it with the `memorise` mode. See [Using memory](using-memory.md). This page lists, finds, copies and deletes them. It shows the memorisations of every project in the active space and in linked spaces, whatever folder the web app runs in. A memorisation belongs to the space, not to a project.
 
 | Part                    | What it does                                                                                                                       |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | **Recall**              | Runs the same recall as the `recall` mode. An ID shows that one record. Words show the best matches, each with a confidence score. |
 | **Saved memorisations** | Lists the records, newest first, five to a page. The toolbar changes the sort and the page size.                                   |
-| **Settings**            | Sets what a repeat does and the size cap. Both are global settings.                                                                |
+| **Settings**            | Sets what a repeat does, the size cap and whether text recall uses the reranker. All are global settings.                          |
 
 ### The list
 
@@ -460,7 +460,7 @@ Select **Select** above the list to turn on select mode. Each card gets a checkb
 - After you confirm, the page leaves select mode, reloads the list and shows a result line: "Deleted 2." and one line for each skipped ID with its reason.
 - A skipped record stays as it was. The reasons are: it no longer exists, it is in a linked space (read-only), or it is not a memorisation.
 - If the request fails, the dialog stays open with an error and the ticks stay. Try again or select **Cancel**.
-- Bulk delete works on the active space only.
+- Bulk delete works on the active space only, and reaches memorisations of any project in it.
 
 ### Repeat choice
 
@@ -482,14 +482,24 @@ Select **Select** above the list to turn on select mode. Each card gets a checkb
 
 A number outside the range saves nothing. The page then shows the range for the unit you chose. Lowering the cap does not change records that you saved before. Both settings are global. A project config file cannot change them. Saving uses the [safe global save](web-ui-settings.md#how-saving-works).
 
+### Rerank text recall
+
+**Rerank text recall (experimental)** sets `memorisationRerank`. It is off by default.
+
+- With the switch on, text recall asks your reranker server to reorder the matches. Each match keeps its own confidence score, and the one-clear-match rule reads the first two in the new order. Linked-space matches still follow own-space matches and are never reranked.
+- The reranker server is the one from the Memory settings page (`rerankerApiUrl` and `rerankerModel`). While its URL or model is missing, the switch stays visible but disabled, with the reason. Set the server first on the Memory settings page.
+- The general reranker switch (`rerankerEnabled`) no longer changes memorisation recall. Only this switch does.
+- If the reranker server fails, text recall falls back to the confidence order.
+- The setting is global and experimental. A project config file cannot change it. Saving uses the [safe global save](web-ui-settings.md#how-saving-works).
+
 ### API
 
-| Route                                           | Returns                                                                                                                                                                                                                                                                                        |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/memorisations`                        | `data.memorisations`: `id`, `content`, `createdAt`, `host`, `kind`, `space` and `tags` (the labels, without the fixed tag). Optional `tags=a,b` keeps only records that carry every label, from the active and linked spaces. The filter runs before the cap of 200 rows.                      |
-| `GET /api/memorisations/recall?q=&tags=&limit=` | `data.count` and `data.matches`. Give `q`, `tags` or both. A match has `confidence` when `q` is text. With `tags` and no `q` it returns the newest labelled records. Status 400 when both are empty, 404 for an unknown ID.                                                                    |
-| `POST /api/memorisations/bulk-delete`           | Body `{"ids": ["ms-4k7q2p"]}` with 1 to 500 `ms-` IDs, else status 400. Returns `data.deleted` (IDs) and `data.skipped` (`id` and `reason`: `not-found`, `linked` or `not-memorisation`). It deletes from the active space only, handles a repeated ID once, and never changes a linked space. |
-| `DELETE /api/memories/:id`                      | The existing memory delete route. It removes a memorisation too.                                                                                                                                                                                                                               |
+| Route                                           | Returns                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/memorisations`                        | `data.memorisations`: `id`, `content`, `createdAt`, `host`, `kind`, `space` and `tags` (the labels, without the fixed tag). Optional `tags=a,b` keeps only records that carry every label, from every project of the active and linked spaces. The filter runs before the cap of 200 rows.                                  |
+| `GET /api/memorisations/recall?q=&tags=&limit=` | `data.count` and `data.matches`. Give `q`, `tags` or both. A match has `confidence` when `q` is text. With `tags` and no `q` it returns the newest labelled records. Status 400 when both are empty, 404 for an unknown ID.                                                                                                 |
+| `POST /api/memorisations/bulk-delete`           | Body `{"ids": ["ms-4k7q2p"]}` with 1 to 500 `ms-` IDs, else status 400. Returns `data.deleted` (IDs) and `data.skipped` (`id` and `reason`: `not-found`, `linked` or `not-memorisation`). It deletes memorisations of any project from the active space only, handles a repeated ID once, and never changes a linked space. |
+| `DELETE /api/memories/:id`                      | The existing memory delete route. It removes a memorisation too.                                                                                                                                                                                                                                                            |
 
 `PUT /api/memories/:id` and `POST /api/memories/bulk-delete` refuse a memorisation. `POST /api/memories` refuses the type `memorisation`. Each refusal returns an error that names the Memorisation page.
 

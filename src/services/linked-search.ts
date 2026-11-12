@@ -35,6 +35,8 @@ export interface MemoryReadOptions {
   kind?: MemoryKind;
   /** Search only: the result limit for this read, instead of `maxMemories`. */
   limit?: number;
+  /** Search only: rerank this read whatever the general `rerankerEnabled` switch says. */
+  reranker?: boolean;
 }
 
 /** The settings a linked search needs; the caller snapshots them from CONFIG. */

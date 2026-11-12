@@ -48,6 +48,10 @@ async function freshProject() {
   return { directory, tags: getTags(directory) };
 }
 
+/** The project label memorise adds: the folder name, trimmed and lower-cased. */
+const labelOf = (project: Awaited<ReturnType<typeof freshProject>>) =>
+  (project.tags.project.projectName ?? "").trim().toLowerCase();
+
 async function operation(
   args: Record<string, unknown>,
   project: Awaited<ReturnType<typeof freshProject>>,
@@ -66,23 +70,19 @@ async function operation(
 async function routeConfig() {
   const { CONFIG } = await import("../src/config.js");
   const { linkedSettingsFrom } = await import("../src/services/linked-search.js");
-  return { defaultScope: CONFIG.memory.defaultScope, linked: linkedSettingsFrom(CONFIG) };
+  return { linked: linkedSettingsFrom(CONFIG), rerank: CONFIG.memorisationRerank === true };
 }
 
-async function get(project: Awaited<ReturnType<typeof freshProject>>, path: string) {
+async function get(_project: Awaited<ReturnType<typeof freshProject>>, path: string) {
   const { routeMemorisations } = await import("../src/services/memorisation-routes.js");
   const url = new URL(`http://localhost${path}`);
-  return routeMemorisations(
-    url.pathname,
-    "GET",
-    url,
-    project.directory,
-    await routeConfig()
-  ) as Promise<{ status: number; body: any } | undefined>;
+  return routeMemorisations(url.pathname, "GET", url, await routeConfig()) as Promise<
+    { status: number; body: any } | undefined
+  >;
 }
 
 async function post(
-  project: Awaited<ReturnType<typeof freshProject>>,
+  _project: Awaited<ReturnType<typeof freshProject>>,
   path: string,
   body: unknown
 ) {
@@ -92,7 +92,6 @@ async function post(
     url.pathname,
     "POST",
     url,
-    project.directory,
     await routeConfig(),
     async () => body
   ) as Promise<{ status: number; body: any } | undefined>;
@@ -179,24 +178,26 @@ afterAll(async () => {
 
 afterEach(async () => {
   const { cleanupTursoTestDirectory } = await import("./turso-test-utils.js");
+  // List, recall and bulk delete read every project of the space, so each test
+  // starts from an empty space instead of relying on project isolation.
+  const { closeAllCachedSpaceReadStores } =
+    await import("../src/services/spaces/read-store-cache.js");
+  await closeAllCachedSpaceReadStores();
   await cleanupTursoTestDirectory();
+  rmSync(SPACES_ROOT, { recursive: true, force: true });
   useRegistry(["beta"]);
   for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
 describe("GET /api/memorisations", () => {
   it("ignores paths and methods it does not own", async () => {
-    const project = await freshProject();
+    await freshProject();
     const { routeMemorisations } = await import("../src/services/memorisation-routes.js");
     const url = new URL("http://localhost/api/memories");
     const config = await routeConfig();
-    expect(
-      await routeMemorisations(url.pathname, "GET", url, project.directory, config)
-    ).toBeUndefined();
+    expect(await routeMemorisations(url.pathname, "GET", url, config)).toBeUndefined();
     const own = new URL("http://localhost/api/memorisations");
-    expect(
-      await routeMemorisations(own.pathname, "POST", own, project.directory, config)
-    ).toBeUndefined();
+    expect(await routeMemorisations(own.pathname, "POST", own, config)).toBeUndefined();
   }, 60_000);
 
   it("lists only memorisations, newest first, with ID, text, host and time", async () => {
@@ -344,8 +345,8 @@ describe("labels on the list", () => {
     const plain = await operation({ mode: "memorise", content: "plain note" }, project);
     const rows = (await get(project, "/api/memorisations"))!.body.data.memorisations;
     const byId = Object.fromEntries(rows.map((row: any) => [row.id, row]));
-    expect(byId[labelled.id].tags).toEqual(["auth", "wip"]);
-    expect(byId[plain.id].tags).toEqual([]);
+    expect(byId[labelled.id].tags).toEqual(["auth", "wip", labelOf(project)]);
+    expect(byId[plain.id].tags).toEqual([labelOf(project)]);
   }, 60_000);
 
   it("keeps the labels of a linked-space row", async () => {
@@ -443,7 +444,7 @@ describe("GET /api/memorisations/recall with tags", () => {
       project
     );
     const result = await get(project, `/api/memorisations/recall?q=${saved.id}`);
-    expect(result!.body.data.matches[0].tags).toEqual(["auth"]);
+    expect(result!.body.data.matches[0].tags).toEqual(["auth", labelOf(project)]);
   }, 60_000);
 
   it("returns the newest labelled memorisations when q is empty, with no confidence", async () => {
@@ -464,7 +465,10 @@ describe("GET /api/memorisations/recall with tags", () => {
       expect(result!.status).toBe(200);
       const matches = result!.body.data.matches;
       expect(matches.map((match: any) => match.id)).toEqual([second.id, first.id]);
-      expect(matches[0]).toMatchObject({ content: "newer", tags: ["auth", "wip"] });
+      expect(matches[0]).toMatchObject({
+        content: "newer",
+        tags: ["auth", "wip", labelOf(project)],
+      });
       expect(matches.every((match: any) => !("confidence" in match))).toBe(true);
       expect(result!.body.data.count).toBe(2);
     }
@@ -563,7 +567,7 @@ describe("GET /api/memorisations/recall with tags", () => {
       const matches = result!.body.data.matches;
       expect(matches.map((match: any) => match.id)).toEqual([labelled.id]);
       expect(matches[0].confidence).toBeGreaterThan(50);
-      expect(matches[0].tags).toEqual(["events"]);
+      expect(matches[0].tags).toEqual(["events", labelOf(project)]);
     } finally {
       CONFIG.similarityThreshold = previous;
     }
@@ -591,6 +595,41 @@ describe("GET /api/memorisations/recall with tags", () => {
       CONFIG.similarityThreshold = previous;
     }
   }, 120_000);
+});
+
+describe("the page reads the whole space, not the caller's project", () => {
+  it("lists a memorisation saved under another project", async () => {
+    const home = await freshProject();
+    const page = await freshProject();
+    const note = await operation(
+      { mode: "memorise", content: "saved from another project folder" },
+      home
+    );
+    const rows = (await get(page, "/api/memorisations"))!.body.data.memorisations;
+    expect(rows.map((row: any) => row.id)).toEqual([note.id]);
+  }, 60_000);
+
+  it("recalls by ID a memorisation saved under another project", async () => {
+    const home = await freshProject();
+    const page = await freshProject();
+    const note = await operation({ mode: "memorise", content: "recall across projects" }, home);
+    const result = await get(page, `/api/memorisations/recall?q=${note.id}`);
+    expect(result!.status).toBe(200);
+    expect(result!.body.data.matches[0]).toMatchObject({
+      id: note.id,
+      content: "recall across projects",
+    });
+  }, 60_000);
+
+  it("bulk-deletes a memorisation saved under another project", async () => {
+    const home = await freshProject();
+    const page = await freshProject();
+    const note = await operation({ mode: "memorise", content: "delete across projects" }, home);
+    const result = await post(page, "/api/memorisations/bulk-delete", { ids: [note.id] });
+    expect(result!.status).toBe(200);
+    expect(result!.body.data).toEqual({ deleted: [note.id], skipped: [] });
+    expect((await get(page, "/api/memorisations"))!.body.data.memorisations).toEqual([]);
+  }, 60_000);
 });
 
 describe("POST /api/memorisations/bulk-delete", () => {
@@ -653,16 +692,13 @@ describe("POST /api/memorisations/bulk-delete", () => {
     expect(kept.memories.map((memory: any) => memory.id)).toEqual(["ms-plain1"]);
   }, 60_000);
 
-  it("leaves another project's memorisation alone and reports it as not-found", async () => {
+  it("deletes another project's memorisation in the same active space", async () => {
     const mine = await freshProject();
     const other = await freshProject();
     const theirs = await operation({ mode: "memorise", content: "other project note" }, other);
     const result = await post(mine, "/api/memorisations/bulk-delete", { ids: [theirs.id] });
-    expect(result!.body.data).toEqual({
-      deleted: [],
-      skipped: [{ id: theirs.id, reason: "not-found" }],
-    });
-    expect(await listed(other)).toEqual([theirs.id]);
+    expect(result!.body.data).toEqual({ deleted: [theirs.id], skipped: [] });
+    expect(await listed(other)).toEqual([]);
   }, 60_000);
 
   it("deletes a repeated ID once", async () => {

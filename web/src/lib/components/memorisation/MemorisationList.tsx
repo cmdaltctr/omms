@@ -8,7 +8,7 @@ import { MEMORISATION_SORTS, type Memorisation } from "$lib/memorisation-model";
 /** Shown when the project has no memorisations: how to make the first one. */
 export const MEMORISE_COMMAND = 'om-memory-system memory memorise "your note"';
 
-/** The memorisations of this project, newest first, five to a page. */
+/** The memorisations of the active and linked spaces, newest first, five to a page. */
 export function MemorisationList({
   items,
   labels,

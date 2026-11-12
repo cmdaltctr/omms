@@ -41,6 +41,8 @@ const { MemorisationSettings } =
   await import("../src/lib/components/memorisation/MemorisationSettings.tsx");
 const { RepeatChoice } = await import("../src/lib/components/memorisation/RepeatChoice.tsx");
 const { SizeCapForm } = await import("../src/lib/components/memorisation/SizeCapForm.tsx");
+const { RerankSwitch } = await import("../src/lib/components/memorisation/RerankSwitch.tsx");
+const { Tooltip } = await import("../src/lib/components/ui/tooltip.tsx");
 const { DeleteMemorisationDialog } =
   await import("../src/lib/components/memorisation/DeleteMemorisationDialog.tsx");
 const { MemorisationSelectBar } =
@@ -67,6 +69,7 @@ const own = [
   MemorisationSettings,
   RepeatChoice,
   SizeCapForm,
+  RerankSwitch,
   DeleteMemorisationDialog,
   MemorisationSelectBar,
   LabelFilterBar,
@@ -89,6 +92,8 @@ let rows: Row[] = [];
 let settings: Record<string, unknown> = {};
 let revision = "r1";
 let refuseSizeBelow = 0;
+/** When set, a PATCH of memorisationRerank fails with this server reason. */
+let rerankSaveFails: string | null = null;
 let deleteFails = false;
 let recallReply: { status?: number; body: unknown } | null = null;
 let requests: Request[] = [];
@@ -111,11 +116,13 @@ beforeEach(() => {
   bulkReply = null;
   address = "/memorisation";
   refuseSizeBelow = 0;
+  rerankSaveFails = null;
   revision = "r1";
   settings = {
     memorisationRepeat: { value: "add", globalValue: "add" },
     memorisationMaxSize: { value: 2000, globalValue: 2000 },
     memorisationSizeUnit: { value: "characters", globalValue: "characters" },
+    memorisationRerank: { value: false, globalValue: false },
   };
   rows = [
     {
@@ -188,6 +195,9 @@ beforeEach(() => {
     }
     if (method === "GET" && path === "/api/settings") return { body: { revision, settings } };
     if (method === "PATCH" && path === "/api/settings") {
+      if (rerankSaveFails && body.edits.memorisationRerank !== undefined) {
+        return { status: 400, body: { success: false, error: rerankSaveFails } };
+      }
       const size = body.edits.memorisationMaxSize;
       if (size !== undefined && size < refuseSizeBelow) {
         return {
@@ -431,6 +441,60 @@ it("saves the repeat choice through the settings route", async () => {
   resetRender();
   tree = await settle(page, own);
   expect(radioOf(tree, "Replace the earlier one").props["aria-checked"]).toBe(true);
+});
+
+const rerankSwitch = (tree: Node[]) =>
+  tree.find((node) => node.props.role === "switch" && node.props.id === "memorisation-rerank")!;
+const rerankReadySettings = () => {
+  settings.rerankerApiUrl = {
+    value: "http://127.0.0.1:3008/v1",
+    globalValue: "http://127.0.0.1:3008/v1",
+  };
+  settings.rerankerModel = { value: "Qwen3-Reranker-0.6B", globalValue: "Qwen3-Reranker-0.6B" };
+};
+
+it("saves the rerank switch through the settings route and keeps it on after a reload", async () => {
+  rerankReadySettings();
+  let tree = await settle(page, own);
+  const box = rerankSwitch(tree);
+  expect(box.props.checked).toBe(false);
+  expect(box.props.disabled).toBeFalsy();
+  expect(allText(tree)).toContain("Rerank text recall (experimental)");
+  box.props.onChange({ target: { checked: true } });
+  tree = await settle(page, own);
+  expect(changes()).toEqual([
+    {
+      method: "PATCH",
+      path: "/api/settings",
+      body: { edits: { memorisationRerank: true }, revision: "r1" },
+    },
+  ]);
+  expect(allText(tree)).toContain("Saved. The next text recall follows this choice.");
+  // The on state survives a reload.
+  resetRender();
+  tree = await settle(page, own);
+  expect(rerankSwitch(tree).props.checked).toBe(true);
+});
+
+it("returns the rerank switch to its earlier position and shows the server's reason", async () => {
+  rerankReadySettings();
+  rerankSaveFails = "Invalid memorisationRerank setting";
+  let tree = await settle(page, own);
+  rerankSwitch(tree).props.onChange({ target: { checked: true } });
+  tree = await settle(page, own);
+  expect(rerankSwitch(tree).props.checked).toBe(false);
+  expect(allText(tree)).toContain("Invalid memorisationRerank setting");
+});
+
+it("keeps the rerank switch disabled, with the reason, until a reranker server is set", async () => {
+  const tree = await settle(page, own);
+  const box = rerankSwitch(tree);
+  expect(box.props.disabled).toBe(true);
+  expect(box.props["aria-describedby"]).toBe("memorisation-rerank-reason");
+  const reason = tree.find((node) => node.props.id === "memorisation-rerank-reason")!;
+  expect(text(reason.props.children)).toContain("reranker server");
+  const tips = byType(tree, Tooltip).map((node) => text(node.props.content));
+  expect(tips.join(" ")).toContain("reranker server");
 });
 
 it("saves a token cap as a pair", async () => {

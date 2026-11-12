@@ -259,6 +259,11 @@ A memorisation is a short note that you save on purpose and fetch on purpose.
 OMMS stores it word for word and gives it an ID such as `ms-4k7q2p`. It never
 merges, rewrites or removes a memorisation by itself.
 
+Memorisations belong to the memory space, not to a project. Recall by ID, by
+text and by labels, the Memorisation page list and bulk delete read every
+project of the active space and its linked spaces. A note saved in one folder
+is found from any other folder of the same space.
+
 ```typescript
 memory({ mode: "memorise", content: "Use port 4747 for the scratch web app" });
 memory({
@@ -278,6 +283,7 @@ memory({ mode: "recall", query: "release notes", tags: "release" });
 
 - Give either `content` or snapshot fields (`topic`, `done`, `doing`, `next`), not both. A snapshot stores the fields as labelled lines. Empty fields are left out.
 - `tags` are optional. They hold your labels, separated by commas. Say "memorise this, label it release, wip" and the agent passes both labels, plus one to three labels of its own. OMMS trims each label, writes it in lower case and keeps one copy of a repeat. It always adds the tag `memorisation`, which the pages do not show as a label.
+- `memorise` also adds the project name as a label. For a git repository the name is the folder that holds the shared `.git` folder, so every worktree and branch of one repository gives the same label. A folder outside git gives the folder name. A caller in `/` gets no project label, because `/` is not a usable label. A label you already gave is not added twice. Older memorisations keep their labels and gain none.
 - OMMS removes `<private>` text first. It refuses a note that is entirely private.
 - A note over the size cap is refused with the limit and the actual size. OMMS never shortens it. See [Configuration: Memorisation](configuration.md#memorisation).
 - `add` mode refuses `type: "memorisation"`. Use `memorise` to save one, so no other record carries that kind.
@@ -286,23 +292,24 @@ memory({ mode: "recall", query: "release notes", tags: "release" });
 - Automatic capture skips a turn in which a memorise call succeeded. This keeps the snapshot out of per-prompt recall, so it reaches an agent only through `recall`. A failed memorise call does not cause a skip. The skip shows in the capture log as the reason `memorisation-turn`, and the history import skips the same turns.
 
 `recall` with an ID returns that record's full text, its ID and its creation
-time. It looks in the active space and in linked spaces. An unknown ID returns an
-error.
+time. The lookup covers every project of the active space and its linked spaces.
+An unknown ID returns an error.
 
-`recall` with text searches memorisations only. Each match has an ID, the full
+`recall` with text searches memorisations only, in every project of the active
+space and its linked spaces. Each match has an ID, the full
 text and a confidence score from 0 to 100. If the best match scores 80 or more
 and leads the next by 10 points or more, only that match returns. Otherwise three
 return by default, or up to your `limit` when you pass one, above or below three. If nothing is close
 enough, the reply says no memorisation matched.
 
-`recall` also takes `tags`, a list of labels. A memorisation matches only when it carries every label. Case and spaces do not matter. When you ask for "the memorisation labelled release", the agent calls `recall` with `tags: "release"`.
+`recall` also takes `tags`, a list of labels. A memorisation matches only when it carries every label. Case and spaces do not matter. When you ask for "the memorisation labelled release", the agent calls `recall` with `tags: "release"`. Matches come from the whole space, whichever folder the caller runs in.
 
 - `tags` with no `query` returns the newest labelled memorisations, 10 by default, with no confidence score. Use `limit` to change the number.
 - `tags` with a `query` ranks by text first, then keeps the matches that carry every label. Each match has a confidence score.
 - An exact `ms-` ID ignores `tags`.
 - A `recall` with no `query` and no `tags` is refused.
 
-The Memorisation page shows the labels as pills, filters by them, and reads `label:name` in its recall box. See [Web UI: Memorisation page](web-ui-memory.md#memorisation-page).
+The Memorisation page shows the labels as pills, filters by them, and reads `label:name` in its recall box. Its list and recall read the whole active space and its linked spaces, so the page works whatever folder the web app runs in. Bulk delete removes memorisations of any project from the active space only; linked spaces are never touched. See [Web UI: Memorisation page](web-ui-memory.md#memorisation-page).
 
 Memorisations stay out of `search`, `list`, per-prompt recall, opening context,
 restore after compaction, capture context and the web memory chat. Duplicate

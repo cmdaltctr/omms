@@ -69,6 +69,8 @@ interface OmmsConfig {
   memorisationMaxSize?: number;
   memorisationSizeUnit?: memorisation.MemorisationSettings["memorisationSizeUnit"];
   memorisationRepeat?: memorisation.MemorisationSettings["memorisationRepeat"];
+  /** Experimental: rerank text recall with the reranker server. Global config only. */
+  memorisationRerank?: boolean;
   maxProfileItems?: number;
   injectProfile?: boolean;
   containerTagPrefix?: string;
@@ -233,6 +235,7 @@ const DEFAULTS: Required<
   memorisationMaxSize: 2000,
   memorisationSizeUnit: "characters",
   memorisationRepeat: "add",
+  memorisationRerank: false,
   maxProfileItems: 5,
   injectProfile: true,
   // omms since the tag prefix migration: new memories carry the fork's

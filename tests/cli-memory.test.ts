@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 /**
@@ -180,7 +180,7 @@ scenario = { explicit, first, second, byId, byText, missing, rows };
 
 describe("om-memory-system memory recall --tags", () => {
   it("saves labels with memorise and recalls by label, with or without text", async () => {
-    const { home, run } = createHarness();
+    const { home, projectDir, run } = createHarness();
     const configDir = join(home, ".config", "omms");
     mkdirSync(configDir, { recursive: true });
     writeFileSync(
@@ -203,7 +203,8 @@ scenario = { a, b, byLabel, both, withText, none, bare };
     const byLabel = onlyJson(scenario.byLabel);
     expect(byLabel.matches.map((match: any) => match.id)).toEqual([a.id]);
     expect(byLabel.matches[0]).toMatchObject({ content: "Plan A: ship the web page" });
-    expect(byLabel.matches[0].tags).toEqual(["release", "wip"]);
+    // The last label is the project folder the CLI ran in, added on save.
+    expect(byLabel.matches[0].tags).toEqual(["release", "wip", basename(projectDir).toLowerCase()]);
     expect(byLabel.matches[0]).not.toHaveProperty("confidence");
     expect(onlyJson(scenario.both).matches.map((match: any) => match.id)).toEqual([a.id]);
     const withText = onlyJson(scenario.withText);

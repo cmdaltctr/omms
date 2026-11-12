@@ -161,9 +161,9 @@ describe("memorise and recall through the real store", () => {
 
   it("recalls a memorisation by text with a confidence score", async () => {
     const tag = freshTag();
-    const saved = await memorise({ content: "zebra crossing plan for the quarterly offsite" }, tag);
+    const saved = await memorise({ content: "penguin crossing plan for the autumn offsite" }, tag);
     const recalled: any = await withConfig({ similarityThreshold: 0.2 }, () =>
-      operation({ mode: "recall", query: "zebra crossing plan quarterly offsite" }, tag)
+      operation({ mode: "recall", query: "penguin crossing plan autumn offsite" }, tag)
     );
     expect(recalled.success).toBe(true);
     expect(recalled.matches[0].id).toBe(saved.id);
@@ -182,32 +182,69 @@ describe("memorise and recall through the real store", () => {
     });
   }, 60_000);
 
-  it("does not recall another project's memorisation by its ID", async () => {
+  it("recalls another project's memorisation by its ID in the same space", async () => {
     const tagA = freshTag();
     const tagB = freshTag();
     const saved = await memorise({ content: "project A deploy key rotation notes" }, tagA);
     expect(saved.success).toBe(true);
 
     const fromB: any = await operation({ mode: "recall", query: saved.id }, tagB);
-    expect(fromB.success).toBe(false);
-    expect(fromB.error).toContain(`No memorisation has the ID ${saved.id}`);
+    expect(fromB.success).toBe(true);
+    expect(fromB.matches[0]).toMatchObject({
+      id: saved.id,
+      content: "project A deploy key rotation notes",
+    });
 
     const fromA: any = await operation({ mode: "recall", query: saved.id }, tagA);
     expect(fromA.success).toBe(true);
   }, 60_000);
 
-  it("does not recall another project's linked memorisation by its ID", async () => {
+  it("recalls another project's linked memorisation by its ID and names the space", async () => {
     const tagA = freshTag();
     const tagB = freshTag();
     await writeLinkedMemorisation("ms-beta02", "linked notes of project A", tagA);
 
     const fromB: any = await operation({ mode: "recall", query: "ms-beta02" }, tagB);
-    expect(fromB.success).toBe(false);
-    expect(fromB.error).toContain("No memorisation has the ID ms-beta02");
+    expect(fromB.success).toBe(true);
+    expect(fromB.matches[0].space).toBe("Beta");
 
     const fromA: any = await operation({ mode: "recall", query: "ms-beta02" }, tagA);
     expect(fromA.success).toBe(true);
     expect(fromA.matches[0].space).toBe("Beta");
+  }, 60_000);
+
+  it("finds a row of another project when the project argument is null", async () => {
+    const tagA = freshTag();
+    const tagB = freshTag();
+    const saved = await memorise({ content: "cross-project note for the null lookup" }, tagA);
+    expect(saved.success).toBe(true);
+    const { getMemorisationById } = await import("../src/services/memorisation-store.js");
+    const { CONFIG } = await import("../src/config.js");
+    const { linkedSettingsFrom } = await import("../src/services/linked-search.js");
+    const linked = linkedSettingsFrom(CONFIG);
+
+    const found = await getMemorisationById(saved.id as string, null, linked);
+    expect(found).toMatchObject({
+      id: saved.id,
+      content: "cross-project note for the null lookup",
+    });
+
+    // The string form still narrows to one project, so tagB sees nothing.
+    expect(await getMemorisationById(saved.id as string, tagB, linked)).toBeNull();
+  }, 60_000);
+
+  it("deletes a row of another project when the project argument is null", async () => {
+    const tagA = freshTag();
+    const saved = await memorise({ content: "cross-project note for the null delete" }, tagA);
+    expect(saved.success).toBe(true);
+    const { deleteMemorisation, getMemorisationById } =
+      await import("../src/services/memorisation-store.js");
+    const { CONFIG } = await import("../src/config.js");
+    const { linkedSettingsFrom } = await import("../src/services/linked-search.js");
+    const linked = linkedSettingsFrom(CONFIG);
+
+    expect(await deleteMemorisation(saved.id as string, null, linked)).toBe("deleted");
+    expect(await getMemorisationById(saved.id as string, null, linked)).toBeNull();
   }, 60_000);
 
   it("reports an ID that exists nowhere", async () => {

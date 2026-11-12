@@ -1,5 +1,6 @@
 import { Loader } from "lucide-react";
 import { RepeatChoice } from "./RepeatChoice";
+import { RerankSwitch } from "./RerankSwitch";
 import { SizeCapForm } from "./SizeCapForm";
 import { useMemorisationSettings, type SettingsStatus } from "@/hooks/useMemorisationSettings";
 import { Callout } from "$lib/components/skills/Callout";
@@ -12,6 +13,7 @@ const SECTION = "space-y-3 rounded-xl border border-border bg-card p-4";
 const SAVED: Partial<Record<SettingsStatus["kind"], string>> = {
   "repeat-saved": "memorisation-repeat-saved",
   "size-saved": "memorisation-size-saved",
+  "rerank-saved": "memorisation-rerank-saved",
 };
 
 /** The two global settings of memorisation: what a repeat does, and the size cap. */
@@ -36,6 +38,9 @@ export function MemorisationSettings() {
     }
     if (status.kind === "load-failed") return t("memorisation-settings-load-failed");
     if (status.kind === "stale") return t("memorisation-settings-stale");
+    if (status.kind === "rerank-failed") {
+      return status.reason || t("memorisation-settings-failed");
+    }
     if (status.kind === "failed") return t("memorisation-settings-failed");
     return null;
   })();
@@ -80,6 +85,14 @@ export function MemorisationSettings() {
             onSize={settings.setSizeText}
             onUnit={settings.setUnit}
             onSave={() => void settings.saveSize()}
+          />
+        </div>
+        <div className={SECTION}>
+          <RerankSwitch
+            value={settings.rerank}
+            ready={settings.rerankerReady}
+            busy={settings.busy || !settings.loaded}
+            onChange={(value) => void settings.chooseRerank(value)}
           />
         </div>
       </div>

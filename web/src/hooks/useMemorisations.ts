@@ -11,7 +11,7 @@ export type RecallState =
   | { kind: "failed"; query: string; missingId: boolean };
 
 /**
- * The memorisations of this project that carry all of `labels`, the recall search over them,
+ * The memorisations of the active and linked spaces that carry all of `labels`, the recall search over them,
  * and delete. Call `load` again whenever `labels` changes: `load` changes with them.
  */
 export function useMemorisations(labels: readonly string[]) {

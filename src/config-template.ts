@@ -406,6 +406,9 @@ export const CONFIG_TEMPLATE = `{
   // Tokens are estimated with the same rule as retrievalMaxTokens.
   // "memorisationMaxSize": 2000,
   // "memorisationSizeUnit": "characters", // or "tokens"
+  // Experimental: rerank text recall with the reranker server of the Memory
+  // settings (needs its URL and model; default false).
+  // "memorisationRerank": false,
 
   // Restore a session's own memories after compaction and after resume, on
   // OpenCode V2, Pi and Claude Code. memoryLimit is the most memories to

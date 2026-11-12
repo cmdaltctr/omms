@@ -45,17 +45,23 @@ async function findActiveRow(id: string): Promise<Record<string, unknown> | null
 }
 
 /**
- * Looks a memorisation up by exact ID in the active space, then in the linked spaces. Only
- * rows of the given project are returned, the same rule as text recall and list.
+ * Looks a memorisation up by exact ID in the active space, then in the linked spaces. A
+ * project tag narrows the lookup to that project; `null` matches any project, the rule
+ * recall and bulk delete use.
  * The caller snapshots `linked` from CONFIG, so this module never imports it.
  */
 export async function getMemorisationById(
   id: string,
-  containerTag: string,
+  containerTag: string | null,
   linked: LinkedSearchSettings
 ): Promise<StoredMemorisation | null> {
   const row = await findActiveRow(id);
-  if (row?.container_tag === containerTag && row.type === "memorisation") return toStored(row);
+  if (
+    row?.type === "memorisation" &&
+    (containerTag === null || row.container_tag === containerTag)
+  ) {
+    return toStored(row);
+  }
   const found = await readLinkedMemory(id, activeOwner(), linked, containerTag);
   return found?.row.type === "memorisation" ? toStored(found.row, found.name) : null;
 }
@@ -129,13 +135,14 @@ export async function listMemorisationsByTags(
 export type MemorisationDeleteOutcome = "deleted" | "not-found" | "linked" | "not-memorisation";
 
 /**
- * Deletes one memorisation of this project from the active space. A row of another project,
- * or no row, is "not-found". A row of another type is kept ("not-memorisation"). A row that
- * lives only in a linked, read-only space is "linked" and is never touched.
+ * Deletes one memorisation from the active space. A project tag narrows the delete to that
+ * project; `null` matches any project, the rule bulk delete uses. No row is "not-found".
+ * A row of another type is kept ("not-memorisation"). A row that lives only in a linked,
+ * read-only space is "linked" and is never touched.
  */
 export async function deleteMemorisation(
   id: string,
-  containerTag: string,
+  containerTag: string | null,
   linked: LinkedSearchSettings
 ): Promise<MemorisationDeleteOutcome> {
   await memoryClient.ensureStorageReady();
@@ -146,7 +153,7 @@ export async function deleteMemorisation(
   for (const shard of shards) {
     const db = await tursoConnectionManager.getConnection(shard.dbPath);
     const row = await tursoVectorSearch.getMemoryById(db, id);
-    if (!row || row.container_tag !== containerTag) continue;
+    if (!row || (containerTag !== null && row.container_tag !== containerTag)) continue;
     if (row.type !== "memorisation") return "not-memorisation";
     await tursoVectorSearch.deleteVector(db, id);
     await tursoShardManager.decrementVectorCount(shard.id);

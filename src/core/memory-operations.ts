@@ -260,12 +260,7 @@ export async function executeMemoryOperation(
         );
 
       case "recall":
-        return await runRecall(
-          args,
-          tags,
-          args.scope ?? CONFIG.memory.defaultScope,
-          linkedSettingsFrom(CONFIG)
-        );
+        return await runRecall(args, linkedSettingsFrom(CONFIG), CONFIG.memorisationRerank);
 
       case "search": {
         if (!args.query) return { success: false, error: "query required" };
