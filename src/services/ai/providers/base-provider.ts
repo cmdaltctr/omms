@@ -85,6 +85,11 @@ export function validationFailureMessage(error: unknown, stopReason: string | un
   return `Validation failed: ${describeValidationError(error)}${cutOff}`;
 }
 
+/** An error body from the API with the configured key removed, so it is safe to log and return. */
+export function redactApiKey(text: string, apiKey: string | undefined): string {
+  return apiKey ? text.split(apiKey).join("[redacted]") : text;
+}
+
 const PROTECTED_KEYS = new Set([
   "model",
   "messages",

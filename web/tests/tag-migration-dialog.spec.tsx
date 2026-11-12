@@ -80,3 +80,26 @@ it("still reports success when every memory was tagged", async () => {
   expect(words).toContain("Migration completed successfully");
   expect(words).not.toContain("no credit");
 });
+
+it("keeps the failure when the language changes after a failed run", async () => {
+  installFetch(() => ({
+    body: {
+      success: true,
+      data: {
+        processed: 1,
+        total: 3,
+        hasMore: false,
+        tagged: 0,
+        failed: 1,
+        errorKind: "no_credit",
+        error: "API error: 402 - Insufficient Balance",
+      },
+    },
+  }));
+  await start();
+  setLanguage("zh");
+  const tree = await settle(page, own);
+  // The failure stays, now in the new language, with its retry button.
+  expect(byText(tree, Button, "重试")).toHaveLength(1);
+  expect(allText(tree)).toContain("API error: 402 - Insufficient Balance");
+});

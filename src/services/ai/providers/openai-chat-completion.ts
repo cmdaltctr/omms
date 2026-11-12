@@ -6,6 +6,7 @@ import {
   validationFailureMessage,
   validationLogFields,
   isTransportError,
+  redactApiKey,
 } from "./base-provider.js";
 import type { AISessionManager } from "../session/ai-session-manager.js";
 import type { AIMessage, AIProviderType } from "../session/session-types.js";
@@ -299,7 +300,8 @@ export class OpenAIChatCompletionProvider extends BaseAIProvider {
         clearTimeout(timeout);
 
         if (!response.ok) {
-          const errorText = await response.text().catch(() => response.statusText);
+          const rawError = await response.text().catch(() => response.statusText);
+          const errorText = redactApiKey(rawError, this.config.apiKey);
           log(
             "OpenAI Chat Completion API error",
             {

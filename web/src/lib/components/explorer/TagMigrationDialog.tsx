@@ -23,19 +23,22 @@ type Props = {
 export function TagMigrationDialog({ open = false, count = 0, onOpenChange, onComplete }: Props) {
   const { t } = useI18n();
   const [running, setRunning] = useState(false);
-  const [status, setStatus] = useState("");
+  // Null shows the starting message, in the current language.
+  const [status, setStatus] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  // Set when a run left memories untagged; the dialog stays open and says why.
-  const [failure, setFailure] = useState<{ message: string; reason?: string } | null>(null);
+  // The reply of a run that left memories untagged. The dialog stays open and says why.
+  // The reply is kept, not its words, so a language change translates it again.
+  const [failedRun, setFailedRun] = useState<TagMigrationResult | null>(null);
+  const failure = failedRun ? tagMigrationFailure(failedRun, t) : null;
 
-  // Reset only when the dialog opens or the count changes. The end of a run must not
-  // reset it, or a failure message would vanish the moment the run stops.
+  // Reset only when the dialog opens or the count changes. The end of a run or a language
+  // change must not reset it, or a failure message would vanish.
   useEffect(() => {
     if (!open) return;
-    setStatus(t("migration-found-tags", { count }));
+    setStatus(null);
     setProgress(0);
-    setFailure(null);
-  }, [open, count, t]);
+    setFailedRun(null);
+  }, [open, count]);
 
   function handleOpenChange(next: boolean) {
     if (running && !next) return;
@@ -44,7 +47,7 @@ export function TagMigrationDialog({ open = false, count = 0, onOpenChange, onCo
 
   async function runTagMigration() {
     setRunning(true);
-    setFailure(null);
+    setFailedRun(null);
     setStatus(t("status-migration-init"));
     setProgress(0);
 
@@ -84,11 +87,9 @@ export function TagMigrationDialog({ open = false, count = 0, onOpenChange, onCo
       return;
     }
 
-    const failed = last ? tagMigrationFailure(last, t) : null;
-    if (failed) {
+    if (last && tagMigrationFailure(last, t)) {
       // Not a success: keep the dialog open with the reason and a Try again button.
-      setFailure(failed);
-      setStatus(failed.message);
+      setFailedRun(last);
       setRunning(false);
       return;
     }
@@ -117,7 +118,7 @@ export function TagMigrationDialog({ open = false, count = 0, onOpenChange, onCo
             </div>
           ) : (
             <p className="text-sm text-muted-foreground" role="status">
-              {status}
+              {status ?? t("migration-found-tags", { count })}
             </p>
           )}
           <div className="h-2 rounded-full bg-muted overflow-hidden">

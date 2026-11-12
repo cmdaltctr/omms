@@ -3,6 +3,7 @@ import {
   describeValidationError,
   isTransportError,
   type ToolCallResult,
+  redactApiKey,
 } from "./base-provider.js";
 import { AISessionManager } from "../session/ai-session-manager.js";
 import type { ChatCompletionTool } from "../tools/tool-schema.js";
@@ -187,7 +188,8 @@ export class GoogleGeminiProvider extends BaseAIProvider {
         clearTimeout(timeout);
 
         if (!response.ok) {
-          const errorText = await response.text().catch(() => response.statusText);
+          const rawError = await response.text().catch(() => response.statusText);
+          const errorText = redactApiKey(rawError, this.config.apiKey);
           log(
             "Gemini API error",
             {
