@@ -244,6 +244,47 @@ describe("project-scoped config resolution", () => {
     expect(CONFIG.captureRetryRetentionHours).toBe(12);
   });
 
+  it("keeps the global OpenRouter provider routing when a project sets memoryExtraParams", () => {
+    const provider = { zdr: true, data_collection: "deny", order: ["deepinfra"] };
+    mockGlobalAndProject(
+      { memoryExtraParams: { provider, thinking: { type: "adaptive" } } },
+      { memoryExtraParams: {} }
+    );
+    initConfig("/my/project");
+    expect(CONFIG.memoryExtraParams).toEqual({ provider });
+  });
+
+  it("adds the global provider routing to the extra parameters of a project", () => {
+    const provider = { zdr: true };
+    mockGlobalAndProject(
+      { memoryExtraParams: { provider } },
+      { memoryExtraParams: { thinking: { type: "disabled" } } }
+    );
+    initConfig("/my/project");
+    expect(CONFIG.memoryExtraParams).toEqual({ thinking: { type: "disabled" }, provider });
+  });
+
+  it("ignores a project provider that differs from the global provider routing", () => {
+    mockGlobalAndProject(
+      { memoryExtraParams: { provider: { zdr: true } } },
+      { memoryExtraParams: { provider: { only: ["other"] }, thinking: { type: "disabled" } } }
+    );
+    initConfig("/my/project");
+    expect(CONFIG.memoryExtraParams).toEqual({
+      provider: { zdr: true },
+      thinking: { type: "disabled" },
+    });
+  });
+
+  it("lets a project set its own extra parameters when the global file has no provider routing", () => {
+    mockGlobalAndProject(
+      { memoryExtraParams: { thinking: { type: "adaptive" } } },
+      { memoryExtraParams: { provider: { sort: "price" } } }
+    );
+    initConfig("/my/project");
+    expect(CONFIG.memoryExtraParams).toEqual({ provider: { sort: "price" } });
+  });
+
   it("turns the capture retry queue off with a global value of 0", () => {
     mockGlobalAndProject({ captureRetryRetentionHours: 0 }, {});
     initConfig("/my/project");

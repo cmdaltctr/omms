@@ -122,6 +122,30 @@ describe("OpenRouter provider list", () => {
     expect(result.providers.map((p) => p.slug).sort()).toEqual(["notag", "notag-model", "same"]);
   });
 
+  it("keeps a matching ZDR row unknown when its safety_retention is missing or not a boolean", async () => {
+    const { fetchStub } = stubFetch({
+      endpoints: [
+        endpoint("missing/fp4", "Missing"),
+        endpoint("text/fp4", "Text"),
+        endpoint("good/fp4", "Good"),
+      ],
+      zdr: [
+        zdrRow("missing/fp4"),
+        { ...zdrRow("text/fp4"), safety_retention: "false" },
+        zdrRow("good/fp4", false),
+      ],
+    });
+    const result = await createOpenRouterProviders({ fetch: fetchStub, now: () => 0 }).list(MODEL);
+    expect(result).toEqual({
+      ok: true,
+      providers: [
+        { slug: "good", name: "Good", policy: "zdr" },
+        { slug: "missing", name: "Missing", policy: "unknown" },
+        { slug: "text", name: "Text", policy: "unknown" },
+      ],
+    });
+  });
+
   it("fetches the ZDR list once within an hour and again after it", async () => {
     const { fetchStub, zdrCalls } = stubFetch({
       endpoints: [endpoint("deepinfra", "DeepInfra")],

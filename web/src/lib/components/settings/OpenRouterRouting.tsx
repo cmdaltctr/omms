@@ -21,7 +21,10 @@ import { createLatestGate, reloadSettingsSnapshot, settingsRequest } from "$lib/
 
 const LIST_PATH = "/api/settings/external-api/openrouter-providers";
 const SAVE_PATH = "/api/settings/external-api/openrouter-routing";
-const SLUG = /^[a-z0-9][a-z0-9._-]{0,63}$/i;
+// A provider slug (`deepinfra`) or a full endpoint slug with up to two more parts, such as
+// `google-vertex/us-east5`. It matches the check on the server.
+const SEGMENT = "[a-z0-9][a-z0-9._-]{0,63}";
+const SLUG = new RegExp(`^${SEGMENT}(?:/${SEGMENT}){0,2}$`, "i");
 
 type ListReply =
   | { ok: true; providers: ProviderRow[] }
@@ -132,18 +135,21 @@ export function ProviderRows({
 
 /**
  * Routing choices for an OpenRouter endpoint. `model` is the model ID typed or saved on the
- * card, `saved` the saved `provider` object, `savedIsOpenRouter` whether the SAVED API URL is on
- * OpenRouter (the server refuses a routing save until it is), and `debounceMs` the wait after
- * a model edit.
+ * card, `savedModel` the saved one (the providers shown are for `model`, but requests use the
+ * saved model), `saved` the saved `provider` object, `savedIsOpenRouter` whether the SAVED API
+ * URL is on OpenRouter (the server refuses a routing save until it is), and `debounceMs` the
+ * wait after a model edit.
  */
 export function OpenRouterRouting({
   model,
+  savedModel,
   revision,
   saved,
   savedIsOpenRouter,
   debounceMs = 500,
 }: {
   model: string;
+  savedModel: string;
   revision: string;
   saved: Record<string, unknown> | null;
   savedIsOpenRouter: boolean;
@@ -199,8 +205,14 @@ export function OpenRouterRouting({
     ...state.ticked.filter((slug) => !known.has(slug)).map((slug) => ({ slug, name: slug })),
   ];
 
+  // A routing edit makes "Routing saved." untrue, so it goes with the first change.
+  const edit = (change: (previous: RoutingState) => RoutingState) => {
+    setState(change);
+    setSave((previous) => (previous.kind === "saved" ? { kind: "idle" } : previous));
+  };
+
   const toggle = (slug: string, checked: boolean) =>
-    setState((previous) => ({
+    edit((previous) => ({
       ...previous,
       ticked: checked
         ? [...previous.ticked.filter((item) => item !== slug), slug]
@@ -240,15 +252,22 @@ export function OpenRouterRouting({
       checked={state.only && canOnly}
       disabled={!canOnly}
       aria-describedby={canOnly ? undefined : "openrouter-only-reason"}
-      onCheckedChange={(checked) =>
-        setState((previous) => ({ ...previous, only: checked === true }))
-      }
+      onCheckedChange={(checked) => edit((previous) => ({ ...previous, only: checked === true }))}
     />
   );
+  // The server refuses a routing save until the OpenRouter URL is saved. The model is checked
+  // here: a list or an Only list built for an unsaved model could break the saved model's calls.
+  const blockReason = !savedIsOpenRouter
+    ? s("Save the endpoint first. Routing applies after the OpenRouter URL is saved.")
+    : model.trim() !== savedModel.trim()
+      ? s(
+          "Save the endpoint first. The providers shown are for the model above, which is not saved yet."
+        )
+      : undefined;
   const saveButton = (
     <Button
-      disabled={save.kind === "saving" || !savedIsOpenRouter}
-      aria-describedby={savedIsOpenRouter ? undefined : "openrouter-save-reason"}
+      disabled={save.kind === "saving" || blockReason !== undefined}
+      aria-describedby={blockReason === undefined ? undefined : "openrouter-save-reason"}
       onClick={() => void saveRouting()}
     >
       {s("Save routing")}
@@ -272,12 +291,18 @@ export function OpenRouterRouting({
             id={`openrouter-${id}`}
             checked={state[key]}
             onCheckedChange={(checked) =>
-              setState((previous) => ({ ...previous, [key]: checked === true }))
+              edit((previous) => ({ ...previous, [key]: checked === true }))
             }
           />
           <Label htmlFor={`openrouter-${id}`}>{s(label)}</Label>
         </div>
       ))}
+
+      {note(
+        s(
+          "OpenRouter can still use providers labelled Abuse checks only. For strict no retention, set ZDR only in your OpenRouter privacy settings."
+        )
+      )}
 
       <h4 className="font-medium">{s("Providers for this model")}</h4>
       {note(s("Tick providers in the order OpenRouter should try them."))}
@@ -355,18 +380,14 @@ export function OpenRouterRouting({
       {hasUnmanagedFields(saved) &&
         note(s("Other routing fields are set in the config file and are kept."))}
 
-      {savedIsOpenRouter ? (
+      {blockReason === undefined ? (
         saveButton
       ) : (
-        <Blocked
-          reason={s("Save the endpoint first. Routing applies after the OpenRouter URL is saved.")}
-        >
-          {saveButton}
-        </Blocked>
+        <Blocked reason={blockReason}>{saveButton}</Blocked>
       )}
-      {!savedIsOpenRouter && (
+      {blockReason !== undefined && (
         <p id="openrouter-save-reason" className="text-xs text-muted-foreground">
-          {s("Save the endpoint first. Routing applies after the OpenRouter URL is saved.")}
+          {blockReason}
         </p>
       )}
       {save.kind === "saving" && (

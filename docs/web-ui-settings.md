@@ -76,12 +76,14 @@ OpenRouter sends each request to one of several providers. Some providers keep p
 
 The block has two switches:
 
-| Switch                                          | OpenRouter field          | Effect                                                         |
-| ----------------------------------------------- | ------------------------- | -------------------------------------------------------------- |
-| Block providers that may train on or store data | `data_collection: "deny"` | OpenRouter skips providers that may store or train on prompts. |
-| Zero data retention only                        | `zdr: true`               | OpenRouter uses only zero data retention endpoints.            |
+| Switch                                          | OpenRouter field          | Effect                                                             |
+| ----------------------------------------------- | ------------------------- | ------------------------------------------------------------------ |
+| Block providers that may train on or store data | `data_collection: "deny"` | OpenRouter skips providers that may store or train on prompts.     |
+| Zero data retention only                        | `zdr: true`               | OpenRouter uses zero data retention endpoints. See the note below. |
 
 OpenRouter enforces both switches on every request, including requests that fall back to another provider.
+
+**Zero data retention only** follows your OpenRouter account. When your account allows Safety Retention, OpenRouter can still use endpoints that keep prompts for abuse checks. The card labels them **Abuse checks only**. Self-serve accounts allow Safety Retention unless you change it. For strict no retention, set **ZDR only** in your OpenRouter privacy settings or in a guardrail. The card shows this note under the switches.
 
 #### Provider list
 
@@ -100,14 +102,14 @@ The labels give information. The switches are what OpenRouter enforces. A label 
 To choose providers:
 
 1. Tick the providers you want. The number next to each tick is its try order. OpenRouter tries the lowest number first.
-2. Type a provider slug, for example `deepinfra`, and select **Add provider**. Use this for a provider that the list does not show. A slug can use letters, digits, dot, dash and underscore.
+2. Type a provider slug, for example `deepinfra`, and select **Add provider**. Use this for a provider that the list does not show. A slug can use letters, digits, dot, dash and underscore. It can also be a full endpoint slug with up to two more parts after a slash, for example `google-vertex/us-east5`, to keep routing to one region or variant.
 3. Select **Remove provider** (the cross) to remove a slug you added by hand.
 4. Turn on **Use only these providers** to stop OpenRouter from using any other provider. A request then fails when no ticked provider can serve it. The switch is disabled until you tick at least one provider that is not disabled.
-5. Select **Save routing**.
+5. Select **Save routing**. The card shows `Routing saved.` until you change a switch or a provider.
 
 When **Zero data retention only** is on, rows labelled **May keep or train on data** are disabled. The card shows the reason `Not available while Zero data retention only is on.` Such a row is not saved, even if you ticked it earlier.
 
-**Save routing** is separate from **Save endpoint**. It saves only the routing choice. Save the OpenRouter endpoint first: **Save routing** stays disabled until the saved API URL is on `openrouter.ai`, and the server refuses a routing save for any other saved URL. Other APIs can reject the `provider` field.
+**Save routing** is separate from **Save endpoint**. It saves only the routing choice. Save the OpenRouter endpoint first: **Save routing** stays disabled until the saved API URL is on `openrouter.ai`, and the server refuses a routing save for any other saved URL. Other APIs can reject the `provider` field. **Save routing** also stays disabled while the model typed on the card differs from the saved model. The providers shown are for the typed model, and OMMS calls the saved model, so select **Save endpoint** first.
 
 #### What the card sends to OpenRouter
 
@@ -133,12 +135,13 @@ If OpenRouter knows no providers for the model ID, the card shows `OpenRouter ha
 - The card keeps every other `memoryExtraParams` member, such as `thinking`.
 - The card keeps every `provider` field it does not manage, such as `sort`. When such a field exists, the card says `Other routing fields are set in the config file and are kept.`
 - When you clear every switch and provider and save, the card removes `provider`. It removes `memoryExtraParams` when nothing else is left in it.
+- A project config cannot change `memoryExtraParams.provider`. When the global config has a `provider`, OMMS keeps it for every project, even when the project file sets `memoryExtraParams`. The project keeps its other members.
 - Every memory-model call sends the saved `provider` object, on every host: capture, profile learning, cleanup, tagging, chat, and **Test**. OpenCode, Pi and Claude Code read the same global config.
 - A save made while the config changed on disk is refused. Reload the page and save again.
 
 #### Remove stale routing
 
-If a `provider` object is saved and the API URL is no longer on `openrouter.ai`, every request to the new endpoint still carries it. The card then shows `OpenRouter routing is still saved and is sent with every request to this endpoint.` and a **Remove OpenRouter routing** button.
+If a `provider` object is saved and the saved API URL is not on `openrouter.ai`, every request to the new endpoint still carries it. The card then shows `OpenRouter routing is still saved and is sent with every request to this endpoint.` and a **Remove OpenRouter routing** button.
 
 1. Select **Remove OpenRouter routing**.
 2. Confirm.

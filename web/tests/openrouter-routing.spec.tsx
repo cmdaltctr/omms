@@ -176,6 +176,7 @@ const block = (props: Partial<Parameters<typeof OpenRouterRouting>[0]> = {}) => 
   <OpenRouterRouting
     model="deepseek/deepseek-chat"
     revision="rev-9"
+    savedModel="deepseek/deepseek-chat"
     saved={null}
     savedIsOpenRouter
     debounceMs={0}
@@ -462,6 +463,10 @@ it("choosing Custom empties the unsaved URL and leaves the model and provider al
 // ---- Save routing waits for a saved OpenRouter URL ----
 
 const SAVE_REASON = "Save the endpoint first. Routing applies after the OpenRouter URL is saved.";
+const MODEL_REASON =
+  "Save the endpoint first. The providers shown are for the model above, which is not saved yet.";
+const ZDR_NOTE =
+  "OpenRouter can still use providers labelled Abuse checks only. For strict no retention, set ZDR only in your OpenRouter privacy settings.";
 
 it("disables Save routing with a visible reason while the saved URL is not OpenRouter", async () => {
   requests = installFetch(() => ({ body: { ok: true, providers: rows } }));
@@ -594,6 +599,141 @@ it("shows the stale-routing line for unmanaged fields only, and removes the whol
   expect(post.body).toEqual({ revision: "rev-9", routing: null });
 });
 
+// ---- Review findings ----
+
+const typeSlug = async (value: string) => {
+  let tree = await settle(block(), own);
+  (byType(tree, Input)[0].props.onChange as (event: unknown) => void)({ target: { value } });
+  tree = await settle(block(), own);
+  (buttonNamed(tree, "Add provider").props.onClick as () => void)();
+  return settle(block(), own);
+};
+
+it("adds a full endpoint slug by hand, and refuses a malformed one", async () => {
+  requests = installFetch(() => ({ body: { ok: true, providers: rows } }));
+  const added = await typeSlug("google-vertex/us-east5");
+  expect(box(added, "openrouter-provider-google-vertex/us-east5").props.checked).toBe(true);
+  for (const bad of ["a//b", "a/", "/a", "a/b/c/d"]) {
+    resetRender();
+    expect(allText(await typeSlug(bad))).toContain("Not a valid provider slug.");
+  }
+});
+
+it("clears Routing saved. as soon as any routing control changes", async () => {
+  requests = installFetch((request) =>
+    request.path.startsWith(LIST)
+      ? { body: { ok: true, providers: rows } }
+      : { body: { revision: "rev-10", settings: {} } }
+  );
+  let tree = await settle(block(), own);
+  (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block(), own);
+  expect(statusLines(tree).join(" ")).toContain("Routing saved.");
+
+  const edits: Array<(tree: Node[]) => void> = [
+    (t) => (box(t, "openrouter-zdr").props.onCheckedChange as (v: boolean) => void)(true),
+    (t) =>
+      (box(t, "openrouter-data-collection").props.onCheckedChange as (v: boolean) => void)(true),
+    (t) => tick(t, "deepinfra"),
+  ];
+  for (const edit of edits) {
+    resetRender();
+    tree = await settle(block(), own);
+    (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+    tree = await settle(block(), own);
+    expect(statusLines(tree).join(" ")).toContain("Routing saved.");
+    edit(tree);
+    tree = await settle(block(), own);
+    expect(statusLines(tree).join(" ")).not.toContain("Routing saved.");
+  }
+});
+
+it("clears Routing saved. when Use only these providers changes", async () => {
+  requests = installFetch((request) =>
+    request.path.startsWith(LIST)
+      ? { body: { ok: true, providers: rows } }
+      : { body: { revision: "rev-10", settings: {} } }
+  );
+  let tree = await settle(block({ saved: { order: ["deepinfra"] } }), own);
+  (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block({ saved: { order: ["deepinfra"] } }), own);
+  expect(statusLines(tree).join(" ")).toContain("Routing saved.");
+  (box(tree, "openrouter-only").props.onCheckedChange as (v: boolean) => void)(true);
+  tree = await settle(block({ saved: { order: ["deepinfra"] } }), own);
+  expect(statusLines(tree).join(" ")).not.toContain("Routing saved.");
+});
+
+it("says next to the switch that Zero data retention only can still allow abuse checks", async () => {
+  requests = installFetch(() => ({ body: { ok: true, providers: rows } }));
+  expect(allText(await settle(block(), own))).toContain(ZDR_NOTE);
+});
+
+it("disables Save routing with a reason while the model typed differs from the saved model", async () => {
+  requests = installFetch(() => ({ body: { ok: true, providers: rows } }));
+  const blocked = await settle(
+    block({ model: "qwen/qwen3", savedModel: "deepseek/deepseek-chat" }),
+    own
+  );
+  const save = buttonNamed(blocked, "Save routing");
+  expect(save.props.disabled).toBe(true);
+  expect(allText(blocked)).toContain(MODEL_REASON);
+  const reasonId = save.props["aria-describedby"] as string;
+  expect(blocked.some((node) => node.props.id === reasonId)).toBe(true);
+
+  // A space around the same model is not a change.
+  resetRender();
+  const same = await settle(
+    block({ model: " deepseek/deepseek-chat ", savedModel: "deepseek/deepseek-chat" }),
+    own
+  );
+  expect(buttonNamed(same, "Save routing").props.disabled).toBeFalsy();
+  expect(allText(same)).not.toContain(MODEL_REASON);
+});
+
+it("keeps the stale-routing line when the saved URL is not OpenRouter, even after choosing the preset", async () => {
+  requests = installFetch((request) =>
+    request.path.startsWith(LIST)
+      ? { body: { ok: true, providers: rows } }
+      : { body: staleSnapshot("https://api.example.com/v1", { zdr: true }) }
+  );
+  let tree = await settle(<ExternalApiSection />, cardOwn);
+  const preset = byType(tree, Select).find((node) => node.props["aria-label"] === "Preset")!;
+  (preset.props.onChange as (event: unknown) => void)({ target: { value: "openrouter" } });
+  tree = await settle(<ExternalApiSection />, cardOwn);
+  expect(allText(tree)).toContain(STALE);
+  expect(allText(tree)).toContain("Remove OpenRouter routing");
+});
+
+it("shows no stale-routing line while the saved URL is OpenRouter, even with another URL typed", async () => {
+  requests = installFetch((request) =>
+    request.path.startsWith(LIST)
+      ? { body: { ok: true, providers: rows } }
+      : { body: staleSnapshot("https://openrouter.ai/api/v1", { zdr: true }) }
+  );
+  let tree = await settle(<ExternalApiSection />, cardOwn);
+  const url = tree.find((node) => node.props.placeholder === "https://api.example.com/v1")!;
+  (url.props.onChange as (event: unknown) => void)({
+    target: { value: "https://api.example.com/v1" },
+  });
+  tree = await settle(<ExternalApiSection />, cardOwn);
+  expect(allText(tree)).not.toContain(STALE);
+});
+
+it("blocks Save routing on the card when the model is edited and not yet saved", async () => {
+  requests = installFetch((request) =>
+    request.path.startsWith(LIST)
+      ? { body: { ok: true, providers: rows } }
+      : { body: cardSnapshot("https://openrouter.ai/api/v1") }
+  );
+  let tree = await settle(<ExternalApiSection />, cardOwn);
+  expect(buttonNamed(tree, "Save routing").props.disabled).toBeFalsy();
+  const model = tree.find((node) => node.props.placeholder === "glm-5-turbo")!;
+  (model.props.onChange as (event: unknown) => void)({ target: { value: "qwen/qwen3" } });
+  tree = await settle(<ExternalApiSection />, cardOwn);
+  expect(buttonNamed(tree, "Save routing").props.disabled).toBe(true);
+  expect(allText(tree)).toContain(MODEL_REASON);
+});
+
 // ---- Texts ----
 
 it("has Chinese and Arabic text for Preset, Custom and every new string", () => {
@@ -609,6 +749,8 @@ it("has Chinese and Arabic text for Preset, Custom and every new string", () => 
     "Tick at least one provider first.",
     "OpenRouter did not answer within 10 seconds.",
     "OpenRouter could not be reached.",
+    MODEL_REASON,
+    ZDR_NOTE,
   ];
   const missing = strings.filter(
     (label) => translateSettings(label, "zh") === label || translateSettings(label, "ar") === label

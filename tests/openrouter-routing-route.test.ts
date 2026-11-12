@@ -289,7 +289,11 @@ describe("OpenRouter routing route", () => {
         noRouting: (await send2({ revision })).status,
         arrayRouting: (await send2({ revision, routing: [] })).status,
         badSlug: (await send2({ revision, routing: { order: ["Bad Slug"] } })).status,
-        slashSlug: (await send2({ revision, routing: { only: ["a/b"] } })).status,
+        emptySegment: (await send2({ revision, routing: { only: ["a//b"] } })).status,
+        trailingSlash: (await send2({ revision, routing: { only: ["a/"] } })).status,
+        leadingSlash: (await send2({ revision, routing: { only: ["/a"] } })).status,
+        fourSegments: (await send2({ revision, routing: { only: ["a/b/c/d"] } })).status,
+        badSegment: (await send2({ revision, routing: { only: ["a/-b"] } })).status,
         leadingDash: (await send2({ revision, routing: { only: ["-a"] } })).status,
         notString: (await send2({ revision, routing: { order: [1] } })).status,
         notArray: (await send2({ revision, routing: { order: "a" } })).status,
@@ -307,6 +311,19 @@ describe("OpenRouter routing route", () => {
       expect([name, status]).toEqual([name, 400]);
     expect(typeof message).toBe("string");
     expect(raw).toBe("{}");
+  });
+
+  it("accepts a full endpoint slug with a variant or region segment", async () => {
+    const { result, file } = await scenario(
+      `return await post({ order: ["google-vertex/us-east5", "baseten/fp4/us"], only: ["google-vertex/us-east5"], allow_fallbacks: false });`,
+      withOpenRouter()
+    );
+    expect(result.status).toBe(200);
+    expect(file.memoryExtraParams.provider).toEqual({
+      order: ["google-vertex/us-east5", "baseten/fp4/us"],
+      only: ["google-vertex/us-east5"],
+      allow_fallbacks: false,
+    });
   });
 
   it("returns the saved provider object in the settings snapshot", async () => {

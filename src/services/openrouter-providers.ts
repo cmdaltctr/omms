@@ -92,7 +92,10 @@ export function createOpenRouterProviders(deps: {
     for (const row of body.data as Row[]) {
       const model = text(row?.model_id);
       const tag = text(row?.tag);
-      if (model && tag) flags.set(`${model}\n${tag}`, row.safety_retention === true);
+      // A missing or non-boolean flag is not stored, so the endpoint stays `unknown`.
+      if (model && tag && typeof row.safety_retention === "boolean") {
+        flags.set(`${model}\n${tag}`, row.safety_retention);
+      }
     }
     // Only a good answer is cached, so a failed fetch is tried again on the next request.
     zdrCache = { at: deps.now(), flags };

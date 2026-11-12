@@ -56,6 +56,15 @@ export const openrouterSettingText = {
     "请先保存端点。保存 OpenRouter 地址后，路由才会生效。",
     "احفظ نقطة النهاية أولاً. يسري التوجيه بعد حفظ عنوان OpenRouter.",
   ],
+  "Save the endpoint first. The providers shown are for the model above, which is not saved yet.": [
+    "请先保存端点。当前显示的提供商属于上方的模型，该模型尚未保存。",
+    "احفظ نقطة النهاية أولاً. المزوّدون المعروضون خاصون بالنموذج أعلاه، وهو غير محفوظ بعد.",
+  ],
+  "OpenRouter can still use providers labelled Abuse checks only. For strict no retention, set ZDR only in your OpenRouter privacy settings.":
+    [
+      "OpenRouter 仍可能使用标注为“仅用于滥用检查”的提供商。如需严格不留存，请在 OpenRouter 隐私设置中选择“仅限 ZDR”。",
+      "قد يواصل OpenRouter استخدام المزوّدين الموسومين بـ«فحص إساءة الاستخدام فقط». للحصول على عدم احتفاظ صارم، اضبط «ZDR فقط» في إعدادات الخصوصية في OpenRouter.",
+    ],
   "OpenRouter routing is still saved and is sent with every request to this endpoint.": [
     "OpenRouter 路由仍处于保存状态，并会随发往此端点的每个请求一起发送。",
     "لا يزال توجيه OpenRouter محفوظاً ويُرسل مع كل طلب إلى نقطة النهاية هذه.",

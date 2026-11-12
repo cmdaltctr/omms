@@ -253,12 +253,13 @@ export function ExternalApiSection() {
       {snapshot && isOpenRouterUrl(value("memoryApiUrl")) && (
         <OpenRouterRouting
           model={value("memoryModel")}
+          savedModel={saved("memoryModel")}
           revision={snapshot.revision}
           saved={snapshot.openrouterProvider ?? null}
           savedIsOpenRouter={isOpenRouterUrl(saved("memoryApiUrl"))}
         />
       )}
-      {snapshot && !isOpenRouterUrl(value("memoryApiUrl")) && snapshot.openrouterProvider && (
+      {snapshot && !isOpenRouterUrl(saved("memoryApiUrl")) && snapshot.openrouterProvider && (
         <Callout tone="warning">
           <p>
             {s(

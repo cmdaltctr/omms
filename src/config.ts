@@ -14,6 +14,7 @@ import {
 } from "./services/skill-learning/skill-config.js";
 import * as visibleRecall from "./services/visible-recall-config.js";
 import * as injectionOptions from "./services/injection-options-config.js";
+import { keepGlobalProvider } from "./services/openrouter-routing-config.js";
 import { checkedMemoryLimit, MEMORY_LIMITS, type MemoryLimitRule } from "./utils/memory-limits.js";
 import { defaultSimilarityThreshold } from "./utils/threshold-default.js";
 import { RERANKER_TIMEOUT_DEFAULT_MS } from "./services/request-timeouts.js";
@@ -841,6 +842,8 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   delete projectOverrides.claudeConfigDir;
   delete projectOverrides.webServerAutoStart;
   delete projectOverrides.webServerEnabled;
+  // The routing choice of the OpenRouter card is global, like the endpoint and the key.
+  keepGlobalProvider(globalConfig, projectOverrides, (message) => log(message, { directory }));
   const merged: OmmsConfig = { ...globalConfig, ...projectOverrides };
   // The active memory space picks the storage folder unless the project sets its own (ADR-041).
   const globalStoragePath = storagePathFrom(globalConfig);

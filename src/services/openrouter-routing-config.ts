@@ -12,7 +12,10 @@ export const MANAGED_PROVIDER_KEYS = [
   "zdr",
 ] as const;
 
-const SLUG = /^[a-z0-9][a-z0-9._-]{0,63}$/i;
+// A provider slug (`deepinfra`) or a full endpoint slug with up to two more segments, such as
+// `google-vertex/us-east5` or `baseten/fp4/us`. OpenRouter accepts both in `order` and `only`.
+const SEGMENT = "[a-z0-9][a-z0-9._-]{0,63}";
+const SLUG = new RegExp(`^${SEGMENT}(?:/${SEGMENT}){0,2}$`, "i");
 const MAX_SLUGS = 20;
 
 export type RoutingResult =
@@ -27,7 +30,7 @@ function slugList(name: string, value: unknown): string[] | string {
   const seen = new Set<string>();
   for (const entry of value) {
     if (typeof entry !== "string" || !SLUG.test(entry)) {
-      return `${name} has a provider slug that is not valid (letters, digits, dot, dash and underscore only)`;
+      return `${name} has a provider slug that is not valid (letters, digits, dot, dash and underscore, with a slash between parts)`;
     }
     const key = entry.toLowerCase();
     if (seen.has(key)) return `${name} lists a provider more than once`;
@@ -119,4 +122,29 @@ export function routingEdits(
     };
   }
   return { edits: removeProviderEdits(savedExtraParams), provider };
+}
+
+/**
+ * Keep the global `memoryExtraParams.provider` when a project file sets `memoryExtraParams`.
+ * The project object replaces the global one as a whole, which would drop a privacy choice
+ * such as `zdr`. Like the endpoint and the key, the routing is global. A project keeps its
+ * other members. Pure on purpose: callers pass the file configs and a log function, and
+ * `CONFIG` is never imported here, because many tests stub `src/config.js`.
+ */
+export function keepGlobalProvider(
+  globalConfig: { memoryExtraParams?: unknown },
+  projectOverrides: { memoryExtraParams?: unknown },
+  log?: (message: string) => void
+): void {
+  const provider = isPlainObject(globalConfig.memoryExtraParams)
+    ? globalConfig.memoryExtraParams.provider
+    : undefined;
+  if (!isPlainObject(provider) || !("memoryExtraParams" in projectOverrides)) return;
+  const own = isPlainObject(projectOverrides.memoryExtraParams)
+    ? projectOverrides.memoryExtraParams
+    : {};
+  if ("provider" in own) {
+    log?.("Project config cannot change memoryExtraParams.provider; the global routing is used");
+  }
+  projectOverrides.memoryExtraParams = { ...own, provider };
 }
