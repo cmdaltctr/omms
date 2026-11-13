@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { CONFIG } from "../config.js";
 import { safeHealthError } from "../services/safe-health-error.js";
+import type { MemoryProviderRuntimeConfig } from "../services/ai/provider-config.js";
 
 const OUTPUT_LIMIT = 64;
 const TIMEOUT_MS = 20_000;
@@ -19,7 +20,7 @@ export type ExternalApiTestResult = { ok: true; model: string } | { ok: false; e
  * output limit. The error never contains the key.
  */
 export async function testExternalApi(
-  config: typeof CONFIG = CONFIG,
+  config: MemoryProviderRuntimeConfig & { memoryProvider: string } = CONFIG,
   createProvider?: (
     provider: string,
     providerConfig: Record<string, unknown>

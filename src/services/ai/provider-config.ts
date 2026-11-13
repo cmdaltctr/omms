@@ -2,7 +2,7 @@ import type { ProviderConfig } from "./providers/base-provider.js";
 import { isPlaceholderApiKey } from "./api-key-placeholder.js";
 import { isLocalApiUrl } from "./local-api-url.js";
 
-interface MemoryProviderRuntimeConfig {
+export interface MemoryProviderRuntimeConfig {
   memoryProvider?: string;
   memoryModel?: string;
   memoryApiUrl?: string;

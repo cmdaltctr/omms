@@ -1,9 +1,7 @@
 import { expect, it } from "bun:test";
-import { CONFIG } from "../src/config.js";
 import { testExternalApi } from "../src/importer/external-api-test.js";
 
 const config = {
-  ...CONFIG,
   memoryProvider: "openai-chat" as const,
   memoryModel: "glm-5-turbo",
   memoryApiUrl: "https://api.example.invalid/v1",
