@@ -55,16 +55,30 @@ export function beginSettingsRead(): { isCurrent: () => boolean } {
   return { isCurrent: () => snapshotGeneration === started };
 }
 
-/** Load and publish the current settings; `null` when the load fails. */
+/**
+ * Load and publish the current settings; `null` when the load fails. A failure
+ * leaves every section on its old revision, so the next save would be a 409
+ * conflict. The warning says so here, once, for every section.
+ */
 export async function reloadSettingsSnapshot<T>(): Promise<T | null> {
   try {
     const snapshot = await settingsRequest<T>("/api/settings");
     publishSettingsSnapshot(snapshot);
     return snapshot;
   } catch {
+    // Loaded here, not at the top: sonner and the i18n module touch the page on import,
+    // and many tests load this file without one.
+    const [{ toast }, { getLanguage }, { translateSettings }] = await Promise.all([
+      import("sonner"),
+      import("./i18n"),
+      import("./i18n/settings"),
+    ]);
+    toast.warning(translateSettings(RELOAD_FAILED, getLanguage()));
     return null;
   }
 }
+
+const RELOAD_FAILED = "Could not load the latest settings. Reload the page before you save again.";
 
 export function onSettingsSnapshot(listener: SnapshotListener): () => void {
   snapshotListeners.add(listener);

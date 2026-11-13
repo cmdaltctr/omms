@@ -1,7 +1,14 @@
 /** Pure helpers for the OpenRouter routing block of the External API card. */
 
 export type ProviderPolicy = "zdr" | "safety" | "unknown";
-export type ProviderRow = { slug: string; name: string; policy: ProviderPolicy };
+/** US dollars per 1M tokens, the lowest across the provider's endpoints. */
+export type ProviderPrice = { input: number; output: number };
+export type ProviderRow = {
+  slug: string;
+  name: string;
+  policy: ProviderPolicy;
+  price?: ProviderPrice;
+};
 
 /** What the card shows: two switches, Use only these, and the ticked slugs in try order. */
 export type RoutingState = {
@@ -83,6 +90,17 @@ export const policyLabelKey = (policy: ProviderPolicy): string =>
     : policy === "safety"
       ? "Abuse checks only"
       : "May keep or train on data";
+
+const dollars = (value: number): string =>
+  `$${value > 0 && value < 0.01 ? value.toFixed(4) : value.toFixed(2)}`;
+
+/** `$0.26 in · $0.71 out / 1M tokens`, or `Free`. `s` is the card's text function. */
+export function formatPrice(price: ProviderPrice, s: (message: string) => string): string {
+  if (price.input === 0 && price.output === 0) return s("Free");
+  return s("{input} in · {output} out / 1M tokens")
+    .replace("{input}", dollars(price.input))
+    .replace("{output}", dollars(price.output));
+}
 
 export const hasUnmanagedFields = (provider: Record<string, unknown> | null | undefined) =>
   Object.keys(provider ?? {}).some((key) => !MANAGED.has(key));

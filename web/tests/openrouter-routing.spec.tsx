@@ -29,6 +29,7 @@ const { translateSettings } = await import("../src/lib/i18n/settings.ts");
 
 const {
   applyOpenRouterPreset,
+  formatPrice,
   hasUnmanagedFields,
   isOpenRouterUrl,
   policyLabelKey,
@@ -135,6 +136,24 @@ it("names the policy labels in words", () => {
   expect(policyLabelKey("unknown")).toBe("May keep or train on data");
 });
 
+const PRICE_TEMPLATE = "{input} in · {output} out / 1M tokens";
+const same = (text: string) => text;
+
+it("formats a price with two decimals, four under one cent, and Free for zero", () => {
+  expect(formatPrice({ input: 0.26, output: 0.71 }, same)).toBe("$0.26 in · $0.71 out / 1M tokens");
+  expect(formatPrice({ input: 0.0045, output: 0.01 }, same)).toBe(
+    "$0.0045 in · $0.01 out / 1M tokens"
+  );
+  expect(formatPrice({ input: 0, output: 0.5 }, same)).toBe("$0.00 in · $0.50 out / 1M tokens");
+  expect(formatPrice({ input: 0, output: 0 }, same)).toBe("Free");
+});
+
+it("passes the price words through the text function", () => {
+  const seen: string[] = [];
+  formatPrice({ input: 1, output: 2 }, (text) => (seen.push(text), text));
+  expect(seen).toEqual([PRICE_TEMPLATE]);
+});
+
 it("spots provider fields the card does not manage", () => {
   expect(hasUnmanagedFields(null)).toBe(false);
   expect(hasUnmanagedFields({ order: ["a"], only: ["a"], zdr: true })).toBe(false);
@@ -217,6 +236,46 @@ it("shows a loading line while the provider list is requested, then the labels i
   expect(words).toContain("No retention");
   expect(words).toContain("Abuse checks only");
   expect(words).toContain("May keep or train on data");
+});
+
+const priced = [
+  { ...rows[0], price: { input: 0.26, output: 0.71 } },
+  { ...rows[1], price: { input: 0, output: 0 } },
+  { ...rows[2] },
+  { slug: "tiny", name: "Tiny", policy: "zdr", price: { input: 0.0045, output: 0.02 } },
+];
+
+it("shows each provider's price, Free for zero, and nothing without a price", async () => {
+  requests = installFetch(() => ({ body: { ok: true, providers: priced } }));
+  const tree = await settle(block(), own);
+  const lines = tree
+    .filter((node) => node.props["data-price"] !== undefined)
+    .map((node) => [node.props["data-price"], text(node.props.children)]);
+  expect(lines).toEqual([
+    ["deepinfra", "$0.26 in · $0.71 out / 1M tokens"],
+    ["novita", "Free"],
+    ["tiny", "$0.0045 in · $0.02 out / 1M tokens"],
+  ]);
+  const words = allText(tree);
+  expect(words).toContain("$0.26 in · $0.71 out / 1M tokens");
+  expect(words).toContain("$0.0045");
+  // The row without a price still shows its name and label.
+  expect(words).toContain("Together");
+  expect(words).toContain("May keep or train on data");
+});
+
+it("translates the price words and keeps the numbers left to right", async () => {
+  setLanguage("zh");
+  requests = installFetch(() => ({ body: { ok: true, providers: priced.slice(0, 2) } }));
+  const tree = await settle(block(), own);
+  const line = tree.find((node) => node.props["data-price"] === "deepinfra")!;
+  expect(line.props.dir).toBe("ltr");
+  expect(text(line.props.children)).toBe(
+    translateSettings(PRICE_TEMPLATE, "zh").replace("{input}", "$0.26").replace("{output}", "$0.71")
+  );
+  expect(text(line.props.children)).not.toContain("1M tokens");
+  const free = tree.find((node) => node.props["data-price"] === "novita")!;
+  expect(text(free.props.children)).toBe(translateSettings("Free", "zh"));
 });
 
 it("keeps the switches and the manual field working when the list is not available", async () => {
@@ -769,6 +828,8 @@ it("has Chinese and Arabic text for Preset, Custom and every new string", () => 
     "OpenRouter could not be reached.",
     MODEL_REASON,
     ZDR_NOTE,
+    PRICE_TEMPLATE,
+    "Free",
   ];
   const missing = strings.filter(
     (label) => translateSettings(label, "zh") === label || translateSettings(label, "ar") === label

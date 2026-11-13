@@ -22,6 +22,11 @@ export const openrouterSettingText = {
   "No retention": ["不留存", "بلا احتفاظ"],
   "Abuse checks only": ["仅用于滥用检查", "فحص إساءة الاستخدام فقط"],
   "May keep or train on data": ["可能留存或用于训练数据", "قد يحتفظ بالبيانات أو يدرّب عليها"],
+  "{input} in · {output} out / 1M tokens": [
+    "{input} 输入 · {output} 输出 / 每百万词元",
+    "{input} إدخال · {output} إخراج / لكل مليون رمز",
+  ],
+  Free: ["免费", "مجاني"],
   "Not available while Zero data retention only is on.": [
     "开启“仅限零数据留存”时不可用。",
     "غير متاح أثناء تشغيل «الاحتفاظ الصفري بالبيانات فقط».",

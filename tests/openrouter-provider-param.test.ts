@@ -1,5 +1,4 @@
 import { afterEach, expect, it } from "bun:test";
-import { CONFIG } from "../src/config.js";
 import { testExternalApi } from "../src/importer/external-api-test.js";
 
 const realFetch = globalThis.fetch;
@@ -37,7 +36,6 @@ it("sends the saved memoryExtraParams.provider object in the Test call request b
   }) as unknown as typeof fetch;
 
   const result = await testExternalApi({
-    ...CONFIG,
     memoryProvider: "openai-chat",
     memoryModel: "deepseek/deepseek-chat",
     memoryApiUrl: "https://openrouter.ai/api/v1",

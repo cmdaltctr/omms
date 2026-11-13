@@ -1,4 +1,5 @@
 import { log } from "./logger.js";
+import { createOpenRouterModels } from "./openrouter-models.js";
 import { createOpenRouterProviders, isModelId } from "./openrouter-providers.js";
 import {
   isOpenRouterUrl,
@@ -9,10 +10,15 @@ import {
 import type { RouteResult } from "./chat/chat-routes.js";
 
 const PROVIDERS_PATH = "/api/settings/external-api/openrouter-providers";
+const MODELS_PATH = "/api/settings/external-api/openrouter-models";
 const ROUTING_PATH = "/api/settings/external-api/openrouter-routing";
 
 /** Reads `globalThis.fetch` at call time, so a test can replace it. */
 const providers = createOpenRouterProviders({
+  fetch: (input, init) => globalThis.fetch(input, init),
+  now: () => Date.now(),
+});
+const models = createOpenRouterModels({
   fetch: (input, init) => globalThis.fetch(input, init),
   now: () => Date.now(),
 });
@@ -43,6 +49,10 @@ export async function routeOpenRouter(
       );
     }
     return { status: 200, body: await providers.list(model) };
+  }
+
+  if (path === MODELS_PATH && method === "GET") {
+    return { status: 200, body: await models.list() };
   }
 
   if (path === ROUTING_PATH && method === "POST") {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { CONFIG } from "../config.js";
 import { safeHealthError } from "../services/safe-health-error.js";
+import type { MemoryProviderRuntimeConfig } from "../services/ai/provider-config.js";
 
 const OUTPUT_LIMIT = 64;
 const TIMEOUT_MS = 20_000;
@@ -19,12 +19,14 @@ export type ExternalApiTestResult = { ok: true; model: string } | { ok: false; e
  * output limit. The error never contains the key.
  */
 export async function testExternalApi(
-  config: typeof CONFIG = CONFIG,
+  given?: MemoryProviderRuntimeConfig & { memoryProvider: string },
   createProvider?: (
     provider: string,
     providerConfig: Record<string, unknown>
   ) => { executeToolCall: (...args: any[]) => Promise<{ success: boolean; error?: string }> }
 ): Promise<ExternalApiTestResult> {
+  // The real config loads only when no config is passed, so tests never read it.
+  const config = given ?? (await import("../config.js")).CONFIG;
   const secrets = [config.memoryApiKey];
   try {
     const { buildMemoryProviderConfig } = await import("../services/ai/provider-config.js");

@@ -44,6 +44,8 @@ The preset only fills the form. Select **Save endpoint** to save the values.
 
 The list shows **OpenRouter** for any API URL on the host `openrouter.ai`, whether you chose the preset or typed the URL. For these URLs the card also shows the [OpenRouter routing](#openrouter-routing) block.
 
+For an OpenRouter URL, the **Model** field suggests OpenRouter model IDs as you type. For example, type `deepseek` to see the `deepseek/...` models. The web app reads OpenRouter's public model list without your key and keeps it for one hour. You can still type any model ID. If the list cannot be read, the field works as a plain text field.
+
 ### Key sources
 
 Choose one source, then select **Save key source**.
@@ -96,6 +98,8 @@ Type the model ID on the card in the form `author/model`, for example `deepseek/
 | **May keep or train on data** | The provider is not on the zero data retention list.                   |
 
 A provider can serve a model through several endpoints. The card shows the label of its least private endpoint.
+
+Each provider also shows its OpenRouter price for the model, for example `$0.26 in · $0.71 out / 1M tokens`. "In" is the price of the prompt and "out" is the price of the reply, in US dollars per million tokens. For a provider with several endpoints, the card shows the lowest prices. A free provider shows **Free**. A provider with no listed price shows no price.
 
 The labels give information. The switches are what OpenRouter enforces. A label can be up to one hour old. A switch is checked on each request.
 

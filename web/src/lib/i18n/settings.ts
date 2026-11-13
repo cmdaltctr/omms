@@ -1510,6 +1510,10 @@ const text = {
     "仍有 {pending} 条待导入。",
     "لا يزال {pending} بانتظار الاستيراد.",
   ],
+  "Could not load the latest settings. Reload the page before you save again.": [
+    "无法加载最新设置。请先重新加载页面，再保存。",
+    "تعذّر تحميل أحدث الإعدادات. أعد تحميل الصفحة قبل الحفظ مرة أخرى.",
+  ],
 } as const;
 
 export function translateSettings(message: string, language: "en" | "zh" | "ar"): string {
