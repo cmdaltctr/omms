@@ -524,6 +524,34 @@ Host models use OpenCode's or Pi's own sign-in. The host handles the login, toke
     ```
   - [OrcaRouter](https://www.orcarouter.ai) also runs gateway-level security for AI agents on the same endpoint. It screens every prompt and response and controls every tool call on a default-deny basis. You do not need to change application code.
 
+### OpenRouter provider routing
+
+OpenRouter sends each request to one of several providers. To choose which providers may see your memory text, set `provider` inside `memoryExtraParams`. OMMS copies `memoryExtraParams` into the body of every memory-model request, so `provider` reaches OpenRouter on every host and in every call.
+
+```jsonc
+"memoryProvider": "openai-chat",
+"memoryApiUrl": "https://openrouter.ai/api/v1",
+"memoryExtraParams": {
+  "provider": {
+    "data_collection": "deny",
+    "zdr": true,
+    "order": ["deepinfra"],
+    "only": ["deepinfra"],
+    "allow_fallbacks": false
+  }
+}
+```
+
+- `data_collection: "deny"`: OpenRouter skips providers that may store or train on prompts.
+- `zdr: true`: OpenRouter uses zero data retention endpoints, and also endpoints that keep prompts for abuse checks when your OpenRouter account allows Safety Retention. Self-serve accounts allow it by default. For strict no retention, set **ZDR only** in your OpenRouter privacy settings or in a guardrail.
+- `order`: provider slugs in the order OpenRouter tries them. A slug can be a provider (`deepinfra`) or a full endpoint slug (`google-vertex/us-east5`).
+- `only`: OpenRouter may use only these provider slugs. It takes the same slugs as `order`.
+- `allow_fallbacks: false`: OpenRouter fails the request instead of using another provider.
+
+The **OpenRouter routing** block on the **External API** card of the Settings page sets these five fields. It lists the providers of a model, with their data policy. See [OpenRouter routing](web-ui-settings.md#openrouter-routing).
+
+You can set other OpenRouter `provider` fields by hand, for example `sort`. The card keeps them when it saves. It also keeps every other `memoryExtraParams` member. A project config cannot change `provider`: when the global file has one, OMMS keeps it for every project, even when the project file sets `memoryExtraParams`.
+
 ## Embeddings
 
 Embeddings power similarity search for memories and the user profile. Set them in the same global file.

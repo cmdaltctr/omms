@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import { Loader } from "lucide-react";
+import { Callout } from "$lib/components/skills/Callout";
+import { Button } from "$lib/components/ui/button";
 import { compactField, Select } from "$lib/components/ui/select";
 import {
   beginSettingsRead,
@@ -8,6 +11,8 @@ import {
 } from "$lib/settings-api";
 import { keySourceBody, type KeySource } from "$lib/external-api-settings";
 import { useSettingsText } from "$lib/i18n/settings";
+import { applyOpenRouterPreset, isOpenRouterUrl } from "$lib/openrouter-routing";
+import { OpenRouterRouting } from "./OpenRouterRouting";
 
 type Snapshot = {
   revision: string;
@@ -18,6 +23,7 @@ type Snapshot = {
     resolvesInWebApp: boolean;
     warning: string | null;
   };
+  openrouterProvider?: Record<string, unknown> | null;
 };
 
 const PROVIDERS = [
@@ -37,6 +43,7 @@ export function ExternalApiSection() {
   const [keyInput, setKeyInput] = useState({ name: "", path: "", value: "" });
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [removing, setRemoving] = useState(false);
   useEffect(() => {
     let active = true;
     const read = beginSettingsRead();
@@ -82,6 +89,34 @@ export function ExternalApiSection() {
       setMessage((error as Error).message);
     }
     await reloadSettingsSnapshot<Snapshot>();
+    setBusy(false);
+  }
+
+  async function removeRouting() {
+    if (!snapshot) return;
+    if (
+      !window.confirm(
+        s(
+          "Remove OpenRouter routing? Requests to this endpoint will no longer carry the routing choices."
+        )
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setRemoving(true);
+    setMessage("");
+    try {
+      await settingsRequest("/api/settings/external-api/openrouter-routing", {
+        method: "POST",
+        body: JSON.stringify({ revision: snapshot.revision, routing: null }),
+      });
+      setMessage(s("OpenRouter routing removed."));
+    } catch (error) {
+      setMessage((error as Error).message);
+    }
+    await reloadSettingsSnapshot<Snapshot>();
+    setRemoving(false);
     setBusy(false);
   }
 
@@ -149,6 +184,24 @@ export function ExternalApiSection() {
         )}
       </p>
       <label className="block text-sm">
+        {s("Preset")}
+        <div className={compactField}>
+          <Select
+            aria-label={s("Preset")}
+            className="mt-1 block w-full rounded border border-border bg-background p-2"
+            value={isOpenRouterUrl(value("memoryApiUrl")) ? "openrouter" : "custom"}
+            onChange={(event) => {
+              if (event.target.value === "openrouter") setFields(applyOpenRouterPreset(fields));
+              // Custom clears the URL so the user types their own. Model and key stay as they are.
+              else setFields({ ...fields, memoryApiUrl: "" });
+            }}
+          >
+            <option value="custom">{s("Custom")}</option>
+            <option value="openrouter">OpenRouter</option>
+          </Select>
+        </div>
+      </label>
+      <label className="block text-sm">
         {s("Provider")}
         <div className={compactField}>
           <Select
@@ -197,6 +250,33 @@ export function ExternalApiSection() {
       >
         {s("Save endpoint")}
       </button>
+      {snapshot && isOpenRouterUrl(value("memoryApiUrl")) && (
+        <OpenRouterRouting
+          model={value("memoryModel")}
+          savedModel={saved("memoryModel")}
+          revision={snapshot.revision}
+          saved={snapshot.openrouterProvider ?? null}
+          savedIsOpenRouter={isOpenRouterUrl(saved("memoryApiUrl"))}
+        />
+      )}
+      {snapshot && !isOpenRouterUrl(saved("memoryApiUrl")) && snapshot.openrouterProvider && (
+        <Callout tone="warning">
+          <p>
+            {s(
+              "OpenRouter routing is still saved and is sent with every request to this endpoint."
+            )}
+          </p>
+          <Button variant="outline" disabled={busy} onClick={() => void removeRouting()}>
+            {s("Remove OpenRouter routing")}
+          </Button>
+          {removing && (
+            <p role="status" className="flex items-center gap-2 text-muted-foreground">
+              <Loader className="size-4 animate-spin" aria-hidden="true" />
+              {s("Removing OpenRouter routing…")}
+            </p>
+          )}
+        </Callout>
+      )}
 
       <fieldset className={`${compactField} space-y-2 rounded-lg border border-border p-3 text-sm`}>
         <legend className="px-1 font-medium">{s("API key")}</legend>

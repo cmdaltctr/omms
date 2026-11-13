@@ -143,6 +143,11 @@ function nestedSetting(
   };
 }
 
+const plainObject = (value: unknown): Record<string, unknown> | null =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
 export function getSettingsSnapshot(directory: string) {
   const global = readSettingsFile(getGlobalConfigSourcePath());
   const project = readSettingsFile(projectFile(directory));
@@ -241,6 +246,8 @@ export function getSettingsSnapshot(directory: string) {
     secrets,
     fallback: { model: CONFIG.memoryModel ?? null, configured: isExternalModelReady(CONFIG) },
     externalKey: memoryKeyStatus(global.memoryApiKey),
+    // The OpenRouter routing card reads the saved `provider` object of memoryExtraParams.
+    openrouterProvider: plainObject(plainObject(global.memoryExtraParams)?.provider),
     effective: {
       opencode: getAutoCaptureProviderStatus(CONFIG),
       pi: resolvePiLiveModel(CONFIG),

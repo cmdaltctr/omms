@@ -15,9 +15,10 @@ const modelsSource = readFileSync(
 
 const compactWrappers = (source: string) => source.match(/className=\{[^}]*compactField/g) ?? [];
 
-it("gives the External API card four compact wrappers", () => {
-  // Provider already had one; API URL, Model, and the API key fieldset join it.
-  expect(compactWrappers(externalSource)).toHaveLength(4);
+it("gives the External API card five compact wrappers", () => {
+  // Preset and Provider; API URL, Model, and the API key fieldset join them.
+  expect(compactWrappers(externalSource)).toHaveLength(5);
+  expect(externalSource).toMatch(/\{s\("Preset"\)\}\s*<div className=\{[^}]*compactField/);
 });
 
 it("wraps the API URL and Model inputs", () => {
