@@ -264,6 +264,25 @@ it("shows each provider's price, Free for zero, and nothing without a price", as
   expect(words).toContain("May keep or train on data");
 });
 
+it("scrolls the provider list only when it has more than six rows", async () => {
+  const many = Array.from({ length: 7 }, (_, i) => ({
+    slug: `p${i}`,
+    name: `P${i}`,
+    policy: "zdr",
+  }));
+  const list = (tree: Node[]) => tree.find((node) => node.type === "ul")!;
+
+  requests = installFetch(() => ({ body: { ok: true, providers: many.slice(0, 6) } }));
+  expect(list(await settle(block(), own)).props["data-scroll"]).toBeUndefined();
+
+  resetRender();
+  requests = installFetch(() => ({ body: { ok: true, providers: many } }));
+  const seven = list(await settle(block(), own));
+  expect(seven.props["data-scroll"]).toBe(true);
+  expect(seven.props.className).toContain("overflow-y-auto");
+  expect(seven.props.className).toContain("relative");
+});
+
 it("translates the price words and keeps the numbers left to right", async () => {
   setLanguage("zh");
   requests = installFetch(() => ({ body: { ok: true, providers: priced.slice(0, 2) } }));

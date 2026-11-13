@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Loader, X } from "lucide-react";
 import { Badge } from "$lib/components/ui/badge";
 import { Button } from "$lib/components/ui/button";
@@ -39,6 +39,7 @@ type SaveState = { kind: "idle" | "saving" | "saved" } | { kind: "error"; messag
 type Shown = { slug: string; name: string; policy?: ProviderPolicy; price?: ProviderPrice };
 
 const policyVariant = { zdr: "default", safety: "info", unknown: "warning" } as const;
+const VISIBLE_ROWS = 6;
 
 /**
  * A blocked control stays visible. A disabled control gets no hover or focus, so it sits in a
@@ -55,6 +56,31 @@ function Blocked({ reason, children }: { reason: string; children: ReactNode }) 
   );
 }
 
+/** Height that ends at the bottom of the sixth row. Rows wrap, so it is measured, not fixed. */
+function useSixRowHeight(
+  listRef: { current: HTMLUListElement | null },
+  active: boolean,
+  rows: readonly unknown[]
+) {
+  const [height, setHeight] = useState<number>();
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!active || !list) return;
+    const measure = () => {
+      const row = list.children[VISIBLE_ROWS - 1] as HTMLElement | undefined;
+      if (row) setHeight(row.offsetTop + row.offsetHeight);
+    };
+    measure();
+    // A width or language change rewraps the rows. The capped list keeps its size, so watch
+    // the six rows as well.
+    const observer = new ResizeObserver(measure);
+    observer.observe(list);
+    for (const row of Array.from(list.children).slice(0, VISIBLE_ROWS)) observer.observe(row);
+    return () => observer.disconnect();
+  }, [listRef, active, rows]);
+  return height;
+}
+
 export function ProviderRows({
   shown,
   ticked,
@@ -69,8 +95,17 @@ export function ProviderRows({
   onRemove: (slug: string) => void;
 }) {
   const s = useSettingsText();
+  // Show six rows; the rest scroll inside the list.
+  const scroll = shown.length > VISIBLE_ROWS;
+  const listRef = useRef<HTMLUListElement>(null);
+  const maxHeight = useSixRowHeight(listRef, scroll, shown);
   return (
-    <ul className="space-y-2 sm:w-1/2">
+    <ul
+      ref={listRef}
+      data-scroll={scroll || undefined}
+      style={scroll && maxHeight ? { maxHeight } : undefined}
+      className={`relative space-y-2 sm:w-1/2 ${scroll ? "overflow-y-auto pe-1" : ""}`}
+    >
       {shown.map(({ slug, name, policy, price }) => {
         const id = `openrouter-provider-${slug}`;
         const position = ticked.indexOf(slug) + 1;

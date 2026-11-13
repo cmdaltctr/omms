@@ -157,7 +157,7 @@ The filter SHALL live in the address as `?labels=a,b`. The page SHALL write each
 
 ### Requirement: Labels in the recall box
 
-The recall box SHALL read `label:name` as a label, and `label:"two words"` for a label with spaces. The user MAY repeat `label:`. OMMS SHALL read the prefix in any letter case, only at the start of the text or after a space. The rest of the text SHALL be the query. The page SHALL send the labels as `tags` and the rest as `q` to `GET /api/memorisations/recall`.
+The recall box SHALL read `label:name` as a label, and `label:"two words"` for a label with spaces. The user MAY repeat `label:`. OMMS SHALL read the prefix in any letter case, only at the start of the text or after a space or comma. A bare label ends at a space or comma. The rest of the text SHALL be the query. The page SHALL send the labels as `tags` and the rest as `q` to `GET /api/memorisations/recall`.
 
 #### Scenario: Text and a label
 
@@ -168,6 +168,15 @@ The recall box SHALL read `label:name` as a label, and `label:"two words"` for a
 
 - **WHEN** the user types `label:"two words"` and searches
 - **THEN** the page asks for the newest memorisations with the label `two words`
+
+### Requirement: Comma-separated labels in the recall box
+
+When the recall box text, after any `label:` terms, contains a comma (`,`, the Chinese `，` or the Arabic `،`), the page SHALL read each comma-separated part as a label and send no query. Spaces around a comma SHALL NOT matter. Empty parts and repeats, ignoring case, SHALL be dropped.
+
+#### Scenario: Labels with commas
+
+- **WHEN** the user types `runpod, server, 4090` or `runpod,server,4090` and searches
+- **THEN** the page asks for the newest memorisations with the labels `runpod`, `server` and `4090`
 
 ### Requirement: Recall box help for labels
 

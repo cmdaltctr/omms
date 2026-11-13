@@ -428,7 +428,7 @@ With no records, the page shows how to make the first one.
 
 ### Recall
 
-Type an ID or words from the note and select **Recall**. A match shows its confidence score as a percentage. One clear match is shown alone. Otherwise the page shows up to three. An ID that does not exist gives a clear message. **Clear search** returns to the list. Add `label:name` to narrow by label, for example `label:release token refresh`. Use quotes for a label with spaces: `label:"two words"`. Repeat `label:` for more labels. A search with labels and no words returns the newest records with those labels. The `label:` words in the box do not change the list filter.
+Type an ID or words from the note and select **Recall**. A match shows its confidence score as a percentage. One clear match is shown alone. Otherwise the page shows up to three. An ID that does not exist gives a clear message. **Clear search** returns to the list. Add `label:name` to narrow by label, for example `label:release token refresh`. Use quotes for a label with spaces: `label:"two words"`. Repeat `label:` for more labels. Or type labels separated by commas, with or without spaces, such as `runpod, server, 4090`. A search with labels and no words returns the newest records with those labels. The `label:` words in the box do not change the list filter.
 
 ### Labels
 
