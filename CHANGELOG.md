@@ -2,6 +2,20 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [6.3.0](https://github.com/cmdaltctr/omms/compare/v6.2.0...v6.3.0) (2026-11-13)
+
+
+### Features
+
+* show OpenRouter provider prices and suggest model IDs ([4de7dc7](https://github.com/cmdaltctr/omms/commit/4de7dc74780722255a522620e85262db51b7d733))
+* show OpenRouter provider prices and suggest model IDs ([7e86685](https://github.com/cmdaltctr/omms/commit/7e86685c0458a77623469e895448f877119f8119))
+
+
+### Bug Fixes
+
+* drop CONFIG from external API tests and warn when a settings reload fails ([e2e6fc3](https://github.com/cmdaltctr/omms/commit/e2e6fc3adf7974d5e093200ac6f05e99c32ea3f8)), closes [#280](https://github.com/cmdaltctr/omms/issues/280) [#281](https://github.com/cmdaltctr/omms/issues/281)
+* load the real config in testExternalApi only when none is passed ([a0412a5](https://github.com/cmdaltctr/omms/commit/a0412a5ee73f28076fa770e379ddf7fce2507373))
+
 ## [6.2.0](https://github.com/cmdaltctr/omms/compare/v6.1.2...v6.2.0) (2026-11-13)
 
 
