@@ -42,7 +42,7 @@ export function MemorisationSearch({
         {t("memorisation-search-title")}
       </h2>
       <form
-        className="flex flex-wrap items-end gap-2"
+        className="flex flex-wrap items-end gap-2 md:w-1/2"
         onSubmit={(event) => {
           event.preventDefault();
           onSearch(text);
@@ -77,7 +77,7 @@ export function MemorisationSearch({
           </Button>
         ) : null}
       </form>
-      <p id="memorisation-search-help" className="text-xs text-muted-foreground">
+      <p id="memorisation-search-help" className="text-xs text-muted-foreground md:w-1/2">
         {t("memorisation-search-help")}
       </p>
       {running ? (

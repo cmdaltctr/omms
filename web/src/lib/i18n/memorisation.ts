@@ -15,7 +15,8 @@ export const memorisationText = {
       "Ask your agent to memorise this session, or run this command in a terminal. Saved records appear here.",
     "memorisation-search-title": "Recall",
     "memorisation-search-label": "Recall by ID or words",
-    "memorisation-search-placeholder": "ms-4k7q2p, words, or label:name",
+    "memorisation-search-placeholder":
+      "ms-4k7q2p, words, label:name, or labels such as runpod, server",
     "memorisation-search-button": "Recall",
     "memorisation-search-clear": "Clear search",
     "memorisation-searching": "Searching…",
@@ -85,7 +86,7 @@ export const memorisationText = {
     "memorisation-range-characters": "Enter a whole number from {min} to {max} characters.",
     "memorisation-range-tokens": "Enter a whole number from {min} to {max} tokens.",
     "memorisation-search-help":
-      'Add label:name to narrow the results by label. Use quotes for a label with spaces, such as label:"two words". You can repeat label: for more labels.',
+      'Add label:name to narrow the results by label. Use quotes for a label with spaces, such as label:"two words". You can repeat label: for more labels. Or type labels separated by commas, such as runpod, server, 4090.',
     "memorisation-label-add": "Filter by label {label}",
     "memorisation-filter-active": "Showing records with all of these labels:",
     "memorisation-filter-remove": "Remove label {label}",
@@ -119,7 +120,8 @@ export const memorisationText = {
       "请让智能体存档当前会话，或在终端运行下面的命令。保存的记录会显示在这里。",
     "memorisation-search-title": "找回",
     "memorisation-search-label": "用编号或词语找回",
-    "memorisation-search-placeholder": "ms-4k7q2p、词语或 label:名称",
+    "memorisation-search-placeholder":
+      "ms-4k7q2p、词语、label:名称，或用逗号分隔的标签，如 runpod, server",
     "memorisation-search-button": "找回",
     "memorisation-search-clear": "清除搜索",
     "memorisation-searching": "正在搜索…",
@@ -183,7 +185,7 @@ export const memorisationText = {
     "memorisation-range-characters": "请输入 {min} 到 {max} 之间的整数（字符）。",
     "memorisation-range-tokens": "请输入 {min} 到 {max} 之间的整数（词元）。",
     "memorisation-search-help":
-      '在词语后加 label:名称，可按标签缩小结果。标签含空格时加引号，例如 label:"两个词"。可重复使用 label: 添加更多标签。',
+      '在词语后加 label:名称，可按标签缩小结果。标签含空格时加引号，例如 label:"两个词"。可重复使用 label: 添加更多标签。也可以输入用逗号分隔的标签，例如 runpod, server, 4090。',
     "memorisation-label-add": "按标签 {label} 筛选",
     "memorisation-filter-active": "显示同时带有以下所有标签的记录：",
     "memorisation-filter-remove": "移除标签 {label}",
@@ -217,7 +219,8 @@ export const memorisationText = {
       "اطلب من الوكيل حفظ هذه الجلسة، أو شغّل الأمر التالي في الطرفية. تظهر السجلات المحفوظة هنا.",
     "memorisation-search-title": "الاسترجاع",
     "memorisation-search-label": "استرجع بالمعرّف أو بالكلمات",
-    "memorisation-search-placeholder": "ms-4k7q2p أو كلمات أو label:الاسم",
+    "memorisation-search-placeholder":
+      "ms-4k7q2p أو كلمات أو label:الاسم أو وسوم مثل runpod, server",
     "memorisation-search-button": "استرجاع",
     "memorisation-search-clear": "مسح البحث",
     "memorisation-searching": "جارٍ البحث…",
@@ -283,7 +286,7 @@ export const memorisationText = {
     "memorisation-range-characters": "أدخل عدداً صحيحاً من {min} إلى {max} حرفاً.",
     "memorisation-range-tokens": "أدخل عدداً صحيحاً من {min} إلى {max} رمزاً.",
     "memorisation-search-help":
-      'أضف label:الاسم لتضييق النتائج حسب الوسم. استخدم علامات الاقتباس لوسم يحتوي مسافات، مثل label:"كلمتان". يمكنك تكرار label: لإضافة وسوم أخرى.',
+      'أضف label:الاسم لتضييق النتائج حسب الوسم. استخدم علامات الاقتباس لوسم يحتوي مسافات، مثل label:"كلمتان". يمكنك تكرار label: لإضافة وسوم أخرى. أو اكتب وسومًا تفصل بينها فواصل، مثل runpod, server, 4090.',
     "memorisation-label-add": "تصفية حسب الوسم {label}",
     "memorisation-filter-active": "عرض السجلات التي تحمل كل هذه الوسوم:",
     "memorisation-filter-remove": "إزالة الوسم {label}",

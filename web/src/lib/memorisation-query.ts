@@ -13,6 +13,7 @@ export function withLabel(labels: readonly string[], label: string): string[] {
 /**
  * Splits the recall box text into the query and the labels. `label:X` may repeat. The server
  * matches labels without regard to case, so `label:A` and `label:a` count once.
+ * Text with a comma is a list of labels, such as `runpod, server, 4090`, and leaves no query.
  */
 export function parseRecallInput(input: string): { q: string; labels: string[] } {
   let labels: string[] = [];
@@ -20,6 +21,10 @@ export function parseRecallInput(input: string): { q: string; labels: string[] }
     labels = withLabel(labels, quoted ?? bare ?? "");
     return " ";
   });
+  if (rest.includes(",")) {
+    for (const part of rest.split(",")) labels = withLabel(labels, part.replace(/\s+/g, " "));
+    return { q: "", labels };
+  }
   return { q: rest.replace(/\s+/g, " ").trim(), labels };
 }
 
