@@ -92,3 +92,18 @@ it("writes the labels into a URL query string and keeps other parameters", () =>
   expect(searchWithLabels("?labels=a", [])).toBe("");
   expect(searchWithLabels("?x=1&labels=a", ["b"])).toBe("?x=1&labels=b");
 });
+
+it("keeps a bar between labels as one OR label, next to comma labels", () => {
+  expect(parseRecallInput("runpod | vast, 4090")).toEqual({
+    q: "",
+    labels: ["runpod|vast", "4090"],
+  });
+  expect(parseRecallInput("runpod|vast")).toEqual({ q: "", labels: ["runpod|vast"] });
+  expect(parseRecallInput("a | b | A, c")).toEqual({ q: "", labels: ["a|b", "c"] });
+  expect(parseRecallInput("label:ops, a | b")).toEqual({ q: "", labels: ["ops", "a|b"] });
+});
+
+it("carries an OR label through the address bar", () => {
+  expect(searchWithLabels("", ["runpod|vast", "4090"])).toBe("?labels=runpod%7Cvast,4090");
+  expect(labelsFromSearch("?labels=runpod%7Cvast,4090")).toEqual(["runpod|vast", "4090"]);
+});

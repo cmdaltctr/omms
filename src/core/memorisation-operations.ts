@@ -10,11 +10,12 @@ import { isFullyPrivate, stripPrivateContent } from "../services/privacy.js";
 import type { getTags } from "../services/tags.js";
 import type { MemoryHost } from "../types/index.js";
 import {
-  hasAllTags,
+  matchesTagGroups,
   isMemorisationId,
   MEMORISATION_TAG,
   memorisationId,
   memorisationSizeError,
+  parseTagGroups,
   parseTagList,
   pickRecallMatches,
   snapshotText,
@@ -35,7 +36,7 @@ export interface RecallArgs {
   /** Also read as an ID or text when `query` is empty. */
   memoryId?: string;
   content?: string;
-  /** Comma-separated labels. Only memorisations that carry all of them match. */
+  /** Labels. A comma means AND and a bar means OR: `runpod | vast, 4090` needs 4090 and either of the others. */
   tags?: string;
   limit?: number;
 }
@@ -157,7 +158,7 @@ const LABEL_SEARCH_POOL = 200;
 
 /**
  * Fetches memorisations by exact ID, or by text across memorisations only. `tags` keeps only
- * memorisations that carry every label. With `tags` and no text it returns the newest ones.
+ * memorisations that match every label group. With `tags` and no text it returns the newest ones.
  * An exact ID ignores `tags`. Every read covers the whole active space and its linked spaces,
  * so a memorisation is found from any folder. `rerank` (the `memorisationRerank` setting)
  * lets the reranker server reorder the text matches; each match keeps its content-only
@@ -169,7 +170,7 @@ export async function runRecall(
   rerank = false
 ): Promise<Record<string, unknown>> {
   const input = (args.query ?? args.memoryId ?? args.content)?.trim();
-  const wanted = parseTagList(args.tags);
+  const wanted = parseTagGroups(args.tags);
   if (!input && wanted.length === 0) {
     return { success: false, error: "query or tags required: a memorisation ID, text or labels" };
   }
@@ -193,7 +194,7 @@ export async function runRecall(
   if (!result.success) return { success: false, error: result.error };
 
   const mapped = (result.results ?? [])
-    .filter((hit: any) => hasAllTags(hit.tags, wanted))
+    .filter((hit: any) => matchesTagGroups(hit.tags, wanted))
     .map((hit: any) => ({
       id: hit.id as string,
       content: (hit.memory || hit.chunk) as string,
@@ -215,9 +216,9 @@ export async function runRecall(
   };
 }
 
-/** The newest memorisations that carry every label. They are not ranked, so they have no confidence. */
+/** The newest memorisations that match every label group. They are not ranked, so they have no confidence. */
 async function recallByLabels(
-  wanted: string[],
+  wanted: string[][],
   limit: number | undefined
 ): Promise<Record<string, unknown>> {
   const listed = await listMemorisationsByTags(

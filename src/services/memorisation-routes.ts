@@ -1,4 +1,4 @@
-import { isMemorisationId, parseTagList, visibleTags } from "../core/memorisation.js";
+import { isMemorisationId, parseTagGroups, visibleTags } from "../core/memorisation.js";
 import type { RouteResult } from "./chat/chat-routes.js";
 import type { LinkedSearchSettings } from "./linked-search.js";
 
@@ -35,7 +35,7 @@ export async function routeMemorisations(
   config: MemorisationRouteConfig,
   readBody?: () => Promise<any>
 ): Promise<RouteResult | undefined> {
-  const wanted = parseTagList(url.searchParams.get("tags") ?? undefined);
+  const wanted = parseTagGroups(url.searchParams.get("tags") ?? undefined);
   if (method === "GET" && path === "/api/memorisations") return listMemorisations(wanted);
   if (method === "GET" && path === "/api/memorisations/recall") {
     return recall(url.searchParams, wanted, config);
@@ -46,7 +46,7 @@ export async function routeMemorisations(
   return undefined;
 }
 
-async function listMemorisations(wanted: string[]): Promise<RouteResult> {
+async function listMemorisations(wanted: string[][]): Promise<RouteResult> {
   const { listMemorisationsByTags } = await import("./memorisation-store.js");
   const result = await listMemorisationsByTags("", wanted, "all-projects", LIST_LIMIT);
   if (!result.success) return fail(500, result.error);
@@ -65,7 +65,7 @@ async function listMemorisations(wanted: string[]): Promise<RouteResult> {
 
 async function recall(
   params: URLSearchParams,
-  wanted: string[],
+  wanted: string[][],
   config: MemorisationRouteConfig
 ): Promise<RouteResult> {
   const text = params.get("q")?.trim();
@@ -75,7 +75,7 @@ async function recall(
   const result = await runRecall(
     {
       query: text,
-      tags: wanted.join(","),
+      tags: wanted.map((group) => group.join("|")).join(","),
       ...(Number.isInteger(limit) && limit > 0 ? { limit } : {}),
     },
     config.linked,

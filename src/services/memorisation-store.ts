@@ -1,4 +1,4 @@
-import { hasAllTags, visibleTags } from "../core/memorisation.js";
+import { matchesTagGroups, visibleTags } from "../core/memorisation.js";
 import { activeOwner } from "./active-space-access.js";
 import { readLinkedMemory, type LinkedSearchSettings, type ListedMemory } from "./linked-search.js";
 import type { MemoryScope } from "./client.js";
@@ -109,13 +109,13 @@ export async function findSnapshotByHostSession(
 const READ_CEILING = 10_000;
 
 /**
- * The project's memorisations that carry every tag in `tags`, newest first, in the active
+ * The project's memorisations that match every group in `tags` (a comma is AND, a bar is OR), newest first, in the active
  * space and its linked spaces. The tag filter runs before `limit`, so an old labelled
  * row is not pushed out by newer rows without the label.
  */
 export async function listMemorisationsByTags(
   containerTag: string,
-  tags: string[],
+  tags: string[][],
   scope: MemoryScope,
   limit: number
 ): Promise<{ success: true; memories: ListedMemory[] } | { success: false; error: string }> {
@@ -125,7 +125,7 @@ export async function listMemorisationsByTags(
   });
   if (!result.success) return { success: false, error: result.error };
   const memories = result.memories
-    .filter((memory) => hasAllTags(memory.tags, tags))
+    .filter((memory) => matchesTagGroups(memory.tags, tags))
     // Own rows come first from the client, then linked rows. Callers want one timeline.
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit);

@@ -171,12 +171,17 @@ The recall box SHALL read `label:name` as a label, and `label:"two words"` for a
 
 ### Requirement: Comma-separated labels in the recall box
 
-When the recall box text, after any `label:` terms, contains a comma (`,`, the Chinese `，` or the Arabic `،`), the page SHALL read each comma-separated part as a label and send no query. Spaces around a comma SHALL NOT matter. Empty parts and repeats, ignoring case, SHALL be dropped.
+When the recall box text, after any `label:` terms, contains a comma (`,`, the Chinese `，` or the Arabic `،`), the page SHALL read each comma-separated part as a label and send no query. Spaces around a comma SHALL NOT matter. Empty parts and repeats, ignoring case, SHALL be dropped. A bar (`|`) between labels SHALL mean OR: the page SHALL send `a|b` as one label, so a record needs only one of its alternatives. A comma means AND. Text with a bar and no comma SHALL also be read as labels and send no query.
 
 #### Scenario: Labels with commas
 
 - **WHEN** the user types `runpod, server, 4090` or `runpod,server,4090` and searches
 - **THEN** the page asks for the newest memorisations with the labels `runpod`, `server` and `4090`
+
+#### Scenario: Either of two labels
+
+- **WHEN** the user types `runpod | vast, 4090` and searches
+- **THEN** the page asks for the newest memorisations with the labels `runpod|vast` and `4090`, and a record matches when it carries `4090` and either `runpod` or `vast`
 
 ### Requirement: Recall box help for labels
 

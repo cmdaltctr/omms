@@ -117,10 +117,26 @@ export function visibleTags(tags: string[] | undefined): string[] {
     .filter((tag) => tag && normaliseTag(tag) !== MEMORISATION_TAG);
 }
 
-/** True when the record carries every wanted tag. Case and surrounding spaces do not matter. */
-export function hasAllTags(recordTags: string[] | undefined, wanted: string[]): boolean {
+/**
+ * A recall label filter as groups. A comma means AND and a bar means OR, so `runpod | vast, 4090`
+ * is `[["runpod", "vast"], ["4090"]]`: a record needs 4090 and one of runpod or vast.
+ */
+export function parseTagGroups(text: string | undefined): string[][] {
+  const groups = (text ?? "")
+    .split(",")
+    .map((part) => [...new Set(part.split("|").map(normaliseTag).filter(Boolean))])
+    .filter((group) => group.length > 0);
+  const seen = new Set<string>();
+  return groups.filter((group) => {
+    const key = [...group].sort().join("|");
+    return seen.has(key) ? false : (seen.add(key), true);
+  });
+}
+
+/** True when each group has at least one label the record carries. Case and surrounding spaces do not matter. */
+export function matchesTagGroups(recordTags: string[] | undefined, groups: string[][]): boolean {
   const have = new Set((recordTags ?? []).map(normaliseTag));
-  return wanted.every((tag) => have.has(normaliseTag(tag)));
+  return groups.every((group) => group.some((tag) => have.has(normaliseTag(tag))));
 }
 
 /**

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { estimateTokens } from "../src/core/context-budget.js";
 import {
-  hasAllTags,
+  matchesTagGroups,
   isMemorisationId,
   memorisationCapError,
   memorisationCapIsValid,
@@ -9,6 +9,7 @@ import {
   memorisationSize,
   memorisationSizeError,
   memorisationSizeRange,
+  parseTagGroups,
   parseTagList,
   pickRecallMatches,
   snapshotText,
@@ -320,14 +321,25 @@ describe("memorisation labels", () => {
     expect(visibleTags(undefined)).toEqual([]);
   });
 
-  it("matches only a record that carries every wanted label, ignoring case and spaces", () => {
+  it("reads a comma as AND and a bar as OR: groups of alternatives", () => {
+    expect(parseTagGroups(" Runpod | Vast , 4090 ")).toEqual([["runpod", "vast"], ["4090"]]);
+    expect(parseTagGroups("a,b,A")).toEqual([["a"], ["b"]]);
+    expect(parseTagGroups("a|b|A,, |,a|b")).toEqual([["a", "b"]]);
+    expect(parseTagGroups("")).toEqual([]);
+    expect(parseTagGroups(undefined)).toEqual([]);
+  });
+
+  it("matches a record when every group has one label it carries, ignoring case and spaces", () => {
     const record = ["memorisation", "Auth", "wip"];
-    expect(hasAllTags(record, ["auth"])).toBe(true);
-    expect(hasAllTags(record, ["auth", "WIP"])).toBe(true);
-    expect(hasAllTags(record, [" wip "])).toBe(true);
-    expect(hasAllTags(record, ["auth", "release"])).toBe(false);
-    expect(hasAllTags(record, [])).toBe(true);
-    expect(hasAllTags([], ["auth"])).toBe(false);
+    expect(matchesTagGroups(record, [["auth"]])).toBe(true);
+    expect(matchesTagGroups(record, [["auth"], ["WIP"]])).toBe(true);
+    expect(matchesTagGroups(record, [[" wip "]])).toBe(true);
+    expect(matchesTagGroups(record, [["auth"], ["release"]])).toBe(false);
+    expect(matchesTagGroups(record, [["release", "wip"]])).toBe(true);
+    expect(matchesTagGroups(record, [["release", "wip"], ["auth"]])).toBe(true);
+    expect(matchesTagGroups(record, [["release", "deploy"], ["auth"]])).toBe(false);
+    expect(matchesTagGroups(record, [])).toBe(true);
+    expect(matchesTagGroups([], [["auth"]])).toBe(false);
   });
 });
 

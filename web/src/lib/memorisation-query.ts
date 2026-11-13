@@ -1,6 +1,9 @@
 /** A comma between labels: ASCII, Chinese full-width or Arabic. */
 const COMMA = /[,\uFF0C\u060C]/;
 
+/** A bar between labels means OR. A comma means AND. */
+const OR_BAR = "|";
+
 /** `label:name` or `label:"two words"`, at the start of the text or after a space or comma. */
 const LABEL_TOKEN = /(^|[\s,\uFF0C\u060C])label:(?:"([^"]*)"|([^\s,\uFF0C\u060C]*))/gi;
 
@@ -13,10 +16,23 @@ export function withLabel(labels: readonly string[], label: string): string[] {
   return [...labels, wanted];
 }
 
+/** One label entry: words kept apart by single spaces, and the alternatives of a bar joined as `a|b`. */
+function labelEntry(part: string): string {
+  const alternatives = part
+    .split(OR_BAR)
+    .map((alternative) => alternative.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  return alternatives
+    .reduce<string[]>((kept, alternative) => withLabel(kept, alternative), [])
+    .join(OR_BAR);
+}
+
 /**
  * Splits the recall box text into the query and the labels. `label:X` may repeat. The server
  * matches labels without regard to case, so `label:A` and `label:a` count once.
- * Text with a comma is a list of labels, such as `runpod, server, 4090`, and leaves no query.
+ * Text with a comma or a bar is a list of labels, such as `runpod, server, 4090`, and leaves no
+ * query. A comma means AND. A bar means OR, so `runpod | vast, 4090` becomes the labels
+ * `runpod|vast` and `4090`: a record needs 4090 and either of the others.
  */
 export function parseRecallInput(input: string): { q: string; labels: string[] } {
   let labels: string[] = [];
@@ -28,8 +44,8 @@ export function parseRecallInput(input: string): { q: string; labels: string[] }
       return `${before} `;
     }
   );
-  if (COMMA.test(rest)) {
-    for (const part of rest.split(COMMA)) labels = withLabel(labels, part.replace(/\s+/g, " "));
+  if (COMMA.test(rest) || rest.includes(OR_BAR)) {
+    for (const part of rest.split(COMMA)) labels = withLabel(labels, labelEntry(part));
     return { q: "", labels };
   }
   return { q: rest.replace(/\s+/g, " ").trim(), labels };

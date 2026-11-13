@@ -86,7 +86,7 @@ export const memorisationText = {
     "memorisation-range-characters": "Enter a whole number from {min} to {max} characters.",
     "memorisation-range-tokens": "Enter a whole number from {min} to {max} tokens.",
     "memorisation-search-help":
-      'Add label:name to narrow the results by label. Use quotes for a label with spaces, such as label:"two words". You can repeat label: for more labels. Or type labels separated by commas, such as runpod, server, 4090.',
+      'Add label:name to narrow the results by label. Use quotes for a label with spaces, such as label:"two words". You can repeat label: for more labels. Or type labels separated by commas, such as runpod, server, 4090: a record needs all of them. Put a bar between labels for either, such as runpod | vast, 4090.',
     "memorisation-label-add": "Filter by label {label}",
     "memorisation-filter-active": "Showing records with all of these labels:",
     "memorisation-filter-remove": "Remove label {label}",
@@ -185,7 +185,7 @@ export const memorisationText = {
     "memorisation-range-characters": "请输入 {min} 到 {max} 之间的整数（字符）。",
     "memorisation-range-tokens": "请输入 {min} 到 {max} 之间的整数（词元）。",
     "memorisation-search-help":
-      '在词语后加 label:名称，可按标签缩小结果。标签含空格时加引号，例如 label:"两个词"。可重复使用 label: 添加更多标签。也可以输入用逗号分隔的标签，例如 runpod, server, 4090。',
+      '在词语后加 label:名称，可按标签缩小结果。标签含空格时加引号，例如 label:"两个词"。可重复使用 label: 添加更多标签。也可以输入用逗号分隔的标签，例如 runpod, server, 4090：记录需要包含全部标签。在标签之间加竖线表示任一个，例如 runpod | vast, 4090。',
     "memorisation-label-add": "按标签 {label} 筛选",
     "memorisation-filter-active": "显示同时带有以下所有标签的记录：",
     "memorisation-filter-remove": "移除标签 {label}",
@@ -286,7 +286,7 @@ export const memorisationText = {
     "memorisation-range-characters": "أدخل عدداً صحيحاً من {min} إلى {max} حرفاً.",
     "memorisation-range-tokens": "أدخل عدداً صحيحاً من {min} إلى {max} رمزاً.",
     "memorisation-search-help":
-      'أضف label:الاسم لتضييق النتائج حسب الوسم. استخدم علامات الاقتباس لوسم يحتوي مسافات، مثل label:"كلمتان". يمكنك تكرار label: لإضافة وسوم أخرى. أو اكتب وسومًا تفصل بينها فواصل، مثل runpod, server, 4090.',
+      'أضف label:الاسم لتضييق النتائج حسب الوسم. استخدم علامات الاقتباس لوسم يحتوي مسافات، مثل label:"كلمتان". يمكنك تكرار label: لإضافة وسوم أخرى. أو اكتب وسومًا تفصل بينها فواصل، مثل runpod, server, 4090: يجب أن يحمل السجل كلها. ضع خطًا عموديًا بين الوسوم لأي منها، مثل runpod | vast, 4090.',
     "memorisation-label-add": "تصفية حسب الوسم {label}",
     "memorisation-filter-active": "عرض السجلات التي تحمل كل هذه الوسوم:",
     "memorisation-filter-remove": "إزالة الوسم {label}",

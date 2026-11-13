@@ -245,7 +245,7 @@ A global setting `memorisationRepeat` SHALL take `add` or `replace`, with `add` 
 
 ### Requirement: Recall by labels
 
-`recall` SHALL accept `tags`, a comma-separated list, on every host and in the CLI (`--tags`). A memorisation SHALL match only when it carries every listed label. OMMS SHALL ignore case and surrounding spaces, and SHALL NOT treat the fixed tag `memorisation` as a label. Each match SHALL list its labels without the fixed tag. Matches SHALL come from every project of the active and linked spaces. `recall` with neither `query` nor `tags` SHALL refuse and name both.
+`recall` SHALL accept `tags`, a comma-separated list, on every host and in the CLI (`--tags`). A comma between labels SHALL mean AND and a bar (`|`) SHALL mean OR. A memorisation SHALL match only when, for every comma-separated part, it carries at least one of the labels in that part. OMMS SHALL ignore case and surrounding spaces, and SHALL NOT treat the fixed tag `memorisation` as a label. Each match SHALL list its labels without the fixed tag. Matches SHALL come from every project of the active and linked spaces. `recall` with neither `query` nor `tags` SHALL refuse and name both.
 
 #### Scenario: Labels only
 
@@ -256,6 +256,11 @@ A global setting `memorisationRepeat` SHALL take `add` or `replace`, with `add` 
 
 - **WHEN** the agent calls `recall` with tags "auth,wip"
 - **THEN** OMMS returns only memorisations that carry both `auth` and `wip`
+
+#### Scenario: Either of two labels
+
+- **WHEN** the agent calls `recall` with tags "runpod|vast,4090"
+- **THEN** OMMS returns only memorisations that carry `4090` and at least one of `runpod` and `vast`
 
 #### Scenario: Labels and text
 
@@ -280,7 +285,7 @@ A global setting `memorisationRepeat` SHALL take `add` or `replace`, with `add` 
 
 ### Requirement: List route accepts labels
 
-`GET /api/memorisations` SHALL accept `tags`, a comma-separated list of labels, and return only records that carry every label, newest first, from every project of the active and linked spaces. The label filter SHALL run before the cap of 200 rows. An empty `tags` value SHALL mean no filter. Each row SHALL carry its labels without the fixed tag.
+`GET /api/memorisations` SHALL accept `tags`, a list of labels where a comma means AND and a bar means OR, and return only records that match every comma-separated part, newest first, from every project of the active and linked spaces. The label filter SHALL run before the cap of 200 rows. An empty `tags` value SHALL mean no filter. Each row SHALL carry its labels without the fixed tag.
 
 #### Scenario: List filtered by labels
 

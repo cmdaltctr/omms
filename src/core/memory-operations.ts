@@ -155,7 +155,7 @@ export async function executeMemoryOperation(
             {
               command: "recall",
               description:
-                "Fetch memorisations only: pass an ms- ID for the exact text, or text for ranked matches with a confidence score. Pass tags (the labels) to keep only memorisations that carry all of them; tags with no query lists the newest ones",
+                "Fetch memorisations only: pass an ms- ID for the exact text, or text for ranked matches with a confidence score. Pass tags (the labels) to keep only memorisations that carry all of them (comma = AND); write a|b for either label (bar = OR), such as runpod|vast,4090; tags with no query lists the newest ones",
               args: ["query?", "tags?", "limit?"],
             },
             {

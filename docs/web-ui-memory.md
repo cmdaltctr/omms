@@ -428,7 +428,7 @@ With no records, the page shows how to make the first one.
 
 ### Recall
 
-Type an ID or words from the note and select **Recall**. A match shows its confidence score as a percentage. One clear match is shown alone. Otherwise the page shows up to three. An ID that does not exist gives a clear message. **Clear search** returns to the list. Add `label:name` to narrow by label, for example `label:release token refresh`. Use quotes for a label with spaces: `label:"two words"`. Repeat `label:` for more labels. Or type labels separated by commas, with or without spaces, such as `runpod, server, 4090`. A search with labels and no words returns the newest records with those labels. The `label:` words in the box do not change the list filter.
+Type an ID or words from the note and select **Recall**. A match shows its confidence score as a percentage. One clear match is shown alone. Otherwise the page shows up to three. An ID that does not exist gives a clear message. **Clear search** returns to the list. Add `label:name` to narrow by label, for example `label:release token refresh`. Use quotes for a label with spaces: `label:"two words"`. Repeat `label:` for more labels. Or type labels separated by commas, with or without spaces, such as `runpod, server, 4090`. A comma means AND: a record needs every label. A bar `|` means OR: `runpod | vast, 4090` finds records that have `4090` and either `runpod` or `vast`. A search with labels and no words returns the newest records with those labels. The `label:` words in the box do not change the list filter.
 
 ### Labels
 
@@ -439,7 +439,7 @@ Each card shows the labels of the record as coloured pills, beside the kind and 
 | **Label pill**   | Adds that label to the filter. A label already in the filter shows as pressed.                                                 |
 | **Filter chips** | A bar above the list shows each label of the filter with an x. The x removes that label. **Clear labels** removes all of them. |
 
-- The list shows only records that carry every label in the filter. Case does not matter.
+- The list shows only records that carry every label in the filter. A label written `a|b` counts as met when the record carries `a` or `b`. Case does not matter.
 - The filter goes in the address as `?labels=release,auth`. A reload keeps it, and you can share the address. Changing the filter does not add a history entry.
 - A new filter returns the list to page 1.
 - When no record has all the labels, the page says so. The chips stay, so you can clear them.
@@ -496,7 +496,7 @@ A number outside the range saves nothing. The page then shows the range for the 
 
 | Route                                           | Returns                                                                                                                                                                                                                                                                                                                     |
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/memorisations`                        | `data.memorisations`: `id`, `content`, `createdAt`, `host`, `kind`, `space` and `tags` (the labels, without the fixed tag). Optional `tags=a,b` keeps only records that carry every label, from every project of the active and linked spaces. The filter runs before the cap of 200 rows.                                  |
+| `GET /api/memorisations`                        | `data.memorisations`: `id`, `content`, `createdAt`, `host`, `kind`, `space` and `tags` (the labels, without the fixed tag). Optional `tags=a,b` keeps only records that carry every label (`tags=a                                                                                                                          | b,c`needs`c`and either`a`or`b`), from every project of the active and linked spaces. The filter runs before the cap of 200 rows. |
 | `GET /api/memorisations/recall?q=&tags=&limit=` | `data.count` and `data.matches`. Give `q`, `tags` or both. A match has `confidence` when `q` is text. With `tags` and no `q` it returns the newest labelled records. Status 400 when both are empty, 404 for an unknown ID.                                                                                                 |
 | `POST /api/memorisations/bulk-delete`           | Body `{"ids": ["ms-4k7q2p"]}` with 1 to 500 `ms-` IDs, else status 400. Returns `data.deleted` (IDs) and `data.skipped` (`id` and `reason`: `not-found`, `linked` or `not-memorisation`). It deletes memorisations of any project from the active space only, handles a repeated ID once, and never changes a linked space. |
 | `DELETE /api/memories/:id`                      | The existing memory delete route. It removes a memorisation too.                                                                                                                                                                                                                                                            |
