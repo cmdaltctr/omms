@@ -2,6 +2,25 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [6.4.0](https://github.com/cmdaltctr/omms/compare/v6.3.0...v6.4.0) (2026-11-13)
+
+
+### Features
+
+* **web:** recall by comma-separated labels and halve the recall box on desktop ([6a090a2](https://github.com/cmdaltctr/omms/commit/6a090a22804652de19794a19836c435e978b570a))
+* **web:** recall by comma-separated labels; show six OpenRouter providers and scroll the rest ([615cebc](https://github.com/cmdaltctr/omms/commit/615cebc6d006a2f0db643430e4723351e24e36c3))
+* **web:** show six OpenRouter providers and scroll the rest ([0968afc](https://github.com/cmdaltctr/omms/commit/0968afcbda62d6362fd1cd3486ed7a6245cb3a79))
+
+
+### Bug Fixes
+
+* **web:** read label: next to a comma, split on Chinese and Arabic commas, re-measure taller provider rows ([f957598](https://github.com/cmdaltctr/omms/commit/f957598842c78a78214f5eded48ee15358fa6be6))
+
+
+### Documentation
+
+* **openspec:** note label: after a comma and native commas in the recall spec ([0b241b4](https://github.com/cmdaltctr/omms/commit/0b241b4c5efde96e7f1f237dd9e872342f8de07f))
+
 ## [6.3.0](https://github.com/cmdaltctr/omms/compare/v6.2.0...v6.3.0) (2026-11-13)
 
 
