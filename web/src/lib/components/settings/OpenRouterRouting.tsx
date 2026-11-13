@@ -206,7 +206,10 @@ export function OpenRouterRouting({
   ];
 
   // A routing edit makes "Routing saved." untrue, so it goes with the first change.
+  // The count lets a pending save see that the controls changed after it was sent.
+  const edits = useRef(0);
   const edit = (change: (previous: RoutingState) => RoutingState) => {
+    edits.current += 1;
     setState(change);
     setSave((previous) => (previous.kind === "saved" ? { kind: "idle" } : previous));
   };
@@ -233,12 +236,13 @@ export function OpenRouterRouting({
 
   async function saveRouting() {
     setSave({ kind: "saving" });
+    const sent = edits.current;
     try {
       await settingsRequest(SAVE_PATH, {
         method: "POST",
         body: JSON.stringify({ revision, routing: providerFromRouting(state, loaded) }),
       });
-      setSave({ kind: "saved" });
+      setSave({ kind: edits.current === sent ? "saved" : "idle" });
     } catch (error) {
       setSave({ kind: "error", message: (error as Error).message });
     }

@@ -648,6 +648,24 @@ it("clears Routing saved. as soon as any routing control changes", async () => {
   }
 });
 
+it("does not say Routing saved. for an edit made while the save was pending", async () => {
+  const pending = deferred<{ status?: number; body: unknown }>();
+  requests = installFetch((request) => {
+    if (request.path.startsWith(LIST)) return { body: { ok: true, providers: rows } };
+    if (request.path === SAVE) return pending.promise;
+    return { body: { revision: "rev-10", settings: {} } };
+  });
+  let tree = await settle(block(), own);
+  (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block(), own);
+  (box(tree, "openrouter-zdr").props.onCheckedChange as (v: boolean) => void)(true);
+  await settle(block(), own);
+  pending.resolve({ body: { revision: "rev-10", provider: {} } });
+  tree = await settle(block(), own);
+  expect(box(tree, "openrouter-zdr").props.checked).toBe(true);
+  expect(statusLines(tree).join(" ")).not.toContain("Routing saved.");
+});
+
 it("clears Routing saved. when Use only these providers changes", async () => {
   requests = installFetch((request) =>
     request.path.startsWith(LIST)
