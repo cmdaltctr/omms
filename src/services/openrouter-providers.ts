@@ -6,7 +6,14 @@
  */
 
 export type ProviderPolicy = "zdr" | "safety" | "unknown";
-export type ProviderRow = { slug: string; name: string; policy: ProviderPolicy };
+/** US dollars per 1M tokens. Only set when both values are known. */
+export type ProviderPrice = { input: number; output: number };
+export type ProviderRow = {
+  slug: string;
+  name: string;
+  policy: ProviderPolicy;
+  price?: ProviderPrice;
+};
 export type ProviderFailure = "unknown-model" | "timeout" | "unreachable";
 export type ProvidersResult =
   { ok: true; providers: ProviderRow[] } | { ok: false; reason: ProviderFailure; error: string };
@@ -40,6 +47,17 @@ class ListError extends Error {
 type Row = Record<string, unknown>;
 const text = (value: unknown): string | undefined =>
   typeof value === "string" && value.trim() ? value : undefined;
+
+/** A per-token price string such as "0.000000256" as US dollars per 1M tokens. Missing, non-numeric or negative gives undefined. */
+function pricePerMillion(value: unknown): number | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const perToken = Number(value);
+  if (!Number.isFinite(perToken) || perToken < 0) return undefined;
+  return Math.round(perToken * 1_000_000 * 1e6) / 1e6;
+}
+
+const lowest = (a: number | undefined, b: number | undefined): number | undefined =>
+  a === undefined ? b : b === undefined ? a : Math.min(a, b);
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -118,6 +136,8 @@ export function createOpenRouterProviders(deps: {
         throw new ListError("unreachable", "OpenRouter sent a provider list in an unknown form.");
       }
       const bySlug = new Map<string, ProviderRow>();
+      // Lowest input and output price per slug, found independently across its endpoints.
+      const prices = new Map<string, { input?: number; output?: number }>();
       for (const endpoint of endpoints as Row[]) {
         const tag = text(endpoint?.tag);
         const name = text(endpoint?.provider_name);
@@ -126,12 +146,22 @@ export function createOpenRouterProviders(deps: {
         const modelId = text(endpoint?.model_id);
         const flag = tag && modelId ? flags.get(`${modelId}\n${tag}`) : undefined;
         const policy: ProviderPolicy = flag === undefined ? "unknown" : flag ? "safety" : "zdr";
+        const pricing = endpoint?.pricing as Row | undefined;
+        const lows = prices.get(slug) ?? {};
+        lows.input = lowest(lows.input, pricePerMillion(pricing?.prompt));
+        lows.output = lowest(lows.output, pricePerMillion(pricing?.completion));
+        prices.set(slug, lows);
         const seen = bySlug.get(slug);
         if (!seen) {
           bySlug.set(slug, { slug, name: name ?? slug, policy });
         } else if (PRIVACY_RANK[policy] < PRIVACY_RANK[seen.policy]) {
           seen.policy = policy;
         }
+      }
+      // A price needs both values. A slug with only one of them shows no price.
+      for (const [slug, row] of bySlug) {
+        const { input, output } = prices.get(slug) ?? {};
+        if (input !== undefined && output !== undefined) row.price = { input, output };
       }
       const providers = [...bySlug.values()].sort((a, b) => a.name.localeCompare(b.name));
       if (providers.length === 0) {

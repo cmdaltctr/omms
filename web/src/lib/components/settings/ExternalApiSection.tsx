@@ -12,6 +12,7 @@ import {
 import { keySourceBody, type KeySource } from "$lib/external-api-settings";
 import { useSettingsText } from "$lib/i18n/settings";
 import { applyOpenRouterPreset, isOpenRouterUrl } from "$lib/openrouter-routing";
+import { useOpenRouterModels } from "@/hooks/useOpenRouterModels";
 import { OpenRouterRouting } from "./OpenRouterRouting";
 
 type Snapshot = {
@@ -65,6 +66,8 @@ export function ExternalApiSection() {
 
   const saved = (key: string) => String(snapshot?.settings[key]?.globalValue ?? "");
   const value = (key: string) => fields[key] ?? saved(key);
+  const onOpenRouter = isOpenRouterUrl(value("memoryApiUrl"));
+  const modelSuggestions = useOpenRouterModels(onOpenRouter);
 
   async function saveEndpoint() {
     if (!snapshot) return;
@@ -237,9 +240,19 @@ export function ExternalApiSection() {
             dir="ltr"
             className="mt-1 block w-full rounded border border-border bg-background p-2 font-mono"
             placeholder="glm-5-turbo"
+            list={onOpenRouter && modelSuggestions.length > 0 ? "openrouter-models" : undefined}
             value={value("memoryModel")}
             onChange={(event) => setFields({ ...fields, memoryModel: event.target.value })}
           />
+          {onOpenRouter && modelSuggestions.length > 0 && (
+            <datalist id="openrouter-models">
+              {modelSuggestions.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name}
+                </option>
+              ))}
+            </datalist>
+          )}
         </div>
       </label>
       <button

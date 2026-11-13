@@ -402,6 +402,41 @@ describe("OpenRouter routing route", () => {
     expect(result.calls.some((call: { auth: boolean }) => call.auth)).toBe(false);
   });
 
+  it("serves the model list from the server with no key sent", async () => {
+    const { result } = await scenario(`
+      const calls = [];
+      globalThis.fetch = async (url, init) => {
+        calls.push({ url: String(url), auth: new Headers(init?.headers).has("authorization") });
+        return new Response(JSON.stringify({ data: [
+          { id: "z/last", name: "Last", pricing: { prompt: "1" } },
+          { id: "a/first", name: "First" } ] }));
+      };
+      const response = await send("/api/settings/external-api/openrouter-models");
+      return { response, calls };
+    `);
+    expect(result.response.status).toBe(200);
+    expect(result.response.body).toEqual({
+      ok: true,
+      models: [
+        { id: "a/first", name: "First" },
+        { id: "z/last", name: "Last" },
+      ],
+    });
+    expect(result.calls).toHaveLength(1);
+    expect(result.calls[0].url).toBe("https://openrouter.ai/api/v1/models");
+    expect(result.calls[0].auth).toBe(false);
+  });
+
+  it("reports a model list upstream problem as 200 with ok false", async () => {
+    const { result } = await scenario(`
+      globalThis.fetch = async () => { throw new TypeError("fetch failed"); };
+      return await send("/api/settings/external-api/openrouter-models");
+    `);
+    expect(result.status).toBe(200);
+    expect(result.body.ok).toBe(false);
+    expect(typeof result.body.error).toBe("string");
+  });
+
   it("reports an upstream problem as 200 with ok false", async () => {
     const { result } = await scenario(`
       globalThis.fetch = async () => { throw new TypeError("fetch failed"); };

@@ -146,6 +146,72 @@ describe("OpenRouter provider list", () => {
     });
   });
 
+  it("reads the price per 1M tokens from the endpoint pricing", async () => {
+    const { fetchStub } = stubFetch({
+      endpoints: [
+        {
+          ...endpoint("deepinfra/fp4", "DeepInfra"),
+          pricing: { prompt: "0.000000256", completion: "0.000000712" },
+        },
+      ],
+    });
+    const result = await createOpenRouterProviders({ fetch: fetchStub, now: () => 0 }).list(MODEL);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.providers[0]!.price!.input).toBeCloseTo(0.256, 6);
+    expect(result.providers[0]!.price!.output).toBeCloseTo(0.712, 6);
+  });
+
+  it("takes the lowest input and the lowest output price across a slug's endpoints", async () => {
+    const { fetchStub } = stubFetch({
+      endpoints: [
+        {
+          ...endpoint("a/fp4", "A"),
+          pricing: { prompt: "0.0000003", completion: "0.0000009" },
+        },
+        {
+          ...endpoint("a/fp8", "A"),
+          pricing: { prompt: "0.0000002", completion: "0.000001" },
+        },
+      ],
+    });
+    const result = await createOpenRouterProviders({ fetch: fetchStub, now: () => 0 }).list(MODEL);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.providers).toHaveLength(1);
+    expect(result.providers[0]!.price!.input).toBeCloseTo(0.2, 6);
+    expect(result.providers[0]!.price!.output).toBeCloseTo(0.9, 6);
+  });
+
+  it("gives no price key for a missing, non-numeric, negative or half-filled price", async () => {
+    const { fetchStub } = stubFetch({
+      endpoints: [
+        endpoint("none/fp4", "None"),
+        { ...endpoint("text/fp4", "Text"), pricing: { prompt: "free", completion: "n/a" } },
+        { ...endpoint("neg/fp4", "Neg"), pricing: { prompt: "-1", completion: "-1" } },
+        { ...endpoint("half/fp4", "Half"), pricing: { prompt: "0.000001" } },
+      ],
+    });
+    const result = await createOpenRouterProviders({ fetch: fetchStub, now: () => 0 }).list(MODEL);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.providers).toHaveLength(4);
+    for (const row of result.providers) expect("price" in row).toBe(false);
+  });
+
+  it("keeps a zero price as free", async () => {
+    const { fetchStub } = stubFetch({
+      endpoints: [{ ...endpoint("free/fp4", "Free"), pricing: { prompt: "0", completion: "0" } }],
+    });
+    const result = await createOpenRouterProviders({ fetch: fetchStub, now: () => 0 }).list(MODEL);
+    expect(result).toEqual({
+      ok: true,
+      providers: [
+        { slug: "free", name: "Free", policy: "unknown", price: { input: 0, output: 0 } },
+      ],
+    });
+  });
+
   it("fetches the ZDR list once within an hour and again after it", async () => {
     const { fetchStub, zdrCalls } = stubFetch({
       endpoints: [endpoint("deepinfra", "DeepInfra")],

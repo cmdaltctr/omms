@@ -8,12 +8,14 @@ import { Label } from "$lib/components/ui/label";
 import { Tooltip } from "$lib/components/ui/tooltip";
 import { useSettingsText } from "$lib/i18n/settings";
 import {
+  formatPrice,
   hasUnmanagedFields,
   policyLabelKey,
   providerFromRouting,
   routingFromProvider,
   usableTicked,
   type ProviderPolicy,
+  type ProviderPrice,
   type ProviderRow,
   type RoutingState,
 } from "$lib/openrouter-routing";
@@ -34,7 +36,7 @@ type ListState =
   | { kind: "ready"; rows: ProviderRow[] }
   | { kind: "failed"; unknownModel: boolean; reason?: "timeout" | "unreachable"; error: string };
 type SaveState = { kind: "idle" | "saving" | "saved" } | { kind: "error"; message: string };
-type Shown = { slug: string; name: string; policy?: ProviderPolicy };
+type Shown = { slug: string; name: string; policy?: ProviderPolicy; price?: ProviderPrice };
 
 const policyVariant = { zdr: "default", safety: "info", unknown: "warning" } as const;
 
@@ -69,7 +71,7 @@ export function ProviderRows({
   const s = useSettingsText();
   return (
     <ul className="space-y-2 sm:w-1/2">
-      {shown.map(({ slug, name, policy }) => {
+      {shown.map(({ slug, name, policy, price }) => {
         const id = `openrouter-provider-${slug}`;
         const position = ticked.indexOf(slug) + 1;
         const blocked = zdr && policy === "unknown";
@@ -105,6 +107,13 @@ export function ProviderRows({
               <span dir="ltr" className="font-mono text-xs text-muted-foreground">
                 {slug}
               </span>
+              {price && (
+                <span className="w-full text-xs font-normal text-muted-foreground">
+                  <span dir="ltr" data-price={slug}>
+                    {formatPrice(price, s)}
+                  </span>
+                </span>
+              )}
             </Label>
             {policy && (
               <Badge variant={policyVariant[policy]} className="ms-auto">
