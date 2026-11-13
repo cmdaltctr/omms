@@ -52,6 +52,20 @@ it("reads text with a comma as a list of labels, with or without spaces", () => 
   });
 });
 
+it("ends a bare label: at a comma and reads label: right after a comma", () => {
+  expect(parseRecallInput("label:ops, server")).toEqual({ q: "", labels: ["ops", "server"] });
+  expect(parseRecallInput("runpod,label:server")).toEqual({
+    q: "",
+    labels: ["server", "runpod"],
+  });
+});
+
+it("splits labels on the Chinese and Arabic commas too", () => {
+  const want = { q: "", labels: ["runpod", "server", "4090"] };
+  expect(parseRecallInput("runpod，server，4090")).toEqual(want);
+  expect(parseRecallInput("runpod، server، 4090")).toEqual(want);
+});
+
 it("gives an empty query when only labels are typed", () => {
   expect(parseRecallInput("label:handover")).toEqual({ q: "", labels: ["handover"] });
 });

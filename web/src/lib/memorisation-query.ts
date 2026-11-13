@@ -1,5 +1,8 @@
-/** `label:name` or `label:"two words"`, at the start of the text or after a space. */
-const LABEL_TOKEN = /(^|\s)label:(?:"([^"]*)"|(\S*))/gi;
+/** A comma between labels: ASCII, Chinese full-width or Arabic. */
+const COMMA = /[,\uFF0C\u060C]/;
+
+/** `label:name` or `label:"two words"`, at the start of the text or after a space or comma. */
+const LABEL_TOKEN = /(^|[\s,\uFF0C\u060C])label:(?:"([^"]*)"|([^\s,\uFF0C\u060C]*))/gi;
 
 /** Adds `label` unless the list already has it, ignoring case. */
 export function withLabel(labels: readonly string[], label: string): string[] {
@@ -17,12 +20,16 @@ export function withLabel(labels: readonly string[], label: string): string[] {
  */
 export function parseRecallInput(input: string): { q: string; labels: string[] } {
   let labels: string[] = [];
-  const rest = input.replace(LABEL_TOKEN, (_match, _space, quoted?: string, bare?: string) => {
-    labels = withLabel(labels, quoted ?? bare ?? "");
-    return " ";
-  });
-  if (rest.includes(",")) {
-    for (const part of rest.split(",")) labels = withLabel(labels, part.replace(/\s+/g, " "));
+  const rest = input.replace(
+    LABEL_TOKEN,
+    (_match, before: string, quoted?: string, bare?: string) => {
+      labels = withLabel(labels, quoted ?? bare ?? "");
+      // Keep a comma before the term, so the text is still read as a list.
+      return `${before} `;
+    }
+  );
+  if (COMMA.test(rest)) {
+    for (const part of rest.split(COMMA)) labels = withLabel(labels, part.replace(/\s+/g, " "));
     return { q: "", labels };
   }
   return { q: rest.replace(/\s+/g, " ").trim(), labels };

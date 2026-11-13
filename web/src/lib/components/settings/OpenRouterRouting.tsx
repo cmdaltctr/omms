@@ -57,7 +57,11 @@ function Blocked({ reason, children }: { reason: string; children: ReactNode }) 
 }
 
 /** Height that ends at the bottom of the sixth row. Rows wrap, so it is measured, not fixed. */
-function useSixRowHeight(listRef: { current: HTMLUListElement | null }, active: boolean) {
+function useSixRowHeight(
+  listRef: { current: HTMLUListElement | null },
+  active: boolean,
+  rows: readonly unknown[]
+) {
   const [height, setHeight] = useState<number>();
   useLayoutEffect(() => {
     const list = listRef.current;
@@ -67,11 +71,13 @@ function useSixRowHeight(listRef: { current: HTMLUListElement | null }, active: 
       if (row) setHeight(row.offsetTop + row.offsetHeight);
     };
     measure();
-    // A width change rewraps the rows.
+    // A width or language change rewraps the rows. The capped list keeps its size, so watch
+    // the six rows as well.
     const observer = new ResizeObserver(measure);
     observer.observe(list);
+    for (const row of Array.from(list.children).slice(0, VISIBLE_ROWS)) observer.observe(row);
     return () => observer.disconnect();
-  }, [listRef, active]);
+  }, [listRef, active, rows]);
   return height;
 }
 
@@ -92,7 +98,7 @@ export function ProviderRows({
   // Show six rows; the rest scroll inside the list.
   const scroll = shown.length > VISIBLE_ROWS;
   const listRef = useRef<HTMLUListElement>(null);
-  const maxHeight = useSixRowHeight(listRef, scroll);
+  const maxHeight = useSixRowHeight(listRef, scroll, shown);
   return (
     <ul
       ref={listRef}
