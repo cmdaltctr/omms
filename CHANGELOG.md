@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [6.2.0](https://github.com/cmdaltctr/omms/compare/v6.1.2...v6.2.0) (2026-11-13)
+
+
+### Features
+
+* add OpenRouter preset and provider routing to External API settings ([77645df](https://github.com/cmdaltctr/omms/commit/77645df91b475db59f28bef43651892669bd5ebe))
+
+
+### Bug Fixes
+
+* cap the OpenRouter provider list at half the card width ([fb506cf](https://github.com/cmdaltctr/omms/commit/fb506cfa18c49e2ec7e436fa83583e3376505988))
+* do not mark routing edits made during a pending save as saved ([575b01d](https://github.com/cmdaltctr/omms/commit/575b01d0f510bc79bab9d60ba30ed6d8a9922a4f))
+
 ## [6.1.2](https://github.com/cmdaltctr/omms/compare/v6.1.1...v6.1.2) (2026-11-12)
 
 
