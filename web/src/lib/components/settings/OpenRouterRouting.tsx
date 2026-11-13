@@ -68,7 +68,7 @@ export function ProviderRows({
 }) {
   const s = useSettingsText();
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-2 sm:w-1/2">
       {shown.map(({ slug, name, policy }) => {
         const id = `openrouter-provider-${slug}`;
         const position = ticked.indexOf(slug) + 1;
@@ -342,7 +342,7 @@ export function OpenRouterRouting({
         onRemove={(slug) => toggle(slug, false)}
       />
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 sm:w-1/2">
         <Input
           dir="ltr"
           className="font-mono"
