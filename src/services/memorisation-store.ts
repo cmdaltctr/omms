@@ -1,4 +1,4 @@
-import { matchesTagGroups, visibleTags } from "../core/memorisation.js";
+import { countLabels, matchesTagGroups, visibleTags } from "../core/memorisation.js";
 import { activeOwner } from "./active-space-access.js";
 import { readLinkedMemory, type LinkedSearchSettings, type ListedMemory } from "./linked-search.js";
 import type { MemoryScope } from "./client.js";
@@ -130,6 +130,18 @@ export async function listMemorisationsByTags(
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit);
   return { success: true, memories };
+}
+
+/** Every label in use across the active space and its linked spaces, with its record count. */
+export async function listMemorisationLabels(): Promise<
+  { success: true; labels: { label: string; count: number }[] } | { success: false; error: string }
+> {
+  const result = await memoryClient.listMemories("", READ_CEILING, "all-projects", {
+    includeLinked: true,
+    kind: "memorisation",
+  });
+  if (!result.success) return { success: false, error: result.error };
+  return { success: true, labels: countLabels(result.memories.map((memory) => memory.tags)) };
 }
 
 export type MemorisationDeleteOutcome = "deleted" | "not-found" | "linked" | "not-memorisation";

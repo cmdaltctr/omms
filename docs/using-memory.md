@@ -302,7 +302,7 @@ and leads the next by 10 points or more, only that match returns. Otherwise thre
 return by default, or up to your `limit` when you pass one, above or below three. If nothing is close
 enough, the reply says no memorisation matched.
 
-`recall` also takes `tags`, a list of labels. A comma means AND: a memorisation matches only when it carries every label. A bar means OR: `tags: "runpod|vast,4090"` needs `4090` and either `runpod` or `vast`. Case and spaces do not matter. When you ask for "the memorisation labelled release", the agent calls `recall` with `tags: "release"`. Matches come from the whole space, whichever folder the caller runs in.
+`recall` also takes `tags`, a list of labels. A comma means AND: a memorisation matches only when it carries every label. A bar means OR: `tags: "server|reactjs,api"` needs `api` and either `server` or `reactjs`. Case and spaces do not matter. When you ask for "the memorisation labelled release", the agent calls `recall` with `tags: "release"`. Matches come from the whole space, whichever folder the caller runs in. The web page builds the same groups with check boxes: see [Memorisation page](web-ui-memory.md#memorisation-page).
 
 - `tags` with no `query` returns the newest labelled memorisations, 10 by default, with no confidence score. Use `limit` to change the number.
 - `tags` with a `query` ranks by text first, then keeps the matches that satisfy every label group. Each match has a confidence score.

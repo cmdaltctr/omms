@@ -36,7 +36,7 @@ export interface RecallArgs {
   /** Also read as an ID or text when `query` is empty. */
   memoryId?: string;
   content?: string;
-  /** Labels. A comma means AND and a bar means OR: `runpod | vast, 4090` needs 4090 and either of the others. */
+  /** Labels. A comma means AND and a bar means OR: `server | reactjs, api` needs api and either of the others. */
   tags?: string;
   limit?: number;
 }

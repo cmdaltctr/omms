@@ -48,6 +48,9 @@ const { DeleteMemorisationDialog } =
 const { MemorisationSelectBar } =
   await import("../src/lib/components/memorisation/MemorisationSelectBar.tsx");
 const { LabelFilterBar } = await import("../src/lib/components/memorisation/LabelFilterBar.tsx");
+const { LabelPicker } = await import("../src/lib/components/memorisation/LabelPicker.tsx");
+const { LabelPickerDialog } =
+  await import("../src/lib/components/memorisation/LabelPickerDialog.tsx");
 const { LabelPill } = await import("../src/lib/components/memorisation/LabelPill.tsx");
 const { PagedList } = await import("../src/lib/components/paged-list/index.ts");
 const { BulkDeleteDialog } =
@@ -57,6 +60,7 @@ const { BulkDeleteResult } =
 const { Button } = await import("../src/lib/components/ui/button.tsx");
 const { Checkbox } = await import("../src/lib/components/ui/checkbox.tsx");
 const { Input } = await import("../src/lib/components/ui/input.tsx");
+const { Label } = await import("../src/lib/components/ui/label.tsx");
 const { DialogTitle } = await import("../src/lib/components/ui/dialog.tsx");
 const { HuePill } = await import("../src/lib/components/skills/HuePill.tsx");
 const { setLanguage } = await import("../src/lib/i18n/index.ts");
@@ -73,6 +77,8 @@ const own = [
   DeleteMemorisationDialog,
   MemorisationSelectBar,
   LabelFilterBar,
+  LabelPicker,
+  LabelPickerDialog,
   LabelPill,
   BulkDeleteDialog,
   BulkDeleteResult,
@@ -103,7 +109,13 @@ let address = "/memorisation";
 let bulkReply: { status?: number; body: unknown } | null = null;
 
 const matchesTags = (row: Row, tags: string[]) =>
-  tags.every((tag) => (row.tags ?? []).some((own) => own.toLowerCase() === tag.toLowerCase()));
+  tags.every((tag) =>
+    tag
+      .split("|")
+      .some((alt) => (row.tags ?? []).some((own) => own.toLowerCase() === alt.toLowerCase()))
+  );
+/** When set, the label list route fails with this status. */
+let labelsStatus = 0;
 
 beforeEach(() => {
   resetRender();
@@ -114,6 +126,7 @@ beforeEach(() => {
   deleteFails = false;
   recallReply = null;
   bulkReply = null;
+  labelsStatus = 0;
   address = "/memorisation";
   refuseSizeBelow = 0;
   rerankSaveFails = null;
@@ -145,6 +158,15 @@ beforeEach(() => {
   requests = installFetch(async ({ method, path, body }) => {
     const url = new URL(path, "http://web.test");
     const wanted = (url.searchParams.get("tags") ?? "").split(",").filter(Boolean);
+    if (method === "GET" && url.pathname === "/api/memorisations/labels") {
+      if (labelsStatus) return { status: labelsStatus, body: { success: false, error: "disk" } };
+      const counts = new Map<string, number>();
+      for (const row of rows)
+        for (const tag of row.tags ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      const labels = [...counts].map(([label, count]) => ({ label, count }));
+      labels.sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+      return { body: { success: true, data: { labels } } };
+    }
     if (method === "GET" && url.pathname === "/api/memorisations") {
       return {
         body: {
@@ -575,7 +597,8 @@ const listCalls = () =>
       (request) =>
         request.method === "GET" &&
         request.path.startsWith("/api/memorisations") &&
-        !request.path.includes("recall")
+        !request.path.includes("recall") &&
+        !request.path.includes("/labels")
     )
     .map((request) => request.path);
 const labelButton = (nodes: Node[], label: string) =>
@@ -612,7 +635,14 @@ it("adds a label to the filter when its pill is clicked, and asks the server for
     titles(tree).filter((title) => title === "release" || title.startsWith("use port"))
   ).toEqual(["release"]);
   expect(chipRowLabels(tree)).toEqual(["release"]);
-  expect(allText(tree)).toContain("Showing records with all of these labels:");
+  expect(allText(tree)).toContain("Showing records that match every filter:");
+});
+
+it("shows an OR label as its alternatives joined by or, and asks the server for the bar", async () => {
+  address = "/memorisation?labels=server%7Creactjs,api";
+  const tree = await settle(page, own);
+  expect(chipRowLabels(tree)).toEqual(["server or reactjs", "api"]);
+  expect(listCalls().at(-1)).toBe("/api/memorisations?tags=server%7Creactjs,api");
 });
 
 it("shows a label pill as pressed once its label is in the filter", async () => {
@@ -703,7 +733,7 @@ it("goes back to page 1 when the filter changes", async () => {
 it("says no memorisation has the labels, with a way out, when the filter matches nothing", async () => {
   address = "/memorisation?labels=nothing";
   const tree = await settle(page, own);
-  expect(allText(tree)).toContain("No memorisation has all of these labels.");
+  expect(allText(tree)).toContain("No memorisation matches every filter.");
   expect(allText(tree)).not.toContain("No memorisations yet");
   expect(buttonOf(tree, "Clear labels")).toBeDefined();
 });
@@ -936,6 +966,148 @@ it("shows the new texts in Chinese and Arabic", async () => {
     const tree = await settle(page, own);
     expect(allText(tree)).toContain(filter);
     expect(buttonOf(tree, select)).toBeDefined();
+  }
+  setLanguage("en");
+});
+
+// ---- Label picker ----
+
+const checkboxes = (tree: Node[]) =>
+  byType(tree, Checkbox).filter((node) => String(node.props.id).startsWith("memorisation-picker-"));
+/** The check box for a label in a group (0-based), found through the label text it sits beside. */
+const tickBox = (tree: Node[], group: number, label: string) => {
+  const boxes = checkboxes(tree).filter((node) =>
+    String(node.props.id).startsWith(`memorisation-picker-${group}-`)
+  );
+  const names = byType(tree, Label)
+    .filter((node) => String(node.props.htmlFor).startsWith(`memorisation-picker-${group}-`))
+    .map((node) => [node.props.htmlFor, node.props["data-label"]]);
+  const id = names.find(([, name]) => name === label)?.[0];
+  return boxes.find((node) => node.props.id === id)!;
+};
+const openPicker = async () => {
+  let tree = await settle(page, own);
+  buttonOf(tree, "Filter by label").props.onClick();
+  tree = await settle(page, own);
+  return tree;
+};
+const pickerHas = (tree: Node[]) => byType(tree, DialogTitle).length === 1;
+const tick = async (group: number, label: string, on = true) => {
+  const tree = await settle(page, own);
+  tickBox(tree, group, label).props.onCheckedChange(on);
+  return settle(page, own);
+};
+
+it("opens the picker with every label, its count, and one empty group", async () => {
+  const tree = await openPicker();
+  expect(text(byType(tree, DialogTitle)[0]!.props.children)).toBe("Filter by label");
+  expect(requests.map((request) => request.path)).toContain("/api/memorisations/labels");
+  const rowsOfPicker = byType(tree, Label)
+    .filter((node) => String(node.props.htmlFor).startsWith("memorisation-picker-0-"))
+    .map((node) => node.props["data-label"]);
+  expect(rowsOfPicker).toEqual(["handover", "ops", "release"]);
+  expect(checkboxes(tree).every((node) => node.props.checked === false)).toBe(true);
+  expect(allText(tree)).toContain("2");
+  expect(allText(tree)).toContain("Nothing ticked: the list will show every record.");
+});
+
+it("builds two groups, shows the summary, and Apply writes one OR label and one plain label", async () => {
+  await openPicker();
+  await tick(0, "release");
+  await tick(0, "ops");
+  let tree = await settle(page, own);
+  buttonOf(tree, "Add group").props.onClick();
+  tree = await settle(page, own);
+  tickBox(tree, 1, "handover").props.onCheckedChange(true);
+  tree = await settle(page, own);
+  expect(allText(tree)).toContain("Showing: (release or ops) and (handover)");
+  buttonOf(tree, "Apply").props.onClick();
+  tree = await settle(page, own);
+  expect(address).toBe("/memorisation?labels=release%7Cops,handover");
+  expect(listCalls().at(-1)).toBe("/api/memorisations?tags=release%7Cops,handover");
+  expect(chipRowLabels(tree)).toEqual(["release or ops", "handover"]);
+  expect(pickerHas(tree)).toBe(false);
+});
+
+it("keeps the filter when the picker is cancelled", async () => {
+  address = "/memorisation?labels=release";
+  await settle(page, own);
+  await openPicker();
+  await tick(0, "ops");
+  let tree = await settle(page, own);
+  buttonOf(tree, "Cancel").props.onClick();
+  tree = await settle(page, own);
+  expect(pickerHas(tree)).toBe(false);
+  expect(address).toBe("/memorisation?labels=release");
+  expect(chipRowLabels(tree)).toEqual(["release"]);
+});
+
+it("removes a group, and an empty group counts for nothing", async () => {
+  await openPicker();
+  let tree = await settle(page, own);
+  expect(byType(tree, Button).some((node) => node.props["aria-label"] === "Remove group 1")).toBe(
+    false
+  );
+  buttonOf(tree, "Add group").props.onClick();
+  tree = await settle(page, own);
+  tickBox(tree, 0, "ops").props.onCheckedChange(true);
+  tree = await settle(page, own);
+  expect(allText(tree)).toContain("Showing: (ops)");
+  const remove = byType(tree, Button).find(
+    (node) => node.props["aria-label"] === "Remove group 2"
+  )!;
+  remove.props.onClick();
+  tree = await settle(page, own);
+  expect(
+    checkboxes(tree).filter((node) => String(node.props.id).startsWith("memorisation-picker-1-"))
+  ).toHaveLength(0);
+  buttonOf(tree, "Apply").props.onClick();
+  await settle(page, own);
+  expect(address).toBe("/memorisation?labels=ops");
+});
+
+it("opens with the current filter: one group per label, alternatives ticked", async () => {
+  address = "/memorisation?labels=release%7Cops,handover,gone";
+  const tree = await openPicker();
+  const ticked = (group: number) =>
+    byType(tree, Label)
+      .filter((node) => String(node.props.htmlFor).startsWith(`memorisation-picker-${group}-`))
+      .filter((node) => tickBox(tree, group, node.props["data-label"]).props.checked)
+      .map((node) => node.props["data-label"]);
+  expect(ticked(0)).toEqual(["ops", "release"]);
+  expect(ticked(1)).toEqual(["handover"]);
+  // A label no record carries stays in the list, ticked, so it can be removed.
+  expect(ticked(2)).toEqual(["gone"]);
+  expect(allText(tree)).toContain("Showing: (release or ops) and (handover) and (gone)");
+});
+
+it("says the labels could not load, offers Try again, and leaves the filter alone", async () => {
+  address = "/memorisation?labels=release";
+  labelsStatus = 500;
+  let tree = await openPicker();
+  expect(allText(tree)).toContain("The labels could not load.");
+  expect(buttonOf(tree, "Apply").props.disabled).toBe(true);
+  labelsStatus = 0;
+  buttonOf(tree, "Try again").props.onClick();
+  tree = await settle(page, own);
+  expect(allText(tree)).not.toContain("The labels could not load.");
+  expect(byType(tree, Label).length).toBeGreaterThan(0);
+  buttonOf(tree, "Cancel").props.onClick();
+  await settle(page, own);
+  expect(address).toBe("/memorisation?labels=release");
+});
+
+it("shows the picker in Chinese and Arabic", async () => {
+  for (const [language, open] of [
+    ["zh", "按标签筛选"],
+    ["ar", "تصفية حسب الوسم"],
+  ] as const) {
+    resetRender();
+    setLanguage(language);
+    let tree = await settle(page, own);
+    buttonOf(tree, open).props.onClick();
+    tree = await settle(page, own);
+    expect(text(byType(tree, DialogTitle)[0]!.props.children)).toBe(open);
   }
   setLanguage("en");
 });

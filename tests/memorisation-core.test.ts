@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { estimateTokens } from "../src/core/context-budget.js";
 import {
+  countLabels,
   matchesTagGroups,
   isMemorisationId,
   memorisationCapError,
@@ -313,6 +314,31 @@ describe("memorisation labels", () => {
     expect(parseTagList("")).toEqual([]);
     expect(parseTagList(undefined)).toEqual([]);
     expect(parseTagList(" , ")).toEqual([]);
+  });
+
+  it("counts each label once per record, merging case and spaces, most records first", () => {
+    const records = [
+      ["memorisation", "Server", "api"],
+      ["memorisation", "server", " api ", "ReactJS"],
+      ["memorisation", "SERVER", "server"],
+      ["memorisation"],
+      undefined,
+    ];
+    expect(countLabels(records)).toEqual([
+      { label: "Server", count: 3 },
+      { label: "api", count: 2 },
+      { label: "ReactJS", count: 1 },
+    ]);
+  });
+
+  it("breaks a tie by name and gives an empty list for no labels", () => {
+    expect(countLabels([["b"], ["a"], ["c", "a", "b"]])).toEqual([
+      { label: "a", count: 2 },
+      { label: "b", count: 2 },
+      { label: "c", count: 1 },
+    ]);
+    expect(countLabels([])).toEqual([]);
+    expect(countLabels([["memorisation"]])).toEqual([]);
   });
 
   it("hides the fixed memorisation tag and keeps the stored order", () => {

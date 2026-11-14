@@ -259,8 +259,8 @@ A global setting `memorisationRepeat` SHALL take `add` or `replace`, with `add` 
 
 #### Scenario: Either of two labels
 
-- **WHEN** the agent calls `recall` with tags "runpod|vast,4090"
-- **THEN** OMMS returns only memorisations that carry `4090` and at least one of `runpod` and `vast`
+- **WHEN** the agent calls `recall` with tags "server|reactjs,api"
+- **THEN** OMMS returns only memorisations that carry `api` and at least one of `server` and `reactjs`
 
 #### Scenario: Labels and text
 

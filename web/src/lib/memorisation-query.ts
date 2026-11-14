@@ -31,8 +31,8 @@ function labelEntry(part: string): string {
  * Splits the recall box text into the query and the labels. `label:X` may repeat. The server
  * matches labels without regard to case, so `label:A` and `label:a` count once.
  * Text with a comma or a bar is a list of labels, such as `runpod, server, 4090`, and leaves no
- * query. A comma means AND. A bar means OR, so `runpod | vast, 4090` becomes the labels
- * `runpod|vast` and `4090`: a record needs 4090 and either of the others.
+ * query. A comma means AND. A bar means OR, so `server | reactjs, api` becomes the labels
+ * `server|reactjs` and `api`: a record needs api and either of the others.
  */
 export function parseRecallInput(input: string): { q: string; labels: string[] } {
   let labels: string[] = [];
@@ -68,4 +68,32 @@ export function searchWithLabels(search: string, labels: readonly string[]): str
   const parts = others ? [others] : [];
   if (labels.length > 0) parts.push(`labels=${labels.map(encodeURIComponent).join(",")}`);
   return parts.length > 0 ? `?${parts.join("&")}` : "";
+}
+
+/**
+ * The label filter as picker groups: each entry is one group, and the alternatives of an OR
+ * entry (`a|b`) are the labels ticked in it. An empty filter gives one empty group to start from.
+ */
+export function groupsFromLabels(labels: readonly string[]): string[][] {
+  const groups = labels.map((label) => label.split(OR_BAR).filter(Boolean));
+  return groups.length > 0 ? groups : [[]];
+}
+
+/** The filter for picker groups. An empty group counts for nothing and a repeated group is dropped. */
+export function labelsFromGroups(groups: readonly (readonly string[])[]): string[] {
+  return groups.reduce<string[]>(
+    (labels, group) => withLabel(labels, labelEntry(group.join(OR_BAR))),
+    []
+  );
+}
+
+/** `(a or b) and (c)`: the groups with at least one label, in the user's words. Empty when none. */
+export function filterSummary(
+  groups: readonly (readonly string[])[],
+  words: { or: string; and: string }
+): string {
+  return groups
+    .filter((group) => group.length > 0)
+    .map((group) => `(${group.join(` ${words.or} `)})`)
+    .join(` ${words.and} `);
 }

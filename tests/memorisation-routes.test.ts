@@ -357,6 +357,49 @@ describe("labels on the list", () => {
   }, 60_000);
 });
 
+describe("GET /api/memorisations/labels", () => {
+  const labelsOf = (result: any) =>
+    result!.body.data.labels.map((row: any) => [row.label, row.count]);
+
+  it("counts every label, most records first, without the fixed tag", async () => {
+    const project = await freshProject();
+    const mine = labelOf(project);
+    await operation({ mode: "memorise", content: "one", tags: "server,api" }, project);
+    await operation({ mode: "memorise", content: "two", tags: "Server,ReactJS" }, project);
+    await operation({ mode: "memorise", content: "three", tags: "server" }, project);
+    const rows = labelsOf(await get(project, "/api/memorisations/labels"));
+    const countOf = (name: string) => rows.find((row: any) => row[0].toLowerCase() === name)?.[1];
+    expect(countOf("server")).toBe(3);
+    expect(countOf("api")).toBe(1);
+    expect(countOf("reactjs")).toBe(1);
+    expect(countOf(mine)).toBe(3);
+    expect(rows.filter((row: any) => row[0].toLowerCase() === "server")).toHaveLength(1);
+    expect(rows.map((row: any) => row[0].toLowerCase())).not.toContain("memorisation");
+    expect(rows[0][1]).toBe(3);
+  }, 60_000);
+
+  it("returns an empty list when no memorisation exists", async () => {
+    const project = await freshProject();
+    expect(labelsOf(await get(project, "/api/memorisations/labels"))).toEqual([]);
+  }, 60_000);
+
+  it("counts labels that sit past the 200-row list cap", async () => {
+    const project = await freshProject();
+    const rows = Array.from({ length: 205 }, (_, index) => ({
+      id: `ms-cap${String(index).padStart(3, "0")}`,
+      content: `row ${index}`,
+      type: "memorisation",
+      tags: index === 0 ? "memorisation,rare" : "memorisation,common",
+      createdAt: 1_700_000_000_000 + index,
+    }));
+    await seedRows(project, rows);
+    expect(labelsOf(await get(project, "/api/memorisations/labels"))).toEqual([
+      ["common", 204],
+      ["rare", 1],
+    ]);
+  }, 60_000);
+});
+
 describe("GET /api/memorisations?tags=", () => {
   async function three() {
     const project = await freshProject();

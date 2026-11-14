@@ -38,5 +38,5 @@ export function useMemorisationLabels() {
   );
   const clearLabels = useCallback(() => change([]), [change]);
 
-  return { labels, addLabel, removeLabel, clearLabels };
+  return { labels, addLabel, removeLabel, clearLabels, setLabels: change };
 }

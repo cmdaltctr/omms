@@ -22,7 +22,7 @@ export interface MemorisationRouteConfig {
 
 /**
  * Routes for the Memorisation page. Returns undefined for paths it does not own.
- * `GET /api/memorisations?tags=a,b` lists, `GET /api/memorisations/recall?q=&tags=` recalls
+ * `GET /api/memorisations?tags=a,b` lists, `GET /api/memorisations/labels` counts the labels, `GET /api/memorisations/recall?q=&tags=` recalls
  * and `POST /api/memorisations/bulk-delete` deletes. Every read covers the whole active
  * space and its linked spaces, so the page works from any folder. The general `/api/memories`
  * delete routes refuse memorisations by design, so this module owns the bulk delete.
@@ -37,6 +37,7 @@ export async function routeMemorisations(
 ): Promise<RouteResult | undefined> {
   const wanted = parseTagGroups(url.searchParams.get("tags") ?? undefined);
   if (method === "GET" && path === "/api/memorisations") return listMemorisations(wanted);
+  if (method === "GET" && path === "/api/memorisations/labels") return listLabels();
   if (method === "GET" && path === "/api/memorisations/recall") {
     return recall(url.searchParams, wanted, config);
   }
@@ -61,6 +62,12 @@ async function listMemorisations(wanted: string[][]): Promise<RouteResult> {
     tags: visibleTags(memory.tags),
   }));
   return ok({ memorisations });
+}
+
+async function listLabels(): Promise<RouteResult> {
+  const { listMemorisationLabels } = await import("./memorisation-store.js");
+  const result = await listMemorisationLabels();
+  return result.success ? ok({ labels: result.labels }) : fail(500, result.error);
 }
 
 async function recall(

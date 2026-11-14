@@ -118,8 +118,31 @@ export function visibleTags(tags: string[] | undefined): string[] {
 }
 
 /**
- * A recall label filter as groups. A comma means AND and a bar means OR, so `runpod | vast, 4090`
- * is `[["runpod", "vast"], ["4090"]]`: a record needs 4090 and one of runpod or vast.
+ * The labels in use with the number of records that carry each. Labels that differ only in
+ * letter case or surrounding spaces count as one, shown in the spelling seen first. A record
+ * counts once per label. The fixed memorisation tag is left out. Most records come first, then name.
+ */
+export function countLabels(
+  recordTags: ReadonlyArray<string[] | undefined>
+): { label: string; count: number }[] {
+  const counts = new Map<string, { label: string; count: number }>();
+  for (const tags of recordTags) {
+    const seen = new Set<string>();
+    for (const label of visibleTags(tags)) {
+      const key = normaliseTag(label);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const own = counts.get(key);
+      if (own) own.count += 1;
+      else counts.set(key, { label, count: 1 });
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+/**
+ * A recall label filter as groups. A comma means AND and a bar means OR, so `server | reactjs, api`
+ * is `[["server", "reactjs"], ["api"]]`: a record needs api and one of server or reactjs.
  */
 export function parseTagGroups(text: string | undefined): string[][] {
   const groups = (text ?? "")

@@ -1,5 +1,8 @@
 import { expect, it } from "bun:test";
 import {
+  filterSummary,
+  groupsFromLabels,
+  labelsFromGroups,
   labelsFromSearch,
   parseRecallInput,
   searchWithLabels,
@@ -106,4 +109,26 @@ it("keeps a bar between labels as one OR label, next to comma labels", () => {
 it("carries an OR label through the address bar", () => {
   expect(searchWithLabels("", ["runpod|vast", "4090"])).toBe("?labels=runpod%7Cvast,4090");
   expect(labelsFromSearch("?labels=runpod%7Cvast,4090")).toEqual(["runpod|vast", "4090"]);
+});
+
+it("turns the filter into picker groups and back", () => {
+  expect(groupsFromLabels(["server|reactjs", "api"])).toEqual([["server", "reactjs"], ["api"]]);
+  expect(groupsFromLabels([])).toEqual([[]]);
+  expect(labelsFromGroups([["server", "reactjs"], ["api"]])).toEqual(["server|reactjs", "api"]);
+  expect(labelsFromGroups([["server"], [], ["Server"], ["a", "A", "b"]])).toEqual([
+    "server",
+    "a|b",
+  ]);
+  expect(labelsFromGroups([[], []])).toEqual([]);
+  const filter = ["server|reactjs", "api"];
+  expect(labelsFromGroups(groupsFromLabels(filter))).toEqual(filter);
+});
+
+it("writes the picker summary as groups joined by and, labels by or", () => {
+  const words = { or: "or", and: "and" };
+  expect(filterSummary([["server", "reactjs"], ["api"]], words)).toBe(
+    "(server or reactjs) and (api)"
+  );
+  expect(filterSummary([["server"], [], ["api"]], words)).toBe("(server) and (api)");
+  expect(filterSummary([[], []], words)).toBe("");
 });
