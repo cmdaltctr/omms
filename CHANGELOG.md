@@ -2,6 +2,13 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [6.5.0](https://github.com/cmdaltctr/omms/compare/v6.4.0...v6.5.0) (2026-11-14)
+
+
+### Features
+
+* filter memorisations by label with AND and OR ([#286](https://github.com/cmdaltctr/omms/issues/286)) ([30b3c19](https://github.com/cmdaltctr/omms/commit/30b3c19e705b6dab827d97af118d2c47e2716852))
+
 ## [6.4.0](https://github.com/cmdaltctr/omms/compare/v6.3.0...v6.4.0) (2026-11-13)
 
 
