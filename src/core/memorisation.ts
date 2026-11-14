@@ -117,10 +117,49 @@ export function visibleTags(tags: string[] | undefined): string[] {
     .filter((tag) => tag && normaliseTag(tag) !== MEMORISATION_TAG);
 }
 
-/** True when the record carries every wanted tag. Case and surrounding spaces do not matter. */
-export function hasAllTags(recordTags: string[] | undefined, wanted: string[]): boolean {
+/**
+ * The labels in use with the number of records that carry each. Labels that differ only in
+ * letter case or surrounding spaces count as one, shown in the spelling seen first. A record
+ * counts once per label. The fixed memorisation tag is left out. Most records come first, then name.
+ */
+export function countLabels(
+  recordTags: ReadonlyArray<string[] | undefined>
+): { label: string; count: number }[] {
+  const counts = new Map<string, { label: string; count: number }>();
+  for (const tags of recordTags) {
+    const seen = new Set<string>();
+    for (const label of visibleTags(tags)) {
+      const key = normaliseTag(label);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const own = counts.get(key);
+      if (own) own.count += 1;
+      else counts.set(key, { label, count: 1 });
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+/**
+ * A recall label filter as groups. A comma means AND and a bar means OR, so `server | reactjs, api`
+ * is `[["server", "reactjs"], ["api"]]`: a record needs api and one of server or reactjs.
+ */
+export function parseTagGroups(text: string | undefined): string[][] {
+  const groups = (text ?? "")
+    .split(",")
+    .map((part) => [...new Set(part.split("|").map(normaliseTag).filter(Boolean))])
+    .filter((group) => group.length > 0);
+  const seen = new Set<string>();
+  return groups.filter((group) => {
+    const key = [...group].sort().join("|");
+    return seen.has(key) ? false : (seen.add(key), true);
+  });
+}
+
+/** True when each group has at least one label the record carries. Case and surrounding spaces do not matter. */
+export function matchesTagGroups(recordTags: string[] | undefined, groups: string[][]): boolean {
   const have = new Set((recordTags ?? []).map(normaliseTag));
-  return wanted.every((tag) => have.has(normaliseTag(tag)));
+  return groups.every((group) => group.some((tag) => have.has(normaliseTag(tag))));
 }
 
 /**

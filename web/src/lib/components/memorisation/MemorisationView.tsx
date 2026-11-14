@@ -3,6 +3,7 @@ import { BulkDeleteDialog } from "./BulkDeleteDialog";
 import { BulkDeleteResult } from "./BulkDeleteResult";
 import { DeleteMemorisationDialog } from "./DeleteMemorisationDialog";
 import { LabelFilterBar } from "./LabelFilterBar";
+import { LabelPicker } from "./LabelPicker";
 import { MemorisationList } from "./MemorisationList";
 import { MemorisationSearch } from "./MemorisationSearch";
 import { MemorisationSettings } from "./MemorisationSettings";
@@ -20,7 +21,7 @@ import type { BulkDeleteResult as BulkResult, Memorisation } from "$lib/memorisa
  */
 export function MemorisationView() {
   const { t } = useI18n();
-  const { labels, addLabel, removeLabel, clearLabels } = useMemorisationLabels();
+  const { labels, addLabel, removeLabel, clearLabels, setLabels } = useMemorisationLabels();
   const memorisations = useMemorisations(labels);
   const { items, loadFailed, load } = memorisations;
   const selection = useMemorisationSelection(items);
@@ -76,6 +77,7 @@ export function MemorisationView() {
           </p>
         ) : null}
         {bulkResult ? <BulkDeleteResult result={bulkResult} /> : null}
+        <LabelPicker labels={labels} onApply={setLabels} />
         <LabelFilterBar labels={labels} onRemove={removeLabel} onClear={clearLabels} />
         {loadFailed ? <Callout tone="danger">{t("memorisation-load-failed")}</Callout> : null}
         {items === null && !loadFailed ? (

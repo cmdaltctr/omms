@@ -11,6 +11,9 @@ export const memorisationApi = {
     fetchAPI<{ memorisations: Memorisation[] }>(
       tags.length > 0 ? `/api/memorisations?tags=${tagList(tags)}` : "/api/memorisations"
     ),
+  /** Every label in use with its record count, most records first. */
+  labels: () =>
+    fetchAPI<{ labels: { label: string; count: number }[] }>("/api/memorisations/labels"),
   /** `query` may be empty when `tags` is not. The server then returns the newest matches. */
   recall: (query: string, tags: readonly string[] = []) =>
     fetchAPI<{ count: number; matches: Memorisation[] }>(

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { estimateTokens } from "../src/core/context-budget.js";
 import {
-  hasAllTags,
+  countLabels,
+  matchesTagGroups,
   isMemorisationId,
   memorisationCapError,
   memorisationCapIsValid,
@@ -9,6 +10,7 @@ import {
   memorisationSize,
   memorisationSizeError,
   memorisationSizeRange,
+  parseTagGroups,
   parseTagList,
   pickRecallMatches,
   snapshotText,
@@ -314,20 +316,56 @@ describe("memorisation labels", () => {
     expect(parseTagList(" , ")).toEqual([]);
   });
 
+  it("counts each label once per record, merging case and spaces, most records first", () => {
+    const records = [
+      ["memorisation", "Server", "api"],
+      ["memorisation", "server", " api ", "ReactJS"],
+      ["memorisation", "SERVER", "server"],
+      ["memorisation"],
+      undefined,
+    ];
+    expect(countLabels(records)).toEqual([
+      { label: "Server", count: 3 },
+      { label: "api", count: 2 },
+      { label: "ReactJS", count: 1 },
+    ]);
+  });
+
+  it("breaks a tie by name and gives an empty list for no labels", () => {
+    expect(countLabels([["b"], ["a"], ["c", "a", "b"]])).toEqual([
+      { label: "a", count: 2 },
+      { label: "b", count: 2 },
+      { label: "c", count: 1 },
+    ]);
+    expect(countLabels([])).toEqual([]);
+    expect(countLabels([["memorisation"]])).toEqual([]);
+  });
+
   it("hides the fixed memorisation tag and keeps the stored order", () => {
     expect(visibleTags(["memorisation", "wip", "auth"])).toEqual(["wip", "auth"]);
     expect(visibleTags(["Memorisation", "x"])).toEqual(["x"]);
     expect(visibleTags(undefined)).toEqual([]);
   });
 
-  it("matches only a record that carries every wanted label, ignoring case and spaces", () => {
+  it("reads a comma as AND and a bar as OR: groups of alternatives", () => {
+    expect(parseTagGroups(" Runpod | Vast , 4090 ")).toEqual([["runpod", "vast"], ["4090"]]);
+    expect(parseTagGroups("a,b,A")).toEqual([["a"], ["b"]]);
+    expect(parseTagGroups("a|b|A,, |,a|b")).toEqual([["a", "b"]]);
+    expect(parseTagGroups("")).toEqual([]);
+    expect(parseTagGroups(undefined)).toEqual([]);
+  });
+
+  it("matches a record when every group has one label it carries, ignoring case and spaces", () => {
     const record = ["memorisation", "Auth", "wip"];
-    expect(hasAllTags(record, ["auth"])).toBe(true);
-    expect(hasAllTags(record, ["auth", "WIP"])).toBe(true);
-    expect(hasAllTags(record, [" wip "])).toBe(true);
-    expect(hasAllTags(record, ["auth", "release"])).toBe(false);
-    expect(hasAllTags(record, [])).toBe(true);
-    expect(hasAllTags([], ["auth"])).toBe(false);
+    expect(matchesTagGroups(record, [["auth"]])).toBe(true);
+    expect(matchesTagGroups(record, [["auth"], ["WIP"]])).toBe(true);
+    expect(matchesTagGroups(record, [[" wip "]])).toBe(true);
+    expect(matchesTagGroups(record, [["auth"], ["release"]])).toBe(false);
+    expect(matchesTagGroups(record, [["release", "wip"]])).toBe(true);
+    expect(matchesTagGroups(record, [["release", "wip"], ["auth"]])).toBe(true);
+    expect(matchesTagGroups(record, [["release", "deploy"], ["auth"]])).toBe(false);
+    expect(matchesTagGroups(record, [])).toBe(true);
+    expect(matchesTagGroups([], [["auth"]])).toBe(false);
   });
 });
 

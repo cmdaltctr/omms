@@ -445,6 +445,19 @@ describe("memory tool: recall", () => {
     expect(result.output.matches[0].tags).toEqual(["Auth", "wip"]);
   });
 
+  it("with a bar between labels, keeps hits that carry any of them and every comma group", () => {
+    const result = runScenario(
+      `state.searchResults = [
+         { id: "ms-aaaaaa", memory: "runpod only", similarity: 0.72, tags: ["memorisation", "runpod"] },
+         { id: "ms-bbbbbb", memory: "runpod 4090", similarity: 0.7, tags: ["memorisation", "runpod", "4090"] },
+         { id: "ms-cccccc", memory: "vast 4090", similarity: 0.65, tags: ["memorisation", "Vast", "4090"] },
+         { id: "ms-dddddd", memory: "vast only", similarity: 0.6, tags: ["memorisation", "vast"] },
+       ];
+       ${run({ mode: "recall", query: "gpu", tags: "runpod | vast, 4090" })}`
+    );
+    expect(result.output.matches.map((match: any) => match.id)).toEqual(["ms-bbbbbb", "ms-cccccc"]);
+  });
+
   it("returns one strong match alone", () => {
     const result = runScenario(
       `state.searchResults = [
@@ -572,7 +585,7 @@ describe("memory tool: recall reads every project of the space", () => {
     );
     expect(result.labelCalls[0]).toMatchObject({
       containerTag: "",
-      tags: ["auth"],
+      tags: [["auth"]],
       scope: "all-projects",
       limit: 10,
     });
