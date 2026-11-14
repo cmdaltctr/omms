@@ -183,6 +183,11 @@ When the recall box text, after any `label:` terms, contains a comma (`,`, the C
 - **WHEN** the user types `server | reactjs, api` and searches
 - **THEN** the page asks for the newest memorisations with the labels `server|reactjs` and `api`, and a record matches when it carries `api` and either `server` or `reactjs`
 
+#### Scenario: A label prefix next to a bar
+
+- **WHEN** the user types `label:runpod | vast` and searches
+- **THEN** the page asks for the newest memorisations with the one label `runpod|vast`, so a record needs only one of the two
+
 ### Requirement: Recall box help for labels
 
 The **Search** button SHALL work with labels and no text. The placeholder and the help text SHALL describe `label:`. A `label:` term in the recall box SHALL NOT change the list filter.

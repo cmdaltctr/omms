@@ -36,6 +36,16 @@ function labelEntry(part: string): string {
  */
 export function parseRecallInput(input: string): { q: string; labels: string[] } {
   let labels: string[] = [];
+  // With a bar the whole text is a list of labels, so `label:runpod | vast` keeps its OR:
+  // the prefix is only dropped, and the bar and commas split as usual.
+  if (input.includes(OR_BAR)) {
+    const plain = input.replace(
+      LABEL_TOKEN,
+      (_match, before: string, quoted?: string, bare?: string) => `${before}${quoted ?? bare ?? ""}`
+    );
+    for (const part of plain.split(COMMA)) labels = withLabel(labels, labelEntry(part));
+    return { q: "", labels };
+  }
   const rest = input.replace(
     LABEL_TOKEN,
     (_match, before: string, quoted?: string, bare?: string) => {
@@ -75,16 +85,27 @@ export function searchWithLabels(search: string, labels: readonly string[]): str
  * entry (`a|b`) are the labels ticked in it. An empty filter gives one empty group to start from.
  */
 export function groupsFromLabels(labels: readonly string[]): string[][] {
-  const groups = labels.map((label) => label.split(OR_BAR).filter(Boolean));
+  const groups = labels.map((label) =>
+    label
+      .split(OR_BAR)
+      .map((alternative) => alternative.trim())
+      .filter(Boolean)
+  );
   return groups.length > 0 ? groups : [[]];
 }
 
-/** The filter for picker groups. An empty group counts for nothing and a repeated group is dropped. */
+/**
+ * The filter for picker groups. A label is kept exactly as the label list gave it, apart from
+ * surrounding spaces. An empty group counts for nothing and a repeated group is dropped.
+ */
 export function labelsFromGroups(groups: readonly (readonly string[])[]): string[] {
-  return groups.reduce<string[]>(
-    (labels, group) => withLabel(labels, labelEntry(group.join(OR_BAR))),
-    []
-  );
+  return groups.reduce<string[]>((labels, group) => {
+    const alternatives = group
+      .map((label) => label.trim())
+      .filter(Boolean)
+      .reduce<string[]>((kept, label) => withLabel(kept, label), []);
+    return withLabel(labels, alternatives.join(OR_BAR));
+  }, []);
 }
 
 /** `(a or b) and (c)`: the groups with at least one label, in the user's words. Empty when none. */

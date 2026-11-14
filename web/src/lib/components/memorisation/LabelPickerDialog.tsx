@@ -19,7 +19,7 @@ import { filterSummary, groupsFromLabels, labelsFromGroups } from "$lib/memorisa
 
 type LabelCount = { label: string; count: number };
 
-const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 /**
  * Builds a label filter with check boxes. A group holds the labels a record may carry (any of
@@ -38,16 +38,16 @@ export function LabelPickerDialog({
   const { t } = useI18n();
   const [groups, setGroups] = useState<string[][]>(() => groupsFromLabels(labels));
   const [counts, setCounts] = useState<LabelCount[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let current = true;
-    setFailed(false);
+    setFailed(null);
     void memorisationApi.labels().then((result) => {
       if (!current) return;
       if (result.success && result.data) setCounts(result.data.labels);
-      else setFailed(true);
+      else setFailed(result.error ?? "");
     });
     return () => {
       current = false;
@@ -76,7 +76,9 @@ export function LabelPickerDialog({
       })
     );
 
-  const summary = filterSummary(groups, {
+  // FSI and PDI keep a label in its own direction inside the sentence, as <bdi> does in markup.
+  const isolated = groups.map((group) => group.map((label) => `\u2068${label}\u2069`));
+  const summary = filterSummary(isolated, {
     or: t("memorisation-label-or"),
     and: t("memorisation-label-and"),
   });
@@ -88,9 +90,17 @@ export function LabelPickerDialog({
           <DialogTitle>{t("memorisation-picker-title")}</DialogTitle>
           <DialogDescription>{t("memorisation-picker-body")}</DialogDescription>
         </DialogHeader>
-        {failed ? (
+        {failed !== null ? (
           <div className="space-y-2">
-            <Callout tone="danger">{t("memorisation-picker-failed")}</Callout>
+            <Callout tone="danger">
+              {t("memorisation-picker-failed")}
+              {failed ? (
+                <>
+                  {" "}
+                  <bdi>{failed}</bdi>
+                </>
+              ) : null}
+            </Callout>
             <Button
               type="button"
               variant="outline"
@@ -101,7 +111,7 @@ export function LabelPickerDialog({
             </Button>
           </div>
         ) : null}
-        {options === null && !failed ? (
+        {options === null && failed === null ? (
           <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader className="size-4 animate-spin" aria-hidden="true" />
             {t("memorisation-picker-loading")}
@@ -115,23 +125,22 @@ export function LabelPickerDialog({
         {options !== null && options.length > 0
           ? groups.map((group, at) => (
               <fieldset key={at} className="space-y-2 rounded-md border p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <legend className="text-sm font-medium">
-                    {t("memorisation-picker-group", { n: at + 1 })}
-                  </legend>
-                  {groups.length > 1 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={t("memorisation-picker-remove-group", { n: at + 1 })}
-                      onClick={() => setGroups(groups.filter((_, other) => other !== at))}
-                    >
-                      <X aria-hidden="true" />
-                    </Button>
-                  ) : null}
-                </div>
-                <div className="max-h-48 space-y-1 overflow-y-auto">
+                <legend className="float-start text-sm font-medium">
+                  {t("memorisation-picker-group", { n: at + 1 })}
+                </legend>
+                {groups.length > 1 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="float-end"
+                    aria-label={t("memorisation-picker-remove-group", { n: at + 1 })}
+                    onClick={() => setGroups(groups.filter((_, other) => other !== at))}
+                  >
+                    <X aria-hidden="true" />
+                  </Button>
+                ) : null}
+                <div className="clear-both max-h-48 space-y-1 overflow-y-auto">
                   {options.map((option, index) => {
                     const id = `memorisation-picker-${at}-${index}`;
                     return (
@@ -142,7 +151,9 @@ export function LabelPickerDialog({
                           onCheckedChange={(on) => toggle(at, option.label, on === true)}
                         />
                         <Label htmlFor={id} data-label={option.label} className="min-w-0 flex-1">
-                          <HuePill label={option.label} />
+                          <bdi>
+                            <HuePill label={option.label} />
+                          </bdi>
                         </Label>
                         <span className="text-xs tabular-nums text-muted-foreground">
                           {option.count}

@@ -116,6 +116,7 @@ const matchesTags = (row: Row, tags: string[]) =>
   );
 /** When set, the label list route fails with this status. */
 let labelsStatus = 0;
+const labelsError = "disk";
 
 beforeEach(() => {
   resetRender();
@@ -159,7 +160,8 @@ beforeEach(() => {
     const url = new URL(path, "http://web.test");
     const wanted = (url.searchParams.get("tags") ?? "").split(",").filter(Boolean);
     if (method === "GET" && url.pathname === "/api/memorisations/labels") {
-      if (labelsStatus) return { status: labelsStatus, body: { success: false, error: "disk" } };
+      if (labelsStatus)
+        return { status: labelsStatus, body: { success: false, error: labelsError } };
       const counts = new Map<string, number>();
       for (const row of rows)
         for (const tag of row.tags ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1);
@@ -985,6 +987,8 @@ const tickBox = (tree: Node[], group: number, label: string) => {
   const id = names.find(([, name]) => name === label)?.[0];
   return boxes.find((node) => node.props.id === id)!;
 };
+/** The tree's text without the direction isolates that wrap each label name. */
+const plainText = (tree: Node[]) => allText(tree).replace(/[\u2068\u2069]/g, "");
 const openPicker = async () => {
   let tree = await settle(page, own);
   buttonOf(tree, "Filter by label").props.onClick();
@@ -1020,7 +1024,7 @@ it("builds two groups, shows the summary, and Apply writes one OR label and one 
   tree = await settle(page, own);
   tickBox(tree, 1, "handover").props.onCheckedChange(true);
   tree = await settle(page, own);
-  expect(allText(tree)).toContain("Showing: (release or ops) and (handover)");
+  expect(plainText(tree)).toContain("Showing: (release or ops) and (handover)");
   buttonOf(tree, "Apply").props.onClick();
   tree = await settle(page, own);
   expect(address).toBe("/memorisation?labels=release%7Cops,handover");
@@ -1052,7 +1056,7 @@ it("removes a group, and an empty group counts for nothing", async () => {
   tree = await settle(page, own);
   tickBox(tree, 0, "ops").props.onCheckedChange(true);
   tree = await settle(page, own);
-  expect(allText(tree)).toContain("Showing: (ops)");
+  expect(plainText(tree)).toContain("Showing: (ops)");
   const remove = byType(tree, Button).find(
     (node) => node.props["aria-label"] === "Remove group 2"
   )!;
@@ -1078,7 +1082,7 @@ it("opens with the current filter: one group per label, alternatives ticked", as
   expect(ticked(1)).toEqual(["handover"]);
   // A label no record carries stays in the list, ticked, so it can be removed.
   expect(ticked(2)).toEqual(["gone"]);
-  expect(allText(tree)).toContain("Showing: (release or ops) and (handover) and (gone)");
+  expect(plainText(tree)).toContain("Showing: (release or ops) and (handover) and (gone)");
 });
 
 it("says the labels could not load, offers Try again, and leaves the filter alone", async () => {
@@ -1086,6 +1090,7 @@ it("says the labels could not load, offers Try again, and leaves the filter alon
   labelsStatus = 500;
   let tree = await openPicker();
   expect(allText(tree)).toContain("The labels could not load.");
+  expect(allText(tree)).toContain("disk");
   expect(buttonOf(tree, "Apply").props.disabled).toBe(true);
   labelsStatus = 0;
   buttonOf(tree, "Try again").props.onClick();
@@ -1110,4 +1115,33 @@ it("shows the picker in Chinese and Arabic", async () => {
     expect(text(byType(tree, DialogTitle)[0]!.props.children)).toBe(open);
   }
   setLanguage("en");
+});
+
+it("names each group with a legend that is a direct child of its fieldset", async () => {
+  const tree = await openPicker();
+  const fieldset = byType(tree, "fieldset")[0]!;
+  const kids = [fieldset.props.children].flat() as Node[];
+  expect(kids.some((child) => child && (child as Node).type === "legend")).toBe(true);
+});
+
+it("isolates each label name for mixed-direction text", async () => {
+  const tree = await openPicker();
+  const names = byType(tree, Label).filter((node) =>
+    String(node.props.htmlFor).startsWith("memorisation-picker-0-")
+  );
+  expect(names).toHaveLength(3);
+  for (const name of names) {
+    expect((name.props.children as Node).type).toBe("bdi");
+  }
+});
+
+it("matches a filter label written with spaces around the bar to the counted labels", async () => {
+  address = "/memorisation?labels=release%20%7C%20ops";
+  const tree = await openPicker();
+  const names = byType(tree, Label)
+    .filter((node) => String(node.props.htmlFor).startsWith("memorisation-picker-0-"))
+    .map((node) => node.props["data-label"]);
+  expect(names).toEqual(["handover", "ops", "release"]);
+  expect(tickBox(tree, 0, "release").props.checked).toBe(true);
+  expect(tickBox(tree, 0, "ops").props.checked).toBe(true);
 });

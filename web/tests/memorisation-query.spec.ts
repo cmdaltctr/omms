@@ -132,3 +132,19 @@ it("writes the picker summary as groups joined by and, labels by or", () => {
   expect(filterSummary([["server"], [], ["api"]], words)).toBe("(server) and (api)");
   expect(filterSummary([[], []], words)).toBe("");
 });
+
+it("keeps a bar after a label: prefix as one OR label", () => {
+  expect(parseRecallInput("label:runpod | vast")).toEqual({ q: "", labels: ["runpod|vast"] });
+  expect(parseRecallInput('label:"two words" | x, 4090')).toEqual({
+    q: "",
+    labels: ["two words|x", "4090"],
+  });
+});
+
+it("trims the alternatives of an address label and keeps the spaces inside a label", () => {
+  expect(groupsFromLabels(["server | reactjs", "api"])).toEqual([["server", "reactjs"], ["api"]]);
+  expect(labelsFromGroups([["build  server", " Build  server "], ["a b"]])).toEqual([
+    "build  server",
+    "a b",
+  ]);
+});
