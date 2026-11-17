@@ -36,7 +36,7 @@ const knows = (...paths: string[]) => {
 
 describe("findProgram on the host file system", () => {
   const host = (bin: string) => ({
-    env: { PATH: bin, PATHEXT: ".CMD" },
+    env: { PATH: bin, PATHEXT: hostExtension },
     platform: hostPlatform,
   });
 
