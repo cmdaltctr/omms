@@ -287,10 +287,15 @@ function productionDefaults(): EnsureDeps {
   };
 }
 
-type Probe = "omms" | "other" | "none";
+/** What answers on the port: OMMS, another program, or nothing. */
+export type Probe = "omms" | "other" | "none";
 
 /** An OMMS reply is `{ success: true, status: "ok" }`; another local service must not count. */
-async function probe(baseUrl: string, timeoutMs: number, deps: EnsureDeps): Promise<Probe> {
+export async function probe(
+  baseUrl: string,
+  timeoutMs: number,
+  deps: Pick<EnsureDeps, "fetch">
+): Promise<Probe> {
   try {
     const response = await deps.fetch(`${baseUrl}/api/health`, {
       method: "GET",

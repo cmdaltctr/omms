@@ -11,7 +11,11 @@ listed in `openspec/changes/archive/2026-09-21-add-pi-adapter-shared-memory/desi
 
 ## Installation
 
-From npm:
+Run `npx om-memory-system@latest setup`. It finds Pi, shows what it will do and
+asks once. See [CLI: setup](cli.md#setup). Check the result with
+`npx om-memory-system@latest doctor`, then restart Pi.
+
+To install by hand from npm:
 
 ```bash
 pi install npm:om-memory-system
@@ -94,8 +98,28 @@ If one answers, Pi uses it. This check runs at every session start, whatever
 app off. When `webServerAutoStart` is set, the Pi adapter also updates the web
 app login item, the same as OpenCode. See [Web UI](web-ui.md#starting-the-web-app).
 
+When the web app cannot start, Pi shows one warning notification. It uses the
+same wording as OpenCode and Claude Code. Pi shows each message once per Pi
+process, so a second session in the same process stays quiet. A session without
+an interface shows none. The web app start does not wait and never blocks the session.
+
+- `port-busy`: the message names the port and says to stop the other program, or to set `webServerPort` in the global config to a free port.
+- `no-runtime`: the message says to install Node 22.14 or later, then start a new session.
+
+At the first session on the computer, Pi also shows the first-run notice once as
+a notification. It says what OMMS does on its own and how to turn each part
+off. See [Configuration: First-run notice](configuration.md#first-run-notice).
+
 History backfill (automatic history import) uses `piBackfillModel`. See
 [Configuration: Automatic history import and login web app](configuration.md#automatic-history-import-and-login-web-app).
+
+## Uninstall
+
+1. Run `pi remove npm:om-memory-system`. Pi also accepts `pi uninstall npm:om-memory-system`, and `-l` removes the package from project settings. The commands come from `pi --help` and `pi remove --help` of Pi 1.5.0.
+2. Stop the login item. Pi starts the web app at sign-in while `webServerAutoStart` is `true`, and each Pi start installs the item again. Set `"webServerAutoStart": false` in `~/.config/omms/omms.jsonc`, then run `npx om-memory-system@latest web uninstall`. The command also sets that value and removes the item.
+3. Restart Pi.
+
+Your memories stay in `~/.omms/data`. Delete that folder only when you want to lose them.
 
 ## Lifecycle mapping
 

@@ -2,6 +2,7 @@ import { memorisationText } from "./memorisation";
 import { spaceText } from "./spaces";
 import { spaceTransferText } from "./spaces-transfer";
 import { tagMigrationText } from "./tag-migration";
+import { welcomeText } from "./welcome";
 
 export const translations = {
   en: {
@@ -386,6 +387,7 @@ export const translations = {
     ...spaceTransferText.en,
     ...memorisationText.en,
     ...tagMigrationText.en,
+    ...welcomeText.en,
   },
   zh: {
     brand: "OMMS",
@@ -754,6 +756,7 @@ export const translations = {
     ...spaceTransferText.zh,
     ...memorisationText.zh,
     ...tagMigrationText.zh,
+    ...welcomeText.zh,
   },
   ar: {
     brand: "OMMS",
@@ -1175,6 +1178,7 @@ export const translations = {
     ...spaceTransferText.ar,
     ...memorisationText.ar,
     ...tagMigrationText.ar,
+    ...welcomeText.ar,
   },
 } as const;
 export type Lang = keyof typeof translations;

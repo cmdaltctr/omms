@@ -3,9 +3,11 @@ import { ommsStatusLabel } from "./omms-status-glyphs.js";
 
 // OMMS status label for Claude Code 2.1.295 or later, drawn at the right of the
 // prompt footer after Claude Code's own mode labels: `omms: ⧖` while connecting
-// (yellow), `omms: ✔` (green), `omms: ✘ web app off` or `omms: ✘ not installed`
-// (red), plus a dim ` · <version> available` when npm has a newer release. It does not use
-// `$.ui.status`: Claude Code draws that row with a yellow warning sign.
+// (yellow), `omms: ✔` (green), `omms: ✔ capture off` (amber: the web app runs but
+// Claude Code capture needs the external API), `omms: ✘ web app off` or
+// `omms: ✘ not installed` (red), plus a dim ` · <version> available` when npm has a
+// newer release. It does not use `$.ui.status`: Claude Code draws that row with a
+// yellow warning sign.
 //
 // The module holds no OMMS logic. It asks the plugin's own launcher, the one
 // the command hooks run, for the web app's health URL, the running version and
@@ -24,6 +26,7 @@ export const UPDATE_COMMAND = "claude plugin update omms@omms";
 const COLOURS = {
   connecting: "warning",
   connected: "success",
+  "capture off": "warning",
   "web app off": "error",
   "not installed": "error",
 };

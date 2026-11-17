@@ -16,6 +16,8 @@ import { mock } from "bun:test";
 const settings = { storagePath: ${JSON.stringify(join(dir, "store"))}, autoBackfill: false,
   webServerAutoStart: false, webServerEnabled: true, webServerHost: "127.0.0.1", webServerPort: 4747,
   autoCaptureEnabled: true, autoCaptureProviderStatus: { ready: true }, autoCleanupEnabled: true, chatMessage: { enabled: false },
+  // Every first-run part off, so no first-run line joins the notices unless a test asks.
+  embeddingApiUrl: "http://embed.invalid",
   ${Object.entries(config)
     .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
     .join(", ")} };
@@ -164,6 +166,48 @@ await stop();
   expect(result.toasts[0]).toMatchObject({ method: "error" });
   expect(result.toasts[0].text).toContain("Memory Explorer");
   expect(result.toasts[0].text).toContain("4747");
+});
+
+for (const result of ["port-busy", "no-runtime"] as const) {
+  it(`uses the shared web-start wording for ${result}, at today's error level`, async () => {
+    const { webStartNotice } = await import("../src/services/web-start-notice.js");
+    const output = runScenario(`
+ensureResult = ${JSON.stringify(result)};
+const { stop } = await startPlugin();
+await waitFor(() => toasts.length > 0);
+console.log("RESULT:" + JSON.stringify({ toasts }));
+await stop();
+`);
+    expect(output.toasts).toEqual([
+      { method: "error", text: `[omms] Memory Explorer: ${webStartNotice(result, 4747)!.text}` },
+    ]);
+  });
+}
+
+it("writes the first-run notice to the log until a terminal interface has shown it", () => {
+  const result = runScenario(
+    `
+const { mkdirSync, writeFileSync } = await import("node:fs");
+const first = await startPlugin();
+await waitFor(() => toasts.length > 1);
+await first.stop();
+const before = toasts.splice(0);
+mkdirSync(settings.storagePath, { recursive: true });
+writeFileSync(settings.storagePath + "/first-run-notices.json", JSON.stringify({ opencode: true }));
+const second = await startPlugin();
+await waitFor(() => toasts.length > 0);
+await new Promise((resolve) => setTimeout(resolve, 20));
+await second.stop();
+console.log("RESULT:" + JSON.stringify({ before, after: toasts }));
+`,
+    { embeddingApiUrl: "" }
+  );
+  const notices = (list: { text: string }[]) =>
+    list.filter((toast) => toast.text.includes("OMMS does these things on its own"));
+  expect(notices(result.before)).toHaveLength(1);
+  expect(notices(result.before)[0]).toMatchObject({ method: "info" });
+  expect(notices(result.before)[0]!.text).toContain("Embedding model");
+  expect(notices(result.after)).toEqual([]);
 });
 
 it("starts nothing when webServerEnabled is false", () => {

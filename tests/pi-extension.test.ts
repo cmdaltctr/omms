@@ -40,6 +40,7 @@ function runScenario(code: string): any {
 import { mock } from "bun:test";
 
 const closeCalls = [];
+const notifyCalls = [];
 const statusCalls = [];
 const toolCalls = [];
 const registeredTools = [];
@@ -65,6 +66,8 @@ const stubConfig = {
     memory: { defaultScope: "project" },
     injectProfile: false,
     userProfileAnalysisInterval: 1,
+    // The first-run record goes in the scenario's own folder.
+    storagePath: process.cwd(),
 };
 mock.module(${JSON.stringify(configUrl)}, () => ({
   CONFIG: stubConfig,
@@ -150,11 +153,12 @@ mock.module(${JSON.stringify(handoffUrl)}, () => ({
 }));
 
 const ensureCalls = [];
+// Null: never settles, so a session start must not wait for the web app.
+let ensureResult = null;
 mock.module(${JSON.stringify(ensureUrl)}, () => ({
-  // Never settles: a session start must not wait for the web app.
   ensureWebApp: (options) => {
     ensureCalls.push(options);
-    return new Promise(() => {});
+    return ensureResult === null ? new Promise(() => {}) : Promise.resolve(ensureResult);
   },
 }));
 
@@ -237,7 +241,7 @@ function makeCtx(overrides = {}) {
     hasUI: true,
     mode: "tui",
     ui: {
-      notify: () => {},
+      notify: (message, level) => notifyCalls.push([message, level]),
       setStatus: (key, value) => statusCalls.push([key, value ?? null]),
       setWidget: (key, content, options) =>
         widgetCalls.push([
@@ -431,6 +435,79 @@ captured = { ensure: ensureCalls.length, loginItem: autostartCalls.length };
     `);
     // The login item stays tied to webServerAutoStart. The web app check does not.
     expect(output.captured).toEqual({ ensure: 1, loginItem: 0 });
+  });
+
+  for (const [result, words] of [
+    ["port-busy", "port 4747"],
+    ["no-runtime", "Node 22.14"],
+  ]) {
+    it(`warns once per process when the web app result is ${result}`, () => {
+      const output = runScenario(`
+stubConfig.webServerEnabled = true;
+stubConfig.webServerHost = "127.0.0.1";
+stubConfig.webServerPort = 4747;
+stubConfig.embeddingApiUrl = "http://embed.invalid";
+delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
+ensureResult = ${JSON.stringify(result)};
+await handlers["session_start"]({}, makeCtx());
+await waitFor(() => notifyCalls.some(([, level]) => level === "warning"));
+await handlers["session_start"]({}, ctxWith([], "pi-session-2"));
+await waitFor(() => ensureCalls.length === 2);
+await new Promise((resolve) => setTimeout(resolve, 20));
+captured = notifyCalls.filter(([, level]) => level === "warning");
+      `);
+      expect(output.captured).toHaveLength(1);
+      expect(output.captured[0][0]).toContain(words);
+    });
+  }
+
+  it("shows no web-start warning when the web app runs", () => {
+    const output = runScenario(`
+stubConfig.webServerEnabled = true;
+stubConfig.webServerHost = "127.0.0.1";
+stubConfig.webServerPort = 4747;
+delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
+ensureResult = "running";
+await handlers["session_start"]({}, makeCtx());
+await waitFor(() => ensureCalls.length === 1);
+await new Promise((resolve) => setTimeout(resolve, 20));
+captured = notifyCalls.filter(([, level]) => level === "warning");
+    `);
+    expect(output.captured).toEqual([]);
+  });
+
+  it("shows the first-run notice at the first session only", () => {
+    const output = runScenario(`
+stubConfig.autoBackfill = true;
+stubConfig.webServerAutoStart = true;
+process.env.OMMS_DISABLE_WEB_AUTOSTART = "1";
+process.env.OMMS_DISABLE_AUTO_BACKFILL = "1";
+await handlers["session_start"]({}, makeCtx());
+const first = notifyCalls.splice(0);
+await handlers["session_start"]({}, ctxWith([], "pi-session-2"));
+captured = { first, second: notifyCalls.splice(0) };
+    `);
+    expect(output.captured.first).toHaveLength(1);
+    expect(output.captured.first[0][1]).toBe("info");
+    expect(output.captured.first[0][0]).toContain("OMMS does these things on its own");
+    expect(output.captured.first[0][0]).toContain("Login item");
+    expect(output.captured.second).toEqual([]);
+  });
+
+  it("shows no notice and claims nothing without an interface", () => {
+    const output = runScenario(`
+stubConfig.webServerEnabled = true;
+stubConfig.webServerHost = "127.0.0.1";
+stubConfig.webServerPort = 4747;
+delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
+ensureResult = "port-busy";
+await handlers["session_start"]({}, makeCtx({ hasUI: false }));
+await waitFor(() => ensureCalls.length === 1);
+await new Promise((resolve) => setTimeout(resolve, 20));
+const { existsSync } = await import("node:fs");
+captured = { notes: notifyCalls.length, record: existsSync("first-run-notices.json") };
+    `);
+    expect(output.captured).toEqual({ notes: 0, record: false });
   });
 
   it("does not start the web app when web autostart is disabled for tests", () => {

@@ -56,8 +56,8 @@ On first start, if no config exists at all, the plugin creates a full commented 
 
   // Model for auto-capture and profile learning (see "Choosing the model").
   // Omit all of these to use the session's own model.
-  "opencodeProvider": "anthropic",
-  "opencodeModel": "claude-haiku-4-5-20251001", // or "inherit"
+  // "opencodeProvider": "anthropic",
+  // "opencodeModel": "claude-haiku-4-5-20251001", // or "inherit"
   // "piProvider": "openai-codex",
   // "piModel": "gpt-5.6-luna",
 
@@ -364,11 +364,29 @@ On the Settings page you can **Pause** and **Resume** each host's backfill.
 `webServerAutoStart` defaults to `true`. When `webServerEnabled` is also true, OMMS registers a per-user login item for the web app.
 
 - On macOS it is a LaunchAgent. On Linux it is a systemd user unit. On Windows it is a Startup-folder entry.
-- Each host start checks the item. If you turn either setting off, the next host start removes it.
+- Each OpenCode and Pi start checks the item. If you turn either setting off, the next start removes it. Claude Code never installs or removes the item.
 - To apply a change at once, run `om-memory-system web install` or `om-memory-system web uninstall`.
 - The item needs Node or Bun. It uses the same port and authentication settings as the OpenCode-hosted web app.
 
 `autoBackfill` and `webServerAutoStart` must be `true` or `false`.
+
+### First-run notice
+
+Each host shows one notice at its first session on a computer. It says what OMMS does on its own and how to turn each part off. OMMS leaves out a part that is already off in your config.
+
+- **Automatic history import.** OMMS reads your past chats and makes model calls to save memories. Turn it off with `"autoBackfill": false` in the global config, or pause it on the Settings page.
+- **Login item.** OMMS starts its web app when you sign in. Turn it off with `"webServerAutoStart": false` in the global config. The notice names this part for OpenCode and Pi only, because Claude Code never installs the item.
+- **Embedding model.** OMMS downloads a local model once, the first time it saves a memory. The download is about 550 MB. Skip it by setting an embedding API URL in Settings. See [Embeddings](#embeddings).
+
+The notice shows once for each host. The record is `first-run-notices.json` in the global storage folder, so switching memory space does not show it again. Claude Code records the notice only after its hook has shown it, so a slow first start shows it at the next session instead of losing it. If OMMS cannot read or write that file, the session still starts. `npx om-memory-system@latest setup` prints the same text before it asks for your answer. See [CLI: setup](cli.md#setup).
+
+Each host shows the notice in its own way:
+
+| Host        | Where you see it                                                                                                                 |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| OpenCode    | The terminal interface. Without a terminal interface (`opencode serve`), the OpenCode log, at each start until one has shown it. |
+| Pi          | A Pi notification.                                                                                                               |
+| Claude Code | A line from the `SessionStart` hook. It does not enter the model context.                                                        |
 
 ## Claude Code folder
 
@@ -557,7 +575,7 @@ You can set other OpenRouter `provider` fields by hand, for example `sort`. The 
 Embeddings power similarity search for memories and the user profile. Set them in the same global file.
 
 - There is **no MLX backend**. Local embeddings use `@huggingface/transformers` with ONNX, not Apple MLX.
-- **Local (default):** set only `embeddingModel`. On first use, OMMS downloads the model from Hugging Face and caches it under `{storagePath}/.cache` (default `~/.omms/data/.cache`).
+- **Local (default):** set only `embeddingModel`. On first use, OMMS downloads the model from Hugging Face and caches it under `{storagePath}/.cache` (default `~/.omms/data/.cache`). The default model, `Xenova/nomic-embed-text-v1`, downloads 548 MB (`onnx/model.onnx` is 547,552,426 bytes; the tokenizer and config files add about 0.7 MB). That figure comes from one download in a scratch home with `@huggingface/transformers` 4.2.0, the library OMMS uses, on 2026-11-16.
 - **Remote (OpenAI-compatible):** set `embeddingApiUrl`. OMMS then calls `{embeddingApiUrl}/embeddings`. `embeddingApiKey` is optional. OMMS sends it as a Bearer token only when it is set. A server on your computer, such as Ollama or llama.cpp, needs no key. OMMS no longer reads the `OPENAI_API_KEY` environment variable for embeddings. To use it, set `"embeddingApiKey": "env://OPENAI_API_KEY"`. `embeddingApiKey` accepts the same formats as `memoryApiKey`: a literal key, `env://…`, or `file://…`.
 
 | Key                   | Role                                                                                      |

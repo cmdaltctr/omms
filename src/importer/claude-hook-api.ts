@@ -34,6 +34,13 @@ import {
   subagentContext,
   wrapSection,
 } from "./claude-hook-context.js";
+import { confirmShownNotices, sessionStartNotices } from "./claude-hook-notices.js";
+import {
+  ClaudeHookRequestError,
+  objectBody,
+  optionalString,
+  sessionAndCwd,
+} from "./claude-hook-request.js";
 import { learnClaudeProfile } from "./claude-profile-learning.js";
 import {
   claudeWindowsToCapture,
@@ -61,14 +68,7 @@ export interface ClaudeHookDeps {
   sleep?: (ms: number) => Promise<void>;
 }
 
-/** A hook request the handler cannot use. `status` is the HTTP status. */
-export class ClaudeHookRequestError extends Error {
-  readonly status = 400;
-  constructor(message: string) {
-    super(message);
-    this.name = "ClaudeHookRequestError";
-  }
-}
+export { ClaudeHookRequestError };
 
 const RETRIEVE_EVENTS = ["session-start", "user-prompt-submit", "subagent-start"] as const;
 
@@ -80,6 +80,8 @@ interface RetrieveRequest {
   prompt?: string;
   transcriptPath?: string;
   agentType?: string;
+  /** The hook can show user lines (`systemMessage`). */
+  notices: boolean;
 }
 
 interface CaptureRequest {
@@ -88,31 +90,6 @@ interface CaptureRequest {
   transcriptPath: string;
   lastAssistantMessage?: string;
   stopHookActive: boolean;
-}
-
-function objectBody(body: unknown): Record<string, unknown> {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new ClaudeHookRequestError("A JSON object is required");
-  }
-  return body as Record<string, unknown>;
-}
-
-function sessionAndCwd(body: Record<string, unknown>): { sessionId: string; cwd: string } {
-  const { session_id: sessionId, cwd } = body;
-  if (typeof sessionId !== "string" || !sessionId.trim()) {
-    throw new ClaudeHookRequestError("session_id is required");
-  }
-  if (typeof cwd !== "string" || !isAbsolute(cwd)) {
-    throw new ClaudeHookRequestError("cwd must be an absolute path");
-  }
-  return { sessionId, cwd };
-}
-
-function optionalString(body: Record<string, unknown>, key: string): string | undefined {
-  const value = body[key];
-  if (value === undefined || value === null) return undefined;
-  if (typeof value !== "string") throw new ClaudeHookRequestError(`${key} must be a string`);
-  return value;
 }
 
 function parseRetrieveRequest(body: unknown): RetrieveRequest {
@@ -128,6 +105,7 @@ function parseRetrieveRequest(body: unknown): RetrieveRequest {
     prompt: optionalString(input, "prompt"),
     transcriptPath: optionalString(input, "transcript_path"),
     agentType: optionalString(input, "agent_type"),
+    notices: input.notices === true,
   };
 }
 
@@ -276,7 +254,7 @@ async function retrievalText(request: RetrieveRequest, budgetBytes: number): Pro
 export async function handleClaudeRetrieve(
   body: unknown,
   deps: ClaudeHookDeps = {}
-): Promise<{ additionalContext: string }> {
+): Promise<{ additionalContext: string; systemMessage?: string; noticeKeys?: string[] }> {
   const request = parseRetrieveRequest(body);
   refreshConfigIfChanged(request.cwd);
   // Captured after the refresh, before the async retrieval: one allowance
@@ -286,8 +264,11 @@ export async function handleClaudeRetrieve(
     CONFIG.retrievalMaxTokens ?? DEFAULT_RETRIEVAL_MAX_TOKENS
   );
   if (request.event === "session-start") maybeStartBackfill(deps);
+  // Only a hook that can show user lines gets them. Its confirmation records them as shown.
+  const extra =
+    request.event === "session-start" && request.notices ? sessionStartNotices(CONFIG) : {};
   try {
-    return { additionalContext: await retrievalText(request, budgetBytes) };
+    return { additionalContext: await retrievalText(request, budgetBytes), ...extra };
   } catch (error) {
     log(
       "Claude Code retrieval failed",
@@ -298,9 +279,12 @@ export async function handleClaudeRetrieve(
       },
       "error"
     );
-    return { additionalContext: "" };
+    return { additionalContext: "", ...extra };
   }
 }
+
+/** `POST /api/claude/notices`: the hook has shown these user lines, so record them. */
+export const handleClaudeNoticesShown = (body: unknown) => confirmShownNotices(body, CONFIG);
 
 // --- Capture ---
 

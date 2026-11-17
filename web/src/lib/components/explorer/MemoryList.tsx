@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MemoryCard } from "./MemoryCard";
+import { WelcomePanel, showsWelcome } from "./WelcomePanel";
 import { Button } from "$lib/components/ui/button";
 import { groupMemories } from "$lib/group-memories";
 import { useI18n } from "$lib/i18n";
@@ -23,6 +24,8 @@ type Props = {
   onDeleteMemory: (id: string, isLinked: boolean) => void;
   onDeletePrompt: (id: string, isLinked: boolean) => void;
   activeKeyword?: string;
+  /** The project tag filter. A project with no memories keeps the plain empty line. */
+  activeTag?: string;
   onKeywordClick?: (keyword: string) => void;
 };
 
@@ -31,6 +34,8 @@ export function MemoryList({
   selectedIds,
   currentPage,
   totalPages,
+  totalItems,
+  isSearching,
   loading = false,
   error = null,
   onSelect,
@@ -41,6 +46,7 @@ export function MemoryList({
   onDeleteMemory,
   onDeletePrompt,
   activeKeyword,
+  activeTag,
   onKeywordClick,
 }: Props) {
   const { t } = useI18n();
@@ -69,9 +75,13 @@ export function MemoryList({
         ) : error ? (
           <div className="text-sm text-destructive py-8 text-center">Error: {error}</div>
         ) : groups.length === 0 ? (
-          <div className="text-sm text-muted-foreground py-8 text-center">
-            {t("empty-memories")}
-          </div>
+          showsWelcome({ totalItems, isSearching, activeKeyword, activeTag }) ? (
+            <WelcomePanel />
+          ) : (
+            <div className="text-sm text-muted-foreground py-8 text-center">
+              {t("empty-memories")}
+            </div>
+          )
         ) : (
           groups.map((group) =>
             group.isPair ? (

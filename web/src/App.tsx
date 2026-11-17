@@ -345,6 +345,7 @@ export default function App() {
                   onDeleteMemory={explorer.deleteMemory}
                   onDeletePrompt={explorer.deletePrompt}
                   activeKeyword={explorer.selectedKeyword}
+                  activeTag={explorer.selectedTag}
                   onKeywordClick={(keyword) =>
                     explorer.onKeywordFilterChange(
                       explorer.selectedKeyword.toLowerCase() === keyword.toLowerCase()
