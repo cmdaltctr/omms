@@ -47,6 +47,7 @@ The main checkout is the folder you cloned the repository into, wherever it is o
 | `src/adapters/pi/`                     | Pi extension, Pi model bridge, Pi import command                                                              |
 | `src/adapters/claude-code/`            | Claude Code hook client (`claude-hook <event>`). The web app does the memory work                             |
 | `src/cli/`                             | `om-memory-system` terminal command for every host, and the `memory` command                                  |
+| `src/shared/`                          | Host registry (`hosts.ts`) and API types. Imports nothing outside itself; the web app reads it as `$shared`   |
 | `web/`                                 | Web UI (Vite). It has its own `package.json`.                                                                 |
 
 Keep these boundaries:
@@ -55,7 +56,8 @@ Keep these boundaries:
 - A long-lived object that holds a database handle or a path built from `storagePath` must register with `resettable()` (`src/services/spaces/store-handles.ts`), so a memory space switch resets it. A new `.db` file name in `src/` must be added to `tests/store-handle-coverage.test.ts`. Keep `skills.db` and the embedding model cache on the global storage path (`CONFIG.skillStoragePath ?? CONFIG.storagePath`).
 - `src/importer/` must not import `src/adapters/*`. Each host's history reader lives in `src/importer/`, and adapters import from it.
 - `tests/host-neutral-capture-boundary.test.ts` and `tests/pi-adapter-boundary.test.ts` enforce that rule.
-- An adapter must not import the other host's adapter modules.
+- An adapter must not import the other host's adapter modules. Only the OpenCode host imports `src/v2/` and `src/plugin.ts`. `src/shared/` imports only itself. No shared layer names a host SDK (`@opencode/*`, `@opencode-ai/*`, `@earendil-works/*`). `tests/module-boundaries.test.ts` enforces these.
+- `src/config.ts` must not import `src/importer/`. Config parsers live in `src/utils/`. `tests/config-boundary.test.ts` enforces it.
 - Load host SDKs and heavy modules with dynamic `import()`. `tests/plugin-bundle-boundary.test.ts` checks the plugin bundle.
 - The `claude-hook` and status commands in `src/adapters/claude-code/` print one JSON result to stdout. Send logs and warnings to stderr. `status.ts` redirects `console.log` for this reason.
 
@@ -77,7 +79,9 @@ Pi and OpenCode must have the same user capabilities.
 - Claude Code uses step 2 only. Its hooks cannot call the session model, so it has no host model and no session model.
 - Change that order only in `live-model-choice.ts`.
 - In-session history imports use the session model, or `--model provider/id`. Only the CLI uses `--provider`, `--api-url`, and `--api-key-env`.
-- Known refactor, not started: about 29 lines outside `src/adapters/` branch on the host name with `if (host === "pi")` or `case "claude-code"`. Most are in `src/importer/`, and `import-sources.ts` has the most. A host registry would replace them. Each host would register its reader, default source path, backfill-model key, and readiness check. A new host now means editing every branch. Do not start the registry inside an unrelated change. Before you add a fourth host, propose it as an OpenSpec change.
+- Host facts live in the host registry (ADR-050): `src/shared/hosts.ts` (`HOSTS`, `MemoryHost`, `isMemoryHost`, `HOST_INFO`) and `src/importer/host-importers.ts` (`HOST_IMPORTERS`: source paths, session listing, import run, reader check). A host difference is a field in one of them.
+- New shared code must not compare host names, switch on them, or list them. Use `isMemoryHost`, `HOSTS`, `HOST_INFO` or `HOST_IMPORTERS`. `tests/host-branch-boundary.test.ts` enforces this outside `src/adapters/`, `src/v2/`, `src/plugin.ts`, the two registry files and `live-model-choice.ts`.
+- A fourth host edits 4 shared `src/` files (`src/shared/hosts.ts`, `src/importer/host-importers.ts`, `src/services/ai/live-model-choice.ts`, and the help text in `src/cli/index.ts`) and the web app. `docs/shared-core.md` lists them and the extra edits for a host that lends its session model. Propose a new host as an OpenSpec change.
 
 ## OpenSpec workflow
 
@@ -144,7 +148,8 @@ bun run ci:local   # check, build, then every test file in its own process
 - Prettier formats code and Markdown. ESLint runs with `--max-warnings=0`.
 - The pre-commit hook runs `bun run typecheck` and `lint-staged`. The pre-push hook runs `bun run check`.
 - Match the comment density and naming of the surrounding code.
-- Keep each `.ts` and `.tsx` file in `src/` and `web/src/` at 500 lines or fewer. `tests/file-size-ceiling.test.ts` enforces it. 19 older files are over the limit and listed in that test. They may shrink but not grow. When you split one, remove its entry. Translation tables in `web/src/lib/i18n/` are exempt.
+- Keep each `.ts` and `.tsx` file in `src/` and `web/src/` at 500 lines or fewer. `tests/file-size-ceiling.test.ts` enforces it. 15 older files are over the limit and listed in that test. They may shrink but not grow. When you split one, remove its entry. Translation tables in `web/src/lib/i18n/` are exempt.
+- Do not add a `CONFIG` import in `src/core/` or `src/services/`, a storage-engine import (`@libsql/client`, `src/services/turso/*`) outside `src/services/turso/`, or SQL outside `src/services/turso/`. `tests/modularity-ratchets.test.ts` holds a baseline for each. A listed file may shrink but not grow. When it reaches 0, remove its entry.
 - Use British English in documentation, comments, and commit messages. Code identifiers keep their existing spelling.
 
 ## Error handling

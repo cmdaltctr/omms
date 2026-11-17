@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { parseBackfillModel } from "../src/importer/backfill-model.js";
+import { parseBackfillModel } from "../src/utils/backfill-model.js";
 
 describe("backfill model selection", () => {
   it("inherits the host live capture model", () => {
@@ -20,6 +20,37 @@ describe("backfill model selection", () => {
   it("rejects empty provider or model", () => {
     expect(() => parseBackfillModel({ piBackfillModel: "/model" }, "pi")).toThrow();
     expect(() => parseBackfillModel({ piBackfillModel: "provider/" }, "pi")).toThrow();
+  });
+});
+
+describe("backfill model per host (characterisation)", () => {
+  const model = { provider: "zai", model: "glm-5" };
+  it("reads the Pi and OpenCode keys the same way", () => {
+    for (const [host, key] of [
+      ["pi", "piBackfillModel"],
+      ["opencode", "opencodeBackfillModel"],
+    ] as const) {
+      expect(parseBackfillModel({ [key]: "inherit" }, host)).toBe("inherit");
+      expect(parseBackfillModel({ [key]: "external" }, host)).toBe("external");
+      expect(parseBackfillModel({ [key]: "zai/glm-5" }, host)).toEqual(model);
+      expect(parseBackfillModel({}, host)).toBe("inherit");
+      expect(() => parseBackfillModel({ [key]: "no-slash" }, host)).toThrow(
+        `Invalid ${key} config`
+      );
+      expect(() => parseBackfillModel({ [key]: 42 }, host)).toThrow(`Invalid ${key} config`);
+    }
+  });
+
+  it("reads only its own key", () => {
+    expect(parseBackfillModel({ opencodeBackfillModel: "a/b" }, "pi")).toBe("inherit");
+    expect(parseBackfillModel({ piBackfillModel: "a/b" }, "opencode")).toBe("inherit");
+  });
+
+  it("gives Claude Code the external API for every value", () => {
+    for (const value of ["inherit", "external", "zai/glm-5", undefined, "no-slash", 42]) {
+      const config = { piBackfillModel: value, opencodeBackfillModel: value };
+      expect(parseBackfillModel(config, "claude-code")).toBe("external");
+    }
   });
 });
 

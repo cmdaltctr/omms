@@ -909,4 +909,40 @@ describe("settings API", () => {
     expect(result.browse).toBe(403);
     expect(result.crossSite).toBe(415);
   });
+
+  // Characterisation (modular-boundaries): these per-host objects are now built from the
+  // host registry. The JSON key order is part of the response, so it is pinned here.
+  it("keeps each per-host object's keys and key order in the settings API", async () => {
+    const result = await scenario(`
+      const { join } = await import("node:path");
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "isolated-store");
+      const keys = (value) => Object.keys(value);
+      const settings = await (await send("/api/settings")).json();
+      const diagnostics = await (await send("/api/settings/diagnostics?days=7")).json();
+      const saved = await (await send("/api/settings/last-saved")).json();
+      const maps = await (await send("/api/settings/import-maps")).json();
+      return { effective: settings.effective, effectiveKeys: keys(settings.effective),
+        retryQueue: diagnostics.retryQueue, retryKeys: keys(diagnostics.retryQueue),
+        saved: saved.hosts, savedKeys: keys(saved.hosts), mapKeys: keys(maps) };
+    `);
+    expect(result.effectiveKeys).toEqual(["opencode", "pi", "claude-code"]);
+    expect(result.effective).toEqual({
+      opencode: { ready: true, mode: "session", issues: [] },
+      pi: { kind: "session" },
+      "claude-code": {
+        ready: false,
+        issues: [
+          "memoryModel is not configured",
+          "memoryApiUrl is not configured",
+          "memoryApiKey is not configured",
+        ],
+      },
+    });
+    expect(result.retryKeys).toEqual(["opencode", "pi", "claude-code"]);
+    expect(result.retryQueue).toEqual({ opencode: 0, pi: 0, "claude-code": 0 });
+    expect(result.savedKeys).toEqual(["pi", "opencode", "claude-code"]);
+    expect(result.saved).toEqual({ pi: null, opencode: null, "claude-code": null });
+    expect(result.mapKeys).toEqual(["saved", "ignored", "pi", "opencode", "claude-code"]);
+  });
 });

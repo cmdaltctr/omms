@@ -343,3 +343,18 @@ scenario = await command(["draft", "--idea-name", "deploy", "--idea-description"
     expect(out.missing.errors).toContain("--id needs a value");
   });
 });
+
+// Characterisation (modular-boundaries): both texts are now built from the host labels.
+describe("record past turns host texts", () => {
+  it("names every host in the usage and when no history is found", async () => {
+    const { RECORD_PAST_USAGE } = await import("../src/cli/skills-record-past.js");
+    expect(RECORD_PAST_USAGE).toContain(
+      "Record past turns from every set-up host's history (Pi, OpenCode, Claude Code),\n"
+    );
+    const { startRecordPastTurns } = await import("../src/importer/record-past-turns.js");
+    const none = { defaultSourceFound: { pi: false, opencode: false, "claude-code": false } };
+    await expect(startRecordPastTurns({} as never, "/", none as never)).rejects.toThrow(
+      new Error("No Pi, OpenCode or Claude Code history was found on this computer")
+    );
+  });
+});

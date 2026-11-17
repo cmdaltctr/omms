@@ -14,7 +14,8 @@ import type { UserProfileData } from "./user-profile/types.js";
 import { saveProfile } from "./user-profile/merge-and-save.js";
 import { sortProfileItems, stripProfileVectors } from "../utils/profile.js";
 import { resolveWebProfileUserId } from "./profile-identity.js";
-import type { ShardInfo } from "./turso/types.js";
+import type { MemoryRecord, ShardInfo } from "./turso/types.js";
+import { replaceMemoryRow } from "./memory-replace.js";
 import { runTagMigrationBatch } from "./tag-migration.js";
 import {
   loadMemoryRows,
@@ -450,18 +451,13 @@ export async function handleUpdateMemory(
 
     // Find the existing memory first (read-only — no data modified yet)
     const shards = await getAllMemoryShards();
-    let foundShard = null,
-      existingMemory = null;
+    let existingMemory = null;
     for (const shard of shards) {
       const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const memory = await tursoVectorSearch.getMemoryById(db, id);
-      if (memory) {
-        foundShard = shard;
-        existingMemory = memory;
-        break;
-      }
+      existingMemory = await tursoVectorSearch.getMemoryById(db, id);
+      if (existingMemory) break;
     }
-    if (!foundShard || !existingMemory) return { success: false, error: "Memory not found" };
+    if (!existingMemory) return { success: false, error: "Memory not found" };
 
     // STEP 1: Generate new embeddings FIRST (safe — no data deleted yet)
     const newContent = data.content || String(existingMemory.content);
@@ -476,39 +472,32 @@ export async function handleUpdateMemory(
       });
     }
 
-    const db = await tursoConnectionManager.getConnection(foundShard.dbPath);
+    const text = (value: unknown) => (value ? String(value) : undefined);
+    const record: MemoryRecord = {
+      id,
+      content: newContent,
+      vector,
+      tagsVector,
+      containerTag: String(existingMemory.container_tag),
+      tags: tags.length > 0 ? tags.join(",") : undefined,
+      type: data.type || text(existingMemory.type),
+      createdAt: Number(existingMemory.created_at),
+      updatedAt: Date.now(),
+      metadata: text(existingMemory.metadata),
+      displayName: text(existingMemory.display_name),
+      userName: text(existingMemory.user_name),
+      userEmail: text(existingMemory.user_email),
+      projectPath: text(existingMemory.project_path),
+      projectName: text(existingMemory.project_name),
+      gitRepoUrl: text(existingMemory.git_repo_url),
+    };
 
-    await db.transaction("write", async (tx) => {
-      await tx.execute({ sql: `DELETE FROM memories WHERE id = ?`, args: [id] });
-      await tx.execute({
-        sql: `
-        INSERT INTO memories (
-          id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-          metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url
-        ) VALUES (?, ?, vector32(?), ${tagsVector ? "vector32(?)" : "NULL"}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-        args: [
-          id,
-          newContent,
-          JSON.stringify(Array.from(vector)),
-          ...(tagsVector ? [JSON.stringify(Array.from(tagsVector))] : []),
-          String(existingMemory.container_tag),
-          tags.length > 0 ? tags.join(",") : null,
-          data.type || (existingMemory.type ? String(existingMemory.type) : null),
-          Number(existingMemory.created_at),
-          Date.now(),
-          existingMemory.metadata ? String(existingMemory.metadata) : null,
-          existingMemory.display_name ? String(existingMemory.display_name) : null,
-          existingMemory.user_name ? String(existingMemory.user_name) : null,
-          existingMemory.user_email ? String(existingMemory.user_email) : null,
-          existingMemory.project_path ? String(existingMemory.project_path) : null,
-          existingMemory.project_name ? String(existingMemory.project_name) : null,
-          existingMemory.git_repo_url ? String(existingMemory.git_repo_url) : null,
-        ],
-      });
-    });
-
-    return { success: true };
+    // STEP 2: Swap the row under the scope write lock, as every other memory write does.
+    const { scope, hash } = extractScopeFromContainerTag(record.containerTag);
+    const replaced = await tursoShardManager.withScopeWriteLock(scope, hash, () =>
+      replaceMemoryRow(record)
+    );
+    return replaced ? { success: true } : { success: false, error: "Memory not found" };
   } catch (error) {
     log("handleUpdateMemory: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };

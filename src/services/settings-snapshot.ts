@@ -7,12 +7,7 @@ import { resolveClaudeFolder } from "./claude-folder.js";
 import { readGlobalConfigRevision } from "./global-config-writer.js";
 import { injectionOptionsFromFile } from "./injection-options-config.js";
 import { getMemoryLimitRule, MEMORY_LIMIT_SETTINGS } from "../utils/memory-limits.js";
-import {
-  getAutoCaptureProviderStatus,
-  isExternalModelReady,
-  resolveClaudeCodeLiveModel,
-  resolvePiLiveModel,
-} from "./ai/live-model-choice.js";
+import { isExternalModelReady, liveModelStatuses } from "./ai/live-model-choice.js";
 
 const editable = [
   "opencodeProvider",
@@ -248,12 +243,8 @@ export function getSettingsSnapshot(directory: string) {
     externalKey: memoryKeyStatus(global.memoryApiKey),
     // The OpenRouter routing card reads the saved `provider` object of memoryExtraParams.
     openrouterProvider: plainObject(plainObject(global.memoryExtraParams)?.provider),
-    effective: {
-      opencode: getAutoCaptureProviderStatus(CONFIG),
-      pi: resolvePiLiveModel(CONFIG),
-      // Claude Code capture uses the external API only; `issues` names each missing setting.
-      "claude-code": resolveClaudeCodeLiveModel(CONFIG),
-    },
+    // Claude Code capture uses the external API only; its `issues` name each missing setting.
+    effective: liveModelStatuses(CONFIG),
     // The folder Claude Code capture and import read; the check never reads transcripts.
     claudeFolder: { root: claudeRoot, source: claude.source, exists: existsSync(claudeRoot) },
     // What the Keys and access card needs to mark each credential; no secret values.

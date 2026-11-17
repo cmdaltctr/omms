@@ -1,4 +1,5 @@
 import { log } from "../services/logger.js";
+import type { MemoryHost } from "../shared/hosts.js";
 import { profileFailureCode, type ProfileFailureCode } from "./profile-failure.js";
 
 /** After a failed profile pass, the process waits this long before the next one. */
@@ -40,7 +41,7 @@ export const skillDraftBackoff = createBackoff(10 * 60 * 1000);
  * `host` is null for skill drafting, which runs for every host.
  */
 export function recordProfileFailure(
-  host: "opencode" | "pi" | "claude-code" | null,
+  host: MemoryHost | null,
   message: string,
   error: unknown,
   now = Date.now(),

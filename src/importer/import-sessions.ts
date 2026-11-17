@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { isAbsolute, resolve } from "node:path";
-import { discoverPiSessions } from "./discovery.js";
+import { hostChoiceMessage, isMemoryHost } from "../shared/hosts.js";
+import { HOST_IMPORTERS } from "./host-importers.js";
 import type { HistoryImportArgs, ImportHost } from "./import-args.js";
 import { resolveImportProject, type ProjectResolution } from "./import-project.js";
 import {
@@ -88,46 +89,18 @@ async function readRows(
   options: ImportMatchOptions,
   snapshotMode: "fresh" | "reuse" | "any"
 ): Promise<ImportSessionRow[]> {
-  if (options.host === "pi") {
-    return discoverPiSessions({ root: identity.realPath }).sessions.map((session) => ({
-      key: session.key,
-      sessionId: session.sessionId,
-      createdAt: session.timestamp,
-      recordedDirectory: session.cwd,
-      ...resolveImportProject(session.cwd, options.pathMaps),
-    }));
-  }
-  if (options.host === "claude-code") {
-    // The reader loads the storage engine, so it stays out of this module's static imports.
-    const { discoverClaudeSessions } = await import("./claude-reader.js");
-    return discoverClaudeSessions({ root: identity.realPath }).sessions.map((session) => ({
-      key: session.key,
-      sessionId: session.sessionId,
-      createdAt: session.timestamp,
-      recordedDirectory: session.cwd,
-      ...resolveImportProject(session.cwd, options.pathMaps),
-    }));
-  }
-  const { openOpencodeHistory } = await import("./opencode-reader.js");
-  const history = await openOpencodeHistory(
-    identity.realPath,
-    {},
-    {
-      shared: { key: importSourceKey(identity), mode: snapshotMode },
-      ...(options.signal ? { signal: options.signal } : {}),
-    }
+  const rows = await HOST_IMPORTERS[options.host].listSessions(
+    { realPath: identity.realPath, snapshotKey: importSourceKey(identity) },
+    snapshotMode,
+    options.signal
   );
-  try {
-    return history.sessions.map((session) => ({
-      key: session.sessionId,
-      sessionId: session.sessionId,
-      createdAt: session.timeCreated,
-      recordedDirectory: session.recordedDirectory,
-      ...resolveImportProject(session.recordedDirectory, options.pathMaps, session.projectWorktree),
-    }));
-  } finally {
-    await history.close();
-  }
+  return rows.map((row) => ({
+    key: row.key,
+    sessionId: row.sessionId,
+    createdAt: row.createdAt,
+    recordedDirectory: row.recordedDirectory,
+    ...resolveImportProject(row.recordedDirectory, options.pathMaps, row.projectWorktree),
+  }));
 }
 
 /**
@@ -242,9 +215,7 @@ export interface SessionListRequest {
 export function validateSessionListRequest(value: unknown): SessionListRequest {
   const input = value as Record<string, unknown> | null;
   if (!input || typeof input !== "object") throw new Error("Invalid session list request");
-  if (input.host !== "pi" && input.host !== "opencode" && input.host !== "claude-code") {
-    throw new Error("Choose Pi, OpenCode, or Claude Code");
-  }
+  if (!isMemoryHost(input.host)) throw new Error(hostChoiceMessage());
   const scope = input.scope ?? "current-project";
   if (scope !== "current-project" && scope !== "all-projects") throw new Error("Invalid scope");
   const project = input.project;

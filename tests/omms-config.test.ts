@@ -500,7 +500,7 @@ describe("external model values and saved directory maps", () => {
   });
 
   it("rejects invalid map entries", async () => {
-    const { parseImportPathMaps } = await import("../src/importer/import-path-maps.js");
+    const { parseImportPathMaps } = await import("../src/utils/import-path-config.js");
     for (const importPathMaps of [
       "not-a-list",
       [{ from: "/a" }],

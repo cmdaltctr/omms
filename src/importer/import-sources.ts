@@ -1,27 +1,16 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import {
-  closeSync,
-  existsSync,
-  openSync,
-  readdirSync,
-  readSync,
-  realpathSync,
-  statSync,
-} from "node:fs";
+import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { claudeProjectsRoot } from "../services/claude-folder.js";
-import { DEFAULT_PI_SESSION_ROOT, readPiSessionHeader } from "./discovery.js";
 import type { ImportHost } from "./import-args.js";
-import { DEFAULT_OPENCODE_DB } from "./opencode-reader.js";
+import { HOST_IMPORTERS, type ImportSourceKind } from "./host-importers.js";
 
 /**
  * History sources chosen on the Settings page. The browser never uploads a
  * file: it names a server-side path, the server checks it once, and later
  * requests carry a signed token that pins the real path, device, and inode.
  */
-
-export type ImportSourceKind = "pi-folder" | "pi-file" | "opencode-db" | "claude-projects";
 
 export interface ImportSourceIdentity {
   host: ImportHost;
@@ -98,28 +87,13 @@ function checkedPath(path: unknown): string {
   }
 }
 
-function isSqliteFile(path: string): boolean {
-  const fd = openSync(path, "r");
-  try {
-    const buffer = Buffer.alloc(16);
-    readSync(fd, buffer, 0, 16, 0);
-    return buffer.toString("latin1") === "SQLite format 3\0";
-  } finally {
-    closeSync(fd);
-  }
-}
-
 /** The Claude projects folder; `claudeConfigDir` is `CONFIG.claudeConfigDir`. */
 export function defaultClaudeSourcePath(claudeConfigDir?: string): string {
   return claudeProjectsRoot(claudeConfigDir);
 }
 
-// One of about 29 host-name branches outside src/adapters/. A host registry would replace
-// them. Read "Host parity" in AGENTS.md before you add a fourth host.
 export function defaultImportSourcePath(host: ImportHost, claudeConfigDir?: string): string {
-  if (host === "pi") return DEFAULT_PI_SESSION_ROOT;
-  if (host === "claude-code") return defaultClaudeSourcePath(claudeConfigDir);
-  return DEFAULT_OPENCODE_DB;
+  return HOST_IMPORTERS[host].defaultSourcePath(claudeConfigDir);
 }
 
 export interface ValidatedImportSource {
@@ -132,24 +106,9 @@ export interface ValidatedImportSource {
 export function validateImportSource(host: ImportHost, path: unknown): ValidatedImportSource {
   const realPath = checkedPath(path);
   const info = statSync(realPath);
-  let kind: ImportSourceKind;
-  if (host === "pi") {
-    if (info.isDirectory()) kind = "pi-folder";
-    else if (info.isFile() && realPath.endsWith(".jsonl")) {
-      if ("reason" in readPiSessionHeader(realPath, "")) {
-        throw new ImportSourceError("The file is not a Pi session file");
-      }
-      kind = "pi-file";
-    } else throw new ImportSourceError("Choose a Pi sessions folder or one .jsonl session file");
-  } else if (host === "claude-code") {
-    if (!info.isDirectory()) throw new ImportSourceError("Choose a Claude Code transcripts folder");
-    kind = "claude-projects";
-  } else {
-    if (!info.isFile() || !isSqliteFile(realPath)) {
-      throw new ImportSourceError("Choose an OpenCode database file");
-    }
-    kind = "opencode-db";
-  }
+  const checked = HOST_IMPORTERS[host].sourceKind(realPath, info);
+  if ("error" in checked) throw new ImportSourceError(checked.error);
+  const { kind } = checked;
   const identity: ImportSourceIdentity = { host, kind, realPath, dev: info.dev, ino: info.ino };
   return { kind, displayPath: realPath, sourceToken: signImportSource(identity) };
 }
@@ -173,10 +132,7 @@ export function browseImportSources(
 ): { path: string; parent: string | null; entries: BrowseEntry[]; truncated: boolean } {
   let start = path;
   if (start === undefined || start === null || start === "") {
-    const preferred =
-      host === "opencode"
-        ? dirname(DEFAULT_OPENCODE_DB)
-        : defaultImportSourcePath(host, claudeConfigDir);
+    const preferred = HOST_IMPORTERS[host].browseStart(claudeConfigDir);
     start = existsSync(preferred) ? preferred : homedir();
   }
   const folder = checkedPath(start);
@@ -185,12 +141,9 @@ export function browseImportSources(
   for (const entry of readdirSync(folder, { withFileTypes: true })) {
     if (entry.isSymbolicLink()) continue;
     const full = join(folder, entry.name);
+    const fileKind = entry.isFile() ? HOST_IMPORTERS[host].browseFileKind(entry.name) : null;
     if (entry.isDirectory()) entries.push({ name: entry.name, path: full, kind: "folder" });
-    else if (entry.isFile() && host === "pi" && entry.name.endsWith(".jsonl")) {
-      entries.push({ name: entry.name, path: full, kind: "pi-file" });
-    } else if (entry.isFile() && host === "opencode" && entry.name.endsWith(".db")) {
-      entries.push({ name: entry.name, path: full, kind: "opencode-db" });
-    }
+    else if (fileKind) entries.push({ name: entry.name, path: full, kind: fileKind });
   }
   entries.sort(
     (a, b) =>

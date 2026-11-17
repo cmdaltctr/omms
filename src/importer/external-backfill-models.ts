@@ -1,6 +1,6 @@
 import { externalModelIssues } from "../services/ai/live-model-choice.js";
-import { hostLabel } from "../types/host-label.js";
-import type { BackfillHost } from "./backfill-model.js";
+import { hostLabel } from "../shared/hosts.js";
+import type { BackfillHost } from "../utils/backfill-model.js";
 import type { SelectedImportModel } from "./model-selection.js";
 import type { HistoryImportModels } from "./run-import.js";
 

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { CONFIG } from "../config.js";
-import { hostLabel } from "../types/host-label.js";
+import { hostLabel } from "../shared/hosts.js";
 import {
   parseHistoryImportArgs,
   webImportTokens,

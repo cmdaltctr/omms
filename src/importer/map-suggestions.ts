@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, parse, resolve, sep } from "node:path";
 import type { UnresolvedDirectory } from "../services/backfill-state.js";
+import { HOSTS, type MemoryHost } from "../shared/hosts.js";
 
 const PROJECT_MARKERS = [".git", "package.json", "pyproject.toml", "Cargo.toml", "go.mod"];
 
@@ -443,7 +444,8 @@ export async function directoryMapsView(
     ...CONFIG.importPathMaps.map((map) => ({ path: map.to })),
     ...[...worktrees.values()].map((path) => ({ path })),
   ];
-  const host = async (name: "pi" | "opencode" | "claude-code") => {
+  const { HOST_IMPORTERS } = await import("./host-importers.js");
+  const host = async (name: MemoryHost) => {
     const pending = (await readUnresolvedDirectories(name)).filter(
       // Config paths are resolved; a recorded path may carry a trailing separator.
       (item) => !item.directory || !hidden.has(resolve(item.directory))
@@ -451,14 +453,13 @@ export async function directoryMapsView(
     return suggestMapTargets(pending, {
       knownProjects,
       claudeFolder,
-      ...(name === "opencode" ? { opencodeWorktree: (dir: string) => worktrees.get(dir) } : {}),
+      ...(HOST_IMPORTERS[name].worktreeHints
+        ? { opencodeWorktree: (dir: string) => worktrees.get(dir) }
+        : {}),
     });
   };
-  return {
-    saved: CONFIG.importPathMaps,
-    ignored,
-    pi: await host("pi"),
-    opencode: await host("opencode"),
-    "claude-code": await host("claude-code"),
-  };
+  // One host at a time, in registry order, as before.
+  const hosts = {} as Record<MemoryHost, Awaited<ReturnType<typeof host>>>;
+  for (const name of HOSTS) hosts[name] = await host(name);
+  return { saved: CONFIG.importPathMaps, ignored, ...hosts };
 }

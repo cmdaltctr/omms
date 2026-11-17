@@ -217,3 +217,63 @@ it("reports whether each host's default history source exists on this machine", 
   });
   expect(second.defaultSourceFound).toEqual({ pi: false, opencode: true, "claude-code": true });
 });
+
+it("gives each host's blocked reason with and without a model (characterisation)", async () => {
+  configure({});
+  const ready = await importReadiness(deps);
+  const noPi = await importReadiness({
+    ...deps,
+    loadPiSdk: async () => {
+      throw new Error("Cannot find module");
+    },
+  });
+  configure({ memoryApiUrl: undefined });
+  const noUrl = await importReadiness(deps);
+  const piSdk =
+    "The Pi SDK (@earendil-works/pi-coding-agent) was not found. Install Pi on this computer.";
+  const noUrlReason = "The external API has no memoryApiUrl in the global config";
+  const cases: Array<
+    [typeof ready, "pi" | "opencode" | "claude-code", boolean, string | undefined, string | null]
+  > = [];
+  for (const host of ["pi", "opencode"] as const) {
+    cases.push(
+      [ready, host, false, undefined, null],
+      [ready, host, true, undefined, "Choose an import model"],
+      [ready, host, true, "external", null],
+      [ready, host, true, "zai/glm", null],
+      [noUrl, host, true, "external", noUrlReason],
+      [ready, host, true, "zai/other", "The chosen OpenCode model is not connected"]
+    );
+  }
+  cases.push(
+    [ready, "claude-code", false, undefined, null],
+    [ready, "claude-code", true, undefined, null],
+    [ready, "claude-code", true, "external", null],
+    [ready, "claude-code", true, "zai/glm", "Claude Code imports use the external API"],
+    [noUrl, "claude-code", true, undefined, noUrlReason],
+    [noPi, "pi", false, undefined, piSdk],
+    [noPi, "pi", true, "external", piSdk],
+    [noPi, "opencode", true, "external", null],
+    [noPi, "claude-code", true, undefined, null]
+  );
+  for (const [readiness, host, needsModel, modelChoice, reason] of cases) {
+    const request = { host, needsModel, ...(modelChoice ? { modelChoice } : {}) };
+    expect([host, needsModel, modelChoice, importBlockedReason(readiness, request)]).toEqual([
+      host,
+      needsModel,
+      modelChoice,
+      reason,
+    ]);
+  }
+});
+
+// Characterisation (modular-boundaries): the object is now built from the host registry.
+it("lists each host's default source check in host order", async () => {
+  configure({});
+  const readiness = await importReadiness({
+    ...deps,
+    claudeRoot: () => "/claude/projects",
+    sourceExists: () => false,
+  });
+  expect(Object.keys(readiness.defaultSourceFound)).toEqual(["pi", "opencode", "claude-code"]);
+});

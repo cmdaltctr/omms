@@ -53,3 +53,4 @@ Local decision records for OMMS maintainers.
 | [047](./047-memorisations-are-a-record-kind-in-the-memory-store.md)         | Memorisations are a record kind in the memory store                             | 2026-11-10 | Proposed           |
 | [048](./048-omms-supports-opencode-v2-only.md)                              | OMMS supports OpenCode V2 only                                                  | 2026-11-11 | Proposed           |
 | [049](./049-memorisations-belong-to-the-space.md)                           | Memorisations belong to the space                                               | 2026-11-12 | Accepted           |
+| [050](./050-one-host-registry-and-modularity-ratchets.md)                   | One host registry, and ratchets on modularity debt                              | 2026-11-17 | Proposed           |

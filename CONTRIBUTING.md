@@ -46,7 +46,9 @@ needs internet access once.
 
 Read [docs/shared-core.md](docs/shared-core.md) before you move code between
 `src/core/`, `src/services/`, and the host adapters. Tests enforce those
-boundaries.
+boundaries. Shared code reads host facts from the host registry
+(`src/shared/hosts.ts`) and never compares host names. Ratchet tests stop new
+`CONFIG` imports, storage-engine imports and SQL outside the storage folder.
 
 ## Check your work
 

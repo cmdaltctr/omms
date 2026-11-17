@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { CONFIG } from "../config.js";
 import { tursoConnectionManager } from "../services/turso/connection-manager.js";
-import type { BackfillHost } from "./backfill-model.js";
+import type { BackfillHost } from "../utils/backfill-model.js";
 
 type LockState = { pid: number; token: string };
 

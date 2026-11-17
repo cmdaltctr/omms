@@ -349,4 +349,15 @@ describe("V2 command registration", () => {
     expect(posted[1]!.text).toContain("this session has no model yet");
     await (dispose as any)?.();
   });
+  it("resolves each import-*-history command to its host", async () => {
+    const { parseImportArgs } = await import("../src/cli/index.js");
+    expect(parseImportArgs(["import-opencode-history"]).host).toBe("opencode");
+    expect(parseImportArgs(["import-pi-history"]).host).toBe("pi");
+    expect(parseImportArgs(["import-claude-history"]).host).toBe("claude-code");
+    for (const command of ["import-claude", "import-codex-history", ""]) {
+      expect(() => parseImportArgs([command])).toThrow(
+        "Expected import-opencode-history, import-pi-history, or import-claude-history; use --help"
+      );
+    }
+  });
 });

@@ -1,3 +1,4 @@
+import type { MemoryHost } from "../shared/hosts.js";
 import type { SettingsModel } from "./backfill-controls.js";
 import type { StandaloneResult } from "./opencode-standalone-models.js";
 
@@ -128,4 +129,10 @@ export async function listPiSettingsModels(
   } catch {
     return { available: false as const, reason: PI_LIST_UNAVAILABLE };
   }
+}
+
+/** The Settings model list for a host, or null when the host has no list. */
+export async function listSettingsModels(host: MemoryHost) {
+  const { HOST_IMPORTERS } = await import("./host-importers.js");
+  return (await HOST_IMPORTERS[host].settingsModels?.()) ?? null;
 }

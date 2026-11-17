@@ -1,9 +1,10 @@
 import type { ImportHost } from "../importer/import-args.js";
 import type { GroupImportJob } from "../importer/web-import-group.js";
+import { hostLabelList } from "../shared/hosts.js";
 
 export const RECORD_PAST_USAGE = `Usage: om-memory-system skills record-past [options]
 
-Record past turns from every set-up host's history (Pi, OpenCode, Claude Code),
+Record past turns from every set-up host's history (${hostLabelList(", ")}),
 all projects, with no date limit. It calls no model and is safe to run again.
 Without --yes the command prints the counts and records nothing.
 
@@ -61,7 +62,7 @@ export async function runSkillsRecordPast(
         import("../importer/import-readiness.js"),
         import("../importer/record-past-turns.js"),
         import("../importer/web-import-jobs.js"),
-        import("../types/host-label.js"),
+        import("../shared/hosts.js"),
       ]);
     const readiness = await importReadiness();
     const jobs = new SettingsImportJobs({ surface: "cli", readiness: async () => readiness });
