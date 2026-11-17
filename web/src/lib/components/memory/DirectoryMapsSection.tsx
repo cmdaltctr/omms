@@ -8,6 +8,7 @@ import {
 } from "$lib/settings-api";
 import { mapsToSave, type MapDecision, type PathMap } from "$lib/external-api-settings";
 import { useSettingsText } from "$lib/i18n/settings";
+import type { WebHost } from "$lib/host-label";
 import {
   confirmedEdits,
   groupSavedMaps,
@@ -21,9 +22,13 @@ import { DirectoryMapHost } from "../settings/DirectoryMapHost";
 import { DirectoryMapReviewDialog } from "../settings/DirectoryMapReviewDialog";
 import { IgnoreAllDialog } from "../settings/IgnoreAllDialog";
 import { Button } from "$lib/components/ui/button";
+import { ReadOnlyNote } from "../settings/ReadOnlyNote";
 
-type Snapshot = { revision: string; settings?: { importPathMaps?: { globalValue?: PathMap[] } } };
-type Host = "pi" | "opencode" | "claude-code";
+type Snapshot = {
+  readOnly?: boolean;
+  revision: string;
+  settings?: { importPathMaps?: { globalValue?: PathMap[] } };
+};
 type Suggested = SuggestedDirectory;
 type View = {
   saved: PathMap[];
@@ -46,20 +51,20 @@ export function DirectoryMapsSection({
   title,
   anchorId,
 }: {
-  hosts?: readonly Host[];
+  hosts?: readonly WebHost[];
   saved?: boolean;
   title?: string;
   anchorId?: string;
 } = {}) {
   const s = useSettingsText();
-  const [ignoringAll, setIgnoringAll] = useState<{ host: Host; rows: Suggested[] }>();
+  const [ignoringAll, setIgnoringAll] = useState<{ host: WebHost; rows: Suggested[] }>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [view, setView] = useState<View>();
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<Record<string, MapDecision>>({});
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [pending, setPending] = useState<{ host: Host; review: DirectoryMapReview }>();
+  const [pending, setPending] = useState<{ host: WebHost; review: DirectoryMapReview }>();
   const [reviewError, setReviewError] = useState("");
   const [refreshNeeded, setRefreshNeeded] = useState<"saved" | "conflict">();
   const saving = useRef(false);
@@ -103,7 +108,8 @@ export function DirectoryMapsSection({
       unsubscribe();
     };
   }, []);
-  function smartResolve(host: Host, rows: Suggested[]) {
+  const readOnly = snapshot?.readOnly === true;
+  function smartResolve(host: WebHost, rows: Suggested[]) {
     if (saving.current || refreshNeeded) return;
     setReviewError("");
     setPending({ host, review: reviewDirectoryMaps(rows, decisions) });
@@ -353,11 +359,14 @@ export function DirectoryMapsSection({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={busy || !!refreshNeeded || !snapshot || !view || removed.size === 0}
+                disabled={
+                  busy || readOnly || !!refreshNeeded || !snapshot || !view || removed.size === 0
+                }
                 onClick={saveRemovals}
               >
                 {s("Save removals")}
               </Button>
+              <ReadOnlyNote show={readOnly} />
               {!view?.saved.length && <p className="text-sm text-muted-foreground">{s("none")}</p>}
               {groupSavedMaps(view?.saved ?? []).map((group) => (
                 <details key={group.target} className="min-w-0 border-t border-border pt-2">
@@ -420,7 +429,7 @@ export function DirectoryMapsSection({
                     type="button"
                     className="shrink-0 rounded border border-border px-2 py-0.5 text-xs"
                     aria-label={`${s("Restore")} ${directory}`}
-                    disabled={busy || !!refreshNeeded || !snapshot}
+                    disabled={busy || readOnly || !!refreshNeeded || !snapshot}
                     onClick={() => restore(directory)}
                   >
                     {s("Restore")}

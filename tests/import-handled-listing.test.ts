@@ -179,3 +179,12 @@ it("looks up handled by session id for every host's key shape and never for a nu
   const handled = await handledKeys(rows, { memories: true, profile: false });
   expect([...handled].sort()).toEqual(["sess-one", "sub/two.jsonl"]);
 });
+
+// Characterisation (modular-boundaries): the message is now built from the host labels.
+it("refuses an unknown host in a session-list request with the host choice message", () => {
+  for (const host of ["codex", "claude", undefined, 1]) {
+    expect(() => validateSessionListRequest({ host })).toThrow(
+      new Error("Choose Pi, OpenCode, or Claude Code")
+    );
+  }
+});

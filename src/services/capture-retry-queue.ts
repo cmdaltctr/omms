@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import type { CaptureWorkUnit } from "../core/capture.js";
 import { captureRetryDelayMs, type CaptureFailureInfo } from "../core/capture-retry-policy.js";
+import { HOSTS, isMemoryHost } from "../shared/hosts.js";
 import type { MemoryHost } from "../types/index.js";
 import { redactTraceText, type CaptureDiagnosticsConfig } from "./capture-diagnostics.js";
 import { log } from "./logger.js";
@@ -261,12 +262,14 @@ export async function countCaptureRetries(
   const rows = await db.all(
     "SELECT host, COUNT(*) AS count FROM capture_retry_queue GROUP BY host"
   );
-  const counts: Record<MemoryHost, number> = { opencode: 0, pi: 0, "claude-code": 0 };
+  // This response has always listed OpenCode first; every other host follows in registry order.
+  const counts = {
+    opencode: 0,
+    ...Object.fromEntries(HOSTS.map((host) => [host, 0])),
+  } as Record<MemoryHost, number>;
   for (const row of rows) {
     const host = String(row.host);
-    if (host === "opencode" || host === "pi" || host === "claude-code") {
-      counts[host] = Number(row.count);
-    }
+    if (isMemoryHost(host)) counts[host] = Number(row.count);
   }
   return counts;
 }

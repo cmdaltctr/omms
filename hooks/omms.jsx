@@ -62,7 +62,7 @@ function startStatus($, kept) {
       await update($, label, () => ({ state: "not installed", update: null }));
       return;
     }
-    const state = facts.web ? "connected" : "web app off";
+    const state = facts.web === "capture off" ? facts.web : facts.web ? "connected" : "web app off";
     const newer =
       facts.version && facts.latest && isNewer(facts.latest, facts.version) ? facts.latest : null;
     await update($, label, () => ({ state, update: newer }));
@@ -80,7 +80,10 @@ function startStatus($, kept) {
       try {
         const response = await $.http.fetch(facts.healthUrl);
         if (response.status === 401) return true;
-        return response.ok && JSON.parse(response.text).success === true;
+        const body = response.ok ? JSON.parse(response.text) : null;
+        if (body?.success !== true) return false;
+        // An older web app sends no capture state: that counts as connected.
+        return body.claudeCapture === "needs-setup" ? "capture off" : true;
       } catch {
         return false;
       }

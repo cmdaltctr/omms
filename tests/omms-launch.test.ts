@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { spawnSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -378,5 +379,152 @@ describe("runLauncher", () => {
     expect(seen).toEqual([
       { command: process.execPath, args: [join(root, "dist", "cli", "index.js"), "web"] },
     ]);
+  });
+});
+
+describe("incomplete copies", () => {
+  /** A global install beside a fake Node.js, as npm writes it, and that Node.js path. */
+  function globalCopy(version: string): { root: string; execPath: string } {
+    const execPath = join(base, "prefix", "bin", "node");
+    const root = globalPackageRoot(execPath)!;
+    mkdirSync(join(root, "dist", "cli"), { recursive: true });
+    writeFileSync(join(root, "dist", "cli", "index.js"), "");
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({
+        name: "om-memory-system",
+        version,
+        dependencies: { "@libsql/client": "^0.17" },
+      })
+    );
+    mkdirSync(join(root, "node_modules", "@libsql", "client"), { recursive: true });
+    writeFileSync(join(root, "node_modules", "@libsql", "client", "package.json"), "{}");
+    return { root, execPath };
+  }
+
+  it("starts the next valid copy when the newest global copy has an empty folder (14 November)", async () => {
+    const global = globalCopy("6.4.0");
+    // `js-base64` is a dependency of `@libsql/hrana-client`, not of OMMS itself.
+    mkdirSync(join(global.root, "node_modules", "js-base64"), { recursive: true });
+    const home = join(base, ".omms");
+    const pi = makeCopy("pi-cache", "6.3.0");
+    registerCopy({ dir: home, root: pi });
+    const seen: string[][] = [];
+    const code = await runLauncher(["web", "--login-item"], {
+      dir: home,
+      execPath: global.execPath,
+      ownRoot: join(base, "no-dist"),
+      now: () => 0,
+      log: () => {},
+      spawn: async (_command, args) => {
+        seen.push(args);
+        return 0;
+      },
+    });
+    expect(code).toBe(0);
+    expect(seen).toEqual([[join(pi, "dist", "cli", "index.js"), "web", "--login-item"]]);
+  });
+
+  it("prints one line naming the missing dependency and exits 1 when no copy is valid", () => {
+    const global = globalCopy("6.4.0");
+    mkdirSync(join(global.root, "node_modules", "js-base64"), { recursive: true });
+    const folder = join(base, "isolated", "bin");
+    mkdirSync(folder, { recursive: true });
+    const launcher = join(folder, "omms-launch.mjs");
+    writeFileSync(launcher, readLauncher());
+    const home = join(base, "home");
+    mkdirSync(home, { recursive: true });
+    // The launcher runs under the fake Node.js path, so its global install is the broken one.
+    const script = join(base, "run-broken.mjs");
+    writeFileSync(
+      script,
+      `const { runLauncher } = await import(${JSON.stringify(pathToFileURL(launcher).href)});
+process.exitCode = await runLauncher(["memory"], { execPath: ${JSON.stringify(global.execPath)} });\n`
+    );
+    const result = spawnSync(process.execPath, [script], {
+      encoding: "utf8",
+      env: { ...process.env, HOME: home, USERPROFILE: home },
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr.trim().split(/\r?\n/)).toEqual([
+      "omms-launch: no complete OMMS copy found (missing js-base64). Run: npx -p om-memory-system@latest om-memory-system web update",
+    ]);
+  });
+
+  it("logs the missing dependency before it counts the failed login-item start", async () => {
+    const global = globalCopy("6.4.0");
+    mkdirSync(join(global.root, "node_modules", "js-base64"), { recursive: true });
+    const home = join(base, ".omms");
+    const logs: Record<string, unknown>[] = [];
+    const code = await runLauncher(["web", "--login-item"], {
+      dir: home,
+      execPath: global.execPath,
+      ownRoot: join(base, "no-dist"),
+      now: () => 0,
+      log: (data: Record<string, unknown>) => logs.push(data),
+      spawn: async () => 0,
+    });
+    expect(code).toBe(1);
+    // stderr goes to /dev/null under the login item, so the log is the only trace.
+    expect(logs).toEqual([{ code: "no-valid-copy", missing: "js-base64" }]);
+    expect(JSON.parse(readFileSync(join(home, "web-starts.json"), "utf8"))).toEqual([0]);
+  });
+});
+
+describe("login item restart limit", () => {
+  function login(config: { exit: number; now: number; args?: string[] }) {
+    const home = join(base, ".omms");
+    const root = makeCopy("a", "6.5.0");
+    const logs: Record<string, unknown>[] = [];
+    let spawned = 0;
+    const run = runLauncher(config.args ?? ["web", "--login-item"], {
+      dir: home,
+      execPath: join(base, "x", "bin", "node"),
+      ownRoot: root,
+      now: () => config.now,
+      log: (data: Record<string, unknown>) => logs.push(data),
+      spawn: async () => {
+        spawned++;
+        return config.exit;
+      },
+    });
+    return run.then((code) => ({ code, logs, spawned, starts: join(home, "web-starts.json") }));
+  }
+  const MINUTE = 60_000;
+
+  it("stops after 5 failed starts within 10 minutes, logs restart-limit and exits 0", async () => {
+    for (let i = 0; i < 5; i++) {
+      const failed = await login({ exit: 1, now: i * MINUTE });
+      expect([failed.code, failed.spawned, failed.logs]).toEqual([1, 1, []]);
+    }
+    const sixth = await login({ exit: 1, now: 5 * MINUTE });
+    expect(sixth.code).toBe(0);
+    expect(sixth.spawned).toBe(0);
+    expect(sixth.logs).toEqual([{ code: "restart-limit", failures: 5 }]);
+    // Nothing restarts an exit with 0, so the next login starts afresh.
+    const nextLogin = await login({ exit: 0, now: 6 * MINUTE });
+    expect([nextLogin.code, nextLogin.spawned]).toEqual([0, 1]);
+  });
+
+  it("forgets failures older than 10 minutes", async () => {
+    for (let i = 0; i < 4; i++) await login({ exit: 1, now: 0 });
+    await login({ exit: 1, now: 11 * MINUTE });
+    const next = await login({ exit: 1, now: 11 * MINUTE });
+    expect([next.spawned, next.logs]).toEqual([1, []]);
+  });
+
+  it("does not count a start that exits with 0 (Stop, hand-over, update restart)", async () => {
+    for (let i = 0; i < 6; i++) await login({ exit: 0, now: 0 });
+    for (let i = 0; i < 4; i++) await login({ exit: 1, now: 0 });
+    const fifth = await login({ exit: 1, now: 0 });
+    expect([fifth.spawned, fifth.logs]).toEqual([1, []]);
+  });
+
+  it("counts nothing outside the login item", async () => {
+    for (let i = 0; i < 6; i++) {
+      const plain = await login({ exit: 1, now: 0, args: ["web"] });
+      expect([plain.spawned, plain.logs]).toEqual([1, []]);
+      expect(existsSync(plain.starts)).toBe(false);
+    }
   });
 });

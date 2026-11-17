@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { compactField, Select } from "$lib/components/ui/select";
+import { Loader, Lock, LockOpen } from "lucide-react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { Button } from "$lib/components/ui/button";
+import { Input } from "$lib/components/ui/input";
+import { Label } from "$lib/components/ui/label";
+import { Select } from "$lib/components/ui/select";
 import {
   beginSettingsRead,
   onSettingsSnapshot,
@@ -7,7 +12,9 @@ import {
   settingsRequest,
   withBusy,
 } from "$lib/settings-api";
-import { useSettingsText } from "$lib/i18n/settings";
+import { useCardText } from "$lib/i18n/settings-cards";
+import { SettingRow } from "./SettingRow";
+import { KeySourceField, type KeyChoice } from "./KeySourceField";
 import {
   EMBEDDING_PRESETS,
   canApply,
@@ -20,6 +27,7 @@ import {
   presetUrl,
   type EmbeddingFields,
 } from "$lib/embedding-settings";
+import { ReadOnlyNote } from "./ReadOnlyNote";
 
 export type EmbeddingRun = {
   state: "idle" | "running" | "done" | "failed";
@@ -34,7 +42,11 @@ export type CurrentEmbedding = {
   memoryCount: number;
   run: EmbeddingRun;
 };
-type Snapshot = { revision: string; secrets: Record<string, { set: boolean } | undefined> };
+type Snapshot = {
+  readOnly?: boolean;
+  revision: string;
+  secrets: Record<string, { set: boolean } | undefined>;
+};
 
 /** The embedder in use, read-only, as the locked card shows it. */
 export function EmbeddingSummary({
@@ -44,7 +56,7 @@ export function EmbeddingSummary({
   current: CurrentEmbedding;
   keySet: boolean;
 }) {
-  const s = useSettingsText();
+  const s = useCardText();
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
       <dt>{s("Kind")}</dt>
@@ -69,7 +81,7 @@ export function EmbeddingSummary({
 
 /** Re-embed progress, and the reason with a Retry button after a failure. */
 export function EmbeddingRunStatus({ run, onRetry }: { run: EmbeddingRun; onRetry: () => void }) {
-  const s = useSettingsText();
+  const s = useCardText();
   if (run.state === "idle") return null;
   return (
     <div role="status" className="space-y-1 text-sm">
@@ -84,13 +96,9 @@ export function EmbeddingRunStatus({ run, onRetry }: { run: EmbeddingRun; onRetr
           <p className="text-red-600">
             {s("Re-embed failed")}: {run.error ?? ""}
           </p>
-          <button
-            type="button"
-            className="rounded border border-border px-3 py-1.5"
-            onClick={onRetry}
-          >
+          <Button type="button" variant="outline" onClick={onRetry}>
             {s("Retry")}
-          </button>
+          </Button>
         </>
       )}
     </div>
@@ -108,7 +116,8 @@ function fieldsFrom(current: CurrentEmbedding, keySet: boolean): EmbeddingFields
 }
 
 export function EmbeddingSection() {
-  const s = useSettingsText();
+  const s = useCardText();
+  const { ask, dialog } = useSettingsConfirm();
   const [current, setCurrent] = useState<CurrentEmbedding>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [local, setLocal] = useState(false);
@@ -120,8 +129,10 @@ export function EmbeddingSection() {
     progress: { processed: 0, total: 0 },
   });
   const [message, setMessage] = useState("");
+  const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const readOnly = snapshot?.readOnly === true;
   async function loadCurrent() {
     const value = await settingsRequest<CurrentEmbedding>("/api/settings/embedding");
     setCurrent(value);
@@ -160,6 +171,11 @@ export function EmbeddingSection() {
     return () => clearInterval(timer);
   }, [run.state]);
 
+  function report(ok: boolean, text: string) {
+    setFailed(!ok);
+    setMessage(text);
+  }
+
   function toggleLock() {
     // Locking again, like Cancel, drops every unsaved edit.
     if (unlocked || !current) {
@@ -185,40 +201,56 @@ export function EmbeddingSection() {
         );
         if (result.ok && result.dimensions) {
           setPassed({ key: candidateKey(fields), dimensions: result.dimensions });
-          setMessage(`${s("Test passed. Vector size")}: ${result.dimensions}`);
+          report(true, `${s("Test passed. Vector size")}: ${result.dimensions}`);
         } else {
           setPassed(undefined);
-          setMessage(`${s("Test failed")}: ${result.reason ?? ""}`);
+          report(false, `${s("Test failed")}: ${result.reason ?? ""}`);
         }
       } catch (error) {
-        setMessage(s((error as Error).message));
+        report(false, s((error as Error).message));
       }
     });
   }
 
-  async function apply() {
+  function apply() {
     if (!fields || !current || !snapshot) return;
     const { count, risks } = confirmation(current.memoryCount, fields);
-    const text = [
-      `${s("Every stored memory will be re-embedded")}: ${count}`,
-      ...risks.map((risk) => s(risk)),
-    ].join("\n");
-    if (!window.confirm(text)) return;
-    await withBusy(setBusy, async () => {
-      try {
-        const started = await settingsRequest<EmbeddingRun>("/api/settings/embedding/apply", {
-          method: "POST",
-          body: JSON.stringify({ candidate: candidateBody(fields), revision: snapshot.revision }),
-        });
-        setRun(started);
-        setUnlocked(false);
-        setFields(undefined);
-        setPassed(undefined);
-        setMessage("");
-      } catch (error) {
-        setMessage((error as Error).message);
-      }
-      await reloadSettingsSnapshot<Snapshot>();
+    ask({
+      title: s("Re-embed every memory?"),
+      body: (
+        <>
+          <p>{`${s("Every stored memory will be re-embedded")}: ${count}`}</p>
+          <ul className="list-disc ps-5">
+            {risks.map((risk) => (
+              <li key={risk}>{s(risk)}</li>
+            ))}
+          </ul>
+        </>
+      ),
+      confirmLabel: s("Re-embed"),
+      busyLabel: s("Re-embedding…"),
+      destructive: true,
+      run: async () => {
+        try {
+          const started = await settingsRequest<EmbeddingRun>("/api/settings/embedding/apply", {
+            method: "POST",
+            body: JSON.stringify({
+              candidate: candidateBody(fields),
+              revision: snapshot.revision,
+            }),
+          });
+          setRun(started);
+          setUnlocked(false);
+          setFields(undefined);
+          setPassed(undefined);
+          setMessage("");
+          await reloadSettingsSnapshot<Snapshot>();
+          return { success: true };
+        } catch (error) {
+          await reloadSettingsSnapshot<Snapshot>();
+          return { success: false, error: (error as Error).message };
+        }
+      },
     });
   }
 
@@ -231,11 +263,13 @@ export function EmbeddingSection() {
         })
       );
     } catch (error) {
-      setMessage((error as Error).message);
+      report(false, (error as Error).message);
     }
   }
 
-  const keySet = Boolean(snapshot?.secrets.embeddingApiKey?.set);
+  const saved = snapshot?.secrets.embeddingApiKey;
+  const keySet = Boolean(saved?.set);
+  const lockLabel = s(unlocked ? "Lock" : "Unlock to change");
   return (
     <section
       className="space-y-3 rounded-xl border border-border bg-card p-4"
@@ -244,172 +278,154 @@ export function EmbeddingSection() {
       <div className="flex items-center justify-between">
         <h2 className="text-section-title font-semibold">{s("Embedding")}</h2>
         {local && (
-          <button
+          <Button
             type="button"
-            aria-label={s(unlocked ? "Lock" : "Unlock to change")}
-            title={s(unlocked ? "Lock" : "Unlock to change")}
-            className="rounded border border-border px-2 py-1"
+            variant="outline"
+            size="icon-sm"
+            aria-label={lockLabel}
+            title={lockLabel}
             disabled={!current || run.state === "running"}
             onClick={toggleLock}
           >
-            {unlocked ? "🔓" : "🔒"}
-          </button>
+            {unlocked ? <LockOpen aria-hidden="true" /> : <Lock aria-hidden="true" />}
+          </Button>
         )}
       </div>
       <p className="text-sm text-muted-foreground">
         {s(
-          "The model that turns memory text into search vectors. A change re-embeds every memory."
+          "This model lets OMMS find memories by meaning. If you change it, OMMS must process every saved memory again before search works well."
         )}
       </p>
       {current && !unlocked && <EmbeddingSummary current={current} keySet={keySet} />}
       {unlocked && fields && (
-        <div className="space-y-2 text-sm">
-          {(["builtin", "server"] as const).map((kind) => (
-            <label key={kind} className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="omms-embedding-kind"
-                checked={fields.kind === kind}
-                onChange={() =>
-                  edit(
-                    kindChange(
-                      kind,
-                      current?.kind === "builtin" ? current.model : DEFAULT_BUILTIN_MODEL
-                    )
+        <div className="space-y-4 text-sm">
+          <div className="space-y-1">
+            <Label htmlFor="embedding-kind">{s("Kind")}</Label>
+            <Select
+              id="embedding-kind"
+              aria-label={s("Kind")}
+              value={fields.kind}
+              onChange={(event) =>
+                edit(
+                  kindChange(
+                    event.target.value as EmbeddingFields["kind"],
+                    current?.kind === "builtin" ? current.model : DEFAULT_BUILTIN_MODEL
                   )
-                }
-              />
-              {s(kind === "server" ? "OpenAI-compatible server" : "Built-in model")}
-            </label>
-          ))}
+                )
+              }
+            >
+              <option value="builtin">{s("Built-in model")}</option>
+              <option value="server">{s("OpenAI-compatible server")}</option>
+            </Select>
+          </div>
           {fields.kind === "server" && (
             <>
-              <label className="block">
-                {s("Preset")}
-                <div className={compactField}>
-                  <Select
-                    aria-label={s("Preset")}
-                    className="mt-1 block w-full rounded border border-border bg-background p-2"
-                    value={
-                      EMBEDDING_PRESETS.find((preset) => preset.url === fields.url)?.id ?? "custom"
-                    }
-                    onChange={(event) => edit({ url: presetUrl(event.target.value, fields.url) })}
-                  >
-                    {EMBEDDING_PRESETS.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.id === "custom" ? s("Custom") : preset.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              </label>
-              <label className="block">
-                {s("Server URL")}
-                <input
-                  className="mt-1 block w-full rounded border border-border bg-background p-2"
+              <div className="space-y-1">
+                <Label htmlFor="embedding-preset">{s("Preset")}</Label>
+                <Select
+                  id="embedding-preset"
+                  aria-label={s("Preset")}
+                  value={
+                    EMBEDDING_PRESETS.find((preset) => preset.url === fields.url)?.id ?? "custom"
+                  }
+                  onChange={(event) => edit({ url: presetUrl(event.target.value, fields.url) })}
+                >
+                  {EMBEDDING_PRESETS.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.id === "custom" ? s("Custom") : preset.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <SettingRow setting="embeddingApiUrl" controlId="embedding-url">
+                <Input
+                  id="embedding-url"
+                  dir="ltr"
                   value={fields.url}
                   onChange={(event) => edit({ url: event.target.value })}
                 />
-              </label>
+              </SettingRow>
             </>
           )}
-          <label className="block">
-            {s("Model")}
-            <input
-              className="mt-1 block w-full rounded border border-border bg-background p-2"
+          <SettingRow setting="embeddingModel" controlId="embedding-model">
+            <Input
+              id="embedding-model"
+              dir="ltr"
               placeholder={
                 fields.kind === "server" ? "nomic-embed-text" : "Xenova/nomic-embed-text-v1"
               }
               value={fields.model}
               onChange={(event) => edit({ model: event.target.value })}
             />
-          </label>
+          </SettingRow>
           {fields.kind === "server" && (
-            <fieldset className="space-y-2 rounded-lg border border-border p-3">
-              <legend className="px-1 font-medium">{s("API key")}</legend>
-              {(
-                [
-                  ["none", "No key"],
-                  ...(keySet ? ([["saved", "Keep the saved key"]] as const) : []),
-                  ["env", "Environment variable"],
-                  ["file", "Key file"],
-                  ["paste", "Save key to a private file"],
-                ] as const
-              ).map(([id, label]) => (
-                <label key={id} className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="omms-embedding-key"
-                    checked={fields.key === id}
-                    onChange={() => edit({ key: id })}
-                  />
-                  {s(label)}
-                </label>
-              ))}
-              {fields.key === "env" && (
-                <input
-                  aria-label={s("Variable name")}
-                  className="w-full rounded border border-border bg-background p-2"
-                  placeholder="OPENROUTER_API_KEY"
-                  value={fields.keyInput.name}
-                  onChange={(event) =>
-                    edit({ keyInput: { ...fields.keyInput, name: event.target.value } })
+            <SettingRow setting="embeddingApiKey" controlId="embedding-key-source">
+              {fields.key === "saved" ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">{s("The saved key is kept.")}</p>
+                  <Button type="button" variant="outline" onClick={() => edit({ key: "file" })}>
+                    {s("Replace the saved key")}
+                  </Button>
+                </div>
+              ) : (
+                <KeySourceField
+                  id="embedding-key"
+                  optional
+                  choice={fields.key as KeyChoice}
+                  onChoice={(choice) => edit({ key: choice })}
+                  input={fields.keyInput}
+                  onInput={(keyInput) => edit({ keyInput })}
+                  nameHint="embedding-api"
+                  saved={
+                    saved?.set
+                      ? {
+                          source: (saved as { source?: "env" | "file" | "literal" }).source ?? null,
+                          reference: (saved as { reference?: string }).reference ?? null,
+                          resolvesInWebApp:
+                            (saved as { resolvesInWebApp?: boolean }).resolvesInWebApp !== false,
+                        }
+                      : null
                   }
                 />
               )}
-              {fields.key === "file" && (
-                <input
-                  aria-label={s("Key file path")}
-                  className="w-full rounded border border-border bg-background p-2"
-                  value={fields.keyInput.path}
-                  onChange={(event) =>
-                    edit({ keyInput: { ...fields.keyInput, path: event.target.value } })
-                  }
-                />
-              )}
-              {fields.key === "paste" && (
-                <input
-                  aria-label={s("API key")}
-                  type="password"
-                  autoComplete="off"
-                  className="w-full rounded border border-border bg-background p-2"
-                  value={fields.keyInput.value}
-                  onChange={(event) =>
-                    edit({ keyInput: { ...fields.keyInput, value: event.target.value } })
-                  }
-                />
-              )}
-            </fieldset>
+            </SettingRow>
           )}
-          <div className="flex gap-2">
-            <button
+          <div className="flex flex-wrap gap-2">
+            <Button
               type="button"
-              className="rounded border border-border px-3 py-1.5"
+              variant="outline"
               disabled={busy || !fields.model.trim()}
               onClick={() => void test()}
             >
               {s("Test")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="rounded border border-border px-3 py-1.5"
-              disabled={busy || !canApply(passed?.key, fields)}
-              onClick={() => void apply()}
+              disabled={busy || readOnly || !canApply(passed?.key, fields)}
+              onClick={apply}
             >
               {s("Apply")}
-            </button>
-            <button
-              type="button"
-              className="rounded border border-border px-3 py-1.5"
-              onClick={toggleLock}
-            >
+            </Button>
+            <Button type="button" variant="outline" onClick={toggleLock}>
               {s("Cancel")}
-            </button>
+            </Button>
+            <ReadOnlyNote show={readOnly} />
           </div>
+          {busy ? (
+            <p role="status" className="flex items-center gap-2 text-muted-foreground">
+              <Loader className="size-4 animate-spin" aria-hidden="true" />
+              {s("Testing…")}
+            </p>
+          ) : null}
         </div>
       )}
       <EmbeddingRunStatus run={run} onRetry={() => void retry()} />
-      {message && <p className="text-sm">{message}</p>}
+      {message && (
+        <p role={failed ? "alert" : "status"} className="text-sm">
+          {message}
+        </p>
+      )}
+      {dialog}
     </section>
   );
 }

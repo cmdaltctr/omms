@@ -1,5 +1,13 @@
 import { expect, it } from "bun:test";
-import { runWebUpdate, type WebUpdateCommandDeps } from "../src/cli/web-update-command.js";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  productionWebUpdateDeps,
+  runWebUpdate,
+  type WebUpdateCommandDeps,
+} from "../src/cli/web-update-command.js";
+import { installLockPath } from "../src/services/global-install.js";
 
 // `web update` against a fake port. Each web app answers health and status, and
 // steps aside when its rules allow. Starting a web app puts it on the port at
@@ -30,6 +38,10 @@ function fake(
     global?: string | null;
     globalAfter?: string | null;
     installCode?: string | null;
+    /** The dependency the install check found missing, with `installCode`. */
+    installMissing?: string;
+    /** True when the global install has a missing dependency before the command runs. */
+    globalBroken?: boolean;
     owner?: App | null;
     /** A web app that waits and takes the port before the fresh one. */
     waiter?: App;
@@ -106,10 +118,16 @@ function fake(
     latest: async () => (config.latest === undefined ? "4.10.0" : config.latest),
     globalVersion: () => global,
     install: async (target) => {
+      // The guarded install runs no npm for a complete copy of the release.
+      if (global === target && !config.globalBroken) {
+        events.push(`check:${target}`);
+        return { code: null, npm: "skipped" };
+      }
       events.push(`npm:${target}`);
-      if (config.installCode) return { code: config.installCode, exitCode: 1 };
+      if (config.installCode)
+        return { code: config.installCode, exitCode: 1, missing: config.installMissing };
       global = config.globalAfter === undefined ? target : config.globalAfter;
-      return { code: null, exitCode: 0 };
+      return { code: null, exitCode: 0, npm: "ran" };
     },
     loginItemInstalled: () => config.loginItem ?? false,
     restartLoginItem: () => {
@@ -165,11 +183,26 @@ it("installs when there is no global install", async () => {
   expect(f.events[0]).toBe("npm:4.10.0");
 });
 
-it("skips npm when the global install is on latest and still replaces the web app", async () => {
+it("checks a global install on latest, skips npm when it is complete, and replaces the web app", async () => {
   const f = fake({ global: "4.10.0", owner: app("old", "4.10.0") });
   expect(await runWebUpdate(f.deps)).toBe(0);
+  expect(f.events[0]).toBe("check:4.10.0");
   expect(f.events.some((e) => e.startsWith("npm:"))).toBe(false);
+  expect(f.lines.slice(0, 2)).toEqual([
+    "Checking the global install (4.10.0).",
+    "Global install is up to date (4.10.0).",
+  ]);
+  expect(f.logs[0]).toMatchObject({ npm: "skipped" });
   expect(f.events).toContain("aside:old");
+  expect(f.port()?.instance).toBe("fresh");
+});
+
+it("repairs a global install on latest that has a missing dependency", async () => {
+  const f = fake({ global: "4.10.0", globalBroken: true, owner: app("old", "4.10.0") });
+  expect(await runWebUpdate(f.deps)).toBe(0);
+  expect(f.events[0]).toBe("npm:4.10.0");
+  expect(f.lines[0]).toBe("Checking the global install (4.10.0).");
+  expect(f.lines[1]).toBe("Global install: 4.10.0");
   expect(f.port()?.instance).toBe("fresh");
 });
 
@@ -187,6 +220,31 @@ it("leaves the web app alone when npm fails", async () => {
   expect(f.events).toEqual(["npm:4.10.0"]);
   expect(f.port()?.instance).toBe("old");
   expect(f.lines.at(-1)).toContain("(permission)");
+});
+
+it("names install-busy and exits 1 while another install holds the lock", async () => {
+  const f = fake({ installCode: "install-busy", owner: app("old", "4.10.0") });
+  expect(await runWebUpdate(f.deps)).toBe(1);
+  expect(f.events).toEqual(["npm:4.10.0"]);
+  expect(f.port()?.instance).toBe("old");
+  expect(f.lines.at(-1)).toBe(
+    "Another OMMS update is installing om-memory-system (install-busy). Wait a few minutes, then run om-memory-system web update again."
+  );
+  expect(f.logs[0]).toMatchObject({ outcome: "install-failed", code: "install-busy" });
+});
+
+it("names the missing dependency when the install stays incomplete after the repair", async () => {
+  const f = fake({
+    installCode: "incomplete-install",
+    installMissing: "js-base64",
+    owner: app("old", "4.10.0"),
+  });
+  expect(await runWebUpdate(f.deps)).toBe(1);
+  expect(f.port()?.instance).toBe("old");
+  expect(f.lines.at(-1)).toBe(
+    "Global install failed (incomplete-install, missing js-base64). The web app keeps running. Run om-memory-system web update again later."
+  );
+  expect(f.logs[0]).toMatchObject({ code: "incomplete-install", missing: "js-base64" });
 });
 
 it("leaves the web app alone when npm leaves another version", async () => {
@@ -297,4 +355,26 @@ it("leaves everything alone when another caller holds the start lock", async () 
   expect(f.events).toEqual(["npm:4.10.0", "lock"]);
   expect(f.port()?.instance).toBe("old");
   expect(f.lines.at(-1)).toContain("Another start is running");
+});
+
+it("installs under the install lock in the production deps", async () => {
+  const home = mkdtempSync(join(tmpdir(), "omms-web-update-lock-"));
+  const holder = Bun.spawn([process.execPath, "-e", "setTimeout(() => {}, 30000)"], {
+    stdout: "ignore",
+    stderr: "ignore",
+  });
+  try {
+    mkdirSync(join(home, ".omms"), { recursive: true });
+    writeFileSync(installLockPath(home), JSON.stringify({ pid: holder.pid, at: Date.now() }));
+    const deps = await productionWebUpdateDeps({
+      url: "http://127.0.0.1:1",
+      home,
+      autostart: { home },
+    });
+    // npm refuses this target, so a runner without the lock returns bad-version and starts no npm.
+    expect(await deps.install("not-a-version")).toEqual({ code: "install-busy" });
+  } finally {
+    holder.kill();
+    rmSync(home, { recursive: true, force: true });
+  }
 });

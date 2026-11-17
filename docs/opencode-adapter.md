@@ -10,7 +10,14 @@ that Pi captured.
 
 ## Installation
 
-From npm, add the package to `~/.config/opencode/opencode.json`
+Run `npx om-memory-system@latest setup`. It finds OpenCode, shows what it will
+do and asks once. See [CLI: setup](cli.md#setup). It runs
+`opencode plugin add om-memory-system` for you and adds the `cli.json` entry
+described below when that file exists. Then restart OpenCode and run
+`opencode service restart`. Check the result with
+`npx om-memory-system@latest doctor`. OpenCode 2.0.22 or later is needed for every feature.
+
+To do the same by hand, add the package to `~/.config/opencode/opencode.json`
 (`%USERPROFILE%\.config\opencode\opencode.json` on Windows):
 
 ```json
@@ -27,6 +34,26 @@ You can run `opencode plugin add om-memory-system` instead.
 
 Without it, `opencode plugin update` reports `Plugin is not configured: om-memory-system`.
 Restart OpenCode after you change the configuration.
+
+### What `setup` does to `cli.json`
+
+`opencode plugin add` writes only `opencode.json` for OMMS. It does not write
+`cli.json`, so `setup` adds the entry itself, with these rules:
+
+- It edits an existing `cli.json` only. It never creates the file. OpenCode
+  creates `cli.json`, and when the file is absent the first start of OpenCode V2
+  moves old `tui.json` settings into it. A file that OMMS made would stop that
+  move. If the file is missing, start OpenCode once and run `setup` again. Do not create the file by hand.
+- It adds the string `om-memory-system` at the end of `plugins`, or adds a `plugins` key when there is none.
+  Every other key, entry, comment and the formatting stay as they are. It writes the file in one step.
+- It reads the file again just before it writes, so a change made while `setup` ran is kept.
+  A file that already has the entry by then is left alone.
+- When `cli.json` is a symbolic link (for example from GNU Stow or Home Manager), it writes
+  to the file the link points to. The link stays a link, and the file keeps its permissions.
+- It leaves the file alone when an entry already names `om-memory-system` in any form, for example `om-memory-system@6.4.0`.
+- It changes nothing when the file is not valid JSON or when `plugins` is not a list. It then prints the manual step.
+
+The file is `$XDG_CONFIG_HOME/opencode/cli.json` when `XDG_CONFIG_HOME` is set, and `~/.config/opencode/cli.json` otherwise.
 
 From a local checkout (development):
 
@@ -57,6 +84,14 @@ The package ships the `omms-remember` skill beside `omms-memory`. The plugin add
 - It saves a short snapshot of the session with the `memorise` mode of the `memory` tool and reports the `ms-` ID. OpenCode passes its session ID to the tool, so a repeat snapshot can replace the earlier one when `memorisationRepeat` is `replace`.
 
 See [Using memory: The omms-remember skill](using-memory.md#the-omms-remember-skill).
+
+### Uninstall
+
+1. Run `opencode plugin remove om-memory-system`. With OpenCode 2.2.6 it removes the entry from `opencode.json` and from `cli.json`. Open `cli.json` and remove the entry by hand if it is still there.
+2. Stop the login item. OpenCode starts the web app at sign-in while `webServerAutoStart` is `true`, and each OpenCode start installs the item again. Set `"webServerAutoStart": false` in `~/.config/omms/omms.jsonc`, then run `npx om-memory-system@latest web uninstall`. The command also sets that value and removes the item.
+3. Restart OpenCode and run `opencode service restart`.
+
+Your memories stay in `~/.omms/data`. Delete that folder only when you want to lose them.
 
 ## Configuration
 
@@ -125,11 +160,23 @@ History backfill (automatic history import) uses `opencodeBackfillModel`. See
 | `setup`              | Load shared config for the project directory, remove old capture traces, update the web login item when `webServerAutoStart` is set, warm storage and embeddings, read connected providers, register the OpenCode backfill model resolver, the profile model, and the import models, start automatic backfill when `autoBackfill` is on, check for the shared web app and start it when none runs                                                                      |
 | command              | Register the `/memory-import-opencode-history` command and the `omms-memory` and `omms-remember` skills                                                                                                                                                                                                                                                                                                                                                                |
 | `prompt` + `context` | Record the prompt once OpenCode admits it; semantic retrieval injected as a delimited `<omms-retrieval>` system section. The `context` hook also records the session model when capture follows it (`opencodeModel` is `inherit`)                                                                                                                                                                                                                                      |
-| `session.idle` event | After 10 seconds of quiet, capture every uncaptured prompt in the session; run profile learning and daily cleanup. A `session.created` event starts the capture retry drain. The plugin only reads events for its own directory                                                                                                                                                                                                                                        |
+| `session.idle` event | After 10 seconds of quiet, capture every uncaptured prompt in the session; run daily maintenance (also with capture off), then profile learning. A `session.created` event starts the capture retry drain. The plugin only reads events for its own directory                                                                                                                                                                                                          |
 | `compaction`         | Restore the session's own memories after compaction and after resume                                                                                                                                                                                                                                                                                                                                                                                                   |
 | command              | Run `/memory-import-opencode-history`; see [opencode-history-import.md](opencode-history-import.md)                                                                                                                                                                                                                                                                                                                                                                    |
 | `memory` tool        | Shared add/memorise/memorize/recall/search/profile/list/forget/help plus migrate/list-shards/export/import                                                                                                                                                                                                                                                                                                                                                             |
 | `skills` tool        | Shared skill-learning modes list/ideas/draft/evidence/propose/proposals/show/apply/reject/undo/help. Arguments: `mode`, `skill`, `idea` (`name`, `description`), `folder`, `state`, `order`, `id`, `limit`, `content`, `summary`, `evidence`. A draft saves a pending proposal and changes no file; `evidence` then `propose` let the agent fix a skill with no external API call; `apply` records the agent. See [the `skills` command](cli.md#skills-and-proposals). |
+
+### Daily maintenance
+
+After the idle capture, OMMS runs daily maintenance at most once a day in each OpenCode process. It runs with capture on or off.
+
+- It always removes old capture attempt records, old capture retry rows and old cleanup undo records, and compacts the prompt database.
+- It deletes memories by age only when you turn on **Delete old memories automatically** in the Memory cleanup card. That writes `autoDeleteOldMemories: true` to the global config file. The default is off.
+- An older config file with `"autoCleanupEnabled": true` deletes nothing. See [Configuration: Memory cleanup](configuration.md#memory-cleanup).
+
+### Config problems
+
+When OMMS cannot read the config file, or cannot use a value in it, it uses the default, or turns a risky feature off, and keeps running. At plugin start it writes one warning per problem to the OpenCode log, for example `[omms] OMMS settings: OMMS cannot read ~/.config/omms/omms.jsonc: on line 4, column 3, a comma is missing.` The warning names the file and line, or the key and the values it accepts. Fix the file. For a key that a Settings card can change, the notice also points to the Settings page.
 
 ### Notices
 
@@ -138,6 +185,13 @@ The OpenCode V2 server plugin has no toast API. With `showAutoCaptureToasts`, `s
 - captured memories and profile updates
 - changes to the fallback provider
 - errors
+
+When the web app cannot start, the plugin writes a notice that names the cause and the fix. Pi and Claude Code use the same wording.
+
+- `port-busy`: the notice names the port and says to stop the other program, or to set `webServerPort` in the global config to a free port.
+- `no-runtime`: the notice says to install Node 22.14 or later, then start a new session.
+
+The terminal interface shows the first-run notice once per computer. It says what OMMS does on its own and how to turn each part off. See [Configuration: First-run notice](configuration.md#first-run-notice). Without a terminal interface (`opencode serve`, OpenChamber), the plugin writes the notice to the OpenCode log at each start until a terminal interface has shown it.
 
 The footer status below shows the state of OMMS in the terminal. Pi reports the same events through its footer status and notifications.
 
@@ -258,7 +312,7 @@ OpenCode and Pi can run in separate processes against the same store.
 
 ## Limitations
 
-- Profile learning and cleanup run in every OpenCode process. Cleanup runs at most once a day in each process.
+- Profile learning and daily maintenance run in every OpenCode process. Daily maintenance runs at most once a day in each process.
 - Manual history import covers the current project by default. See [opencode-history-import.md](opencode-history-import.md).
 
 ## Host parity

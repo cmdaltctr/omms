@@ -85,12 +85,18 @@ export const CONFIG_TEMPLATE = `{
   // Maximum vectors per database shard (auto-creates new shard when limit reached)
   "maxVectorsPerShard": 50000,
   
-  // Automatically delete old memories based on retention period
-  "autoCleanupEnabled": true,
-  
-  // Days to keep memories before auto-cleanup (only if autoCleanupEnabled is true)
-  "autoCleanupRetentionDays": 30,
-  
+  // ============================================
+  // Automatic Memory Deletion
+  // ============================================
+
+  // Warning: this deletes memories. When true, once a day OMMS deletes every
+  // unpinned memory not updated for autoCleanupRetentionDays, and every saved
+  // prompt older than that. Pinned memories and memorisations stay.
+  // It runs on OpenCode, Pi and Claude Code (through the web app). Default false.
+  // Global config only.
+  // "autoDeleteOldMemories": true,
+  // "autoCleanupRetentionDays": 30,
+
   // Automatically detect and remove duplicate memories
   "deduplicationEnabled": true,
   
@@ -325,15 +331,6 @@ export const CONFIG_TEMPLATE = `{
   // userProfileMinEvidenceForRetention times or more is kept.
   "userProfileWorkflowStaleDays": 30,
 
-  // Number of preferences shown in UI
-  "userProfileDisplayPreferences": 20,
-  
-  // Number of patterns shown in UI
-  "userProfileDisplayPatterns": 15,
-  
-  // Number of workflows shown in UI
-  "userProfileDisplayWorkflows": 10,
-  
   // Number of preferences injected into LLM conversation context
   // Keep this small — the strongest signals are enough; more dilute LLM attention
   "userProfileInjectPreferences": 5,

@@ -100,7 +100,7 @@ describe("web import jobs", () => {
     const real = { ...preview, options: {}, modelChoice: "external" };
     await expect(jobs.start(real, "/tmp/project")).rejects.toMatchObject({
       status: 400,
-      message: expect.stringContaining("key is missing"),
+      message: expect.stringContaining("cannot find your external API key"),
     });
     await expect(jobs.start({ ...preview, options: {} }, "/tmp/project")).rejects.toThrow(
       "Choose an import model"
@@ -159,7 +159,7 @@ describe("web import jobs", () => {
     const real = { ...claudePreview, options: {} };
     await expect(jobs.start(real, "/tmp/project")).rejects.toMatchObject({
       status: 400,
-      message: expect.stringContaining("key is missing"),
+      message: expect.stringContaining("cannot find your external API key"),
     });
     await expect(jobs.start({ ...real, modelChoice: "zai/glm" }, "/tmp/project")).rejects.toThrow(
       "Claude Code imports use the external API"

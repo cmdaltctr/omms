@@ -26,6 +26,8 @@ const contextServiceUrl = new URL("../src/services/context.js", import.meta.url)
 const skillOperationsUrl = new URL("../src/core/skill-operations.js", import.meta.url).href;
 const skillDepsUrl = new URL("../src/services/skill-learning/operations-deps.js", import.meta.url)
   .href;
+const cleanupUrl = new URL("../src/services/cleanup-service.js", import.meta.url).href;
+const problemsUrl = new URL("../src/services/config-problems.js", import.meta.url).href;
 const profileManagerUrl = new URL(
   "../src/services/user-profile/user-profile-manager.js",
   import.meta.url
@@ -40,6 +42,7 @@ function runScenario(code: string): any {
 import { mock } from "bun:test";
 
 const closeCalls = [];
+const notifyCalls = [];
 const statusCalls = [];
 const toolCalls = [];
 const registeredTools = [];
@@ -65,6 +68,8 @@ const stubConfig = {
     memory: { defaultScope: "project" },
     injectProfile: false,
     userProfileAnalysisInterval: 1,
+    // The first-run record goes in the scenario's own folder.
+    storagePath: process.cwd(),
 };
 mock.module(${JSON.stringify(configUrl)}, () => ({
   CONFIG: stubConfig,
@@ -150,11 +155,12 @@ mock.module(${JSON.stringify(handoffUrl)}, () => ({
 }));
 
 const ensureCalls = [];
+// Null: never settles, so a session start must not wait for the web app.
+let ensureResult = null;
 mock.module(${JSON.stringify(ensureUrl)}, () => ({
-  // Never settles: a session start must not wait for the web app.
   ensureWebApp: (options) => {
     ensureCalls.push(options);
-    return new Promise(() => {});
+    return ensureResult === null ? new Promise(() => {}) : Promise.resolve(ensureResult);
   },
 }));
 
@@ -229,6 +235,21 @@ mock.module(${JSON.stringify(skillDepsUrl)}, () => ({
   skillOperationsDeps: (directory, appliedBy) => ({ directory, appliedBy }),
 }));
 
+// The automatic daily run. "manual" (the Cleanup button's delete) must never appear.
+const maintenanceCalls = [];
+let maintenanceMode = "resolve";
+mock.module(${JSON.stringify(cleanupUrl)}, () => ({
+  cleanupService: {
+    runDailyMaintenance: (deleteOld) => {
+      maintenanceCalls.push(deleteOld);
+      if (maintenanceMode === "hang") return new Promise(() => {});
+      if (maintenanceMode === "reject") return Promise.reject(new Error("store busy"));
+      return Promise.resolve();
+    },
+    runCleanup: async () => { maintenanceCalls.push("manual"); },
+  },
+}));
+
 const { default: ommsPiExtension } = await import(${JSON.stringify(extensionUrl)});
 
 function makeCtx(overrides = {}) {
@@ -237,7 +258,7 @@ function makeCtx(overrides = {}) {
     hasUI: true,
     mode: "tui",
     ui: {
-      notify: () => {},
+      notify: (message, level) => notifyCalls.push([message, level]),
       setStatus: (key, value) => statusCalls.push([key, value ?? null]),
       setWidget: (key, content, options) =>
         widgetCalls.push([
@@ -431,6 +452,79 @@ captured = { ensure: ensureCalls.length, loginItem: autostartCalls.length };
     `);
     // The login item stays tied to webServerAutoStart. The web app check does not.
     expect(output.captured).toEqual({ ensure: 1, loginItem: 0 });
+  });
+
+  for (const [result, words] of [
+    ["port-busy", "port 4747"],
+    ["no-runtime", "Node 22.14"],
+  ]) {
+    it(`warns once per process when the web app result is ${result}`, () => {
+      const output = runScenario(`
+stubConfig.webServerEnabled = true;
+stubConfig.webServerHost = "127.0.0.1";
+stubConfig.webServerPort = 4747;
+stubConfig.embeddingApiUrl = "http://embed.invalid";
+delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
+ensureResult = ${JSON.stringify(result)};
+await handlers["session_start"]({}, makeCtx());
+await waitFor(() => notifyCalls.some(([, level]) => level === "warning"));
+await handlers["session_start"]({}, ctxWith([], "pi-session-2"));
+await waitFor(() => ensureCalls.length === 2);
+await new Promise((resolve) => setTimeout(resolve, 20));
+captured = notifyCalls.filter(([, level]) => level === "warning");
+      `);
+      expect(output.captured).toHaveLength(1);
+      expect(output.captured[0][0]).toContain(words);
+    });
+  }
+
+  it("shows no web-start warning when the web app runs", () => {
+    const output = runScenario(`
+stubConfig.webServerEnabled = true;
+stubConfig.webServerHost = "127.0.0.1";
+stubConfig.webServerPort = 4747;
+delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
+ensureResult = "running";
+await handlers["session_start"]({}, makeCtx());
+await waitFor(() => ensureCalls.length === 1);
+await new Promise((resolve) => setTimeout(resolve, 20));
+captured = notifyCalls.filter(([, level]) => level === "warning");
+    `);
+    expect(output.captured).toEqual([]);
+  });
+
+  it("shows the first-run notice at the first session only", () => {
+    const output = runScenario(`
+stubConfig.autoBackfill = true;
+stubConfig.webServerAutoStart = true;
+process.env.OMMS_DISABLE_WEB_AUTOSTART = "1";
+process.env.OMMS_DISABLE_AUTO_BACKFILL = "1";
+await handlers["session_start"]({}, makeCtx());
+const first = notifyCalls.splice(0);
+await handlers["session_start"]({}, ctxWith([], "pi-session-2"));
+captured = { first, second: notifyCalls.splice(0) };
+    `);
+    expect(output.captured.first).toHaveLength(1);
+    expect(output.captured.first[0][1]).toBe("info");
+    expect(output.captured.first[0][0]).toContain("OMMS does these things on its own");
+    expect(output.captured.first[0][0]).toContain("Login item");
+    expect(output.captured.second).toEqual([]);
+  });
+
+  it("shows no notice and claims nothing without an interface", () => {
+    const output = runScenario(`
+stubConfig.webServerEnabled = true;
+stubConfig.webServerHost = "127.0.0.1";
+stubConfig.webServerPort = 4747;
+delete process.env.OMMS_DISABLE_WEB_AUTOSTART;
+ensureResult = "port-busy";
+await handlers["session_start"]({}, makeCtx({ hasUI: false }));
+await waitFor(() => ensureCalls.length === 1);
+await new Promise((resolve) => setTimeout(resolve, 20));
+const { existsSync } = await import("node:fs");
+captured = { notes: notifyCalls.length, record: existsSync("first-run-notices.json") };
+    `);
+    expect(output.captured).toEqual({ notes: 0, record: false });
   });
 
   it("does not start the web app when web autostart is disabled for tests", () => {
@@ -793,6 +887,74 @@ captured = statusCalls;
     expect(output.captured).toEqual([
       ["omms", "omms: ✎"],
       ["omms", "omms: ✔"],
+    ]);
+  });
+
+  it("starts daily maintenance after a settled turn without waiting for it", async () => {
+    const output = runScenario(`
+      maintenanceMode = "hang";
+      await handlers["agent_settled"]({}, makeCtx());
+      await waitFor(() => maintenanceCalls.length === 1);
+      captured = { calls: maintenanceCalls, status: statusCalls.at(-1) };
+    `);
+    // The handler returned although the run never settles; deletion by age is off.
+    expect(output.captured).toEqual({ calls: [false], status: ["omms", "omms: ✔"] });
+  });
+
+  it("passes deleteOld true only when autoDeleteOldMemories is true", async () => {
+    const output = runScenario(`
+      stubConfig.autoDeleteOldMemories = true;
+      await handlers["agent_settled"]({}, makeCtx());
+      await waitFor(() => maintenanceCalls.length === 1);
+      captured = maintenanceCalls;
+    `);
+    expect(output.captured).toEqual([true]);
+  });
+
+  it("deletes nothing by age for an old file with autoCleanupEnabled true and no new key", async () => {
+    const output = runScenario(`
+      stubConfig.autoCleanupEnabled = true;
+      await handlers["agent_settled"]({}, makeCtx());
+      await waitFor(() => maintenanceCalls.length === 1);
+      captured = maintenanceCalls;
+    `);
+    expect(output.captured).toEqual([false]);
+  });
+
+  it("logs a failed daily maintenance run and keeps the session going", async () => {
+    const output = runScenario(`
+      maintenanceMode = "reject";
+      await handlers["agent_settled"]({}, makeCtx());
+      await waitFor(() => maintenanceCalls.length === 1);
+      maintenanceMode = "resolve";
+      await handlers["agent_settled"]({}, makeCtx());
+      await waitFor(() => maintenanceCalls.length === 2);
+      captured = {
+        calls: maintenanceCalls.length,
+        logged: logCalls.filter((line) => line.includes("daily maintenance")).length,
+        status: statusCalls.at(-1),
+      };
+    `);
+    expect(output.captured).toEqual({ calls: 2, logged: 1, status: ["omms", "omms: ✔"] });
+  });
+
+  it("shows each recorded config problem once as a warning at session start", async () => {
+    const output = runScenario(`
+      process.env.OMMS_DISABLE_WEB_AUTOSTART = "1";
+      const { recordConfigProblems } = await import(${JSON.stringify(problemsUrl)});
+      recordConfigProblems([{ kind: "parse", file: "/home/u/.config/omms/omms.jsonc", line: 4, column: 3,
+        message: "OMMS cannot read /home/u/.config/omms/omms.jsonc: on line 4, column 3, a comma is missing." }]);
+      const notices = [];
+      const ctx = makeCtx();
+      ctx.ui.notify = (message, level) => notices.push([message, level]);
+      await handlers["session_start"]({}, ctx);
+      captured = notices.filter(([message]) => message.includes("line 4"));
+    `);
+    expect(output.captured).toEqual([
+      [
+        "OMMS settings: OMMS cannot read /home/u/.config/omms/omms.jsonc: on line 4, column 3, a comma is missing.",
+        "warning",
+      ],
     ]);
   });
 

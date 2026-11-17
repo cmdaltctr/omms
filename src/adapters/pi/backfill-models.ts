@@ -1,5 +1,5 @@
 import { CONFIG } from "../../config.js";
-import { parseBackfillModel } from "../../importer/backfill-model.js";
+import { parseBackfillModel } from "../../utils/backfill-model.js";
 import { resolveExternalBackfillModels } from "../../importer/external-backfill-models.js";
 import type { HistoryImportModels } from "../../importer/run-import.js";
 import { createPiLiveModels } from "./live-model.js";

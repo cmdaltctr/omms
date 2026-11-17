@@ -234,6 +234,67 @@ describe("settings API", () => {
     expect(JSON.stringify(result.body)).not.toContain("private-test-value");
   });
 
+  it("says whether the web app can read the reranker key, without the value", async () => {
+    const read = `return (await (await send("/api/settings")).json()).secrets.rerankerApiKey;`;
+    const found = await scenario(read, '{ "rerankerApiKey": "env://OMMS_SECRET_TEST" }');
+    expect(found).toMatchObject({ set: true, source: "env", resolvesInWebApp: true });
+    expect(JSON.stringify(found)).not.toContain("private-test-value");
+    const missing = await scenario(read, '{ "rerankerApiKey": "env://OMMS_NO_SUCH_VARIABLE" }');
+    expect(missing).toMatchObject({ set: true, source: "env", resolvesInWebApp: false });
+    const none = await scenario(read);
+    expect(none).toMatchObject({ set: false, resolvesInWebApp: false });
+    const embedding = await scenario(
+      `return (await (await send("/api/settings")).json()).secrets.embeddingApiKey;`,
+      '{ "embeddingApiKey": "env://OMMS_NO_SUCH_VARIABLE" }'
+    );
+    expect(embedding).toMatchObject({ set: true, source: "env", resolvesInWebApp: false });
+  });
+
+  it("reports a broken global file by line and column and turns saving off", async () => {
+    const result = await scenario(
+      `
+      const response = await send("/api/settings");
+      return { status: response.status, body: await response.json() };
+    `,
+      '{\n  "piModel": "SECRET-BAD-VALUE"\n  "memoryModel": "glm"\n}\n'
+    );
+    expect(result.status).toBe(200);
+    expect(result.body.readOnly).toBe(true);
+    expect(result.body.problems).toHaveLength(1);
+    expect(result.body.problems[0]).toMatchObject({ kind: "parse", line: 2, column: 32 });
+    expect(result.body.problems[0].file).toContain("omms.jsonc");
+    // Default values stand in while the file cannot be read; its text never appears.
+    expect(result.body.settings.piModel.source).toBe("default");
+    expect(JSON.stringify(result.body)).not.toContain("SECRET-BAD-VALUE");
+  });
+
+  it("shows the memory basics and cleanup settings with project overrides", async () => {
+    const result = await scenario(
+      `
+      const response = await send("/api/settings");
+      return { status: response.status, body: await response.json() };
+    `,
+      '{ "autoCaptureEnabled": true, "autoCleanupEnabled": true, "chatMessage": { "enabled": false } }',
+      '{ "autoCaptureEnabled": false, "autoDeleteOldMemories": true, "autoCleanupRetentionDays": 2, "visibleRecall": true }'
+    );
+    const { settings, readOnly, problems } = result.body;
+    expect(result.status).toBe(200);
+    expect(readOnly).toBe(false);
+    expect(problems).toEqual([]);
+    expect(settings.autoCaptureEnabled).toMatchObject({
+      value: false,
+      source: "project",
+      globalValue: true,
+    });
+    expect(settings["chatMessage.enabled"]).toMatchObject({ value: false, source: "global" });
+    expect(settings["memory.defaultScope"]).toMatchObject({ value: "project", source: "default" });
+    expect(settings.injectProfile).toMatchObject({ value: true, source: "default" });
+    // A project can only turn visible recall off, and never sets the cleanup keys.
+    expect(settings.visibleRecall).toMatchObject({ value: true, source: "default" });
+    expect(settings.autoDeleteOldMemories).toMatchObject({ value: false, source: "default" });
+    expect(settings.autoCleanupRetentionDays).toMatchObject({ value: 30, source: "default" });
+  });
+
   it("lists the memory injection settings as global-only, with values and defaults", async () => {
     const defaults = await scenario(
       `return (await (await send("/api/settings")).json()).settings;`
@@ -739,6 +800,7 @@ describe("settings API", () => {
       "external",
       "opencode",
       "piReader",
+      "profileIdentity",
     ]);
     expect(result.browse).toBe(200);
     expect(result.entries).toContain("pi-sessions");
@@ -908,5 +970,41 @@ describe("settings API", () => {
     `);
     expect(result.browse).toBe(403);
     expect(result.crossSite).toBe(415);
+  });
+
+  // Characterisation (modular-boundaries): these per-host objects are now built from the
+  // host registry. The JSON key order is part of the response, so it is pinned here.
+  it("keeps each per-host object's keys and key order in the settings API", async () => {
+    const result = await scenario(`
+      const { join } = await import("node:path");
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "isolated-store");
+      const keys = (value) => Object.keys(value);
+      const settings = await (await send("/api/settings")).json();
+      const diagnostics = await (await send("/api/settings/diagnostics?days=7")).json();
+      const saved = await (await send("/api/settings/last-saved")).json();
+      const maps = await (await send("/api/settings/import-maps")).json();
+      return { effective: settings.effective, effectiveKeys: keys(settings.effective),
+        retryQueue: diagnostics.retryQueue, retryKeys: keys(diagnostics.retryQueue),
+        saved: saved.hosts, savedKeys: keys(saved.hosts), mapKeys: keys(maps) };
+    `);
+    expect(result.effectiveKeys).toEqual(["opencode", "pi", "claude-code"]);
+    expect(result.effective).toEqual({
+      opencode: { ready: true, mode: "session", issues: [] },
+      pi: { kind: "session" },
+      "claude-code": {
+        ready: false,
+        issues: [
+          "memoryModel is not configured",
+          "memoryApiUrl is not configured",
+          "memoryApiKey is not configured",
+        ],
+      },
+    });
+    expect(result.retryKeys).toEqual(["opencode", "pi", "claude-code"]);
+    expect(result.retryQueue).toEqual({ opencode: 0, pi: 0, "claude-code": 0 });
+    expect(result.savedKeys).toEqual(["pi", "opencode", "claude-code"]);
+    expect(result.saved).toEqual({ pi: null, opencode: null, "claude-code": null });
+    expect(result.mapKeys).toEqual(["saved", "ignored", "pi", "opencode", "claude-code"]);
   });
 });

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { CONFIG } from "../config.js";
-import { hostLabel } from "../types/host-label.js";
+import { hostLabel } from "../shared/hosts.js";
 import {
   parseHistoryImportArgs,
   webImportTokens,
@@ -30,7 +30,7 @@ import {
   readWaitingProfilePrompts,
   type ProfileEstimate,
 } from "./web-import-profile-estimate.js";
-import { profileFailureCode } from "../core/profile-failure.js";
+import { PROFILE_NEEDS_EMAIL, profileFailureCode } from "../core/profile-failure.js";
 
 export type GroupHostState =
   "queued" | "running" | "done" | "failed" | "cancelled" | "no-work" | "not-run";
@@ -129,6 +129,9 @@ export const MEMORY_FAILED_MESSAGE =
   "Some memory units failed. Completed work is saved. A new preview and import retries only the failed units.";
 export const PROFILE_FAILED_MESSAGE =
   "Profile learning failed. Completed memory work is saved. Refresh the preview and retry.";
+/** A preview cannot fix a missing email, so this one says what to set. */
+export const PROFILE_EMAIL_MESSAGE =
+  "Profile learning needs your email address. Set it with git config --global user.email, then import again. Completed memory work is saved.";
 
 function matchOptions(child: Child, directory: string, signal: AbortSignal) {
   return {
@@ -458,7 +461,11 @@ async function executeGroup(
       else if (historyImportFailed(report)) {
         child.row.state = "failed";
         failed = true;
-        child.row.error = `${hostLabel(host)}: ${report.unitsFailed ? MEMORY_FAILED_MESSAGE : PROFILE_FAILED_MESSAGE}`;
+        const profileMessage =
+          report.profile?.error === PROFILE_NEEDS_EMAIL
+            ? PROFILE_EMAIL_MESSAGE
+            : PROFILE_FAILED_MESSAGE;
+        child.row.error = `${hostLabel(host)}: ${report.unitsFailed ? MEMORY_FAILED_MESSAGE : profileMessage}`;
         job.error = child.row.error;
       } else {
         const pending =

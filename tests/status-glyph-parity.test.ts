@@ -16,9 +16,15 @@ describe("footer glyph parity", () => {
   it("keeps the Claude Code twin equal to the shared table", async () => {
     const twin = await import("../hooks/omms-status-glyphs.js");
     expect(twin.STATUS_GLYPHS).toEqual(STATUS_GLYPHS);
-    for (const state of [...Object.keys(STATUS_GLYPHS), "web app off", "not installed"]) {
+    for (const state of [
+      ...Object.keys(STATUS_GLYPHS),
+      "web app off",
+      "not installed",
+      "capture off",
+    ]) {
       expect(twin.ommsStatusLabel(state)).toBe(ommsStatusLabel(state as never));
     }
+    expect(twin.ommsStatusLabel("capture off")).toBe("omms: ✔ capture off");
   });
 
   it("keeps the OpenCode entry's start and failure labels equal to the shared ones", () => {

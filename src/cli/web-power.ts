@@ -2,6 +2,7 @@ import { spawn as nodeSpawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
+import { exitAfterInstall } from "../services/global-install.js";
 import type { LogLevel } from "../services/logger.js";
 import type { WebAutostartOptions } from "../services/web-autostart.js";
 import { packageVersion } from "../services/package-version.js";
@@ -165,6 +166,8 @@ export function createPowerAction(options: {
   deps?: Partial<PowerDeps>;
 }): (action: ProcessAction) => Promise<string | undefined> {
   const deps: PowerDeps = { ...productionDeps(options.autostart ?? {}), ...options.deps };
+  // Every exit waits for an install this process runs, so npm is never cut off mid-write.
+  deps.exit = exitAfterInstall(deps.exit);
   const logFailure = (code: string) =>
     Promise.resolve(deps.log("Web app restart failed", { code }, "error")).catch(() => undefined);
   let stopped = false;

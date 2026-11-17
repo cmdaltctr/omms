@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import { CONFIG } from "../config.js";
+import { HOST_INFO, HOSTS, hostLabel } from "../shared/hosts.js";
 import type { ImportHost } from "./import-args.js";
+import { HOST_IMPORTERS } from "./host-importers.js";
 import { defaultClaudeSourcePath, defaultImportSourcePath } from "./import-sources.js";
 
 /**
@@ -32,6 +34,12 @@ export interface ImportReadiness {
   };
   /** Whether each host's default history source exists on this machine. */
   defaultSourceFound: Record<ImportHost, boolean>;
+  /**
+   * Whether profile learning can name the profile: `userEmailOverride`, else the
+   * git `user.email` of the folder the import runs in. Without one the profile
+   * step fails.
+   */
+  profileIdentity?: boolean;
 }
 
 export interface ReadinessDeps {
@@ -43,14 +51,20 @@ export interface ReadinessDeps {
   loadPiSdk?: () => Promise<unknown>;
   claudeRoot?: () => string;
   sourceExists?: (path: string) => boolean;
+  /** The folder imports run in, where the git email is read. Default: this process's folder. */
+  directory?: string;
+  /** The email that names the profile, as profile import resolves it. */
+  userEmail?: () => string | undefined;
 }
 
 const EXTERNAL_REASONS: Record<Exclude<ExternalApiState, "ready">, string> = {
-  "missing-model": "The external API has no memoryModel in the global config",
-  "missing-url": "The external API has no memoryApiUrl in the global config",
+  "missing-model":
+    "The external API has no model chosen yet. Choose one in the External API settings.",
+  "missing-url": "The external API has no web address yet. Add it in the External API settings.",
   "missing-key":
-    "The external API key is missing in the OpenCode process; check memoryApiKey and its env:// or file:// source",
-  "unsupported-provider": "The memoryProvider in the global config is not supported for imports",
+    "OMMS cannot find your external API key. Check the key in the External API settings.",
+  "unsupported-provider":
+    "This external API provider cannot run imports. Choose another provider in the External API settings.",
 };
 
 /** Mirrors the checks in `selectImportModel`, without building a provider. */
@@ -89,6 +103,12 @@ export async function importReadiness(deps: ReadinessDeps = {}): Promise<ImportR
     ),
   ]);
   const exists = deps.sourceExists ?? existsSync;
+  // The same rule profile import uses (`getTags(directory).user`), so the check matches the run.
+  let userEmail = deps.userEmail;
+  if (!userEmail) {
+    const { getUserTagInfo } = await import("../services/tags.js");
+    userEmail = () => getUserTagInfo(deps.directory ?? process.cwd()).userEmail;
+  }
   const claudeCode = claudeReadiness(
     deps.claudeRoot?.() ?? defaultClaudeSourcePath(CONFIG.claudeConfigDir),
     exists
@@ -99,10 +119,13 @@ export async function importReadiness(deps: ReadinessDeps = {}): Promise<ImportR
     piReader,
     claudeCode,
     defaultSourceFound: {
-      pi: exists(defaultImportSourcePath("pi")),
-      opencode: exists(defaultImportSourcePath("opencode")),
+      ...(Object.fromEntries(
+        HOSTS.map((host) => [host, exists(defaultImportSourcePath(host, CONFIG.claudeConfigDir))])
+      ) as Record<ImportHost, boolean>),
+      // The same check as `claudeCode` above, which honours the `claudeRoot` test seam.
       "claude-code": claudeCode.defaultRootFound,
     },
+    profileIdentity: Boolean(userEmail()),
   };
 }
 
@@ -123,14 +146,13 @@ export function importBlockedReason(
   readiness: ImportReadiness,
   request: { host: ImportHost; needsModel: boolean; modelChoice?: string }
 ): string | null {
-  if (request.host === "pi" && !readiness.piReader.available) {
-    return readiness.piReader.reason ?? "The Pi session reader is unavailable";
-  }
+  const blocked = HOST_IMPORTERS[request.host].readerBlocked(readiness);
+  if (blocked !== null) return blocked;
   if (!request.needsModel) return null;
-  if (request.host === "claude-code") {
-    // Claude Code has no host models to offer.
+  if (!HOST_INFO[request.host].sessionModel) {
+    // A host with no session model (Claude Code) has no host models to offer.
     if (request.modelChoice !== undefined && request.modelChoice !== "external") {
-      return "Claude Code imports use the external API";
+      return `${hostLabel(request.host)} imports use the external API`;
     }
     const state = readiness.external.state;
     return state === "ready" ? null : EXTERNAL_REASONS[state];
@@ -147,5 +169,5 @@ export function importBlockedReason(
   // The web app has no OpenCode session, so no host model is ever connected here.
   return readiness.opencode.available
     ? "The chosen OpenCode model is not connected"
-    : "The chosen OpenCode model is not connected here. An import with an OpenCode signed-in model runs from the terminal or with /import in OpenCode. Choose the external API for a web import.";
+    : "The chosen OpenCode model is not connected here. An import with an OpenCode signed-in model runs from the terminal or with /memory-import-opencode-history in OpenCode. Choose the external API for a web import.";
 }

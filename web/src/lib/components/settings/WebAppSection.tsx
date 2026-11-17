@@ -1,27 +1,35 @@
 import { useEffect, useState } from "react";
-import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
+import { Loader } from "lucide-react";
+import { useSettingsSnapshot } from "@/hooks/useSettingsSnapshot";
+import { Button } from "$lib/components/ui/button";
+import { Checkbox } from "$lib/components/ui/checkbox";
+import { settingsRequest } from "$lib/settings-api";
+import { saveSettingEdits } from "$lib/settings-save";
 import { useSettingsText } from "$lib/i18n/settings";
+import { useCardText } from "$lib/i18n/settings-cards";
 import { versionNotice, type VersionInfo } from "$lib/external-api-settings";
+import { SettingRow } from "./SettingRow";
+import { ReadOnlyNote } from "./ReadOnlyNote";
 
-type Snapshot = { revision: string; settings: Record<string, { globalValue?: unknown }> };
+type Snapshot = {
+  revision: string;
+  readOnly?: boolean;
+  settings: Record<string, { globalValue?: unknown }>;
+};
 type LoginItem = { state: string; command?: string };
 
 export function WebAppSection() {
   const s = useSettingsText();
-  const [snapshot, setSnapshot] = useState<Snapshot>();
+  const t = useCardText();
+  const { snapshot, error: loadError } = useSettingsSnapshot<Snapshot>();
   const [item, setItem] = useState<LoginItem>();
   const [version, setVersion] = useState<VersionInfo>();
+  const [edit, setEdit] = useState<boolean>();
   const [message, setMessage] = useState("");
+  const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
-    void settingsRequest<Snapshot>("/api/settings")
-      .then((value) => {
-        if (active) setSnapshot(value);
-      })
-      .catch((error: Error) => {
-        if (active) setMessage(error.message);
-      });
     void settingsRequest<LoginItem>("/api/settings/web-autostart")
       .then((value) => {
         if (active) setItem(value);
@@ -34,48 +42,69 @@ export function WebAppSection() {
         if (active) setVersion(value);
       })
       .catch(() => {});
-    const unsubscribe = onSettingsSnapshot((value) => {
-      if (active) setSnapshot(value as Snapshot);
-    });
     return () => {
       active = false;
-      unsubscribe();
     };
   }, []);
-  async function save(enabled: boolean) {
-    if (!snapshot) return;
-    setBusy(true);
-    try {
-      await settingsRequest("/api/settings", {
-        method: "PATCH",
-        body: JSON.stringify({
-          edits: { webServerAutoStart: enabled },
-          revision: snapshot.revision,
-        }),
-      });
-      setMessage(s("Saved. The login item changes at the next Pi or OpenCode start."));
-    } catch (error) {
-      setMessage((error as Error).message);
-    }
-    await reloadSettingsSnapshot<Snapshot>();
-    setBusy(false);
-  }
 
+  const saved = Boolean(snapshot?.settings.webServerAutoStart?.globalValue);
+  const enabled = edit ?? saved;
+  async function save() {
+    if (!snapshot || edit === undefined || edit === saved) return;
+    setBusy(true);
+    const result = await saveSettingEdits(snapshot.revision, { webServerAutoStart: edit });
+    setBusy(false);
+    setFailed(!result.success);
+    if (result.success) setEdit(undefined);
+    setMessage(
+      result.success
+        ? s(
+            "Saved. The login item changes at the next OpenCode or Pi start, or right away with the commands below. With Claude Code alone, run the command yourself."
+          )
+        : (result.error ?? "")
+    );
+  }
   return (
     <section
       className="space-y-3 rounded-xl border border-border bg-card p-4"
       aria-label={s("Web app")}
     >
       <h2 className="text-section-title font-semibold">{s("Web app")}</h2>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={Boolean(snapshot?.settings.webServerAutoStart?.globalValue)}
+      <p className="text-sm text-muted-foreground">
+        {t(
+          "OpenCode and Pi start the web app for you. With Claude Code alone, start it yourself with the first command below, or install the login item."
+        )}
+      </p>
+      {loadError ? <p role="alert">{loadError}</p> : null}
+      <SettingRow setting="webServerAutoStart" controlId="web-app-autostart">
+        <Checkbox
+          id="web-app-autostart"
+          checked={enabled}
           disabled={busy || !snapshot}
-          onChange={(event) => void save(event.target.checked)}
+          onCheckedChange={(checked) => {
+            setEdit(checked === true);
+            setMessage("");
+          }}
         />
-        {s("Start web app at login")}
-      </label>
+      </SettingRow>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          disabled={
+            busy || !snapshot || snapshot.readOnly === true || edit === undefined || edit === saved
+          }
+          onClick={() => void save()}
+        >
+          {t("Save")}
+        </Button>
+        <ReadOnlyNote show={snapshot?.readOnly === true} />
+        {busy ? (
+          <p role="status" className="flex items-center gap-2 text-muted-foreground">
+            <Loader className="size-4 animate-spin" aria-hidden="true" />
+            {t("Saving…")}
+          </p>
+        ) : null}
+      </div>
       <p className="text-sm">
         {s("Login item")}: {s(item?.state ?? "not installed")}
       </p>
@@ -96,7 +125,7 @@ export function WebAppSection() {
         <p>om-memory-system web status</p>
       </div>
       {message && (
-        <p role="status" className="text-sm">
+        <p role={failed ? "alert" : "status"} className="text-sm">
           {message}
         </p>
       )}
@@ -123,7 +152,7 @@ export function VersionNotice({ info }: { info: VersionInfo }) {
       {notice.kind === "newer" && (
         <p role="status" className="text-amber-600">
           {s(
-            "The global install is newer than the running OMMS. The next Pi or OpenCode start replaces the web app."
+            "The global install is newer than the running OMMS. The next OpenCode, Pi or Claude Code session start replaces the web app."
           )}
         </p>
       )}

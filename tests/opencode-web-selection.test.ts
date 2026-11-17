@@ -2,7 +2,7 @@ import { afterEach, expect, it, mock, setDefaultTimeout, spyOn } from "bun:test"
 import { DatabaseSync } from "node:sqlite";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { removeTestDir } from "./turso-test-utils.js";
@@ -253,4 +253,85 @@ it("accepts a database with only the OpenCode 2.x tables and lists its sessions"
 
   expect(list.rows.map((row) => [row.key, row.via])).toEqual([["v2-only", "recorded"]]);
   expect(JSON.stringify(list)).not.toContain("Second generation prompt");
+});
+
+it("lists the OpenCode session title without private text, cut to 80 characters", async () => {
+  const root = mkdtempSync(join(tmpdir(), "omms-oc-web-title-"));
+  dirs.push(root);
+  const projectA = project(root, "a");
+  const data = createOpencodeFixture({ root, project: projectA, fileName: "opencode-titles.db" });
+  const long = "x".repeat(120);
+  data.v2Session("titled", { at: 10, title: "Fix the login redirect" });
+  data.v2Session("hidden", { at: 20, title: "Plan <private>the secret merger</private> rollout" });
+  data.v2Session("whole", { at: 30, title: "<private>everything here</private>" });
+  data.v2Session("long", { at: 40, title: long });
+  data.v2Session("none", { at: 50 });
+  data.v2Turn("titled", "u1", "a1", 11, "The prompt text", "The reply text");
+  data.close();
+  const { CONFIG } = await import("../src/config.js");
+  CONFIG.storagePath = join(root, "store");
+  CONFIG.embeddingDimensions = 4;
+  const { validateImportSource } = await import("../src/importer/import-sources.js");
+  const { listImportSessions } = await import("../src/importer/import-sessions.js");
+
+  const source = validateImportSource("opencode", data.path);
+  const list = await listImportSessions(
+    { sourceToken: source.sourceToken, refresh: true },
+    { host: "opencode", scope: "all-projects", pathMaps: [], cwd: projectA }
+  );
+
+  const titles = Object.fromEntries(list.rows.map((row) => [row.key, row.title]));
+  expect(titles.titled).toBe("Fix the login redirect");
+  expect(titles.hidden).toBe("Plan [REDACTED] rollout");
+  expect(titles.whole).toBeNull();
+  expect(titles.long).toBe("x".repeat(80));
+  expect(titles.none).toBeNull();
+  const json = JSON.stringify(list);
+  expect(json).not.toContain("secret merger");
+  expect(json).not.toContain("everything here");
+  expect(json).not.toContain("The prompt text");
+});
+
+it("gives Pi and Claude Code rows no title", async () => {
+  const root = mkdtempSync(join(tmpdir(), "omms-web-no-title-"));
+  dirs.push(root);
+  const projectA = project(root, "a");
+  const { writeV3Session } = await import("./pi-import-fixtures.js");
+  const piRoot = join(root, "pi");
+  mkdirSync(piRoot);
+  writeV3Session({
+    file: join(piRoot, "one.jsonl"),
+    sessionId: "pi-one",
+    cwd: projectA,
+    windows: [{ userText: "Pi prompt", assistantText: "done" }],
+  });
+  const claudeRoot = join(root, "claude");
+  mkdirSync(join(claudeRoot, "proj"), { recursive: true });
+  writeFileSync(
+    join(claudeRoot, "proj", "c1.jsonl"),
+    JSON.stringify({
+      type: "user",
+      sessionId: "claude-one",
+      cwd: projectA,
+      timestamp: "2026-01-01T10:00:00.000Z",
+      message: { role: "user", content: "Claude prompt" },
+    }) + "\n"
+  );
+  const { CONFIG } = await import("../src/config.js");
+  CONFIG.storagePath = join(root, "store");
+  const { validateImportSource } = await import("../src/importer/import-sources.js");
+  const { listImportSessions } = await import("../src/importer/import-sessions.js");
+
+  for (const [host, folder, id] of [
+    ["pi", piRoot, "pi-one"],
+    ["claude-code", claudeRoot, "claude-one"],
+  ] as const) {
+    const source = validateImportSource(host, folder);
+    const list = await listImportSessions(
+      { sourceToken: source.sourceToken, refresh: true },
+      { host, scope: "all-projects", pathMaps: [], cwd: projectA }
+    );
+    expect(list.rows.map((row) => row.sessionId)).toEqual([id]);
+    expect(list.rows[0]).not.toHaveProperty("title");
+  }
 });

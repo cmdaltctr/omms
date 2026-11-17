@@ -71,6 +71,8 @@ function harness(
     loadSettingsThrows?: boolean;
     /** The version of the newest recorded OMMS copy. Default: none recorded. */
     recordedVersion?: string | null;
+    /** Another program, not OMMS, answers on the port. */
+    busy?: boolean;
   } = {}
 ): Harness {
   const calls: Call[] = [];
@@ -96,6 +98,7 @@ function harness(
         pollsAfterSpawn++;
         if (config.upAfterPolls !== undefined && pollsAfterSpawn >= config.upAfterPolls) up = true;
       }
+      if (config.busy) return new Response("<html>other app</html>");
       if (!up) throw new TypeError("fetch failed");
       return Response.json({ success: true, status: "ok" });
     }
@@ -247,8 +250,39 @@ describe("claude-hook command", () => {
       cwd: "/work/project",
       transcript_path: "/tmp/t.jsonl",
       source: "compact",
+      notices: true,
     });
     expect(JSON.parse(h.out[0]!).hookSpecificOutput.hookEventName).toBe("SessionStart");
+  });
+
+  it("copies the reply's systemMessage to its own field, never into the model context", async () => {
+    const line = "OMMS cannot read /home/u/.config/omms/omms.jsonc: on line 4, column 3.";
+    const h = harness(JSON.stringify(payload("session-start")), {
+      route: () =>
+        Response.json({
+          additionalContext: "<omms-retrieval>\nm\n</omms-retrieval>",
+          systemMessage: line,
+        }),
+    });
+    expect(await runClaudeHookCommand(["session-start"], h.options)).toBe(0);
+    expect(h.out).toHaveLength(1);
+    const printed = JSON.parse(h.out[0]!);
+    expect(printed.systemMessage).toBe(line);
+    expect(printed.hookSpecificOutput.additionalContext).not.toContain("line 4");
+  });
+
+  it("prints the systemMessage alone when the reply has no context", async () => {
+    const h = harness(JSON.stringify(payload("session-start")), {
+      route: () => Response.json({ additionalContext: "", systemMessage: "a\nb" }),
+    });
+    expect(await runClaudeHookCommand(["session-start"], h.options)).toBe(0);
+    expect(h.out.map((text) => JSON.parse(text))).toEqual([{ systemMessage: "a\nb" }]);
+  });
+
+  it("prints no systemMessage when the reply has none", async () => {
+    const h = harness(JSON.stringify(payload("session-start")));
+    expect(await runClaudeHookCommand(["session-start"], h.options)).toBe(0);
+    expect(Object.keys(JSON.parse(h.out[0]!))).toEqual(["hookSpecificOutput"]);
   });
 
   it("sends the subagent type and prints SubagentStart context", async () => {
@@ -561,5 +595,155 @@ describe("replacing an older web app", () => {
     await runClaudeHookCommand(["session-start"], h.options);
     expect(versionReads(h)).toHaveLength(0);
     expect(stepAside(h)).toHaveLength(0);
+  });
+});
+
+describe("user lines (systemMessage)", () => {
+  const lines = (h: Harness) => h.out.map((text) => JSON.parse(text));
+
+  it("logs port-busy, starts nothing and tells the user at SessionStart", async () => {
+    const h = harness(JSON.stringify(payload("session-start")), { busy: true });
+    expect(await runClaudeHookCommand(["session-start"], h.options)).toBe(0);
+    expect(logged(h)?.code).toBe("port-busy");
+    expect(h.spawns).toHaveLength(0);
+    expect(posts(h)).toHaveLength(0);
+    expect(h.out).toHaveLength(1);
+    expect(h.out[0]!.endsWith("\n")).toBe(true);
+    const [line] = lines(h);
+    expect(Object.keys(line)).toEqual(["systemMessage"]);
+    expect(line.systemMessage).toContain("port 4747");
+    expect(line.systemMessage).toContain("webServerPort");
+  });
+
+  it("logs server-unreachable for no runtime and tells the user at SessionStart", async () => {
+    const h = harness(JSON.stringify(payload("session-start")), { up: false, runtime: null });
+    expect(await runClaudeHookCommand(["session-start"], h.options)).toBe(0);
+    expect(logged(h)?.code).toBe("server-unreachable");
+    expect(h.out).toHaveLength(1);
+    const [line] = lines(h);
+    expect(Object.keys(line)).toEqual(["systemMessage"]);
+    expect(line.systemMessage).toContain("Node 22.14");
+  });
+
+  for (const event of ["user-prompt-submit", "subagent-start", "stop"] as const) {
+    it(`logs port-busy and writes nothing at ${event}`, async () => {
+      const h = harness(JSON.stringify(payload(event)), { busy: true });
+      expect(await runClaudeHookCommand([event], h.options)).toBe(0);
+      expect(logged(h)?.code).toBe("port-busy");
+      expect(h.out).toEqual([]);
+    });
+
+    it(`writes no user line for no runtime at ${event}`, async () => {
+      const h = harness(JSON.stringify(payload(event)), { up: false, runtime: null });
+      await runClaudeHookCommand([event], h.options);
+      expect(logged(h)?.code).toBe("server-unreachable");
+      expect(h.out).toEqual([]);
+    });
+  }
+
+  it("asks for user lines only at SessionStart", async () => {
+    const start = harness(JSON.stringify(payload("session-start")));
+    await runClaudeHookCommand(["session-start"], start.options);
+    expect(posts(start)[0]?.body.notices).toBe(true);
+    for (const event of ["user-prompt-submit", "subagent-start"] as const) {
+      const h = harness(JSON.stringify(payload(event)));
+      await runClaudeHookCommand([event], h.options);
+      expect(posts(h)[0]?.body.notices).toBeUndefined();
+    }
+  });
+
+  it("copies the reply's systemMessage at SessionStart even with no context", async () => {
+    const h = harness(JSON.stringify(payload("session-start")), {
+      route: () => Response.json({ additionalContext: "", systemMessage: "line one\nline two" }),
+    });
+    expect(await runClaudeHookCommand(["session-start"], h.options)).toBe(0);
+    expect(h.out).toHaveLength(1);
+    expect(lines(h)).toEqual([{ systemMessage: "line one\nline two" }]);
+    expect(logged(h)?.outputBytes).toBe(Buffer.byteLength(h.out[0]!));
+  });
+
+  it("writes one JSON line with context for the model and the line for the user", async () => {
+    const h = harness(JSON.stringify(payload("session-start", { source: "compact" })), {
+      route: () =>
+        Response.json({
+          additionalContext: "<omms-retrieval>\nm\n</omms-retrieval>",
+          systemMessage: "hello",
+        }),
+    });
+    await runClaudeHookCommand(["session-start"], h.options);
+    expect(h.out).toHaveLength(1);
+    const [line] = lines(h);
+    expect(line.systemMessage).toBe("hello");
+    expect(line.hookSpecificOutput.additionalContext).not.toContain("hello");
+    expect(line.hookSpecificOutput.hookEventName).toBe("SessionStart");
+  });
+
+  it("confirms the shown lines only after it has written its JSON line", async () => {
+    let writtenBeforeConfirm = -1;
+    const h = harness(JSON.stringify(payload("session-start")), {
+      basicAuth: { username: "me", password: "pw" },
+      route: (call) => {
+        if (call.url.endsWith("/api/claude/notices")) {
+          writtenBeforeConfirm = h.out.length;
+          return Response.json({ ok: true });
+        }
+        return Response.json({
+          additionalContext: "",
+          systemMessage: "line one",
+          noticeKeys: ["claude-code", "claude-code-capture-setup"],
+        });
+      },
+    });
+    expect(await runClaudeHookCommand(["session-start"], h.options)).toBe(0);
+    expect(lines(h)).toEqual([{ systemMessage: "line one" }]);
+    const confirm = posts(h).find((call) => call.url.endsWith("/api/claude/notices"));
+    expect(confirm?.body).toEqual({ keys: ["claude-code", "claude-code-capture-setup"] });
+    expect(confirm?.headers["x-omms-token"]).toBe(TOKEN);
+    expect(confirm?.headers.authorization).toStartWith("Basic ");
+    expect(writtenBeforeConfirm).toBe(1);
+    expect(logged(h)?.code).toBe("ok");
+  });
+
+  it("keeps one JSON line and the ok code when the confirmation fails", async () => {
+    const h = harness(JSON.stringify(payload("session-start")), {
+      route: (call) => {
+        if (call.url.endsWith("/api/claude/notices")) throw new TypeError("fetch failed");
+        return Response.json({ additionalContext: "", systemMessage: "hi", noticeKeys: ["x"] });
+      },
+    });
+    expect(await runClaudeHookCommand(["session-start"], h.options)).toBe(0);
+    expect(lines(h)).toEqual([{ systemMessage: "hi" }]);
+    expect(logged(h)?.code).toBe("ok");
+  });
+
+  it("sends no confirmation without a user line or keys", async () => {
+    for (const reply of [
+      { additionalContext: "", noticeKeys: ["claude-code"] },
+      { additionalContext: "", systemMessage: "hi" },
+      { additionalContext: "", systemMessage: "hi", noticeKeys: [] },
+    ]) {
+      const h = harness(JSON.stringify(payload("session-start")), {
+        route: () => Response.json(reply),
+      });
+      await runClaudeHookCommand(["session-start"], h.options);
+      expect(posts(h).filter((call) => call.url.endsWith("/api/claude/notices"))).toEqual([]);
+    }
+  });
+
+  it("never writes a systemMessage from a prompt hook", async () => {
+    const h = harness(JSON.stringify(payload("user-prompt-submit")), {
+      route: () => Response.json({ additionalContext: "", systemMessage: "should not show" }),
+    });
+    await runClaudeHookCommand(["user-prompt-submit"], h.options);
+    expect(h.out).toEqual([]);
+  });
+
+  it("ignores a systemMessage that is not a string", async () => {
+    const h = harness(JSON.stringify(payload("session-start")), {
+      route: () => Response.json({ additionalContext: "", systemMessage: 42 }),
+    });
+    await runClaudeHookCommand(["session-start"], h.options);
+    expect(h.out).toEqual([]);
+    expect(logged(h)?.code).toBe("ok");
   });
 });

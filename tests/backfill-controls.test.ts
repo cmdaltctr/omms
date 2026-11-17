@@ -117,3 +117,59 @@ describe("Claude Code backfill controls", () => {
     await controls.pause("claude-code");
   });
 });
+
+describe("refusal text per host (characterisation)", () => {
+  const hostConfig = {
+    piBackfillModel: CONFIG.piBackfillModel,
+    opencodeBackfillModel: CONFIG.opencodeBackfillModel,
+    piModel: CONFIG.piModel,
+    opencodeModel: CONFIG.opencodeModel,
+  };
+  afterAll(() => Object.assign(CONFIG, hostConfig));
+
+  it("names an already running import with the host's article", async () => {
+    const { ImportAlreadyRunningError } = await import("../src/importer/run-import.js");
+    expect(new ImportAlreadyRunningError("pi").message).toBe("A Pi import is already running");
+    expect(new ImportAlreadyRunningError("opencode").message).toBe(
+      "An OpenCode import is already running"
+    );
+    expect(new ImportAlreadyRunningError("claude-code").message).toBe(
+      "A Claude Code import is already running"
+    );
+  });
+
+  it("refuses Run now for a host with no model here, or with a run already going", async () => {
+    Object.assign(CONFIG, {
+      piBackfillModel: "inherit",
+      opencodeBackfillModel: "inherit",
+      piModel: "inherit",
+      opencodeModel: "inherit",
+    });
+    const controls = new BackfillControls();
+    const status = await controls.status();
+    expect(Object.keys(status)).toEqual(["pi", "opencode", "claude-code"]);
+    expect(status.pi.runNowUnavailable).toBe(
+      "Open Pi, or choose the external API for Pi's backfill"
+    );
+    expect(status.opencode.runNowUnavailable).toBe(
+      "Open OpenCode, or choose the external API for OpenCode's backfill"
+    );
+    expect(status["claude-code"].runNowUnavailable).toBeNull();
+
+    Object.assign(CONFIG, { piBackfillModel: "external", opencodeBackfillModel: "external" });
+    const expected = {
+      pi: "A Pi import is already running",
+      opencode: "An OpenCode import is already running",
+    } as const;
+    for (const host of ["pi", "opencode"] as const) {
+      expect((await controls.status())[host].runNowUnavailable).toBeNull();
+      const recorder = await startImportRun(host, "cli");
+      await expect(controls.runNow(host, storage)).rejects.toMatchObject({
+        status: 409,
+        message: expected[host],
+      });
+      await recorder.finish("done", {});
+    }
+    expect(scheduled).toHaveLength(0);
+  });
+});

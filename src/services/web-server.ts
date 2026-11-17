@@ -13,6 +13,7 @@ import {
   isLoopbackHost,
   webServerUrl,
 } from "./web-api-auth.js";
+import { healthBody } from "./health-body.js";
 import { packageVersion } from "./package-version.js";
 import type { UpdateStatus, WebUpdate } from "./web-update.js";
 import { isOlderVersion } from "./version-compare.js";
@@ -49,6 +50,7 @@ import {
   handleUpdateProfileItem,
 } from "./api-handlers.js";
 import { routeModules, spaceStatus } from "./web-route-modules.js";
+import { HOSTS, hostChoiceMessage, isMemoryHost, type MemoryHost } from "../shared/hosts.js";
 
 /**
  * Runtime-portable HTTP server handle.
@@ -269,6 +271,7 @@ export class WebServer {
   private readonly startedAt = Date.now();
   private onPowerActionCallback: ((action: PowerAction) => unknown) | null = null;
   private webUpdate: Pick<WebUpdate, "status" | "requestInstall"> | null = null;
+  private stopMaintenance?: () => void;
   powerActionRunning = false; // public: the automatic update stays quiet while one runs
   private stepAsideTimer: NodeJS.Timeout | null = null;
   private holdOffTimer: NodeJS.Timeout | null = null;
@@ -305,6 +308,8 @@ export class WebServer {
       if (path === "/api/claude/capture") {
         return this.jsonResponse(api.handleClaudeCapture(body), 202);
       }
+      if (path === "/api/claude/notices")
+        return this.jsonResponse(api.handleClaudeNoticesShown(body));
       const cwd = this.config.directory ?? process.cwd();
       return this.jsonResponse(
         await api.handleClaudeRetrieve(body, {
@@ -499,7 +504,7 @@ export class WebServer {
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
     const { listProfiles, mergeProfiles, ProfileAdminError } = await import("./profile-admin.js");
     const { resolveWebProfileUserId } = await import("./profile-identity.js");
-    const { CONFIG } = await import("../config.js");
+    const { CONFIG, refreshConfigIfChanged } = await import("../config.js");
     const store = userProfileManager;
     if (path === "/api/settings/profiles" && method === "GET") {
       const current = await resolveWebProfileUserId(CONFIG);
@@ -521,7 +526,6 @@ export class WebServer {
         const result = await writeGlobalConfigKeys({ userEmailOverride: userId }, body.revision, {
           only: new Set(["userEmailOverride"]),
         });
-        const { refreshConfigIfChanged } = await import("../config.js");
         refreshConfigIfChanged(this.config.directory ?? process.cwd());
         return this.jsonResponse(result);
       }
@@ -745,6 +749,10 @@ export class WebServer {
         .then(({ startClaudeCodeWorker }) => startClaudeCodeWorker())
         .catch(() => {});
       void import("./web-jobs.js").then((m) => m.startWebJobs()).catch(() => {});
+      // Daily housekeeping, and deletion only when autoDeleteOldMemories is on (ADR-051).
+      void import("./cleanup-service.js")
+        .then((m) => (this.stopMaintenance = m.startDailyMaintenanceTimer()))
+        .catch(() => {});
     } catch (error) {
       const errorMsg = String(error);
 
@@ -935,6 +943,8 @@ export class WebServer {
     this.server.stop();
     this.server = null;
     this.isOwner = false;
+    this.stopMaintenance?.();
+    this.stopMaintenance = undefined;
     const { opencodeSnapshots, stopStandaloneOpencodeReads } =
       await import("../importer/web-import-api.js");
     await opencodeSnapshots.closeAll();
@@ -1052,13 +1062,9 @@ export class WebServer {
 
     try {
       if (path === "/api/health" && method === "GET") {
-        return this.jsonResponse({
-          success: true,
-          status: "ok",
-          authEnabled: auth?.isEnabled() ?? false,
-          // Opaque per process; a restart finds its copy by it even behind basic auth.
-          instance: PROCESS_INSTANCE,
-        });
+        const { CONFIG: config } = await import("../config.js");
+        const authEnabled = auth?.isEnabled() ?? false;
+        return this.jsonResponse(healthBody({ authEnabled, instance: PROCESS_INSTANCE, config }));
       }
 
       if (path === "/" || path === "/index.html" || path === "/settings" || path === "/memory") {
@@ -1109,7 +1115,7 @@ export class WebServer {
           ...(CONFIG.importIgnoredDirectories ?? []),
           ...CONFIG.importPathMaps.map((map) => map.from),
         ];
-        const status = async (host: "pi" | "opencode" | "claude-code") => {
+        const status = async (host: MemoryHost) => {
           const current = await readBackfillStatus(host);
           if (!current) return current;
           // A damaged list must not hide the host's status: keep the run's count.
@@ -1118,22 +1124,19 @@ export class WebServer {
           const unresolved = visibleUnresolvedCount(current.counts.unresolved, directories, hidden);
           return { ...current, counts: { ...current.counts, unresolved } };
         };
-        const [pi, opencode, claudeCode] = await Promise.all([
-          status("pi"),
-          status("opencode"),
-          status("claude-code"),
-        ]);
-        return this.jsonResponse({ pi, opencode, "claude-code": claudeCode });
+        const statuses = await Promise.all(HOSTS.map((host) => status(host)));
+        return this.jsonResponse(Object.fromEntries(HOSTS.map((host, i) => [host, statuses[i]])));
       }
 
       if (path === "/api/settings/backfill/runs" && method === "GET") {
         return this.jsonResponse(await (await this.backfillControls()).status());
       }
 
-      const backfillAction =
-        /^\/api\/settings\/backfill\/(pi|opencode|claude-code)\/(run|pause|resume)$/.exec(path);
+      const backfillAction = new RegExp(
+        `^/api/settings/backfill/(${HOSTS.join("|")})/(run|pause|resume)$`
+      ).exec(path);
       if (backfillAction && method === "POST") {
-        const host = backfillAction[1] as "pi" | "opencode" | "claude-code";
+        const host = backfillAction[1] as MemoryHost;
         const controls = await this.backfillControls();
         const cwd = this.config.directory ?? process.cwd();
         return this.importResponse(() =>
@@ -1255,50 +1258,6 @@ export class WebServer {
         return this.jsonResponse(result);
       }
 
-      if (path === "/api/settings/external-api/key" && method === "POST") {
-        // The body can hold a pasted key: never log it, and never echo it back.
-        const body = (await req.json()) as Record<string, unknown> | null;
-        const { MemoryKeySourceError, parseMemoryKeySource, storeMemoryKeySource } =
-          await import("./memory-key-source.js");
-        try {
-          const request = parseMemoryKeySource(body);
-          if (
-            request.source === "paste" &&
-            !isLoopbackHost(this.config.host) &&
-            !auth?.isEnabled()
-          ) {
-            return this.jsonResponse(
-              { error: "Saving a key requires Basic Auth on network hosts" },
-              403
-            );
-          }
-          if (typeof body?.revision !== "string") {
-            return this.jsonResponse({ error: "Revision required" }, 400);
-          }
-          const stored = await storeMemoryKeySource(request);
-          const { writeGlobalConfigKeys } = await import("./global-config-writer.js");
-          const result = await writeGlobalConfigKeys(
-            { memoryApiKey: stored.reference },
-            body.revision
-          );
-          const { refreshConfigIfChanged } = await import("../config.js");
-          refreshConfigIfChanged(this.config.directory ?? process.cwd());
-          const { memoryKeyStatus } = await import("./settings-snapshot.js");
-          return this.jsonResponse({ ...result, key: memoryKeyStatus(stored.reference) });
-        } catch (error) {
-          const status =
-            error instanceof MemoryKeySourceError
-              ? error.status
-              : ((error as { status?: number }).status ?? 400);
-          const message = error instanceof Error ? error.message : "Key source not saved";
-          const secret = typeof body?.value === "string" ? body.value.trim() : "";
-          return this.jsonResponse(
-            { error: secret ? message.replaceAll(secret, "[redacted]") : message },
-            status
-          );
-        }
-      }
-
       if (path === "/api/settings/tokens" || path.startsWith("/api/settings/tokens/")) {
         return this.handleTokenRoute(req, path, method, remoteAddress);
       }
@@ -1320,10 +1279,9 @@ export class WebServer {
         if (response) return response;
       }
 
-      if (path === "/api/settings/reranker/test") return testReranker(req, method, remoteAddress);
-      if (path === "/api/settings/external-api/test" && method === "POST") {
-        const { testExternalApi } = await import("../importer/web-import-api.js");
-        return this.jsonResponse(await testExternalApi());
+      if (path === "/api/settings/reranker/test") {
+        const network = !isLoopbackHost(this.config.host) && !auth?.isEnabled();
+        return testReranker(req, method, remoteAddress, network);
       }
 
       if (path === "/api/settings/import-maps" && method === "GET") {
@@ -1343,12 +1301,11 @@ export class WebServer {
       }
 
       if (path === "/api/settings/models" && method === "GET") {
-        const { listOpencodeSettingsModels, listPiSettingsModels } =
-          await import("../importer/settings-models.js");
+        const { listSettingsModels } = await import("../importer/settings-models.js");
         const host = url.searchParams.get("host");
-        if (host === "pi") return this.jsonResponse(await listPiSettingsModels());
-        if (host === "opencode") return this.jsonResponse(await listOpencodeSettingsModels());
-        return this.jsonResponse({ error: "Invalid host" }, 400);
+        const models = isMemoryHost(host) ? await listSettingsModels(host) : null;
+        if (!models) return this.jsonResponse({ error: "Invalid host" }, 400);
+        return this.jsonResponse(models);
       }
 
       if (path === "/api/settings/last-saved" && method === "GET") {
@@ -1364,7 +1321,7 @@ export class WebServer {
         ]);
         const days = Math.max(1, Math.min(90, Number(url.searchParams.get("days")) || 7));
         const host = url.searchParams.get("host") || undefined;
-        if (host && !["opencode", "pi", "claude-code"].includes(host)) {
+        if (host && !isMemoryHost(host)) {
           return this.jsonResponse({ error: "Invalid host" }, 400);
         }
         return this.jsonResponse({
@@ -1373,7 +1330,7 @@ export class WebServer {
         });
       }
 
-      const retryNow = /^\/api\/settings\/capture-retry\/(pi|opencode|claude-code)\/run$/.exec(
+      const retryNow = new RegExp(`^/api/settings/capture-retry/(${HOSTS.join("|")})/run$`).exec(
         path
       );
       if (retryNow && method === "POST") {
@@ -1381,7 +1338,7 @@ export class WebServer {
           import("../config.js"),
           import("./capture-retry-drain.js"),
         ]);
-        const host = retryNow[1] as "pi" | "opencode" | "claude-code";
+        const host = retryNow[1] as MemoryHost;
         return this.jsonResponse({ result: await requestCaptureRetryNow(host, CONFIG) });
       }
 
@@ -1426,7 +1383,7 @@ export class WebServer {
 
       if (path === "/api/settings/imports/readiness" && method === "GET") {
         const { importReadiness } = await import("../importer/web-import-api.js");
-        return this.jsonResponse(await importReadiness());
+        return this.jsonResponse(await importReadiness({ directory: this.config.directory }));
       }
 
       if (path === "/api/settings/imports/sources/browse" && method === "POST") {
@@ -1438,31 +1395,25 @@ export class WebServer {
           );
         }
         const body = (await req.json()) as { host?: unknown; path?: unknown };
-        if (body?.host !== "pi" && body?.host !== "opencode" && body?.host !== "claude-code") {
-          return this.jsonResponse({ error: "Choose Pi, OpenCode, or Claude Code" }, 400);
+        if (!isMemoryHost(body?.host)) {
+          return this.jsonResponse({ error: hostChoiceMessage() }, 400);
         }
         const [{ browseImportSources }, { CONFIG }] = await Promise.all([
           import("../importer/web-import-api.js"),
           import("../config.js"),
         ]);
         return this.importResponse(() =>
-          browseImportSources(
-            body.host as "pi" | "opencode" | "claude-code",
-            body.path,
-            CONFIG.claudeConfigDir
-          )
+          browseImportSources(body.host as MemoryHost, body.path, CONFIG.claudeConfigDir)
         );
       }
 
       if (path === "/api/settings/imports/sources/validate" && method === "POST") {
         const body = (await req.json()) as { host?: unknown; path?: unknown };
-        if (body?.host !== "pi" && body?.host !== "opencode" && body?.host !== "claude-code") {
-          return this.jsonResponse({ error: "Choose Pi, OpenCode, or Claude Code" }, 400);
+        if (!isMemoryHost(body?.host)) {
+          return this.jsonResponse({ error: hostChoiceMessage() }, 400);
         }
         const { validateImportSource } = await import("../importer/web-import-api.js");
-        return this.importResponse(() =>
-          validateImportSource(body.host as "pi" | "opencode" | "claude-code", body.path)
-        );
+        return this.importResponse(() => validateImportSource(body.host as MemoryHost, body.path));
       }
 
       if (path === "/api/settings/imports/sessions" && method === "POST") {
@@ -1574,10 +1525,7 @@ export class WebServer {
         return this.jsonResponse(result);
       }
 
-      if (
-        (path === "/api/claude/retrieve" || path === "/api/claude/capture") &&
-        method === "POST"
-      ) {
+      if (/^\/api\/claude\/(retrieve|capture|notices)$/.test(path) && method === "POST") {
         return this.claudeHookResponse(req, path);
       }
 
@@ -1700,6 +1648,11 @@ export class WebServer {
         remoteAddress,
         startRecordPast: async (cwd) =>
           (await import("../importer/web-import-api.js")).startRecordPast(this.importJobs, cwd),
+        settings: {
+          networkWithoutAuth: !isLoopbackHost(this.config.host) && !auth?.isEnabled(),
+          testExternalApi: async (given) =>
+            (await import("../importer/web-import-api.js")).testExternalApi(given),
+        },
       });
       if (routed) return routed.response ?? this.jsonResponse(routed.body, routed.status);
 

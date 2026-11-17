@@ -1,7 +1,8 @@
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { HOSTS } from "../shared/hosts.js";
 
-export const APPEARANCE_HOSTS = ["pi", "opencode", "claude-code"] as const;
+export const APPEARANCE_HOSTS = HOSTS;
 export type AppearanceHost = (typeof APPEARANCE_HOSTS)[number];
 
 export type HostLook =

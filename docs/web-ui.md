@@ -9,7 +9,7 @@ One shared web app serves the page for every host. It runs as its own process, a
 These things start it:
 
 - **OpenCode, Pi, and Claude Code** each check the port when a session starts (Claude Code: when a hook runs). If an OMMS web app answers, the host uses it. If none answers, the host starts one `om-memory-system web` in the background. The web app keeps running after the session ends.
-- **The login item** starts it when you sign in to your computer. Turn it on with `om-memory-system web install`, or on the Settings page. See [CLI: Web app commands](cli.md#web-app-commands). Each host start keeps the newest OMMS copy in the item: the host's own copy, the global install, or the copy the item already runs. An older cached copy never replaces a newer one.
+- **The login item** starts it when you sign in to your computer. It is on by default for OpenCode and Pi: each of their starts installs it while `webServerAutoStart` is `true`. Claude Code never installs it. To turn it off, set `"webServerAutoStart": false` in the global config, or run `om-memory-system web uninstall`, which sets that value and removes the item. Turn it on again with `om-memory-system web install`, or on the Settings page. See [CLI: Web app commands](cli.md#web-app-commands). Each host start keeps the newest OMMS copy in the item: the host's own copy, the global install, or the copy the item already runs. An older cached copy never replaces a newer one.
 - **`om-memory-system web`** starts it by hand in the terminal. Press Ctrl+C to stop it.
 
 Two hosts that start at the same time start one web app. A start lock (`~/.omms/web-start.lock`) makes the other hosts wait. A lock is stale when its process is gone or it is older than 20 seconds, so a crash does not block a later start.
@@ -102,7 +102,7 @@ With no archived space, the page says "No space is archived."
 When you open the page from the same computer, the sidebar footer shows a power button. It is green while the web app answers, and grey when the last check failed. The page checks every 15 seconds. Select it to open a dialog with two actions:
 
 - **Restart** (the main action) starts a fresh copy of the web app on the same port. The page waits up to 30 seconds for the copy to answer, then reloads. If the restart fails and the old web app still answers, the dialog opens again and says so.
-- **Stop** turns the web app off and exits it with code `0`. The page shows a stopped screen with the command `om-memory-system web`.
+- **Stop** turns the web app off and exits it with code `0`. The page shows a stopped screen with the command `om-memory-system web`. On macOS and Linux the login item restarts a web app that crashed, but never one that exited with code `0`, so Stop keeps it off. See [Login item restart](cli.md#login-item-restart).
 
 A stop lasts until the next OpenCode start, Pi start, Claude Code prompt, `om-memory-system web install`, or login. Then a host starts the web app again.
 
@@ -136,7 +136,7 @@ A standalone web app that waits exits with code `0` when the owner runs a newer 
 
 `om-memory-system web install` can ask an older owner to step aside. The request is `POST /api/web/step-aside`. It needs the local API token (`~/.omms/.auth-token`) and a loopback caller. The owner refuses with `409` when the caller is not newer than itself.
 
-- A standalone web app (`om-memory-system web` or the login item) stops serving and waits up to 30 seconds for the caller's copy to take the port. Then it exits with code `0`. If no web app takes the port, it restarts onto the newest copy through the launcher and logs `Web app step-aside` with the code `no-new-owner`. If that restart fails, it serves again itself.
+- A standalone web app (`om-memory-system web` or the login item) stops serving and waits up to 60 seconds for the caller's copy to take the port. The wait covers an update restart that launchd holds for its 30-second restart throttle. Then it exits with code `0`. If no web app takes the port, it restarts onto the newest copy through the launcher and logs `Web app step-aside` with the code `no-new-owner`. If that restart fails, it serves again itself.
 - A web app inside an OpenCode session stops serving. The session keeps running. The web app waits 60 seconds before it can take the port back, so the login item can bind first. Only an older OpenCode plugin runs a web app in its session.
 - Each request writes one log record with the outcome (`stepped_aside`, `refused_not_newer`, or `refused_auth`) and both versions. The log never holds the token.
 
@@ -154,8 +154,8 @@ om-memory-system --version
 When npm has a newer release, the sidebar footer shows an **Update** button. In the open sidebar it sits after the GitHub link. In the collapsed sidebar it shows as an up-arrow icon. On a phone it has its own row above the footer icons. It shows only on this computer, under the same rule as the power button. Select it to open a dialog:
 
 - The running version and the newer release.
-- The update command for each host, each with a **Copy** action. OpenCode and Pi need their own update command and a restart.
-- **Update web app** installs the release globally and restarts the web app on it. The page shows progress, then reloads on the new version. When a step fails, the dialog shows the failure code and the web app keeps running. When no npm sits beside the web app's Node.js, for example under Bun, the action is off and the dialog says so.
+- The update command for each host, each with a **Copy** action. OpenCode and Pi need their own update command and a restart. The command for the global command and the web app is `npx -p om-memory-system@latest om-memory-system web update`. It takes the install lock and also repairs a broken global install.
+- **Update web app** installs the release globally and restarts the web app on it. The page shows progress, then reloads on the new version. When a step fails, the web app keeps running and the dialog says what to do next. For `install-busy`, `incomplete-install`, `network`, `permission`, and `timeout` it shows its own line; for any other code it shows the code. When no npm sits beside the web app's Node.js, for example under Bun, the action is off and the dialog says so.
 
 A standalone web app (`om-memory-system web` or the login item) checks npm `latest` when it starts and then every 10 minutes. While a page is open, it checks again when the last check is more than a minute old, so a newly approved release shows within about a minute. A release counts only when it is newer than the running version and is not a prerelease. Set `OMMS_DISABLE_UPDATE_CHECK=1` to turn the check off. A failed check keeps the last result and writes `Web app update check failed` with the code `unreachable`.
 
@@ -176,9 +176,12 @@ A standalone web app (`om-memory-system web` or the login item) checks npm `late
 
 How the update works:
 
-1. The web app runs `npm install -g om-memory-system@<version>` with the npm beside its Node.js, without a shell (Windows runs `npm.cmd` through one). Only a plain `x.y.z` version reaches npm.
-2. The web app reads the version of the install beside its Node.js. It restarts only when that version is the new release.
-3. The restart runs the OMMS launcher (`~/.omms/bin/omms-launch.mjs`), so the newest copy on the machine serves. A login item restarts through the service manager, and the login item runs the launcher too.
+1. The web app takes the install lock `~/.omms/global-install.lock`, so only one global install runs on the computer. It reads the global version again. When another web app or `web update` has already installed the release completely, it skips npm.
+2. The web app runs `npm install -g om-memory-system@<version>` with the npm beside its Node.js, without a shell (Windows runs `npm.cmd` through one). Only a plain `x.y.z` version reaches npm.
+3. The web app reads the version of the install beside its Node.js, then checks that the install is complete. When a dependency folder is missing or empty, it runs the same install once more. It restarts only when the install reports the new release and is complete. It removes the lock after every outcome.
+   - The lock also names npm, so it stays live when the web app exits before npm ends.
+   - A web app asked to step aside or retire during its install stops serving, then exits only after npm ends, at most 6 minutes later. Under the login item an earlier exit would stop npm mid-write.
+4. The restart runs the OMMS launcher (`~/.omms/bin/omms-launch.mjs`), so the newest copy on the machine serves. A login item restarts through the service manager, and the login item runs the launcher too.
 
 The web app keeps serving its current version when a step fails. The `code` names the step:
 
@@ -190,14 +193,16 @@ The web app keeps serving its current version when a step fails. The `code` name
 | `timeout`                             | npm ran longer than 5 minutes and was stopped.                                                                                                                                                  |
 | `spawn-error`                         | npm or the restarted copy could not start.                                                                                                                                                      |
 | `version-mismatch`                    | The install beside Node.js does not report the new release. A custom npm prefix (`prefix` in `.npmrc`) installs where the launcher does not look. Use the global command in the dialog instead. |
+| `install-busy`                        | Another web app or `web update` is installing. Wait a few minutes, then select **Update web app** again.                                                                                        |
+| `incomplete-install`                  | The install still had a missing or empty dependency folder after one repair. OMMS kept the current version. Run `npx -p om-memory-system@latest om-memory-system web update` in a terminal.     |
 | `no-launcher`                         | The launcher is missing.                                                                                                                                                                        |
 | `copy-exit`, `handoff`, `other-owner` | The restart failed. See [How Restart works](#power-button).                                                                                                                                     |
 
-Each update writes `Web app update` log records with the outcome, the code, both versions, the npm exit code, and the duration. The log never holds npm output or the token.
+Each update writes `Web app update` log records with the outcome, the code, both versions, the npm exit code, and the duration. When the install check found a missing part, the record also names it in `missing`, for example `js-base64`, and `npm` says `repaired`. The log never holds npm output, a path, or the token. See [Install lock and install check](cli.md#install-lock-and-install-check).
 
 The install can also start by itself. The check compares npm `latest` with the older of the running copy and the global install, so a web app that runs from a current host copy still updates a global install that is behind. When the check finds a newer release, the standalone web app starts the same install the **Update web app** action starts, with no button pressed and no page open. An open page shows the same progress through the `state` field: `installing`, then `restarting`. When the restarted web app answers with a new `instance`, the page reloads itself on the new version, also when no dialog is open. The same reload follows a power-button restart. The page skips the reload before the first status answer and while the call fails, so a brief outage during the handover does not reload it.
 
-The automatic install obeys the same gates as the button: it does not run when the check is off, when no npm sits beside the web app's Node.js, when the launcher at `~/.omms/bin/omms-launch.mjs` is missing, or while another install or restart runs. A web app that serves inside a Pi or OpenCode session never updates itself. After a failed automatic install, the web app waits 30 minutes before another automatic attempt; the **Update** button still starts a manual install during that wait. No new settings were added: `OMMS_DISABLE_UPDATE_CHECK=1`, which turns the check off, is the only off switch.
+The automatic install obeys the same gates as the button: it does not run when the check is off, when no npm sits beside the web app's Node.js, when the launcher at `~/.omms/bin/omms-launch.mjs` is missing, or while another install or restart runs. A web app that serves inside a Pi or OpenCode session never updates itself. When another install holds the lock, an automatic install logs `busy` with the code `install-busy`, stays idle, and tries again at the next check. After a failed automatic install, the web app waits 30 minutes before another automatic attempt; the **Update** button still starts a manual install during that wait. No new settings were added: `OMMS_DISABLE_UPDATE_CHECK=1`, which turns the check off, is the only off switch.
 
 ## Filters and memory cards
 
@@ -237,7 +242,7 @@ The preview used synthetic data on loopback port 5179. It did not use the normal
 
 Select **Memory** or open `http://127.0.0.1:4747/memory`. It opens on four cards of the same size: **Pi**, **OpenCode**, **Claude Code** and **Shared**. A host card opens only that host: its status and main action (Pause, Resume or Retry), its sessions, the folders that need a map, and its own settings. **Shared** holds **Profile learning**, **Memory limits**, **Keyword matching**, **Reranker** and the saved directory maps. Each host card has an avatar that you can change, and the cards turn amber when memories cannot be saved.
 
-**Import all hosts** on the overview opens the multi-host import. It defaults to Pi, Current project and both outputs: Project memories and User profile. **All hosts** explicitly includes Pi, OpenCode and Claude Code without widening project scope. The hosts and scope you tick stay after a refresh. A reviewed preview and confirmation precede model calls. The server runs the selected hosts sequentially and retains completed work after failure or cancellation.
+**Import all hosts** on the overview previews every host with history on this computer, in all projects, with both outputs: Project memories and User profile. A dialog states the sessions, model calls and time before any model call. **Customise** holds the hosts, scope, session lists and model choice. The hosts and scope you tick stay after a refresh. The server runs the selected hosts sequentially and retains completed work after failure or cancellation.
 
 Profile learning separates **Analyse waiting prompts** inside OMMS from **Re-analyse chat history**, a reviewed forced profile-only import. The [Memory page guide](web-ui-memory.md) covers operations, estimates, limits, maps and [old Settings redirects](web-ui-memory.md#old-settings-links).
 

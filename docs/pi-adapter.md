@@ -11,7 +11,11 @@ listed in `openspec/changes/archive/2026-09-21-add-pi-adapter-shared-memory/desi
 
 ## Installation
 
-From npm:
+Run `npx om-memory-system@latest setup`. It finds Pi, shows what it will do and
+asks once. See [CLI: setup](cli.md#setup). Check the result with
+`npx om-memory-system@latest doctor`, then restart Pi.
+
+To install by hand from npm:
 
 ```bash
 pi install npm:om-memory-system
@@ -94,17 +98,37 @@ If one answers, Pi uses it. This check runs at every session start, whatever
 app off. When `webServerAutoStart` is set, the Pi adapter also updates the web
 app login item, the same as OpenCode. See [Web UI](web-ui.md#starting-the-web-app).
 
+When the web app cannot start, Pi shows one warning notification. It uses the
+same wording as OpenCode and Claude Code. Pi shows each message once per Pi
+process, so a second session in the same process stays quiet. A session without
+an interface shows none. The web app start does not wait and never blocks the session.
+
+- `port-busy`: the message names the port and says to stop the other program, or to set `webServerPort` in the global config to a free port.
+- `no-runtime`: the message says to install Node 22.14 or later, then start a new session.
+
+At the first session on the computer, Pi also shows the first-run notice once as
+a notification. It says what OMMS does on its own and how to turn each part
+off. See [Configuration: First-run notice](configuration.md#first-run-notice).
+
 History backfill (automatic history import) uses `piBackfillModel`. See
 [Configuration: Automatic history import and login web app](configuration.md#automatic-history-import-and-login-web-app).
+
+## Uninstall
+
+1. Run `pi remove npm:om-memory-system`. Pi also accepts `pi uninstall npm:om-memory-system`, and `-l` removes the package from project settings. The commands come from `pi --help` and `pi remove --help` of Pi 1.5.0.
+2. Stop the login item. Pi starts the web app at sign-in while `webServerAutoStart` is `true`, and each Pi start installs the item again. Set `"webServerAutoStart": false` in `~/.config/omms/omms.jsonc`, then run `npx om-memory-system@latest web uninstall`. The command also sets that value and removes the item.
+3. Restart Pi.
+
+Your memories stay in `~/.omms/data`. Delete that folder only when you want to lose them.
 
 ## Lifecycle mapping
 
 | Pi event                    | omms behaviour                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `session_start`             | Load shared config for `ctx.cwd`, remove old capture traces, update the web login item when `webServerAutoStart` is set, register the Pi backfill model resolver, start automatic backfill when `autoBackfill` is on, warm storage and embeddings in the background                                                                                                                                                                                                    |
+| `session_start`             | Load shared config for `ctx.cwd`, remove old capture traces, update the web login item when `webServerAutoStart` is set, register the Pi backfill model resolver, start automatic backfill when `autoBackfill` is on, warm storage and embeddings in the background. Show one warning per config problem; see [Config problems](#config-problems)                                                                                                                      |
 | `before_agent_start`        | Semantic retrieval: search project memory with the incoming prompt, inject results as a delimited `<omms-retrieval>` system-prompt section (never a fake user message). On the first prompt of a session, with `openingContext` on, add the opening section after it. After a compaction or a resume, add the restored session memories. In the interactive terminal, also draw a recall row above the editor; see [Recall rows](#recall-rows)                         |
 | `session_compact`           | Load the session's own memories for the restore. OMMS adds them to the next runs. Pi's own compaction summary is not changed. See [Compaction and resume](#compaction-and-resume)                                                                                                                                                                                                                                                                                      |
-| `agent_settled`             | Automatic capture of the settled work unit: the last user prompt plus its assistant/tool response window from the active branch                                                                                                                                                                                                                                                                                                                                        |
+| `agent_settled`             | Automatic capture of the settled work unit: the last user prompt plus its assistant/tool response window from the active branch. Then daily maintenance starts in the background; see [Daily maintenance](#daily-maintenance)                                                                                                                                                                                                                                          |
 | `session_shutdown`          | Cleanup that is safe to repeat (quit, reload, new, resume, fork). Clears the recall rows, stops a running automatic backfill and closes the store                                                                                                                                                                                                                                                                                                                      |
 | `/omms-recall`              | Unfold or fold the recall rows; see [Recall rows](#recall-rows)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `/memory-import-pi-history` | Import Pi session history; see [pi-history-import.md](pi-history-import.md)                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -194,6 +218,18 @@ covers both sides of the compaction, and each part is captured once.
 ### Automatic profile cleanup
 
 After a profile learning pass takes the count of analysed prompts past a multiple of `userProfileAutoCleanupInterval` (default 500), Pi starts the automatic cleanup in the background. It uses the same model as profile learning. A run that is still going when Pi ends saves nothing. See [Using memory: Automatic cleanup](using-memory.md#automatic-cleanup).
+
+### Daily maintenance
+
+After each settled turn, Pi starts daily maintenance in the background and does not wait for it. It runs at most once a day in each Pi process. A failed run is logged and never stops the session.
+
+- It always removes old capture attempt records, old capture retry rows and old cleanup undo records, and compacts the prompt database.
+- It deletes memories by age only when you turn on **Delete old memories automatically** in the Memory cleanup card. That writes `autoDeleteOldMemories: true` to the global config file. The default is off.
+- An older config file with `"autoCleanupEnabled": true` deletes nothing. See [Configuration: Memory cleanup](configuration.md#memory-cleanup).
+
+### Config problems
+
+When OMMS cannot read the config file, or cannot use a value in it, it uses the default, or turns a risky feature off, and keeps running. At `session_start`, Pi shows one warning notice per problem, for example `OMMS settings: OMMS cannot read ~/.config/omms/omms.jsonc: on line 4, column 3, a comma is missing.` The notice names the file and line, or the key and the values it accepts. Fix the file. For a key that a Settings card can change, the notice also points to the Settings page.
 
 ## Provenance
 

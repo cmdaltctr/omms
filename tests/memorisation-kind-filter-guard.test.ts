@@ -153,11 +153,6 @@ const ALLOWED: AllowedReader[] = [
     why: "Tag prefix migration verification count.",
   },
   {
-    file: "src/services/api-handlers.ts",
-    sql: "DELETE FROM memories WHERE id = ?",
-    why: "Delete by ID inside the update transaction. handleUpdateMemory refuses memorisations before it gets here.",
-  },
-  {
     file: "src/services/tag-migration.ts",
     sql: "SELECT * FROM memories WHERE id = ?",
     why: "By-ID read for the tag backfill. The queue holds only IDs from the filtered untagged query.",

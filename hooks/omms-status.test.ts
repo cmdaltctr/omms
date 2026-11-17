@@ -13,7 +13,16 @@ type Launcher =
   | { reject: string }
   | { hang: true }
   | { jsonVersion: string; latest: string | null; healthUrl?: string };
-type Health = "ok" | "401" | "500" | "no-success" | "down" | "hang";
+type Health =
+  | "ok"
+  | "401"
+  | "500"
+  | "no-success"
+  | "down"
+  | "hang"
+  | "capture-needs-setup"
+  | "capture-ready"
+  | "capture-off";
 
 /** Stand-ins for the engine's process, HTTP, status, toast and footer calls. */
 function world(
@@ -63,7 +72,11 @@ function world(
     if (health === "down") return { deny: "connection refused" };
     if (health === "hang") return new Promise(() => {});
     const status = health === "401" ? 401 : health === "500" ? 500 : 200;
-    const body = health === "no-success" ? { success: false } : { success: true };
+    const capture = /^capture-(.+)$/.exec(health)?.[1];
+    const body =
+      health === "no-success"
+        ? { success: false }
+        : { success: true, ...(capture ? { claudeCapture: capture } : {}) };
     return { value: { status, ok: status < 300, headers: {}, text: JSON.stringify(body) } };
   });
   on("ui.status", (_$: any, e: any) => {
@@ -207,6 +220,38 @@ describe("omms status line", () => {
     expect(await last(w)).toBe("✘ web app off");
     expect(await colour(w)).toBe("error");
     w.state.health = "ok";
+    await w.clock.advance(HEALTH_MS);
+    expect(await last(w)).toBe("✔");
+    expect(await colour(w)).toBe("success");
+  });
+
+  test("reads capture off in the warning colour when capture needs setup", async ($, on) => {
+    const w = world(on, {
+      launcher: { jsonVersion: "4.3.3", latest: null },
+      health: "capture-needs-setup",
+    });
+    await begin($, w);
+    expect(await last(w)).toBe("✔ capture off");
+    expect(await colour(w)).toBe("warning");
+  });
+
+  for (const health of ["capture-ready", "capture-off", "ok"] as const) {
+    test(`reads connected when the health capture state is ${health}`, async ($, on) => {
+      const w = world(on, { launcher: { jsonVersion: "4.3.3", latest: null }, health });
+      await begin($, w);
+      expect(await last(w)).toBe("✔");
+      expect(await colour(w)).toBe("success");
+    });
+  }
+
+  test("turns green within 30 seconds once the external API is set", async ($, on) => {
+    const w = world(on, {
+      launcher: { jsonVersion: "4.3.3", latest: null },
+      health: "capture-needs-setup",
+    });
+    await begin($, w);
+    expect(await last(w)).toBe("✔ capture off");
+    w.state.health = "capture-ready";
     await w.clock.advance(HEALTH_MS);
     expect(await last(w)).toBe("✔");
     expect(await colour(w)).toBe("success");

@@ -17,20 +17,20 @@ export function HostSessionSelection({
   host,
   draft,
   readiness,
+  modelState,
   advanced,
   listing,
   onChange,
   onList,
-  onUnresolved,
 }: {
   host: WebHost;
   draft: ImportDraft;
   readiness: Readiness | null;
+  modelState: string;
   advanced: boolean;
   listing: boolean;
   onChange: (patch: Partial<HostDraft>) => void;
   onList: (offset: number, refresh: boolean) => void;
-  onUnresolved: () => void;
 }) {
   const s = useSettingsText();
   const child = draft.hosts[host];
@@ -95,14 +95,6 @@ export function HostSessionSelection({
           {s("Options changed. Refresh the session list first.")}
         </p>
       )}
-      {page && draft.scope === "current-project" && page.unresolvedCount > 0 && (
-        <p className="text-sm">
-          {s("Sessions with directories that no longer exist")}: {page.unresolvedCount}.{" "}
-          <button type="button" className="underline" onClick={onUnresolved}>
-            {s("Show them and add a directory map")}
-          </button>
-        </p>
-      )}
       {page && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -157,6 +149,11 @@ export function HostSessionSelection({
                     </td>
                     <td className="p-1 font-mono text-xs">
                       <bdi dir="ltr">{row.sessionId ?? row.key}</bdi>
+                      {row.title && (
+                        <span className="ms-2 font-sans">
+                          <bdi>{row.title}</bdi>
+                        </span>
+                      )}
                       {row.handled && (
                         <span className="ms-2 rounded border border-border px-1 font-sans text-muted-foreground">
                           {s("Handled")}
@@ -206,12 +203,12 @@ export function HostSessionSelection({
         {s("Import model")}
         <div dir="ltr">
           <Select
+            id={`import-model-${host}`}
             aria-label={s("Import model")}
             className={importField}
             value={child.modelChoice}
             onChange={(event) => onChange({ modelChoice: event.target.value })}
           >
-            <option value="">{s("None")}</option>
             {host !== "claude-code" &&
               readiness?.opencode.models.map((model) => (
                 <option
@@ -228,14 +225,18 @@ export function HostSessionSelection({
           </Select>
         </div>
       </label>
-      {host !== "claude-code" && readiness && !readiness.opencode.available && (
-        <p className="text-xs text-muted-foreground">
-          {s(
-            "An import with an OpenCode signed-in model runs from the terminal or with /import in OpenCode."
-          )}
-        </p>
-      )}
-      <p className="text-xs text-muted-foreground">{s("Configured, not tested.")}</p>
+      {/* Only an OpenCode that is set up can run its signed-in model elsewhere. */}
+      {host === "opencode" &&
+        readiness &&
+        !readiness.opencode.available &&
+        readiness.defaultSourceFound?.opencode !== false && (
+          <p className="text-xs text-muted-foreground">
+            {s(
+              "An import with an OpenCode signed-in model runs from the terminal or with /memory-import-opencode-history in OpenCode."
+            )}
+          </p>
+        )}
+      {modelState && <p className="text-xs text-muted-foreground">{modelState}</p>}
     </section>
   );
 }

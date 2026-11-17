@@ -20,6 +20,7 @@ import {
   type RoutingState,
 } from "$lib/openrouter-routing";
 import { createLatestGate, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
+import { ReadOnlyNote } from "./ReadOnlyNote";
 
 const LIST_PATH = "/api/settings/external-api/openrouter-providers";
 const SAVE_PATH = "/api/settings/external-api/openrouter-routing";
@@ -191,6 +192,7 @@ export function OpenRouterRouting({
   saved,
   savedIsOpenRouter,
   debounceMs = 500,
+  readOnly = false,
 }: {
   model: string;
   savedModel: string;
@@ -198,6 +200,8 @@ export function OpenRouterRouting({
   saved: Record<string, unknown> | null;
   savedIsOpenRouter: boolean;
   debounceMs?: number;
+  /** The config file cannot be read, so Save routing is off. */
+  readOnly?: boolean;
 }) {
   const s = useSettingsText();
   const [state, setState] = useState<RoutingState>(() => routingFromProvider(saved));
@@ -314,13 +318,14 @@ export function OpenRouterRouting({
       : undefined;
   const saveButton = (
     <Button
-      disabled={save.kind === "saving" || blockReason !== undefined}
+      disabled={save.kind === "saving" || readOnly || blockReason !== undefined}
       aria-describedby={blockReason === undefined ? undefined : "openrouter-save-reason"}
       onClick={() => void saveRouting()}
     >
       {s("Save routing")}
     </Button>
   );
+  const readOnlyNote = <ReadOnlyNote show={readOnly} />;
   const note = (text: string) => <p className="text-xs text-muted-foreground">{text}</p>;
   return (
     <section
@@ -433,6 +438,7 @@ export function OpenRouterRouting({
       ) : (
         <Blocked reason={blockReason}>{saveButton}</Blocked>
       )}
+      {readOnlyNote}
       {blockReason !== undefined && (
         <p id="openrouter-save-reason" className="text-xs text-muted-foreground">
           {blockReason}

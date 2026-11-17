@@ -14,9 +14,24 @@ export const UPDATE_COMMANDS = [
   { label: "update-host-pi", command: "pi update npm:om-memory-system" },
   {
     label: "update-host-global",
-    command: "npm i -g om-memory-system@latest && om-memory-system web install",
+    // `-p` takes a fresh copy, so the command also repairs a broken global install.
+    command: "npx -p om-memory-system@latest om-memory-system web update",
   },
 ] as const;
+
+/** Failure codes with their own next step; any other code shows the general line. */
+const FAILURE_STEPS = new Set([
+  "install-busy",
+  "incomplete-install",
+  "network",
+  "permission",
+  "timeout",
+]);
+
+/** The failure line for `code`, with a next step when OMMS knows one. */
+function failureText(t: ReturnType<typeof useI18n>["t"], code: string): string {
+  return FAILURE_STEPS.has(code) ? t(`update-failed-${code}`) : t("update-failed", { code });
+}
 
 /**
  * How the button shows: the word in its own row (phone drawer), the word in the
@@ -109,9 +124,7 @@ export function UpdateDialog({
       return;
     }
     setWorking(false);
-    setMessage(
-      outcome.kind === "failed" ? t("update-failed", { code: outcome.code }) : t("update-timeout")
-    );
+    setMessage(outcome.kind === "failed" ? failureText(t, outcome.code) : t("update-timeout"));
   }
 
   function copy(command: string) {
@@ -119,7 +132,7 @@ export function UpdateDialog({
     setCopied(command);
   }
 
-  const shownMessage = message || (failedCode ? t("update-failed", { code: failedCode }) : "");
+  const shownMessage = message || (failedCode ? failureText(t, failedCode) : "");
 
   return (
     <>

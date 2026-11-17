@@ -21,18 +21,18 @@ function listedDraft(): ImportDraft {
 }
 
 it("clears every host's session list when the scope changes", () => {
-  const next = applyDraftChange(listedDraft(), { scope: "all-projects" });
+  const next = applyDraftChange(listedDraft(), { scope: "current-project" });
   for (const host of ["pi", "opencode", "claude-code"] as const) {
     expect(next.hosts[host].page).toBeNull();
     expect(next.hosts[host].listedWith).toBe("");
     expect(next.hosts[host].selection).toEqual({ mode: "ids", picked: new Map() });
   }
-  expect(next.scope).toBe("all-projects");
+  expect(next.scope).toBe("current-project");
 });
 
 it("keeps the session list when the scope is set to the same value", () => {
   const draft = listedDraft();
-  const next = applyDraftChange(draft, { scope: "current-project" });
+  const next = applyDraftChange(draft, { scope: "all-projects" });
   expect(next.hosts["claude-code"].page).toBe(draft.hosts["claude-code"].page);
 });
 
@@ -121,4 +121,28 @@ it("sends includeHandled on an all selection when handled sessions are shown", (
   draft.showHandled = true;
   draft.hosts.pi.listedWith = membership(draft, "pi");
   expect(groupRequest(draft, false).hosts[0]!.selection).toMatchObject({ includeHandled: true });
+});
+
+it("starts on All projects with no project folder and no directory map text", () => {
+  const draft = initialImportDraft();
+  expect(draft.scope).toBe("all-projects");
+  expect(draft.project).toBe("");
+  expect(draft).not.toHaveProperty("maps");
+});
+
+it("sends every project and no run-only directory maps", () => {
+  const draft = initialImportDraft();
+  draft.hosts.pi.page = {
+    total: 2,
+    unresolvedCount: 0,
+    revision: "r",
+    listedAt: 5,
+    source: { sourceToken: "t" },
+    rows: [],
+  } as never;
+  draft.hosts.pi.listedWith = membership(draft, "pi");
+  const { options } = groupRequest(draft, true);
+  expect(options.scope).toBe("all-projects");
+  expect(options.pathMaps).toEqual([]);
+  expect(options).not.toHaveProperty("project");
 });

@@ -8,16 +8,18 @@ import {
   type HistoryImportArgs,
   type ImportHost,
 } from "../importer/import-args.js";
+import { HOST_INFO, HOSTS } from "../shared/hosts.js";
 
-const COMMANDS: Record<string, ImportHost> = {
-  "import-opencode-history": "opencode",
-  "import-pi-history": "pi",
-  "import-claude-history": "claude-code",
-};
+const COMMANDS = new Map<string, ImportHost>(
+  HOSTS.map((host) => [`import-${HOST_INFO[host].commandName}-history`, host])
+);
 
 const usage = `Usage: om-memory-system <command> [options]
 
 Commands:
+  setup [--yes] [--dry-run] Add OMMS to OpenCode, Pi and Claude Code on this computer
+  doctor [--json] [--skip-model-test]
+                            Check the OMMS install and print a fix for each problem
   import-opencode-history   Import OpenCode history into omms
   import-pi-history         Import Pi history into omms
   import-claude-history     Import Claude Code history into omms
@@ -42,7 +44,7 @@ uses the external API or --provider, --api-url, and --api-key-env.`;
 
 export function parseImportArgs(argv: string[]): { host: ImportHost; args: HistoryImportArgs } {
   const [command, ...rest] = argv;
-  const host = command ? COMMANDS[command] : undefined;
+  const host = command ? COMMANDS.get(command) : undefined;
   if (!host) {
     throw new Error(
       "Expected import-opencode-history, import-pi-history, or import-claude-history; use --help"
@@ -72,6 +74,17 @@ export async function runCli(argv: string[]): Promise<number> {
     await runClaudeHookCommand(argv.slice(1));
     // An idle fetch connection could keep the hook alive past its Claude Code timeout.
     process.exit(0);
+  }
+  if (argv[0] === "setup") {
+    const { productionSetupDeps, runSetupCommand } = await import("./setup-command.js");
+    return await runSetupCommand(argv.slice(1), await productionSetupDeps());
+  }
+  if (argv[0] === "doctor") {
+    const { productionDoctorDeps, runDoctorCommand } = await import("./doctor-command.js");
+    return await runDoctorCommand(
+      argv.slice(1),
+      await productionDoctorDeps(argv.includes("--json"))
+    );
   }
   if (argv[0] === "memory") {
     const { runMemoryCommand } = await import("./memory-command.js");

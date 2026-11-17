@@ -67,6 +67,7 @@ The isolated runner gives each run an empty home folder (`HOME`, `USERPROFILE` a
 - It copies `~/.gitconfig` into the empty home, because some tests read the git identity.
 - `tests/preload.ts` stops any test process that the runner did not start, or whose home folder is the real one (`OMMS_REAL_HOME`), with a message that names the runner. A test can still start a child with its own temporary home. `tests/test-home-isolation.test.ts` checks the empty home and that guard.
 - To run one file safely, pass it to the runner: `bash scripts/run-tests-isolated.sh tests/<file>.test.ts`. A plain `bun test` refuses to run.
+- Tests can never run a real global npm. The runner points `npm_config_prefix` into the empty home and, except on Windows, puts a refusing `npm` and `npx` first on PATH; `.env.test` turns off the web app's npm update check. A read-only `npm pack` opts in with `OMMS_TEST_REAL_NPM`. See [TDR-087](tdr/087-a-test-web-app-half-wrote-the-real-global-install.md).
 
 Bun also loads `.env.test` for every test process and its children. It:
 

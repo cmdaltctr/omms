@@ -6,7 +6,12 @@ import {
   settingsRequest,
   withNote,
 } from "$lib/settings-api";
+import { Button } from "$lib/components/ui/button";
+import { Input } from "$lib/components/ui/input";
+import { Label } from "$lib/components/ui/label";
 import { useSettingsText } from "$lib/i18n/settings";
+import { useCatalogueText } from "$lib/i18n/settings-catalogue";
+import { findCatalogueEntry, PLAIN_TEXT } from "$lib/settings-catalogue";
 import {
   canSaveMemory,
   classifyMemorySaveFailure,
@@ -20,6 +25,7 @@ import {
   type MemorySaveFailure,
 } from "$lib/memory-controls";
 import { tableWrap, td, th, thead, tr } from "../settings/table-styles";
+import { ReadOnlyNote } from "../settings/ReadOnlyNote";
 
 type Setting = {
   value?: unknown;
@@ -28,7 +34,7 @@ type Setting = {
   default?: unknown;
   hasGlobal?: boolean;
 };
-type Snapshot = { revision: string; settings: Record<string, Setting> };
+type Snapshot = { readOnly?: boolean; revision: string; settings: Record<string, Setting> };
 
 /** Store status identities so a language switch retranslates the feedback. */
 type MemoryStatus =
@@ -39,6 +45,7 @@ type MemoryStatus =
 /** Edit global limits only; project overrides stay in force. */
 export function MemorySection() {
   const s = useSettingsText();
+  const t = useCatalogueText();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -75,6 +82,7 @@ export function MemorySection() {
   const configHelp = s(
     "Edit ~/.config/omms/omms.jsonc directly to set these limits without the web UI."
   ).split(configPath);
+  const readOnly = snapshot?.readOnly === true;
   async function save() {
     if (!snapshot || !canSave || saving.current) return;
     const edits = memorySaveEdits(draft, loaded);
@@ -144,12 +152,8 @@ export function MemorySection() {
       aria-label={s("Memory limits")}
     >
       <h2 className="text-section-title font-semibold">{s("Memory limits")}</h2>
-      <p className="text-xs text-muted-foreground">{s("Byte limits count UTF-8 bytes.")}</p>
-      <p className="text-xs text-muted-foreground">
-        {s(
-          "Approximate tokens are estimated as ceil(UTF-8 bytes / 4). A provider can count more or fewer tokens for the same text."
-        )}
-      </p>
+      <p className="text-xs text-muted-foreground">{t(PLAIN_TEXT.bytesNote)}</p>
+      <p className="text-xs text-muted-foreground">{t(PLAIN_TEXT.tokensNote)}</p>
       <p className="text-xs text-muted-foreground">
         {s(
           "These controls do not delete stored data, set a spending limit, limit model replies, or control Graphify output."
@@ -182,6 +186,8 @@ export function MemorySection() {
             <tbody>
               {MEMORY_CONTROLS.map((control) => {
                 const raw = draft[control.key];
+                const entry = findCatalogueEntry(control.key);
+                const name = entry ? t(entry.name) : control.key;
                 const value = memoryInputValue(control, draft, loaded);
                 const invalid =
                   typeof raw === "string" && parseMemoryValue(control, raw) === undefined;
@@ -197,7 +203,15 @@ export function MemorySection() {
                 return (
                   <tr className={tr} key={control.key}>
                     <td className={td}>
-                      <code dir="ltr">{control.key}</code>
+                      <Label htmlFor={`${control.id}-input`} className="font-medium">
+                        {name}
+                      </Label>
+                      {entry && (
+                        <p className="text-xs text-muted-foreground">{t(entry.description)}</p>
+                      )}
+                      <span className="block text-xs text-muted-foreground">
+                        <code dir="ltr">{control.key}</code>
+                      </span>
                       {overridden && (
                         <div className="mt-1 space-y-0.5 text-xs text-amber-600">
                           <p>
@@ -217,7 +231,7 @@ export function MemorySection() {
                       )}
                     </td>
                     <td className={td}>
-                      <input
+                      <Input
                         type="number"
                         id={`${control.id}-input`}
                         className="w-36 tabular-nums"
@@ -225,7 +239,7 @@ export function MemorySection() {
                         step={control.kind === "decimal" ? 0.01 : 1}
                         min={control.min}
                         max={control.max}
-                        aria-label={`${control.key} ${s("Value")}`}
+                        aria-label={`${name} ${s("Value")}`}
                         aria-describedby={`${control.id}-help`}
                         aria-invalid={invalid || undefined}
                         disabled={busy}
@@ -243,16 +257,18 @@ export function MemorySection() {
                       >
                         {s(control.accepted)}
                       </span>
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="xs"
                         data-reset={control.key}
-                        className="mt-1 block text-xs underline"
-                        disabled={busy || !hasGlobal}
-                        aria-label={`${control.key} ${s("Reset to default")}`}
+                        className="mt-1"
+                        disabled={busy || readOnly || !hasGlobal}
+                        aria-label={`${name} ${s("Reset to default")}`}
                         onClick={() => void reset(control.key)}
                       >
                         {s("Reset to default")}
-                      </button>
+                      </Button>
                     </td>
                     <td className={`${td} tabular-nums`}>
                       {formatMemoryDefault(defaults[control.key])}
@@ -271,16 +287,17 @@ export function MemorySection() {
           </table>
         </div>
         <div className="flex gap-2">
-          <button
+          <Button
             type="submit"
-            disabled={busy || !snapshot || !canSave}
+            disabled={busy || !snapshot || readOnly || !canSave}
             onClick={() => void save()}
           >
             {s("Save memory limits")}
-          </button>
-          <button type="button" disabled={busy} onClick={() => setDraft({})}>
+          </Button>
+          <ReadOnlyNote show={readOnly} />
+          <Button type="button" variant="outline" disabled={busy} onClick={() => setDraft({})}>
             {s("Cancel")}
-          </button>
+          </Button>
         </div>
       </form>
       {status && (

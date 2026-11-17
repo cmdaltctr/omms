@@ -1,29 +1,35 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader } from "lucide-react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { useSettingsSnapshot } from "@/hooks/useSettingsSnapshot";
+import { useOpenRouterModels } from "@/hooks/useOpenRouterModels";
 import { Callout } from "$lib/components/skills/Callout";
 import { Button } from "$lib/components/ui/button";
-import { compactField, Select } from "$lib/components/ui/select";
+import { Input } from "$lib/components/ui/input";
+import { Label } from "$lib/components/ui/label";
+import { Select } from "$lib/components/ui/select";
 import {
-  beginSettingsRead,
-  onSettingsSnapshot,
-  reloadSettingsSnapshot,
-  settingsRequest,
-} from "$lib/settings-api";
-import { keySourceBody, type KeySource } from "$lib/external-api-settings";
-import { useSettingsText } from "$lib/i18n/settings";
+  keyEntered,
+  keySourceBody,
+  testFailureText,
+  testKeyValue,
+  type ExternalTestReply,
+  type KeySource,
+} from "$lib/external-api-settings";
+import { useCardText } from "$lib/i18n/settings-cards";
 import { applyOpenRouterPreset, isOpenRouterUrl } from "$lib/openrouter-routing";
-import { useOpenRouterModels } from "@/hooks/useOpenRouterModels";
+import { providerName } from "$lib/provider-names";
+import { reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
+import { saveSettingEdits } from "$lib/settings-save";
+import { KeySourceField, type KeyChoice, type SavedKey } from "./KeySourceField";
 import { OpenRouterRouting } from "./OpenRouterRouting";
+import { SettingRow } from "./SettingRow";
 
 type Snapshot = {
   revision: string;
-  settings: Record<string, { globalValue?: unknown }>;
-  externalKey?: {
-    source: "env" | "file" | "literal" | null;
-    reference: string | null;
-    resolvesInWebApp: boolean;
-    warning: string | null;
-  };
+  readOnly?: boolean;
+  settings: Record<string, { globalValue?: unknown } | undefined>;
+  externalKey?: NonNullable<SavedKey> & { warning: string | null };
   openrouterProvider?: Record<string, unknown> | null;
 };
 
@@ -35,234 +41,317 @@ const PROVIDERS = [
   "orcarouter",
   "google-gemini",
 ];
+const URL_PATTERN = /^https?:\/\/\S+$/;
 
 export function ExternalApiSection() {
-  const s = useSettingsText();
-  const [snapshot, setSnapshot] = useState<Snapshot>();
+  const t = useCardText();
+  const { snapshot, error: loadError } = useSettingsSnapshot<Snapshot>();
+  const { ask, dialog } = useSettingsConfirm();
   const [fields, setFields] = useState<Record<string, string>>({});
   const [source, setSource] = useState<KeySource>("file");
   const [keyInput, setKeyInput] = useState({ name: "", path: "", value: "" });
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [removing, setRemoving] = useState(false);
-  useEffect(() => {
-    let active = true;
-    const read = beginSettingsRead();
-    void settingsRequest<Snapshot>("/api/settings")
-      .then((value) => {
-        if (active && read.isCurrent()) setSnapshot(value);
-      })
-      .catch((error: Error) => {
-        if (active) setMessage(error.message);
-      });
-    const unsubscribe = onSettingsSnapshot((value) => {
-      if (active) setSnapshot(value as Snapshot);
-    });
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, []);
+  const [failed, setFailed] = useState(false);
+  const [statusCode, setStatusCode] = useState<number>();
+  const [working, setWorking] = useState("");
+  const busy = working !== "";
 
   const saved = (key: string) => String(snapshot?.settings[key]?.globalValue ?? "");
   const value = (key: string) => fields[key] ?? saved(key);
   const onOpenRouter = isOpenRouterUrl(value("memoryApiUrl"));
   const modelSuggestions = useOpenRouterModels(onOpenRouter);
+  const readOnly = snapshot?.readOnly === true;
 
-  async function saveEndpoint() {
-    if (!snapshot) return;
-    const edits: Record<string, string> = {};
-    for (const key of ["memoryProvider", "memoryApiUrl", "memoryModel"]) {
-      const next = value(key).trim();
-      if (next && next !== saved(key)) edits[key] = next;
-    }
-    if (!Object.keys(edits).length) {
-      setMessage(s("Nothing to save."));
-      return;
-    }
-    setBusy(true);
-    try {
-      await settingsRequest("/api/settings", {
-        method: "PATCH",
-        body: JSON.stringify({ edits, revision: snapshot.revision }),
-      });
-      setFields({});
-      setMessage(s("Saved. New capture and profile work uses these settings."));
-    } catch (error) {
-      setMessage((error as Error).message);
-    }
-    await reloadSettingsSnapshot<Snapshot>();
-    setBusy(false);
+  const url = value("memoryApiUrl").trim();
+  const urlProblem = url !== "" && !URL_PATTERN.test(url);
+  const edits: Record<string, string | null> = {};
+  const provider = value("memoryProvider");
+  if (provider && provider !== saved("memoryProvider")) edits.memoryProvider = provider;
+  for (const key of ["memoryApiUrl", "memoryModel"]) {
+    const next = value(key).trim();
+    if (next !== saved(key)) edits[key] = next === "" ? null : next;
+  }
+  const hasKey = keyEntered(source, keyInput);
+  const changed = Object.keys(edits).length > 0 || hasKey;
+
+  function report(ok: boolean, text: string, status?: number) {
+    setFailed(!ok);
+    setMessage(text);
+    setStatusCode(status);
   }
 
-  async function removeRouting() {
-    if (!snapshot) return;
-    if (
-      !window.confirm(
-        s(
-          "Remove OpenRouter routing? Requests to this endpoint will no longer carry the routing choices."
-        )
-      )
-    ) {
-      return;
-    }
-    setBusy(true);
-    setRemoving(true);
-    setMessage("");
-    try {
-      await settingsRequest("/api/settings/external-api/openrouter-routing", {
-        method: "POST",
-        body: JSON.stringify({ revision: snapshot.revision, routing: null }),
-      });
-      setMessage(s("OpenRouter routing removed."));
-    } catch (error) {
-      setMessage((error as Error).message);
-    }
-    await reloadSettingsSnapshot<Snapshot>();
-    setRemoving(false);
-    setBusy(false);
+  /** Saves the key source and returns the config revision it wrote. */
+  async function postKey(revision: string, replace: boolean): Promise<string> {
+    const body = keySourceBody(source, { ...keyInput, replace });
+    const reply = await settingsRequest<{ revision?: string }>("/api/settings/external-api/key", {
+      method: "POST",
+      body: JSON.stringify({ ...body, setting: "memoryApiKey", revision }),
+    });
+    // Every key field empties: the pasted key leaves the page, and Save turns off.
+    setKeyInput({ name: "", path: "", value: "" });
+    return reply.revision ?? revision;
   }
 
-  async function saveKey(replace = false) {
-    if (!snapshot) return;
-    let body;
-    try {
-      body = keySourceBody(source, { ...keyInput, replace });
-    } catch (error) {
-      setMessage(s((error as Error).message));
-      return;
-    }
-    setBusy(true);
-    try {
-      await settingsRequest("/api/settings/external-api/key", {
-        method: "POST",
-        body: JSON.stringify({ ...body, revision: snapshot.revision }),
-      });
-      // The pasted key is dropped from the page as soon as it is saved.
-      setKeyInput((previous) => ({ ...previous, value: "" }));
-      setMessage(s("Key source saved."));
-    } catch (error) {
-      const text = (error as Error).message;
-      if (source === "paste" && !replace && text.includes("Confirm to replace")) {
-        setBusy(false);
-        if (window.confirm(s("A key file with this name exists. Replace it?"))) {
-          await saveKey(true);
-        }
+  /** The endpoint and model edits, after the key. Returns an error message, or "" on success. */
+  async function saveEdits(revision: string): Promise<string> {
+    if (Object.keys(edits).length === 0) return "";
+    const result = await saveSettingEdits(revision, edits);
+    if (!result.success) return result.error ?? "";
+    setFields({});
+    return "";
+  }
+
+  async function finish(problem: string) {
+    await reloadSettingsSnapshot();
+    setWorking("");
+    report(
+      problem === "",
+      problem ? t(problem) : t("Saved. New capture and profile work uses these settings.")
+    );
+  }
+
+  async function save() {
+    if (!snapshot || !changed || urlProblem) return;
+    report(true, "");
+    if (hasKey) {
+      // Check the key here first, so a bad key saves neither the key nor the endpoint.
+      try {
+        keySourceBody(source, keyInput);
+      } catch (cause) {
+        report(false, t((cause as Error).message));
         return;
       }
-      setMessage(text);
     }
-    await reloadSettingsSnapshot<Snapshot>();
-    setBusy(false);
+    // An emptied address or model turns the external API off: there is nothing to call.
+    const turnsOff =
+      provider !== "orcarouter" && (url === "" || value("memoryModel").trim() === "");
+    if (turnsOff) return persist(snapshot.revision);
+    // The same test as the Test button, once: only a key the provider accepts is saved.
+    setWorking("save");
+    let reply: ExternalTestReply;
+    try {
+      reply = await runTest();
+    } catch (cause) {
+      setWorking("");
+      report(false, t((cause as Error).message));
+      return;
+    }
+    if (reply.ok) return persist(snapshot.revision);
+    setWorking("");
+    if (reply.reason !== "unreachable") {
+      report(false, `${t(testFailureText(reply.reason))} ${t("Nothing was saved.")}`, reply.status);
+      return;
+    }
+    const revision = snapshot.revision;
+    ask({
+      title: t("Save without a working test?"),
+      body: (
+        <p>
+          {t(testFailureText(reply.reason))}{" "}
+          {t("Save these settings anyway? Capture fails until OMMS can reach the address.")}
+        </p>
+      ),
+      confirmLabel: t("Save anyway"),
+      busyLabel: t("Saving…"),
+      // The dialog closes; the card shows the save's progress and result.
+      run: async () => {
+        void persist(revision);
+        return { success: true };
+      },
+    });
+  }
+
+  /** Saves the key, then the endpoint and model edits. A key file with this name asks first. */
+  async function persist(start: string) {
+    let revision = start;
+    setWorking("save");
+    if (hasKey) {
+      try {
+        revision = await postKey(revision, false);
+      } catch (cause) {
+        const reason = (cause as Error).message;
+        setWorking("");
+        await reloadSettingsSnapshot();
+        if (source === "paste" && reason.includes("Confirm to replace")) {
+          ask({
+            title: t("Replace the key file?"),
+            body: <p>{t("A key file with this name already exists. Replace it?")}</p>,
+            confirmLabel: t("Replace"),
+            busyLabel: t("Saving…"),
+            destructive: true,
+            run: async () => {
+              try {
+                const problem = await saveEdits(await postKey(revision, true));
+                await reloadSettingsSnapshot();
+                report(problem === "", problem ? t(problem) : t("Key source saved."));
+                return problem ? { success: false, error: t(problem) } : { success: true };
+              } catch (error) {
+                return { success: false, error: t((error as Error).message) };
+              }
+            },
+          });
+          return;
+        }
+        report(false, t(reason));
+        return;
+      }
+    }
+    await finish(await saveEdits(revision));
+  }
+
+  /** One test call with the form's values, saved or not. A pasted key is used for it only. */
+  function runTest(): Promise<ExternalTestReply> {
+    const key = testKeyValue(source, keyInput);
+    return settingsRequest<ExternalTestReply>("/api/settings/external-api/test", {
+      method: "POST",
+      body: JSON.stringify({
+        provider: provider || "openai-chat",
+        url,
+        model: value("memoryModel").trim(),
+        ...(key === undefined ? {} : { key }),
+      }),
+    });
   }
 
   async function test() {
-    setBusy(true);
+    setWorking("test");
+    report(true, "");
     try {
-      const result = await settingsRequest<{ ok: boolean; model?: string; error?: string }>(
-        "/api/settings/external-api/test",
-        { method: "POST", body: "{}" }
-      );
-      setMessage(
-        result.ok
-          ? `${s("Test call succeeded")}: ${result.model ?? ""}`
-          : `${s("Test call failed")}: ${result.error ?? ""}`
+      const reply = await runTest();
+      const model = value("memoryModel").trim();
+      report(
+        reply.ok,
+        reply.ok
+          ? t("The test call worked: {provider}, model {model}.", {
+              provider: providerName(provider || "openai-chat"),
+              model: model || t("its own default"),
+            })
+          : t(testFailureText(reply.reason)),
+        reply.status
       );
     } catch (error) {
-      setMessage((error as Error).message);
+      report(false, t((error as Error).message));
     }
-    setBusy(false);
+    setWorking("");
+  }
+
+  function removeRouting() {
+    ask({
+      title: t("Remove OpenRouter routing?"),
+      body: <p>{t("Requests to this endpoint will no longer carry the routing choices.")}</p>,
+      confirmLabel: t("Remove"),
+      busyLabel: t("Removing OpenRouter routing…"),
+      destructive: true,
+      run: async () => {
+        setWorking("routing");
+        report(true, "");
+        let failure: string | undefined;
+        try {
+          await settingsRequest("/api/settings/external-api/openrouter-routing", {
+            method: "POST",
+            body: JSON.stringify({ revision: snapshot!.revision, routing: null }),
+          });
+        } catch (error) {
+          failure = (error as Error).message;
+        }
+        await reloadSettingsSnapshot();
+        setWorking("");
+        report(failure === undefined, failure ?? t("OpenRouter routing removed."));
+        return failure === undefined ? { success: true } : { success: false, error: failure };
+      },
+    });
   }
 
   const key = snapshot?.externalKey;
   return (
     <section
-      className="space-y-3 rounded-xl border border-border bg-card p-4"
-      aria-label={s("External API")}
+      className="space-y-4 rounded-xl border border-border bg-card p-4"
+      aria-label={t("External API")}
     >
-      <h2 className="text-section-title font-semibold">{s("External API")}</h2>
+      <h2 className="text-section-title font-semibold">{t("External API")}</h2>
       <p className="text-sm text-muted-foreground">
-        {s(
-          "An OpenAI- or Anthropic-compatible endpoint that either host can use for capture and backfill."
+        {t(
+          "An OpenAI- or Anthropic-compatible endpoint that OpenCode, Pi and Claude Code can use for capture and backfill. Claude Code needs it for capture."
         )}
       </p>
-      <label className="block text-sm">
-        {s("Preset")}
-        <div className={compactField}>
-          <Select
-            aria-label={s("Preset")}
-            className="mt-1 block w-full rounded border border-border bg-background p-2"
-            value={isOpenRouterUrl(value("memoryApiUrl")) ? "openrouter" : "custom"}
-            onChange={(event) => {
-              if (event.target.value === "openrouter") setFields(applyOpenRouterPreset(fields));
-              // Custom clears the URL so the user types their own. Model and key stay as they are.
-              else setFields({ ...fields, memoryApiUrl: "" });
-            }}
-          >
-            <option value="custom">{s("Custom")}</option>
-            <option value="openrouter">OpenRouter</option>
-          </Select>
-        </div>
-      </label>
-      <label className="block text-sm">
-        {s("Provider")}
-        <div className={compactField}>
-          <Select
-            aria-label={s("Provider")}
-            className="mt-1 block w-full rounded border border-border bg-background p-2"
-            value={value("memoryProvider") || "openai-chat"}
-            onChange={(event) => setFields({ ...fields, memoryProvider: event.target.value })}
-          >
-            {PROVIDERS.map((provider) => (
-              <option key={provider} value={provider}>
-                {provider}
+      {loadError ? <p role="alert">{loadError}</p> : null}
+      <div className="space-y-1">
+        <Label htmlFor="external-api-preset" className="font-medium">
+          {t("Preset")}
+        </Label>
+        <Select
+          id="external-api-preset"
+          aria-label={t("Preset")}
+          value={isOpenRouterUrl(value("memoryApiUrl")) ? "openrouter" : "custom"}
+          onChange={(event) => {
+            if (event.target.value === "openrouter") setFields(applyOpenRouterPreset(fields));
+            // Custom clears the URL so the user types their own. Model and key stay as they are.
+            else setFields({ ...fields, memoryApiUrl: "" });
+          }}
+        >
+          <option value="custom">{t("Custom")}</option>
+          <option value="openrouter">OpenRouter</option>
+        </Select>
+      </div>
+      <SettingRow setting="memoryProvider" controlId="external-api-provider">
+        <Select
+          id="external-api-provider"
+          aria-label={t("Provider")}
+          value={provider || "openai-chat"}
+          onChange={(event) => setFields({ ...fields, memoryProvider: event.target.value })}
+        >
+          {PROVIDERS.map((id) => (
+            <option key={id} value={id}>
+              {providerName(id)}
+            </option>
+          ))}
+        </Select>
+      </SettingRow>
+      <SettingRow setting="memoryApiUrl" controlId="external-api-url">
+        <Input
+          id="external-api-url"
+          dir="ltr"
+          className="font-mono"
+          placeholder="https://api.example.com/v1"
+          value={value("memoryApiUrl")}
+          aria-invalid={urlProblem}
+          onChange={(event) => setFields({ ...fields, memoryApiUrl: event.target.value })}
+        />
+        {urlProblem ? (
+          <p className="mt-1 text-xs text-destructive-label">
+            {t("The URL must start with http:// or https://.")}
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t(
+              "Empty turns the external API off, except for OrcaRouter, which has its own address."
+            )}
+          </p>
+        )}
+      </SettingRow>
+      <SettingRow setting="memoryModel" controlId="external-api-model">
+        <Input
+          id="external-api-model"
+          dir="ltr"
+          className="font-mono"
+          placeholder="glm-5-turbo"
+          list={onOpenRouter && modelSuggestions.length > 0 ? "openrouter-models" : undefined}
+          value={value("memoryModel")}
+          onChange={(event) => setFields({ ...fields, memoryModel: event.target.value })}
+        />
+        {onOpenRouter && modelSuggestions.length > 0 && (
+          <datalist id="openrouter-models">
+            {modelSuggestions.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.name}
               </option>
             ))}
-          </Select>
-        </div>
-      </label>
-      <label className="block text-sm">
-        {s("API URL")}
-        <div className={compactField}>
-          <input
-            dir="ltr"
-            className="mt-1 block w-full rounded border border-border bg-background p-2 font-mono"
-            placeholder="https://api.example.com/v1"
-            value={value("memoryApiUrl")}
-            onChange={(event) => setFields({ ...fields, memoryApiUrl: event.target.value })}
-          />
-        </div>
-      </label>
-      <label className="block text-sm">
-        {s("Model")}
-        <div className={compactField}>
-          <input
-            dir="ltr"
-            className="mt-1 block w-full rounded border border-border bg-background p-2 font-mono"
-            placeholder="glm-5-turbo"
-            list={onOpenRouter && modelSuggestions.length > 0 ? "openrouter-models" : undefined}
-            value={value("memoryModel")}
-            onChange={(event) => setFields({ ...fields, memoryModel: event.target.value })}
-          />
-          {onOpenRouter && modelSuggestions.length > 0 && (
-            <datalist id="openrouter-models">
-              {modelSuggestions.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name}
-                </option>
-              ))}
-            </datalist>
-          )}
-        </div>
-      </label>
-      <button
-        type="button"
-        className="rounded border border-border px-3 py-1.5 text-sm"
-        disabled={busy || !snapshot}
-        onClick={() => void saveEndpoint()}
-      >
-        {s("Save endpoint")}
-      </button>
+          </datalist>
+        )}
+        <p className="mt-1 text-xs text-muted-foreground">
+          {t("Empty turns the external API off, except for OrcaRouter, which picks its own model.")}
+        </p>
+      </SettingRow>
       {snapshot && isOpenRouterUrl(value("memoryApiUrl")) && (
         <OpenRouterRouting
           model={value("memoryModel")}
@@ -270,136 +359,82 @@ export function ExternalApiSection() {
           revision={snapshot.revision}
           saved={snapshot.openrouterProvider ?? null}
           savedIsOpenRouter={isOpenRouterUrl(saved("memoryApiUrl"))}
+          readOnly={readOnly}
         />
       )}
       {snapshot && !isOpenRouterUrl(saved("memoryApiUrl")) && snapshot.openrouterProvider && (
         <Callout tone="warning">
           <p>
-            {s(
+            {t(
               "OpenRouter routing is still saved and is sent with every request to this endpoint."
             )}
           </p>
-          <Button variant="outline" disabled={busy} onClick={() => void removeRouting()}>
-            {s("Remove OpenRouter routing")}
+          <Button variant="outline" disabled={busy} onClick={removeRouting}>
+            {t("Remove OpenRouter routing")}
           </Button>
-          {removing && (
+          {working === "routing" && (
             <p role="status" className="flex items-center gap-2 text-muted-foreground">
               <Loader className="size-4 animate-spin" aria-hidden="true" />
-              {s("Removing OpenRouter routing…")}
+              {t("Removing OpenRouter routing…")}
             </p>
           )}
         </Callout>
       )}
-
-      <fieldset className={`${compactField} space-y-2 rounded-lg border border-border p-3 text-sm`}>
-        <legend className="px-1 font-medium">{s("API key")}</legend>
-        <p className="text-xs text-muted-foreground">
-          {s("Key source")}:{" "}
-          {key?.source === "env"
-            ? `${s("environment variable")} ${key.reference}`
-            : key?.source === "file"
-              ? `${s("key file")} ${key.reference}`
-              : key?.source === "literal"
-                ? s("set in the config file")
-                : s("not set")}
-          {key?.source &&
-            ` · ${s(key.resolvesInWebApp ? "resolves in the web app" : "does not resolve in the web app")}`}
-        </p>
-        {key?.source === "env" && (
-          <p className="text-xs text-amber-600">
-            {s(
-              "A login web app does not see variables set only in a shell profile; a key file works everywhere."
-            )}
+      <SettingRow setting="memoryApiKey" controlId="external-api-key-source">
+        <KeySourceField
+          id="external-api-key"
+          choice={source}
+          onChoice={(choice: KeyChoice) => choice !== "none" && setSource(choice)}
+          input={keyInput}
+          onInput={setKeyInput}
+          saved={key}
+          disabled={busy}
+        />
+        {key?.source && !key.resolvesInWebApp ? (
+          <p className="mt-1 text-xs text-status-warning">
+            {t("The key does not resolve in this web app. Save it to a key file instead.")}
           </p>
-        )}
-        {key?.source && !key.resolvesInWebApp && (
-          <p className="text-xs text-amber-600">
-            {s("The key does not resolve in this web app. Save it to a key file instead.")}
-          </p>
-        )}
-        <div className="space-y-2">
-          {(
-            [
-              ["env", "Environment variable"],
-              ["file", "Key file"],
-              ["paste", "Save key to a private file"],
-            ] as const
-          ).map(([id, label]) => (
-            <label key={id} className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="omms-key-source"
-                checked={source === id}
-                onChange={() => setSource(id)}
-              />
-              {s(label)}
-            </label>
-          ))}
-          {source === "env" && (
-            <input
-              aria-label={s("Variable name")}
-              className="w-full rounded border border-border bg-background p-2"
-              placeholder="ZAI_API_KEY"
-              value={keyInput.name}
-              onChange={(event) => setKeyInput({ ...keyInput, name: event.target.value })}
-            />
-          )}
-          {source === "file" && (
-            <input
-              aria-label={s("Key file path")}
-              className="w-full rounded border border-border bg-background p-2"
-              placeholder="~/.config/omms/secrets/zai.key"
-              value={keyInput.path}
-              onChange={(event) => setKeyInput({ ...keyInput, path: event.target.value })}
-            />
-          )}
-          {source === "paste" && (
-            <>
-              <input
-                aria-label={s("Key file name")}
-                className="w-full rounded border border-border bg-background p-2"
-                placeholder="memory-api"
-                value={keyInput.name}
-                onChange={(event) => setKeyInput({ ...keyInput, name: event.target.value })}
-              />
-              <input
-                aria-label={s("API key")}
-                type="password"
-                autoComplete="off"
-                className="w-full rounded border border-border bg-background p-2"
-                value={keyInput.value}
-                onChange={(event) => setKeyInput({ ...keyInput, value: event.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                {s(
-                  "The key is written to ~/.config/omms/secrets/ readable only by you. It is never shown again."
-                )}
-              </p>
-            </>
-          )}
-        </div>
-        <button
+        ) : null}
+      </SettingRow>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
           type="button"
-          className="rounded border border-border px-3 py-1.5"
-          disabled={busy || !snapshot}
-          onClick={() => void saveKey()}
+          disabled={busy || !snapshot || readOnly || !changed || urlProblem}
+          onClick={() => void save()}
         >
-          {s("Save key source")}
-        </button>
-      </fieldset>
-      <button
-        type="button"
-        className="rounded border border-border px-3 py-1.5 text-sm"
-        disabled={busy}
-        onClick={() => void test()}
-      >
-        {s("Test")}
-      </button>
-      {message && (
-        <p role="status" className="text-sm">
-          {message}
-        </p>
-      )}
+          {t("Save settings")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={busy || !snapshot}
+          onClick={() => void test()}
+        >
+          {t("Test")}
+        </Button>
+        {readOnly ? (
+          <p className="text-xs text-muted-foreground">
+            {t("Saving is turned off until the file is fixed.")}
+          </p>
+        ) : null}
+        {working === "save" || working === "test" ? (
+          <p role="status" className="flex items-center gap-2 text-muted-foreground">
+            <Loader className="size-4 animate-spin" aria-hidden="true" />
+            {t(working === "test" ? "Testing…" : "Saving…")}
+          </p>
+        ) : null}
+      </div>
+      {message ? (
+        <div role={failed ? "alert" : "status"} className="text-sm">
+          <p>{message}</p>
+          {statusCode ? (
+            <p className="text-xs text-muted-foreground">
+              {t("Status code {status}", { status: statusCode })}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {dialog}
     </section>
   );
 }

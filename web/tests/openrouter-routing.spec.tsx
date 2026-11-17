@@ -24,6 +24,8 @@ const { Badge } = await import("../src/lib/components/ui/badge.tsx");
 const { Label } = await import("../src/lib/components/ui/label.tsx");
 const { Input } = await import("../src/lib/components/ui/input.tsx");
 const { Select } = await import("../src/lib/components/ui/select.tsx");
+const { SettingsConfirmDialog } =
+  await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
 const { setLanguage } = await import("../src/lib/i18n/index.ts");
 const { translateSettings } = await import("../src/lib/i18n/settings.ts");
 
@@ -592,11 +594,7 @@ const staleSnapshot = (url: string, provider: Record<string, unknown> | null) =>
   ...cardSnapshot(url),
   openrouterProvider: provider,
 });
-const confirmWith = (answer: boolean) => {
-  const asked: string[] = [];
-  (globalThis as any).window.confirm = (message: string) => (asked.push(message), answer);
-  return asked;
-};
+const confirmDialog = (tree: Node[]) => byType(tree, SettingsConfirmDialog)[0];
 
 it("offers to remove saved routing when the endpoint is not OpenRouter, after a confirm", async () => {
   const pending = deferred<{ status?: number; body: unknown }>();
@@ -609,16 +607,19 @@ it("offers to remove saved routing when the endpoint is not OpenRouter, after a 
   const remove = buttonNamed(tree, "Remove OpenRouter routing");
   expect(remove.props.variant).toBe("outline");
 
-  // Cancel in the confirm sends nothing.
-  const refused = confirmWith(false);
+  // Cancel in the dialog sends nothing.
   (remove.props.onClick as () => void)();
   tree = await settle(<ExternalApiSection />, cardOwn);
-  expect(refused.length).toBe(1);
+  expect(confirmDialog(tree)).toBeDefined();
+  confirmDialog(tree)!.props.onClose();
+  tree = await settle(<ExternalApiSection />, cardOwn);
+  expect(confirmDialog(tree)).toBeUndefined();
   expect(requests.some((request) => request.path === SAVE)).toBe(false);
 
   // Confirm sends the remove-everything save with the snapshot revision, shows progress, then the result.
-  confirmWith(true);
   (buttonNamed(tree, "Remove OpenRouter routing").props.onClick as () => void)();
+  tree = await settle(<ExternalApiSection />, cardOwn);
+  const confirmed = confirmDialog(tree)!.props.onConfirm() as Promise<unknown>;
   tree = await settle(<ExternalApiSection />, cardOwn);
   const post = requests.find((request) => request.path === SAVE)!;
   expect(post.method).toBe("POST");
@@ -628,6 +629,7 @@ it("offers to remove saved routing when the endpoint is not OpenRouter, after a 
 
   const reloads = requests.filter((request) => request.path === "/api/settings").length;
   pending.resolve({ body: { revision: "rev-10", provider: {} } });
+  await confirmed;
   tree = await settle(<ExternalApiSection />, cardOwn);
   expect(statusLines(tree).join(" ")).toContain("OpenRouter routing removed.");
   expect(requests.filter((request) => request.path === "/api/settings").length).toBeGreaterThan(
@@ -641,11 +643,13 @@ it("shows the server error when removing the saved routing fails", async () => {
       ? { status: 409, body: { error: "Settings changed elsewhere" } }
       : { body: staleSnapshot("https://api.example.com/v1", { zdr: true }) }
   );
-  confirmWith(true);
   let tree = await settle(<ExternalApiSection />, cardOwn);
   (buttonNamed(tree, "Remove OpenRouter routing").props.onClick as () => void)();
   tree = await settle(<ExternalApiSection />, cardOwn);
-  expect(statusLines(tree).join(" ")).toContain("Settings changed elsewhere");
+  const failure = await confirmDialog(tree)!.props.onConfirm();
+  expect(failure).toEqual({ success: false, error: "Settings changed elsewhere" });
+  tree = await settle(<ExternalApiSection />, cardOwn);
+  expect(allText(tree)).toContain("Settings changed elsewhere");
 });
 
 it("shows no stale-routing line for OpenRouter or for no saved routing", async () => {
@@ -668,11 +672,11 @@ it("shows the stale-routing line for unmanaged fields only, and removes the whol
   requests = installFetch(() => ({
     body: staleSnapshot("https://api.openai.com/v1", { sort: "price" }),
   }));
-  confirmWith(true);
-  const tree = await settle(<ExternalApiSection />, cardOwn);
+  let tree = await settle(<ExternalApiSection />, cardOwn);
   expect(allText(tree)).toContain(STALE);
   (buttonNamed(tree, "Remove OpenRouter routing").props.onClick as () => void)();
-  await settle(<ExternalApiSection />, cardOwn);
+  tree = await settle(<ExternalApiSection />, cardOwn);
+  await confirmDialog(tree)!.props.onConfirm();
   const post = requests.find((request) => request.path === SAVE)!;
   expect(post.body).toEqual({ revision: "rev-9", routing: null });
 });
@@ -839,7 +843,8 @@ it("has Chinese and Arabic text for Preset, Custom and every new string", () => 
     SAVE_REASON,
     STALE,
     "Remove OpenRouter routing",
-    "Remove OpenRouter routing? Requests to this endpoint will no longer carry the routing choices.",
+    "Remove OpenRouter routing?",
+    "Requests to this endpoint will no longer carry the routing choices.",
     "Removing OpenRouter routing…",
     "OpenRouter routing removed.",
     "Tick at least one provider first.",

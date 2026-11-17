@@ -24,6 +24,10 @@ async function fake(
     execPath?: string;
     canRestart?: boolean;
     pathEnv?: string;
+    /** True when another caller holds the install lock. */
+    lockHeld?: boolean;
+    /** What the install check finds after each npm run; null is complete. */
+    problems?: (string | null)[];
   } = {}
 ) {
   const spawns: { command: string; args: string[]; shell: boolean; path?: string }[] = [];
@@ -31,6 +35,9 @@ async function fake(
   const children: (InstallChild & { killed: boolean })[] = [];
   const timeouts: { ms: number; callback: () => void }[] = [];
   let restarts = 0;
+  const lockEvents: string[] = [];
+  const problems = [...(config.problems ?? [])];
+  let problem: string | null = null;
   const npm = config.npm ?? { exit: 0 };
   // The setup check records the release with the restart gate closed, so no
   // automatic install starts; each test then drives requestInstall itself.
@@ -59,6 +66,7 @@ async function fake(
       const emitter = new EventEmitter();
       const stderr = new EventEmitter();
       const child = Object.assign(emitter, {
+        pid: 4320 + spawns.length,
         stderr,
         killed: false,
         kill: () => {
@@ -71,12 +79,21 @@ async function fake(
         if ("error" in npm) emitter.emit("error", new Error("ENOENT"));
         if ("exit" in npm) {
           if (npm.stderr) stderr.emit("data", Buffer.from(npm.stderr));
+          if (npm.exit === 0) problem = problems.shift() ?? null;
           emitter.emit("exit", npm.exit);
         }
       }, 0);
       return child;
     },
     globalVersion: () => (config.globalAfter === undefined ? "4.10.0" : config.globalAfter),
+    // Before npm runs, the global install is at 4.9.0, so the check under the lock finds work.
+    installProblem: () => (spawns.length === 0 ? "dist/cli/index.js" : problem),
+    installLock: {
+      take: () => (lockEvents.push("take"), !config.lockHeld),
+      refresh: () => void lockEvents.push("refresh"),
+      track: (pid) => void lockEvents.push(`track:${pid}`),
+      release: () => void lockEvents.push("release"),
+    },
     restart: async () => {
       restarts++;
       return config.restartCode;
@@ -91,7 +108,7 @@ async function fake(
   const update = new WebUpdate(deps);
   await update.check();
   canRestart = config.canRestart ?? true;
-  return { update, spawns, logs, children, timeouts, restarts: () => restarts };
+  return { update, spawns, logs, children, timeouts, lockEvents, restarts: () => restarts };
 }
 /** Resolves when the fake npm tree has stopped; a test can hold it open. */
 let killDone = { promise: Promise.resolve(), release: () => {} };
@@ -127,10 +144,58 @@ it("installs with the npm beside Node.js and restarts onto the new copy", async 
         from: "4.9.0",
         to: "4.10.0",
         exitCode: 0,
+        npm: "ran",
         durationMs: 0,
       },
     },
   ]);
+  // The lock names npm, so it stays live if this web app exits mid-install.
+  expect(f.lockEvents).toEqual(["take", "track:4321", "release"]);
+});
+
+it("reports install-busy for the button while another install holds the lock, and runs no npm", async () => {
+  const f = await fake({ lockHeld: true });
+  expect(f.update.requestInstall()).toBe("accepted");
+  await settle();
+  expect(f.spawns).toEqual([]);
+  expect(f.restarts()).toBe(0);
+  expect(f.update.status()).toMatchObject({ state: "failed", code: "install-busy" });
+});
+
+it("repairs an empty dependency folder with a second npm run, then restarts", async () => {
+  const f = await fake({ problems: ["js-base64", null] });
+  f.update.requestInstall();
+  await settle();
+  expect(f.spawns).toHaveLength(2);
+  expect(f.lockEvents).toEqual(["take", "track:4321", "refresh", "track:4322", "release"]);
+  expect(f.restarts()).toBe(1);
+  expect(f.logs.at(-1)?.data).toMatchObject({
+    outcome: "installed",
+    npm: "repaired",
+    missing: "js-base64",
+  });
+});
+
+it("keeps serving and reports incomplete-install when the repair fails", async () => {
+  const f = await fake({ problems: ["js-base64", "js-base64"] });
+  f.update.requestInstall();
+  await settle();
+  expect(f.spawns).toHaveLength(2);
+  expect(f.restarts()).toBe(0);
+  expect(f.update.status()).toMatchObject({ state: "failed", code: "incomplete-install" });
+  // Codes and the dependency name only: no npm output and no path.
+  expect(f.logs.at(-1)).toEqual({
+    message: "Web app update",
+    data: {
+      outcome: "failed",
+      code: "incomplete-install",
+      from: "4.9.0",
+      to: "4.10.0",
+      exitCode: 0,
+      missing: "js-base64",
+      durationMs: 0,
+    },
+  });
 });
 
 it("uses npm.cmd through a shell on Windows", async () => {

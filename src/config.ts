@@ -6,8 +6,9 @@ import { log } from "./services/logger.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
 import { isPlaceholderApiKey } from "./services/ai/api-key-placeholder.js";
 import { getAutoCaptureProviderStatus } from "./services/ai/live-model-choice.js";
-import { parseBackfillModel } from "./importer/backfill-model.js";
-import { parseIgnoredDirectories, parseImportPathMaps } from "./importer/import-path-maps.js";
+import { parseBackfillModel } from "./utils/backfill-model.js";
+import { parseIgnoredDirectories, parseImportPathMaps } from "./utils/import-path-config.js";
+import { HOSTS } from "./shared/hosts.js";
 import {
   normaliseSkillConfig,
   projectSkillOverride,
@@ -35,6 +36,8 @@ import { backfillSpaceLabelsFromDisk } from "./services/spaces/space-label.js";
 import { resetStoreHandles } from "./services/spaces/store-handles.js";
 import * as memorisation from "./core/memorisation-settings.js";
 import { CONFIG_FILES, DATA_DIR, LEGACY_CONFIG_FILES, OMMS_CONFIG_DIR } from "./config-paths.js";
+import * as problems from "./services/config-problems.js";
+import type { ConfigProblem } from "./services/config-problems.js";
 
 if (!existsSync(OMMS_CONFIG_DIR)) mkdirSync(OMMS_CONFIG_DIR, { recursive: true });
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -72,7 +75,6 @@ interface OmmsConfig {
   memorisationRepeat?: memorisation.MemorisationSettings["memorisationRepeat"];
   /** Experimental: rerank text recall with the reranker server. Global config only. */
   memorisationRerank?: boolean;
-  maxProfileItems?: number;
   injectProfile?: boolean;
   containerTagPrefix?: string;
   autoCaptureEnabled?: boolean;
@@ -126,15 +128,13 @@ interface OmmsConfig {
   webServerAuthUsername?: string;
   webServerApiToken?: string;
   maxVectorsPerShard?: number;
-  autoCleanupEnabled?: boolean;
+  /** The only switch for deleting memories by age. Default false. Global config only. */
+  autoDeleteOldMemories?: boolean;
   autoCleanupRetentionDays?: number;
   deduplicationEnabled?: boolean;
   deduplicationSimilarityThreshold?: number;
   userProfileAnalysisInterval?: number;
   userProfileMaxContextBytes?: number;
-  userProfileDisplayPreferences?: number;
-  userProfileDisplayPatterns?: number;
-  userProfileDisplayWorkflows?: number;
   userProfileStaleDays?: number;
   userProfileWorkflowStaleDays?: number;
   userProfileInjectPreferences?: number;
@@ -237,7 +237,6 @@ const DEFAULTS: Required<
   memorisationSizeUnit: "characters",
   memorisationRepeat: "add",
   memorisationRerank: false,
-  maxProfileItems: 5,
   injectProfile: true,
   // omms since the tag prefix migration: new memories carry the fork's
   // identity end to end, and the startup gate (tag-prefix-migration.ts)
@@ -266,15 +265,12 @@ const DEFAULTS: Required<
   webServerPort: 4747,
   webServerHost: "127.0.0.1",
   maxVectorsPerShard: 50000,
-  autoCleanupEnabled: true,
+  autoDeleteOldMemories: false,
   autoCleanupRetentionDays: 30,
   deduplicationEnabled: true,
   deduplicationSimilarityThreshold: 0.9,
   userProfileAnalysisInterval: 10,
   userProfileMaxContextBytes: 32768,
-  userProfileDisplayPreferences: 20,
-  userProfileDisplayPatterns: 15,
-  userProfileDisplayWorkflows: 10,
   userProfileStaleDays: 2,
   userProfileWorkflowStaleDays: 30,
   userProfileInjectPreferences: 5,
@@ -314,21 +310,20 @@ const DEFAULTS: Required<
  * a lower-priority (legacy) file silently supply settings such as storagePath.
  * `strict` (live reload) throws instead, so running hosts keep their settings.
  */
-function loadConfigFromPaths(paths: string[], strict = false): OmmsConfig {
+function loadConfigFromPaths(paths: string[], strict = false, found: ConfigProblem[] = []) {
   const path = paths.find((candidate) => existsSync(candidate));
   if (!path) return {};
+  let content: string | undefined;
   try {
-    const content = readFileSync(path, "utf-8");
-    const json = stripJsoncComments(content);
-    return JSON.parse(json) as OmmsConfig;
+    content = readFileSync(path, "utf-8");
+    return JSON.parse(stripJsoncComments(content)) as OmmsConfig;
   } catch (error) {
-    // The parser's message can quote file content, so a reload names the file only.
-    if (strict) throw new Error(`Config file cannot be parsed: ${path}`, { cause: error });
-    log("Config file is invalid; using defaults instead of lower-priority files", {
-      path,
-      error: String(error),
-    });
-    return {};
+    // The parser's message can quote file content: report the line and column only.
+    const problem = problems.describeJsoncError(path, content, strict);
+    if (strict) throw new problems.ConfigFileError(path, problem, error);
+    log("Config file is invalid; using defaults", { path, line: problem.line });
+    found.push(problem);
+    return {} as OmmsConfig;
   }
 }
 
@@ -452,9 +447,14 @@ export function normalizeCaptureRetryRetentionHours(value: unknown): number {
   return Math.min(720, Math.max(0, Math.floor(value)));
 }
 
-export function normalizeAutoCleanupRetentionDays(value: number): number {
+const POSITIVE_WHOLE = "whole numbers of 1 or more";
+
+export function normalizeAutoCleanupRetentionDays(
+  value: number,
+  key = "autoCleanupRetentionDays"
+): number {
   if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`Invalid autoCleanupRetentionDays config: ${value}`);
+    throw new problems.ConfigValueError(key, POSITIVE_WHOLE);
   }
   return value;
 }
@@ -512,8 +512,7 @@ function buildConfig(fileConfig: OmmsConfig) {
   );
   const userProfileAutoCleanupInterval =
     fileConfig.userProfileAutoCleanupInterval ?? DEFAULTS.userProfileAutoCleanupInterval;
-  parseBackfillModel(fileConfig, "pi");
-  parseBackfillModel(fileConfig, "opencode");
+  for (const host of HOSTS) parseBackfillModel(fileConfig, host);
   const importPathMaps = parseImportPathMaps(fileConfig.importPathMaps);
   const importIgnoredDirectories = parseIgnoredDirectories(fileConfig.importIgnoredDirectories);
   if (
@@ -522,7 +521,7 @@ function buildConfig(fileConfig: OmmsConfig) {
   ) {
     throw new Error("Invalid claudeConfigDir config");
   }
-  for (const key of ["autoBackfill", "webServerAutoStart"] as const) {
+  for (const key of problems.STRICT_BOOLEANS) {
     if (fileConfig[key] !== undefined && typeof fileConfig[key] !== "boolean") {
       throw new Error(`Invalid ${key} config`);
     }
@@ -533,12 +532,10 @@ function buildConfig(fileConfig: OmmsConfig) {
     embeddingDimensions <= 0 ||
     embeddingDimensions > 65536
   ) {
-    throw new Error(`Invalid embeddingDimensions config: ${embeddingDimensions}`);
+    throw new problems.ConfigValueError("embeddingDimensions", "whole numbers from 1 to 65536");
   }
   if (!Number.isInteger(userProfileAutoCleanupInterval) || userProfileAutoCleanupInterval <= 0) {
-    throw new Error(
-      `Invalid userProfileAutoCleanupInterval config: ${userProfileAutoCleanupInterval}`
-    );
+    throw new problems.ConfigValueError("userProfileAutoCleanupInterval", POSITIVE_WHOLE);
   }
 
   return {
@@ -567,7 +564,6 @@ function buildConfig(fileConfig: OmmsConfig) {
     maxMemories,
     retrievalMaxTokens,
     ...memorisation.settingsFrom(fileConfig),
-    maxProfileItems: fileConfig.maxProfileItems ?? DEFAULTS.maxProfileItems,
     injectProfile: fileConfig.injectProfile ?? DEFAULTS.injectProfile,
     containerTagPrefix: fileConfig.containerTagPrefix ?? DEFAULTS.containerTagPrefix,
     autoCaptureEnabled: fileConfig.autoCaptureEnabled ?? DEFAULTS.autoCaptureEnabled,
@@ -604,7 +600,8 @@ function buildConfig(fileConfig: OmmsConfig) {
       Math.floor(fileConfig.captureTraceRetentionDays ?? DEFAULTS.captureTraceRetentionDays)
     ),
     captureAttemptRetentionDays: normalizeAutoCleanupRetentionDays(
-      fileConfig.captureAttemptRetentionDays ?? DEFAULTS.captureAttemptRetentionDays
+      fileConfig.captureAttemptRetentionDays ?? DEFAULTS.captureAttemptRetentionDays,
+      "captureAttemptRetentionDays"
     ),
     captureRetryRetentionHours: normalizeCaptureRetryRetentionHours(
       fileConfig.captureRetryRetentionHours
@@ -628,7 +625,7 @@ function buildConfig(fileConfig: OmmsConfig) {
       ? resolveSecretValue(fileConfig.webServerApiToken)
       : undefined,
     maxVectorsPerShard: fileConfig.maxVectorsPerShard ?? DEFAULTS.maxVectorsPerShard,
-    autoCleanupEnabled: fileConfig.autoCleanupEnabled ?? DEFAULTS.autoCleanupEnabled,
+    autoDeleteOldMemories: fileConfig.autoDeleteOldMemories === true,
     autoCleanupRetentionDays: normalizeAutoCleanupRetentionDays(
       fileConfig.autoCleanupRetentionDays ?? DEFAULTS.autoCleanupRetentionDays
     ),
@@ -638,12 +635,6 @@ function buildConfig(fileConfig: OmmsConfig) {
     userProfileAnalysisInterval:
       fileConfig.userProfileAnalysisInterval ?? DEFAULTS.userProfileAnalysisInterval,
     userProfileMaxContextBytes,
-    userProfileDisplayPreferences:
-      fileConfig.userProfileDisplayPreferences ?? DEFAULTS.userProfileDisplayPreferences,
-    userProfileDisplayPatterns:
-      fileConfig.userProfileDisplayPatterns ?? DEFAULTS.userProfileDisplayPatterns,
-    userProfileDisplayWorkflows:
-      fileConfig.userProfileDisplayWorkflows ?? DEFAULTS.userProfileDisplayWorkflows,
     userProfileInjectPreferences:
       fileConfig.userProfileInjectPreferences ?? DEFAULTS.userProfileInjectPreferences,
     userProfileInjectPatterns:
@@ -710,17 +701,25 @@ export function getGlobalConfigWritePath(): string {
     : join(OMMS_CONFIG_DIR, "omms.jsonc");
 }
 
-export function validateGlobalConfig(value: unknown): void {
+/** A Settings save passes `editedKeys`: only a rejected value under those keys then throws. */
+export function validateGlobalConfig(value: unknown, editedKeys?: readonly string[]): void {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Global config must be an object");
   }
-  buildConfig(value as OmmsConfig);
+  if (editedKeys) problems.buildKeeping(buildConfig, value as OmmsConfig, editedKeys);
+  else buildConfig(value as OmmsConfig);
 }
 
-const _globalFileConfig = loadConfigFromPaths(CONFIG_FILES);
-let lastFileConfig: OmmsConfig = _globalFileConfig;
-let lastGlobalFileConfig: OmmsConfig = _globalFileConfig;
-export let CONFIG = buildConfig(_globalFileConfig);
+const loadProblems: ConfigProblem[] = [];
+const startup = problems.buildTolerant(
+  buildConfig,
+  loadConfigFromPaths(CONFIG_FILES, false, loadProblems),
+  getGlobalConfigSourcePath
+);
+problems.recordConfigProblems([...loadProblems, ...startup.problems]);
+let lastFileConfig: OmmsConfig = startup.fileConfig;
+let lastGlobalFileConfig: OmmsConfig = startup.fileConfig;
+export let CONFIG = startup.config;
 
 type RuntimeConfig = ReturnType<typeof buildConfig>;
 
@@ -790,17 +789,21 @@ export function refreshConfigIfChanged(directory: string): void {
       },
       "error"
     );
+    const problem = problems.reloadProblem(error);
+    if (problem) problems.recordConfigProblems([problem]);
     lastFailedConfig = attempt;
   }
 }
 
 export function initConfig(directory: string, options: { strict?: boolean } = {}): void {
   // omms project overrides win; the legacy opencode-mem file is still read.
-  const globalConfig = loadConfigFromPaths(CONFIG_FILES, options.strict);
-  const projectConfig = loadConfigFromPaths(projectConfigPaths(directory), options.strict);
+  const found: ConfigProblem[] = [];
+  const globalConfig = loadConfigFromPaths(CONFIG_FILES, options.strict, found);
+  const projectPaths = projectConfigPaths(directory);
+  const projectConfig = loadConfigFromPaths(projectPaths, options.strict, found);
   assertProjectRemoteProviderConfigIsSafe(projectConfig);
   const projectOverrides = { ...projectConfig };
-  delete projectOverrides.autoCleanupEnabled;
+  delete projectOverrides.autoDeleteOldMemories;
   delete projectOverrides.autoCleanupRetentionDays;
   delete projectOverrides.userProfileAutoCleanupEnabled;
   delete projectOverrides.userProfileAutoCleanupInterval;
@@ -856,8 +859,14 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
     // Best effort: the registry stays the source of truth for names.
   }
   if (activeSpace.storagePath) merged.storagePath = activeSpace.storagePath;
-  const nextConfig = withSkillStorage(buildConfig(merged), globalConfig);
-  lastFileConfig = merged;
+  // A rejected value uses its default, or turns its feature off, on a first load and a reload.
+  const projectPath = projectPaths.find((path) => existsSync(path));
+  const built = problems.buildTolerant(buildConfig, merged, (key) =>
+    key.split(".")[0]! in projectOverrides ? projectPath : getGlobalConfigSourcePath()
+  );
+  const nextConfig = withSkillStorage(built.config, globalConfig);
+  problems.recordConfigProblems([...found, ...built.problems]);
+  lastFileConfig = built.fileConfig;
   lastGlobalFileConfig = globalConfig;
   const storageMoved = nextConfig.storagePath !== CONFIG.storagePath;
   CONFIG = nextConfig;
@@ -901,6 +910,8 @@ export function initConfigWithLegacyMigration(directory: string): void {
 export function isConfigured(): boolean {
   return true;
 }
+/** The global file as last read without error: what a running host uses while the file is broken. */
+export const getLastGoodGlobalFileConfig = (): OmmsConfig => lastGlobalFileConfig;
 
 /**
  * The containerTagPrefix explicitly set in the merged config files, or

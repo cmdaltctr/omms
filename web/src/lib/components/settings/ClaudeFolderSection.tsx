@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { Button } from "$lib/components/ui/button";
+import { Input } from "$lib/components/ui/input";
+import { SettingRow } from "./SettingRow";
 import {
   beginSettingsRead,
   onSettingsSnapshot,
@@ -7,9 +10,11 @@ import {
 } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import { isValidClaudeConfigDir, nextClaudeDraft } from "$lib/claude-folder-settings";
+import { ReadOnlyNote } from "./ReadOnlyNote";
 
 type ClaudeFolder = { root: string; source: "setting" | "env" | "default"; exists: boolean };
 type Snapshot = {
+  readOnly?: boolean;
   revision: string;
   settings: Record<string, { globalValue?: unknown }>;
   claudeFolder?: ClaudeFolder;
@@ -46,6 +51,7 @@ export function ClaudeFolderSection() {
       unsubscribe();
     };
   }, []);
+  const readOnly = snapshot?.readOnly === true;
   async function save() {
     if (!snapshot) return;
     if (!isValidClaudeConfigDir(draft)) {
@@ -80,10 +86,11 @@ export function ClaudeFolderSection() {
           "Set this when Claude Code does not use ~/.claude, for example when you start it with CLAUDE_CONFIG_DIR. Leave it empty to use the default."
         )}
       </p>
-      <label className="block space-y-1 text-sm">
-        <span>{s("Claude Code folder")}</span>
-        <input
-          className="w-full rounded border border-border bg-background p-2 font-mono"
+      <SettingRow setting="claudeConfigDir" controlId="claude-folder">
+        <Input
+          id="claude-folder"
+          dir="ltr"
+          className="font-mono"
           placeholder="~/.claude"
           value={draft}
           disabled={busy || !snapshot}
@@ -92,15 +99,11 @@ export function ClaudeFolderSection() {
             setDraft(event.target.value);
           }}
         />
-      </label>
-      <button
-        type="button"
-        className="rounded border border-border px-3 py-1.5 text-sm"
-        disabled={busy || !snapshot}
-        onClick={() => void save()}
-      >
+      </SettingRow>
+      <Button type="button" disabled={busy || !snapshot || readOnly} onClick={() => void save()}>
         {s("Save folder")}
-      </button>
+      </Button>
+      <ReadOnlyNote show={readOnly} />
       <ClaudeFolderStatus folder={snapshot?.claudeFolder} />
       {message && (
         <p role="status" className="text-sm">

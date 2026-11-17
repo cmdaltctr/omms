@@ -2,11 +2,8 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import {
-  mergeImportPathMaps,
-  parseIgnoredDirectories,
-  runPathMaps,
-} from "../src/importer/import-path-maps.js";
+import { mergeImportPathMaps, runPathMaps } from "../src/importer/import-path-maps.js";
+import { parseIgnoredDirectories } from "../src/utils/import-path-config.js";
 import { resolveImportProject } from "../src/importer/import-project.js";
 
 const dirs: string[] = [];

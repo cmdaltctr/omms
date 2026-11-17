@@ -22,13 +22,31 @@ for model choices and privacy controls.
 
 ## Set up
 
-Use Node.js **22.14 or later** for the terminal command and Claude Code hooks.
-OMMS supports OpenCode v2 (not older OpenCode versions), Claude Code and the
-[Pi coding agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent).
+Run one command. It finds OpenCode, Pi and Claude Code on your computer, shows
+what it will change and asks once before it installs OMMS into each host:
+
+```bash
+npx om-memory-system@latest setup
+```
+
+Add `--dry-run` to see the plan and change nothing, or `--yes` to skip the
+question. Running it again changes nothing for a host that is already set up.
+See [CLI: setup](docs/cli.md#setup).
+
+You need these versions:
+
+| Software    | Minimum                                                    |
+| ----------- | ---------------------------------------------------------- |
+| Node.js     | 22.14                                                      |
+| OpenCode    | 2.0.22 (OpenCode v2 only; older versions cannot load OMMS) |
+| Claude Code | 2.1.295                                                    |
+| Pi          | 0.86.1                                                     |
 
 > Automatic history import is enabled by default and makes model calls.
 > To disable it before your first session, set `"autoBackfill": false` in
 > `~/.config/omms/omms.jsonc`. See [Automatic import](docs/web-ui-memory.md#automatic-import).
+
+To install into one host by hand, follow its section.
 
 ### OpenCode
 
@@ -61,6 +79,15 @@ Restart Pi. See the [Pi guide](docs/pi-adapter.md).
 Install the OMMS plugin using the [Claude Code guide](docs/claude-code-adapter.md#installation).
 Capture and profile learning require a configured external API; retrieval and
 manual memory operations remain available without it. A global npm install is optional.
+
+### Check it works
+
+```bash
+npx om-memory-system@latest doctor
+```
+
+It prints one row for each check with a plain fix for any row that fails, and
+exits 1 when a check fails. See [CLI: doctor](docs/cli.md#doctor).
 
 ### Model and web app
 

@@ -3,8 +3,9 @@ import { join, resolve } from "node:path";
 import { CONFIG } from "../config.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { safeHealthError } from "./safe-health-error.js";
+import type { MemoryHost } from "../shared/hosts.js";
 
-type BackfillHost = "pi" | "opencode" | "claude-code";
+type BackfillHost = MemoryHost;
 const importLedgerDbPath = () => join(CONFIG.storagePath, "import-ledger.db");
 
 export type BackfillStatus = {

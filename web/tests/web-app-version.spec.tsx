@@ -10,14 +10,14 @@ it("says a newer copy runs in place of an older global install, which is optiona
   const info = { running: "4.3.2", global: "4.3.0", relation: "older" as const };
   expect(versionNotice(info)).toEqual({
     kind: "older",
-    command: "npm i -g om-memory-system@latest",
+    command: "npx -p om-memory-system@latest om-memory-system web update",
   });
   const html = render(info);
   expect(html).toContain("4.3.2");
   expect(html).toContain("4.3.0");
   expect(html).toContain("runs in place of the global install");
   expect(html).toContain("optional");
-  expect(html).toContain("npm i -g om-memory-system@latest");
+  expect(html).toContain("npx -p om-memory-system@latest om-memory-system web update");
 });
 
 it("warns that a newer global install is replaced at the next host start", () => {
@@ -25,8 +25,10 @@ it("warns that a newer global install is replaced at the next host start", () =>
   expect(versionNotice(info)).toEqual({ kind: "newer", command: null });
   const html = render(info);
   expect(html).toContain("newer than the running OMMS");
-  expect(html).toContain("next Pi or OpenCode start");
+  // Claude Code also replaces an older web app at session start (hook-client.ts replaceOlderFor).
+  expect(html).toContain("next OpenCode, Pi or Claude Code session start");
   expect(html).not.toContain("npm i -g");
+  expect(html).not.toContain("web update");
 });
 
 it("says OMMS is not installed globally and that this is fine", () => {
@@ -35,7 +37,7 @@ it("says OMMS is not installed globally and that this is fine", () => {
   const html = render(info);
   expect(html).toContain("not installed globally");
   expect(html).toContain("optional");
-  expect(html).not.toContain("npm i -g");
+  expect(html).not.toContain("web update");
 });
 
 it("shows only the versions when they match or cannot be compared", () => {
@@ -44,7 +46,7 @@ it("shows only the versions when they match or cannot be compared", () => {
     expect(versionNotice(info).command).toBeNull();
     const html = render(info);
     expect(html).toContain("4.3.2");
-    expect(html).not.toContain("npm i -g");
+    expect(html).not.toContain("web update");
     expect(html).not.toContain("optional");
   }
 });

@@ -12,7 +12,16 @@
 // `npx --yes om-memory-system@<that version>`.
 
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -63,15 +72,73 @@ export function compareVersions(a, b) {
   return 0;
 }
 
-/** A valid copy has the package name, a comparable version, and `dist/cli/index.js`. */
-function readCopy(root) {
+/** True when a package folder named `name` with a `package.json` resolves from `from`, the way Node.js looks. */
+function resolves(from, name) {
+  for (let dir = from; ; dir = dirname(dir)) {
+    if (existsSync(join(dir, "node_modules", name, "package.json"))) return true;
+    if (dirname(dir) === dir) return false;
+  }
+}
+
+/** The first package folder in `<root>/node_modules` without a `package.json`, or null. */
+function emptyPackageFolder(root) {
+  const modules = join(root, "node_modules");
+  let names;
+  try {
+    names = readdirSync(modules).sort();
+  } catch {
+    return null;
+  }
+  for (const name of names) {
+    if (name.startsWith(".")) continue;
+    if (!name.startsWith("@")) {
+      if (!existsSync(join(modules, name, "package.json"))) return name;
+      continue;
+    }
+    let scoped = [];
+    try {
+      scoped = readdirSync(join(modules, name)).sort();
+    } catch {
+      /* A file, not a scope folder. */
+    }
+    for (const child of scoped)
+      if (!existsSync(join(modules, name, child, "package.json"))) return `${name}/${child}`;
+  }
+  return null;
+}
+
+/**
+ * The first problem of a copy folder, or null when it is complete. The same rule
+ * as `src/services/install-check.ts`; tests/install-check.test.ts runs both.
+ */
+export function installProblem(root) {
+  let pkg;
+  try {
+    pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  } catch {
+    return "package.json";
+  }
+  if (!existsSync(join(root, "dist", "cli", "index.js"))) return "dist/cli/index.js";
+  const optional = pkg.optionalDependencies ?? {};
+  for (const name of Object.keys(pkg.dependencies ?? {}).sort()) {
+    if (!(name in optional) && !resolves(root, name)) return name;
+  }
+  return emptyPackageFolder(root);
+}
+
+/**
+ * A valid copy has the package name, a comparable version, `dist/cli/index.js`,
+ * and every dependency. `problems` collects the missing part of an OMMS copy that
+ * is not valid, so the launcher can name it.
+ */
+function readCopy(root, problems) {
   try {
     const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
     if (pkg.name !== "om-memory-system" || typeof pkg.version !== "string") return null;
     if (compareVersions(pkg.version, pkg.version) === null) return null;
-    return existsSync(join(root, "dist", "cli", "index.js"))
-      ? { root, version: pkg.version }
-      : null;
+    const problem = installProblem(root);
+    if (problem) problems?.push(problem);
+    return problem ? null : { root, version: pkg.version };
   } catch {
     return null;
   }
@@ -101,16 +168,16 @@ export function globalPackageRoots(execPath, platform = process.platform) {
  * ones are null. On a tie the global install wins, so a host's cache copy does not
  * keep serving after the global install catches up.
  */
-export function findCandidates({ dir, execPath, ownRoot }) {
+export function findCandidates({ dir, execPath, ownRoot }, problems) {
   let recorded = null;
   try {
     const record = JSON.parse(readFileSync(join(dir, "runtime.json"), "utf8"));
-    if (record && typeof record.root === "string") recorded = readCopy(record.root);
+    if (record && typeof record.root === "string") recorded = readCopy(record.root, problems);
   } catch {
     /* No record, or an unreadable one: the other candidates still work. */
   }
-  const globals = globalPackageRoots(execPath).map((root) => readCopy(root));
-  return [...globals, recorded, ownRoot ? readCopy(ownRoot) : null];
+  const globals = globalPackageRoots(execPath).map((root) => readCopy(root, problems));
+  return [...globals, recorded, ownRoot ? readCopy(ownRoot, problems) : null];
 }
 
 /**
@@ -144,6 +211,41 @@ function spawnInherit(command, args, options = {}) {
   });
 }
 
+// The login item's restart limit. launchd and systemd restart a web app that
+// exits with an error. The launcher counts those failed starts in
+// `web-starts.json`; after 5 within 10 minutes it exits with 0, which neither
+// restarts, so a broken copy cannot loop. Restart and an update end the launcher
+// with a signal or exit 0, so they never count.
+export const RESTART_LIMIT = 5;
+export const RESTART_WINDOW_MS = 10 * 60 * 1000;
+
+/** The failed starts within the window. A missing or unreadable file is none. */
+function recentFailures(file, now) {
+  try {
+    const list = JSON.parse(readFileSync(file, "utf8"));
+    return Array.isArray(list)
+      ? list.filter((at) => typeof at === "number" && now - at < RESTART_WINDOW_MS)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/** One line in the OMMS log, in the logger's shape. A failed write never stops a start. */
+function appendLog(dir) {
+  return (data) => {
+    try {
+      const file = process.env.OMMS_LOG_FILE || join(dir, "omms.log");
+      appendFileSync(
+        file,
+        `[${new Date().toISOString()}] ERROR Web login item: ${JSON.stringify(data)}\n`
+      );
+    } catch {
+      /* No log folder: the exit code still tells the supervisor. */
+    }
+  };
+}
+
 /** The version in the `package.json` beside this file, or null when there is none. */
 function ownVersion(ownRoot) {
   try {
@@ -161,12 +263,28 @@ export async function runLauncher(argv, options = {}) {
   const ownRoot = options.ownRoot ?? dirname(dirname(fileURLToPath(import.meta.url)));
   const run = options.spawn ?? spawnInherit;
   const { atLeastOwnVersion, args } = parseLauncherArgs(argv);
+  const loginItem = args[0] === "web" && args.includes("--login-item");
+  const startsFile = join(dir, "web-starts.json");
+  const now = options.now ?? Date.now;
+  if (loginItem) {
+    const failures = recentFailures(startsFile, now()).length;
+    if (failures >= RESTART_LIMIT) {
+      (options.log ?? appendLog(dir))({ code: "restart-limit", failures });
+      // Nothing restarts this exit, so the next login starts with a clean count.
+      rmSync(startsFile, { force: true });
+      return 0;
+    }
+  }
+  const problems = [];
   const choice = chooseCopy(
-    findCandidates({ dir, execPath, ownRoot }),
+    findCandidates({ dir, execPath, ownRoot }, problems),
     atLeastOwnVersion ? ownVersion(ownRoot) : null
   );
-  if (choice.kind === "copy")
-    return run(execPath, [join(choice.copy.root, "dist", "cli", "index.js"), ...args]);
+  if (choice.kind === "copy") {
+    const code = await run(execPath, [join(choice.copy.root, "dist", "cli", "index.js"), ...args]);
+    if (loginItem && code !== 0) recordFailure(startsFile, now());
+    return code;
+  }
   if (choice.kind === "npx") {
     // npm installs npx as a .cmd wrapper on Windows, which only a shell can run.
     const windows = process.platform === "win32";
@@ -182,8 +300,29 @@ export async function runLauncher(argv, options = {}) {
       }
     );
   }
-  process.stderr.write("omms-launch: no OMMS copy found. Install om-memory-system.\n");
+  // `npx -p` installs a fresh copy into npm's cache. A plain `npx om-memory-system@latest`
+  // would run a broken global copy of the same version, and `web update` repairs it.
+  process.stderr.write(
+    problems.length > 0
+      ? `omms-launch: no complete OMMS copy found (missing ${problems[0]}). Run: npx -p om-memory-system@latest om-memory-system web update\n`
+      : "omms-launch: no OMMS copy found. Install om-memory-system.\n"
+  );
+  if (loginItem) {
+    // The login item sends stderr to /dev/null, so the log is the only trace of the cause.
+    (options.log ?? appendLog(dir))({ code: "no-valid-copy", missing: problems[0] ?? null });
+    recordFailure(startsFile, now());
+  }
   return 1;
+}
+
+/** Add a failed login-item start. A failed write only loses the limit, never the start. */
+function recordFailure(file, at) {
+  try {
+    mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+    writeFileSync(file, JSON.stringify([...recentFailures(file, at), at]), { mode: 0o600 });
+  } catch {
+    /* Without the file the supervisor still waits 30 seconds between starts. */
+  }
 }
 
 /** True when this file is the program Node.js started. A path that cannot be resolved is not. */

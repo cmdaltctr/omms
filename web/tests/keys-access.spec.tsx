@@ -2,10 +2,7 @@ import { expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
-import {
-  ApiTokensTable,
-  revokeAfterConfirm,
-} from "../src/lib/components/settings/ApiTokensTable.tsx";
+import { ApiTokensTable } from "../src/lib/components/settings/ApiTokensTable.tsx";
 import {
   CredentialRows,
   credentialInput,
@@ -35,24 +32,6 @@ it("shows a new token value once, with a copy button and a warning", () => {
   expect(later).toContain("ci");
 });
 
-it("revokes only after the user confirms", async () => {
-  let revoked = 0;
-  expect(
-    await revokeAfterConfirm(
-      () => false,
-      async () => void revoked++
-    )
-  ).toBe(false);
-  expect(revoked).toBe(0);
-  expect(
-    await revokeAfterConfirm(
-      () => true,
-      async () => void revoked++
-    )
-  ).toBe(true);
-  expect(revoked).toBe(1);
-});
-
 it("marks each credential and never shows a value", () => {
   const html = renderToStaticMarkup(
     <CredentialRows
@@ -73,8 +52,10 @@ it("marks each credential and never shows a value", () => {
       )}
     />
   );
-  expect(html).toContain("✅");
-  expect(html).toContain("⛔️");
+  // The states read as words with a drawn icon, never an emoji.
+  expect(html).toContain(">set<");
+  expect(html).not.toMatch(/✅|⛔/);
+  expect(html).toContain("<svg");
   expect(html).toContain("not needed");
 });
 

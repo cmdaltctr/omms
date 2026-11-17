@@ -26,6 +26,8 @@ import { packageVersion } from "../../services/package-version.js";
 
 const PI_UPDATE_ARGS = ["update", "npm:om-memory-system"];
 const PI_UPDATE_COMMAND = `pi ${PI_UPDATE_ARGS.join(" ")}`;
+/** `pi install npm:om-memory-system`: the install command `setup` runs. */
+export const PI_INSTALL_ARGS = ["install", "npm:om-memory-system"];
 
 /** What the update needs from one Pi session. */
 export interface PiUpdateSession {
@@ -49,10 +51,18 @@ export interface PiSelfUpdateOptions {
 }
 
 /** Pi's settings file lists the package source. `PI_CODING_AGENT_DIR` moves Pi's folder. */
-function readPiSettings(env: NodeJS.ProcessEnv): string | null {
-  const dir = env.PI_CODING_AGENT_DIR || join(homedir(), ".pi", "agent");
+export function readPiSettings(
+  env: Record<string, string | undefined>,
+  home: string = homedir(),
+  readFile: (path: string) => string | null = readText
+): string | null {
+  const dir = env.PI_CODING_AGENT_DIR || join(home, ".pi", "agent");
+  return readFile(join(dir, "settings.json"));
+}
+
+function readText(path: string): string | null {
   try {
-    return readFileSync(join(dir, "settings.json"), "utf8");
+    return readFileSync(path, "utf8");
   } catch {
     return null;
   }

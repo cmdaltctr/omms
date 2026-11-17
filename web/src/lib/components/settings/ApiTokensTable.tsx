@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { Button } from "$lib/components/ui/button";
+import { Input } from "$lib/components/ui/input";
+import { Label } from "$lib/components/ui/label";
 import { Select } from "$lib/components/ui/select";
 import { useSettingsText } from "$lib/i18n/settings";
 import { formatDateOnly } from "$lib/format";
@@ -10,16 +13,6 @@ export type ApiToken = {
   expiresAt: number | null;
   lastUsedAt: number | null;
 };
-
-/** Revoke only after the user confirms; returns whether the token was revoked. */
-export async function revokeAfterConfirm(
-  confirm: () => boolean,
-  revoke: () => Promise<void>
-): Promise<boolean> {
-  if (!confirm()) return false;
-  await revoke();
-  return true;
-}
 
 const EXPIRY = [
   ["7", "7 days"],
@@ -66,14 +59,15 @@ export function ApiTokensTable({
               <td>{date(token.expiresAt)}</td>
               <td>{token.lastUsedAt === null ? "-" : date(token.lastUsedAt)}</td>
               <td>
-                <button
+                <Button
                   type="button"
-                  className="rounded border border-border px-2 py-0.5"
+                  variant="outline"
+                  size="xs"
                   disabled={busy}
                   onClick={() => onRevoke(token)}
                 >
                   {s("Revoke")}
-                </button>
+                </Button>
               </td>
             </tr>
           ))}
@@ -82,31 +76,32 @@ export function ApiTokensTable({
       {newValue && (
         <div role="status" className="space-y-1 rounded border border-border p-2 text-xs">
           <code className="block break-all">{newValue}</code>
-          <button
+          <Button
             type="button"
-            className="rounded border border-border px-2 py-0.5"
+            variant="outline"
+            size="xs"
             onClick={() => void navigator.clipboard?.writeText(newValue)}
           >
             {s("Copy")}
-          </button>
+          </Button>
           <p className="text-amber-600">{s("Copy this token now. It will not be shown again.")}</p>
         </div>
       )}
       <div className="flex flex-wrap items-end gap-2 text-sm">
-        <label className="block">
-          {s("Token name")}
-          <input
-            className="mt-1 block rounded border border-border bg-background p-1.5"
+        <div className="space-y-1">
+          <Label htmlFor="api-token-name">{s("Token name")}</Label>
+          <Input
+            id="api-token-name"
             placeholder="ci"
             value={name}
             onChange={(event) => setName(event.target.value)}
           />
-        </label>
-        <label className="block">
-          {s("Expires after")}
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="api-token-expiry">{s("Expires after")}</Label>
           <Select
+            id="api-token-expiry"
             aria-label={s("Expires after")}
-            className="mt-1 block rounded border border-border bg-background p-1.5"
             value={expiry}
             onChange={(event) => setExpiry(event.target.value)}
           >
@@ -116,15 +111,15 @@ export function ApiTokensTable({
               </option>
             ))}
           </Select>
-        </label>
-        <button
+        </div>
+        <Button
           type="button"
-          className="rounded border border-border px-3 py-1.5"
+          variant="outline"
           disabled={busy || !name.trim()}
           onClick={() => onGenerate(name.trim(), expiry === "never" ? null : Number(expiry))}
         >
           {s("Generate token")}
-        </button>
+        </Button>
       </div>
     </div>
   );

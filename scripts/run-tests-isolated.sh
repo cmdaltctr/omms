@@ -35,6 +35,30 @@ export USERPROFILE="$OMMS_TEST_HOME"
 export BUN_INSTALL_CACHE_DIR="${BUN_INSTALL_CACHE_DIR:-$real_home/.bun/install/cache}"
 if [[ -f "$real_home/.gitconfig" ]]; then cp "$real_home/.gitconfig" "$OMMS_TEST_HOME/.gitconfig"; fi
 
+# Tests never run a real global npm. A web app that a test started once ran
+# `npm install -g` with the npm beside its Node.js and half-wrote the developer's
+# real global install (TDR-087). That npm path is absolute, so PATH cannot stop it:
+# npm's global prefix points into the empty home instead. On macOS and Linux a
+# refusing npm and npx also come first on PATH. Windows finds npm as npm.cmd and
+# relies on the prefix alone.
+npm_guard="$OMMS_TEST_HOME/.omms-test-npm"
+export npm_config_prefix="$npm_guard/prefix"
+export NPM_CONFIG_PREFIX="$npm_guard/prefix"
+case "${OSTYPE:-}" in
+  msys* | cygwin* | win32*) ;;
+  *)
+    # A test that needs npm for read-only local work, such as `npm pack --dry-run`, opts in with this path.
+    OMMS_TEST_REAL_NPM="$(command -v npm || true)"
+    export OMMS_TEST_REAL_NPM
+    mkdir -p "$npm_guard/bin"
+    for command in npm npx; do
+      printf '#!/bin/sh\necho "%s refused: tests never run a real npm (see TDR-087)" >&2\nexit 1\n' "$command" >"$npm_guard/bin/$command"
+      chmod +x "$npm_guard/bin/$command"
+    done
+    export PATH="$npm_guard/bin:$PATH"
+    ;;
+esac
+
 # Windows runners start processes slowly, so allow 30 seconds per test there.
 # Other platforms keep Bun's default, and explicit per-test timeouts still apply.
 timeout_args=()

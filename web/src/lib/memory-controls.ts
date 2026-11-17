@@ -94,7 +94,10 @@ export const MEMORY_CONTROLS: readonly MemoryControl[] = [
   },
 ];
 
-/** Every English message the card shows or exposes to assistive tech. */
+/**
+ * Every English message the card shows through the Settings table. The plain names,
+ * descriptions and the byte and word-piece notes are catalogue text.
+ */
 export const MEMORY_SETTINGS_MESSAGES: readonly string[] = [
   "Memory",
   "Setting",
@@ -107,8 +110,6 @@ export const MEMORY_SETTINGS_MESSAGES: readonly string[] = [
   "Approximate tokens",
   "Similarity score",
   ...MEMORY_CONTROLS.flatMap((control) => [control.unit, control.affects, control.accepted]),
-  "Byte limits count UTF-8 bytes.",
-  "Approximate tokens are estimated as ceil(UTF-8 bytes / 4). A provider can count more or fewer tokens for the same text.",
   "These controls do not delete stored data, set a spending limit, limit model replies, or control Graphify output.",
   "Edit ~/.config/omms/omms.jsonc directly to set these limits without the web UI.",
   "Save memory limits",

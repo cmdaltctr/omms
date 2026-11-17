@@ -28,6 +28,8 @@ interface RerankerDraft {
   rerankerApiUrl?: unknown;
   rerankerModel?: unknown;
   rerankerApiKey?: unknown;
+  /** A pasted key, used for this request only: never saved, logged or returned. */
+  rerankerApiKeyValue?: unknown;
   rerankerTimeoutMs?: unknown;
 }
 
@@ -46,7 +48,13 @@ function draftSettings(draft: RerankerDraft): RerankerSettings | Response {
     return reject("Invalid rerankerModel setting: accepted a non-empty string");
   }
   let apiKey: string | undefined;
-  if (draft.rerankerApiKey !== undefined && draft.rerankerApiKey !== "") {
+  if (draft.rerankerApiKeyValue !== undefined) {
+    if (typeof draft.rerankerApiKeyValue !== "string") {
+      return reject("rerankerApiKeyValue must be a string");
+    }
+    apiKey = draft.rerankerApiKeyValue.trim() || undefined;
+  }
+  if (!apiKey && draft.rerankerApiKey !== undefined && draft.rerankerApiKey !== "") {
     const key = draft.rerankerApiKey;
     if (
       typeof key !== "string" ||
@@ -81,7 +89,9 @@ function draftSettings(draft: RerankerDraft): RerankerSettings | Response {
 export async function testReranker(
   req: Request,
   method: string,
-  remoteAddress: string | undefined
+  remoteAddress: string | undefined,
+  /** The web app listens on a network address without Basic Auth: pasted keys are refused. */
+  networkWithoutAuth = false
 ): Promise<Response> {
   if (method !== "POST") {
     return Response.json({ error: "Not found" }, { status: 404 });
@@ -92,6 +102,12 @@ export async function testReranker(
   const body = (await req.json().catch(() => null)) as RerankerDraft | null;
   if (!body || typeof body !== "object") {
     return reject("A JSON body with the drafted reranker settings is required");
+  }
+  if (body.rerankerApiKeyValue !== undefined && networkWithoutAuth) {
+    return Response.json(
+      { error: "Testing a pasted key requires Basic Auth on network hosts" },
+      { status: 403 }
+    );
   }
   const settings = draftSettings(body);
   if (settings instanceof Response) return settings;

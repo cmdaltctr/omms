@@ -30,6 +30,51 @@ export function keySourceBody(
   return { source, name, value: input.value ?? "", replace: input.replace === true };
 }
 
+/**
+ * The key as a test request carries it: `env://NAME` or `file://PATH` for a reference, the pasted
+ * text itself for a pasted key, or nothing when the form has no key. Nothing is saved or logged.
+ */
+export function testKeyValue(
+  source: KeySource,
+  input: { name?: string; path?: string; value?: string }
+): string | undefined {
+  if (source === "env") {
+    const name = (input.name ?? "").trim();
+    return name ? `env://${name}` : undefined;
+  }
+  if (source === "file") {
+    const path = (input.path ?? "").trim();
+    return path ? `file://${path}` : undefined;
+  }
+  return (input.value ?? "").trim() ? input.value : undefined;
+}
+
+/** True when the user typed something for the chosen key source. */
+export function keyEntered(
+  source: KeySource,
+  input: { name?: string; path?: string; value?: string }
+): boolean {
+  return testKeyValue(source, input) !== undefined;
+}
+
+/** The External API test reply. `reason` and `status` say why it failed; the raw error is never shown. */
+export type ExternalTestReply = { ok: boolean; reason?: string; status?: number };
+
+const TEST_FAILURES: Record<string, string> = {
+  refused: "The provider refused the key. Check the key, then test again.",
+  "not-found": "The address or the model was not found. Check both.",
+  "rate-limited": "The provider got too many requests. Wait a minute, then test again.",
+  provider: "The provider had a problem on its side. Try again later.",
+  unreachable: "OMMS could not reach the address. Check the address and your network.",
+  "not-configured": "Some settings are missing. Fill in the address, the model and the key.",
+  failed: "The test call failed. Check the provider, the address, the model and the key.",
+};
+
+/** The plain English sentence for a failed test. Callers translate it. */
+export function testFailureText(reason: string | undefined): string {
+  return TEST_FAILURES[reason ?? ""] ?? TEST_FAILURES.failed!;
+}
+
 /** Why External API cannot be chosen yet, from the live rule's issue list; empty when it can. */
 export function externalMissing(settings: {
   memoryProvider?: string;
@@ -64,7 +109,11 @@ export function versionNotice(info: VersionInfo): {
 } {
   return {
     kind: info.relation,
-    command: info.relation === "older" ? "npm i -g om-memory-system@latest" : null,
+    // `web update` takes the install lock, so it never races a web app's own update.
+    command:
+      info.relation === "older"
+        ? "npx -p om-memory-system@latest om-memory-system web update"
+        : null,
   };
 }
 

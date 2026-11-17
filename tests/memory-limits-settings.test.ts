@@ -572,7 +572,7 @@ describe("memory settings rejections", () => {
         const json = { "content-type": "application/json" };
         const before = await (await send("/api/settings")).json();
         const mixed = await send("/api/settings", "PATCH",
-          { edits: { retrievalMaxTokens: 3000, "chatMessage.enabled": false }, revision: before.revision }, json);
+          { edits: { retrievalMaxTokens: 3000, "chatMessage.excludeCurrentSession": false }, revision: before.revision }, json);
         const revision = (await (await send("/api/settings")).json()).revision;
         const maxAge = await send("/api/settings", "PATCH",
           { edits: { "chatMessage.maxAgeDays": 5 }, revision }, json);

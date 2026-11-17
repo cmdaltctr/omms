@@ -6,6 +6,8 @@ The npm package ships one terminal command, `om-memory-system`. Use it to import
 
 | Command                                                 | What it does                                                                                                           |
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `npx om-memory-system@latest setup [flags]`             | Install OMMS into every host found on this computer. See [setup](#setup).                                              |
+| `npx om-memory-system@latest doctor [flags]`            | Check Node, each host and the web app, with a fix for each problem. See [doctor](#doctor).                             |
 | `om-memory-system import-opencode-history [flags]`      | Import OpenCode history with the external API.                                                                         |
 | `om-memory-system import-pi-history [flags]`            | Import Pi history with the external API.                                                                               |
 | `om-memory-system import-claude-history [flags]`        | Import Claude Code history with the external API.                                                                      |
@@ -38,6 +40,83 @@ Slash commands inside a session:
 - Claude Code has no import slash command. Use `import-claude-history` or the Settings page.
 - You can also run imports, backfills, and directory maps from the web Settings page. See [Web UI settings](web-ui-settings.md).
 
+## setup
+
+`npx om-memory-system@latest setup` installs OMMS into OpenCode, Pi and Claude Code. It needs no global install. It works as `om-memory-system setup` too.
+
+```bash
+npx om-memory-system@latest setup
+npx om-memory-system@latest setup --dry-run
+npx om-memory-system@latest setup --yes
+```
+
+What it does, in order:
+
+1. It looks for each host on your `PATH` and in the host's usual install folder. For each host found, it reads the host's own configuration or asks the host's own command whether OMMS is registered.
+2. It prints a plan before it changes anything. The plan lists each host found with its version, the commands it will run and the files it will change. It also lists each host that is already set up, each host that was not found, and the [first-run notice](configuration.md#first-run-notice) text. It warns when a host is older than the minimum version (OpenCode 2.0.22, Claude Code 2.1.295, Pi 0.86.1). It still installs in that case.
+3. It asks one question: `Set up OMMS in these hosts? [y/N]`. The default answer is no. Any answer other than yes changes nothing and exits 0.
+4. It runs the install through each host's own command and prints one result line and the next step for each host.
+
+| Host        | Install commands                                                                                                                                              | Next step                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| OpenCode    | `opencode plugin add om-memory-system`, then the `cli.json` entry when that file exists                                                                       | Restart OpenCode and run `opencode service restart`.                                                                                 |
+| Pi          | `pi install npm:om-memory-system`                                                                                                                             | Restart Pi.                                                                                                                          |
+| Claude Code | `claude plugin marketplace add https://github.com/cmdaltctr/omms.git` (skipped when the `omms` marketplace is listed), then `claude plugin install omms@omms` | Start a new session. When capture is not ready, set the external API: the step links the **External API** card on the Settings page. |
+
+Flags:
+
+| Flag           | Effect                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| `--yes`, `-y`  | Skip the question and install into each host found.                                                     |
+| `--dry-run`    | Print the plan and the command that applies it, run no host command, change no host file and exit 0.    |
+| `--help`, `-h` | Print the usage text and exit 0. An unknown option prints the usage text to standard error and exits 1. |
+
+Exit codes:
+
+| Code | Meaning                                                                                                                                                                                                       |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Every host found is set up or was already set up, you answered no, or you used `--dry-run`.                                                                                                                   |
+| `1`  | A host step failed, no host was found, or standard input is not a terminal and `--yes` was not given. In the last case, `setup` prints the plan and a hint to run it again with `--yes`, and changes nothing. |
+
+Notes:
+
+- `setup` is safe to run twice. A host that already has OMMS gets no install command and no file change. When every host found is already set up, it says so, asks nothing and exits 0.
+- A host whose command fails does not stop the others. `setup` prints the error in plain words with the command to run by hand.
+- When no host is found, `setup` changes nothing, prints where to get each host and exits 1.
+- A failed step prints `✗ <host>: "<command>" failed: <first line of the error>` and `Run it by hand: <command>`. A host that worked prints `✓ <host>: set up.` and a `Next:` line. A host that was already set up prints `✓ <host>: already set up.` and no restart step, because nothing changed there. Claude Code still gets the **External API** link while capture is not ready.
+- The only host file that `setup` writes is the OpenCode `cli.json`. It adds the entry to an existing file and never creates the file. It reads the file again just before it writes, so a change made while `setup` ran is kept. When `cli.json` is a symbolic link, `setup` writes to the file the link points to, so the link stays a link. The file keeps its permissions. See [OpenCode adapter: What `setup` does to `cli.json`](opencode-adapter.md#what-setup-does-to-clijson).
+- It never writes OpenCode's database or Pi session files.
+
+## doctor
+
+`npx om-memory-system@latest doctor` checks the setup and prints one row for each check. It changes no host file and no OMMS setting. It works as `om-memory-system doctor` too.
+
+Like every `om-memory-system` command, `doctor` and `setup` record their own copy in `~/.omms/runtime.json` and refresh the launcher `~/.omms/bin/omms-launch.mjs` (see [Hand-off to the newest copy](#hand-off-to-the-newest-copy)). On a computer with no OMMS config, they also create the config template `~/.config/omms/omms.jsonc`.
+
+```bash
+npx om-memory-system@latest doctor
+npx om-memory-system@latest doctor --json
+npx om-memory-system@latest doctor --skip-model-test
+```
+
+Each row has a status (`PASS`, `WARN`, `FAIL` or `SKIPPED`), the check and the reason in plain words. A row that is not `PASS` has a `Fix:` line below it. The checks are:
+
+- **Node.js**: fails when the version is older than 22.14.
+- **For each host found**: a version row against the host's minimum (OpenCode 2.0.22, Claude Code 2.1.295, Pi 0.86.1), which fails when older and warns when the version cannot be read. A plugin row fails when OMMS is not set up in the host, with `npx om-memory-system@latest setup` as the fix. For OpenCode, an `OpenCode auto-update` row warns when `cli.json` is missing, cannot be read, or lacks the entry that `opencode plugin update` needs. A host that is not found has no row.
+- **Web app**: passes when the OMMS web app answers on the configured port, and names the port. It fails when another program answers there, and the fix says to stop that program or set `webServerPort` to a free port. It warns when nothing answers, and the fix is `npx om-memory-system@latest web`.
+- **The Settings page health checks**: every row of the **Health** section on the Settings page, for example `Config files`, `Memory store`, `Embedding`, `Web binding` and the model rows. `doctor` reads them from the running web app with the local token and leaves out the rows of a host that is not found. When no OMMS web app answers, `doctor` prints `Embedding` and the model row of each host found (`OpenCode model`, `Pi model`, `Claude Code model`) as `SKIPPED`, with the fix to start the web app. When the web app answers but cannot return its checks (it takes too long, or it refuses the request), the same rows are `SKIPPED` with that reason in plain words. The fix then says to select **Run checks** in **Health** on the Settings page, or to run `doctor` again with `--skip-model-test`. When the web app has a browser password (`webServerAuthPassword`), `doctor` sends it the same way the Claude Code hook does. `doctor` never prints the password.
+- **Model tests the web app cannot run**: when Pi or OpenCode uses its own session model (the default), the web app cannot test that model. `doctor` prints `Pi model test` or `OpenCode model test` as `SKIPPED`, says that only a session in that host can test it, and gives no fix. The Settings page still shows these rows as warnings.
+
+Flags:
+
+| Flag                | Effect                                                                                                                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--json`            | Print one JSON array of `{ check, status, reason, fix, host }` objects and nothing else on standard output. `status` is lower case. Warnings go to standard error.                                                                                     |
+| `--skip-model-test` | Ask the web app not to test the models. Without it, the web app sends a short test prompt to each configured model, and `doctor` prints a `Model test:` note to say so (to standard error with `--json`). The note appears only when a model test ran. |
+| `--help`, `-h`      | Print the usage text and exit 0. An unknown option prints the usage text to standard error and exits 1.                                                                                                                                                |
+
+Exit codes: `0` when no row fails, `1` when any row fails. A `WARN` or `SKIPPED` row does not change the exit code. No row and no error message contains an API key.
+
 ## Global install (optional)
 
 `npx om-memory-system` works without an install. A global install is optional. It gives you the command on your `PATH` without `npx`.
@@ -47,7 +126,7 @@ npm i -g om-memory-system      # or: bun add -g om-memory-system
 om-memory-system --version
 ```
 
-You do not need to keep the global install up to date. See [Hand-off to the newest copy](#hand-off-to-the-newest-copy). To update it, run `npm i -g om-memory-system@latest` or `bun add -g om-memory-system@latest`. The Settings page shows the running version next to the version of the global install.
+You do not need to keep the global install up to date. See [Hand-off to the newest copy](#hand-off-to-the-newest-copy). To update it, run `om-memory-system web update`. It takes the install lock, so it never runs at the same time as a web app's own update. See [Install lock and install check](#install-lock-and-install-check). The Settings page shows the running version next to the version of the global install.
 
 ## Hand-off to the newest copy
 
@@ -57,7 +136,8 @@ When the record names a valid copy that is newer than the running command, the c
 
 - A global install from 4.3 or earlier has no hand-off code. Update it once.
 - Set `OMMS_NO_HANDOFF=1` to run the code of the command you typed, for one command.
-- A copy that is not valid is ignored. A copy is valid when its `package.json` names `om-memory-system`, its version can be compared, and it has `dist/cli/index.js`.
+- A copy that is not valid is ignored. A copy is valid when its `package.json` names `om-memory-system`, its version can be compared, it has `dist/cli/index.js`, and its dependencies are complete. Complete means that each dependency in its `package.json` has a folder with a `package.json`, and that no package folder in its own `node_modules` is empty. Optional dependencies are not checked.
+- When the newest copy is not valid, the launcher runs the next valid copy. When no copy is valid, it prints one line that names the missing part, for example `omms-launch: no complete OMMS copy found (missing js-base64). Run: npx -p om-memory-system@latest om-memory-system web update`, and exits with code `1`. Under the login item stderr goes nowhere, so the launcher also writes `no-valid-copy` and the missing dependency to `~/.omms/omms.log`.
 - A failure to read or write the record never stops the command.
 
 See [Updating and upgrading](upgrading.md#one-update-updates-every-host).
@@ -181,12 +261,26 @@ Error messages never contain the API key. The key from `--api-key-env` and the s
 - It prints the web app URL from `webServerHost` and `webServerPort`, for example `http://127.0.0.1:4747`.
 - For a Homebrew runtime, the item stores the stable link, for example `/opt/homebrew/bin/node`. It does not store the versioned `Cellar` path, so a Homebrew upgrade does not break the item.
 - It exits with code `1` if the item is not installed.
+- On macOS and Linux the item restarts a web app that crashed. See [Login item restart](#login-item-restart).
 - Before it starts the login item, it reads the version of any OMMS web app on the configured port:
   - An older web app receives a step-aside request. A standalone web app exits. An older web app inside an OpenCode session stops serving and the session keeps running. `web install` waits up to 10 seconds for the port, starts the login item, and prints `OMMS web app: <url> (version <version>)`.
   - An older web app from OMMS 3.5.0 or earlier has no step-aside route. `web install` prints the version and how to stop it. Stop that web app, then run `web install` again.
   - A web app of the same version keeps running. `web install` prints its version.
-  - A newer web app keeps running. `web install` tells you to update the global command with `npm i -g om-memory-system`.
+  - A newer web app keeps running. `web install` tells you to update the global command with `om-memory-system web update`.
 - An OpenCode start, a Pi start, and a Claude Code `SessionStart` do the same step-aside for a web app that is older than the newest recorded copy. You do not run `web install` after an update.
+
+### Login item restart
+
+On macOS and Linux the service manager restarts the web app when it exits with an error or a signal kills it. It waits 30 seconds between starts. The macOS item sets `KeepAlive` to `SuccessfulExit` `false` and `ThrottleInterval` to `30`. The Linux unit sets `Restart=on-failure` and `RestartSec=30`, and `StartLimitIntervalSec=600` and `StartLimitBurst=6` under `[Unit]`.
+
+- Stop, a hand-over to a newer web app, a retire request from `web update`, and the restart after an update exit with code `0`. The service manager does not restart them.
+- The launcher counts failed starts in `~/.omms/web-starts.json`. A failed start is an exit with a code other than `0`, or no valid copy. After 5 failed starts within 10 minutes, the launcher writes `restart-limit` to `~/.omms/omms.log` and exits with code `0`. The item then stays down until the next login or the next `om-memory-system web install`.
+- The launcher counts only starts it runs. When the launcher itself cannot run, for example because the Node.js of the item was removed, only the service manager can stop the restarts:
+  - On Linux, systemd stops the unit after 6 starts within 10 minutes, one more than the launcher's limit, so the launcher writes `restart-limit` first. systemd's limit stops a launcher that cannot run at all; `systemctl --user status omms-web` then shows `start-limit-hit`. Restart, an update restart, and `web install` clear the systemd count first, so a start you ask for never uses it up.
+  - On macOS, launchd has no start limit. `ThrottleInterval` only spaces the starts 30 seconds apart. The item tries again every 30 seconds until the next login, `om-memory-system web install`, or `om-memory-system web uninstall`.
+- `web install` deletes the count.
+- An item from an earlier version gets the restart rule at the next OpenCode or Pi start. On Linux the running service gets it at once. On macOS it applies from the next login, or at once after `om-memory-system web install`. The host start does not start a second web app.
+- The Windows startup item has no supervisor, so it has no restart rule. Windows gets the install lock and the install check.
 
 `om-memory-system web uninstall` sets `webServerAutoStart` to `false` and removes only OMMS's own item.
 
@@ -194,17 +288,34 @@ Error messages never contain the API key. The key from `--api-key-env` and the s
 
 `om-memory-system web update` brings the global install to npm `latest` and replaces the running web app.
 
-1. It reads npm `latest`. When the global install is missing or older, it runs `npm install -g om-memory-system@<latest>` with the npm beside the Node.js that runs the command. When the global install is already on `latest`, it skips npm.
+1. It reads npm `latest`. When the global install is missing or older, it runs `npm install -g om-memory-system@<latest>` with the npm beside the Node.js that runs the command. When the global install is already on `latest`, it runs the install check, and runs npm only to repair a missing dependency. The install runs under the install lock and gets the install check. See [Install lock and install check](#install-lock-and-install-check).
 2. It stops every standalone OMMS web app: the web app on the port steps aside, and web apps that wait for the port exit. A web app inside an OpenCode session stops serving, and the session keeps running.
 3. It starts one fresh web app through the login item, or through the launcher when no login item is installed. The launcher runs the newest copy on the machine.
 4. It waits up to 15 seconds and prints `OMMS web app: <url> (version <version>)`.
 
 - It works when no web app runs.
 - When npm fails, times out after 5 minutes, or leaves another version, it prints a code (`permission`, `network`, `npm-exit`, `timeout`, `version-mismatch`), keeps the web app running, and exits with code `1`.
+- When another update holds the install lock, it prints `install-busy`, runs no npm, and exits with code `1`. Wait a few minutes, then run it again.
+- When the install stays incomplete after the repair, it prints `incomplete-install` and the missing dependency, keeps the web app running, and exits with code `1`.
+- When the global install is so damaged that `om-memory-system` cannot start, run `npx -p om-memory-system@latest om-memory-system web update`. `-p` makes npx take a fresh copy into its cache. A plain `npx om-memory-system@latest` runs the global copy when it already has that version, broken or not.
 - When npm cannot be reached, it says so and still replaces the web app.
 - A web app from OMMS 4.10.0 or earlier of the same version cannot be replaced from the terminal. The command names it and says how to stop it.
 - When a host start or another `web update` holds a fresh start lock, it changes nothing, says so, and exits with code `1`. Run it again after a few seconds.
 - It needs `webServerEnabled: true`.
+
+### Install lock and install check
+
+Only one `npm install -g om-memory-system` runs at a time on a computer. Before npm runs, the web app (the **Update** button or the automatic install) and `web update` take the lock file `~/.omms/global-install.lock`.
+
+1. When another live process holds a lock that is less than 6 minutes old, the caller does not run npm. It reports `install-busy`. An automatic install tries again at its next check, 10 minutes later.
+2. The lock names the caller and, while npm runs, npm. It stays live while either process runs. A lock whose processes have both stopped, or that is older than 6 minutes, is taken over. The npm timeout is 5 minutes, so a running install never loses its lock.
+3. A web app that must exit during its own install (Stop, a hand-over, a step-aside, a retire request) waits until npm ends, at most 6 minutes. Under a login item the service manager stops every process of the item when the web app exits, so an early exit would stop npm mid-write.
+4. With the lock, the caller reads the global version again. When another caller has already installed the release and the install is complete, it skips npm.
+5. After npm exits with `0` and the global install reports the new release, the caller runs the install check. See the valid-copy rule in [Hand-off to the newest copy](#hand-off-to-the-newest-copy).
+6. When the check finds a missing dependency, the caller runs the same install once more. When the install is still incomplete, the caller reports `incomplete-install` and does not restart. The web app keeps serving its current version.
+7. The caller removes the lock after every outcome.
+
+The log holds only codes, versions, and the name of the missing dependency. It never holds npm output or a path.
 
 `web status`, `web install`, and `web update` talk to the web app on this computer with the local token file (`~/.omms/.auth-token`). They do not read `webServerApiToken`.
 

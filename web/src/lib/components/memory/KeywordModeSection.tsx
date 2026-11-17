@@ -7,9 +7,11 @@ import {
   withNote,
 } from "$lib/settings-api";
 import { Button } from "$lib/components/ui/button";
-import { Label } from "$lib/components/ui/label";
+import { SettingRow } from "$lib/components/settings/SettingRow";
 import { Select } from "$lib/components/ui/select";
 import { useSettingsText } from "$lib/i18n/settings";
+import { useCatalogueText } from "$lib/i18n/settings-catalogue";
+import { PLAIN_TEXT } from "$lib/settings-catalogue";
 import {
   KEYWORD_MODE_OPTIONS,
   isKeywordMode,
@@ -18,15 +20,17 @@ import {
   rerankerOverridesMode,
   type KeywordMode,
 } from "$lib/keyword-mode-controls";
+import { ReadOnlyNote } from "../settings/ReadOnlyNote";
 
 type Setting = { value?: unknown; source: string; globalValue?: unknown };
-type Snapshot = { revision: string; settings: Record<string, Setting> };
+type Snapshot = { readOnly?: boolean; revision: string; settings: Record<string, Setting> };
 type Status =
   { kind: "load-failed" } | { kind: "save"; ok: boolean; reloaded: boolean; stale?: boolean };
 
-/** Choose how word matches join the search results. Rank fusion is experimental. */
+/** Choose how word matches join the search results. Merging two ranked lists is experimental. */
 export function KeywordModeSection() {
   const s = useSettingsText();
+  const t = useCatalogueText();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [mode, setMode] = useState<KeywordMode>("boost");
   const [busy, setBusy] = useState(false);
@@ -70,6 +74,7 @@ export function KeywordModeSection() {
   const overridden = snapshot?.settings.keywordMode?.source === "project";
   const reranker = snapshot ? rerankerOverridesMode(snapshot.settings) : false;
 
+  const readOnly = snapshot?.readOnly === true;
   async function save() {
     if (!snapshot || saving.current) return;
     saving.current = true;
@@ -122,51 +127,38 @@ export function KeywordModeSection() {
           void save();
         }}
       >
-        <div className="space-y-2">
-          <Label htmlFor="keyword-mode">{s("Word matching mode")}</Label>
-          {/* The list is as wide as this wrapper (and grows with its longest option). */}
-          <div className="w-72 max-w-full">
-            <Select
-              id="keyword-mode"
-              className="w-full"
-              value={mode}
-              disabled={busy}
-              onChange={(event) => {
-                if (isKeywordMode(event.target.value)) setMode(event.target.value);
-              }}
-            >
-              {KEYWORD_MODE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {s(option.label)}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <span id="keyword-mode-help" className="block text-xs text-muted-foreground">
-            keywordMode
-          </span>
-        </div>
+        <SettingRow setting="keywordMode" controlId="keyword-mode" projectNote={overridden}>
+          <Select
+            id="keyword-mode"
+            className="w-full"
+            value={mode}
+            disabled={busy}
+            onChange={(event) => {
+              if (isKeywordMode(event.target.value)) setMode(event.target.value);
+            }}
+          >
+            {KEYWORD_MODE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {t(option.label)}
+              </option>
+            ))}
+          </Select>
+        </SettingRow>
         <p className="text-xs text-muted-foreground">
-          {s(
-            mode === "rrf"
-              ? "Rank fusion merges a list by meaning and a list by words. A memory that contains a word of your prompt can be returned even when its meaning score is below the similarity threshold. Experimental: it has not been shown to find more relevant memories."
-              : "Boost adds a small score bonus to memories that contain a word of your prompt."
-          )}
+          {mode === "rrf"
+            ? t(PLAIN_TEXT.keywordMergeHelp)
+            : t(
+                "A memory that has a word from your prompt gets a small bonus in the order of the results."
+              )}
         </p>
         {reranker && mode === "rrf" && (
-          <p className="text-xs text-amber-600">
-            {s("Rank fusion is not used while the reranker is on. Search uses the boost.")}
-          </p>
-        )}
-        {overridden && (
-          <p className="text-xs text-muted-foreground">
-            {s("A project file can override this setting. This page edits the global value.")}
-          </p>
+          <p className="text-xs text-status-warning">{t(PLAIN_TEXT.keywordMergeWithReranker)}</p>
         )}
         <div className="flex gap-2">
-          <Button type="submit" disabled={busy || !snapshot || mode === saved}>
+          <Button type="submit" disabled={busy || !snapshot || readOnly || mode === saved}>
             {s("Save")}
           </Button>
+          <ReadOnlyNote show={readOnly} />
           <Button
             type="button"
             variant="outline"

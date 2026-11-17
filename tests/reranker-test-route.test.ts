@@ -183,6 +183,70 @@ describe("reranker test route", () => {
     ).toBeUndefined();
   });
 
+  it("uses a pasted key for this request only and never returns or logs it", async () => {
+    const pasted = "sk-pasted-SECRET-123";
+    for (const mode of ["ok", "down"]) {
+      const result = await routeScenario(
+        `
+        ${STUB_FETCH}
+        const recorded = [];
+        const stubbed = globalThis.fetch;
+        globalThis.fetch = async (url, init) => {
+          recorded.push(init?.headers?.Authorization ?? null);
+          if (process.env.OMMS_TEST_FETCH_MODE === "down")
+            throw new TypeError("connect failed for key ${pasted}");
+          return stubbed(url, init);
+        };
+        const response = await send("/api/settings/reranker/test", "POST",
+          { ...${JSON.stringify(VALID_DRAFT)}, rerankerApiKeyValue: "  ${pasted}  " });
+        globalThis.fetch = realFetch;
+        const { existsSync, readFileSync } = await import("node:fs");
+        const logFile = process.env.OMMS_LOG_FILE;
+        const logText = existsSync(logFile) ? readFileSync(logFile, "utf8") : "";
+        const configText = readFileSync(process.env.HOME + "/.config/omms/omms.jsonc", "utf8");
+        return { status: response.status, body: await response.text(), recorded, logText, configText };
+      `,
+        { OMMS_TEST_FETCH_MODE: mode }
+      );
+      expect(result.status, mode).toBe(200);
+      expect(result.recorded, mode).toEqual([`Bearer ${pasted}`]);
+      expect(JSON.parse(result.body).success, mode).toBe(mode === "ok");
+      expect(result.body, mode).not.toContain(pasted);
+      expect(result.logText, mode).not.toContain(pasted);
+      expect(result.configText, mode).toBe("{}");
+    }
+  });
+
+  it("refuses a pasted key that is not a string without echoing it", async () => {
+    const result = await routeScenario(`
+      const response = await send("/api/settings/reranker/test", "POST",
+        { ...${JSON.stringify(VALID_DRAFT)}, rerankerApiKeyValue: { value: "SECRET-OBJECT" } });
+      return { status: response.status, body: await response.text() };
+    `);
+    expect(result.status).toBe(400);
+    expect(result.body).toContain("rerankerApiKeyValue");
+    expect(result.body).not.toContain("SECRET-OBJECT");
+  });
+
+  it("refuses a pasted key on a network host without Basic Auth, as the External API test does", async () => {
+    const result = await routeScenario(`
+      ${STUB_FETCH}
+      const network = new WebServer({ enabled: true, host: "0.0.0.0", port: 4747, apiToken: "network-test-token" });
+      const post = (body) => network.handleRequest(new Request("http://127.0.0.1:4747/api/settings/reranker/test", {
+        method: "POST", headers: { "content-type": "application/json", "x-omms-token": token, authorization: "Bearer network-test-token" },
+        body: JSON.stringify(body) }), "127.0.0.1");
+      const pasted = await post({ ...${JSON.stringify(VALID_DRAFT)}, rerankerApiKeyValue: "sk-network-SECRET" });
+      const plain = await post(${JSON.stringify(VALID_DRAFT)});
+      globalThis.fetch = realFetch;
+      return { pasted: pasted.status, pastedBody: await pasted.text(), plain: plain.status, calls: fetchCalls.length };
+    `);
+    expect(result.pasted).toBe(403);
+    expect(result.pastedBody).not.toContain("sk-network-SECRET");
+    expect(result.plain).toBe(200);
+    // The refused request never reached the reranker server.
+    expect(result.calls).toBe(1);
+  });
+
   it("keeps the embedding route's origin, method, and token guards", async () => {
     const result = await routeScenario(`
       const json = { "content-type": "application/json" };

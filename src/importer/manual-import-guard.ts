@@ -1,4 +1,4 @@
-import type { BackfillHost } from "./backfill-model.js";
+import type { BackfillHost } from "../utils/backfill-model.js";
 
 const running = new Set<BackfillHost>();
 

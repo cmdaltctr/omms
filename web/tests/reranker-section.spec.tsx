@@ -1,296 +1,419 @@
-import { afterEach, beforeEach, expect, it, mock } from "bun:test";
-import { renderToStaticMarkup } from "react-dom/server";
-import type { ReactElement, ReactNode } from "react";
-import * as react from "react";
-import { setLanguage } from "../src/lib/i18n/index.ts";
-import { translateSettings } from "../src/lib/i18n/settings.ts";
-import { SHARED_ROW_IDS } from "../src/lib/memory-sections.ts";
+import { beforeEach, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
+import {
+  allText,
+  byText,
+  byType,
+  installFetch,
+  installReact,
+  render,
+  resetRender,
+  settle,
+  text,
+  type Node,
+  type Request,
+} from "./space-kit.tsx";
 
-// Same shared mock as memory-section.spec.tsx: the card keeps snapshot,
-// draft, busy, and status in this order so tests can inject each state.
-let states: unknown[] = [];
-let cursor = 0;
-let effects: (() => unknown)[] = [];
-mock.module("react", () => ({
-  ...react,
-  useEffect: (effect: () => unknown) => {
-    effects.push(effect);
-  },
-  useRef: (value: unknown) => ({ current: value }),
-  useContext: () => null,
-  useMemo: (factory: () => unknown) => factory(),
-  useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot(),
-  useState: (initial: unknown) => {
-    const index = cursor++;
-    states[index] ??= typeof initial === "function" ? (initial as () => unknown)() : initial;
-    return [
-      states[index],
-      (value: unknown) => {
-        states[index] = typeof value === "function" ? value(states[index]) : value;
-      },
-    ];
-  },
-}));
+installReact();
+
 const { RerankerSection } = await import("../src/lib/components/memory/RerankerSection.tsx");
+const { SettingRow } = await import("../src/lib/components/settings/SettingRow.tsx");
+const { KeySourceField } = await import("../src/lib/components/settings/KeySourceField.tsx");
+const { SettingsConfirmDialog } =
+  await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
 const { Button } = await import("../src/lib/components/ui/button.tsx");
 const { Input } = await import("../src/lib/components/ui/input.tsx");
+const { setLanguage } = await import("../src/lib/i18n/index.ts");
+const { translateSettings } = await import("../src/lib/i18n/settings.ts");
 const controls = await import("../src/lib/reranker-controls.ts");
+const { SHARED_ROW_IDS } = await import("../src/lib/memory-sections.ts");
 
-type Setting = { value?: unknown; source: string; globalValue?: unknown };
-type Snapshot = {
-  revision: string;
-  settings: Record<string, Setting>;
-  secrets: Record<string, { set: boolean; source: string | null; reference: string | null }>;
-};
+const own = [RerankerSection, SettingRow];
+const element = <RerankerSection />;
+const SERVER = "http://127.0.0.1:3008/v1";
 
-function snapshotFixture(overrides: Record<string, Setting> = {}): Snapshot {
+type Secret = { set: boolean; source: string | null; reference: string | null };
+function snapshotFixture(secret: Secret = { set: false, source: null, reference: null }) {
   return {
     revision: "rev-1",
     settings: {
       rerankerEnabled: { value: false, source: "default", globalValue: false },
-      rerankerApiUrl: { value: undefined, source: "default", globalValue: undefined },
-      rerankerModel: { value: undefined, source: "default", globalValue: undefined },
+      rerankerApiUrl: { value: undefined, source: "default" },
+      rerankerModel: { value: undefined, source: "default" },
       rerankerTimeoutMs: { value: 4000, source: "default", globalValue: 4000 },
-      ...overrides,
     },
-    secrets: { rerankerApiKey: { set: false, source: null, reference: null } },
+    secrets: { rerankerApiKey: secret },
   };
 }
 
-function defaultDraft() {
-  return { enabled: false, url: "", model: "", key: "", timeout: "4000" };
+let requests: Request[] = [];
+type Reply = { status?: number; body: unknown } | undefined;
+function serve(secret?: Secret, reply?: (request: Request) => Reply) {
+  requests = installFetch((request) => {
+    const custom = reply?.(request);
+    if (custom) return custom;
+    if (request.method === "PATCH") return { body: { revision: "rev-3" } };
+    return { body: snapshotFixture(secret) };
+  });
 }
-
-type Node = ReactElement<{ children?: ReactNode; [key: string]: unknown }>;
-function find(node: ReactNode, predicate: (node: Node) => boolean): Node[] {
-  if (!react.isValidElement(node))
-    return Array.isArray(node) ? node.flatMap((child) => find(child, predicate)) : [];
-  const element = node as Node;
-  return [...(predicate(element) ? [element] : []), ...find(element.props.children, predicate)];
+async function load(secret?: Secret, reply?: Parameters<typeof serve>[1]) {
+  serve(secret, reply);
+  return settle(element, own);
 }
-function tree(draft = defaultDraft(), busy = false, status: unknown = undefined): Node[] {
-  states = [snapshotFixture(), draft, busy, status];
-  cursor = 0;
-  return find(RerankerSection(), () => true);
-}
-const html = (draft = defaultDraft(), busy = false, status: unknown = undefined): string => {
-  states = [snapshotFixture(), draft, busy, status];
-  cursor = 0;
-  return renderToStaticMarkup(<RerankerSection />);
-};
-const button = (label: string, nodes: Node[]) =>
-  nodes.find(
-    (node) => node.type === Button && react.Children.toArray(node.props.children)[0] === label
-  )!;
-const field = (nodes: Node[], id: string) =>
-  nodes.find((node) => (node.type === Input || node.type === "input") && node.props.id === id)!;
-
-type Call = { url: string; init?: RequestInit };
-const realFetch = globalThis.fetch;
-let calls: Call[] = [];
-beforeEach(() => {
-  calls = [];
-  effects = [];
-  Object.assign(globalThis, { window: { __OMMS_TOKEN__: "page-token" } });
-});
-afterEach(() => {
-  globalThis.fetch = realFetch;
-});
-function stubFetch(reply: (call: Call) => unknown) {
-  globalThis.fetch = (async (url: string, init?: RequestInit) => {
-    const call = { url: String(url), init };
-    calls.push(call);
-    return reply(call);
-  }) as unknown as typeof fetch;
-}
+const after = () => render(element, own);
 const flush = async () => {
-  for (let i = 0; i < 4; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+  for (let tick = 0; tick < 6; tick++) await new Promise((resolve) => setTimeout(resolve, 0));
+};
+const field = (tree: Node[], id: string) => byType(tree, Input).find((n) => n.props.id === id)!;
+const enable = (tree: Node[]) => tree.find((n) => n.props.id === "reranker-enabled")!;
+const setEnabled = (tree: Node[], checked: boolean) =>
+  enable(tree).props.onChange({ target: { checked } });
+const keyField = (tree: Node[]) => byType(tree, KeySourceField)[0]!;
+const typeInto = (tree: Node[], id: string, value: string) =>
+  field(tree, id).props.onChange({ target: { value } });
+const statusLine = (tree: Node[]) =>
+  text(tree.find((n) => n.props.role === "status" && n.type === "p")?.props.children);
+async function fillServer(tree: Node[]) {
+  setEnabled(tree, true);
+  typeInto(after(), "reranker-url", SERVER);
+  typeInto(after(), "reranker-model", "Qwen3-Reranker-0.6B");
+  return after();
+}
+const click = async (tree: Node[], label: string) => {
+  await byText(tree, Button, label)[0]!.props.onClick();
+  await flush();
 };
 
-it("shows the default state: switch off, empty fields, timeout 4000, unchanged search", () => {
-  const markup = html();
-  expect(markup).toMatch(/<h2[^>]*>Reranker<\/h2>/);
-  const nodes = tree();
-  expect(field(nodes, "reranker-enabled").props.checked).toBe(false);
-  expect(field(nodes, "reranker-url").props.value).toBe("");
-  expect(field(nodes, "reranker-model").props.value).toBe("");
-  expect(field(nodes, "reranker-key").props.value).toBe("");
-  expect(field(nodes, "reranker-timeout").props.value).toBe("4000");
-  expect(markup).toContain("Search is unchanged while the switch is off.");
-  expect(markup).toContain(
+beforeEach(() => {
+  resetRender();
+  setLanguage("en");
+});
+
+it("shows the default state: switch off, empty fields, timeout 4000, unchanged search", async () => {
+  const tree = await load();
+  const words = allText(tree);
+  expect(words).toContain("Reranker");
+  expect(enable(tree).props.checked).toBe(false);
+  expect(field(tree, "reranker-url").props.value).toBe("");
+  expect(field(tree, "reranker-model").props.value).toBe("");
+  expect(field(tree, "reranker-timeout").props.value).toBe("4000");
+  expect(words).toContain("Search is unchanged while the switch is off.");
+  expect(words).toContain(
     "The reranker sends the prompt and the text of candidate memories to the server URL. A server on the same machine is recommended."
   );
-  expect(markup).toContain(
+  expect(words).toContain(
     "A project file cannot change these settings. The reranker settings are global only."
   );
-  expect(markup).not.toContain("leaves this machine");
+  expect(words).not.toContain("leaves this machine");
 });
 
-it("refuses to save with the switch on and a blank URL or model", () => {
-  const nodes = tree({ ...defaultDraft(), enabled: true });
-  expect(button("Save", nodes).props.disabled).toBe(true);
-  cursor = 0;
-  expect(renderToStaticMarkup(<RerankerSection />)).toContain("Enter the server URL and model");
-  const withUrl = tree({ ...defaultDraft(), enabled: true, url: "http://127.0.0.1:3008/v1" });
-  expect(button("Save", withUrl).props.disabled).toBe(true);
-  const complete = tree({
-    ...defaultDraft(),
-    enabled: true,
-    url: "http://127.0.0.1:3008/v1",
-    model: "Qwen3-Reranker-0.6B",
-  });
-  expect(button("Save", complete).props.disabled).toBe(false);
-});
-
-it("refuses a plain-text key and out-of-range timeouts", () => {
-  const plainKey = tree({
-    ...defaultDraft(),
-    enabled: true,
-    url: "http://127.0.0.1:3008/v1",
-    model: "m",
-    key: "sk-literal",
-  });
-  expect(button("Save", plainKey).props.disabled).toBe(true);
-  cursor = 0;
-  expect(renderToStaticMarkup(<RerankerSection />)).toContain(
-    "The key must be an env:// or file:// reference"
-  );
-  for (const timeout of ["100", "40000", "2500.5", ""]) {
-    const nodes = tree({
-      ...defaultDraft(),
-      enabled: true,
-      url: "http://127.0.0.1:3008/v1",
-      model: "m",
-      timeout,
-    });
-    expect(button("Save", nodes).props.disabled, `timeout ${timeout}`).toBe(true);
+it("leads each row with a plain name and shows the config key as secondary text", async () => {
+  const tree = await load();
+  const words = allText(tree);
+  for (const [name, key] of [
+    ["Reorder results with a reranker", "rerankerEnabled"],
+    ["Reranker server address", "rerankerApiUrl"],
+    ["Reranker model", "rerankerModel"],
+    ["Reranker key", "rerankerApiKey"],
+    ["Reranker wait time", "rerankerTimeoutMs"],
+  ] as const) {
+    expect(words, name).toContain(name);
+    expect(words.indexOf(name), key).toBeLessThan(words.indexOf(key));
+    const code = tree.find((n) => n.type === "code" && text(n.props.children) === key);
+    expect(code?.props.dir, key).toBe("ltr");
   }
-  const markup = html({
-    ...defaultDraft(),
-    enabled: true,
-    url: "http://127.0.0.1:3008/v1",
-    model: "m",
-    timeout: "40000",
-  });
-  expect(markup).toContain("Enter a whole number from 500 to 30,000.");
-  // The apostrophe in "V2's" is escaped in static markup.
-  expect(markup).toContain(
-    "The default of 4000 keeps the search inside OpenCode V2&#x27;s 5-second wait. A value over 5000 can make OpenCode V2 send the request with no memory."
+});
+
+it("refuses to save with the switch on and a blank URL or model", async () => {
+  let tree = await load();
+  setEnabled(tree, true);
+  tree = after();
+  expect(byText(tree, Button, "Save")[0]!.props.disabled).toBe(true);
+  expect(allText(tree)).toContain("Enter the server URL and model before turning the reranker on.");
+  typeInto(tree, "reranker-url", SERVER);
+  expect(byText(after(), Button, "Save")[0]!.props.disabled).toBe(true);
+  typeInto(after(), "reranker-model", "m");
+  expect(byText(after(), Button, "Save")[0]!.props.disabled).toBe(false);
+});
+
+it("accepts only an http:// or https:// URL", async () => {
+  let tree = await load();
+  typeInto(tree, "reranker-url", "127.0.0.1:3008");
+  tree = after();
+  expect(byText(tree, Button, "Save")[0]!.props.disabled).toBe(true);
+  expect(allText(tree)).toContain("Enter a web address that starts with http:// or https://.");
+  typeInto(tree, "reranker-url", SERVER);
+  expect(byText(after(), Button, "Save")[0]!.props.disabled).toBe(false);
+});
+
+it("uses the shared key-entry control with paste and No key, and no free-text reference box", async () => {
+  const tree = await load();
+  const key = keyField(tree);
+  expect(key.props.optional).toBe(true);
+  expect(key.props.choice).toBe("none");
+  expect(key.props.id).toBe("reranker-key");
+  expect(tree.some((n) => n.props.id === "reranker-key" && n.type !== KeySourceField)).toBe(false);
+});
+
+it("shows the saved key source and keeps Save off until a chosen key is complete", async () => {
+  let tree = await load({ set: true, source: "env", reference: "RERANK_KEY" });
+  expect(keyField(tree).props.choice).toBe("env");
+  expect(keyField(tree).props.input.name).toBe("RERANK_KEY");
+  // An untouched saved key does not block a save.
+  typeInto(tree, "reranker-url", SERVER);
+  expect(byText(after(), Button, "Save")[0]!.props.disabled).toBe(false);
+  // A pasted key with no text does.
+  keyField(tree).props.onChoice("paste");
+  tree = after();
+  expect(byText(tree, Button, "Save")[0]!.props.disabled).toBe(true);
+  expect(allText(tree)).toContain("Paste the key");
+  keyField(tree).props.onInput({ name: "rerank", path: "", value: "sk-secret" });
+  expect(byText(after(), Button, "Save")[0]!.props.disabled).toBe(false);
+});
+
+it("refuses an invalid variable name and out-of-range timeouts", async () => {
+  let tree = await load();
+  keyField(tree).props.onChoice("env");
+  keyField(after()).props.onInput({ name: "not a name", path: "", value: "" });
+  tree = after();
+  expect(byText(tree, Button, "Save")[0]!.props.disabled).toBe(true);
+  expect(allText(tree)).toContain("Enter a variable name such as ZAI_API_KEY");
+  keyField(tree).props.onChoice("none");
+  for (const timeout of ["100", "40000", "2500.5", ""]) {
+    typeInto(after(), "reranker-timeout", timeout);
+    expect(byText(after(), Button, "Save")[0]!.props.disabled, `timeout ${timeout}`).toBe(true);
+  }
+  expect(allText(after())).toContain("Enter a whole number from 500 to 30,000.");
+  expect(allText(after())).toContain(
+    "OpenCode waits up to 5 seconds for memories before it sends your prompt. The default, 4000 milliseconds, finishes in time. Over 5000, OpenCode can send your prompt without memories."
   );
 });
 
-it("shows the remote-host notice only for non-loopback URLs", () => {
-  const remote = html({
-    ...defaultDraft(),
-    enabled: true,
-    url: "https://rerank.example.com/v1",
-    model: "m",
-  });
-  expect(remote).toContain("This URL is not on this machine: memory text leaves this machine.");
-  const local = html({
-    ...defaultDraft(),
-    enabled: true,
-    url: "http://127.0.0.1:3008/v1",
-    model: "m",
-  });
-  expect(local).not.toContain("leaves this machine");
+it("shows the remote-host notice only for non-loopback URLs", async () => {
+  const tree = await load();
+  typeInto(tree, "reranker-url", "https://rerank.example.com/v1");
+  expect(allText(after())).toContain("memory text leaves this machine");
+  typeInto(after(), "reranker-url", SERVER);
+  expect(allText(after())).not.toContain("leaves this machine");
 });
 
-it("saves the five keys through the shared safe save and reloads the revision", async () => {
-  stubFetch((call) =>
-    call.url === "/api/settings" && call.init?.method === "PATCH"
-      ? Response.json({}, { status: 200 })
-      : Response.json(snapshotFixture())
+it("saves a pasted key to a private file first, then the other settings, with the new revision", async () => {
+  const tree = await fillServer(await load());
+  typeInto(tree, "reranker-timeout", "6000");
+  keyField(after()).props.onChoice("paste");
+  keyField(after()).props.onInput({ name: "rerank", path: "", value: "sk-secret" });
+  requests.length = 0;
+  serve(undefined, (request) =>
+    request.path === "/api/settings/external-api/key" ? { body: { revision: "rev-2" } } : undefined
   );
-  const nodes = tree({
-    ...defaultDraft(),
-    enabled: true,
-    url: "http://127.0.0.1:3008/v1",
-    model: "Qwen3-Reranker-0.6B",
-    timeout: "6000",
-  });
-  await (button("Save", nodes).props.onClick as () => Promise<void>)();
-  await flush();
-  const patch = calls.find((call) => call.init?.method === "PATCH");
-  expect(patch?.url).toBe("/api/settings");
-  expect(JSON.parse(String(patch?.init?.body))).toEqual({
-    edits: {
-      rerankerEnabled: true,
-      rerankerApiUrl: "http://127.0.0.1:3008/v1",
-      rerankerModel: "Qwen3-Reranker-0.6B",
-      rerankerApiKey: null,
-      rerankerTimeoutMs: 6000,
-    },
+  await click(after(), "Save");
+  const writes = requests.filter((r) => r.method !== "GET");
+  expect(writes.map((r) => `${r.method} ${r.path}`)).toEqual([
+    "POST /api/settings/external-api/key",
+    "PATCH /api/settings",
+  ]);
+  expect(writes[0]!.body).toEqual({
+    source: "paste",
+    name: "rerank",
+    value: "sk-secret",
+    replace: false,
+    setting: "rerankerApiKey",
     revision: "rev-1",
   });
-  expect(states[3]).toEqual({ kind: "save", ok: true, reloaded: true });
+  expect(writes[1]!.body).toEqual({
+    edits: {
+      rerankerEnabled: true,
+      rerankerApiUrl: SERVER,
+      rerankerModel: "Qwen3-Reranker-0.6B",
+      rerankerTimeoutMs: 6000,
+    },
+    revision: "rev-2",
+  });
+  // The pasted key leaves the form and is never shown again.
+  expect(keyField(after()).props.input.value).toBe("");
+  expect(statusLine(after())).toBe("Saved. New searches use these settings.");
 });
 
-it("tests with the drafted values and reports success or a failure code", async () => {
-  stubFetch((call) =>
-    call.url === "/api/settings/reranker/test"
-      ? Response.json({ success: true })
-      : Response.json({})
+it("saves an environment variable key through the same route", async () => {
+  const tree = await fillServer(await load());
+  keyField(tree).props.onChoice("env");
+  keyField(after()).props.onInput({ name: "RERANK_KEY", path: "", value: "" });
+  await click(after(), "Save");
+  const key = requests.find((r) => r.path === "/api/settings/external-api/key")!;
+  expect(key.body).toMatchObject({ source: "env", name: "RERANK_KEY", setting: "rerankerApiKey" });
+});
+
+it("asks before it replaces an existing key file, and sends nothing else until it does", async () => {
+  const tree = await fillServer(await load());
+  keyField(tree).props.onChoice("paste");
+  keyField(after()).props.onInput({ name: "rerank", path: "", value: "sk-new" });
+  serve(undefined, (request) =>
+    request.path === "/api/settings/external-api/key" && request.body.replace !== true
+      ? {
+          status: 409,
+          body: { error: "A key file named rerank.key exists. Confirm to replace it." },
+        }
+      : request.path === "/api/settings/external-api/key"
+        ? { body: { revision: "rev-2" } }
+        : undefined
   );
-  let nodes = tree({
-    ...defaultDraft(),
-    enabled: true,
-    url: "http://127.0.0.1:3008/v1",
-    model: "Qwen3-Reranker-0.6B",
-    timeout: "6000",
-  });
-  await (button("Test", nodes).props.onClick as () => Promise<void>)();
+  await click(after(), "Save");
+  expect(requests.some((r) => r.method === "PATCH")).toBe(false);
+  const dialog = byType(after(), SettingsConfirmDialog)[0]!;
+  expect(dialog).toBeTruthy();
+  const result = await dialog.props.onConfirm();
   await flush();
-  const test = calls.find((call) => call.url === "/api/settings/reranker/test");
-  expect(JSON.parse(String(test?.init?.body))).toEqual({
-    rerankerApiUrl: "http://127.0.0.1:3008/v1",
+  expect(result.success).toBe(true);
+  const keyCalls = requests.filter((r) => r.path === "/api/settings/external-api/key");
+  expect(keyCalls.map((r) => r.body.replace)).toEqual([false, true]);
+  expect(requests.some((r) => r.method === "PATCH")).toBe(true);
+});
+
+it("removes the saved key only when the user chooses No key", async () => {
+  const tree = await load({ set: true, source: "file", reference: "/keys/rerank.key" });
+  expect(keyField(tree).props.choice).toBe("file");
+  keyField(tree).props.onChoice("none");
+  typeInto(after(), "reranker-model", "m");
+  await click(after(), "Save");
+  expect(requests.some((r) => r.path === "/api/settings/external-api/key")).toBe(false);
+  const patch = requests.find((r) => r.method === "PATCH")!;
+  expect(patch.body.edits.rerankerApiKey).toBeNull();
+});
+
+it("tests the values in the form, with the key source from the form", async () => {
+  const tree = await fillServer(await load());
+  typeInto(tree, "reranker-timeout", "6000");
+  keyField(after()).props.onChoice("env");
+  keyField(after()).props.onInput({ name: "RERANK_KEY", path: "", value: "" });
+  serve(undefined, (request) =>
+    request.path === "/api/settings/reranker/test" ? { body: { success: true } } : undefined
+  );
+  await click(after(), "Test");
+  const test = requests.find((r) => r.path === "/api/settings/reranker/test")!;
+  expect(test.body).toEqual({
+    rerankerApiUrl: SERVER,
     rerankerModel: "Qwen3-Reranker-0.6B",
+    rerankerApiKey: "env://RERANK_KEY",
     rerankerTimeoutMs: 6000,
   });
-  expect(states[3]).toEqual({ kind: "test", ok: true });
+  expect(requests.some((r) => r.method === "PATCH")).toBe(false);
+  expect(statusLine(after())).toBe("Test passed.");
+});
 
-  stubFetch((call) =>
-    call.url === "/api/settings/reranker/test"
-      ? Response.json({ success: false, code: "reranker_unreachable" })
-      : Response.json({})
+it("sends a pasted key to the test in memory only and saves nothing", async () => {
+  const tree = await fillServer(await load());
+  keyField(tree).props.onChoice("paste");
+  keyField(after()).props.onInput({ name: "rerank", path: "", value: "sk-secret" });
+  serve(undefined, (request) =>
+    request.path === "/api/settings/reranker/test" ? { body: { success: true } } : undefined
   );
-  states = [snapshotFixture(), defaultDraft(), false, undefined];
-  cursor = 0;
-  nodes = find(RerankerSection(), () => true);
-  await (button("Test", nodes).props.onClick as () => Promise<void>)();
-  await flush();
-  expect(states[3]).toEqual({ kind: "test", ok: false, code: "reranker_unreachable" });
-  cursor = 0;
-  expect(renderToStaticMarkup(<RerankerSection />)).toContain("reranker_unreachable");
+  await click(after(), "Test");
+  const test = requests.find((r) => r.path === "/api/settings/reranker/test")!;
+  expect(test.body.rerankerApiKeyValue).toBe("sk-secret");
+  expect(test.body.rerankerApiKey).toBeUndefined();
+  expect(requests.filter((r) => r.method !== "GET").length).toBe(1);
 });
 
-it("restores the saved values on Cancel without any request", () => {
-  stubFetch(() => {
-    throw new Error("no request expected");
+it("shows the server's reason when it refuses a pasted key on a network host", async () => {
+  const tree = await fillServer(await load());
+  keyField(tree).props.onChoice("paste");
+  keyField(after()).props.onInput({ name: "rerank", path: "", value: "sk-secret" });
+  serve(undefined, (request) =>
+    request.path === "/api/settings/reranker/test"
+      ? {
+          status: 403,
+          body: { error: "Testing a pasted key requires Basic Auth on network hosts" },
+        }
+      : undefined
+  );
+  await click(after(), "Test");
+  const line = statusLine(after());
+  expect(line).toContain("Testing a pasted key requires Basic Auth on network hosts");
+  expect(line).not.toContain("could not reach");
+});
+
+it("says what went wrong in a sentence, not a code", async () => {
+  await fillServer(await load());
+  serve(undefined, (request) =>
+    request.path === "/api/settings/reranker/test"
+      ? { body: { success: false, code: "reranker_unreachable" } }
+      : undefined
+  );
+  await click(after(), "Test");
+  const line = statusLine(after());
+  expect(line).toContain("OMMS could not reach the reranker server.");
+  expect(line).toContain("Check the URL");
+  expect(allText(after())).not.toContain("reranker_unreachable");
+});
+
+it("shows a general sentence with the code as secondary text for an unknown code", async () => {
+  await fillServer(await load());
+  serve(undefined, (request) =>
+    request.path === "/api/settings/reranker/test"
+      ? { body: { success: false, code: "reranker_brand_new" } }
+      : undefined
+  );
+  await click(after(), "Test");
+  const status = after().find((n) => n.props.role === "status" && n.type === "p")!;
+  expect(text(status.props.children)).toContain("The reranker test failed.");
+  const secondary = after().find(
+    (n) => n.type === "code" && text(n.props.children) === "reranker_brand_new"
+  );
+  expect(secondary?.props.dir).toBe("ltr");
+});
+
+it("shows a message while the test runs and answers again when it ends", async () => {
+  await fillServer(await load());
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  requests = installFetch(async (request) => {
+    if (request.path === "/api/settings/reranker/test") {
+      await gate;
+      return { body: { success: true } };
+    }
+    return { body: snapshotFixture() };
   });
-  const nodes = tree({ ...defaultDraft(), url: "http://x", timeout: "9000" });
-  (button("Cancel", nodes).props.onClick as () => void)();
-  expect(states[1]).toEqual(defaultDraft());
-  expect(calls).toEqual([]);
+  const pending = byText(after(), Button, "Test")[0]!.props.onClick();
+  await flush();
+  expect(allText(after())).toContain("Testing the reranker…");
+  release();
+  await pending;
+  await flush();
+  expect(statusLine(after())).toBe("Test passed.");
 });
 
-it("sits in the Shared view below Memory limits and is absent from Settings", () => {
+it("restores the saved values on Cancel without any request", async () => {
+  const tree = await load();
+  typeInto(tree, "reranker-url", "http://x");
+  typeInto(after(), "reranker-timeout", "9000");
+  requests.length = 0;
+  await click(after(), "Cancel");
+  expect(field(after(), "reranker-url").props.value).toBe("");
+  expect(field(after(), "reranker-timeout").props.value).toBe("4000");
+  expect(requests).toEqual([]);
+});
+
+it("sits in the Shared view below Memory limits", () => {
   const ids: readonly string[] = SHARED_ROW_IDS;
-  expect(ids.indexOf("shared-reranker")).toBeGreaterThan(ids.indexOf("shared-limits"));
-  // The Keyword matching row sits between the two.
-  expect(ids.indexOf("shared-keywords")).toBe(ids.indexOf("shared-limits") + 1);
   expect(ids.indexOf("shared-reranker")).toBe(ids.indexOf("shared-keywords") + 1);
+  expect(ids.indexOf("shared-keywords")).toBe(ids.indexOf("shared-limits") + 1);
 });
 
-it("translates every reranker message into Chinese and Arabic", () => {
+it("has no raw button, no window.confirm, and the pure messages stay translated", () => {
+  const source = readFileSync(
+    new URL("../src/lib/components/memory/RerankerSection.tsx", import.meta.url),
+    "utf8"
+  );
+  expect(source).not.toMatch(/<button|window\.confirm/);
   for (const message of controls.RERANKER_MESSAGES) {
-    expect(translateSettings(message, "en")).toBe(message);
     expect(translateSettings(message, "zh")).not.toBe(message);
     expect(translateSettings(message, "ar")).not.toBe(message);
   }
+});
+
+it("reads in Chinese", async () => {
   setLanguage("zh");
-  const markup = html();
-  expect(markup).not.toContain("Search is unchanged while the switch is off.");
-  expect(markup).not.toContain(">Reranker</h2>");
-  setLanguage("en");
+  const tree = await load();
+  expect(allText(tree)).not.toContain("Search is unchanged while the switch is off.");
+  expect(allText(tree)).not.toContain("Reranker server address");
 });

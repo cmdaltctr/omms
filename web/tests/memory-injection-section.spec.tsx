@@ -12,7 +12,7 @@ mock.module("react", () => ({
   ...react,
   useEffect: () => {},
   useRef: (value: unknown) => ({ current: value }),
-  useContext: () => null,
+  useContext: react.useContext,
   useMemo: (factory: () => unknown) => factory(),
   useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot(),
   useState: (initial: unknown) => {
@@ -69,12 +69,21 @@ it("shows the defaults: opening off, the default query, subagent on, restore on 
   expect(box("injection-subagent")).toContain("checked");
   expect(box("injection-restore")).toContain("checked");
   expect(box("injection-opening")).toContain('role="switch"');
-  expect(html).toContain(">Inject memories with the first message<");
-  expect(html).toContain(">Subagent memory<");
-  expect(html).toContain(">Restore memories after compaction or resume<");
+  // Each row leads with its plain catalogue name, then shows the config key as small text.
+  for (const [name, key] of [
+    ["Add memories to the first message", "openingContext"],
+    ["Opening search text", "openingContextQuery"],
+    ["Give subagents memories", "subagentMemory"],
+    ["Add memories back after a summary", "compaction.enabled"],
+    ["Memories added back after a summary", "compaction.memoryLimit"],
+  ]) {
+    expect(html).toContain(`>${name}</label>`);
+    expect(html).toContain(
+      `<code dir="ltr" class="block text-start text-xs text-muted-foreground">${key}</code>`
+    );
+  }
   expect(html).toContain(DEFAULT_QUERY);
   expect(html).toMatch(/<input[^>]*id="injection-limit"[^>]*value="10"/);
-  expect(html).toContain("Most memories to restore");
 });
 
 it("shows saved values: opening on with a custom query, restore off", () => {
@@ -138,12 +147,12 @@ it("shows the writer's message when a save is rejected, and the saved line after
 
 it("shows every label in Chinese and Arabic", () => {
   setLanguage("zh");
-  expect(section()).not.toContain(">Inject memories with the first message<");
+  expect(section()).not.toContain(">Add memories to the first message<");
   setLanguage("ar");
   const html = section();
-  expect(html).not.toContain("Inject memories with the first message");
+  expect(html).not.toContain("Add memories to the first message");
   expect(html).not.toContain("Reset to default");
-  expect(html).not.toContain("Most memories to restore");
+  expect(html).not.toContain("Memories added back after a summary");
 });
 
 it("gives the Shared view one link row with the switch states and no controls", () => {

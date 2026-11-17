@@ -47,6 +47,8 @@ export interface TuiStatusDeps {
   readUpdateStatus?: (version: string) => HostUpdateStatus | null;
   watchIntervalMs?: number;
   watchLimitMs?: number;
+  /** The first-run notice once per computer, claimed by the call, else null. */
+  firstRunNotice?: () => string | null;
 }
 
 /**
@@ -135,6 +137,12 @@ export function startTuiStatus(deps: TuiStatusDeps): () => void {
   };
 
   show();
+  try {
+    const notice = deps.firstRunNotice?.();
+    if (notice) deps.notify(notice);
+  } catch {
+    // A failed notice must not break the footer.
+  }
   void checkHealth();
   if (deps.checkUpdates !== false) void checkUpdate();
   const timers = [setInterval(() => void checkHealth(), deps.healthIntervalMs ?? 30_000)];
@@ -153,11 +161,13 @@ export function startTuiStatus(deps: TuiStatusDeps): () => void {
 export async function startInstalledTuiStatus(
   callbacks: Pick<TuiStatusDeps, "setText" | "notify">
 ): Promise<() => void> {
-  const [{ CONFIG }, { packageVersion }, { log }] = await Promise.all([
-    import("../../config.js"),
-    import("../../services/package-version.js"),
-    import("../../services/logger.js"),
-  ]);
+  const [{ CONFIG }, { packageVersion }, { log }, { claimOpencodeFirstRunNotice }] =
+    await Promise.all([
+      import("../../config.js"),
+      import("../../services/package-version.js"),
+      import("../../services/logger.js"),
+      import("./first-run.js"),
+    ]);
   const host = CONFIG.webServerHost === "0.0.0.0" ? "127.0.0.1" : CONFIG.webServerHost;
   const currentVersion = packageVersion();
   const modulePath = fileURLToPath(import.meta.url);
@@ -174,5 +184,6 @@ export async function startInstalledTuiStatus(
     healthUrl: `http://${host.includes(":") ? `[${host}]` : host}:${CONFIG.webServerPort}/api/health`,
     fetch: globalThis.fetch.bind(globalThis),
     checkUpdates: process.env.OMMS_DISABLE_UPDATE_CHECK !== "1",
+    firstRunNotice: () => claimOpencodeFirstRunNotice(CONFIG),
   });
 }

@@ -1,5 +1,7 @@
+import type { MemoryHost } from "../shared/hosts.js";
+
 export type MemoryType = string;
-export type MemoryHost = "opencode" | "pi" | "claude-code";
+export type { MemoryHost } from "../shared/hosts.js";
 export type MemorySourceType = "live-capture" | "history-import";
 
 export interface MemoryMetadata {
