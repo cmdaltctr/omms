@@ -19,6 +19,7 @@ export class TursoVectorWrites {
       record.projectPath || null,
       record.projectName || null,
       record.gitRepoUrl || null,
+      record.isPinned ? 1 : 0,
     ];
 
     if (record.tagsVector) {
@@ -26,8 +27,8 @@ export class TursoVectorWrites {
         sql: `
         INSERT INTO memories (
           id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-          metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url
-        ) VALUES (?, ?, vector32(?), vector32(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url, is_pinned
+        ) VALUES (?, ?, vector32(?), vector32(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         args: [
           record.id,
@@ -44,8 +45,8 @@ export class TursoVectorWrites {
       sql: `
       INSERT INTO memories (
         id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-        metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url
-      ) VALUES (?, ?, vector32(?), NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url, is_pinned
+      ) VALUES (?, ?, vector32(?), NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       args: [record.id, record.content, contentVector, ...commonArgs],
     });

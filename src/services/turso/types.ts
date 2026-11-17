@@ -26,6 +26,8 @@ export interface MemoryRecord {
   projectPath?: string;
   projectName?: string;
   gitRepoUrl?: string;
+  /** Written with the row. Absent means unpinned. */
+  isPinned?: boolean;
 }
 
 export interface SearchResult {
