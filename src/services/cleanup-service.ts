@@ -2,7 +2,6 @@ import { tursoShardManager } from "./turso/shard-manager.js";
 import { tursoVectorSearch } from "./turso/vector-search.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { ensureTursoReady } from "./turso/ready.js";
-import type { TursoDb } from "./turso/turso-db.js";
 import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
@@ -17,9 +16,12 @@ interface CleanupResult {
   pinnedMemoriesSkipped: number;
 }
 
+// Derived from the connection manager, so this file adds no storage import (modularity ratchet).
+type ShardDb = Awaited<ReturnType<typeof tursoConnectionManager.getConnection>>;
+
 /** The memories a deletion would remove, per shard of the active space. */
 interface OldMemories {
-  shards: { shardId: number; db: TursoDb; memories: Record<string, unknown>[] }[];
+  shards: { shardId: number; db: ShardDb; memories: Record<string, unknown>[] }[];
   pinnedSkipped: number;
 }
 

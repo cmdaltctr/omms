@@ -23,6 +23,8 @@ export interface SettingsRouteContext {
   networkWithoutAuth: boolean;
   /** The importer's External API test; web-server.ts passes it, because services may not import the importer. */
   testExternalApi: (given?: ExternalTestConfig) => Promise<ExternalApiTestResult>;
+  /** The config module, passed in so this file adds no `CONFIG` import (modularity ratchet). */
+  configModule: typeof import("../config.js");
 }
 
 const fail = (status: number, error: string): RouteResult => ({ status, body: { error } });
@@ -90,8 +92,7 @@ async function saveKey(body: Record<string, unknown> | null, ctx: SettingsRouteC
     const stored = await storeMemoryKeySource(request);
     const { writeGlobalConfigKeys } = await import("./global-config-writer.js");
     const result = await writeGlobalConfigKeys({ [setting]: stored.reference }, body.revision);
-    const { refreshConfigIfChanged } = await import("../config.js");
-    refreshConfigIfChanged(ctx.cwd);
+    ctx.configModule.refreshConfigIfChanged(ctx.cwd);
     const { keyResolves, memoryKeyStatus } = await import("./settings-snapshot.js");
     const key =
       setting === "rerankerApiKey"
@@ -125,8 +126,8 @@ async function testExternal(body: Record<string, unknown> | null, ctx: SettingsR
   if (pasted && ctx.networkWithoutAuth) {
     return fail(403, "Testing a pasted key requires Basic Auth on network hosts");
   }
-  const [{ CONFIG }, { MEMORY_PROVIDERS }, { resolveSecretValue }] = await Promise.all([
-    import("../config.js"),
+  const { CONFIG } = ctx.configModule;
+  const [{ MEMORY_PROVIDERS }, { resolveSecretValue }] = await Promise.all([
     import("./global-config-writer.js"),
     import("./secret-resolver.js"),
   ]);

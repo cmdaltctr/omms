@@ -26,16 +26,18 @@ export async function routeModules(
   req: Request,
   ctx: SkillRouteContext & {
     remoteAddress?: string;
-    settings?: Omit<SettingsRouteContext, "cwd">;
+    settings?: Omit<SettingsRouteContext, "cwd" | "configModule">;
   }
 ): Promise<RouteModuleResult | undefined> {
-  const { CONFIG: config } = await import("../config.js");
+  const configModule = await import("../config.js");
+  const config = configModule.CONFIG;
   let body: Promise<any> | undefined;
   const readBody = () => (body ??= req.json().catch(() => ({})));
 
   if (ctx.settings) {
     const settings = await routeSettings(path, method, url, readBody, {
       cwd: ctx.cwd,
+      configModule,
       ...ctx.settings,
     });
     if (settings !== undefined) return settings;
