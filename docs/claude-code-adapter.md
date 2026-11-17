@@ -435,6 +435,18 @@ register a host profile model, because that registration is for the whole
 process. When the web app runs inside OpenCode, it would replace OpenCode's
 model.
 
+### Daily maintenance
+
+Claude Code hooks do no memory work. The web app runs daily maintenance for them on a timer: once at start, then at most once a day.
+
+- It always removes old capture attempt records, old capture retry rows and old cleanup undo records, and compacts the prompt database.
+- It deletes memories by age only when you turn on **Delete old memories automatically** in the Memory cleanup card. That writes `autoDeleteOldMemories: true` to the global config file. The default is off.
+- An older config file with `"autoCleanupEnabled": true` deletes nothing. See [Configuration: Memory cleanup](configuration.md#memory-cleanup).
+
+### Config problems
+
+When OMMS cannot read the config file, or cannot use a value in it, it uses the default, or turns a risky feature off, and keeps running. The `SessionStart` hook sends `"notices": true`. The web app then puts one line per problem in the `systemMessage` field of its reply. The hook prints that field beside the context, so Claude Code shows it to you and never to the model. A compaction in the same session repeats nothing. The line names the file and line, or the key and the values it accepts. Fix the file. For a key that a Settings card can change, the notice also points to the Settings page.
+
 ### Backfill
 
 The first `SessionStart` that reaches the web app after the web app starts

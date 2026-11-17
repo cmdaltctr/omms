@@ -36,12 +36,27 @@ export function revealSettingsAnchor(hash: string, doc: Document): boolean {
   return true;
 }
 
-/** Reveal an anchor after navigation without replacing any mounted draft owner. */
-export function revealPageAnchor(hash: string): void {
+/**
+ * Move keyboard focus to the card's heading, or a Shared row's summary, so keyboard and screen
+ * reader users land on the card a search result opened. The page has already scrolled.
+ */
+export function focusAnchorHeading(element: HTMLElement): void {
+  const target = element.querySelector<HTMLElement>("summary, h2, h3") ?? element;
+  if (target.tabIndex < 0 && !target.hasAttribute("tabindex")) {
+    target.setAttribute("tabindex", "-1");
+  }
+  target.focus({ preventScroll: true });
+}
+
+/**
+ * Reveal an anchor after navigation without replacing any mounted draft owner. `focus` also
+ * moves keyboard focus to the card (a settings search result).
+ */
+export function revealPageAnchor(hash: string, options: { focus?: boolean } = {}): void {
   if (typeof document === "undefined" || typeof requestAnimationFrame === "undefined") return;
   const id = hash.replace(/^#/, "");
   if (
-    !/^(?:(?:settings|memory|skills)-section-[a-z0-9-]+|space-card-[a-z0-9-]+|directory-maps-(?:pi|opencode|claude-code)|shared-(?:profile|limits|keywords|reranker|directory-maps)|host-unresolved|memory-injection|profile-(?:preferences|patterns|workflows))$/.test(
+    !/^(?:(?:settings|memory|skills)-section-[a-z0-9-]+|space-card-[a-z0-9-]+|directory-maps-(?:pi|opencode|claude-code)|shared-(?:profile|limits|keywords|reranker|directory-maps)|host-unresolved|memory-injection|memorisation-settings|profile-(?:preferences|patterns|workflows))$/.test(
       id
     )
   )
@@ -65,6 +80,7 @@ export function revealPageAnchor(hash: string): void {
     }
     element.scrollIntoView(JUMP);
     flashAnchor(element);
+    if (options.focus) focusAnchorHeading(element);
   };
   requestAnimationFrame(reveal);
 }

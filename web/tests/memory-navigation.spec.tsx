@@ -62,6 +62,8 @@ it("registers the four Memory views once and retains unrelated Settings order wi
     "Shared",
   ]);
   expect(SETTINGS_SECTIONS.map((section) => section.id)).toEqual([
+    "settings-section-memory-basics",
+    "settings-section-memory-cleanup",
     "settings-section-external-api",
     "settings-section-models",
     "settings-section-embedding",
@@ -374,4 +376,29 @@ it("leaves a modified click on a contents link to the browser", () => {
     preventDefault: () => (prevented = true),
   });
   expect(prevented).toBe(false);
+});
+
+it("moves focus to the card heading, or the row's summary, without a second scroll", async () => {
+  const { focusAnchorHeading } = await import("../src/lib/settings-navigation.ts");
+  const fake = (tabIndex: number, attribute: boolean) => {
+    const calls: unknown[] = [];
+    const attributes: Record<string, string> = {};
+    const node = {
+      tabIndex,
+      hasAttribute: () => attribute,
+      setAttribute: (name: string, value: string) => (attributes[name] = value),
+      focus: (options: unknown) => calls.push(options),
+    };
+    return { node, calls, attributes };
+  };
+  // A card: its h2 is not focusable, so it gets tabindex -1 first.
+  const heading = fake(-1, false);
+  focusAnchorHeading({ querySelector: () => heading.node } as unknown as HTMLElement);
+  expect(heading.attributes).toEqual({ tabindex: "-1" });
+  expect(heading.calls).toEqual([{ preventScroll: true }]);
+  // A Shared row: its summary is focusable already and keeps its own tab order.
+  const summary = fake(0, false);
+  focusAnchorHeading({ querySelector: () => summary.node } as unknown as HTMLElement);
+  expect(summary.attributes).toEqual({});
+  expect(summary.calls).toEqual([{ preventScroll: true }]);
 });

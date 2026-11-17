@@ -8,8 +8,13 @@ import {
 } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 import { captureLanguageOptions, currentCaptureLanguage } from "$lib/capture-language";
+import { ReadOnlyNote } from "./ReadOnlyNote";
 
-type Snapshot = { revision: string; settings: Record<string, { value?: unknown }> };
+type Snapshot = {
+  readOnly?: boolean;
+  revision: string;
+  settings: Record<string, { value?: unknown }>;
+};
 
 export function CaptureLanguageField({
   value,
@@ -64,6 +69,7 @@ export function CaptureLanguageSection() {
       unsubscribe();
     };
   }, []);
+  const readOnly = snapshot?.readOnly === true;
   async function save(code: string) {
     if (!snapshot) return;
     setBusy(true);
@@ -95,9 +101,10 @@ export function CaptureLanguageSection() {
       </label>
       <CaptureLanguageField
         value={currentCaptureLanguage(snapshot?.settings.autoCaptureLanguage?.value)}
-        disabled={busy || !snapshot}
+        disabled={busy || !snapshot || readOnly}
         onChange={(code) => void save(code)}
       />
+      <ReadOnlyNote show={readOnly} />
       {message && (
         <p role="status" className="text-sm">
           {message}

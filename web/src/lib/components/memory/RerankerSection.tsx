@@ -1,66 +1,75 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   beginSettingsRead,
   onSettingsSnapshot,
   reloadSettingsSnapshot,
+  SettingsRequestError,
   settingsRequest,
   withNote,
 } from "$lib/settings-api";
+import { KeySourceField, type SavedKey } from "$lib/components/settings/KeySourceField";
+import { SettingRow } from "$lib/components/settings/SettingRow";
+import {
+  SettingsConfirmDialog,
+  type ConfirmResult,
+} from "$lib/components/settings/SettingsConfirmDialog";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
 import { useSettingsText } from "$lib/i18n/settings";
+import { useCatalogueText } from "$lib/i18n/settings-catalogue";
 import {
   canSaveReranker,
   isRemoteRerankerUrl,
+  keyChanged,
+  keyDraftFromSecret,
+  keyReference,
   parseRerankerTimeout,
   rerankerFieldProblem,
+  rerankerKeyBody,
   rerankerSaveEdits,
   type RerankerDraft,
+  type RerankerSecret,
 } from "$lib/reranker-controls";
+import { rerankerMessage } from "$lib/reranker-messages";
+import { ReadOnlyNote } from "../settings/ReadOnlyNote";
 
 type Setting = { value?: unknown; source: string; globalValue?: unknown };
 type Snapshot = {
+  readOnly?: boolean;
   revision: string;
   settings: Record<string, Setting>;
-  secrets: Record<string, { set: boolean; source: string | null; reference: string | null }>;
+  secrets: Record<string, RerankerSecret & { resolvesInWebApp?: boolean }>;
 };
 
 type RerankerStatus =
   | { kind: "load-failed" }
-  | { kind: "save"; ok: boolean; reloaded: boolean; stale?: boolean }
-  | { kind: "test"; ok: boolean; code?: string };
+  | { kind: "save"; ok: boolean; reloaded: boolean; stale?: boolean; message?: string }
+  | { kind: "testing" }
+  | { kind: "test"; ok: boolean; code?: string; message?: string };
 
 function draftFromSnapshot(snapshot: Snapshot | undefined): RerankerDraft {
   const settings = snapshot?.settings;
-  const keyReference = snapshot?.secrets.rerankerApiKey?.reference;
   return {
     enabled: settings?.rerankerEnabled?.value === true,
     url: typeof settings?.rerankerApiUrl?.value === "string" ? settings.rerankerApiUrl.value : "",
     model: typeof settings?.rerankerModel?.value === "string" ? settings.rerankerModel.value : "",
-    key: snapshot?.secrets.rerankerApiKey?.set
-      ? `${snapshot.secrets.rerankerApiKey.source}://${keyReference ?? ""}`
-      : "",
     timeout:
       typeof settings?.rerankerTimeoutMs?.value === "number"
         ? String(settings.rerankerTimeoutMs.value)
         : "4000",
+    ...keyDraftFromSecret(snapshot?.secrets?.rerankerApiKey),
   };
 }
 
 /** Configure the opt-in reranker: switch, connection fields, timeout, Test. */
 export function RerankerSection() {
   const s = useSettingsText();
+  const t = useCatalogueText();
   const [snapshot, setSnapshot] = useState<Snapshot>();
-  const [draft, setDraft] = useState<RerankerDraft>({
-    enabled: false,
-    url: "",
-    model: "",
-    key: "",
-    timeout: "4000",
-  });
+  const [draft, setDraft] = useState<RerankerDraft>(draftFromSnapshot(undefined));
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<RerankerStatus>();
+  const [replacing, setReplacing] = useState(false);
   const saving = useRef(false);
   // The latest shared snapshot, so a refresh can tell untouched fields from typed ones.
   const latestSnapshot = useRef<Snapshot | undefined>(undefined);
@@ -97,83 +106,151 @@ export function RerankerSection() {
     };
   }, []);
 
-  const problem = rerankerFieldProblem(draft);
-  const canSave = canSaveReranker(draft);
+  const secret = snapshot?.secrets?.rerankerApiKey;
+  const problem = rerankerFieldProblem(draft, secret);
+  const canSave = canSaveReranker(draft, secret);
+  const canTest = canSave && draft.url.trim().length > 0 && draft.model.trim().length > 0;
   const remote = draft.url.trim().length > 0 && isRemoteRerankerUrl(draft.url);
+  const savedKey: SavedKey = secret?.set
+    ? {
+        source: secret.source as "env" | "file" | "literal" | null,
+        reference: secret.reference,
+        resolvesInWebApp: secret.resolvesInWebApp !== false,
+      }
+    : null;
 
+  const readOnly = snapshot?.readOnly === true;
   function update(patch: Partial<RerankerDraft>) {
     setDraft((previous) => ({ ...previous, ...patch }));
   }
 
   async function testServer() {
-    if (busy || saving.current || !canSave) return;
+    if (busy || saving.current || !canTest) return;
     saving.current = true;
     setBusy(true);
-    let ok = false;
-    let code: string | undefined;
+    setStatus({ kind: "testing" });
+    let result: RerankerStatus;
     try {
+      // The pasted key goes in this request only. Nothing is saved by a test.
+      const reference = keyReference(draft);
       const response = await settingsRequest<{ success: boolean; code?: string }>(
         "/api/settings/reranker/test",
         {
           method: "POST",
           body: JSON.stringify({
-            rerankerApiUrl: draft.url.trim() || undefined,
-            rerankerModel: draft.model.trim() || undefined,
-            rerankerApiKey: draft.key.trim() || undefined,
+            rerankerApiUrl: draft.url.trim(),
+            rerankerModel: draft.model.trim(),
+            ...(reference ? { rerankerApiKey: reference } : {}),
+            ...(draft.keyChoice === "paste" && draft.keyInput.value.trim()
+              ? { rerankerApiKeyValue: draft.keyInput.value }
+              : {}),
             rerankerTimeoutMs: parseRerankerTimeout(draft.timeout) ?? 4000,
           }),
         }
       );
-      ok = response.success === true;
-      code = response.code;
-    } catch {
-      code = "reranker_unreachable";
+      result = { kind: "test", ok: response.success === true, code: response.code };
+    } catch (error) {
+      // A refused request carries its own reason; any other failure is an unreachable server.
+      result =
+        error instanceof SettingsRequestError && (error.status === 400 || error.status === 403)
+          ? { kind: "test", ok: false, message: error.message }
+          : { kind: "test", ok: false, code: "reranker_unreachable" };
     }
     setBusy(false);
     saving.current = false;
-    setStatus({ kind: "test", ok, code });
+    setStatus(result);
   }
 
-  async function save() {
-    if (!snapshot || !canSave || saving.current) return;
+  /** Save the key first (it can need a confirm), then the other settings with the new revision. */
+  async function save(replace = false): Promise<ConfirmResult> {
+    if (!snapshot || !canSave || saving.current) return { success: false };
     saving.current = true;
     setBusy(true);
-    let saved = false;
-    let stale = false;
+    let revision = snapshot.revision;
+    let keySaved = false;
+    let failure: string | undefined;
     try {
+      if (draft.keyChoice !== "none" && keyChanged(draft, secret)) {
+        const key = rerankerKeyBody(draft, replace);
+        if ("error" in key) throw new Error(key.error);
+        const reply = await settingsRequest<{ revision?: string }>(
+          "/api/settings/external-api/key",
+          {
+            method: "POST",
+            body: JSON.stringify({ ...key.body, setting: "rerankerApiKey", revision }),
+          }
+        );
+        revision = reply.revision ?? revision;
+        keySaved = true;
+      }
       await settingsRequest("/api/settings", {
         method: "PATCH",
-        body: JSON.stringify({ edits: rerankerSaveEdits(draft), revision: snapshot.revision }),
+        body: JSON.stringify({ edits: rerankerSaveEdits(draft, secret), revision }),
       });
-      saved = true;
     } catch (error) {
-      stale = (error as Error)?.message?.includes("Config changed") === true;
+      failure = (error as Error)?.message ?? "";
     }
-    const reloaded = (await reloadSettingsSnapshot<Snapshot>()) !== null;
+    if (failure?.includes("Confirm to replace") && draft.keyChoice === "paste" && !replace) {
+      // A key file with this name exists: nothing was written. Ask before replacing it.
+      setBusy(false);
+      saving.current = false;
+      setReplacing(true);
+      return { success: false };
+    }
+    const reloaded = await reloadSettingsSnapshot<Snapshot>();
     setBusy(false);
     saving.current = false;
-    setStatus(
-      stale ? { kind: "save", ok: saved, reloaded, stale } : { kind: "save", ok: saved, reloaded }
-    );
+    if (failure === undefined) {
+      if (reloaded) setDraft(draftFromSnapshot(reloaded));
+      else update({ keyInput: { ...draft.keyInput, value: "" } });
+      setStatus({ kind: "save", ok: true, reloaded: reloaded !== null });
+      return { success: true };
+    }
+    // The key file is already saved: show it as saved, so the next Save does not ask again.
+    if (keySaved && reloaded) update(keyDraftFromSecret(reloaded.secrets?.rerankerApiKey));
+    const stale = failure.includes("Config changed");
+    setStatus({
+      kind: "save",
+      ok: false,
+      reloaded: reloaded !== null,
+      ...(stale ? { stale } : keySaved ? {} : { message: failure }),
+    });
+    return { success: false, error: s(failure) };
   }
 
-  function statusText(current: RerankerStatus): string {
+  function statusNode(current: RerankerStatus): ReactNode {
     if (current.kind === "load-failed")
       return s("The reranker settings could not be loaded. Reload the page to try again.");
-    if (current.kind === "test")
-      return current.ok
-        ? s("Test passed.")
-        : `${s("Test failed:")} ${current.code ?? "reranker_unreachable"}`;
+    if (current.kind === "testing") return t("Testing the reranker…");
+    if (current.kind === "test") {
+      if (current.ok) return s("Test passed.");
+      if (current.message) return `${s("Test failed:")} ${s(current.message)}`;
+      const { message, code } = rerankerMessage(current.code);
+      return (
+        <>
+          {s("Test failed:")} {t(message)}
+          {code ? (
+            <>
+              {" "}
+              <code dir="ltr" className="text-xs text-muted-foreground">
+                {code}
+              </code>
+            </>
+          ) : null}
+        </>
+      );
+    }
     const note = current.reloaded
       ? s("Current settings were reloaded; check the values and save again.")
       : s("The current settings could not be reloaded. Reload the page.");
     if (current.stale) return withNote(s("Config changed. Reload settings and save again."), note);
-    return current.ok
-      ? s("Saved. New searches use these settings.")
-      : withNote(
-          s("The reranker settings could not be saved. Reload the page to try again."),
-          note
-        );
+    if (current.ok) return s("Saved. New searches use these settings.");
+    return withNote(
+      s(
+        current.message ?? "The reranker settings could not be saved. Reload the page to try again."
+      ),
+      note
+    );
   }
 
   return (
@@ -201,120 +278,113 @@ export function RerankerSection() {
         </p>
       )}
       <form
-        className="space-y-3"
+        className="space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
           void save();
         }}
       >
-        <div className="flex items-center gap-2">
+        <SettingRow setting="rerankerEnabled" controlId="reranker-enabled">
           <input
             type="checkbox"
             id="reranker-enabled"
             role="switch"
             checked={draft.enabled}
             disabled={busy}
-            aria-label={s("Use a reranker")}
             onChange={(event) => update({ enabled: event.target.checked })}
           />
-          <Label htmlFor="reranker-enabled">{s("Use a reranker")}</Label>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="reranker-url">{s("Server URL")}</Label>
-            <Input
-              type="url"
-              id="reranker-url"
-              dir="ltr"
-              placeholder="http://127.0.0.1:3008/v1"
-              disabled={busy}
-              value={draft.url}
-              aria-invalid={problem?.field === "url-model" || undefined}
-              aria-describedby="reranker-url-help"
-              onChange={(event) => update({ url: event.target.value })}
-            />
-            <span id="reranker-url-help" className="block text-xs text-muted-foreground">
-              {problem?.field === "url-model"
-                ? s("Enter the server URL and model before turning the reranker on.")
-                : "rerankerApiUrl"}
-            </span>
-            {remote && (
-              <p className="text-xs text-amber-600">
-                {s("This URL is not on this machine: memory text leaves this machine.")}
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="reranker-model">{s("Model")}</Label>
-            <Input
-              type="text"
-              id="reranker-model"
-              dir="ltr"
-              disabled={busy}
-              value={draft.model}
-              aria-invalid={problem?.field === "url-model" || undefined}
-              onChange={(event) => update({ model: event.target.value })}
-            />
-            <span className="block text-xs text-muted-foreground">rerankerModel</span>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="reranker-key">{s("Key")}</Label>
-            <Input
-              type="text"
-              id="reranker-key"
-              dir="ltr"
-              disabled={busy}
-              value={draft.key}
-              aria-invalid={problem?.field === "key" || undefined}
-              aria-describedby="reranker-key-help"
-              onChange={(event) => update({ key: event.target.value })}
-            />
-            <span id="reranker-key-help" className="block text-xs text-muted-foreground">
-              {problem?.field === "key"
-                ? s("The key must be an env:// or file:// reference, or left empty.")
-                : s("Optional env:// or file:// key reference.")}
-            </span>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="reranker-timeout">{s("Timeout")}</Label>
-            <Input
-              type="number"
-              id="reranker-timeout"
-              className="tabular-nums"
-              inputMode="numeric"
-              step={1}
-              min={500}
-              max={30000}
-              disabled={busy}
-              value={draft.timeout}
-              aria-invalid={problem?.field === "timeout" || undefined}
-              aria-describedby="reranker-timeout-help"
-              onChange={(event) => update({ timeout: event.target.value })}
-            />
-            <span id="reranker-timeout-help" className="block text-xs text-muted-foreground">
-              {problem?.field === "timeout"
-                ? s("Enter a whole number from 500 to 30,000.")
-                : s("milliseconds")}
-            </span>
-            <p className="text-xs text-muted-foreground">
-              {s(
-                "The default of 4000 keeps the search inside OpenCode V2's 5-second wait. A value over 5000 can make OpenCode V2 send the request with no memory."
-              )}
+        </SettingRow>
+        <SettingRow setting="rerankerApiUrl" controlId="reranker-url">
+          <Input
+            type="url"
+            id="reranker-url"
+            dir="ltr"
+            placeholder="http://127.0.0.1:3008/v1"
+            disabled={busy}
+            value={draft.url}
+            aria-invalid={problem?.field === "url-model" || problem?.field === "url" || undefined}
+            aria-describedby="reranker-url-help"
+            onChange={(event) => update({ url: event.target.value })}
+          />
+          <span id="reranker-url-help" className="block text-xs text-muted-foreground">
+            {problem?.field === "url-model"
+              ? s("Enter the server URL and model before turning the reranker on.")
+              : problem?.field === "url"
+                ? t("Enter a web address that starts with http:// or https://.")
+                : null}
+          </span>
+          {remote && (
+            <p className="text-xs text-status-warning">
+              {s("This URL is not on this machine: memory text leaves this machine.")}
             </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
+          )}
+        </SettingRow>
+        <SettingRow setting="rerankerModel" controlId="reranker-model">
+          <Input
+            type="text"
+            id="reranker-model"
+            dir="ltr"
+            disabled={busy}
+            value={draft.model}
+            aria-invalid={problem?.field === "url-model" || undefined}
+            onChange={(event) => update({ model: event.target.value })}
+          />
+        </SettingRow>
+        <SettingRow setting="rerankerApiKey" controlId="reranker-key-source">
+          <KeySourceField
+            id="reranker-key"
+            optional
+            choice={draft.keyChoice}
+            onChoice={(keyChoice) => update({ keyChoice })}
+            input={draft.keyInput}
+            onInput={(keyInput) => update({ keyInput })}
+            saved={savedKey}
+            disabled={busy}
+            nameHint="reranker"
+          />
+          {problem?.field === "key" && problem.message ? (
+            <p className="text-xs text-destructive">{s(problem.message)}</p>
+          ) : null}
+        </SettingRow>
+        <SettingRow setting="rerankerTimeoutMs" controlId="reranker-timeout">
+          <Input
+            type="number"
+            id="reranker-timeout"
+            className="tabular-nums"
+            inputMode="numeric"
+            step={1}
+            min={500}
+            max={30000}
+            disabled={busy}
+            value={draft.timeout}
+            aria-invalid={problem?.field === "timeout" || undefined}
+            aria-describedby="reranker-timeout-help"
+            onChange={(event) => update({ timeout: event.target.value })}
+          />
+          <span id="reranker-timeout-help" className="block text-xs text-muted-foreground">
+            {problem?.field === "timeout"
+              ? s("Enter a whole number from 500 to 30,000.")
+              : s("milliseconds")}
+          </span>
+          <p className="text-xs text-muted-foreground">
+            {s(
+              "OpenCode waits up to 5 seconds for memories before it sends your prompt. The default, 4000 milliseconds, finishes in time. Over 5000, OpenCode can send your prompt without memories."
+            )}
+          </p>
+        </SettingRow>
+        <div className="flex flex-wrap gap-2">
           <Button
             type="submit"
-            disabled={busy || !snapshot || !canSave}
+            disabled={busy || !snapshot || readOnly || !canSave}
             onClick={() => void save()}
           >
             {s("Save")}
           </Button>
+          <ReadOnlyNote show={readOnly} />
           <Button
             type="button"
             variant="outline"
-            disabled={busy || !canSave}
+            disabled={busy || !canTest}
             onClick={() => void testServer()}
           >
             {s("Test")}
@@ -331,8 +401,17 @@ export function RerankerSection() {
       </form>
       {status && (
         <p role="status" className="text-sm">
-          {statusText(status)}
+          {statusNode(status)}
         </p>
+      )}
+      {replacing && (
+        <SettingsConfirmDialog
+          title={t("Replace the key file?")}
+          body={<p>{s("A key file with this name exists. Replace it?")}</p>}
+          confirmLabel={t("Replace")}
+          onConfirm={() => save(true)}
+          onClose={() => setReplacing(false)}
+        />
       )}
     </section>
   );

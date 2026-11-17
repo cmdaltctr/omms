@@ -242,7 +242,7 @@ export const translations = {
     "confirm-delete-prompt": "Delete this prompt AND its linked memory?",
     "confirm-bulk-delete": "Delete {count} selected memories?",
     "confirm-cleanup":
-      "This deletes memories and prompts not updated in the retention period. Pinned memories are kept. Continue?",
+      "This deletes, now, every memory and prompt not updated for the number of days set in Memory cleanup. Pinned memories and memorisations stay. A deleted memory cannot be restored. Continue?",
     "confirm-dedup":
       "This deletes exact duplicate memories and keeps the newest copy. Similar memories are only reported. Continue?",
     "text-selected": "{count} selected",
@@ -614,7 +614,8 @@ export const translations = {
     "confirm-delete-pair": "删除这条记忆及其关联的提示词？",
     "confirm-delete-prompt": "删除这条提示词及其关联的记忆？",
     "confirm-bulk-delete": "删除选中的 {count} 条记忆？",
-    "confirm-cleanup": "这将删除在保留期内未更新的记忆和提示词。已置顶的记忆会保留。是否继续？",
+    "confirm-cleanup":
+      "这会立即删除在“记忆清理”所设天数内没有更新的所有记忆和提示词。已置顶的记忆和记忆存档会保留。已删除的记忆无法恢复。是否继续？",
     "confirm-dedup": "这将删除完全重复的记忆，只保留最新的一条。相似的记忆只会报告。是否继续？",
     "text-selected": "已选择 {count} 条",
     "text-page": "第 {current} 页，共 {total} 页",
@@ -1015,7 +1016,7 @@ export const translations = {
     "confirm-bulk-delete": "هل تريد حذف {count} من الذكريات المحددة؟",
 
     "confirm-cleanup":
-      "سيؤدي هذا إلى حذف الذكريات والموجهات التي لم تُحدَّث خلال فترة الاحتفاظ. تبقى الذكريات المثبتة. هل تريد المتابعة؟",
+      "سيؤدي هذا الآن إلى حذف كل ذكرى وموجّه لم يُحدَّث خلال عدد الأيام المحدد في تنظيف الذاكرة. تبقى الذكريات المثبتة والعناصر المحفوظة. لا يمكن استرجاع ذكرى محذوفة. هل تريد المتابعة؟",
 
     "confirm-dedup":
       "سيؤدي هذا إلى حذف الذكريات المكررة تمامًا مع الإبقاء على أحدث نسخة. الذكريات المتشابهة يتم الإبلاغ عنها فقط. هل تريد المتابعة؟",

@@ -255,6 +255,36 @@ describe("claude-hook command", () => {
     expect(JSON.parse(h.out[0]!).hookSpecificOutput.hookEventName).toBe("SessionStart");
   });
 
+  it("copies the reply's systemMessage to its own field, never into the model context", async () => {
+    const line = "OMMS cannot read /home/u/.config/omms/omms.jsonc: on line 4, column 3.";
+    const h = harness(JSON.stringify(payload("session-start")), {
+      route: () =>
+        Response.json({
+          additionalContext: "<omms-retrieval>\nm\n</omms-retrieval>",
+          systemMessage: line,
+        }),
+    });
+    expect(await runClaudeHookCommand(["session-start"], h.options)).toBe(0);
+    expect(h.out).toHaveLength(1);
+    const printed = JSON.parse(h.out[0]!);
+    expect(printed.systemMessage).toBe(line);
+    expect(printed.hookSpecificOutput.additionalContext).not.toContain("line 4");
+  });
+
+  it("prints the systemMessage alone when the reply has no context", async () => {
+    const h = harness(JSON.stringify(payload("session-start")), {
+      route: () => Response.json({ additionalContext: "", systemMessage: "a\nb" }),
+    });
+    expect(await runClaudeHookCommand(["session-start"], h.options)).toBe(0);
+    expect(h.out.map((text) => JSON.parse(text))).toEqual([{ systemMessage: "a\nb" }]);
+  });
+
+  it("prints no systemMessage when the reply has none", async () => {
+    const h = harness(JSON.stringify(payload("session-start")));
+    expect(await runClaudeHookCommand(["session-start"], h.options)).toBe(0);
+    expect(Object.keys(JSON.parse(h.out[0]!))).toEqual(["hookSpecificOutput"]);
+  });
+
   it("sends the subagent type and prints SubagentStart context", async () => {
     const h = harness(JSON.stringify(payload("subagent-start")));
     expect(await runClaudeHookCommand(["subagent-start"], h.options)).toBe(0);

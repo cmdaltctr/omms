@@ -13,11 +13,19 @@ import {
   type CredentialInput,
   type CredentialState,
 } from "$lib/credential-states";
-import { ApiTokensTable, revokeAfterConfirm, type ApiToken } from "./ApiTokensTable";
+import { CircleCheck, CircleX } from "lucide-react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { Button } from "$lib/components/ui/button";
+import { Input } from "$lib/components/ui/input";
+import { Label } from "$lib/components/ui/label";
+import { useCardText } from "$lib/i18n/settings-cards";
+import { ApiTokensTable, type ApiToken } from "./ApiTokensTable";
 import { cn } from "$lib/utils";
 import { caption, tableWrap, td, th, thead, tr } from "./table-styles";
+import { ReadOnlyNote } from "./ReadOnlyNote";
 
 type Snapshot = {
+  readOnly?: boolean;
   revision: string;
   secrets: CredentialInput["secrets"];
   effective: { opencode?: { mode?: string }; pi?: { kind: string } };
@@ -78,8 +86,22 @@ const ROWS = [
 
 function StateBadge({ state }: { state: CredentialState }) {
   const s = useSettingsText();
-  if (state === "set") return <span>✅ {s("set")}</span>;
-  if (state === "missing") return <span className="text-red-600">⛔️ {s("missing")}</span>;
+  if (state === "set") {
+    return (
+      <span className="inline-flex items-center gap-1 text-status-success">
+        <CircleCheck className="size-4" aria-hidden="true" />
+        {s("set")}
+      </span>
+    );
+  }
+  if (state === "missing") {
+    return (
+      <span className="inline-flex items-center gap-1 text-destructive-label">
+        <CircleX className="size-4" aria-hidden="true" />
+        {s("missing")}
+      </span>
+    );
+  }
   if (state === "never-used") {
     return <span className="text-muted-foreground">{s("never used before")}</span>;
   }
@@ -132,31 +154,33 @@ export function PasswordFields({
   const s = useSettingsText();
   return (
     <>
-      <label className="block w-full max-w-72">
-        <span>{s("User name")}</span>
-        <input
-          className="mt-1 block w-full rounded border border-border bg-background p-2"
+      <div className="w-full max-w-72 space-y-1">
+        <Label htmlFor="web-password-user">{s("User name")}</Label>
+        <Input
+          id="web-password-user"
           autoComplete="username"
           value={value.username}
           onChange={(event) => onChange({ ...value, username: event.target.value })}
         />
-      </label>
-      <label className="block w-full max-w-72">
-        <span>{s("Password")}</span>
-        <input
+      </div>
+      <div className="w-full max-w-72 space-y-1">
+        <Label htmlFor="web-password-value">{s("Password")}</Label>
+        <Input
+          id="web-password-value"
           type="password"
           autoComplete="new-password"
-          className="mt-1 block w-full rounded border border-border bg-background p-2"
           value={value.value}
           onChange={(event) => onChange({ ...value, value: event.target.value })}
         />
-      </label>
+      </div>
     </>
   );
 }
 
 export function KeysAccessSection() {
   const s = useSettingsText();
+  const t = useCardText();
+  const { ask, dialog } = useSettingsConfirm();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [local, setLocal] = useState(false);
   const [tokens, setTokens] = useState<ApiToken[]>([]);
@@ -165,6 +189,7 @@ export function KeysAccessSection() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const readOnly = snapshot?.readOnly === true;
   async function loadTokens() {
     const list = await settingsRequest<{ tokens: ApiToken[] }>("/api/settings/tokens");
     setTokens(list.tokens);
@@ -218,17 +243,29 @@ export function KeysAccessSection() {
       await loadTokens();
     });
 
-  const revoke = (token: ApiToken) =>
-    act(async () => {
-      setNewValue(undefined);
-      await revokeAfterConfirm(
-        () => window.confirm(s("Revoke this token? Scripts that use it stop working.")),
-        async () => {
+  function revoke(token: ApiToken) {
+    setNewValue(undefined);
+    ask({
+      title: t("Revoke this token?"),
+      body: (
+        <p>
+          <bdi>{token.name}</bdi>. {t("Scripts that use it stop working.")}
+        </p>
+      ),
+      confirmLabel: t("Revoke"),
+      busyLabel: t("Saving…"),
+      destructive: true,
+      run: async () => {
+        try {
           await settingsRequest(`/api/settings/tokens/${token.id}`, { method: "DELETE" });
           await loadTokens();
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: (error as Error).message };
         }
-      );
+      },
     });
+  }
 
   const savePassword = (clear: boolean) =>
     act(async () => {
@@ -278,7 +315,7 @@ export function KeysAccessSection() {
               newValue={newValue}
               busy={busy}
               onGenerate={(name, days) => void generate(name, days)}
-              onRevoke={(token) => void revoke(token)}
+              onRevoke={revoke}
             />
           </fieldset>
           <fieldset className="space-y-2 rounded-lg border border-border p-3 text-sm">
@@ -292,22 +329,23 @@ export function KeysAccessSection() {
             </p>
             <PasswordFields value={password} onChange={setPassword} />
             <div className="flex gap-2">
-              <button
+              <Button
                 type="button"
-                className="rounded border border-border px-3 py-1.5"
-                disabled={busy || !snapshot || !password.value}
+                variant="outline"
+                disabled={busy || !snapshot || readOnly || !password.value}
                 onClick={() => void savePassword(false)}
               >
                 {s("Save password")}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="rounded border border-border px-3 py-1.5"
-                disabled={busy || !snapshot || !access?.authEnabled}
+                variant="outline"
+                disabled={busy || !snapshot || readOnly || !access?.authEnabled}
                 onClick={() => void savePassword(true)}
               >
                 {s("Clear password")}
-              </button>
+              </Button>
+              <ReadOnlyNote show={readOnly} />
             </div>
           </fieldset>
         </>
@@ -317,6 +355,7 @@ export function KeysAccessSection() {
           {message}
         </p>
       )}
+      {dialog}
     </section>
   );
 }

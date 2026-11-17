@@ -32,6 +32,7 @@ import {
   sectionBudget,
   sectionLimits,
   subagentContext,
+  withNotices,
   wrapSection,
 } from "./claude-hook-context.js";
 import { confirmShownNotices, sessionStartNotices } from "./claude-hook-notices.js";
@@ -268,18 +269,15 @@ export async function handleClaudeRetrieve(
   const extra =
     request.event === "session-start" && request.notices ? sessionStartNotices(CONFIG) : {};
   try {
-    return { additionalContext: await retrievalText(request, budgetBytes), ...extra };
+    const additionalContext = await retrievalText(request, budgetBytes);
+    return withNotices(body, { additionalContext, ...extra });
   } catch (error) {
     log(
       "Claude Code retrieval failed",
-      {
-        event: request.event,
-        sessionID: request.sessionId,
-        code: errorCode(error),
-      },
+      { event: request.event, sessionID: request.sessionId, code: errorCode(error) },
       "error"
     );
-    return { additionalContext: "", ...extra };
+    return withNotices(body, { additionalContext: "", ...extra });
   }
 }
 

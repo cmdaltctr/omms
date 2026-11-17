@@ -96,6 +96,37 @@ describe("omms config identity", () => {
     expect(result.migrationMarker).toBe(false);
   });
 
+  it("writes a template that turns no deletion on and shows autoDeleteOldMemories under a warning", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omms-config-test-"));
+    tempDirs.push(home);
+    const result = await runConfigScenario(
+      home,
+      `
+      const text = readFileSync(join(${JSON.stringify(home)}, ".config", "omms", "omms.jsonc"), "utf8");
+      initConfig("/tmp/nonexistent-project");
+      return { text, deleteOld: cfg.CONFIG.autoDeleteOldMemories };
+      `
+    );
+    expect(result.ok).toBe(true);
+    expect(result.deleteOld).toBe(false);
+    const text: string = result.text;
+    expect(text).not.toMatch(/^\s*"autoCleanupEnabled"\s*:/m);
+    expect(text).not.toMatch(/^\s*"autoDeleteOldMemories"\s*:/m);
+    expect(text).not.toMatch(/^\s*"autoCleanupRetentionDays"\s*:/m);
+    expect(text).toMatch(/^\s*\/\/ "autoDeleteOldMemories": true,/m);
+    expect(text).toMatch(/^\s*\/\/ "autoCleanupRetentionDays": 30,/m);
+    const block = text.slice(0, text.indexOf('// "autoDeleteOldMemories"'));
+    expect(block.slice(block.lastIndexOf("====="))).toContain("deletes memories");
+    for (const key of [
+      "maxProfileItems",
+      "userProfileDisplayPreferences",
+      "userProfileDisplayPatterns",
+      "userProfileDisplayWorkflows",
+    ]) {
+      expect(text).not.toContain(key);
+    }
+  });
+
   it("reloads the Pi model for the next capture without restarting", async () => {
     const home = mkdtempSync(join(tmpdir(), "omms-config-test-"));
     tempDirs.push(home);
@@ -118,7 +149,7 @@ describe("omms config identity", () => {
     expect(result.after).toEqual({ kind: "pi", provider: "zai", model: "new" });
   });
 
-  it("keeps the previous settings when a hand edit makes the config invalid", async () => {
+  it("applies a hand edit with a rejected value, and keeps the previous settings for a broken file", async () => {
     const home = mkdtempSync(join(tmpdir(), "omms-config-test-"));
     tempDirs.push(home);
     const path = join(home, ".config", "omms", "omms.jsonc");
@@ -152,8 +183,10 @@ describe("omms config identity", () => {
     );
     expect(result.ok).toBe(true);
     expect(result.threw).toBe(false);
-    expect(result.kept).toBe("old");
-    expect(result.keptAfterTypo).toBe("old");
+    // A rejected value uses its default; the other edits apply (friendly-settings).
+    expect(result.kept).toBe("bad");
+    // A file that cannot be parsed keeps the last good settings.
+    expect(result.keptAfterTypo).toBe("bad");
     expect(result.fixed).toBe("fixed-model");
   });
 
@@ -368,16 +401,20 @@ describe("global automatic backfill settings", () => {
     mkdirSync(join(project, ".opencode"), { recursive: true });
     writeFileSync(
       join(project, ".opencode", "omms.jsonc"),
-      JSON.stringify({ autoCleanupEnabled: false, autoCleanupRetentionDays: 1 })
+      JSON.stringify({
+        autoCleanupEnabled: true,
+        autoDeleteOldMemories: true,
+        autoCleanupRetentionDays: 1,
+      })
     );
     const result = await runConfigScenario(
       home,
       `
       initConfig(${JSON.stringify(project)});
-      return { enabled: cfg.CONFIG.autoCleanupEnabled, days: cfg.CONFIG.autoCleanupRetentionDays };
+      return { deleteOld: cfg.CONFIG.autoDeleteOldMemories, days: cfg.CONFIG.autoCleanupRetentionDays };
     `
     );
-    expect(result).toMatchObject({ ok: true, enabled: true, days: 30 });
+    expect(result).toMatchObject({ ok: true, deleteOld: false, days: 30 });
   });
 
   it("uses 500 for an existing config file that has no automatic profile cleanup keys", async () => {
@@ -452,15 +489,23 @@ describe("global automatic backfill settings", () => {
     });
   });
 
-  it("rejects an invalid backfill model at load", async () => {
+  it("uses the default for an invalid backfill model at load and records a problem", async () => {
     const home = mkdtempSync(join(tmpdir(), "omms-backfill-home-"));
     tempDirs.push(home);
     const path = join(home, ".config", "omms", "omms.jsonc");
     mkdirSync(join(home, ".config", "omms"), { recursive: true });
     writeFileSync(path, '{ "piBackfillModel": "provider/" }');
-    await expect(runConfigScenario(home, `initConfig("/tmp/project"); return {};`)).rejects.toThrow(
-      "Invalid piBackfillModel config"
+    const problemsUrl = pathToFileURL(
+      join(import.meta.dir, "../src/services/config-problems.js")
+    ).href;
+    const result = await runConfigScenario(
+      home,
+      `initConfig("/tmp/project");
+      const { currentConfigProblems } = await import(${JSON.stringify(problemsUrl)});
+      return { model: cfg.CONFIG.piBackfillModel,
+        keys: currentConfigProblems().map((problem) => problem.key) };`
     );
+    expect(result).toMatchObject({ ok: true, model: "inherit", keys: ["piBackfillModel"] });
   });
 });
 

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
-import { Label } from "$lib/components/ui/label";
 import { Callout } from "$lib/components/skills/Callout";
+import { SettingRow } from "$lib/components/settings/SettingRow";
 import { Textarea } from "$lib/components/ui/textarea";
 import { useSettingsText } from "$lib/i18n/settings";
 import {
@@ -22,8 +22,9 @@ import {
   type InjectionDraft,
   type InjectionSettings,
 } from "$lib/injection-controls";
+import { ReadOnlyNote } from "../settings/ReadOnlyNote";
 
-type Snapshot = { revision: string; settings: InjectionSettings };
+type Snapshot = { readOnly?: boolean; revision: string; settings: InjectionSettings };
 
 /** Store status identities so a language switch retranslates the feedback. */
 type Status =
@@ -74,6 +75,7 @@ export function MemoryInjectionSection() {
   const update = (patch: Partial<InjectionDraft>) =>
     setDraft((previous) => ({ ...previous, ...patch }));
 
+  const readOnly = snapshot?.readOnly === true;
   async function save() {
     if (!snapshot || !canSave || saving.current) return;
     saving.current = true;
@@ -167,7 +169,7 @@ export function MemoryInjectionSection() {
         }}
       >
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <SettingRow setting="openingContext" controlId="injection-opening">
             <input
               type="checkbox"
               id="injection-opening"
@@ -177,8 +179,7 @@ export function MemoryInjectionSection() {
               aria-describedby="injection-opening-help"
               onChange={(event) => update({ opening: event.target.checked })}
             />
-            <Label htmlFor="injection-opening">{s("Inject memories with the first message")}</Label>
-          </div>
+          </SettingRow>
           <p id="injection-opening-help" className="text-xs text-muted-foreground">
             {s(
               "Added once, with the first message of a new session. Nothing is added when a new session opens. OMMS searches the query below and adds only matching memories."
@@ -192,8 +193,7 @@ export function MemoryInjectionSection() {
             </p>
           </Callout>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="injection-query">{s("First-message search query")}</Label>
+        <SettingRow setting="openingContextQuery" controlId="injection-query">
           <Textarea
             id="injection-query"
             maxLength={OPENING_QUERY_MAX}
@@ -211,9 +211,9 @@ export function MemoryInjectionSection() {
           >
             {lengthLabel}
           </span>
-        </div>
+        </SettingRow>
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <SettingRow setting="subagentMemory" controlId="injection-subagent">
             <input
               type="checkbox"
               id="injection-subagent"
@@ -223,8 +223,7 @@ export function MemoryInjectionSection() {
               aria-describedby="injection-subagent-help"
               onChange={(event) => update({ subagent: event.target.checked })}
             />
-            <Label htmlFor="injection-subagent">{s("Subagent memory")}</Label>
-          </div>
+          </SettingRow>
           <p id="injection-subagent-help" className="text-xs text-muted-foreground">
             {s(
               "Subagents get memories that match their task. Claude Code adds them once, at start. OpenCode V2 and Pi add them with each subagent prompt. No rows are shown for them."
@@ -239,7 +238,7 @@ export function MemoryInjectionSection() {
           </Callout>
         </div>
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
+          <SettingRow setting="compaction.enabled" controlId="injection-restore">
             <input
               type="checkbox"
               id="injection-restore"
@@ -248,40 +247,39 @@ export function MemoryInjectionSection() {
               disabled={busy}
               onChange={(event) => update({ restore: event.target.checked })}
             />
-            <Label htmlFor="injection-restore">
-              {s("Restore memories after compaction or resume")}
-            </Label>
-          </div>
+          </SettingRow>
           <p className="text-xs text-muted-foreground">
             {s(
               "Added when a session resumes or compacts. Restores the memories that session captured."
             )}
           </p>
-          <Label htmlFor="injection-limit">{s("Most memories to restore")}</Label>
-          <Input
-            type="number"
-            id="injection-limit"
-            className="w-36 tabular-nums"
-            inputMode="numeric"
-            step={1}
-            min={1}
-            disabled={busy}
-            value={draft.limit}
-            aria-invalid={problem === "limit" || undefined}
-            aria-describedby="injection-limit-help"
-            onChange={(event) => update({ limit: event.target.value })}
-          />
-          <span
-            id="injection-limit-help"
-            className={`block text-xs ${problem === "limit" ? "text-red-600" : "text-muted-foreground"}`}
-          >
-            {s("Enter a positive whole number.")}
-          </span>
+          <SettingRow setting="compaction.memoryLimit" controlId="injection-limit">
+            <Input
+              type="number"
+              id="injection-limit"
+              className="w-36 tabular-nums"
+              inputMode="numeric"
+              step={1}
+              min={1}
+              disabled={busy}
+              value={draft.limit}
+              aria-invalid={problem === "limit" || undefined}
+              aria-describedby="injection-limit-help"
+              onChange={(event) => update({ limit: event.target.value })}
+            />
+            <span
+              id="injection-limit-help"
+              className={`block text-xs ${problem === "limit" ? "text-red-600" : "text-muted-foreground"}`}
+            >
+              {s("Enter a positive whole number.")}
+            </span>
+          </SettingRow>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={busy || !snapshot || !canSave}>
+          <Button type="submit" disabled={busy || !snapshot || readOnly || !canSave}>
             {s("Save")}
           </Button>
+          <ReadOnlyNote show={readOnly} />
           <Button
             type="button"
             variant="outline"

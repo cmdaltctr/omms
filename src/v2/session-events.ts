@@ -104,8 +104,8 @@ export function createOpencodeSessionEvents(deps: SessionEventDeps) {
   };
 
   const onIdle = async (event: SessionEvent) => {
-    // Skill learning records turns even when memory capture is off (ADR-036).
-    if (!isConfigured() || !(CONFIG.autoCaptureEnabled || CONFIG.skillLearning)) return;
+    // Daily maintenance runs even with capture off, so no capture switch stops the idle work.
+    if (!isConfigured()) return;
     const sessionID = event.properties?.sessionID;
     if (!sessionID) return;
     // Internal sessions must not re-trigger capture or learning: that would loop
@@ -118,12 +118,16 @@ export function createOpencodeSessionEvents(deps: SessionEventDeps) {
     if (idleTimeout) clearTimeout(idleTimeout);
     idleTimeout = setTimeout(async () => {
       try {
-        const { performAutoCapture } = await import("../services/auto-capture.js");
-        await performAutoCapture(deps.autoCaptureHost, sessionID, deps.directory);
+        // Skill learning records turns even when memory capture is off (ADR-036).
+        if (CONFIG.autoCaptureEnabled || CONFIG.skillLearning) {
+          const { performAutoCapture } = await import("../services/auto-capture.js");
+          await performAutoCapture(deps.autoCaptureHost, sessionID, deps.directory);
+        }
+        // Housekeeping always; deletion by age only when the user turned it on (ADR-051).
+        const { cleanupService } = await import("../services/cleanup-service.js");
+        await cleanupService.runDailyMaintenance(CONFIG.autoDeleteOldMemories === true);
         if (!CONFIG.autoCaptureEnabled) return; // Skill turns only; the memory work stays off.
         await deps.learnProfile();
-        const { cleanupService } = await import("../services/cleanup-service.js");
-        if (await cleanupService.shouldRunCleanup()) await cleanupService.runCleanup();
       } catch (error) {
         log("Idle processing error", { error: String(error) }, "error");
       } finally {

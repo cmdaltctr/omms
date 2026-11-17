@@ -54,3 +54,4 @@ Local decision records for OMMS maintainers.
 | [048](./048-omms-supports-opencode-v2-only.md)                              | OMMS supports OpenCode V2 only                                                  | 2026-11-11 | Proposed           |
 | [049](./049-memorisations-belong-to-the-space.md)                           | Memorisations belong to the space                                               | 2026-11-12 | Accepted           |
 | [050](./050-one-host-registry-and-modularity-ratchets.md)                   | One host registry, and ratchets on modularity debt                              | 2026-11-17 | Proposed           |
+| [051](./051-memory-deletion-is-opt-in.md)                                   | Automatic memory deletion is opt-in                                             | 2026-11-16 | Proposed           |

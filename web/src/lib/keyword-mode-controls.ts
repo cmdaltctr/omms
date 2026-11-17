@@ -3,24 +3,20 @@
  * imports, so tests and the card share one source (mirrors reranker-controls.ts).
  */
 
+import { PLAIN_TEXT } from "./settings-catalogue-base";
+
 export type KeywordMode = "boost" | "rrf";
 
+/** The labels are plain words; `boost` and `rrf` stay the values saved in the file. */
 export const KEYWORD_MODE_OPTIONS: readonly { value: KeywordMode; label: string }[] = [
-  { value: "boost", label: "Boost (default)" },
-  { value: "rrf", label: "Rank fusion (experimental)" },
+  { value: "boost", label: PLAIN_TEXT.keywordBoost },
+  { value: "rrf", label: PLAIN_TEXT.keywordMerge },
 ];
 
-/** Every English message the card shows or exposes to assistive tech. */
+/** Every English message the card shows through the Settings table. The plain keyword labels and notes are catalogue text. */
 export const KEYWORD_MODE_MESSAGES: readonly string[] = [
   "Keyword matching",
   "Search finds memories by meaning and by exact words from your prompt.",
-  "Word matching mode",
-  "Boost (default)",
-  "Rank fusion (experimental)",
-  "Boost adds a small score bonus to memories that contain a word of your prompt.",
-  "Rank fusion merges a list by meaning and a list by words. A memory that contains a word of your prompt can be returned even when its meaning score is below the similarity threshold. Experimental: it has not been shown to find more relevant memories.",
-  "Rank fusion is not used while the reranker is on. Search uses the boost.",
-  "A project file can override this setting. This page edits the global value.",
   "Saved. New searches use this mode.",
   "The keyword matching setting could not be saved. Reload the page to try again.",
   "The keyword matching setting could not be loaded. Reload the page to try again.",

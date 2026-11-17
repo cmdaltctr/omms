@@ -4,6 +4,7 @@ import { routeMemorisations } from "./memorisation-routes.js";
 import { routeMemoryHosts } from "./memory-host-routes.js";
 import { routeOpenRouter } from "./openrouter-routes.js";
 import { routeProfileCleanup } from "./profile-cleanup-routes.js";
+import { routeSettings, type SettingsRouteContext } from "./settings-routes.js";
 import type { SkillRouteContext } from "./skill-routes.js";
 import { routeSpaceTransfers } from "./space-transfer-routes.js";
 import { routeSpaces } from "./space-routes.js";
@@ -23,11 +24,22 @@ export async function routeModules(
   method: string,
   url: URL,
   req: Request,
-  ctx: SkillRouteContext & { remoteAddress?: string }
+  ctx: SkillRouteContext & {
+    remoteAddress?: string;
+    settings?: Omit<SettingsRouteContext, "cwd">;
+  }
 ): Promise<RouteModuleResult | undefined> {
   const { CONFIG: config } = await import("../config.js");
   let body: Promise<any> | undefined;
   const readBody = () => (body ??= req.json().catch(() => ({})));
+
+  if (ctx.settings) {
+    const settings = await routeSettings(path, method, url, readBody, {
+      cwd: ctx.cwd,
+      ...ctx.settings,
+    });
+    if (settings !== undefined) return settings;
+  }
 
   const cleanup = await routeProfileCleanup(path, method, url, readBody);
   if (cleanup !== undefined) return { status: 200, body: cleanup };

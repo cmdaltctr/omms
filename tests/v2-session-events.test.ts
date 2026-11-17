@@ -43,7 +43,7 @@ async function runScenario(
       script,
       `
 import { mock } from "bun:test";
-const recorded = { order: [], drains: [], capture: [], modelRows: [] };
+const recorded = { order: [], drains: [], capture: [], modelRows: [], maintenance: [] };
 const t = () => Date.now();
 
 const autoCapture = await import(${JSON.stringify(url("../src/services/auto-capture.js"))});
@@ -64,6 +64,11 @@ mock.module(${JSON.stringify(url("../src/services/cleanup-service.js"))}, () => 
   ...cleanup,
   cleanupService: {
     shouldRunCleanup: async () => true,
+    // The automatic run. "cleanup" (the manual button's delete) must never appear.
+    runDailyMaintenance: async (deleteOld) => {
+      recorded.order.push({ name: "maintenance", at: t() });
+      recorded.maintenance.push(deleteOld);
+    },
     runCleanup: async () => { recorded.order.push({ name: "cleanup", at: t() }); },
   },
 }));
@@ -169,6 +174,17 @@ await sleep(1500);
 `
 );
 
+/** Emit one idle and wait for the daily maintenance call, plus time for a wrong extra call. */
+const idleMaintenanceOnly = `
+fake.emit(${idle("ses-user")});
+await waitFor(() => recorded.maintenance.length >= 1, 15000);
+await sleep(1500);
+`;
+const idleCaptureOff = runScenario({ autoCaptureEnabled: false }, idleMaintenanceOnly);
+const idleDeleteOn = runScenario({ autoDeleteOldMemories: true }, idleMaintenanceOnly);
+// A file written by an older version: the retired key must not turn deletion on.
+const idleOldFile = runScenario({ autoCleanupEnabled: true }, idleMaintenanceOnly);
+
 const idleInternal = runScenario(
   {},
   `
@@ -191,20 +207,41 @@ await sleep(${IDLE_DELAY_MS + 500});
 );
 
 describe("OpenCode V2 session events start capture", () => {
-  it("runs capture after 10 s, then profile learning, then the cleanup check", async () => {
+  it("runs capture after 10 s, then daily maintenance, then profile learning", async () => {
     const result = await idleCaptureOn;
     // Nothing has run one second before the delay ends.
     expect(result.before).toEqual([]);
     expect(result.captureDelayMs).toBeGreaterThanOrEqual(IDLE_DELAY_MS - 100);
-    expect(names(result)).toEqual(["capture", "learning", "cleanup"]);
+    expect(names(result)).toEqual(["capture", "maintenance", "learning"]);
+    // No autoDeleteOldMemories in the file: housekeeping only, nothing deleted by age.
+    expect(result.recorded.maintenance).toEqual([false]);
     expect(result.recorded.capture).toHaveLength(1);
     expect(result.recorded.capture[0].sessionID).toBe("ses-user");
   });
 
-  it("records only the turn when capture is off and skillLearning is on", async () => {
+  it("records only the turn and runs daily maintenance when capture is off and skillLearning is on", async () => {
     const result = await idleSkillLearningOnly;
-    expect(names(result)).toEqual(["capture"]);
+    expect(names(result)).toEqual(["capture", "maintenance"]);
+    expect(result.recorded.maintenance).toEqual([false]);
     expect(result.recorded.capture[0].sessionID).toBe("ses-user");
+  });
+
+  it("runs daily maintenance on idle with capture off, and never the manual cleanup", async () => {
+    const result = await idleCaptureOff;
+    expect(names(result)).toEqual(["maintenance"]);
+    expect(result.recorded.maintenance).toEqual([false]);
+  });
+
+  it("passes deleteOld true only when autoDeleteOldMemories is true", async () => {
+    const result = await idleDeleteOn;
+    expect(names(result)).toEqual(["capture", "maintenance", "learning"]);
+    expect(result.recorded.maintenance).toEqual([true]);
+  });
+
+  it("deletes nothing by age for an old file with autoCleanupEnabled true and no new key", async () => {
+    const result = await idleOldFile;
+    expect(result.recorded.maintenance).toEqual([false]);
+    expect(names(result)).not.toContain("cleanup");
   });
 
   it("starts the OpenCode retry drain when a user session is created and capture is on", async () => {

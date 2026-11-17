@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
-import { reloadSettingsSnapshot, settingsRequest, withBusy } from "$lib/settings-api";
+import { CircleCheck } from "lucide-react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
+import { Button } from "$lib/components/ui/button";
+import { Label } from "$lib/components/ui/label";
+import { Select } from "$lib/components/ui/select";
+import { reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
+import { useCardText } from "$lib/i18n/settings-cards";
 import { formatDate } from "$lib/format";
 import { cn } from "$lib/utils";
 import { caption, tableWrap, td, th, thead, tr } from "./table-styles";
+import { ReadOnlyNote, useSettingsReadOnly } from "./ReadOnlyNote";
 
 export type ProfileSummary = {
   id: string;
@@ -20,6 +27,9 @@ export type ProfileSummary = {
 /** Shown only when more than one active profile exists: pick the one in use, or merge two. */
 export function ProfilesSection() {
   const s = useSettingsText();
+  const readOnly = useSettingsReadOnly();
+  const t = useCardText();
+  const { ask, dialog } = useSettingsConfirm();
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [targets, setTargets] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -37,45 +47,70 @@ export function ProfilesSection() {
   if (profiles.length < 2) return null;
 
   const use = (profile: ProfileSummary) =>
-    withBusy(setBusy, async () => {
-      if (!window.confirm(`${s("Use this profile for every folder?")} ${profile.userId}`)) return;
-      try {
-        const snapshot = await reloadSettingsSnapshot<{ revision: string }>();
-        await settingsRequest("/api/settings/profiles/use", {
-          method: "POST",
-          body: JSON.stringify({ userId: profile.userId, revision: snapshot?.revision }),
-        });
-        await reloadSettingsSnapshot();
-        await load();
-        setMessage(s("Saved. OMMS now uses this profile in every folder."));
-      } catch (error) {
-        setMessage((error as Error).message);
-      }
+    ask({
+      title: t("Use this profile for every folder?"),
+      body: <bdi dir="ltr">{profile.userId}</bdi>,
+      confirmLabel: s("Use this profile"),
+      busyLabel: t("Saving…"),
+      run: async () => {
+        setBusy(true);
+        try {
+          const snapshot = await reloadSettingsSnapshot<{ revision: string }>();
+          await settingsRequest("/api/settings/profiles/use", {
+            method: "POST",
+            body: JSON.stringify({ userId: profile.userId, revision: snapshot?.revision }),
+          });
+          await reloadSettingsSnapshot();
+          await load();
+          setMessage(s("Saved. OMMS now uses this profile in every folder."));
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: (error as Error).message };
+        } finally {
+          setBusy(false);
+        }
+      },
     });
 
-  const merge = (source: ProfileSummary) =>
-    withBusy(setBusy, async () => {
-      const target = profiles.find(
-        (p) => p.id === (targets[source.id] ?? profiles.find((x) => x.id !== source.id)?.id)
-      );
-      if (!target) return;
-      if (
-        !window.confirm(
-          `${s("Merge this profile into the other one? The source profile is turned off, not deleted.")}\n${source.userId} → ${target.userId}`
-        )
-      )
-        return;
-      try {
-        await settingsRequest("/api/settings/profiles/merge", {
-          method: "POST",
-          body: JSON.stringify({ sourceId: source.id, targetId: target.id }),
-        });
-        await load();
-        setMessage(s("Merged."));
-      } catch (error) {
-        setMessage((error as Error).message);
-      }
+  const merge = (source: ProfileSummary) => {
+    const target = profiles.find(
+      (p) => p.id === (targets[source.id] ?? profiles.find((x) => x.id !== source.id)?.id)
+    );
+    if (!target) return;
+    ask({
+      title: s("Merge into"),
+      body: (
+        <>
+          <p>
+            {s(
+              "Merge this profile into the other one? The source profile is turned off, not deleted."
+            )}
+          </p>
+          <p>
+            <bdi dir="ltr">{source.userId}</bdi> → <bdi dir="ltr">{target.userId}</bdi>
+          </p>
+        </>
+      ),
+      confirmLabel: s("Merge into"),
+      busyLabel: t("Saving…"),
+      run: async () => {
+        setBusy(true);
+        try {
+          await settingsRequest("/api/settings/profiles/merge", {
+            method: "POST",
+            body: JSON.stringify({ sourceId: source.id, targetId: target.id }),
+          });
+          await load();
+          setMessage(s("Merged."));
+          return { success: true };
+        } catch (error) {
+          return { success: false, error: (error as Error).message };
+        } finally {
+          setBusy(false);
+        }
+      },
     });
+  };
 
   return (
     <section
@@ -108,7 +143,10 @@ export function ProfilesSection() {
                 <td className={cn(td, "font-medium")}>
                   {profile.userId}
                   {profile.inUse && (
-                    <span className="ms-2 text-xs text-green-700">✅ {s("in use")}</span>
+                    <span className="ms-2 inline-flex items-center gap-1 text-xs text-status-success">
+                      <CircleCheck className="size-3.5" aria-hidden="true" />
+                      {s("in use")}
+                    </span>
                   )}
                 </td>
                 <td className={td}>{profile.preferences}</td>
@@ -118,23 +156,26 @@ export function ProfilesSection() {
                 <td className={td}>{formatDate(profile.lastAnalyzedAt)}</td>
                 <td className={cn(td, "space-y-1")}>
                   {!profile.inUse && (
-                    <button
+                    <Button
                       type="button"
-                      className="rounded border border-border px-2 py-1"
-                      disabled={busy}
-                      onClick={() => void use(profile)}
+                      variant="outline"
+                      size="sm"
+                      disabled={busy || readOnly}
+                      onClick={() => use(profile)}
                     >
                       {s("Use this profile")}
-                    </button>
+                    </Button>
                   )}
                   <div className="flex items-center gap-1">
-                    <label className="sr-only" htmlFor={`merge-${profile.id}`}>
+                    <Label className="sr-only" htmlFor={`merge-${profile.id}`}>
                       {s("Merge into")}
-                    </label>
-                    <select
+                    </Label>
+                    <Select
                       id={`merge-${profile.id}`}
-                      className="rounded border border-border bg-background px-1 py-1 text-xs"
-                      value={targets[profile.id] ?? ""}
+                      aria-label={s("Merge into")}
+                      value={
+                        targets[profile.id] ?? profiles.find((p) => p.id !== profile.id)?.id ?? ""
+                      }
                       onChange={(event) =>
                         setTargets((all) => ({ ...all, [profile.id]: event.target.value }))
                       }
@@ -146,15 +187,16 @@ export function ProfilesSection() {
                             {p.userId}
                           </option>
                         ))}
-                    </select>
-                    <button
+                    </Select>
+                    <Button
                       type="button"
-                      className="rounded border border-border px-2 py-1"
+                      variant="outline"
+                      size="sm"
                       disabled={busy}
-                      onClick={() => void merge(profile)}
+                      onClick={() => merge(profile)}
                     >
                       {s("Merge into")}
-                    </button>
+                    </Button>
                   </div>
                 </td>
               </tr>
@@ -162,11 +204,13 @@ export function ProfilesSection() {
           </tbody>
         </table>
       </div>
+      <ReadOnlyNote show={readOnly} />
       {message && (
         <p role="status" className="text-sm">
           {message}
         </p>
       )}
+      {dialog}
     </section>
   );
 }

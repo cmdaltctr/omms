@@ -67,7 +67,8 @@ it("has Chinese and Arabic text for the automatic cleanup controls and their ref
   );
   const refusal = parseInterval("10");
   if (!refusal.ok) labels.push(refusal.message);
-  expect(labels.length).toBeGreaterThanOrEqual(6);
+  // The two row names come from the settings catalogue, which its own spec checks in three languages.
+  expect(labels.length).toBeGreaterThanOrEqual(4);
   const missing = labels.filter(
     (label) => translateSettings(label, "zh") === label || translateSettings(label, "ar") === label
   );
@@ -100,12 +101,11 @@ it("has Chinese and Arabic text for the Memory injection section and the Shared 
     ...read("SharedView.tsx").matchAll(/\bs\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g),
   ].map((match) => JSON.parse(`"${match[1]}"`) as string);
   // The section's own labels, the notes, the messages and the Shared view row.
+  // The row names (first message, subagents, restore, limit) come from the settings catalogue.
   for (const required of [
     "Memory injection",
-    "Inject memories with the first message",
-    "Subagent memory",
-    "Restore memories after compaction or resume",
-    "Most memories to restore",
+    "Reset to default",
+    "Enter a positive whole number.",
   ]) {
     expect(labels).toContain(required);
   }

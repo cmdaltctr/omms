@@ -4,6 +4,12 @@ import "./settings.css";
 import { SETTINGS_SECTIONS, type SettingsSectionId } from "$lib/settings-sections";
 import { PageToc } from "$lib/components/PageToc";
 import { revealSettingsAnchor } from "$lib/settings-navigation";
+import { useSettingsSnapshot } from "@/hooks/useSettingsSnapshot";
+import { problemViews, type SnapshotProblem } from "$lib/config-problem-view";
+import { ConfigProblemBanner } from "./ConfigProblemBanner";
+import { MemoryBasicsSection } from "./MemoryBasicsSection";
+import { MemoryCleanupSection } from "./MemoryCleanupSection";
+import { SettingsSearch } from "./SettingsSearch";
 import { ModelsSection } from "./ModelsSection";
 import { ExternalApiSection } from "./ExternalApiSection";
 import { EmbeddingSection } from "./EmbeddingSection";
@@ -19,6 +25,8 @@ import { AppearanceSection } from "./AppearanceSection";
 import { SkillLearningSection } from "./SkillLearningSection";
 
 const CARDS: Record<SettingsSectionId, ComponentType> = {
+  "settings-section-memory-basics": MemoryBasicsSection,
+  "settings-section-memory-cleanup": MemoryCleanupSection,
   "settings-section-external-api": ExternalApiSection,
   "settings-section-models": ModelsSection,
   "settings-section-embedding": EmbeddingSection,
@@ -40,9 +48,15 @@ export function SettingsView() {
   useEffect(() => {
     revealSettingsAnchor(window.location.hash, document);
   }, []);
+  const { snapshot } = useSettingsSnapshot<{ problems?: SnapshotProblem[]; readOnly?: boolean }>();
   return (
     <div className="settings-view space-y-6">
       <PageToc storageKey="omms-settings-toc-open" sections={SETTINGS_SECTIONS} />
+      <SettingsSearch />
+      <ConfigProblemBanner
+        problems={problemViews(snapshot?.problems)}
+        readOnly={snapshot?.readOnly === true}
+      />
       {SETTINGS_SECTIONS.map(({ id }) => {
         const Card = CARDS[id];
         // The sidebar's Settings tree scrolls to these anchors.

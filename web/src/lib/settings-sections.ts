@@ -4,6 +4,8 @@
  * own headings, translated by the Settings text table.
  */
 export const SETTINGS_SECTIONS = [
+  { id: "settings-section-memory-basics", title: "Memory basics" },
+  { id: "settings-section-memory-cleanup", title: "Memory cleanup" },
   { id: "settings-section-external-api", title: "External API" },
   { id: "settings-section-models", title: "Models" },
   { id: "settings-section-embedding", title: "Embedding" },

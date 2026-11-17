@@ -332,6 +332,160 @@ describe("global config writer", () => {
     expect(result.provider).toBe("Invalid memoryProvider setting");
   });
 
+  it("saves the memory basics and cleanup keys, keeping the other chatMessage keys", async () => {
+    const seed = '{\n  // keep me\n  "chatMessage": { "excludeCurrentSession": false }\n}\n';
+    const result = await scenario(
+      `
+      const { parse } = await import("jsonc-parser");
+      await writeGlobalConfigKeys({
+        autoCaptureEnabled: false,
+        "chatMessage.enabled": false,
+        visibleRecall: false,
+        injectProfile: false,
+        "memory.defaultScope": "all-projects",
+        autoDeleteOldMemories: true,
+        autoCleanupRetentionDays: 45,
+      }, readGlobalConfigRevision());
+      const text = readFileSync(target, "utf8");
+      return { text, file: parse(text) };
+    `,
+      seed
+    );
+    expect(result.text).toContain("// keep me");
+    expect(result.file).toMatchObject({
+      autoCaptureEnabled: false,
+      chatMessage: { enabled: false, excludeCurrentSession: false },
+      visibleRecall: false,
+      injectProfile: false,
+      memory: { defaultScope: "all-projects" },
+      autoDeleteOldMemories: true,
+      autoCleanupRetentionDays: 45,
+    });
+    // Dotted identifiers write the nested leaf, never a literal dotted key.
+    expect(result.file["chatMessage.enabled"]).toBeUndefined();
+    expect(result.file["memory.defaultScope"]).toBeUndefined();
+  });
+
+  it("refuses the retired cleanup key, bad scopes, days, and scheme-less URLs without writing", async () => {
+    const seed = '{ "piModel": "old" }\n';
+    const result = await scenario(
+      `
+      const errors = {};
+      const tries = {
+        autoCleanupEnabled: { autoCleanupEnabled: true },
+        scope: { "memory.defaultScope": "everything" },
+        zeroDays: { autoCleanupRetentionDays: 0 },
+        partDays: { autoCleanupRetentionDays: 1.5 },
+        deleteText: { autoDeleteOldMemories: "yes" },
+        capture: { autoCaptureEnabled: "no" },
+        url: { memoryApiUrl: "api.example.com/v1" },
+        emptyModel: { memoryModel: "  " },
+      };
+      for (const [name, edits] of Object.entries(tries)) {
+        try { await writeGlobalConfigKeys(edits, readGlobalConfigRevision()); errors[name] = "saved"; }
+        catch (error) { errors[name] = error.message; }
+      }
+      return { errors, unchanged: readFileSync(target, "utf8") === ${JSON.stringify(seed)} };
+    `,
+      seed
+    );
+    expect(result.unchanged).toBe(true);
+    expect(result.errors.autoCleanupEnabled).toBe(
+      "Setting autoCleanupEnabled cannot be edited here"
+    );
+    expect(result.errors.scope).toBe(
+      "Invalid memory.defaultScope setting: accepted project or all-projects"
+    );
+    expect(result.errors.zeroDays).toBe(
+      "Invalid autoCleanupRetentionDays setting: accepted whole numbers of 1 or more"
+    );
+    expect(result.errors.partDays).toBe(result.errors.zeroDays);
+    expect(result.errors.deleteText).toBe("Invalid autoDeleteOldMemories setting");
+    expect(result.errors.capture).toBe("Invalid autoCaptureEnabled setting");
+    expect(result.errors.url).toBe(
+      "Invalid memoryApiUrl setting: accepted an http:// or https:// URL"
+    );
+    expect(result.errors.emptyModel).toBe("Invalid memoryModel setting");
+  });
+
+  it("removes memoryApiUrl and memoryModel on null and keeps the other keys", async () => {
+    const seed =
+      '{\n  "memoryProvider": "openai-chat",\n  "memoryApiUrl": "https://api.example.invalid/v1",\n  "memoryModel": "glm"\n}\n';
+    const result = await scenario(
+      `
+      const { parse } = await import("jsonc-parser");
+      await writeGlobalConfigKeys({ memoryApiUrl: null, memoryModel: null }, readGlobalConfigRevision());
+      return parse(readFileSync(target, "utf8"));
+    `,
+      seed
+    );
+    expect(result).toEqual({ memoryProvider: "openai-chat" });
+  });
+
+  it("never echoes a rejected value in an error message", async () => {
+    const marker = "SECRET-BAD-VALUE";
+    const result = await scenario(
+      `
+      const marker = ${JSON.stringify(marker)};
+      const messages = [];
+      const tries = [
+        { memoryApiUrl: marker }, { memoryApiKey: marker }, { rerankerApiKey: marker },
+        { rerankerApiUrl: marker }, { embeddingApiUrl: marker }, { "memory.defaultScope": marker },
+        { autoCleanupRetentionDays: marker }, { autoDeleteOldMemories: marker },
+        { autoCaptureLanguage: marker }, { memoryProvider: marker }, { keywordMode: marker },
+        { claudeConfigDir: marker }, { importIgnoredDirectories: [marker] },
+        { autoCleanupEnabled: marker }, { "chatMessage.enabled": marker },
+      ];
+      for (const edits of tries) {
+        try { await writeGlobalConfigKeys(edits, readGlobalConfigRevision()); messages.push("saved"); }
+        catch (error) { messages.push(error.message); }
+      }
+      return messages;
+    `,
+      "{}\n"
+    );
+    expect(result).toHaveLength(15);
+    for (const message of result) {
+      expect(message).not.toBe("saved");
+      expect(message).not.toContain("SECRET-BAD-VALUE");
+    }
+  });
+
+  it("saves while another key holds a rejected value, so deletion can still be turned off", async () => {
+    const seed = '{\n  "autoDeleteOldMemories": true,\n  "autoCleanupRetentionDays": "365"\n}\n';
+    const result = await scenario(
+      `
+      await writeGlobalConfigKeys({ autoDeleteOldMemories: false }, readGlobalConfigRevision());
+      let refused = null;
+      try { await writeGlobalConfigKeys({ autoCleanupRetentionDays: 0 }, readGlobalConfigRevision()); }
+      catch (error) { refused = String(error); }
+      return { text: readFileSync(target, "utf8"), refused };
+    `,
+      seed
+    );
+    expect(result.text).toContain('"autoDeleteOldMemories": false');
+    // The rejected key the edit did not touch stays as the user wrote it.
+    expect(result.text).toContain('"autoCleanupRetentionDays": "365"');
+    expect(result.refused).toContain("autoCleanupRetentionDays");
+  });
+
+  it("refuses to save while the global file cannot be read, and names the line", async () => {
+    const seed = '{\n  "piModel": "old"\n  "memoryModel": "glm"\n}\n';
+    const result = await scenario(
+      `
+      let message = "";
+      try { await writeGlobalConfigKeys({ piModel: "new" }, readGlobalConfigRevision()); }
+      catch (error) { message = error.message; }
+      return { message, unchanged: readFileSync(target, "utf8") === ${JSON.stringify(seed)} };
+    `,
+      seed
+    );
+    expect(result.unchanged).toBe(true);
+    expect(result.message).toBe(
+      "Settings not saved: the config file has an error on line 2, column 19. Fix the file, then save again."
+    );
+  });
+
   it("saves the memory injection switches and query, and removes the query on null", async () => {
     const result = await scenario(
       `

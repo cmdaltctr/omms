@@ -271,6 +271,7 @@ export class WebServer {
   private readonly startedAt = Date.now();
   private onPowerActionCallback: ((action: PowerAction) => unknown) | null = null;
   private webUpdate: Pick<WebUpdate, "status" | "requestInstall"> | null = null;
+  private stopMaintenance?: () => void;
   powerActionRunning = false; // public: the automatic update stays quiet while one runs
   private stepAsideTimer: NodeJS.Timeout | null = null;
   private holdOffTimer: NodeJS.Timeout | null = null;
@@ -748,6 +749,10 @@ export class WebServer {
         .then(({ startClaudeCodeWorker }) => startClaudeCodeWorker())
         .catch(() => {});
       void import("./web-jobs.js").then((m) => m.startWebJobs()).catch(() => {});
+      // Daily housekeeping, and deletion only when autoDeleteOldMemories is on (ADR-051).
+      void import("./cleanup-service.js")
+        .then((m) => (this.stopMaintenance = m.startDailyMaintenanceTimer()))
+        .catch(() => {});
     } catch (error) {
       const errorMsg = String(error);
 
@@ -938,6 +943,8 @@ export class WebServer {
     this.server.stop();
     this.server = null;
     this.isOwner = false;
+    this.stopMaintenance?.();
+    this.stopMaintenance = undefined;
     const { opencodeSnapshots, stopStandaloneOpencodeReads } =
       await import("../importer/web-import-api.js");
     await opencodeSnapshots.closeAll();
@@ -1251,50 +1258,6 @@ export class WebServer {
         return this.jsonResponse(result);
       }
 
-      if (path === "/api/settings/external-api/key" && method === "POST") {
-        // The body can hold a pasted key: never log it, and never echo it back.
-        const body = (await req.json()) as Record<string, unknown> | null;
-        const { MemoryKeySourceError, parseMemoryKeySource, storeMemoryKeySource } =
-          await import("./memory-key-source.js");
-        try {
-          const request = parseMemoryKeySource(body);
-          if (
-            request.source === "paste" &&
-            !isLoopbackHost(this.config.host) &&
-            !auth?.isEnabled()
-          ) {
-            return this.jsonResponse(
-              { error: "Saving a key requires Basic Auth on network hosts" },
-              403
-            );
-          }
-          if (typeof body?.revision !== "string") {
-            return this.jsonResponse({ error: "Revision required" }, 400);
-          }
-          const stored = await storeMemoryKeySource(request);
-          const { writeGlobalConfigKeys } = await import("./global-config-writer.js");
-          const result = await writeGlobalConfigKeys(
-            { memoryApiKey: stored.reference },
-            body.revision
-          );
-          const { refreshConfigIfChanged } = await import("../config.js");
-          refreshConfigIfChanged(this.config.directory ?? process.cwd());
-          const { memoryKeyStatus } = await import("./settings-snapshot.js");
-          return this.jsonResponse({ ...result, key: memoryKeyStatus(stored.reference) });
-        } catch (error) {
-          const status =
-            error instanceof MemoryKeySourceError
-              ? error.status
-              : ((error as { status?: number }).status ?? 400);
-          const message = error instanceof Error ? error.message : "Key source not saved";
-          const secret = typeof body?.value === "string" ? body.value.trim() : "";
-          return this.jsonResponse(
-            { error: secret ? message.replaceAll(secret, "[redacted]") : message },
-            status
-          );
-        }
-      }
-
       if (path === "/api/settings/tokens" || path.startsWith("/api/settings/tokens/")) {
         return this.handleTokenRoute(req, path, method, remoteAddress);
       }
@@ -1316,10 +1279,9 @@ export class WebServer {
         if (response) return response;
       }
 
-      if (path === "/api/settings/reranker/test") return testReranker(req, method, remoteAddress);
-      if (path === "/api/settings/external-api/test" && method === "POST") {
-        const { testExternalApi } = await import("../importer/web-import-api.js");
-        return this.jsonResponse(await testExternalApi());
+      if (path === "/api/settings/reranker/test") {
+        const network = !isLoopbackHost(this.config.host) && !auth?.isEnabled();
+        return testReranker(req, method, remoteAddress, network);
       }
 
       if (path === "/api/settings/import-maps" && method === "GET") {
@@ -1686,6 +1648,11 @@ export class WebServer {
         remoteAddress,
         startRecordPast: async (cwd) =>
           (await import("../importer/web-import-api.js")).startRecordPast(this.importJobs, cwd),
+        settings: {
+          networkWithoutAuth: !isLoopbackHost(this.config.host) && !auth?.isEnabled(),
+          testExternalApi: async (given) =>
+            (await import("../importer/web-import-api.js")).testExternalApi(given),
+        },
       });
       if (routed) return routed.response ?? this.jsonResponse(routed.body, routed.status);
 

@@ -33,7 +33,7 @@ function state(set: boolean, needed: boolean): CredentialState {
   return set ? "set" : needed ? "missing" : "not-needed";
 }
 
-/** ✅ set, ⛔️ missing, or grey not needed for each credential on the Keys and access card. */
+/** A green check for set, a red cross for missing, or grey for not needed for each credential on the Keys and access card. */
 export function credentialStates(input: CredentialInput) {
   const { access, secrets } = input;
   const embeddingServer = access.embeddingApiUrl;

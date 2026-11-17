@@ -6,10 +6,12 @@ import { externalMissing } from "$lib/external-api-settings";
 import { hostLabel, type WebHost } from "$lib/host-label";
 import { useSettingsText } from "$lib/i18n/settings";
 import type { Backfill } from "./use-backfill";
+import { ReadOnlyNote, useSettingsReadOnly } from "../settings/ReadOnlyNote";
 
 /** One host's own settings: its backfill model, and the global automatic-import switch. */
 export function HostSettings({ host, backfill }: { host: WebHost; backfill: Backfill }) {
   const s = useSettingsText();
+  const readOnly = useSettingsReadOnly();
   const { snapshot, lists, busy } = backfill;
   const [choice, setChoice] = useState<string>();
   const [typedMode, setTypedMode] = useState<boolean>();
@@ -96,7 +98,7 @@ export function HostSettings({ host, backfill }: { host: WebHost; backfill: Back
             type="button"
             variant="outline"
             size="sm"
-            disabled={busy || !snapshot}
+            disabled={busy || readOnly || !snapshot}
             onClick={() => backfill.saveModel(host as ModelBackfillHost, current)}
           >
             {s("Save model")}
@@ -107,11 +109,12 @@ export function HostSettings({ host, backfill }: { host: WebHost; backfill: Back
         <input
           type="checkbox"
           checked={Boolean(settings.autoBackfill?.globalValue)}
-          disabled={busy || !snapshot}
+          disabled={busy || readOnly || !snapshot}
           onChange={(event) => void backfill.save({ autoBackfill: event.target.checked })}
         />
         {s("Import past chats automatically")}
       </label>
+      <ReadOnlyNote show={readOnly} />
       <p className="text-xs text-muted-foreground">
         {s("This switch applies to every host. Automatic import makes model calls.")}
       </p>

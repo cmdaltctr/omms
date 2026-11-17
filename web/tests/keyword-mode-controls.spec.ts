@@ -1,16 +1,19 @@
 import { expect, it } from "bun:test";
+import { translateCatalogue } from "../src/lib/i18n/settings-catalogue.ts";
 import {
-  KEYWORD_MODE_MESSAGES,
   KEYWORD_MODE_OPTIONS,
   keywordModeSaveEdits,
   modeFromSetting,
   rerankerOverridesMode,
 } from "../src/lib/keyword-mode-controls.ts";
 
-it("offers the boost first and marks rank fusion as experimental", () => {
+it("offers the bonus first and marks merging as experimental, in plain words", () => {
   expect(KEYWORD_MODE_OPTIONS.map((option) => option.value)).toEqual(["boost", "rrf"]);
   expect(KEYWORD_MODE_OPTIONS[1].label).toContain("(experimental)");
-  for (const option of KEYWORD_MODE_OPTIONS) expect(KEYWORD_MODE_MESSAGES).toContain(option.label);
+  for (const option of KEYWORD_MODE_OPTIONS) {
+    expect(translateCatalogue(option.label, "zh")).not.toBe(option.label);
+    expect(translateCatalogue(option.label, "ar")).not.toBe(option.label);
+  }
 });
 
 it("reads a mode and falls back to boost for anything else", () => {

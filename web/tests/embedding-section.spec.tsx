@@ -84,3 +84,25 @@ it("shows progress, and the reason with Retry after a failure", () => {
   expect(failed).toContain("503");
   expect(failed).toContain("Retry");
 });
+
+it("lists llama.cpp as the first preset", async () => {
+  const { EMBEDDING_PRESETS } = await import("../src/lib/embedding-settings.ts");
+  expect(EMBEDDING_PRESETS[0]!.label).toBe("llama.cpp");
+  expect(EMBEDDING_PRESETS[0]!.url).toBe("http://localhost:8080/v1");
+  expect(EMBEDDING_PRESETS.map((preset) => preset.label).slice(0, 2)).toEqual([
+    "llama.cpp",
+    "Ollama",
+  ]);
+});
+
+it("locks with a shared button and an icon, not an emoji", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(
+    new URL("../src/lib/components/settings/EmbeddingSection.tsx", import.meta.url),
+    "utf8"
+  );
+  expect(source).not.toMatch(/<button|<input|window\.confirm|🔒|🔓/);
+  expect(source).toMatch(/<Button[^>]*size="icon-sm"[\s\S]*?aria-label=\{lockLabel\}/);
+  expect(source).toContain("<LockOpen");
+  expect(source).toContain("<Lock ");
+});

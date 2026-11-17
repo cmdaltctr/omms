@@ -11,6 +11,7 @@ afterEach(() => {
 });
 
 const configUrl = pathToFileURL(join(import.meta.dir, "../src/config.js")).href;
+const problemsUrl = pathToFileURL(join(import.meta.dir, "../src/services/config-problems.js")).href;
 
 /** Child process with a temp HOME, so the real config file is never read. */
 async function configScenario(globalConfig: string | undefined, projectConfig?: string) {
@@ -28,8 +29,10 @@ async function configScenario(globalConfig: string | undefined, projectConfig?: 
   const script = `
 try {
   const cfg = await import(${JSON.stringify(configUrl)});
+  const problems = await import(${JSON.stringify(problemsUrl)});
   cfg.initConfig(${JSON.stringify(project)}, { strict: true });
-  console.log("BOOST:" + JSON.stringify({ value: cfg.CONFIG.keywordBoost, mode: cfg.CONFIG.keywordMode }));
+  console.log("BOOST:" + JSON.stringify({ value: cfg.CONFIG.keywordBoost, mode: cfg.CONFIG.keywordMode,
+    problems: problems.currentConfigProblems() }));
 } catch (error) {
   console.log("BOOST:" + JSON.stringify({ error: String(error) }));
 }
@@ -45,7 +48,12 @@ try {
   expect(await proc.exited, stderr).toBe(0);
   const match = text.match(/BOOST:(.*)$/m);
   if (!match) throw new Error(text);
-  return JSON.parse(match[1]) as { value?: number; mode?: string; error?: string };
+  return JSON.parse(match[1]) as {
+    value?: number;
+    mode?: string;
+    error?: string;
+    problems?: { key?: string; message: string }[];
+  };
 }
 
 describe("checkedKeywordBoost", () => {
@@ -78,9 +86,10 @@ describe("keywordBoost in the config file", () => {
     expect(await configScenario('{ "keywordBoost": 0 }')).toMatchObject({ value: 0 });
   });
 
-  it("refuses 0.6", async () => {
+  it("refuses 0.6: the default applies and a problem names the key", async () => {
     const result = await configScenario('{ "keywordBoost": 0.6 }');
-    expect(result.error).toContain("keywordBoost");
+    expect(result.value).toBe(0.1);
+    expect(result.problems?.map((problem) => problem.key)).toEqual(["keywordBoost"]);
   });
 
   it("lets a project file override the global value", async () => {
@@ -117,9 +126,10 @@ describe("keywordMode in the config file", () => {
     expect(await configScenario('{ "keywordMode": "rrf" }')).toMatchObject({ mode: "rrf" });
   });
 
-  it("refuses an unknown mode", async () => {
+  it("refuses an unknown mode: the default applies and the problem never quotes it", async () => {
     const result = await configScenario('{ "keywordMode": "fusion" }');
-    expect(result.error).toContain("keywordMode");
-    expect(result.error).not.toContain("fusion");
+    expect(result.mode).toBe("boost");
+    expect(result.problems?.map((problem) => problem.key)).toEqual(["keywordMode"]);
+    expect(JSON.stringify(result.problems)).not.toContain("fusion");
   });
 });

@@ -9,6 +9,8 @@ import {
 } from "../config.js";
 import { CONFIG_TEMPLATE } from "../config-template.js";
 import { isValidClaudeConfigDir } from "./claude-folder.js";
+import { describeJsoncError } from "./config-problems.js";
+import { PAGE_KEYS as keys } from "./settings-editable-keys.js";
 import { missingSkillFolder } from "./skill-learning/skill-config.js";
 import { KEYWORD_MODES } from "../utils/keyword-boost.js";
 import { getMemoryLimitRule } from "../utils/memory-limits.js";
@@ -19,54 +21,6 @@ import {
   memorisationSettingsFrom,
 } from "../core/memorisation-settings.js";
 
-const keys = new Set([
-  "opencodeProvider",
-  "opencodeModel",
-  "piProvider",
-  "piModel",
-  "captureTrace",
-  "captureTraceRetentionDays",
-  "captureAttemptRetentionDays",
-  "captureRetryRetentionHours",
-  "autoBackfill",
-  "opencodeBackfillModel",
-  "piBackfillModel",
-  "webServerAutoStart",
-  "userProfileAutoCleanupEnabled",
-  "userProfileAutoCleanupInterval",
-  "memoryProvider",
-  "memoryApiUrl",
-  "memoryModel",
-  "memoryApiKey",
-  "importPathMaps",
-  "importIgnoredDirectories",
-  "claudeConfigDir",
-  "autoCaptureLanguage",
-  "maxMemories",
-  "autoCaptureMaxContextBytes",
-  "userProfileMaxContextBytes",
-  "retrievalMaxTokens",
-  "similarityThreshold",
-  "keywordMode",
-  "rerankerEnabled",
-  "rerankerApiUrl",
-  "rerankerModel",
-  "rerankerApiKey",
-  "rerankerTimeoutMs",
-  "skillLearning",
-  "skillLearningRedact",
-  "skillFolders",
-  "openingContext",
-  "openingContextQuery",
-  "subagentMemory",
-  "compaction.enabled",
-  "compaction.memoryLimit",
-  "memorisationRepeat",
-  "memorisationMaxSize",
-  "memorisationSizeUnit",
-  "memorisationRerank",
-]);
-
 function isFolder(path: string): boolean {
   try {
     return statSync(path).isDirectory();
@@ -75,21 +29,9 @@ function isFolder(path: string): boolean {
   }
 }
 
-/**
- * Written only by the embedding apply route, together, after a passing test.
- * The general settings save refuses them, so a change always re-embeds.
- */
-export const EMBEDDING_KEYS = new Set([
-  "embeddingApiUrl",
-  "embeddingApiKey",
-  "embeddingModel",
-  "embeddingDimensions",
-]);
+export { EMBEDDING_KEYS, PASSWORD_KEYS } from "./settings-editable-keys.js";
 
-/** Written only by the browser password route; the password itself lives in a private key file. */
-export const PASSWORD_KEYS = new Set(["webServerAuthPassword", "webServerAuthUsername"]);
-
-const MEMORY_PROVIDERS = [
+export const MEMORY_PROVIDERS = [
   "openai-chat",
   "openai-responses",
   "anthropic",
@@ -105,8 +47,15 @@ export function isSecretReference(value: unknown): value is string {
   );
 }
 
-/** Reranker keys that a null edit removes, the same wire form as a limit reset. */
-const OPTIONAL_RERANKER_KEYS = ["rerankerApiUrl", "rerankerModel", "rerankerApiKey"];
+/** Reranker and external API keys that a null edit removes, the same wire form as a limit reset. */
+const OPTIONAL_KEYS = [
+  "rerankerApiUrl",
+  "rerankerModel",
+  "rerankerApiKey",
+  "memoryApiUrl",
+  "memoryModel",
+];
+const URL_PATTERN = /^https?:\/\/\S+$/;
 /** Other keys whose `null` edit removes them, so they follow the default again. */
 const RESETTABLE_KEYS = [
   "keywordMode",
@@ -129,7 +78,9 @@ function isValidEdit(key: string, value: unknown): boolean {
   // "reset to default", accepted for the memory limits and the optional reranker keys.
   const memoryLimit = getMemoryLimitRule(key);
   if (memoryLimit && value === null) return true;
-  if (OPTIONAL_RERANKER_KEYS.includes(key) && value === null) return true;
+  if (OPTIONAL_KEYS.includes(key) && value === null) return true;
+  if (key === "memoryApiUrl") return typeof value === "string" && URL_PATTERN.test(value);
+  if (key === "memory.defaultScope") return value === "project" || value === "all-projects";
   // skillFolders: null removes the key, so the default skill folders apply again.
   if (key === "skillFolders" && value === null) return true;
   // keywordMode: null removes the key, so the mode follows the default again.
@@ -184,7 +135,12 @@ function isValidEdit(key: string, value: unknown): boolean {
     key === "skillLearningRedact" ||
     key === "openingContext" ||
     key === "subagentMemory" ||
-    key === "compaction.enabled"
+    key === "compaction.enabled" ||
+    key === "autoCaptureEnabled" ||
+    key === "chatMessage.enabled" ||
+    key === "visibleRecall" ||
+    key === "injectProfile" ||
+    key === "autoDeleteOldMemories"
   ) {
     // The three memory injection switches take null too: it removes the key (reset to default).
     return typeof value === "boolean" || (value === null && RESETTABLE_KEYS.includes(key));
@@ -269,6 +225,9 @@ function checkEdits(edits: Record<string, unknown>, options: WriteOptions): void
       const rerankerAccepted: Record<string, string> = {
         rerankerEnabled: "boolean",
         rerankerApiUrl: "an http:// or https:// URL",
+        memoryApiUrl: "an http:// or https:// URL",
+        "memory.defaultScope": "project or all-projects",
+        autoCleanupRetentionDays: "whole numbers of 1 or more",
         rerankerModel: "a non-empty string",
         rerankerTimeoutMs: `integers from ${RERANKER_TIMEOUT_MIN_MS} to ${RERANKER_TIMEOUT_MAX_MS}`,
         keywordMode: KEYWORD_MODES.join(" or "),
@@ -325,7 +284,12 @@ export async function writeGlobalConfigKeys(
     const errors: ParseError[] = [];
     const current: unknown = parse(content, errors, { allowTrailingComma: true });
     if (errors.length || !current || typeof current !== "object" || Array.isArray(current)) {
-      throw new Error("Config contains invalid JSONC");
+      // Never overwrite a file this save could not read; name the place, never the text.
+      const { line, column } = describeJsoncError(source ?? target, content, false);
+      const where = line ? ` on line ${line}, column ${column}` : "";
+      throw new Error(
+        `Settings not saved: the config file has an error${where}. Fix the file, then save again.`
+      );
     }
     const applied = options.derive ? options.derive(current as Record<string, unknown>) : edits;
     if (options.derive) {
@@ -346,9 +310,7 @@ export async function writeGlobalConfigKeys(
       // value follows the default again (undefined removes in jsonc modify).
       const jsoncValue =
         value === null &&
-        (getMemoryLimitRule(key) ||
-          OPTIONAL_RERANKER_KEYS.includes(key) ||
-          RESETTABLE_KEYS.includes(key))
+        (getMemoryLimitRule(key) || OPTIONAL_KEYS.includes(key) || RESETTABLE_KEYS.includes(key))
           ? undefined
           : value;
       content = applyEdits(
@@ -360,7 +322,7 @@ export async function writeGlobalConfigKeys(
     }
     const parsed: unknown = parse(content, errors, { allowTrailingComma: true });
     if (errors.length) throw new Error("Config contains invalid JSONC");
-    validateGlobalConfig(parsed);
+    validateGlobalConfig(parsed, Object.keys(applied));
     if (source && (await snapshot(source)).revision !== original.revision) {
       throw new ConfigConflictError();
     }

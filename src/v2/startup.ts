@@ -12,6 +12,7 @@ import { registerOpencodeProfileModel } from "../adapters/opencode/profile-model
 import { unclaimedOpencodeFirstRunNotice } from "../adapters/opencode/first-run.js";
 import { showOpencodeNotice } from "../adapters/opencode/toast.js";
 import { webStartNotice } from "../services/web-start-notice.js";
+import { currentConfigProblems } from "../services/config-problems.js";
 
 const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("omms.plugin.warmedup");
 
@@ -145,6 +146,10 @@ export async function startOpencodeRuntime(ctx: Context, onCleanup: () => void =
   // `opencode serve` and OpenChamber users find the notice in the log; the terminal interface shows it.
   const firstRun = unclaimedOpencodeFirstRunNotice(CONFIG);
   if (firstRun) showOpencodeNotice({ message: firstRun, variant: "info" });
+  // A broken file or a rejected value uses the defaults; tell the user once, at start.
+  for (const problem of currentConfigProblems()) {
+    showOpencodeNotice({ title: "OMMS settings", message: problem.message, variant: "warning" });
+  }
 
   // Runs even with tracing off, so turning it off does not leave old traces behind.
   pruneTraces(CONFIG);

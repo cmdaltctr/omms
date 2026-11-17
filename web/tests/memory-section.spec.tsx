@@ -35,6 +35,9 @@ mock.module("react", () => ({
   },
 }));
 const { MemorySection } = await import("../src/lib/components/memory/MemorySection.tsx");
+const { Button } = await import("../src/lib/components/ui/button.tsx");
+const { Input } = await import("../src/lib/components/ui/input.tsx");
+const { findCatalogueEntry, PLAIN_TEXT } = await import("../src/lib/settings-catalogue.ts");
 const controls = await import("../src/lib/memory-controls.ts");
 /** Run the recorded mount effects once, so load failures happen for real. */
 const runEffects = () => {
@@ -104,10 +107,10 @@ function tree(draft: Record<string, string> = {}, busy = false): Node[] {
 }
 const button = (label: string, nodes: Node[]) =>
   nodes.find(
-    (node) => node.type === "button" && react.Children.toArray(node.props.children)[0] === label
+    (node) => node.type === Button && react.Children.toArray(node.props.children)[0] === label
   )!;
 const input = (nodes: Node[], id: string) =>
-  nodes.find((node) => node.type === "input" && node.props.id === id)!;
+  nodes.find((node) => node.type === Input && node.props.id === id)!;
 
 type Call = { url: string; init?: RequestInit };
 const realFetch = globalThis.fetch;
@@ -233,11 +236,11 @@ it("renders one Memory card with an H2 section title and five labelled rows", ()
   }
   expect(html.match(/type="number"/g)).toHaveLength(5);
   for (const control of controls.MEMORY_CONTROLS) {
-    expect(html).toContain(`aria-label="${control.key} Value"`);
+    expect(html).toContain(`aria-label="${findCatalogueEntry(control.key)!.name} Value"`);
   }
   // Save submits the one form; Cancel never submits.
-  expect(html).toMatch(/<button type="submit"[^>]*>Save memory limits<\/button>/);
-  expect(html).toMatch(/<button type="button"[^>]*>Cancel<\/button>/);
+  expect(html).toMatch(/<button[^>]*type="submit"[^>]*>Save memory limits<\/button>/);
+  expect(html).toMatch(/<button[^>]*type="button"[^>]*>Cancel<\/button>/);
 });
 
 it("shows defaults, units, and a visible Affects cell beside each control", () => {
@@ -254,12 +257,11 @@ it("shows defaults, units, and a visible Affects cell beside each control", () =
   expect(html.match(/title=/g)?.length ?? 0).toBeLessThan(html.match(/<td/g)?.length ?? 0);
 });
 
-it("explains UTF-8 bytes, the approximate-token estimate, and the limits' scope", () => {
+it("explains sizes in plain words, and the limits' scope", () => {
   const html = render();
-  expect(html).toContain("Byte limits count UTF-8 bytes.");
-  expect(html).toContain(
-    "Approximate tokens are estimated as ceil(UTF-8 bytes / 4). A provider can count more or fewer tokens for the same text."
-  );
+  expect(html).toContain(PLAIN_TEXT.bytesNote);
+  expect(html).toContain(PLAIN_TEXT.tokensNote);
+  expect(html).not.toContain("UTF-8");
   expect(html).toContain(
     "These controls do not delete stored data, set a spending limit, limit model replies, or control Graphify output."
   );
@@ -348,7 +350,7 @@ it("reads the threshold default from the snapshot, so the embedder drives it", (
 
 it("offers a Reset to default button on every row, disabled when the key is absent", () => {
   const nodes = tree();
-  const resets = nodes.filter((node) => node.type === "button" && node.props["data-reset"]);
+  const resets = nodes.filter((node) => node.type === Button && node.props["data-reset"]);
   expect(resets).toHaveLength(5);
   for (const node of resets) expect(node.props.disabled).toBe(true);
   // A saved global value enables the reset for that row only.
@@ -363,11 +365,11 @@ it("offers a Reset to default button on every row, disabled when the key is abse
   cursor = 0;
   const saved = find(MemorySection(), () => true);
   const maxReset = saved.find(
-    (node) => node.type === "button" && node.props["data-reset"] === "maxMemories"
+    (node) => node.type === Button && node.props["data-reset"] === "maxMemories"
   )!;
   expect(maxReset.props.disabled).toBe(false);
   const otherReset = saved.find(
-    (node) => node.type === "button" && node.props["data-reset"] === "retrievalMaxTokens"
+    (node) => node.type === Button && node.props["data-reset"] === "retrievalMaxTokens"
   )!;
   expect(otherReset.props.disabled).toBe(true);
 });
@@ -427,7 +429,7 @@ it("sends null for the reset row and reloads the shared snapshot", async () => {
   cursor = 0;
   const nodes = find(MemorySection(), () => true);
   const reset = nodes.find(
-    (node) => node.type === "button" && node.props["data-reset"] === "maxMemories"
+    (node) => node.type === Button && node.props["data-reset"] === "maxMemories"
   )!;
   await (reset.props.onClick as () => Promise<void>)();
   await flush();
@@ -645,7 +647,7 @@ it("shows a translated generic message for unknown server and network failures",
   });
   setLanguage("zh");
   const retry = tree({ retrievalMaxTokens: "3000" });
-  const submit = retry.find((node) => node.type === "button" && node.props.type === "submit")!;
+  const submit = retry.find((node) => node.type === Button && node.props.type === "submit")!;
   await (submit.props.onClick as () => void)();
   await flush();
   expect(states[3]).toEqual({
@@ -733,10 +735,8 @@ it("translates every visible and accessible message into Chinese and Arabic", ()
     expect(html).not.toContain("Enter a whole number from 256 to 65,536.");
     expect(html).toContain('aria-invalid="true"');
     // Help text translates.
-    expect(html).not.toContain("Byte limits count UTF-8 bytes.");
-    expect(html).not.toContain(
-      "Approximate tokens are estimated as ceil(UTF-8 bytes / 4). A provider can count more or fewer tokens for the same text."
-    );
+    expect(html).not.toContain(PLAIN_TEXT.bytesNote);
+    expect(html).not.toContain(PLAIN_TEXT.tokensNote);
     expect(html).not.toContain(
       "These controls do not delete stored data, set a spending limit, limit model replies, or control Graphify output."
     );

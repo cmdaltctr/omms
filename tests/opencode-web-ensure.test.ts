@@ -15,7 +15,7 @@ function runScenario(body: string, config: Record<string, unknown> = {}): any {
 import { mock } from "bun:test";
 const settings = { storagePath: ${JSON.stringify(join(dir, "store"))}, autoBackfill: false,
   webServerAutoStart: false, webServerEnabled: true, webServerHost: "127.0.0.1", webServerPort: 4747,
-  autoCaptureEnabled: true, autoCaptureProviderStatus: { ready: true }, autoCleanupEnabled: true, chatMessage: { enabled: false },
+  autoCaptureEnabled: true, autoCaptureProviderStatus: { ready: true }, autoDeleteOldMemories: false, chatMessage: { enabled: false },
   // Every first-run part off, so no first-run line joins the notices unless a test asks.
   embeddingApiUrl: "http://embed.invalid",
   ${Object.entries(config)
@@ -55,7 +55,9 @@ mock.module(${JSON.stringify(url("../src/services/auto-capture.js"))}, () => ({
   performAutoCapture: async () => {} }));
 const cleanups = [];
 mock.module(${JSON.stringify(url("../src/services/cleanup-service.js"))}, () => ({
-  cleanupService: { shouldRunCleanup: async () => true, runCleanup: async () => { cleanups.push(1); } } }));
+  cleanupService: { shouldRunCleanup: async () => true,
+    runDailyMaintenance: async (deleteOld) => { cleanups.push(deleteOld); },
+    runCleanup: async () => { cleanups.push("manual"); } } }));
 // V2 shows no native toast. The legacy client prints "[omms] <title>: <message>" instead.
 const toasts = [];
 for (const method of ["info", "warn", "error"]) {
@@ -210,6 +212,27 @@ console.log("RESULT:" + JSON.stringify({ before, after: toasts }));
   expect(notices(result.after)).toEqual([]);
 });
 
+it("shows each recorded config problem once as a warning at plugin start", () => {
+  const result = runScenario(
+    `
+const { recordConfigProblems } = await import(${JSON.stringify(url("../src/services/config-problems.js"))});
+recordConfigProblems([{ kind: "parse", file: "/home/u/.config/omms/omms.jsonc", line: 4, column: 3,
+  message: "OMMS cannot read /home/u/.config/omms/omms.jsonc: on line 4, column 3, a comma is missing." }]);
+const { stop } = await startPlugin();
+await new Promise((resolve) => setTimeout(resolve, 50));
+console.log("RESULT:" + JSON.stringify({ toasts }));
+await stop();
+`,
+    { webServerEnabled: false }
+  );
+  expect(result.toasts).toEqual([
+    {
+      method: "warn",
+      text: "[omms] OMMS settings: OMMS cannot read /home/u/.config/omms/omms.jsonc: on line 4, column 3, a comma is missing.",
+    },
+  ]);
+});
+
 it("starts nothing when webServerEnabled is false", () => {
   const result = runScenario(
     `
@@ -224,7 +247,7 @@ await stop();
   expect(result.toasts).toEqual([]);
 });
 
-it("runs profile learning and cleanup on idle with no in-process web server", () => {
+it("runs profile learning and daily maintenance on idle with no in-process web server", () => {
   const result = runScenario(`
 const realSetTimeout = globalThis.setTimeout;
 globalThis.setTimeout = (fn, ms, ...rest) => realSetTimeout(fn, ms === 10000 ? 0 : ms, ...rest);
@@ -235,8 +258,9 @@ const { fake, stop } = await startPlugin({
 fake.emit({ type: "session.execution.succeeded", data: { sessionID: "s1" } });
 await waitFor(() => learning.length > 0 && cleanups.length > 0);
 await new Promise((resolve) => realSetTimeout(resolve, 50));
-console.log("RESULT:" + JSON.stringify({ learning: learning.length, cleanups: cleanups.length }));
+console.log("RESULT:" + JSON.stringify({ learning: learning.length, cleanups }));
 await stop();
 `);
-  expect(result).toEqual({ learning: 1, cleanups: 1 });
+  // Housekeeping only: deletion by age is off and the manual cleanup never runs.
+  expect(result).toEqual({ learning: 1, cleanups: [false] });
 });

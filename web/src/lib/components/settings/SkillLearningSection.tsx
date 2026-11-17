@@ -7,6 +7,7 @@ import { countText, fileSizeText, fill } from "$lib/skills-model";
 import { Callout } from "../skills/Callout";
 import { RecordPast } from "../skills/RecordPast";
 import { useSkillSettings } from "../skills/use-skill-settings";
+import { ReadOnlyNote, useSettingsReadOnly } from "./ReadOnlyNote";
 
 function Switch({
   label,
@@ -41,6 +42,8 @@ export type SkillLearningCardProps = {
   stats: SkillStats | null;
   /** Switches and buttons wait while a save runs or settings are loading. */
   busy: boolean;
+  /** The config file cannot be read, so the two switches cannot save. */
+  readOnly?: boolean;
   confirm: "redact" | "delete" | null;
   message: string;
   failure: string;
@@ -69,9 +72,10 @@ export function SkillLearningCard(props: SkillLearningCardProps) {
         <Switch
           label={s("Record agent turns")}
           checked={recording}
-          disabled={busy}
+          disabled={busy || props.readOnly === true}
           onChange={props.onRecording}
         />
+        <ReadOnlyNote show={props.readOnly === true} />
         {props.projectOff ? (
           <p className="text-xs text-muted-foreground">
             {s("A project config turns recording off for this project.")}
@@ -100,7 +104,7 @@ export function SkillLearningCard(props: SkillLearningCardProps) {
         <Switch
           label={s("Remove private text and secrets")}
           checked={redact}
-          disabled={busy}
+          disabled={busy || props.readOnly === true}
           onChange={props.onRedact}
         />
         {confirm === "redact" ? (
@@ -203,6 +207,7 @@ export function SkillLearningCard(props: SkillLearningCardProps) {
 export function SkillLearningSection() {
   const s = useSettingsText();
   const { snapshot, loadError, busy, save } = useSkillSettings();
+  const readOnly = useSettingsReadOnly();
   const [stats, setStats] = useState<SkillStats | null>(null);
   const [message, setMessage] = useState("");
   const [failure, setFailure] = useState("");
@@ -247,6 +252,7 @@ export function SkillLearningSection() {
       projectOff={recordEntry?.source === "project" && recordEntry.value === false}
       stats={stats}
       busy={busy || !snapshot}
+      readOnly={readOnly}
       confirm={confirm}
       message={message}
       failure={failure || loadError}

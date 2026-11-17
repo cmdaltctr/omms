@@ -12,7 +12,42 @@ function outputLimitParams(provider: string): Record<string, unknown> {
   return {};
 }
 
-export type ExternalApiTestResult = { ok: true; model: string } | { ok: false; error: string };
+/**
+ * Why a test failed, so the page can say it in plain words and never shows the provider's reply.
+ * `unreachable` covers network errors and timeouts: the provider never answered.
+ */
+export type ExternalApiFailure =
+  | "refused"
+  | "not-found"
+  | "rate-limited"
+  | "provider"
+  | "unreachable"
+  | "not-configured"
+  | "failed";
+
+export type ExternalApiTestResult =
+  | { ok: true; model: string }
+  | { ok: false; error: string; reason: ExternalApiFailure; status?: number };
+
+/** The reason and HTTP status behind a provider's error text. */
+export function classifyExternalApiError(message: string): {
+  reason: ExternalApiFailure;
+  status?: number;
+} {
+  if (message.startsWith("External API not configured")) return { reason: "not-configured" };
+  // Providers word a failed fetch as "TypeError: ..." and an abort as "... timeout (Nms)".
+  if (/^TypeError\b/.test(message) || /timeout \(\d+ms\)/i.test(message)) {
+    return { reason: "unreachable" };
+  }
+  const code = /API error: (\d{3})\b/.exec(message)?.[1];
+  if (!code) return { reason: "failed" };
+  const status = Number(code);
+  if (status === 401 || status === 403) return { reason: "refused", status };
+  if (status === 404) return { reason: "not-found", status };
+  if (status === 429) return { reason: "rate-limited", status };
+  if (status >= 500) return { reason: "provider", status };
+  return { reason: "failed", status };
+}
 
 /**
  * One small call to the saved external API from this process, with a small
@@ -60,6 +95,11 @@ export async function testExternalApi(
     if (!result.success) throw new Error(result.error ?? "The external API call failed");
     return { ok: true, model: `${config.memoryProvider}/${config.memoryModel ?? "default"}` };
   } catch (error) {
-    return { ok: false, error: safeHealthError(error, secrets).slice(0, 500) };
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      ok: false,
+      error: safeHealthError(error, secrets).slice(0, 500),
+      ...classifyExternalApiError(message),
+    };
   }
 }

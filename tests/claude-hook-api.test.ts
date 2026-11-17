@@ -33,6 +33,9 @@ const EXTERNAL_API = {
   memoryApiKey: "test-key-value",
 };
 
+// Every first-run part off, so no first-run line joins a config problem line.
+const NO_FIRST_RUN = { autoBackfill: false, embeddingApiUrl: "http://embed.invalid" };
+
 function createHarness(config: Record<string, unknown> = EXTERNAL_API): Harness {
   const home = mkdtempSync(join(tmpdir(), "omms-claude-hook-home-"));
   const projectDir = mkdtempSync(join(tmpdir(), "omms-claude-hook-project-"));
@@ -233,6 +236,53 @@ await api.handleClaudeRetrieve({ event: "session-start", session_id: "t", cwd: p
 scenario = { afterPrompt, started };
 `);
     expect(scenario).toEqual({ afterPrompt: 0, started: 1 });
+  });
+
+  it("puts each config problem in systemMessage only for a SessionStart that asks for notices", async () => {
+    const { run } = createHarness({
+      ...EXTERNAL_API,
+      ...NO_FIRST_RUN,
+      autoCleanupRetentionDays: 0,
+    });
+    const scenario = await run(`
+const ask = (extra) => api.handleClaudeRetrieve({ event: "session-start", session_id: "s", cwd: projectDir, source: "startup", ...extra });
+scenario = {
+  asked: await ask({ notices: true }),
+  older: await ask({}),
+  compact: await ask({ notices: true, source: "compact" }),
+  prompt: await api.handleClaudeRetrieve({ event: "user-prompt-submit", session_id: "s", cwd: projectDir, prompt: "hi", notices: true }),
+};
+`);
+    expect(scenario.asked.systemMessage).toContain("autoCleanupRetentionDays");
+    expect(scenario.asked.systemMessage).toContain("omms.jsonc");
+    expect(scenario.asked.additionalContext).not.toContain("autoCleanupRetentionDays");
+    // An older hook, a compaction in the same session, and a prompt get no user line.
+    expect("systemMessage" in scenario.older).toBe(false);
+    expect("systemMessage" in scenario.compact).toBe(false);
+    expect("systemMessage" in scenario.prompt).toBe(false);
+  });
+
+  it("sends no systemMessage when the config has no problem", async () => {
+    const { run } = createHarness({ ...EXTERNAL_API, ...NO_FIRST_RUN });
+    const scenario = await run(`
+scenario = await api.handleClaudeRetrieve({ event: "session-start", session_id: "s", cwd: projectDir, source: "startup", notices: true });
+`);
+    expect(scenario).toEqual({ additionalContext: "" });
+  });
+
+  it("joins the first-run notice and the config problem lines in one systemMessage", async () => {
+    const { run } = createHarness({ ...EXTERNAL_API, autoCleanupRetentionDays: 0 });
+    const scenario = await run(`
+const ask = (extra) => api.handleClaudeRetrieve({ event: "session-start", session_id: "s", cwd: projectDir, source: "startup", notices: true, ...extra });
+scenario = { startup: await ask({}), compact: await ask({ source: "compact" }) };
+`);
+    const lines = scenario.startup.systemMessage.split("\n");
+    expect(lines[0]).toBe("OMMS does these things on its own:");
+    expect(lines.at(-1)).toContain("autoCleanupRetentionDays");
+    expect(scenario.startup.noticeKeys).toEqual(["claude-code"]);
+    // A compaction repeats no config problem line; the unconfirmed first-run notice stays.
+    expect(scenario.compact.systemMessage).toContain("OMMS does these things on its own:");
+    expect(scenario.compact.systemMessage).not.toContain("autoCleanupRetentionDays");
   });
 
   it("does not start the backfill when autoBackfill is off", async () => {
