@@ -1,7 +1,9 @@
 // Types for the `setup` and `doctor` terminal commands. Each host adapter exports
-// one `HostSetup`; the CLI lists them. This file holds types only and imports nothing.
+// one `HostSetup`; the CLI lists them. This file holds types only.
 
-export type HostId = "opencode" | "pi" | "claude-code";
+import type { MemoryHost } from "../shared/hosts.js";
+
+export type HostId = MemoryHost;
 
 /** What a host setup object may read from the machine. A test passes scratch values. */
 export interface HostSetupDeps {

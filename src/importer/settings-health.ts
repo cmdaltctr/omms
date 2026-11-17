@@ -5,6 +5,7 @@ import {
   resolvePiLiveModel,
 } from "../services/ai/live-model-choice.js";
 import { isLoopbackHost } from "../services/web-api-auth.js";
+import { HOSTS, hostLabel, type MemoryHost } from "../shared/hosts.js";
 import { missingSettingsText } from "../shared/setting-words.js";
 import { safeHealthError } from "../services/safe-health-error.js";
 export { safeHealthError } from "../services/safe-health-error.js";
@@ -14,7 +15,7 @@ export type HealthRow = {
   status: "pass" | "warn" | "fail";
   reason: string;
   /** The host a row belongs to; absent for a row about the whole machine. */
-  host?: "opencode" | "pi" | "claude-code";
+  host?: MemoryHost;
   /** Plain words to fix a row that is not a pass. */
   fix?: string;
   /** True for a model test the web app cannot run: the host uses its own model. `doctor` skips it. */
@@ -22,11 +23,7 @@ export type HealthRow = {
 };
 const PROBE = "Reply with a short acknowledgement.";
 
-const ROW_HOSTS = [
-  ["OpenCode ", "opencode"],
-  ["Pi ", "pi"],
-  ["Claude Code ", "claude-code"],
-] as const;
+const ROW_HOSTS = HOSTS.map((host) => [`${hostLabel(host)} `, host] as const);
 
 /** The external API settings still missing, in plain words; host model issues are left out. */
 function externalApiReason(issues: string[]): string {

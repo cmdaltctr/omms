@@ -503,7 +503,7 @@ export class WebServer {
     const { userProfileManager } = await import("./user-profile/user-profile-manager.js");
     const { listProfiles, mergeProfiles, ProfileAdminError } = await import("./profile-admin.js");
     const { resolveWebProfileUserId } = await import("./profile-identity.js");
-    const { CONFIG } = await import("../config.js");
+    const { CONFIG, refreshConfigIfChanged } = await import("../config.js");
     const store = userProfileManager;
     if (path === "/api/settings/profiles" && method === "GET") {
       const current = await resolveWebProfileUserId(CONFIG);
@@ -525,7 +525,6 @@ export class WebServer {
         const result = await writeGlobalConfigKeys({ userEmailOverride: userId }, body.revision, {
           only: new Set(["userEmailOverride"]),
         });
-        const { refreshConfigIfChanged } = await import("../config.js");
         refreshConfigIfChanged(this.config.directory ?? process.cwd());
         return this.jsonResponse(result);
       }
