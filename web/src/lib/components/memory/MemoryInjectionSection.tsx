@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
+import { Switch } from "$lib/components/ui/switch";
 import { Callout } from "$lib/components/skills/Callout";
 import { SettingRow } from "$lib/components/settings/SettingRow";
 import { Textarea } from "$lib/components/ui/textarea";
@@ -170,14 +171,12 @@ export function MemoryInjectionSection() {
       >
         <div className="space-y-1">
           <SettingRow setting="openingContext" controlId="injection-opening">
-            <input
-              type="checkbox"
+            <Switch
               id="injection-opening"
-              role="switch"
               checked={draft.opening}
               disabled={busy}
               aria-describedby="injection-opening-help"
-              onChange={(event) => update({ opening: event.target.checked })}
+              onCheckedChange={(opening) => update({ opening })}
             />
           </SettingRow>
           <p id="injection-opening-help" className="text-xs text-muted-foreground">
@@ -214,14 +213,12 @@ export function MemoryInjectionSection() {
         </SettingRow>
         <div className="space-y-1">
           <SettingRow setting="subagentMemory" controlId="injection-subagent">
-            <input
-              type="checkbox"
+            <Switch
               id="injection-subagent"
-              role="switch"
               checked={draft.subagent}
               disabled={busy}
               aria-describedby="injection-subagent-help"
-              onChange={(event) => update({ subagent: event.target.checked })}
+              onCheckedChange={(subagent) => update({ subagent })}
             />
           </SettingRow>
           <p id="injection-subagent-help" className="text-xs text-muted-foreground">
@@ -239,13 +236,11 @@ export function MemoryInjectionSection() {
         </div>
         <div className="space-y-2">
           <SettingRow setting="compaction.enabled" controlId="injection-restore">
-            <input
-              type="checkbox"
+            <Switch
               id="injection-restore"
-              role="switch"
               checked={draft.restore}
               disabled={busy}
-              onChange={(event) => update({ restore: event.target.checked })}
+              onCheckedChange={(restore) => update({ restore })}
             />
           </SettingRow>
           <p className="text-xs text-muted-foreground">

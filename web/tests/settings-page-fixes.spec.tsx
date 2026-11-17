@@ -62,19 +62,19 @@ it("keeps the user name and password fields short instead of full width", () => 
 });
 
 it("asks about untagged memories once per count, and again only when more appear", () => {
-  expect(shouldOpenTagMigration(7)).toBe(true);
+  expect(shouldOpenTagMigration(7, 10)).toBe(true);
   rememberTagMigrationClose(7);
-  expect(shouldOpenTagMigration(7)).toBe(false);
-  expect(shouldOpenTagMigration(5)).toBe(false);
-  expect(shouldOpenTagMigration(9)).toBe(true);
-  expect(shouldOpenTagMigration(0)).toBe(false);
+  expect(shouldOpenTagMigration(7, 10)).toBe(false);
+  expect(shouldOpenTagMigration(5, 10)).toBe(false);
+  expect(shouldOpenTagMigration(9, 10)).toBe(true);
+  expect(shouldOpenTagMigration(0, 10)).toBe(false);
 });
 
 it("forgets a closed count once the migration completes", async () => {
   const { clearTagMigrationClose } = await import("../src/lib/tag-migration-prompt.ts");
   rememberTagMigrationClose(7);
   clearTagMigrationClose();
-  expect(shouldOpenTagMigration(3)).toBe(true);
+  expect(shouldOpenTagMigration(3, 4)).toBe(true);
 });
 
 it("lets only the newest refresh write its results", async () => {

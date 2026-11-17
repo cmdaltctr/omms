@@ -7,13 +7,23 @@ import { flashAnchor, JUMP } from "$lib/settings-navigation";
 /** One entry of the contents list: the section's anchor id and English title. */
 export type TocSection = { id: string; title: string };
 
-/** The saved choice. Blocked storage leaves the contents open for this visit. */
+/** Below the `md` breakpoint (768px) the list would cover the cards, so it starts closed. */
+function isNarrowScreen(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+}
+
+/**
+ * The saved choice. With none saved, the contents start open on a wide screen
+ * and closed on a narrow one. Blocked storage keeps that default for this visit.
+ */
 function readOpen(storageKey: string): boolean {
   try {
-    return localStorage.getItem(storageKey) !== "0";
+    const saved = localStorage.getItem(storageKey);
+    if (saved !== null) return saved !== "0";
   } catch {
-    return true;
+    // Blocked storage: fall through to the screen-size default.
   }
+  return !isNarrowScreen();
 }
 
 function saveOpen(storageKey: string, open: boolean): void {

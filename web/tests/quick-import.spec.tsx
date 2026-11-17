@@ -512,7 +512,7 @@ it("stores the choice once readiness ticked the hosts and the user changed one",
     tree.find((node) => node.type === "details")!.props.onToggle({ currentTarget: { open: true } });
     const opened = await settle(element, own);
     const box = opened.find((node) => node.props["aria-label"] === "Pi")!;
-    box.props.onChange({ target: { checked: false } });
+    box.props.onCheckedChange(false);
     await settle(element, own);
     expect(JSON.parse([...data.values()][0]!).hosts).toEqual(["opencode"]);
   } finally {
@@ -600,7 +600,7 @@ it("keeps each host view's Customise options to that host", async () => {
     nodes.find((node) => node.props["aria-label"] === "Show handled sessions")!;
   const pi = <HostView host="pi" statuses={statuses} />;
   let tree = await openCustomise(pi);
-  handled(tree).props.onChange({ target: { checked: true } });
+  handled(tree).props.onCheckedChange(true);
   tree = await settle(pi, views);
   expect(handled(tree).props.checked).toBe(true);
   // The same page now shows OpenCode: its options start from the defaults.

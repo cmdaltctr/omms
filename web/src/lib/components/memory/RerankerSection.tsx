@@ -15,6 +15,7 @@ import {
 } from "$lib/components/settings/SettingsConfirmDialog";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
+import { Switch } from "$lib/components/ui/switch";
 import { useSettingsText } from "$lib/i18n/settings";
 import { useCatalogueText } from "$lib/i18n/settings-catalogue";
 import {
@@ -285,13 +286,11 @@ export function RerankerSection() {
         }}
       >
         <SettingRow setting="rerankerEnabled" controlId="reranker-enabled">
-          <input
-            type="checkbox"
+          <Switch
             id="reranker-enabled"
-            role="switch"
             checked={draft.enabled}
             disabled={busy}
-            onChange={(event) => update({ enabled: event.target.checked })}
+            onCheckedChange={(enabled) => update({ enabled })}
           />
         </SettingRow>
         <SettingRow setting="rerankerApiUrl" controlId="reranker-url">

@@ -66,8 +66,7 @@ const flush = async () => {
 };
 const field = (tree: Node[], id: string) => byType(tree, Input).find((n) => n.props.id === id)!;
 const enable = (tree: Node[]) => tree.find((n) => n.props.id === "reranker-enabled")!;
-const setEnabled = (tree: Node[], checked: boolean) =>
-  enable(tree).props.onChange({ target: { checked } });
+const setEnabled = (tree: Node[], checked: boolean) => enable(tree).props.onCheckedChange(checked);
 const keyField = (tree: Node[]) => byType(tree, KeySourceField)[0]!;
 const typeInto = (tree: Node[], id: string, value: string) =>
   field(tree, id).props.onChange({ target: { value } });

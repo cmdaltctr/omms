@@ -77,6 +77,8 @@ function fakeClock() {
 
 interface HarnessOptions {
   files?: string[];
+  /** Paths that exist as OpenCode data. Default: every path does. */
+  existing?: string[];
   platform?: NodeJS.Platform;
   env?: Record<string, string | undefined>;
   startLine?: string | null;
@@ -124,6 +126,7 @@ function harness(options: HarnessOptions = {}) {
     now: clock.now,
     sleep: clock.sleep,
     isFile: (path) => files.has(path),
+    exists: (path) => (options.existing ? options.existing.includes(path) : true),
     kill: (child, signal) => {
       child.kill(signal);
     },
@@ -428,6 +431,33 @@ describe("finding the opencode program", () => {
       '""C:\\Program Files\\nodejs\\opencode.CMD" serve --hostname=127.0.0.1 --port=0"',
     ]);
     expect(spawns[0].options.windowsVerbatimArguments).toBe(true);
+  });
+});
+
+describe("OpenCode that never ran", () => {
+  const DB = `${HOME}/.local/share/opencode/opencode.db`;
+
+  it("starts no server when OpenCode has no history database", async () => {
+    const { deps, spawns, requests } = harness({ existing: [] });
+    expect(await createStandaloneOpencodeReader(deps)()).toEqual({ outcome: "empty" });
+    expect(spawns).toHaveLength(0);
+    expect(requests).toHaveLength(0);
+  });
+
+  it("starts the server when the history database exists in the default folder", async () => {
+    const { deps, spawns } = harness({ existing: [DB] });
+    expect((await createStandaloneOpencodeReader(deps)()).outcome).toBe("listed");
+    expect(spawns).toHaveLength(1);
+  });
+
+  it("looks for the database in XDG_DATA_HOME when it is set", async () => {
+    const xdgDb = "/data/xdg/opencode/opencode.db";
+    const env = { PATH: "/usr/bin:/bin", XDG_DATA_HOME: "/data/xdg" };
+    const missing = harness({ env, existing: [DB] });
+    expect(await createStandaloneOpencodeReader(missing.deps)()).toEqual({ outcome: "empty" });
+    expect(missing.spawns).toHaveLength(0);
+    const found = harness({ env, existing: [xdgDb] });
+    expect((await createStandaloneOpencodeReader(found.deps)()).outcome).toBe("listed");
   });
 });
 

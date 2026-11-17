@@ -32,6 +32,7 @@ it("stops a running standalone OpenCode read when the web server stops", async (
     now: () => 0,
     sleep: () => new Promise(() => {}),
     isFile: () => true,
+    exists: () => true,
     kill: (target, signal) => {
       target.kill(signal);
     },

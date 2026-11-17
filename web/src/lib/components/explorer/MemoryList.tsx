@@ -135,7 +135,9 @@ export function MemoryList({
         )}
       </div>
 
-      <div className="flex justify-end">{pagination}</div>
+      {totalItems > 0 && totalPages > 0 ? (
+        <div className="flex justify-end">{pagination}</div>
+      ) : null}
     </div>
   );
 }

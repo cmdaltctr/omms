@@ -3,6 +3,7 @@ import { onSettingsSnapshot, reloadSettingsSnapshot, settingsRequest } from "$li
 import { SettingRow } from "$lib/components/settings/SettingRow";
 import { Button } from "$lib/components/ui/button";
 import { Input } from "$lib/components/ui/input";
+import { Switch } from "$lib/components/ui/switch";
 import { useCatalogueText } from "$lib/i18n/settings-catalogue";
 import { useSettingsText } from "$lib/i18n/settings";
 import { enabledEdit, intervalEdit } from "./auto-cleanup-settings-state";
@@ -103,14 +104,12 @@ export function AutoCleanupSettings() {
       <SettingRow setting="userProfileAutoCleanupEnabled" controlId="auto-cleanup-enabled">
         {/* A native switch: the shared Checkbox needs React context that the Shared view specs
             mock away. It stays in form state and saves with the Save button below. */}
-        <input
-          type="checkbox"
-          role="switch"
+        <Switch
           id="auto-cleanup-enabled"
           checked={nextEnabled}
           disabled={busy || !snapshot}
-          onChange={(event) => {
-            setEnabled(event.target.checked);
+          onCheckedChange={(checked) => {
+            setEnabled(checked);
             setMessage("");
           }}
         />

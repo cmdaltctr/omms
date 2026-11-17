@@ -282,8 +282,8 @@ it("defaults to the hosts with history, all projects and positive outputs, and r
   expect(input("Pi").props.checked).toBe(true);
   expect(input("OpenCode").props.checked).toBe(false);
   expect(input("Claude Code").props.checked).toBe(false);
-  input("Project memories").props.onChange({ target: { checked: false } });
-  input("User profile").props.onChange({ target: { checked: false } });
+  input("Project memories").props.onCheckedChange(false);
+  input("User profile").props.onCheckedChange(false);
   expect(button("Preview (dry run)").props.disabled).toBe(true);
   expect(button("Start import").props.disabled).toBe(true);
   expect(button("Import all hosts").props.disabled).toBe(true);
@@ -296,7 +296,7 @@ it("defaults to the hosts with history, all projects and positive outputs, and r
 it("requires a current preview, maps positive outputs to skip flags, and confirms paid work in the dialog", async () => {
   await mount();
   // Changing the outputs clears the list, so untick before listing.
-  input("Project memories").props.onChange({ target: { checked: false } });
+  input("Project memories").props.onCheckedChange(false);
   await choosePi();
   expect(button("Start import").props.disabled).toBe(true);
   await click("Preview (dry run)");
@@ -341,7 +341,7 @@ it("invalidates preview on output, force, date, batch, model and scope changes, 
   await mount();
   await choosePi();
   await click("Preview (dry run)");
-  input("User profile").props.onChange({ target: { checked: false } });
+  input("User profile").props.onCheckedChange(false);
   expect(button("Start import").props.disabled).toBe(true);
   // A new output choice clears the list; list and select again.
   await choosePi();
@@ -353,7 +353,9 @@ it("invalidates preview on output, force, date, batch, model and scope changes, 
     ["Prompt date to", "2026-01-02"],
     ["Profile batch size", "25"],
   ] as const) {
-    input(label).props.onChange({ target: { value, checked: value } });
+    const field = input(label).props;
+    if (typeof value === "boolean") field.onCheckedChange(value);
+    else field.onChange({ target: { value } });
     expect(button("Start import").props.disabled).toBe(true);
     // Re-analysis also changes which sessions are listed.
     if (label === "Re-analyse handled history") await choosePi();
@@ -377,18 +379,21 @@ it("preserves independent host selections when deselected and submits canonical 
   await choosePi();
   await click("All hosts");
   const lists = render().filter(
-    (node) => node.type === "button" && ["List sessions", "Refresh list"].includes(text(node))
+    (node) =>
+      (node.type === "button" || node.type === Button) &&
+      ["List sessions", "Refresh list"].includes(text(node))
   );
   for (const node of lists.slice(1)) {
     await node.props.onClick();
     await settle();
   }
   for (const node of render().filter(
-    (node) => node.type === "button" && text(node) === "Select all matching (1)"
+    (node) =>
+      (node.type === "button" || node.type === Button) && text(node) === "Select all matching (1)"
   ))
     node.props.onClick();
-  input("Pi").props.onChange({ target: { checked: false } });
-  input("Pi").props.onChange({ target: { checked: true } });
+  input("Pi").props.onCheckedChange(false);
+  input("Pi").props.onCheckedChange(true);
   await click("Preview (dry run)");
   const body = requests.filter((request) => request.path === "/api/settings/imports").at(-1)!.body!;
   expect(body.hosts.map((child: any) => child.host)).toEqual(["pi", "opencode", "claude-code"]);
@@ -406,9 +411,9 @@ it("keeps explicit selections across pages and invalidates a source override", a
   totalSessions = 60;
   await mount();
   await click("List sessions");
-  input("Pi: Select same-id").props.onChange();
+  input("Pi: Select same-id").props.onCheckedChange(true);
   await click("Next");
-  input("Pi: Select later").props.onChange();
+  input("Pi: Select later").props.onCheckedChange(true);
   await click("Preview (dry run)");
   const selected = requests.filter((request) => request.path === "/api/settings/imports").at(-1)!
     .body!.hosts[0].selection;
@@ -429,7 +434,7 @@ it("maps default and memory-only outputs without changing importer flag meanings
   expect(
     requests.filter((request) => request.path === "/api/settings/imports").at(-1)!.body!.options
   ).toMatchObject({ skipMemories: false, skipProfile: false });
-  input("User profile").props.onChange({ target: { checked: false } });
+  input("User profile").props.onCheckedChange(false);
   await choosePi();
   await click("Preview (dry run)");
   expect(
@@ -442,10 +447,10 @@ it("requires an explicit host, lets an unavailable reader be removed, and still 
   await mount();
   expect(button("List sessions").props.disabled).toBe(true);
   expect(render().map(text).join(" ")).toContain("Fix the reader or deselect Pi");
-  input("Pi").props.onChange({ target: { checked: false } });
+  input("Pi").props.onCheckedChange(false);
   expect(button("Preview (dry run)").props.disabled).toBe(true);
   expect(render().map(text).join(" ")).toContain("Choose at least one host.");
-  input("OpenCode").props.onChange({ target: { checked: true } });
+  input("OpenCode").props.onCheckedChange(true);
   await click("List sessions");
   await click("Select all matching (1)");
   expect(button("Preview (dry run)").props.disabled).toBe(false);
@@ -508,10 +513,10 @@ it("keeps the saved Skill turns choice when the profile-only preset clears it", 
     // The preset is not the user's choice, so it stores nothing either.
     expect(savedSkills()).toBeUndefined();
     // A choice the user makes is still saved.
-    await input("Skill turns").props.onChange({ target: { checked: true } });
+    await input("Skill turns").props.onCheckedChange(true);
     render();
     runEffects();
-    await input("Skill turns").props.onChange({ target: { checked: false } });
+    await input("Skill turns").props.onCheckedChange(false);
     render();
     runEffects();
     expect(savedSkills()).toBe(false);

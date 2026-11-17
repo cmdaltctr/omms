@@ -842,7 +842,7 @@ const text = {
   "No key": ["无密钥", "بلا مفتاح"],
   "Keep the saved key": ["保留已保存的密钥", "الاحتفاظ بالمفتاح المحفوظ"],
   Apply: ["应用", "تطبيق"],
-  Cancel: ["取消", "إلغاء الأمر"],
+  Cancel: ["取消", "إلغاء"],
   "Test passed. Vector size": ["测试通过。向量维度", "نجح الاختبار. حجم المتجه"],
   "Test failed": ["测试失败", "فشل الاختبار"],
   "Every stored memory will be re-embedded": [

@@ -1,3 +1,5 @@
+import { Button } from "$lib/components/ui/button";
+import { Checkbox } from "$lib/components/ui/checkbox";
 import { Select } from "$lib/components/ui/select";
 import { hostLabel, type WebHost } from "$lib/host-label";
 import { useSettingsText } from "$lib/i18n/settings";
@@ -10,7 +12,7 @@ import {
   selectedCount,
   toggleSession,
 } from "./import-draft";
-import { importButton, importField } from "./ImportOptions";
+import { importField } from "./ImportOptions";
 import type { HostDraft, ImportDraft, Readiness, SessionRow } from "./import-types";
 
 export function HostSessionSelection({
@@ -82,14 +84,15 @@ export function HostSessionSelection({
       <div hidden={!advanced}>
         <ImportSourcePicker host={host} onChoose={(source) => onChange({ source })} />
       </div>
-      <button
+      <Button
         type="button"
-        className={importButton}
+        variant="outline"
+        size="sm"
         disabled={listing || piBlocked}
         onClick={() => onList(0, true)}
       >
         {s(page ? "Refresh list" : "List sessions")}
-      </button>
+      </Button>
       {outdated && (
         <p role="status" className="text-sm">
           {s("Options changed. Refresh the session list first.")}
@@ -101,21 +104,23 @@ export function HostSessionSelection({
             <span role="status">
               {s("Selected")}: {selectedCount(draft, host)} / {total}
             </span>
-            <button
+            <Button
               type="button"
-              className={importButton}
+              variant="outline"
+              size="sm"
               disabled={total === 0}
               onClick={() => onChange({ selection: { mode: "all", excluded: new Set() } })}
             >
               {s("Select all matching")} ({total})
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className={importButton}
+              variant="outline"
+              size="sm"
               onClick={() => onChange({ selection: emptySelection() })}
             >
               {s("Clear selection")}
-            </button>
+            </Button>
           </div>
           <div className="max-w-full overflow-x-auto">
             <table className="w-full text-start text-sm">
@@ -134,12 +139,11 @@ export function HostSessionSelection({
                 {page.rows.map((row) => (
                   <tr key={row.key} className="border-t border-border">
                     <td className="p-1">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         aria-label={`${hostLabel(host)}: ${s("Select")} ${row.sessionId ?? row.key}`}
                         checked={row.selectable && selected(row)}
                         disabled={!row.selectable}
-                        onChange={() =>
+                        onCheckedChange={() =>
                           onChange({ selection: toggleSession(child.selection, row) })
                         }
                       />
@@ -176,26 +180,28 @@ export function HostSessionSelection({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <button
+            <Button
               type="button"
-              className={importButton}
+              variant="outline"
+              size="sm"
               disabled={listing || page.offset === 0}
               onClick={() => onList(Math.max(0, page.offset - 50), false)}
             >
               {s("Previous")}
-            </button>
+            </Button>
             <span>
               {page.total ? page.offset + 1 : 0}–{Math.min(page.offset + 50, page.total)} /{" "}
               {page.total}
             </span>
-            <button
+            <Button
               type="button"
-              className={importButton}
+              variant="outline"
+              size="sm"
               disabled={listing || page.offset + 50 >= page.total}
               onClick={() => onList(page.offset + 50, false)}
             >
               {s("Next")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
