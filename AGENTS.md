@@ -131,6 +131,7 @@ bun run ci:local   # check, build, then every test file in its own process
 
 - Use `bun run ci:local` as the required gate before a merge.
 - For a focused check, run one file through the runner: `bash scripts/run-tests-isolated.sh tests/<file>.test.ts`. A plain `bun test` refuses to run, so tests never touch your real `~/.omms` store.
+- Tests can never run a real global npm: the runner points npm's global prefix into the test home and puts a refusing `npm` first on PATH (TDR-087). A test that needs npm for read-only work, such as `npm pack --dry-run`, uses `OMMS_TEST_REAL_NPM`.
 - The Claude Code module files (`hooks/*.jsx`, `hooks/*.js`) have their own tests, `hooks/*.test.ts`. Bun does not run them. Run `bash scripts/test-claude-mod.sh`. It needs the `claude` command (2.1.295 or later). `ci:local` does not run it.
 - Some tests import `dist/`. If a focused test fails on missing `dist/` files, run `bun run build` first.
 - The first embedding test downloads a model from Hugging Face. It needs network access once.

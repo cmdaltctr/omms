@@ -1,6 +1,6 @@
 import { expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import pkg from "../package.json";
 import { addPackageSkill } from "../src/adapters/opencode/package-skills.js";
 
@@ -12,8 +12,14 @@ it("ships both skills and points Pi at their shared folder", () => {
 });
 
 it("packs both skill files and refuses to publish without them", () => {
+  // The test runner puts a refusing npm first on PATH. This dry run writes nothing,
+  // so it opts in to the real npm that the runner names. See TDR-087.
+  const realNpm = process.env.OMMS_TEST_REAL_NPM;
   const packed = Bun.spawnSync(["npm", "pack", "--dry-run", "--json", "--ignore-scripts"], {
     cwd: root,
+    env: realNpm
+      ? { ...process.env, PATH: `${dirname(realNpm)}${delimiter}${process.env.PATH}` }
+      : process.env,
     timeout: 25_000,
   });
   if (packed.exitCode !== 0) {
