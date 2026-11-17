@@ -17,14 +17,37 @@ the Pi coding-agent extension, and the Claude Code hooks. This page sets out:
      src/adapters/opencode   src/adapters/pi   src/adapters/claude-code
      + src/v2                (Pi extension)    (hook client, reached
                                                through src/cli)
+
+     src/shared (host registry, API types; no imports outside itself)
+     src/utils  (pure helpers and config parsers; no importer imports)
+     Every layer and the web app may import src/shared.
 ```
 
 Rules:
 
-- `src/core/*` and `src/services/*` must not import host SDKs
-  (`@opencode/*`, `@earendil-works/*`) or anything from `src/adapters/*`.
-  `tests/host-neutral-capture-boundary.test.ts` and
-  `tests/pi-adapter-boundary.test.ts` enforce this.
+- `src/core/*`, `src/services/*`, `src/types/*`, `src/utils/*`,
+  `src/shared/*`, and `src/config.ts` must not import host SDKs
+  (`@opencode/*`, `@opencode-ai/*`, `@earendil-works/*`).
+  `tests/module-boundaries.test.ts` enforces this for every file in those
+  folders. `tests/host-neutral-capture-boundary.test.ts` and
+  `tests/pi-adapter-boundary.test.ts` check the capture path and the Pi
+  readers.
+- `src/core/*` and `src/services/*` must not import anything from
+  `src/adapters/*`.
+- `src/shared/*` imports only `src/shared/*` and packages, so the web app can
+  use it through `$shared`. `tests/module-boundaries.test.ts` enforces this.
+- `src/config.ts` must not import `src/importer/*`. Config parsers live in
+  `src/utils/backfill-model.ts` and `src/utils/import-path-config.ts`.
+  `tests/config-boundary.test.ts` enforces this.
+- `src/utils/*` and `src/config.ts` must not import `src/adapters/*`,
+  `src/v2/*` or `src/plugin.ts`. `tests/module-boundaries.test.ts` enforces
+  this.
+- Shared code must not compare host names, switch on them, or list them. Read
+  host facts from the host registry (see [Host registry](#host-registry)).
+  `tests/host-branch-boundary.test.ts` enforces this. It reads the syntax tree
+  and fails on a host id (`pi`, `opencode`, `claude-code`, or the command name
+  `claude`) in an equality check or a `case`, and on two or more host ids in
+  one array, union type, regex, `Set` or `Map` keys.
 - `src/core/*`, `src/services/*`, and `src/types/*` must not import
   `src/importer/*`. The one exception is `src/services/web-server.ts`. It
   reaches the importer only through dynamic imports of
@@ -35,9 +58,14 @@ Rules:
 - The OpenCode entry points (`src/v2/adapter.ts`, `src/v2/plugin.ts`,
   `src/v2/startup.ts`) must not import `importer/` or `@earendil-works`
   directly. They load importer code through `src/adapters/opencode/*`.
+- Only the OpenCode host (`src/adapters/opencode/`, `src/v2/`,
+  `src/plugin.ts`) imports `src/v2/*` or `src/plugin.ts`.
+  `tests/module-boundaries.test.ts` enforces this.
 - Adapters own everything that is specific to a host: lifecycle events,
   session reading, host UI, host model access, and tool registration.
-- An adapter must not import another host's host-coupled modules.
+- An adapter must not import another host's adapter.
+  `tests/module-boundaries.test.ts` checks every pair of folders under
+  `src/adapters/`, read at run time, so a new host folder is checked too.
 - `src/adapters/claude-code/*` must not import the OpenCode or Pi adapters, or
   a host SDK. `src/core/*`, `src/services/*`, `src/importer/*`, `src/types/*`,
   and the OpenCode and Pi hosts must not import it. Only `src/cli/index.ts`
@@ -70,6 +98,32 @@ Rules:
   as in the standalone web app, OpenCode models report as unavailable.
 - `src/core/internal-prompt.ts` recognises omms's own summary and profile
   prompts, which are the same text on every host.
+
+## Host registry
+
+Shared code reads host facts from two files. Both are keyed by `MemoryHost`,
+so a host with no entry is a compile error. See
+[ADR-050](adr/050-one-host-registry-and-modularity-ratchets.md).
+
+| File                             | Holds                                                                                                                                                                                                                                                                         | Who imports it                                |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `src/shared/hosts.ts`            | `HOSTS` (the one host list, in API key order), `MemoryHost`, `isMemoryHost`, `hostLabel`, `hostLabelList`, `hostChoiceMessage`, and `HOST_INFO`: label, article, command name, session model, session commands, backfill-model config key, history source option. No imports. | Every layer, and `web/src/` through `$shared` |
+| `src/importer/host-importers.ts` | `HOST_IMPORTERS`: default source path, source check, picker start folder and file kind, session listing, import run, reader check, worktree hints, Settings model list. Readers that load the storage engine stay behind `import()`. Callers pass config values in.           | Importer modules only                         |
+
+- Hosts do not register at run time. The web app serves every host with no
+  adapter loaded, so the registry is static.
+- `ImportHost`, `BackfillHost` and the web `WebHost` are aliases of
+  `MemoryHost`. Do not write a host union anywhere else.
+- To check a value from a request or a row, use `isMemoryHost`. To loop over
+  hosts or build an object with one key per host, use `HOSTS`.
+- A host difference goes into `HostInfo` or `HostImporter` as a field, not
+  into an `if` on the host name. The live-model rule stays in
+  `src/services/ai/live-model-choice.ts`, in its `LIVE_MODELS` table.
+- Run-time registrations carry access to a running host's model, not host
+  identity: `registerHostProfileModel`, `registerOpencodeHostModels`, and
+  `registerHostBackfillModels`.
+- `tests/host-registry.test.ts` checks the host list and each host fact. The
+  boundary tests share one import scanner, `tests/source-imports.ts`.
 
 ## Ports (`src/core/host.ts`)
 
@@ -121,7 +175,8 @@ Hidden reasoning and host SDK objects never go into it.
 | `src/importer/backfill-controls.ts`                    | Run, Pause, and Resume. Each host registers its backfill model resolver with `registerHostBackfillModels`                     |
 | `src/importer/external-backfill-models.ts`             | Backfill models from the external API settings (`memoryModel`, `memoryApiUrl`, `memoryApiKey`)                                |
 | `src/importer/external-api-test.ts`                    | A short test call to the external API                                                                                         |
-| `src/importer/import-path-maps.ts`                     | Checks and normalises `importPathMaps` from the global config                                                                 |
+| `src/utils/import-path-config.ts`                      | Checks and normalises `importPathMaps` and `importIgnoredDirectories` from the global config                                  |
+| `src/importer/import-path-maps.ts`                     | Merges the saved path maps with a run's own maps                                                                              |
 | `src/importer/map-suggestions.ts`                      | Suggests path maps by looking for project markers such as `.git` and `package.json`                                           |
 | `src/importer/settings-health.ts`                      | Settings health checks for the web UI                                                                                         |
 | `src/importer/web-import-api.ts`, `web-import-jobs.ts` | The importer functions and jobs that the web server calls                                                                     |
@@ -140,7 +195,6 @@ Hidden reasoning and host SDK objects never go into it.
 | `src/importer/claude-hook-api.ts`       | Web app handlers for `POST /api/claude/retrieve` and `POST /api/claude/capture`, capture worker, retry drain |
 | `src/services/claude-capture-cursor.ts` | The last captured user entry for each Claude Code session, in `user-prompts.db`                              |
 | `src/cli/memory-command.ts`             | `om-memory-system memory <mode>`: the shared `memory` operations from a terminal, with host `claude-code`    |
-| `src/types/host-label.ts`               | `hostLabel()`: the display name of each host                                                                 |
 
 `resolveClaudeCodeLiveModel` in `src/services/ai/live-model-choice.ts` is the
 Claude Code model rule: the external API only. See
@@ -193,12 +247,62 @@ Phase 1 kept these, and later phases must keep them:
    - It restores memories after compaction through the `compaction` hook.
    - The `memory` tool, idle capture, and profile learning still go through the shared operations layer.
 
+## Ratchets
+
+`tests/modularity-ratchets.test.ts` limits three known debts. Each has a
+baseline of files with a count per file, like
+`tests/file-size-ceiling.test.ts`.
+
+| Ratchet          | Scope                                   | Counts                                                        | Follow-up it guards |
+| ---------------- | --------------------------------------- | ------------------------------------------------------------- | ------------------- |
+| `CONFIG` imports | `src/core/`, `src/services/`            | Non-type import sites of `src/config.ts`                      | Config injection    |
+| Storage imports  | All `src/` except `src/services/turso/` | Import sites of `@libsql/client` or `src/services/turso/*`    | Storage port        |
+| Raw SQL          | All `src/` except `src/services/turso/` | String literals that start with an SQL statement (upper case) | Storage port        |
+
+- A file not in a baseline must have a count of 0.
+- A listed file may not go above its count.
+- When a listed file goes below its count, write the new count. The test fails and tells you the number.
+- When a listed file reaches 0, delete its entry. The test fails until you do.
+- Each ratchet has a minimum file count, so an empty scan cannot pass.
+- Only `src/config.ts` may export `CONFIG`. A re-export in another file fails the test, so it cannot hide an import from the `CONFIG` ratchet.
+
+To pass a ratchet, take config as an argument (pattern:
+`src/services/ai/live-model-choice.ts`), or put the storage code in
+`src/services/turso/`. Do not raise a count.
+
 ## Add a new host adapter
 
-1. Implement `CaptureSummaryProvider` for the host's model runtime.
-2. Convert the host's transcript into `CaptureConversation`. Include visible text and bounded tool inputs only.
+Write the host's own code first:
+
+1. Create `src/adapters/<host>/`. Implement `CaptureSummaryProvider` for the host's model runtime, or use the external API as Claude Code does.
+2. Put the history reader and its import function in `src/importer/` (for example `<host>-reader.ts` and `<host>-import.ts`). Convert the host's transcript into `CaptureConversation`. Include visible text and bounded tool inputs only.
 3. Call `captureConversation` with a `CaptureWorkUnit` that carries provenance.
 4. Send the host's `memory` tool calls through `executeMemoryOperation`.
-5. Register a backfill model resolver with `registerHostBackfillModels`.
-6. Add the same features as the other hosts, so all hosts stay equal.
-7. Add boundary tests. Keep host SDKs out of the shared path. Use type-only host imports in the adapter.
+
+Then edit these 4 shared `src/` files. Add the host id to `HOSTS` first: the
+compiler then names files 2 and 3, because each holds a per-host table keyed by
+`MemoryHost`.
+
+1. `src/shared/hosts.ts`: the id in `HOSTS` and one `HOST_INFO` entry (label, article, command name, session model, session commands, backfill-model key, source option).
+2. `src/importer/host-importers.ts`: one `HOST_IMPORTERS` entry (default source, source check, picker, session listing, import run, reader check, worktree hints, Settings model list or `null`).
+3. `src/services/ai/live-model-choice.ts`: one `LIVE_MODELS` entry (the live-model status and whether it picks the external API). CLAUDE.md keeps the live-model rule in this file.
+4. `src/cli/index.ts`: the `import-<name>-history` line in the help text and in the "Expected ..." message. The compiler does not see this file. Its text lists OpenCode first, so building it from `HOSTS` would change the output. The command map itself comes from `HOSTS`.
+
+Everything else is built from the registry: the import source flags, the default source checks, the import run rows, the per-host API objects (capture saves, retry counts, directory-map suggestions, live-model statuses), the host routes in the web app, and the "Choose Pi, OpenCode, or Claude Code" messages.
+
+Extra edits only when they apply:
+
+- A host that lends its session model: `src/config.ts` and `src/config-template.ts` (host model keys), the `backfillModelKey` type in `src/shared/hosts.ts`, and the model check at the end of `importBlockedReason` in `src/importer/import-readiness.ts`. Its adapter registers a backfill model resolver with `registerHostBackfillModels`.
+- A source flag that is not `--root` or `--db`: the `flag` type in `src/shared/hosts.ts` and the `--root`/`--db` case in `src/importer/import-args.ts`.
+- Health rows for the host: `src/importer/settings-health.ts`.
+
+Outside `src/`:
+
+- The web app: the compiler names 9 files that hold a per-host record (all under `web/src/lib/`). Other web components still list hosts by hand; no test covers them yet.
+- `tests/host-registry.test.ts` lists the hosts. Add the new host there.
+- A new bundled entry point goes in `package.json` and `scripts/verify-package.mjs`. `tests/plugin-bundle-boundary.test.ts` checks the bundles.
+
+Add the same features as the other hosts, so all hosts stay equal. Keep host
+SDKs out of the shared path. Use type-only host imports in the adapter.
+`tests/module-boundaries.test.ts` checks the new adapter folder against the
+others with no edit.

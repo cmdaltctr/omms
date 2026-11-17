@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
 import { CONFIG } from "../config.js";
+import { HOST_INFO, HOSTS, hostLabel } from "../shared/hosts.js";
 import type { ImportHost } from "./import-args.js";
+import { HOST_IMPORTERS } from "./host-importers.js";
 import { defaultClaudeSourcePath, defaultImportSourcePath } from "./import-sources.js";
 
 /**
@@ -99,8 +101,10 @@ export async function importReadiness(deps: ReadinessDeps = {}): Promise<ImportR
     piReader,
     claudeCode,
     defaultSourceFound: {
-      pi: exists(defaultImportSourcePath("pi")),
-      opencode: exists(defaultImportSourcePath("opencode")),
+      ...(Object.fromEntries(
+        HOSTS.map((host) => [host, exists(defaultImportSourcePath(host, CONFIG.claudeConfigDir))])
+      ) as Record<ImportHost, boolean>),
+      // The same check as `claudeCode` above, which honours the `claudeRoot` test seam.
       "claude-code": claudeCode.defaultRootFound,
     },
   };
@@ -123,14 +127,13 @@ export function importBlockedReason(
   readiness: ImportReadiness,
   request: { host: ImportHost; needsModel: boolean; modelChoice?: string }
 ): string | null {
-  if (request.host === "pi" && !readiness.piReader.available) {
-    return readiness.piReader.reason ?? "The Pi session reader is unavailable";
-  }
+  const blocked = HOST_IMPORTERS[request.host].readerBlocked(readiness);
+  if (blocked !== null) return blocked;
   if (!request.needsModel) return null;
-  if (request.host === "claude-code") {
-    // Claude Code has no host models to offer.
+  if (!HOST_INFO[request.host].sessionModel) {
+    // A host with no session model (Claude Code) has no host models to offer.
     if (request.modelChoice !== undefined && request.modelChoice !== "external") {
-      return "Claude Code imports use the external API";
+      return `${hostLabel(request.host)} imports use the external API`;
     }
     const state = readiness.external.state;
     return state === "ready" ? null : EXTERNAL_REASONS[state];

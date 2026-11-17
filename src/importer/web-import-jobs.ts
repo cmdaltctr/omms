@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { isAbsolute } from "node:path";
 import { CONFIG } from "../config.js";
+import { HOST_INFO, HOSTS, hostChoiceMessage, hostLabel, isMemoryHost } from "../shared/hosts.js";
 import {
   importNeedsModel,
   parseHistoryImportArgs,
@@ -101,16 +102,13 @@ export function validateWebImportRequest(value: unknown): WebImportRequest | Gro
     });
     if (new Set(hosts.map((child) => child.host)).size !== hosts.length)
       throw new Error("Choose distinct hosts");
-    const order = ["pi", "opencode", "claude-code"];
-    hosts.sort((a, b) => order.indexOf(a.host) - order.indexOf(b.host));
+    hosts.sort((a, b) => HOSTS.indexOf(a.host) - HOSTS.indexOf(b.host));
     return {
       hosts: hosts.map(({ options: _options, ...child }) => child),
       options: hosts[0]!.options,
     };
   }
-  if (input.host !== "pi" && input.host !== "opencode" && input.host !== "claude-code") {
-    throw new Error("Choose Pi, OpenCode, or Claude Code");
-  }
+  if (!isMemoryHost(input.host)) throw new Error(hostChoiceMessage());
   if (!input.options || typeof input.options !== "object" || Array.isArray(input.options))
     throw new Error("Invalid import options");
   const options = input.options as Record<string, unknown>;
@@ -155,15 +153,11 @@ export function validateWebImportRequest(value: unknown): WebImportRequest | Gro
       (input.modelChoice !== "external" && !/^[^/]+\/.+$/.test(input.modelChoice)))
   )
     throw new Error("Choose a signed-in provider/model or the external API");
-  // Claude Code has no session model: its imports always use the external API.
-  if (
-    input.host === "claude-code" &&
-    input.modelChoice !== undefined &&
-    input.modelChoice !== "external"
-  )
-    throw new Error("Claude Code imports use the external API");
-  const modelChoice =
-    input.host === "claude-code" ? "external" : (input.modelChoice as string | undefined);
+  // A host with no session model (Claude Code): its imports always use the external API.
+  const sessionModel = HOST_INFO[input.host].sessionModel;
+  if (!sessionModel && input.modelChoice !== undefined && input.modelChoice !== "external")
+    throw new Error(`${hostLabel(input.host)} imports use the external API`);
+  const modelChoice = !sessionModel ? "external" : (input.modelChoice as string | undefined);
   return {
     host: input.host,
     source: input.source,

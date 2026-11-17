@@ -9,8 +9,8 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import {
   assertImportSourceUnchanged,
   browseImportSources,
@@ -236,4 +236,74 @@ it("accepts a real Pi sessions folder with deeply nested subagent runs by defaul
   writeFileSync(join(nested, "deep.jsonl"), header("sess-deep"));
   const found = discoverPiSessions({ root: sessions });
   expect(found.sessions.map((session) => session.sessionId)).toContain("sess-deep");
+});
+
+it("gives each host's default source, kinds, refusals, and browse filter (characterisation)", () => {
+  const { root, sessions, db } = workspace();
+  const claudeDir = join(root, "claude");
+  expect(defaultImportSourcePath("pi")).toBe(join(homedir(), ".pi", "agent", "sessions"));
+  expect(defaultImportSourcePath("opencode")).toBe(
+    join(homedir(), ".local/share/opencode/opencode.db")
+  );
+  expect(defaultImportSourcePath("claude-code", claudeDir)).toBe(join(claudeDir, "projects"));
+
+  const kinds = (host: "pi" | "opencode" | "claude-code") =>
+    [sessions, join(sessions, "b.jsonl"), db, join(root, "notes.txt"), db + ".bak"].map((path) => {
+      try {
+        return validateImportSource(host, path).kind;
+      } catch (error) {
+        return (error as Error).message;
+      }
+    });
+  const piChoose = "Choose a Pi sessions folder or one .jsonl session file";
+  expect(kinds("pi")).toEqual(["pi-folder", "pi-file", piChoose, piChoose, piChoose]);
+  const opencodeChoose = "Choose an OpenCode database file";
+  expect(kinds("opencode")).toEqual([
+    opencodeChoose,
+    opencodeChoose,
+    "opencode-db",
+    opencodeChoose,
+    opencodeChoose,
+  ]);
+  const claudeChoose = "Choose a Claude Code transcripts folder";
+  expect(kinds("claude-code")).toEqual([
+    "claude-projects",
+    claudeChoose,
+    claudeChoose,
+    claudeChoose,
+    claudeChoose,
+  ]);
+  writeFileSync(join(root, "bad.jsonl"), "not json\n");
+  expect(() => validateImportSource("pi", join(root, "bad.jsonl"))).toThrow(
+    "The file is not a Pi session file"
+  );
+
+  writeFileSync(join(sessions, "c.db"), "x");
+  const names = (host: "pi" | "opencode" | "claude-code") =>
+    browseImportSources(host, sessions).entries.map((entry) => `${entry.kind}:${entry.name}`);
+  expect(names("pi")).toEqual(["folder:nested", "pi-file:b.jsonl"]);
+  expect(names("opencode")).toEqual(["folder:nested", "opencode-db:c.db"]);
+  expect(names("claude-code")).toEqual(["folder:nested"]);
+
+  // With no path, browsing starts at the host's default folder, or home when it is missing.
+  // The default folders are made in the runner's scratch HOME, never the real one.
+  expect(homedir()).toBe(process.env.OMMS_TEST_HOME!);
+  const home = realpathSync.native(homedir());
+  for (const host of ["pi", "opencode", "claude-code"] as const) {
+    expect(browseImportSources(host, undefined, claudeDir).path).toBe(home);
+  }
+  const starts = {
+    pi: defaultImportSourcePath("pi"),
+    opencode: dirname(defaultImportSourcePath("opencode")),
+    "claude-code": join(claudeDir, "projects"),
+  };
+  for (const folder of Object.values(starts)) mkdirSync(folder, { recursive: true });
+  try {
+    for (const host of ["pi", "opencode", "claude-code"] as const) {
+      expect(browseImportSources(host, "", claudeDir).path).toBe(realpathSync.native(starts[host]));
+    }
+  } finally {
+    rmSync(join(homedir(), ".pi"), { recursive: true, force: true });
+    rmSync(join(homedir(), ".local"), { recursive: true, force: true });
+  }
 });

@@ -1,3 +1,4 @@
+import { HOST_INFO, HOSTS, type MemoryHost } from "../shared/hosts.js";
 import type { ImportPathMap } from "./importer.js";
 
 /**
@@ -8,7 +9,7 @@ import type { ImportPathMap } from "./importer.js";
  * external API and key).
  */
 
-export type ImportHost = "pi" | "opencode" | "claude-code";
+export type ImportHost = MemoryHost;
 export type ImportSurface = "session" | "cli" | "web";
 
 export interface HistoryImportArgs {
@@ -38,13 +39,9 @@ export interface HistoryImportArgs {
   errors: string[];
 }
 
-export const SOURCE_FLAG: Record<ImportHost, string> = {
-  pi: "--root",
-  opencode: "--db",
-  "claude-code": "--root",
-};
-
 const CLI_ONLY_FLAGS = new Set(["--provider", "--api-url", "--api-key-env"]);
+// Each host accepts only its own history source flag.
+const SOURCE_FLAGS = new Set<string>(HOSTS.map((host) => HOST_INFO[host].sourceOption.flag));
 const BOOLEAN_FLAGS = new Set([
   "--help",
   "-h",
@@ -64,8 +61,7 @@ const VALUE_FLAGS = new Set([
   "--until",
   "--max-sessions",
   "--map",
-  "--root",
-  "--db",
+  ...SOURCE_FLAGS,
   ...CLI_ONLY_FLAGS,
 ]);
 
@@ -107,7 +103,7 @@ export function parseHistoryImportArgs(
     pathMaps: [],
     errors: [],
   };
-  const sourceFlag = SOURCE_FLAG[options.host];
+  const sourceFlag = HOST_INFO[options.host].sourceOption.flag;
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i]!;
@@ -127,7 +123,7 @@ export function parseHistoryImportArgs(
       else result.skipProfile = true;
       continue;
     }
-    if (!VALUE_FLAGS.has(flag) || ((flag === "--root" || flag === "--db") && flag !== sourceFlag)) {
+    if (!VALUE_FLAGS.has(flag) || (SOURCE_FLAGS.has(flag) && flag !== sourceFlag)) {
       result.errors.push(`Unknown option: "${token}"`);
       continue;
     }
@@ -277,18 +273,14 @@ export function importNeedsModel(args: HistoryImportArgs): boolean {
 }
 
 export function historyImportUsage(host: ImportHost, surface: ImportSurface): string {
-  const name = host === "claude-code" ? "claude" : host;
-  // Claude Code has no session command surface, so its usage names the terminal command.
+  const info = HOST_INFO[host];
+  const name = info.commandName;
+  // A host with no session command surface (Claude Code) names the terminal command.
   const invoke =
-    surface === "session" && host !== "claude-code"
+    surface === "session" && info.sessionCommands
       ? `/memory-import-${name}-history`
       : `om-memory-system import-${name}-history`;
-  const source =
-    host === "pi"
-      ? "  --root <dir>              Pi session root (default ~/.pi/agent/sessions)"
-      : host === "claude-code"
-        ? "  --root <dir>              Claude Code transcripts folder (default ~/.claude/projects)"
-        : "  --db <path>               OpenCode database (default ~/.local/share/opencode/opencode.db)";
+  const source = info.sourceOption.usage;
   const model =
     surface === "session"
       ? `  --model <provider/id>     Use another signed-in model (default: this session's model)`

@@ -1,4 +1,6 @@
+import { HOST_INFO, HOSTS, hostLabelList } from "../shared/hosts.js";
 import type { ImportHost } from "./import-args.js";
+import { HOST_IMPORTERS } from "./host-importers.js";
 import type { ImportReadiness } from "./import-readiness.js";
 import type { ImportSelection } from "./import-sessions.js";
 import {
@@ -14,12 +16,11 @@ import {
  * progress, and it calls no model. Safe to run again: `turn_key` drops copies.
  */
 
-const HOSTS: ImportHost[] = ["pi", "opencode", "claude-code"];
-
 /** Hosts whose default history exists on this computer and whose reader loads. */
 export function setUpHosts(readiness: ImportReadiness): ImportHost[] {
   return HOSTS.filter(
-    (host) => readiness.defaultSourceFound[host] && (host !== "pi" || readiness.piReader.available)
+    (host) =>
+      readiness.defaultSourceFound[host] && HOST_IMPORTERS[host].readerBlocked(readiness) === null
   );
 }
 
@@ -60,7 +61,7 @@ export async function recordPastTurnsRequest(
       source: page.source.sourceToken,
       selection,
       // Claude Code imports name the external API; this run never calls it.
-      ...(host === "claude-code" ? { modelChoice: "external" } : {}),
+      ...(!HOST_INFO[host].sessionModel ? { modelChoice: "external" } : {}),
     });
   }
   return {
@@ -83,7 +84,7 @@ export async function startRecordPastTurns(
 ) {
   const request = await recordPastTurnsRequest(cwd, readiness, options);
   if (request.hosts.length === 0) {
-    throw new ImportJobError("No Pi, OpenCode or Claude Code history was found on this computer");
+    throw new ImportJobError(`No ${hostLabelList(" or ")} history was found on this computer`);
   }
   return jobs.start(request, cwd);
 }

@@ -1,3 +1,4 @@
+import type { MemoryHost } from "../../shared/hosts.js";
 import { isPlaceholderApiKey } from "./api-key-placeholder.js";
 
 /**
@@ -149,4 +150,41 @@ export function isExternalModelReady(config: AutoCaptureProviderRuntimeConfig): 
 export function externalModelIssues(config: AutoCaptureProviderRuntimeConfig): string[] {
   const manual = getManualProviderStatus(config);
   return manual.ready ? [] : manual.issues;
+}
+
+type LiveModelConfig = AutoCaptureProviderRuntimeConfig & { piProvider?: string; piModel?: string };
+
+// Each host's live model rule. The key order is the key order of `effective` in the settings API.
+const LIVE_MODELS = {
+  opencode: {
+    status: getAutoCaptureProviderStatus,
+    usesExternal: (config) => {
+      const live = getAutoCaptureProviderStatus(config);
+      return live.ready && live.mode === "manual";
+    },
+  },
+  pi: {
+    status: resolvePiLiveModel,
+    usesExternal: (config) => resolvePiLiveModel(config).kind === "manual",
+  },
+  // Claude Code has no host model, so its live model is always the external API.
+  "claude-code": { status: resolveClaudeCodeLiveModel, usesExternal: () => true },
+} satisfies Record<
+  MemoryHost,
+  {
+    status: (config: LiveModelConfig) => unknown;
+    usesExternal: (config: LiveModelConfig) => boolean;
+  }
+>;
+
+/** True when the host's live model rule picks the external API. */
+export function liveModelUsesExternal(host: MemoryHost, config: LiveModelConfig): boolean {
+  return LIVE_MODELS[host].usesExternal(config);
+}
+
+/** Each host's live model status, for the settings API. */
+export function liveModelStatuses(config: LiveModelConfig) {
+  return Object.fromEntries(
+    Object.entries(LIVE_MODELS).map(([host, rule]) => [host, rule.status(config)])
+  ) as { [H in MemoryHost]: ReturnType<(typeof LIVE_MODELS)[H]["status"]> };
 }

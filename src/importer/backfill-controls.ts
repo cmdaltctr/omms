@@ -1,12 +1,8 @@
 import { CONFIG } from "../config.js";
 import { log } from "../services/logger.js";
-import { hostLabel } from "../types/host-label.js";
-import {
-  externalModelIssues,
-  getAutoCaptureProviderStatus,
-  resolvePiLiveModel,
-} from "../services/ai/live-model-choice.js";
-import { parseBackfillModel, type BackfillHost } from "./backfill-model.js";
+import { HOST_INFO, HOSTS, hostLabel } from "../shared/hosts.js";
+import { externalModelIssues, liveModelUsesExternal } from "../services/ai/live-model-choice.js";
+import { parseBackfillModel, type BackfillHost } from "../utils/backfill-model.js";
 import { readImportRun, setBackfillPaused, type ImportRun } from "./import-runs.js";
 import type { HistoryImportModels } from "./run-import.js";
 
@@ -61,15 +57,13 @@ export function backfillUsesExternal(host: BackfillHost): boolean {
   const choice = parseBackfillModel(CONFIG, host);
   if (choice === "external") return true;
   if (choice !== "inherit") return false;
-  if (host === "pi") return resolvePiLiveModel(CONFIG).kind === "manual";
-  const live = getAutoCaptureProviderStatus(CONFIG);
-  return live.ready && live.mode === "manual";
+  return liveModelUsesExternal(host, CONFIG);
 }
 
 /** Why Run now is not available for the host in this process, or null when it is. */
 export function runNowUnavailableReason(host: BackfillHost): string | null {
-  // Claude Code has no host model: its backfill needs the external API, so name the missing setting.
-  if (host === "claude-code") {
+  // No host model (Claude Code): its backfill needs the external API, so name the missing setting.
+  if (!HOST_INFO[host].sessionModel) {
     const issues = externalModelIssues(CONFIG);
     return issues.length > 0 ? issues.join("; ") : null;
   }
@@ -103,11 +97,9 @@ export class BackfillControls {
       run: await readImportRun(host),
       runNowUnavailable: runNowUnavailableReason(host),
     });
-    return {
-      pi: await entry("pi"),
-      opencode: await entry("opencode"),
-      "claude-code": await entry("claude-code"),
-    };
+    const status = {} as Record<BackfillHost, BackfillHostStatus>;
+    for (const host of HOSTS) status[host] = await entry(host);
+    return status;
   }
 
   async runNow(host: BackfillHost, cwd: string): Promise<{ started: true }> {
@@ -116,7 +108,7 @@ export class BackfillControls {
     const current = await readImportRun(host);
     if (current?.state === "running" || this.controllers.has(host)) {
       throw new BackfillControlError(
-        `${host === "opencode" ? "An" : "A"} ${hostLabel(host)} import is already running`,
+        `${HOST_INFO[host].article} ${hostLabel(host)} import is already running`,
         409
       );
     }

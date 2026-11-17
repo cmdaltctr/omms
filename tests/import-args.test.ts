@@ -105,3 +105,71 @@ describe("--skip-skills", () => {
     expect(importNeedsModel(args)).toBe(false);
   });
 });
+
+describe("history import usage per host and surface (characterisation)", () => {
+  const sources = {
+    pi: "  --root <dir>              Pi session root (default ~/.pi/agent/sessions)",
+    opencode:
+      "  --db <path>               OpenCode database (default ~/.local/share/opencode/opencode.db)",
+    "claude-code":
+      "  --root <dir>              Claude Code transcripts folder (default ~/.claude/projects)",
+  } as const;
+  const invokes = {
+    pi: { session: "/memory-import-pi-history", other: "om-memory-system import-pi-history" },
+    opencode: {
+      session: "/memory-import-opencode-history",
+      other: "om-memory-system import-opencode-history",
+    },
+    "claude-code": {
+      session: "om-memory-system import-claude-history",
+      other: "om-memory-system import-claude-history",
+    },
+  } as const;
+  const sessionModel =
+    "  --model <provider/id>     Use another signed-in model (default: this session's model)";
+
+  it("names the command, source option, and model options for each host", () => {
+    const rest = new Set<string>();
+    for (const host of ["pi", "opencode", "claude-code"] as const) {
+      for (const surface of ["session", "cli", "web"] as const) {
+        const usage = historyImportUsage(host, surface);
+        const invoke = surface === "session" ? invokes[host].session : invokes[host].other;
+        const lines = usage.split("\n");
+        expect(lines[0]).toBe(`Usage: ${invoke} [options]`);
+        expect(lines).toContain(`Preview first: ${invoke} --dry-run`);
+        expect(lines).toContain(sources[host]);
+        expect(lines.includes(sessionModel)).toBe(surface === "session");
+        expect(
+          lines.includes(
+            "  --api-key-env <name>      Read the API key from this environment variable"
+          )
+        ).toBe(surface !== "session");
+        const shared = usage
+          .replaceAll(invoke, "<invoke>")
+          .replace(sources[host], "<source>")
+          .replace(/\n {2}--model[\s\S]*?(?=\n {2}--scope)/, "\n<model>");
+        rest.add(shared);
+      }
+    }
+    // Every other line is the same text for every host and surface.
+    expect(rest.size).toBe(1);
+  });
+});
+
+// Characterisation (modular-boundaries): the source flag now comes from the host registry.
+describe("history source flag per host", () => {
+  const cases = [
+    ["pi", "--root", "--db"],
+    ["opencode", "--db", "--root"],
+    ["claude-code", "--root", "--db"],
+  ] as const;
+  for (const [host, own, other] of cases) {
+    it(`takes ${own} and refuses ${other} for ${host}`, () => {
+      for (const surface of ["session", "cli", "web"] as const) {
+        const parsed = parseHistoryImportArgs([own, "/s", `${other}=/t`], { host, surface });
+        expect(parsed.source).toBe("/s");
+        expect(parsed.errors).toEqual([`Unknown option: "${other}=/t"`]);
+      }
+    });
+  }
+});

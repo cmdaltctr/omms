@@ -8,12 +8,11 @@ import {
   type HistoryImportArgs,
   type ImportHost,
 } from "../importer/import-args.js";
+import { HOST_INFO, HOSTS } from "../shared/hosts.js";
 
-const COMMANDS: Record<string, ImportHost> = {
-  "import-opencode-history": "opencode",
-  "import-pi-history": "pi",
-  "import-claude-history": "claude-code",
-};
+const COMMANDS = new Map<string, ImportHost>(
+  HOSTS.map((host) => [`import-${HOST_INFO[host].commandName}-history`, host])
+);
 
 const usage = `Usage: om-memory-system <command> [options]
 
@@ -42,7 +41,7 @@ uses the external API or --provider, --api-url, and --api-key-env.`;
 
 export function parseImportArgs(argv: string[]): { host: ImportHost; args: HistoryImportArgs } {
   const [command, ...rest] = argv;
-  const host = command ? COMMANDS[command] : undefined;
+  const host = command ? COMMANDS.get(command) : undefined;
   if (!host) {
     throw new Error(
       "Expected import-opencode-history, import-pi-history, or import-claude-history; use --help"

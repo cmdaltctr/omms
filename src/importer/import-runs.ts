@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { CONFIG } from "../config.js";
 import { safeHealthError } from "../services/safe-health-error.js";
 import { tursoConnectionManager } from "../services/turso/connection-manager.js";
-import type { BackfillHost } from "./backfill-model.js";
+import { HOSTS } from "../shared/hosts.js";
+import type { BackfillHost } from "../utils/backfill-model.js";
 import { isProcessAlive } from "./backfill-lock.js";
 import {
   addProgressSample,
@@ -67,9 +68,10 @@ async function table(storagePath?: string) {
       if (!String((error as Error)?.message ?? error).includes("duplicate column")) throw error;
     }
   }
-  // A row per host keeps every later statement a plain UPDATE.
+  // A row per host keeps every later statement a plain UPDATE. The ids are bound, never spliced.
   await db.run(
-    "INSERT OR IGNORE INTO import_runs (host) VALUES ('pi'), ('opencode'), ('claude-code')"
+    `INSERT OR IGNORE INTO import_runs (host) VALUES ${HOSTS.map(() => "(?)").join(", ")}`,
+    [...HOSTS]
   );
   return db;
 }

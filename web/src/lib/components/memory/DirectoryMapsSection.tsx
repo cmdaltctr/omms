@@ -8,6 +8,7 @@ import {
 } from "$lib/settings-api";
 import { mapsToSave, type MapDecision, type PathMap } from "$lib/external-api-settings";
 import { useSettingsText } from "$lib/i18n/settings";
+import type { WebHost } from "$lib/host-label";
 import {
   confirmedEdits,
   groupSavedMaps,
@@ -23,7 +24,6 @@ import { IgnoreAllDialog } from "../settings/IgnoreAllDialog";
 import { Button } from "$lib/components/ui/button";
 
 type Snapshot = { revision: string; settings?: { importPathMaps?: { globalValue?: PathMap[] } } };
-type Host = "pi" | "opencode" | "claude-code";
 type Suggested = SuggestedDirectory;
 type View = {
   saved: PathMap[];
@@ -46,20 +46,20 @@ export function DirectoryMapsSection({
   title,
   anchorId,
 }: {
-  hosts?: readonly Host[];
+  hosts?: readonly WebHost[];
   saved?: boolean;
   title?: string;
   anchorId?: string;
 } = {}) {
   const s = useSettingsText();
-  const [ignoringAll, setIgnoringAll] = useState<{ host: Host; rows: Suggested[] }>();
+  const [ignoringAll, setIgnoringAll] = useState<{ host: WebHost; rows: Suggested[] }>();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [view, setView] = useState<View>();
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<Record<string, MapDecision>>({});
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [pending, setPending] = useState<{ host: Host; review: DirectoryMapReview }>();
+  const [pending, setPending] = useState<{ host: WebHost; review: DirectoryMapReview }>();
   const [reviewError, setReviewError] = useState("");
   const [refreshNeeded, setRefreshNeeded] = useState<"saved" | "conflict">();
   const saving = useRef(false);
@@ -103,7 +103,7 @@ export function DirectoryMapsSection({
       unsubscribe();
     };
   }, []);
-  function smartResolve(host: Host, rows: Suggested[]) {
+  function smartResolve(host: WebHost, rows: Suggested[]) {
     if (saving.current || refreshNeeded) return;
     setReviewError("");
     setPending({ host, review: reviewDirectoryMaps(rows, decisions) });

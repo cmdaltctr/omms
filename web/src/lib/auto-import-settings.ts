@@ -1,4 +1,6 @@
-export type BackfillHost = "pi" | "opencode" | "claude-code";
+import type { MemoryHost } from "$shared/hosts";
+
+export type BackfillHost = MemoryHost;
 /** Hosts with a backfill model setting. Claude Code always uses the external API. */
 export type ModelBackfillHost = Exclude<BackfillHost, "claude-code">;
 export type BackfillState = { state: string } | null;

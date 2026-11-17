@@ -8,6 +8,7 @@ import { scheduleAutoBackfill } from "../src/importer/auto-backfill.js";
 import { tryAcquireBackfillLock } from "../src/importer/backfill-lock.js";
 import { readImportRun, setBackfillPaused, startImportRun } from "../src/importer/import-runs.js";
 import { runHistoryImport } from "../src/importer/run-import.js";
+import { HOSTS } from "../src/shared/hosts.js";
 import {
   readUnresolvedDirectories,
   recordUnresolvedDirectories,
@@ -331,5 +332,16 @@ describe("pausing a backfill", () => {
         }) as never,
     } as never);
     expect(await readUnresolvedDirectories("opencode")).toEqual(listed);
+  });
+});
+
+describe("import run table", () => {
+  // Every later write is a plain UPDATE, so a host without a row never saves its state.
+  it("creates one row for every host in the registry", async () => {
+    const directory = store();
+    await startImportRun("pi", "cli");
+    const db = await tursoConnectionManager.getConnection(join(directory, "import-ledger.db"));
+    const rows = await db.all("SELECT host FROM import_runs ORDER BY rowid");
+    expect(rows.map((row) => row.host)).toEqual([...HOSTS]);
   });
 });

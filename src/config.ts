@@ -6,8 +6,9 @@ import { log } from "./services/logger.js";
 import { resolveSecretValue } from "./services/secret-resolver.js";
 import { isPlaceholderApiKey } from "./services/ai/api-key-placeholder.js";
 import { getAutoCaptureProviderStatus } from "./services/ai/live-model-choice.js";
-import { parseBackfillModel } from "./importer/backfill-model.js";
-import { parseIgnoredDirectories, parseImportPathMaps } from "./importer/import-path-maps.js";
+import { parseBackfillModel } from "./utils/backfill-model.js";
+import { parseIgnoredDirectories, parseImportPathMaps } from "./utils/import-path-config.js";
+import { HOSTS } from "./shared/hosts.js";
 import {
   normaliseSkillConfig,
   projectSkillOverride,
@@ -512,8 +513,7 @@ function buildConfig(fileConfig: OmmsConfig) {
   );
   const userProfileAutoCleanupInterval =
     fileConfig.userProfileAutoCleanupInterval ?? DEFAULTS.userProfileAutoCleanupInterval;
-  parseBackfillModel(fileConfig, "pi");
-  parseBackfillModel(fileConfig, "opencode");
+  for (const host of HOSTS) parseBackfillModel(fileConfig, host);
   const importPathMaps = parseImportPathMaps(fileConfig.importPathMaps);
   const importIgnoredDirectories = parseIgnoredDirectories(fileConfig.importIgnoredDirectories);
   if (

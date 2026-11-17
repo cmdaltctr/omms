@@ -222,4 +222,18 @@ describe("claims", () => {
     expect(await queue.claimCaptureRetry(row!.id, config, T0 + HOUR + 60_000)).toBe(false);
     expect(await queue.claimCaptureRetry(row!.id, config, T0 + HOUR + 6 * 60_000)).toBe(true);
   });
+
+  it("leaves a row from an unknown host out of the per-host counts", async () => {
+    await queue.enqueueCaptureRetry(unit(), network, config, T0);
+    await queue.enqueueCaptureRetry(
+      unit({ host: "x" as never, promptId: "turn-x" }),
+      network,
+      config,
+      T0
+    );
+    expect(await rawRows()).toHaveLength(2);
+    const counts = await queue.countCaptureRetries(config);
+    expect(counts).toEqual({ opencode: 0, pi: 1, "claude-code": 0 });
+    expect(Object.keys(counts)).toEqual(["opencode", "pi", "claude-code"]);
+  });
 });

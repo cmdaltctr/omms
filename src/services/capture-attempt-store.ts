@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { CONFIG } from "../config.js";
+import { HOSTS, type MemoryHost } from "../shared/hosts.js";
 import type { CaptureAttemptRecord } from "./capture-diagnostics.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 
@@ -80,9 +81,7 @@ export async function hasCaptureAttempts(host: string): Promise<boolean> {
 }
 
 /** Each host's newest live capture that saved a memory, in milliseconds, or null. */
-export async function lastLiveSaves(): Promise<
-  Record<"pi" | "opencode" | "claude-code", number | null>
-> {
+export async function lastLiveSaves(): Promise<Record<MemoryHost, number | null>> {
   const db = await database();
   const rows = await db.all(
     `SELECT host, MAX(created_at) AS at FROM capture_attempts
@@ -92,7 +91,10 @@ export async function lastLiveSaves(): Promise<
     const row = rows.find((entry) => entry.host === host);
     return row ? Number(row.at) : null;
   };
-  return { pi: at("pi"), opencode: at("opencode"), "claude-code": at("claude-code") };
+  return Object.fromEntries(HOSTS.map((host) => [host, at(host)])) as Record<
+    MemoryHost,
+    number | null
+  >;
 }
 
 export async function pruneCaptureAttempts(days: number, now = Date.now()): Promise<number> {

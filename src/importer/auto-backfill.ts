@@ -1,7 +1,7 @@
 import { CONFIG, refreshConfigIfChanged } from "../config.js";
 import type { CaptureSummaryProvider } from "../core/host.js";
 import { log } from "../services/logger.js";
-import type { BackfillHost } from "./backfill-model.js";
+import type { BackfillHost } from "../utils/backfill-model.js";
 import { tryAcquireBackfillLock } from "./backfill-lock.js";
 import {
   getBackfillCutoff,

@@ -49,6 +49,7 @@ import {
   handleUpdateProfileItem,
 } from "./api-handlers.js";
 import { routeModules, spaceStatus } from "./web-route-modules.js";
+import { HOSTS, hostChoiceMessage, isMemoryHost, type MemoryHost } from "../shared/hosts.js";
 
 /**
  * Runtime-portable HTTP server handle.
@@ -1109,7 +1110,7 @@ export class WebServer {
           ...(CONFIG.importIgnoredDirectories ?? []),
           ...CONFIG.importPathMaps.map((map) => map.from),
         ];
-        const status = async (host: "pi" | "opencode" | "claude-code") => {
+        const status = async (host: MemoryHost) => {
           const current = await readBackfillStatus(host);
           if (!current) return current;
           // A damaged list must not hide the host's status: keep the run's count.
@@ -1118,22 +1119,19 @@ export class WebServer {
           const unresolved = visibleUnresolvedCount(current.counts.unresolved, directories, hidden);
           return { ...current, counts: { ...current.counts, unresolved } };
         };
-        const [pi, opencode, claudeCode] = await Promise.all([
-          status("pi"),
-          status("opencode"),
-          status("claude-code"),
-        ]);
-        return this.jsonResponse({ pi, opencode, "claude-code": claudeCode });
+        const statuses = await Promise.all(HOSTS.map((host) => status(host)));
+        return this.jsonResponse(Object.fromEntries(HOSTS.map((host, i) => [host, statuses[i]])));
       }
 
       if (path === "/api/settings/backfill/runs" && method === "GET") {
         return this.jsonResponse(await (await this.backfillControls()).status());
       }
 
-      const backfillAction =
-        /^\/api\/settings\/backfill\/(pi|opencode|claude-code)\/(run|pause|resume)$/.exec(path);
+      const backfillAction = new RegExp(
+        `^/api/settings/backfill/(${HOSTS.join("|")})/(run|pause|resume)$`
+      ).exec(path);
       if (backfillAction && method === "POST") {
-        const host = backfillAction[1] as "pi" | "opencode" | "claude-code";
+        const host = backfillAction[1] as MemoryHost;
         const controls = await this.backfillControls();
         const cwd = this.config.directory ?? process.cwd();
         return this.importResponse(() =>
@@ -1343,12 +1341,11 @@ export class WebServer {
       }
 
       if (path === "/api/settings/models" && method === "GET") {
-        const { listOpencodeSettingsModels, listPiSettingsModels } =
-          await import("../importer/settings-models.js");
+        const { listSettingsModels } = await import("../importer/settings-models.js");
         const host = url.searchParams.get("host");
-        if (host === "pi") return this.jsonResponse(await listPiSettingsModels());
-        if (host === "opencode") return this.jsonResponse(await listOpencodeSettingsModels());
-        return this.jsonResponse({ error: "Invalid host" }, 400);
+        const models = isMemoryHost(host) ? await listSettingsModels(host) : null;
+        if (!models) return this.jsonResponse({ error: "Invalid host" }, 400);
+        return this.jsonResponse(models);
       }
 
       if (path === "/api/settings/last-saved" && method === "GET") {
@@ -1364,7 +1361,7 @@ export class WebServer {
         ]);
         const days = Math.max(1, Math.min(90, Number(url.searchParams.get("days")) || 7));
         const host = url.searchParams.get("host") || undefined;
-        if (host && !["opencode", "pi", "claude-code"].includes(host)) {
+        if (host && !isMemoryHost(host)) {
           return this.jsonResponse({ error: "Invalid host" }, 400);
         }
         return this.jsonResponse({
@@ -1373,7 +1370,7 @@ export class WebServer {
         });
       }
 
-      const retryNow = /^\/api\/settings\/capture-retry\/(pi|opencode|claude-code)\/run$/.exec(
+      const retryNow = new RegExp(`^/api/settings/capture-retry/(${HOSTS.join("|")})/run$`).exec(
         path
       );
       if (retryNow && method === "POST") {
@@ -1381,7 +1378,7 @@ export class WebServer {
           import("../config.js"),
           import("./capture-retry-drain.js"),
         ]);
-        const host = retryNow[1] as "pi" | "opencode" | "claude-code";
+        const host = retryNow[1] as MemoryHost;
         return this.jsonResponse({ result: await requestCaptureRetryNow(host, CONFIG) });
       }
 
@@ -1438,31 +1435,25 @@ export class WebServer {
           );
         }
         const body = (await req.json()) as { host?: unknown; path?: unknown };
-        if (body?.host !== "pi" && body?.host !== "opencode" && body?.host !== "claude-code") {
-          return this.jsonResponse({ error: "Choose Pi, OpenCode, or Claude Code" }, 400);
+        if (!isMemoryHost(body?.host)) {
+          return this.jsonResponse({ error: hostChoiceMessage() }, 400);
         }
         const [{ browseImportSources }, { CONFIG }] = await Promise.all([
           import("../importer/web-import-api.js"),
           import("../config.js"),
         ]);
         return this.importResponse(() =>
-          browseImportSources(
-            body.host as "pi" | "opencode" | "claude-code",
-            body.path,
-            CONFIG.claudeConfigDir
-          )
+          browseImportSources(body.host as MemoryHost, body.path, CONFIG.claudeConfigDir)
         );
       }
 
       if (path === "/api/settings/imports/sources/validate" && method === "POST") {
         const body = (await req.json()) as { host?: unknown; path?: unknown };
-        if (body?.host !== "pi" && body?.host !== "opencode" && body?.host !== "claude-code") {
-          return this.jsonResponse({ error: "Choose Pi, OpenCode, or Claude Code" }, 400);
+        if (!isMemoryHost(body?.host)) {
+          return this.jsonResponse({ error: hostChoiceMessage() }, 400);
         }
         const { validateImportSource } = await import("../importer/web-import-api.js");
-        return this.importResponse(() =>
-          validateImportSource(body.host as "pi" | "opencode" | "claude-code", body.path)
-        );
+        return this.importResponse(() => validateImportSource(body.host as MemoryHost, body.path));
       }
 
       if (path === "/api/settings/imports/sessions" && method === "POST") {

@@ -6,7 +6,7 @@ import type { HistoryImportArgs, ImportHost } from "./import-args.js";
 import type { ImportPathMap, ImportReport } from "./importer.js";
 import type { UnresolvedProject } from "./opencode-project.js";
 import type { ImportSurface } from "./import-runs.js";
-import { hostLabel } from "../types/host-label.js";
+import { HOST_INFO, hostLabel } from "../shared/hosts.js";
 
 /** The two model roles an import uses; absent in a dry run or when the step is skipped. */
 export interface HistoryImportModels {
@@ -57,7 +57,7 @@ const dryRunCapture: CaptureSummaryProvider = {
 /** Another process or surface holds this host's import lock. */
 export class ImportAlreadyRunningError extends Error {
   constructor(host: ImportHost) {
-    super(`${host === "opencode" ? "An" : "A"} ${hostLabel(host)} import is already running`);
+    super(`${HOST_INFO[host].article} ${hostLabel(host)} import is already running`);
     this.name = "ImportAlreadyRunningError";
   }
 }
@@ -185,40 +185,6 @@ async function runUntracked(
   const pathMaps = await runPathMaps(args.pathMaps, run.cwd, run.savedPathMaps);
   const capture = run.models.capture ?? dryRunCapture;
 
-  if (host === "opencode") {
-    const { importOpencodeHistory } = await import("./opencode-import.js");
-    return importOpencodeHistory({
-      ...(args.source ? { dbPath: at(args.source) } : {}),
-      dryRun: args.dryRun,
-      ...(args.since !== undefined ? { since: args.since } : {}),
-      ...(args.until !== undefined ? { until: args.until } : {}),
-      ...(args.session ? { session: args.session } : {}),
-      ...(run.selection
-        ? {
-            selectionKeys: run.selection.keys,
-            cutoff: run.selection.cutoff,
-            ...(run.selection.snapshotKey
-              ? { snapshot: { key: run.selection.snapshotKey, mode: "reuse" as const } }
-              : {}),
-          }
-        : {}),
-      ...(project ? { project } : {}),
-      ...(args.maxSessions ? { maxSessions: args.maxSessions } : {}),
-      ...(args.profileBatch ? { profileBatch: args.profileBatch } : {}),
-      pathMaps,
-      force: args.force,
-      skipMemories: args.skipMemories,
-      skipProfile: args.skipProfile,
-      skipSkills: args.skipSkills,
-      ...(run.signal ? { signal: run.signal } : {}),
-      ...(run.onProgress ? { onProgress: run.onProgress } : {}),
-      ...(run.models.capture ? { provider: capture } : {}),
-      ...(run.models.profile ? { profileModel: run.models.profile } : {}),
-      ...(run.onProfileProgress ? { onProfileProgress: run.onProfileProgress } : {}),
-      ...(run.onProfilePrompt ? { onProfilePrompt: run.onProfilePrompt } : {}),
-    });
-  }
-
   const deps = {
     provider: capture,
     ...(run.onProgress ? { onProgress: run.onProgress } : {}),
@@ -250,23 +216,18 @@ async function runUntracked(
     pathMaps,
   };
 
-  if (host === "claude-code") {
-    const { importClaudeHistory } = await import("./claude-import.js");
-    if (args.source) return importClaudeHistory(deps, filters);
-    // Without --root, read the folder live capture uses.
-    const [{ CONFIG }, { claudeProjectsRoot }] = await Promise.all([
-      import("../config.js"),
-      import("../services/claude-folder.js"),
-    ]);
-    return importClaudeHistory(deps, {
-      ...filters,
-      root: claudeProjectsRoot(CONFIG.claudeConfigDir),
-    });
-  }
-
-  const { importPiHistory } = await import("./importer.js");
-  const { loadPiSessionForImport } = await import("./session-loader.js");
-  return importPiHistory({ ...deps, loadSession: loadPiSessionForImport }, filters);
+  const { HOST_IMPORTERS } = await import("./host-importers.js");
+  return HOST_IMPORTERS[host].runImport({
+    args,
+    run,
+    at,
+    project,
+    pathMaps,
+    capture,
+    deps,
+    filters,
+    claudeConfigDir: async () => (await import("../config.js")).CONFIG.claudeConfigDir,
+  });
 }
 
 /** The same plain-text report for every host and surface. */

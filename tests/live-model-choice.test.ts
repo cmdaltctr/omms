@@ -318,3 +318,57 @@ describe("Pi live models", () => {
     expect(externalCalls).toEqual([]);
   });
 });
+
+describe("liveModelUsesExternal", () => {
+  // The answers `backfillUsesExternal` gives today when a backfill model is "inherit".
+  const external = { memoryModel: "m", memoryApiUrl: "https://x.invalid", memoryApiKey: "k" };
+  const cases: Array<[string, Record<string, string>, { pi: boolean; opencode: boolean }]> = [
+    ["nothing set", {}, { pi: false, opencode: false }],
+    ["external API only", external, { pi: true, opencode: true }],
+    [
+      "host model inherit",
+      { ...external, piModel: "inherit", opencodeModel: "inherit" },
+      {
+        pi: false,
+        opencode: false,
+      },
+    ],
+    [
+      "host model external",
+      { ...external, piModel: "external", opencodeModel: "external" },
+      {
+        pi: true,
+        opencode: true,
+      },
+    ],
+    [
+      "host model external, API missing",
+      { piModel: "external", opencodeModel: "external" },
+      {
+        pi: false,
+        opencode: false,
+      },
+    ],
+    [
+      "host provider and model",
+      {
+        ...external,
+        piProvider: "zai",
+        piModel: "glm",
+        opencodeProvider: "zai",
+        opencodeModel: "glm",
+      },
+      { pi: false, opencode: false },
+    ],
+    ["half-configured API", { memoryModel: "m" }, { pi: false, opencode: false }],
+  ];
+
+  it("matches the backfill rule for each host", async () => {
+    const { liveModelUsesExternal } = await import("../src/services/ai/live-model-choice.js");
+    for (const [name, config, expected] of cases) {
+      expect([name, liveModelUsesExternal("pi", config)]).toEqual([name, expected.pi]);
+      expect([name, liveModelUsesExternal("opencode", config)]).toEqual([name, expected.opencode]);
+      expect([name, liveModelUsesExternal("claude-code", config)]).toEqual([name, true]);
+    }
+  });
+});

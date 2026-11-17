@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { HOST_SDK_SPECIFIER as hostSdkSpecifier } from "./source-imports.js";
 
 const piAdapterDir = join(import.meta.dir, "../src/adapters/pi");
 
@@ -10,10 +11,8 @@ function piAdapterFiles(): string[] {
     .map((file) => join(piAdapterDir, file));
 }
 
-// Any quoted host SDK specifier counts, so string-built specifiers are caught too.
-const hostSdkSpecifier = /["'`]@(opencode-ai|earendil-works)\//;
 const staticHostSdkImport =
-  /^\s*(import|export)\s+(?!type\b)[^;]*from\s+["']@(opencode-ai|earendil-works)\//m;
+  /^\s*(import|export)\s+(?!type\b)[^;]*from\s+["']@(opencode|opencode-ai|earendil-works)\//m;
 // Importer modules that read host data without the host running (ADR-011).
 const importerSdkReaders = new Set([
   "import-readiness.ts",
