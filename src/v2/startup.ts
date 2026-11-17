@@ -9,7 +9,9 @@ import { isConfigured, CONFIG, initConfigWithLegacyMigration } from "../config.j
 import { log } from "../services/logger.js";
 import { loadOpencodeProvider } from "../adapters/opencode/opencode-provider-loader.js";
 import { registerOpencodeProfileModel } from "../adapters/opencode/profile-model.js";
+import { unclaimedOpencodeFirstRunNotice } from "../adapters/opencode/first-run.js";
 import { showOpencodeNotice } from "../adapters/opencode/toast.js";
+import { webStartNotice } from "../services/web-start-notice.js";
 
 const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("omms.plugin.warmedup");
 
@@ -123,11 +125,11 @@ async function startWebApp(): Promise<void> {
       }).then((result) => {
         if (result === "running" || result === "started") {
           notice(`Web UI available at ${baseUrl}`, "info");
-        } else if (result === "port-busy") {
-          notice(`Web UI unavailable: another program uses port ${CONFIG.webServerPort}`, "error");
-        } else if (result === "no-runtime") {
-          notice("Web UI unavailable: no Node or Bun runtime found to start it", "error");
+          return;
         }
+        // The shared wording; its warning keeps OpenCode's error level for this notice.
+        const failure = webStartNotice(result, CONFIG.webServerPort);
+        if (failure) notice(failure.text, "error");
       });
     })
     .catch((error) => log("Web app start failed", { error: String(error) }, "error"));
@@ -140,6 +142,9 @@ async function startWebApp(): Promise<void> {
 export async function startOpencodeRuntime(ctx: Context, onCleanup: () => void = () => {}) {
   const directory = ctx.location.directory;
   initConfigWithLegacyMigration(directory);
+  // `opencode serve` and OpenChamber users find the notice in the log; the terminal interface shows it.
+  const firstRun = unclaimedOpencodeFirstRunNotice(CONFIG);
+  if (firstRun) showOpencodeNotice({ message: firstRun, variant: "info" });
 
   // Runs even with tracing off, so turning it off does not leave old traces behind.
   pruneTraces(CONFIG);

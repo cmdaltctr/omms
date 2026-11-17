@@ -1,6 +1,6 @@
 import { homedir } from "node:os";
 import { AUTH_HEADER } from "../../services/auth-token.js";
-import type { EnsureDeps } from "../../services/web-ensure.js";
+import type { EnsureDeps, EnsureResult } from "../../services/web-ensure.js";
 
 // Claude Code hook client: read the hook input, find or start the OMMS web
 // app, send one request, print the added context, and log one metadata line.
@@ -23,6 +23,8 @@ export const CLAUDE_CONTEXT_LIMIT = 9_500;
 export const RETRIEVAL_TAG = "omms-retrieval";
 
 const INPUT_TIMEOUT_MS = 2_000;
+/** The request that records shown user lines. The JSON line is already written. */
+const CONFIRM_TIMEOUT_MS = 2_000;
 const MAX_INPUT_BYTES = 1024 * 1024;
 
 const BUDGETS: Record<ClaudeHookEvent, { startMs: number; requestMs: number }> = {
@@ -83,6 +85,7 @@ export type ClaudeHookCode =
   | "no-input"
   | "bad-input"
   | "server-disabled"
+  | "port-busy"
   | "server-unreachable"
   | "start-timeout"
   | "timeout"
@@ -185,6 +188,8 @@ function requestFor(event: ClaudeHookEvent, input: HookInput): { path: string; b
       cwd: input.cwd,
       ...optional("transcript_path"),
       ...optional(RETRIEVE_FIELD[event]),
+      // This hook can show user lines; a request without the flag gets none.
+      ...(event === "session-start" ? { notices: true } : {}),
     },
   };
 }
@@ -284,8 +289,17 @@ async function runSteps(
   const settings = await deps.loadSettings();
   if (!settings.enabled) return "server-disabled";
   const budget = BUDGETS[event];
-  const ready = await ensureServer(event, settings, budget.startMs, deps, result);
-  if (ready !== "ok") return ready;
+  const answer = await ensureServer(event, settings, budget.startMs, deps, result);
+  if (answer !== "running" && answer !== "started") {
+    // Only SessionStart tells the user; prompt, subagent and stop hooks stay quiet.
+    if (event === "session-start") {
+      const { webStartNotice } = await import("../../services/web-start-notice.js");
+      const notice = webStartNotice(answer, Number(new URL(settings.baseUrl).port) || 80);
+      if (notice) writeLine({ systemMessage: notice.text }, deps, result);
+    }
+    if (answer === "port-busy" || answer === "start-timeout") return answer;
+    return "server-unreachable";
+  }
 
   const headers: Record<string, string> = {
     "content-type": "application/json",
@@ -314,18 +328,63 @@ async function runSteps(
   if (!response.ok) return `http-${response.status}`;
   if (event === "stop") return "ok";
 
-  const reply = (await response.json().catch(() => null)) as { additionalContext?: unknown } | null;
+  const reply = (await response.json().catch(() => null)) as {
+    additionalContext?: unknown;
+    systemMessage?: unknown;
+    noticeKeys?: unknown;
+  } | null;
   if (typeof reply?.additionalContext !== "string") return "bad-response";
-  if (!reply.additionalContext) return "ok";
-  const output = `${JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: HOOK_EVENT_NAMES[event],
-      additionalContext: truncateContext(reply.additionalContext),
+  // The user line goes beside the model context, never into it. Only SessionStart asks for one.
+  const userLine =
+    event === "session-start" && typeof reply.systemMessage === "string" ? reply.systemMessage : "";
+  if (!reply.additionalContext && !userLine) return "ok";
+  writeLine(
+    {
+      ...(userLine ? { systemMessage: userLine } : {}),
+      ...(reply.additionalContext
+        ? {
+            hookSpecificOutput: {
+              hookEventName: HOOK_EVENT_NAMES[event],
+              additionalContext: truncateContext(reply.additionalContext),
+            },
+          }
+        : {}),
     },
-  })}\n`;
+    deps,
+    result
+  );
+  if (userLine) await confirmShown(reply.noticeKeys, settings.baseUrl, headers, deps);
+  return "ok";
+}
+
+/**
+ * Tells the web app which user lines this hook has written, so it records them as
+ * shown. A lost reply leaves them unrecorded and they show again. Never throws.
+ */
+async function confirmShown(
+  keys: unknown,
+  baseUrl: string,
+  headers: Record<string, string>,
+  deps: Deps
+): Promise<void> {
+  if (!Array.isArray(keys) || keys.length === 0) return;
+  try {
+    await deps.fetch(`${baseUrl}/api/claude/notices`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ keys }),
+      signal: AbortSignal.timeout(CONFIRM_TIMEOUT_MS),
+    });
+  } catch {
+    // The lines show again at the next session start.
+  }
+}
+
+/** The hook's one JSON result on standard output. Logs and warnings go elsewhere. */
+function writeLine(value: object, deps: Deps, result: ClaudeHookResult): void {
+  const output = `${JSON.stringify(value)}\n`;
   deps.writeStdout(output);
   result.outputBytes = Buffer.byteLength(output);
-  return "ok";
 }
 
 /**
@@ -360,7 +419,7 @@ async function ensureServer(
   budgetMs: number,
   deps: Deps,
   result: ClaudeHookResult
-): Promise<"ok" | "server-unreachable" | "start-timeout"> {
+): Promise<EnsureResult> {
   const { ensureWebApp } = await import("../../services/web-ensure.js");
   const answer = await ensureWebApp({
     settings: { enabled: settings.enabled, baseUrl: settings.baseUrl },
@@ -379,6 +438,5 @@ async function ensureServer(
     },
   });
   result.spawned = answer === "started";
-  if (answer === "running" || answer === "started") return "ok";
-  return answer === "start-timeout" ? "start-timeout" : "server-unreachable";
+  return answer;
 }

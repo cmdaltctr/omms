@@ -15,6 +15,10 @@ describe("OMMS footer status label", () => {
     expect(ommsStatusLabel("not installed")).toBe("omms: ✘ not installed");
   });
 
+  it("keeps the connected glyph and adds words when capture is off", () => {
+    expect(ommsStatusLabel("capture off")).toBe("omms: ✔ capture off");
+  });
+
   it("never asks for emoji presentation", () => {
     const labels = [
       ...Object.keys(STATUS_GLYPHS).map((state) =>
@@ -22,6 +26,7 @@ describe("OMMS footer status label", () => {
       ),
       ommsStatusLabel("web app off"),
       ommsStatusLabel("not installed"),
+      ommsStatusLabel("capture off"),
     ];
     for (const label of labels) expect(label).not.toContain("️");
   });

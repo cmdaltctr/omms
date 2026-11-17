@@ -14,6 +14,17 @@ Every view starts with the same four cards, including **Shared**, so one click r
 
 Browse stored results on **Project memories** (`/project-memories`) and **User profile** (`/user-profile`). `/` opens Project memories. Settings retains models, access controls, diagnostics and profile identity controls. See [Settings page](web-ui-settings.md).
 
+## Welcome panel
+
+A new install has no memories. In that case the **Project memories** page shows a welcome panel in place of the plain "No memories found" line. The panel says that memories appear after your first sessions in OpenCode, Pi or Claude Code, and lists each host with its capture state:
+
+- **Ready**: the host can save memories now.
+- **Needs setup**, with the missing settings in plain words, such as "Missing: model, API key".
+
+Claude Code capture uses the external API only, so the panel says that it needs those settings and gives a link that opens the **External API** card on the Settings page (`/settings#settings-section-external-api`). OpenCode and Pi are ready without it, because they follow the session model. The panel reads the same readiness data as the Settings page (`effective` in `GET /api/settings`). When that request fails, the panel still shows and leaves out the host list.
+
+The panel shows only when the active memory space has no memories and no search, label or project filter is on. A search, a label or a project with no matching rows keeps the plain line. The panel fits a 390 px wide screen and mirrors in Arabic. It is translated into English, Chinese and Arabic.
+
 ## The overview
 
 Each host card shows the host's avatar, its name and one line of state, such as `Running · history imported 9 Oct · last saved today 18:52` or `Paused · 0 pending`.

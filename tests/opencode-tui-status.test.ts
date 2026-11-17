@@ -1,5 +1,12 @@
 import { describe, expect, it } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  claimOpencodeFirstRunNotice,
+  unclaimedOpencodeFirstRunNotice,
+} from "../src/adapters/opencode/first-run.js";
 import { startTuiStatus, tuiStatusText } from "../src/adapters/opencode/tui-status.js";
 import {
   hostUpdateStatus,
@@ -321,5 +328,73 @@ describe("OpenCode footer background update", () => {
     await settle();
     stop2();
     expect(texts2.at(-1)).toBe("omms: ✔ · 4.3.0 installed, restart");
+  });
+});
+
+describe("OpenCode first-run notice", () => {
+  const config = (storagePath: string) => ({
+    storagePath,
+    autoBackfill: true,
+    webServerAutoStart: true,
+  });
+  const startWith = (firstRunNotice: () => string | null) => {
+    const notes: string[] = [];
+    const stop = startTuiStatus({
+      currentVersion: "4.2.0",
+      healthUrl: "http://127.0.0.1:4747/api/health",
+      fetch: (async () => json({ status: "ok" })) as any,
+      setText: () => {},
+      notify: (message) => notes.push(message),
+      checkUpdates: false,
+      firstRunNotice,
+    });
+    return { notes, stop };
+  };
+
+  it("the terminal interface claims and shows the notice once", async () => {
+    const folder = mkdtempSync(join(tmpdir(), "omms-tui-notice-"));
+    try {
+      const first = startWith(() => claimOpencodeFirstRunNotice(config(folder)));
+      await settle();
+      first.stop();
+      const second = startWith(() => claimOpencodeFirstRunNotice(config(folder)));
+      await settle();
+      second.stop();
+      expect(first.notes).toHaveLength(1);
+      expect(first.notes[0]).toContain("OMMS does these things on its own");
+      expect(first.notes[0]).toContain("Login item");
+      expect(second.notes).toEqual([]);
+      // Once shown, the server plugin stops writing it to the log.
+      expect(unclaimedOpencodeFirstRunNotice(config(folder))).toBeNull();
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  it("gives the server log the notice while no terminal interface has shown it", () => {
+    const folder = mkdtempSync(join(tmpdir(), "omms-tui-notice-"));
+    try {
+      expect(unclaimedOpencodeFirstRunNotice(config(folder))).toContain("OMMS does these things");
+      expect(unclaimedOpencodeFirstRunNotice(config(folder))).toContain("OMMS does these things");
+      expect(
+        unclaimedOpencodeFirstRunNotice({
+          ...config(folder),
+          autoBackfill: false,
+          webServerAutoStart: false,
+          embeddingApiUrl: "http://embed.invalid",
+        })
+      ).toBeNull();
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps the footer working when the notice step throws", async () => {
+    const { notes, stop } = startWith(() => {
+      throw new Error("boom");
+    });
+    await settle();
+    stop();
+    expect(notes).toEqual([]);
   });
 });

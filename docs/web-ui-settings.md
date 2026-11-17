@@ -385,7 +385,7 @@ A session model can be tested only from inside an open session. The web app cann
 
 Claude Code rows:
 
-- **Claude Code model.** `pass` when the external API is fully set up. `fail` when it is not. The row names each missing setting, for example `memoryApiKey is not configured`. It never shows a key.
+- **Claude Code model.** `pass` when the external API is fully set up. `fail` when it is not. The row names each missing setting in plain words, for example "The external API is missing: model, API URL, API key." The **OpenCode model** and **Pi model** rows use the same words. It never shows a key.
 - **Claude Code folder.** `pass` when the Claude Code transcripts folder exists. `warn` with the path when it does not. See [Claude Code folder](#claude-code-folder).
 - **Claude Code model test.** Only with **Run checks and test models**. It sends one short fixed prompt to the external API.
 

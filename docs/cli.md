@@ -6,6 +6,8 @@ The npm package ships one terminal command, `om-memory-system`. Use it to import
 
 | Command                                                 | What it does                                                                                                           |
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `npx om-memory-system@latest setup [flags]`             | Install OMMS into every host found on this computer. See [setup](#setup).                                              |
+| `npx om-memory-system@latest doctor [flags]`            | Check Node, each host and the web app, with a fix for each problem. See [doctor](#doctor).                             |
 | `om-memory-system import-opencode-history [flags]`      | Import OpenCode history with the external API.                                                                         |
 | `om-memory-system import-pi-history [flags]`            | Import Pi history with the external API.                                                                               |
 | `om-memory-system import-claude-history [flags]`        | Import Claude Code history with the external API.                                                                      |
@@ -37,6 +39,83 @@ Slash commands inside a session:
 - `--help` on a slash command shows its flags.
 - Claude Code has no import slash command. Use `import-claude-history` or the Settings page.
 - You can also run imports, backfills, and directory maps from the web Settings page. See [Web UI settings](web-ui-settings.md).
+
+## setup
+
+`npx om-memory-system@latest setup` installs OMMS into OpenCode, Pi and Claude Code. It needs no global install. It works as `om-memory-system setup` too.
+
+```bash
+npx om-memory-system@latest setup
+npx om-memory-system@latest setup --dry-run
+npx om-memory-system@latest setup --yes
+```
+
+What it does, in order:
+
+1. It looks for each host on your `PATH` and in the host's usual install folder. For each host found, it reads the host's own configuration or asks the host's own command whether OMMS is registered.
+2. It prints a plan before it changes anything. The plan lists each host found with its version, the commands it will run and the files it will change. It also lists each host that is already set up, each host that was not found, and the [first-run notice](configuration.md#first-run-notice) text. It warns when a host is older than the minimum version (OpenCode 2.0.22, Claude Code 2.1.295, Pi 0.86.1). It still installs in that case.
+3. It asks one question: `Set up OMMS in these hosts? [y/N]`. The default answer is no. Any answer other than yes changes nothing and exits 0.
+4. It runs the install through each host's own command and prints one result line and the next step for each host.
+
+| Host        | Install commands                                                                                                                                              | Next step                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| OpenCode    | `opencode plugin add om-memory-system`, then the `cli.json` entry when that file exists                                                                       | Restart OpenCode and run `opencode service restart`.                                                                                 |
+| Pi          | `pi install npm:om-memory-system`                                                                                                                             | Restart Pi.                                                                                                                          |
+| Claude Code | `claude plugin marketplace add https://github.com/cmdaltctr/omms.git` (skipped when the `omms` marketplace is listed), then `claude plugin install omms@omms` | Start a new session. When capture is not ready, set the external API: the step links the **External API** card on the Settings page. |
+
+Flags:
+
+| Flag           | Effect                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| `--yes`, `-y`  | Skip the question and install into each host found.                                                     |
+| `--dry-run`    | Print the plan and the command that applies it, run no host command, change no host file and exit 0.    |
+| `--help`, `-h` | Print the usage text and exit 0. An unknown option prints the usage text to standard error and exits 1. |
+
+Exit codes:
+
+| Code | Meaning                                                                                                                                                                                                       |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Every host found is set up or was already set up, you answered no, or you used `--dry-run`.                                                                                                                   |
+| `1`  | A host step failed, no host was found, or standard input is not a terminal and `--yes` was not given. In the last case, `setup` prints the plan and a hint to run it again with `--yes`, and changes nothing. |
+
+Notes:
+
+- `setup` is safe to run twice. A host that already has OMMS gets no install command and no file change. When every host found is already set up, it says so, asks nothing and exits 0.
+- A host whose command fails does not stop the others. `setup` prints the error in plain words with the command to run by hand.
+- When no host is found, `setup` changes nothing, prints where to get each host and exits 1.
+- A failed step prints `✗ <host>: "<command>" failed: <first line of the error>` and `Run it by hand: <command>`. A host that worked prints `✓ <host>: set up.` and a `Next:` line. A host that was already set up prints `✓ <host>: already set up.` and no restart step, because nothing changed there. Claude Code still gets the **External API** link while capture is not ready.
+- The only host file that `setup` writes is the OpenCode `cli.json`. It adds the entry to an existing file and never creates the file. It reads the file again just before it writes, so a change made while `setup` ran is kept. When `cli.json` is a symbolic link, `setup` writes to the file the link points to, so the link stays a link. The file keeps its permissions. See [OpenCode adapter: What `setup` does to `cli.json`](opencode-adapter.md#what-setup-does-to-clijson).
+- It never writes OpenCode's database or Pi session files.
+
+## doctor
+
+`npx om-memory-system@latest doctor` checks the setup and prints one row for each check. It changes no host file and no OMMS setting. It works as `om-memory-system doctor` too.
+
+Like every `om-memory-system` command, `doctor` and `setup` record their own copy in `~/.omms/runtime.json` and refresh the launcher `~/.omms/bin/omms-launch.mjs` (see [Hand-off to the newest copy](#hand-off-to-the-newest-copy)). On a computer with no OMMS config, they also create the config template `~/.config/omms/omms.jsonc`.
+
+```bash
+npx om-memory-system@latest doctor
+npx om-memory-system@latest doctor --json
+npx om-memory-system@latest doctor --skip-model-test
+```
+
+Each row has a status (`PASS`, `WARN`, `FAIL` or `SKIPPED`), the check and the reason in plain words. A row that is not `PASS` has a `Fix:` line below it. The checks are:
+
+- **Node.js**: fails when the version is older than 22.14.
+- **For each host found**: a version row against the host's minimum (OpenCode 2.0.22, Claude Code 2.1.295, Pi 0.86.1), which fails when older and warns when the version cannot be read. A plugin row fails when OMMS is not set up in the host, with `npx om-memory-system@latest setup` as the fix. For OpenCode, an `OpenCode auto-update` row warns when `cli.json` is missing, cannot be read, or lacks the entry that `opencode plugin update` needs. A host that is not found has no row.
+- **Web app**: passes when the OMMS web app answers on the configured port, and names the port. It fails when another program answers there, and the fix says to stop that program or set `webServerPort` to a free port. It warns when nothing answers, and the fix is `npx om-memory-system@latest web`.
+- **The Settings page health checks**: every row of the **Health** section on the Settings page, for example `Config files`, `Memory store`, `Embedding`, `Web binding` and the model rows. `doctor` reads them from the running web app with the local token and leaves out the rows of a host that is not found. When no OMMS web app answers, `doctor` prints `Embedding` and the model row of each host found (`OpenCode model`, `Pi model`, `Claude Code model`) as `SKIPPED`, with the fix to start the web app. When the web app answers but cannot return its checks (it takes too long, or it refuses the request), the same rows are `SKIPPED` with that reason in plain words. The fix then says to select **Run checks** in **Health** on the Settings page, or to run `doctor` again with `--skip-model-test`. When the web app has a browser password (`webServerAuthPassword`), `doctor` sends it the same way the Claude Code hook does. `doctor` never prints the password.
+- **Model tests the web app cannot run**: when Pi or OpenCode uses its own session model (the default), the web app cannot test that model. `doctor` prints `Pi model test` or `OpenCode model test` as `SKIPPED`, says that only a session in that host can test it, and gives no fix. The Settings page still shows these rows as warnings.
+
+Flags:
+
+| Flag                | Effect                                                                                                                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--json`            | Print one JSON array of `{ check, status, reason, fix, host }` objects and nothing else on standard output. `status` is lower case. Warnings go to standard error.                                                                                     |
+| `--skip-model-test` | Ask the web app not to test the models. Without it, the web app sends a short test prompt to each configured model, and `doctor` prints a `Model test:` note to say so (to standard error with `--json`). The note appears only when a model test ran. |
+| `--help`, `-h`      | Print the usage text and exit 0. An unknown option prints the usage text to standard error and exits 1.                                                                                                                                                |
+
+Exit codes: `0` when no row fails, `1` when any row fails. A `WARN` or `SKIPPED` row does not change the exit code. No row and no error message contains an API key.
 
 ## Global install (optional)
 

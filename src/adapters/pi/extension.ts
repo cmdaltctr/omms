@@ -22,6 +22,7 @@ import { performPiProfileLearning } from "./profile.js";
 import { createPiRecallRows } from "./recall-rows.js";
 import { createPiSessionContext } from "./session-context.js";
 import { createPiSelfUpdate } from "./self-update.js";
+import { createPiStartNotices } from "./start-notices.js";
 import { DEFAULT_RETRIEVAL_MAX_TOKENS, tokensToByteCeiling } from "../../core/context-budget.js";
 import { ommsStatusLabel, type StatusGlyphState } from "../../services/status-glyphs.js";
 
@@ -99,6 +100,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
   // The glyph on screen, so a new update suffix can redraw the label. Null once cleared.
   let shownStatus: StatusGlyphState | null = null;
   const selfUpdate = createPiSelfUpdate();
+  const startNotices = createPiStartNotices();
   const recallRows = createPiRecallRows();
   const sessionContext = createPiSessionContext(recallRows);
 
@@ -154,6 +156,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     try {
       latestCtx = ctx;
       initConfigWithLegacyMigration(ctx.cwd);
+      startNotices.firstRun(ctx, CONFIG);
       // Runs even with tracing off, so turning it off does not leave old traces behind.
       pruneTraces(CONFIG);
       captureState = createPiCaptureState();
@@ -203,6 +206,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
               ...(replaceOlder ? { replaceOlder } : {}),
             });
           })
+          .then((result) => startNotices.webStart(ctx, result, CONFIG.webServerPort))
           .catch((error: unknown) =>
             log(
               "Pi web app start failed",

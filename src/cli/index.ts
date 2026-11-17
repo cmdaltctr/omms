@@ -18,6 +18,9 @@ const COMMANDS: Record<string, ImportHost> = {
 const usage = `Usage: om-memory-system <command> [options]
 
 Commands:
+  setup [--yes] [--dry-run] Add OMMS to OpenCode, Pi and Claude Code on this computer
+  doctor [--json] [--skip-model-test]
+                            Check the OMMS install and print a fix for each problem
   import-opencode-history   Import OpenCode history into omms
   import-pi-history         Import Pi history into omms
   import-claude-history     Import Claude Code history into omms
@@ -72,6 +75,17 @@ export async function runCli(argv: string[]): Promise<number> {
     await runClaudeHookCommand(argv.slice(1));
     // An idle fetch connection could keep the hook alive past its Claude Code timeout.
     process.exit(0);
+  }
+  if (argv[0] === "setup") {
+    const { productionSetupDeps, runSetupCommand } = await import("./setup-command.js");
+    return await runSetupCommand(argv.slice(1), await productionSetupDeps());
+  }
+  if (argv[0] === "doctor") {
+    const { productionDoctorDeps, runDoctorCommand } = await import("./doctor-command.js");
+    return await runDoctorCommand(
+      argv.slice(1),
+      await productionDoctorDeps(argv.includes("--json"))
+    );
   }
   if (argv[0] === "memory") {
     const { runMemoryCommand } = await import("./memory-command.js");

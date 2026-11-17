@@ -13,6 +13,7 @@ import {
   isLoopbackHost,
   webServerUrl,
 } from "./web-api-auth.js";
+import { healthBody } from "./health-body.js";
 import { packageVersion } from "./package-version.js";
 import type { UpdateStatus, WebUpdate } from "./web-update.js";
 import { isOlderVersion } from "./version-compare.js";
@@ -305,6 +306,8 @@ export class WebServer {
       if (path === "/api/claude/capture") {
         return this.jsonResponse(api.handleClaudeCapture(body), 202);
       }
+      if (path === "/api/claude/notices")
+        return this.jsonResponse(api.handleClaudeNoticesShown(body));
       const cwd = this.config.directory ?? process.cwd();
       return this.jsonResponse(
         await api.handleClaudeRetrieve(body, {
@@ -1052,13 +1055,9 @@ export class WebServer {
 
     try {
       if (path === "/api/health" && method === "GET") {
-        return this.jsonResponse({
-          success: true,
-          status: "ok",
-          authEnabled: auth?.isEnabled() ?? false,
-          // Opaque per process; a restart finds its copy by it even behind basic auth.
-          instance: PROCESS_INSTANCE,
-        });
+        const { CONFIG: config } = await import("../config.js");
+        const authEnabled = auth?.isEnabled() ?? false;
+        return this.jsonResponse(healthBody({ authEnabled, instance: PROCESS_INSTANCE, config }));
       }
 
       if (path === "/" || path === "/index.html" || path === "/settings" || path === "/memory") {
@@ -1574,10 +1573,7 @@ export class WebServer {
         return this.jsonResponse(result);
       }
 
-      if (
-        (path === "/api/claude/retrieve" || path === "/api/claude/capture") &&
-        method === "POST"
-      ) {
+      if (/^\/api\/claude\/(retrieve|capture|notices)$/.test(path) && method === "POST") {
         return this.claudeHookResponse(req, path);
       }
 

@@ -15,6 +15,9 @@ import {
 /** The background service checks npm at start and then this often, like the footer. */
 export const OPENCODE_SERVICE_CHECK_MS = 6 * 3_600_000;
 
+/** `opencode plugin add om-memory-system`: the install command `setup` runs. */
+export const OPENCODE_INSTALL_ARGS = ["plugin", "add", "om-memory-system"];
+
 /** Production inputs for OpenCode: npm, the OpenCode marker file and a detached `opencode plugin update`. */
 export function opencodeSelfUpdateDeps(options: {
   modulePath: string;

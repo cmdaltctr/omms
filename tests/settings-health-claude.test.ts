@@ -12,7 +12,12 @@ const READY = {
 };
 
 /** Run the Health checks with the heavy checks and the snapshot stubbed. */
-function runHealth(config: Record<string, unknown>, snapshot: unknown, testModels = false): any {
+function runHealth(
+  config: Record<string, unknown>,
+  snapshot: unknown,
+  testModels = false,
+  probeError?: string
+): any {
   const dir = mkdtempSync(join(tmpdir(), "omms-health-claude-"));
   try {
     const script = join(dir, "scenario.mjs");
@@ -32,7 +37,7 @@ mock.module(${JSON.stringify(url("../src/services/capture-attempt-store.js"))}, 
   queryCaptureAttempts: async () => ({ byModel: [], byReason: [] }) }));
 let calls = 0;
 mock.module(${JSON.stringify(url("../src/importer/model-selection.js"))}, () => ({
-  selectImportModel: () => ({ capture: { summarize: async () => { calls++; return { type: "skip" }; } } }) }));
+  selectImportModel: () => ({ capture: { summarize: async () => { calls++; if (${JSON.stringify(probeError ?? "")}) throw new Error(${JSON.stringify(probeError ?? "")}); return { type: "skip" }; } } }) }));
 const { runSettingsHealth } = await import(${JSON.stringify(url("../src/importer/settings-health.js"))});
 const result = await runSettingsHealth({ directory: ${JSON.stringify(dir)}, host: "127.0.0.1",
   authEnabled: false, apiTokenSet: false, testModels: ${testModels} });
@@ -68,8 +73,50 @@ it("fails the model row with the missing setting and no secret", () => {
   );
   const model = row(result, "Claude Code model");
   expect(model.status).toBe("fail");
-  expect(model.reason).toContain("memoryApiKey");
+  expect(model.reason).toBe("The external API is missing: API key.");
   expect(JSON.stringify(result)).not.toContain(SECRET);
+});
+
+const ALL_MISSING = [
+  "memoryModel is not configured",
+  "memoryApiUrl is not configured",
+  "memoryApiKey is not configured",
+];
+
+it("says the missing external API settings in plain words, with the External API card as the fix", () => {
+  const model = row(runHealth({}, snapshot(false, true, ALL_MISSING)), "Claude Code model");
+  expect(model.reason).toBe("The external API is missing: model, API URL, API key.");
+  expect(model.fix).toContain("External API card");
+});
+
+it("uses the same plain words in the OpenCode and Pi model rows", () => {
+  const half = { memoryModel: "glm-5.3", memoryApiUrl: "", memoryApiKey: "" };
+  const opencode = row(
+    runHealth({ ...half, opencodeProvider: "", opencodeModel: "" }, snapshot(true, true)),
+    "OpenCode model"
+  );
+  expect(opencode.status).toBe("fail");
+  expect(opencode.reason).toBe("The external API is missing: API URL, API key.");
+  const pi = row(runHealth({ ...half, piModel: "external" }, snapshot(true, true)), "Pi model");
+  expect(pi.status).toBe("fail");
+  expect(pi.reason).toBe("The external API is missing: API URL, API key.");
+});
+
+it("keeps config key names out of a model test that fails for a missing setting", () => {
+  const result = runHealth(
+    {
+      opencodeProvider: "",
+      opencodeModel: "external",
+      memoryApiUrl: "https://api.invalid/v1",
+      memoryApiKey: SECRET,
+    },
+    snapshot(false, true),
+    true,
+    "Missing memoryModel or --model"
+  );
+  const test = row(result, "OpenCode model test");
+  expect(test.status).toBe("fail");
+  expect(test.reason).toBe("The external API is missing: model.");
 });
 
 it("warns with the folder path when the transcripts folder is missing", () => {

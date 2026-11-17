@@ -100,7 +100,7 @@ policies can still change or block the connection.
    /plugin install omms@omms
    ```
 
-4. Run `/reload-plugins`, or start a new Claude Code session.
+4. Start a new Claude Code session. `/reload-plugins` loads the hooks, but the `memory` tool shows only in a new session (see [Memory tool and recall rows](#memory-tool-and-recall-rows)).
 
 The same steps work from a terminal:
 
@@ -108,6 +108,11 @@ The same steps work from a terminal:
 claude plugin marketplace add https://github.com/cmdaltctr/omms.git
 claude plugin install omms@omms
 ```
+
+`npx om-memory-system@latest setup` runs the same two commands for you, and sets
+up every other host on the computer in the same run. See [CLI: setup](cli.md#setup).
+Run `npx om-memory-system@latest doctor` afterwards to check the result. See
+[CLI: doctor](cli.md#doctor).
 
 ### Testing a local checkout
 
@@ -267,11 +272,48 @@ web app answers or the start budget ends.
 - The first `SessionStart` of the day can take some seconds. A prompt sent before the web app is ready gets no added context.
 
 To avoid the start delay, install the login item with
-`om-memory-system web install`. See [CLI: Web app commands](cli.md#web-app-commands).
+`npx om-memory-system@latest web install`. See [CLI: Web app commands](cli.md#web-app-commands).
+
+### Messages the hook shows you
+
+At `SessionStart` the hook can print one line that Claude Code shows to you.
+The line goes in the `systemMessage` field of the hook's JSON answer, so it
+never enters the model context. The prompt, subagent and stop hooks show no
+line. There are three lines.
+
+The first-run notice and the capture setup line count as shown only after the
+hook has written its answer. The hook then sends a second short request,
+`POST /api/claude/notices`, and the web app records the lines. If the first
+request times out, or the hook stops before that second request, nothing is
+recorded and the line shows again at the next `SessionStart`. An older hook that
+does not ask for the lines records nothing.
+
+| Line                  | When you see it                                                                                                                                                                                                      |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First-run notice      | Once per computer. It lists what OMMS does on its own and how to turn each part off. It leaves out the login item, because Claude Code never installs it. See [First-run notice](configuration.md#first-run-notice). |
+| Capture setup line    | Once, while capture is on and the external API is not complete. See below.                                                                                                                                           |
+| Web app start failure | At each `SessionStart` where the hook cannot start the web app. See below.                                                                                                                                           |
+
+The capture setup line reads: `OMMS memory capture is off until you set the
+external API (missing: model, API URL, API key). Set it on the Settings page:
+http://127.0.0.1:4747/settings#settings-section-external-api`. The missing list
+names only what is missing. The address follows `webServerHost` and
+`webServerPort`. A later `SessionStart` that finds the external API ready clears
+the record, so losing the setup again shows the line once more. The status
+label keeps showing `omms: ✔ capture off` in the sessions that do not repeat the line.
+
+The start failure line has two forms. Both match the wording of OpenCode and Pi.
+
+- `port-busy`: `The OMMS web app cannot start: another program uses port <port>. Stop that program, or set "webServerPort" in the global config to a free port.` The hook logs `port-busy`.
+- `no-runtime`: `The OMMS web app cannot start: no Node 22.14 or later (or Bun) was found. Install Node 22.14 or later, then start a new session.` The hook logs `server-unreachable`.
+
+The web app adds the first two lines to its answer only when the hook asks for
+them (`notices: true` in the request). An older hook never uses up a line that
+it cannot show.
 
 ### Web app routes
 
-The web app has two routes for the hooks. Both need the local token
+The web app has three routes for the hooks. Each needs the local token
 (`~/.omms/.auth-token`) or an API token, like the other `/api/` routes. The hook
 sends the local token. A request without a valid token gets `401 Unauthorized`.
 
@@ -279,6 +321,12 @@ sends the local token. A request without a valid token gets `401 Unauthorized`.
 | --------------------------- | --------------------------------------------------- | -------------------------------------------- |
 | `POST /api/claude/retrieve` | `SessionStart`, `UserPromptSubmit`, `SubagentStart` | `{ "additionalContext": "<text or empty>" }` |
 | `POST /api/claude/capture`  | `Stop`                                              | `202 { "queued": true }` at once             |
+| `POST /api/claude/notices`  | `SessionStart`, after it has shown its user lines   | `{ "ok": true }`                             |
+
+At `SessionStart` with `"notices": true`, the retrieve answer can also carry
+`systemMessage` (the user lines) and `noticeKeys` (their record keys). The hook
+sends those keys back to `/api/claude/notices` with `{ "keys": [...] }` after it
+has written its answer. The web app records only the keys it knows.
 
 The routes are in `src/services/web-server.ts`. The handlers are in
 `src/importer/claude-hook-api.ts`, because they use the transcript reader. The
@@ -403,13 +451,14 @@ module entry `hooks/omms.jsx` that `hooks/hooks.json` lists under `modules`. The
 does not change them. The label reads `omms: <glyph>`, and the glyph and any
 state words show the state's colour. The colours come from your Claude Code theme.
 
-| Label                       | Colour | Meaning                                                                                                       | What to do                                                                                                 |
-| --------------------------- | ------ | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `omms: ⧖`                   | Yellow | The session has started and the first health check has not answered yet. It lasts at most about 3 seconds.    | Nothing.                                                                                                   |
-| `omms: ✔`                   | Green  | The web app answers its health route. A 401 also counts, because a web app with a password runs.              | Nothing.                                                                                                   |
-| `omms: ✘ web app off`       | Red    | The web app does not answer within 3 seconds.                                                                 | Run `om-memory-system web`. The next hook also starts it.                                                  |
-| `omms: ✘ not installed`     | Red    | The plugin launcher can run no OMMS copy: no local copy is new enough, and `npx` fails or Node.js is missing. | Install Node.js 22.14 or later and check the network. See [How hooks find OMMS](#how-the-hooks-find-omms). |
-| `omms: ✔ · 4.4.0 available` | Green  | npm has a newer stable release than the OMMS copy that the launcher runs. The version suffix is dim.          | Run `claude plugin update omms@omms`, then `/reload-plugins`.                                              |
+| Label                       | Colour | Meaning                                                                                                                                             | What to do                                                                                                                                                                                     |
+| --------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `omms: ⧖`                   | Yellow | The session has started and the first health check has not answered yet. It lasts at most about 3 seconds.                                          | Nothing.                                                                                                                                                                                       |
+| `omms: ✔`                   | Green  | The web app answers its health route and Claude Code capture is ready or off on purpose. A 401 also counts, because a web app with a password runs. | Nothing.                                                                                                                                                                                       |
+| `omms: ✔ capture off`       | Amber  | The web app answers, but Claude Code capture is on and the external API is not complete.                                                            | Set the external API on the Settings page, **External API** card. The label returns to green within 30 seconds of the save. See [The external API is required](#the-external-api-is-required). |
+| `omms: ✘ web app off`       | Red    | The web app does not answer within 3 seconds.                                                                                                       | Run `npx om-memory-system@latest web`. The next hook also starts it.                                                                                                                           |
+| `omms: ✘ not installed`     | Red    | The plugin launcher can run no OMMS copy: no local copy is new enough, and `npx` fails or Node.js is missing.                                       | Install Node.js 22.14 or later and check the network. See [How hooks find OMMS](#how-the-hooks-find-omms).                                                                                     |
+| `omms: ✔ · 4.4.0 available` | Green  | npm has a newer stable release than the OMMS copy that the launcher runs. The version suffix is dim.                                                | Run `claude plugin update omms@omms`, then `/reload-plugins`.                                                                                                                                  |
 
 How it works:
 
@@ -425,6 +474,11 @@ How it works:
 3. When `latest` is a stable release newer than `version`, the label adds a dim
    `· <version> available`. A toast also names the plugin update command. It
    shows once for each new version in a session.
+4. The health answer carries `claudeCapture`: `ready`, `needs-setup` or `off`.
+   For `needs-setup` the label reads `omms: ✔ capture off` in the warning
+   colour. For `ready`, `off` (capture switched off with `autoCaptureEnabled`)
+   or a missing field (an older web app) it reads `omms: ✔`. The label clears
+   within 30 seconds of saving a complete external API.
 
 The launcher has a 60-second limit for this command, because a first `npx`
 download can take longer than 30 seconds. A run that passes the limit keeps the
@@ -639,20 +693,21 @@ run. The line holds the event, a code, the elapsed time, whether the hook
 started the web app, and the input and output sizes. It never holds prompt or
 reply text.
 
-| Code                 | Meaning                                                                  | What to do                                                              |
-| -------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| `ok`                 | The request succeeded.                                                   | Nothing.                                                                |
-| `no-input`           | The hook got no input in 2 seconds.                                      | Check the hook command in `hooks.json` or `settings.json`.              |
-| `bad-input`          | The input was not the expected JSON.                                     | Check that the event name in the command matches the hook.              |
-| `bad-event`          | The event name after `claude-hook` is unknown.                           | Use `session-start`, `user-prompt-submit`, `subagent-start`, or `stop`. |
-| `server-disabled`    | `webServerEnabled` is `false` in the global config.                      | Set `webServerEnabled` to `true`.                                       |
-| `server-unreachable` | No web app answered, and OMMS found no Node or Bun runtime to start one. | Install Node or Bun, or run `om-memory-system web install`.             |
-| `start-timeout`      | The hook started the web app, but it did not answer within the budget.   | Run `om-memory-system web` in a terminal and read its error.            |
-| `timeout`            | The web app did not answer the request in time.                          | Check that the web app is not busy with a large import.                 |
-| `network-error`      | The request failed before an answer.                                     | Run `om-memory-system web status`.                                      |
-| `http-401`           | The web app rejected the token.                                          | Check that the hook and the web app run as the same user.               |
-| `http-<status>`      | The web app returned another error.                                      | Read the web app's log lines around the same time.                      |
-| `bad-response`       | The retrieval answer had no `additionalContext` text.                    | Update OMMS so that the command and the web app have the same version.  |
+| Code                 | Meaning                                                                              | What to do                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `ok`                 | The request succeeded.                                                               | Nothing.                                                                       |
+| `no-input`           | The hook got no input in 2 seconds.                                                  | Check the hook command in `hooks.json` or `settings.json`.                     |
+| `bad-input`          | The input was not the expected JSON.                                                 | Check that the event name in the command matches the hook.                     |
+| `bad-event`          | The event name after `claude-hook` is unknown.                                       | Use `session-start`, `user-prompt-submit`, `subagent-start`, or `stop`.        |
+| `server-disabled`    | `webServerEnabled` is `false` in the global config.                                  | Set `webServerEnabled` to `true`.                                              |
+| `port-busy`          | A program that is not OMMS holds the configured port, so the hook starts no web app. | Find and stop the program on that port, or set `webServerPort` to a free port. |
+| `server-unreachable` | No web app answered, and OMMS found no Node or Bun runtime to start one.             | Install Node.js 22.14 or later.                                                |
+| `start-timeout`      | The hook started the web app, but it did not answer within the budget.               | Run `npx om-memory-system@latest web` in a terminal and read its error.        |
+| `timeout`            | The web app did not answer the request in time.                                      | Check that the web app is not busy with a large import.                        |
+| `network-error`      | The request failed before an answer.                                                 | Run `npx om-memory-system@latest web status`.                                  |
+| `http-401`           | The web app rejected the token.                                                      | Check that the hook and the web app run as the same user.                      |
+| `http-<status>`      | The web app returned another error.                                                  | Read the web app's log lines around the same time.                             |
+| `bad-response`       | The retrieval answer had no `additionalContext` text.                                | Update OMMS so that the command and the web app have the same version.         |
 
 Other checks:
 

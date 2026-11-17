@@ -1255,6 +1255,9 @@ const retrieve = await post("/api/claude/retrieve", { event: "user-prompt-submit
 const captured = await post("/api/claude/capture", captureBody, { "x-omms-token": token });
 await api.whenClaudeCaptureIdle();
 const badBody = await post("/api/claude/capture", { session_id: "s" }, { "x-omms-token": token });
+const shownDenied = await post("/api/claude/notices", { keys: ["claude-code"] });
+const shown = await post("/api/claude/notices", { keys: ["claude-code"] }, { "x-omms-token": token });
+const shownRecord = JSON.parse(require("node:fs").readFileSync(join(config.CONFIG.storagePath, "first-run-notices.json"), "utf8"));
 const health = await (await server.handleRequest(new Request("http://127.0.0.1:4747/api/health"))).json();
 scenario = {
   deniedCapture: deniedCapture.status, deniedRetrieve: deniedRetrieve.status, readsWhileDenied,
@@ -1262,6 +1265,7 @@ scenario = {
   capture: [captured.status, await captured.json()],
   readsAfter: logs.filter((l) => l.message === "Claude Code capture skipped").length,
   badBody: badBody.status, health,
+  shownDenied: shownDenied.status, shown: [shown.status, await shown.json()], shownRecord,
 };
 `);
     expect(scenario.deniedCapture).toBe(401);
@@ -1273,5 +1277,111 @@ scenario = {
     expect(scenario.badBody).toBe(400);
     expect(scenario.health.success).toBe(true);
     expect(scenario.health.status).toBe("ok");
+    expect(scenario.health.claudeCapture).toBe("ready");
+    expect(scenario.shownDenied).toBe(401);
+    expect(scenario.shown).toEqual([200, { ok: true }]);
+    expect(scenario.shownRecord).toEqual({ "claude-code": true });
+  });
+});
+
+describe("SessionStart user lines", () => {
+  const start = `
+const start = (extra = {}) => api.handleClaudeRetrieve({ event: "session-start", session_id: "s-" + Math.random(), cwd: projectDir, source: "startup", ...extra });
+const record = () => { try { return JSON.parse(require("node:fs").readFileSync(join(config.CONFIG.storagePath, "first-run-notices.json"), "utf8")); } catch { return null; } };
+`;
+
+  it("shows the first-run notice once, only to a hook that asks, never in the context", async () => {
+    const { run } = createHarness();
+    const scenario = await run(`${start}
+const old = await start();
+const recordAfterOld = record();
+const prompt = await api.handleClaudeRetrieve({ event: "user-prompt-submit", session_id: "s", cwd: projectDir, prompt: "hi", notices: true });
+const first = await start({ notices: true });
+const recordBeforeConfirm = record();
+// The hook never confirmed (a lost reply), so the next session shows the notice again.
+const unconfirmed = await start({ notices: true });
+api.handleClaudeNoticesShown({ keys: unconfirmed.noticeKeys });
+const second = await start({ notices: true });
+scenario = { old, recordAfterOld, prompt, first, recordBeforeConfirm, unconfirmed, second, record: record() };
+`);
+    expect(scenario.old).toEqual({ additionalContext: "" });
+    expect(scenario.recordAfterOld).toBeNull();
+    expect(scenario.prompt.systemMessage).toBeUndefined();
+    expect(scenario.prompt.noticeKeys).toBeUndefined();
+    expect(scenario.first.systemMessage).toContain("OMMS does these things on its own");
+    expect(scenario.first.systemMessage).not.toContain("Login item");
+    expect(scenario.first.noticeKeys).toEqual(["claude-code"]);
+    // The external API is ready, so there is no capture setup line.
+    expect(scenario.first.systemMessage).not.toContain("capture is off");
+    expect(scenario.first.additionalContext).not.toContain("OMMS does these things");
+    expect(scenario.recordBeforeConfirm).toBeNull();
+    expect(scenario.unconfirmed.systemMessage).toBe(scenario.first.systemMessage);
+    expect(scenario.second).toEqual({ additionalContext: "" });
+    expect(scenario.record).toEqual({ "claude-code": true });
+  });
+
+  it("records only known keys from a confirmation", async () => {
+    const { run } = createHarness();
+    const scenario = await run(`${start}
+api.handleClaudeNoticesShown({ keys: ["other", 5] });
+api.handleClaudeNoticesShown({ keys: "claude-code" });
+api.handleClaudeNoticesShown(null);
+const before = record();
+api.handleClaudeNoticesShown({ keys: ["claude-code-capture-setup", "other"] });
+scenario = { before, after: record() };
+`);
+    expect(scenario.before).toBeNull();
+    expect(scenario.after).toEqual({ "claude-code-capture-setup": true });
+  });
+
+  it("shows the capture setup line once while capture needs setup, and again after a loss", async () => {
+    const { run } = createHarness({ autoBackfill: false, embeddingApiUrl: "http://embed.invalid" });
+    const scenario = await run(`${start}
+const first = await start({ notices: true });
+api.handleClaudeNoticesShown({ keys: first.noticeKeys });
+const second = await start({ notices: true });
+Object.assign(config.CONFIG, ${JSON.stringify(EXTERNAL_API)});
+const ready = await start({ notices: true });
+const recordWhenReady = record();
+config.CONFIG.memoryApiKey = "";
+const lost = await start({ notices: true });
+scenario = { first, second, ready, recordWhenReady, lost };
+`);
+    expect(scenario.first.systemMessage).toContain("capture is off");
+    expect(scenario.first.systemMessage).toContain("API key");
+    expect(scenario.first.systemMessage).toContain(
+      "http://127.0.0.1:4747/settings#settings-section-external-api"
+    );
+    // Every first-run part is off, so the setup line is the whole message.
+    expect(scenario.first.systemMessage).not.toContain("OMMS does these things");
+    expect(scenario.first.additionalContext).toBe("");
+    expect(scenario.second.systemMessage).toBeUndefined();
+    expect(scenario.ready.systemMessage).toBeUndefined();
+    expect(scenario.recordWhenReady["claude-code-capture-setup"]).toBeUndefined();
+    expect(scenario.lost.systemMessage).toContain("capture is off");
+  });
+
+  it("joins the first-run notice and the setup line with a newline", async () => {
+    const { run } = createHarness({});
+    const scenario = await run(`${start}
+scenario = await start({ notices: true });
+`);
+    expect(scenario.noticeKeys).toEqual(["claude-code", "claude-code-capture-setup"]);
+    const lines = scenario.systemMessage.split("\n");
+    expect(lines[0]).toBe("OMMS does these things on its own:");
+    expect(lines.at(-1)).toContain("capture is off");
+  });
+
+  it("claims nothing when capture is turned off on purpose", async () => {
+    const { run } = createHarness({
+      autoCaptureEnabled: false,
+      autoBackfill: false,
+      embeddingApiUrl: "http://embed.invalid",
+    });
+    const scenario = await run(`${start}
+scenario = { reply: await start({ notices: true }), record: record() };
+`);
+    expect(scenario.reply).toEqual({ additionalContext: "" });
+    expect(scenario.record).toBeNull();
   });
 });
