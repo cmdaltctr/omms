@@ -7,8 +7,11 @@ import type { LogLevel } from "../services/logger.js";
 // web app. So the old web app waits for a new owner, and restarts onto the newest
 // copy itself when none comes.
 
-/** How long the old web app waits for the caller's copy to answer. */
-export const NEW_OWNER_WAIT_MS = 30_000;
+/**
+ * How long the old web app waits for the caller's copy to answer. An update restart can
+ * take launchd's 30-second throttle plus the update's own 15-second wait, so give it 60.
+ */
+export const NEW_OWNER_WAIT_MS = 60_000;
 const POLL_MS = 500;
 
 export interface StepAsideDeps {

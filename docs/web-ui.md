@@ -136,7 +136,7 @@ A standalone web app that waits exits with code `0` when the owner runs a newer 
 
 `om-memory-system web install` can ask an older owner to step aside. The request is `POST /api/web/step-aside`. It needs the local API token (`~/.omms/.auth-token`) and a loopback caller. The owner refuses with `409` when the caller is not newer than itself.
 
-- A standalone web app (`om-memory-system web` or the login item) stops serving and waits up to 30 seconds for the caller's copy to take the port. Then it exits with code `0`. If no web app takes the port, it restarts onto the newest copy through the launcher and logs `Web app step-aside` with the code `no-new-owner`. If that restart fails, it serves again itself.
+- A standalone web app (`om-memory-system web` or the login item) stops serving and waits up to 60 seconds for the caller's copy to take the port. The wait covers an update restart that launchd holds for its 30-second restart throttle. Then it exits with code `0`. If no web app takes the port, it restarts onto the newest copy through the launcher and logs `Web app step-aside` with the code `no-new-owner`. If that restart fails, it serves again itself.
 - A web app inside an OpenCode session stops serving. The session keeps running. The web app waits 60 seconds before it can take the port back, so the login item can bind first. Only an older OpenCode plugin runs a web app in its session.
 - Each request writes one log record with the outcome (`stepped_aside`, `refused_not_newer`, or `refused_auth`) and both versions. The log never holds the token.
 

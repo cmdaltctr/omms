@@ -203,12 +203,12 @@ function itemContent(platform: string, runtime: string, launcher: string): strin
 <!-- ${MARKER} -->
 <key>Label</key><string>${NAME}</string>
 <key>ProgramArguments</key><array><string>${xml(runtime)}</string><string>${xml(launcher)}</string><string>web</string><string>--login-item</string></array>
-<key>RunAtLoad</key><true/><key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict><key>ThrottleInterval</key><integer>30</integer>
+<key>RunAtLoad</key><true/><key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict><key>ThrottleInterval</key><integer>${LOGIN_ITEM_THROTTLE_MS / 1000}</integer>
 <key>StandardOutPath</key><string>/dev/null</string><key>StandardErrorPath</key><string>/dev/null</string>
 </dict></plist>\n`;
   if (platform === "linux")
     return `# ${MARKER}
-[Unit]\nDescription=OMMS web app\nStartLimitIntervalSec=600\nStartLimitBurst=6\n[Service]\nType=simple\nExecStart=${systemd(runtime)} ${systemd(launcher)} web --login-item\nRestart=on-failure\nRestartSec=30\n[Install]\nWantedBy=default.target\n`;
+[Unit]\nDescription=OMMS web app\nStartLimitIntervalSec=600\nStartLimitBurst=6\n[Service]\nType=simple\nExecStart=${systemd(runtime)} ${systemd(launcher)} web --login-item\nRestart=on-failure\nRestartSec=${LOGIN_ITEM_THROTTLE_MS / 1000}\n[Install]\nWantedBy=default.target\n`;
   return `@echo off\r\nrem ${MARKER}\r\nstart "" /min ${windows(runtime)} ${windows(launcher)} web --login-item\r\n`;
 }
 
@@ -216,9 +216,20 @@ function owned(path: string): boolean {
   return readFileSync(path, "utf8").includes(MARKER);
 }
 
-function runCommand(options: WebAutostartOptions, home: string, command: string, args: string[]) {
+/** The login item's restart throttle: launchd ThrottleInterval and systemd RestartSec. */
+export const LOGIN_ITEM_THROTTLE_MS = 30_000;
+/** launchd holds `kickstart -k` until its ThrottleInterval ends, so wait past it. */
+const KICKSTART_TIMEOUT_MS = LOGIN_ITEM_THROTTLE_MS + 15_000;
+
+function runCommand(
+  options: WebAutostartOptions,
+  home: string,
+  command: string,
+  args: string[],
+  timeout = 5_000
+) {
   if (options.run) options.run(command, args);
-  else execFileSync(command, args, { cwd: home, stdio: "ignore", timeout: 5_000 });
+  else execFileSync(command, args, { cwd: home, stdio: "ignore", timeout });
 }
 
 /**
@@ -340,11 +351,13 @@ export function restartWebAutostart(options: WebAutostartOptions = {}): boolean 
   const platform = options.platform ?? process.platform;
   try {
     if (platform === "darwin") {
-      runCommand(options, home, "launchctl", [
-        "kickstart",
-        "-k",
-        `gui/${process.getuid?.() ?? 0}/${NAME}`,
-      ]);
+      runCommand(
+        options,
+        home,
+        "launchctl",
+        ["kickstart", "-k", `gui/${process.getuid?.() ?? 0}/${NAME}`],
+        KICKSTART_TIMEOUT_MS
+      );
     } else if (platform === "linux") {
       resetStartLimit(options, home);
       runCommand(options, home, "systemctl", ["--user", "restart", "omms-web.service"]);

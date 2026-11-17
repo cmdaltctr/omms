@@ -249,6 +249,28 @@ describe("restartWebAutostart", () => {
     }
   });
 
+  // launchd holds `kickstart -k` until its 30-second restart throttle ends. A short
+  // timeout called that a failure, and the update then started a second web app.
+  it.skipIf(process.platform === "win32")(
+    "waits for a kickstart that launchd holds back",
+    () => {
+      const home = mkdtempSync(join(tmpdir(), "omms-kickstart-"));
+      homes.push(home);
+      const bin = join(home, "bin");
+      mkdirSync(bin);
+      writeFileSync(join(bin, "launchctl"), "#!/bin/sh\nsleep 6\n");
+      chmodSync(join(bin, "launchctl"), 0o755);
+      const path = process.env.PATH;
+      process.env.PATH = `${bin}:${path}`;
+      try {
+        expect(restartWebAutostart({ home, platform: "darwin" })).toBe(true);
+      } finally {
+        process.env.PATH = path;
+      }
+    },
+    15_000
+  );
+
   it("has no service manager command on Windows", () => {
     const commands: string[] = [];
     const restarted = restartWebAutostart({

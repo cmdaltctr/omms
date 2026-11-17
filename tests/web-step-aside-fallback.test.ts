@@ -96,3 +96,12 @@ it("waits for an install in progress before it exits, as for a step-aside or a r
   expect(f.calls).toEqual(["exit 0"]);
   rmSync(home, { recursive: true, force: true });
 });
+
+// An update restarts the login item with `kickstart -k`, which launchd can hold for its
+// 30-second throttle; the update then gives the new copy FRESH_WAIT_MS to answer. An old
+// web app that gave up sooner restarted the login item again and killed the new copy.
+it("waits for a new owner at least as long as an update restart can take", async () => {
+  const { FRESH_WAIT_MS } = await import("../src/cli/web-update-command.js");
+  const { LOGIN_ITEM_THROTTLE_MS } = await import("../src/services/web-autostart.js");
+  expect(NEW_OWNER_WAIT_MS).toBeGreaterThan(LOGIN_ITEM_THROTTLE_MS + FRESH_WAIT_MS);
+});

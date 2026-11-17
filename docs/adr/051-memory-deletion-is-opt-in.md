@@ -21,8 +21,8 @@ Facts from the code that shape the decision:
 ## Decision
 
 1. **A new key turns deletion on.** `autoDeleteOldMemories` is a global-only boolean with default `false`. Only this key lets an automatic run delete memories and prompts by age. A project config cannot set it. The template shows it commented out under a warning.
-2. **The old key is retired.** Nothing reads `autoCleanupEnabled` to decide whether to delete. A file that sets it to `true` or `false` loads with no error and no config problem, and deletes nothing. `autoCleanupRetentionDays` keeps its meaning and validation.
-3. **OMMS does not rewrite the user's file.** The old line stays where it is. The Memory cleanup card shows a note when the file still has `autoCleanupEnabled: true` and no new key.
+2. **The old key is removed.** OMMS 7.0.0 drops `autoCleanupEnabled` from the config type, so nothing reads it. A file that sets it to `true` or `false` loads with no error and no config problem, and deletes nothing. `autoCleanupRetentionDays` keeps its meaning and validation.
+3. **OMMS does not rewrite the user's file.** The old line stays where it is and does nothing. The release notes and `docs/upgrading.md` explain it. A first draft showed a note on the Memory cleanup card; it was dropped before release because the key no longer has any effect.
 4. **Housekeeping is separate from deletion.** `runDailyMaintenance(deleteOld)` runs the housekeeping on every call that the once-a-day guard lets through. It deletes memories and prompts only when `deleteOld` is true. Every automatic caller passes `CONFIG.autoDeleteOldMemories`. The housekeeping reads neither key. `shouldRunCleanup()` checks only the once-a-day guard and the running flag.
 5. **One trigger per host, one guard.** OpenCode runs it when the session goes idle, Pi after a settled turn, and the web app on a daily timer (`startDailyMaintenanceTimer()`), which also covers Claude Code. The guard is the per-process `lastCleanupTime`.
 6. **The count and the deletion share one selection.** `findOldMemories(cutoff)` selects the old unpinned memories, not memorisations, in every shard of the active space. `countCleanupCandidates(retentionDays)` counts that set and deletes nothing. The deletion removes that set. The Memory cleanup card shows this count in its confirm dialog before it saves `autoDeleteOldMemories: true`. The dialog says OMMS deletes them at its next daily check.
@@ -52,7 +52,7 @@ Facts from the code that shape the decision:
 ### Negative
 
 - OpenCode users who relied on automatic deletion lose it after the update. Nothing is lost: their memories are kept. The Memory cleanup card and `docs/upgrading.md` say how to turn deletion on again.
-- A config file can hold a key that does nothing. The card note and the configuration guide explain it.
+- A config file can hold a key that does nothing. The configuration guide and `docs/upgrading.md` explain it.
 
 ### Neutral
 

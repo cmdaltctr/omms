@@ -52,6 +52,12 @@ On 14 November 2026 the web app could not start. The global install of `om-memor
 2. Look for an empty folder in `<prefix>/lib/node_modules/om-memory-system/node_modules`.
 3. Run `npx -p om-memory-system@latest om-memory-system web update`. It takes the install lock and repairs the global install. `-p` takes a fresh copy: a plain `npx om-memory-system@latest` runs the global copy when it already has that version. A plain `npm i -g` skips the lock.
 
+### Found in the live check: a restart inside the throttle window
+
+launchd holds `launchctl kickstart -k` until its 30-second `ThrottleInterval` ends. The live check measured 25,024 ms for an update restart within 30 seconds of the login item's last start. The call had a 5-second timeout, so `web update` treated it as a failure and started a detached web app. launchd then started the login item as well, and two web apps ran for one HOME. The kickstart timeout is now 45 seconds (`KICKSTART_TIMEOUT_MS` in `src/services/web-autostart.ts`). `tests/web-autostart.test.ts` holds a fake `launchctl` for 6 seconds and fails with the old timeout.
+
+A second run started the update 1 second after a crash restart. The old web app waited 30 seconds for a new owner, gave up a moment before the held restart finished, and restarted the login item again, which killed the new copy. The update reported `no-answer` and the port was empty for about 60 seconds. The old web app now waits 60 seconds (`NEW_OWNER_WAIT_MS` in `src/cli/web-step-aside.ts`), more than the throttle plus the update's 15-second wait. `tests/web-step-aside-fallback.test.ts` checks that rule.
+
 ## Revisit Triggers
 
 - npm adds a lock for global installs.
