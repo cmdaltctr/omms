@@ -102,6 +102,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [078](./078-opencode-importer-missed-v2-session-tables.md)                     | The OpenCode importer missed the V2 session tables                      | Proposed              | 2026-11-11 |
 | [079](./079-untagged-memories-scored-below-the-search-threshold.md)            | Untagged memories scored below the search threshold                     | Proposed              | 2026-11-11 |
 | [080](./080-inherit-failed-without-opencode-model-json.md)                     | `inherit` failed when OpenCode had no model.json                        | Proposed              | 2026-11-11 |
+| [087](./087-a-test-web-app-half-wrote-the-real-global-install.md)              | A test web app half-wrote the real global install                       | Proposed              | 2026-11-17 |
 
 ## Status values
 
