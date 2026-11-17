@@ -121,14 +121,6 @@ it("has every text that the shared pieces show in Chinese and Arabic", () => {
   expect(missing).toEqual([]);
 });
 
-/**
- * An anchor that no element on its page carries yet. The `simpler-import` change adds the
- * automatic import switch to the Memory overview with this id; until then search opens the page.
- */
-const ANCHORS_ADDED_ELSEWHERE: Record<string, string> = {
-  autoBackfill: "memory-section-auto-import",
-};
-
 it("finds every catalogue anchor as an element id on its page", async () => {
   const { readdirSync } = await import("node:fs");
   const { SETTINGS_SECTIONS } = await import("../src/lib/settings-sections.ts");
@@ -144,11 +136,8 @@ it("finds every catalogue anchor as an element id on its page", async () => {
   };
   const sectionIds = new Set<string>(SETTINGS_SECTIONS.map((section) => section.id));
   const missing = SETTINGS_CATALOGUE.filter((entry) => {
-    if (ANCHORS_ADDED_ELSEWHERE[entry.key] === entry.anchor) return false;
     if (entry.page === "settings") return !sectionIds.has(entry.anchor);
     return !pages[entry.page]!.includes(`id="${entry.anchor}"`);
   }).map((entry) => `${entry.key} -> ${entry.page}#${entry.anchor}`);
   expect(missing).toEqual([]);
-  // The known exception still points where the other change puts the switch.
-  expect(pages.memory).not.toContain(`id="${ANCHORS_ADDED_ELSEWHERE.autoBackfill}"`);
 });
