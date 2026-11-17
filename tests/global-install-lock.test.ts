@@ -23,7 +23,12 @@ let home: string;
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "omms-install-lock-"));
 });
-afterEach(() => rmSync(home, { recursive: true, force: true }));
+const sleepers: { kill(): void }[] = [];
+
+afterEach(() => {
+  for (const proc of sleepers.splice(0)) proc.kill();
+  rmSync(home, { recursive: true, force: true });
+});
 
 const lockPath = () => installLockPath(home);
 
@@ -187,9 +192,14 @@ it("refreshes the lock time before the repair, so the repair is not run under a 
   expect(seen).toEqual([0, 5 * 60 * 1000]);
 });
 
-/** A real process that sleeps, for a live process id; kill it to end it. */
+/** A real process that sleeps, for a live process id. Runs on every system; `afterEach` kills it. */
 function sleeper() {
-  return Bun.spawn(["/bin/sleep", "30"], { stdout: "ignore", stderr: "ignore" });
+  const proc = Bun.spawn([process.execPath, "-e", "setTimeout(() => {}, 30000)"], {
+    stdout: "ignore",
+    stderr: "ignore",
+  });
+  sleepers.push(proc);
+  return proc;
 }
 
 it("keeps the lock while npm runs after its holder exited, then lets the next caller skip npm", async () => {

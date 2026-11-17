@@ -359,7 +359,10 @@ it("leaves everything alone when another caller holds the start lock", async () 
 
 it("installs under the install lock in the production deps", async () => {
   const home = mkdtempSync(join(tmpdir(), "omms-web-update-lock-"));
-  const holder = Bun.spawn(["/bin/sleep", "30"], { stdout: "ignore", stderr: "ignore" });
+  const holder = Bun.spawn([process.execPath, "-e", "setTimeout(() => {}, 30000)"], {
+    stdout: "ignore",
+    stderr: "ignore",
+  });
   try {
     mkdirSync(join(home, ".omms"), { recursive: true });
     writeFileSync(installLockPath(home), JSON.stringify({ pid: holder.pid, at: Date.now() }));
