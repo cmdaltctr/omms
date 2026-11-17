@@ -120,7 +120,7 @@ const pieceText = {
       "لا يوجد إعداد مطابق. بعض الإعدادات موجودة في ملف الإعدادات فقط. راجع دليل الإعدادات (Configuration guide) في docs/configuration.md.",
     ],
   // SettingsConfirmDialog.
-  Cancel: ["取消", "إلغاء الأمر"],
+  Cancel: ["取消", "إلغاء"],
   "Saving…": ["正在保存…", "جارٍ الحفظ…"],
   // ConfigProblemBanner.
   "Problem in your config file": ["配置文件有问题", "مشكلة في ملف الإعدادات"],

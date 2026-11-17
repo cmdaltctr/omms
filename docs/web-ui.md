@@ -458,7 +458,7 @@ A failed migration leaves the original file unchanged.
 
 ## Memory tagging
 
-The **Memory Tagging Migration** dialog opens when some memories have no tags. **Start Migration** sends each untagged memory to your memory model (Settings > **External API**) and asks it for tags. Each memory is one call to that API, so the run can use paid credit. The dialog says this before you start.
+The **Memory Tagging Migration** dialog opens when at least half of your memories have no tags, as in a store that pre-dates tags. A few untagged memories among tagged ones do not open it. **Start Migration** sends each untagged memory to your memory model (Settings > **External API**) and asks it for tags. Each memory is one call to that API, so the run can use paid credit. The dialog says this before you start.
 
 If the run tags every memory, the dialog says so and closes. If any memory fails, the dialog stays open and shows the reason in red:
 

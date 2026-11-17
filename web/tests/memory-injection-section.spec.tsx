@@ -64,10 +64,10 @@ it("sits after the host cards and the Import all hosts row, with the memory-inje
 
 it("shows the defaults: opening off, the default query, subagent on, restore on with limit 10", () => {
   const html = section();
-  const box = (id: string) => html.match(new RegExp(`<input[^>]*id="${id}"[^>]*>`))![0];
-  expect(box("injection-opening")).not.toContain("checked");
-  expect(box("injection-subagent")).toContain("checked");
-  expect(box("injection-restore")).toContain("checked");
+  const box = (id: string) => html.match(new RegExp(`<button[^>]*id="${id}"[^>]*>`))![0];
+  expect(box("injection-opening")).toContain('aria-checked="false"');
+  expect(box("injection-subagent")).toContain('aria-checked="true"');
+  expect(box("injection-restore")).toContain('aria-checked="true"');
   expect(box("injection-opening")).toContain('role="switch"');
   // Each row leads with its plain catalogue name, then shows the config key as small text.
   for (const [name, key] of [
@@ -88,8 +88,12 @@ it("shows the defaults: opening off, the default query, subagent on, restore on 
 
 it("shows saved values: opening on with a custom query, restore off", () => {
   const html = section(draft({ opening: true, query: "release notes", restore: false }));
-  expect(html.match(/<input[^>]*id="injection-opening"[^>]*>/)![0]).toContain("checked");
-  expect(html.match(/<input[^>]*id="injection-restore"[^>]*>/)![0]).not.toContain("checked");
+  expect(html.match(/<button[^>]*id="injection-opening"[^>]*>/)![0]).toContain(
+    'aria-checked="true"'
+  );
+  expect(html.match(/<button[^>]*id="injection-restore"[^>]*>/)![0]).toContain(
+    'aria-checked="false"'
+  );
   expect(html).toContain("release notes");
 });
 

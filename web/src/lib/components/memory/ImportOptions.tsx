@@ -1,3 +1,7 @@
+import { Button } from "$lib/components/ui/button";
+import { Checkbox } from "$lib/components/ui/checkbox";
+import { Input } from "$lib/components/ui/input";
+import { Label } from "$lib/components/ui/label";
 import { compactField, Select } from "$lib/components/ui/select";
 import { useSettingsText } from "$lib/i18n/settings";
 import { navigate, ROUTES } from "$lib/router";
@@ -6,7 +10,6 @@ import type { ImportDraft } from "./import-types";
 const SKILL_CARD = `${ROUTES.settings}#settings-section-skill-learning`;
 export const importField =
   "mt-1 block w-full min-w-0 rounded border border-border bg-background p-2";
-export const importButton = "rounded border border-border px-3 py-1.5 text-sm disabled:opacity-50";
 
 export function ImportOptions({
   draft,
@@ -26,34 +29,31 @@ export function ImportOptions({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-4 text-sm">
-        <label>
-          <input
-            type="checkbox"
+        <Label className="w-auto">
+          <Checkbox
             aria-label={s("Project memories")}
             checked={draft.memories}
-            onChange={(event) => onChange({ memories: event.target.checked })}
-          />{" "}
+            onCheckedChange={(checked) => onChange({ memories: checked === true })}
+          />
           {s("Project memories")}
-        </label>
-        <label>
-          <input
-            type="checkbox"
+        </Label>
+        <Label className="w-auto">
+          <Checkbox
             aria-label={s("User profile")}
             checked={draft.profile}
-            onChange={(event) => onChange({ profile: event.target.checked })}
-          />{" "}
+            onCheckedChange={(checked) => onChange({ profile: checked === true })}
+          />
           {s("User profile")} {s("(preferences, patterns, and workflows)")}
-        </label>
-        <label>
-          <input
-            type="checkbox"
+        </Label>
+        <Label className="w-auto">
+          <Checkbox
             aria-label={s("Skill turns")}
             checked={skillRecording && draft.skills}
             disabled={!skillRecording}
-            onChange={(event) => onChange({ skills: event.target.checked })}
-          />{" "}
+            onCheckedChange={(checked) => onChange({ skills: checked === true })}
+          />
           {s("Skill turns")}
-        </label>
+        </Label>
       </div>
       {!skillRecording && (
         <p className="text-xs text-muted-foreground">
@@ -85,32 +85,36 @@ export function ImportOptions({
           </Select>
         </div>
       </label>
-      <label className="block text-sm">
-        <input
-          type="checkbox"
+      <Label>
+        <Checkbox
           aria-label={s("Show handled sessions")}
           checked={draft.showHandled}
-          onChange={(event) => onChange({ showHandled: event.target.checked })}
-        />{" "}
+          onCheckedChange={(checked) => onChange({ showHandled: checked === true })}
+        />
         {s("Show handled sessions")}
-      </label>
-      <button type="button" className={importButton} onClick={onAdvanced} aria-expanded={advanced}>
+      </Label>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onAdvanced}
+        aria-expanded={advanced}
+      >
         {s(advanced ? "Hide advanced options" : "Advanced options")}
-      </button>
+      </Button>
       <div hidden={!advanced} className="space-y-3 rounded-lg border border-border p-3">
         <div className="grid gap-3 sm:grid-cols-2">
           {draft.scope === "current-project" && (
-            <label className="text-sm">
+            <Label className="flex-col items-stretch gap-1">
               {s("Project directory")}
-              <input
+              <Input
                 aria-label={s("Project directory")}
-                className={importField}
                 dir="ltr"
                 value={draft.project}
                 placeholder={s("Current directory")}
                 onChange={(event) => onChange({ project: event.target.value })}
               />
-            </label>
+            </Label>
           )}
           {(
             [
@@ -119,17 +123,16 @@ export function ImportOptions({
               ["Profile batch size", "profileBatch"],
             ] as const
           ).map(([label, key]) => (
-            <label key={key} className="text-sm">
+            <Label key={key} className="flex-col items-stretch gap-1">
               {s(label)}
-              <input
+              <Input
                 aria-label={s(label)}
                 type={key === "profileBatch" ? "text" : "date"}
                 inputMode={key === "profileBatch" ? "numeric" : undefined}
-                className={importField}
                 value={draft[key]}
                 onChange={(event) => onChange({ [key]: event.target.value })}
               />
-            </label>
+            </Label>
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
@@ -137,15 +140,14 @@ export function ImportOptions({
             "Prompt dates are inclusive, use your time zone, and filter the turns inside each session, not the list. Empty dates include every turn."
           )}
         </p>
-        <label className="block text-sm">
-          <input
-            type="checkbox"
+        <Label>
+          <Checkbox
             aria-label={s("Re-analyse handled history")}
             checked={draft.force}
-            onChange={(event) => onChange({ force: event.target.checked })}
-          />{" "}
+            onCheckedChange={(checked) => onChange({ force: checked === true })}
+          />
           {s("Re-analyse handled history")}
-        </label>
+        </Label>
         <p className="text-xs text-muted-foreground">
           {s(
             "Re-analysis applies to the selected outputs. Each profile prompt can be forcibly re-analysed once. Findings merge into the existing profile."

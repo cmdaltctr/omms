@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
+import { createServer } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
@@ -14,11 +15,27 @@ import { WebServer } from "../src/services/web-server.js";
 
 const omms = join(homedir(), ".omms");
 const files = spaceFiles(omms);
-const port = 49100 + (process.pid % 500);
+let port: number;
 let project: string;
 let server: WebServer;
 /** Random id of the Aizat space that the switch test creates. */
 let aizatId: string;
+
+/**
+ * A port nobody listens on now. A fixed port, or one derived from the process id,
+ * can belong to another test run. WebServer then silently waits for that port, and
+ * every request in this file reaches the other run's server.
+ */
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const { port: free } = probe.address() as { port: number };
+      probe.close(() => resolve(free));
+    });
+  });
+}
 
 async function api(path: string, init: RequestInit = {}) {
   const response = await fetch(`http://127.0.0.1:${port}${path}`, {
@@ -31,8 +48,11 @@ async function api(path: string, init: RequestInit = {}) {
 beforeAll(async () => {
   project = mkdtempSync(join(tmpdir(), "omms-web-status-"));
   initConfig(project);
+  port = await freePort();
   server = new WebServer({ enabled: true, host: "127.0.0.1", port, directory: project } as never);
   await server.start();
+  // Fail here, with a clear reason, instead of testing another process's server.
+  expect(server.isServerOwner()).toBe(true);
 });
 afterAll(async () => {
   await server.stop();

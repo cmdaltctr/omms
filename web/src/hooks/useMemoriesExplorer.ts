@@ -147,13 +147,12 @@ export function useMemoriesExplorer() {
       setMigrationNeeded(true);
     }
 
-    const tagResult = await fetchAPI<{ needsMigration: boolean; count: number }>(
-      "/api/migration/tags/detect"
-    );
+    const tagResult = await fetchAPI<{ count: number }>("/api/migration/tags/detect");
+    const stats = await fetchAPI<{ total: number }>("/api/stats");
     if (
       tagResult.success &&
-      tagResult.data?.needsMigration &&
-      shouldOpenTagMigration(tagResult.data.count)
+      tagResult.data &&
+      shouldOpenTagMigration(tagResult.data.count, stats.data?.total ?? 0)
     ) {
       setTagMigrationCount(tagResult.data.count);
       setTagMigrationOpen(true);

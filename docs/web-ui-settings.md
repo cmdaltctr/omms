@@ -278,6 +278,7 @@ The web app has no OpenCode session. OMMS starts a private `opencode serve` to r
 - The server listens only on `127.0.0.1`, on a free port, with a password that OMMS makes for that start.
 - OMMS finds `opencode` in `~/.opencode/bin`, then on `PATH`, then in `/opt/homebrew/bin`, `/usr/local/bin`, and `~/.bun/bin`. It does not read your shell profile.
 - OpenCode's reply contains provider API keys. OMMS keeps only the provider, model ID, and name. The keys never reach the page, the log, or error messages.
+- OMMS starts the server only when OpenCode's history database (`opencode.db`, in `XDG_DATA_HOME` or `~/.local/share/opencode`) already exists. On a computer that has never run OpenCode, `opencode serve` would create that database, so OMMS skips it and shows "OpenCode has no signed-in models".
 - OMMS keeps a list for 5 minutes, so a reload does not start OpenCode again. A failed read is kept for 30 seconds.
 - The server starts in your home folder, so it reads OpenCode's global config only. Type a provider that you set up only in a project's `opencode.json` as `provider/model`.
 

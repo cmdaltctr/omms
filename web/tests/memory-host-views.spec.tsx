@@ -208,12 +208,12 @@ it("opens the import panel with Customise open and the profile-only preset after
     <MemoryOverview statuses={fakeStatuses(allSetUp)} profilePreset={1} />
   );
   const box = (label: string) =>
-    new RegExp(`<input[^>]*aria-label="${label}"[^>]*>`).exec(html)?.[0] ?? "";
+    new RegExp(`<button[^>]*aria-label="${label}"[^>]*>`).exec(html)?.[0] ?? "";
   // The panel and its Customise section are on screen, not behind a button.
   expect(html).toMatch(/<details[^>]* open=""[^>]*>\s*<summary[^>]*>Customise/);
-  expect(box("Project memories")).not.toContain("checked");
-  expect(box("User profile")).toContain('checked=""');
-  expect(box("Re-analyse handled history")).toContain('checked=""');
+  expect(box("Project memories")).toContain('aria-checked="false"');
+  expect(box("User profile")).toContain('aria-checked="true"');
+  expect(box("Re-analyse handled history")).toContain('aria-checked="true"');
   // Nothing starts by itself: the import still needs a preview and the dialog.
   expect(html).not.toContain('role="progressbar"');
 });

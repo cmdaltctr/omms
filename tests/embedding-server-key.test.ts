@@ -5,6 +5,7 @@ const seen: Array<{ port: number; auth: string | null; model: string }> = [];
 function server(size: number) {
   return Bun.serve({
     port: 0,
+    hostname: "127.0.0.1",
     async fetch(request) {
       const body = (await request.json()) as { model: string };
       seen.push({
@@ -21,6 +22,19 @@ const large = server(5);
 afterAll(() => {
   small.stop(true);
   large.stop(true);
+});
+
+// A listener on 0.0.0.0 shares its port with any later listener on 127.0.0.1, and the
+// client's 127.0.0.1 request then reaches that other listener (a 403 once). A loopback
+// bind makes the second listener fail instead.
+it("keeps its port: no other listener can bind the same loopback port", () => {
+  const rival = () =>
+    Bun.serve({
+      port: small.port,
+      hostname: "127.0.0.1",
+      fetch: () => new Response("", { status: 403 }),
+    });
+  expect(rival).toThrow();
 });
 
 it("uses an embedding server without a key and sends no Authorization header", async () => {

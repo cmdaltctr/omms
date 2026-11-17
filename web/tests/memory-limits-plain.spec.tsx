@@ -166,16 +166,7 @@ it("reads the Memory limits notes in Arabic", async () => {
   expect(words).not.toContain("Conversation size when saving");
 });
 
-// Native switches (`role="switch"`) that live in form state and save with their card's Save
-// button. They follow the one save pattern; moving them to the shared Checkbox is a visual
-// follow-up that also rewrites the static-markup specs of those two cards.
-const ALLOWED_RAW_SWITCHES: Record<string, number> = {
-  MemoryInjectionSection: 3,
-  RerankerSection: 1,
-  // The Shared view specs mock React context away, and the shared Checkbox needs it.
-  AutoCleanupSettings: 1,
-};
-
+// The switches in these cards use the shared Switch, so no raw input is left.
 it("uses shared controls in the five cards: no raw button or input, no window.confirm", () => {
   for (const name of Object.keys(cards).concat("RerankerSection")) {
     const source = readFileSync(
@@ -183,9 +174,7 @@ it("uses shared controls in the five cards: no raw button or input, no window.co
       "utf8"
     );
     expect(source, name).not.toMatch(/<button|window\.confirm/);
-    const inputs = source.match(/<input\b[^>]*/g) ?? [];
-    expect(inputs.length, name).toBe(ALLOWED_RAW_SWITCHES[name] ?? 0);
-    for (const input of inputs) expect(input, name).toContain('role="switch"');
+    expect(source.match(/<input\b[^>]*/g) ?? [], name).toHaveLength(0);
   }
 });
 
@@ -203,7 +192,7 @@ it("keeps the profile tidy switch in the form until one Save", async () => {
   let tree = await settle(<AutoCleanupSettings />, own);
   const { Button } = await import("../src/lib/components/ui/button.tsx");
   const toggle = (nodes: Node[]) => nodes.find((node) => node.props.id === "auto-cleanup-enabled")!;
-  toggle(tree).props.onChange({ target: { checked: false } });
+  toggle(tree).props.onCheckedChange(false);
   tree = await settle(<AutoCleanupSettings />, own);
   // Changing the switch saves nothing on its own.
   expect(requests.filter((request) => request.method === "PATCH")).toHaveLength(0);

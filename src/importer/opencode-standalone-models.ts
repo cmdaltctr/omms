@@ -1,6 +1,6 @@
 import { spawn as nodeSpawn, type SpawnOptions } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { accessSync, constants, statSync } from "node:fs";
+import { accessSync, constants, existsSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { posix, win32 } from "node:path";
 import { log } from "../services/logger.js";
@@ -44,6 +44,8 @@ export interface StandaloneDeps {
   now(): number;
   sleep(ms: number): Promise<void>;
   isFile(path: string): boolean;
+  /** Whether a file or folder exists. Only reads; never creates. */
+  exists(path: string): boolean;
   kill(child: ChildLike, signal: "SIGTERM" | "SIGKILL"): void;
   env: Record<string, string | undefined>;
   platform: NodeJS.Platform;
@@ -95,6 +97,17 @@ function findOpencode(deps: StandaloneDeps): string | null {
     }
   }
   return null;
+}
+
+/**
+ * OpenCode's history database. `opencode serve` creates it on a machine that has
+ * never run OpenCode, so without it OMMS does not start a server (nothing is
+ * signed in there anyway). Same folder rule as OpenCode: XDG_DATA_HOME, else ~/.local/share.
+ */
+function opencodeDatabase(deps: StandaloneDeps): string {
+  const path = deps.platform === "win32" ? win32 : posix;
+  const dataHome = envValue(deps, "XDG_DATA_HOME") || path.join(deps.home, ".local", "share");
+  return path.join(dataHome, "opencode", "opencode.db");
 }
 
 function startServer(deps: StandaloneDeps, program: string, password: string): ChildLike {
@@ -256,6 +269,10 @@ async function readOnce(deps: StandaloneDeps): Promise<StandaloneResult> {
     deps.log("OpenCode standalone model list", { outcome: "not_found", count: 0 });
     return { outcome: "not_found" };
   }
+  if (!deps.exists(opencodeDatabase(deps))) {
+    deps.log("OpenCode standalone model list", { outcome: "empty", count: 0, started: false });
+    return { outcome: "empty" };
+  }
   const password = deps.password();
   let child: ChildLike | null = null;
   let stop: (() => Promise<void>) | null = null;
@@ -354,6 +371,7 @@ export function readStandaloneOpencodeModels(): Promise<StandaloneResult> {
     now: Date.now,
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms).unref?.()),
     isFile: isProgramFile,
+    exists: existsSync,
     kill: killTree,
     env: process.env,
     platform: process.platform,

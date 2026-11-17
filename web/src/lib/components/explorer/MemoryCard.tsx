@@ -145,7 +145,12 @@ export function MemoryCard({
                   <Pin className="size-3.5" />
                 </Button>
               )}
-              <Button variant="ghost" size="icon-xs" onClick={() => onEdit?.(memory.id)}>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={t("btn-edit")}
+                onClick={() => onEdit?.(memory.id)}
+              >
                 <PenLine className="size-3.5" />
               </Button>
               <Tooltip content={t("tooltip-delete-pair")}>
@@ -316,7 +321,12 @@ export function MemoryCard({
                 <Pin className="size-3.5" />
               </Button>
             )}
-            <Button variant="ghost" size="icon-xs" onClick={() => onEdit?.(item.id)}>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label={t("btn-edit")}
+              onClick={() => onEdit?.(item.id)}
+            >
               <PenLine className="size-3.5" />
             </Button>
             {isLinked ? (

@@ -1,4 +1,6 @@
 import { Button } from "$lib/components/ui/button";
+import { Checkbox } from "$lib/components/ui/checkbox";
+import { Label } from "$lib/components/ui/label";
 import { hostLabel, type WebHost } from "$lib/host-label";
 import { useSettingsText } from "$lib/i18n/settings";
 import { navigate, ROUTES } from "$lib/router";
@@ -109,15 +111,14 @@ export function ImportCustomise({
             <HostImportBadges />
             <div className="flex flex-wrap items-center gap-3 text-sm">
               {IMPORT_HOSTS.map((host) => (
-                <label key={host}>
-                  <input
-                    type="checkbox"
+                <Label key={host} className="w-auto">
+                  <Checkbox
                     aria-label={hostLabel(host)}
                     checked={draft.hosts[host].enabled}
-                    onChange={(event) => onChangeHost(host, { enabled: event.target.checked })}
-                  />{" "}
+                    onCheckedChange={(checked) => onChangeHost(host, { enabled: checked === true })}
+                  />
                   {hostLabel(host)}
-                </label>
+                </Label>
               ))}
               <Button
                 type="button"
