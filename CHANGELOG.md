@@ -2,6 +2,33 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [7.0.0](https://github.com/cmdaltctr/omms/compare/v6.5.0...v7.0.0) (2026-11-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* automatic deletion of old memories is now off until you turn it on with the Memory cleanup card (`autoDeleteOldMemories`). `autoCleanupEnabled` is ignored. OpenCode users who relied on automatic deletion must turn it on again; see docs/upgrading.md.
+
+### Features
+
+* add setup and doctor commands and clearer first-run notices ([8fb5b4e](https://github.com/cmdaltctr/omms/commit/8fb5b4e4da5eb37e1da14c7b962c780a1b6c5473))
+* import past chats with one button and a readiness checklist ([ee9fd14](https://github.com/cmdaltctr/omms/commit/ee9fd1485153c1b8f2f7badddca7810522872cd7))
+* make settings plain and automatic memory deletion opt-in ([6d99583](https://github.com/cmdaltctr/omms/commit/6d99583a9962c0295d8855b18b4cc1e04a2f36d1))
+* remove the retired autoCleanupEnabled key ([530325b](https://github.com/cmdaltctr/omms/commit/530325b561342ebc29880e68f85052a751ad2e75))
+
+
+### Bug Fixes
+
+* keep a memory's pin when you edit it in the web app ([c394180](https://github.com/cmdaltctr/omms/commit/c394180cf7348845e5979fbb07f4cf7559f82043))
+* keep one web app when an update restarts inside launchd's throttle ([764c1f9](https://github.com/cmdaltctr/omms/commit/764c1f98eeb24ca853ce41fc97371fe7ead3af50))
+* run one global update at a time and repair a half-written install ([2a9cc5c](https://github.com/cmdaltctr/omms/commit/2a9cc5c7978d93fcecd85a97eab36e786d041da4))
+* stop tests from running a real global npm install ([aedcd4f](https://github.com/cmdaltctr/omms/commit/aedcd4faee58d7db55bab0440b596e518aaeaf02))
+
+
+### Documentation
+
+* **openspec:** record the update-lock-and-watchdog live check ([8c8dfe4](https://github.com/cmdaltctr/omms/commit/8c8dfe465c5b23993ce5b7c34cd520ddb197074c))
+
 ## [6.5.0](https://github.com/cmdaltctr/omms/compare/v6.4.0...v6.5.0) (2026-11-14)
 
 
