@@ -10,6 +10,7 @@ import { log } from "../services/logger.js";
 import { loadOpencodeProvider } from "../adapters/opencode/opencode-provider-loader.js";
 import { registerOpencodeProfileModel } from "../adapters/opencode/profile-model.js";
 import { showOpencodeNotice } from "../adapters/opencode/toast.js";
+import { currentConfigProblems } from "../services/config-problems.js";
 
 const GLOBAL_PLUGIN_WARMUP_KEY = Symbol.for("omms.plugin.warmedup");
 
@@ -140,6 +141,10 @@ async function startWebApp(): Promise<void> {
 export async function startOpencodeRuntime(ctx: Context, onCleanup: () => void = () => {}) {
   const directory = ctx.location.directory;
   initConfigWithLegacyMigration(directory);
+  // A broken file or a rejected value uses the defaults; tell the user once, at start.
+  for (const problem of currentConfigProblems()) {
+    showOpencodeNotice({ title: "OMMS settings", message: problem.message, variant: "warning" });
+  }
 
   // Runs even with tracing off, so turning it off does not leave old traces behind.
   pruneTraces(CONFIG);

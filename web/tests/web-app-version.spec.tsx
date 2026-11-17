@@ -25,7 +25,8 @@ it("warns that a newer global install is replaced at the next host start", () =>
   expect(versionNotice(info)).toEqual({ kind: "newer", command: null });
   const html = render(info);
   expect(html).toContain("newer than the running OMMS");
-  expect(html).toContain("next Pi or OpenCode start");
+  // Claude Code also replaces an older web app at session start (hook-client.ts replaceOlderFor).
+  expect(html).toContain("next OpenCode, Pi or Claude Code session start");
   expect(html).not.toContain("npm i -g");
 });
 

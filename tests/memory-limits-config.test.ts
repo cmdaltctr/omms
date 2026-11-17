@@ -292,7 +292,7 @@ describe("memory limit project overrides", () => {
 });
 
 describe("memory limit live hand edits", () => {
-  it("applies a valid live edit at the next refresh and keeps the last good config after an invalid one", async () => {
+  it("applies a valid live edit at the next refresh; an invalid value uses its default and keeps the other edits", async () => {
     const result = await limitsScenario(
       { global: JSON.stringify({ retrievalMaxTokens: 2000, maxMemories: 10 }) },
       `
@@ -320,11 +320,12 @@ describe("memory limit live hand edits", () => {
     );
     expect(result.atStart).toEqual({ retrieval: 2000, maxMemories: 10 });
     expect(result.afterValid).toEqual({ retrieval: 1000, maxMemories: 6 });
-    expect(result.afterInvalid).toEqual({ retrieval: 1000, maxMemories: 6 });
+    // A rejected value no longer stops a reload (friendly-settings): it uses its default.
+    expect(result.afterInvalid).toEqual({ retrieval: 2000, maxMemories: 6 });
     expect(result.afterRecovery).toBe(4000);
   });
 
-  it("keeps the last good config when a live project edit is invalid", async () => {
+  it("uses the default for an invalid live project edit and keeps the global values", async () => {
     const result = await limitsScenario(
       {
         global: JSON.stringify({ maxMemories: 2 }),
@@ -346,8 +347,8 @@ describe("memory limit live hand edits", () => {
         return { before, after };
       `
     );
-    expect(result.after).toEqual(result.before);
     expect(result.before).toEqual({ retrieval: 1500, maxMemories: 2 });
+    expect(result.after).toEqual({ retrieval: 2000, maxMemories: 2 });
   });
 });
 

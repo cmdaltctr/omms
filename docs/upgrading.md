@@ -165,6 +165,30 @@ Upgrading from an `opencode-mem` install? The store moves to `~/.omms/data`
 automatically on first start, after a verified backup. See
 [Migrating from opencode-mem](omms-migration.md).
 
+## Automatic memory deletion is off until you turn it on
+
+After this update, OMMS does not delete memories by age on any host until you turn deletion on. This is true even when your config file says `"autoCleanupEnabled": true`. Older versions wrote that line into the config template, so most files have it. OMMS now ignores that key and does not change your file.
+
+Nothing is lost: OMMS keeps every memory. Before the update, only OpenCode deleted old memories. Pi and Claude Code never did.
+
+To delete old memories automatically again:
+
+1. Open the Settings page.
+2. On the **Memory cleanup** card, set the number of days.
+3. Turn on the switch.
+4. Select **Save**. The page shows how many memories the next daily check deletes.
+5. Confirm.
+
+The page writes `"autoDeleteOldMemories": true` to the global file. You can also add that line yourself. Deletion then runs once a day on OpenCode, Pi and Claude Code. See [Configuration: Memory cleanup](configuration.md#memory-cleanup).
+
+- If your file already sets `autoCleanupRetentionDays`, that number of days still applies. The card shows it.
+- On Claude Code, deletion runs only while the OMMS web app runs. The web app does the daily check.
+- A host that still runs the old version follows the old switch until you restart it. Restart OpenCode and Pi after the update. For OpenCode, also run `opencode service restart`, because the background service keeps the old copy loaded.
+
+The **Cleanup** button on the memory list works as before.
+
+OMMS also no longer reads `maxProfileItems`, `userProfileDisplayPreferences`, `userProfileDisplayPatterns` and `userProfileDisplayWorkflows`. An old file that sets them loads with no error.
+
 ## Embedding key no longer falls back to `OPENAI_API_KEY`
 
 Before this release, an `embeddingApiUrl` without an `embeddingApiKey` used the `OPENAI_API_KEY` environment variable. Now OMMS sends no key unless you set one, so a local server never receives your OpenAI key.

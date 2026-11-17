@@ -1,10 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse, type ParseError } from "jsonc-parser";
-import { CONFIG, getGlobalConfigSourcePath } from "../config.js";
+import { CONFIG, getGlobalConfigSourcePath, getLastGoodGlobalFileConfig } from "../config.js";
 import { hasUnexpiredApiToken } from "./api-tokens.js";
 import { resolveClaudeFolder } from "./claude-folder.js";
+import {
+  currentConfigProblems,
+  describeJsoncError,
+  type ConfigProblem,
+} from "./config-problems.js";
 import { readGlobalConfigRevision } from "./global-config-writer.js";
+import { resolveSecretValue } from "./secret-resolver.js";
 import { injectionOptionsFromFile } from "./injection-options-config.js";
 import { getMemoryLimitRule, MEMORY_LIMIT_SETTINGS } from "../utils/memory-limits.js";
 import {
@@ -52,6 +58,13 @@ const editable = [
   "memorisationMaxSize",
   "memorisationSizeUnit",
   "memorisationRerank",
+  "autoCaptureEnabled",
+  "chatMessage.enabled",
+  "visibleRecall",
+  "injectProfile",
+  "memory.defaultScope",
+  "autoDeleteOldMemories",
+  "autoCleanupRetentionDays",
   ...MEMORY_LIMIT_SETTINGS,
 ] as const;
 
@@ -62,8 +75,12 @@ const editable = [
  */
 const injectionKeys = ["openingContext", "openingContextQuery", "subagentMemory"] as const;
 
-/** `DEFAULTS.compaction.enabled` in src/config.ts. */
-const COMPACTION_ENABLED_DEFAULT = true;
+/** Defaults of the nested keys, as `DEFAULTS` in src/config.ts sets them. */
+const NESTED_DEFAULTS: Record<string, unknown> = {
+  "compaction.enabled": true,
+  "chatMessage.enabled": true,
+  "memory.defaultScope": "project",
+};
 
 /** Keys a project config cannot override, so the page always shows the global value. */
 const globalOnly = [
@@ -90,16 +107,28 @@ const globalOnly = [
   "memorisationMaxSize",
   "memorisationSizeUnit",
   "memorisationRerank",
+  "autoDeleteOldMemories",
 ];
 
-function readSettingsFile(path: string | undefined): Record<string, unknown> {
+/** A file that cannot be read gives no values and one problem with its line, never its text. */
+function readSettingsFile(
+  path: string | undefined,
+  found: ConfigProblem[]
+): Record<string, unknown> {
   if (!path) return {};
-  const errors: ParseError[] = [];
-  const result: unknown = parse(readFileSync(path, "utf8"), errors, { allowTrailingComma: true });
-  if (errors.length || !result || typeof result !== "object" || Array.isArray(result)) {
-    throw new Error("Config file cannot be parsed");
+  let content: string | undefined;
+  try {
+    content = readFileSync(path, "utf8");
+    const errors: ParseError[] = [];
+    const result: unknown = parse(content, errors, { allowTrailingComma: true });
+    if (!errors.length && result && typeof result === "object" && !Array.isArray(result)) {
+      return result as Record<string, unknown>;
+    }
+  } catch {
+    // Unreadable: reported below like a syntax error.
   }
-  return result as Record<string, unknown>;
+  found.push(describeJsoncError(path, content, false));
+  return {};
 }
 
 function projectFile(directory: string): string | undefined {
@@ -149,8 +178,19 @@ const plainObject = (value: unknown): Record<string, unknown> | null =>
     : null;
 
 export function getSettingsSnapshot(directory: string) {
-  const global = readSettingsFile(getGlobalConfigSourcePath());
-  const project = readSettingsFile(projectFile(directory));
+  const fileProblems: ConfigProblem[] = [];
+  const read = readSettingsFile(getGlobalConfigSourcePath(), fileProblems);
+  // The writer refuses to save over a global file it cannot read.
+  const readOnly = fileProblems.length > 0;
+  // While the file is broken the page shows the last good file, which this process still uses,
+  // so no row claims a default the host does not use.
+  const global = readOnly ? (getLastGoodGlobalFileConfig() as Record<string, unknown>) : read;
+  const project = readSettingsFile(projectFile(directory), fileProblems);
+  // Files were just read here; the last load's value problems still apply.
+  const problems = [
+    ...fileProblems,
+    ...currentConfigProblems().filter((problem) => problem.kind !== "parse"),
+  ];
   // Dotted identifiers (compaction.enabled) are resolved by the nested rule
   // above, so the runtime lookup only handles flat keys.
   const runtime = CONFIG as unknown as Record<string, unknown>;
@@ -162,8 +202,9 @@ export function getSettingsSnapshot(directory: string) {
       if (limitRule && limitRule.path.length > 1) {
         return [key, nestedSetting(limitRule.path, limitRule.default, global, project)];
       }
-      if (key === "compaction.enabled") {
-        return [key, nestedSetting(key.split("."), COMPACTION_ENABLED_DEFAULT, global, project)];
+      if (key in NESTED_DEFAULTS) {
+        const nested = nestedSetting(key.split("."), NESTED_DEFAULTS[key], global, project);
+        return [key, nested];
       }
       const injectionKey = injectionKeys.find((name) => name === key);
       if (injectionKey) {
@@ -182,7 +223,7 @@ export function getSettingsSnapshot(directory: string) {
       const projectOverrides =
         Object.hasOwn(project, key) &&
         // A project may turn these off, never on.
-        (key === "captureTrace" || key === "skillLearning"
+        (key === "captureTrace" || key === "skillLearning" || key === "visibleRecall"
           ? project[key] === false
           : !key.endsWith("RetentionDays") && !globalOnly.includes(key));
       const source = projectOverrides
@@ -233,6 +274,10 @@ export function getSettingsSnapshot(directory: string) {
           source,
           // The variable name or file path, never a literal value.
           reference: memoryKeyStatus(raw).reference,
+          // These keys resolve when the web app uses them, so check here; the value is not returned.
+          ...(key === "rerankerApiKey" || key === "embeddingApiKey"
+            ? { resolvesInWebApp: keyResolves(raw) }
+            : {}),
         },
       ];
     })
@@ -242,6 +287,13 @@ export function getSettingsSnapshot(directory: string) {
   const claudeRoot = join(claude.folder, "projects");
   return {
     revision: readGlobalConfigRevision(),
+    problems,
+    readOnly,
+    // "last-good": the values come from the last file OMMS could read, not the broken one.
+    valuesFrom: readOnly ? "last-good" : "file",
+    // The retired switch deletes nothing now; the Memory cleanup card explains it.
+    legacyCleanupKey:
+      global.autoCleanupEnabled === true && !Object.hasOwn(global, "autoDeleteOldMemories"),
     settings,
     secrets,
     fallback: { model: CONFIG.memoryModel ?? null, configured: isExternalModelReady(CONFIG) },
@@ -297,4 +349,14 @@ export function memoryKeyStatus(raw: unknown, resolved = CONFIG.memoryApiKey) {
         ? "A login web app does not see variables set only in a shell profile; a key file works everywhere."
         : null,
   };
+}
+
+/** True when a key setting resolves to a value in this web server's own process. */
+export function keyResolves(raw: unknown): boolean {
+  if (typeof raw !== "string" || !raw) return false;
+  try {
+    return Boolean(resolveSecretValue(raw));
+  } catch {
+    return false;
+  }
 }

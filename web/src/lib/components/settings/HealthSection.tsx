@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button } from "$lib/components/ui/button";
 import { settingsRequest } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
 
@@ -32,20 +33,12 @@ export function HealthSection() {
     >
       <h2 className="text-section-title font-semibold">{s("Health")}</h2>
       <div className="flex gap-2">
-        <button
-          className="rounded-lg border border-border px-3 py-1.5 text-sm"
-          disabled={busy}
-          onClick={() => void run(false)}
-        >
+        <Button type="button" variant="outline" disabled={busy} onClick={() => void run(false)}>
           {s("Run checks")}
-        </button>
-        <button
-          className="rounded-lg border border-border px-3 py-1.5 text-sm"
-          disabled={busy}
-          onClick={() => void run(true)}
-        >
+        </Button>
+        <Button type="button" variant="outline" disabled={busy} onClick={() => void run(true)}>
           {s("Run checks and test models")}
-        </button>
+        </Button>
       </div>
       {busy && <p role="status">{s("Checking…")}</p>}
       {error && <p role="alert">{error}</p>}

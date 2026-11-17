@@ -32,6 +32,7 @@ import {
   sectionBudget,
   sectionLimits,
   subagentContext,
+  withNotices,
   wrapSection,
 } from "./claude-hook-context.js";
 import { learnClaudeProfile } from "./claude-profile-learning.js";
@@ -276,7 +277,7 @@ async function retrievalText(request: RetrieveRequest, budgetBytes: number): Pro
 export async function handleClaudeRetrieve(
   body: unknown,
   deps: ClaudeHookDeps = {}
-): Promise<{ additionalContext: string }> {
+): Promise<{ additionalContext: string; systemMessage?: string }> {
   const request = parseRetrieveRequest(body);
   refreshConfigIfChanged(request.cwd);
   // Captured after the refresh, before the async retrieval: one allowance
@@ -287,18 +288,14 @@ export async function handleClaudeRetrieve(
   );
   if (request.event === "session-start") maybeStartBackfill(deps);
   try {
-    return { additionalContext: await retrievalText(request, budgetBytes) };
+    return withNotices(body, { additionalContext: await retrievalText(request, budgetBytes) });
   } catch (error) {
     log(
       "Claude Code retrieval failed",
-      {
-        event: request.event,
-        sessionID: request.sessionId,
-        code: errorCode(error),
-      },
+      { event: request.event, sessionID: request.sessionId, code: errorCode(error) },
       "error"
     );
-    return { additionalContext: "" };
+    return withNotices(body, { additionalContext: "" });
   }
 }
 

@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { initConfig, CONFIG, validateGlobalConfig } from "../src/config.js";
+import { currentConfigProblems } from "../src/services/config-problems.js";
 
 describe("project-scoped config resolution", () => {
   let readSpy: ReturnType<typeof spyOn>;
@@ -70,8 +71,64 @@ describe("project-scoped config resolution", () => {
     initConfig("/my/project");
 
     expect(CONFIG.opencodeModel).toBe("project-model");
-    expect(CONFIG.autoCleanupEnabled).toBe(false);
+    expect(CONFIG.autoDeleteOldMemories).toBe(false);
     expect(CONFIG.autoCleanupRetentionDays).toBe(90);
+  });
+
+  it("leaves automatic deletion off when no config file exists", () => {
+    existsSpy = spyOn(fs, "existsSync").mockReturnValue(false);
+    initConfig("/no/config/project");
+    expect(CONFIG.autoDeleteOldMemories).toBe(false);
+    expect(currentConfigProblems()).toEqual([]);
+  });
+
+  it("never turns deletion on from an old file's autoCleanupEnabled: true", () => {
+    mockGlobalAndProject({ autoCleanupEnabled: true }, {});
+    initConfig("/my/project");
+    expect(CONFIG.autoDeleteOldMemories).toBe(false);
+    expect(currentConfigProblems()).toEqual([]);
+  });
+
+  it("turns deletion on only from the global autoDeleteOldMemories: true", () => {
+    mockGlobalAndProject({ autoCleanupEnabled: false, autoDeleteOldMemories: true }, {});
+    initConfig("/my/project");
+    expect(CONFIG.autoDeleteOldMemories).toBe(true);
+  });
+
+  it("does not let a project file turn deletion on", () => {
+    mockGlobalAndProject({}, { autoDeleteOldMemories: true, autoCleanupEnabled: true });
+    initConfig("/my/project");
+    expect(CONFIG.autoDeleteOldMemories).toBe(false);
+  });
+
+  it("keeps deletion off for a value that is not true", () => {
+    mockGlobalAndProject({ autoDeleteOldMemories: "true" }, {});
+    initConfig("/my/project");
+    expect(CONFIG.autoDeleteOldMemories).toBe(false);
+  });
+
+  it("loads an old file with the four removed profile keys with no error and no problem", () => {
+    mockGlobalAndProject(
+      {
+        maxProfileItems: 5,
+        userProfileDisplayPreferences: 20,
+        userProfileDisplayPatterns: 15,
+        userProfileDisplayWorkflows: 10,
+        memoryModel: "kept-model",
+      },
+      {}
+    );
+    initConfig("/my/project");
+    expect(CONFIG.memoryModel).toBe("kept-model");
+    expect(currentConfigProblems()).toEqual([]);
+    for (const key of [
+      "maxProfileItems",
+      "userProfileDisplayPreferences",
+      "userProfileDisplayPatterns",
+      "userProfileDisplayWorkflows",
+    ]) {
+      expect(key in CONFIG).toBe(false);
+    }
   });
 
   it("uses safe cleanup defaults when only project cleanup settings exist", () => {
@@ -87,7 +144,7 @@ describe("project-scoped config resolution", () => {
 
     initConfig("/my/project");
 
-    expect(CONFIG.autoCleanupEnabled).toBe(true);
+    expect(CONFIG.autoDeleteOldMemories).toBe(false);
     expect(CONFIG.autoCleanupRetentionDays).toBe(30);
   });
 

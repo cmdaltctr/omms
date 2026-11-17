@@ -26,6 +26,8 @@ const contextServiceUrl = new URL("../src/services/context.js", import.meta.url)
 const skillOperationsUrl = new URL("../src/core/skill-operations.js", import.meta.url).href;
 const skillDepsUrl = new URL("../src/services/skill-learning/operations-deps.js", import.meta.url)
   .href;
+const cleanupUrl = new URL("../src/services/cleanup-service.js", import.meta.url).href;
+const problemsUrl = new URL("../src/services/config-problems.js", import.meta.url).href;
 const profileManagerUrl = new URL(
   "../src/services/user-profile/user-profile-manager.js",
   import.meta.url
@@ -227,6 +229,21 @@ mock.module(${JSON.stringify(skillOperationsUrl)}, () => ({
 }));
 mock.module(${JSON.stringify(skillDepsUrl)}, () => ({
   skillOperationsDeps: (directory, appliedBy) => ({ directory, appliedBy }),
+}));
+
+// The automatic daily run. "manual" (the Cleanup button's delete) must never appear.
+const maintenanceCalls = [];
+let maintenanceMode = "resolve";
+mock.module(${JSON.stringify(cleanupUrl)}, () => ({
+  cleanupService: {
+    runDailyMaintenance: (deleteOld) => {
+      maintenanceCalls.push(deleteOld);
+      if (maintenanceMode === "hang") return new Promise(() => {});
+      if (maintenanceMode === "reject") return Promise.reject(new Error("store busy"));
+      return Promise.resolve();
+    },
+    runCleanup: async () => { maintenanceCalls.push("manual"); },
+  },
 }));
 
 const { default: ommsPiExtension } = await import(${JSON.stringify(extensionUrl)});
@@ -793,6 +810,74 @@ captured = statusCalls;
     expect(output.captured).toEqual([
       ["omms", "omms: ✎"],
       ["omms", "omms: ✔"],
+    ]);
+  });
+
+  it("starts daily maintenance after a settled turn without waiting for it", async () => {
+    const output = runScenario(`
+      maintenanceMode = "hang";
+      await handlers["agent_settled"]({}, makeCtx());
+      await waitFor(() => maintenanceCalls.length === 1);
+      captured = { calls: maintenanceCalls, status: statusCalls.at(-1) };
+    `);
+    // The handler returned although the run never settles; deletion by age is off.
+    expect(output.captured).toEqual({ calls: [false], status: ["omms", "omms: ✔"] });
+  });
+
+  it("passes deleteOld true only when autoDeleteOldMemories is true", async () => {
+    const output = runScenario(`
+      stubConfig.autoDeleteOldMemories = true;
+      await handlers["agent_settled"]({}, makeCtx());
+      await waitFor(() => maintenanceCalls.length === 1);
+      captured = maintenanceCalls;
+    `);
+    expect(output.captured).toEqual([true]);
+  });
+
+  it("deletes nothing by age for an old file with autoCleanupEnabled true and no new key", async () => {
+    const output = runScenario(`
+      stubConfig.autoCleanupEnabled = true;
+      await handlers["agent_settled"]({}, makeCtx());
+      await waitFor(() => maintenanceCalls.length === 1);
+      captured = maintenanceCalls;
+    `);
+    expect(output.captured).toEqual([false]);
+  });
+
+  it("logs a failed daily maintenance run and keeps the session going", async () => {
+    const output = runScenario(`
+      maintenanceMode = "reject";
+      await handlers["agent_settled"]({}, makeCtx());
+      await waitFor(() => maintenanceCalls.length === 1);
+      maintenanceMode = "resolve";
+      await handlers["agent_settled"]({}, makeCtx());
+      await waitFor(() => maintenanceCalls.length === 2);
+      captured = {
+        calls: maintenanceCalls.length,
+        logged: logCalls.filter((line) => line.includes("daily maintenance")).length,
+        status: statusCalls.at(-1),
+      };
+    `);
+    expect(output.captured).toEqual({ calls: 2, logged: 1, status: ["omms", "omms: ✔"] });
+  });
+
+  it("shows each recorded config problem once as a warning at session start", async () => {
+    const output = runScenario(`
+      process.env.OMMS_DISABLE_WEB_AUTOSTART = "1";
+      const { recordConfigProblems } = await import(${JSON.stringify(problemsUrl)});
+      recordConfigProblems([{ kind: "parse", file: "/home/u/.config/omms/omms.jsonc", line: 4, column: 3,
+        message: "OMMS cannot read /home/u/.config/omms/omms.jsonc: on line 4, column 3, a comma is missing." }]);
+      const notices = [];
+      const ctx = makeCtx();
+      ctx.ui.notify = (message, level) => notices.push([message, level]);
+      await handlers["session_start"]({}, ctx);
+      captured = notices.filter(([message]) => message.includes("line 4"));
+    `);
+    expect(output.captured).toEqual([
+      [
+        "OMMS settings: OMMS cannot read /home/u/.config/omms/omms.jsonc: on line 4, column 3, a comma is missing.",
+        "warning",
+      ],
     ]);
   });
 

@@ -206,15 +206,20 @@ describe("memorisation settings", () => {
       return { errors };
     `);
     expect(checked.errors).toEqual([]);
+    // A bad value in the file uses the default and records a problem (friendly-settings).
+    const problemsUrl = pathToFileURL(
+      join(import.meta.dir, "../src/services/config-problems.ts")
+    ).href;
     const seeded = await scenario(
       `
       writeFileSync(target, '{ "memorisationRerank": "yes" }');
-      let error = "";
-      try { cfg.initConfig(project); } catch (caught) { error = String(caught); }
-      return { error };
+      cfg.initConfig(project);
+      const { currentConfigProblems } = await import(${JSON.stringify(problemsUrl)});
+      return { value: cfg.CONFIG.memorisationRerank, keys: currentConfigProblems().map((p) => p.key) };
     `
     );
-    expect(seeded.error).toContain("memorisationRerank");
+    expect(seeded.value).toBe(false);
+    expect(seeded.keys).toEqual(["memorisationRerank"]);
   });
 
   it("writes and snapshots memorisationRerank, and refuses non-boolean edits", async () => {

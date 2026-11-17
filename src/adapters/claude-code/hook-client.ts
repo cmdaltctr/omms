@@ -185,6 +185,8 @@ function requestFor(event: ClaudeHookEvent, input: HookInput): { path: string; b
       cwd: input.cwd,
       ...optional("transcript_path"),
       ...optional(RETRIEVE_FIELD[event]),
+      // This hook can show user lines; a request without the flag gets none.
+      ...(event === "session-start" ? { notices: true } : {}),
     },
   };
 }
@@ -314,14 +316,25 @@ async function runSteps(
   if (!response.ok) return `http-${response.status}`;
   if (event === "stop") return "ok";
 
-  const reply = (await response.json().catch(() => null)) as { additionalContext?: unknown } | null;
+  const reply = (await response.json().catch(() => null)) as {
+    additionalContext?: unknown;
+    systemMessage?: unknown;
+  } | null;
   if (typeof reply?.additionalContext !== "string") return "bad-response";
-  if (!reply.additionalContext) return "ok";
+  // The user line goes beside the model context, never into it. Only SessionStart asks for one.
+  const userLine =
+    event === "session-start" && typeof reply.systemMessage === "string" ? reply.systemMessage : "";
+  if (!reply.additionalContext && !userLine) return "ok";
   const output = `${JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: HOOK_EVENT_NAMES[event],
-      additionalContext: truncateContext(reply.additionalContext),
-    },
+    ...(userLine ? { systemMessage: userLine } : {}),
+    ...(reply.additionalContext
+      ? {
+          hookSpecificOutput: {
+            hookEventName: HOOK_EVENT_NAMES[event],
+            additionalContext: truncateContext(reply.additionalContext),
+          },
+        }
+      : {}),
   })}\n`;
   deps.writeStdout(output);
   result.outputBytes = Buffer.byteLength(output);

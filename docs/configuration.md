@@ -1,6 +1,6 @@
 # Configuration
 
-OMMS works with no configuration. This page covers the settings you may want to change. OpenCode, Pi, and Claude Code read the same files and share one store.
+OMMS works with no configuration. This page covers the settings you may want to change. OpenCode, Pi, and Claude Code read the same files and share one store. Claude Code is the one exception: it saves memories only after you set the external API (`memoryModel`, `memoryApiUrl` and `memoryApiKey`). See [Choosing the model](#choosing-the-model).
 
 ## Where the settings live
 
@@ -95,8 +95,10 @@ On first start, if no config exists at all, the plugin creates a full commented 
 Open the Settings page in the login web app, in OpenCode, or with `om-memory-system web`. [Web UI settings](web-ui-settings.md) explains each part of the page.
 
 - The page writes only to the global file. It does not edit a project's config.
-- It can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `autoBackfill`, `opencodeBackfillModel`, `piBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `captureTrace`, `captureTraceRetentionDays`, `captureAttemptRetentionDays`, `captureRetryRetentionHours`, `memoryProvider`, `memoryApiUrl`, `memoryModel`, and `memoryApiKey`.
-- The general save changes only one credential, `memoryApiKey`. It accepts only an `env://` or `file://` reference and rejects a literal key.
+- It can change `opencodeProvider`, `opencodeModel`, `piProvider`, `piModel`, `autoBackfill`, `opencodeBackfillModel`, `piBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `captureTrace`, `captureTraceRetentionDays`, `captureAttemptRetentionDays`, `captureRetryRetentionHours`, `memoryProvider`, `memoryApiUrl`, `memoryModel`, `memoryApiKey`, `rerankerApiKey`, and the [Memory basics](#memory-basics) and [Memory cleanup](#memory-cleanup) keys.
+- It never writes `autoCleanupEnabled`. That key no longer does anything.
+- `memoryApiUrl` must start with `http://` or `https://`. You can clear `memoryApiUrl` and `memoryModel` on the page.
+- The general save changes two credentials, `memoryApiKey` and `rerankerApiKey`. It accepts only an `env://` or `file://` reference and rejects a literal key. The Reranker card can also remove `rerankerApiKey`.
 - The **Embedding** card changes `embeddingApiUrl`, `embeddingModel`, `embeddingDimensions`, and `embeddingApiKey` together, after a passing test. The general save refuses these keys.
 - The **Keys and access** card sets or clears the browser password. It writes `webServerAuthPassword` as a `file://` reference and `webServerAuthUsername`. The general save refuses these keys.
 - If you paste a key, the page saves it to a key file in `~/.config/omms/secrets/` and stores a `file://` reference to it. The folder and file are readable only by you.
@@ -109,7 +111,19 @@ Open the Settings page in the login web app, in OpenCode, or with `om-memory-sys
 - On a legacy-only install, the first save copies the old config and its comments to `~/.config/omms/omms.jsonc`. OMMS reads the new file from then on. The old file stays unchanged.
 - The page rejects a save if the file changed since the page loaded it. Check the refreshed values, then save again.
 - The **Memory injection** section of the [Memory page](web-ui-memory.md#memory-injection) edits `openingContext`, `openingContextQuery`, `subagentMemory`, `compaction.enabled` and `compaction.memoryLimit`.
-- The **Memory** card edits the five [memory limits](#memory-limits) below, including `similarityThreshold`. Every row has a **Reset to default** action that removes the key from the global file so the value follows the default again.
+- The **Memory limits** card on the Memory page (**Shared**, `/memory/shared`) edits the five [memory limits](#memory-limits) below, including `similarityThreshold`. Every row has a **Reset to default** action that removes the key from the global file so the value follows the default again.
+
+### Memory basics
+
+The **Memory basics** card is the first card on the Settings page. It edits these keys in the global file. A project file can still set each of them for its project, within the rules in [Global-only settings](#global-only-settings). The card then says that the project file decides the value there.
+
+| Setting               | Default     | Affects                                                                                                                       |
+| --------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `autoCaptureEnabled`  | `true`      | Saves memories from your conversations by itself, on all three hosts.                                                         |
+| `chatMessage.enabled` | `true`      | Adds matching memories to each prompt. `false` also turns off the opening search and subagent memory.                         |
+| `visibleRecall`       | `true`      | Shows a row for each memory recall in the OpenCode terminal, in Pi and in Claude Code. See [Visible recall](#visible-recall). |
+| `injectProfile`       | `true`      | Adds your user profile (preferences, patterns, workflows) to the memory context.                                              |
+| `memory.defaultScope` | `"project"` | The scope of a memory search or list that names none: this project, or `"all-projects"`. See [Memory scope](#memory-scope).   |
 
 ## Memory injection
 
@@ -179,7 +193,7 @@ See [Using memory: How long profile items stay](using-memory.md#how-long-profile
 
 ## Memory limits
 
-Edit `~/.config/omms/omms.jsonc` directly, or use **Settings → Memory**. File configuration needs no web server.
+Edit `~/.config/omms/omms.jsonc` directly, or use the **Memory limits** card on the Memory page (**Shared**, `/memory/shared`). File configuration needs no web server.
 
 | Setting                      | Default                                        | Unit               | Accepted values          | Affects                                                                                                                |
 | ---------------------------- | ---------------------------------------------- | ------------------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
@@ -291,7 +305,7 @@ These five settings are [global only](#global-only-settings): a project file can
 
 **Failure never blocks search.** If the server is unreachable, the call exceeds `rerankerTimeoutMs`, the HTTP status is not a success, or the reply is invalid, the search returns exactly what it would with the reranker off, using `similarityThreshold`. Each failure logs one metadata record (a code and the elapsed time); the query, memory text, and key are never logged.
 
-**Timeout and OpenCode V2.** The default 4000 keeps total search time inside OpenCode V2's 5-second wait for the per-prompt search. A value over 5000 can make OpenCode V2 give up and send the request with no memory.
+**Timeout and OpenCode V2.** OpenCode waits up to 5 seconds for memories before it sends your prompt. The default, 4000 milliseconds, finishes in time. Over 5000, OpenCode can send your prompt without memories.
 
 **Privacy.** With the switch on, the prompt and the text of candidate memories leave the process and go to `rerankerApiUrl`. A server on the same machine is recommended. OMMS never bundles, downloads, or starts a reranker model or server.
 
@@ -368,7 +382,7 @@ On the Settings page you can **Pause** and **Resume** each host's backfill.
 - To apply a change at once, run `om-memory-system web install` or `om-memory-system web uninstall`.
 - The item needs Node or Bun. It uses the same port and authentication settings as the OpenCode-hosted web app.
 
-`autoBackfill` and `webServerAutoStart` must be `true` or `false`.
+`autoBackfill`, `webServerAutoStart`, `autoDeleteOldMemories`, `autoCaptureEnabled` and `userProfileAutoCleanupEnabled` must be `true` or `false`. Text such as `"false"` turns the feature off and shows a problem. See [Troubleshooting](#troubleshooting).
 
 ## Claude Code folder
 
@@ -430,7 +444,7 @@ On OpenCode and Pi the setting does not change what OMMS recalls or injects. On 
 
 Some settings are read only from the global file.
 
-- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoCleanupEnabled`, `autoCleanupRetentionDays`, the three `memorisation*` settings, and the five `reranker*` settings. This stops one project from, for example, turning off the shared web server for another, or sending a user's memories to its own reranker server.
+- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoDeleteOldMemories`, `autoCleanupRetentionDays`, the three `memorisation*` settings, and the five `reranker*` settings. This stops one project from, for example, turning off the shared web server for another, or sending a user's memories to its own reranker server.
 - A project config cannot turn `captureTrace` on. See [Capture traces](#capture-traces-opt-in).
 - A project config cannot turn `skillLearning` on, and it cannot set `skillLearningRedact` or `skillFolders`. See [Skill learning](#skill-learning).
 - A project config cannot turn `visibleRecall` on. It can turn it off. See [Visible recall](#visible-recall).
@@ -605,6 +619,28 @@ If you change `embeddingModel` or the dimensions by hand, open the web UI and ru
 - `scope: "all-projects"`: query `search` / `list` across all project shards.
 - `memory.defaultScope` sets the default query scope when no explicit scope is provided.
 
+## Memory cleanup
+
+OMMS deletes memories by age only when you turn it on. It is off by default.
+
+```jsonc
+{
+  // Warning: this deletes memories. Global config only.
+  "autoDeleteOldMemories": true, // default false
+  "autoCleanupRetentionDays": 30, // default 30, whole numbers of 1 or more
+}
+```
+
+- With `autoDeleteOldMemories` set to `true`, OMMS deletes each unpinned memory that nobody updated for `autoCleanupRetentionDays` days, in every project of the active [memory space](memory-spaces.md). It also deletes saved prompts older than that, together with the memories captured from them, in the same run. It keeps pinned memories and memorisations. You cannot restore a deleted memory.
+- The deletion runs at most once a day per OMMS process, on all three hosts: OpenCode after the idle capture, Pi after a turn settles, and the web app on a daily timer, which covers Claude Code.
+- Turn it on with the switch on the **Memory cleanup** card of the Settings page. The page first shows how many memories it would delete now and asks you to confirm.
+- Both keys are global only. A project file cannot change them.
+- `autoCleanupEnabled` is retired. OMMS ignores it, `true` or `false`, with no error and no warning. A config file written by an older OMMS therefore never deletes memories. OMMS does not change the file. When the file still has `"autoCleanupEnabled": true` and no `autoDeleteOldMemories`, the Memory cleanup card shows a note. See [Upgrading](upgrading.md#automatic-memory-deletion-is-off-until-you-turn-it-on).
+- The **Cleanup** button on the memory list does not change. After you confirm, it deletes the unpinned memories older than `autoCleanupRetentionDays`, whatever `autoDeleteOldMemories` says.
+- Each run that deletes something, daily or from the **Cleanup** button, writes one log line, `Cleanup: old memories deleted`, with the number of memories and prompts, `retentionDays` and the trigger. It never holds memory text, ids or project names.
+
+Daily housekeeping is separate and always runs, once a day per process, on all three hosts. It removes capture attempt records older than `captureAttemptRetentionDays`, capture retry rows older than `captureRetryRetentionHours` and expired cleanup undo records, and compacts the prompt database. It never deletes a memory or a prompt, and neither cleanup key changes it.
+
 ## Capture diagnostics
 
 Every capture attempt, on Pi, OpenCode, and Claude Code, for live capture and history
@@ -688,8 +724,21 @@ key, a bad request or a bad model reply.
 - `captureRetryRetentionHours` is global only. A project value is ignored.
 - Running hosts use a changed value from their next retry pass or cleanup run.
 
+## Removed settings
+
+OMMS no longer reads `maxProfileItems`, `userProfileDisplayPreferences`, `userProfileDisplayPatterns` and `userProfileDisplayWorkflows`. An old file that sets them loads with no error and no warning. You can delete them.
+
 ## Troubleshooting
 
+- **The config file cannot be read.** OpenCode and Pi show a notice when they start, Claude Code shows a message at session start, and the Settings page shows a banner. Each names the file, the line and the column of the first mistake, such as a missing comma. At start, OMMS uses its default settings until you fix the file. After a live edit, OMMS keeps the last settings it could read. The Settings page cannot save while the global file is broken. Its cards then show the last settings the web app could read, and its banner says so in the page language.
+- **A value is out of range.** The same notice names the key, its line and the values it accepts, for example `autoCleanupRetentionDays` accepts whole numbers of 1 or more. OMMS uses that key's default and loads every other setting from the file, at start and after a live edit. Neither message quotes the value or the file text. The notice points to the Settings page only for a key the page can change.
+- **A value that would turn on something risky.** For these keys a bad value turns the feature off for that load, and the notice says so:
+  - `autoDeleteOldMemories` or `autoCleanupRetentionDays`: automatic memory deletion is off.
+  - `autoBackfill`, `opencodeBackfillModel` or `piBackfillModel`: automatic import of past chats is off.
+  - `autoCaptureEnabled`: automatic memory capture is off.
+  - `userProfileAutoCleanupEnabled` or `userProfileAutoCleanupInterval`: automatic profile tidying is off.
+  - `webServerAutoStart`: the web app does not start at login.
+  - A switch written as text, such as `"false"`, counts as a bad value.
 - Auto-capture failures do not block manual `memory` tool usage.
 - If Claude Code captures nothing, look for `Claude Code capture is off` in `~/.omms/omms.log`. It names the missing external API settings. See [Claude Code adapter: Troubleshooting](claude-code-adapter.md#troubleshooting).
 - To find out why captures fail, read the `reason` in the `Capture attempt` log lines, or turn on a capture trace. See [Capture diagnostics](#capture-diagnostics).

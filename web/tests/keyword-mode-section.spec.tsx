@@ -29,7 +29,8 @@ mock.module("react", () => ({
 }));
 const { KeywordModeSection } = await import("../src/lib/components/memory/KeywordModeSection.tsx");
 const { Select } = await import("../src/lib/components/ui/select.tsx");
-const { Label } = await import("../src/lib/components/ui/label.tsx");
+const { SettingRow } = await import("../src/lib/components/settings/SettingRow.tsx");
+const { PLAIN_TEXT } = await import("../src/lib/settings-catalogue.ts");
 const { Button } = await import("../src/lib/components/ui/button.tsx");
 
 type Setting = { value?: unknown; source: string; globalValue?: unknown };
@@ -70,33 +71,24 @@ const tree = (mode: string, busy = false) => {
 const saveButton = (mode: string) =>
   tree(mode).find((node) => node.props.type === "submit" && typeof node.type === "function");
 
-it("uses the shared Select with a Label and offers both modes", () => {
+it("puts the shared Select in a catalogue row and offers both modes", () => {
   const nodes = tree("boost");
-  const select = nodes.find((node) => node.type === Select);
-  expect(select).toBeDefined();
-  expect(nodes.some((node) => node.type === Label && node.props.htmlFor === "keyword-mode")).toBe(
-    true
-  );
+  const row = nodes.find((node) => node.type === SettingRow);
+  expect(row?.props.setting).toBe("keywordMode");
+  expect(row?.props.controlId).toBe("keyword-mode");
+  const select = find(row?.props.children, (node) => node.type === Select)[0];
+  expect(select?.props.id).toBe("keyword-mode");
   const options = find(select?.props.children, (node) => node.type === "option");
   expect(options.map((node) => node.props.value)).toEqual(["boost", "rrf"]);
   expect(options[1].props.children).toContain("(experimental)");
 });
 
-it("caps the width of the dropdown and its list with a wrapper", () => {
-  const nodes = tree("boost");
-  const wrapper = nodes.find(
-    (node) =>
-      typeof node.props.className === "string" &&
-      node.props.className.includes("w-72") &&
-      find(node.props.children, (child) => child.type === Select).length === 1
-  );
-  expect(wrapper?.props.className).toContain("max-w-full");
-});
-
-it("shows the chosen mode and the key name", () => {
-  expect(html("boost")).toContain("Boost (default)");
-  expect(html("rrf")).toContain("Rank fusion (experimental)");
+it("shows plain labels for the chosen mode and the key name as secondary text", () => {
+  expect(html("boost")).toContain(PLAIN_TEXT.keywordBoost);
+  expect(html("rrf")).toContain(PLAIN_TEXT.keywordMerge);
   expect(html()).toContain("keywordMode");
+  expect(html()).not.toContain("Boost (default)");
+  expect(html("rrf")).not.toContain("Rank fusion");
 });
 
 it("uses the shared Button for Save and Cancel", () => {
@@ -106,9 +98,9 @@ it("uses the shared Button for Save and Cancel", () => {
 });
 
 it("explains the chosen mode", () => {
-  expect(html("boost")).toContain("small score bonus");
+  expect(html("boost")).toContain("gets a small bonus in the order of the results");
   const rrf = html("rrf");
-  expect(rrf).toContain("below the similarity threshold");
+  expect(rrf).toContain("even when its meaning score is low");
   expect(rrf).toContain("Experimental");
 });
 
@@ -125,8 +117,8 @@ it("says the reranker wins only when it is on and rank fusion is chosen", () => 
 
 it("tells the user when a project file sets the mode", () => {
   const project = { keywordMode: { value: "rrf", source: "project", globalValue: "boost" } };
-  expect(html("boost", project)).toContain("A project file can override this setting");
-  expect(html("boost")).not.toContain("A project file can override this setting");
+  expect(html("boost", project)).toContain("file decides this setting here");
+  expect(html("boost")).not.toContain("file decides this setting here");
 });
 
 it("enables Save only when the mode differs from the saved one", () => {

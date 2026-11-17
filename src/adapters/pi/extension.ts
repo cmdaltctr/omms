@@ -7,6 +7,7 @@ import {
   refreshConfigIfChanged,
 } from "../../config.js";
 import { pruneTraces } from "../../services/capture-diagnostics.js";
+import { currentConfigProblems } from "../../services/config-problems.js";
 import { executeMemoryOperation } from "../../core/memory-operations.js";
 import { memoryToolDescription } from "../../core/memory-tool-text.js";
 import { isTrivialPrompt } from "../../core/trivial-prompt.js";
@@ -46,6 +47,8 @@ const MEMORY_TOOL_MODES = [
   "import",
   "space",
 ] as const;
+
+const errorCode = (error: unknown) => (error instanceof Error ? error.name : "unknown");
 
 function toSessionEntries(branch: unknown): PiSessionEntry[] {
   return Array.isArray(branch) ? (branch as PiSessionEntry[]) : [];
@@ -154,6 +157,10 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     try {
       latestCtx = ctx;
       initConfigWithLegacyMigration(ctx.cwd);
+      // A broken file or a rejected value uses the defaults; tell the user once per session.
+      for (const problem of currentConfigProblems()) {
+        if (ctx.hasUI) ctx.ui.notify(`OMMS settings: ${problem.message}`, "warning");
+      }
       // Runs even with tracing off, so turning it off does not leave old traces behind.
       pruneTraces(CONFIG);
       captureState = createPiCaptureState();
@@ -359,6 +366,15 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
         },
         notify: notify(ctx),
       });
+      // Housekeeping always; deletion by age only when the user turned it on (ADR-051).
+      // Not awaited: a slow or failed run never holds up or breaks the session.
+      void import("../../services/cleanup-service.js")
+        .then(({ cleanupService }) =>
+          cleanupService.runDailyMaintenance(CONFIG.autoDeleteOldMemories === true)
+        )
+        .catch((error: unknown) =>
+          log("Pi daily maintenance failed", { code: errorCode(error) }, "error")
+        );
 
       const settledPrompt = lastSettledUserPrompt(entries);
       // Pi batches this session's prompts in memory, so they are recent by design.

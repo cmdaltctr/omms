@@ -1,5 +1,6 @@
 import { useI18n } from "./index";
 import { openrouterSettingText } from "./openrouter";
+import { settingsCatalogueText } from "./settings-catalogue";
 import { skillText } from "./skills";
 import { spaceSettingText } from "./spaces";
 
@@ -7,6 +8,7 @@ const text = {
   ...skillText,
   ...openrouterSettingText,
   ...spaceSettingText,
+  ...settingsCatalogueText,
   "Import chat history": ["导入聊天记录", "استيراد سجل المحادثات"],
   "Memory limits": ["记忆限制", "حدود الذاكرة"],
   "Resolve missing project folders": ["解析缺失的项目文件夹", "حل مجلدات المشاريع المفقودة"],
@@ -178,9 +180,7 @@ const text = {
     "يجب أن يكون حجم دفعة الملف الشخصي عدداً صحيحاً موجباً.",
   ],
   Models: ["模型", "النماذج"],
-  "External API fallback": ["外部 API 备用模型", "النموذج الاحتياطي عبر واجهة API الخارجية"],
   none: ["无", "لا يوجد"],
-  ready: ["就绪", "جاهز"],
   "not ready": ["未就绪", "غير جاهز"],
   "Credentials (values hidden)": ["凭据（不显示内容）", "بيانات الاعتماد (القيم مخفية)"],
   set: ["已设置", "مضبوط"],
@@ -266,18 +266,18 @@ const text = {
   Session: ["会话", "الجلسة"],
   Path: ["路径", "المسار"],
   Model: ["模型", "النموذج"],
-  Stop: ["结束原因", "سبب التوقف"],
-  Blocks: ["区块", "الكتل"],
+  "Why the reply ended": ["回复结束的原因", "سبب انتهاء الرد"],
+  "Reply parts": ["回复的组成部分", "أجزاء الرد"],
   Prompt: ["提示词长度", "طول الطلب"],
   Reply: ["回复长度", "طول الرد"],
   Duration: ["耗时", "المدة"],
   Outcome: ["结果", "النتيجة"],
   Reason: ["原因", "السبب"],
   "Save capture traces": ["保存捕获追踪", "حفظ تتبعات الالتقاط"],
-  "Traces can contain conversation content after redaction. Keep tracing off unless you need it for debugging.":
+  "Traces save parts of your conversations. OMMS hides keys and text you marked private, but the rest is saved. Keep tracing off unless you need it to find a problem.":
     [
-      "追踪文件在脱敏后仍可能包含对话内容。仅在调试时开启。",
-      "قد تحتوي التتبعات على محتوى المحادثة بعد التنقيح. فعّلها عند التصحيح فقط.",
+      "追踪会保存部分对话内容。OMMS 会隐藏密钥和你标记为私密的文字，但其余内容会被保存。除非需要排查问题，否则请保持追踪关闭。",
+      "تحفظ التتبعات أجزاء من محادثاتك. يخفي OMMS المفاتيح والنص الذي وسمته بأنه خاص، لكن يُحفظ الباقي. أبقِ التتبع متوقفاً إلا إذا احتجت إليه لإيجاد مشكلة.",
     ],
   "This project turns tracing off. The global switch cannot turn it on here.": [
     "此项目已关闭追踪。全局开关无法在此开启。",
@@ -286,10 +286,10 @@ const text = {
   "Trace retention (days)": ["追踪保留天数", "مدة حفظ التتبعات (بالأيام)"],
   "Attempt retention (days)": ["尝试记录保留天数", "مدة حفظ المحاولات (بالأيام)"],
   "Retry retention (hours)": ["重试保留小时数", "مدة حفظ إعادة المحاولة (بالساعات)"],
-  "When the capture model cannot be reached, OMMS keeps the turn and tries again later. Queued turns can hold conversation content after redaction. 0 turns the queue off and deletes waiting turns.":
+  "When the capture model cannot be reached, OMMS keeps the turn and tries again later. Waiting turns hold parts of your conversations, with keys and text you marked private hidden. 0 turns the queue off and deletes waiting turns.":
     [
-      "捕获模型无法访问时，OMMS 会保留该轮对话并稍后重试。排队的对话在脱敏后仍可能包含对话内容。设为 0 会关闭队列并删除等待中的对话。",
-      "عندما يتعذر الوصول إلى نموذج الالتقاط، يحتفظ OMMS بالجولة ويعيد المحاولة لاحقاً. قد تحتوي الجولات المنتظرة على محتوى المحادثة بعد التنقيح. القيمة 0 توقف قائمة الانتظار وتحذف الجولات المنتظرة.",
+      "捕获模型无法访问时，OMMS 会保留该轮对话并稍后重试。等待中的对话包含部分对话内容，密钥和你标记为私密的文字已隐藏。设为 0 会关闭队列并删除等待中的对话。",
+      "عندما يتعذر الوصول إلى نموذج الالتقاط، يحتفظ OMMS بالجولة ويعيد المحاولة لاحقاً. تحتوي الجولات المنتظرة على أجزاء من محادثاتك، مع إخفاء المفاتيح والنص الذي وسمته بأنه خاص. القيمة 0 توقف قائمة الانتظار وتحذف الجولات المنتظرة.",
     ],
   "Turns waiting for retry": ["等待重试的对话", "الجولات المنتظرة لإعادة المحاولة"],
   "Retry now": ["立即重试", "أعد المحاولة الآن"],
@@ -407,10 +407,11 @@ const text = {
     "使用以下命令立即应用更改：",
     "استخدم هذه الأوامر لتطبيق التغيير الآن:",
   ],
-  "Saved. The login item changes at the next Pi or OpenCode start.": [
-    "已保存。登录启动项将在下次启动 Pi 或 OpenCode 时更新。",
-    "تم الحفظ. يتغير عنصر بدء التشغيل عند بدء Pi أو OpenCode التالي.",
-  ],
+  "Saved. The login item changes at the next OpenCode or Pi start, or right away with the commands below. With Claude Code alone, run the command yourself.":
+    [
+      "已保存。登录启动项会在下次启动 OpenCode 或 Pi 时更新，也可以用下面的命令立即更新。只使用 Claude Code 时，请自己运行命令。",
+      "تم الحفظ. يتغير عنصر بدء التشغيل عند بدء OpenCode أو Pi التالي، أو فوراً بالأوامر أدناه. إذا كنت تستخدم Claude Code وحده فشغّل الأمر بنفسك.",
+    ],
   "History host": ["历史记录主机", "مضيف السجل"],
   Scope: ["范围", "النطاق"],
   "Current project": ["当前项目", "المشروع الحالي"],
@@ -562,10 +563,10 @@ const text = {
   Copied: ["已复制", "تم النسخ"],
   "No matching log records.": ["没有匹配的日志记录。", "لا توجد سجلات مطابقة."],
   "External API": ["外部 API", "واجهة API الخارجية"],
-  "An OpenAI- or Anthropic-compatible endpoint that either host can use for capture and backfill.":
+  "An OpenAI- or Anthropic-compatible endpoint that OpenCode, Pi and Claude Code can use for capture and backfill. Claude Code needs it for capture.":
     [
-      "兼容 OpenAI 或 Anthropic 的端点，两个宿主都可用于捕获和回填。",
-      "نقطة نهاية متوافقة مع OpenAI أو Anthropic يمكن لأي مضيف استخدامها للالتقاط والاستيراد.",
+      "兼容 OpenAI 或 Anthropic 的端点，OpenCode、Pi 和 Claude Code 都可以用它来保存记忆和补录。Claude Code 的捕获必须使用它。",
+      "نقطة نهاية متوافقة مع OpenAI أو Anthropic يمكن لـ OpenCode وPi وClaude Code استخدامها للالتقاط والتعبئة اللاحقة. يحتاجها Claude Code للالتقاط.",
     ],
   Provider: ["提供商", "المزوّد"],
   "API URL": ["API 地址", "عنوان API"],
@@ -614,8 +615,6 @@ const text = {
   ],
   "Paste the key": ["请粘贴密钥", "الصق المفتاح"],
   Test: ["测试", "اختبار"],
-  "Test call succeeded": ["测试调用成功", "نجح استدعاء الاختبار"],
-  "Test call failed": ["测试调用失败", "فشل استدعاء الاختبار"],
   "External API needs": ["外部 API 缺少", "تحتاج واجهة API الخارجية إلى"],
   "Automatic import makes model calls. A model change applies at the next run. Turning it off stops a running import after the current exchange.":
     [
@@ -744,10 +743,10 @@ const text = {
       "正在运行的是更新的 OMMS 副本，而不是全局安装。全局安装是可选的。更新方法：",
       "تعمل نسخة OMMS أحدث بدلاً من التثبيت العام. التثبيت العام اختياري. لتحديثه:",
     ],
-  "The global install is newer than the running OMMS. The next Pi or OpenCode start replaces the web app.":
+  "The global install is newer than the running OMMS. The next OpenCode, Pi or Claude Code session start replaces the web app.":
     [
-      "全局安装比正在运行的 OMMS 更新。下次启动 Pi 或 OpenCode 时将替换网页应用。",
-      "التثبيت العام أحدث من OMMS الجاري. سيستبدل التشغيل التالي لـ Pi أو OpenCode تطبيق الويب.",
+      "全局安装比正在运行的 OMMS 更新。下次在 OpenCode、Pi 或 Claude Code 中开始会话时将替换网页应用。",
+      "التثبيت العام أحدث من OMMS الجاري. ستستبدل بداية الجلسة التالية في OpenCode أو Pi أو Claude Code تطبيق الويب.",
     ],
   "OMMS is not installed globally. A global install is optional.": [
     "OMMS 未全局安装。全局安装是可选的。",
@@ -835,10 +834,11 @@ const text = {
   Retry: ["重试", "إعادة المحاولة"],
   Lock: ["锁定", "قفل"],
   "Unlock to change": ["解锁以更改", "افتح القفل للتغيير"],
-  "The model that turns memory text into search vectors. A change re-embeds every memory.": [
-    "将记忆文本转换为搜索向量的模型。更改后会重新嵌入所有记忆。",
-    "النموذج الذي يحوّل نص الذكريات إلى متجهات بحث. يؤدي تغييره إلى إعادة تضمين كل الذكريات.",
-  ],
+  "This model lets OMMS find memories by meaning. If you change it, OMMS must process every saved memory again before search works well.":
+    [
+      "这个模型让 OMMS 按含义查找记忆。更换后，OMMS 必须重新处理每条已保存的记忆，搜索才能正常工作。",
+      "يتيح هذا النموذج لـ OMMS العثور على الذكريات بحسب معناها. إذا غيّرته، فعلى OMMS معالجة كل ذكرى محفوظة من جديد قبل أن يعمل البحث جيداً.",
+    ],
   Preset: ["预设", "إعداد مسبق"],
   Custom: ["自定义", "مخصص"],
   "No key": ["无密钥", "بلا مفتاح"],
@@ -1234,10 +1234,10 @@ const text = {
     "项目文件无法更改这些设置。重排序器设置仅限全局。",
     "لا يمكن لملف المشروع تغيير هذه الإعدادات. إعدادات معيد الترتيب عامة فقط.",
   ],
-  "The default of 4000 keeps the search inside OpenCode V2's 5-second wait. A value over 5000 can make OpenCode V2 send the request with no memory.":
+  "OpenCode waits up to 5 seconds for memories before it sends your prompt. The default, 4000 milliseconds, finishes in time. Over 5000, OpenCode can send your prompt without memories.":
     [
-      "默认值 4000 使搜索保持在 OpenCode V2 的 5 秒等待之内。超过 5000 的值可能导致 OpenCode V2 在不注入记忆的情况下发送请求。",
-      "تحافظ القيمة الافتراضية 4000 على بقاء البحث داخل مهلة انتظار OpenCode V2 البالغة 5 ثوانٍ. القيمة الأعلى من 5000 قد تجعل OpenCode V2 يرسل الطلب دون ذاكرة.",
+      "OpenCode 在发送你的提示前最多等待 5 秒获取记忆。默认值 4000 毫秒可以及时完成。超过 5000 时，OpenCode 可能在没有记忆的情况下发送你的提示。",
+      "ينتظر OpenCode حتى 5 ثوانٍ للحصول على الذكريات قبل أن يرسل مطالبتك. القيمة الافتراضية، 4000 ملّي ثانية، تنتهي في الوقت المناسب. فوق 5000 قد يرسل OpenCode مطالبتك دون ذكريات.",
     ],
   "Enter the server URL and model before turning the reranker on.": [
     "打开重排序器前，请先填写服务器 URL 和模型。",

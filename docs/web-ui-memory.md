@@ -39,24 +39,26 @@ The choice is saved in `appearance.json` and `<host>.png` under `host-appearance
 
 The **Memory injection** section sits below the host cards and the **Import all hosts** row on the overview (`/memory#memory-injection`). It sets how OMMS adds memories to the model's context. It applies to OpenCode V2, Pi and Claude Code. The **Shared** view holds one **Memory injection** row that shows the switch states and links here, so the controls exist in one place only.
 
-| Control                                         | Key                      | Default                                                      |
-| ----------------------------------------------- | ------------------------ | ------------------------------------------------------------ |
-| **Inject memories with the first message**      | `openingContext`         | Off                                                          |
-| **First-message search query**                  | `openingContextQuery`    | `project architecture, setup, conventions and key decisions` |
-| **Subagent memory**                             | `subagentMemory`         | On                                                           |
-| **Restore memories after compaction or resume** | `compaction.enabled`     | On                                                           |
-| **Most memories to restore**                    | `compaction.memoryLimit` | 10                                                           |
+| Control                                 | Key                      | Default                                                      |
+| --------------------------------------- | ------------------------ | ------------------------------------------------------------ |
+| **Add memories to the first message**   | `openingContext`         | Off                                                          |
+| **Opening search text**                 | `openingContextQuery`    | `project architecture, setup, conventions and key decisions` |
+| **Give subagents memories**             | `subagentMemory`         | On                                                           |
+| **Add memories back after a summary**   | `compaction.enabled`     | On                                                           |
+| **Memories added back after a summary** | `compaction.memoryLimit` | 10                                                           |
+
+Each row leads with its plain name and a one-line description, then the default and what the setting affects. The config key shows as small text below the name, so you can find it in the file. If the project file sets one of these keys, the row says that the project file decides it there.
 
 - A green note at the top of the card lists when memories are added:
   - With every message: the memories that match that message. On by default. `chatMessage.enabled` in the config file turns it off, and the first-message and subagent options with it.
   - With the first message of a new session: the memories that match the query. Needs the first switch.
-  - For a subagent: the memories that match its task. Claude Code adds them once, when the subagent starts. OpenCode V2 and Pi add them with each prompt the subagent gets. Needs the **Subagent memory** switch.
+  - For a subagent: the memories that match its task. Claude Code adds them once, when the subagent starts. OpenCode V2 and Pi add them with each prompt the subagent gets. Needs the **Give subagents memories** switch.
   - After a compaction or resume: the memories that session captured. Needs the restore switch.
   - Nothing is added when a new session opens, including a fresh or cleared Claude Code session.
 - Claude Code can add memories when a session opens. Pi and OpenCode V2 cannot. To keep all three the same, OMMS adds them with the first message on every host. The panel shows this as a note under the switch.
-- The first-message option adds memories once, with the first message of a new session, on every host. Claude Code does this on its first prompt, not at its `SessionStart` hook. OMMS searches with the query and adds only matching memories. The query holds up to 500 characters. An empty query runs no search. The text area shows a counter.
+- The first-message option adds memories once, with the first message of a new session, on every host. Claude Code does this on its first prompt, not at its `SessionStart` hook. OMMS searches with the query and adds only matching memories. The **Opening search text** holds up to 500 characters. An empty text runs no search. The text area shows a counter.
 - Subagents get the memories that match their task, and no recall rows. Claude Code adds them once, when the subagent starts. OpenCode V2 and Pi add them with each prompt the subagent gets. On Pi, a subagent gets memories only when its agent maps the OMMS extension in om-pi-subagents. Turn it on in `/omps-settings`, Agent capabilities, Memory.
-- The restore switch adds the memories that the session captured when it resumes or compacts. **Most memories to restore** takes a positive whole number.
+- The restore switch adds the memories that the session captured when it resumes or compacts. **Memories added back after a summary** takes a positive whole number.
 - **Save** writes only the changed keys to the global file, through the [safe global save](web-ui-settings.md#how-saving-works). A rejected value shows a message that names the key and the rule.
 - **Reset to default** returns the form to the defaults. Select **Save** after it. The save removes the five keys from the file, so each value follows its default again.
 - A project config can turn the first-message and subagent options off, never on. It can turn the restore on or off. See [Configuration: Memory injection](configuration.md#memory-injection).
@@ -249,13 +251,15 @@ Open the page on the computer running OMMS to start, pause or resume catch-up. T
 
 The **Profile learning** card also holds the controls of the automatic cleanup. OMMS merges duplicate profile items and removes vague ones by itself, in the background, after a learning pass. See [Using memory: Automatic cleanup](using-memory.md#automatic-cleanup).
 
-| Control                                  | Config key                       | Default | Allowed                          |
-| ---------------------------------------- | -------------------------------- | ------- | -------------------------------- |
-| **Clean up the profile automatically**   | `userProfileAutoCleanupEnabled`  | on      | on or off                        |
-| **Run every this many analysed prompts** | `userProfileAutoCleanupInterval` | 500     | a whole number from 50 to 100000 |
+| Control                            | Config key                       | Default | Allowed                          |
+| ---------------------------------- | -------------------------------- | ------- | -------------------------------- |
+| **Tidy the profile automatically** | `userProfileAutoCleanupEnabled`  | on      | on or off                        |
+| **Profile tidy interval**          | `userProfileAutoCleanupInterval` | 500     | a whole number from 50 to 100000 |
 
-1. Clear or select the switch. The change saves at once.
-2. To change the interval, type a whole number and select **Save interval**. Another value shows a message beside the field and writes nothing.
+Both rows show a one-line description and the config key as small text, like the other Memory cards.
+
+1. Clear or select the switch, or type a whole number for the interval. Nothing saves yet.
+2. Select **Save**. An interval outside the range shows a message beside the field and writes nothing.
 3. The change applies to the next learning pass. You do not restart anything.
 
 Each run makes about one model call for every 100 profile items, so a longer interval costs less. The page does not accept an interval below 50, because each run is paid for. A project config cannot override these two settings; the page shows and saves the global value. **Undo last automatic cleanup** is on the Profile page. Saving uses the [safe global save](web-ui-settings.md#how-saving-works) of the other settings, and keeps comments and other keys in your config file.
@@ -274,17 +278,17 @@ Analysis calls use `ceil(total eligible prompts / profile batch size)`. Memory u
 
 ## Memory limits
 
-Open **Shared** (`/memory/shared`) and expand **Memory limits**. The table has **Setting**, **Value**, **Default**, **Unit** and **Affects** columns. Effects remain visible beside each input.
+Open **Shared** (`/memory/shared`) and expand **Memory limits**. The table has **Setting**, **Value**, **Default**, **Unit** and **Affects** columns. Each row in the **Setting** column leads with a plain name and a one-line description. The config key shows below them as small text. Effects remain visible beside each input.
 
-| Setting                      | Default                                        | Unit               | Accepted values          | Affects                                                                                                                                                     |
-| ---------------------------- | ---------------------------------------------- | ------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `maxMemories`                | 10                                             | Results            | Positive safe integers   | Maximum search results; manual searches can request fewer. Prompt retrieval uses this ceiling.                                                              |
-| `autoCaptureMaxContextBytes` | 131072                                         | Bytes              | 16384–16777216 inclusive | Conversation input sent through the shared memory-summary pipeline.                                                                                         |
-| `userProfileMaxContextBytes` | 32768                                          | Bytes              | 1024–16777216 inclusive  | OpenCode profile-learning input, including its truncation marker. Other hosts' profile input is outside this control.                                       |
-| `retrievalMaxTokens`         | 2000                                           | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text, formatting and retrieval wrappers.                                                       |
-| `similarityThreshold`        | 0.5 with `qwen3-embedding:0.6b`, otherwise 0.6 | Similarity score   | Numbers from 0 to 1      | Lowest score a memory needs to be returned by search. Lower values return more memories, including less relevant ones. The default depends on the embedder. |
+| Plain name                            | Config key                   | Default                                        | Unit               | Accepted values          | Affects                                                                                                                                                     |
+| ------------------------------------- | ---------------------------- | ---------------------------------------------- | ------------------ | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Memories per search**               | `maxMemories`                | 10                                             | Results            | Positive safe integers   | Maximum search results; manual searches can request fewer. Prompt retrieval uses this ceiling.                                                              |
+| **Conversation size when saving**     | `autoCaptureMaxContextBytes` | 131072                                         | Bytes              | 16384–16777216 inclusive | Conversation input sent through the shared memory-summary pipeline.                                                                                         |
+| **Conversation size for the profile** | `userProfileMaxContextBytes` | 32768                                          | Bytes              | 1024–16777216 inclusive  | OpenCode profile-learning input, including its truncation marker. Other hosts' profile input is outside this control.                                       |
+| **Memory text per prompt**            | `retrievalMaxTokens`         | 2000                                           | Approximate tokens | 256–65536 inclusive      | Automatic memory context across all hosts, including profile text, formatting and retrieval wrappers.                                                       |
+| **Match strictness**                  | `similarityThreshold`        | 0.5 with `qwen3-embedding:0.6b`, otherwise 0.6 | Similarity score   | Numbers from 0 to 1      | Lowest score a memory needs to be returned by search. Lower values return more memories, including less relevant ones. The default depends on the embedder. |
 
-Bytes mean UTF-8 bytes. Approximate tokens use `ceil(bytes / 4)` and can differ from the model's count. Count limits accept up to 9007199254740991. Blank, negative, fractional or out-of-range values are refused; `similarityThreshold` accepts decimals from 0 to 1 and is the only row that does. Smaller limits can omit input or inject fewer or shorter memories. Stored data and manual search content remain unchanged. Limits do not set a spending cap, limit model replies or control Graphify output.
+The card explains sizes in plain words. Text sizes are counted in bytes: an English letter is one byte, and some languages use more. A word piece, shown as approximate tokens, is a small part of a word. OMMS estimates one for about four bytes, and a provider can count a few more or fewer for the same text. Count limits accept up to 9007199254740991. Blank, negative, fractional or out-of-range values are refused; `similarityThreshold` accepts decimals from 0 to 1 and is the only row that does. Smaller limits can omit input or inject fewer or shorter memories. Stored data and manual search content remain unchanged. Limits do not set a spending cap, limit model replies or control Graphify output.
 
 The threshold default follows the active embedding model: 0.5 for `qwen3-embedding:0.6b` (the only embedder measured; see [Configuration: Memory limits](configuration.md#memory-limits)), 0.6 for every other embedder. The **Default** column shows the default for the current embedder, so it changes when you switch embedder.
 
@@ -308,32 +312,47 @@ Memory uses the existing [safe global save](web-ui-settings.md#how-saving-works)
 
 ## Keyword matching
 
-Open **Shared** and expand **Keyword matching**, below Memory limits. The card has one choice, **Word matching mode**, which sets `keywordMode`.
+Open **Shared** and expand **Keyword matching**, below Memory limits. The card has one row, **How word matches join the results**, which sets `keywordMode`. The row shows the plain name, a one-line description, the default and what it affects, with `keywordMode` as small text.
 
-| Mode                       | Value   | Effect                                                                                                                                                                                                                      |
-| -------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Boost (default)            | `boost` | A memory that holds a word of your prompt gains a small score bonus (`keywordBoost`).                                                                                                                                       |
-| Rank fusion (experimental) | `rrf`   | Merges a list by meaning and a list by words, so a memory that holds a word of your prompt can be returned although its meaning score is below `similarityThreshold`. It has not been shown to find more relevant memories. |
+| Choice                                 | Value   | Effect                                                                                                                                                                                                                              |
+| -------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Add a bonus for word matches (default) | `boost` | A memory that holds a word of your prompt gets a small bonus in the order of the results (`keywordBoost`).                                                                                                                          |
+| Merge two ranked lists (experimental)  | `rrf`   | Ranks a list by meaning and a list by words together, so a memory that holds a word of your prompt can be returned although its meaning score is below `similarityThreshold`. It has not been shown to find more relevant memories. |
 
-**Save** is enabled only when the choice differs from the saved value. **Cancel** restores it. The card writes the global config. A project file (`<project>/.opencode/omms.jsonc`) can still override the mode, and the card then says so. See [Configuration: Where the settings live](configuration.md#where-the-settings-live) for the global and project file locations on macOS and Windows. While the reranker is on, search uses the boost, and the card says that when you choose rank fusion. `keywordBoost` stays a config-file setting: see [Configuration: Keyword matching](configuration.md#keyword-matching). The card uses the same safe global save as the other Memory cards.
+**Save** is enabled only when the choice differs from the saved value. **Cancel** restores it. The card writes the global config. A project file (`<project>/.opencode/omms.jsonc`) can still override the mode, and the row then says that the project file decides it there. See [Configuration: Where the settings live](configuration.md#where-the-settings-live) for the global and project file locations on macOS and Windows. While the reranker is on, search uses the bonus, and the card says that when you choose merging. `keywordBoost` stays a config-file setting: see [Configuration: Keyword matching](configuration.md#keyword-matching). The card uses the same safe global save as the other Memory cards.
 
 ## Reranker
 
-Open **Shared** and expand **Reranker**, below Keyword matching. The card configures the opt-in reranker stage: a switch labelled **Use a reranker** (off by default) and four fields.
+Open **Shared** and expand **Reranker**, below Keyword matching. The card configures the opt-in reranker stage: a switch and four more rows. Each row leads with a plain name and a one-line description, shows the default and what it affects, and shows the config key as small text.
 
 The reranker settings are global only: they live in the global file, and a project file cannot change them. The global file is `~/.config/omms/omms.jsonc` on macOS and `%USERPROFILE%\.config\omms\omms.jsonc` on Windows. A project file is `<project>/.opencode/omms.jsonc`. See [Configuration: Where the settings live](configuration.md#where-the-settings-live).
 
-| Field      | Setting             | Notes                                                                                                             |
-| ---------- | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Server URL | `rerankerApiUrl`    | Required before the switch can be saved on. Non-loopback URLs show a notice that memory text leaves this machine. |
-| Model      | `rerankerModel`     | Required before the switch can be saved on.                                                                       |
-| Key        | `rerankerApiKey`    | Optional. Must be an `env://` or `file://` reference; literal keys are refused.                                   |
-| Timeout    | `rerankerTimeoutMs` | Milliseconds, default 4000, from 500 to 30000.                                                                    |
+| Row                                 | Setting             | Notes                                                                                                                                                   |
+| ----------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Reorder results with a reranker** | `rerankerEnabled`   | Off by default. Search is unchanged while it is off.                                                                                                    |
+| **Reranker server address**         | `rerankerApiUrl`    | Required before the switch can be saved on. Accepts only `http://` or `https://`. Non-loopback URLs show a notice that memory text leaves this machine. |
+| **Reranker model**                  | `rerankerModel`     | Required before the switch can be saved on.                                                                                                             |
+| **Reranker key**                    | `rerankerApiKey`    | Optional. Chosen with the shared key-entry control (see below).                                                                                         |
+| **Reranker wait time**              | `rerankerTimeoutMs` | Milliseconds, default 4000, from 500 to 30000.                                                                                                          |
 
-The card states what the reranker does, that it sends the prompt and candidate memory text to the server URL, that a server on the same machine is recommended, and that a project file cannot change these settings. Beside the timeout it notes that the default 4000 keeps the search inside OpenCode V2's 5-second wait, and that a value over 5000 can make OpenCode V2 send the request with no memory.
+The card states what the reranker does, that it sends the prompt and candidate memory text to the server URL, that a server on the same machine is recommended, and that a project file cannot change these settings. Beside the wait time it says: OpenCode waits up to 5 seconds for memories before it sends your prompt. The default, 4000 milliseconds, finishes in time. Over 5000, OpenCode can send your prompt without memories.
 
-- **Save** writes only the five reranker keys through the same [safe global save](web-ui-settings.md#how-saving-works) as Memory limits, and refreshes the shared revision. It is disabled while the switch is on with a blank URL or model, while a key is not a reference, or while the timeout is out of range.
-- **Test** sends two fixed sample documents to the drafted URL and model, using the drafted timeout, and reports success or a failure code such as `reranker_unreachable`. No prompt or memory text leaves during a test.
+### Key choices
+
+The **Reranker key** row uses the same key-entry control as the External API and Embedding cards. Pick how OMMS gets the key:
+
+- **Environment variable**: type the variable name. A login web app does not see variables set only in a shell profile, so the card warns about that. A key file works everywhere.
+- **Key file**: type the path of a file that holds the key.
+- **Save key to a private file**: paste the key and give the file a name (default `reranker`). OMMS writes it to a file only you can read, in `~/.config/omms/secrets/`, and sets `rerankerApiKey` to that file. The key is never shown again. If a file with that name exists, a dialog asks before it replaces the file.
+- **No key**: sends no key. Choosing it when a key is saved removes `rerankerApiKey`.
+
+The row shows the saved key source and whether the web app can read it, never the key. A key value never goes into the config file, the log or any reply.
+
+### Save, Test and messages
+
+- **Save** writes the key first when you chose a new one, then the other reranker keys, through the same [safe global save](web-ui-settings.md#how-saving-works) as Memory limits, and refreshes the shared revision. It is disabled while the switch is on with a blank URL or model, while the URL does not start with `http://` or `https://`, while the chosen key is incomplete (for example an empty pasted key or a bad variable name), or while the wait time is out of range. A pasted key leaves the form after a successful save.
+- **Test** sends two fixed sample documents to the server address, model, key and wait time in the form, whether or not you saved them, and says so while it runs. For a pasted key, the key goes in the test request only and nothing is saved. When the web app listens on a network address without a browser password, a test with a pasted key is refused with a reason, as on the External API card. No prompt or memory text leaves during a test.
+- A failed test shows a sentence, not a code. For example, if the server cannot be reached the card says that OMMS could not reach the reranker server, and suggests that you check the URL and that the server runs. A code that OMMS does not know shows a general sentence with the code as small text beside it.
 - **Cancel** restores the saved values without writing.
 
 See [Configuration: Reranker](configuration.md#reranker) for the endpoint contract, a `llama-server --reranking` example, and the fallback rules.

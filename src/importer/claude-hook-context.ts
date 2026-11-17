@@ -8,6 +8,7 @@ import {
   retrievalWrapperBytes,
   wrapRetrievalSection,
 } from "../core/retrieval.js";
+import { currentConfigProblems } from "../services/config-problems.js";
 import { isFullyPrivate, stripPrivateContent } from "../services/privacy.js";
 import { utf8ByteLength } from "../utils/context-limit.js";
 import { parseClaudeTranscript, type ClaudeTranscriptEntry } from "./claude-conversation.js";
@@ -30,6 +31,22 @@ const SEEN_SESSIONS_MAX = 500;
 /** A transcript this large already holds earlier prompts, or is too big to scan. */
 const FIRST_PROMPT_SCAN_MAX_BYTES = 1024 * 1024;
 const SUBAGENT_TAIL_BYTES = 1024 * 1024;
+
+/**
+ * Add the user lines of a SessionStart reply as `systemMessage`, one line per config
+ * problem, only when the hook asked with `notices: true`. The hook shows them to the user,
+ * never to the model. A compaction is the same session, so it repeats nothing.
+ */
+export function withNotices<R extends object>(
+  body: unknown,
+  reply: R
+): R & { systemMessage?: string } {
+  const input = body as Record<string, unknown>;
+  if (input.event !== "session-start" || input.notices !== true) return reply;
+  if (input.source === "compact") return reply;
+  const lines = currentConfigProblems().map((problem) => problem.message);
+  return lines.length > 0 ? { ...reply, systemMessage: lines.join("\n") } : reply;
+}
 
 /** The byte budget of one request and whether recall rows are off for it. */
 export interface SectionLimits {

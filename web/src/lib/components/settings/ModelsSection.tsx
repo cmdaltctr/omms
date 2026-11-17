@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { compactField, Select } from "$lib/components/ui/select";
+import { Button } from "$lib/components/ui/button";
+import { Input } from "$lib/components/ui/input";
+import { Select } from "$lib/components/ui/select";
+import { SettingRow } from "./SettingRow";
 import {
   beginSettingsRead,
   onSettingsSnapshot,
@@ -8,12 +11,15 @@ import {
   withNote,
 } from "$lib/settings-api";
 import { useSettingsText } from "$lib/i18n/settings";
+import { useCardText } from "$lib/i18n/settings-cards";
 import { externalMissing, hostModelEdit } from "$lib/external-api-settings";
 import { hostLabel } from "$lib/host-label";
 import { ClaudeCaptureStatus, type ClaudeCaptureState } from "./ClaudeCaptureStatus";
+import { ReadOnlyNote } from "./ReadOnlyNote";
 
 type Setting = { value?: string; globalValue?: string; source: string };
 type Snapshot = {
+  readOnly?: boolean;
   revision: string;
   settings: Record<string, Setting>;
   fallback: { model: string | null; configured: boolean };
@@ -29,6 +35,7 @@ type ModelList = { available: boolean; models?: Model[]; reason?: string };
 
 export function ModelsSection() {
   const s = useSettingsText();
+  const t = useCardText();
   const [snapshot, setSnapshot] = useState<Snapshot>();
   const [lists, setLists] = useState<Record<string, ModelList>>({});
   const [message, setMessage] = useState("");
@@ -61,6 +68,7 @@ export function ModelsSection() {
     };
   }, []);
 
+  const readOnly = snapshot?.readOnly === true;
   async function save(host: string, choice: string) {
     if (!snapshot) return;
     let edits: Record<string, string>;
@@ -116,8 +124,16 @@ export function ModelsSection() {
     >
       <h2 className="text-section-title font-semibold">{s("Models")}</h2>
       <p className="text-sm text-muted-foreground">
-        {s("External API fallback")}: {snapshot?.fallback.model ?? s("none")} (
-        {s(snapshot?.fallback.configured ? "ready" : "not ready")}).
+        {snapshot?.fallback.configured
+          ? t(
+              "When OpenCode or Pi has no model of its own, OMMS uses the external API model {model}.",
+              {
+                model: snapshot.fallback.model ?? t("its own default"),
+              }
+            )
+          : t(
+              "The external API is not set up, so when OpenCode or Pi has no model of its own, OMMS uses the session model."
+            )}
       </p>
       {(["opencode", "pi"] as const).map((host) => (
         <ModelCard
@@ -132,10 +148,11 @@ export function ModelsSection() {
           }
           list={lists[host]}
           externalMissing={missing}
-          busy={busy || !snapshot}
+          busy={busy || !snapshot || readOnly}
           onSave={(choice) => save(host, choice)}
         />
       ))}
+      <ReadOnlyNote show={readOnly} />
       <ClaudeCaptureStatus status={snapshot?.effective["claude-code"]} />
       {message && (
         <p role="status" className="text-sm">
@@ -203,13 +220,10 @@ function ModelCard({
           {s("Project override is active. Changes to the global file may not take effect here.")}
         </p>
       )}
-      <label className="block text-sm" htmlFor={`${host}-model`}>
-        {s("Model choice")}
-      </label>
-      <div className={compactField}>
+      <SettingRow setting={`${host}Model`} controlId={`${host}-model`}>
         <Select
           id={`${host}-model`}
-          className="w-full rounded-lg border border-border bg-background p-2 text-sm"
+          aria-label={s("Model choice")}
           value={current}
           onChange={(event) => setChoice(event.target.value as "inherit" | "manual" | "external")}
         >
@@ -219,7 +233,7 @@ function ModelCard({
             {s("External API")}
           </option>
         </Select>
-      </div>
+      </SettingRow>
       {externalMissing.length > 0 && (
         <p className="text-xs text-muted-foreground">
           {s("External API needs")}: {externalMissing.join(", ")}
@@ -244,7 +258,7 @@ function ModelCard({
         </Select>
       )}
       {current === "manual" && useTyped && (
-        <input
+        <Input
           className="w-full rounded-lg border border-border bg-background p-2 text-sm"
           aria-label={`${host} ${s("Manual provider/model")}`}
           placeholder="provider/model"
@@ -262,16 +276,16 @@ function ModelCard({
             : s("Model list unavailable. Enter provider/model manually.")}
         </p>
       )}
-      <button
+      <Button
         type="button"
-        className="rounded-lg border border-border px-3 py-1.5 text-sm"
+        variant="outline"
         disabled={busy}
         onClick={() =>
           onSave(current !== "manual" ? current : useTyped ? typed.trim() : selectedModel)
         }
       >
         {s("Save model")}
-      </button>
+      </Button>
     </div>
   );
 }

@@ -1,10 +1,10 @@
 import { keySourceBody, type KeySource } from "$lib/external-api-settings";
 import { urlOnThisMachine } from "$lib/credential-states";
 
-/** Local servers come first: they cost nothing per memory. */
+/** Local servers come first: they cost nothing per memory. llama.cpp is the project default. */
 export const EMBEDDING_PRESETS = [
-  { id: "ollama", label: "Ollama", url: "http://localhost:11434/v1" },
   { id: "llamacpp", label: "llama.cpp", url: "http://localhost:8080/v1" },
+  { id: "ollama", label: "Ollama", url: "http://localhost:11434/v1" },
   { id: "openrouter", label: "OpenRouter", url: "https://openrouter.ai/api/v1" },
   { id: "openai", label: "OpenAI", url: "https://api.openai.com/v1" },
   { id: "custom", label: "Custom", url: "" },

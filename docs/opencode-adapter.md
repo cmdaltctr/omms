@@ -125,11 +125,23 @@ History backfill (automatic history import) uses `opencodeBackfillModel`. See
 | `setup`              | Load shared config for the project directory, remove old capture traces, update the web login item when `webServerAutoStart` is set, warm storage and embeddings, read connected providers, register the OpenCode backfill model resolver, the profile model, and the import models, start automatic backfill when `autoBackfill` is on, check for the shared web app and start it when none runs                                                                      |
 | command              | Register the `/memory-import-opencode-history` command and the `omms-memory` and `omms-remember` skills                                                                                                                                                                                                                                                                                                                                                                |
 | `prompt` + `context` | Record the prompt once OpenCode admits it; semantic retrieval injected as a delimited `<omms-retrieval>` system section. The `context` hook also records the session model when capture follows it (`opencodeModel` is `inherit`)                                                                                                                                                                                                                                      |
-| `session.idle` event | After 10 seconds of quiet, capture every uncaptured prompt in the session; run profile learning and daily cleanup. A `session.created` event starts the capture retry drain. The plugin only reads events for its own directory                                                                                                                                                                                                                                        |
+| `session.idle` event | After 10 seconds of quiet, capture every uncaptured prompt in the session; run daily maintenance (also with capture off), then profile learning. A `session.created` event starts the capture retry drain. The plugin only reads events for its own directory                                                                                                                                                                                                          |
 | `compaction`         | Restore the session's own memories after compaction and after resume                                                                                                                                                                                                                                                                                                                                                                                                   |
 | command              | Run `/memory-import-opencode-history`; see [opencode-history-import.md](opencode-history-import.md)                                                                                                                                                                                                                                                                                                                                                                    |
 | `memory` tool        | Shared add/memorise/memorize/recall/search/profile/list/forget/help plus migrate/list-shards/export/import                                                                                                                                                                                                                                                                                                                                                             |
 | `skills` tool        | Shared skill-learning modes list/ideas/draft/evidence/propose/proposals/show/apply/reject/undo/help. Arguments: `mode`, `skill`, `idea` (`name`, `description`), `folder`, `state`, `order`, `id`, `limit`, `content`, `summary`, `evidence`. A draft saves a pending proposal and changes no file; `evidence` then `propose` let the agent fix a skill with no external API call; `apply` records the agent. See [the `skills` command](cli.md#skills-and-proposals). |
+
+### Daily maintenance
+
+After the idle capture, OMMS runs daily maintenance at most once a day in each OpenCode process. It runs with capture on or off.
+
+- It always removes old capture attempt records, old capture retry rows and old cleanup undo records, and compacts the prompt database.
+- It deletes memories by age only when you turn on **Delete old memories automatically** in the Memory cleanup card. That writes `autoDeleteOldMemories: true` to the global config file. The default is off.
+- An older config file with `"autoCleanupEnabled": true` deletes nothing. See [Configuration: Memory cleanup](configuration.md#memory-cleanup).
+
+### Config problems
+
+When OMMS cannot read the config file, or cannot use a value in it, it uses the default, or turns a risky feature off, and keeps running. At plugin start it writes one warning per problem to the OpenCode log, for example `[omms] OMMS settings: OMMS cannot read ~/.config/omms/omms.jsonc: on line 4, column 3, a comma is missing.` The warning names the file and line, or the key and the values it accepts. Fix the file. For a key that a Settings card can change, the notice also points to the Settings page.
 
 ### Notices
 
@@ -258,7 +270,7 @@ OpenCode and Pi can run in separate processes against the same store.
 
 ## Limitations
 
-- Profile learning and cleanup run in every OpenCode process. Cleanup runs at most once a day in each process.
+- Profile learning and daily maintenance run in every OpenCode process. Daily maintenance runs at most once a day in each process.
 - Manual history import covers the current project by default. See [opencode-history-import.md](opencode-history-import.md).
 
 ## Host parity

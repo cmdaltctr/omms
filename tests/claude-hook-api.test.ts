@@ -235,6 +235,34 @@ scenario = { afterPrompt, started };
     expect(scenario).toEqual({ afterPrompt: 0, started: 1 });
   });
 
+  it("puts each config problem in systemMessage only for a SessionStart that asks for notices", async () => {
+    const { run } = createHarness({ ...EXTERNAL_API, autoCleanupRetentionDays: 0 });
+    const scenario = await run(`
+const ask = (extra) => api.handleClaudeRetrieve({ event: "session-start", session_id: "s", cwd: projectDir, source: "startup", ...extra });
+scenario = {
+  asked: await ask({ notices: true }),
+  older: await ask({}),
+  compact: await ask({ notices: true, source: "compact" }),
+  prompt: await api.handleClaudeRetrieve({ event: "user-prompt-submit", session_id: "s", cwd: projectDir, prompt: "hi", notices: true }),
+};
+`);
+    expect(scenario.asked.systemMessage).toContain("autoCleanupRetentionDays");
+    expect(scenario.asked.systemMessage).toContain("omms.jsonc");
+    expect(scenario.asked.additionalContext).not.toContain("autoCleanupRetentionDays");
+    // An older hook, a compaction in the same session, and a prompt get no user line.
+    expect("systemMessage" in scenario.older).toBe(false);
+    expect("systemMessage" in scenario.compact).toBe(false);
+    expect("systemMessage" in scenario.prompt).toBe(false);
+  });
+
+  it("sends no systemMessage when the config has no problem", async () => {
+    const { run } = createHarness();
+    const scenario = await run(`
+scenario = await api.handleClaudeRetrieve({ event: "session-start", session_id: "s", cwd: projectDir, source: "startup", notices: true });
+`);
+    expect(scenario).toEqual({ additionalContext: "" });
+  });
+
   it("does not start the backfill when autoBackfill is off", async () => {
     const { run } = createHarness({ ...EXTERNAL_API, autoBackfill: false });
     const scenario = await run(`

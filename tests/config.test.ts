@@ -83,7 +83,7 @@ describe("config", () => {
       expect(typeof CONFIG.autoCaptureEnabled).toBe("boolean");
       expect(typeof CONFIG.injectProfile).toBe("boolean");
       expect(typeof CONFIG.webServerEnabled).toBe("boolean");
-      expect(typeof CONFIG.autoCleanupEnabled).toBe("boolean");
+      expect(CONFIG.autoDeleteOldMemories).toBe(false);
       expect(typeof CONFIG.deduplicationEnabled).toBe("boolean");
     });
 
@@ -131,9 +131,6 @@ describe("config", () => {
 
     it("should have user profile settings as numbers", () => {
       expect(typeof CONFIG.userProfileAnalysisInterval).toBe("number");
-      expect(typeof CONFIG.userProfileDisplayPreferences).toBe("number");
-      expect(typeof CONFIG.userProfileDisplayPatterns).toBe("number");
-      expect(typeof CONFIG.userProfileDisplayWorkflows).toBe("number");
       expect(typeof CONFIG.userProfileConfidenceDecayDays).toBe("number");
       expect(typeof CONFIG.userProfileChangelogRetentionCount).toBe("number");
       expect(CONFIG.userProfileStaleDays).toBe(2);

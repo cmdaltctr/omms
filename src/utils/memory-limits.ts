@@ -8,6 +8,7 @@
  * CONFIG here: many tests stub src/config.js with a partial module.
  */
 import { defaultSimilarityThreshold } from "./threshold-default.js";
+import { ConfigValueError } from "../services/config-problems.js";
 
 export interface MemoryLimitRule {
   /** Settings identifier used by files, requests, and the UI. Nested settings use one dot. */
@@ -119,8 +120,6 @@ export function getMemoryLimitRule(setting: string): MemoryLimitRule | undefined
  * reload logs these errors, and they must stay metadata-only.
  */
 export function checkedMemoryLimit(rule: MemoryLimitRule, value: unknown): number {
-  if (!rule.isValid(value)) {
-    throw new Error(`Invalid ${rule.setting} config (accepted: ${rule.accepted})`);
-  }
+  if (!rule.isValid(value)) throw new ConfigValueError(rule.setting, rule.accepted);
   return value as number;
 }

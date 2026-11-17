@@ -185,6 +185,18 @@ Use logical alignment and allow labels to wrap. Stack label/control rows in narr
 
 Keep visible helper text, warnings, save feedback, and validation messages in the first pass. Changing their visibility requires approval. Standardise repeated row styles after the pattern is established; avoid importing OpenChamber's runtime-dependent primitives.
 
+## Plain setting rows, key entry, search and the problem banner
+
+These pieces live in `web/src/lib/components/settings/`. Their texts come from `web/src/lib/settings-catalogue.ts` (English) and the Chinese and Arabic pairs in `web/src/lib/i18n/settings-catalogue*.ts`. A card gets text through `useCatalogueText()`; it needs no entry in `i18n/settings.ts`.
+
+- **`SettingRow`** (`setting`, `controlId`, `projectNote?`, `children`): a plain name as the control's label, a one-line description, `Default: … · Affects: …`, and the config key as small left-to-right text. The control goes in `children`. A key with no catalogue entry shows the control alone. Add each new writable setting to the catalogue first. `tests/settings-catalogue.spec.ts` fails when the settings writer accepts a key that has no entry or a text has no Chinese or Arabic pair. Never put a raw term such as `ceil(UTF-8 bytes / 4)` in a name or description.
+- **`KeySourceField`** (`id`, `choice`, `onChoice`, `input`, `onInput`, `optional?`, `saved?`, `disabled?`, `nameHint?`): one shared control for every API key. It offers Environment variable, Key file and Save key to a private file, plus No key when `optional`. The card owns the state and builds the request with `keySourceBody` (`web/src/lib/external-api-settings.ts`). It shows the shell-profile warning for an environment variable and the saved source without a key value. Never write a second key control.
+- **`SettingsConfirmDialog`** (`title`, `body`, `confirmLabel`, `onConfirm`, `onClose`, `busyLabel?`, `blocked?`, `destructive?`): follows `SpaceConfirmDialog`. Nothing is sent before the confirm button. Progress and a server error show inside the dialog. `blocked` names why the change cannot go ahead and keeps confirm off. Mount it only while a confirmation is pending. Use it in place of `window.confirm`.
+- **`SettingsSearch`** (`entries?`, `onChoose?`): a search box with a result list. Each result shows the plain name, the description and a coloured page pill, and opens the page at its card with `navigate`. The matching code is the pure `searchSettings` in `web/src/lib/settings-search.ts`. With no match it points to the config file and the Configuration guide.
+- **`ConfigProblemBanner`** (`problems`, `readOnly?`): a callout above the cards that names the file with the line and column, or the key and the values it accepts. `readOnly` says that saving is off. Cards disable Save while `readOnly` is true.
+
+Plain words for codes and ids come from pure modules, not from the cards: `web/src/lib/provider-names.ts` (`providerName`) and `web/src/lib/reranker-messages.ts` (`rerankerMessage`; an unknown code returns a general sentence and the code as secondary text).
+
 ## Long lists: page size 5, sort, custom size, footer
 
 Page every list that can grow past 5 rows. Use the shared module in `web/src/lib/components/paged-list/`. Do not copy the controls into a list.
