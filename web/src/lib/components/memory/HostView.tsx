@@ -9,15 +9,7 @@ import { WriteHealthStrip } from "./WriteHealthStrip";
 import type { HostStatuses } from "./use-host-statuses";
 
 /** `/memory/<host>`: only that host's state, sessions and settings, under a switcher. */
-export function HostView({
-  host,
-  statuses,
-  profilePreset,
-}: {
-  host: WebHost;
-  statuses: HostStatuses;
-  profilePreset: number;
-}) {
+export function HostView({ host, statuses }: { host: WebHost; statuses: HostStatuses }) {
   const s = useSettingsText();
   const notSetUp = !statuses.input(host).setUp;
   return (
@@ -31,7 +23,8 @@ export function HostView({
         </p>
       ) : (
         <>
-          <ImportSection host={host} profilePreset={profilePreset} />
+          {/* Keyed by host: Customise options and the draft belong to one host. */}
+          <ImportSection key={host} host={host} statuses={statuses} />
           <DirectoryMapsSection
             hosts={[host]}
             saved={false}

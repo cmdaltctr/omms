@@ -174,13 +174,49 @@ it("restores ticked hosts and scope after a reload", () => {
   draft.hosts.opencode.enabled = true;
   draft.hosts.pi.enabled = true;
   draft.hosts["claude-code"].enabled = false;
-  draft.scope = "all-projects";
+  draft.scope = "current-project";
   saveHostChoice(draft, storage);
   const reloaded = loadHostChoice(initialImportDraft(), storage);
   expect(reloaded.hosts.pi.enabled).toBe(true);
   expect(reloaded.hosts.opencode.enabled).toBe(true);
   expect(reloaded.hosts["claude-code"].enabled).toBe(false);
-  expect(reloaded.scope).toBe("all-projects");
+  expect(reloaded.scope).toBe("current-project");
+});
+
+it("ticks the hosts that are set up on a fresh draft", () => {
+  const draft = loadHostChoice(initialImportDraft(), fakeStorage(), ["opencode", "claude-code"]);
+  expect(draft.hosts.pi.enabled).toBe(false);
+  expect(draft.hosts.opencode.enabled).toBe(true);
+  expect(draft.hosts["claude-code"].enabled).toBe(true);
+  expect(draft.scope).toBe("all-projects");
+});
+
+it("lets a saved choice win over the hosts that are set up", () => {
+  const storage = fakeStorage({
+    [HOST_CHOICE_KEY]: JSON.stringify({ hosts: ["opencode"], scope: "all-projects" }),
+  });
+  const draft = loadHostChoice(initialImportDraft(), storage, ["pi", "claude-code"]);
+  expect(draft.hosts.opencode.enabled).toBe(true);
+  expect(draft.hosts.pi.enabled).toBe(false);
+  expect(draft.hosts["claude-code"].enabled).toBe(false);
+});
+
+it("ticks the hosts that are set up when the saved choice is invalid or the store is blocked", () => {
+  const bad = fakeStorage({ [HOST_CHOICE_KEY]: '{"hosts":[]}' });
+  expect(loadHostChoice(initialImportDraft(), bad, ["opencode"]).hosts.opencode.enabled).toBe(true);
+  const blocked = {
+    getItem: () => {
+      throw new Error("blocked");
+    },
+    setItem: () => {},
+  };
+  expect(loadHostChoice(initialImportDraft(), blocked, ["opencode"]).hosts.opencode.enabled).toBe(
+    true
+  );
+});
+
+it("keeps the default draft when no host is set up", () => {
+  expect(loadHostChoice(initialImportDraft(), fakeStorage(), [])).toEqual(initialImportDraft());
 });
 
 it("keeps the default draft when nothing, unreadable or invalid choices are stored", () => {

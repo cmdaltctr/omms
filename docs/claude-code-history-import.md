@@ -137,7 +137,7 @@ See [Memory: Automatic import](web-ui-memory.md#automatic-import) for details.
 
 ## Web import
 
-Open **Memory → Import chat history** at `/memory#memory-section-import`. Select **Claude Code**; Pi is the initial host. Both **Project memories** and **User profile** start selected, with Current project scope. User profile learns preferences, patterns and workflows. Deselect an output to skip it; at least one must remain selected.
+Open **Memory**, then the **Claude Code** card, and select **Import new chats**. It previews every Claude Code session not yet imported, in all projects, with both **Project memories** and **User profile** selected, then asks in a dialog. See [Import new chats](web-ui-memory.md#import-new-chats). User profile learns preferences, patterns and workflows. Deselect an output to skip it; at least one must remain selected.
 
 - The default source is the projects folder used by live capture: **Claude Code folder** in Settings, then `CLAUDE_CONFIG_DIR`, then `~/.claude`, with `/projects` appended. The picker opens there. The source kind is `claude-projects`; a web source must be a folder.
 - **List sessions** shows dates, IDs and project folders without conversation content.

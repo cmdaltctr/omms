@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { isAbsolute, resolve } from "node:path";
+import { isFullyPrivate, stripPrivateContent } from "../services/privacy.js";
 import { hostChoiceMessage, isMemoryHost } from "../shared/hosts.js";
 import { HOST_IMPORTERS } from "./host-importers.js";
 import type { HistoryImportArgs, ImportHost } from "./import-args.js";
@@ -42,6 +43,8 @@ export interface ImportSessionRow {
   recordedDirectory: string | null;
   directory: string | null;
   via: ProjectResolution;
+  /** OpenCode only: the title the host stores, without `<private>` text, at most 80 characters. */
+  title?: string | null;
 }
 
 export interface ImportMatchOptions {
@@ -84,6 +87,14 @@ interface Matched {
   revision: string;
 }
 
+const MAX_TITLE_CHARACTERS = 80;
+
+/** A stored session title as the list shows it: no private text, trimmed, cut to 80. */
+function listedTitle(title: string | null): string | null {
+  if (!title || isFullyPrivate(title)) return null;
+  return Array.from(stripPrivateContent(title).trim()).slice(0, MAX_TITLE_CHARACTERS).join("");
+}
+
 async function readRows(
   identity: ImportSourceIdentity,
   options: ImportMatchOptions,
@@ -98,6 +109,7 @@ async function readRows(
     key: row.key,
     sessionId: row.sessionId,
     createdAt: row.createdAt,
+    ...(row.title !== undefined ? { title: listedTitle(row.title) } : {}),
     recordedDirectory: row.recordedDirectory,
     ...resolveImportProject(row.recordedDirectory, options.pathMaps, row.projectWorktree),
   }));

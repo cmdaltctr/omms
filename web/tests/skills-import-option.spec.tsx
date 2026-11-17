@@ -3,7 +3,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ImportOptions } from "../src/lib/components/memory/ImportOptions.tsx";
 import { ImportProgressBar } from "../src/lib/components/memory/ImportProgressBar.tsx";
 import { progressBarView } from "../src/lib/components/memory/import-finish.ts";
-import { loadHostChoice, saveHostChoice } from "../src/lib/components/memory/import-host-choice.ts";
+import {
+  HOST_CHOICE_KEY,
+  loadHostChoice,
+  OLD_HOST_CHOICE_KEY,
+  saveHostChoice,
+} from "../src/lib/components/memory/import-host-choice.ts";
 import {
   groupRequest,
   initialImportDraft,
@@ -22,8 +27,8 @@ const options = (draft: ImportDraft, skillRecording: boolean) =>
       onAdvanced={() => {}}
     />
   );
-const store = (initial?: string) => {
-  const data = new Map<string, string>(initial ? [["omms-memory-import-hosts", initial]] : []);
+const store = (initial?: string, key = HOST_CHOICE_KEY) => {
+  const data = new Map<string, string>(initial ? [[key, initial]] : []);
   return {
     getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => void data.set(key, value),
@@ -46,11 +51,21 @@ it("clears and disables Skill turns with a settings link when recording is off",
 });
 
 it("reads an old saved draft with no skills value as on", () => {
-  const old = JSON.stringify({ hosts: ["pi"], scope: "all-projects" });
+  // A saved scope that differs from the default proves the saved choice was read.
+  const old = JSON.stringify({ hosts: ["pi"], scope: "current-project" });
   const draft = loadHostChoice(initialImportDraft(), store(old));
   expect(draft.skills).toBe(true);
-  expect(draft.scope).toBe("all-projects");
+  expect(draft.scope).toBe("current-project");
   expect(checkbox(options(draft, true))).toContain('checked=""');
+});
+
+it("ignores a choice saved under the old key, so every user gets All projects once", () => {
+  const old = JSON.stringify({ hosts: ["opencode"], scope: "current-project", skills: false });
+  const draft = loadHostChoice(initialImportDraft(), store(old, OLD_HOST_CHOICE_KEY), ["pi"]);
+  expect(draft.scope).toBe("all-projects");
+  expect(draft.skills).toBe(true);
+  expect(draft.hosts.pi.enabled).toBe(true);
+  expect(draft.hosts.opencode.enabled).toBe(false);
 });
 
 it("keeps a saved choice to leave Skill turns off", () => {

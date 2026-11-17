@@ -27,6 +27,8 @@ export interface HostSessionRow {
   createdAt: number | null;
   recordedDirectory: string | null;
   projectWorktree?: string | null;
+  /** OpenCode only: the title the host stores. The session list removes private text. */
+  title?: string | null;
 }
 
 /** What `runHistoryImport` hands a host's import after the shared set-up. */
@@ -137,6 +139,7 @@ export const HOST_IMPORTERS: Record<MemoryHost, HostImporter> = {
           key: session.sessionId,
           sessionId: session.sessionId,
           createdAt: session.timeCreated,
+          title: session.title,
           recordedDirectory: session.recordedDirectory,
           projectWorktree: session.projectWorktree,
         }));

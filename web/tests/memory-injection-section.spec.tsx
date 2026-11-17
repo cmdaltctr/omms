@@ -12,7 +12,7 @@ mock.module("react", () => ({
   ...react,
   useEffect: () => {},
   useRef: (value: unknown) => ({ current: value }),
-  useContext: () => null,
+  useContext: react.useContext,
   useMemo: (factory: () => unknown) => factory(),
   useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot(),
   useState: (initial: unknown) => {

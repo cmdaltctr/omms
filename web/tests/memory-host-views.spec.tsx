@@ -34,8 +34,24 @@ it("offers Change icon on the three hosts only, and the all-hosts import with it
   expect(html).not.toContain("Change icon: Shared");
   expect(html).toContain("Import all hosts");
   expect(html).toContain("can cost money");
-  // The all-hosts form stays closed until asked for.
-  expect(html).not.toContain("Import chat history");
+  // The all-hosts panel shows its button at once; the detailed controls stay in a closed Customise.
+  expect(html).toMatch(/<button[^>]*>Import all hosts<\/button>/);
+  expect(html).toMatch(/<details[^>]*>\s*<summary[^>]*>Customise/);
+  expect(html).not.toMatch(/<details[^>]* open=""[^>]*>\s*<summary[^>]*>Customise/);
+  expect(html).not.toContain("Directory maps (old=new");
+});
+
+it("shows Import new chats on a host view without opening any section, and Customise closed", () => {
+  const html = renderToStaticMarkup(<HostView host="pi" statuses={fakeStatuses(allSetUp)} />);
+  expect(html).toMatch(/<button[^>]*>Import new chats<\/button>/);
+  expect(html).not.toMatch(/<details[^>]* open=""[^>]*>\s*<summary[^>]*>Customise/);
+  // Status header first, then the import panel, then the folder list.
+  const header = html.indexOf("State:");
+  const panel = html.indexOf("Import new chats");
+  const folders = html.indexOf('id="host-unresolved"');
+  expect(header).toBeGreaterThan(0);
+  expect(panel).toBeGreaterThan(header);
+  expect(folders).toBeGreaterThan(panel);
 });
 
 it("turns a card amber and says why memories are not saved, in text", () => {
@@ -89,9 +105,7 @@ it("names the failing service, how to recover, and offers Check again", () => {
 });
 
 it("shows only the chosen host's sessions, folders and settings", () => {
-  const html = renderToStaticMarkup(
-    <HostView host="opencode" statuses={fakeStatuses(allSetUp)} profilePreset={0} />
-  );
+  const html = renderToStaticMarkup(<HostView host="opencode" statuses={fakeStatuses(allSetUp)} />);
   expect(html).toContain("OpenCode: Unresolved directories");
   expect(html).not.toContain("Pi: Unresolved directories");
   expect(html).not.toContain("Claude Code: Unresolved directories");
@@ -109,9 +123,7 @@ it("shows only the chosen host's sessions, folders and settings", () => {
 });
 
 it("marks the host on screen in the switcher", () => {
-  const html = renderToStaticMarkup(
-    <HostView host="pi" statuses={fakeStatuses(allSetUp)} profilePreset={0} />
-  );
+  const html = renderToStaticMarkup(<HostView host="pi" statuses={fakeStatuses(allSetUp)} />);
   expect(html.match(/aria-current="page"/g)).toHaveLength(1);
   expect(html).toMatch(
     /href="\/memory\/pi"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/memory\/pi"/
@@ -120,7 +132,7 @@ it("marks the host on screen in the switcher", () => {
 
 it("replaces the sessions and settings with a setup note for a host that is not set up", () => {
   const html = renderToStaticMarkup(
-    <HostView host="pi" statuses={fakeStatuses({ ...allSetUp, pi: false })} profilePreset={0} />
+    <HostView host="pi" statuses={fakeStatuses({ ...allSetUp, pi: false })} />
   );
   expect(html).toContain("This host is not set up on this machine.");
   expect(html).toContain("How to set up");
@@ -189,4 +201,19 @@ it("opens every folder row in a host view so its folder field is visible, and ke
   expect(render(true)).toContain(
     'aria-label="/private/tmp/oc-mem-phase1/project Target directory"'
   );
+});
+
+it("opens the import panel with Customise open and the profile-only preset after Re-analyse", () => {
+  const html = renderToStaticMarkup(
+    <MemoryOverview statuses={fakeStatuses(allSetUp)} profilePreset={1} />
+  );
+  const box = (label: string) =>
+    new RegExp(`<input[^>]*aria-label="${label}"[^>]*>`).exec(html)?.[0] ?? "";
+  // The panel and its Customise section are on screen, not behind a button.
+  expect(html).toMatch(/<details[^>]* open=""[^>]*>\s*<summary[^>]*>Customise/);
+  expect(box("Project memories")).not.toContain("checked");
+  expect(box("User profile")).toContain('checked=""');
+  expect(box("Re-analyse handled history")).toContain('checked=""');
+  // Nothing starts by itself: the import still needs a preview and the dialog.
+  expect(html).not.toContain('role="progressbar"');
 });

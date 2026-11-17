@@ -15,6 +15,9 @@ export function MemoryView() {
   const [profilePreset, setProfilePreset] = useState(0);
   useEffect(() => {
     revealPageAnchor(window.location.hash);
+    // The Re-analyse preset is for the overview it opens. Leaving it ends the preset, so a
+    // later visit starts from the normal import options.
+    if (view !== null) setProfilePreset(0);
   }, [view]);
   // Re-analysing chat history starts from the all-hosts import on the overview.
   function reanalyse() {
@@ -25,9 +28,7 @@ export function MemoryView() {
     <div className="settings-view">
       {view === null && <MemoryOverview statuses={statuses} profilePreset={profilePreset} />}
       {view === "shared" && <SharedView statuses={statuses} onReanalyse={reanalyse} />}
-      {view !== null && view !== "shared" && (
-        <HostView host={view} statuses={statuses} profilePreset={profilePreset} />
-      )}
+      {view !== null && view !== "shared" && <HostView host={view} statuses={statuses} />}
     </div>
   );
 }

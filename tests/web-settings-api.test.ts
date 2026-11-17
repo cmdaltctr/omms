@@ -810,6 +810,7 @@ describe("settings API", () => {
       "external",
       "opencode",
       "piReader",
+      "profileIdentity",
     ]);
     expect(result.browse).toBe(200);
     expect(result.entries).toContain("pi-sessions");

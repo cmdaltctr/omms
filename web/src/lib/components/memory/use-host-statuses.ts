@@ -67,6 +67,10 @@ export function useHostStatuses() {
     runNowUnavailable: backfill.runs?.[host]?.runNowUnavailable ?? null,
     // Until readiness loads, assume the host exists rather than flash "Not set up".
     setUp: readiness?.defaultSourceFound?.[host] !== false,
+    // Same rule for the switch: assume on until the settings load, so Off never flashes.
+    autoImport: backfill.snapshot
+      ? Boolean(backfill.snapshot.settings.autoBackfill?.globalValue)
+      : true,
     formatDate: formatDay,
     lastSaved: lastSaved?.[host] ?? null,
     formatSaved,

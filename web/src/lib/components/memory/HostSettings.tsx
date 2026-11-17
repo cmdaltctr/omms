@@ -5,6 +5,7 @@ import { manualModelFieldVisible, type ModelBackfillHost } from "$lib/auto-impor
 import { externalMissing } from "$lib/external-api-settings";
 import { hostLabel, type WebHost } from "$lib/host-label";
 import { useSettingsText } from "$lib/i18n/settings";
+import { TurnOnDialog } from "./TurnOnAction";
 import type { Backfill } from "./use-backfill";
 import { ReadOnlyNote, useSettingsReadOnly } from "../settings/ReadOnlyNote";
 
@@ -15,6 +16,8 @@ export function HostSettings({ host, backfill }: { host: WebHost; backfill: Back
   const { snapshot, lists, busy } = backfill;
   const [choice, setChoice] = useState<string>();
   const [typedMode, setTypedMode] = useState<boolean>();
+  // Turning automatic import on costs money on every host, so it asks first; off needs no question.
+  const [asking, setAsking] = useState(false);
   const settings = snapshot?.settings ?? {};
   const saved = String(settings[`${host}BackfillModel`]?.globalValue ?? "inherit");
   const current = choice ?? saved;
@@ -105,12 +108,14 @@ export function HostSettings({ host, backfill }: { host: WebHost; backfill: Back
           </Button>
         </div>
       )}
-      <label className="flex items-center gap-2 text-sm">
+      <label id="memory-section-auto-import" className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
           checked={Boolean(settings.autoBackfill?.globalValue)}
           disabled={busy || readOnly || !snapshot}
-          onChange={(event) => void backfill.save({ autoBackfill: event.target.checked })}
+          onChange={(event) =>
+            event.target.checked ? setAsking(true) : void backfill.save({ autoBackfill: false })
+          }
         />
         {s("Import past chats automatically")}
       </label>
@@ -118,6 +123,12 @@ export function HostSettings({ host, backfill }: { host: WebHost; backfill: Back
       <p className="text-xs text-muted-foreground">
         {s("This switch applies to every host. Automatic import makes model calls.")}
       </p>
+      {asking && (
+        <TurnOnDialog
+          onConfirm={() => backfill.save({ autoBackfill: true })}
+          onClose={() => setAsking(false)}
+        />
+      )}
     </section>
   );
 }

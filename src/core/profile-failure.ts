@@ -5,6 +5,9 @@
 export type ProfileFailureCode =
   "timeout" | `http-${number}` | "no-tool-call" | "invalid-reply" | "not-configured" | "error";
 
+/** The profile import report's error when no email names the profile (git `user.email`). */
+export const PROFILE_NEEDS_EMAIL = "Profile import needs a user email";
+
 export class ProfileModelError extends Error {
   constructor(readonly code: ProfileFailureCode) {
     super(`Profile model call failed: ${code}`);

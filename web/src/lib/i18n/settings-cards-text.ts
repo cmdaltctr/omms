@@ -205,7 +205,7 @@ export const settingsCardsText: Readonly<Record<string, readonly [string, string
     "تعذّر على OMMS عدّ الأدوار المنتظرة، لذلك لن يوقف القائمة. حاول مرة أخرى.",
   ],
   "Turn on trace saving?": ["开启捕获痕迹保存？", "تفعيل حفظ آثار الالتقاط؟"],
-  "Turn on": ["开启", "تفعيل"],
+  "Turn on": ["开启", "تشغيل"],
   "Delete trace file?": ["删除痕迹文件？", "حذف ملف الأثر؟"],
   "Revoke this token?": ["撤销此令牌？", "إلغاء هذا الرمز؟"],
   "Scripts that use it stop working.": [

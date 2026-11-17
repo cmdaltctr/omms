@@ -68,9 +68,9 @@ See [Memory: Automatic import](web-ui-memory.md#automatic-import) for details.
 
 ## Web import
 
-Open **Memory → Import chat history** at `/memory#memory-section-import`. Select OpenCode; Pi is the initial host. Both **Project memories** and **User profile** start selected, with Current project scope. User profile learns preferences, patterns and workflows. Deselect an output to skip it; at least one must remain selected.
+Open **Memory**, then the **OpenCode** card, and select **Import new chats**. It previews every OpenCode session not yet imported, in all projects, with both **Project memories** and **User profile** selected, then asks in a dialog. See [Import new chats](web-ui-memory.md#import-new-chats). User profile learns preferences, patterns and workflows. Deselect an output to skip it; at least one must remain selected.
 
-**All hosts** explicitly includes Pi, OpenCode and Claude Code. Choose **All projects** separately to widen scope. Each host retains its source and pinned selection. List sessions, choose each import model, preview the current draft, then confirm **Start import** and its model calls. Standalone web imports use **Saved external API**; connected OpenCode web models retain their existing availability rules.
+**Customise** holds the scope, session list (with each session's OpenCode title), import model, preview and **Start import**, which opens the same dialog. Standalone web imports use **Saved external API**; connected OpenCode web models retain their existing availability rules.
 
 The server runs Pi, OpenCode, then Claude Code, waiting for each host's memory and profile phases. A failed child stops later hosts. Safe cancellation preserves completed results and prevents queued work. Refresh lists and preview before retrying. Existing ledgers skip completed work; after a server restart the group requires a fresh preview and confirmation.
 

@@ -1,3 +1,6 @@
+import { importFlowText } from "./import-flow";
+import { importResultText } from "./import-result";
+import { importStatusText } from "./import-status";
 import { useI18n } from "./index";
 import { openrouterSettingText } from "./openrouter";
 import { settingsCatalogueText } from "./settings-catalogue";
@@ -9,6 +12,9 @@ const text = {
   ...openrouterSettingText,
   ...spaceSettingText,
   ...settingsCatalogueText,
+  ...importStatusText,
+  ...importFlowText,
+  ...importResultText,
   "Import chat history": ["导入聊天记录", "استيراد سجل المحادثات"],
   "Memory limits": ["记忆限制", "حدود الذاكرة"],
   "Resolve missing project folders": ["解析缺失的项目文件夹", "حل مجلدات المشاريع المفقودة"],
@@ -419,10 +425,6 @@ const text = {
   "Project directory": ["项目目录", "مجلد المشروع"],
   "Current directory": ["当前目录", "المجلد الحالي"],
   "Profile batch size": ["用户画像批量大小", "حجم دفعة الملف الشخصي"],
-  "Directory maps (old=new, one per line)": [
-    "目录映射（旧=新，每行一条）",
-    "تعيين المجلدات (قديم=جديد، واحد في كل سطر)",
-  ],
   "Force reimport": ["强制重新导入", "فرض إعادة الاستيراد"],
   "Skip memories": ["跳过记忆", "تجاوز الذكريات"],
   "Skip profile": ["跳过用户画像", "تجاوز الملف الشخصي"],
@@ -430,11 +432,7 @@ const text = {
   "Saved external API": ["已保存的外部 API", "واجهة API الخارجية المحفوظة"],
   "Preview (dry run)": ["预览（不写入）", "معاينة (تشغيل تجريبي)"],
   "Start import": ["开始导入", "بدء الاستيراد"],
-  "Cancel after current unit": ["完成当前单元后取消", "الإلغاء بعد الوحدة الحالية"],
-  "Directory maps must be old=new, one per line": [
-    "目录映射须为 旧=新，每行一条",
-    "يجب أن يكون تعيين المجلدات بصيغة قديم=جديد، واحد في كل سطر",
-  ],
+  "Stop after the current step": ["完成当前步骤后停止", "التوقف بعد الخطوة الحالية"],
   running: ["运行中", "جارٍ التشغيل"],
   cancelling: ["正在取消", "جارٍ الإلغاء"],
   cancelled: ["已取消", "أُلغي"],
@@ -473,15 +471,15 @@ const text = {
   Next: ["下一页", "التالي"],
   None: ["无", "لا شيء"],
   "Configured, not tested.": ["已配置，未测试。", "مُعدّ، لم يُختبر."],
-  "An import with an OpenCode signed-in model runs from the terminal or with /import in OpenCode.":
+  "An import with an OpenCode signed-in model runs from the terminal or with /memory-import-opencode-history in OpenCode.":
     [
-      "使用 OpenCode 已登录模型的导入需在终端运行，或在 OpenCode 中使用 /import。",
-      "يتم الاستيراد بنموذج OpenCode المسجَّل الدخول من الطرفية أو بالأمر /import داخل OpenCode.",
+      "使用 OpenCode 已登录模型的导入需在终端运行，或在 OpenCode 中使用 /memory-import-opencode-history。",
+      "يتم الاستيراد بنموذج OpenCode المسجَّل الدخول من الطرفية أو بالأمر /memory-import-opencode-history داخل OpenCode.",
     ],
-  "The chosen OpenCode model is not connected here. An import with an OpenCode signed-in model runs from the terminal or with /import in OpenCode. Choose the external API for a web import.":
+  "The chosen OpenCode model is not connected here. An import with an OpenCode signed-in model runs from the terminal or with /memory-import-opencode-history in OpenCode. Choose the external API for a web import.":
     [
-      "所选 OpenCode 模型在此处未连接。使用 OpenCode 已登录模型的导入需在终端运行，或在 OpenCode 中使用 /import。网页导入请选择外部 API。",
-      "نموذج OpenCode المختار غير متصل هنا. يتم الاستيراد بنموذج OpenCode المسجَّل الدخول من الطرفية أو بالأمر /import داخل OpenCode. اختر واجهة API الخارجية للاستيراد من الصفحة.",
+      "所选 OpenCode 模型在此处未连接。使用 OpenCode 已登录模型的导入需在终端运行，或在 OpenCode 中使用 /memory-import-opencode-history。网页导入请选择外部 API。",
+      "نموذج OpenCode المختار غير متصل هنا. يتم الاستيراد بنموذج OpenCode المسجَّل الدخول من الطرفية أو بالأمر /memory-import-opencode-history داخل OpenCode. اختر واجهة API الخارجية للاستيراد من الصفحة.",
     ],
   "Test models in Health": ["在健康检查中测试模型", "اختبر النماذج في قسم السلامة"],
   Import: ["导入", "استيراد"],
@@ -506,23 +504,23 @@ const text = {
     "لا يوجد نموذج استيراد جاهز. اربط نموذجاً في OpenCode أو أكمل إعدادات واجهة API الخارجية.",
   ],
   "The external API is not ready": ["外部 API 未就绪", "واجهة API الخارجية غير جاهزة"],
-  "The external API has no memoryModel in the global config": [
-    "全局配置中缺少外部 API 的 memoryModel",
-    "لا يحتوي الإعداد العام على memoryModel لواجهة API الخارجية",
+  "The external API has no model chosen yet. Choose one in the External API settings.": [
+    "外部 API 还没有选择模型。请在“外部 API”设置中选择一个。",
+    "لم يُختر نموذج لواجهة API الخارجية بعد. اختر واحداً في إعدادات واجهة API الخارجية.",
   ],
-  "The external API has no memoryApiUrl in the global config": [
-    "全局配置中缺少外部 API 的 memoryApiUrl",
-    "لا يحتوي الإعداد العام على memoryApiUrl لواجهة API الخارجية",
+  "The external API has no web address yet. Add it in the External API settings.": [
+    "外部 API 还没有网址。请在“外部 API”设置中添加。",
+    "لا يوجد عنوان ويب لواجهة API الخارجية بعد. أضفه في إعدادات واجهة API الخارجية.",
   ],
-  "The external API key is missing in the OpenCode process; check memoryApiKey and its env:// or file:// source":
+  "OMMS cannot find your external API key. Check the key in the External API settings.": [
+    "OMMS 找不到你的外部 API 密钥。请在“外部 API”设置中检查密钥。",
+    "لا يجد OMMS مفتاح واجهة API الخارجية. تحقّق من المفتاح في إعدادات واجهة API الخارجية.",
+  ],
+  "This external API provider cannot run imports. Choose another provider in the External API settings.":
     [
-      "OpenCode 进程中缺少外部 API 密钥；请检查 memoryApiKey 及其 env:// 或 file:// 来源",
-      "مفتاح واجهة API الخارجية غير موجود في عملية OpenCode؛ تحقّق من memoryApiKey ومصدره env:// أو file://",
+      "此外部 API 提供方无法运行导入。请在“外部 API”设置中选择其他提供方。",
+      "لا يستطيع مزوّد واجهة API الخارجية هذا تشغيل الاستيراد. اختر مزوّداً آخر في إعدادات واجهة API الخارجية.",
     ],
-  "The memoryProvider in the global config is not supported for imports": [
-    "全局配置中的 memoryProvider 不支持导入",
-    "مزوّد memoryProvider في الإعداد العام غير مدعوم للاستيراد",
-  ],
   "Pi sessions folder or one .jsonl session file": [
     "Pi 会话文件夹或单个 .jsonl 会话文件",
     "مجلد جلسات Pi أو ملف جلسة ‎.jsonl واحد",
@@ -1452,9 +1450,9 @@ const text = {
     "结果数 {results} · 相似度 {similarity}",
     "النتائج {results} · التشابه {similarity}",
   ],
-  "Runs one import for every host you tick. It makes model calls and can cost money.": [
-    "对勾选的每个宿主运行一次导入。它会调用模型，可能产生费用。",
-    "يشغّل استيراداً واحداً لكل مضيف تحدده. يجري اتصالات بالنموذج وقد يكلّف مالاً.",
+  "Imports chats from {hosts}. It makes model calls and can cost money.": [
+    "从 {hosts} 导入聊天。它会调用模型，可能产生费用。",
+    "يستورد المحادثات من {hosts}. يجري اتصالات بالنموذج وقد يكلّف مالاً.",
   ],
   "Saved maps and ignored directories": [
     "已保存的映射和已忽略的目录",
