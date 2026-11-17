@@ -15,8 +15,6 @@ type Setting = { value?: unknown; source?: string; globalValue?: unknown };
 type Snapshot = {
   revision: string;
   readOnly?: boolean;
-  /** True when the file sets the retired `autoCleanupEnabled` and not `autoDeleteOldMemories`. */
-  legacyCleanupKey?: boolean;
   settings: Record<string, Setting | undefined>;
   /** Problems of the last config load: a rejected value can turn deletion off for this load. */
   problems?: { key?: string; off?: string }[];
@@ -33,8 +31,8 @@ function parseDays(text: string): number | null {
 }
 
 /**
- * The only place a user turns automatic deletion on. The switch writes `autoDeleteOldMemories`
- * and never the retired `autoCleanupEnabled`. Turning it on, or lowering the days while it is on,
+ * The only place a user turns automatic deletion on. The switch writes `autoDeleteOldMemories`.
+ * Turning it on, or lowering the days while it is on,
  * first shows how many memories the deletion would remove now. When that count cannot be read,
  * the dialog refuses the save.
  */
@@ -158,15 +156,6 @@ export function MemoryCleanupSection() {
         </p>
         <p>{t("A project file cannot change these settings.")}</p>
       </Callout>
-      {snapshot?.legacyCleanupKey && !savedOn ? (
-        <Callout tone="info">
-          <p>
-            {t(
-              "An older setting, autoCleanupEnabled, is still in your config file. It no longer deletes anything. The switch on this card turns deletion on. OMMS does not change your file by itself."
-            )}
-          </p>
-        </Callout>
-      ) : null}
       {heldOff ? (
         <p className="text-sm text-status-warning">
           {t(

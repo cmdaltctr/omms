@@ -197,25 +197,6 @@ it("asks again when the days go down while deletion is on", async () => {
   expect(patches()[0]!.body.edits).toEqual({ autoCleanupRetentionDays: 60 });
 });
 
-it("shows the retired-key note when the old key is in the file", async () => {
-  current = snapshot(false, 30, { legacyCleanupKey: true });
-  const tree = await settle(<MemoryCleanupSection />, own);
-  expect(allText(tree)).toContain("no longer deletes anything");
-  expect(byType(tree, Checkbox)[0]!.props.checked).toBe(false);
-  // The page never rewrote the file on its own.
-  expect(patches()).toHaveLength(0);
-});
-
-it("hides the note when the new key is on or the old key is absent", async () => {
-  current = snapshot(true, 30, { legacyCleanupKey: true });
-  let tree = await settle(<MemoryCleanupSection />, own);
-  expect(allText(tree)).not.toContain("no longer deletes anything");
-  resetRender();
-  current = snapshot(false);
-  tree = await settle(<MemoryCleanupSection />, own);
-  expect(allText(tree)).not.toContain("no longer deletes anything");
-});
-
 it("shows a message next to the days field for an invalid number", async () => {
   let tree = await settle(<MemoryCleanupSection />, own);
   byType(tree, Input)[0]!.props.onChange({ target: { value: "0" } });

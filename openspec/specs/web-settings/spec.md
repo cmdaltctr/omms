@@ -1093,16 +1093,6 @@ The Settings page SHALL show a **Memory cleanup** card with an `autoDeleteOldMem
 - **THEN** the switch SHALL be off
 - **AND** the warning SHALL be visible
 
-### Requirement: The Memory cleanup card explains the retired key
-
-When the global file sets `autoCleanupEnabled` to `true` and does not set `autoDeleteOldMemories`, the Memory cleanup card SHALL show one plain note: the old setting no longer deletes anything, and the switch on this card turns deletion on. The page SHALL NOT rewrite the file on its own.
-
-#### Scenario: A file from an older version
-
-- **WHEN** the global file sets `"autoCleanupEnabled": true` and has no `autoDeleteOldMemories`
-- **THEN** the card SHALL show the note and the switch SHALL be off
-- **AND** the file SHALL remain unchanged until the user saves
-
 ### Requirement: Turning on cleanup asks for confirmation with a count
 
 Saving the deletion switch on, or a smaller number of days while it is on, SHALL first open a confirm dialog. The dialog SHALL state how many memories the next daily check would delete with those days, from the count OMMS returns, and that the deletion happens at that check, not when the user saves. Nothing SHALL be saved until the user confirms. When the count cannot be read, the dialog SHALL say so and SHALL NOT allow the switch to be saved on.
@@ -1188,14 +1178,14 @@ The Settings page SHALL have a search box above the cards. Typing SHALL list eac
 - **THEN** the list SHALL show the reranker settings on the Memory page
 - **AND** choosing one SHALL open the Memory page at the Reranker card
 
-### Requirement: Search finds retired keys and plain Arabic
+### Requirement: Search finds plain Arabic
 
-A search for a retired key SHALL find the setting that replaced it, first. Arabic typed without short vowels SHALL match the same settings as Arabic with them.
+Arabic typed without short vowels SHALL match the same settings as Arabic with them.
 
-#### Scenario: Searching for the retired cleanup key
+#### Scenario: Arabic without short vowels
 
-- **WHEN** the user types `autoCleanupEnabled`
-- **THEN** the first result SHALL be the Memory cleanup switch
+- **WHEN** the user types the Arabic name of a setting without its short vowels
+- **THEN** the results SHALL include that setting
 
 ### Requirement: Each setting row explains the setting in plain words
 

@@ -93,7 +93,7 @@ export const CONFIG_TEMPLATE = `{
   // unpinned memory not updated for autoCleanupRetentionDays, and every saved
   // prompt older than that. Pinned memories and memorisations stay.
   // It runs on OpenCode, Pi and Claude Code (through the web app). Default false.
-  // Global config only. The older autoCleanupEnabled key no longer deletes anything.
+  // Global config only.
   // "autoDeleteOldMemories": true,
   // "autoCleanupRetentionDays": 30,
 

@@ -268,7 +268,7 @@ describe("settings API", () => {
     expect(JSON.stringify(result.body)).not.toContain("SECRET-BAD-VALUE");
   });
 
-  it("shows the memory basics and cleanup settings with project overrides and the retired key", async () => {
+  it("shows the memory basics and cleanup settings with project overrides", async () => {
     const result = await scenario(
       `
       const response = await send("/api/settings");
@@ -277,11 +277,10 @@ describe("settings API", () => {
       '{ "autoCaptureEnabled": true, "autoCleanupEnabled": true, "chatMessage": { "enabled": false } }',
       '{ "autoCaptureEnabled": false, "autoDeleteOldMemories": true, "autoCleanupRetentionDays": 2, "visibleRecall": true }'
     );
-    const { settings, readOnly, problems, legacyCleanupKey } = result.body;
+    const { settings, readOnly, problems } = result.body;
     expect(result.status).toBe(200);
     expect(readOnly).toBe(false);
     expect(problems).toEqual([]);
-    expect(legacyCleanupKey).toBe(true);
     expect(settings.autoCaptureEnabled).toMatchObject({
       value: false,
       source: "project",
@@ -294,15 +293,6 @@ describe("settings API", () => {
     expect(settings.visibleRecall).toMatchObject({ value: true, source: "default" });
     expect(settings.autoDeleteOldMemories).toMatchObject({ value: false, source: "default" });
     expect(settings.autoCleanupRetentionDays).toMatchObject({ value: 30, source: "default" });
-  });
-
-  it("drops the retired-key note once the new key is set", async () => {
-    const result = await scenario(
-      `return (await send("/api/settings")).json();`,
-      '{ "autoCleanupEnabled": true, "autoDeleteOldMemories": false }'
-    );
-    expect(result.legacyCleanupKey).toBe(false);
-    expect(result.settings.autoDeleteOldMemories).toMatchObject({ value: false, source: "global" });
   });
 
   it("lists the memory injection settings as global-only, with values and defaults", async () => {

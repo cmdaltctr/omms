@@ -286,9 +286,6 @@ export function getSettingsSnapshot(directory: string) {
     readOnly,
     // "last-good": the values come from the last file OMMS could read, not the broken one.
     valuesFrom: readOnly ? "last-good" : "file",
-    // The retired switch deletes nothing now; the Memory cleanup card explains it.
-    legacyCleanupKey:
-      global.autoCleanupEnabled === true && !Object.hasOwn(global, "autoDeleteOldMemories"),
     settings,
     secrets,
     fallback: { model: CONFIG.memoryModel ?? null, configured: isExternalModelReady(CONFIG) },

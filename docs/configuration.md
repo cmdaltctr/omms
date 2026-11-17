@@ -653,7 +653,7 @@ OMMS deletes memories by age only when you turn it on. It is off by default.
 - The deletion runs at most once a day per OMMS process, on all three hosts: OpenCode after the idle capture, Pi after a turn settles, and the web app on a daily timer, which covers Claude Code.
 - Turn it on with the switch on the **Memory cleanup** card of the Settings page. The page first shows how many memories it would delete now and asks you to confirm.
 - Both keys are global only. A project file cannot change them.
-- `autoCleanupEnabled` is retired. OMMS ignores it, `true` or `false`, with no error and no warning. A config file written by an older OMMS therefore never deletes memories. OMMS does not change the file. When the file still has `"autoCleanupEnabled": true` and no `autoDeleteOldMemories`, the Memory cleanup card shows a note. See [Upgrading](upgrading.md#automatic-memory-deletion-is-off-until-you-turn-it-on).
+- `autoCleanupEnabled` was removed in 7.0.0. OMMS ignores it, `true` or `false`, with no error and no warning. A config file written by an older OMMS therefore never deletes memories. OMMS does not change the file. You can delete the line. See [Upgrading](upgrading.md#automatic-memory-deletion-is-off-until-you-turn-it-on).
 - The **Cleanup** button on the memory list does not change. After you confirm, it deletes the unpinned memories older than `autoCleanupRetentionDays`, whatever `autoDeleteOldMemories` says.
 - Each run that deletes something, daily or from the **Cleanup** button, writes one log line, `Cleanup: old memories deleted`, with the number of memories and prompts, `retentionDays` and the trigger. It never holds memory text, ids or project names.
 

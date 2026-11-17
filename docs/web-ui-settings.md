@@ -22,7 +22,7 @@ The page never shows a secret. For a key it shows only whether it is set and whe
 
 ### Search box
 
-A search box sits above the cards. Type a word, for example `reranker`. The list shows each setting that the web UI can change whose plain name, description or config key contains the word. Each result shows its name, a short description and the page it lives on. Select a result to open that page at its card. Settings on the Memory page, such as the reranker, open the Memory page. A retired key such as `autoCleanupEnabled` finds the setting that replaced it. In Arabic, a word typed without short vowels finds the same settings.
+A search box sits above the cards. Type a word, for example `reranker`. The list shows each setting that the web UI can change whose plain name, description or config key contains the word. Each result shows its name, a short description and the page it lives on. Select a result to open that page at its card. Settings on the Memory page, such as the reranker, open the Memory page. In Arabic, a word typed without short vowels finds the same settings.
 
 When nothing matches, the box says that some settings live only in the config file. It names the [Configuration guide](configuration.md).
 
@@ -89,7 +89,7 @@ The card warns you that deletion removes memories that are not pinned and have n
 
 Turning the switch on, or lowering the number of days while it is on, opens a confirmation first. It states how many memories have not changed for that many days, and that OMMS deletes them at its next daily check, not when you save. OMMS counts them with the same selection the deletion uses and deletes nothing while it counts. The number is what goes: the check deletes old prompts and the memories captured from them in the same run. The confirmation also says that pinned memories and memorisations stay. It has **Cancel** as its first choice. Nothing is saved until you confirm, and **Cancel** puts the switch back to its saved state. When OMMS cannot read the count, the confirmation says so and does not let you turn deletion on. Turning the switch off needs no confirmation.
 
-The card never writes the retired `autoCleanupEnabled` key. When your file still sets `"autoCleanupEnabled": true` and does not set `autoDeleteOldMemories`, the card shows a note: the old setting no longer deletes anything, and the switch on this card turns deletion on. OMMS does not change your file by itself.
+The older `autoCleanupEnabled` key was removed in 7.0.0. OMMS ignores it, so a file that still sets `"autoCleanupEnabled": true` deletes nothing. Only the switch on this card turns deletion on. OMMS does not change your file by itself.
 
 When a value in the file turns deletion off for this load, for example days written as text, the card shows the switch off with one line that points to the banner. Saving the card then also writes the days, which replaces the rejected value.
 

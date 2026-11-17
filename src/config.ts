@@ -128,8 +128,6 @@ interface OmmsConfig {
   webServerAuthUsername?: string;
   webServerApiToken?: string;
   maxVectorsPerShard?: number;
-  /** Retired: ignored, so an old file never deletes memories. */
-  autoCleanupEnabled?: boolean;
   /** The only switch for deleting memories by age. Default false. Global config only. */
   autoDeleteOldMemories?: boolean;
   autoCleanupRetentionDays?: number;
@@ -195,7 +193,6 @@ const DEFAULTS: Required<
     | "webServerAuthUsername"
     | "webServerApiToken"
     | "skillFolders"
-    | "autoCleanupEnabled"
   >
 > & {
   embeddingApiUrl?: string;
@@ -806,7 +803,6 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   const projectConfig = loadConfigFromPaths(projectPaths, options.strict, found);
   assertProjectRemoteProviderConfigIsSafe(projectConfig);
   const projectOverrides = { ...projectConfig };
-  delete projectOverrides.autoCleanupEnabled;
   delete projectOverrides.autoDeleteOldMemories;
   delete projectOverrides.autoCleanupRetentionDays;
   delete projectOverrides.userProfileAutoCleanupEnabled;

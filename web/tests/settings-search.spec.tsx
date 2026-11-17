@@ -85,11 +85,6 @@ it("finds a setting by its Chinese name", () => {
   expect(found).toContain("rerankerEnabled");
 });
 
-it("finds the Memory cleanup card when someone searches for the retired key", () => {
-  const found = searchSettings("autoCleanupEnabled", SETTINGS_CATALOGUE).map((e) => e.key);
-  expect(found[0]).toBe("autoDeleteOldMemories");
-});
-
 it("matches Arabic typed without diacritics", () => {
   const strip = (text: string) => text.replace(/[ً-ْٰـ]/g, "");
   const missed = SETTINGS_CATALOGUE.filter((entry) => {

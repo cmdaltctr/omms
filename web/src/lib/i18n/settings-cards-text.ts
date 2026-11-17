@@ -38,11 +38,6 @@ export const settingsCardsText: Readonly<Record<string, readonly [string, string
     "项目文件无法更改这些设置。",
     "لا يستطيع ملف المشروع تغيير هذه الإعدادات.",
   ],
-  "An older setting, autoCleanupEnabled, is still in your config file. It no longer deletes anything. The switch on this card turns deletion on. OMMS does not change your file by itself.":
-    [
-      "你的配置文件里还有旧设置 autoCleanupEnabled。它不再删除任何内容。本卡片上的开关才会开启删除。OMMS 不会自行修改你的文件。",
-      "ما زال الإعداد القديم autoCleanupEnabled في ملف الإعدادات. لم يعد يحذف أي شيء. المفتاح في هذه البطاقة هو الذي يفعّل الحذف. لا يغيّر OMMS ملفك من تلقاء نفسه.",
-    ],
   "Counting…": ["正在统计…", "جارٍ العدّ…"],
   "Turn on deletion": ["开启删除", "تفعيل الحذف"],
   "Delete memories sooner": ["提前删除记忆", "حذف الذكريات أبكر"],
