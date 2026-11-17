@@ -183,7 +183,11 @@ describe("grouped web jobs", () => {
       hosts: [
         { host: "pi", state: "failed", error: expect.stringContaining("Install Pi") },
         { host: "opencode", state: "no-work", sessions: 0 },
-        { host: "claude-code", state: "done", blocker: expect.stringContaining("key is missing") },
+        {
+          host: "claude-code",
+          state: "done",
+          blocker: expect.stringContaining("cannot find your external API key"),
+        },
       ],
     });
   });
@@ -277,6 +281,24 @@ describe("grouped web jobs", () => {
       }
       expect(discarded.sort()).toEqual(["claude-code", "opencode", "pi"]);
     });
+
+  it("says what to set when profile learning has no email, not to refresh the preview", async () => {
+    const jobs = new SettingsImportJobs({
+      ...dependencies(),
+      runner: async () => {
+        const failed = report(false);
+        failed.profile!.error = "Profile import needs a user email";
+        return failed;
+      },
+    });
+    await jobs.start(request(false), "/tmp");
+    await settle();
+    // The server runs Pi first, so Pi is the host that fails.
+    const message =
+      "Pi: Profile learning needs your email address. Set it with git config --global user.email, then import again. Completed memory work is saved.";
+    expect(jobs.current()?.hosts?.[0]?.error).toBe(message);
+    expect(jobs.current()?.error).toBe(message);
+  });
 
   it("revalidates queued selection before building its model", async () => {
     const pi = deferred();

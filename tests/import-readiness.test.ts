@@ -46,7 +46,7 @@ it("reports an env:// key that is unset in this process as a missing key", async
   expect(readiness.external.state).toBe("missing-key");
   expect(
     importBlockedReason(readiness, { host: "opencode", needsModel: true, modelChoice: "external" })
-  ).toContain("missing in the OpenCode process");
+  ).toBe("OMMS cannot find your external API key. Check the key in the External API settings.");
 });
 
 it("reports a missing URL, a missing model, and an unsupported provider", async () => {
@@ -73,7 +73,7 @@ it("allows a dry run with no ready model but blocks a real import", async () => 
   ).toContain("not connected");
 });
 
-it("names the terminal and /import when an OpenCode model is chosen without host models", async () => {
+it("names the terminal and /memory-import-opencode-history when an OpenCode model is chosen without host models", async () => {
   configure({});
   const readiness = await importReadiness({
     ...deps,
@@ -86,7 +86,8 @@ it("names the terminal and /import when an OpenCode model is chosen without host
     modelChoice: "zai/glm",
   });
   expect(reason).toContain("terminal");
-  expect(reason).toContain("/import");
+  expect(reason).toContain("/memory-import-opencode-history");
+  expect(reason).not.toContain("/import in OpenCode");
   expect(reason).toContain("external API");
   // The external API still works, so it is the one model offered.
   expect(
@@ -189,7 +190,7 @@ it("reports the missing external API setting for a Claude Code import", async ()
   configure({ memoryApiUrl: undefined });
   const readiness = await importReadiness(deps);
   expect(importBlockedReason(readiness, { host: "claude-code", needsModel: true })).toBe(
-    "The external API has no memoryApiUrl in the global config"
+    "The external API has no web address yet. Add it in the External API settings."
   );
   expect(importBlockedReason(readiness, { host: "claude-code", needsModel: false })).toBeNull();
 });
@@ -216,4 +217,25 @@ it("reports whether each host's default history source exists on this machine", 
     sourceExists: (path) => present.has(path),
   });
   expect(second.defaultSourceFound).toEqual({ pi: false, opencode: true, "claude-code": true });
+});
+
+it("says whether profile learning knows whose profile it is, from the profile email rule", async () => {
+  configure({});
+  expect(
+    (await importReadiness({ ...deps, userEmail: () => "me@example.com" })).profileIdentity
+  ).toBe(true);
+  expect((await importReadiness({ ...deps, userEmail: () => undefined })).profileIdentity).toBe(
+    false
+  );
+});
+
+it("reads the email the import itself uses, from the folder it runs in", async () => {
+  configure({});
+  const saved = CONFIG.userEmailOverride;
+  try {
+    CONFIG.userEmailOverride = "override@example.com";
+    expect((await importReadiness(deps)).profileIdentity).toBe(true);
+  } finally {
+    CONFIG.userEmailOverride = saved;
+  }
 });

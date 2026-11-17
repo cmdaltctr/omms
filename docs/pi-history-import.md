@@ -72,9 +72,9 @@ See [Memory: Automatic import](web-ui-memory.md#automatic-import) for details.
 
 ## Web import
 
-Open **Memory → Import chat history** at `/memory#memory-section-import`. A new form selects Pi, Current project and both **Project memories** and **User profile**. Profile learning finds preferences, patterns and workflows. Deselect either output to skip it; at least one must remain selected.
+Open **Memory**, then the **Pi** card, and select **Import new chats**. It previews every Pi session not yet imported, in all projects, with both **Project memories** and **User profile**, then asks in a dialog. See [Import new chats](web-ui-memory.md#import-new-chats). **Customise** holds the detailed controls below. Profile learning finds preferences, patterns and workflows. Deselect either output to skip it; at least one must remain selected.
 
-Choose additional hosts or select **All hosts** explicitly. Project scope remains separate. List and select sessions for each host, choose models, preview the current draft, then confirm **Start import** and its model calls. Web imports use the saved external API or an available connected OpenCode model; Pi sign-in alone supplies no web model.
+In **Customise**, list and select sessions, choose the model, preview, then select **Start import** and confirm in the dialog. Web imports use the saved external API or an available connected OpenCode model; Pi sign-in alone supplies no web model.
 
 The server completes Pi's memory and profile phases before OpenCode, then Claude Code. Failure stops later hosts. Cancellation keeps completed work and prevents queued hosts from starting. Retry with refreshed lists and a fresh preview; existing ledgers skip completed work. A server restart ends the group and requires another preview and confirmation.
 

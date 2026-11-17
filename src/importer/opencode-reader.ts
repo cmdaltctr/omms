@@ -17,6 +17,7 @@ import {
 
 interface SessionRow {
   id: string;
+  title: string | null;
   directory: string;
   project_worktree: string | null;
   time_created: number;
@@ -39,6 +40,8 @@ export interface OpencodeSessionMeta {
   recordedDirectory: string;
   projectWorktree: string | null;
   timeCreated: number;
+  /** The title OpenCode stores with the session; null when it has none. */
+  title: string | null;
 }
 export interface OpencodeHistory {
   childSessions: number;
@@ -313,7 +316,7 @@ function readSessions(db: DatabaseSync, filters: OpencodeReaderFilters): ListedS
           .get(...internalArgs) as { count: number }
       ).count
     );
-  const query = `SELECT s.id, s.directory, p.worktree AS project_worktree, s.time_created, s.source
+  const query = `SELECT s.id, s.title, s.directory, p.worktree AS project_worktree, s.time_created, s.source
     FROM (${sources}) s LEFT JOIN project p ON p.id = s.project_id
     WHERE s.parent_id IS NULL ${notInternal} ${filters.session ? "AND s.id = ?" : ""}
     ${filters.sessionIds ? "AND s.id IN (SELECT value FROM json_each(?))" : ""}
@@ -331,6 +334,7 @@ function readSessions(db: DatabaseSync, filters: OpencodeReaderFilters): ListedS
       recordedDirectory: row.directory,
       projectWorktree: row.project_worktree,
       timeCreated: Number(row.time_created),
+      title: row.title ?? null,
     })),
     origin: new Map(rows.map((row) => [row.id, row.source === "v2" ? "v2" : "v1"])),
   };

@@ -105,7 +105,9 @@ it("reads all host fixtures with pinned cutoffs and private/trivial filtering, w
     analysisCalls: 1,
   });
   expect(result.hosts.map((row) => row.profileEstimate?.totalPrompts)).toEqual([1, 1, 1]);
-  expect(result.hosts.every((row) => row.blocker?.includes("key is missing"))).toBe(true);
+  expect(
+    result.hosts.every((row) => row.blocker?.includes("cannot find your external API key"))
+  ).toBe(true);
   expect(data.files.map(hash)).toEqual(before);
   expect(existsSync(CONFIG.storagePath)).toBe(false);
   expect(readdirSync(data.root).sort()).toEqual([

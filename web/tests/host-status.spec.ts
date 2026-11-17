@@ -24,6 +24,7 @@ const input = (overrides: Partial<HostStatusInput> = {}): HostStatusInput => ({
   cutoff: Date.UTC(2026, 8, 28),
   runNowUnavailable: null,
   setUp: true,
+  autoImport: true,
   formatDate: (ms) => new Date(ms).toISOString().slice(0, 10),
   lastSaved: null,
   formatSaved: (ms) => `saved-${ms}`,
@@ -98,7 +99,7 @@ it("reads Running with Pause and says nothing waited before the cutoff after a f
   expect(status.state).toBe("running");
   expect(status.action).toEqual({ kind: "pause", enabled: true });
   expect(status.sentence.text).toBe(
-    "Automatic import is on. Nothing was waiting before {date}. Use Sessions below for newer chats."
+    "Automatic import is on. Nothing was waiting before {date}. Use Import new chats for newer chats."
   );
   expect(status.sentence.params).toEqual({ date: "2026-09-28" });
 });
@@ -214,4 +215,92 @@ it("shows a pause that is still being honoured as running with Pause unavailable
   expect(status.state).toBe("running");
   expect(status.action).toEqual({ kind: "pause", enabled: false });
   expect(status.sentence.text).toBe("Pausing after the current exchange.");
+});
+
+it("reads Off with Turn on when the automatic switch is off and no run is going", () => {
+  const status = hostStatus(input({ autoImport: false, run: run({ state: "done", total: 0 }) }));
+  expect(status.state).toBe("off");
+  expect(status.action).toEqual({ kind: "turn-on", enabled: true });
+  expect(status.sentence.text).not.toContain("Automatic import is on");
+  expect(status.sentence.text).toBe(
+    "Automatic import is off. Use Import new chats to bring in chats by hand."
+  );
+  for (const value of [null, run({ state: null })]) {
+    expect(hostStatus(input({ autoImport: false, run: value })).state).toBe("off");
+  }
+});
+
+it("builds the card line as Automatic import off, never Running, when the switch is off", () => {
+  const line = (overrides: Partial<HostStatusInput>) =>
+    cardLine(input({ autoImport: false, ...overrides }));
+  expect(line({ run: null })).toEqual({ text: "Automatic import off" });
+  expect(line({ run: run({ state: "done", updatedAt: Date.UTC(2026, 9, 9) }) })).toEqual({
+    text: "Automatic import off · history imported {date}",
+    params: { date: "2026-10-09" },
+  });
+  expect(line({ run: null, lastSaved: 7 })).toEqual({
+    text: "Automatic import off · last saved {when}",
+    params: { when: "saved-7" },
+  });
+  expect(
+    line({ run: run({ state: "done", updatedAt: Date.UTC(2026, 9, 18) }), lastSaved: 5 })
+  ).toEqual({
+    text: "Automatic import off · history imported {date} · last saved {when}",
+    params: { date: "2026-10-18", when: "saved-5" },
+  });
+  expect(JSON.stringify(line({ run: null }))).not.toContain("Running");
+});
+
+it("keeps Running with Pause for a run in progress while the switch is off", () => {
+  const going = run({ state: "running", total: 10, done: 2, percent: 20 });
+  const status = hostStatus(input({ autoImport: false, run: going }));
+  expect(status.state).toBe("running");
+  expect(status.action).toEqual({ kind: "pause", enabled: true });
+  expect(cardLine(input({ autoImport: false, run: going }))).toEqual({
+    text: "Importing · {percent}%",
+    params: { percent: 20 },
+  });
+});
+
+it("leaves paused, failed and stopped unchanged while the switch is off", () => {
+  const off = (value: ImportRunView, pending = 0) =>
+    hostStatus(input({ autoImport: false, run: value, pending }));
+  expect(off(run({ paused: true, state: "stopped" })).state).toBe("paused");
+  expect(off(run({ state: "failed", error: "x" })).state).toBe("failed");
+  expect(off(run({ state: "stopped", total: 5 }), 3).state).toBe("stopped");
+});
+
+it("reads Off with Turn on for a blocked host while the switch is off, on every host", () => {
+  const reason = "Open the host, or choose the external API";
+  for (const host of ["pi", "opencode", "claude-code"] as const) {
+    const blocked = input({ host, autoImport: false, run: run(), runNowUnavailable: reason });
+    const status = hostStatus(blocked);
+    expect(status.state).toBe("off");
+    expect(status.action).toEqual({ kind: "turn-on", enabled: true });
+    expect(status.offerExternal).toBe(false);
+    expect(cardLine(blocked)).toEqual({ text: "Automatic import off" });
+  }
+});
+
+it("keeps a stopped run with work pending as Stopped while blocked and off", () => {
+  const reason = "Open Pi, or choose the external API for Pi's backfill";
+  const stopped = input({
+    host: "pi",
+    autoImport: false,
+    pending: 4,
+    run: run({ state: "stopped", total: 9 }),
+    runNowUnavailable: reason,
+  });
+  expect(hostStatus(stopped).state).toBe("stopped");
+  expect(hostStatus(stopped).action).toEqual({ kind: "resume", enabled: false });
+  expect(cardLine(stopped)).toEqual({
+    text: "Stopped · {pending} pending",
+    params: { pending: 4 },
+  });
+});
+
+it("does not offer Turn on for a host that is not set up", () => {
+  const status = hostStatus(input({ autoImport: false, setUp: false, run: null }));
+  expect(status.state).toBe("not-set-up");
+  expect(status.action.kind).toBe("setup");
 });

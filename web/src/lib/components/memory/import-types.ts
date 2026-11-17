@@ -6,6 +6,8 @@ export type SessionRow = {
   key: string;
   sessionId: string | null;
   createdAt: number | null;
+  /** Session title the host stores (OpenCode only), shortened by the server. */
+  title?: string | null;
   recordedDirectory: string | null;
   directory: string | null;
   via: "mapped" | "recorded" | "worktree" | "unresolved";
@@ -38,7 +40,6 @@ export type ImportDraft = {
   hosts: Record<WebHost, HostDraft>;
   scope: "current-project" | "all-projects";
   project: string;
-  maps: string;
   since: string;
   until: string;
   profileBatch: string;
@@ -57,6 +58,8 @@ export type Readiness = {
   claudeCode?: { available: boolean; defaultRoot: string; defaultRootFound: boolean };
   /** Whether each host's default history source exists on this machine. */
   defaultSourceFound?: Record<WebHost, boolean>;
+  /** Whether profile learning knows whose profile it is (git user email or the profile setting). */
+  profileIdentity?: boolean;
 };
 export type PinnedSelection =
   | {

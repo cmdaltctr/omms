@@ -75,7 +75,7 @@ it("has Chinese and Arabic text for the automatic cleanup controls and their ref
 });
 
 it("translates the fixed import failure sentences, which carry no number", async () => {
-  const { MEMORY_FAILED_MESSAGE, PROFILE_FAILED_MESSAGE } =
+  const { MEMORY_FAILED_MESSAGE, PROFILE_EMAIL_MESSAGE, PROFILE_FAILED_MESSAGE } =
     await import("../src/importer/web-import-group.js");
   expect(MEMORY_FAILED_MESSAGE).not.toMatch(/\d/);
   expect(PROFILE_FAILED_MESSAGE).not.toMatch(/\d/);
@@ -83,6 +83,7 @@ it("translates the fixed import failure sentences, which carry no number", async
   const lookups = [
     MEMORY_FAILED_MESSAGE,
     PROFILE_FAILED_MESSAGE.replace(" Refresh the preview and retry.", ""),
+    PROFILE_EMAIL_MESSAGE,
   ];
   for (const message of lookups) {
     expect(translateSettings(message, "zh")).not.toBe(message);

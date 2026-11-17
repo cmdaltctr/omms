@@ -1426,7 +1426,7 @@ export class WebServer {
 
       if (path === "/api/settings/imports/readiness" && method === "GET") {
         const { importReadiness } = await import("../importer/web-import-api.js");
-        return this.jsonResponse(await importReadiness());
+        return this.jsonResponse(await importReadiness({ directory: this.config.directory }));
       }
 
       if (path === "/api/settings/imports/sources/browse" && method === "POST") {

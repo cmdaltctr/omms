@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { Button } from "$lib/components/ui/button";
 import { useSettingsText } from "$lib/i18n/settings";
 import { MEMORY_VIEWS } from "$lib/routes";
 import { useWriteHealth } from "$lib/write-health-store";
@@ -19,7 +17,6 @@ export function MemoryOverview({
 }) {
   const s = useSettingsText();
   const { health } = useWriteHealth();
-  const [importOpen, setImportOpen] = useState(false);
   const failing = health && !health.ok ? (health.reason ?? "") : null;
   return (
     <div className="space-y-8">
@@ -43,24 +40,8 @@ export function MemoryOverview({
           );
         })}
       </ul>
-      <section className="space-y-3" aria-label={s("Import all hosts")}>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            aria-expanded={importOpen}
-            aria-controls="memory-import-all"
-            onClick={() => setImportOpen((open) => !open)}
-          >
-            {s("Import all hosts")}
-          </Button>
-          <p className="text-xs text-muted-foreground">
-            {s("Runs one import for every host you tick. It makes model calls and can cost money.")}
-          </p>
-        </div>
-        <div id="memory-import-all" hidden={!importOpen}>
-          {importOpen && <ImportSection profilePreset={profilePreset} />}
-        </div>
+      <section id="memory-import-all" className="space-y-3" aria-label={s("Import all hosts")}>
+        <ImportSection profilePreset={profilePreset} statuses={statuses} />
       </section>
       <MemoryInjectionSection />
     </div>

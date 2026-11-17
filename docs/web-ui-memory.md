@@ -68,17 +68,95 @@ A host view shows only that host. From the top:
 1. A switcher of the four cards, with the current one marked.
 2. The write-health strip, when memories cannot be saved.
 3. The **status header**: the host's state, one main action, and one sentence that explains them.
-4. **Sessions**: the host's import form and session list.
+4. **Import chat history**: the checklist, the model line, **Import new chats**, progress and the result, then a closed **Customise** section.
 5. **Sessions that need a folder**: the host's unresolved directories, open and ready to edit.
 6. The host's own settings: backfill model and the automatic-import switch.
 
-Automatic import runs all the time, so a host that is set up, not paused and not failed reads **Running** with **Pause**, even when no run is going. A **Play** button means something is off. The main action reads **Resume** while paused, **Retry** after a failure and **Resume** after a run was cut short with exchanges still pending. **Stopped** shows only for a cut-short run or a run the server says cannot start. When it is unavailable, the sentence under it gives the reason. For a host that needs itself open, the sentence offers **Use external API**, which saves the saved external API as that host's backfill model so Resume can run on its own. A host with nothing to import says `Automatic import is on. Nothing was waiting before <date>`. Newer chats come in through **Sessions**.
+The status header has a status line, for example `History imported up to 28 Sep · 12 chat exchanges waiting · Automatic import on`. A part that is not known yet is left out. Under it, one line says how the two imports differ: automatic import brings in chats up to the cutoff date by itself, and **Import new chats** brings in every chat not yet imported, newer chats included.
+
+While **Import past chats automatically** is on, a host that is set up, not paused and not failed reads **Running** with **Pause**, even when no run is going. While the switch is off and no run is active, the host reads **Off** and the main action reads **Turn on**, also when the server reports that the host could not start a run. **Turn on** asks first: a dialog says that automatic import will run for every host and makes model calls. Nothing is saved until you select **Turn on** in the dialog. A run you start yourself while the switch is off still reads **Running** with **Pause**. The main action reads **Resume** while paused, **Retry** after a failure and **Resume** after a run was cut short with exchanges still pending. **Stopped** shows only for a cut-short run, or for a run the server says cannot start while the switch is on. When the action is unavailable, the sentence under it gives the reason. For a host that needs itself open, the sentence offers **Use external API**, which saves the saved external API as that host's backfill model so Resume can run on its own. A host with nothing to import says `Automatic import is on. Nothing was waiting before <date>`. Newer chats come in through **Import new chats**.
 
 ## Import chat history
 
 Conversations populate project memories with technical facts. User prompts feed profile learning for preferences, recurring patterns and workflow steps.
 
-A new form selects **Pi**, **Current project**, **Project memories** and **User profile**. **All hosts** explicitly selects Pi, OpenCode and Claude Code. It leaves project scope unchanged. Select **All projects** separately to widen that scope. Each selected host keeps its own source and session selection.
+### Import new chats
+
+To import your chats:
+
+1. Open **Memory**, then the host's card. On the overview, use **Import all hosts** instead.
+2. Read the three checks under **Before you import**. Each one must not read failed.
+3. Select **Import new chats**.
+4. Read the dialog: sessions, hosts, model calls and time.
+5. Select **Import**.
+
+That is two clicks and one decision after the page opens. The button does the rest:
+
+- It tests the saved external API with one short call, once per model on this page load. While the model is untested, a line under the button says `Checks the model with one short call first.` The page keeps the result with the provider, model and address it tested, never the key. When you change the model in Settings and come back in the same tab, the new model counts as not tested. The call sends no chat text. A connected OpenCode model is not test-called.
+- It lists the sessions of each chosen host in all projects.
+- It runs a preview (dry run) of every session not yet imported, with **Project memories** and **User profile** ticked (and **Skill turns** while **Record agent turns** is on), and the model on the model line.
+- When the preview finds nothing, the panel says **Nothing new to import** and opens no dialog. Profile prompts that wait inside OMMS do not count on their own: the server runs no host that has no sessions to import. Use **Analyse waiting prompts** in [Profile learning](#analyse-waiting-prompts) for them.
+- The button never re-analyses chats already imported, even when **Re-analyse handled history** is on in **Customise**.
+
+The dialog names only the hosts the preview found sessions for. It says that chats already imported are skipped, so running an import again is safe. A re-analyse from **Start import** in **Customise** says instead that chats already imported are analysed again, which can cost more model calls. The model calls are memory units plus profile analysis calls. The server imports the hosts one after another, so the time adds up each host's own calls at that host's own speed. A host's speed comes from its last finished run with at least 5 units over at least one minute. When any host with work has no such run, the dialog says the time is known once the import starts. These numbers are estimates. **Cancel** starts nothing; the preview counts stay under **Details**.
+
+If the session list changes between the list and the preview, the panel lists again once. If it changes again, it says so; select the button again. If a new chat arrives after the dialog opened, **Import** closes the dialog, runs the preview again once and opens the dialog with the new numbers. If that happens a second time, the panel says `New chats appeared. Select Import new chats again.`
+
+### Before you import
+
+Three checks sit above the button. Each says its result in words. A fourth row, **Profile**, shows only when it fails.
+
+| Check           | Passes when                                                                      | When it fails                                                                  |
+| --------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Model           | Each chosen host's import model is ready, and the model test on this page passed | It says in plain words what is missing and links the external API settings     |
+| Memories saving | The last write check passed                                                      | It gives the reason and offers **Check again**                                 |
+| History found   | Each chosen host's history exists here and its reader loads                      | It says to install the host and use it once, or to untick Pi in **Customise**  |
+| Profile         | **User profile** is off, or an email names your profile                          | It says to set `git config --global user.email`, or to untick **User profile** |
+
+A ready model that was not tested yet reads **Ready, not tested** and does not block. **Customise** shows the same model state. A failed model test reads as one plain sentence, for example that the model service did not accept your API key, with the error code as small text. The page never shows the raw reply. A failed check disables the button.
+
+Profile learning names your profile with the profile email setting (`userEmailOverride`, see [Settings: Profiles](web-ui-settings.md#profiles)), else the git `user.email` of the folder the web app runs in. With neither, the **Profile** row fails before the run. If the profile step still fails for this reason, the result says to set the email and import again. Manual `memory` operations and **Customise** keep working. After a failed model test, fix the settings and reload the page to test again.
+
+**Import all hosts** chooses each host whose history exists on this computer, and the line under the button names them, for example `Imports chats from Pi, OpenCode.` The **History found** row names each host it leaves out.
+
+### The model line
+
+One line names the import model, for example `Model: Saved external API (deepseek/deepseek-flash) · Change`. **Change** opens **Customise** and moves the focus to the import model choice. When a host's automatic import uses a different model, a second sentence names it and says to change it in the host's settings card further down the page.
+
+The import model starts from the host's backfill model when a connected OpenCode lists it. Otherwise it is the saved external API. Claude Code always uses the external API.
+
+### Progress and the result
+
+While a real import runs, the panel shows a green progress bar for the active host, with the step (**Saving memories**, **Skill turns** or **Learning your profile**), the done count out of the total, and the time left. The time reads **not known yet** until the run has measured its speed. **Stop after the current step** stops the import at a safe point. **Details** keeps the exact counters (memory units and profile batches). A preview shows no bar.
+
+When the import ends while you are on the page, a dialog shows up to three lines. Each line says only what is true:
+
+- **Memories saved: N**
+- **Profile updated from N prompts** when the profile step recorded prompts, or **Profile learning failed** when that step failed. No profile line shows when the step did not run.
+- **Failed: N** when memory units failed, **Nothing failed.** when nothing did, or **The import stopped before it finished.** when the run stopped with no reason. When the run stopped with a reason, the reason shows above the lines instead.
+
+A successful run says **Import successful 🎉** (the 🎉 shows in English only). A failed run names the host and the reason. When something failed, **Retry failed** lists the same hosts again, previews them and opens the same confirm dialog. On a host view it retries that host only, even after an all-hosts run. The import ledger skips the work that finished. A closed **Details** section holds each host's counters and reports. **OK** reloads readiness, host status and the job without a page reload.
+
+A cancelled run shows **Import cancelled** and opens no dialog. If a run ended while the page was closed, a banner shows the result with **Dismiss**. The page remembers the dismissed run in your browser.
+
+### Sessions with a missing folder
+
+When the list or the preview finds sessions whose project folder no longer exists, the panel shows one notice, for example `5 sessions skipped: folder missing. Resolve` (`1 session skipped` for one). **Resolve** opens that host's **Sessions that need a folder** list. On the overview the notice names the host and opens its host view. Map the folder there, or let **Smart resolve** suggest it, then import again.
+
+The page has no run-only directory map box. Saved maps from **Sessions that need a folder** apply to every import. In a terminal, `--map old=new` still applies to one run.
+
+### Customise
+
+**Customise** is closed by default. Open it to choose by hand:
+
+- Hosts (overview only), **All hosts**, and the badges of each host's latest import.
+- Outputs: **Project memories**, **User profile** and **Skill turns**.
+- **Scope**: **All projects** by default. The web app runs from your home folder, so **Current project** would list that folder only.
+- **Show handled sessions** and **Advanced options**.
+- Each host's session list, selection and **Import model**.
+- **Preview (dry run)** and **Start import**. **Start import** opens the same confirm dialog.
+
+The overview remembers the ticked hosts and scope in your browser once you change one of them. It stores nothing before the host checks load or before you make a choice, so a default is never kept as your choice. When the scope default changed to **All projects**, the saved choice moved to a new storage key, so every user sees the new default once. After that, your saved choice wins.
 
 | Project memories | User profile | Result                                                             |
 | ---------------- | ------------ | ------------------------------------------------------------------ |
@@ -87,98 +165,84 @@ A new form selects **Pi**, **Current project**, **Project memories** and **User 
 | Selected         | Deselected   | Extract memories; skip profile learning.                           |
 | Deselected       | Deselected   | Preview and Start are unavailable; the server refuses the request. |
 
-**Skill turns** is a third output beside **Project memories** and **User profile**. It records each turn the import reads into `skills.db` for skill learning.
+**Skill turns** records each turn the import reads into `skills.db` for skill learning.
 
 - The box is ticked by default while **Record agent turns** is on in the **Skill learning** card on the Settings page.
 - While recording is off, the box is cleared and disabled. A note links to the **Skill learning** card.
 - Skill turns also come from sessions and turns that the import ledger marks as handled, and from turns that live capture saved. The memory ledger does not change for them.
-- With only **Skill turns** ticked, the run makes no model call and needs no import model. Preview and Start stay available, and the list hides no handled sessions.
-- With only **Skill turns** ticked, a session whose project folder no longer exists can be selected. It shows **missing**, and its turns are recorded under the recorded folder path. A run with **Project memories** or **User profile** still skips it.
-- Preview shows the turns it would record and the turns already recorded.
+- With only **Skill turns** ticked, the run makes no model call and needs no import model.
+- With only **Skill turns** ticked, a session whose project folder no longer exists can be selected. Its turns are recorded under the recorded folder path.
 
 Host identity rules remain unchanged. **All hosts** does not merge profiles with different git emails. [Profiles in Settings](web-ui-settings.md#profiles) lets you choose or merge identities when more than one active profile exists.
 
-### Review and start
+### Choosing sessions by hand
 
-The web app must be running and each chosen history source must be readable. A real import also needs a ready model.
+1. Open **Customise**.
+2. Select **List sessions** for each host.
+3. Tick sessions, or select **Select all matching** to include matching sessions across every page.
+4. Select **Preview (dry run)** and check the counts and blockers.
+5. Select **Start import**, then **Import** in the dialog.
 
-1. Choose hosts and project scope.
-2. Choose the outputs.
-3. Select **List sessions** for each host.
-4. Tick sessions, or select **Select all matching** to include matching sessions across every page.
-5. Choose each host's **Import model**.
-6. Select **Preview (dry run)**.
-7. Check per-host results, combined counts and blockers.
-8. Select **Start import**.
-9. Check the confirmation's hosts, scope, outputs, model sources and work counts.
-10. Confirm to start model calls.
+Lists show dates, session IDs, project folders and **Resolved by**, without prompts or replies. An OpenCode row also shows the session title OpenCode stores, cut to 80 characters, with text inside `<private>` tags removed. Pi and Claude Code rows show the ID only. You can select up to 1,000 sessions one by one; use **Select all matching** for more.
 
-Lists show dates, session IDs, project folders and **Resolved by**, without prompts or replies. You can select up to 1,000 sessions individually; use **Select all matching** for more. A valid source with no matching sessions reports **No work to process**. Fix an unavailable source or explicitly deselect its host, then preview again.
+The list hides sessions that are already handled for the outputs you ticked. The check reads the import ledger only and never reads transcripts. A session with a failed or in-progress row, with no row of a ticked kind, or with no session ID stays listed. Turn on **Show handled sessions** to see them marked **Handled**. **Re-analyse handled history** shows them as well. Changing the ticked outputs, **Show handled sessions**, **Re-analyse handled history** or the scope clears the lists and the selection. The hiding is a hint. Preview always decides what work is pending.
 
-The list hides sessions that are already handled for the outputs you ticked. The check reads the import ledger only and never reads transcripts. With only **Project memories** ticked, a session is handled when it has memory rows and every one is imported or skipped. With only **User profile** ticked, the same test applies to its profile rows, which record that a prompt was collected. With both ticked, both tests must pass. A session with a failed or in-progress row, with no row of a ticked kind, or with no session ID stays listed. The list says how many handled sessions are hidden. The total, the pages and **Select all matching** count only the sessions shown, and the server applies the same rule when it resolves **Select all matching**. Turn on **Show handled sessions** to see them marked **Handled**. **Re-analyse handled history** shows them as well. Changing the ticked outputs, **Show handled sessions** or **Re-analyse handled history** clears the lists and the selection; select **List sessions** again. The hiding is a hint. A session that gained turns after its last import can still look handled, and a session with nothing to learn for an output never gets a row of that kind and stays listed. Preview always decides what work is pending.
+Preview makes no model calls or memory-store writes. OpenCode listing or preview can create a temporary database snapshot. Changing hosts, sources, sessions, scope, dates, outputs, re-analysis, batch size or models invalidates the preview.
 
-Preview makes no model calls or memory-store writes. OpenCode listing or preview can create a temporary database snapshot. Readiness says **Configured, not tested.** A preview can return counts and a model blocker before the external API is ready. Complete the settings and preview again before starting.
-
-Changing hosts, sources, sessions, scope, dates, maps, outputs, re-analysis, batch size or models invalidates the preview. Start requires a successful preview of the current draft and confirmation.
-
-The server checks every child's source, pinned selection, options and model readiness before paid work. It checks each queued child again before that child starts. A changed or expired source stops that child visibly. The server never silently widens the selection.
+The server checks every child's source, pinned selection, options and model readiness before paid work. It checks each queued child again before that child starts. The server never silently widens the selection.
 
 ### Models and pinned history
 
-**Saved external API** uses the endpoint configured in Settings. Its label adds **not ready** when settings are incomplete. Saves on either page refresh readiness. A key saved as `env://NAME` must resolve in the web app process; a login item does not load your shell profile.
+**Saved external API** uses the endpoint configured in Settings. Its label adds **not ready** when settings are incomplete. A key saved as `env://NAME` must resolve in the web app process; a login item does not load your shell profile.
 
-Pi and OpenCode retain their existing connected OpenCode web-model choices where available. Pi sign-in alone cannot provide a web-import model. The shared standalone web app has no OpenCode session, so use **Saved external API** there. Claude Code always uses the external API. Choosing hosts or import models changes no live-capture or backfill model settings. CLI and in-session model rules stay unchanged.
+Pi and OpenCode can use a connected OpenCode model where one is listed. Pi sign-in alone cannot provide a web-import model. The shared standalone web app has no OpenCode session, so use **Saved external API** there. Claude Code always uses the external API. Choosing import models changes no live-capture or backfill model settings.
 
-The listing pins the source, session selection and turn cutoff. An all-matching selection becomes stale when its matching set changes. An explicit selection becomes stale when a selected session disappears or resolves to another project. Refresh the list and preview again. New turns after listing wait for the next run; results count held-back turns.
+The listing pins the source, session selection and turn cutoff. An all-matching selection becomes stale when its matching set changes. An explicit selection becomes stale when a selected session disappears or resolves to another project. New turns after listing wait for the next run; results count held-back turns.
 
 **Resolved by** means:
 
 - **recorded:** the recorded folder still exists.
-- **mapped:** a directory map points to another folder.
+- **mapped:** a saved directory map points to another folder.
 - **project root:** OpenCode uses its recorded project folder when the session folder is gone.
 - **missing:** no project folder resolves; map it before importing.
 
 ### Advanced options
 
-Hosts, scope and outputs remain visible with Advanced options closed.
-
 | Option                           | Effect                                                                                                                                                                                  |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Source                           | Pi: sessions folder or one `.jsonl` file. OpenCode: database file. Claude Code: transcripts folder (`claude-projects`). Defaults use each host's store.                                 |
-| Project directory                | Absolute project path for Current project; an empty field uses the server's working directory.                                                                                          |
+| Project directory                | Absolute project path for **Current project**; an empty field uses the server's working directory.                                                                                      |
 | Prompt date from, Prompt date to | Inclusive whole days in your browser's time zone. These filter turns inside sessions, not the session list. Empty limits include every turn. Untimed turns remain included and counted. |
-| Directory maps                   | `old=new`, one per line. These apply to this run and win over saved maps for the same folder.                                                                                           |
 | Profile batch size               | Positive integer of prompts per profile analysis request; default 50.                                                                                                                   |
 | Re-analyse handled history       | Force processing for the selected outputs. Each profile prompt can be forcibly re-analysed once. Also shows handled sessions in the list.                                               |
 
-**Browse** lists one folder at a time on a loopback-bound server. On a network address, type the path. Original history files remain unchanged. OpenCode reads a private database copy and first checks temporary disk space.
+**Browse** lists one folder at a time on a loopback-bound server. On a network address, type the path. Original history files remain unchanged.
+
+### Imports outside the web page
+
+| Host        | Terminal                                   | Inside the host                               |
+| ----------- | ------------------------------------------ | --------------------------------------------- |
+| Pi          | `om-memory-system import-pi-history`       | `/memory-import-pi-history`                   |
+| OpenCode    | `om-memory-system import-opencode-history` | `/memory-import-opencode-history`             |
+| Claude Code | `om-memory-system import-claude-history`   | None: Claude Code hooks cannot call the model |
+
+An import with an OpenCode signed-in model runs from the terminal or with `/memory-import-opencode-history` in OpenCode.
 
 ### Group progress, cancellation and retry
 
-The server owns the queue. Selected hosts run in **Pi, OpenCode, Claude Code** order. A child finishes its memory and profile phases before the next starts. Navigation or reload reconnects to the current job without resubmitting it. One web preview or import can run at a time, including legacy single-host jobs. A host tab shows only the results of its own host. The overview shows the whole job. When you change Scope or the project directory, the session lists clear. Select **List sessions** again.
+The server owns the queue. Selected hosts run in **Pi, OpenCode, Claude Code** order. A child finishes its memory and profile phases before the next starts. Navigation or reload reconnects to the current job without resubmitting it. One web preview or import can run at a time. A host view shows only the results of its own host. The overview shows the whole job.
 
-While a real import runs, the Sessions card shows a green progress bar for the active host. It names the host and the phase, **Memory units**, **Skill turns** or **Profile batches**, with the done count out of the total. A run without project memories shows **Skill turns** while it reads the turns. The two phases keep separate counts. A preview shows no bar.
+Results under **Details** show the current host and phase, each host's state, and combined counts. Hosts can be queued, running, done, failed, cancelled, no-work or not-run. Memory units and profile batches are separate measures. **Unresolved sessions** counts source sessions with missing project folders, excluding ignored directories. Results also show **Skipped memory units**, **Held-back turns**, **Untimed turns** and **Load errors**.
 
-When a real import ends while you are on the page, a dialog opens with one **OK** button. A successful run says **Import successful 🎉** (the 🎉 shows in English only) with the counts. A failed run names the host and the reason. If memory units failed, a line **Failed memory units: N** shows the count from the host's results. **OK** reloads readiness, host status and the job without a page reload. Your lists, selection and options stay. A cancelled run shows **Import cancelled** under the buttons and opens no dialog. If a real import ended while the page was closed, a banner shows the result with a **Dismiss** button. The page remembers the dismissed run in your browser, so the banner returns only for a later run. A preview never opens a dialog or a banner.
+A thrown error, failed memory unit or profile error fails the group. Later children become **not-run**. Completed results and ledger progress remain. Each child honours the existing per-host claim, so a competing CLI import or backfill can refuse that child.
 
-Results show the current host and phase, each host's state, and combined counts. Hosts can be queued, running, done, failed, cancelled, no-work or not-run. Memory units and profile batches are separate measures. Finished memory extraction still leaves the profile phase to complete.
-
-Grouped results' **Unresolved sessions** counts source sessions with missing project folders, excluding ignored directories. These sessions stay outside import selections. No-work hosts retain their unresolved count. Combined results count each selected host once. One unresolved OpenCode project with five sessions contributes five. Legacy single-host summaries retain their unresolved-entry count for compatibility; that project contributes one there.
-
-Results also show **Skipped memory units**, **Held-back turns**, **Untimed turns** and **Load errors** from existing report metadata. Held-back turns are newer than the listing cutoff. Untimed turns remain included when date limits apply.
-
-A thrown error, failed memory unit or profile error fails the group. Later children become **not-run**. Completed results and ledger progress remain. When memory units fail, the message reads: some memory units failed, completed work is saved, and a new preview and import retries only the failed units. The message carries no number, so every language can translate it; the failed count shows apart. A profile failure says that profile learning failed and completed memory work is saved. Each child honours the existing per-host claim, so a competing CLI import or backfill can refuse that child.
-
-**Cancel after current unit** stops the active child at its safe boundary. Cancellation during preparation can stop earlier. Queued hosts are cancelled; completed results remain. Cancellation does not undo stored results.
-
-To continue after failure or cancellation:
+To continue after a failure or a cancellation:
 
 1. Fix the named host's source, model or competing-run problem.
-2. Refresh the session lists.
-3. Preview the unfinished work.
-4. Confirm a new import.
+2. Select **Retry failed**, or **Import new chats** again.
+3. Read the dialog and select **Import**.
 
-Normal retries use existing host ledgers to skip completed work and retry failed or waiting work. **Re-analyse handled history** intentionally forces the selected outputs again; leave it off for an ordinary memory retry. Forced profile replay keeps its once-per-prompt identity. A server restart ends the in-memory group and never restarts its queued children. Start a fresh preview and confirmation after restart; completed ledger work survives.
+Normal retries use existing host ledgers to skip completed work. **Re-analyse handled history** forces the selected outputs again; leave it off for an ordinary retry. A server restart ends the in-memory group and never restarts its queued children. Start again after a restart; completed ledger work survives.
 
 ### Record past turns
 
@@ -193,7 +257,7 @@ Normal retries use existing host ledgers to skip completed work and retry failed
 
 ### Historical import badges
 
-The badges above the form describe each host's latest import and backfill records. They are separate from the current grouped job's outcome.
+The badges in **Customise** on the overview describe each host's latest import and backfill records. They are separate from the current grouped job's outcome.
 
 - **Imported ✅:** the latest run finished with no pending exchanges or unresolved sessions.
 - **Partly imported (N unresolved):** the latest run finished with unresolved sessions. Select it to reveal that host in Resolve missing project folders.
@@ -206,7 +270,7 @@ Ignored folders leave unresolved counts without importing their sessions. Histor
 
 Automatic import, or backfill, reads older conversations in the background and populates project memories and user profile input. It makes model calls. It starts about 30 seconds after Pi or OpenCode starts. Claude Code starts it after the first session start that reaches the web app.
 
-**Import past chats automatically** keeps the existing global `autoBackfill` switch. Turning it off stops a running backfill after its current exchange. The first backfill fixes each host's cutoff; later starts resume pending work with that cutoff and ledger. Live capture handles newer turns. A model change applies at the next run.
+**Import past chats automatically** keeps the existing global `autoBackfill` switch. Ticking it opens the same question as **Turn on**, and only the dialog's **Turn on** saves. Turning it off saves at once and stops a running backfill after its current exchange. The first backfill fixes each host's cutoff; later starts resume pending work with that cutoff and ledger. Live capture handles newer turns. A model change applies at the next run.
 
 Each host's view holds its own automatic-import controls: the status header, the run facts below it, and the host's settings. The overview card shows the state in one line. Unsaved model choices stay while counts refresh.
 
@@ -262,7 +326,7 @@ Each run makes about one model call for every 100 profile items, so a longer int
 
 ### Re-analyse chat history
 
-Select **Re-analyse chat history** to open Import chat history with **User profile** selected, **Project memories** deselected and **Re-analyse handled history** enabled. This presets the form; it starts no model work. Choose hosts and scope, list sessions, preview and confirm.
+Select **Re-analyse chat history** to open the overview's import panel with **Customise** open, **User profile** selected, **Project memories** deselected and **Re-analyse handled history** on. This presets the form; it starts no model work. List sessions and preview in **Customise**, then select **Start import** and confirm. The dialog says that chats already imported are analysed again, which can cost more model calls. **Import all hosts** never re-analyses; it imports new chats only. The preset lasts for this visit to the overview. Host views keep their own options.
 
 The run preserves the existing profile and leaves project memories unchanged while the preset outputs remain selected. Findings use existing matching and retention rules. Similar findings can merge. Each profile prompt can be forcibly re-analysed once; later forced runs report it as already handled. Re-analysis does not guarantee more workflows. Profile identity selection and merging remain in [Settings](web-ui-settings.md#profiles).
 

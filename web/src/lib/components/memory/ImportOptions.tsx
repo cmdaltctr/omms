@@ -138,17 +138,6 @@ export function ImportOptions({
           )}
         </p>
         <label className="block text-sm">
-          {s("Directory maps (old=new, one per line)")}
-          <textarea
-            aria-label={s("Directory maps (old=new, one per line)")}
-            dir="ltr"
-            className={importField}
-            rows={2}
-            value={draft.maps}
-            onChange={(event) => onChange({ maps: event.target.value })}
-          />
-        </label>
-        <label className="block text-sm">
           <input
             type="checkbox"
             aria-label={s("Re-analyse handled history")}

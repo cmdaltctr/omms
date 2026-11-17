@@ -130,6 +130,13 @@ Object.assign(globalThis, {
   },
 });
 const { ImportSection } = await import("../src/lib/components/settings/ImportSection.tsx");
+const { ImportConfirmDialog } =
+  await import("../src/lib/components/memory/ImportConfirmDialog.tsx");
+const { HOST_CHOICE_KEY } = await import("../src/lib/components/memory/import-host-choice.ts");
+const { Button } = await import("../src/lib/components/ui/button.tsx");
+const { fakeStatuses } = await import("./fake-statuses.ts");
+// Only Pi has history here, so the overview ticks Pi alone, as the new default does.
+const statuses = fakeStatuses({ pi: true, opencode: false, "claude-code": false });
 type Node = ReactElement<{ children?: ReactNode; [key: string]: any }>;
 function nodes(node: ReactNode): Node[] {
   if (!react.isValidElement(node)) return Array.isArray(node) ? node.flatMap(nodes) : [];
@@ -137,7 +144,14 @@ function nodes(node: ReactNode): Node[] {
   if (element.props.hidden) return [];
   if (
     typeof element.type === "function" &&
-    ["ImportOptions", "HostSessionSelection", "ImportResults"].includes(element.type.name)
+    [
+      "ImportCustomise",
+      "ImportOptions",
+      "HostSessionSelection",
+      "ImportResults",
+      "ImportChecklist",
+      "ImportModelLine",
+    ].includes(element.type.name)
   )
     return nodes(element.type(element.props));
   return [element, ...nodes(element.props.children)];
@@ -146,7 +160,7 @@ function render() {
   cursor = 0;
   refCursor = 0;
   effectCursor = 0;
-  return nodes(ImportSection({ profilePreset: preset }));
+  return nodes(ImportSection({ profilePreset: preset, statuses }));
 }
 const text = (node: ReactNode): string =>
   react.isValidElement(node)
@@ -157,7 +171,8 @@ const text = (node: ReactNode): string =>
         ? ""
         : String(node ?? "");
 const button = (name: string) =>
-  render().find((node) => node.type === "button" && text(node) === name)!;
+  render().find((node) => (node.type === "button" || node.type === Button) && text(node) === name)!;
+const dialog = () => render().find((node) => node.type === ImportConfirmDialog);
 const input = (label: string) => render().find((node) => node.props["aria-label"] === label)!;
 async function click(name: string) {
   const node = button(name);
@@ -258,23 +273,27 @@ it("keeps a new preview when an older reconnect response finishes late", async (
   await settle();
   expect(button("Start import").props.disabled).toBe(false);
 });
-it("defaults to Pi/current project and positive outputs outside Advanced, and refuses no outputs", async () => {
+it("defaults to the hosts with history, all projects and positive outputs, and refuses no outputs", async () => {
   await mount();
   expect(input("Project memories").props.checked).toBe(true);
   expect(input("User profile").props.checked).toBe(true);
-  expect(input("Scope").props.value).toBe("current-project");
+  // The web app runs from the home folder, so the scope defaults to all projects.
+  expect(input("Scope").props.value).toBe("all-projects");
   expect(input("Pi").props.checked).toBe(true);
+  expect(input("OpenCode").props.checked).toBe(false);
+  expect(input("Claude Code").props.checked).toBe(false);
   input("Project memories").props.onChange({ target: { checked: false } });
   input("User profile").props.onChange({ target: { checked: false } });
   expect(button("Preview (dry run)").props.disabled).toBe(true);
   expect(button("Start import").props.disabled).toBe(true);
+  expect(button("Import all hosts").props.disabled).toBe(true);
   expect(
     render().some(
       (node) => node.props.role === "alert" && text(node).includes("Choose at least one output.")
     )
   ).toBe(true);
 });
-it("requires current preview, maps positive outputs to skip flags, and confirms all paid-work details", async () => {
+it("requires a current preview, maps positive outputs to skip flags, and confirms paid work in the dialog", async () => {
   await mount();
   // Changing the outputs clears the list, so untick before listing.
   input("Project memories").props.onChange({ target: { checked: false } });
@@ -286,23 +305,39 @@ it("requires current preview, maps positive outputs to skip flags, and confirms 
   expect(preview.options).toMatchObject({
     skipMemories: true,
     skipProfile: false,
-    scope: "current-project",
+    scope: "all-projects",
     dryRun: true,
   });
   expect(button("Start import").props.disabled).toBe(false);
+  // The panel names the model once; the dialog states sessions, hosts, calls and time.
+  expect(render().map(text).join(" ")).toContain("Model: Saved external API (synthetic/model)");
   await click("Start import");
-  for (const part of [
-    "Pi",
-    "Current project",
-    "User profile",
-    "Saved external API",
-    "synthetic/model",
-    "model calls",
-    "1",
-  ])
-    expect(confirmText).toContain(part);
+  const question = dialog()!;
+  expect(question).toBeDefined();
+  expect(question.props.hosts).toEqual(["pi"]);
+  expect(question.props.estimate).toEqual({ sessions: 1, calls: 0, minutes: null });
+  // The browser's confirm box is never used, and nothing real is sent before Import.
+  expect(confirmText).toBe("");
+  expect(requests.filter((request) => request.path === "/api/settings/imports")).toHaveLength(1);
+  expect(await question.props.onConfirm()).toBeNull();
+  const real = requests.filter((request) => request.path === "/api/settings/imports").at(-1)!.body!;
+  expect(real.options).toMatchObject({ dryRun: false, skipMemories: true, skipProfile: false });
+  expect({ ...real, options: { ...real.options, dryRun: true } }).toEqual(preview);
 });
-it("invalidates preview on output, force, date, batch, map, model and scope changes", async () => {
+it("starts nothing when the dialog is cancelled", async () => {
+  await mount();
+  await choosePi();
+  await click("Preview (dry run)");
+  await click("Start import");
+  dialog()!.props.onClose();
+  expect(dialog()).toBeUndefined();
+  expect(
+    requests.filter(
+      (request) => request.path === "/api/settings/imports" && !request.body!.options.dryRun
+    )
+  ).toHaveLength(0);
+});
+it("invalidates preview on output, force, date, batch, model and scope changes, with no map text box", async () => {
   await mount();
   await choosePi();
   await click("Preview (dry run)");
@@ -324,19 +359,16 @@ it("invalidates preview on output, force, date, batch, map, model and scope chan
     if (label === "Re-analyse handled history") await choosePi();
     await click("Preview (dry run)");
   }
+  // None is no longer offered; any model change still invalidates the preview.
+  expect(render().some((node) => node.type === "option" && node.props.value === "")).toBe(false);
   input("Import model").props.onChange({ target: { value: "" } });
   expect(button("Start import").props.disabled).toBe(true);
   input("Import model").props.onChange({ target: { value: "external" } });
   await click("Preview (dry run)");
-  input("Directory maps (old=new, one per line)").props.onChange({
-    target: { value: "/old=/new" },
-  });
-  expect(button("Start import").props.disabled).toBe(true);
-  expect(button("Preview (dry run)").props.disabled).toBe(true);
-  await click("Refresh list");
-  await click("Select all matching (1)");
-  await click("Preview (dry run)");
-  input("Scope").props.onChange({ target: { value: "all-projects" } });
+  // Run-only directory maps are gone; saved maps and Smart resolve cover them.
+  expect(input("Directory maps (old=new, one per line)")).toBeUndefined();
+  expect(button("Start import").props.disabled).toBe(false);
+  input("Scope").props.onChange({ target: { value: "current-project" } });
   expect(button("Start import").props.disabled).toBe(true);
   expect(button("Preview (dry run)").props.disabled).toBe(true);
 });
@@ -365,7 +397,7 @@ it("preserves independent host selections when deselected and submits canonical 
     "revision-opencode",
     "revision-claude-code",
   ]);
-  expect(body.options.scope).toBe("current-project");
+  expect(body.options.scope).toBe("all-projects");
   setLanguage("ar");
   expect(input("Pi").props.checked).toBe(true);
   setLanguage("en");
@@ -419,7 +451,7 @@ it("requires an explicit host, lets an unavailable reader be removed, and still 
   expect(button("Preview (dry run)").props.disabled).toBe(false);
   await click("Preview (dry run)");
   expect(button("Start import").props.disabled).toBe(true);
-  expect(render().map(text).join(" ")).toContain("memoryApiUrl");
+  expect(render().map(text).join(" ")).toContain("The external API has no web address yet.");
 });
 it("invalidates preview on shared config revisions while keeping selections", async () => {
   await mount();
@@ -460,11 +492,12 @@ it("keeps the saved Skill turns choice when the profile-only preset clears it", 
     getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => void data.set(key, value),
   };
-  const savedSkills = () => JSON.parse(data.get("omms-memory-import-hosts") ?? "{}").skills;
+  const savedSkills = () => JSON.parse(data.get(HOST_CHOICE_KEY) ?? "{}").skills;
   try {
     recording = true;
     await mount();
-    expect(savedSkills()).toBe(true);
+    // Nothing is stored before the user makes a choice.
+    expect(savedSkills()).toBeUndefined();
     preset = 1;
     render();
     runEffects();
@@ -472,7 +505,8 @@ it("keeps the saved Skill turns choice when the profile-only preset clears it", 
     render();
     runEffects();
     expect(input("Skill turns").props.checked).toBe(false);
-    expect(savedSkills()).toBe(true);
+    // The preset is not the user's choice, so it stores nothing either.
+    expect(savedSkills()).toBeUndefined();
     // A choice the user makes is still saved.
     await input("Skill turns").props.onChange({ target: { checked: true } });
     render();
@@ -564,7 +598,7 @@ it("reconnects a server-owned job without submission or advancing hosts", async 
   poll!();
   await settle();
   expect(render().map(text).join(" ")).toContain("Profile batches: 2/4");
-  await click("Cancel after current unit");
+  await click("Stop after the current step");
   expect(requests.filter((request) => request.path.endsWith("/current/cancel"))).toHaveLength(1);
   expect(render().map(text).join(" ")).toContain("Pi · done");
   expect(requests.filter((request) => request.path === "/api/settings/imports")).toHaveLength(0);

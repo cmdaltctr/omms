@@ -21,9 +21,8 @@ export function initialImportDraft(): ImportDraft {
   });
   return {
     hosts: { pi: host(true), opencode: host(false), "claude-code": host(false) },
-    scope: "current-project",
+    scope: "all-projects",
     project: "",
-    maps: "",
     since: "",
     until: "",
     profileBatch: "",
@@ -62,7 +61,6 @@ export function membership(draft: ImportDraft, host: WebHost): string {
     draft.hosts[host].source?.sourceToken,
     draft.scope,
     draft.project,
-    draft.maps,
     draft.memories,
     draft.profile,
     draft.skills,
@@ -108,23 +106,10 @@ export function toggleSession(selection: Selection, row: SessionRow): Selection 
   else picked.set(row.key, row.directory);
   return { mode: "ids", picked };
 }
-export function parseMaps(text: string): { from: string; to: string }[] {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const index = line.indexOf("=");
-      if (index < 1 || index === line.length - 1)
-        throw new Error("Directory maps must be old=new, one per line");
-      return { from: line.slice(0, index), to: line.slice(index + 1) };
-    });
-}
 export function optionsError(draft: ImportDraft): string | null {
   if (!draft.memories && !draft.profile && !draft.skills) return "Choose at least one output.";
   if (!IMPORT_HOSTS.some((host) => draft.hosts[host].enabled)) return "Choose at least one host.";
   try {
-    parseMaps(draft.maps);
     const since = draft.since ? localDayStart(draft.since) : undefined;
     const until = draft.until ? localDayEnd(draft.until) : undefined;
     if (since !== undefined && until !== undefined && since > until)
@@ -179,7 +164,7 @@ export function groupRequest(draft: ImportDraft, dryRun: boolean): GroupImportRe
       ...(draft.since ? { since: localDayStart(draft.since) } : {}),
       ...(draft.until ? { until: localDayEnd(draft.until) } : {}),
       ...(draft.profileBatch ? { profileBatch: Number(draft.profileBatch) } : {}),
-      pathMaps: parseMaps(draft.maps),
+      pathMaps: [],
     },
   };
 }

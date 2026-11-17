@@ -1,5 +1,6 @@
 import { isStructuredSummaryPromptMessage } from "../core/internal-prompt.js";
 import type { ModelPort } from "../core/profile-analysis.js";
+import { PROFILE_NEEDS_EMAIL } from "../core/profile-failure.js";
 import { isFullyPrivate, stripPrivateContent } from "../services/privacy.js";
 import { getTags } from "../services/tags.js";
 import { userProfileManager } from "../services/user-profile/user-profile-manager.js";
@@ -144,7 +145,7 @@ export async function importProfileFromHistory(
   const user = getTags(directory).user;
   if (!user.userEmail) {
     report.remaining = await prompts.countUnanalyzedForUserLearning();
-    report.error = "Profile import needs a user email";
+    report.error = PROFILE_NEEDS_EMAIL;
     return report;
   }
   const planned = (waiting: number) => Math.ceil(waiting / batchSize);
