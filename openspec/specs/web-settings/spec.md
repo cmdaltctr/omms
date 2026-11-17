@@ -97,7 +97,7 @@ The Settings page SHALL show one model card for OpenCode and one for Pi. Each ca
 
 ### Requirement: Capture diagnostics are shown and controlled on the page
 
-The Settings page SHALL show capture diagnostics for a selectable time range: save, skip, and failure counts and rates for each host and model, failure counts by reason code, and a table of recent attempts with their diagnostics fields. It SHALL provide controls for `captureTrace`, `captureTraceRetentionDays`, and `captureRetryRetentionHours`, show the number of turns waiting in the capture retry queue for each host with a **Retry now** button for each host, list existing trace files with their date and size, and let the user view or delete a trace file. Next to the trace switch, it SHALL warn that traces can contain conversation content.
+The Settings page SHALL show capture diagnostics for a selectable time range: save, skip, and failure counts and rates for each host and model, failure counts by reason code, and a table of recent attempts with their diagnostics fields. It SHALL provide controls for `captureTrace`, `captureTraceRetentionDays`, `captureAttemptRetentionDays` and `captureRetryRetentionHours`, show the number of turns waiting in the capture retry queue for each host with a **Retry now** button for each host, list existing trace files with their date and size, and let the user view or delete a trace file. Next to the trace switch, it SHALL warn that traces can contain conversation content. The retention fields SHALL save with a Save button and SHALL show a message for an invalid value.
 
 #### Scenario: Viewing failure reasons
 
@@ -108,7 +108,7 @@ The Settings page SHALL show capture diagnostics for a selectable time range: sa
 
 - **WHEN** the user turns on the trace switch and saves
 - **THEN** the global config SHALL have `captureTrace` set to `true`
-- **AND** the next capture attempt on either host SHALL write a trace entry, unless the project's config sets `captureTrace` to `false`
+- **AND** the next capture attempt on OpenCode, Pi or Claude Code SHALL write a trace entry, unless the project's config sets `captureTrace` to `false`
 
 #### Scenario: A project has turned tracing off
 
@@ -125,7 +125,7 @@ The Settings page SHALL show capture diagnostics for a selectable time range: sa
 
 - **WHEN** the user sets retry retention to 24 hours and saves
 - **THEN** the global config SHALL have `captureRetryRetentionHours` set to `24`
-- **AND** running hosts SHALL use 24 hours from their next retry pass or cleanup run
+- **AND** running hosts SHALL use 24 hours from their next retry pass or daily housekeeping
 
 #### Scenario: Seeing queued turns
 
@@ -146,9 +146,15 @@ The Settings page SHALL show capture diagnostics for a selectable time range: sa
 
 #### Scenario: Turning the queue off on the page
 
-- **WHEN** turns wait in the queue and the user sets retry retention to 0 and saves
-- **THEN** the queued counts SHALL show 0 for both hosts
+- **WHEN** turns wait in the queue, the user sets retry retention to 0, saves, and confirms the dialog
+- **THEN** the queued counts SHALL show 0 for every host
 - **AND** the **Retry now** buttons SHALL be disabled
+
+#### Scenario: An invalid retention
+
+- **WHEN** the user types 0 in the trace retention field
+- **THEN** the field SHALL show that it accepts whole days of 1 or more
+- **AND** Save SHALL be disabled
 
 ### Requirement: The page runs health checks
 
@@ -171,23 +177,33 @@ The Settings page SHALL run health checks on request and show each result as pas
 
 ### Requirement: History imports can be run from a session list
 
-The Memory page SHALL list Pi, OpenCode, and Claude Code sessions from each chosen history source, defaulting to the current project. Each bounded page SHALL show selection keys, session IDs where present, dates, recorded project directories, and how each directory was resolved (recorded, mapped, worktree, or unresolved), without conversation content. The user SHALL be able to select individual sessions or all sessions matching the current source, scope, project, and directory maps across pages. The page SHALL show the selection count and run a dry-run preview of that exact selection before a real import. Selecting multiple hosts SHALL retain separate pinned selections and follow the multi-host-import capability.
+The Memory page SHALL list Pi, OpenCode, and Claude Code sessions from each chosen history source. In the web app the scope SHALL default to all projects, because the web app runs from the home folder and has no current project of its own. Each bounded page SHALL show selection keys, session IDs where present, the session title for OpenCode sessions that store one, dates, recorded project directories, and how each directory was resolved (recorded, mapped, worktree, or unresolved), without conversation content. A session title SHALL be the title the host stores with the session, shortened to at most 80 characters, and SHALL NOT be read from the prompts or replies. The user SHALL be able to select individual sessions or all sessions matching the current source, scope, project, and saved directory maps across pages. The page SHALL show the selection count and run a dry-run preview of that exact selection before a real import. Selecting multiple hosts SHALL retain separate pinned selections and follow the multi-host-import capability.
 
 The session list SHALL return a revision and a listing time. The revision SHALL be derived from the source identity, the matching options, and the sorted keys of the matching sessions. It SHALL NOT be derived from file sizes or modification times. A preview or import of an explicit selection SHALL be refused as stale when a selected session no longer exists or resolves to a different project. A preview or import of all matching sessions SHALL be refused as stale when the recomputed revision differs. Both SHALL import only user turns at or before the listing time, so the preview and the import read the same turns. The server SHALL keep no selection state between requests.
 
-The session list and the importer SHALL resolve project directories with the same rules, in this order on all hosts: an exact directory map, then the recorded directory, then, for OpenCode only, the project worktree. Sessions that cannot be resolved SHALL NOT be assigned to any project. In current-project scope the page SHALL report how many sessions have missing directories and offer to show them.
+The session list and the importer SHALL resolve project directories with the same rules, in this order on all hosts: an exact directory map, then the recorded directory, then, for OpenCode only, the project worktree. Sessions that cannot be resolved SHALL NOT be assigned to any project. The page SHALL report how many sessions have missing directories and link to the host's list of sessions that need a folder.
 
-Web selections SHALL reuse the shared importer and its ledger. CLI and slash-command flags SHALL keep their meaning, with two exceptions. A Pi `--root` that names one `.jsonl` file SHALL import that file. An OpenCode directory map SHALL take precedence over a recorded directory that still exists. The page SHALL NOT offer the single-session or maximum-sessions options; selection replaces them.
+Web selections SHALL reuse the shared importer and its ledger. CLI and slash-command flags SHALL keep their meaning, with two exceptions. A Pi `--root` that names one `.jsonl` file SHALL import that file. An OpenCode directory map SHALL take precedence over a recorded directory that still exists. The page SHALL NOT offer the single-session or maximum-sessions options; selection replaces them. The page SHALL NOT offer a directory map text box; the session list and imports started from the page SHALL use the saved directory maps.
 
-The main view SHALL show host choices, project scope, positive Project memories and User profile choices, session lists, selections, preview, progress, cancellation, and final CLI-equivalent reports. User profile SHALL identify preferences, patterns, and workflows. Both outputs SHALL be selected by default, and choosing neither SHALL be refused. Advanced options SHALL hold project path details, prompt date range, directory maps, source overrides, profile batch size, and re-analysis. Date limits SHALL be labelled as inclusive **Prompt date from** and **Prompt date to**. They SHALL filter user turns within sessions, SHALL NOT filter the session list, and SHALL be interpreted in the browser's time zone. Empty limits SHALL include all turns. Turns that have no timestamp SHALL be included and counted in the preview. Only one preview or import SHALL run at a time, including a grouped import. Imports SHALL stay idempotent and failed units retryable.
+The main view SHALL show the readiness checklist, the model line, the primary import button, progress, cancellation and the result. A **Customise** section, closed by default, SHALL hold host choices, project scope, positive Project memories and User profile choices, session lists, selections, the import model choice, preview and start. User profile SHALL identify preferences, patterns, and workflows. Both outputs SHALL be selected by default, and choosing neither SHALL be refused. Advanced options inside Customise SHALL hold project path details, prompt date range, source overrides, profile batch size, and re-analysis. Date limits SHALL be labelled as inclusive **Prompt date from** and **Prompt date to**. They SHALL filter user turns within sessions, SHALL NOT filter the session list, and SHALL be interpreted in the browser's time zone. Empty limits SHALL include all turns. Turns that have no timestamp SHALL be included and counted in the preview. Only one preview or import SHALL run at a time, including a grouped import. Imports SHALL stay idempotent and failed units retryable. The page SHALL say in one line that chats already imported are skipped, so running an import again is safe.
 
-A real web import SHALL use an OpenCode-connected model or a complete saved external API under each host's existing rules; Claude Code SHALL use the external API only. The page SHALL show the readiness of each model source before a job starts, and SHALL label it as configured, not tested. The server SHALL check readiness again when a job is requested. Pi authentication alone SHALL NOT be shown as a usable web-import model. When no model source is ready, the page SHALL explain why the real import is unavailable and SHALL still allow a dry run. When the Pi session reader cannot be loaded in the server process, Pi preview and import SHALL be unavailable, with that reason.
+A real web import SHALL use an OpenCode-connected model or a complete saved external API under each host's existing rules; Claude Code SHALL use the external API only. The page SHALL show the readiness of each model source before a job starts. A model that is configured but not tested SHALL be labelled as not tested; a model whose test call failed SHALL be labelled as failed with the reason. The server SHALL check readiness again when a job is requested. Pi authentication alone SHALL NOT be shown as a usable web-import model. When no model source is ready, the page SHALL explain why the real import is unavailable and SHALL still allow a dry run from Customise. When the Pi session reader cannot be loaded in the server process, Pi preview and import SHALL be unavailable, with that reason. A preview that reports no work SHALL leave the real import unavailable.
 
 #### Scenario: Selecting sessions across pages
 
-- **WHEN** the user chooses Select all matching sessions for the current project
+- **WHEN** the user chooses Select all matching sessions in all projects
 - **THEN** the selection SHALL include matching sessions on every page, not only those visible
 - **AND** the page SHALL show how many sessions will be previewed
+
+#### Scenario: Default scope in the web app
+
+- **WHEN** the user opens Customise on a host view for the first time in this browser
+- **THEN** the scope SHALL read All projects
+
+#### Scenario: An OpenCode session with a title
+
+- **WHEN** an OpenCode session stores the title `Fix the login redirect`
+- **THEN** its row SHALL show that title next to the session ID
 
 #### Scenario: Previewing selected Pi sessions
 
@@ -211,13 +227,15 @@ A real web import SHALL use an OpenCode-connected model or a complete saved exte
 
 #### Scenario: Directory maps change the matching set
 
-- **WHEN** the user changes the directory maps after listing
-- **THEN** the page SHALL refresh the list before a preview or import can start
+- **WHEN** the user saves a directory map after listing and then previews
+- **THEN** the preview SHALL be refused as stale and the page SHALL ask the user to refresh the list
 
 #### Scenario: Sessions with missing directories in the current project view
 
+The scenario title is kept so the archive step can match it. The rule now applies in every scope.
+
 - **WHEN** some sessions record directories that no longer exist
-- **THEN** the current-project view SHALL show how many there are and offer to show them in all-projects scope
+- **THEN** the page SHALL show how many there are and link to the host's list of sessions that need a folder
 - **AND** those sessions SHALL NOT be selectable until a directory map resolves them
 
 #### Scenario: A directory map for a path that still exists
@@ -235,9 +253,14 @@ A real web import SHALL use an OpenCode-connected model or a complete saved exte
 #### Scenario: No model is ready for a real import
 
 - **WHEN** the web server has neither a connected OpenCode model nor a complete external API configuration
-- **THEN** Preview SHALL remain available
+- **THEN** Preview SHALL remain available in Customise
 - **AND** Import SHALL be disabled with a reason that tells the user what to configure
 - **AND** a request to start an import SHALL be rejected with that reason before any job starts
+
+#### Scenario: A preview with no work
+
+- **WHEN** a preview reports no sessions and no pending work
+- **THEN** **Start import** SHALL be disabled and the page SHALL say there is nothing new to import
 
 #### Scenario: The external API key is missing in the server environment
 
@@ -372,7 +395,7 @@ The server SHALL return only records from the OMMS log file at its configured pa
 
 ### Requirement: Settings are saved safely to the global config
 
-Saving on the Settings page SHALL write only the changed keys to the global config file that OMMS is reading. When that file is the legacy `~/.config/opencode/opencode-mem.jsonc`, the first save SHALL create `~/.config/omms/omms.jsonc` as a copy of it, comments included, apply the change there, and tell the user that OMMS now reads the new file. The legacy file SHALL NOT be written. Saves SHALL run one at a time, and a save SHALL be rejected without writing when the file changed after the page read it. Saving SHALL keep comments, key order, and all other keys. It SHALL reject values that fail the same validation used at startup, and SHALL leave the file unchanged when it rejects them. Running OpenCode and Pi processes SHALL use the saved values from their next capture without a restart. The page SHALL NOT write project config files. It SHALL NOT read or show secret values; it SHALL show only whether a secret is set, its source type (literal, `env://`, or `file://`), and, for `env://` and `file://`, the variable name or file path. The only secret the page SHALL change is `memoryApiKey`, and only to an `env://` or `file://` reference, including one created by saving a pasted key to a private key file. It SHALL NOT save a literal key to the config.
+Saving on the Settings page SHALL write only the changed keys to the global config file that OMMS is reading. When that file is the legacy `~/.config/opencode/opencode-mem.jsonc`, the first save SHALL create `~/.config/omms/omms.jsonc` as a copy of it, comments included, apply the change there, and tell the user that OMMS now reads the new file. The legacy file SHALL NOT be written. Saves SHALL run one at a time, and a save SHALL be rejected without writing when the file changed after the page read it. Saving SHALL keep comments, key order, and all other keys. It SHALL reject values that fail the same validation used at startup, and SHALL leave the file unchanged when it rejects them. Running OpenCode and Pi processes, and the web app that serves Claude Code, SHALL use the saved values from their next capture without a restart. The page SHALL NOT write project config files, and SHALL NOT write a key that is global-only to a project. It SHALL NOT read or show secret values; it SHALL show only whether a secret is set, its source type (literal, `env://`, or `file://`), and, for `env://` and `file://`, the variable name or file path. The page SHALL change `memoryApiKey`, `embeddingApiKey`, `rerankerApiKey` and the browser password only to an `env://` or `file://` reference, including one created by saving a pasted key to a private key file. It SHALL NOT save a literal key to the config.
 
 #### Scenario: A commented config file is edited
 
@@ -409,7 +432,7 @@ Saving on the Settings page SHALL write only the changed keys to the global conf
 
 #### Scenario: A literal key is submitted as a reference
 
-- **WHEN** a request tries to save `memoryApiKey` as a value that is not an `env://` or `file://` reference
+- **WHEN** a request tries to save `memoryApiKey` or `rerankerApiKey` as a value that is not an `env://` or `file://` reference
 - **THEN** the save SHALL be rejected and the file SHALL be unchanged
 
 ### Requirement: Changes from the page are access-controlled
@@ -438,17 +461,14 @@ Every Settings endpoint that changes config, saves a key file, deletes trace fil
 
 ### Requirement: The page controls automatic import
 
-The Memory page SHALL have an **Automatic import** section with a switch for `autoBackfill` and, for each host, a model choice for `opencodeBackfillModel` or `piBackfillModel`: **Same as live capture** (saves `inherit`), **External API** (saves `external`), or a manual `provider/model` chosen the same way as the host's capture model. For each host the section SHALL show the backfill state, including paused, the counts of imported, skipped, failed, and pending exchanges, the number of sessions whose project cannot be resolved with a link to that host's Resolve missing project folders list, the model used, the cutoff, the last error, and the progress bar, percentage, and time left defined by the import progress capability. It SHALL offer Run now, Pause, and Resume for each host. The counts SHALL refresh while a run is active. It SHALL say that a model change takes effect at the next run, except that turning the switch off also stops a running backfill after its current exchange. It SHALL say that automatic import makes model calls.
-
-The switch and the section description SHALL stay above the host cards. Each host card SHALL be a keyboard-accessible disclosure. Its summary SHALL show the host name, the backfill state, the pending exchange count, and the unresolved session count. A card SHALL open by default when its host has a running or paused run, and SHALL be collapsed otherwise. A card that the user opened or closed SHALL keep that state while the counts refresh. Collapsing a card SHALL keep any unsaved model choice.
-
-The Automatic import host headings SHALL NOT repeat the overall import-status pills shown in Import chat history. Removing these pills SHALL NOT remove the operational state, last-run summary, unresolved counts, errors, or controls.
+Each host view on the Memory page SHALL have a settings card with the **Import past chats automatically** switch for `autoBackfill`, which applies to every host, and, for Pi and OpenCode, a backfill model choice for `piBackfillModel` or `opencodeBackfillModel`: **Same as live capture** (saves `inherit`), **External API** (saves `external`), or a manual `provider/model`. Claude Code's backfill always uses the external API. The host view's status header SHALL show the backfill state, including paused and off, the counts of imported, skipped, failed, and pending exchanges, the number of sessions whose project cannot be resolved with a link to that host's list of sessions that need a folder, the model used, the cutoff, the last error, and the progress bar, percentage, and time left defined by the import progress capability. It SHALL offer Pause, Resume and Retry as the import progress capability defines. The counts SHALL refresh while a run is active. The settings card SHALL say that a model change takes effect at the next run, except that turning the switch off also stops a running automatic backfill after its current exchange. It SHALL say that automatic import makes model calls. Turning the switch on SHALL open the same confirm dialog as **Turn on** in the status header, and only its **Turn on** SHALL save; turning the switch off SHALL save at once with no dialog.
 
 #### Scenario: Turning automatic import off
 
-- **WHEN** the user turns off the Automatic import switch and saves while a Pi backfill runs
+- **WHEN** the user turns off the switch while an automatic Pi backfill runs
 - **THEN** the global config SHALL have `autoBackfill` set to `false`
 - **AND** the Pi backfill SHALL stop after its current exchange
+- **AND** the Pi status header SHALL read **Off** once the run has stopped
 
 #### Scenario: Choosing a backfill model for Pi
 
@@ -463,46 +483,51 @@ The Automatic import host headings SHALL NOT repeat the overall import-status pi
 
 #### Scenario: Watching progress
 
-- **WHEN** a backfill runs while the section is open
+- **WHEN** a backfill runs while the host view is open
 - **THEN** the counts, progress bar, percentage, and time left SHALL update without a page reload
 
 #### Scenario: Opening the section with no active run
 
-- **WHEN** no host has a running or paused run and the user opens Memory
-- **THEN** the Pi, OpenCode, and Claude Code cards SHALL be collapsed
-- **AND** each summary SHALL show the host's state, pending exchanges, and unresolved sessions
+The scenario title is kept so the archive step can match it. The Automatic import section and its host cards no longer exist; each host view holds one host.
+
+- **WHEN** no host has a running or paused run and the user opens `/memory/pi`
+- **THEN** the status header SHALL show Pi's state, pending exchanges, and unresolved sessions
 
 #### Scenario: A run is active
 
-- **WHEN** a Pi backfill is running and the user opens Memory
-- **THEN** the Pi card SHALL be open and the other cards SHALL be collapsed
+- **WHEN** a Pi backfill is running and the user opens `/memory/pi`
+- **THEN** the status header SHALL show the progress bar, percentage and time left
 
 #### Scenario: Keeping a card's state during refresh
 
-- **WHEN** the user collapses the running Pi card and the counts refresh
-- **THEN** the Pi card SHALL stay collapsed
+The scenario title is kept so the archive step can match it.
+
+- **WHEN** the counts refresh while the user edits Pi's backfill model choice
+- **THEN** the unsaved model choice SHALL stay
 
 #### Scenario: Reading automatic import without duplicate pills
 
-- **WHEN** the user opens Automatic import for Pi, OpenCode, or Claude Code
-- **THEN** its host heading SHALL show the host name without an overall import-status pill
-- **AND** the card SHALL retain its operational state and existing actions
+The scenario title is kept so the archive step can match it.
+
+- **WHEN** the user opens `/memory/opencode`
+- **THEN** the status header SHALL show the host name without an overall import-status pill
+- **AND** it SHALL keep its operational state and its one main action
 
 #### Scenario: Following the automatic import directory link
 
-- **WHEN** the user activates OpenCode's unresolved-directory link in Automatic import
-- **THEN** OpenCode's Resolve missing project folders list SHALL open and its summary SHALL receive focus
+- **WHEN** the user activates OpenCode's unresolved-directory link in the status header
+- **THEN** OpenCode's list of sessions that need a folder SHALL open and its summary SHALL receive focus
 - **AND** other hosts' drafts and disclosure states SHALL remain unchanged
 
 ### Requirement: The page controls starting the web app at login
 
-The Settings page SHALL have a **Web app** section with a switch for `webServerAutoStart`, the login item's status (installed, not installed, or unsupported on this platform), and the terminal commands that start the web app or manage the item. It SHALL say that the change applies at the next Pi or OpenCode start, or right away with `om-memory-system web install` or `web uninstall`.
+The Settings page SHALL have a **Web app** section with a switch for `webServerAutoStart`, the login item's status (installed, not installed, or unsupported on this platform), and the terminal commands that start the web app or manage the item. It SHALL say that the change applies at the next OpenCode or Pi start, or right away with `om-memory-system web install` or `web uninstall`, and that a user of Claude Code alone runs the command.
 
 #### Scenario: Turning off start at login
 
 - **WHEN** the user turns off the switch and saves
 - **THEN** the global config SHALL have `webServerAutoStart` set to `false`
-- **AND** the section SHALL say that the item is removed at the next host start
+- **AND** the section SHALL say that the item is removed at the next OpenCode or Pi start, or at once with `om-memory-system web uninstall`
 
 #### Scenario: Viewing the item status
 
@@ -511,13 +536,13 @@ The Settings page SHALL have a **Web app** section with a switch for `webServerA
 
 ### Requirement: The page configures the external API
 
-The Settings page SHALL have an **External API** card that edits `memoryProvider`, `memoryApiUrl`, `memoryModel`, and `memoryApiKey` in the global config. The provider SHALL be chosen from the providers OMMS supports. The card SHALL offer three key sources:
+The Settings page SHALL have an **External API** card that edits `memoryProvider`, `memoryApiUrl`, `memoryModel`, and `memoryApiKey` in the global config. The card SHALL say that OpenCode, Pi and Claude Code can use the endpoint. The provider SHALL be chosen from the providers OMMS supports, each shown by its display name. The card SHALL offer the key sources of the shared key-entry control:
 
 - **Environment variable**: the user types a variable name, and the page saves `env://NAME`.
 - **Key file**: the user types the path of an existing file, and the page saves `file://` with that path.
-- **Save key to a private file**: the user pastes the key once. The server SHALL write it to a file under `~/.config/omms/secrets/`, create the folder if needed, restrict the file to the current user (mode `600` on macOS and Linux, a user-only access list on Windows), and save `file://` with that path. It SHALL replace an existing key file only after the user confirms.
+- **Save key to a private file**: the user pastes the key once. The server SHALL write it to a file under `~/.config/omms/secrets/`, create the folder if needed, restrict the file to the current user (mode `600` on macOS and Linux, a user-only access list on Windows), and save `file://` with that path. It SHALL replace an existing key file only after the user confirms in a dialog.
 
-The key value SHALL NOT be written to `omms.jsonc`, the log, the capture trace, or any response, and the page SHALL NOT show it after saving. The card SHALL show the saved key source type and reference, whether the key resolves in the web app's own process, and, for an environment variable, that a login web app does not see variables set only in a shell profile. A **Test** button SHALL make one small call with the saved settings and report success or an error with the key redacted.
+The key value SHALL NOT be written to `omms.jsonc`, the log, the capture trace, or any response, and the page SHALL NOT show it after saving. The card SHALL show the saved key source type and reference, whether the web app can read the key, and, for an environment variable, that a login web app does not see variables set only in a shell profile. A **Test** button SHALL make one small call with the provider, URL, model and key source in the form, saved or not, and report success or an error with the key redacted. **Save settings** SHALL check the key source in the page first and save the key before the URL and model, so a refused key saves nothing. After a save every key field SHALL be empty. Errors SHALL show in the page language. The API URL SHALL accept only `http://` or `https://` URLs, and the URL and model SHALL be clearable.
 
 #### Scenario: Using an environment variable
 
@@ -534,12 +559,36 @@ The key value SHALL NOT be written to `omms.jsonc`, the log, the capture trace, 
 #### Scenario: The variable is missing in the login web app
 
 - **WHEN** `memoryApiKey` is `env://ZAI_API_KEY` and the login web app's process has no such variable
-- **THEN** the card SHALL say that the key does not resolve in the web app and suggest a key file
+- **THEN** the card SHALL say that the web app cannot read the key and suggest a key file
+
+#### Scenario: Saving a key the provider refuses
+
+- **WHEN** the user selects Save settings and the test call with the form values gets HTTP 401 or 403
+- **THEN** the card SHALL save nothing, neither the key nor the endpoint
+- **AND** the card SHALL say in the page language that the provider refused the key and that nothing was saved, with the status as small text
+
+#### Scenario: Saving while the provider cannot be reached
+
+- **WHEN** the user selects Save settings and the test call fails with a network error or a timeout
+- **THEN** the card SHALL open the shared confirm dialog with Save anyway and Cancel
+- **AND** Cancel SHALL save nothing, and Save anyway SHALL save without a second test call
+
+#### Scenario: A failed test in Arabic
+
+- **WHEN** a test call fails with HTTP 404, 429 or a 5xx status
+- **THEN** the card SHALL show one translated sentence for that status, with the status as small text
+- **AND** the card SHALL never show the provider's reply
 
 #### Scenario: Testing the endpoint
 
 - **WHEN** the user clicks Test and the endpoint rejects the key
 - **THEN** the card SHALL show the error with the key redacted
+
+#### Scenario: Testing a pasted key before saving
+
+- **WHEN** the user pastes a key and clicks Test without saving
+- **THEN** the test SHALL use the pasted key in memory only
+- **AND** no file, log line or response SHALL contain the key
 
 ### Requirement: The page sets the Claude Code folder
 
@@ -568,7 +617,7 @@ The Settings page SHALL have a **Claude Code folder** section with a text field 
 
 ### Requirement: The Embedding card changes the embedder behind a lock
 
-The Settings page SHALL show an **Embedding** card with the embedder in use: kind, server URL, model, vector size, key status, and memory count. The fields SHALL be read-only until the user presses the padlock. Unlocked, the card SHALL offer **Built-in model** or **OpenAI-compatible server**. For a server it SHALL offer presets that fill the URL: Ollama (`http://localhost:11434/v1`), llama.cpp (`http://localhost:8080/v1`), OpenRouter (`https://openrouter.ai/api/v1`), OpenAI (`https://api.openai.com/v1`), and Custom. A preset SHALL fill the URL only and SHALL NOT change the model name. It SHALL take the exact model name as typed text, and an optional API key through the same key source choices as the External API card. **Test** SHALL test the candidate and fill the vector size. **Apply** SHALL be enabled only after a passing test of the current values. **Apply** SHALL open a confirmation that states: every memory will be re-embedded, with the count; a hosted server is called once for each memory; search is poor until the re-embed ends; and open OpenCode and Pi sessions should be restarted. Confirming SHALL apply the change and show re-embed progress. A failed re-embed SHALL show the reason and a **Retry** button. Pressing the padlock again, or **Cancel**, SHALL discard unsaved edits.
+The Settings page SHALL show an **Embedding** card with the embedder in use: kind, server URL, model, vector size (shown as **Vector size**, with a line saying it is the number of values the model returns for each memory), key status, and memory count. The fields SHALL be read-only until the user presses the lock button. Unlocked, the card SHALL offer **Built-in model** or **OpenAI-compatible server**. For a server it SHALL offer presets that fill the URL: llama.cpp (`http://localhost:8080/v1`), Ollama (`http://localhost:11434/v1`), OpenRouter (`https://openrouter.ai/api/v1`), OpenAI (`https://api.openai.com/v1`), and Custom. A preset SHALL fill the URL only and SHALL NOT change the model name. It SHALL take the exact model name as typed text, and an optional API key through the shared key-entry control. **Test** SHALL test the candidate and fill the vector size. **Apply** SHALL be enabled only after a passing test of the current values. **Apply** SHALL open a confirm dialog that states: every memory will be re-embedded, with the count; a hosted server is called once for each memory; search is poor until the re-embed ends; and open OpenCode and Pi sessions should be restarted. Confirming SHALL apply the change and show re-embed progress. A failed re-embed SHALL show the reason and a **Retry** button. Pressing the lock button again, or **Cancel**, SHALL discard unsaved edits.
 
 #### Scenario: The card starts locked
 
@@ -598,8 +647,13 @@ The Settings page SHALL show an **Embedding** card with the embedder in use: kin
 #### Scenario: Confirming the change
 
 - **WHEN** the user presses **Apply** with 3,530 memories stored
-- **THEN** the confirmation SHALL state that 3,530 memories will be re-embedded, and the other risks
+- **THEN** the confirm dialog SHALL state that 3,530 memories will be re-embedded, and the other risks
 - **AND** on confirm the card SHALL show progress until the re-embed ends
+
+#### Scenario: The first preset
+
+- **WHEN** the user unlocks the card and opens the preset list
+- **THEN** llama.cpp SHALL be the first preset
 
 ### Requirement: The Keys and access card lists each credential
 
@@ -760,12 +814,12 @@ A Partly imported badge SHALL be a keyboard-accessible link to that host's Resol
 
 ### Requirement: Automatic import shows the last run when no run is active
 
-When no run is active for a host, the Automatic import card on Memory SHALL NOT show a progress bar. It SHALL show a summary of the latest run: its finish time, how it was started (automatic, Run now, or terminal), and its imported, skipped, and failed counts. The card's counts and the summary SHALL come from the same run record, so they agree.
+When no run is active for a host, the host view's status header SHALL NOT show a progress bar. It SHALL show a summary of the latest run: its finish time, how it was started (automatically, from the page, or from the terminal), and its imported, skipped, and failed counts. The counts and the summary SHALL come from the same run record, so they agree.
 
 #### Scenario: After a run finishes
 
-- **WHEN** a Claude Code run finished at 20:35 with 6 imported, 0 skipped, and 0 failed, and the user reloads Memory
-- **THEN** the card SHALL show no progress bar
+- **WHEN** a Claude Code run finished at 20:35 with 6 imported, 0 skipped, and 0 failed, and the user reloads `/memory/claude-code`
+- **THEN** the status header SHALL show no progress bar
 - **AND** SHALL show the finish time 20:35 and the counts 6, 0, and 0
 
 ### Requirement: Counts use singular wording and whole-number confidence
@@ -784,7 +838,7 @@ The Settings page SHALL say "1 session" for one session and "sessions" for any o
 
 ### Requirement: The Memory card shows editable limits and their effects
 
-The Memory page SHALL show one **Memory limits** card with an editable table. Its headings SHALL be **Setting**, **Value**, **Default**, **Unit**, and **Affects**. Each row SHALL show the exact config identifier, an accessible numeric input for the saved global value, the default, its unit, and a visible explanation of what it changes.
+The Memory page SHALL show one **Memory limits** card with an editable table. Its headings SHALL be **Setting**, **Value**, **Default**, **Unit**, and **Affects**. Each row SHALL show a plain name with the exact config identifier as small secondary text, an accessible numeric input for the saved global value, the default, its unit, and a visible explanation of what it changes.
 
 The rows SHALL cover:
 
@@ -796,9 +850,9 @@ The rows SHALL cover:
 | `retrievalMaxTokens`         | 2000                                           | Approximate tokens | Automatic memory context, including profile text and formatting, added to agent requests across all hosts. Smaller values can show fewer or shorter memories.                              |
 | `similarityThreshold`        | 0.5 with `qwen3-embedding:0.6b`, otherwise 0.6 | Similarity score   | Lowest score a memory needs to be returned by search. Lower values return more memories, including less relevant ones. Higher values can return none. The default depends on the embedder. |
 
-The **Affects** text SHALL stay visible, rather than being available only through a tooltip. The card SHALL explain that the byte controls count UTF-8 bytes, and that approximate tokens use `ceil(bytes / 4)` and can differ from the model's count. It SHALL state that these controls do not delete stored data, set a spending limit, limit model replies, or control Graphify output. It SHALL name `~/.config/omms/omms.jsonc` as the file users can edit without the web UI.
+The **Affects** text SHALL stay visible, rather than being available only through a tooltip. The card SHALL explain in plain words that byte limits count the size of the text, and that OMMS estimates one token for about four bytes, so the model's own count can differ. It SHALL state that these controls do not delete stored data, set a spending limit, limit model replies, or control Graphify output. It SHALL name `~/.config/omms/omms.jsonc` as the file users can edit without the web UI.
 
-The card SHALL use the existing table appearance and support horizontal scrolling within the card on narrow screens. Its title SHALL be H2 using the shared section-title role; any subsection headings SHALL use H3 and the shared subsection-title role. The application SHALL retain its single H1, and table labels and effect text SHALL remain table content. Every input SHALL have a label and associated validation message. Headings, effects, help, feedback, and accessible names SHALL be translated into English, Chinese, and Arabic; config identifiers SHALL remain literal and readable left-to-right.
+The card SHALL use the existing table appearance and support horizontal scrolling within the card on narrow screens. Its title SHALL be H2 using the shared section-title role; any subsection headings SHALL use H3 and the shared subsection-title role. The application SHALL retain its single H1, and table labels and effect text SHALL remain table content. Every input SHALL have a label and associated validation message. Plain names, headings, effects, help, feedback, and accessible names SHALL be translated into English, Chinese, and Arabic; config identifiers SHALL remain literal and readable left-to-right.
 
 #### Scenario: Reading the default limits
 
@@ -818,7 +872,7 @@ The card SHALL use the existing table appearance and support horizontal scrollin
 - **WHEN** the user opens Memory limits in Arabic on a narrow screen
 - **THEN** the table SHALL remain usable without forcing the whole page wider
 - **AND** the config identifiers SHALL retain their technical order
-- **AND** the effect explanations and input labels SHALL appear in Arabic
+- **AND** the plain names, effect explanations and input labels SHALL appear in Arabic
 
 #### Scenario: Editing the threshold
 
@@ -918,9 +972,9 @@ The sidebar SHALL contain one **Memory limits** child under Memory, linked to `/
 
 ### Requirement: The Memory page configures the opt-in reranker
 
-The Memory page SHALL show a **Reranker** card below Memory limits. The card SHALL contain a switch labelled **Use a reranker**, off by default, and four fields: **Server URL** (`rerankerApiUrl`), **Model** (`rerankerModel`), **Key** (`rerankerApiKey`, an `env://` or `file://` reference, optional), and **Timeout** (`rerankerTimeoutMs`, in milliseconds, default 4000, from 500 to 30000). The card SHALL say what the reranker does, that it sends the prompt and candidate memory text to the server URL, and that a server on the same machine is recommended. When the URL host is not a loopback address, the card SHALL show a visible notice that memory text leaves this machine.
+The Memory page SHALL show a **Reranker** card below Memory limits. The card SHALL contain a switch labelled **Use a reranker**, off by default, and four fields: **Server URL** (`rerankerApiUrl`), **Model** (`rerankerModel`), **Key** (`rerankerApiKey`, optional, entered through the shared key-entry control), and **Timeout** (`rerankerTimeoutMs`, in milliseconds, default 4000, from 500 to 30000). The card SHALL say what the reranker does, that it sends the prompt and candidate memory text to the server URL, and that a server on the same machine is recommended. When the URL host is not a loopback address, the card SHALL show a visible notice that memory text leaves this machine.
 
-The switch SHALL NOT be savable as on while the URL or model is blank. The card SHALL offer **Test**, **Save**, and **Cancel**. Test SHALL use the saved or drafted values and report success or a failure code, never prompt or memory text. Save SHALL use the existing Settings authentication, origin, JSON request, validation, conflict, and legacy-file rules, and SHALL change only the five reranker keys in the global config. The card SHALL say that a project file cannot change these settings.
+The switch SHALL NOT be savable as on while the URL or model is blank. The card SHALL offer **Test**, **Save**, and **Cancel**. Test SHALL use the values in the form and report success or a failure in plain words, never prompt or memory text. Save SHALL use the existing Settings authentication, origin, JSON request, validation, conflict, and legacy-file rules, and SHALL change only the five reranker keys in the global config. The card SHALL say that a project file cannot change these settings.
 
 #### Scenario: Reading the default state
 
@@ -940,7 +994,7 @@ The switch SHALL NOT be savable as on while the URL or model is blank. The card 
 - **WHEN** the user enters a URL and model and selects Test
 - **THEN** the card SHALL send two sample documents to the server
 - **AND** it SHALL show success only when the reply orders them correctly
-- **AND** it SHALL show a failure code otherwise
+- **AND** it SHALL show a plain sentence for the failure otherwise
 
 #### Scenario: Remote server notice
 
@@ -949,7 +1003,7 @@ The switch SHALL NOT be savable as on while the URL or model is blank. The card 
 
 #### Scenario: A key typed in plain text
 
-- **WHEN** the user enters a key that is not an `env://` or `file://` reference
+- **WHEN** the user chooses Key file or Environment variable and enters a value that is not a valid name or path
 - **THEN** the card SHALL refuse it and Save SHALL be disabled
 
 #### Scenario: Timeout outside the range
@@ -1013,3 +1067,212 @@ The Settings page SHALL show the same floating table-of-contents control as the 
 
 - **WHEN** the expanded list is taller than the screen
 - **THEN** the list SHALL cap its height and scroll inside itself
+
+### Requirement: The Memory basics card holds the main switches
+
+The Settings page SHALL show a **Memory basics** card first. It SHALL have controls for capture (`autoCaptureEnabled`), recall (`chatMessage.enabled`), visible recall (`visibleRecall`), profile injection (`injectProfile`) and the default memory scope (`memory.defaultScope`, **This project** or **All projects**). Saving SHALL write the global config. When the current project file sets one of these keys, the row SHALL say that the project file decides it there.
+
+#### Scenario: Turning recall off
+
+- **WHEN** the user turns recall off and saves
+- **THEN** the global config SHALL have `chatMessage.enabled` set to `false`
+- **AND** the other `chatMessage` keys SHALL keep their values
+
+#### Scenario: A project overrides capture
+
+- **WHEN** the global capture switch is on and the current project file sets `autoCaptureEnabled` to `false`
+- **THEN** the capture row SHALL say that this project's file turns capture off
+
+### Requirement: The Memory cleanup card shows the cleanup with a warning
+
+The Settings page SHALL show a **Memory cleanup** card with an `autoDeleteOldMemories` switch and `autoCleanupRetentionDays`. It SHALL say in plain words that deletion removes unpinned memories not updated in that many days, in every project, and that a deleted memory cannot be restored. It SHALL say that a project file cannot change these settings. The page SHALL NOT write `autoCleanupEnabled`.
+
+#### Scenario: Reading the default
+
+- **WHEN** the user opens the card and the file does not set `autoDeleteOldMemories`
+- **THEN** the switch SHALL be off
+- **AND** the warning SHALL be visible
+
+### Requirement: The Memory cleanup card explains the retired key
+
+When the global file sets `autoCleanupEnabled` to `true` and does not set `autoDeleteOldMemories`, the Memory cleanup card SHALL show one plain note: the old setting no longer deletes anything, and the switch on this card turns deletion on. The page SHALL NOT rewrite the file on its own.
+
+#### Scenario: A file from an older version
+
+- **WHEN** the global file sets `"autoCleanupEnabled": true` and has no `autoDeleteOldMemories`
+- **THEN** the card SHALL show the note and the switch SHALL be off
+- **AND** the file SHALL remain unchanged until the user saves
+
+### Requirement: Turning on cleanup asks for confirmation with a count
+
+Saving the deletion switch on, or a smaller number of days while it is on, SHALL first open a confirm dialog. The dialog SHALL state how many memories the next daily check would delete with those days, from the count OMMS returns, and that the deletion happens at that check, not when the user saves. Nothing SHALL be saved until the user confirms. When the count cannot be read, the dialog SHALL say so and SHALL NOT allow the switch to be saved on.
+
+#### Scenario: Turning deletion on
+
+- **WHEN** 12 memories are older than 30 days and the user turns deletion on with 30 days and saves
+- **THEN** the dialog SHALL say that 12 memories have not changed for 30 days and OMMS deletes them at its next daily check
+- **AND** the config SHALL stay unchanged until the user confirms
+- **AND** on confirm the global config SHALL have `autoDeleteOldMemories` set to `true`
+
+#### Scenario: Cancelling the dialog
+
+- **WHEN** the user turns the switch on, saves, and then selects Cancel in the dialog
+- **THEN** nothing SHALL be saved
+- **AND** the switch SHALL return to its saved state
+
+#### Scenario: A rejected days value keeps deletion off
+
+- **WHEN** the file sets `autoDeleteOldMemories` to `true` and `autoCleanupRetentionDays` to a value OMMS rejects
+- **THEN** the card SHALL show the switch off for this load
+- **AND** the card SHALL show one plain line that says why and points to the banner
+
+### Requirement: The Settings page reports a config file problem
+
+When OMMS records a config problem, the Settings page SHALL show a banner above the cards. For a file it cannot read the banner SHALL lead with one plain sentence in the page language, then name the file, line and column once as small text. It SHALL say which values OMMS uses until the file is fixed, or which feature is off for a fail-safe key. When the global file cannot be read, the page SHALL show the banner instead of failing with no detail, and SHALL disable saving.
+
+#### Scenario: The page words the sentence itself
+
+- **WHEN** the snapshot reports a parse problem with `file`, `line` and `column`
+- **THEN** the page SHALL build the sentence from those fields in the page language
+- **AND** the page SHALL NOT show the server's English `message`
+
+#### Scenario: A syntax error in the global file
+
+- **WHEN** the global file has a syntax error on line 7, column 3
+- **THEN** the page SHALL show the banner with one translated sentence, then the file path, line 7 and column 3 once as small text
+- **AND** every Save and Apply button on the Settings and Memory pages SHALL be disabled, with one plain reason shown beside it
+
+#### Scenario: A problem that names no file
+
+- **WHEN** a recorded problem names a key but no file
+- **THEN** the banner SHALL show the key and the values it accepts
+- **AND** the banner SHALL NOT show an empty file name
+
+### Requirement: The read-only view shows the values OMMS uses
+
+While the global file cannot be read, the cards SHALL show the last settings OMMS could read, and the banner SHALL say so. No row SHALL be labelled with a default that OMMS does not use.
+
+#### Scenario: Values while the file is broken
+
+- **WHEN** the last good file set `chatMessage.enabled` to `false` and a later edit breaks the file
+- **THEN** the Memory basics card SHALL show recall off, from the last good file
+- **AND** the banner SHALL say that the cards show the last settings OMMS could read
+
+### Requirement: The banner leads with plain words for a rejected value
+
+For a rejected value the banner SHALL lead with a plain sentence that uses the setting's plain name and says, in the page language, which values the key accepts. The key, the file and the line SHALL follow as small secondary text.
+
+#### Scenario: A rejected value on the Arabic page
+
+- **WHEN** the page language is Arabic and `retrievalMaxTokens` holds a value out of range
+- **THEN** the banner SHALL say in Arabic which numbers the key accepts
+- **AND** the key `retrievalMaxTokens` SHALL show as small secondary text after the sentence
+
+### Requirement: A search result moves focus to its card
+
+When the user chooses a search result, the page SHALL scroll to the card and SHALL move keyboard focus to the card heading, or to the summary of a Shared row on the Memory page.
+
+#### Scenario: Choosing a result with the keyboard
+
+- **WHEN** the user types `reranker` in the search box and presses Enter on the first result
+- **THEN** the Memory page SHALL open at the Reranker row
+- **AND** focus SHALL move from the search box to the row's summary
+
+### Requirement: The Settings page finds any setting
+
+The Settings page SHALL have a search box above the cards. Typing SHALL list each setting the web UI can change whose plain name, description or config key matches, on any page, with the page it is on. Choosing a result SHALL open that page and scroll to the card. When nothing matches, the list SHALL say that some settings live only in the config file and name the Configuration guide.
+
+#### Scenario: Searching for a setting on another page
+
+- **WHEN** the user types `reranker`
+- **THEN** the list SHALL show the reranker settings on the Memory page
+- **AND** choosing one SHALL open the Memory page at the Reranker card
+
+### Requirement: Search finds retired keys and plain Arabic
+
+A search for a retired key SHALL find the setting that replaced it, first. Arabic typed without short vowels SHALL match the same settings as Arabic with them.
+
+#### Scenario: Searching for the retired cleanup key
+
+- **WHEN** the user types `autoCleanupEnabled`
+- **THEN** the first result SHALL be the Memory cleanup switch
+
+### Requirement: Each setting row explains the setting in plain words
+
+Each setting row on the Settings page and in the shared Memory page cards SHALL show a plain name, a one-line description, the default and what it affects. The default SHALL be the value the server uses when the config file sets nothing. The config key SHALL show as small secondary text, left-to-right. These texts SHALL exist in English, Chinese and Arabic. Every search anchor SHALL be an element id on its page.
+
+#### Scenario: Reading a limit row
+
+- **WHEN** the user reads the Memory limits row for `autoCaptureMaxContextBytes`
+- **THEN** the row SHALL lead with a plain name
+- **AND** `autoCaptureMaxContextBytes` SHALL appear only as secondary text
+
+### Requirement: Codes and provider ids are shown in plain words
+
+The page SHALL show a sentence for each reranker failure code, and a display name for each memory provider id, such as **OpenAI Chat Completions** for `openai-chat`. An unknown code SHALL show a general sentence with the code as secondary text.
+
+#### Scenario: The reranker cannot be reached
+
+- **WHEN** a reranker test fails with `reranker_unreachable`
+- **THEN** the card SHALL say that OMMS could not reach the reranker server, and suggest checking the URL and that the server runs
+
+### Requirement: One key-entry control serves every key
+
+The External API, Embedding and Reranker cards SHALL use one key-entry control with the choices **Environment variable**, **Key file** and **Save key to a private file**, plus **No key** where a key is optional. Each card SHALL show that a login web app does not see variables set only in a shell profile. A pasted key SHALL follow the same private file and redaction rules as the External API key.
+
+#### Scenario: Pasting a reranker key
+
+- **WHEN** the user pastes a key in the Reranker card and saves
+- **THEN** the key SHALL be written to a user-only file under `~/.config/omms/secrets/`
+- **AND** `rerankerApiKey` SHALL be set to `file://` with that path
+
+#### Scenario: Testing a pasted reranker key
+
+- **WHEN** the user pastes a reranker key and presses Test without saving
+- **THEN** the test SHALL send that key to the reranker server for that request only
+- **AND** the key SHALL NOT be written to a file, the config, the log or the reply
+- **AND** on a network host without Basic Auth the test SHALL be refused with a plain reason, as the External API test is
+
+#### Scenario: The card says whether the web app can read the key
+
+- **WHEN** `rerankerApiKey` or `embeddingApiKey` names an environment variable that the web app does not have
+- **THEN** the settings snapshot SHALL report that the web app cannot read the key, without the value
+- **AND** the card SHALL say so
+
+### Requirement: Every settings card saves the same way
+
+Each settings card with a server SHALL test the values in the form, not the saved values. Each card SHALL save with a Save button, not on leaving a field, and SHALL show a plain message after each test and save. An optional URL or model field SHALL be clearable, which removes the key. Every URL field SHALL accept only `http://` or `https://` URLs. An invalid number SHALL show a message next to the field.
+
+#### Scenario: Testing an unsaved model
+
+- **WHEN** the user types a new model on the External API card and selects Test without saving
+- **THEN** the test call SHALL use the typed model
+
+#### Scenario: Clearing the API URL
+
+- **WHEN** the user empties the API URL and saves
+- **THEN** `memoryApiUrl` SHALL be removed from the global config
+
+#### Scenario: A URL without a scheme
+
+- **WHEN** the user saves `api.example.com/v1` as the API URL
+- **THEN** the save SHALL be refused with a message that the URL must start with `http://` or `https://`
+
+### Requirement: A save that deletes data asks first
+
+A save that deletes stored data at once SHALL open a confirm dialog that states what will be deleted, with a count when one is known. Saving retry retention 0 SHALL read the waiting count again when Save is pressed and state how many waiting turns will be deleted. Nothing SHALL be saved until the user confirms.
+
+#### Scenario: Turning the retry queue off
+
+- **WHEN** 3 turns wait and the user sets retry retention to 0 and saves
+- **THEN** a dialog SHALL say that 3 waiting turns will be deleted
+- **AND** the config SHALL stay unchanged if the user cancels
+
+### Requirement: Settings cards follow the shared control rules
+
+The Settings page cards and the shared Memory page settings cards SHALL use the shared button, input, select, label and dialog controls. They SHALL NOT use a raw `<button>`, a raw `<input>`, an emoji icon, or `window.confirm`. A native switch (`role="switch"`) that stays in form state and saves with its card's Save button is the one allowed raw input.
+
+#### Scenario: The embedding lock
+
+- **WHEN** the user views the locked Embedding card
+- **THEN** the lock control SHALL be a shared button with a Lucide icon and an accessible name

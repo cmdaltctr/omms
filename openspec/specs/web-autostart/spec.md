@@ -44,7 +44,7 @@ When `webServerAutoStart` is `true`, which is the default, and `webServerEnabled
 
 ### Requirement: The web app runs without a host session
 
-The web app started by the login item, by `om-memory-system web`, or on demand by a Claude Code hook SHALL serve every page and API route with the configured port, bind address, origin rules, API token, and Basic Auth settings. It SHALL be the only kind of OMMS web app. OpenCode SHALL NOT run a web server inside its session, and SHALL use this web app. When another OMMS process already serves the web app on the configured port, it SHALL follow the existing port ownership and takeover rules instead of starting a second server. It SHALL serve the Claude Code hook endpoints for retrieval and capture. It SHALL list OpenCode's signed-in models on the Settings page by starting a private OpenCode server for the user. That server SHALL listen only on the loopback address, SHALL require a password that OMMS creates for that server, and SHALL stop after OMMS reads the list. When OMMS cannot get the list this way, the page SHALL show the reason and a next step. Features that need a host session's own models SHALL report that they are unavailable, SHALL say why, and SHALL name a next step: the external API, or the terminal and in-session import commands. These features are OpenCode model health checks and test calls, web history imports with an OpenCode signed-in model, a host backfill whose model is a host signed-in model, and Retry now for a host's queued turns. The Import section SHALL NOT offer an OpenCode signed-in model for a web import. It SHALL NOT start a backfill on its own. It SHALL run a host's backfill when the user starts or resumes it on the Settings page and that host's backfill model resolves to the external API. It SHALL run the Claude Code backfill when a Claude Code session start reaches it, under the auto-backfill rules.
+The web app started by the login item, by `om-memory-system web`, or on demand by a Claude Code hook SHALL serve every page and API route with the configured port, bind address, origin rules, API token, and Basic Auth settings. It SHALL be the only kind of OMMS web app. OpenCode SHALL NOT run a web server inside its session, and SHALL use this web app. When another OMMS process already serves the web app on the configured port, it SHALL follow the existing port ownership and takeover rules instead of starting a second server. It SHALL serve the Claude Code hook endpoints for retrieval and capture. It SHALL list OpenCode's signed-in models on the Settings page by starting a private OpenCode server for the user. That server SHALL listen only on the loopback address, SHALL require a password that OMMS creates for that server, and SHALL stop after OMMS reads the list. When OMMS cannot get the list this way, the page SHALL show the reason and a next step. Features that need a host session's own models SHALL report that they are unavailable, SHALL say why, and SHALL name a next step: the external API, or the terminal and in-session import commands. These features are OpenCode model health checks and test calls, web history imports with an OpenCode signed-in model, a host backfill whose model is a host signed-in model, and Retry now for a host's queued turns. The Memory page import SHALL NOT offer an OpenCode signed-in model for a web import. The web app SHALL NOT start a backfill on its own. It SHALL run a host's backfill when the user resumes or retries it on the Memory page and that host's backfill model resolves to the external API. It SHALL run the Claude Code backfill when a Claude Code session start reaches it, under the auto-backfill rules.
 
 #### Scenario: Opening the web app with no session open
 
@@ -59,7 +59,7 @@ The web app started by the login item, by `om-memory-system web`, or on demand b
 #### Scenario: The login web app does not backfill by itself
 
 - **WHEN** the login web app starts with pending history and `autoBackfill` on
-- **THEN** no backfill SHALL start until the user clicks Run now or Resume
+- **THEN** no backfill SHALL start until the user selects Resume or Retry on the Memory page
 
 #### Scenario: Listing OpenCode models with no session open
 
@@ -91,9 +91,10 @@ The web app started by the login item, by `om-memory-system web`, or on demand b
 
 #### Scenario: Importing from the page with OpenCode open
 
-- **WHEN** an OpenCode session is open and the user starts a web import from the Settings page
-- **THEN** the Import section SHALL offer only the external API as the model source
-- **AND** it SHALL say that an import with an OpenCode signed-in model runs from the terminal or with `/import` in OpenCode
+- **WHEN** an OpenCode session is open and the user starts a web import from the Memory page
+- **THEN** the import SHALL offer only the external API as the model source
+- **AND** on the OpenCode view, while OpenCode is set up, it SHALL say that an import with an OpenCode signed-in model runs from the terminal or with `/memory-import-opencode-history` in OpenCode
+- **AND** the Pi and Claude Code views SHALL NOT show that sentence
 
 #### Scenario: Health check of an OpenCode model
 
@@ -359,3 +360,117 @@ A standalone web app that waits for the port SHALL exit within 10 seconds after 
 
 - **WHEN** `web update` starts a fresh web app after it asked older web apps to retire
 - **THEN** the fresh web app SHALL keep running
+
+### Requirement: Every host tells the user when the web app cannot start
+
+When a host start finds that the web app cannot start, the host SHALL tell the user in plain words with the fix, for two results: another program holds the configured port (`port-busy`), and no Node or Bun runtime was found (`no-runtime`). All three hosts SHALL use the same wording. The report SHALL NOT block or fail the host session. A web app that runs or starts SHALL produce no warning.
+
+#### Scenario: Web app running
+
+- **WHEN** a host starts and the OMMS web app answers on the port
+- **THEN** no host SHALL show a web-start warning
+
+#### Scenario: Session continues
+
+- **WHEN** a host shows a web-start warning
+- **THEN** the host session SHALL start normally
+
+### Requirement: The web-start message names the fix
+
+For `port-busy` the message SHALL name the port and say to stop the other program or set `webServerPort` to a free port. For `no-runtime` the message SHALL say to install Node 22.14 or later.
+
+#### Scenario: Busy port message
+
+- **WHEN** a host finds a program that is not OMMS on port 4747
+- **THEN** the message SHALL name port 4747 and the two fixes
+
+#### Scenario: No runtime message
+
+- **WHEN** a host finds no Node or Bun runtime to start the web app
+- **THEN** the message SHALL say to install Node 22.14 or later
+
+### Requirement: Each host shows the web-start message in its own way
+
+Pi SHALL show the message as a warning notification when the session has an interface, once per Pi process per result. OpenCode SHALL show it as it shows its other start notices. Claude Code SHALL show it to the user from the `SessionStart` hook only, not from prompt, subagent or stop hooks.
+
+#### Scenario: Pi finds the port busy
+
+- **WHEN** Pi starts a session and a program that is not OMMS answers on port 4747
+- **THEN** Pi SHALL show one warning notification with the port message
+
+#### Scenario: Pi starts a second session
+
+- **WHEN** the same Pi process starts another session and the port is still busy
+- **THEN** Pi SHALL NOT show the warning again
+
+#### Scenario: Claude Code finds the port busy
+
+- **WHEN** a `SessionStart` hook finds a program that is not OMMS on the configured port
+- **THEN** the user SHALL see the same port message once in that session
+- **AND** a later `UserPromptSubmit` hook SHALL NOT show it
+
+### Requirement: A copy with a missing dependency is not valid
+
+A copy of OMMS SHALL count as valid only when, besides the existing rules, every dependency named in its `package.json` resolves from its folder or from a parent `node_modules`, and every package folder in its own `node_modules` holds a `package.json`. The launcher and the newest-copy record SHALL apply the same rule. When the newest copy is not valid, the launcher SHALL start the next valid copy.
+
+#### Scenario: The newest global copy is incomplete
+
+- **WHEN** the global copy 6.4.0 has an empty dependency folder and a Pi cache copy 6.3.0 is complete
+- **THEN** the login item SHALL start the web app from the 6.3.0 copy
+
+#### Scenario: No copy is valid
+
+- **WHEN** every copy on the machine has a missing dependency
+- **THEN** the launcher SHALL print one line that names the missing dependency and the command `npx -p om-memory-system@latest om-memory-system web update`, and SHALL exit with 1
+- **AND** under the login item it SHALL first write the code `no-valid-copy` and the missing dependency to the OMMS log, then count the failed start
+
+### Requirement: The login item restarts a web app that crashed
+
+On macOS and Linux the login item SHALL restart the web app after it exits with an error or is killed by a signal, at most once every 30 seconds. It SHALL NOT restart it after an exit with 0. Stop, a hand-over to a newer web app, a retire request and the restart after an update SHALL exit with 0. After 5 failed starts within 10 minutes the launcher SHALL log the code `restart-limit` and exit with 0, and the item SHALL stay down until the next login or the next `om-memory-system web install`.
+
+#### Scenario: A crash
+
+- **WHEN** the web app exits with an error 3 minutes after it started
+- **THEN** the login item SHALL start it again within 30 seconds
+
+#### Scenario: The user stops it
+
+- **WHEN** the user selects Stop in the web app
+- **THEN** the web app SHALL exit with 0 and the login item SHALL NOT start it again
+
+#### Scenario: A broken start repeats
+
+- **WHEN** the web app fails to start 5 times within 10 minutes
+- **THEN** the launcher SHALL log `restart-limit` and exit with 0
+- **AND** no further start SHALL happen until the next login or `web install`
+
+#### Scenario: A restart the user asked for
+
+- **WHEN** the user selects Restart, or an update restarts the login item
+- **THEN** that start SHALL NOT count as a failed start
+
+#### Scenario: An item from an earlier version
+
+- **WHEN** the login item was written by a version without the restart rule and the terminal or a host runs the install step
+- **THEN** the item SHALL be rewritten with the restart rule
+- **AND** a host's install step SHALL NOT start a second web app
+
+#### Scenario: Windows
+
+- **WHEN** the platform is Windows
+- **THEN** the startup item SHALL stay as it is and the docs SHALL say it has no restart rule
+
+### Requirement: The service manager limits starts of a launcher that cannot run
+
+The Linux unit SHALL set `StartLimitIntervalSec=600` and `StartLimitBurst=6` under `[Unit]`. Restart, an update restart and `om-memory-system web install` SHALL clear the systemd start count before they start the unit. The docs SHALL say that macOS has no start limit beyond the 30-second throttle.
+
+#### Scenario: The launcher cannot run on Linux
+
+- **WHEN** the runtime of the Linux item is gone and the unit fails to start 5 times within 10 minutes
+- **THEN** systemd SHALL stop starting it
+- **AND** `om-memory-system web install` SHALL clear the count and start it again
+
+#### Scenario: The user restarts often on Linux
+
+- **WHEN** the user selects Restart 6 times within 10 minutes
+- **THEN** each restart SHALL start the unit

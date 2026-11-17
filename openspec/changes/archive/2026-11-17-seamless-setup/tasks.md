@@ -89,7 +89,7 @@ Owns: `README.md`, `UPDATES.md`, `package.json` (description only), `docs/cli.md
 - [x] 8.6 Live check of the Claude Code `systemMessage` and amber label in a real Claude Code 2.1.295+ session with a scratch home and no external API (see the owner's notes on scratch home and Keychain). If the line does not show, apply the toast fallback from the design and record a TDR. Evidence: passed on Claude Code 2.1.326 in a scratch home; the session-start line showed, and the label cleared about 7 seconds after an external API was saved (evidence in the run's scratch folder).
 - [x] 8.7 Browser check of the welcome panel at desktop width and at 390 px, light and dark, in English and Arabic. Also check that a project filter with no rows keeps the plain "No memories found" line: no unit test covers the 390 px layout or the `activeTag` wiring in `App.tsx`. Evidence: passed at 1280 and 390 px in English, Chinese and Arabic, light and dark (evidence in the run's scratch folder).
 - [x] 8.8 `bun run ci:local` exits 0. (2026-11-17, after the live-check fixes: exit 0, 603 test files, 5,328 tests passed, 0 failed. The run before it had one failure in the unchanged `tests/embedding-server-key.test.ts`, a 403 from its random-port test server; that file passed 5 of 5 times alone.)
-- [ ] 8.9 `openspec validate seamless-setup --strict`, then the verify and archive steps before the pull request.
+- [x] 8.9 `openspec validate seamless-setup --strict`, then the verify and archive steps before the pull request. (2026-11-17: validate passes on the combined branch `feat/modularity-and-onboarding`; the change is archived there with the other four.)
 
 ## 9. Review fixes
 
