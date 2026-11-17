@@ -69,6 +69,13 @@ describe("copyVersion", () => {
   it("rejects a missing folder", () => {
     expect(copyVersion(join(base, "gone"))).toBeNull();
   });
+
+  it("rejects a copy with an empty dependency folder, and registers nothing for it", () => {
+    const root = makeCopy("a", "6.4.0");
+    mkdirSync(join(root, "node_modules", "js-base64"), { recursive: true });
+    expect(copyVersion(root)).toBeNull();
+    expect(registerCopy({ dir, root, log })).toBe("skipped");
+  });
 });
 
 describe("registerCopy", () => {

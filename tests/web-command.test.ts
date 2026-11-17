@@ -188,7 +188,7 @@ it("leaves a newer web app running and tells the user to update the command", ()
   expect(indexOfEvent(events, "POST /api/web/step-aside")).toBe(-1);
   expect(text).toContain("OMMS 3.7.0 already serves port 4747.");
   expect(text).toContain("newer than this command (3.6.0)");
-  expect(text).toContain("npm i -g om-memory-system");
+  expect(text).toContain("Update the global command: om-memory-system web update");
 });
 
 it("installs as before when no web app holds the port", () => {

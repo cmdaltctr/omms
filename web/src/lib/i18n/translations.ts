@@ -159,6 +159,16 @@ export const translations = {
       "This web app has no npm beside its Node.js. The commands above still work.",
     "update-installing": "Installing the new release…",
     "update-failed": "The update failed ({code}). The web app still runs.",
+    "update-failed-install-busy":
+      "Another update is installing OMMS. The web app still runs. Try again in a few minutes.",
+    "update-failed-incomplete-install":
+      "The update could not finish, so OMMS kept the current version. Run the update command in a terminal: npx -p om-memory-system@latest om-memory-system web update",
+    "update-failed-network":
+      "npm could not reach the package registry. The web app still runs. Check the internet connection, then try again.",
+    "update-failed-permission":
+      "npm has no permission to write to the global install folder. The web app still runs. Give your user write access to that folder, then try again.",
+    "update-failed-timeout":
+      "The install took longer than 5 minutes and was stopped. The web app still runs. Try again later.",
     "update-request-failed": "The request failed. The web app still runs.",
     "update-timeout": "The web app did not answer after the update.",
     "update-close": "Close",
@@ -535,6 +545,14 @@ export const translations = {
     "update-cannot-install": "此网页应用的 Node.js 旁没有 npm。上面的命令仍然可用。",
     "update-installing": "正在安装新版本…",
     "update-failed": "更新失败（{code}）。网页应用仍在运行。",
+    "update-failed-install-busy": "另一个更新正在安装 OMMS。网页应用仍在运行。请几分钟后再试。",
+    "update-failed-incomplete-install":
+      "更新未能完成，因此 OMMS 保留了当前版本。请在终端中运行更新命令：npx -p om-memory-system@latest om-memory-system web update",
+    "update-failed-network":
+      "npm 无法连接到软件包仓库。网页应用仍在运行。请检查网络连接，然后再试。",
+    "update-failed-permission":
+      "npm 没有权限写入全局安装所在的文件夹。网页应用仍在运行。请为你的用户授予该文件夹的写入权限，然后再试。",
+    "update-failed-timeout": "安装超过 5 分钟，已被停止。网页应用仍在运行。请稍后再试。",
     "update-request-failed": "请求失败。网页应用仍在运行。",
     "update-timeout": "更新后网页应用没有响应。",
     "update-close": "关闭",
@@ -911,6 +929,16 @@ export const translations = {
       "لا يوجد npm بجانب Node.js الخاص بتطبيق الويب هذا. ما زالت الأوامر أعلاه تعمل.",
     "update-installing": "جارٍ تثبيت الإصدار الجديد…",
     "update-failed": "فشل التحديث ({code}). ما زال تطبيق الويب يعمل.",
+    "update-failed-install-busy":
+      "يثبّت تحديث آخر OMMS الآن. ما زال تطبيق الويب يعمل. حاول مرة أخرى بعد بضع دقائق.",
+    "update-failed-incomplete-install":
+      "تعذّر إكمال التحديث، لذا أبقى OMMS الإصدار الحالي. شغّل أمر التحديث في الطرفية: npx -p om-memory-system@latest om-memory-system web update",
+    "update-failed-network":
+      "تعذّر على npm الوصول إلى سجل الحزم. ما زال تطبيق الويب يعمل. تحقّق من الاتصال بالإنترنت، ثم حاول مرة أخرى.",
+    "update-failed-permission":
+      "لا يملك npm إذنًا بالكتابة في مجلد التثبيت العام. ما زال تطبيق الويب يعمل. امنح مستخدمك إذن الكتابة في هذا المجلد، ثم حاول مرة أخرى.",
+    "update-failed-timeout":
+      "استغرق التثبيت أكثر من 5 دقائق فتوقّف. ما زال تطبيق الويب يعمل. حاول مرة أخرى لاحقًا.",
     "update-request-failed": "فشل الطلب. ما زال تطبيق الويب يعمل.",
     "update-timeout": "لم يستجب تطبيق الويب بعد التحديث.",
     "update-close": "إغلاق",

@@ -229,7 +229,11 @@ describe("restartWebAutostart", () => {
       run: (command, args) => commands.push([command, ...args].join(" ")),
     });
     expect(restarted).toBe(true);
-    expect(commands).toEqual(["systemctl --user restart omms-web.service"]);
+    // A restart the user asks for must not use up systemd's start limit.
+    expect(commands).toEqual([
+      "systemctl --user reset-failed omms-web.service",
+      "systemctl --user restart omms-web.service",
+    ]);
   });
 
   it("reports failure when the service manager command fails", () => {

@@ -109,7 +109,11 @@ export function versionNotice(info: VersionInfo): {
 } {
   return {
     kind: info.relation,
-    command: info.relation === "older" ? "npm i -g om-memory-system@latest" : null,
+    // `web update` takes the install lock, so it never races a web app's own update.
+    command:
+      info.relation === "older"
+        ? "npx -p om-memory-system@latest om-memory-system web update"
+        : null,
   };
 }
 

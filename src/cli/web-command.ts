@@ -26,7 +26,7 @@ async function announceHandover(ctx: HandoverContext, handover: Handover): Promi
     );
   } else if (handover.kind === "newer") {
     console.log(
-      `OMMS ${handover.owner} already serves port ${port}. It is newer than this command (${version}). Update the global command: npm i -g om-memory-system`
+      `OMMS ${handover.owner} already serves port ${port}. It is newer than this command (${version}). Update the global command: om-memory-system web update`
     );
   } else if (handover.kind === "same") {
     console.log(`OMMS web app: ${url} (version ${handover.owner})`);

@@ -126,7 +126,7 @@ npm i -g om-memory-system      # or: bun add -g om-memory-system
 om-memory-system --version
 ```
 
-You do not need to keep the global install up to date. See [Hand-off to the newest copy](#hand-off-to-the-newest-copy). To update it, run `npm i -g om-memory-system@latest` or `bun add -g om-memory-system@latest`. The Settings page shows the running version next to the version of the global install.
+You do not need to keep the global install up to date. See [Hand-off to the newest copy](#hand-off-to-the-newest-copy). To update it, run `om-memory-system web update`. It takes the install lock, so it never runs at the same time as a web app's own update. See [Install lock and install check](#install-lock-and-install-check). The Settings page shows the running version next to the version of the global install.
 
 ## Hand-off to the newest copy
 
@@ -136,7 +136,8 @@ When the record names a valid copy that is newer than the running command, the c
 
 - A global install from 4.3 or earlier has no hand-off code. Update it once.
 - Set `OMMS_NO_HANDOFF=1` to run the code of the command you typed, for one command.
-- A copy that is not valid is ignored. A copy is valid when its `package.json` names `om-memory-system`, its version can be compared, and it has `dist/cli/index.js`.
+- A copy that is not valid is ignored. A copy is valid when its `package.json` names `om-memory-system`, its version can be compared, it has `dist/cli/index.js`, and its dependencies are complete. Complete means that each dependency in its `package.json` has a folder with a `package.json`, and that no package folder in its own `node_modules` is empty. Optional dependencies are not checked.
+- When the newest copy is not valid, the launcher runs the next valid copy. When no copy is valid, it prints one line that names the missing part, for example `omms-launch: no complete OMMS copy found (missing js-base64). Run: npx -p om-memory-system@latest om-memory-system web update`, and exits with code `1`. Under the login item stderr goes nowhere, so the launcher also writes `no-valid-copy` and the missing dependency to `~/.omms/omms.log`.
 - A failure to read or write the record never stops the command.
 
 See [Updating and upgrading](upgrading.md#one-update-updates-every-host).
@@ -260,12 +261,26 @@ Error messages never contain the API key. The key from `--api-key-env` and the s
 - It prints the web app URL from `webServerHost` and `webServerPort`, for example `http://127.0.0.1:4747`.
 - For a Homebrew runtime, the item stores the stable link, for example `/opt/homebrew/bin/node`. It does not store the versioned `Cellar` path, so a Homebrew upgrade does not break the item.
 - It exits with code `1` if the item is not installed.
+- On macOS and Linux the item restarts a web app that crashed. See [Login item restart](#login-item-restart).
 - Before it starts the login item, it reads the version of any OMMS web app on the configured port:
   - An older web app receives a step-aside request. A standalone web app exits. An older web app inside an OpenCode session stops serving and the session keeps running. `web install` waits up to 10 seconds for the port, starts the login item, and prints `OMMS web app: <url> (version <version>)`.
   - An older web app from OMMS 3.5.0 or earlier has no step-aside route. `web install` prints the version and how to stop it. Stop that web app, then run `web install` again.
   - A web app of the same version keeps running. `web install` prints its version.
-  - A newer web app keeps running. `web install` tells you to update the global command with `npm i -g om-memory-system`.
+  - A newer web app keeps running. `web install` tells you to update the global command with `om-memory-system web update`.
 - An OpenCode start, a Pi start, and a Claude Code `SessionStart` do the same step-aside for a web app that is older than the newest recorded copy. You do not run `web install` after an update.
+
+### Login item restart
+
+On macOS and Linux the service manager restarts the web app when it exits with an error or a signal kills it. It waits 30 seconds between starts. The macOS item sets `KeepAlive` to `SuccessfulExit` `false` and `ThrottleInterval` to `30`. The Linux unit sets `Restart=on-failure` and `RestartSec=30`, and `StartLimitIntervalSec=600` and `StartLimitBurst=6` under `[Unit]`.
+
+- Stop, a hand-over to a newer web app, a retire request from `web update`, and the restart after an update exit with code `0`. The service manager does not restart them.
+- The launcher counts failed starts in `~/.omms/web-starts.json`. A failed start is an exit with a code other than `0`, or no valid copy. After 5 failed starts within 10 minutes, the launcher writes `restart-limit` to `~/.omms/omms.log` and exits with code `0`. The item then stays down until the next login or the next `om-memory-system web install`.
+- The launcher counts only starts it runs. When the launcher itself cannot run, for example because the Node.js of the item was removed, only the service manager can stop the restarts:
+  - On Linux, systemd stops the unit after 6 starts within 10 minutes, one more than the launcher's limit, so the launcher writes `restart-limit` first. systemd's limit stops a launcher that cannot run at all; `systemctl --user status omms-web` then shows `start-limit-hit`. Restart, an update restart, and `web install` clear the systemd count first, so a start you ask for never uses it up.
+  - On macOS, launchd has no start limit. `ThrottleInterval` only spaces the starts 30 seconds apart. The item tries again every 30 seconds until the next login, `om-memory-system web install`, or `om-memory-system web uninstall`.
+- `web install` deletes the count.
+- An item from an earlier version gets the restart rule at the next OpenCode or Pi start. On Linux the running service gets it at once. On macOS it applies from the next login, or at once after `om-memory-system web install`. The host start does not start a second web app.
+- The Windows startup item has no supervisor, so it has no restart rule. Windows gets the install lock and the install check.
 
 `om-memory-system web uninstall` sets `webServerAutoStart` to `false` and removes only OMMS's own item.
 
@@ -273,17 +288,34 @@ Error messages never contain the API key. The key from `--api-key-env` and the s
 
 `om-memory-system web update` brings the global install to npm `latest` and replaces the running web app.
 
-1. It reads npm `latest`. When the global install is missing or older, it runs `npm install -g om-memory-system@<latest>` with the npm beside the Node.js that runs the command. When the global install is already on `latest`, it skips npm.
+1. It reads npm `latest`. When the global install is missing or older, it runs `npm install -g om-memory-system@<latest>` with the npm beside the Node.js that runs the command. When the global install is already on `latest`, it runs the install check, and runs npm only to repair a missing dependency. The install runs under the install lock and gets the install check. See [Install lock and install check](#install-lock-and-install-check).
 2. It stops every standalone OMMS web app: the web app on the port steps aside, and web apps that wait for the port exit. A web app inside an OpenCode session stops serving, and the session keeps running.
 3. It starts one fresh web app through the login item, or through the launcher when no login item is installed. The launcher runs the newest copy on the machine.
 4. It waits up to 15 seconds and prints `OMMS web app: <url> (version <version>)`.
 
 - It works when no web app runs.
 - When npm fails, times out after 5 minutes, or leaves another version, it prints a code (`permission`, `network`, `npm-exit`, `timeout`, `version-mismatch`), keeps the web app running, and exits with code `1`.
+- When another update holds the install lock, it prints `install-busy`, runs no npm, and exits with code `1`. Wait a few minutes, then run it again.
+- When the install stays incomplete after the repair, it prints `incomplete-install` and the missing dependency, keeps the web app running, and exits with code `1`.
+- When the global install is so damaged that `om-memory-system` cannot start, run `npx -p om-memory-system@latest om-memory-system web update`. `-p` makes npx take a fresh copy into its cache. A plain `npx om-memory-system@latest` runs the global copy when it already has that version, broken or not.
 - When npm cannot be reached, it says so and still replaces the web app.
 - A web app from OMMS 4.10.0 or earlier of the same version cannot be replaced from the terminal. The command names it and says how to stop it.
 - When a host start or another `web update` holds a fresh start lock, it changes nothing, says so, and exits with code `1`. Run it again after a few seconds.
 - It needs `webServerEnabled: true`.
+
+### Install lock and install check
+
+Only one `npm install -g om-memory-system` runs at a time on a computer. Before npm runs, the web app (the **Update** button or the automatic install) and `web update` take the lock file `~/.omms/global-install.lock`.
+
+1. When another live process holds a lock that is less than 6 minutes old, the caller does not run npm. It reports `install-busy`. An automatic install tries again at its next check, 10 minutes later.
+2. The lock names the caller and, while npm runs, npm. It stays live while either process runs. A lock whose processes have both stopped, or that is older than 6 minutes, is taken over. The npm timeout is 5 minutes, so a running install never loses its lock.
+3. A web app that must exit during its own install (Stop, a hand-over, a step-aside, a retire request) waits until npm ends, at most 6 minutes. Under a login item the service manager stops every process of the item when the web app exits, so an early exit would stop npm mid-write.
+4. With the lock, the caller reads the global version again. When another caller has already installed the release and the install is complete, it skips npm.
+5. After npm exits with `0` and the global install reports the new release, the caller runs the install check. See the valid-copy rule in [Hand-off to the newest copy](#hand-off-to-the-newest-copy).
+6. When the check finds a missing dependency, the caller runs the same install once more. When the install is still incomplete, the caller reports `incomplete-install` and does not restart. The web app keeps serving its current version.
+7. The caller removes the lock after every outcome.
+
+The log holds only codes, versions, and the name of the missing dependency. It never holds npm output or a path.
 
 `web status`, `web install`, and `web update` talk to the web app on this computer with the local token file (`~/.omms/.auth-token`). They do not read `webServerApiToken`.
 

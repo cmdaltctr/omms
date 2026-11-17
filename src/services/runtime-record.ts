@@ -8,6 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { installProblem } from "./install-check.js";
 import { compareVersions } from "./version-compare.js";
 
 // The newest-copy record: `~/.omms/runtime.json` names the newest valid OMMS copy
@@ -37,8 +38,8 @@ export const launcherPath = (dir: string): string => join(dir, "bin", "omms-laun
 
 /**
  * The version of a valid OMMS copy, or null. A copy is valid when its
- * `package.json` names `om-memory-system`, its version can be compared, and it
- * has `dist/cli/index.js`.
+ * `package.json` names `om-memory-system`, its version can be compared, and the
+ * install check finds no problem: `dist/cli/index.js` and every dependency exist.
  */
 export function copyVersion(root: string): string | null {
   try {
@@ -48,7 +49,7 @@ export function copyVersion(root: string): string | null {
     };
     if (pkg.name !== "om-memory-system" || typeof pkg.version !== "string") return null;
     if (compareVersions(pkg.version, pkg.version) === null) return null;
-    return existsSync(join(root, "dist", "cli", "index.js")) ? pkg.version : null;
+    return installProblem(root) === null ? pkg.version : null;
   } catch {
     return null;
   }

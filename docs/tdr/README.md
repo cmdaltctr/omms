@@ -104,6 +104,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [080](./080-inherit-failed-without-opencode-model-json.md)                     | `inherit` failed when OpenCode had no model.json                        | Proposed              | 2026-11-11 |
 | [081](./081-web-memory-edit-takes-the-scope-write-lock.md)                     | Web memory edit takes the scope write lock                              | Proposed              | 2026-11-16 |
 | [085](./085-editing-a-memory-dropped-its-pin.md)                               | Editing a memory dropped its pin                                        | Proposed              | 2026-11-17 |
+| [086](./086-concurrent-global-installs-left-empty-dependency-folders.md)       | Concurrent global installs left empty dependency folders                | Proposed              | 2026-11-17 |
 | [087](./087-a-test-web-app-half-wrote-the-real-global-install.md)              | A test web app half-wrote the real global install                       | Proposed              | 2026-11-17 |
 
 ## Status values

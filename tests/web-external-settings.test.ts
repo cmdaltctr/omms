@@ -62,7 +62,7 @@ describe("Web app version notice", () => {
     });
     expect(versionNotice({ running: "3.4.0", global: "3.3.1", relation: "older" })).toEqual({
       kind: "older",
-      command: "npm i -g om-memory-system@latest",
+      command: "npx -p om-memory-system@latest om-memory-system web update",
     });
     // A newer global install gets no command: the next host start replaces the web app.
     expect(versionNotice({ running: "3.4.0", global: "3.5.0", relation: "newer" })).toEqual({

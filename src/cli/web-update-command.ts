@@ -1,5 +1,5 @@
 import { compareVersions } from "../services/version-compare.js";
-import type { InstallResult } from "../services/web-update.js";
+import type { GuardedResult } from "../services/global-install.js";
 
 // `om-memory-system web update`: bring the global install to npm `latest`, then
 // replace every standalone web app with one fresh web app on the newest copy.
@@ -23,7 +23,8 @@ export interface WebUpdateCommandDeps {
   latest: () => Promise<string | null>;
   /** The global install's version from its `package.json`, or null. */
   globalVersion: () => string | null;
-  install: (target: string) => Promise<InstallResult>;
+  /** The install under the install lock, checked and repaired once. */
+  install: (target: string) => Promise<GuardedResult>;
   loginItemInstalled: () => boolean;
   /** Restart the login item through the service manager. False when it cannot. */
   restartLoginItem: () => boolean;
@@ -108,21 +109,39 @@ export async function runWebUpdate(deps: WebUpdateCommandDeps): Promise<number> 
   if (latest === null) {
     record.npm = "unreachable";
     deps.print("Could not check npm for a release. Replacing the web app anyway.");
-  } else if (before === null || (compareVersions(before, latest) ?? 0) < 0) {
+  } else if (before === null || (compareVersions(before, latest) ?? 0) <= 0) {
+    // On `latest` the guarded install only checks the copy, and runs npm to repair it.
+    const current = before === latest;
     record.npm = "ran";
-    deps.print(`Installing om-memory-system@${latest} globally (was ${before ?? "not installed"})`);
-    const { code } = await deps.install(latest);
+    deps.print(
+      current
+        ? `Checking the global install (${latest}).`
+        : `Installing om-memory-system@${latest} globally (was ${before ?? "not installed"})`
+    );
+    const { code, missing, npm } = await deps.install(latest);
     const after = deps.globalVersion();
-    record.globalAfter = after;
+    Object.assign(record, { globalAfter: after }, npm ? { npm } : {}, missing ? { missing } : {});
     const failure = code ?? (after === latest ? null : "version-mismatch");
-    if (failure) {
+    if (failure === "install-busy") {
       deps.print(
-        `Global install failed (${failure}). The web app keeps running. Run: npm i -g om-memory-system@${latest}`
+        "Another OMMS update is installing om-memory-system (install-busy). Wait a few minutes, then run om-memory-system web update again."
       );
       return finish(1, "install-failed", failure);
     }
-    deps.print(`Global install: ${latest}`);
+    if (failure) {
+      const detail = missing ? `${failure}, missing ${missing}` : failure;
+      deps.print(
+        `Global install failed (${detail}). The web app keeps running. Run om-memory-system web update again later.`
+      );
+      return finish(1, "install-failed", failure);
+    }
+    deps.print(
+      current && npm === "skipped"
+        ? `Global install is up to date (${latest}).`
+        : `Global install: ${latest}`
+    );
   } else {
+    // A global install newer than npm `latest` stays as it is.
     record.npm = "skipped";
     deps.print(`Global install is up to date (${before}).`);
   }
@@ -198,7 +217,8 @@ export async function productionWebUpdateDeps(options: {
     { latestNpmVersion },
     { globalCommandVersion },
     { runGlobalInstall },
-    { nodeInstallDeps },
+    { globalInstallProblem, nodeInstallDeps, nodeInstallLock },
+    { guardedInstall },
     { restartWebAutostart, webAutostartStatus },
     { launcherPath, recordedCopy },
     { ommsDir },
@@ -215,6 +235,7 @@ export async function productionWebUpdateDeps(options: {
     import("../services/global-version.js"),
     import("../services/web-update.js"),
     import("../services/web-update-runtime.js"),
+    import("../services/global-install.js"),
     import("../services/web-autostart.js"),
     import("../services/runtime-record.js"),
     import("../services/runtime-handoff.js"),
@@ -234,7 +255,16 @@ export async function productionWebUpdateDeps(options: {
     latest: () => latestNpmVersion(fetch),
     // npm installs beside this Node.js, so read that install, not the first command on PATH.
     globalVersion: () => globalCommandVersion({ find: () => null }).version,
-    install: (target) => runGlobalInstall(nodeInstallDeps(), target),
+    install: (target) =>
+      guardedInstall(
+        {
+          lock: nodeInstallLock(options.home),
+          globalVersion: () => globalCommandVersion({ find: () => null }).version,
+          installProblem: globalInstallProblem,
+          install: (version, started) => runGlobalInstall(nodeInstallDeps(), version, started),
+        },
+        target
+      ),
     loginItemInstalled: () => webAutostartStatus(options.autostart).state === "installed",
     restartLoginItem: () => restartWebAutostart(options.autostart),
     startDetached: () => {

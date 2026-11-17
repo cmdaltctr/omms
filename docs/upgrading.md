@@ -104,10 +104,10 @@ OMMS keeps one record of the newest copy on the machine: `~/.omms/runtime.json`.
 - **Terminal command.** An old `om-memory-system` command runs the newest copy with the same arguments, input, and exit code. `om-memory-system --version` prints the version of the copy that runs. Set `OMMS_NO_HANDOFF=1` to turn this off for one command.
 - **Claude Code hooks.** The hooks use the launcher in the plugin, as described above.
 
-A global install from 4.3 or earlier has no hand-off code. Update it once. After that, every update flows through the record:
+A global install from 4.3 or earlier has no hand-off code and no `web update` command. Update it once with the command below. `npx -p` runs a fresh copy, and its `web update` installs the release globally under the install lock. After that, every update flows through the record:
 
 ```bash
-npm i -g om-memory-system@latest   # or: bun add -g om-memory-system@latest
+npx -p om-memory-system@latest om-memory-system web update
 om-memory-system --version
 ```
 
@@ -122,6 +122,16 @@ See [Web app commands](cli.md#web-app-commands).
 The **Web app** card on the Settings page shows the running version and the version of the global install. It reads the global version from the install's `package.json`. See [Settings page](web-ui-settings.md).
 
 To go back to an older version, set `OMMS_NO_HANDOFF=1` for one command. For a full rollback, remove the newer copy, then run `om-memory-system web install` from the copy to keep. When you remove the copy that the record names, the next start writes a valid copy to the record.
+
+### When an update leaves the web app down
+
+1. Run `om-memory-system web status`. When `online` is `false`, read the last `Web app update` and `Web login item` lines in `~/.omms/omms.log`.
+2. `install-busy` means another update was installing at that moment. Wait a few minutes, then select **Update web app** again or run `om-memory-system web update`.
+3. `incomplete-install` means the global install still had a missing or empty dependency folder after one repair. The log names it in `missing`. OMMS kept the current version. Run `npx -p om-memory-system@latest om-memory-system web update`. It checks the global install and repairs it, also when it already has the latest version.
+4. `restart-limit` means the login item failed to start 5 times within 10 minutes and stopped. Fix the cause from the earlier lines, then run `om-memory-system web install`. A `no-valid-copy` line names the missing dependency of a broken copy; repair it as in step 3. On Linux, systemd can stop the item first: `systemctl --user status omms-web` then shows `start-limit-hit`, and `web install` clears it.
+5. When the launcher prints `no complete OMMS copy found`, every copy on the computer has a missing part. Run the command it prints: `npx -p om-memory-system@latest om-memory-system web update`. Do not run `npm i -g` by hand: it does not take the install lock, so it can run at the same time as a web app's own update. A plain `npx om-memory-system@latest` runs the broken global copy when it already has that version; `-p` takes a fresh copy.
+
+See [Install lock and install check](cli.md#install-lock-and-install-check) and [Login item restart](cli.md#login-item-restart).
 
 ### Rolling back to an older version
 
