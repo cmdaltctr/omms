@@ -16,10 +16,13 @@ export async function replaceMemoryRow(record: MemoryRecord): Promise<boolean> {
   ];
   for (const shard of shards) {
     const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    if (!(await tursoVectorSearch.getMemoryById(db, record.id))) continue;
+    const existing = await tursoVectorSearch.getMemoryById(db, record.id);
+    if (!existing) continue;
+    // The caller builds a fresh record, so the replaced row's pin is carried over here.
+    const kept = { ...record, isPinned: Number(existing.is_pinned) === 1 };
     await db.transaction("write", async (tx) => {
       await tx.execute({ sql: `DELETE FROM memories WHERE id = ?`, args: [record.id] });
-      await tursoVectorSearch.insertVectorInTransaction(tx, record);
+      await tursoVectorSearch.insertVectorInTransaction(tx, kept);
     });
     return true;
   }

@@ -480,31 +480,24 @@ export async function handleUpdateMemory(
 
     await db.transaction("write", async (tx) => {
       await tx.execute({ sql: `DELETE FROM memories WHERE id = ?`, args: [id] });
-      await tx.execute({
-        sql: `
-        INSERT INTO memories (
-          id, content, vector, tags_vector, container_tag, tags, type, created_at, updated_at,
-          metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url
-        ) VALUES (?, ?, vector32(?), ${tagsVector ? "vector32(?)" : "NULL"}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-        args: [
-          id,
-          newContent,
-          JSON.stringify(Array.from(vector)),
-          ...(tagsVector ? [JSON.stringify(Array.from(tagsVector))] : []),
-          String(existingMemory.container_tag),
-          tags.length > 0 ? tags.join(",") : null,
-          data.type || (existingMemory.type ? String(existingMemory.type) : null),
-          Number(existingMemory.created_at),
-          Date.now(),
-          existingMemory.metadata ? String(existingMemory.metadata) : null,
-          existingMemory.display_name ? String(existingMemory.display_name) : null,
-          existingMemory.user_name ? String(existingMemory.user_name) : null,
-          existingMemory.user_email ? String(existingMemory.user_email) : null,
-          existingMemory.project_path ? String(existingMemory.project_path) : null,
-          existingMemory.project_name ? String(existingMemory.project_name) : null,
-          existingMemory.git_repo_url ? String(existingMemory.git_repo_url) : null,
-        ],
+      await tursoVectorSearch.insertVectorInTransaction(tx, {
+        id,
+        content: newContent,
+        vector,
+        tagsVector,
+        containerTag: String(existingMemory.container_tag),
+        tags: tags.length > 0 ? tags.join(",") : undefined,
+        type: data.type || (existingMemory.type ? String(existingMemory.type) : undefined),
+        createdAt: Number(existingMemory.created_at),
+        updatedAt: Date.now(),
+        metadata: existingMemory.metadata ? String(existingMemory.metadata) : undefined,
+        displayName: existingMemory.display_name ? String(existingMemory.display_name) : undefined,
+        userName: existingMemory.user_name ? String(existingMemory.user_name) : undefined,
+        userEmail: existingMemory.user_email ? String(existingMemory.user_email) : undefined,
+        projectPath: existingMemory.project_path ? String(existingMemory.project_path) : undefined,
+        projectName: existingMemory.project_name ? String(existingMemory.project_name) : undefined,
+        gitRepoUrl: existingMemory.git_repo_url ? String(existingMemory.git_repo_url) : undefined,
+        isPinned: Number(existingMemory.is_pinned) === 1,
       });
     });
 
