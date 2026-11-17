@@ -2,6 +2,13 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [7.0.1](https://github.com/cmdaltctr/omms/compare/v7.0.0...v7.0.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* tidy the web UI and stop the OpenCode model list creating OpenCode files ([355a8cc](https://github.com/cmdaltctr/omms/commit/355a8cc22fc6cdeae9b0b028b3a6e727e8a70987))
+
 ## [7.0.0](https://github.com/cmdaltctr/omms/compare/v6.5.0...v7.0.0) (2026-11-17)
 
 
