@@ -32,6 +32,8 @@ function fake(version: string, latest: (string | null)[], enabled = true) {
       throw new Error("no install in check tests");
     },
     globalVersion: () => null,
+    installProblem: () => null,
+    installLock: { take: () => true, refresh: () => {}, release: () => {} },
     restart: async () => undefined,
     // No restart path, so a check records a release without an automatic install.
     canRestart: () => false,

@@ -306,15 +306,26 @@ async function probe(baseUrl: string, timeoutMs: number, deps: EnsureDeps): Prom
   }
 }
 
-/** What taking the start lock needs; a test drives two callers through it step by step. */
-export type LockDeps = Pick<EnsureDeps, "lockPath" | "lockFs" | "pid" | "now" | "pidAlive">;
+/**
+ * What taking the start lock needs; a test drives two callers through it step by
+ * step. `staleMs` defaults to the start lock's 20 seconds; the install lock passes 6 minutes.
+ */
+export type LockDeps = Pick<EnsureDeps, "lockPath" | "lockFs" | "pid" | "now" | "pidAlive"> & {
+  staleMs?: number;
+};
 
 function lockIsStale(text: string | null, deps: LockDeps): boolean {
   if (text === null) return true;
   try {
-    const { pid, at } = JSON.parse(text) as { pid?: unknown; at?: unknown };
+    const { pid, at, npmPid } = JSON.parse(text) as {
+      pid?: unknown;
+      at?: unknown;
+      npmPid?: unknown;
+    };
     if (typeof pid !== "number" || typeof at !== "number") return true;
-    return !deps.pidAlive(pid) || deps.now() - at > START_LOCK_STALE_MS;
+    // The install lock also names npm, which can outlive a holder that exited mid-install.
+    const live = deps.pidAlive(pid) || (typeof npmPid === "number" && deps.pidAlive(npmPid));
+    return !live || deps.now() - at > (deps.staleMs ?? START_LOCK_STALE_MS);
   } catch {
     return true;
   }
@@ -336,7 +347,7 @@ export function takeStartLock(deps: LockDeps): boolean {
     // A takeover that crashed after its link leaves the tombstone behind. Clear
     // it, and let the next caller do the takeover.
     const age = deps.lockFs.ageMs(tomb);
-    if (age !== null && age > START_LOCK_STALE_MS) deps.lockFs.remove(tomb);
+    if (age !== null && age > (deps.staleMs ?? START_LOCK_STALE_MS)) deps.lockFs.remove(tomb);
     return false;
   }
   try {

@@ -1,4 +1,5 @@
 import { posix, win32 } from "node:path";
+import { guardedInstall, type InstallLock } from "./global-install.js";
 import type { LogLevel } from "./logger.js";
 import { availableUpdate, latestNpmVersion } from "./update-check.js";
 import { compareVersions } from "./version-compare.js";
@@ -54,6 +55,10 @@ export interface WebUpdateDeps {
   ) => InstallChild;
   /** The version of the global install (also read before npm runs), or null. */
   globalVersion: () => string | null;
+  /** The lock that lets one `npm install -g` run at a time on this machine. */
+  installLock: InstallLock;
+  /** The install check of the global install: a missing part, or null when complete. */
+  installProblem: () => string | null;
   /** False when no restart could serve the new copy, such as a missing launcher. Checked before npm runs. */
   canRestart: () => boolean;
   /** True while a Stop or Restart runs; the automatic start stays quiet then. */
@@ -176,27 +181,45 @@ export class WebUpdate {
 
   private async install(target: string): Promise<void> {
     const began = this.deps.now();
-    const record = (outcome: string, code: string | null, exitCode?: number | null) =>
+    // `npm` and `missing` are absent unless set; `missing` is a dependency name, never a path.
+    const record = (
+      outcome: string,
+      code: string | null,
+      extra: { exitCode?: number | null; npm?: string; missing?: string } = {}
+    ) =>
       this.deps.log("Web app update", {
         outcome,
         code,
         from: this.deps.version,
         to: target,
-        exitCode,
+        ...extra,
         durationMs: this.deps.now() - began,
       });
-    const fail = (code: string, exitCode?: number | null) => {
+    const fail = (code: string, extra: { exitCode?: number | null; missing?: string } = {}) => {
       this.state = "failed";
       this.code = code;
       // Only an automatic start waits before trying again; the button always works.
       if (this.autoAttempt) this.autoRetryAt = this.deps.now() + AUTO_RETRY_AFTER_MS;
-      record("failed", code, exitCode);
+      record("failed", code, extra);
     };
-    const { code, exitCode } = await runGlobalInstall(this.deps, target);
-    if (code) return fail(code, exitCode);
-    if (this.deps.globalVersion() !== target) return fail("version-mismatch", exitCode);
+    const result = await guardedInstall(
+      {
+        lock: this.deps.installLock,
+        globalVersion: this.deps.globalVersion,
+        installProblem: this.deps.installProblem,
+        install: (version, started) => runGlobalInstall(this.deps, version, started),
+      },
+      target
+    );
+    const { code, exitCode, npm, missing } = result;
+    if (code === "install-busy" && this.autoAttempt) {
+      // Another install runs; the next check in 10 minutes tries again.
+      this.state = "idle";
+      return record("busy", code);
+    }
+    if (code) return fail(code, { exitCode, missing });
     this.state = "restarting";
-    record("installed", null, exitCode);
+    record("installed", null, { exitCode, npm, missing });
     const restartCode = await this.deps.restart();
     // The restart exits this process on success, so a return means it kept serving.
     if (restartCode) fail(restartCode);
@@ -241,7 +264,11 @@ export function npmSearchPath(
  * Run `npm install -g om-memory-system@<target>` and stop it after 5 minutes.
  * The web app's update button and `web update` share it.
  */
-export function runGlobalInstall(deps: InstallDeps, target: string): Promise<InstallResult> {
+export function runGlobalInstall(
+  deps: InstallDeps,
+  target: string,
+  started?: (npmPid: number) => void
+): Promise<InstallResult> {
   if (!PLAIN_VERSION.test(target)) return Promise.resolve({ code: "bad-version" });
   return new Promise((resolve) => {
     let child: InstallChild;
@@ -258,6 +285,8 @@ export function runGlobalInstall(deps: InstallDeps, target: string): Promise<Ins
       resolve({ code: "spawn-error" });
       return;
     }
+    // The install lock names npm, so a caller that exits mid-install leaves no lock that looks dead.
+    if (child.pid) started?.(child.pid);
     let errorText = "";
     let done = false;
     const finish = (result: InstallResult) => {

@@ -1,3 +1,4 @@
+import { exitAfterInstall } from "../services/global-install.js";
 import type { LogLevel } from "../services/logger.js";
 
 // What a standalone web app does after it stops serving for a newer caller. The
@@ -25,10 +26,12 @@ export interface StepAsideDeps {
 
 /** Call after this web app stopped serving. It never leaves the port empty when it can help it. */
 export async function leaveAfterStepAside(deps: StepAsideDeps): Promise<void> {
+  // A step-aside or a retire waits for an install this process runs, so npm is never cut off mid-write.
+  const exit = exitAfterInstall(deps.exit);
   const began = deps.now();
   while (deps.now() - began < NEW_OWNER_WAIT_MS) {
     if (await deps.ownerAnswers()) {
-      deps.exit(0);
+      exit(0);
       return;
     }
     await deps.sleep(POLL_MS);
@@ -43,6 +46,6 @@ export async function leaveAfterStepAside(deps: StepAsideDeps): Promise<void> {
     await deps.resume();
   } catch {
     deps.log("Web app step-aside", { code: "resume-failed" }, "error");
-    deps.exit(1);
+    exit(1);
   }
 }

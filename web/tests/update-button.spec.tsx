@@ -204,22 +204,37 @@ it("shows progress while the web app installs", async () => {
 });
 
 it("shows the failure code and stays usable when the install fails", async () => {
-  waitResult = { kind: "failed", code: "permission" };
+  waitResult = { kind: "failed", code: "npm-exit" };
   const tree = await loaded();
   button(tree)?.props.onClick?.();
   (choice(render(), en["update-install"]!)?.props.onClick as () => void)();
   await tick();
   const after = render();
   expect(reloads).toBe(0);
-  expect(textOf(after)).toContain("The update failed (permission). The web app still runs.");
+  expect(textOf(after)).toContain("The update failed (npm-exit). The web app still runs.");
   expect(choice(after, en["update-install"]!)?.props.disabled).toBe(false);
 });
 
 it("shows a failure the status poll reports", async () => {
-  status = { ...status!, update: { ...status!.update!, state: "failed", code: "timeout" } };
+  status = { ...status!, update: { ...status!.update!, state: "failed", code: "spawn-error" } };
   const tree = await loaded();
   button(tree)?.props.onClick?.();
-  expect(textOf(render())).toContain("The update failed (timeout).");
+  expect(textOf(render())).toContain("The update failed (spawn-error).");
+});
+
+it("names the next step for each failure code it knows", async () => {
+  for (const code of ["install-busy", "incomplete-install", "network", "permission", "timeout"]) {
+    status = { ...status!, update: { ...status!.update!, state: "failed", code } };
+    const tree = await loaded();
+    button(tree)?.props.onClick?.();
+    const text = textOf(render());
+    expect(text).toContain(en[`update-failed-${code}`]!);
+    expect(text).not.toContain("The update failed");
+  }
+  expect(en["update-failed-install-busy"]).toContain("Try again in a few minutes");
+  expect(en["update-failed-incomplete-install"]).toContain(
+    "npx -p om-memory-system@latest om-memory-system web update"
+  );
 });
 
 it("says the request failed when the web app refuses it", async () => {
@@ -245,7 +260,7 @@ it("has every update string in English, Chinese, and Arabic", () => {
     Object.keys(translations[lang])
       .filter((key) => key.startsWith("update-"))
       .sort();
-  expect(keys("en").length).toBe(20);
+  expect(keys("en").length).toBe(25);
   expect(keys("zh")).toEqual(keys("en"));
   expect(keys("ar")).toEqual(keys("en"));
 });

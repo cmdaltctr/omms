@@ -1,5 +1,14 @@
 import { describe, expect, it } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createPowerAction, type PowerDeps } from "../src/cli/web-power.js";
+import {
+  fileInstallLock,
+  guardedInstall,
+  installLockPath,
+} from "../src/services/global-install.js";
+import { nodeLockFs } from "../src/services/web-ensure.js";
 
 type CopyFate =
   | "serves" // the copy answers health after the old process stops
@@ -125,6 +134,36 @@ describe("web power action", () => {
     await f.action(false)("stop");
     expect(f.events).toEqual(["stop", "exit:0"]);
     expect(f.spawns).toHaveLength(0);
+  });
+
+  it("waits for an install in progress before Stop exits", async () => {
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const home = mkdtempSync(join(tmpdir(), "omms-power-install-"));
+    const install = guardedInstall(
+      {
+        lock: fileInstallLock({
+          lockPath: installLockPath(home),
+          lockFs: nodeLockFs,
+          pid: process.pid,
+          now: Date.now,
+          pidAlive: () => true,
+        }),
+        globalVersion: () => "4.8.0",
+        installProblem: () => null,
+        install: async () => (await gate, { code: null, exitCode: 0 }),
+      },
+      "4.9.0"
+    );
+    const f = fake();
+    await f.action(false)("stop");
+    // npm still writes the global install, so the process must not exit yet.
+    expect(f.events).toEqual(["stop"]);
+    release();
+    await install;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(f.events).toEqual(["stop", "exit:0"]);
+    rmSync(home, { recursive: true, force: true });
   });
 
   it("stops Stop for the login item too, without asking the service manager", async () => {

@@ -27,6 +27,8 @@ function fake(
     canRestart?: boolean;
     enabled?: boolean;
     autoBlocked?: boolean;
+    /** True when another caller holds the install lock. */
+    lockHeld?: boolean;
   } = {}
 ) {
   const answers = config.latest ?? ["4.10.0"];
@@ -35,6 +37,7 @@ function fake(
   const logs: { message: string; data: Record<string, unknown> }[] = [];
   const clock = { ms: 0 };
   const flags = { autoBlocked: config.autoBlocked ?? false };
+  let installed = false;
   const deps: WebUpdateDeps = {
     version: config.version ?? "4.9.0",
     enabled: config.enabled ?? true,
@@ -60,11 +63,15 @@ function fake(
       setTimeout(() => {
         if ("hang" in npm) return;
         if (npm.stderr) stderr.emit("data", Buffer.from(npm.stderr));
+        installed ||= npm.exit === 0;
         emitter.emit("exit", npm.exit);
       }, 0);
       return child;
     },
     globalVersion: () => (config.global === undefined ? "4.10.0" : config.global),
+    // The global version reads 4.10.0 throughout, so the install counts as incomplete until npm exits with 0.
+    installProblem: () => (installed ? null : "dist/cli/index.js"),
+    installLock: { take: () => !config.lockHeld, refresh: () => {}, release: () => {} },
     restart: async () => undefined,
     canRestart: () => config.canRestart ?? true,
     killTree: async () => {},
@@ -86,6 +93,22 @@ it("a check that finds a newer release starts the install by itself", async () =
     { command: "/opt/node/bin/npm", args: ["install", "-g", "om-memory-system@4.10.0"] },
   ]);
   expect(f.update.status().state).toBe("installing");
+});
+
+it("logs install-busy and stays idle when another install holds the lock, then retries at the next check", async () => {
+  const f = fake({ lockHeld: true });
+  await f.update.check();
+  await settle();
+  expect(f.spawns).toEqual([]);
+  expect(f.update.status()).toMatchObject({ state: "idle", code: null, available: "4.10.0" });
+  expect(f.logs.at(-1)).toMatchObject({
+    message: "Web app update",
+    data: { outcome: "busy", code: "install-busy" },
+  });
+  // No 30-minute wait: the next check, 10 minutes on, tries again.
+  f.clock.ms += 10 * 60 * 1000;
+  await f.update.check();
+  expect(f.logs.filter((entry) => entry.data.code === "install-busy")).toHaveLength(2);
 });
 
 it("installs the release when the global install is behind a newer running copy", async () => {

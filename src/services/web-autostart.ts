@@ -7,6 +7,7 @@ import {
   readFileSync,
   realpathSync,
   renameSync,
+  rmSync,
   unlinkSync,
   writeFileSync,
   constants,
@@ -188,6 +189,12 @@ const xml = (value: string) =>
 const systemd = (value: string) => `"${value.replaceAll("%", "%%").replaceAll('"', '\\"')}"`;
 const windows = (value: string) => `"${value.replaceAll("%", "%%")}"`;
 
+/**
+ * The item text. On macOS and Linux the service manager restarts a web app that
+ * exits with an error, 30 seconds apart; Stop, hand-over and update restarts exit
+ * with 0 and stay down. The launcher stops after 5 failed starts in 10 minutes.
+ * The Windows startup item has no supervisor, so it has no restart rule.
+ */
 function itemContent(platform: string, runtime: string, launcher: string): string {
   if (platform === "darwin")
     return `<?xml version="1.0" encoding="UTF-8"?>
@@ -196,12 +203,12 @@ function itemContent(platform: string, runtime: string, launcher: string): strin
 <!-- ${MARKER} -->
 <key>Label</key><string>${NAME}</string>
 <key>ProgramArguments</key><array><string>${xml(runtime)}</string><string>${xml(launcher)}</string><string>web</string><string>--login-item</string></array>
-<key>RunAtLoad</key><true/><key>KeepAlive</key><false/>
+<key>RunAtLoad</key><true/><key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict><key>ThrottleInterval</key><integer>30</integer>
 <key>StandardOutPath</key><string>/dev/null</string><key>StandardErrorPath</key><string>/dev/null</string>
 </dict></plist>\n`;
   if (platform === "linux")
     return `# ${MARKER}
-[Unit]\nDescription=OMMS web app\n[Service]\nType=simple\nExecStart=${systemd(runtime)} ${systemd(launcher)} web --login-item\n[Install]\nWantedBy=default.target\n`;
+[Unit]\nDescription=OMMS web app\nStartLimitIntervalSec=600\nStartLimitBurst=6\n[Service]\nType=simple\nExecStart=${systemd(runtime)} ${systemd(launcher)} web --login-item\nRestart=on-failure\nRestartSec=30\n[Install]\nWantedBy=default.target\n`;
   return `@echo off\r\nrem ${MARKER}\r\nstart "" /min ${windows(runtime)} ${windows(launcher)} web --login-item\r\n`;
 }
 
@@ -212,6 +219,18 @@ function owned(path: string): boolean {
 function runCommand(options: WebAutostartOptions, home: string, command: string, args: string[]) {
   if (options.run) options.run(command, args);
   else execFileSync(command, args, { cwd: home, stdio: "ignore", timeout: 5_000 });
+}
+
+/**
+ * Clear systemd's start count, so a start the user asks for (Restart, an update,
+ * `web install`) never uses up the crash limit. A failure leaves the start to try.
+ */
+function resetStartLimit(options: WebAutostartOptions, home: string): void {
+  try {
+    runCommand(options, home, "systemctl", ["--user", "reset-failed", "omms-web.service"]);
+  } catch {
+    /* An older systemd or a unit that was never loaded. */
+  }
 }
 
 /** Read the login item's state without changing any system files. */
@@ -263,12 +282,16 @@ export function installWebAutostart(options: WebAutostartOptions = {}): WebAutos
       if (existsSync(temp)) unlinkSync(temp);
     }
   }
+  // `web install` starts the item afresh, so the launcher's restart limit starts afresh too.
+  if (options.start) rmSync(join(dir, "web-starts.json"), { force: true });
   if (platform === "linux") {
     if (changed) runCommand(options, home, "systemctl", ["--user", "daemon-reload"]);
     // Re-enable even if the unit file is unchanged; the user service may have been disabled.
     runCommand(options, home, "systemctl", ["--user", "enable", "omms-web.service"]);
-    if (options.start)
+    if (options.start) {
+      resetStartLimit(options, home);
       runCommand(options, home, "systemctl", ["--user", "start", "omms-web.service"]);
+    }
   }
   if (platform === "darwin" && options.start) {
     const domain = `gui/${process.getuid?.() ?? 0}`;
@@ -323,6 +346,7 @@ export function restartWebAutostart(options: WebAutostartOptions = {}): boolean 
         `gui/${process.getuid?.() ?? 0}/${NAME}`,
       ]);
     } else if (platform === "linux") {
+      resetStartLimit(options, home);
       runCommand(options, home, "systemctl", ["--user", "restart", "omms-web.service"]);
     } else {
       return false;
