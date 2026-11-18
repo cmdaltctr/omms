@@ -13,7 +13,6 @@ const connectionManagerUrl = new URL("../src/services/turso/connection-manager.j
   .href;
 const vectorUtilsUrl = new URL("../src/services/turso/vector-utils.js", import.meta.url).href;
 const readyUrl = new URL("../src/services/turso/ready.js", import.meta.url).href;
-const configUrl = new URL("../src/config.js", import.meta.url).href;
 const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
 
 const PROJECT_TAG = "opencode_project_abcdef1234567890";
@@ -66,10 +65,6 @@ mock.module(${JSON.stringify(readyUrl)}, () => ({
   ensureTursoReady: async () => {},
 }));
 
-mock.module(${JSON.stringify(configUrl)}, () => ({
-  CONFIG: { maxMemories: 20, similarityThreshold: 0.5 },
-  getActiveSpace: () => ({ id: "default", customStoragePath: false }),
-}));
 
 mock.module(${JSON.stringify(loggerUrl)}, () => ({
   log: () => {},

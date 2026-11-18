@@ -277,7 +277,7 @@ baseline of files with a count per file, like
 
 | Ratchet          | Scope                                   | Counts                                                        | Follow-up it guards |
 | ---------------- | --------------------------------------- | ------------------------------------------------------------- | ------------------- |
-| `CONFIG` imports | `src/core/`, `src/services/`            | Non-type import sites of `src/config.ts`                      | Config injection    |
+| `CONFIG` imports | `src/core/`, `src/services/`            | Non-type import sites of `src/config.ts` (floor of 2 files)   | Config injection    |
 | Storage imports  | All `src/` except `src/services/turso/` | Import sites of `@libsql/client` or `src/services/turso/*`    | Storage port        |
 | Raw SQL          | All `src/` except `src/services/turso/` | String literals that start with an SQL statement (upper case) | Storage port        |
 
@@ -291,6 +291,39 @@ baseline of files with a count per file, like
 To pass a ratchet, take config as an argument (pattern:
 `src/services/ai/live-model-choice.ts`), or put the storage code in
 `src/services/turso/`. Do not raise a count.
+
+### Config injection
+
+The `CONFIG` import count in `src/core/` and `src/services/` went from 52 files
+to 2. The rule: do not import `CONFIG` in `src/core/` or `src/services/`.
+Pass the values, the live config module, or a getter function. Never keep a
+copy of `CONFIG` in a field or a module constant. `config.ts` replaces the
+`CONFIG` object on every reload and every memory space switch. A copy goes
+stale and can write to the wrong space. Never spread it (`{ ...CONFIG }`).
+
+Use one of five approaches:
+
+| Approach        | Use it when                                                                      | Example                                                          |
+| --------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| A (value)       | A function reads settings once per call. It takes `Pick<typeof CONFIG, ...>`.    | `src/services/deduplication-service.ts`                          |
+| B (live module) | A function refreshes the config, then reads it. It takes a `Pick` of the module. | `src/core/capture.ts` (`CaptureConfigModule`)                    |
+| G (getter)      | A timer or ticker runs for a long time. It takes `() => Pick<...>` and calls it. | `src/services/cleanup-service.ts` (`startDailyMaintenanceTimer`) |
+| W (web)         | A web route needs config. The route host passes the live module.                 | `src/services/web-server/route-host.ts` (`loadConfig`)           |
+| S (store)       | A store singleton is created at module load, before any edge runs.               | `src/services/active-space-access.ts`                            |
+
+The caller at the edge passes `CONFIG` at call time. Edges are host adapters,
+CLI entry points and the web server start.
+
+Two files keep the `CONFIG` import by design:
+
+- `src/services/web-server.ts` is the web edge. It loads the config module for the route host (approach W).
+- `src/services/active-space-access.ts` is the store reader (approach S). It reads `getActiveSpace` and the store settings live, on every call, through a fixed list of functions. `tests/store-settings-reader.test.ts` pins the list. `config.ts` must never import this file.
+
+The `CONFIG` ratchet in `tests/modularity-ratchets.test.ts` guards this end
+state. Its baseline lists these two files with a count of 1 each, and its
+floor is 2 files. A third file with a non-type `CONFIG` import fails the test.
+A re-export of `CONFIG` fails the re-export test. Do not raise a count and do
+not lower the floor below 2.
 
 ## Add a new host adapter
 

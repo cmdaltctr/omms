@@ -49,9 +49,6 @@ const recent = [
   { id: "mem_recent", summary: "Release 4.4 shipped.", createdAt: new Date().toISOString(), metadata: {} },
 ];
 
-mock.module(${JSON.stringify(url("../src/config.js"))}, () => ({
-  CONFIG: { injectProfile: false, chatMessage: { excludeCurrentSession: false } },
-}));
 mock.module(${JSON.stringify(url("../src/services/user-profile/profile-context.js"))}, () => ({
   getUserProfileContext: async () => null,
 }));

@@ -13,7 +13,6 @@ afterEach(() => {
 const openingUrl = new URL("../src/core/opening-context.js", import.meta.url).href;
 const retrievalUrl = new URL("../src/core/retrieval.js", import.meta.url).href;
 const clientUrl = new URL("../src/services/client.js", import.meta.url).href;
-const configUrl = new URL("../src/config.js", import.meta.url).href;
 const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
 const contextServiceUrl = new URL("../src/services/context.js", import.meta.url).href;
 
@@ -40,9 +39,6 @@ let release;
 const bothStarted = new Promise((resolve) => (release = resolve));
 const overlap = [];
 
-mock.module(${JSON.stringify(configUrl)}, () => ({
-  CONFIG: { chatMessage: { excludeCurrentSession: ${excludeCurrentSession} } },
-}));
 
 mock.module(${JSON.stringify(clientUrl)}, () => ({
   memoryClient: {

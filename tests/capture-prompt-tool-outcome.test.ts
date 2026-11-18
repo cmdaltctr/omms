@@ -4,7 +4,6 @@ import type { ClaudeTranscriptEntry } from "../src/importer/claude-conversation.
 
 // Memory capture must send the same request whether or not the readers set
 // tool outcomes. Only `skills.db` uses `outcome` and `error`.
-mock.module("../src/config.js", () => ({ CONFIG: {}, refreshConfigIfChanged: () => {} }));
 mock.module("../src/services/logger.js", () => ({ log: () => {} }));
 mock.module("../src/services/capture-diagnostics.js", () => ({
   buildCaptureAttemptRecord: () => ({}),

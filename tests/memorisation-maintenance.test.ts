@@ -162,10 +162,6 @@ describe("memorisation maintenance", () => {
 import { expect, it, mock } from "bun:test";
 const listCalls = [];
 let captureContext = "";
-mock.module(${JSON.stringify(url("../src/config.js"))}, () => ({
-  CONFIG: {},
-  refreshConfigIfChanged: () => {},
-}));
 mock.module(${JSON.stringify(url("../src/services/capture-diagnostics.js"))}, () => ({
   buildCaptureAttemptRecord: () => ({}),
   emitCaptureAttempt: () => {},

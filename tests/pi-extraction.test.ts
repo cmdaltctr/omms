@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import {
   buildCaptureSystemPrompt,
   captureSummarySchema,
@@ -50,7 +50,6 @@ describe("shared capture extraction contract", () => {
   });
 });
 
-mock.module("../src/config.js", () => ({ CONFIG: { autoCaptureLanguage: "en" } }));
 const { createPiCaptureProvider } = await import("../src/adapters/pi/provider.js");
 
 describe("Pi extraction diagnostics", () => {

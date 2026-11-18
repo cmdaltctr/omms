@@ -34,9 +34,6 @@ const searchQueries = [];
 const formatted = [];
 let results = [];
 
-mock.module(${JSON.stringify(configUrl)}, () => ({
-  CONFIG: { chatMessage: { excludeCurrentSession: ${excludeCurrentSession} } },
-}));
 
 mock.module(${JSON.stringify(clientUrl)}, () => ({
   memoryClient: {

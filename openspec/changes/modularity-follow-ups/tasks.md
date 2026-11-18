@@ -40,9 +40,9 @@ Measured 2026-11-18 after `unify-profile-learning`: 52 files, 53 import sites. A
 Target: `web-server.ts` and `active-space-access.ts` keep their import (D5a). The slice that takes the list below 10 files lowers the `minimum` argument of the `CONFIG import` ratchet.
 
 - [x] 3.1 Slice the 52 `CONFIG` importers in `src/core/` and `src/services/`, leaf modules first.
-- [ ] 3.2 For each slice, change functions to take a `Pick<typeof CONFIG, ...>` argument and pass `CONFIG` at the edge (D5). Lower the `CONFIG import` baseline.
-- [ ] 3.3 Remove each `mock.module("../src/config.js")` stub whose test no longer needs it. Do not weaken any assertion.
-- [ ] 3.4 When the baseline reaches 0 for `src/core/` and `src/services/`, record it in `docs/shared-core.md`.
+- [x] 3.2 For each slice, change functions to take a `Pick<typeof CONFIG, ...>` argument and pass `CONFIG` at the edge (D5). Lower the `CONFIG import` baseline.
+- [x] 3.3 Remove each `mock.module("../src/config.js")` stub whose test no longer needs it. Do not weaken any assertion.
+- [x] 3.4 When the baseline reaches 0 for `src/core/` and `src/services/`, record it in `docs/shared-core.md`.
 
 ## 4. Storage port (part 1)
 
