@@ -83,7 +83,7 @@ export async function applyValidations(
   if (!validations?.length || !prefKeys?.length) return null;
 
   const allItems = [...profileData.preferences, ...profileData.patterns];
-  const results: string[] = [];
+  let matched = 0;
   let confirmed = 0;
   let contradicted = 0;
   let inaccurate = 0;
@@ -96,36 +96,34 @@ export async function applyValidations(
       (i) => `${i.category || "_"}||${(i.description || "").substring(0, 30)}` === key
     );
     if (!item) {
-      log("user-profile-learning: validation match failed", { index: v.index, key }, "warn");
+      // Index only: the key holds the start of the item's description.
+      log("user-profile-learning: validation match failed", { index: v.index }, "warn");
       continue;
     }
+    matched++;
 
     if (v.verdict === "confirmed") {
       item.alpha = (item.alpha || 1) + 0.5;
       store.syncConfidence(item);
       confirmed++;
-      results.push(`confirmed [${v.index}] ${v.reason}`);
     } else if (v.verdict === "contradicted") {
       const oldAlpha = item.alpha || 1;
       item.alpha = oldAlpha * 0.75;
       item.beta = (item.beta || 1) + oldAlpha * 0.25;
       store.syncConfidence(item);
       contradicted++;
-      results.push(`contradicted [${v.index}] ${v.reason}`);
     } else if (v.verdict === "inaccurate") {
       const oldAlpha = item.alpha || 1;
       item.alpha = oldAlpha * 0.6;
       item.beta = (item.beta || 1) + oldAlpha * 0.4;
       store.syncConfidence(item);
       inaccurate++;
-      results.push(`inaccurate [${v.index}] ${v.reason}`);
     } else if (v.verdict === "oversimplified") {
       const oldAlpha = item.alpha || 1;
       item.alpha = oldAlpha * 0.85;
       item.beta = (item.beta || 1) + oldAlpha * 0.15;
       store.syncConfidence(item);
       oversimplified++;
-      results.push(`oversimplified [${v.index}] ${v.reason}`);
       const evidence = (item as any).evidence;
       if (Array.isArray(evidence) && evidence.length >= 3) {
         const itemType = profileData.preferences.includes(item) ? "preference" : "pattern";
@@ -138,13 +136,18 @@ export async function applyValidations(
           // description evolution is best-effort
         }
       }
-    } else {
-      results.push(`no_evidence [${v.index}] ${v.reason}`);
     }
   }
 
-  if (results.length > 0) {
-    log("user-profile-learning: validation results", { validated: results });
+  if (matched > 0) {
+    // Counts only: a verdict's reason may quote the user's prompts.
+    log("user-profile-learning: validation results", {
+      matched,
+      confirmed,
+      contradicted,
+      inaccurate,
+      oversimplified,
+    });
   }
   if (confirmed === 0 && contradicted === 0 && inaccurate === 0 && oversimplified === 0)
     return null;

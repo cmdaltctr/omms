@@ -11,6 +11,8 @@ import type { UserProfileData } from "../services/user-profile/types.js";
 export interface ModelPort {
   provider: string;
   modelId: string;
+  /** True when the port limits each of its calls itself; `analyzeProfile` then adds no limit. */
+  limitsOwnCalls?: boolean;
   complete(systemPrompt: string, userPrompt: string): Promise<string>;
   /** Host-enforced JSON output; callers fall back to `complete` and parse when absent. */
   completeStructured?<T>(
@@ -52,7 +54,10 @@ If you include "validations", each entry needs a numeric "index", a string "reas
 Return JSON only, without Markdown or other text.`;
 }
 
-/** Analyse prompts with a host-neutral model and merge the validated profile. */
+/**
+ * Analyse prompts with a host-neutral model and merge the validated profile. The call has a
+ * limit of `timeoutMs`, unless the port limits its own calls (`withExternalFallback`).
+ */
 export async function analyzeProfile(
   model: ModelPort,
   context: string,
@@ -70,13 +75,15 @@ export async function analyzeProfile(
     const call: Promise<unknown> = model.completeStructured
       ? model.completeStructured(system, context, schema)
       : model.complete(system, context).then(extractJsonObject);
-    const reply = await Promise.race([
-      call,
-      new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error("profile analysis: timeout")), timeoutMs);
-        timeoutId?.unref?.();
-      }),
-    ]);
+    const reply = await (model.limitsOwnCalls
+      ? call
+      : Promise.race([
+          call,
+          new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error("profile analysis: timeout")), timeoutMs);
+            timeoutId?.unref?.();
+          }),
+        ]));
     const parsed = schema.safeParse(reply);
     if (!parsed.success) {
       log(
