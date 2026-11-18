@@ -26,7 +26,20 @@ Tasks 2.2 to 2.4 moved to the `unify-profile-learning` change (2026-11-18). The 
 
 ## 3. Pass config in (part 2)
 
-- [ ] 3.1 Slice the 52 `CONFIG` importers in `src/core/` and `src/services/`, leaf modules first.
+Measured 2026-11-18 after `unify-profile-learning`: 52 files, 53 import sites. Approaches A, B, G, W and S are in design D5a. Slices (each 15 files or fewer, tests included), in waves of slices that share no file except the ratchet table:
+
+| Wave | Slices                                                                                                                                                                                                                                                           |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | C1 web routes (web-autostart, web-jobs, openrouter-routes, skill-routes, ai-cleanup-handlers, auto-cleanup-handlers, web-route-modules); C2 settings (settings-snapshot, embedding-change); C3 store reader and `turso/` (5); C9 space-tool; C12 profile-context |
+| 2    | C4 space routes; C5 `api/shared.ts`; C6 store files I (7); C7 store files II (7, includes `tags.ts`); C8 user-prompt-manager, backfill-state, write-health-checks; C11 memory-operations; C13 retrieval                                                          |
+| 3    | C10 capture-context; C14 skills settings; C18a context step 1; C19 profile cleanup model                                                                                                                                                                         |
+| 4    | C15 capture step 1; C18b context step 2; C24 move `global-config-writer.ts` to `src/config-writer.ts`                                                                                                                                                            |
+| 5    | C16 capture step 2, then C17 auto-capture, then C20 cleanup and dedup (shared files, one after another)                                                                                                                                                          |
+| 6    | C21 to C23 `client.ts` (expand, then contract)                                                                                                                                                                                                                   |
+
+Target: `web-server.ts` and `active-space-access.ts` keep their import (D5a). The slice that takes the list below 10 files lowers the `minimum` argument of the `CONFIG import` ratchet.
+
+- [x] 3.1 Slice the 52 `CONFIG` importers in `src/core/` and `src/services/`, leaf modules first.
 - [ ] 3.2 For each slice, change functions to take a `Pick<typeof CONFIG, ...>` argument and pass `CONFIG` at the edge (D5). Lower the `CONFIG import` baseline.
 - [ ] 3.3 Remove each `mock.module("../src/config.js")` stub whose test no longer needs it. Do not weaken any assertion.
 - [ ] 3.4 When the baseline reaches 0 for `src/core/` and `src/services/`, record it in `docs/shared-core.md`.

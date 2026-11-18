@@ -83,6 +83,18 @@ Test facts: no OpenCode learning test goes through V2 `setup`. They call `perfor
 
 Follow `live-model-choice.ts`: the function takes a `Pick<typeof CONFIG, ...>` argument, and the caller at the edge passes `CONFIG`. Callers are host adapters, CLI entry points and the web server start. A `CONFIG` import is allowed only at those edges. Long-lived objects that read config take it in their constructor, and register with `resettable()` when they hold a path built from `storagePath`.
 
+### D5a. Part 2: never keep a copy of `CONFIG` (added 2026-11-18)
+
+`config.ts` replaces the `CONFIG` object on every reload and space switch (`CONFIG = nextConfig`), and 155 test files change its fields in place. A copy kept past one call goes stale and can write to the wrong space. So each file uses one of these:
+
+- **A (value):** the function takes `Pick<typeof CONFIG, ...>`; the caller passes `CONFIG` at call time.
+- **B (live module):** a function that calls `refreshConfigIfChanged`, `getActiveSpace` or `isConfigured` takes a `Pick` of the config module and reads `config.CONFIG` after the refresh. The edge passes `import * as configModule`.
+- **G (getter):** timers and tickers take `() => Pick<...>`.
+- **W (web context):** web routes take the live module from the route host. `web-server.ts` stays the web edge.
+- **S (store reader):** store singletons are created when their module loads, before any edge runs. They read their folder and embedding settings live, on every call, through a fixed list of functions in `src/services/active-space-access.ts`. A test pins the list. `config.ts` must never import that file. Part 1 moves the reader into `src/services/storage/`.
+
+Never spread `CONFIG` (`{...CONFIG}`) or keep it in a field or module constant. End state: `web-server.ts` and `active-space-access.ts` keep their import, by design. `global-config-writer.ts` moves next to `config.ts` as `src/config-writer.ts`.
+
 ### D6. Part 1: storage port, one store per slice
 
 Use one folder, `src/services/storage/`, with one module per store: memory, prompt, profile, import ledger, skills, chat, capture attempts. Each module owns its SQL and its connection through the existing connection manager. Callers use typed functions, never SQL. Change `STORAGE_FOLDER` in `tests/modularity-ratchets.test.ts` in the first slice. Keep each `.db` file name the same. Keep `skills.db` and the embedding cache on the global storage path.
