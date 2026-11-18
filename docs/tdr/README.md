@@ -106,6 +106,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [085](./085-editing-a-memory-dropped-its-pin.md)                               | Editing a memory dropped its pin                                        | Proposed              | 2026-11-17 |
 | [086](./086-concurrent-global-installs-left-empty-dependency-folders.md)       | Concurrent global installs left empty dependency folders                | Proposed              | 2026-11-17 |
 | [087](./087-a-test-web-app-half-wrote-the-real-global-install.md)              | A test web app half-wrote the real global install                       | Proposed              | 2026-11-17 |
+| [088](./088-a-running-web-app-reported-the-version-on-disk.md)                 | A running web app reported the version on disk                          | Proposed              | 2026-11-18 |
 
 ## Status values
 

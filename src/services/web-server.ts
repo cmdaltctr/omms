@@ -1784,6 +1784,8 @@ export class WebServer {
 }
 
 export async function startWebServer(config: WebServerConfig): Promise<WebServer> {
+  // Fix the version now. A later `npm i -g` must not change what this process reports.
+  packageVersion();
   const server = new WebServer(config);
   await server.start();
   return server;

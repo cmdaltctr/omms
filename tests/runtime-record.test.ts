@@ -112,6 +112,18 @@ describe("registerCopy", () => {
     expect(readRuntimeRecord(dir, log)?.root).toBe(first);
   });
 
+  it("rewrites the recorded version after an in-place update of the recorded copy", () => {
+    const root = makeCopy("global", "4.3.0");
+    registerCopy({ dir, root, log });
+    // `npm i -g` replaces the files in the same folder.
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ name: "om-memory-system", version: "4.3.2" })
+    );
+    expect(registerCopy({ dir, root, log })).toBe("written");
+    expect(readRuntimeRecord(dir, log)).toMatchObject({ root, version: "4.3.2" });
+  });
+
   it("replaces a record whose copy is gone, even with an older version", () => {
     const gone = makeCopy("gone", "4.4.0");
     registerCopy({ dir, root: gone, log });
