@@ -47,6 +47,20 @@ export async function saveProfile(
   return saved;
 }
 
+/** Optional steps that `saveMergedProfile` applies on every attempt. */
+export interface MergeSaveHooks {
+  /**
+   * Runs on the fresh profile that a retry reads, before the merge (decay, when the setting
+   * is on). The first attempt saves `analysis.merged`, which the caller built from its own read.
+   */
+  beforeMerge?(current: UserProfileData): UserProfileData;
+  /**
+   * Runs on each merged result before its save (the check of older items). Text it returns
+   * is added to the history text after "; ".
+   */
+  beforeSave?(merged: UserProfileData, profileId: string): Promise<string | null>;
+}
+
 /**
  * Saves the merged result of a profile analysis. When another save landed first, it loads
  * the newer profile, merges the same model result into it, and saves again. It never calls
@@ -57,19 +71,23 @@ export async function saveMergedProfile(
   profile: ReadProfile,
   analysis: { raw: Partial<UserProfileData>; merged: UserProfileData | null },
   promptsAnalyzed: number,
-  summary: string
+  summary: string,
+  hooks: MergeSaveHooks = {}
 ): Promise<boolean> {
   let merged = analysis.merged;
   let version = profile.version;
   for (let attempt = 1; merged && attempt <= MAX_PROFILE_SAVE_ATTEMPTS; attempt++) {
-    if (await store.updateProfile(profile.id, merged, promptsAnalyzed, summary, version)) {
+    const extra = hooks.beforeSave ? await hooks.beforeSave(merged, profile.id) : null;
+    const text = extra ? `${summary}; ${extra}` : summary;
+    if (await store.updateProfile(profile.id, merged, promptsAnalyzed, text, version)) {
       return true;
     }
     log("profile save conflict", { attempt, of: MAX_PROFILE_SAVE_ATTEMPTS });
     if (attempt === MAX_PROFILE_SAVE_ATTEMPTS) break;
     const fresh = await store.getProfileById(profile.id);
     if (!fresh) return false;
-    const current = JSON.parse(fresh.profileData) as UserProfileData;
+    const read = JSON.parse(fresh.profileData) as UserProfileData;
+    const current = hooks.beforeMerge ? hooks.beforeMerge(read) : read;
     merged = await store.mergeProfileData(current, analysis.raw, undefined, fresh.id);
     version = fresh.version;
   }

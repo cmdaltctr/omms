@@ -46,7 +46,7 @@ Live learning SHALL NOT apply confidence decay to the stored profile before it m
 
 ### Requirement: The model gets the full learning input by default
 
-With `userProfilePromptDetail` set to `full`, the default, the model input SHALL hold the numbered prompts, a summary of the current profile, the analysis guidelines and the examples. With `prompts-only`, it SHALL hold only the numbered prompts. In both cases the input SHALL be cut to `userProfileMaxContextBytes` bytes of UTF-8 text, without splitting a character, and SHALL contain the truncation marker between the kept head and tail when it was cut.
+With `userProfilePromptDetail` set to `full`, the default, the model input SHALL hold the numbered prompts, a summary of the current profile, the analysis guidelines and the examples. With `prompts-only`, it SHALL hold only the numbered prompts, plus the check task when the check of older items runs. In both cases the input SHALL be cut to `userProfileMaxContextBytes` bytes of UTF-8 text, without splitting a character, and SHALL contain the truncation marker between the kept head and tail when it was cut.
 
 #### Scenario: A first profile
 

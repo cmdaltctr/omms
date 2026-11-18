@@ -36,14 +36,14 @@ Files: `src/services/user-prompt/user-prompt-manager.ts`, `src/importer/profile-
 
 Files: `src/core/profile-learning/model-input.ts`, `validation.ts`, `fallback.ts`, `pass.ts`, `src/core/profile-analysis.ts`, `src/services/user-profile/merge-and-save.ts`, `tests/profile-learning-pass.test.ts`, `tests/profile-learning-characterisation.test.ts`, `tests/profile-workflow-prompt.test.ts`, `tests/profile-category-prompt.test.ts`, `tests/user-profile-learning-confidence.test.ts`, `docs/using-memory.md`, `docs/shared-core.md`, `docs/adr/052-one-profile-learning-pass-for-every-host.md`, `docs/adr/ADR_README.md`.
 
-- [ ] 5.1 Move the full input builder and the byte cut to `model-input.ts`, and add the prompts-only input. Point `profile-workflow-prompt` and `profile-category-prompt` tests at it. Verify: the byte-cut characterisation tests pass against the new module with no assertion changed.
-- [ ] 5.2 Move the validation task and `applyValidations` to `validation.ts`. Verify: the validation cases of 2.1 pass.
-- [ ] 5.3 Make `analyzeProfile` use `completeStructured` when present and check every reply. Drop the `pi ` prefix from its texts. Verify: `tests/pi-profile.test.ts` passes, and `profileFailureCode` still returns `timeout` and `invalid-reply` for the new texts.
-- [ ] 5.4 Add optional decay and validation hooks to `saveMergedProfile`, applied on every attempt. Verify: the conflict characterisation tests pass, and the decay-on case re-applies decay on each retry.
-- [ ] 5.5 Add `fallback.ts` with the shared fallback notice (design D3). Verify: the OpenCode fallback case of 2.1 passes against the port.
-- [ ] 5.6 Write `pass.ts` (design D1): email rule, decay, input, model call, save, mark, cleanup, notice, backoff, catch-up rule, claims. Verify: every case in 2.1 and 2.2 passes when driven through `runProfileLearningPass` with fake stores, and `tests/host-branch-boundary.test.ts` and `tests/modularity-ratchets.test.ts` pass.
-- [ ] 5.7 Replace `createUserProfileToolSchema` in the confidence test with the shared schema check. Verify: the out-of-range confidence case still fails validation.
-- [ ] 5.8 Update `docs/using-memory.md` (how learning behaves, the six settings) and `docs/shared-core.md` (the new folder and ports). Write ADR-052 and add it to `docs/adr/ADR_README.md`. Verify: Prettier passes on the four files and every link resolves.
+- [x] 5.1 Move the full input builder and the byte cut to `model-input.ts`, and add the prompts-only input. Point `profile-workflow-prompt` and `profile-category-prompt` tests at it. Verify: the byte-cut characterisation tests pass against the new module with no assertion changed.
+- [x] 5.2 Move the validation task and `applyValidations` to `validation.ts`. Verify: the validation cases of 2.1 pass.
+- [x] 5.3 Make `analyzeProfile` use `completeStructured` when present and check every reply. Drop the `pi ` prefix from its texts. Verify: `tests/pi-profile.test.ts` passes, and `profileFailureCode` still returns `timeout` and `invalid-reply` for the new texts.
+- [x] 5.4 Add optional decay and validation hooks to `saveMergedProfile`, applied on every attempt. Verify: the conflict characterisation tests pass, and the decay-on case re-applies decay on each retry.
+- [x] 5.5 Add `fallback.ts` with the shared fallback notice (design D3). Verify: the OpenCode fallback case of 2.1 passes against the port.
+- [x] 5.6 Write `pass.ts` (design D1): email rule, decay, input, model call, save, mark, cleanup, notice, backoff, catch-up rule, claims. Verify: every case in 2.1 and 2.2 passes when driven through `runProfileLearningPass` with fake stores, and `tests/host-branch-boundary.test.ts` and `tests/modularity-ratchets.test.ts` pass.
+- [x] 5.7 Replace `createUserProfileToolSchema` in the confidence test with the shared schema check. Verify: the out-of-range confidence case still fails validation.
+- [x] 5.8 Update `docs/using-memory.md` (how learning behaves, the six settings) and `docs/shared-core.md` (the new folder and ports). Write ADR-052 and add it to `docs/adr/ADR_README.md`. Verify: Prettier passes on the four files and every link resolves.
 
 ## 6. Slice D: OpenCode on the shared pass
 

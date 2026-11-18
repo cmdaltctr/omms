@@ -71,6 +71,8 @@ const world = {
   acceptSave: (_attempt: number): boolean => true,
   decays: 0,
   leaseActive: false,
+  claimOptions: [] as unknown[],
+  released: [] as string[][],
   modelCalls: 0,
   structuredCalls: 0,
   inputs: [] as string[],
@@ -111,13 +113,16 @@ mock.module("../src/services/user-prompt/user-prompt-manager.js", () => ({
     skipTrivialPromptsForLearning: async () => 0,
     countUnanalyzedForUserLearning: async () => unlearned().length,
     getPromptsForUserLearning: async (limit: number, options: { recentFirst?: boolean } = {}) => {
+      world.claimOptions.push(options);
       const sorted = [...unlearned()].sort((a, b) => a.createdAt - b.createdAt);
       return options.recentFirst ? sorted.slice(-limit) : sorted.slice(0, limit);
     },
     markMultipleAsUserLearningCaptured: async (ids: string[]) => {
       for (const id of ids) world.learned.add(id);
     },
-    markForUserLearning: async () => {},
+    markForUserLearning: async (ids: string[]) => {
+      world.released.push(ids);
+    },
   },
 }));
 
@@ -239,6 +244,8 @@ beforeEach(() => {
   world.merged = [];
   world.acceptSave = () => true;
   world.decays = 0;
+  world.claimOptions = [];
+  world.released = [];
   world.leaseActive = false;
   world.modelCalls = 0;
   world.structuredCalls = 0;
@@ -561,5 +568,22 @@ describe("a catch-up run (default: keep learning)", () => {
     const result = await run(host, { config: { userProfileDuringCatchUp: "pause" } });
     expect(result.outcome).toBe("skipped");
     expect(world.modelCalls).toBe(0);
+  });
+});
+
+// Added with the pass (slice C): the batch claim of design D5, seen from the pass.
+describe("the batch claim", () => {
+  it.each(hosts)("%s: claims the newest batch and releases nothing on success", async (host) => {
+    const result = await run(host);
+    expect(result.outcome).toBe("saved");
+    expect(world.claimOptions).toEqual([{ recentFirst: true, claim: true }]);
+    expect(world.released).toEqual([]);
+  });
+
+  it.each(hosts)("%s: a failed pass releases exactly its claimed prompts", async (host) => {
+    world.reply = () => ({ preferences: "nope" });
+    const result = await run(host);
+    expect(result.outcome).toBe("failed");
+    expect(world.released).toEqual([["p0", "p1", "p2", "p3", "p4"]]);
   });
 });

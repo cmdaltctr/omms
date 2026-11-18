@@ -156,6 +156,28 @@ OpenCode, a Claude Code registration would replace OpenCode's model.
 pipeline accepts. It holds visible conversation content and provenance.
 Hidden reasoning and host SDK objects never go into it.
 
+## Profile learning (`src/core/profile-learning/`)
+
+Every host runs live profile learning through one pass ([ADR-052](adr/052-one-profile-learning-pass-for-every-host.md)). The folder holds:
+
+| File             | Holds                                                                                                 |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `settings.ts`    | The six global-only settings, their defaults, the parser and the edit checks                          |
+| `model-input.ts` | The full input, the prompts-only input and the UTF-8 byte cut                                         |
+| `validation.ts`  | The check of older items: the task text and `applyValidations`                                        |
+| `fallback.ts`    | `withExternalFallback(host, primary, external, notify)`: a host model with the external API behind it |
+| `pass.ts`        | `runProfileLearningPass(input)`: the steps of a pass, the history text and the notice text            |
+
+The pass takes its ports in one input object:
+
+- `host` and `directory`. The host only picks the label from `HOST_INFO` and the host field of the failure log record.
+- `config`: the adapter passes `CONFIG` after `refreshConfigIfChanged(directory)`. The pass never imports `src/config.ts`.
+- `model`: a function that returns a `ModelPort`, or null to skip the pass. `analyzeProfile` calls `completeStructured` when the port has it, and `complete` otherwise. It checks every reply against the shared schema.
+- `notify` (optional): shows a notice. Claude Code keeps the line for a later hook.
+- `cleanupModel` (optional): the model of the automatic cleanup that the pass starts. Without it the cleanup uses the external API.
+
+The pass returns `{ outcome: "saved" | "skipped" | "failed", reason? }` and never throws. It reads prompts from `userPromptManager` and the profile from `userProfileManager`. It saves through `saveMergedProfile`, which applies the decay and validation hooks on every attempt. One pass runs at a time in a process, and a failure starts the 10-minute wait in `profileBackoff`.
+
 ## What each layer owns
 
 | Layer                              | Owns                                                                                                                                                                                  |

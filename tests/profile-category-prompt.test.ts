@@ -1,6 +1,7 @@
 import { expect, it, mock } from "bun:test";
 import { buildCategoryList } from "../src/core/extraction.js";
 import { analyzeProfile } from "../src/core/profile-analysis.js";
+import { buildFullProfileInput } from "../src/core/profile-learning/model-input.js";
 
 const data = {
   preferences: [{ category: "communication_style" }, { category: "Communication style" }],
@@ -45,52 +46,18 @@ it("omits the category list on the first profile analysis", async () => {
   expect(await sharedPrompt(null)).not.toContain("## Existing Categories");
 });
 
-it("puts exactly the same category list in the OpenCode prompt", async () => {
-  let openCodePrompt = "";
-  mock.module("../src/config.js", () => ({
-    refreshConfigIfChanged: () => {},
-    CONFIG: {
-      autoCaptureProviderStatus: { ready: true },
-      userProfileAnalysisInterval: 1,
-      opencodeProvider: "test",
-      opencodeModel: "test",
-      userProfileValidationEnabled: false,
-      showUserProfileToasts: false,
-    },
-  }));
-  mock.module("../src/services/tags.js", () => ({
-    getTags: () => ({ user: { userEmail: "test@example.invalid" } }),
-  }));
-  mock.module("../src/services/user-prompt/user-prompt-manager.js", () => ({
-    userPromptManager: {
-      skipTrivialPromptsForLearning: async () => 0,
-      countUnanalyzedForUserLearning: async () => 1,
-      getPromptsForUserLearning: async () => [
-        { id: "test-prompt", content: "Prefer concise technical answers" },
-      ],
-      markMultipleAsUserLearningCaptured: async () => {},
-    },
-  }));
-  mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
-    loadOpencodeProvider: async () => ({
-      generateStructuredOutput: async (request: { userPrompt: string }) => {
-        openCodePrompt = request.userPrompt;
-        return { preferences: [], patterns: [], workflows: [] };
-      },
-    }),
-  }));
-  mock.module("../src/adapters/opencode/profile-llm-client.js", () => ({
-    getOpencodeProfileHost: async () => ({}),
-  }));
-  const { performUserProfileLearning } =
-    await import("../src/adapters/opencode/profile-learning.js");
-  await performUserProfileLearning("/workspace");
+it("puts exactly the same category list in the shared model input", async () => {
+  // Since change unify-profile-learning, every host sends the input from model-input.ts
+  // (it was the OpenCode loop's input before).
+  const input = buildFullProfileInput([{ content: "Prefer concise technical answers" }], {
+    profileData: JSON.stringify(data),
+  });
   const list = buildCategoryList(data);
   expect(list.length).toBeGreaterThan(0);
   expect(await sharedPrompt(stored)).toContain(list);
-  expect(openCodePrompt).toContain(list);
-  expect(openCodePrompt).not.toContain("communication_style");
-  expect(openCodePrompt).toContain("## Existing Workflows");
-  expect(openCodePrompt).toContain("Release workflow");
-  expect(openCodePrompt).toContain("Preferences: 2 | Patterns: 2 | Workflows: 1");
+  expect(input).toContain(list);
+  expect(input).not.toContain("communication_style");
+  expect(input).toContain("## Existing Workflows");
+  expect(input).toContain("Release workflow");
+  expect(input).toContain("Preferences: 2 | Patterns: 2 | Workflows: 1");
 });
