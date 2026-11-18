@@ -43,9 +43,9 @@ export function SettingRow({
             {t("This project's file decides this setting here.")}
           </p>
         ) : null}
-        <code dir="ltr" className="block text-start text-xs text-muted-foreground">
-          {entry.key}
-        </code>
+        <span className="block text-start text-xs text-muted-foreground">
+          <code dir="ltr">{entry.key}</code>
+        </span>
       </div>
       <div className="min-w-0 sm:w-72 sm:max-w-full">{children}</div>
     </div>

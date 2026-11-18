@@ -30,7 +30,23 @@ it("leads with a plain name and puts the config key last as secondary text", () 
   const key = tree.find((node: Node) => node.type === "code")!;
   expect(text(key.props.children)).toBe("autoCaptureMaxContextBytes");
   expect(key.props.dir).toBe("ltr");
-  expect(String(key.props.className)).toContain("text-muted-foreground");
+});
+
+it("keeps the key left to right inside a wrapper that follows the page direction", () => {
+  const tree = row();
+  const key = tree.find((node: Node) => node.type === "code")!;
+  const wrapper = tree.find((node: Node) =>
+    [node.props.children].flat().some((child) => child === key)
+  )!;
+  expect(wrapper).toBeTruthy();
+  // No dir on the wrapper: in Arabic it starts on the right, under the row name.
+  expect(wrapper.props.dir).toBeUndefined();
+  expect(String(wrapper.props.className)).toContain("block");
+  expect(String(wrapper.props.className)).toContain("text-start");
+  expect(String(wrapper.props.className)).toContain("text-muted-foreground");
+  // The code stays left to right and inline, so the key text reads correctly.
+  expect(key.props.dir).toBe("ltr");
+  expect(String(key.props.className ?? "")).not.toContain("block");
 });
 
 it("shows the description, the default and what the setting affects", () => {
