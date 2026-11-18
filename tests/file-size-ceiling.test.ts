@@ -13,7 +13,6 @@ const exemptPrefixes = ["web/src/lib/i18n/"];
 // ceiling or is removed; the stale-entry check below fails until you do.
 const overCeilingBaseline: Record<string, number> = {
   "src/services/user-profile/user-profile-manager.ts": 1947,
-  "src/services/web-server.ts": 1833,
   "src/config.ts": 927,
   "src/adapters/opencode/profile-learning.ts": 832,
   "src/services/turso/legacy-migrator.ts": 657,

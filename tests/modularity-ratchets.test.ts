@@ -151,7 +151,7 @@ const configBaseline: Record<string, number> = {
   "src/services/web-autostart.ts": 1,
   "src/services/web-jobs.ts": 1,
   "src/services/web-route-modules.ts": 1,
-  "src/services/web-server.ts": 10,
+  "src/services/web-server.ts": 1,
   "src/services/write-health-checks.ts": 1,
 };
 
