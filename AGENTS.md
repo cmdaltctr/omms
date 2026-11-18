@@ -150,7 +150,7 @@ bun run ci:local   # check, build, then every test file in its own process
 - The pre-commit hook runs `bun run typecheck` and `lint-staged`. The pre-push hook runs `bun run check`.
 - Match the comment density and naming of the surrounding code.
 - Keep each `.ts` and `.tsx` file in `src/` and `web/src/` at 500 lines or fewer. `tests/file-size-ceiling.test.ts` enforces it. 15 older files are over the limit and listed in that test. They may shrink but not grow. When you split one, remove its entry. Translation tables in `web/src/lib/i18n/` are exempt.
-- Do not add a `CONFIG` import in `src/core/` or `src/services/`, a storage-engine import (`@libsql/client`, `src/services/turso/*`) outside `src/services/turso/`, or SQL outside `src/services/turso/`. `tests/modularity-ratchets.test.ts` holds a baseline for each. A listed file may shrink but not grow. When it reaches 0, remove its entry. The `CONFIG` baseline keeps two files by design (`web-server.ts`, `active-space-access.ts`); see `docs/shared-core.md`.
+- Do not add a `CONFIG` import in `src/core/` or `src/services/`, a storage-engine import (`@libsql/client`, `src/services/turso/*`) or SQL outside the storage port (`src/services/storage/`) and the engine (`src/services/turso/`). Importing the port is not debt. `tests/modularity-ratchets.test.ts` holds a baseline for each. A listed file may shrink but not grow. When it reaches 0, remove its entry. The `CONFIG` baseline keeps two files by design (`web-server.ts`, `active-space-access.ts`); see `docs/shared-core.md`.
 - Use British English in documentation, comments, and commit messages. Code identifiers keep their existing spelling.
 
 ## Error handling

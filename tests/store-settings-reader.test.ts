@@ -8,7 +8,7 @@ import { join } from "node:path";
 // reload or a space switch, and tests change its fields in place; both must reach the reader.
 
 const config = await import("../src/config.js");
-const reader = await import("../src/services/active-space-access.js");
+const reader = await import("../src/services/storage/active-space-access.js");
 const { createStoredSpace, spaceFiles, switchStoredSpace } =
   await import("../src/services/spaces/registry-store.js");
 
@@ -84,6 +84,13 @@ describe("store settings reader", () => {
         "getUserNameOverride",
       ].sort()
     );
+  });
+
+  it("keeps the old path as a shim that re-exports the same readers", async () => {
+    // Slice F of the storage port removes the shim and this check.
+    const shim = await import("../src/services/active-space-access.js");
+    expect(Object.keys(shim).sort()).toEqual(Object.keys(reader).sort());
+    expect(shim.getStoragePath).toBe(reader.getStoragePath);
   });
 
   it("reads each field again after CONFIG changes in place", () => {

@@ -10,8 +10,10 @@ import { resolveSpecifier, srcRoot, tsFiles } from "./source-imports.js";
 // file. A file may lose uses but never gain one, and a new file starts at 0.
 // When a listed file reaches 0, delete its entry; the stale check fails until you do.
 
-// The storage-port follow-up moves the storage engine; change this one line with it.
-const STORAGE_FOLDER = "services/turso";
+// The storage port is the only folder that may import the engine or hold SQL. The engine
+// folder is the other: it is the implementation behind the port (design D6).
+const STORAGE_FOLDER = "services/storage";
+const ENGINE_FOLDER = "services/turso";
 
 interface ImportSite {
   specifier: string;
@@ -24,8 +26,7 @@ interface ImportSite {
  * `export type` and `import("x")` types count as type-only: with
  * `verbatimModuleSyntax`, `import { type X }` still loads the module.
  */
-function importSites(file: string): ImportSite[] {
-  const text = readFileSync(join(srcRoot, file), "utf8");
+function importSites(file: string, text = readFileSync(join(srcRoot, file), "utf8")): ImportSite[] {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
   const sites: ImportSite[] = [];
   const visit = (node: ts.Node): void => {
@@ -75,13 +76,22 @@ function configImports(file: string): number {
   ).length;
 }
 
-// Imports of the storage engine from outside its folder, type-only included. Follow-up: storage port.
-function storageImports(file: string): number {
-  if (inArea(file, STORAGE_FOLDER)) return 0;
-  return importSites(file).filter((site) => {
+function inStorage(file: string): boolean {
+  return inArea(file, STORAGE_FOLDER) || inArea(file, ENGINE_FOLDER);
+}
+
+// Import sites of `@libsql/client` or the engine folder, type-only included, with no folder exemption.
+// Importing the port (`services/storage`) is not debt, so it is not counted.
+function engineImportSites(file: string, text?: string): number {
+  return importSites(file, text).filter((site) => {
     const target = resolved(file, site.specifier);
-    return inArea(target, "@libsql/client") || inArea(target, STORAGE_FOLDER);
+    return inArea(target, "@libsql/client") || inArea(target, ENGINE_FOLDER);
   }).length;
+}
+
+// Imports of the storage engine from outside the port and the engine. Follow-up: storage port.
+function storageImports(file: string): number {
+  return inStorage(file) ? 0 : engineImportSites(file);
 }
 
 // A string or template literal that starts with an SQL statement keyword, case-sensitive.
@@ -91,22 +101,26 @@ function storageImports(file: string): number {
 const SQL_STATEMENT =
   /^\s*(?:SELECT\s|INSERT\s+(?:OR\s+\w+\s+)?INTO\s|UPDATE\s+\w+\s+SET\s|DELETE\s+FROM\s|CREATE\s+(?:TABLE|INDEX|UNIQUE|VIRTUAL|TRIGGER)\s|ALTER\s+TABLE\s|DROP\s+(?:TABLE|INDEX)\s|PRAGMA\s|WITH\s+\w+|BEGIN\b|COMMIT\b|ROLLBACK\b|VACUUM\b)/;
 
-// Raw SQL outside the storage folder. Follow-up: storage port.
-function rawSql(file: string): number {
-  if (inArea(file, STORAGE_FOLDER)) return 0;
+// SQL statement literals in a file, with no folder exemption.
+function sqlSites(file: string): number {
   const { literals } = scanLiterals(readFileSync(join(srcRoot, file), "utf8"));
   return literals.filter((literal) => SQL_STATEMENT.test(literal.own)).length;
+}
+
+// Raw SQL outside the port and the engine. Follow-up: storage port.
+function rawSql(file: string): number {
+  return inStorage(file) ? 0 : sqlSites(file);
 }
 
 // Non-type import sites of src/config.ts per file, recorded after modular-boundaries.
 // Guards the config-injection follow-up: new core and services code takes config as an argument.
 const configBaseline: Record<string, number> = {
-  "src/services/active-space-access.ts": 1,
+  "src/services/storage/active-space-access.ts": 1,
   "src/services/web-server.ts": 1,
 };
 
-// Import sites of @libsql/client or the storage folder per file, type-only included.
-// Guards the storage-port follow-up: new code reaches storage through a port, not the engine.
+// Import sites of @libsql/client or the engine folder per file, type-only included.
+// Guards the storage-port follow-up: new code reaches storage through the port, not the engine.
 const storageBaseline: Record<string, number> = {
   "src/importer/backfill-lock.ts": 1,
   "src/importer/import-runs.ts": 1,
@@ -163,7 +177,7 @@ const storageBaseline: Record<string, number> = {
 };
 
 // SQL statement literals per file, by the SQL_STATEMENT method above.
-// Guards the storage-port follow-up: new SQL goes into the storage folder.
+// Guards the storage-port follow-up: new SQL goes into the port or the engine folder.
 const sqlBaseline: Record<string, number> = {
   "src/importer/backfill-lock.ts": 5,
   "src/importer/import-runs.ts": 12,
@@ -223,7 +237,7 @@ function ratchet(
   name: string,
   count: (file: string) => number,
   baseline: Record<string, number>,
-  minimum: number
+  minimum?: number
 ): void {
   const counts = new Map<string, number>();
   for (const file of files) {
@@ -232,11 +246,13 @@ function ratchet(
   }
 
   describe(`${name} ratchet`, () => {
-    it("scans the source tree", () => {
-      // Guards the scanner: a scan that finds nothing would pass every check below.
-      // Lower the minimum when a follow-up change removes most of this debt.
-      expect(counts.size).toBeGreaterThanOrEqual(minimum);
-    });
+    // The storage ratchets have no file floor: the baseline ends empty. They use the positive control below.
+    if (minimum !== undefined) {
+      it("scans the source tree", () => {
+        // Guards the scanner: a scan that finds nothing would pass every check below.
+        expect(counts.size).toBeGreaterThanOrEqual(minimum);
+      });
+    }
 
     it("finds none in files outside the baseline", () => {
       const offenders = [...counts]
@@ -269,8 +285,32 @@ function ratchet(
 
 // Part 2 of modularity-follow-ups ends at two files by design (D5a): web-server.ts and active-space-access.ts.
 ratchet("CONFIG import", configImports, configBaseline, 2);
-ratchet("storage import", storageImports, storageBaseline, 10);
-ratchet("raw SQL", rawSql, sqlBaseline, 10);
+ratchet("storage import", storageImports, storageBaseline);
+ratchet("raw SQL", rawSql, sqlBaseline);
+
+describe("storage ratchet scanners", () => {
+  // The baselines shrink to empty, so a file-count floor cannot guard the scanners. Each counter
+  // runs with its folder exemption off on the engine, which holds the SQL and the libSQL imports.
+  it("finds raw SQL in the engine folder when the exemption is off", () => {
+    const found = tsFiles(ENGINE_FOLDER).reduce((total, file) => total + sqlSites(file), 0);
+    expect(found).toBeGreaterThanOrEqual(20);
+  });
+
+  it("finds the libSQL import in the engine connection manager", () => {
+    const specifiers = importSites(`${ENGINE_FOLDER}/connection-manager.ts`).map(
+      (s) => s.specifier
+    );
+    expect(specifiers).toContain("@libsql/client");
+  });
+
+  it("counts libSQL and engine imports but not the port", () => {
+    const file = "services/user-profile/x.ts";
+    expect(engineImportSites(file, 'import { createClient } from "@libsql/client";')).toBe(1);
+    expect(engineImportSites(file, 'import type { Client } from "@libsql/client";')).toBe(1);
+    expect(engineImportSites(file, 'import { a } from "../turso/connection-manager.js";')).toBe(1);
+    expect(engineImportSites(file, 'import { a } from "../storage/profile-store.js";')).toBe(0);
+  });
+});
 
 /**
  * The lines of `file` that pass `CONFIG` on: `export { CONFIG } from "./config.js"`,

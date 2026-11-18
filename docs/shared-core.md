@@ -275,22 +275,24 @@ Phase 1 kept these, and later phases must keep them:
 baseline of files with a count per file, like
 `tests/file-size-ceiling.test.ts`.
 
-| Ratchet          | Scope                                   | Counts                                                        | Follow-up it guards |
-| ---------------- | --------------------------------------- | ------------------------------------------------------------- | ------------------- |
-| `CONFIG` imports | `src/core/`, `src/services/`            | Non-type import sites of `src/config.ts` (floor of 2 files)   | Config injection    |
-| Storage imports  | All `src/` except `src/services/turso/` | Import sites of `@libsql/client` or `src/services/turso/*`    | Storage port        |
-| Raw SQL          | All `src/` except `src/services/turso/` | String literals that start with an SQL statement (upper case) | Storage port        |
+| Ratchet          | Scope                                 | Counts                                                        | Follow-up it guards |
+| ---------------- | ------------------------------------- | ------------------------------------------------------------- | ------------------- |
+| `CONFIG` imports | `src/core/`, `src/services/`          | Non-type import sites of `src/config.ts` (floor of 2 files)   | Config injection    |
+| Storage imports  | All `src/` except the port and engine | Import sites of `@libsql/client` or `src/services/turso/*`    | Storage port        |
+| Raw SQL          | All `src/` except the port and engine | String literals that start with an SQL statement (upper case) | Storage port        |
 
 - A file not in a baseline must have a count of 0.
 - A listed file may not go above its count.
 - When a listed file goes below its count, write the new count. The test fails and tells you the number.
 - When a listed file reaches 0, delete its entry. The test fails until you do.
-- Each ratchet has a minimum file count, so an empty scan cannot pass.
+- The `CONFIG` ratchet has a floor of 2 files, so an empty scan cannot pass. The storage and SQL ratchets end with an empty baseline, so they have no file floor. A positive control checks their counters instead: with the folder exemption off, the SQL counter finds at least 20 sites in `src/services/turso/`, and the import counter finds `@libsql/client` there.
+- The port is `src/services/storage/` and the engine is `src/services/turso/`. Both are exempt from the storage and SQL ratchets. Importing the port is not debt. The port must not re-export `tursoConnectionManager`, `tursoShardManager` or `tursoVectorSearch`.
+- A file in `src/services/storage/` that keeps a database handle in a module variable or class field must call `resettable(`. `tests/store-handle-coverage.test.ts` checks this.
 - Only `src/config.ts` may export `CONFIG`. A re-export in another file fails the test, so it cannot hide an import from the `CONFIG` ratchet.
 
 To pass a ratchet, take config as an argument (pattern:
 `src/services/ai/live-model-choice.ts`), or put the storage code in
-`src/services/turso/`. Do not raise a count.
+`src/services/storage/` (the port). Do not raise a count.
 
 ### Config injection
 
@@ -309,7 +311,7 @@ Use one of five approaches:
 | B (live module) | A function refreshes the config, then reads it. It takes a `Pick` of the module. | `src/core/capture.ts` (`CaptureConfigModule`)                    |
 | G (getter)      | A timer or ticker runs for a long time. It takes `() => Pick<...>` and calls it. | `src/services/cleanup-service.ts` (`startDailyMaintenanceTimer`) |
 | W (web)         | A web route needs config. The route host passes the live module.                 | `src/services/web-server/route-host.ts` (`loadConfig`)           |
-| S (store)       | A store singleton is created at module load, before any edge runs.               | `src/services/active-space-access.ts`                            |
+| S (store)       | A store singleton is created at module load, before any edge runs.               | `src/services/storage/active-space-access.ts`                    |
 
 The caller at the edge passes `CONFIG` at call time. Edges are host adapters,
 CLI entry points and the web server start.
@@ -317,7 +319,7 @@ CLI entry points and the web server start.
 Two files keep the `CONFIG` import by design:
 
 - `src/services/web-server.ts` is the web edge. It loads the config module for the route host (approach W).
-- `src/services/active-space-access.ts` is the store reader (approach S). It reads `getActiveSpace` and the store settings live, on every call, through a fixed list of functions. `tests/store-settings-reader.test.ts` pins the list. `config.ts` must never import this file.
+- `src/services/storage/active-space-access.ts` is the store reader (approach S). It reads `getActiveSpace` and the store settings live, on every call, through a fixed list of functions. `tests/store-settings-reader.test.ts` pins the list. `config.ts` must never import this file.
 
 The `CONFIG` ratchet in `tests/modularity-ratchets.test.ts` guards this end
 state. Its baseline lists these two files with a count of 1 each, and its
