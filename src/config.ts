@@ -744,7 +744,8 @@ function configSignature(directory: string): string {
     .map((path) => {
       try {
         const stat = statSync(path);
-        return `${path}:${stat.mtimeMs}:${stat.size}`;
+        // A renamed-in registry has a new inode even with the same size and file-clock tick.
+        return `${path}:${stat.ino}:${stat.mtimeMs}:${stat.size}`;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") return `${path}:missing`;
         throw error;
@@ -792,6 +793,8 @@ export function refreshConfigIfChanged(directory: string): void {
 }
 
 export function initConfig(directory: string, options: { strict?: boolean } = {}): void {
+  // Signature first: a switch by another process during the read makes the next refresh reload.
+  const signature = configSignature(directory);
   // omms project overrides win; the legacy opencode-mem file is still read.
   const found: ConfigProblem[] = [];
   const globalConfig = loadConfigFromPaths(CONFIG_FILES, options.strict, found);
@@ -872,7 +875,7 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   // A new storage folder (another memory space) needs fresh store handles (ADR-041).
   if (storageMoved) void resetStoreHandles();
   lastConfigDirectory = directory;
-  lastConfigSignature = configSignature(directory);
+  lastConfigSignature = signature;
 }
 
 /**
