@@ -3,7 +3,7 @@
 - **Date:** 2026-11-18
 - **Status:** Proposed
 - **Deciders:** OMMS maintainer
-- **Change:** [`unify-profile-learning`](../../openspec/changes/unify-profile-learning/proposal.md)
+- **Change:** [`unify-profile-learning`](../../openspec/changes/archive/2026-11-18-unify-profile-learning/proposal.md)
 
 ## Context
 

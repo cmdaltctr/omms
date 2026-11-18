@@ -86,7 +86,7 @@ Files: `web/src/lib/profile-learning-controls.ts`, `web/src/lib/components/memor
 
 - [x] 10.1 Run `graphify update .`. Run `bun run check`, then `bun run ci:local`. Verify: read the real last line of the `ci:local` output; it reports success. Report any failure with the command and its output.
 - [x] 10.2 Live browser check of `/memory/shared` on a free port with a scratch HOME. Never use the real `~/.omms`, never port 4747. Steps: check the port with `lsof -iTCP:<port> -sTCP:LISTEN`; build; start the web app with `HOME=<scratch>`; open the Profile learning row with `chrome-devtools` (or `orca-cli` if Chrome fails). Change two dropdowns, save, and confirm the scratch global config holds the two keys. Press **Reset to default** and confirm the keys are gone. Check 390 px width, dark mode and Arabic. Verify: screenshots in the scratchpad, and the config file contents before and after.
-- [ ] 10.3 Run `/opsx:verify` (`openspec-verify-change`) and `openspec validate unify-profile-learning --strict`. Verify: no open findings and the validate line says the change is valid.
+- [x] 10.3 Run `/opsx:verify` (`openspec-verify-change`) and `openspec validate unify-profile-learning --strict`. Verify: no open findings and the validate line says the change is valid.
 - [x] 10.4 Mark tasks 2.2 to 2.4 of `modularity-follow-ups` as done by this change, with a note that names this change. Verify: `openspec status --change modularity-follow-ups` shows them ticked. Done differently: tasks 2.2 to 2.4 were removed from `modularity-follow-ups` and replaced by a note naming this change (commit `98c8d227`).
 
 ## Workflow follow-up

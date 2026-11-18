@@ -174,11 +174,9 @@ A live pass and a catch-up run SHALL claim the prompts of a batch before the mod
 - **WHEN** the global config sets `userProfilePromptDetail` to `"short"`
 - **THEN** the config problem SHALL name the key and the values `full` and `prompts-only`
 
-## MODIFIED Requirements
+### Requirement: A catch-up run starts only after the user confirms its cost
 
-### Requirement: The backlog can be caught up in one run
-
-The Memory page's Profile learning section SHALL offer **Analyse waiting prompts** and the package SHALL offer `om-memory-system profile-catch-up`. Both SHALL first report the number of waiting prompts and the number of profile analysis calls, leaving out trivial prompts, which are skipped without a model call, and SHALL start only after the user confirms (on the page) or passes `--yes` (in the terminal). The page SHALL explain that these are prompts already inside OMMS, that completed history is not re-analysed by this action, and that additional matching, deduplication, or retry calls can occur. The run SHALL analyse waiting prompts oldest first in batches of 50, with the saved external API by default. The terminal command SHALL accept the same model options as the history imports (`--provider`, `--model`, `--api-url`, `--api-key-env`) and `--dry-run`. Only one catch-up run SHALL run at a time across every process. A live pass SHALL run beside it or pause, as `userProfileDuringCatchUp` says, and the two SHALL never take the same prompt. When a run starts while another run in a different process holds the run record, the newest run SHALL take over: the older run SHALL stop before its next batch with the message that a newer run took over, and the newer run SHALL wait until the older run's current batch ends before it sends its first batch, so no batch is sent twice. A run record not refreshed for 10 minutes SHALL expire. A second start inside the same web app while its own run is active SHALL be refused with `409`. The page SHALL show progress and SHALL offer **Pause** and **Resume**. A failed batch SHALL stop the run with its reason code, and the next run SHALL continue from the prompts still waiting.
+Both SHALL first report the number of waiting prompts and the number of profile analysis calls, leaving out trivial prompts, which are skipped without a model call, and SHALL start only after the user confirms (on the page) or passes `--yes` (in the terminal). The page SHALL explain that these are prompts already inside OMMS, that completed history is not re-analysed by this action, and that additional matching, deduplication, or retry calls can occur.
 
 #### Scenario: Starting from the page
 
@@ -187,10 +185,27 @@ The Memory page's Profile learning section SHALL offer **Analyse waiting prompts
 - **AND** on confirm it SHALL show progress until the run ends
 - **AND** it SHALL identify preferences, patterns, and workflows as the outputs
 
+### Requirement: The terminal and the page control a catch-up run
+
+The terminal command SHALL accept the same model options as the history imports (`--provider`, `--model`, `--api-url`, `--api-key-env`) and `--dry-run`. The page SHALL show progress and SHALL offer **Pause** and **Resume**.
+
 #### Scenario: Another model from the terminal
 
 - **WHEN** the user runs `om-memory-system profile-catch-up --provider openai-chat --model other-model --api-url <url> --api-key-env KEY --yes`
 - **THEN** the run SHALL use that model and SHALL NOT change the saved config
+
+### Requirement: Only one catch-up run works at a time
+
+Only one catch-up run SHALL run at a time across every process. A live pass SHALL run beside it or pause, as `userProfileDuringCatchUp` says, and the two SHALL never take the same prompt. A second start inside the same web app while its own run is active SHALL be refused with `409`.
+
+#### Scenario: A live pass during a run
+
+- **WHEN** a catch-up run is active and `userProfileDuringCatchUp` is not set
+- **THEN** a live pass SHALL run on prompts that the catch-up run has not claimed
+
+### Requirement: A newer catch-up run takes over from an older one
+
+When a run starts while another run in a different process holds the run record, the newest run SHALL take over: the older run SHALL stop before its next batch with the message that a newer run took over, and the newer run SHALL wait until the older run's current batch ends before it sends its first batch, so no batch is sent twice. A run record not refreshed for 10 minutes SHALL expire.
 
 #### Scenario: A terminal run takes over from the page
 
@@ -203,20 +218,21 @@ The Memory page's Profile learning section SHALL offer **Analyse waiting prompts
 - **WHEN** a run stopped without clearing its run record and 10 minutes have passed since the record was refreshed
 - **THEN** a new run SHALL start without waiting
 
+## MODIFIED Requirements
+
+### Requirement: The backlog can be caught up in one run
+
+The Memory page's Profile learning section SHALL offer **Analyse waiting prompts** and the package SHALL offer `om-memory-system profile-catch-up`. The run SHALL analyse waiting prompts oldest first in batches of 50, with the saved external API by default. A failed batch SHALL stop the run with its reason code, and the next run SHALL continue from the prompts still waiting.
+
 #### Scenario: A failed batch
 
 - **WHEN** a batch times out during a catch-up run
 - **THEN** the run SHALL stop with reason `timeout`
 - **AND** the prompts already analysed SHALL stay marked as learned
 
-#### Scenario: A live pass during a run
-
-- **WHEN** a catch-up run is active and `userProfileDuringCatchUp` is not set
-- **THEN** a live pass SHALL run on prompts that the catch-up run has not claimed
-
 ### Requirement: Learning merges again after a save conflict
 
-When a learning save fails because the stored version changed, learning SHALL load the stored profile, merge the same analysis result into it, and save again with the new version. It SHALL NOT call the analysis model again. It SHALL make at most three save attempts. When all three fail, the profile SHALL stay unchanged, the analysed prompts SHALL stay unanalysed for a later run, and live learning in that process SHALL wait 10 minutes before its next pass. Claude Code, Pi, OpenCode and the backlog catch-up SHALL behave the same.
+When a learning save fails because the stored version changed, learning SHALL load the stored profile, merge the same analysis result into it, and save again with the new version. It SHALL NOT call the analysis model again. It SHALL make at most three save attempts. When all three fail, the profile SHALL stay unchanged, the analysed prompts SHALL stay unanalysed for a later run, and live learning in that process SHALL wait 10 minutes. Every host and the backlog catch-up SHALL behave the same.
 
 #### Scenario: A category cleanup lands during learning
 
