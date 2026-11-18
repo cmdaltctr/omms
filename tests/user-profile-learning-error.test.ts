@@ -1,152 +1,93 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { describe, expect, it, mock } from "bun:test";
 
-const tempDirs: string[] = [];
+// Issue #265: when the OpenCode model fails and no external API is configured, learning must
+// report the OpenCode error, not "External API not configured". The test drives the OpenCode
+// entry, `performUserProfileLearning`, in this process with fake stores and the real CONFIG
+// (change unify-profile-learning, task 6.4).
 
-const learningUrl = new URL("../src/adapters/opencode/profile-learning.js", import.meta.url).href;
-const configUrl = new URL("../src/config.js", import.meta.url).href;
-const tagsUrl = new URL("../src/services/tags.js", import.meta.url).href;
-const promptManagerUrl = new URL(
-  "../src/services/user-prompt/user-prompt-manager.js",
-  import.meta.url
-).href;
-const profileManagerUrl = new URL(
-  "../src/services/user-profile/user-profile-manager.js",
-  import.meta.url
-).href;
-const opencodeProviderLoaderUrl = new URL(
-  "../src/adapters/opencode/opencode-provider-loader.js",
-  import.meta.url
-).href;
-const profileLlmClientUrl = new URL(
-  "../src/adapters/opencode/profile-llm-client.js",
-  import.meta.url
-).href;
-const loggerUrl = new URL("../src/services/logger.js", import.meta.url).href;
+const PROVIDER_ERROR =
+  "omms: opencode reported APIError: Thinking mode does not support this tool_choice";
 
-function runProviderFailureScenario() {
-  const dir = mkdtempSync(join(tmpdir(), "opencode-mem-profile-error-"));
-  tempDirs.push(dir);
-  const scriptPath = join(dir, "scenario.mjs");
-  const script = `
-import { mock } from "bun:test";
-
+const logs: Array<{ message: string; data: Record<string, unknown> | null }> = [];
 const prompts = Array.from({ length: 10 }, (_, i) => ({
-  id: \`prompt-\${i}\`,
-  sessionId: "session-1",
-  messageId: \`msg-\${i}\`,
-  projectPath: "/workspace",
-  content: \`Implement feature \${i}\`,
+  id: `prompt-${i}`,
+  content: `Implement feature ${i}`,
   createdAt: i + 1,
-  captured: false,
-  user_learning_captured: false,
-  capture_attempts: 0,
 }));
+let structuredCalls = 0;
 
-mock.module(${JSON.stringify(configUrl)}, () => ({
-  refreshConfigIfChanged: () => {},
-  CONFIG: {
-    autoCaptureProviderStatus: { ready: true, mode: "opencode", issues: [] },
-    userProfileAnalysisInterval: 5,
-    opencodeProvider: "opencode-go",
-    opencodeModel: "deepseek-v4-flash",
-    showUserProfileToasts: false,
-  },
+mock.module("../src/services/logger.js", () => ({
+  log: (message: string, data?: Record<string, unknown>) =>
+    logs.push({ message, data: data ?? null }),
 }));
-
-mock.module(${JSON.stringify(tagsUrl)}, () => ({
+mock.module("../src/services/tags.js", () => ({
   getTags: () => ({
-    user: {
-      tag: "opencode_user_test",
-      displayName: "Test User",
-      userName: "tester",
-      userEmail: "test@example.com",
-    },
+    user: { tag: "t", displayName: "Test", userName: "test", userEmail: "test@example.com" },
   }),
 }));
-
-mock.module(${JSON.stringify(promptManagerUrl)}, () => ({
+mock.module("../src/services/user-prompt/user-prompt-manager.js", () => ({
   userPromptManager: {
     skipTrivialPromptsForLearning: async () => 0,
-    countUnanalyzedForUserLearning: async () => 10,
+    countUnanalyzedForUserLearning: async () => prompts.length,
     getPromptsForUserLearning: async () => prompts,
     markMultipleAsUserLearningCaptured: async () => {},
+    markForUserLearning: async () => {},
   },
 }));
-
-mock.module(${JSON.stringify(profileManagerUrl)}, () => ({
+mock.module("../src/services/user-profile/user-profile-manager.js", () => ({
   userProfileManager: {
     getActiveProfile: async () => null,
-    createProfile: async () => ({}),
-    mergeProfileData: async () => ({}),
+    getProfileById: async () => null,
+    createProfile: async () => "p1",
+    mergeProfileData: async () => ({ preferences: [], patterns: [], workflows: [] }),
     updateProfile: async () => true,
-    decayInMemory: (d) => ({ data: d }),
+    decayInMemory: (data: unknown) => ({ data }),
     syncConfidence: () => {},
   },
 }));
-
-mock.module(${JSON.stringify(loggerUrl)}, () => ({ log: () => {} }));
-
-mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
+mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
   loadOpencodeProvider: async () => ({
     generateStructuredOutput: async () => {
-      throw new Error(
-        "omms: opencode reported APIError: Thinking mode does not support this tool_choice"
-      );
+      structuredCalls++;
+      throw new Error(PROVIDER_ERROR);
     },
   }),
 }));
-
-mock.module(${JSON.stringify(profileLlmClientUrl)}, () => ({
+mock.module("../src/adapters/opencode/profile-llm-client.js", () => ({
   getOpencodeProfileHost: async () => ({}),
 }));
 
-try {
-  const { performUserProfileLearning } = await import(${JSON.stringify(learningUrl)});
-  await performUserProfileLearning("/workspace");
-  console.log(JSON.stringify({ error: null }));
-} catch (e) {
-  console.log(JSON.stringify({ error: e?.message ?? String(e) }));
-}
-process.exit(0);
-`;
-
-  writeFileSync(scriptPath, script, "utf-8");
-  const result = Bun.spawnSync({
-    cmd: [process.execPath, scriptPath],
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const stdout = Buffer.from(result.stdout).toString("utf8").trim();
-  const stderr = Buffer.from(result.stderr).toString("utf8").trim();
-  const jsonLine = stdout
-    .split("\n")
-    .reverse()
-    .find((line) => line.trim().startsWith("{"));
-
-  return {
-    exitCode: result.exitCode,
-    stderr,
-    parsed: jsonLine ? JSON.parse(jsonLine) : null,
-  };
-}
-
-afterEach(() => {
-  while (tempDirs.length > 0) {
-    const dir = tempDirs.pop();
-    if (dir) rmSync(dir, { recursive: true, force: true });
-  }
-});
+const { CONFIG } = await import("../src/config.js");
+const { profileFailureCode } = await import("../src/core/profile-failure.js");
+const { performUserProfileLearning } = await import("../src/adapters/opencode/profile-learning.js");
 
 describe("user profile learning error propagation (#265)", () => {
-  it("preserves the opencode provider error when no manual fallback is configured", () => {
-    const result = runProviderFailureScenario();
+  // Changed by the user's decision in design D9 ("the pass returns `failed` with the same
+  // reason"): the OpenCode loop rethrew the provider error before this change. The shared pass
+  // now returns `failed` with the reason code of that same error.
+  it("preserves the opencode provider error when no manual fallback is configured", async () => {
+    Object.assign(CONFIG, {
+      autoCaptureProviderStatus: { ready: true, mode: "opencode", issues: [] },
+      opencodeProvider: "opencode-go",
+      opencodeModel: "deepseek-v4-flash",
+      memoryModel: undefined,
+      memoryApiUrl: undefined,
+      memoryApiKey: undefined,
+      userProfileAnalysisInterval: 10,
+      userProfileMaxContextBytes: 32768,
+      userProfileValidationEnabled: false,
+      showUserProfileToasts: false,
+    });
 
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
-    expect(result.parsed?.error).toContain("Thinking mode does not support");
-    expect(result.parsed?.error).not.toContain("External API not configured");
+    const result = await performUserProfileLearning("/workspace");
+
+    expect(structuredCalls).toBe(1);
+    expect(result).toEqual({
+      outcome: "failed",
+      reason: profileFailureCode(new Error(PROVIDER_ERROR)),
+    });
+    expect(profileFailureCode(new Error("External API not configured"))).not.toBe(result.reason);
+    const failure = logs.find((entry) => entry.message === "OpenCode profile learning failed");
+    expect(failure?.data).toEqual({ host: "opencode", reason: "error" });
   });
 });

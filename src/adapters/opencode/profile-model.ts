@@ -1,6 +1,11 @@
 import { CONFIG } from "../../config.js";
 import type { ModelPort } from "../../core/profile-analysis.js";
-import { resolveOpencodeHostModel } from "../../services/ai/live-model-choice.js";
+import { withExternalFallback } from "../../core/profile-learning/fallback.js";
+import type { ProfileLearningNotice } from "../../core/profile-learning/pass.js";
+import {
+  isExternalModelReady,
+  resolveOpencodeHostModel,
+} from "../../services/ai/live-model-choice.js";
 import { log } from "../../services/logger.js";
 import { OPENCODE_PROFILE_CLEANUP_TIMEOUT_MS } from "../../services/request-timeouts.js";
 import { registerHostProfileModel } from "../../services/user-profile/profile-model.js";
@@ -55,19 +60,76 @@ export function adaptOpencodeProfileModel(
     modelId: hostModel.modelID,
     complete: (systemPrompt, userPrompt) =>
       completeViaGeneration(host, hostModel, systemPrompt, userPrompt),
-    async completeStructured(systemPrompt, userPrompt, schema) {
-      const profileHost = await getOpencodeProfileHost();
-      const { generateStructuredOutput } = await loadOpencodeProvider();
-      return generateStructuredOutput({
-        host: profileHost,
-        providerID: hostModel.providerID,
-        modelID: hostModel.modelID,
-        systemPrompt,
-        userPrompt,
-        schema,
-      });
-    },
+    completeStructured: (systemPrompt, userPrompt, schema) =>
+      structuredOutput(hostModel, systemPrompt, userPrompt, schema),
   };
+}
+
+/** One sessionless OpenCode structured-output call (the V2 rule lives in `opencode-v2-adapter`). */
+async function structuredOutput<T>(
+  hostModel: OpencodeModelRef,
+  systemPrompt: string,
+  userPrompt: string,
+  schema: Parameters<NonNullable<ModelPort["completeStructured"]>>[2]
+): Promise<T> {
+  const profileHost = await getOpencodeProfileHost();
+  const { generateStructuredOutput } = await loadOpencodeProvider();
+  return generateStructuredOutput({
+    host: profileHost,
+    providerID: hostModel.providerID,
+    modelID: hostModel.modelID,
+    systemPrompt,
+    userPrompt,
+    schema,
+  }) as Promise<T>;
+}
+
+/** The limit on one learning call, as the OpenCode loop had before the shared pass. */
+export const OPENCODE_PROFILE_LEARNING_TIMEOUT_MS = 120_000;
+
+/** OpenCode's host model for a learning pass: structured output with the 120 s limit. */
+function opencodeLearningPort(hostModel: OpencodeModelRef): ModelPort {
+  return {
+    provider: hostModel.providerID,
+    modelId: hostModel.modelID,
+    // The pass calls `completeStructured`; plain text is only a fallback for other callers.
+    complete: async (systemPrompt, userPrompt) =>
+      completeViaGeneration(await getOpencodeProfileHost(), hostModel, systemPrompt, userPrompt),
+    completeStructured: (systemPrompt, userPrompt, schema) =>
+      raceWithTimeout(
+        structuredOutput(hostModel, systemPrompt, userPrompt, schema),
+        OPENCODE_PROFILE_LEARNING_TIMEOUT_MS,
+        "user-profile-learning: timeout"
+      ),
+  };
+}
+
+/** The external API's profile port, loaded on the first call. */
+const externalProfilePort: ModelPort = {
+  provider: "external",
+  modelId: "",
+  async complete(systemPrompt, userPrompt) {
+    const { selectImportModel } = await import("../../importer/model-selection.js");
+    return selectImportModel({}).profile.complete(systemPrompt, userPrompt);
+  },
+};
+
+/**
+ * The model of an OpenCode learning pass (change unify-profile-learning, design D3): the host
+ * model, with the external API behind it when that is fully configured. Without a host model
+ * the external API is the model. Null when neither exists.
+ */
+export function createOpencodeLearningModel(
+  notify?: (notice: ProfileLearningNotice) => void | Promise<void>
+): ModelPort | null {
+  const hostModel = resolveOpencodeHostModel(CONFIG);
+  const external = isExternalModelReady(CONFIG) ? externalProfilePort : null;
+  return withExternalFallback(
+    "opencode",
+    hostModel ? opencodeLearningPort(hostModel) : null,
+    external,
+    notify
+  );
 }
 
 /** Route shared profile calls in this process to OpenCode's host model while one is configured. */

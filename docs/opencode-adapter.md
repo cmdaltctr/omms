@@ -279,9 +279,21 @@ It adds them to the system prompt of later turns.
 
 OpenCode V2 also restores after a resume. OpenCode V2 has no resume event. OMMS finds a resumed session when the first prompt it sees in this process finds earlier user messages in the history. This also happens after an OpenCode restart. The full history stays, so the restore is a short reminder. `compaction.enabled` set to `false` turns off both restores.
 
+### Profile learning
+
+OpenCode runs the same learning pass as Pi and Claude Code. See [Using memory: User profile](using-memory.md#user-profile) for the steps and the settings.
+
+- The pass starts after the idle capture, when capture is on.
+- It uses the model that the capture rule above chooses. An OpenCode model or the session's model answers through OpenCode structured output, with a time limit of 120 seconds for each call.
+- When the rule chooses the external API, the pass uses the external API.
+- When the OpenCode model fails and the external API is fully configured, the pass uses the external API. The OpenCode log gets the warning `[omms] Using fallback provider: OpenCode model failed (<reason>); using configured fallback.`
+- When the OpenCode model fails and the external API is not configured, the pass fails with the OpenCode error. The 10-minute wait starts.
+- With `showUserProfileToasts` on, a saved pass writes `[omms] User profile updated: Analysed N prompts and updated your profile` to the OpenCode log.
+- The saved profile version has the history text `OpenCode analysis of N prompts`.
+
 ### Automatic profile cleanup
 
-After a profile learning pass takes the count of analysed prompts past a multiple of `userProfileAutoCleanupInterval` (default 500), the plugin starts the automatic cleanup in the background. It uses the same model as profile learning and sends the profile in batches of up to 100 items. A run that is still going when OpenCode ends saves nothing. See [Using memory: Automatic cleanup](using-memory.md#automatic-cleanup).
+After a profile learning pass takes the count of analysed prompts past a multiple of `userProfileAutoCleanupInterval` (default 500), the shared pass starts the automatic cleanup in the background. It uses the same model as profile learning and sends the profile in batches of up to 100 items. A run that is still going when OpenCode ends saves nothing. See [Using memory: Automatic cleanup](using-memory.md#automatic-cleanup).
 
 ## Provenance
 

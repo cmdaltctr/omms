@@ -1,135 +1,147 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-// OpenCode learning saves with the version it read. When a save meets a newer version, it
-// reloads the profile, merges again and saves with the newer version. After the last
-// attempt it keeps the prompts and starts the profile backoff.
+// OpenCode learning saves with the version it read. When a save meets a newer version, the
+// shared pass reloads the profile, merges again and saves with the newer version. After the
+// last attempt it keeps the prompts and starts the profile backoff. The test drives the
+// OpenCode entry, `performUserProfileLearning`, in this process with fake stores and the
+// real CONFIG (change unify-profile-learning, task 6.4).
 
-const tempDirs: string[] = [];
-
-const url = (path: string) => new URL(path, import.meta.url).href;
-
-function runScenario(failedSaves: number) {
-  const dir = mkdtempSync(join(tmpdir(), "omms-opencode-conflict-"));
-  tempDirs.push(dir);
-  const scriptPath = join(dir, "scenario.mjs");
-  const script = `
-import { mock } from "bun:test";
+const world = {
+  reads: 0,
+  failedSaves: 0,
+  saves: [] as number[],
+  marked: [] as string[],
+  decays: 0,
+};
 
 const prompts = Array.from({ length: 5 }, (_, i) => ({
-  id: "prompt-" + i, sessionId: "s", messageId: "m" + i, projectPath: "/workspace",
-  content: "Prompt " + i, createdAt: i + 1, captured: false, user_learning_captured: false, capture_attempts: 0,
+  id: `prompt-${i}`,
+  content: `Please refactor module number ${i} of the settings page`,
+  createdAt: i + 1,
 }));
-const saves = [];
-const marked = [];
-let reads = 0;
-let failed = 0;
+const empty = { preferences: [], patterns: [], workflows: [] };
 
-mock.module(${JSON.stringify(url("../src/config.js"))}, () => ({
-  refreshConfigIfChanged: () => {},
-  CONFIG: {
-    autoCaptureProviderStatus: { ready: true, mode: "opencode", issues: [] },
-    userProfileAnalysisInterval: 5,
-    userProfileMaxContextBytes: 32768,
-    opencodeProvider: "opencode-go",
-    opencodeModel: "deepseek-v4-flash",
-    userProfileValidationEnabled: false,
-    showUserProfileToasts: false,
-  },
+mock.module("../src/services/logger.js", () => ({ log: () => {} }));
+mock.module("../src/services/tags.js", () => ({
+  getTags: () => ({
+    user: { tag: "t", displayName: "T", userName: "t", userEmail: "t@example.com" },
+  }),
 }));
-mock.module(${JSON.stringify(url("../src/services/tags.js"))}, () => ({
-  getTags: () => ({ user: { tag: "t", displayName: "T", userName: "t", userEmail: "t@example.com" } }),
-}));
-mock.module(${JSON.stringify(url("../src/services/user-prompt/user-prompt-manager.js"))}, () => ({
+mock.module("../src/services/user-prompt/user-prompt-manager.js", () => ({
   userPromptManager: {
     skipTrivialPromptsForLearning: async () => 0,
     countUnanalyzedForUserLearning: async () => 5,
     getPromptsForUserLearning: async () => prompts,
-    markMultipleAsUserLearningCaptured: async (ids) => { marked.push(...ids); },
+    markMultipleAsUserLearningCaptured: async (ids: string[]) => {
+      world.marked.push(...ids);
+    },
+    markForUserLearning: async () => {},
   },
 }));
-const empty = JSON.stringify({ preferences: [], patterns: [], workflows: [] });
-mock.module(${JSON.stringify(url("../src/services/user-profile/user-profile-manager.js"))}, () => ({
+// Every read finds a newer version, as if another writer saved in between.
+const read = async () => ({
+  id: "p1",
+  version: 7 + world.reads++,
+  profileData: JSON.stringify(empty),
+  totalPromptsAnalyzed: 0,
+});
+mock.module("../src/services/user-profile/user-profile-manager.js", () => ({
   userProfileManager: {
-    // Every read finds a newer version, as if another writer saved in between.
-    getActiveProfile: async () => ({ id: "p1", version: 7 + reads++, profileData: empty, totalPromptsAnalyzed: 0 }),
-    createProfile: async () => ({}),
-    mergeProfileData: async () => ({ preferences: [], patterns: [], workflows: [] }),
-    updateProfile: async (id, data, count, summary, expectedVersion) => {
-      saves.push(expectedVersion);
-      if (failed < ${failedSaves}) { failed++; return false; }
+    getActiveProfile: read,
+    getProfileById: read,
+    createProfile: async () => "p1",
+    mergeProfileData: async () => empty,
+    updateProfile: async (
+      _id: string,
+      _data: unknown,
+      _count: number,
+      _summary: string,
+      expectedVersion: number
+    ) => {
+      world.saves.push(expectedVersion);
+      if (world.saves.length <= world.failedSaves) return false;
       return true;
     },
-    decayInMemory: (d) => ({ data: d }),
+    decayInMemory: (data: unknown) => {
+      world.decays++;
+      return { data };
+    },
     syncConfidence: () => {},
   },
 }));
-mock.module(${JSON.stringify(url("../src/services/logger.js"))}, () => ({ log: () => {} }));
-mock.module(${JSON.stringify(url("../src/adapters/opencode/opencode-provider-loader.js"))}, () => ({
-  loadOpencodeProvider: async () => ({
-    generateStructuredOutput: async () => ({ preferences: [], patterns: [], workflows: [] }),
-  }),
+mock.module("../src/services/user-profile/auto-cleanup.js", () => ({
+  startAutoProfileCleanup: () => new Promise(() => {}),
 }));
-mock.module(${JSON.stringify(url("../src/adapters/opencode/profile-llm-client.js"))}, () => ({
+mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
+  loadOpencodeProvider: async () => ({ generateStructuredOutput: async () => empty }),
+}));
+mock.module("../src/adapters/opencode/profile-llm-client.js", () => ({
   getOpencodeProfileHost: async () => ({}),
 }));
 
-const { performUserProfileLearning } = await import(${JSON.stringify(url("../src/adapters/opencode/profile-learning.js"))});
-const { profileBackoff } = await import(${JSON.stringify(url("../src/core/profile-backoff.js"))});
-await performUserProfileLearning("/workspace");
-console.log(JSON.stringify({ saves, marked: marked.length, canRun: profileBackoff.canRun() }));
-process.exit(0);
-`;
-  writeFileSync(scriptPath, script, "utf8");
-  const result = Bun.spawnSync({
-    cmd: [process.execPath, scriptPath],
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const line = Buffer.from(result.stdout)
-    .toString("utf8")
-    .split("\n")
-    .reverse()
-    .find((entry) => entry.trim().startsWith("{"));
-  return {
-    exitCode: result.exitCode,
-    stderr: Buffer.from(result.stderr).toString("utf8").trim(),
-    parsed: line
-      ? (JSON.parse(line) as { saves: number[]; marked: number; canRun: boolean })
-      : null,
-  };
+const { CONFIG } = await import("../src/config.js");
+const { profileBackoff } = await import("../src/core/profile-backoff.js");
+const { performUserProfileLearning } = await import("../src/adapters/opencode/profile-learning.js");
+
+async function runScenario(failedSaves: number) {
+  world.failedSaves = failedSaves;
+  await performUserProfileLearning("/workspace");
+  return { saves: world.saves, marked: world.marked.length, canRun: profileBackoff.canRun() };
 }
 
-afterEach(() => {
-  while (tempDirs.length > 0) {
-    const dir = tempDirs.pop();
-    if (dir) rmSync(dir, { recursive: true, force: true });
-  }
+beforeEach(() => {
+  world.reads = 0;
+  world.saves = [];
+  world.marked = [];
+  world.decays = 0;
+  Object.assign(CONFIG, {
+    autoCaptureProviderStatus: { ready: true, mode: "opencode", issues: [] },
+    opencodeProvider: "opencode-go",
+    opencodeModel: "deepseek-v4-flash",
+    memoryModel: undefined,
+    memoryApiUrl: undefined,
+    memoryApiKey: undefined,
+    userProfileAnalysisInterval: 5,
+    userProfileMaxContextBytes: 32768,
+    userProfileValidationEnabled: false,
+    userProfileDecayBeforeMerge: false,
+    showUserProfileToasts: false,
+  });
+  profileBackoff.recordSuccess();
 });
 
 describe("OpenCode profile learning save conflicts", () => {
-  it("saves with the version it read and marks the prompts when the first save succeeds", () => {
-    const result = runScenario(0);
-    expect(result.exitCode).toBe(0);
-    expect(result.parsed?.saves).toEqual([7]);
-    expect(result.parsed?.marked).toBe(5);
-    expect(result.parsed?.canRun).toBe(true);
+  it("saves with the version it read and marks the prompts when the first save succeeds", async () => {
+    const result = await runScenario(0);
+    expect(result.saves).toEqual([7]);
+    expect(result.marked).toBe(5);
+    expect(result.canRun).toBe(true);
   });
 
-  it("reloads the profile and saves with the newer version after one conflict", () => {
-    const result = runScenario(1);
-    expect(result.exitCode).toBe(0);
-    expect(result.parsed?.saves).toEqual([7, 8]);
-    expect(result.parsed?.marked).toBe(5);
+  it("reloads the profile and saves with the newer version after one conflict", async () => {
+    const result = await runScenario(1);
+    expect(result.saves).toEqual([7, 8]);
+    expect(result.marked).toBe(5);
   });
 
-  it("keeps the prompts and starts the backoff after three conflicts", () => {
-    const result = runScenario(99);
-    expect(result.exitCode).toBe(0);
-    expect(result.parsed?.saves).toEqual([7, 8, 9]);
-    expect(result.parsed?.marked).toBe(0);
-    expect(result.parsed?.canRun).toBe(false);
+  it("keeps the prompts and starts the backoff after three conflicts", async () => {
+    const result = await runScenario(99);
+    expect(result.saves).toEqual([7, 8, 9]);
+    expect(result.marked).toBe(0);
+    expect(result.canRun).toBe(false);
+  });
+
+  // Changed by the user's decision "no decay" (design D9): OpenCode decayed the stored profile
+  // on every read and retry before this change. Decay now runs only with the setting on.
+  it("does not decay the stored profile on a retry by default", async () => {
+    await runScenario(1);
+    expect(world.decays).toBe(0);
+  });
+
+  it("decays before the analysis and again before the retry with the setting on", async () => {
+    CONFIG.userProfileDecayBeforeMerge = true;
+    const result = await runScenario(1);
+    expect(result.saves).toEqual([7, 8]);
+    expect(world.decays).toBe(2);
   });
 });
