@@ -2,11 +2,16 @@ import { tursoShardManager } from "./turso/shard-manager.js";
 import { tursoVectorSearch } from "./turso/vector-search.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { ensureTursoReady } from "./turso/ready.js";
-import { CONFIG } from "../config.js";
 import { log } from "./logger.js";
 import { cosineSimilarity } from "../utils/math.js";
 import { parseExtractedVector } from "./turso/vector-utils.js";
 import { memoryKindPredicate } from "./memory-kind.js";
+
+/** The settings a deduplication run reads. Callers pass `CONFIG` at call time. */
+export type DeduplicationConfig = Pick<
+  (typeof import("../config.js"))["CONFIG"],
+  "deduplicationEnabled" | "deduplicationSimilarityThreshold"
+>;
 
 interface DuplicateGroup {
   representative: {
@@ -30,12 +35,12 @@ interface DeduplicationResult {
 export class DeduplicationService {
   private isRunning: boolean = false;
 
-  async detectAndRemoveDuplicates(): Promise<DeduplicationResult> {
+  async detectAndRemoveDuplicates(config: DeduplicationConfig): Promise<DeduplicationResult> {
     if (this.isRunning) {
       throw new Error("Deduplication already running");
     }
 
-    if (!CONFIG.deduplicationEnabled) {
+    if (!config.deduplicationEnabled) {
       throw new Error("Deduplication is disabled in config");
     }
 
@@ -124,7 +129,7 @@ export class DeduplicationService {
 
             const similarity = cosineSimilarity(vector1, vector2);
 
-            if (similarity >= CONFIG.deduplicationSimilarityThreshold && similarity < 1.0) {
+            if (similarity >= config.deduplicationSimilarityThreshold && similarity < 1.0) {
               similarGroup.duplicates.push({
                 id: String(mem2.id),
                 content: String(mem2.content),
@@ -149,10 +154,10 @@ export class DeduplicationService {
     }
   }
 
-  getStatus() {
+  getStatus(config: DeduplicationConfig) {
     return {
-      enabled: CONFIG.deduplicationEnabled,
-      threshold: CONFIG.deduplicationSimilarityThreshold,
+      enabled: config.deduplicationEnabled,
+      threshold: config.deduplicationSimilarityThreshold,
       isRunning: this.isRunning,
     };
   }

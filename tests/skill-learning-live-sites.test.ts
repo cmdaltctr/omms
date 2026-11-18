@@ -141,7 +141,7 @@ console.log("RESULT:" + JSON.stringify({ result: result ?? null, addCalls, conte
 
 const OPENCODE = `
 const { performAutoCapture } = await import(${url("services/auto-capture.js")});
-await performAutoCapture(opencodeHost, "session-1", "/workspace");
+await performAutoCapture(opencodeHost, "session-1", "/workspace", await import(${url("config.js")}));
 `;
 
 const PI = `
@@ -187,7 +187,7 @@ describe("OpenCode live site", () => {
   it("keeps one row when a failed capture is tried again", () => {
     const out = run({
       mode: "fail",
-      code: `${OPENCODE}\nmode = "capture";\nprompts[0].capture_attempts = 0;\nawait performAutoCapture(opencodeHost, "session-1", "/workspace");\nresult = await turns();`,
+      code: `${OPENCODE}\nmode = "capture";\nprompts[0].capture_attempts = 0;\nawait performAutoCapture(opencodeHost, "session-1", "/workspace", await import(${url("config.js")}));\nresult = await turns();`,
     });
     expect(out.contexts).toHaveLength(2);
     expect(out.addCalls).toHaveLength(1);
@@ -219,13 +219,13 @@ const reads = [];
 const read = opencodeHost.getConversation;
 opencodeHost.getConversation = async (session, messageId) => { reads.push(messageId); return read(session, messageId); };
 const { performAutoCapture } = await import(${url("services/auto-capture.js")});
-await performAutoCapture(opencodeHost, "session-1", "/workspace");
+await performAutoCapture(opencodeHost, "session-1", "/workspace", await import(${url("config.js")}));
 prompts.push(prompt(3));
-await performAutoCapture(opencodeHost, "session-1", "/workspace");
-await performAutoCapture(opencodeHost, "session-1", "/workspace");
+await performAutoCapture(opencodeHost, "session-1", "/workspace", await import(${url("config.js")}));
+await performAutoCapture(opencodeHost, "session-1", "/workspace", await import(${url("config.js")}));
 const whileOff = { reads: [...reads], captured: prompts.map((p) => p.captured), rows: (await turns()).rows.length };
 CONFIG.autoCaptureEnabled = true;
-await performAutoCapture(opencodeHost, "session-1", "/workspace");
+await performAutoCapture(opencodeHost, "session-1", "/workspace", await import(${url("config.js")}));
 result = { whileOff, captured: prompts.map((p) => p.captured) };`,
     });
     expect(out.result.whileOff).toEqual({

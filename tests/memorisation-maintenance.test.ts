@@ -56,7 +56,7 @@ describe("memorisation maintenance", () => {
     }
 
     const { deduplicationService } = await import("../src/services/deduplication-service.js");
-    const result = await deduplicationService.detectAndRemoveDuplicates();
+    const result = await deduplicationService.detectAndRemoveDuplicates(CONFIG);
     const rows = await db.all("SELECT id FROM memories ORDER BY id");
 
     expect(result.exactDuplicatesDeleted).toBe(1);
@@ -84,7 +84,7 @@ describe("memorisation maintenance", () => {
     }
 
     const { CleanupService } = await import("../src/services/cleanup-service.js");
-    const result = await new CleanupService().runCleanup();
+    const result = await new CleanupService().runCleanup(CONFIG);
     const rows = await db.all("SELECT id FROM memories");
 
     expect(result.deletedCount).toBe(1);
@@ -204,7 +204,8 @@ await captureConversation(
       captureContext = context;
       return { summary: "", type: "skip", tags: [] };
     },
-  }
+  },
+  await import(${JSON.stringify(url("../src/config.js"))})
 );
 console.log(JSON.stringify({ listCalls, captureContext }));
 expect(captureContext).toContain("older normal memory");

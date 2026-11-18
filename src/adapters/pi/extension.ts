@@ -357,7 +357,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
       // Not awaited: a slow or failed run never holds up or breaks the session.
       void import("../../services/cleanup-service.js")
         .then(({ cleanupService }) =>
-          cleanupService.runDailyMaintenance(CONFIG.autoDeleteOldMemories === true)
+          cleanupService.runDailyMaintenance(CONFIG.autoDeleteOldMemories === true, CONFIG)
         )
         .catch((error: unknown) =>
           log("Pi daily maintenance failed", { code: errorCode(error) }, "error")

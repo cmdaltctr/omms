@@ -155,12 +155,12 @@ export async function routeMemoryApi(
   }
 
   if (path === "/api/cleanup" && method === "POST") {
-    const result = await handleRunCleanup();
+    const result = await handleRunCleanup(await web.loadConfig());
     return jsonResponse(result);
   }
 
   if (path === "/api/deduplicate" && method === "POST") {
-    const result = await handleRunDeduplication();
+    const result = await handleRunDeduplication(await web.loadConfig());
     return jsonResponse(result);
   }
 

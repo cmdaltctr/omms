@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
+type ApiConfig = import("../src/services/api/shared.js").ApiConfig;
+
+// The handlers pass the module's CONFIG on to the service at call time.
+const config = {
+  CONFIG: { autoCleanupRetentionDays: 9, deduplicationSimilarityThreshold: 0.8 },
+} as unknown as ApiConfig;
+
 describe("api handlers: maintenance routes", () => {
   const restores: Array<() => void> = [];
 
@@ -16,13 +23,18 @@ describe("api handlers: maintenance routes", () => {
     });
   }
 
-  it("runs the cleanup service and returns its result", async () => {
+  it("runs the cleanup service with the current CONFIG and returns its result", async () => {
     const { cleanupService } = await import("../src/services/cleanup-service.js");
     const result = { deletedCount: 3, userCount: 1, projectCount: 2 };
-    stub(cleanupService, "runCleanup", async () => result);
+    const received: unknown[] = [];
+    stub(cleanupService, "runCleanup", async (config: unknown) => {
+      received.push(config);
+      return result;
+    });
 
     const { handleRunCleanup } = await import("../src/services/api-handlers.js");
-    expect(await handleRunCleanup()).toEqual({ success: true, data: result });
+    expect(await handleRunCleanup(config)).toEqual({ success: true, data: result });
+    expect(received).toEqual([config.CONFIG]);
   });
 
   it("reports a cleanup failure as an error response", async () => {
@@ -32,18 +44,23 @@ describe("api handlers: maintenance routes", () => {
     });
 
     const { handleRunCleanup } = await import("../src/services/api-handlers.js");
-    const response = await handleRunCleanup();
+    const response = await handleRunCleanup(config);
     expect(response.success).toBe(false);
     expect(response.error).toContain("cleanup boom");
   });
 
-  it("runs deduplication and returns its result", async () => {
+  it("runs deduplication with the current CONFIG and returns its result", async () => {
     const { deduplicationService } = await import("../src/services/deduplication-service.js");
     const result = { exactDuplicatesDeleted: 4, nearDuplicateGroups: [] };
-    stub(deduplicationService, "detectAndRemoveDuplicates", async () => result);
+    const received: unknown[] = [];
+    stub(deduplicationService, "detectAndRemoveDuplicates", async (config: unknown) => {
+      received.push(config);
+      return result;
+    });
 
     const { handleRunDeduplication } = await import("../src/services/api-handlers.js");
-    expect(await handleRunDeduplication()).toEqual({ success: true, data: result });
+    expect(await handleRunDeduplication(config)).toEqual({ success: true, data: result });
+    expect(received).toEqual([config.CONFIG]);
   });
 
   it("reports a deduplication failure as an error response", async () => {
@@ -53,7 +70,7 @@ describe("api handlers: maintenance routes", () => {
     });
 
     const { handleRunDeduplication } = await import("../src/services/api-handlers.js");
-    const response = await handleRunDeduplication();
+    const response = await handleRunDeduplication(config);
     expect(response.success).toBe(false);
     expect(response.error).toContain("dedupe boom");
   });

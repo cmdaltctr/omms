@@ -55,14 +55,14 @@ describe("cleanup run and the capture retry queue", () => {
     await queue.enqueueCaptureRetry(unit("old"), failure, CONFIG, now - 73 * HOUR);
     await queue.enqueueCaptureRetry(unit("new"), failure, CONFIG, now - HOUR);
 
-    await new CleanupService().runCleanup();
+    await new CleanupService().runCleanup(CONFIG);
 
     expect(await turnIds()).toEqual(["new"]);
   });
 
   it("deletes every queued turn while retention is 0", async () => {
     CONFIG.captureRetryRetentionHours = 0;
-    await new CleanupService().runCleanup();
+    await new CleanupService().runCleanup(CONFIG);
     expect(await turnIds()).toEqual([]);
     CONFIG.captureRetryRetentionHours = 72;
   });

@@ -101,12 +101,8 @@ function rawSql(file: string): number {
 // Non-type import sites of src/config.ts per file, recorded after modular-boundaries.
 // Guards the config-injection follow-up: new core and services code takes config as an argument.
 const configBaseline: Record<string, number> = {
-  "src/core/capture.ts": 1,
   "src/services/active-space-access.ts": 1,
-  "src/services/auto-capture.ts": 1,
-  "src/services/cleanup-service.ts": 1,
   "src/services/client.ts": 1,
-  "src/services/deduplication-service.ts": 1,
   "src/services/web-server.ts": 1,
 };
 

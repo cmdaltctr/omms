@@ -44,7 +44,7 @@ describe("cleanup run and the automatic cleanup restore records", () => {
     await records.insertAutoCleanupRecord("p2", input, now - 40 * DAY);
     expect(await count()).toBe(3);
 
-    await new CleanupService().runCleanup();
+    await new CleanupService().runCleanup(CONFIG);
 
     expect(await count()).toBe(1);
   });

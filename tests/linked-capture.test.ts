@@ -127,7 +127,8 @@ const captured = await captureConversation(
     textResponses: ["Use 4748 for the dev server."],
     toolCalls: [],
   },
-  { summarize: async () => ({ summary: "Use port 4748 for the dev server.", type: "decision", tags: ["ports"] }) }
+  { summarize: async () => ({ summary: "Use port 4748 for the dev server.", type: "decision", tags: ["ports"] }) },
+  await import(${JSON.stringify(configUrl)})
 );
 
 const profileReads = await memoryClient.searchMemoriesBySessionID("sess-linked-capture", projectTag);

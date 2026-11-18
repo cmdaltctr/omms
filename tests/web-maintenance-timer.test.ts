@@ -22,8 +22,10 @@ it("starts the daily maintenance timer with the web app and stops it on stop()",
     `
 const { mock } = await import("bun:test");
 const calls = { started: 0, stopped: 0 };
+let getConfig;
 mock.module(${JSON.stringify(src("cleanup-service.js"))}, () => ({
-  startDailyMaintenanceTimer: () => {
+  startDailyMaintenanceTimer: (getter) => {
+    getConfig = getter;
     calls.started += 1;
     return () => { calls.stopped += 1; };
   },
@@ -34,8 +36,11 @@ await server.start();
 const deadline = Date.now() + 10000;
 while (calls.started === 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 10));
 const afterStart = { ...calls };
+// The timer gets a getter for the live CONFIG, so each tick reads the current settings.
+const { CONFIG } = await import(${JSON.stringify(src("../config.js"))});
+const readsLiveConfig = getConfig?.() === CONFIG;
 await server.stop();
-console.log("RESULT:" + JSON.stringify({ afterStart, afterStop: calls }));
+console.log("RESULT:" + JSON.stringify({ afterStart, afterStop: calls, readsLiveConfig }));
 process.exit(0);
 `
   );
@@ -54,4 +59,5 @@ process.exit(0);
   const result = JSON.parse(output.match(/RESULT:(.*)$/m)![1]!);
   expect(result.afterStart).toEqual({ started: 1, stopped: 0 });
   expect(result.afterStop).toEqual({ started: 1, stopped: 1 });
+  expect(result.readsLiveConfig).toBe(true);
 });

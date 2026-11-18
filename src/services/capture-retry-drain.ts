@@ -31,7 +31,7 @@ export interface CaptureRetryDrainOptions {
   provider: CaptureSummaryProvider;
   config: CaptureRetryConfig;
   /** The config module each retry's capture refreshes and reads. The host passes its own. */
-  configModule?: CaptureConfigModule;
+  configModule: CaptureConfigModule;
   now?: () => number;
   /** False skips the pass, e.g. while the embedding model is not ready. */
   isReady?: () => boolean;

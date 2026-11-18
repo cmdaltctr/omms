@@ -83,6 +83,7 @@ const { executeMemoryOperation } = await import(${JSON.stringify(memoryOperation
 const { capturePiSettledWorkUnit, createPiCaptureState } = await import(${JSON.stringify(piCaptureModule)});
 const { buildRetrievalSection } = await import(${JSON.stringify(piRetrievalModule)});
 const { captureConversation } = await import(${JSON.stringify(coreCaptureModule)});
+const liveConfig = await import(${JSON.stringify(configModule)});
 const { getTags } = await import(${JSON.stringify(tagsModule)});
 
 const projectDir = ${JSON.stringify(projectDir)};
@@ -192,7 +193,8 @@ const capture = await captureConversation(
     textResponses: ["Per-scope write locks chosen for the shared store."],
     toolCalls: [],
   },
-  opencodeProvider
+  opencodeProvider,
+  liveConfig
 );
 
 const section = await buildRetrievalSection("how is the store locked?", projectDir, "pi-session-2", CONFIG.chatMessage.excludeCurrentSession, undefined, CONFIG);
@@ -225,7 +227,8 @@ const ocCapture = await captureConversation(
     textResponses: ["Per-scope write locks chosen."],
     toolCalls: [],
   },
-  opencodeProvider
+  opencodeProvider,
+  liveConfig
 );
 
 const list = await memoryClient.listMemories(tags.project.tag, 10);

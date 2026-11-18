@@ -16,7 +16,10 @@ export interface TurnOutputs {
 export interface TurnOutputDeps {
   /** The capture model. Needed when `memories` is on. */
   provider?: CaptureSummaryProvider;
-  /** The config module the capture refreshes and reads. Callers pass `import * as configModule`. */
+  /**
+   * The config module the capture refreshes and reads. Needed when `memories`
+   * is on. Callers pass `import * as configModule`.
+   */
   configModule?: CaptureConfigModule;
   /**
    * The skill-turn output. Injected so `src/core/` imports nothing from
@@ -66,5 +69,6 @@ export async function handleFinishedTurn(
   }
   if (!outputs.memories) return { status: "not-run" };
   if (!deps.provider) throw new Error("handleFinishedTurn needs a provider for memories");
+  if (!deps.configModule) throw new Error("handleFinishedTurn needs a config module for memories");
   return captureConversation(unit, deps.provider, deps.configModule);
 }

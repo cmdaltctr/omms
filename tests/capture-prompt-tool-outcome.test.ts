@@ -21,6 +21,7 @@ mock.module("../src/services/client.js", () => ({
 }));
 
 const { captureConversation } = await import("../src/core/capture.js");
+const configModule = await import("../src/config.js");
 const { extractClaudeConversationWindows } = await import("../src/importer/claude-conversation.js");
 
 const baseUnit = {
@@ -41,7 +42,8 @@ async function captureRequest(toolCalls: CaptureToolCall[]) {
         request = rest;
         return { summary: "", type: "skip", tags: [] };
       },
-    }
+    },
+    configModule
   );
   return request;
 }

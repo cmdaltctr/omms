@@ -53,12 +53,12 @@ const TRIGGERS = {
   `,
   "web app timer": `
     const { startDailyMaintenanceTimer } = await import(${src("services/cleanup-service.ts")});
-    stops.push(startDailyMaintenanceTimer());
+    stops.push(startDailyMaintenanceTimer(() => CONFIG));
   `,
 } as const;
 
 // The Cleanup button on the page. It deletes by age whatever the switch says, after its own confirm.
-const MANUAL = `await cleanupService.runCleanup();`;
+const MANUAL = `await cleanupService.runCleanup(CONFIG);`;
 
 async function run(trigger: keyof typeof TRIGGERS | "manual", config: Record<string, unknown>) {
   const home = mkdtempSync(join(tmpdir(), "omms-deletion-paths-"));
@@ -104,12 +104,12 @@ async function run(trigger: keyof typeof TRIGGERS | "manual", config: Record<str
 
     const deadline = Date.now() + 10000;
     while (Date.now() < deadline) {
-      const status = cleanupService.getStatus();
+      const status = cleanupService.getStatus(CONFIG);
       if (status.lastCleanupTime > 0 && !status.isRunning) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
     stops.forEach((stop) => stop());
-    const ran = cleanupService.getStatus().lastCleanupTime > 0;
+    const ran = cleanupService.getStatus(CONFIG).lastCleanupTime > 0;
     const left = (await db.all("SELECT id FROM memories ORDER BY id")).map((row) => String(row.id));
     console.log("RESULT:" + JSON.stringify({
       ran, counted, left, deleteOn: CONFIG.autoDeleteOldMemories,

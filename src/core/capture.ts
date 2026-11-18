@@ -1,4 +1,3 @@
-import { CONFIG, refreshConfigIfChanged } from "../config.js";
 import { buildCaptureAttemptRecord, emitCaptureAttempt } from "../services/capture-diagnostics.js";
 import { memoryClient } from "../services/client.js";
 import { getTags } from "../services/tags.js";
@@ -71,13 +70,7 @@ async function getLatestProjectMemory(containerTag: string): Promise<string | nu
 export async function captureConversation(
   workUnit: CaptureWorkUnit,
   provider: CaptureSummaryProvider,
-  // Temporary fallback to this module's own import until every caller passes the module.
-  config: CaptureConfigModule = {
-    get CONFIG() {
-      return CONFIG;
-    },
-    refreshConfigIfChanged,
-  }
+  config: CaptureConfigModule
 ): Promise<CaptureResult> {
   config.refreshConfigIfChanged(workUnit.projectDirectory);
   // Snapshot the markdown budget after the refresh and before the first

@@ -2,12 +2,12 @@ import { log } from "../logger.js";
 import { runTagMigrationBatch } from "../tag-migration.js";
 import type { ApiConfig, ApiResponse } from "./shared.js";
 
-export async function handleRunCleanup(): Promise<
-  ApiResponse<{ deletedCount: number; userCount: number; projectCount: number }>
-> {
+export async function handleRunCleanup(
+  config: ApiConfig
+): Promise<ApiResponse<{ deletedCount: number; userCount: number; projectCount: number }>> {
   try {
     const { cleanupService } = await import("../cleanup-service.js");
-    const result = await cleanupService.runCleanup();
+    const result = await cleanupService.runCleanup(config.CONFIG);
     return { success: true, data: result };
   } catch (error) {
     log("handleRunCleanup: error", { error: String(error) }, "error");
@@ -15,12 +15,12 @@ export async function handleRunCleanup(): Promise<
   }
 }
 
-export async function handleRunDeduplication(): Promise<
-  ApiResponse<{ exactDuplicatesDeleted: number; nearDuplicateGroups: any[] }>
-> {
+export async function handleRunDeduplication(
+  config: ApiConfig
+): Promise<ApiResponse<{ exactDuplicatesDeleted: number; nearDuplicateGroups: any[] }>> {
   try {
     const { deduplicationService } = await import("../deduplication-service.js");
-    const result = await deduplicationService.detectAndRemoveDuplicates();
+    const result = await deduplicationService.detectAndRemoveDuplicates(config.CONFIG);
     return { success: true, data: result };
   } catch (error) {
     log("handleRunDeduplication: error", { error: String(error) }, "error");

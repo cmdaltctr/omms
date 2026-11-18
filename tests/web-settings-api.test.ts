@@ -517,7 +517,7 @@ describe("settings API", () => {
 
       let release;
       const gate = new Promise((resolve) => (release = resolve));
-      const pass = drain.drainCaptureRetries({ host: "pi", config: CONFIG,
+      const pass = drain.drainCaptureRetries({ host: "pi", config: CONFIG, configModule: await import(${JSON.stringify(configUrl)}),
         provider: { async summarize() { await gate; throw new Error("down"); } } });
       await new Promise((resolve) => setTimeout(resolve, 50));
       const running = await (await send("/api/settings/capture-retry/pi/run", "POST", {}, json)).json();

@@ -133,8 +133,11 @@ export class WebServer extends WebControl {
         .then(([jobs, config]) => jobs.startWebJobs(() => config.CONFIG))
         .catch(() => {});
       // Daily housekeeping, and deletion only when autoDeleteOldMemories is on (ADR-051).
-      void import("./cleanup-service.js")
-        .then((m) => (this.stopMaintenance = m.startDailyMaintenanceTimer()))
+      void Promise.all([import("./cleanup-service.js"), loadConfig()])
+        .then(
+          ([m, config]) =>
+            (this.stopMaintenance = m.startDailyMaintenanceTimer(() => config.CONFIG))
+        )
         .catch(() => {});
     } catch (error) {
       const errorMsg = String(error);

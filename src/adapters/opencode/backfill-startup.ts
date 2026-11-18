@@ -1,3 +1,4 @@
+import * as configModule from "../../config.js";
 import { CONFIG } from "../../config.js";
 import type { AutoCaptureHost } from "../../core/host.js";
 import { scheduleAutoBackfill } from "../../importer/auto-backfill.js";
@@ -51,5 +52,7 @@ export function registerOpencodeImportModels(): void {
 
 /** Let triggers and Retry now in this process retry OpenCode's queued turns. */
 export function registerOpencodeCaptureRetryDrain(host: AutoCaptureHost, directory: string): void {
-  registerCaptureRetryDrain("opencode", () => drainOpencodeCaptureRetries(host, directory));
+  registerCaptureRetryDrain("opencode", () =>
+    drainOpencodeCaptureRetries(host, directory, configModule)
+  );
 }

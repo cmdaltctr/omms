@@ -202,7 +202,7 @@ await performAutoCapture(
     notify: async () => {},
   },
   "session-1",
-  "/workspace"
+  "/workspace", await import(${JSON.stringify(configUrl)})
 );
 
 console.log(
@@ -334,7 +334,7 @@ await performAutoCapture(
     },
   },
   "session-error",
-  "/workspace"
+  "/workspace", await import(${JSON.stringify(configUrl)})
 );
 
 console.log(JSON.stringify({ toasts, failedAttempts, released }));
@@ -434,7 +434,7 @@ await performAutoCapture(
     },
   },
   "session-1",
-  "/workspace"
+  "/workspace", await import(${JSON.stringify(configUrl)})
 );
 
 const unit = (promptId) => ({ host: "opencode", promptId });
@@ -442,7 +442,7 @@ await settleOpencodeRetriedPrompt(unit("prompt-retried"), { status: "captured", 
 await settleOpencodeRetriedPrompt(unit("prompt-retry-skip"), { status: "skipped" });
 
 refreshed.length = 0;
-await drainOpencodeCaptureRetries({ isCaptureReady: () => true }, "/workspace");
+await drainOpencodeCaptureRetries({ isCaptureReady: () => true }, "/workspace", await import(${JSON.stringify(configUrl)}));
 
 console.log(JSON.stringify({ queuedRetries, drainStarts, prompts, drained }));
 `;

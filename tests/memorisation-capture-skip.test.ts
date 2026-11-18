@@ -49,6 +49,7 @@ mock.module("../src/services/capture-retry-drain.js", () => ({
 }));
 
 const { captureConversation } = await import("../src/core/capture.js");
+const configModule = await import("../src/config.js");
 const { extractOpenCodeConversation } = await import("../src/adapters/opencode/conversation.js");
 const { extractPiConversation } = await import("../src/importer/pi-conversation.js");
 const { extractClaudeConversationWindows } = await import("../src/importer/claude-conversation.js");
@@ -99,7 +100,8 @@ describe("captureConversation and a memorise turn", () => {
   it("skips a turn with a saved memorisation without calling the capture model", async () => {
     const result = await captureConversation(
       unit([{ name: "memory", input: "", memorise: "saved" }]),
-      provider
+      provider,
+      configModule
     );
     expect(result).toEqual({ status: "skipped", reason: "memorisation-turn" });
     expect(summarizeCalls).toBe(0);
@@ -107,7 +109,11 @@ describe("captureConversation and a memorise turn", () => {
   });
 
   it("logs one skipped record with the reason code and no content", async () => {
-    await captureConversation(unit([{ name: "memory", input: "", memorise: "saved" }]), provider);
+    await captureConversation(
+      unit([{ name: "memory", input: "", memorise: "saved" }]),
+      provider,
+      configModule
+    );
     expect(attempts()).toEqual([
       expect.objectContaining({ outcome: "skipped", reason: "memorisation-turn", host: "pi" }),
     ]);
@@ -118,7 +124,8 @@ describe("captureConversation and a memorise turn", () => {
   it("captures a turn whose memorise call failed", async () => {
     const result = await captureConversation(
       unit([{ name: "memory", input: "", memorise: "failed" }]),
-      provider
+      provider,
+      configModule
     );
     expect(result.status).toBe("captured");
     expect(summarizeCalls).toBe(1);
@@ -128,7 +135,8 @@ describe("captureConversation and a memorise turn", () => {
   it("captures an ordinary turn", async () => {
     const result = await captureConversation(
       unit([{ name: "read", input: "path: a.ts", outcome: "ok" }]),
-      provider
+      provider,
+      configModule
     );
     expect(result.status).toBe("captured");
     expect(addCalls).toBe(1);
@@ -137,7 +145,8 @@ describe("captureConversation and a memorise turn", () => {
   it("skips a history-import turn the same way", async () => {
     const result = await captureConversation(
       { ...unit([{ name: "memory", input: "", memorise: "saved" }]), sourceType: "history-import" },
-      provider
+      provider,
+      configModule
     );
     expect(result).toEqual({ status: "skipped", reason: "memorisation-turn" });
     expect(summarizeCalls).toBe(0);
@@ -204,7 +213,7 @@ describe("OpenCode live reader", () => {
   it("does not skip a refused memorise call", async () => {
     const result = read(toolItem("memory", completed(MEMORISE_ARGS, REFUSED)));
     expect(result?.toolCalls[0]?.memorise).toBe("failed");
-    const captured = await captureConversation(unit(result!.toolCalls), provider);
+    const captured = await captureConversation(unit(result!.toolCalls), provider, configModule);
     expect(captured.status).toBe("captured");
   });
 
@@ -212,7 +221,8 @@ describe("OpenCode live reader", () => {
     const result = read(toolItem("memory", completed(MEMORISE_ARGS, SAVED)));
     const captured = await captureConversation(
       { ...unit(result!.toolCalls), host: "opencode", textResponses: result!.textResponses },
-      provider
+      provider,
+      configModule
     );
     expect(captured).toEqual({ status: "skipped", reason: "memorisation-turn" });
     expect(summarizeCalls).toBe(0);
@@ -377,7 +387,8 @@ describe("OpenCode capture route (performAutoCapture)", () => {
     await performAutoCapture(
       opencodeHost([{ name: "memory", input: "", memorise: "saved" }]),
       "ses-1",
-      "/tmp/project"
+      "/tmp/project",
+      configModule
     );
     expect(summarizeCalls).toBe(0);
     expect(addCalls).toBe(0);
@@ -389,7 +400,8 @@ describe("OpenCode capture route (performAutoCapture)", () => {
     await performAutoCapture(
       opencodeHost([{ name: "memory", input: "", memorise: "failed" }]),
       "ses-1",
-      "/tmp/project"
+      "/tmp/project",
+      configModule
     );
     expect(addCalls).toBe(1);
     expect(promptCalls).toEqual(["captured:p1"]);
@@ -400,7 +412,8 @@ describe("OpenCode capture route (performAutoCapture)", () => {
     await performAutoCapture(
       opencodeHost([{ name: "read", input: "path: a.ts", outcome: "ok" }]),
       "ses-1",
-      "/tmp/project"
+      "/tmp/project",
+      configModule
     );
     expect(addCalls).toBe(1);
   });

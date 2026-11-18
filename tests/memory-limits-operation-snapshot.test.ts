@@ -343,7 +343,7 @@ const provider = { summarize: async (request) => { contexts.push(byteLength(requ
 
 let gateResolve;
 releaseList = new Promise((resolve) => { gateResolve = resolve; });
-const firstPromise = captureConversation(unit(), provider);
+const firstPromise = captureConversation(unit(), provider, config);
 await sleep(20);
 const entryTotal = config.CONFIG.autoCaptureMaxContextBytes;
 config.CONFIG.autoCaptureMaxContextBytes = 65536;
@@ -351,7 +351,7 @@ gateResolve();
 const first = await firstPromise;
 releaseList = null;
 
-const second = await captureConversation(unit(), provider);
+const second = await captureConversation(unit(), provider, config);
 scenario = {
   entryTotal,
   firstStatus: first.status,

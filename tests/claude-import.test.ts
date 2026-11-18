@@ -218,7 +218,8 @@ const live = await captureConversation(
     sourceEntryIds: window.sourceEntryIds,
     sourceTimestamp: window.sourceTimestamp,
   },
-  provider
+  provider,
+  await import(${JSON.stringify(url("../src/config.js"))})
 );
 const callsAfterLive = providerCalls.length;
 const dry = await runImport(["--dry-run"]);
