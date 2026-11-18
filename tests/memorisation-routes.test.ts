@@ -267,6 +267,7 @@ describe("GET /api/memorisations", () => {
     const url = new URL("http://localhost/api/memorisations");
     const routed = await routeModules(url.pathname, "GET", url, new Request(url), {
       cwd: project.directory,
+      configModule: await import("../src/config.js"),
       startRecordPast: async () => ({}) as never,
     });
     expect(routed!.status).toBe(200);

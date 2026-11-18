@@ -25,11 +25,13 @@ export async function routeModules(
   url: URL,
   req: Request,
   ctx: SkillRouteContext & {
+    /** The live config module from the route host; this file never imports it. */
+    configModule: typeof import("../config.js");
     remoteAddress?: string;
     settings?: Omit<SettingsRouteContext, "cwd" | "configModule">;
   }
 ): Promise<RouteModuleResult | undefined> {
-  const configModule = await import("../config.js");
+  const { configModule } = ctx;
   const config = configModule.CONFIG;
   let body: Promise<any> | undefined;
   const readBody = () => (body ??= req.json().catch(() => ({})));
@@ -43,7 +45,7 @@ export async function routeModules(
     if (settings !== undefined) return settings;
   }
 
-  const cleanup = await routeProfileCleanup(path, method, url, readBody);
+  const cleanup = await routeProfileCleanup(path, method, url, readBody, configModule);
   if (cleanup !== undefined) return { status: 200, body: cleanup };
 
   const hosts = await routeMemoryHosts(path, method, url, readBody, config);

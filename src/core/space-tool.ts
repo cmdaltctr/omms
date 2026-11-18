@@ -32,11 +32,20 @@ export function spaceOperationSettings(
   };
 }
 
+/**
+ * The live config module (approach B): `CONFIG` is replaced on every refresh and space switch,
+ * so it is read from the module at the point of use, never kept. Callers pass `import * as`.
+ */
+export type SpaceConfigModule = Pick<
+  typeof import("../config.js"),
+  "CONFIG" | "getActiveSpace" | "refreshConfigIfChanged"
+>;
+
 export async function runSpaceMode(
+  config: SpaceConfigModule,
   args: MemoryOperationArgs,
   directory: string
 ): Promise<Record<string, unknown>> {
-  const { CONFIG, getActiveSpace, refreshConfigIfChanged } = await import("../config.js");
   const { executeSpaceOperation } = await import("../services/spaces/operations.js");
   const { spaceFiles } = await import("../services/spaces/registry-store.js");
   const { ommsHomeDir } = await import("../services/spaces/storage-resolution.js");
@@ -54,14 +63,14 @@ export async function runSpaceMode(
     },
     {
       files,
-      current: getActiveSpace(),
+      current: config.getActiveSpace(),
       // The transfer actions open space stores, so only they get the settings (design D8).
       ...(STORE_ACTIONS.has(action ?? "")
-        ? { settings: spaceOperationSettings(CONFIG, files.spacesRoot) }
+        ? { settings: spaceOperationSettings(config.CONFIG, files.spacesRoot) }
         : {}),
     }
   );
   // A switch made here takes effect in this process now, not only on its next config refresh.
-  refreshConfigIfChanged(directory);
+  config.refreshConfigIfChanged(directory);
   return result;
 }

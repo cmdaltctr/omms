@@ -53,7 +53,7 @@ describe("global config writer", () => {
       await writeGlobalConfigKeys({ autoBackfill: false, webServerAutoStart: false,
         piBackfillModel: "zai/glm-5-turbo", opencodeBackfillModel: "a/b/c" },
         readGlobalConfigRevision());
-      return { text: readFileSync(target, "utf8"), settings: getSettingsSnapshot(${JSON.stringify(import.meta.dir)}).settings };
+      return { text: readFileSync(target, "utf8"), settings: getSettingsSnapshot(${JSON.stringify(import.meta.dir)}, cfg).settings };
     `,
       "{}\n"
     );
@@ -73,7 +73,7 @@ describe("global config writer", () => {
         { userProfileAutoCleanupEnabled: false, userProfileAutoCleanupInterval: 300 },
         readGlobalConfigRevision()
       );
-      return { text: readFileSync(target, "utf8"), settings: getSettingsSnapshot(${JSON.stringify(import.meta.dir)}).settings };
+      return { text: readFileSync(target, "utf8"), settings: getSettingsSnapshot(${JSON.stringify(import.meta.dir)}, cfg).settings };
     `,
       seed
     );
@@ -145,9 +145,9 @@ describe("global config writer", () => {
         catch (error) { errors.push(String(error)); }
       const untouched = readFileSync(target, "utf8");
       await writeGlobalConfigKeys({ autoCaptureLanguage: "en" }, readGlobalConfigRevision());
-      const english = getSettingsSnapshot(${JSON.stringify(import.meta.dir)}).settings.autoCaptureLanguage;
+      const english = getSettingsSnapshot(${JSON.stringify(import.meta.dir)}, cfg).settings.autoCaptureLanguage;
       await writeGlobalConfigKeys({ autoCaptureLanguage: "auto" }, readGlobalConfigRevision());
-      const auto = getSettingsSnapshot(${JSON.stringify(import.meta.dir)}).settings.autoCaptureLanguage;
+      const auto = getSettingsSnapshot(${JSON.stringify(import.meta.dir)}, cfg).settings.autoCaptureLanguage;
       return { errors, untouched, english, auto, text: readFileSync(target, "utf8") };
     `,
       seed
@@ -212,16 +212,16 @@ describe("global config writer", () => {
       mkdirSync(join(project, ".opencode"), { recursive: true });
       writeFileSync(join(project, ".opencode", "omms.jsonc"), '{ "claudeConfigDir": "/evil" }');
       const { getSettingsSnapshot } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/settings-snapshot.ts")).href)});
-      const saved = getSettingsSnapshot(project);
+      const saved = getSettingsSnapshot(project, cfg);
       const missing = saved.claudeFolder;
       mkdirSync(join(custom, "projects"), { recursive: true });
-      const found = getSettingsSnapshot(project).claudeFolder;
+      const found = getSettingsSnapshot(project, cfg).claudeFolder;
       await writeGlobalConfigKeys({ claudeConfigDir: "~/tilde-claude" }, readGlobalConfigRevision());
-      const tilde = getSettingsSnapshot(project).claudeFolder;
+      const tilde = getSettingsSnapshot(project, cfg).claudeFolder;
       await writeGlobalConfigKeys({ claudeConfigDir: "" }, readGlobalConfigRevision());
-      const cleared = getSettingsSnapshot(project).claudeFolder;
+      const cleared = getSettingsSnapshot(project, cfg).claudeFolder;
       process.env.CLAUDE_CONFIG_DIR = join(home, "env-claude");
-      const fromEnv = getSettingsSnapshot(project).claudeFolder;
+      const fromEnv = getSettingsSnapshot(project, cfg).claudeFolder;
       return { errors, untouched, custom, home, setting: saved.settings.claudeConfigDir,
         missing, found, tilde, cleared, fromEnv, text: readFileSync(target, "utf8") };
     `,
@@ -276,7 +276,7 @@ describe("global config writer", () => {
       return {
         errors,
         text: readFileSync(target, "utf8"),
-        setting: getSettingsSnapshot(project).settings.captureRetryRetentionHours,
+        setting: getSettingsSnapshot(project, cfg).settings.captureRetryRetentionHours,
       };
     `,
       seed

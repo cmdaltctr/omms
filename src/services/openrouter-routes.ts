@@ -38,7 +38,7 @@ export async function routeOpenRouter(
   method: string,
   url: URL,
   readBody: () => Promise<any>,
-  ctx: { cwd: string }
+  ctx: { cwd: string; configModule: Pick<typeof import("../config.js"), "refreshConfigIfChanged"> }
 ): Promise<RouteResult | undefined> {
   if (path === PROVIDERS_PATH && method === "GET") {
     const model = url.searchParams.get("model");
@@ -89,8 +89,7 @@ export async function routeOpenRouter(
     }
     // The file is already saved; a reload problem must not report the save as failed.
     try {
-      const { refreshConfigIfChanged } = await import("../config.js");
-      refreshConfigIfChanged(ctx.cwd);
+      ctx.configModule.refreshConfigIfChanged(ctx.cwd);
     } catch (error) {
       log(
         "Routing saved, but reloading settings failed",

@@ -181,7 +181,7 @@ export async function embeddingRoute(
 ): Promise<Response | null> {
   const change = await import("../embedding-change.js");
   if (path === "/api/settings/embedding" && method === "GET") {
-    return jsonResponse(await change.currentEmbedding());
+    return jsonResponse(await change.currentEmbedding((await web.loadConfig()).CONFIG));
   }
   if (path === "/api/settings/embedding/run" && method === "GET") {
     return jsonResponse(change.embeddingRunState());
@@ -198,7 +198,10 @@ export async function embeddingRoute(
   try {
     if (path === "/api/settings/embedding/test") {
       return jsonResponse(
-        await change.testEmbeddingCandidate(change.parseEmbeddingCandidate(body))
+        await change.testEmbeddingCandidate(
+          change.parseEmbeddingCandidate(body),
+          (await web.loadConfig()).CONFIG
+        )
       );
     }
     if (path === "/api/settings/embedding/run") {
@@ -208,13 +211,14 @@ export async function embeddingRoute(
     if (typeof body?.revision !== "string") {
       return jsonResponse({ error: "Revision required" }, 400);
     }
-    const { refreshConfigIfChanged } = await web.loadConfig();
+    const configModule = await web.loadConfig();
     await change.applyEmbeddingCandidate(
       change.parseEmbeddingCandidate(body.candidate),
       body.revision,
       () => {
-        refreshConfigIfChanged(web.config.directory ?? process.cwd());
-      }
+        configModule.refreshConfigIfChanged(web.config.directory ?? process.cwd());
+      },
+      configModule.CONFIG
     );
     return jsonResponse(change.embeddingRunState(), 202);
   } catch (error) {

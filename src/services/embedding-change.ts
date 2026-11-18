@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { CONFIG } from "../config.js";
+import type { CONFIG } from "../config.js";
 import { EmbeddingService, type EmbedderSettings } from "./embedding.js";
 import { log } from "./logger.js";
 import {
@@ -54,12 +54,21 @@ export function parseEmbeddingCandidate(body: unknown): EmbeddingCandidate {
   return { kind: "server", url, model: value.model.trim(), key: choice };
 }
 
-function resolveKey(choice: EmbeddingKeyChoice): string | undefined {
+/** The slice of config the embedder change reads; callers pass the live `CONFIG` on each call. */
+export type EmbeddingChangeConfig = Pick<
+  typeof CONFIG,
+  "embeddingApiKey" | "embeddingApiUrl" | "embeddingModel" | "embeddingDimensions"
+>;
+
+function resolveKey(
+  choice: EmbeddingKeyChoice,
+  config: Pick<EmbeddingChangeConfig, "embeddingApiKey">
+): string | undefined {
   switch (choice.source) {
     case "none":
       return undefined;
     case "saved":
-      return CONFIG.embeddingApiKey || undefined;
+      return config.embeddingApiKey || undefined;
     case "env":
       return process.env[choice.name] || undefined;
     case "file":
@@ -99,11 +108,12 @@ const passedTests = new Map<string, { dimensions: number; at: number }>();
 /** Embed the fixed sentence with a one-off embedder; the shared one is not touched. */
 export async function testEmbeddingCandidate(
   candidate: EmbeddingCandidate,
+  config: Pick<EmbeddingChangeConfig, "embeddingApiKey">,
   now = Date.now()
 ): Promise<{ ok: true; dimensions: number } | { ok: false; reason: string }> {
   let key: string | undefined;
   try {
-    key = resolveKey(candidate.key);
+    key = resolveKey(candidate.key, config);
     const settings: EmbedderSettings = {
       embeddingApiUrl: candidate.kind === "server" ? candidate.url : undefined,
       embeddingApiKey: candidate.kind === "server" ? key : undefined,
@@ -132,17 +142,17 @@ export function embeddingRunState(): EmbeddingRunState {
 }
 
 /** The embedder in use and the number of stored memories a change would re-embed. */
-export async function currentEmbedding() {
+export async function currentEmbedding(config: EmbeddingChangeConfig) {
   const { tursoShardManager } = await import("./turso/shard-manager.js");
   const shards = [
     ...(await tursoShardManager.getAllShards("user", "")),
     ...(await tursoShardManager.getAllShards("project", "")),
   ];
   return {
-    kind: CONFIG.embeddingApiUrl ? "server" : "builtin",
-    url: CONFIG.embeddingApiUrl ?? null,
-    model: CONFIG.embeddingModel,
-    dimensions: CONFIG.embeddingDimensions,
+    kind: config.embeddingApiUrl ? "server" : "builtin",
+    url: config.embeddingApiUrl ?? null,
+    model: config.embeddingModel,
+    dimensions: config.embeddingDimensions,
     memoryCount: shards.reduce((count, shard) => count + shard.vectorCount, 0),
     run,
   };
@@ -181,12 +191,13 @@ export async function applyEmbeddingCandidate(
   candidate: EmbeddingCandidate,
   revision: string,
   refreshConfig: () => void,
+  config: Pick<EmbeddingChangeConfig, "embeddingApiKey">,
   now = Date.now()
 ): Promise<void> {
   if (run.state === "running") throw new EmbeddingChangeError("A re-embed is already running", 409);
   let resolved: string | undefined;
   try {
-    resolved = candidate.kind === "server" ? resolveKey(candidate.key) : undefined;
+    resolved = candidate.kind === "server" ? resolveKey(candidate.key, config) : undefined;
   } catch {
     resolved = undefined;
   }

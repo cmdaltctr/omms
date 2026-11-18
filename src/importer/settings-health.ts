@@ -154,7 +154,8 @@ export async function runSettingsHealth(input: HealthInput): Promise<{ checks: H
   let snapshot: ClaudeSnapshot = {};
   await check("Config files", async () => {
     const { getSettingsSnapshot } = await import("../services/settings-snapshot.js");
-    snapshot = (getSettingsSnapshot(input.directory) ?? {}) as ClaudeSnapshot;
+    snapshot = (getSettingsSnapshot(input.directory, await import("../config.js")) ??
+      {}) as ClaudeSnapshot;
     return "Global and project config parsed";
   });
   await check("Memory store", async () => {

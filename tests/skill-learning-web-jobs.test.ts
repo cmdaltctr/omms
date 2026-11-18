@@ -1,21 +1,22 @@
 import { describe, expect, it, mock } from "bun:test";
 
-/** `startWebJobs` hands the review loop a getter, so a config reload reaches it. */
+/** `startWebJobs` hands the review loop the getter it was given, so a config reload reaches it. */
 
-let passed: unknown;
+let passed: (() => unknown) | undefined;
 mock.module(new URL("../src/services/skill-learning/web-review.js", import.meta.url).href, () => ({
-  startWebSkillReview: (arg: unknown) => {
+  startWebSkillReview: (arg: () => unknown) => {
     passed = arg;
   },
 }));
 
 describe("web jobs", () => {
-  it("passes a getter that returns the CONFIG after a reload", async () => {
+  it("passes the getter on, and each call reads the current config", async () => {
     const { startWebJobs } = await import("../src/services/web-jobs.js");
-    await startWebJobs();
-    const config = await import("../src/config.js");
-    config.initConfig("/nonexistent-project-for-web-jobs");
+    let current: unknown = { memoryModel: "first" };
+    await startWebJobs(() => current as never);
     expect(typeof passed).toBe("function");
-    expect((passed as () => unknown)()).toBe(config.CONFIG);
+    expect(passed!()).toEqual({ memoryModel: "first" });
+    current = { memoryModel: "second" };
+    expect(passed!()).toEqual({ memoryModel: "second" });
   });
 });

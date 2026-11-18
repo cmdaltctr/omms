@@ -15,7 +15,7 @@ import {
 import { homedir } from "node:os";
 import { basename, dirname, join, delimiter, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CONFIG } from "../config.js";
+import type { CONFIG } from "../config.js";
 import { log } from "./logger.js";
 import {
   copyVersion,
@@ -379,7 +379,7 @@ export function restartWebAutostart(options: WebAutostartOptions = {}): boolean 
 
 /** Host start checks the global settings. A failed item cannot block a session. */
 export function reconcileWebAutostart(
-  config: Pick<typeof CONFIG, "webServerAutoStart" | "webServerEnabled"> = CONFIG,
+  config: Pick<typeof CONFIG, "webServerAutoStart" | "webServerEnabled">,
   options: WebAutostartOptions = {}
 ): void {
   if (process.env.OMMS_DISABLE_WEB_AUTOSTART === "1") return;

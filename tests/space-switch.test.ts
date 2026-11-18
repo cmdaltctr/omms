@@ -30,6 +30,7 @@ const config = await import("../src/config.js");
 const { initConfig, refreshConfigIfChanged } = config;
 const { memoryClient } = await import("../src/services/client.js");
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
+const { tursoShardManager } = await import("../src/services/turso/shard-manager.js");
 const { userProfileManager } = await import("../src/services/user-profile/user-profile-manager.js");
 const { userPromptManager } = await import("../src/services/user-prompt/user-prompt-manager.js");
 const { aiSessionManager } = await import("../src/services/ai/session/ai-session-manager.js");
@@ -150,6 +151,19 @@ describe("switching the active space in a running process", () => {
     expect(inB.aiSessions).toEqual(["ai-B"]);
     // Nothing written in B reached the Default folder.
     expect(folderHash(defaultFolder)).toBe(defaultHashAfterSwitch);
+    // The shard and connection singletons read the new folder live (design D5a "S").
+    const spaceFolder = join(files.spacesRoot, space.id);
+    const shard = await tursoShardManager.getWriteShard("project", TAG.split("_").pop()!);
+    expect(shard.dbPath.startsWith(spaceFolder)).toBe(true);
+    expect((tursoShardManager as unknown as { metadataPath: string }).metadataPath).toBe(
+      join(spaceFolder, "metadata.db")
+    );
+    const openInB = [
+      ...(
+        tursoConnectionManager as unknown as { connections: Map<string, unknown> }
+      ).connections.keys(),
+    ];
+    expect(openInB.some((path) => path.startsWith(spaceFolder))).toBe(true);
 
     await switchStoredSpace(files, "default");
     refreshConfigIfChanged(project);

@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, join } from "node:path";
-import { CONFIG } from "../../config.js";
+import * as live from "../active-space-access.js";
 import { log } from "../logger.js";
 import { tursoConnectionManager } from "./connection-manager.js";
 import { tursoShardManager } from "./shard-manager.js";
@@ -384,7 +384,7 @@ async function migrateMemoryShard(dbPath: string): Promise<ShardMigrationSidecar
     );
   }
 
-  const sourceDimensions = records[0]?.vector.length ?? CONFIG.embeddingDimensions;
+  const sourceDimensions = records[0]?.vector.length ?? live.getEmbeddingDimensions();
   if (!Number.isInteger(sourceDimensions) || sourceDimensions <= 0 || sourceDimensions > 65536) {
     throw new Error(
       `Legacy migration aborted for ${dbPath}: invalid source vector dimensions ${sourceDimensions}`
@@ -426,8 +426,8 @@ async function migrateMemoryShard(dbPath: string): Promise<ShardMigrationSidecar
   }
 
   const freshDb = await tursoConnectionManager.getConnection(dbPath);
-  const sourceModel =
-    sourceDimensions === CONFIG.embeddingDimensions ? CONFIG.embeddingModel : "legacy-unknown";
+  const sameDimensions = sourceDimensions === live.getEmbeddingDimensions();
+  const sourceModel = sameDimensions ? live.getEmbeddingModel() : "legacy-unknown";
   await tursoShardManager.initShardDb(freshDb, sourceDimensions, sourceModel);
 
   const BATCH_SIZE = 50;
@@ -474,7 +474,7 @@ async function migrateMemoryShard(dbPath: string): Promise<ShardMigrationSidecar
 async function migrateDirectory(
   dirName: "users" | "projects"
 ): Promise<Array<{ path: string; sidecar: ShardMigrationSidecar }>> {
-  const dir = join(CONFIG.storagePath, dirName);
+  const dir = join(live.getStoragePath(), dirName);
   const results: Array<{ path: string; sidecar: ShardMigrationSidecar }> = [];
   if (!existsSync(dir)) return results;
 
@@ -493,7 +493,7 @@ async function migrateDirectory(
 function listAllShardDbPaths(): string[] {
   const paths: string[] = [];
   for (const dirName of ["users", "projects"] as const) {
-    const dir = join(CONFIG.storagePath, dirName);
+    const dir = join(live.getStoragePath(), dirName);
     if (!existsSync(dir)) continue;
     for (const file of readdirSync(dir)) {
       if (!file.endsWith(".db") || file.includes(BACKUP_SUFFIX)) continue;
@@ -516,7 +516,7 @@ async function allShardsComplete(): Promise<boolean> {
 
 function recoverInterruptedReembedSwaps(): void {
   for (const dirName of ["users", "projects"] as const) {
-    const dir = join(CONFIG.storagePath, dirName);
+    const dir = join(live.getStoragePath(), dirName);
     if (!existsSync(dir)) continue;
 
     for (const file of readdirSync(dir)) {
@@ -609,24 +609,24 @@ async function reconcileShardRegistry(): Promise<void> {
 }
 
 export async function runLegacyTursoMigration(): Promise<void> {
-  if (!existsSync(CONFIG.storagePath)) {
-    mkdirSync(CONFIG.storagePath, { recursive: true });
+  if (!existsSync(live.getStoragePath())) {
+    mkdirSync(live.getStoragePath(), { recursive: true });
   }
 
   recoverInterruptedReembedSwaps();
 
-  const marker = readMarker(CONFIG.storagePath);
+  const marker = readMarker(live.getStoragePath());
   if (marker && (await allShardsComplete())) {
     await reconcileShardRegistry();
     return;
   }
 
-  await acquireMigrationLockWithRetry(CONFIG.storagePath);
+  await acquireMigrationLockWithRetry(live.getStoragePath());
 
   try {
     const dbFiles = ["metadata.db", "user-prompts.db", "user-profiles.db", "ai-sessions.db"];
     for (const file of dbFiles) {
-      const path = join(CONFIG.storagePath, file);
+      const path = join(live.getStoragePath(), file);
       if (!existsSync(path)) continue;
       await tursoConnectionManager.getConnection(path);
     }
@@ -649,9 +649,9 @@ export async function runLegacyTursoMigration(): Promise<void> {
     }
 
     await reconcileShardRegistry();
-    writeMarker(CONFIG.storagePath, migratedShards);
-    log("Turso legacy migration complete", { storagePath: CONFIG.storagePath });
+    writeMarker(live.getStoragePath(), migratedShards);
+    log("Turso legacy migration complete", { storagePath: live.getStoragePath() });
   } finally {
-    releaseMigrationLock(CONFIG.storagePath);
+    releaseMigrationLock(live.getStoragePath());
   }
 }

@@ -42,9 +42,17 @@ async function setup(descriptions: string[]) {
     0
   );
   const profile = (await userProfileManager.getActiveProfile(userId))!;
-  const api = await import("../src/services/auto-cleanup-handlers.js");
+  const raw = await import("../src/services/auto-cleanup-handlers.js");
+  const config = await import("../src/config.js");
+  // The handlers take the live config module; the tests pass the real one.
+  const api = {
+    handleAutoCleanupStatus: (user: string | undefined, deps?: any) =>
+      raw.handleAutoCleanupStatus(user, config, deps),
+    handleAutoCleanupUndo: (user: string | undefined, deps?: any) =>
+      raw.handleAutoCleanupUndo(user, config, deps),
+  };
   const store = await import("../src/services/user-profile/auto-cleanup-store.js");
-  return { api, store, manager: userProfileManager, profileId: profile.id };
+  return { api, raw, store, manager: userProfileManager, profileId: profile.id };
 }
 
 async function descriptionsOf(manager: any): Promise<string[]> {
@@ -222,5 +230,26 @@ describe("auto cleanup undo", () => {
     expect(saves).toBe(3);
     expect(await descriptionsOf(manager)).toEqual(["Target and source"]);
     expect((await api.handleAutoCleanupStatus(userId)).data).not.toBeNull();
+  });
+});
+
+describe("live config", () => {
+  it("reads the config module at call time, so a replaced CONFIG changes the user", async () => {
+    const { raw, store, profileId } = await setup(["Target and source"]);
+    await store.insertAutoCleanupRecord(
+      profileId,
+      { promptsAnalyzed: 100, merged: 1, removed: 0, entries: [mergeEntry(["a", "b"], "ab")] },
+      Date.now()
+    );
+    // A reload replaces CONFIG; a module getter shows the new object on the next call.
+    let current: any = { userEmailOverride: userId };
+    const live = {
+      get CONFIG() {
+        return current;
+      },
+    } as never;
+    expect((await raw.handleAutoCleanupStatus(undefined, live)).data).not.toBeNull();
+    current = { userEmailOverride: "other@example.invalid" };
+    expect((await raw.handleAutoCleanupStatus(undefined, live)).data).toBeNull();
   });
 });

@@ -25,7 +25,10 @@ export async function routeSettingsApi(
 
   if (path === "/api/settings" && method === "GET") {
     const { getSettingsSnapshot } = await import("../settings-snapshot.js");
-    const snapshot = getSettingsSnapshot(web.config.directory ?? process.cwd());
+    const snapshot = getSettingsSnapshot(
+      web.config.directory ?? process.cwd(),
+      await web.loadConfig()
+    );
     // The Keys card needs evidence that Claude Code uses OMMS; the default folder is not enough.
     let attempts = false;
     try {

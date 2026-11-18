@@ -205,10 +205,11 @@ export async function runSpaceCommand(argv: string[], io: SpaceCommandIO = {}): 
               directory
             );
     } else {
-      const { initConfig } = await import("../config.js");
-      initConfig(directory);
+      const configModule = await import("../config.js");
+      configModule.initConfig(directory);
       const { runSpaceMode } = await import("../core/space-tool.js");
       result = await runSpaceMode(
+        configModule,
         {
           mode: "space",
           spaceAction: action,

@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse, type ParseError } from "jsonc-parser";
-import { CONFIG, getGlobalConfigSourcePath, getLastGoodGlobalFileConfig } from "../config.js";
 import { hasUnexpiredApiToken } from "./api-tokens.js";
 import { resolveClaudeFolder } from "./claude-folder.js";
 import {
@@ -14,6 +13,15 @@ import { resolveSecretValue } from "./secret-resolver.js";
 import { injectionOptionsFromFile } from "./injection-options-config.js";
 import { getMemoryLimitRule, MEMORY_LIMIT_SETTINGS } from "../utils/memory-limits.js";
 import { isExternalModelReady, liveModelStatuses } from "./ai/live-model-choice.js";
+
+/**
+ * The config module as the snapshot reads it. The caller passes the live module and the
+ * snapshot reads `CONFIG` from it on each call, because a reload replaces that object.
+ */
+export type SnapshotConfigModule = Pick<
+  typeof import("../config.js"),
+  "CONFIG" | "getGlobalConfigSourcePath" | "getLastGoodGlobalFileConfig"
+>;
 
 const editable = [
   "opencodeProvider",
@@ -184,14 +192,17 @@ const plainObject = (value: unknown): Record<string, unknown> | null =>
     ? (value as Record<string, unknown>)
     : null;
 
-export function getSettingsSnapshot(directory: string) {
+export function getSettingsSnapshot(directory: string, config: SnapshotConfigModule) {
+  const { CONFIG } = config;
   const fileProblems: ConfigProblem[] = [];
-  const read = readSettingsFile(getGlobalConfigSourcePath(), fileProblems);
+  const read = readSettingsFile(config.getGlobalConfigSourcePath(), fileProblems);
   // The writer refuses to save over a global file it cannot read.
   const readOnly = fileProblems.length > 0;
   // While the file is broken the page shows the last good file, which this process still uses,
   // so no row claims a default the host does not use.
-  const global = readOnly ? (getLastGoodGlobalFileConfig() as Record<string, unknown>) : read;
+  const global = readOnly
+    ? (config.getLastGoodGlobalFileConfig() as Record<string, unknown>)
+    : read;
   const project = readSettingsFile(projectFile(directory), fileProblems);
   // Files were just read here; the last load's value problems still apply.
   const problems = [
@@ -280,7 +291,7 @@ export function getSettingsSnapshot(directory: string) {
           set: typeof raw === "string" && raw.length > 0,
           source,
           // The variable name or file path, never a literal value.
-          reference: memoryKeyStatus(raw).reference,
+          reference: memoryKeyStatus(raw, CONFIG.memoryApiKey).reference,
           // These keys resolve when the web app uses them, so check here; the value is not returned.
           ...(key === "rerankerApiKey" || key === "embeddingApiKey"
             ? { resolvesInWebApp: keyResolves(raw) }
@@ -301,7 +312,7 @@ export function getSettingsSnapshot(directory: string) {
     settings,
     secrets,
     fallback: { model: CONFIG.memoryModel ?? null, configured: isExternalModelReady(CONFIG) },
-    externalKey: memoryKeyStatus(global.memoryApiKey),
+    externalKey: memoryKeyStatus(global.memoryApiKey, CONFIG.memoryApiKey),
     // The OpenRouter routing card reads the saved `provider` object of memoryExtraParams.
     openrouterProvider: plainObject(plainObject(global.memoryExtraParams)?.provider),
     // Claude Code capture uses the external API only; its `issues` name each missing setting.
@@ -326,7 +337,7 @@ export function getSettingsSnapshot(directory: string) {
  * Where `memoryApiKey` comes from and whether it resolves in this web
  * server's own process. The key value itself is never returned.
  */
-export function memoryKeyStatus(raw: unknown, resolved = CONFIG.memoryApiKey) {
+export function memoryKeyStatus(raw: unknown, resolved: unknown) {
   const source =
     typeof raw !== "string" || !raw
       ? null

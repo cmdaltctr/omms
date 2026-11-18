@@ -220,7 +220,7 @@ describe("profile learning settings: Settings page", () => {
         userProfilePromptDetail: "full",
         showUserProfileToasts: false,
       }));
-      const { settings } = getSettingsSnapshot(project);
+      const { settings } = getSettingsSnapshot(project, cfg);
       return Object.fromEntries(KEYS.map((key) => [key, settings[key]]));
     `);
     for (const key of KEYS) expect(result[key]).toBeDefined();

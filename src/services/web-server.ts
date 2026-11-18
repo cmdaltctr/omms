@@ -129,7 +129,9 @@ export class WebServer extends WebControl {
         .claudeHook()
         .then(({ startClaudeCodeWorker }) => startClaudeCodeWorker())
         .catch(() => {});
-      void import("./web-jobs.js").then((m) => m.startWebJobs()).catch(() => {});
+      void Promise.all([import("./web-jobs.js"), loadConfig()])
+        .then(([jobs, config]) => jobs.startWebJobs(() => config.CONFIG))
+        .catch(() => {});
       // Daily housekeeping, and deletion only when autoDeleteOldMemories is on (ADR-051).
       void import("./cleanup-service.js")
         .then((m) => (this.stopMaintenance = m.startDailyMaintenanceTimer()))

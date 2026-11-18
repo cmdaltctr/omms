@@ -1,7 +1,7 @@
 import { createClient, type Client } from "@libsql/client";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve, relative, isAbsolute, sep } from "node:path";
-import { CONFIG } from "../../config.js";
+import { getSkillStoragePath, getStoragePath } from "../active-space-access.js";
 import { log } from "../logger.js";
 import { collectReleasedSqliteHandles } from "./sqlite-handle-release.js";
 import { TursoDb } from "./turso-db.js";
@@ -26,7 +26,7 @@ function insideRoot(root: string, dbPath: string): boolean {
 /** The default allowed roots: the active storage path plus the global skills path. */
 function defaultAllowedRoots(): string[] {
   // skills.db stays in the global storage path when a project moves storagePath.
-  return [CONFIG.storagePath, CONFIG.skillStoragePath].filter((root) => root !== undefined);
+  return [getStoragePath(), getSkillStoragePath()];
 }
 
 function assertPathInsideStorage(dbPath: string, roots: string[]): void {
@@ -41,7 +41,7 @@ export class TursoConnectionManager {
   private readonly closingConnections = new Map<string, Promise<void>>();
   private closingPromise: Promise<void> | null = null;
   private readonly clientFactory: typeof createClient;
-  /** Roots whose subfolders this manager may open. Default: the two CONFIG roots. */
+  /** Roots whose subfolders this manager may open. Default: the active and global storage paths. */
   private readonly allowedRoots: () => string[];
 
   constructor(

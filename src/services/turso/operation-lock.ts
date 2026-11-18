@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CONFIG } from "../../config.js";
+import { getStoragePath } from "../active-space-access.js";
 
 const OPERATION_LOCK = ".turso-operation.lock";
 const LEGACY_MIGRATION_LOCK = ".turso-migrate.lock";
@@ -39,7 +39,7 @@ function readLiveLock(path: string): LockState | null {
   return null;
 }
 
-export function assertNoTursoMigrationInProgress(root: string = CONFIG.storagePath): void {
+export function assertNoTursoMigrationInProgress(root: string = getStoragePath()): void {
   for (const file of [OPERATION_LOCK, LEGACY_MIGRATION_LOCK]) {
     const path = join(root, file);
     const state = readLiveLock(path);
@@ -54,7 +54,7 @@ export function assertNoTursoMigrationInProgress(root: string = CONFIG.storagePa
 
 export function acquireTursoOperationLock(
   operation: string,
-  root: string = CONFIG.storagePath
+  root: string = getStoragePath()
 ): () => void {
   assertNoTursoMigrationInProgress(root);
   const path = join(root, OPERATION_LOCK);

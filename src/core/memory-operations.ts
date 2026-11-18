@@ -1,4 +1,4 @@
-import { CONFIG, isConfigured, refreshConfigIfChanged } from "../config.js";
+import * as configModule from "../config.js";
 import { memoryClient, type MemoryScope } from "../services/client.js";
 import { runMemorise, runRecall } from "./memorisation-operations.js";
 import { memorisationSettingsFrom } from "./memorisation-settings.js";
@@ -90,8 +90,8 @@ export async function executeMemoryOperation(
 ): Promise<Record<string, unknown>> {
   // The next operation sees a changed config file: manual tool and CLI calls
   // happen outside the hosts' injection and capture boundaries.
-  refreshConfigIfChanged(context.directory);
-  if (!isConfigured()) {
+  configModule.refreshConfigIfChanged(context.directory);
+  if (!configModule.isConfigured()) {
     return {
       success: false,
       error: "Memory system not configured properly.",
@@ -107,7 +107,7 @@ export async function executeMemoryOperation(
   const mode = args.mode || "help";
   if (mode === "space") {
     const { runSpaceMode } = await import("./space-tool.js");
-    return runSpaceMode(args, context.directory);
+    return runSpaceMode(configModule, args, context.directory);
   }
   const needsEmbedding = !["help", "list-shards", "migrate", "export"].includes(mode);
 
@@ -133,7 +133,7 @@ export async function executeMemoryOperation(
   }
 
   const tags = context.tags ?? getTags(context.directory);
-  const langName = getLanguageName(CONFIG.autoCaptureLanguage || "en");
+  const langName = getLanguageName(configModule.CONFIG.autoCaptureLanguage || "en");
 
   try {
     switch (mode) {
@@ -255,19 +255,23 @@ export async function executeMemoryOperation(
           args,
           context,
           tags,
-          memorisationSettingsFrom(CONFIG),
-          linkedSettingsFrom(CONFIG)
+          memorisationSettingsFrom(configModule.CONFIG),
+          linkedSettingsFrom(configModule.CONFIG)
         );
 
       case "recall":
-        return await runRecall(args, linkedSettingsFrom(CONFIG), CONFIG.memorisationRerank);
+        return await runRecall(
+          args,
+          linkedSettingsFrom(configModule.CONFIG),
+          configModule.CONFIG.memorisationRerank
+        );
 
       case "search": {
         if (!args.query) return { success: false, error: "query required" };
         const result = await memoryClient.searchMemories(
           args.query,
           tags.project.tag,
-          args.scope ?? CONFIG.memory.defaultScope,
+          args.scope ?? configModule.CONFIG.memory.defaultScope,
           { includeLinked: true }
         );
         if (!result.success) return { success: false, error: result.error };
@@ -371,7 +375,7 @@ export async function executeMemoryOperation(
         const result = await memoryClient.listMemories(
           tags.project.tag,
           args.limit || 20,
-          args.scope ?? CONFIG.memory.defaultScope,
+          args.scope ?? configModule.CONFIG.memory.defaultScope,
           { includeLinked: true }
         );
         if (!result.success) return { success: false, error: result.error };

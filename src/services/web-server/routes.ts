@@ -111,6 +111,7 @@ export async function routeRequest(
     if (memory) return memory;
     const routed = await routeModules(path, method, url, req, {
       cwd: web.config.directory ?? process.cwd(),
+      configModule: await web.loadConfig(),
       remoteAddress,
       startRecordPast: async (cwd) =>
         (await web.importer.api()).startRecordPast(web.importJobs, cwd),

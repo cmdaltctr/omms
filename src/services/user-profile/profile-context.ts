@@ -1,5 +1,5 @@
 import { userProfileManager } from "./user-profile-manager.js";
-import { CONFIG } from "../../config.js";
+import type { CONFIG } from "../../config.js";
 import type { UserProfileData } from "./types.js";
 import { sortProfileItems } from "../../utils/profile.js";
 import { log } from "../logger.js";
@@ -36,12 +36,22 @@ function escapeContextText(value: unknown): string {
     .replace(/>/g, "&gt;");
 }
 
+/** The config values the profile block reads (approach A: the caller passes `CONFIG` per call). */
+export type ProfileContextConfig = Pick<
+  typeof CONFIG,
+  | "userProfileInjectPreferences"
+  | "userProfileInjectPatterns"
+  | "userProfileInjectWorkflows"
+  | "similarityThreshold"
+>;
+
 /**
  * The profile block for the prompt. With `queryVector`, half of each section
  * (rounded up) follows the prompt; without it the block is the same for every
  * prompt, as before.
  */
 export async function getUserProfileContext(
+  config: ProfileContextConfig,
   userId: string,
   queryVector?: ArrayLike<number>
 ): Promise<string | null> {
@@ -61,9 +71,9 @@ export async function getUserProfileContext(
   }
   const parts: string[] = [];
 
-  const injectPrefs = CONFIG.userProfileInjectPreferences ?? 5;
-  const injectPats = CONFIG.userProfileInjectPatterns ?? 5;
-  const injectWfs = CONFIG.userProfileInjectWorkflows ?? 3;
+  const injectPrefs = config.userProfileInjectPreferences ?? 5;
+  const injectPats = config.userProfileInjectPatterns ?? 5;
+  const injectWfs = config.userProfileInjectWorkflows ?? 3;
 
   const sortedPrefs =
     profileData.preferences.length > 0
@@ -79,7 +89,7 @@ export async function getUserProfileContext(
       : [];
 
   // The prompt must be about as close to an item as it is to a memory.
-  const minCloseness = CONFIG.similarityThreshold;
+  const minCloseness = config.similarityThreshold;
   const prefs = selectProfileItems({
     baseline: dedupByCategory(scoreByRecency(sortedPrefs.slice(0, injectPrefs * 2)), injectPrefs),
     candidates: sortedPrefs,

@@ -302,7 +302,7 @@ describe("read-only settings snapshot", () => {
       writeFileSync(globalPath, '{ "visibleRecall": false\\n "x": 1 }');
       cfg.refreshConfigIfChanged(project);
       const { getSettingsSnapshot } = await import(${JSON.stringify(snapshotUrl)});
-      const snap = getSettingsSnapshot(project);
+      const snap = getSettingsSnapshot(project, cfg);
       return { readOnly: snap.readOnly, valuesFrom: snap.valuesFrom,
         recall: snap.settings["chatMessage.enabled"], rows: snap.settings.visibleRecall,
         capture: snap.settings.autoCaptureEnabled };`

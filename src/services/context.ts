@@ -59,7 +59,7 @@ export async function formatContextForPrompt(
   const blocks: BudgetedBlock[] = [];
 
   if (configModule.CONFIG.injectProfile && userId) {
-    const profileContext = await getUserProfileContext(userId, queryVector);
+    const profileContext = await getUserProfileContext(configModule.CONFIG, userId, queryVector);
     if (profileContext) {
       blocks.push({
         prefix: "<user_profile>\n",

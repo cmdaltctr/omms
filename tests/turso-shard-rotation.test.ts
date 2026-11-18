@@ -16,7 +16,8 @@ describe("turso shard rotation", () => {
     const { CONFIG } = await import("../src/config.js");
     CONFIG.storagePath = baseDir;
     CONFIG.embeddingDimensions = 4;
-    CONFIG.maxVectorsPerShard = 1;
+    // Start with room to spare; the limit drops below after the first write (read on each call).
+    CONFIG.maxVectorsPerShard = 1000;
 
     const { tursoShardManager } = await import("../src/services/turso/shard-manager.js");
     const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
@@ -34,7 +35,9 @@ describe("turso shard rotation", () => {
       updatedAt: Date.now(),
     });
     await tursoShardManager.incrementVectorCount(first.id);
+    expect((await tursoShardManager.getWriteShard("project", hash)).id).toBe(first.id);
 
+    CONFIG.maxVectorsPerShard = 1;
     const second = await tursoShardManager.getWriteShard("project", hash);
     expect(second.shardIndex).toBe(1);
     expect(second.id).not.toBe(first.id);

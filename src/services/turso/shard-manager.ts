@@ -1,6 +1,6 @@
 import { join, basename, resolve, relative } from "node:path";
 import { existsSync, renameSync, unlinkSync } from "node:fs";
-import { CONFIG } from "../../config.js";
+import * as live from "../active-space-access.js";
 import { assertSafeScopeHash } from "../memory-scope.js";
 import { resettable, tursoConnectionManager } from "./connection-manager.js";
 import type { TursoConnectionManager } from "./connection-manager.js";
@@ -13,7 +13,7 @@ import type { TursoDb } from "./turso-db.js";
 
 const METADATA_DB_NAME = "metadata.db";
 
-function getValidatedEmbeddingDimensions(dimensions = CONFIG.embeddingDimensions): number {
+function getValidatedEmbeddingDimensions(dimensions = live.getEmbeddingDimensions()): number {
   const dims = dimensions;
   if (!Number.isInteger(dims) || dims <= 0 || dims > 65536) {
     throw new Error(`Invalid embeddingDimensions config: ${dims}`);
@@ -33,9 +33,9 @@ export class TursoShardManager {
   private readonly writeLocks = new Map<string, Promise<unknown>>();
   private readonly getRoot: () => string;
   private readonly connections: TursoConnectionManager;
-  /** Space-bound stores pass their own root and connections (D1); defaults keep CONFIG. */
+  /** Space-bound stores pass their own root and connections (D1); defaults read the live store settings. */
   constructor(options: { root?: () => string; connections?: TursoConnectionManager } = {}) {
-    this.getRoot = options.root ?? ((): string => CONFIG.storagePath);
+    this.getRoot = options.root ?? live.getStoragePath;
     this.connections = options.connections ?? tursoConnectionManager;
   }
 
@@ -274,8 +274,8 @@ export class TursoShardManager {
 
   async initShardDb(
     db: TursoDb,
-    dimensions = CONFIG.embeddingDimensions,
-    embeddingModel = CONFIG.embeddingModel
+    dimensions = live.getEmbeddingDimensions(),
+    embeddingModel = live.getEmbeddingModel()
   ): Promise<void> {
     const dims = getValidatedEmbeddingDimensions(dimensions);
 
@@ -392,7 +392,7 @@ export class TursoShardManager {
         dbPath: shard.dbPath,
         shardId: shard.id,
         storedDimensions,
-        configDimensions: CONFIG.embeddingDimensions,
+        configDimensions: live.getEmbeddingDimensions(),
       });
       return false;
     }
@@ -464,7 +464,7 @@ export class TursoShardManager {
 
       shard = await this.syncShardVectorCount(shard);
 
-      if (shard.vectorCount >= CONFIG.maxVectorsPerShard) {
+      if (shard.vectorCount >= live.getMaxVectorsPerShard()) {
         await this.markShardReadOnly(shard.id);
         return this.createShard(scope, scopeHash, shard.shardIndex + 1);
       }

@@ -48,8 +48,18 @@ async function setup() {
     },
     0
   );
-  const api = await import("../src/services/ai-cleanup-handlers.js");
-  return { api, manager: userProfileManager };
+  const raw = await import("../src/services/ai-cleanup-handlers.js");
+  const config = await import("../src/config.js");
+  // The handlers take the live config module; the tests pass the real one.
+  const api = {
+    handleAiCleanupStart: (user: string | undefined, body: any, deps?: any) =>
+      raw.handleAiCleanupStart(user, body, config, deps),
+    handleAiCleanupStatus: (user: string | undefined) => raw.handleAiCleanupStatus(user, config),
+    handleAiCleanupStop: (user: string | undefined) => raw.handleAiCleanupStop(user, config),
+    handleAiCleanupApply: (user: string | undefined, body: any, deps?: any) =>
+      raw.handleAiCleanupApply(user, body, config, deps),
+  };
+  return { api, raw, manager: userProfileManager };
 }
 
 // A fake model that merges pref_1 into pref_0 and removes pref_2.
@@ -225,4 +235,33 @@ it("redacts the configured API key from a failure", async () => {
   } finally {
     CONFIG.memoryApiKey = original;
   }
+});
+
+it("reads the config module at call time, so a replaced CONFIG reaches the user and the redaction", async () => {
+  const { raw } = await setup();
+  // A reload replaces CONFIG; a module getter shows the new object on the next call.
+  let current: any = { userEmailOverride: userId, memoryApiKey: "" };
+  const live = {
+    get CONFIG() {
+      return current;
+    },
+  } as never;
+  await raw.handleAiCleanupStart(undefined, { includeIds: [] }, live, {
+    callBatch: () => Promise.reject(new Error("bad key custom-token-987654")),
+  });
+  for (let i = 0; i < 200; i++) {
+    const status = await raw.handleAiCleanupStatus(undefined, live);
+    if (status.data && status.data.status.state !== "running") break;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  // Same CONFIG: the key is not configured yet, so the error shows it.
+  const before = await raw.handleAiCleanupStatus(undefined, live);
+  expect(JSON.stringify(before.data)).toContain("custom-token-987654");
+  // A new CONFIG object with the key: the next call redacts it.
+  current = { userEmailOverride: userId, memoryApiKey: "custom-token-987654" };
+  const after = await raw.handleAiCleanupStatus(undefined, live);
+  expect(JSON.stringify(after.data)).not.toContain("custom-token-987654");
+  // Another user in the replaced CONFIG sees no job.
+  current = { userEmailOverride: "other@example.invalid", memoryApiKey: "" };
+  expect((await raw.handleAiCleanupStatus(undefined, live)).data).toBeNull();
 });

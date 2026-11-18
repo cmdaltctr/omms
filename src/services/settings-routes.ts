@@ -97,7 +97,7 @@ async function saveKey(body: Record<string, unknown> | null, ctx: SettingsRouteC
     const key =
       setting === "rerankerApiKey"
         ? memoryKeyStatus(stored.reference, keyResolves(stored.reference) ? "set" : undefined)
-        : memoryKeyStatus(stored.reference);
+        : memoryKeyStatus(stored.reference, ctx.configModule.CONFIG.memoryApiKey);
     return { status: 200, body: { ...result, key } };
   } catch (error) {
     const status =

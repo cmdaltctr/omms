@@ -107,7 +107,7 @@ describe("memorisation settings", () => {
       }));
       return {
         text: readFileSync(target, "utf8"),
-        settings: getSettingsSnapshot(project).settings,
+        settings: getSettingsSnapshot(project, cfg).settings,
       };
     `);
     expect(result.text).toContain('"memorisationRepeat": "replace"');
@@ -230,7 +230,7 @@ describe("memorisation settings", () => {
         try { await writeGlobalConfigKeys({ memorisationRerank: value }, readGlobalConfigRevision()); }
         catch (error) { errors.push(error.message); }
       }
-      return { text: readFileSync(target, "utf8"), errors, snapshot: getSettingsSnapshot(project).settings };
+      return { text: readFileSync(target, "utf8"), errors, snapshot: getSettingsSnapshot(project, cfg).settings };
     `);
     expect(result.text).toContain('"memorisationRerank": true');
     expect(result.errors).toHaveLength(3);
