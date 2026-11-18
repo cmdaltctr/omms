@@ -110,7 +110,7 @@ export async function profilesRoute(
       if (!active.some((profile) => profile.userId === userId)) {
         return jsonResponse({ error: "No active profile has that email" }, 404);
       }
-      const { writeGlobalConfigKeys } = await import("../global-config-writer.js");
+      const { writeGlobalConfigKeys } = await import("../../config-writer.js");
       const result = await writeGlobalConfigKeys({ userEmailOverride: userId }, body.revision, {
         only: new Set(["userEmailOverride"]),
       });

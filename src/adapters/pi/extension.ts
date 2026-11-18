@@ -217,6 +217,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
               host: "pi",
               provider: createPiLiveModels(ctx, notify(ctx)).capture,
               config: CONFIG,
+              configModule,
               isReady: () => isConfigured() && !memoryClient.getEmbeddingInitError?.(),
             });
           });

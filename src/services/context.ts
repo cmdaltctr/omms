@@ -1,4 +1,5 @@
-import * as configModule from "../config.js";
+import type { CONFIG } from "../config.js";
+import { getActiveSpaceLabel } from "./active-space-access.js";
 import { activeSpaceLine } from "./spaces/context-line.js";
 import {
   getUserProfileContext,
@@ -10,12 +11,8 @@ import {
   type ContextBudgetOptions,
 } from "../core/context-budget.js";
 
-/**
- * The config values `formatContextForPrompt` reads. Callers pass `CONFIG`; an omitted
- * argument falls back to this module's own `CONFIG` until the fallback is removed.
- */
-export type ContextConfig = Pick<typeof configModule.CONFIG, "injectProfile"> &
-  ProfileContextConfig;
+/** The config values `formatContextForPrompt` reads. Callers pass `CONFIG`. */
+export type ContextConfig = Pick<typeof CONFIG, "injectProfile"> & ProfileContextConfig;
 
 interface MemoryResultMinimal {
   id?: string;
@@ -30,10 +27,8 @@ interface MemoriesResponseMinimal {
   results?: MemoryResultMinimal[];
 }
 
-/** Tests that stub `config.js` may leave out `getActiveSpace`, so a missing one means Default. */
 function spaceLine(): string {
-  const space = configModule.getActiveSpace?.() ?? { name: "Default", customStoragePath: false };
-  return activeSpaceLine(space);
+  return activeSpaceLine(getActiveSpaceLabel());
 }
 
 /** A space label must never break out of the attribute or the element. */
@@ -62,10 +57,10 @@ const HEADER_TEXT =
 export async function formatContextForPrompt(
   userId: string | null,
   projectMemories: MemoriesResponseMinimal,
-  budget?: ContextBudgetOptions,
+  budget: ContextBudgetOptions | undefined,
   /** The embedded prompt, when there is one. Lets the profile block follow the prompt. */
-  queryVector?: ArrayLike<number>,
-  config: ContextConfig = configModule.CONFIG
+  queryVector: ArrayLike<number> | undefined,
+  config: ContextConfig
 ): Promise<string> {
   const blocks: BudgetedBlock[] = [];
 

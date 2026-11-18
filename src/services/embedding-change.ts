@@ -216,7 +216,7 @@ export async function applyEmbeddingCandidate(
   } else if (candidate.key.source !== "saved") {
     edits.embeddingApiKey = (await storeMemoryKeySource(candidate.key)).reference;
   }
-  const { EMBEDDING_KEYS, writeGlobalConfigKeys } = await import("./global-config-writer.js");
+  const { EMBEDDING_KEYS, writeGlobalConfigKeys } = await import("../config-writer.js");
   await writeGlobalConfigKeys(edits, revision, { only: EMBEDDING_KEYS });
   refreshConfig();
   passedTests.delete(identity);

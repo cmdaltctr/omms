@@ -106,9 +106,7 @@ const configBaseline: Record<string, number> = {
   "src/services/auto-capture.ts": 1,
   "src/services/cleanup-service.ts": 1,
   "src/services/client.ts": 1,
-  "src/services/context.ts": 1,
   "src/services/deduplication-service.ts": 1,
-  "src/services/global-config-writer.ts": 1,
   "src/services/web-server.ts": 1,
 };
 

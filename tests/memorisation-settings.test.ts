@@ -14,9 +14,7 @@ async function scenario(body: string, seed = "{}\n") {
   mkdirSync(join(target, ".."), { recursive: true });
   writeFileSync(target, seed);
   const config = pathToFileURL(join(import.meta.dir, "../src/config.ts")).href;
-  const writer = pathToFileURL(
-    join(import.meta.dir, "../src/services/global-config-writer.ts")
-  ).href;
+  const writer = pathToFileURL(join(import.meta.dir, "../src/config-writer.ts")).href;
   const snapshot = pathToFileURL(
     join(import.meta.dir, "../src/services/settings-snapshot.ts")
   ).href;

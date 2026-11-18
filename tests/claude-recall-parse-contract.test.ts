@@ -73,11 +73,12 @@ const {
   formatMemoriesForCompaction,
   wrapRetrievalSection,
 } = await import(${JSON.stringify(url("../src/core/retrieval.js"))});
+const { CONFIG } = await import(${JSON.stringify(url("../src/config.js"))});
 const { buildFirstPromptSections } = await import(${JSON.stringify(url("../src/core/opening-context.js"))});
 const { ROWS_OFF_MARKER, openingMarker, insertMarker } = await import(${JSON.stringify(url("../src/importer/claude-hook-context.js"))});
 const { truncateContext } = await import(${JSON.stringify(url("../src/adapters/claude-code/hook-client.js"))});
 
-const prompt = wrapRetrievalSection(await buildRetrievalSection("how did we add the adapter", "/work", "ses-1", false));
+const prompt = wrapRetrievalSection(await buildRetrievalSection("how did we add the adapter", "/work", "ses-1", false, undefined, CONFIG));
 const restored = wrapRetrievalSection(
   formatMemoriesForCompaction([
     { id: "mem_wal", memory: "Use WAL mode", tags: ["db"] },
@@ -91,7 +92,7 @@ const off = insertMarker(prompt, ROWS_OFF_MARKER);
 const restoredOff = insertMarker(restored, ROWS_OFF_MARKER);
 const first = await buildFirstPromptSections({
   prompt: "how did we add the adapter", openingQuery: "project setup", directory: "/work",
-  sessionId: "ses-1", excludeCurrentSession: false, budget: { maxBytes: 8000 }, openingReserveBytes: 0,
+  sessionId: "ses-1", excludeCurrentSession: false, budget: { maxBytes: 8000 }, openingReserveBytes: 0, config: CONFIG,
 });
 const opening = insertMarker(first.openingSection, openingMarker("project setup"));
 const both = first.promptSection + "\\n" + opening;

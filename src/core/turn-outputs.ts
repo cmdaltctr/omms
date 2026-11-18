@@ -1,5 +1,10 @@
 import { log } from "../services/logger.js";
-import { captureConversation, type CaptureResult, type CaptureWorkUnit } from "./capture.js";
+import {
+  captureConversation,
+  type CaptureConfigModule,
+  type CaptureResult,
+  type CaptureWorkUnit,
+} from "./capture.js";
 import type { CaptureSummaryProvider } from "./host.js";
 
 /** Which outputs a finished turn goes to. */
@@ -11,6 +16,8 @@ export interface TurnOutputs {
 export interface TurnOutputDeps {
   /** The capture model. Needed when `memories` is on. */
   provider?: CaptureSummaryProvider;
+  /** The config module the capture refreshes and reads. Callers pass `import * as configModule`. */
+  configModule?: CaptureConfigModule;
   /**
    * The skill-turn output. Injected so `src/core/` imports nothing from
    * `skill-learning`; the live sites build it from `skillTurnRecorder`.
@@ -59,5 +66,5 @@ export async function handleFinishedTurn(
   }
   if (!outputs.memories) return { status: "not-run" };
   if (!deps.provider) throw new Error("handleFinishedTurn needs a provider for memories");
-  return captureConversation(unit, deps.provider);
+  return captureConversation(unit, deps.provider, deps.configModule);
 }

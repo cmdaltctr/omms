@@ -46,7 +46,7 @@ export interface FirstPromptSectionsInput {
   /** Bytes the host adds to the opening section only, such as Claude Code's opening marker. */
   openingReserveBytes: number;
   /** `CONFIG`, passed by the host for the profile block of the prompt section. */
-  config?: ContextConfig;
+  config: ContextConfig;
 }
 
 /**

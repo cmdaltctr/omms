@@ -6,26 +6,26 @@ import {
   getGlobalConfigSourcePath,
   getGlobalConfigWritePath,
   validateGlobalConfig,
-} from "../config.js";
-import { CONFIG_TEMPLATE } from "../config-template.js";
-import { isValidClaudeConfigDir } from "./claude-folder.js";
-import { describeJsoncError } from "./config-problems.js";
-import { PAGE_KEYS as keys } from "./settings-editable-keys.js";
-import { missingSkillFolder } from "./skill-learning/skill-config.js";
-import { KEYWORD_MODES } from "../utils/keyword-boost.js";
-import { getMemoryLimitRule } from "../utils/memory-limits.js";
-import { OPENING_CONTEXT_QUERY_MAX_LENGTH } from "./injection-options-config.js";
-import { RERANKER_TIMEOUT_MAX_MS, RERANKER_TIMEOUT_MIN_MS } from "./request-timeouts.js";
+} from "./config.js";
+import { CONFIG_TEMPLATE } from "./config-template.js";
+import { isValidClaudeConfigDir } from "./services/claude-folder.js";
+import { describeJsoncError } from "./services/config-problems.js";
+import { PAGE_KEYS as keys } from "./services/settings-editable-keys.js";
+import { missingSkillFolder } from "./services/skill-learning/skill-config.js";
+import { KEYWORD_MODES } from "./utils/keyword-boost.js";
+import { getMemoryLimitRule } from "./utils/memory-limits.js";
+import { OPENING_CONTEXT_QUERY_MAX_LENGTH } from "./services/injection-options-config.js";
+import { RERANKER_TIMEOUT_MAX_MS, RERANKER_TIMEOUT_MIN_MS } from "./services/request-timeouts.js";
 import {
   checkMemorisationSettingsEdits,
   memorisationSettingsFrom,
-} from "../core/memorisation-settings.js";
+} from "./core/memorisation-settings.js";
 import {
   isProfileLearningKey,
   isValidProfileLearningEdit,
   PROFILE_LEARNING_ACCEPTED,
   PROFILE_LEARNING_KEYS,
-} from "../core/profile-learning/settings.js";
+} from "./core/profile-learning/settings.js";
 
 function isFolder(path: string): boolean {
   try {
@@ -35,7 +35,7 @@ function isFolder(path: string): boolean {
   }
 }
 
-export { EMBEDDING_KEYS, PASSWORD_KEYS } from "./settings-editable-keys.js";
+export { EMBEDDING_KEYS, PASSWORD_KEYS } from "./services/settings-editable-keys.js";
 
 export const MEMORY_PROVIDERS = [
   "openai-chat",

@@ -50,7 +50,7 @@ it("gives an unknown or missing code a general sentence with the code as seconda
 });
 
 it("gives each memory provider id a display name", () => {
-  const source = readFileSync(new URL("src/services/global-config-writer.ts", root), "utf8");
+  const source = readFileSync(new URL("src/config-writer.ts", root), "utf8");
   const start = source.indexOf("const MEMORY_PROVIDERS = [");
   const ids = [...source.slice(start, source.indexOf("];", start)).matchAll(/"([a-z-]+)"/g)].map(
     (match) => match[1]!

@@ -63,9 +63,9 @@ export async function buildRetrievalSection(
   directory: string,
   sessionId: string,
   excludeCurrentSession: boolean | undefined,
-  budget?: ContextBudgetOptions,
+  budget: ContextBudgetOptions | undefined,
   /** `CONFIG`, passed by the host for the profile block. */
-  config?: ContextConfig
+  config: ContextConfig
 ): Promise<string | null> {
   const query = searchablePrompt(prompt);
   if (!query) return null;

@@ -26,6 +26,18 @@ export function activeOwner(): LinkedOwner {
   return configModule.getActiveSpace?.() ?? { id: "default", customStoragePath: false };
 }
 
+/**
+ * The active space's display name for the memory context header. A `config.js` stub may leave
+ * out `getActiveSpace`, and a missing one means the Default space.
+ */
+export function getActiveSpaceLabel(): { name: string; customStoragePath: boolean } {
+  const space = configModule.getActiveSpace?.();
+  return {
+    name: space?.name ?? "Default",
+    customStoragePath: space?.customStoragePath ?? false,
+  };
+}
+
 /** The storage folder of the active memory space. */
 export function getStoragePath(): Config["storagePath"] {
   return configModule.CONFIG.storagePath;

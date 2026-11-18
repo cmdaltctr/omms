@@ -33,6 +33,7 @@ mock.module("../src/core/capture-context.js", () => ({
 }));
 
 const { captureConversation } = await import("../src/core/capture.js");
+const { handleFinishedTurn } = await import("../src/core/turn-outputs.js");
 const { getTraceDirectory, resetTraceStateForTests } =
   await import("../src/services/capture-diagnostics.js");
 
@@ -152,6 +153,45 @@ describe("capture pipeline diagnostics", () => {
       expect.objectContaining({ outcome: "failed", reason: "call-error" }),
       expect.objectContaining({ outcome: "saved", reason: null }),
     ]);
+  });
+
+  it("refreshes the caller's config module and reads its CONFIG after the refresh", async () => {
+    // The refresh replaces the module's CONFIG object, as a reload or space switch does.
+    const configModule = {
+      CONFIG: { autoCaptureMaxContextBytes: 1, captureTrace: false } as Record<string, unknown>,
+      refreshed: [] as string[],
+      refreshConfigIfChanged(directory: string) {
+        configModule.refreshed.push(directory);
+        configModule.CONFIG = { autoCaptureMaxContextBytes: 4096, captureTrace: true };
+      },
+    };
+    const provider = {
+      summarize: async () => ({ summary: "Fixed it", type: "bug-fix", tags: [] }),
+    };
+    await captureConversation(
+      workUnit,
+      provider,
+      configModule as unknown as Parameters<typeof captureConversation>[2]
+    );
+    expect(configModule.refreshed).toEqual(["/tmp/project"]);
+    expect(budgetArgs).toEqual([4096]);
+    expect(existsSync(getTraceDirectory())).toBe(true);
+  });
+
+  it("passes the caller's config module from handleFinishedTurn to the capture", async () => {
+    const configModule = {
+      CONFIG: { autoCaptureMaxContextBytes: 2048 },
+      refreshConfigIfChanged: () => {},
+    };
+    await handleFinishedTurn(
+      workUnit,
+      { memories: true, skills: false },
+      {
+        provider: { summarize: async () => ({ summary: "", type: "skip", tags: [] }) },
+        configModule: configModule as unknown as Parameters<typeof captureConversation>[2],
+      }
+    );
+    expect(budgetArgs).toEqual([2048]);
   });
 
   it("writes a trace only when tracing is on", async () => {

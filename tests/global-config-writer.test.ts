@@ -21,9 +21,7 @@ async function scenario(body: string, seed?: string, legacy = false) {
     writeFileSync(target, seed);
   }
   const config = pathToFileURL(join(import.meta.dir, "../src/config.ts")).href;
-  const writer = pathToFileURL(
-    join(import.meta.dir, "../src/services/global-config-writer.ts")
-  ).href;
+  const writer = pathToFileURL(join(import.meta.dir, "../src/config-writer.ts")).href;
   const script = `
     const { readFileSync, existsSync, writeFileSync } = await import("node:fs");
     const cfg = await import(${JSON.stringify(config)});

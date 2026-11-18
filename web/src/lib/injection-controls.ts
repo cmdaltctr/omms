@@ -1,7 +1,7 @@
 /**
  * The Memory injection section's draft and save maths: pure, with no React or
  * config imports, so tests and the section share one source. The snapshot keys
- * are also the PATCH request identifiers (src/services/global-config-writer.ts).
+ * are also the PATCH request identifiers (src/config-writer.ts).
  */
 export const DEFAULT_OPENING_QUERY = "project architecture, setup, conventions and key decisions";
 export const OPENING_QUERY_MAX = 500;

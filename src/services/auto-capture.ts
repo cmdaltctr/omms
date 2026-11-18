@@ -29,6 +29,19 @@ let isCaptureRunning = false;
  */
 const skillRecordedUpTo = new Map<string, number>();
 
+/**
+ * The config module with a live `CONFIG`, so a reload is seen after the refresh.
+ * The auto-capture slice replaces this with `import * as configModule`.
+ */
+function liveConfigModule() {
+  return {
+    get CONFIG() {
+      return CONFIG;
+    },
+    refreshConfigIfChanged,
+  };
+}
+
 async function notifySafely(
   host: AutoCaptureHost,
   notification: Parameters<NonNullable<AutoCaptureHost["notify"]>>[0]
@@ -52,13 +65,7 @@ export async function performAutoCapture(
     const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
     const prompts = await userPromptManager.getUncapturedPromptsForSession(sessionID, maxRetries);
     if (prompts.length === 0) return;
-    // The getter keeps `CONFIG` live after the refresh. The auto-capture slice replaces this with the module.
-    const recorder = skillTurnRecorder(directory, {
-      get CONFIG() {
-        return CONFIG;
-      },
-      refreshConfigIfChanged,
-    });
+    const recorder = skillTurnRecorder(directory, liveConfigModule());
     // Skill learning records turns even when memory capture is off (ADR-036).
     if (CONFIG.autoCaptureEnabled === false || !host.isCaptureReady()) {
       for (const prompt of prompts) {
@@ -166,7 +173,7 @@ async function capturePrompt(
         const captureResult = await handleFinishedTurn(
           workUnit,
           { memories: true, skills: record !== undefined },
-          { provider: host, recordSkillTurn: record }
+          { provider: host, recordSkillTurn: record, configModule: liveConfigModule() }
         );
 
         if (captureResult.status === "skipped") {
@@ -270,6 +277,7 @@ export function drainOpencodeCaptureRetries(
     host: "opencode",
     provider: host,
     config: CONFIG,
+    configModule: liveConfigModule(),
     isReady: () => host.isCaptureReady(),
     onSettled: settleOpencodeRetriedPrompt,
   });

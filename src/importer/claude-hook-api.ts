@@ -361,7 +361,7 @@ async function captureWithQuickRetries(
       return await handleFinishedTurn(
         unit,
         { memories: true, skills },
-        { provider, recordSkillTurn }
+        { provider, recordSkillTurn, configModule }
       );
     } catch (error) {
       if (attempt >= maxRetries) throw error;
@@ -514,6 +514,7 @@ export function startClaudeCodeWorker(): void {
         summarize: () => Promise.reject(new Error("Claude Code capture model unavailable")),
       },
       config: CONFIG,
+      configModule,
       isReady: () => provider !== null && !memoryClient.getEmbeddingInitError?.(),
     });
   });

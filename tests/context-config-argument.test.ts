@@ -40,13 +40,24 @@ it("uses the injectProfile value the caller passes, not the module's CONFIG", as
   }
 });
 
-it("falls back to the module's CONFIG when the caller passes none", async () => {
+it("reads the passed value again on every call", async () => {
+  const passed = { injectProfile: true, ...profileFields };
   const previous = CONFIG.injectProfile;
   try {
-    CONFIG.injectProfile = true;
-    expect(await formatContextForPrompt("user", results)).toContain("PROFILE-BLOCK");
+    // The module's own CONFIG says the opposite of the passed object each time.
     CONFIG.injectProfile = false;
-    expect(await formatContextForPrompt("user", results)).not.toContain("PROFILE-BLOCK");
+    expect(await formatContextForPrompt("user", results, undefined, undefined, passed)).toContain(
+      "PROFILE-BLOCK"
+    );
+    passed.injectProfile = false;
+    CONFIG.injectProfile = true;
+    expect(
+      await formatContextForPrompt("user", results, undefined, undefined, passed)
+    ).not.toContain("PROFILE-BLOCK");
+    passed.injectProfile = true;
+    expect(await formatContextForPrompt("user", results, undefined, undefined, passed)).toContain(
+      "PROFILE-BLOCK"
+    );
   } finally {
     CONFIG.injectProfile = previous;
   }

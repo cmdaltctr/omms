@@ -730,7 +730,7 @@ const opencodeSearch = await executeMemoryOperation(
 
 // Pi side: before_agent_start retrieval over the same store.
 const { buildRetrievalSection } = await import(${JSON.stringify(retrievalUrl)});
-const piSection = await buildRetrievalSection("usearch vector index", projectA, "pi-live-session", CONFIG.chatMessage.excludeCurrentSession);
+const piSection = await buildRetrievalSection("usearch vector index", projectA, "pi-live-session", CONFIG.chatMessage.excludeCurrentSession, undefined, CONFIG);
 
 scenario = {
   imported: report.unitsImported,

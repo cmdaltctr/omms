@@ -8,7 +8,7 @@ import {
   describeJsoncError,
   type ConfigProblem,
 } from "./config-problems.js";
-import { readGlobalConfigRevision } from "./global-config-writer.js";
+import { readGlobalConfigRevision } from "../config-writer.js";
 import { resolveSecretValue } from "./secret-resolver.js";
 import { injectionOptionsFromFile } from "./injection-options-config.js";
 import { getMemoryLimitRule, MEMORY_LIMIT_SETTINGS } from "../utils/memory-limits.js";

@@ -63,8 +63,7 @@ export async function routeOpenRouter(
     const parsed = removeAll ? { ok: true as const, routing: {} } : parseRouting(body.routing);
     if (!parsed.ok) return fail(400, parsed.error);
 
-    const { writeGlobalConfigKeys, ConfigConflictError } =
-      await import("./global-config-writer.js");
+    const { writeGlobalConfigKeys, ConfigConflictError } = await import("../config-writer.js");
     let provider: Record<string, unknown> | undefined;
     let revision: string;
     try {

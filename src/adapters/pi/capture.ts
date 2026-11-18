@@ -62,7 +62,7 @@ async function captureWithQuickRetries(
       return await handleFinishedTurn(
         unit,
         { memories: true, skills: recorder !== undefined },
-        { provider, recordSkillTurn: recorder }
+        { provider, recordSkillTurn: recorder, configModule }
       );
     } catch (error) {
       if (attempt >= maxRetries) throw error;

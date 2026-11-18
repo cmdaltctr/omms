@@ -128,8 +128,7 @@ export async function routeSettingsApi(
     ) {
       return jsonResponse({ error: "Tracing requires Basic Auth on network hosts" }, 403);
     }
-    const { writeGlobalConfigKeys, ConfigConflictError } =
-      await import("../global-config-writer.js");
+    const { writeGlobalConfigKeys, ConfigConflictError } = await import("../../config-writer.js");
     let result;
     try {
       result = await writeGlobalConfigKeys(body.edits, body.revision);

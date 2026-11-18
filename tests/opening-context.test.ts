@@ -32,6 +32,7 @@ import { mock } from "bun:test";
 
 const searchQueries = [];
 const formatted = [];
+const configs = [];
 let results = {};
 let fill = false;
 let started = 0;
@@ -66,7 +67,8 @@ mock.module(${JSON.stringify(tagsUrl)}, () => ({
 }));
 
 mock.module(${JSON.stringify(contextServiceUrl)}, () => ({
-  formatContextForPrompt: async (userId, memories, budget, queryVector) => {
+  formatContextForPrompt: async (userId, memories, budget, queryVector, config) => {
+    configs.push(config);
     formatted.push({ userId, ids: memories.results.map((r) => r.id), budget, queryVector });
     if (fill) return "x".repeat(budget.maxBytes - (budget.wrapperBytes ?? 0));
     return "<memory_context>" + memories.results.map((r) => r.id).join("|") + "</memory_context>";
@@ -78,9 +80,10 @@ const { buildRetrievalSection, retrievalWrapperBytes, wrapRetrievalSection } = a
 const wrapper = retrievalWrapperBytes();
 const memory = (id, sessionID = "ses-other") => ({ id, memory: id, similarity: 0.9, metadata: { sessionID } });
 const EXCLUDE = ${excludeCurrentSession};
+const PASSED = { injectProfile: true };
 let captured;
 ${code}
-console.log(JSON.stringify({ captured, searchQueries, formatted, overlap, wrapper }));
+console.log(JSON.stringify({ captured, searchQueries, formatted, configs, overlap, wrapper }));
 `;
 
   writeFileSync(scriptPath, script);
@@ -93,7 +96,7 @@ console.log(JSON.stringify({ captured, searchQueries, formatted, overlap, wrappe
 const call = (extra = "") =>
   `captured = await buildFirstPromptSections({ prompt: "fix the queue", openingQuery: "project setup",
      directory: "/repo", sessionId: "ses-1", excludeCurrentSession: EXCLUDE, budget: { maxBytes: 4000, wrapperBytes: wrapper },
-     openingReserveBytes: 50${extra} });`;
+     openingReserveBytes: 50, config: PASSED${extra} });`;
 
 describe("openingQueryFor", () => {
   it("returns null when the option is off", () => {
@@ -117,8 +120,8 @@ describe("buildFirstPromptSections", () => {
     const fully = runScenario(`
 results = { "project setup": [memory("b")] };
 captured = await buildFirstPromptSections({ prompt: "<private>token rotation plan</private>", openingQuery: "project setup",
-  directory: "/repo", sessionId: "ses-1", excludeCurrentSession: EXCLUDE, budget: { maxBytes: 4000, wrapperBytes: wrapper }, openingReserveBytes: 50 });
-captured.single = await buildRetrievalSection("<private>token rotation plan</private>", "/repo", "ses-1", EXCLUDE);
+  directory: "/repo", sessionId: "ses-1", excludeCurrentSession: EXCLUDE, budget: { maxBytes: 4000, wrapperBytes: wrapper }, openingReserveBytes: 50, config: PASSED });
+captured.single = await buildRetrievalSection("<private>token rotation plan</private>", "/repo", "ses-1", EXCLUDE, undefined, PASSED);
 `);
     expect(fully.captured.promptSection).toBeNull();
     expect(fully.captured.openingSection).toBeNull();
@@ -128,8 +131,8 @@ captured.single = await buildRetrievalSection("<private>token rotation plan</pri
     const partly = runScenario(`
 results = { "fix the queue": [memory("a")], "project setup": [memory("b")] };
 captured = await buildFirstPromptSections({ prompt: "fix the queue <private>token rotation plan</private>", openingQuery: "project setup",
-  directory: "/repo", sessionId: "ses-1", excludeCurrentSession: EXCLUDE, budget: { maxBytes: 4000, wrapperBytes: wrapper }, openingReserveBytes: 50 });
-await buildRetrievalSection("fix the queue <private>token rotation plan</private>", "/repo", "ses-1", EXCLUDE);
+  directory: "/repo", sessionId: "ses-1", excludeCurrentSession: EXCLUDE, budget: { maxBytes: 4000, wrapperBytes: wrapper }, openingReserveBytes: 50, config: PASSED });
+await buildRetrievalSection("fix the queue <private>token rotation plan</private>", "/repo", "ses-1", EXCLUDE, undefined, PASSED);
 `);
     const queries = partly.searchQueries.map((args: string[]) => args[0]);
     expect(queries.join("|")).not.toContain("token rotation");
@@ -149,7 +152,7 @@ ${call()}
     // Each search saw the other one start before it finished.
     expect(output.overlap).toEqual([2, 2]);
     const single = runScenario(
-      `await buildRetrievalSection("fix the queue", "/repo", "ses-1", EXCLUDE);`
+      `await buildRetrievalSection("fix the queue", "/repo", "ses-1", EXCLUDE, undefined, PASSED);`
     );
     expect(single.searchQueries).toEqual([
       ["fix the queue", "omms_project_test", "project", { includeLinked: true }],
@@ -160,7 +163,7 @@ ${call()}
     const output = runScenario(`
 results = { "fix the queue": [memory("a")], "project setup": [memory("b")] };
 ${call()}
-const single = await buildRetrievalSection("fix the queue", "/repo", "ses-1", EXCLUDE, { maxBytes: 4000, wrapperBytes: wrapper });
+const single = await buildRetrievalSection("fix the queue", "/repo", "ses-1", EXCLUDE, { maxBytes: 4000, wrapperBytes: wrapper }, PASSED);
 captured.same = captured.promptSection === wrapRetrievalSection(single);
 `);
     expect(output.captured.promptSection).toBe(
@@ -207,6 +210,14 @@ ${call()}
     });
   });
 
+  it("hands the config it was given to the formatter of both sections", () => {
+    const output = runScenario(`
+results = { "fix the queue": [memory("a")], "project setup": [memory("b")] };
+${call()}
+`);
+    expect(output.configs).toEqual([{ injectProfile: true }, { injectProfile: true }]);
+  });
+
   it("gives the opening section the whole budget minus the reserve when the prompt finds nothing", () => {
     const output = runScenario(`
 results = { "project setup": [memory("b")] };
@@ -222,7 +233,7 @@ ${call()}
     const output = runScenario(`
 results = { "fix the queue": [memory("a")], "project setup": [memory("b")] };
 captured = await buildFirstPromptSections({ prompt: "fix the queue", openingQuery: "project setup",
-  directory: "/repo", sessionId: "ses-1", excludeCurrentSession: EXCLUDE, budget: { maxBytes: 4000 }, openingReserveBytes: 0 });
+  directory: "/repo", sessionId: "ses-1", excludeCurrentSession: EXCLUDE, budget: { maxBytes: 4000 }, openingReserveBytes: 0, config: PASSED });
 `);
     expect(output.formatted.map((entry: { budget: unknown }) => entry.budget)).toEqual([
       { maxBytes: 4000, wrapperBytes: output.wrapper },
@@ -289,7 +300,7 @@ ${call()}
 results = { "fix the queue": [memory("a")], "project setup": [memory("b")] };
 captured = await buildFirstPromptSections({ prompt: "fix the queue", openingQuery: null,
   directory: "/repo", sessionId: "ses-1", excludeCurrentSession: EXCLUDE, budget: { maxBytes: 4000, wrapperBytes: wrapper },
-  openingReserveBytes: 0 });
+  openingReserveBytes: 0, config: PASSED });
 `);
     expect(output.searchQueries).toEqual([
       ["fix the queue", "omms_project_test", "project", { includeLinked: true }],
@@ -303,7 +314,7 @@ captured = await buildFirstPromptSections({ prompt: "fix the queue", openingQuer
 results = { "project setup": [memory("b")] };
 captured = await buildFirstPromptSections({ prompt: "   ", openingQuery: "project setup",
   directory: "/repo", sessionId: "ses-1", excludeCurrentSession: EXCLUDE, budget: { maxBytes: 4000, wrapperBytes: wrapper },
-  openingReserveBytes: 0 });
+  openingReserveBytes: 0, config: PASSED });
 `);
     expect(output.captured).toEqual({ promptSection: null, openingSection: null });
     expect(output.searchQueries).toEqual([]);

@@ -195,7 +195,7 @@ const capture = await captureConversation(
   opencodeProvider
 );
 
-const section = await buildRetrievalSection("how is the store locked?", projectDir, "pi-session-2", CONFIG.chatMessage.excludeCurrentSession);
+const section = await buildRetrievalSection("how is the store locked?", projectDir, "pi-session-2", CONFIG.chatMessage.excludeCurrentSession, undefined, CONFIG);
 
 scenario = { capture, section };
 `);
@@ -266,8 +266,8 @@ const capture = await capturePiSettledWorkUnit({
   state: createPiCaptureState(),
 });
 
-const ownSessionSection = await buildRetrievalSection("webhook retry", projectDir, "pi-session-5", CONFIG.chatMessage.excludeCurrentSession);
-const otherSessionSection = await buildRetrievalSection("webhook retry", projectDir, "pi-session-6", CONFIG.chatMessage.excludeCurrentSession);
+const ownSessionSection = await buildRetrievalSection("webhook retry", projectDir, "pi-session-5", CONFIG.chatMessage.excludeCurrentSession, undefined, CONFIG);
+const otherSessionSection = await buildRetrievalSection("webhook retry", projectDir, "pi-session-6", CONFIG.chatMessage.excludeCurrentSession, undefined, CONFIG);
 
 scenario = { ownSessionSection, otherSessionSection };
 `);

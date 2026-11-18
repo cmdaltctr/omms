@@ -1,4 +1,5 @@
 import { existsSync, realpathSync } from "node:fs";
+import * as configModule from "../config.js";
 import { handleFinishedTurn } from "../core/turn-outputs.js";
 import type { CaptureConversation, CaptureSummaryProvider } from "../core/host.js";
 import type { ModelPort } from "../core/profile-analysis.js";
@@ -408,7 +409,7 @@ export async function importHistorySource(
       const result = await handleFinishedTurn(
         workUnit,
         { memories: true, skills: false },
-        { provider: deps.provider }
+        { provider: deps.provider, configModule }
       );
 
       if (result.status === "skipped") {

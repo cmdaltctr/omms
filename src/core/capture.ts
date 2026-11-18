@@ -26,6 +26,12 @@ export interface CaptureWorkUnit extends CaptureProvenance, CaptureConversation 
   prompt?: CapturePromptContext;
 }
 
+/** The config module a capture refreshes and reads. Callers pass `import * as configModule`. */
+export type CaptureConfigModule = Pick<
+  typeof import("../config.js"),
+  "CONFIG" | "refreshConfigIfChanged"
+>;
+
 export type CaptureResult =
   | { status: "captured"; memoryId: string }
   | { status: "skipped"; type?: string; reason?: CaptureSkipReason };
@@ -64,13 +70,20 @@ async function getLatestProjectMemory(containerTag: string): Promise<string | nu
  */
 export async function captureConversation(
   workUnit: CaptureWorkUnit,
-  provider: CaptureSummaryProvider
+  provider: CaptureSummaryProvider,
+  // Temporary fallback to this module's own import until every caller passes the module.
+  config: CaptureConfigModule = {
+    get CONFIG() {
+      return CONFIG;
+    },
+    refreshConfigIfChanged,
+  }
 ): Promise<CaptureResult> {
-  refreshConfigIfChanged(workUnit.projectDirectory);
+  config.refreshConfigIfChanged(workUnit.projectDirectory);
   // Snapshot the markdown budget after the refresh and before the first
   // await: a config edit during the memory read must not change this
   // capture's input limit. The budget keeps its built-in request reserve.
-  const markdownBudget = getAutoCaptureMarkdownBudget(CONFIG.autoCaptureMaxContextBytes);
+  const markdownBudget = getAutoCaptureMarkdownBudget(config.CONFIG.autoCaptureMaxContextBytes);
   const diagnostics: CaptureAttemptDiagnostics = {};
   const startedAt = Date.now();
   let outcome: CaptureAttemptOutcome = "failed";
@@ -95,7 +108,7 @@ export async function captureConversation(
       outcome,
       Date.now() - startedAt
     );
-    emitCaptureAttempt(record, diagnostics, CONFIG);
+    emitCaptureAttempt(record, diagnostics, config.CONFIG);
   }
 }
 

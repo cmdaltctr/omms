@@ -453,7 +453,8 @@ candidates = [
       `
 ${CANDIDATES}
 const { buildRetrievalSection } = await import(${JSON.stringify(retrievalUrl)});
-captured = await buildRetrievalSection("queue?", "/repo", "ses-1", true);
+const { CONFIG } = await import(${JSON.stringify(configUrl)});
+captured = await buildRetrievalSection("queue?", "/repo", "ses-1", true, undefined, CONFIG);
 `,
       { configExtra: RERANKER_ON }
     );

@@ -66,6 +66,7 @@ describe("store settings reader", () => {
     expect(Object.keys(reader).sort()).toEqual(
       [
         "activeOwner",
+        "getActiveSpaceLabel",
         "getAiSessionRetentionDays",
         "getContainerTagPrefix",
         "getEmbeddingApiKey",
@@ -175,6 +176,7 @@ describe("store settings reader", () => {
     config.refreshConfigIfChanged(project);
     expect(reader.getStoragePath()).toBe(join(files.spacesRoot, space.id));
     expect(reader.activeOwner().id).toBe(space.id);
+    expect(reader.getActiveSpaceLabel()).toEqual({ name: "Reader", customStoragePath: false });
     // skills.db and the model cache stay on the global path in every space.
     expect(reader.getSkillStoragePath()).toBe(defaultFolder);
 
@@ -182,5 +184,6 @@ describe("store settings reader", () => {
     config.refreshConfigIfChanged(project);
     expect(reader.getStoragePath()).toBe(defaultFolder);
     expect(reader.activeOwner().id).toBe("default");
+    expect(reader.getActiveSpaceLabel()).toEqual({ name: "Default", customStoragePath: false });
   });
 });

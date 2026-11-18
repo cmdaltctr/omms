@@ -131,6 +131,23 @@ describe("drainCaptureRetries", () => {
     expect(await rows()).toHaveLength(0);
   });
 
+  it("refreshes the host's config module for each retried turn", async () => {
+    await queued("a", "b");
+    const refreshed: string[] = [];
+    const configModule = {
+      CONFIG: config,
+      refreshConfigIfChanged: (dir: string) => refreshed.push(dir),
+    };
+    await drain.drainCaptureRetries({
+      host: "pi",
+      provider: provider(() => memory),
+      config,
+      configModule: configModule as unknown as import("../src/core/capture.js").CaptureConfigModule,
+      now: later,
+    });
+    expect(refreshed).toEqual(["/work/project", "/work/project"]);
+  });
+
   it("deletes a turn the extractor skips", async () => {
     await queued("a");
     const settled: string[] = [];

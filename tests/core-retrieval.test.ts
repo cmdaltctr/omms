@@ -62,6 +62,7 @@ mock.module(${JSON.stringify(contextServiceUrl)}, () => ({
 }));
 
 const { buildRetrievalSection } = await import(${JSON.stringify(retrievalUrl)});
+const { CONFIG } = await import(${JSON.stringify(configUrl)});
 const EXCLUDE = ${excludeCurrentSession};
 let captured;
 ${code}
@@ -80,7 +81,7 @@ console.log(JSON.stringify({ captured, searchQueries, formatted }));
 describe("shared retrieval", () => {
   it("skips the search for an empty prompt", () => {
     const output = runScenario(
-      `captured = await buildRetrievalSection("   ", "/repo", "ses-1", EXCLUDE);`
+      `captured = await buildRetrievalSection("   ", "/repo", "ses-1", EXCLUDE, undefined, CONFIG);`
     );
     expect(output.captured).toBeNull();
     expect(output.searchQueries).toEqual([]);
@@ -88,7 +89,7 @@ describe("shared retrieval", () => {
 
   it("returns null when nothing relevant is found", () => {
     const output = runScenario(
-      `captured = await buildRetrievalSection("queue?", "/repo", "ses-1", EXCLUDE);`
+      `captured = await buildRetrievalSection("queue?", "/repo", "ses-1", EXCLUDE, undefined, CONFIG);`
     );
     expect(output.captured).toBeNull();
     expect(output.searchQueries).toEqual([["queue?", "omms_project_test"]]);
@@ -101,7 +102,7 @@ results = [
   { id: "own", memory: "from this session", similarity: 0.9, metadata: { sessionID: "ses-1" } },
   { id: "other", memory: "from another session", similarity: 0.8, metadata: { sessionID: "ses-2" } },
 ];
-captured = await buildRetrievalSection("queue?", "/repo", "ses-1", EXCLUDE);
+captured = await buildRetrievalSection("queue?", "/repo", "ses-1", EXCLUDE, undefined, CONFIG);
 `);
     expect(output.captured).toBe("<memory_context>from another session</memory_context>");
     expect(output.formatted).toEqual([["user@example.com", ["other"]]]);
@@ -113,7 +114,7 @@ captured = await buildRetrievalSection("queue?", "/repo", "ses-1", EXCLUDE);
 results = [
   { id: "own", memory: "from this session", similarity: 0.9, metadata: { sessionID: "ses-1" } },
 ];
-captured = await buildRetrievalSection("queue?", "/repo", "ses-1", EXCLUDE);
+captured = await buildRetrievalSection("queue?", "/repo", "ses-1", EXCLUDE, undefined, CONFIG);
 `,
       false
     );

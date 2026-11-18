@@ -232,14 +232,14 @@ const { buildRetrievalSection } = await import(${JSON.stringify(moduleUrl("src/c
 let gateResolve;
 releaseSearch = new Promise((resolve) => { gateResolve = resolve; });
 const entryFlag = config.CONFIG.chatMessage.excludeCurrentSession;
-const firstPromise = buildRetrievalSection("what was decided", projectDir, "ses-1", config.CONFIG.chatMessage.excludeCurrentSession);
+const firstPromise = buildRetrievalSection("what was decided", projectDir, "ses-1", config.CONFIG.chatMessage.excludeCurrentSession, undefined, config.CONFIG);
 await sleep(20);
 config.CONFIG.chatMessage.excludeCurrentSession = false;
 gateResolve();
 const first = (await firstPromise) || "";
 releaseSearch = null;
 
-const next = (await buildRetrievalSection("what was decided", projectDir, "ses-1", config.CONFIG.chatMessage.excludeCurrentSession)) || "";
+const next = (await buildRetrievalSection("what was decided", projectDir, "ses-1", config.CONFIG.chatMessage.excludeCurrentSession, undefined, config.CONFIG)) || "";
 scenario = {
   entryFlag,
   firstKeepsOwnOut: !first.includes("OWN SESSION NOTE"),
