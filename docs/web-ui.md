@@ -213,7 +213,7 @@ The Project memories page has two filters above the search box:
 
 The search box finds memories by meaning. It ranks results and does not filter by label. A text search clears the Label filter.
 
-A memory card with a prompt shows the prompt, then the memory, each in its own bordered card. Commands in backticks show as code. Fenced code and `<pasted_content>` blocks show in their own code cards inside the prompt. A prompt or memory taller than its limit (240 px for a prompt, 320 px for a memory) is cut short with a fade. Select **See more** to show all of it and **See less** to fold it again.
+A memory card with a prompt shows the prompt, then the memory, each in its own bordered card. Commands in backticks show as code. Fenced code and `<pasted_content>` blocks show in their own code cards inside the prompt. Every card has the same folded height, so the cards in a row line up: 24rem on a phone, 20rem on a tablet, and 22rem from 1024 px, where the list shows two columns. A longer card is cut short with a fade. Select **See more** to show the whole card and **See less** to fold it again.
 
 ## Memory badges
 
