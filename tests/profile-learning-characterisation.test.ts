@@ -33,9 +33,9 @@ import { buildCategoryList } from "../src/core/extraction.js";
 //  8. The 10-minute wait: src/core/profile-backoff.ts
 //     `PROFILE_FAILURE_WAIT_MS = 10 * 60 * 1000` -> `5 * 60 * 1000`.
 //
-// Not covered here, by design: Pi keeps its batch in memory today and does not read a prompt
-// store, so newest-first and trivial-prompt skipping are checked for OpenCode and Claude Code.
-// Pi's save-clash wait and email rule change in this OpenSpec change (tests/profile-learning-pass.test.ts).
+// Not covered here, by design: these tests pinned behaviour before Pi recorded its prompts in
+// the store, so newest-first and trivial-prompt skipping are checked for OpenCode and Claude Code.
+// The shared pass now applies them to Pi too (tests/profile-learning-pass.test.ts).
 
 type HostName = "opencode" | "claude-code" | "pi";
 
@@ -188,7 +188,7 @@ const { CONFIG } = await import("../src/config.js");
 const { profileBackoff, PROFILE_FAILURE_WAIT_MS } = await import("../src/core/profile-backoff.js");
 const { performUserProfileLearning } = await import("../src/adapters/opencode/profile-learning.js");
 const { learnClaudeProfile } = await import("../src/importer/claude-profile-learning.js");
-const { performPiProfileLearning } = await import("../src/adapters/pi/profile.js");
+const { learnPiProfile } = await import("../src/adapters/pi/profile.js");
 
 /** The model every host calls: `complete` for Claude Code and Pi, structured output for OpenCode. */
 const fakeModel = {
@@ -218,11 +218,8 @@ async function drive(host: HostName, prompts: string[] = fivePrompts): Promise<v
     else if (host === "claude-code")
       await learnClaudeProfile("/workspace", () => fakeModel as never);
     else {
-      await performPiProfileLearning({
-        directory: "/workspace",
-        prompts,
-        resolveProfileModel: () => fakeModel as never,
-      });
+      // Pi records its prompts in the store and learns through the shared pass.
+      await learnPiProfile({ directory: "/workspace", model: () => fakeModel as never });
     }
   } catch {
     // OpenCode rethrows a failed pass today; the shared pass returns it. Both leave the same state.

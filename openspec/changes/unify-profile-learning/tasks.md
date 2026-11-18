@@ -49,29 +49,29 @@ Files: `src/core/profile-learning/model-input.ts`, `validation.ts`, `fallback.ts
 
 Files: `src/adapters/opencode/profile-model.ts`, `src/adapters/opencode/profile-learning.ts`, `src/v2/plugin.ts`, `tests/file-size-ceiling.test.ts`, `tests/opencode-profile-learning-*.test.ts`, `tests/user-profile-learning-error.test.ts`, `tests/memory-limits-operation-snapshot.test.ts`, `tests/auto-cleanup-callers.test.ts`, a new `tests/opencode-profile-learning-v2.test.ts`, `docs/opencode-adapter.md`.
 
-- [ ] 6.1 Add the OpenCode model port with structured output and the shared fallback. Verify: a port test shows one `generateStructuredOutput` call with a 120 s limit, and the fallback notice on failure.
-- [ ] 6.2 Reduce `profile-learning.ts` to the trigger: refresh config, then call the pass with host `opencode`, the port, `showOpencodeNotice` and the cleanup start. Delete `buildLearningPaths` and the old loop. Remove its entry from `tests/file-size-ceiling.test.ts`. Verify: the file is under 100 lines and the ceiling test passes.
-- [ ] 6.3 Add `tests/opencode-profile-learning-v2.test.ts`: V2 `setup` with a fake V2 context, an idle event, one pass with host `opencode`. Verify: the test fails when the trigger is removed.
-- [ ] 6.4 Move the old OpenCode subprocess tests to shared-pass tests, or delete a test only when 1.3 or 2.1 covers the same assertion. Change only the assertions listed in design D9, each with a comment naming the user decision. Verify: `grep -rn "Bun.spawn" tests/opencode-profile-learning-*.test.ts` finds no learning subprocess, and every test passes.
-- [ ] 6.5 Update `docs/opencode-adapter.md`. Verify: Prettier passes.
+- [x] 6.1 Add the OpenCode model port with structured output and the shared fallback. Verify: a port test shows one `generateStructuredOutput` call with a 120 s limit, and the fallback notice on failure.
+- [x] 6.2 Reduce `profile-learning.ts` to the trigger: refresh config, then call the pass with host `opencode`, the port, `showOpencodeNotice` and the cleanup start. Delete `buildLearningPaths` and the old loop. Remove its entry from `tests/file-size-ceiling.test.ts`. Verify: the file is under 100 lines and the ceiling test passes.
+- [x] 6.3 Add `tests/opencode-profile-learning-v2.test.ts`: V2 `setup` with a fake V2 context, an idle event, one pass with host `opencode`. Verify: the test fails when the trigger is removed.
+- [x] 6.4 Move the old OpenCode subprocess tests to shared-pass tests, or delete a test only when 1.3 or 2.1 covers the same assertion. Change only the assertions listed in design D9, each with a comment naming the user decision. Verify: `grep -rn "Bun.spawn" tests/opencode-profile-learning-*.test.ts` finds no learning subprocess, and every test passes.
+- [x] 6.5 Update `docs/opencode-adapter.md`. Verify: Prettier passes.
 
 ## 7. Slice E: Pi on the shared pass
 
 Files: `src/adapters/pi/profile.ts`, `src/adapters/pi/extension.ts`, `src/adapters/pi/live-model.ts`, a new `src/adapters/pi/user-prompt.ts`, `tests/pi-profile-auto-cleanup.test.ts`, `tests/pi-profile-failure.test.ts`, a new `tests/pi-prompt-record.test.ts`, `docs/pi-adapter.md`.
 
-- [ ] 7.1 Add `recordPiPrompt` (design D4) and call it after each settled turn. Verify: `tests/pi-prompt-record.test.ts` shows `<private>` removed, a fully private prompt not saved, the prompt marked captured, and no second row after a Pi history import of the same session.
-- [ ] 7.2 Replace the in-memory batch and `performPiProfileLearning` with a call to the pass (host `pi`, `liveModels.profile` through the shared fallback, `notify(ctx)`). Verify: the restart scenario (6 prompts, restart, 4 prompts) learns 10, and the Pi cases of 2.1 pass.
-- [ ] 7.3 Update the Pi auto-cleanup and failure tests to the pass. Change only the no-email assertion. Verify: both files pass.
-- [ ] 7.4 Update `docs/pi-adapter.md`: remove the "not ported" limitation and describe prompt recording. Verify: Prettier passes.
+- [x] 7.1 Add `recordPiPrompt` (design D4) and call it after each settled turn. Verify: `tests/pi-prompt-record.test.ts` shows `<private>` removed, a fully private prompt not saved, the prompt marked captured, and no second row after a Pi history import of the same session.
+- [x] 7.2 Replace the in-memory batch and `performPiProfileLearning` with a call to the pass (host `pi`, `liveModels.profile` through the shared fallback, `notify(ctx)`). Verify: the restart scenario (6 prompts, restart, 4 prompts) learns 10, and the Pi cases of 2.1 pass.
+- [x] 7.3 Update the Pi auto-cleanup and failure tests to the pass. Change only the no-email assertion. Verify: both files pass.
+- [x] 7.4 Update `docs/pi-adapter.md`: remove the "not ported" limitation and describe prompt recording. Verify: Prettier passes.
 
 ## 8. Slice F: Claude Code on the shared pass
 
 Files: `src/importer/claude-profile-learning.ts`, `src/importer/claude-hook-notices.ts`, `src/importer/claude-hook-api.ts`, `src/adapters/claude-code/hook-client.ts`, `tests/claude-profile-learning-auto-cleanup.test.ts`, `tests/claude-hook-client.test.ts`, a new `tests/claude-profile-notice.test.ts`, `hooks/*.test.ts` if a hook module reads the reply, `docs/claude-code-adapter.md`.
 
-- [ ] 8.1 Reduce `learnClaudeProfile` to a call to the pass with host `claude-code`, the external model and a `notify` that sets the pending line. Remove the `CatchUpLease` check (the pass applies the catch-up setting). Verify: the Claude cases of 2.1 pass and `claude-hook-api.ts` stays at or below 525 lines.
-- [ ] 8.2 Add the pending profile line to `claude-hook-notices.ts` and to the `session-start` and `user-prompt-submit` answers for hooks that ask (design D8). Verify: `tests/claude-profile-notice.test.ts` covers the next prompt, two passes, notices off, a subagent hook, and confirmation.
-- [ ] 8.3 Make `hook-client.ts` ask for user lines on `user-prompt-submit` and write `systemMessage` for it. Verify: `tests/claude-hook-client.test.ts` shows one JSON line on stdout with `systemMessage` and `additionalContext`, and nothing else. Run `bash scripts/test-claude-mod.sh` if a `hooks/` module changed.
-- [ ] 8.4 Update `docs/claude-code-adapter.md` (profile learning section). Verify: Prettier passes.
+- [x] 8.1 Reduce `learnClaudeProfile` to a call to the pass with host `claude-code`, the external model and a `notify` that sets the pending line. Remove the `CatchUpLease` check (the pass applies the catch-up setting). Verify: the Claude cases of 2.1 pass and `claude-hook-api.ts` stays at or below 525 lines.
+- [x] 8.2 Add the pending profile line to `claude-hook-notices.ts` and to the `session-start` and `user-prompt-submit` answers for hooks that ask (design D8). Verify: `tests/claude-profile-notice.test.ts` covers the next prompt, two passes, notices off, a subagent hook, and confirmation.
+- [x] 8.3 Make `hook-client.ts` ask for user lines on `user-prompt-submit` and write `systemMessage` for it. Verify: `tests/claude-hook-client.test.ts` shows one JSON line on stdout with `systemMessage` and `additionalContext`, and nothing else. Run `bash scripts/test-claude-mod.sh` if a `hooks/` module changed.
+- [x] 8.4 Update `docs/claude-code-adapter.md` (profile learning section). Verify: Prettier passes.
 
 ## 9. Slice G: the Memory page table
 

@@ -24,11 +24,6 @@ describe("who may start the automatic cleanup", () => {
       .filter((file) => /user-profile\/auto-cleanup\.js["']/.test(readFileSync(file, "utf8")))
       .map((file) => relative(root, file).split("\\").join("/"))
       .sort();
-    expect(callers).toEqual([
-      "adapters/opencode/profile-learning.ts",
-      "adapters/pi/profile.ts",
-      "core/profile-learning/pass.ts",
-      "importer/claude-profile-learning.ts",
-    ]);
+    expect(callers).toEqual(["core/profile-learning/pass.ts"]);
   });
 });

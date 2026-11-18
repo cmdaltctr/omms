@@ -7,7 +7,7 @@ After each settled Pi turn, the Pi adapter SHALL save the user prompt in the sha
 #### Scenario: A settled Pi turn
 
 - **WHEN** a Pi turn settles with the prompt "use bun not npm <private>token</private>"
-- **THEN** the prompt store SHALL hold "use bun not npm" for that session and entry id
+- **THEN** the prompt store SHALL hold the prompt with the private part replaced by the redaction marker, as the other hosts store it, for that session and entry id
 - **AND** the prompt SHALL wait for profile learning
 
 #### Scenario: A Pi restart before the interval
