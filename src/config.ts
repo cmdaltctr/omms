@@ -35,6 +35,7 @@ import { resolveActiveSpace, type ActiveSpace } from "./services/spaces/active-s
 import { backfillSpaceLabelsFromDisk } from "./services/spaces/space-label.js";
 import { resetStoreHandles } from "./services/spaces/store-handles.js";
 import * as memorisation from "./core/memorisation-settings.js";
+import * as profileLearning from "./core/profile-learning/settings.js";
 import { CONFIG_FILES, DATA_DIR, LEGACY_CONFIG_FILES, OMMS_CONFIG_DIR } from "./config-paths.js";
 import * as problems from "./services/config-problems.js";
 import type { ConfigProblem } from "./services/config-problems.js";
@@ -42,7 +43,7 @@ import type { ConfigProblem } from "./services/config-problems.js";
 if (!existsSync(OMMS_CONFIG_DIR)) mkdirSync(OMMS_CONFIG_DIR, { recursive: true });
 if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 
-interface OmmsConfig {
+interface OmmsConfig extends Partial<profileLearning.ProfileLearningSettings> {
   storagePath?: string;
   userEmailOverride?: string;
   userNameOverride?: string;
@@ -151,9 +152,7 @@ interface OmmsConfig {
   userProfileMinEvidenceForRetention?: number;
   userProfileAutoCleanupEnabled?: boolean;
   userProfileAutoCleanupInterval?: number;
-  userProfileValidationEnabled?: boolean;
   showAutoCaptureToasts?: boolean;
-  showUserProfileToasts?: boolean;
   showErrorToasts?: boolean;
   compaction?: {
     enabled?: boolean;
@@ -193,6 +192,7 @@ const DEFAULTS: Required<
     | "webServerAuthUsername"
     | "webServerApiToken"
     | "skillFolders"
+    | keyof profileLearning.ProfileLearningSettings
   >
 > & {
   embeddingApiUrl?: string;
@@ -287,9 +287,7 @@ const DEFAULTS: Required<
   userProfileMinEvidenceForRetention: 3,
   userProfileAutoCleanupEnabled: true,
   userProfileAutoCleanupInterval: 500,
-  userProfileValidationEnabled: false,
   showAutoCaptureToasts: true,
-  showUserProfileToasts: true,
   showErrorToasts: true,
   memory: {
     defaultScope: "project",
@@ -564,6 +562,7 @@ function buildConfig(fileConfig: OmmsConfig) {
     maxMemories,
     retrievalMaxTokens,
     ...memorisation.settingsFrom(fileConfig),
+    ...profileLearning.profileLearningSettingsFrom(fileConfig),
     injectProfile: fileConfig.injectProfile ?? DEFAULTS.injectProfile,
     containerTagPrefix: fileConfig.containerTagPrefix ?? DEFAULTS.containerTagPrefix,
     autoCaptureEnabled: fileConfig.autoCaptureEnabled ?? DEFAULTS.autoCaptureEnabled,
@@ -667,13 +666,10 @@ function buildConfig(fileConfig: OmmsConfig) {
     userProfileAutoCleanupEnabled:
       fileConfig.userProfileAutoCleanupEnabled ?? DEFAULTS.userProfileAutoCleanupEnabled,
     userProfileAutoCleanupInterval,
-    userProfileValidationEnabled:
-      fileConfig.userProfileValidationEnabled ?? DEFAULTS.userProfileValidationEnabled,
     userProfileStaleDays: fileConfig.userProfileStaleDays ?? DEFAULTS.userProfileStaleDays,
     userProfileWorkflowStaleDays:
       fileConfig.userProfileWorkflowStaleDays ?? DEFAULTS.userProfileWorkflowStaleDays,
     showAutoCaptureToasts: fileConfig.showAutoCaptureToasts ?? DEFAULTS.showAutoCaptureToasts,
-    showUserProfileToasts: fileConfig.showUserProfileToasts ?? DEFAULTS.showUserProfileToasts,
     showErrorToasts: fileConfig.showErrorToasts ?? DEFAULTS.showErrorToasts,
     memory: {
       defaultScope: fileConfig.memory?.defaultScope ?? DEFAULTS.memory.defaultScope,
@@ -817,6 +813,9 @@ export function initConfig(directory: string, options: { strict?: boolean } = {}
   // The queue holds conversation text, so only the global file sets how long.
   delete projectOverrides.captureRetryRetentionHours;
   for (const key of memorisation.MEMORISATION_KEYS) delete projectOverrides[key];
+  profileLearning.removeProfileLearningProjectOverrides(projectOverrides, (message) =>
+    log(message, { directory })
+  );
   // Skill learning stores full turns: a project may only turn it off.
   const skillRule = projectSkillOverride(projectConfig);
   if (skillRule.ignoredTurnOn) {

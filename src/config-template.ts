@@ -357,10 +357,21 @@ export const CONFIG_TEMPLATE = `{
   "userProfileAutoCleanupEnabled": true,
   "userProfileAutoCleanupInterval": 500,
 
+  // Profile learning settings. This key, "showUserProfileToasts" above and the
+  // four below are global config only: a project config cannot set them. The
+  // value shown is the default. Change them on the Memory page or here.
   // Enable LLM validation of existing preferences against recent behavior.
   // When enabled, each analysis round checks if top-5 preferences still match recent prompts.
   // Experimental — disabled by default.
   "userProfileValidationEnabled": false,
+  // No user email known: "learn" (learn into the profile "unknown") or "skip".
+  // "userProfileWithoutEmail": "learn",
+  // Fade old profile items before each merge (default false).
+  // "userProfileDecayBeforeMerge": false,
+  // Model input: "full" (prompts, profile summary, guidelines, examples) or "prompts-only".
+  // "userProfilePromptDetail": "full",
+  // While a profile catch-up run is active: "learn" (live learning continues) or "pause".
+  // "userProfileDuringCatchUp": "learn",
 
   // ============================================
   // Search Settings

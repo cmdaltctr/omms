@@ -20,6 +20,12 @@ import {
   checkMemorisationSettingsEdits,
   memorisationSettingsFrom,
 } from "../core/memorisation-settings.js";
+import {
+  isProfileLearningKey,
+  isValidProfileLearningEdit,
+  PROFILE_LEARNING_ACCEPTED,
+  PROFILE_LEARNING_KEYS,
+} from "../core/profile-learning/settings.js";
 
 function isFolder(path: string): boolean {
   try {
@@ -64,6 +70,7 @@ const RESETTABLE_KEYS = [
   "openingContext",
   "subagentMemory",
   "compaction.enabled",
+  ...PROFILE_LEARNING_KEYS,
 ];
 const QUERY_RULE = `openingContextQuery must be text of ${OPENING_CONTEXT_QUERY_MAX_LENGTH} characters or fewer`;
 
@@ -85,6 +92,8 @@ function isValidEdit(key: string, value: unknown): boolean {
   if (key === "skillFolders" && value === null) return true;
   // keywordMode: null removes the key, so the mode follows the default again.
   if (key === "keywordMode") return value === null || KEYWORD_MODES.includes(value as never);
+  // The six profile learning settings: one accepted value, or null to remove the key.
+  if (isProfileLearningKey(key)) return isValidProfileLearningEdit(key, value);
   if (key === "memorisationSizeUnit") return value === "characters" || value === "tokens";
   if (key === "memorisationRerank") return typeof value === "boolean";
   if (key === "memorisationRepeat" || key === "memorisationMaxSize") return true;
@@ -231,6 +240,7 @@ function checkEdits(edits: Record<string, unknown>, options: WriteOptions): void
         rerankerModel: "a non-empty string",
         rerankerTimeoutMs: `integers from ${RERANKER_TIMEOUT_MIN_MS} to ${RERANKER_TIMEOUT_MAX_MS}`,
         keywordMode: KEYWORD_MODES.join(" or "),
+        ...(isProfileLearningKey(key) ? { [key]: PROFILE_LEARNING_ACCEPTED[key] } : {}),
       };
       throw new Error(
         ["memoryApiKey", "embeddingApiKey", "webServerAuthPassword", "rerankerApiKey"].includes(key)
