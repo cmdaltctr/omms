@@ -587,3 +587,153 @@ describe("the batch claim", () => {
     expect(world.released).toEqual([["p0", "p1", "p2", "p3", "p4"]]);
   });
 });
+
+// Each model attempt has its own time limit (scenario "OpenCode model fails"): a host model
+// timeout reaches the external API, and the external call gets a fresh limit. The limit is
+// passed in scaled down, so no test waits 120 seconds.
+describe("each model attempt has its own time limit", () => {
+  const LIMIT = 50;
+  type Options = { attemptTimeoutMs?: number };
+  async function loadFallback() {
+    return (await import("../src/core/profile-learning/fallback.js")) as {
+      withExternalFallback: (
+        host: HostName,
+        primary: unknown,
+        external: unknown,
+        notify: (notice: Notice) => void,
+        options?: Options
+      ) => unknown;
+    };
+  }
+  const never = <T>() => new Promise<T>(() => {});
+  const hanging = {
+    provider: "host",
+    modelId: "host-model",
+    complete: () => never<string>(),
+    completeStructured: () => never<unknown>(),
+  };
+  const warnings = () => world.notices.filter((notice) => notice.variant === "warning");
+
+  it.each(["opencode", "pi"] as const)(
+    "%s: a host model that never answers falls back and the pass saves",
+    async (host) => {
+      const { withExternalFallback } = await loadFallback();
+      const model = withExternalFallback(
+        host,
+        hanging,
+        makePort(),
+        (notice) => {
+          world.notices.push(notice);
+        },
+        { attemptTimeoutMs: LIMIT }
+      );
+      const result = await run(host, { model });
+      expect(result.outcome).toBe("saved");
+      expect(world.modelCalls).toBe(1);
+      expect(warnings()).toHaveLength(1);
+      expect(world.saves).toHaveLength(1);
+    },
+    3000
+  );
+
+  it("the overall limit does not cut the external call short", async () => {
+    // OpenCode's port has its own limit of the same length as the overall one. Today both
+    // start together, so the overall one fails the pass while the external call runs.
+    const { withExternalFallback } = await loadFallback();
+    const { analyzeProfile } = await import("../src/core/profile-analysis.js");
+    const selfLimited = {
+      provider: "host",
+      modelId: "host-model",
+      complete: () => never<string>(),
+      completeStructured: () =>
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("user-profile-learning: timeout")), LIMIT)
+        ),
+    };
+    const external = {
+      provider: "external",
+      modelId: "",
+      async complete() {
+        world.modelCalls++;
+        await new Promise((resolve) => setTimeout(resolve, LIMIT / 2));
+        return JSON.stringify(empty);
+      },
+    };
+    const model = withExternalFallback(
+      "opencode",
+      selfLimited,
+      external,
+      (notice) => {
+        world.notices.push(notice);
+      },
+      { attemptTimeoutMs: LIMIT }
+    );
+    const result = await analyzeProfile(model as never, "prompts", null, LIMIT);
+    expect(result.raw).toEqual(empty);
+    expect(world.modelCalls).toBe(1);
+    expect(warnings()).toHaveLength(1);
+  });
+
+  it("an external model that also hangs fails the pass with timeout after two limits", async () => {
+    const { withExternalFallback } = await loadFallback();
+    const model = withExternalFallback(
+      "opencode",
+      hanging,
+      { ...hanging, provider: "external", completeStructured: undefined },
+      (notice) => {
+        world.notices.push(notice);
+      },
+      { attemptTimeoutMs: LIMIT }
+    );
+    const started = Date.now();
+    const result = await run("opencode", { model });
+    const elapsed = Date.now() - started;
+    expect(result).toEqual({ outcome: "failed", reason: "timeout" });
+    expect(elapsed).toBeGreaterThanOrEqual(2 * LIMIT - 5);
+    expect(elapsed).toBeLessThan(3 * LIMIT + 100);
+    expect(warnings()).toHaveLength(1);
+    expect(world.saves).toEqual([]);
+  }, 3000);
+});
+
+// The log gets counts and indexes only: a model's reason and a profile item's description
+// may quote the user's prompts (CLAUDE.md, Security).
+describe("the check of older items logs no model or profile text", () => {
+  const REASON = "Reason-text-zq81 quoting the user's prompts";
+  const DESCRIPTION = "Description-text-zq82 about tabs";
+  const logText = () => JSON.stringify(world.logs);
+
+  it.each(hosts)("%s: the verdict reasons stay out of the log", async (host) => {
+    const data = profileData(8);
+    data.preferences[0]!.description = DESCRIPTION;
+    data.preferences[0]!.confidence = 0.99;
+    world.profile = { id: "p1", data, total: 5 };
+    world.reply = () => ({
+      ...empty,
+      validations: [
+        { index: 0, verdict: "confirmed", reason: REASON },
+        { index: 1, verdict: "no_evidence", reason: REASON },
+      ],
+    });
+    const result = await run(host, { config: { userProfileValidationEnabled: true } });
+    expect(result.outcome).toBe("saved");
+    expect(world.logs.some((record) => record.message.includes("validation results"))).toBe(true);
+    expect(logText()).not.toContain("zq81");
+    expect(logText()).not.toContain("zq82");
+  });
+
+  it("a verdict with no matching item logs its index, not the item text", async () => {
+    const { applyValidations } = await import("../src/core/profile-learning/validation.js");
+    const store = { syncConfidence: () => {}, evolveAndUpdate: async () => {} };
+    const reply = {
+      ...empty,
+      validations: [{ index: 0, verdict: "confirmed", reason: REASON }],
+    };
+    await applyValidations(store, { ...empty } as never, reply as never, "p1", [
+      `Code style||${DESCRIPTION.slice(0, 30)}`,
+    ]);
+    const record = world.logs.find((entry) => entry.message.includes("match failed"));
+    expect(record?.data).toEqual({ index: 0 });
+    expect(logText()).not.toContain("zq8");
+  });
+});

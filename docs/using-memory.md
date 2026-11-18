@@ -115,6 +115,7 @@ How profile learning behaves:
 - When no user email is known (no `userEmailOverride` and no git `user.email`), the pass learns into a profile with the id `unknown`. A later email starts a second profile. Merge the two in [Profiles in Settings](web-ui-settings.md#profiles).
 - Every reply is checked against the profile schema before the merge. A reply that fails the check fails the pass with the reason `invalid-reply`. The profile does not change and the prompts stay waiting.
 - When the OpenCode or Pi host model fails and the external API is fully configured, the pass repeats the call through the external API. The host shows the warning **Using fallback provider**.
+- With the external API behind it, the host model call has a time limit of 120 seconds. A host model that does not reply in that time also falls back. The external API call then gets its own 120 seconds.
 - When a save meets a newer profile version, the pass merges its result into the newer profile and saves again, with no second model call. After three failed saves the prompts stay waiting and the 10-minute wait starts.
 - A saved version has the history text "<Host> analysis of N prompts", for example `Pi analysis of 10 prompts`.
 - When notices are on, OpenCode and Pi show **User profile updated** with "Analysed N prompts and updated your profile" when the pass ends. Claude Code shows the same line on a later prompt.
