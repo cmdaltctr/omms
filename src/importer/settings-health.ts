@@ -159,12 +159,9 @@ export async function runSettingsHealth(input: HealthInput): Promise<{ checks: H
     return "Global and project config parsed";
   });
   await check("Memory store", async () => {
-    const { tursoConnectionManager } = await import("../services/turso/connection-manager.js");
+    const { pingStore } = await import("../services/storage/health.js");
     const { join } = await import("node:path");
-    const db = await tursoConnectionManager.getConnection(
-      join(CONFIG.storagePath, "user-prompts.db")
-    );
-    await db.all("SELECT 1");
+    await pingStore(join(CONFIG.storagePath, "user-prompts.db"));
     return "Store opened and queried";
   });
   await check("Embedding", async () => {

@@ -2,7 +2,7 @@ import { join } from "node:path";
 import * as configModule from "../../config.js";
 import type { LinkedOwner } from "../linked-search.js";
 import type { DecayConfig } from "../user-profile/profile-decay.js";
-import type { HistoryConfig } from "../user-profile/profile-history.js";
+import type { HistoryConfig } from "./profiles/history.js";
 import type { ProfileConfig } from "../user-profile/profile-host.js";
 
 /**

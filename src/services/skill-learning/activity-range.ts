@@ -31,13 +31,6 @@ export interface ActivityWindow {
   keys: string[];
 }
 
-/** The SQL that turns a use time into its bucket key. */
-export const BUCKET_SQL: Record<ActivityBucket, string> = {
-  day: `date(u.created_at / 1000, 'unixepoch')`,
-  month: `strftime('%Y-%m', u.created_at / 1000, 'unixepoch')`,
-  year: `strftime('%Y', u.created_at / 1000, 'unixepoch')`,
-};
-
 const pad = (value: number) => String(value).padStart(2, "0");
 const dayKey = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 export const utcYear = (now: number) => new Date(now).getUTCFullYear();

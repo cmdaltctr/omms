@@ -1,6 +1,6 @@
-import type { CONFIG } from "../../config.js";
-import type { ProfileDb } from "./profile-store.js";
-import type { UserProfileChangelog, UserProfileData } from "./types.js";
+import type { CONFIG } from "../../../config.js";
+import type { UserProfileChangelog, UserProfileData } from "../../user-profile/types.js";
+import type { ProfileDb } from "./connection.js";
 
 /** The config value changelog retention reads. Callers pass CONFIG. */
 export type HistoryConfig = Pick<typeof CONFIG, "userProfileChangelogRetentionCount">;

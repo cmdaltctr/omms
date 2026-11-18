@@ -25,7 +25,7 @@ import {
   recordCleanup,
   saveVerdicts,
   type SavedVerdict,
-} from "./category-cleanup-store.js";
+} from "../storage/profiles/category-cleanups.js";
 import type { UserProfileManager } from "./user-profile-manager.js";
 import type { UserProfileData } from "./types.js";
 

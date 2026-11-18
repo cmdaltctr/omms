@@ -1,9 +1,9 @@
 import { join } from "node:path";
 import { getStoragePath } from "../active-space-access.js";
-import { tursoConnectionManager } from "../turso/connection-manager.js";
-import type { TursoDb } from "../turso/turso-db.js";
-import { USER_PROFILES_DB_NAME } from "./user-profile-manager.js";
-import type { CategoryRename } from "./category-groups.js";
+import { tursoConnectionManager } from "../../turso/connection-manager.js";
+import type { TursoDb } from "../../turso/turso-db.js";
+import { USER_PROFILES_DB_NAME } from "./connection.js";
+import type { CategoryRename } from "../../user-profile/category-groups.js";
 
 /**
  * Undo records for category cleanups (the profile changelog keeps too few entries for undo)

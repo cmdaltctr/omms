@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type { CONFIG } from "../config.js";
-import { getStoragePath } from "./active-space-access.js";
+import { getStoragePath } from "./storage/active-space-access.js";
 import { createWriteHealth, type WriteHealthResult } from "./write-health.js";
 
 /** The credentials of the latest check, copied on each call so a reload is seen. */
@@ -8,11 +8,8 @@ let secrets: Array<string | undefined> = [];
 
 const writeHealth = createWriteHealth({
   openStore: async () => {
-    const { tursoConnectionManager } = await import("./turso/connection-manager.js");
-    const db = await tursoConnectionManager.getConnection(
-      join(getStoragePath(), "user-prompts.db")
-    );
-    await db.all("SELECT 1");
+    const { pingStore } = await import("./storage/health.js");
+    await pingStore(join(getStoragePath(), "user-prompts.db"));
   },
   embed: async () => {
     const { embeddingService } = await import("./embedding.js");

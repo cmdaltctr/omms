@@ -1,31 +1,60 @@
 import { join } from "node:path";
-import {
-  resettable,
-  tursoConnectionManager,
-  type TursoConnectionManager,
-} from "../turso/connection-manager.js";
+import { hasEnoughWorkflowSteps } from "../../core/extraction.js";
+import { resettable } from "../spaces/store-handles.js";
 import { getProfileSettings, getStoragePath } from "../active-space-access.js";
 import type { EmbeddingService } from "../embedding.js";
 import { log } from "../logger.js";
-import type { UserProfile, UserProfileChangelog, UserProfileData } from "./types.js";
+import {
+  openProfileDb,
+  USER_PROFILES_DB_NAME,
+  type ProfileDb,
+  type StoreConnections,
+} from "../storage/profiles/connection.js";
+import { getChangelogById, getProfileChangelogs } from "../storage/profiles/history.js";
+import * as store from "../storage/profiles/profiles.js";
+import type {
+  UserProfile,
+  UserProfileChangelog,
+  UserProfileData,
+  UserProfileWorkflow,
+} from "./types.js";
 import type { ColdBuffer, ColdBuffers } from "./profile-cold-buffer.js";
 import { getColdBuffer, loadColdBuffers, saveColdBuffers } from "./profile-cold-buffer.js";
 import { syncConfidence } from "./profile-confidence.js";
 import { decayInMemory } from "./profile-decay.js";
 import { detectConflicts } from "./profile-dedupe.js";
 import { evolveAndUpdate, evolveDescription } from "./profile-evolve.js";
-import { getChangelogById, getProfileChangelogs } from "./profile-history.js";
 import type { ProfileHost } from "./profile-host.js";
+import { canonicaliseCategories } from "./profile-category.js";
 import { mergeProfileData } from "./profile-merge.js";
 import { checkConflict, checkSemanticDuplicate } from "./profile-model-checks.js";
-import type { ProfileDb } from "./profile-store.js";
-import * as store from "./profile-store.js";
+import { safeArray } from "./profile-utils.js";
 
-// The manager is a facade. Storage and version history live in profile-store.ts and
-// profile-history.ts, merge and dedupe in profile-merge*.ts and profile-dedupe.ts,
+// The manager is a facade. Storage and version history live in the storage port
+// (storage/profiles/), merge and dedupe in profile-merge*.ts and profile-dedupe.ts,
 // stale-item cleanup in profile-decay.ts, and description rewrites in profile-evolve.ts.
 
-export const USER_PROFILES_DB_NAME = "user-profiles.db";
+export { USER_PROFILES_DB_NAME };
+
+/** The data a save stores: one label per category key and parsed lists. */
+function cleanProfileData(profileData: UserProfileData): UserProfileData {
+  return canonicaliseCategories({
+    preferences: safeArray(profileData.preferences),
+    patterns: safeArray(profileData.patterns),
+    workflows: safeArray(profileData.workflows),
+    ...(profileData.learning_paths ? { learning_paths: profileData.learning_paths } : {}),
+  });
+}
+
+/** A first profile skips mergeProfileData, so the step minimum is applied here. */
+function cleanNewProfileData(profileData: UserProfileData): UserProfileData {
+  return canonicaliseCategories({
+    preferences: safeArray(profileData.preferences),
+    patterns: safeArray(profileData.patterns),
+    workflows: safeArray<UserProfileWorkflow>(profileData.workflows).filter(hasEnoughWorkflowSteps),
+    ...(profileData.learning_paths ? { learning_paths: profileData.learning_paths } : {}),
+  });
+}
 
 export class UserProfileManager {
   private db: ProfileDb | null = null;
@@ -41,7 +70,7 @@ export class UserProfileManager {
   /** A rooted manager (profile import, design D1) reads and writes only `root`. */
   constructor(
     private readonly root?: string,
-    private readonly connections: TursoConnectionManager = tursoConnectionManager
+    private readonly connections?: StoreConnections
   ) {
     this.reset();
   }
@@ -61,7 +90,7 @@ export class UserProfileManager {
       try {
         this.dbPath = join(this.root ?? (getStoragePath() || ""), USER_PROFILES_DB_NAME);
         this.coldBufferPath = join(this.root ?? (getStoragePath() || ""), "cold-buffer.json");
-        this.db = await this.connections.getConnection(this.dbPath);
+        this.db = await openProfileDb(this.dbPath, this.connections);
         await store.createProfileTables(this.db);
       } catch (error) {
         this.initPromise = null;
@@ -131,7 +160,7 @@ export class UserProfileManager {
       displayName,
       userName,
       userEmail,
-      profileData,
+      cleanNewProfileData(profileData),
       promptsAnalyzed
     );
   }
@@ -148,7 +177,7 @@ export class UserProfileManager {
     return store.updateProfile(
       db,
       profileId,
-      profileData,
+      cleanProfileData(profileData),
       additionalPromptsAnalyzed,
       changeSummary,
       expectedVersion,

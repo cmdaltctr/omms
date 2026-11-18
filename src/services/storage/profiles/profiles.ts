@@ -1,13 +1,9 @@
-import { hasEnoughWorkflowSteps } from "../../core/extraction.js";
-import type { TursoDb } from "../turso/turso-db.js";
-import { canonicaliseCategories } from "./profile-category.js";
-import type { HistoryConfig } from "./profile-history.js";
-import { addChangelog, cleanupOldChangelogs } from "./profile-history.js";
-import { safeArray } from "./profile-utils.js";
-import type { UserProfile, UserProfileData, UserProfileWorkflow } from "./types.js";
+import type { UserProfile, UserProfileData } from "../../user-profile/types.js";
+import type { ProfileDb } from "./connection.js";
+import type { HistoryConfig } from "./history.js";
+import { addChangelog, cleanupOldChangelogs } from "./history.js";
 
-/** The database handle the profile store and changelog use. */
-export type ProfileDb = TursoDb;
+// The callers clean the profile data (labels, workflow steps) before they pass it here.
 
 export async function createProfileTables(db: ProfileDb): Promise<void> {
   await db.batch([
@@ -74,19 +70,11 @@ export async function createProfile(
   displayName: string,
   userName: string,
   userEmail: string,
-  profileData: UserProfileData,
+  cleanedData: UserProfileData,
   promptsAnalyzed: number
 ): Promise<string> {
   const id = `profile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   const now = Date.now();
-
-  // A first profile skips mergeProfileData, so the step minimum is applied here.
-  const cleanedData: UserProfileData = canonicaliseCategories({
-    preferences: safeArray(profileData.preferences),
-    patterns: safeArray(profileData.patterns),
-    workflows: safeArray<UserProfileWorkflow>(profileData.workflows).filter(hasEnoughWorkflowSteps),
-    ...(profileData.learning_paths ? { learning_paths: profileData.learning_paths } : {}),
-  });
 
   await db.run(
     `
@@ -118,7 +106,7 @@ export async function createProfile(
 export async function updateProfile(
   db: ProfileDb,
   profileId: string,
-  profileData: UserProfileData,
+  cleanedData: UserProfileData,
   additionalPromptsAnalyzed: number,
   changeSummary: string,
   /** The version the caller read. The save is refused when the stored version differs. */
@@ -126,13 +114,6 @@ export async function updateProfile(
   config: HistoryConfig
 ): Promise<boolean> {
   const now = Date.now();
-
-  const cleanedData: UserProfileData = canonicaliseCategories({
-    preferences: safeArray(profileData.preferences),
-    patterns: safeArray(profileData.patterns),
-    workflows: safeArray(profileData.workflows),
-    ...(profileData.learning_paths ? { learning_paths: profileData.learning_paths } : {}),
-  });
 
   const versionRow = await db.get(`SELECT version FROM user_profiles WHERE id = ?`, [profileId]);
   const currentVersion = Number(versionRow?.version ?? 0);
