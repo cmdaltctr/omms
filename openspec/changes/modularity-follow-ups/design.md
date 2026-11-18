@@ -99,6 +99,17 @@ Never spread `CONFIG` (`{...CONFIG}`) or keep it in a field or module constant. 
 
 Use one folder, `src/services/storage/`, with one module per store: memory, prompt, profile, import ledger, skills, chat, capture attempts. Each module owns its SQL and its connection through the existing connection manager. Callers use typed functions, never SQL. Change `STORAGE_FOLDER` in `tests/modularity-ratchets.test.ts` in the first slice. Keep each `.db` file name the same. Keep `skills.db` and the embedding cache on the global storage path.
 
+### D6a. Part 1: the port beside the engine (added 2026-11-18)
+
+Keep `src/services/turso/` as the storage engine. `src/services/storage/` is the port: one module per store, and the only folder that may import the engine or `@libsql/client`. The port and the engine are the only folders that may hold SQL. This moves no engine file and avoids rewriting about 380 test import paths.
+
+- Port modules expose typed functions and opaque types. They never re-export `tursoConnectionManager`, `tursoShardManager` or `tursoVectorSearch`.
+- The store settings reader moves to `src/services/storage/active-space-access.ts`. A one-line re-export stays at the old path until the last slice.
+- Files that tests mock (`user-prompt-manager`, `capture-attempt-store`, `skill-learning/store`, `ai-session-manager`, `auto-cleanup-store`, `ledger`) keep a one-line re-export at the old path.
+- SQL moves byte for byte. Each slice adds characterisation tests first: read, write, space switch, `resettable()`, and old-schema upgrade where the store alters its schema.
+- Before part 1, the real store was backed up read-only to `DATA/omms/backups/2026-11-18-pre-storage-port/` with a SHA-256 manifest. Live checks run on scratch copies only.
+- Expected end state: no storage import outside the port; SQL only in `importer/opencode-reader.ts` and `importer/opencode-v2-units.ts`, which read OpenCode's own database and are host readers, not OMMS stores.
+
 ## Risks
 
 - **Data loss in part 1 (Likelihood 3 × Impact 9).** Mitigation: characterisation tests per store, including space switch and `resettable()`. Also back up the store before any live check, and run a live check against a scratch HOME with a copy of a real-shaped store.
