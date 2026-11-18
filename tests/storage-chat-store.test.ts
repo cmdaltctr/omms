@@ -176,6 +176,11 @@ describe("chat store storage", () => {
 
   it("(s) a space switch gives the new space its own chats.db and leaves the old one unchanged", async () => {
     config.CONFIG.storagePath = defaultFolder;
+    // The test HOME is shared by every test file in a ci:local run, so the
+    // default chats.db may already hold other files' chats. Compare against it.
+    const titlesBefore = (await (await chatStore(config.CONFIG)).listConversations()).map(
+      (c) => c.title
+    );
     await (await chatStore(config.CONFIG)).createConversation({ title: "in A", scopeTag: null });
     await tursoConnectionManager.closeConnection(join(defaultFolder, "chats.db"));
     const hashA = fileHash(join(defaultFolder, "chats.db"));
@@ -198,8 +203,8 @@ describe("chat store storage", () => {
     refreshConfigIfChanged(project);
     expect(config.CONFIG.storagePath).toBe(defaultFolder);
     expect(
-      (await (await chatStore(config.CONFIG)).listConversations()).map((c) => c.title)
-    ).toEqual(["in A"]);
+      (await (await chatStore(config.CONFIG)).listConversations()).map((c) => c.title).sort()
+    ).toEqual([...titlesBefore, "in A"].sort());
     await tursoConnectionManager.closeConnection(join(spaceFolder, "chats.db"));
     const inB = await rawRows(
       join(spaceFolder, "chats.db"),
