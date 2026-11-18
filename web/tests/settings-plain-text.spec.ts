@@ -13,6 +13,7 @@ function serverCodes(): string[] {
     "src/services/reranker.ts",
     "src/services/reranker-test.ts",
     "src/services/client.ts",
+    "src/services/client-read-settings.ts",
   ]) {
     const source = readFileSync(new URL(file, root), "utf8");
     for (const match of source.matchAll(/"(reranker_[a-z_]+)"/g)) codes.add(match[1]!);
