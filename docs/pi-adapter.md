@@ -128,7 +128,7 @@ Your memories stay in `~/.omms/data`. Delete that folder only when you want to l
 | `session_start`             | Load shared config for `ctx.cwd`, remove old capture traces, update the web login item when `webServerAutoStart` is set, register the Pi backfill model resolver, start automatic backfill when `autoBackfill` is on, warm storage and embeddings in the background. Show one warning per config problem; see [Config problems](#config-problems)                                                                                                                      |
 | `before_agent_start`        | Semantic retrieval: search project memory with the incoming prompt, inject results as a delimited `<omms-retrieval>` system-prompt section (never a fake user message). On the first prompt of a session, with `openingContext` on, add the opening section after it. After a compaction or a resume, add the restored session memories. In the interactive terminal, also draw a recall row above the editor; see [Recall rows](#recall-rows)                         |
 | `session_compact`           | Load the session's own memories for the restore. OMMS adds them to the next runs. Pi's own compaction summary is not changed. See [Compaction and resume](#compaction-and-resume)                                                                                                                                                                                                                                                                                      |
-| `agent_settled`             | Automatic capture of the settled work unit: the last user prompt plus its assistant/tool response window from the active branch. Then daily maintenance starts in the background; see [Daily maintenance](#daily-maintenance)                                                                                                                                                                                                                                          |
+| `agent_settled`             | Automatic capture of the settled work unit: the last user prompt plus its assistant/tool response window from the active branch. Then daily maintenance starts in the background; see [Daily maintenance](#daily-maintenance). Then Pi records the prompt and runs profile learning; see [Profile learning](#profile-learning)                                                                                                                                         |
 | `session_shutdown`          | Cleanup that is safe to repeat (quit, reload, new, resume, fork). Clears the recall rows, stops a running automatic backfill and closes the store                                                                                                                                                                                                                                                                                                                      |
 | `/omms-recall`              | Unfold or fold the recall rows; see [Recall rows](#recall-rows)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `/memory-import-pi-history` | Import Pi session history; see [pi-history-import.md](pi-history-import.md)                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -215,6 +215,17 @@ OMMS restores memories after a compaction and after a resume, and still does not
 If compaction happens during a run, capture waits for the settled point. The work unit then
 covers both sides of the compaction, and each part is captured once.
 
+### Profile learning
+
+Pi learns the user profile with the same pass as OpenCode and Claude Code. See [Using memory: User profile](using-memory.md#user-profile).
+
+- After each settled turn, Pi saves the user prompt in the shared prompt store (`user-prompts.db` in the storage path). The prompt id is the Pi session id and the user entry id.
+- Pi removes text inside `<private>` tags before it saves the prompt. Pi does not save a prompt that is fully private.
+- Pi marks the saved prompt as captured. Pi captures its own turns, so no other host captures it.
+- A Pi history import of the same session finds the saved prompt and does not save it again.
+- After a prompt that is not trivial, Pi starts a pass. The pass learns when `userProfileAnalysisInterval` prompts wait. The waiting prompts stay in the store, so a Pi restart does not lose them.
+- When a pass fails and `showErrorToasts` is on, Pi shows **Profile Learning Failed** with the reason code.
+
 ### Automatic profile cleanup
 
 After a profile learning pass takes the count of analysed prompts past a multiple of `userProfileAutoCleanupInterval` (default 500), Pi starts the automatic cleanup in the background. It uses the same model as profile learning. A run that is still going when Pi ends saves nothing. See [Using memory: Automatic cleanup](using-memory.md#automatic-cleanup).
@@ -259,6 +270,5 @@ OpenCode and Pi can run in separate processes against the same store.
 
 ## Limitations
 
-- Pi profile learning applies analysed batches directly. It does not have the decay, validation-task, and conflict-retry steps of the OpenCode idle path.
 - Manual history import covers the current project by default. See [pi-history-import.md](pi-history-import.md).
 - Subagent memory on Pi works only when the subagent's agent maps the OMMS extension in om-pi-subagents (`/omps-settings`, Agent capabilities, Memory). See [Using memory: Host differences](using-memory.md#host-differences).

@@ -5,10 +5,10 @@ import {
   type ProfileAnalysisResult,
   type ModelPort,
 } from "../../core/profile-analysis.js";
-import { profileBackoff, recordProfileFailure } from "../../core/profile-backoff.js";
-import { log } from "../../services/logger.js";
-import { getTags } from "../../services/tags.js";
-import { shouldStartAutoCleanup } from "../../services/user-profile/auto-cleanup-trigger.js";
+import {
+  runProfileLearningPass,
+  type ProfileLearningPassResult,
+} from "../../core/profile-learning/pass.js";
 import type { PiModelHandle } from "./provider.js";
 
 export type { ExistingProfileInput, ProfileAnalysisResult } from "../../core/profile-analysis.js";
@@ -63,142 +63,44 @@ export function createPiProfileAnalyzer(
 
 export interface PiProfileLearningInput {
   directory: string;
-  prompts: string[];
-  resolveModel?: () => PiModelHandle | null;
-  /** Live model with its external-API fallback; takes precedence over resolveModel. */
-  resolveProfileModel?: () => ModelPort | null;
+  /** Pi's live profile model, with the external API behind it (`createPiLiveModels`). */
+  model: () => ModelPort | null;
+  /** The model of the automatic cleanup. Pi hands over its own profile model. */
+  cleanupModel?: () => ModelPort | null;
   notify?: (notification: {
     title: string;
     message: string;
-    variant: "success" | "warning" | "error" | "info";
+    variant: "success" | "warning" | "error";
   }) => Promise<void> | void;
 }
 
-/** The model Pi uses for profile work, for the automatic cleanup. */
-function resolveCleanupModel(input: PiProfileLearningInput): ModelPort | null {
-  if (input.resolveProfileModel) return input.resolveProfileModel();
-  const handle = input.resolveModel?.();
-  return handle ? adaptPiProfileModel(handle) : null;
-}
-
 /**
- * Pi-side profile learning lifecycle: analyse a batch of settled user prompts
- * through the model bridge and persist via the shared profile manager. Failures
- * log (and optionally toast) without ever disabling memory operations. The
- * decay/validation-task machinery of the OpenCode idle path is not ported;
- * this applies the analysed batch directly (documented limitation).
+ * Pi's trigger for the shared live learning pass (change unify-profile-learning, design D1).
+ * The pass reads Pi's recorded prompts from the prompt store, learns, saves and sends the
+ * success notice. Pi adds its failure notice here, when `showErrorToasts` is on. A failure
+ * never disables memory operations.
  */
-export async function performPiProfileLearning(input: PiProfileLearningInput): Promise<void> {
-  if (input.prompts.length === 0) return;
-  if (!profileBackoff.canRun()) {
-    log("pi profile learning: skipped (waiting after a failure)");
-    return;
-  }
-
-  try {
-    refreshConfigIfChanged(input.directory);
-    const tags = getTags(input.directory);
-    if (!tags.user.userEmail) {
-      log(
-        "pi profile learning: skipped (no user email resolved)",
-        {
-          directory: input.directory,
-        },
-        "warn"
-      );
-      return;
-    }
-    const userId = tags.user.userEmail;
-
-    const { userProfileManager } =
-      await import("../../services/user-profile/user-profile-manager.js");
-    const { saveMergedProfile } = await import("../../services/user-profile/merge-and-save.js");
-    const existing = await userProfileManager.getActiveProfile(userId);
-
-    const resolveProfileModel = input.resolveProfileModel;
-    const analyzer: PiProfileAnalyzer = resolveProfileModel
-      ? {
-          async analyzeProfile(context, existingProfile) {
-            const model = resolveProfileModel();
-            return model ? analyzeProfile(model, context, existingProfile) : null;
-          },
-        }
-      : createPiProfileAnalyzer(input.resolveModel ?? (() => null));
-    const context = input.prompts.map((prompt, i) => `${i + 1}. ${prompt}`).join("\n");
-    const analysis = await analyzer.analyzeProfile(
-      context,
-      existing ? { id: existing.id, profileData: existing.profileData } : null
-    );
-    if (!analysis) {
-      log("pi profile learning: skipped (no model available)", { userId }, "warn");
-      return;
-    }
-
-    if (existing && analysis.merged) {
-      const updated = await saveMergedProfile(
-        userProfileManager,
-        existing,
-        analysis,
-        input.prompts.length,
-        `Pi analysis of ${input.prompts.length} prompts`
-      );
-      if (!updated) {
-        log("pi profile learning: update conflict", { profileId: existing.id });
-        return;
-      }
-    } else {
-      await userProfileManager.createProfile(
-        userId,
-        tags.user.displayName || userId,
-        tags.user.userName || userId,
-        tags.user.userEmail || userId,
-        analysis.raw,
-        input.prompts.length
-      );
-    }
-
-    profileBackoff.recordSuccess();
-    log("pi profile learning: profile updated", {
-      userId,
-      prompts: input.prompts.length,
-      hadExisting: Boolean(existing),
-    });
-
-    if (
-      shouldStartAutoCleanup(existing?.totalPromptsAnalyzed ?? 0, input.prompts.length, {
-        enabled: CONFIG.userProfileAutoCleanupEnabled,
-        interval: CONFIG.userProfileAutoCleanupInterval,
+export async function learnPiProfile(
+  input: PiProfileLearningInput
+): Promise<ProfileLearningPassResult> {
+  refreshConfigIfChanged(input.directory);
+  const result = await runProfileLearningPass({
+    host: "pi",
+    directory: input.directory,
+    config: CONFIG,
+    model: input.model,
+    notify: input.notify,
+    cleanupModel: input.cleanupModel ?? input.model,
+  });
+  if (result.outcome === "failed" && CONFIG.showErrorToasts && input.notify) {
+    await Promise.resolve(
+      input.notify({
+        title: "Profile Learning Failed",
+        // The reason code only: the provider's message may quote the prompts.
+        message: result.reason ?? "error",
+        variant: "error",
       })
-    ) {
-      // In the background: a long run must not hold the learning pass, and a failure must not fail it.
-      void import("../../services/user-profile/auto-cleanup.js")
-        .then(({ startAutoProfileCleanup }) =>
-          startAutoProfileCleanup(userId, { resolveModel: () => resolveCleanupModel(input) })
-        )
-        .catch(() => {});
-    }
-
-    if (CONFIG.showUserProfileToasts && input.notify) {
-      await Promise.resolve(
-        input.notify({
-          title: "User Profile Updated",
-          message: `Analyzed ${input.prompts.length} prompts and updated your profile`,
-          variant: "success",
-        })
-      ).catch(() => {});
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    recordProfileFailure("pi", "pi profile learning: aborted", error);
-    if (CONFIG.showErrorToasts && input.notify) {
-      const shortReason = message.length > 100 ? message.substring(0, 100) + "..." : message;
-      await Promise.resolve(
-        input.notify({
-          title: "Profile Learning Failed",
-          message: shortReason,
-          variant: "error",
-        })
-      ).catch(() => {});
-    }
+    ).catch(() => {});
   }
+  return result;
 }

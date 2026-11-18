@@ -19,7 +19,8 @@ import type { PiSessionEntry } from "../../importer/pi-conversation.js";
 import { createPiLiveModels } from "./live-model.js";
 import { registerPiHistoryImportCommand } from "./import-command.js";
 import { registerPiSkillsTool } from "./skills-tool.js";
-import { performPiProfileLearning } from "./profile.js";
+import { learnPiProfile } from "./profile.js";
+import { lastSettledPiPrompt, recordPiPrompt } from "./user-prompt.js";
 import { createPiRecallRows } from "./recall-rows.js";
 import { createPiSessionContext } from "./session-context.js";
 import { createPiSelfUpdate } from "./self-update.js";
@@ -55,25 +56,6 @@ function toSessionEntries(branch: unknown): PiSessionEntry[] {
   return Array.isArray(branch) ? (branch as PiSessionEntry[]) : [];
 }
 
-function lastSettledUserPrompt(entries: PiSessionEntry[]): string | null {
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i]!;
-    if (entry.type !== "message" || entry.message?.role !== "user") continue;
-    const content = entry.message.content;
-    if (typeof content === "string" && content.trim()) return content;
-    if (Array.isArray(content)) {
-      const text = content
-        .filter((block) => block.type === "text" && typeof block.text === "string")
-        .map((block) => block.text)
-        .join("\n")
-        .trim();
-      if (text) return text;
-    }
-    return null;
-  }
-  return null;
-}
-
 /**
  * Pi extension entry point for the shared omms engine.
  *
@@ -94,7 +76,6 @@ function lastSettledUserPrompt(entries: PiSessionEntry[]): string | null {
  */
 export default function ommsPiExtension(pi: ExtensionAPI): void {
   let captureState = createPiCaptureState();
-  let promptsSinceProfileAnalysis: string[] = [];
   // Latest session context, refreshed on session_start and consumed by the
   // import command (command contexts do not expose the model registry).
   let latestCtx: ExtensionContext | null = null;
@@ -380,22 +361,25 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
           log("Pi daily maintenance failed", { code: errorCode(error) }, "error")
         );
 
-      const settledPrompt = lastSettledUserPrompt(entries);
-      // Pi batches this session's prompts in memory, so they are recent by design.
-      if (
-        settledPrompt &&
-        !isTrivialPrompt(settledPrompt) &&
-        CONFIG.userProfileAnalysisInterval > 0 &&
-        !memoryClient.getEmbeddingInitError?.()
-      ) {
-        promptsSinceProfileAnalysis.push(settledPrompt);
-        if (promptsSinceProfileAnalysis.length >= CONFIG.userProfileAnalysisInterval) {
-          const batch = promptsSinceProfileAnalysis;
-          promptsSinceProfileAnalysis = [];
-          await performPiProfileLearning({
+      // Pi records each settled prompt in the shared store; the shared pass learns from it.
+      const settled = lastSettledPiPrompt(entries);
+      if (settled) {
+        await recordPiPrompt(
+          ctx.sessionManager.getSessionId(),
+          settled.entryId,
+          ctx.cwd,
+          settled.text
+        ).catch((error: unknown) =>
+          log("Pi prompt record failed", { code: errorCode(error) }, "error")
+        );
+        if (
+          !isTrivialPrompt(settled.text) &&
+          CONFIG.userProfileAnalysisInterval > 0 &&
+          !memoryClient.getEmbeddingInitError?.()
+        ) {
+          await learnPiProfile({
             directory: ctx.cwd,
-            prompts: batch,
-            resolveProfileModel: liveModels.profile,
+            model: liveModels.profile,
             notify: notify(ctx),
           });
         }
@@ -415,7 +399,6 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     sessionContext.reset();
     latestCtx = null;
     captureState = createPiCaptureState();
-    promptsSinceProfileAnalysis = [];
     (globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] = false;
     const task = (globalThis as any)[GLOBAL_PI_BACKFILL_KEY] as PiBackfillTask | undefined;
     task?.controller.abort();
