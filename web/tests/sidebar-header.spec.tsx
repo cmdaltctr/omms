@@ -87,24 +87,25 @@ it("names the product OMMS in every language", () => {
   }
 });
 
-it("shows the name in the brand colour and no version before a status answers", async () => {
+it("shows the name at the section-title size and no version before a status answers", async () => {
   brand();
   await tick();
   const tree = brand();
   const name = find(tree, (node) => node.props.children === "OMMS")[0];
-  expect(String(name?.props.className)).toContain("text-brand-label");
+  expect(String(name?.props.className)).toContain("text-section-title");
+  expect(String(name?.props.className)).toContain("font-semibold");
+  expect(String(name?.props.className)).not.toContain("text-brand-label");
   expect(version(tree)).toBeUndefined();
 });
 
-it("shows the running version in a smaller font and the normal text colour", async () => {
+it("shows the running version in a smaller font and the muted text colour", async () => {
   status = { version: "4.9.0", canControl: true, instance: "a" };
   brand();
   await tick();
   const shown = version(brand());
   expect(textOf(shown)).toBe("v4.9.0");
-  expect(String(shown?.props.className)).toContain("text-xs");
-  expect(String(shown?.props.className)).toContain("text-foreground");
-  expect(String(shown?.props.className)).not.toContain("text-muted-foreground");
+  expect(String(shown?.props.className)).toContain("text-[0.8125rem]");
+  expect(String(shown?.props.className)).toContain("text-muted-foreground");
 });
 
 it("shows a new version without a page reload", async () => {

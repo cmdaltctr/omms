@@ -22,7 +22,7 @@ OpenCode does not run a web server inside its session. The web app has no OpenCo
 
 ## Sidebar header
 
-The sidebar header shows the name **OMMS** in the brand green `#678D6C`. The version of the running web app follows in a smaller font, for example `v4.9.0`. The page reads the version from `GET /api/web/status`. The power button uses the same call every 15 seconds. When a restart brings a new version, the page reloads onto the new copy (see [Update button](#update-button)), so the header shows it at the next call. Before the first call answers, the header shows only the name. On a narrow screen, the top bar shows the same name and version. When you collapse the sidebar on a desktop, the header shows only the icon.
+The sidebar header shows the name **OMMS** at the section-title size, in semibold and in the normal text colour. The version of the running web app follows in a smaller, muted font, for example `v4.9.0`. The page reads the version from `GET /api/web/status`. The power button uses the same call every 15 seconds. When a restart brings a new version, the page reloads onto the new copy (see [Update button](#update-button)), so the header shows it at the next call. Before the first call answers, the header shows only the name. On a narrow screen, the top bar shows the same name and version. When you collapse the sidebar on a desktop, the header shows only the icon.
 
 ## Spaces item and tree
 
@@ -364,7 +364,7 @@ Undo keeps the other memories that OMMS learned or updated after the cleanup. It
 
 ## Settings page
 
-Open `http://127.0.0.1:4747/settings`, select **Settings**, or select the sidebar cogwheel. Its arrow opens the section list. A small table of contents floats at the top end of the screen, like the Skills pages: its list holds the cards in page order, its icon minimises it and expands it again, and the browser remembers the choice.
+Open `http://127.0.0.1:4747/settings`, select **Settings**, or select the sidebar cogwheel. Its arrow opens the section list. Below the search box is a row of section chips. Select a chip to show only that section. The address names the section, for example `/settings#settings-section-log`, so a reload or a bookmark opens it. Plain `/settings` opens **Memory basics**. The browser Back button returns to the section that you saw before. The sidebar Settings tree, the search results and the links on other pages open the matching chip.
 
 - **External API.** Configure and test your endpoint and key.
 - **Models.** Choose live capture and profile-learning models.

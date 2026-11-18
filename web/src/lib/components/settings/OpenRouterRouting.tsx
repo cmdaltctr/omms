@@ -105,7 +105,7 @@ export function ProviderRows({
       ref={listRef}
       data-scroll={scroll || undefined}
       style={scroll && maxHeight ? { maxHeight } : undefined}
-      className={`relative space-y-2 sm:w-1/2 ${scroll ? "overflow-y-auto pe-1" : ""}`}
+      className={`relative space-y-2 ${scroll ? "overflow-y-auto pe-1" : ""}`}
     >
       {shown.map(({ slug, name, policy, price }) => {
         const id = `openrouter-provider-${slug}`;
