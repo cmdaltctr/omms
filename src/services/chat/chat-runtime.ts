@@ -2,7 +2,7 @@ import { join } from "node:path";
 import type { MemorySearchConfig } from "../client-read-settings.js";
 import { log } from "../logger.js";
 import type { ChatServiceDeps } from "./chat-service.js";
-import { ChatStore } from "./chat-store.js";
+import { ChatStore } from "../storage/chat-store.js";
 import type { MemoryHit, ProfileCandidate } from "./chat-retrieve.js";
 import { chatSkillsDep, type ChatSkillsConfig } from "./chat-skills-runtime.js";
 

@@ -1,0 +1,230 @@
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
+import type { CONFIG } from "../../config.js";
+import { getStoragePath } from "./active-space-access.js";
+import { tursoConnectionManager } from "../turso/connection-manager.js";
+import { safeHealthError } from "../safe-health-error.js";
+import type { MemoryHost } from "../../shared/hosts.js";
+
+type BackfillHost = MemoryHost;
+const importLedgerDbPath = () => join(getStoragePath(), "import-ledger.db");
+
+export type BackfillStatus = {
+  host: BackfillHost;
+  cutoff: number;
+  state: "not-started" | "running" | "stopped" | "done" | "failed";
+  model: string | null;
+  counts: {
+    imported: number;
+    skipped: number;
+    failed: number;
+    pending: number;
+    unresolved: number;
+  };
+  error: string | null;
+  updatedAt: number;
+};
+
+export type UnresolvedDirectory = { directory: string; sessions: number };
+
+export const MAX_UNRESOLVED_DIRECTORIES = 200;
+
+/** The entry for sessions that recorded no directory. It cannot be mapped. */
+export const NO_DIRECTORY = "";
+
+const emptyCounts = () => ({ imported: 0, skipped: 0, failed: 0, pending: 0, unresolved: 0 });
+
+async function table() {
+  const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
+  await db.run(`CREATE TABLE IF NOT EXISTS backfill_state (
+    host TEXT PRIMARY KEY, cutoff INTEGER NOT NULL, state TEXT,
+    model TEXT, counts TEXT, error TEXT, updated_at INTEGER
+  )`);
+  return db;
+}
+
+/** Record a fixed per-host cutoff before the first import. */
+export async function getBackfillCutoff(host: BackfillHost, now = Date.now()): Promise<number> {
+  const db = await table();
+  await db.run(
+    `INSERT OR IGNORE INTO backfill_state (host, cutoff, state, counts, updated_at)
+     VALUES (?, ?, 'not-started', ?, ?)`,
+    [host, now, JSON.stringify(emptyCounts()), now]
+  );
+  const row = await db.get<{ cutoff: number }>("SELECT cutoff FROM backfill_state WHERE host = ?", [
+    host,
+  ]);
+  return Number(row!.cutoff);
+}
+
+/** Read progress without creating a store or a ledger table. */
+export async function readBackfillStatus(host: BackfillHost): Promise<BackfillStatus | null> {
+  if (!existsSync(importLedgerDbPath())) return null;
+  const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
+  const exists = await db.get(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'backfill_state'"
+  );
+  if (!exists) return null;
+  const row = await db.get<Record<string, unknown>>("SELECT * FROM backfill_state WHERE host = ?", [
+    host,
+  ]);
+  if (!row) return null;
+  return {
+    host,
+    cutoff: Number(row.cutoff),
+    state: row.state as BackfillStatus["state"],
+    model: row.model === null ? null : String(row.model),
+    counts: row.counts
+      ? (JSON.parse(String(row.counts)) as BackfillStatus["counts"])
+      : emptyCounts(),
+    error: row.error === null ? null : String(row.error),
+    updatedAt: Number(row.updated_at),
+  };
+}
+
+/**
+ * Group unresolved sessions by directory, most sessions first, capped so the
+ * row stays small. Sessions with no recorded directory share the
+ * {@link NO_DIRECTORY} entry, so the counts add up to the host's total.
+ */
+export function summarizeUnresolvedDirectories(
+  sessions: ReadonlyArray<{ directory: string | null; sessions?: number }>
+): UnresolvedDirectory[] {
+  const byDirectory = new Map<string, number>();
+  for (const item of sessions) {
+    const key = item.directory || NO_DIRECTORY;
+    byDirectory.set(key, (byDirectory.get(key) ?? 0) + (item.sessions ?? 1));
+  }
+  return [...byDirectory]
+    .map(([directory, count]) => ({ directory, sessions: count }))
+    .sort((a, b) => b.sessions - a.sessions || a.directory.localeCompare(b.directory))
+    .slice(0, MAX_UNRESOLVED_DIRECTORIES);
+}
+
+/** Unresolved directories of an import report with session counts. */
+export function unresolvedDirectoriesOf(report: {
+  unresolvedProjects?: ReadonlyArray<{ directory: string; sessions: number }>;
+  unresolvableSessions: ReadonlyArray<{ cwd: string | null }>;
+}): UnresolvedDirectory[] {
+  return summarizeUnresolvedDirectories([
+    ...(report.unresolvedProjects ?? []),
+    ...report.unresolvableSessions.map((session) => ({ directory: session.cwd })),
+  ]);
+}
+
+/** Unresolved sessions of an import report, the same total the Directory maps list adds up to. */
+export function unresolvedSessionCount(report: {
+  unresolvedProjects?: ReadonlyArray<{ sessions: number }>;
+  unresolvableSessions: ReadonlyArray<unknown>;
+}): number {
+  const mapped = (report.unresolvedProjects ?? []).reduce((sum, item) => sum + item.sessions, 0);
+  return mapped + report.unresolvableSessions.length;
+}
+
+/**
+ * A host's unresolved session count without the sessions in ignored
+ * directories. It comes from the saved directory list, the same list the
+ * Directory maps page shows, because a later listing or CLI run can replace
+ * that list after the run that set `count`. With no list, or a list cut at
+ * {@link MAX_UNRESOLVED_DIRECTORIES}, it subtracts from `count` instead and
+ * stops at 0. Sessions with no recorded directory always count. Paths are
+ * compared in resolved form.
+ */
+export function visibleUnresolvedCount(
+  count: number,
+  directories: readonly UnresolvedDirectory[],
+  ignored: readonly string[]
+): number {
+  const skip = new Set(ignored.map((path) => resolve(path)));
+  const isIgnored = (item: UnresolvedDirectory) =>
+    item.directory !== NO_DIRECTORY && skip.has(resolve(item.directory));
+  const sum = (items: readonly UnresolvedDirectory[]) =>
+    items.reduce((total, item) => total + item.sessions, 0);
+  if (directories.length > 0 && directories.length < MAX_UNRESOLVED_DIRECTORIES) {
+    return sum(directories.filter((item) => !isIgnored(item)));
+  }
+  return Math.max(0, count - sum(directories.filter(isIgnored)));
+}
+
+/**
+ * How much history a saved unresolved list covers. A `partial` list comes from
+ * a run limited to history before a cutoff or a date range; it never replaces
+ * a `full` list, which covers the host's whole source.
+ */
+export type UnresolvedCoverage = "full" | "partial";
+
+/**
+ * Save the unresolved directories of a host's latest run or listing. They
+ * live in their own table, so recording them never sets a backfill cutoff.
+ */
+export async function recordUnresolvedDirectories(
+  host: BackfillHost,
+  directories: UnresolvedDirectory[],
+  now = Date.now(),
+  coverage: UnresolvedCoverage = "full"
+): Promise<void> {
+  const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
+  await db.run(`CREATE TABLE IF NOT EXISTS unresolved_directories (
+    host TEXT PRIMARY KEY, directories TEXT NOT NULL, updated_at INTEGER NOT NULL
+  )`);
+  try {
+    await db.run(
+      "ALTER TABLE unresolved_directories ADD COLUMN coverage TEXT NOT NULL DEFAULT 'full'"
+    );
+  } catch (error) {
+    if (!String((error as Error)?.message ?? error).includes("duplicate column")) throw error;
+  }
+  // One statement keeps two processes writing at once correct.
+  await db.run(
+    `INSERT INTO unresolved_directories (host, directories, updated_at, coverage) VALUES (?, ?, ?, ?)
+     ON CONFLICT(host) DO UPDATE SET directories = excluded.directories,
+       updated_at = excluded.updated_at, coverage = excluded.coverage
+     WHERE unresolved_directories.coverage = 'partial' OR excluded.coverage = 'full'`,
+    [host, JSON.stringify(directories.slice(0, MAX_UNRESOLVED_DIRECTORIES)), now, coverage]
+  );
+}
+
+/** A host's latest unresolved directories, without creating a store or table. */
+export async function readUnresolvedDirectories(
+  host: BackfillHost
+): Promise<UnresolvedDirectory[]> {
+  if (!existsSync(importLedgerDbPath())) return [];
+  const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
+  const exists = await db.get(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'unresolved_directories'"
+  );
+  if (!exists) return [];
+  const row = await db.get<{ directories: string }>(
+    "SELECT directories FROM unresolved_directories WHERE host = ?",
+    [host]
+  );
+  return row ? (JSON.parse(String(row.directories)) as UnresolvedDirectory[]) : [];
+}
+
+/** Save only numeric counts and a redacted error, never report units or prompts. */
+export async function updateBackfillStatus(
+  host: BackfillHost,
+  update: Pick<BackfillStatus, "state" | "model" | "counts"> & { error?: unknown },
+  config: Pick<typeof CONFIG, "memoryApiKey">
+): Promise<void> {
+  const counts = Object.fromEntries(
+    (Object.keys(emptyCounts()) as Array<keyof BackfillStatus["counts"]>).map((key) => [
+      key,
+      Number.isSafeInteger(update.counts[key]) && update.counts[key] >= 0 ? update.counts[key] : 0,
+    ])
+  );
+  const db = await table();
+  await db.run(
+    `UPDATE backfill_state SET state = ?, model = ?, counts = ?, error = ?, updated_at = ? WHERE host = ?`,
+    [
+      update.state,
+      update.model,
+      JSON.stringify(counts),
+      update.error == null
+        ? null
+        : safeHealthError(update.error, [config.memoryApiKey]).slice(0, 500),
+      Date.now(),
+      host,
+    ]
+  );
+}

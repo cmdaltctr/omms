@@ -15,7 +15,7 @@ async function setup(
 ) {
   const { CONFIG } = await import("../src/config.js");
   CONFIG.storagePath = baseDir;
-  const { ChatStore } = await import("../src/services/chat/chat-store.js");
+  const { ChatStore } = await import("../src/services/storage/chat-store.js");
   const { askQuestion } = await import("../src/services/chat/chat-service.js");
   const store = new ChatStore(join(baseDir, "chats.db"));
   await store.init();

@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { skillDraftBackoff } from "../../core/profile-backoff.js";
 import { log } from "../logger.js";
-import { TableLease } from "../turso/table-lease.js";
+import { automaticSkillSettings, setSkillReview } from "../storage/skills/proposals.js";
+import type { SkillReviewLease } from "../storage/skills/store.js";
 import { applyProposal } from "./apply.js";
 import { countSkillUses, skillRef } from "./draft-turns.js";
 import { draftImprovement, type DraftDeps } from "./drafting.js";
-import { setSkillReview } from "./proposal-store.js";
-import type { SkillStore } from "./store.js";
+
+export { SKILL_REVIEW_LEASE_TABLE, skillReviewLease } from "../storage/skills/store.js";
 
 /** A skill in automatic mode is reviewed after this many new uses... */
 export const AUTO_REVIEW_MIN_USES = 10;
@@ -14,17 +15,11 @@ export const AUTO_REVIEW_MIN_USES = 10;
 export const AUTO_REVIEW_MIN_GAP_MS = 24 * 3_600_000;
 /** The web app checks for due skills this often. */
 export const AUTO_REVIEW_INTERVAL_MS = 10 * 60_000;
-export const SKILL_REVIEW_LEASE_TABLE = "skill_review_lease";
-
-/** The review run record in `skills.db`, shared by every process. */
-export function skillReviewLease(store: SkillStore, now?: () => number): TableLease {
-  return new TableLease({ table: SKILL_REVIEW_LEASE_TABLE, connection: () => store.db(), now });
-}
 
 export interface AutoReviewDeps extends Omit<DraftDeps, "now"> {
   /** The watched skill folders, for the apply checks. */
   folders: readonly string[];
-  lease: TableLease;
+  lease: SkillReviewLease;
 }
 
 export interface AutoReviewReport {
@@ -43,19 +38,15 @@ interface DueSkill {
 async function dueSkills(deps: AutoReviewDeps, now: number): Promise<DueSkill[]> {
   const db = await deps.store.existingDb();
   if (!db) return [];
-  const rows = await db.all(
-    `SELECT skill_path, last_review_at, uses_at_last_review FROM skill_settings
-     WHERE mode = 'automatic' ORDER BY skill_path`
-  );
   const due: DueSkill[] = [];
-  for (const row of rows) {
+  for (const row of await automaticSkillSettings(db)) {
     // A skill no watched folder holds now gets no draft.
-    const ref = skillRef(deps.index, String(row.skill_path));
+    const ref = skillRef(deps.index, row.skillPath);
     if (!ref) continue;
-    const last = row.last_review_at == null ? null : Number(row.last_review_at);
+    const last = row.lastReviewAt;
     if (last !== null && now - last < AUTO_REVIEW_MIN_GAP_MS) continue;
     const uses = await countSkillUses(db, ref);
-    if (uses - Number(row.uses_at_last_review ?? 0) < AUTO_REVIEW_MIN_USES) continue;
+    if (uses - row.usesAtLastReview < AUTO_REVIEW_MIN_USES) continue;
     due.push({ path: ref.path, uses });
   }
   return due;

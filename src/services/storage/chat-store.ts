@@ -11,7 +11,7 @@ import {
   type ChatPlanRecord,
   type ChatRole,
   type ChatSource,
-} from "./chat-types.js";
+} from "../chat/chat-types.js";
 
 /** Bump when the tables change, and add the step to `migrate`. */
 export const CHAT_SCHEMA_VERSION = 1;
