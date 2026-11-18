@@ -71,7 +71,7 @@ export const MEMORY_CATALOGUE: readonly CatalogueEntry[] = [
     "shared-profile",
     "Model input",
     "What the model reads each time it learns: your prompts with a profile summary and guidance, or the prompts alone.",
-    "Prompts with profile summary and guidance",
+    "Prompts with profile and guidance",
     AFFECTS.profile
   ),
   row(

@@ -17,7 +17,7 @@ The Profile learning row of `/memory/shared` SHALL show a settings table above t
 
 ### Requirement: The learning dropdowns offer only behaviours that exist
 
-Each dropdown SHALL offer only these options: no user email (Learn anyway, Skip), fade old items (Off, On), model input (Prompts with profile summary and guidance, Prompts only), check older items (Off, On), notice when done (On, Off), and during a catch-up run (Keep learning, Pause). The first option of each list SHALL be the default.
+Each dropdown SHALL offer only these options: no user email (Learn anyway, Skip), fade old items (Off, On), model input (Prompts with profile and guidance, Prompts only), check older items (Off, On), notice when done (On, Off), and during a catch-up run (Keep learning, Pause). The first option of each list SHALL be the default.
 
 #### Scenario: The email row
 

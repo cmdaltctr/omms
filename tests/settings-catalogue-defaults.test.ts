@@ -57,7 +57,7 @@ const WORDS: Record<string, string> = {
 /** Words for a value whose label depends on the key, such as `learn`. */
 const KEY_WORDS: Record<string, Record<string, string>> = {
   userProfileWithoutEmail: { learn: "Learn anyway" },
-  userProfilePromptDetail: { full: "Prompts with profile summary and guidance" },
+  userProfilePromptDetail: { full: "Prompts with profile and guidance" },
   userProfileDuringCatchUp: { learn: "Keep learning" },
 };
 

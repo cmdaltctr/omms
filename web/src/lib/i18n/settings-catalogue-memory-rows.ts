@@ -44,7 +44,7 @@ export const settingsCatalogueMemoryRowText = {
       "模型每次学习时读取的内容：你的提示加上画像摘要和指引，或只有提示。",
       "ما يقرؤه النموذج في كل مرة يتعلم فيها: مطالباتك مع ملخص الملف الشخصي وإرشادات، أو المطالبات وحدها.",
     ],
-  "Prompts with profile summary and guidance": [
+  "Prompts with profile and guidance": [
     "提示加画像摘要和指引",
     "المطالبات مع ملخص الملف الشخصي وإرشادات",
   ],

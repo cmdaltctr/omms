@@ -316,14 +316,14 @@ The summary line of the row reads **Default settings** or **Custom settings**. I
 
 Each row shows a plain name, a one-line description, the default, and the config key as small text. On a narrow screen, each row stacks its name above its control. In Arabic the table reads right to left. The config keys stay left to right.
 
-| Row                       | Config key                     | Options (first is the default)                                                            |
-| ------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------- |
-| **No user email**         | `userProfileWithoutEmail`      | **Learn anyway** (`learn`), **Skip** (`skip`)                                             |
-| **Fade old items**        | `userProfileDecayBeforeMerge`  | **Off** (`false`), **On** (`true`)                                                        |
-| **Model input**           | `userProfilePromptDetail`      | **Prompts with profile summary and guidance** (`full`), **Prompts only** (`prompts-only`) |
-| **Check older items**     | `userProfileValidationEnabled` | **Off** (`false`), **On** (`true`)                                                        |
-| **Notice when done**      | `showUserProfileToasts`        | **On** (`true`), **Off** (`false`)                                                        |
-| **During a catch-up run** | `userProfileDuringCatchUp`     | **Keep learning** (`learn`), **Pause** (`pause`)                                          |
+| Row                       | Config key                     | Options (first is the default)                                                    |
+| ------------------------- | ------------------------------ | --------------------------------------------------------------------------------- |
+| **No user email**         | `userProfileWithoutEmail`      | **Learn anyway** (`learn`), **Skip** (`skip`)                                     |
+| **Fade old items**        | `userProfileDecayBeforeMerge`  | **Off** (`false`), **On** (`true`)                                                |
+| **Model input**           | `userProfilePromptDetail`      | **Prompts with profile and guidance** (`full`), **Prompts only** (`prompts-only`) |
+| **Check older items**     | `userProfileValidationEnabled` | **Off** (`false`), **On** (`true`)                                                |
+| **Notice when done**      | `showUserProfileToasts`        | **On** (`true`), **Off** (`false`)                                                |
+| **During a catch-up run** | `userProfileDuringCatchUp`     | **Keep learning** (`learn`), **Pause** (`pause`)                                  |
 
 Four more rows show a fixed value as text. They have no dropdown and no config key:
 

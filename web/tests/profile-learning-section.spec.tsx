@@ -196,7 +196,7 @@ it("offers exactly the spec options in each dropdown", () => {
   expect(lists).toEqual([
     ["Learn anyway", "Skip"],
     ["Off", "On"],
-    ["Prompts with profile summary and guidance", "Prompts only"],
+    ["Prompts with profile and guidance", "Prompts only"],
     ["Off", "On"],
     ["On", "Off"],
     ["Keep learning", "Pause"],

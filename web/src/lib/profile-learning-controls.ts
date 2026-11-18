@@ -47,7 +47,7 @@ export const PROFILE_LEARNING_CONTROLS: readonly LearningControl[] = [
     key: "userProfilePromptDetail",
     controlId: "profile-learning-prompt-detail",
     options: [
-      { value: "full", label: "Prompts with profile summary and guidance" },
+      { value: "full", label: "Prompts with profile and guidance" },
       { value: "prompts-only", label: "Prompts only" },
     ],
   },

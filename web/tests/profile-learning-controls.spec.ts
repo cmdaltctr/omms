@@ -35,7 +35,7 @@ it("offers exactly the options of the spec, with the default first", () => {
   expect(labels("userProfileDecayBeforeMerge")).toEqual(["Off", "On"]);
   expect(values("userProfileDecayBeforeMerge")).toEqual([false, true]);
   expect(labels("userProfilePromptDetail")).toEqual([
-    "Prompts with profile summary and guidance",
+    "Prompts with profile and guidance",
     "Prompts only",
   ]);
   expect(values("userProfilePromptDetail")).toEqual(["full", "prompts-only"]);
