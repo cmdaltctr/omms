@@ -21,7 +21,7 @@ import {
 import {
   readClaudeCaptureCursor,
   writeClaudeCaptureCursor,
-} from "../services/claude-capture-cursor.js";
+} from "../services/storage/claude-capture-cursors.js";
 import { memoryClient } from "../services/client.js";
 import { log } from "../services/logger.js";
 import { skillTurnRecorder } from "../services/skill-learning/settings-for.js";

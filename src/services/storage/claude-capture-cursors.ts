@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
+import { tursoConnectionManager } from "../turso/connection-manager.js";
 
 /**
  * The last Claude Code user entry that live capture handled, per session. It

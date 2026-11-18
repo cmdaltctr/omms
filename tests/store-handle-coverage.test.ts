@@ -10,7 +10,7 @@ await import("../src/services/turso/shard-manager.js");
 await import("../src/services/turso/ready.js");
 await import("../src/services/user-prompt/user-prompt-manager.js");
 await import("../src/services/user-profile/user-profile-manager.js");
-await import("../src/services/ai/session/ai-session-manager.js");
+await import("../src/services/storage/ai-sessions.js");
 await import("../src/services/spaces/read-store-cache.js");
 await import("../src/services/tag-migration.js");
 

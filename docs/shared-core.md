@@ -209,14 +209,14 @@ The pass returns `{ outcome: "saved" | "skipped" | "failed", reason? }` and neve
 
 ### Shared modules added for Claude Code
 
-| Module                                  | Purpose                                                                                                      |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `src/importer/claude-conversation.ts`   | Pure transcript parsing and window building, for live capture and history import                             |
-| `src/importer/claude-reader.ts`         | Transcript discovery under `~/.claude/projects` or `--root`, as a `LazyImportSource`                         |
-| `src/importer/claude-import.ts`         | `importClaudeHistory`: the shared importer, ledger, and profile steps with host `claude-code`                |
-| `src/importer/claude-hook-api.ts`       | Web app handlers for `POST /api/claude/retrieve` and `POST /api/claude/capture`, capture worker, retry drain |
-| `src/services/claude-capture-cursor.ts` | The last captured user entry for each Claude Code session, in `user-prompts.db`                              |
-| `src/cli/memory-command.ts`             | `om-memory-system memory <mode>`: the shared `memory` operations from a terminal, with host `claude-code`    |
+| Module                                           | Purpose                                                                                                      |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `src/importer/claude-conversation.ts`            | Pure transcript parsing and window building, for live capture and history import                             |
+| `src/importer/claude-reader.ts`                  | Transcript discovery under `~/.claude/projects` or `--root`, as a `LazyImportSource`                         |
+| `src/importer/claude-import.ts`                  | `importClaudeHistory`: the shared importer, ledger, and profile steps with host `claude-code`                |
+| `src/importer/claude-hook-api.ts`                | Web app handlers for `POST /api/claude/retrieve` and `POST /api/claude/capture`, capture worker, retry drain |
+| `src/services/storage/claude-capture-cursors.ts` | The last captured user entry for each Claude Code session, in `user-prompts.db`                              |
+| `src/cli/memory-command.ts`                      | `om-memory-system memory <mode>`: the shared `memory` operations from a terminal, with host `claude-code`    |
 
 `resolveClaudeCodeLiveModel` in `src/services/ai/live-model-choice.ts` is the
 Claude Code model rule: the external API only. See

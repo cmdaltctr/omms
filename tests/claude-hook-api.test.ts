@@ -1255,7 +1255,7 @@ scenario = { calls: calls.length, skills: await skillTurns() };
   it("records the last turn without moving the cursor when capture is off", async () => {
     const scenario = await createHarness({ ...SKILLS_ON, autoCaptureEnabled: false })
       .run(`${SKILL_HELPERS}
-const { readClaudeCaptureCursor } = await import(${JSON.stringify(moduleUrl("src/services/claude-capture-cursor.js"))});
+const { readClaudeCaptureCursor } = await import(${JSON.stringify(moduleUrl("src/services/storage/claude-capture-cursors.js"))});
 turn("1", "First question", "First answer");
 turn("2", "Second question", "Second answer");
 await capture();
