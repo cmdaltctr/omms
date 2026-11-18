@@ -230,6 +230,8 @@ describe("claude-hook command", () => {
       cwd: "/work/project",
       transcript_path: "/tmp/t.jsonl",
       prompt: SECRET_PROMPT,
+      // User decision "Claude Code shows the profile notice on the next prompt" (D8).
+      notices: true,
     });
     expect(h.out).toHaveLength(1);
     expect(JSON.parse(h.out[0]!)).toEqual({
@@ -641,15 +643,17 @@ describe("user lines (systemMessage)", () => {
     });
   }
 
-  it("asks for user lines only at SessionStart", async () => {
-    const start = harness(JSON.stringify(payload("session-start")));
-    await runClaudeHookCommand(["session-start"], start.options);
-    expect(posts(start)[0]?.body.notices).toBe(true);
-    for (const event of ["user-prompt-submit", "subagent-start"] as const) {
+  // User decision "same notice on every host; Claude Code shows it on the next prompt"
+  // (change unify-profile-learning, D8): the prompt hook asks for user lines too.
+  it("asks for user lines at SessionStart and UserPromptSubmit, never at SubagentStart", async () => {
+    for (const event of ["session-start", "user-prompt-submit"] as const) {
       const h = harness(JSON.stringify(payload(event)));
       await runClaudeHookCommand([event], h.options);
-      expect(posts(h)[0]?.body.notices).toBeUndefined();
+      expect(posts(h)[0]?.body.notices).toBe(true);
     }
+    const subagent = harness(JSON.stringify(payload("subagent-start")));
+    await runClaudeHookCommand(["subagent-start"], subagent.options);
+    expect(posts(subagent)[0]?.body.notices).toBeUndefined();
   });
 
   it("copies the reply's systemMessage at SessionStart even with no context", async () => {
@@ -730,12 +734,48 @@ describe("user lines (systemMessage)", () => {
     }
   });
 
-  it("never writes a systemMessage from a prompt hook", async () => {
+  // User decision "Claude Code shows the profile notice on the next prompt" (D8): a prompt
+  // hook writes the line. Before this change it never did; a subagent hook still never does.
+  it("writes one JSON line with the user line and the context at UserPromptSubmit", async () => {
+    const notice = "OMMS: User profile updated. Analysed 10 prompts and updated your profile";
     const h = harness(JSON.stringify(payload("user-prompt-submit")), {
-      route: () => Response.json({ additionalContext: "", systemMessage: "should not show" }),
+      route: (call) => {
+        if (call.url.endsWith("/api/claude/notices")) return Response.json({ ok: true });
+        return Response.json({
+          additionalContext: "<omms-retrieval>\nmemo\n</omms-retrieval>",
+          systemMessage: notice,
+          noticeKeys: ["claude-code-profile-updated"],
+        });
+      },
     });
-    await runClaudeHookCommand(["user-prompt-submit"], h.options);
+    expect(await runClaudeHookCommand(["user-prompt-submit"], h.options)).toBe(0);
+    expect(h.out).toHaveLength(1);
+    expect(h.out[0]!.endsWith("\n")).toBe(true);
+    expect(h.out[0]!.trimEnd().split("\n")).toHaveLength(1);
+    expect(JSON.parse(h.out[0]!)).toEqual({
+      systemMessage: notice,
+      hookSpecificOutput: {
+        hookEventName: "UserPromptSubmit",
+        additionalContext: "<omms-retrieval>\nmemo\n</omms-retrieval>",
+      },
+    });
+    const confirm = posts(h).find((call) => call.url.endsWith("/api/claude/notices"));
+    expect(confirm?.body).toEqual({ keys: ["claude-code-profile-updated"] });
+    expect(logged(h)?.code).toBe("ok");
+  });
+
+  it("never writes a systemMessage from a subagent hook", async () => {
+    const h = harness(JSON.stringify(payload("subagent-start")), {
+      route: () =>
+        Response.json({
+          additionalContext: "",
+          systemMessage: "should not show",
+          noticeKeys: ["claude-code-profile-updated"],
+        }),
+    });
+    await runClaudeHookCommand(["subagent-start"], h.options);
     expect(h.out).toEqual([]);
+    expect(posts(h).filter((call) => call.url.endsWith("/api/claude/notices"))).toEqual([]);
   });
 
   it("ignores a systemMessage that is not a string", async () => {

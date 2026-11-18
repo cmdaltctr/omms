@@ -276,23 +276,24 @@ To avoid the start delay, install the login item with
 
 ### Messages the hook shows you
 
-At `SessionStart` the hook can print one line that Claude Code shows to you.
-The line goes in the `systemMessage` field of the hook's JSON answer, so it
-never enters the model context. The prompt, subagent and stop hooks show no
-line. There are three lines.
+At `SessionStart` and `UserPromptSubmit` the hook can print lines that Claude
+Code shows to you. The lines go in the `systemMessage` field of the hook's JSON
+answer, so they never enter the model context. The subagent and stop hooks show
+no line. There are four lines. The prompt hook shows only the profile line.
 
-The first-run notice and the capture setup line count as shown only after the
-hook has written its answer. The hook then sends a second short request,
-`POST /api/claude/notices`, and the web app records the lines. If the first
-request times out, or the hook stops before that second request, nothing is
-recorded and the line shows again at the next `SessionStart`. An older hook that
-does not ask for the lines records nothing.
+The first-run notice, the capture setup line and the profile line count as
+shown only after the hook has written its answer. The hook then sends a second
+short request, `POST /api/claude/notices`, and the web app records the lines. If
+the first request times out, or the hook stops before that second request,
+nothing is recorded and the line shows again at the next hook that shows lines.
+An older hook that does not ask for the lines records nothing.
 
 | Line                  | When you see it                                                                                                                                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | First-run notice      | Once per computer. It lists what OMMS does on its own and how to turn each part off. It leaves out the login item, because Claude Code never installs it. See [First-run notice](configuration.md#first-run-notice). |
 | Capture setup line    | Once, while capture is on and the external API is not complete. See below.                                                                                                                                           |
 | Web app start failure | At each `SessionStart` where the hook cannot start the web app. See below.                                                                                                                                           |
+| Profile line          | At the next `UserPromptSubmit` or `SessionStart` after a profile learning pass saves. See [Profile learning](#profile-learning).                                                                                     |
 
 The capture setup line reads: `OMMS memory capture is off until you set the
 external API (missing: model, API URL, API key). Set it on the Settings page:
@@ -307,9 +308,9 @@ The start failure line has two forms. Both match the wording of OpenCode and Pi.
 - `port-busy`: `The OMMS web app cannot start: another program uses port <port>. Stop that program, or set "webServerPort" in the global config to a free port.` The hook logs `port-busy`.
 - `no-runtime`: `The OMMS web app cannot start: no Node 22.14 or later (or Bun) was found. Install Node 22.14 or later, then start a new session.` The hook logs `server-unreachable`.
 
-The web app adds the first two lines to its answer only when the hook asks for
-them (`notices: true` in the request). An older hook never uses up a line that
-it cannot show.
+The web app adds the first-run notice, the capture setup line and the profile
+line to its answer only when the hook asks for them (`notices: true` in the
+request). An older hook never uses up a line that it cannot show.
 
 ### Web app routes
 
@@ -317,13 +318,13 @@ The web app has three routes for the hooks. Each needs the local token
 (`~/.omms/.auth-token`) or an API token, like the other `/api/` routes. The hook
 sends the local token. A request without a valid token gets `401 Unauthorized`.
 
-| Route                       | Used by                                             | Answer                                       |
-| --------------------------- | --------------------------------------------------- | -------------------------------------------- |
-| `POST /api/claude/retrieve` | `SessionStart`, `UserPromptSubmit`, `SubagentStart` | `{ "additionalContext": "<text or empty>" }` |
-| `POST /api/claude/capture`  | `Stop`                                              | `202 { "queued": true }` at once             |
-| `POST /api/claude/notices`  | `SessionStart`, after it has shown its user lines   | `{ "ok": true }`                             |
+| Route                       | Used by                                                               | Answer                                       |
+| --------------------------- | --------------------------------------------------------------------- | -------------------------------------------- |
+| `POST /api/claude/retrieve` | `SessionStart`, `UserPromptSubmit`, `SubagentStart`                   | `{ "additionalContext": "<text or empty>" }` |
+| `POST /api/claude/capture`  | `Stop`                                                                | `202 { "queued": true }` at once             |
+| `POST /api/claude/notices`  | `SessionStart`, `UserPromptSubmit`, after it has shown its user lines | `{ "ok": true }`                             |
 
-At `SessionStart` with `"notices": true`, the retrieve answer can also carry
+At `SessionStart` or `UserPromptSubmit` with `"notices": true`, the retrieve answer can also carry
 `systemMessage` (the user lines) and `noticeKeys` (their record keys). The hook
 sends those keys back to `/api/claude/notices` with `{ "keys": [...] }` after it
 has written its answer. The web app records only the keys it knows.
@@ -417,16 +418,30 @@ again. A session with no capture for 30 days loses its position.
 
 The web app records each captured Claude Code prompt. When the number of new
 prompts reaches `userProfileAnalysisInterval`, it runs one profile learning
-pass with the external API. A failed pass is logged. It never blocks capture
-or the `memory` command.
+pass with the external API. Claude Code uses the same pass as OpenCode and Pi,
+so the same prompts and settings give the same profile. Only the model differs:
+Claude Code always uses the external API. A failed pass is logged. It never
+blocks capture or the `memory` command. See
+[Using memory: User profile](using-memory.md#user-profile) for the steps and
+the six settings.
 
 - A pass reads the waiting prompts of the last 7 days, newest first. When none are recent, it reads the oldest.
 - Trivial prompts, such as `yes go`, are marked as learned with no model call. They do not count toward the interval.
 - A profile call has its own time limit of 120 seconds. Captures keep `autoCaptureIterationTimeout`.
+- With no git email, the pass learns into the profile `unknown`. Set `userProfileWithoutEmail` to `skip` to wait for an email.
+- The history entry reads `Claude Code analysis of N prompts`.
 - A failure writes one `Claude Code profile learning failed` record with the host and a reason code. The record holds no prompt, reply, or key.
 - After a failure, the web app starts no profile pass for 10 minutes. Capture continues. A success or a web app restart clears the wait.
-- The web app runs no live pass while a profile catch-up run works.
+- The web app keeps learning while a profile catch-up run works. Each run claims its batch, so two runs never take the same prompts. Set `userProfileDuringCatchUp` to `pause` to stop live passes during a catch-up run.
 - After a pass takes the count of analysed prompts past a multiple of `userProfileAutoCleanupInterval` (default 500), the web app starts the automatic cleanup in the background, with the same external API. See [Using memory: Automatic cleanup](using-memory.md#automatic-cleanup).
+
+A pass runs after a `Stop` hook, when no hook waits for an answer. When
+`showUserProfileToasts` is `true` (default), the web app keeps one line until
+the next `UserPromptSubmit` or `SessionStart` hook, in any Claude Code session:
+`OMMS: User profile updated. Analysed N prompts and updated your profile`.
+The hook shows it beside the context, never to the model. A newer pass
+replaces a line that has not shown yet. A web app restart drops it. See
+[Messages the hook shows you](#messages-the-hook-shows-you).
 
 To clear a backlog, use **Catch up profile** on the Settings page, or `om-memory-system profile-catch-up`. See [Settings page: Profile learning](web-ui-settings.md#profile-learning) and [CLI: Profile catch-up](cli.md#profile-catch-up).
 

@@ -35,7 +35,7 @@ import {
   withNotices,
   wrapSection,
 } from "./claude-hook-context.js";
-import { confirmShownNotices, sessionStartNotices } from "./claude-hook-notices.js";
+import { confirmShownNotices, hookNotices } from "./claude-hook-notices.js";
 import {
   ClaudeHookRequestError,
   objectBody,
@@ -266,8 +266,7 @@ export async function handleClaudeRetrieve(
   );
   if (request.event === "session-start") maybeStartBackfill(deps);
   // Only a hook that can show user lines gets them. Its confirmation records them as shown.
-  const extra =
-    request.event === "session-start" && request.notices ? sessionStartNotices(CONFIG) : {};
+  const extra = request.notices ? hookNotices(request.event, CONFIG) : {};
   try {
     const additionalContext = await retrievalText(request, budgetBytes);
     return withNotices(body, { additionalContext, ...extra });

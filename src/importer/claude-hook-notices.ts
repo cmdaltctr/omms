@@ -12,14 +12,40 @@ import {
 import { webServerUrl } from "../services/web-api-auth.js";
 import { missingSettingsText } from "../shared/setting-words.js";
 
-// The user lines a Claude Code `SessionStart` answer carries in `systemMessage`
-// (design decisions 11 and 12). The hook shows them to the user; they never go
+// The user lines a Claude Code `SessionStart` or `UserPromptSubmit` answer carries in
+// `systemMessage` (design decisions 11 and 12). The hook shows them to the user; they never go
 // into the model context. Callers pass the config.
 
 /** The first-run record key of the capture setup line. Cleared when capture is ready. */
 export const CAPTURE_SETUP_KEY = "claude-code-capture-setup";
 /** The first-run record key of the Claude Code first-run notice. */
 const FIRST_RUN_KEY = "claude-code";
+/** The key of the pending profile line. It lives in memory only, so a restart drops it. */
+export const PROFILE_NOTICE_KEY = "claude-code-profile-updated";
+
+// The learning pass runs after a Stop hook, when no hook waits for an answer, so its
+// notice waits here for the next hook that can show it (change unify-profile-learning, D8).
+let pendingProfileLine: string | null = null;
+
+/** Keeps the notice of a learning pass for the next hook. A newer pass replaces it. */
+export function setPendingProfileNotice(notice: { title: string; message: string }): void {
+  pendingProfileLine = `OMMS: ${notice.title}. ${notice.message}`;
+}
+
+/**
+ * The user lines for a retrieval whose hook asked for them: the session-start lines and
+ * the pending profile line at `session-start`, the profile line alone at
+ * `user-prompt-submit`, and nothing at `subagent-start`. Nothing is marked shown here.
+ */
+export function hookNotices(event: string, config: ClaudeNoticeConfig): ClaudeNoticeFields {
+  if (event === "subagent-start") return {};
+  const start = event === "session-start" ? sessionStartNotices(config) : {};
+  if (pendingProfileLine === null) return start;
+  return {
+    systemMessage: [start.systemMessage, pendingProfileLine].filter(Boolean).join("\n"),
+    noticeKeys: [...(start.noticeKeys ?? []), PROFILE_NOTICE_KEY],
+  };
+}
 
 /** The user lines for the hook, and the record keys it confirms once it has shown them. */
 export type ClaudeNoticeFields = { systemMessage?: string; noticeKeys?: string[] };
@@ -91,5 +117,6 @@ export function confirmShownNotices(
   for (const key of [FIRST_RUN_KEY, CAPTURE_SETUP_KEY]) {
     if (Array.isArray(keys) && keys.includes(key)) claimNotice(key, folder, fs);
   }
+  if (Array.isArray(keys) && keys.includes(PROFILE_NOTICE_KEY)) pendingProfileLine = null;
   return { ok: true };
 }

@@ -1086,7 +1086,8 @@ scenario = {
   modelCalls: profileCalls.length,
   categories: JSON.parse(finalProfile.profileData).preferences.map((item) => item.category),
   failures: logs.filter((l) => l.message === "Claude Code profile learning failed"),
-  finished: logs.filter((l) => l.message === "Claude Code profile learning finished").length,
+  // The shared pass logs one finish record with the host (change unify-profile-learning).
+  finished: logs.filter((l) => l.message === "profile learning finished" && l.data?.host === "claude-code").length,
 };
 `);
     expect(scenario.failures).toEqual([]);
