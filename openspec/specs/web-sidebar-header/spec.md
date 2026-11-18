@@ -8,12 +8,13 @@ Shows the product name and the version of the running web app in the sidebar hea
 
 ### Requirement: The sidebar header shows the product name and the running version
 
-The sidebar header SHALL show the product name `OMMS` in every supported language. The name SHALL use the brand colour `#678D6C` in the light and the dark theme. After the name, the header SHALL show the version that `GET /api/web/status` reports, with a `v` prefix. The version SHALL use a smaller font than the name and the normal text colour. The header SHALL read the version from the same status calls that the power button uses and SHALL NOT add a separate request schedule. When a status call reports a different version, the header SHALL show the new version without a page reload. While no status call has answered, the header SHALL show the name without a version. On a narrow screen, the top bar SHALL show the same name and version. When the desktop sidebar is collapsed, the header SHALL hide the name and the version, as it hides the name now.
+The sidebar header SHALL show the product name `OMMS` in every supported language. The name SHALL use the section-title size (1.125rem), semibold weight and the normal text colour, as in OMRS. After the name, the header SHALL show the version that `GET /api/web/status` reports, with a `v` prefix, at 0.8125rem in the muted text colour. The header SHALL read the version from the same status calls that the power button uses and SHALL NOT add a separate request schedule. When a status call reports a different version, the header SHALL show the new version without a page reload. While no status call has answered, the header SHALL show the name without a version. On a narrow screen, the top bar SHALL show the same name and version. When the desktop sidebar is collapsed, the header SHALL hide the name and the version.
 
 #### Scenario: The page opens
 
 - **WHEN** the web app 4.9.0 serves the page and the status call answers
-- **THEN** the sidebar header SHALL show `OMMS` in `#678D6C` followed by `v4.9.0` in a smaller font and the normal text colour
+- **THEN** the sidebar header SHALL show `OMMS` at the section-title size, semibold, in the normal text colour
+- **AND** `v4.9.0` SHALL follow at 0.8125rem in the muted text colour
 
 #### Scenario: A restart brings a newer copy
 
