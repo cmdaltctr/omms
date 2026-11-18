@@ -221,18 +221,21 @@ describe("memory shards surface", () => {
 
 describe("memory search surface: golden results", () => {
   async function seedTwoShards() {
+    // The nudge sits on axis 1, so it stays inside the vector whatever the shared test
+    // home's embedding dimensions are. Without it every vector ties and order is shard order.
+    expect(CONFIG.embeddingDimensions).toBeGreaterThan(1);
     await freshStore();
     const s0 = await shards.createMemoryShard("project", HASH, 0);
     const s1 = await shards.createMemoryShard("project", HASH, 1);
     // Similarity falls with the nudge, so the plain order is n1, n2, ... across both shards.
-    await insert(s0, { id: "n1", vector: unit(0, 5, 0.1), content: "notes about lunch" });
-    await insert(s1, { id: "n2", vector: unit(0, 5, 0.3), content: "release flow notes" });
-    await insert(s0, { id: "n3", vector: unit(0, 5, 0.5), content: "we chose postgres" });
-    await insert(s1, { id: "n4", vector: unit(0, 5, 0.7), content: "caching with redis" });
-    await insert(s0, { id: "other", vector: unit(0, 5, 0.2), containerTag: "x_project_ab" });
+    await insert(s0, { id: "n1", vector: unit(0, 1, 0.1), content: "notes about lunch" });
+    await insert(s1, { id: "n2", vector: unit(0, 1, 0.3), content: "release flow notes" });
+    await insert(s0, { id: "n3", vector: unit(0, 1, 0.5), content: "we chose postgres" });
+    await insert(s1, { id: "n4", vector: unit(0, 1, 0.7), content: "caching with redis" });
+    await insert(s0, { id: "other", vector: unit(0, 1, 0.2), containerTag: "x_project_ab" });
     await insert(s1, {
       id: "mem",
-      vector: unit(0, 5, 0.15),
+      vector: unit(0, 1, 0.15),
       type: "memorisation",
       content: "postgres memorisation",
     });

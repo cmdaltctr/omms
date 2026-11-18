@@ -171,7 +171,7 @@ export async function existingMemoryIdsInShard(shard: ShardInfo, ids: string[]):
   return rows.map((row) => String(row.id));
 }
 
-/** The ID of the row a history import saved under `importId`, or null. From `importer/importer.ts`. */
+/** The ID of the row a history import saved under `importId`, or null. From the history importer (`importer.ts`). */
 export async function memoryIdByImportId(
   shard: ShardInfo,
   importId: string
