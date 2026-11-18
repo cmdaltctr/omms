@@ -76,6 +76,7 @@ function toolTags() {
 async function operation(args: Record<string, unknown>) {
   const { executeMemoryOperation } = await import("../src/core/memory-operations.js");
   return executeMemoryOperation(args as any, {
+    config: await import("../src/config.js"),
     directory: process.cwd(),
     host: "pi",
     tags: toolTags(),

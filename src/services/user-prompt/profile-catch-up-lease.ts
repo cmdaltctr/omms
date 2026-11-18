@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { CONFIG } from "../../config.js";
+import { getStoragePath } from "../active-space-access.js";
 import { tursoConnectionManager } from "../turso/connection-manager.js";
 import { TableLease } from "../turso/table-lease.js";
 
@@ -23,7 +23,7 @@ export class CatchUpLease extends TableLease {
       table: "profile_catch_up_lease",
       connection: () =>
         tursoConnectionManager.getConnection(
-          options.path ?? join(CONFIG.storagePath, "user-prompts.db")
+          options.path ?? join(getStoragePath(), "user-prompts.db")
         ),
       now: options.now,
       sleep: options.sleep,

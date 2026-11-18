@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
-import { CONFIG, getExplicitContainerTagPrefix } from "../config.js";
+import { getExplicitContainerTagPrefix, getStoragePath } from "./active-space-access.js";
 import { log } from "./logger.js";
 import { writeBackupManifest } from "./spaces/backup.js";
 import {
@@ -208,7 +208,7 @@ async function readCompletion(db: TursoDb): Promise<TagPrefixMigrationCompletion
 /**
  * Read the store-level completion marker from `<storePath>/metadata.db`.
  * Returns null when the store has not completed the tag prefix migration.
- * `storePath` must equal CONFIG.storagePath (the connection manager refuses
+ * `storePath` must equal getStoragePath() (the connection manager refuses
  * paths outside it).
  */
 export async function readTagPrefixMigrationCompletion(
@@ -425,13 +425,13 @@ async function createVerifiedBackup(storePath: string, targets: ShardTarget[]): 
 }
 
 /**
- * Run the one-time container tag prefix migration against CONFIG.storagePath.
+ * Run the one-time container tag prefix migration against getStoragePath().
  * See the module comment for the safety rules. Throws on any failure; a throw
  * leaves already-committed shards migrated (resume on the next run) and the
  * completion marker absent.
  */
 export async function runTagPrefixMigration(): Promise<TagPrefixMigrationResult> {
-  const storePath = CONFIG.storagePath;
+  const storePath = getStoragePath();
   if (!existsSync(storePath)) {
     mkdirSync(storePath, { recursive: true });
   }
@@ -546,7 +546,7 @@ export function explicitOpencodePrefixWarning(explicitPrefix: string | undefined
 export async function runStartupTagPrefixGate(): Promise<void> {
   if (process.env.OMMS_SKIP_TAG_PREFIX_MIGRATION === "1") return;
 
-  const completion = await readTagPrefixMigrationCompletion(CONFIG.storagePath);
+  const completion = await readTagPrefixMigrationCompletion(getStoragePath());
   if (!completion) {
     const report = await runTagPrefixMigration();
     log(`Tag prefix migration gate: ${report.status}`);

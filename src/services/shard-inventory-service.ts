@@ -1,6 +1,6 @@
 import { basename, join, normalize, resolve } from "node:path";
 import { existsSync, readdirSync } from "node:fs";
-import { CONFIG } from "../config.js";
+import { getContainerTagPrefix, getStoragePath } from "./active-space-access.js";
 import { assertSafeScopeHash, isValidScopeHash } from "./memory-scope.js";
 import { getProjectTagInfo } from "./tags.js";
 import { ensureTursoReady } from "./turso/ready.js";
@@ -88,7 +88,7 @@ export function normalizeProjectPath(path: string): string {
 }
 
 function listProjectShardDbPaths(): string[] {
-  const dir = join(CONFIG.storagePath, "projects");
+  const dir = join(getStoragePath(), "projects");
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
     .filter((file) => file.endsWith(".db") && !file.includes(".bak") && !file.includes(".tmp"))
@@ -288,7 +288,7 @@ export class ShardInventoryService {
         shardIndices: descriptors.map((shard) => shard.shardIndex),
         shards: descriptors,
         memoryCount,
-        containerTag: containerTag ?? `${CONFIG.containerTagPrefix}_project_${scopeHash}`,
+        containerTag: containerTag ?? `${getContainerTagPrefix()}_project_${scopeHash}`,
         projectPath,
         projectPathCandidates,
         projectName,
@@ -326,7 +326,7 @@ export class ShardInventoryService {
 
     return {
       success: true,
-      storagePath: CONFIG.storagePath,
+      storagePath: getStoragePath(),
       currentProject: {
         tag: current.tag,
         scopeHash: currentHash,

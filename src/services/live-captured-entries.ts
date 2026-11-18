@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { CONFIG } from "../config.js";
+import { getStoragePath } from "./active-space-access.js";
 import type { MemoryHost } from "../types/index.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { tursoShardManager } from "./turso/shard-manager.js";
@@ -13,7 +13,7 @@ export async function findLiveCapturedEntryIds(
   sessionId: string
 ): Promise<Set<string>> {
   const entries = new Set<string>();
-  if (!existsSync(join(CONFIG.storagePath, "metadata.db"))) return entries;
+  if (!existsSync(join(getStoragePath(), "metadata.db"))) return entries;
   const shards = await tursoShardManager.getAllShards("project", projectHash);
   for (const shard of shards) {
     const db = await tursoConnectionManager.getConnection(shard.dbPath);

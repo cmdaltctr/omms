@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { CONFIG } from "../config.js";
+import { getStoragePath } from "./active-space-access.js";
 import { HOSTS, type MemoryHost } from "../shared/hosts.js";
 import type { CaptureAttemptRecord } from "./capture-diagnostics.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
@@ -9,7 +9,7 @@ const prepared = new Set<string>();
 const preparing = new Map<string, Promise<void>>();
 
 async function database() {
-  const path = join(CONFIG.storagePath, "user-prompts.db");
+  const path = join(getStoragePath(), "user-prompts.db");
   const db = await tursoConnectionManager.getConnection(path);
   if (!prepared.has(path)) {
     let pending = preparing.get(path);

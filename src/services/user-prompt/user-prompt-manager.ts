@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { resettable, tursoConnectionManager } from "../turso/connection-manager.js";
-import { CONFIG } from "../../config.js";
+import { getStoragePath } from "../active-space-access.js";
 import type { InValue } from "@libsql/client";
 import type { TursoDb } from "../turso/turso-db.js";
 import { isTrivialPrompt } from "../../core/trivial-prompt.js";
@@ -32,13 +32,13 @@ export class UserPromptManager {
   private initPromise: Promise<void> | null = null;
 
   constructor() {
-    this.dbPath = join(CONFIG.storagePath, USER_PROMPTS_DB_NAME);
+    this.dbPath = join(getStoragePath(), USER_PROMPTS_DB_NAME);
   }
 
   reset(): void {
     this.db = null;
     this.initPromise = null;
-    this.dbPath = join(CONFIG.storagePath, USER_PROMPTS_DB_NAME);
+    this.dbPath = join(getStoragePath(), USER_PROMPTS_DB_NAME);
   }
 
   private async initialize(): Promise<void> {
@@ -48,7 +48,7 @@ export class UserPromptManager {
 
     this.initPromise = (async () => {
       try {
-        this.dbPath = join(CONFIG.storagePath, USER_PROMPTS_DB_NAME);
+        this.dbPath = join(getStoragePath(), USER_PROMPTS_DB_NAME);
         this.db = await tursoConnectionManager.getConnection(this.dbPath);
         await this.initDatabase();
       } catch (error) {
@@ -169,9 +169,8 @@ export class UserPromptManager {
     ]);
   }
 
-  async getLastUncapturedPrompt(sessionId: string): Promise<UserPrompt | null> {
+  async getLastUncapturedPrompt(sessionId: string, maxRetries: number): Promise<UserPrompt | null> {
     const db = await this.ready();
-    const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
     const row = await db.get(
       `
       SELECT * FROM user_prompts
@@ -184,9 +183,11 @@ export class UserPromptManager {
     return row ? this.rowToPrompt(row) : null;
   }
 
-  async getUncapturedPromptsForSession(sessionId: string): Promise<UserPrompt[]> {
+  async getUncapturedPromptsForSession(
+    sessionId: string,
+    maxRetries: number
+  ): Promise<UserPrompt[]> {
     const db = await this.ready();
-    const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
     const rows = await db.all(
       `
       SELECT * FROM user_prompts
@@ -233,9 +234,8 @@ export class UserPromptManager {
     return changes > 0;
   }
 
-  async countUncapturedPrompts(): Promise<number> {
+  async countUncapturedPrompts(maxRetries: number): Promise<number> {
     const db = await this.ready();
-    const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
     const row = await db.get(
       `SELECT COUNT(*) as count FROM user_prompts WHERE captured = 0 AND capture_attempts < ?`,
       [maxRetries]
@@ -243,9 +243,8 @@ export class UserPromptManager {
     return Number(row?.count ?? 0);
   }
 
-  async getUncapturedPrompts(limit: number): Promise<UserPrompt[]> {
+  async getUncapturedPrompts(limit: number, maxRetries: number): Promise<UserPrompt[]> {
     const db = await this.ready();
-    const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
     const rows = await db.all(
       `
       SELECT * FROM user_prompts

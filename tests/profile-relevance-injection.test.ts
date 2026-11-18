@@ -124,7 +124,7 @@ console.log("RESULT:" + JSON.stringify({ out, calls }));
 describe("profile block follows the prompt", () => {
   it("adds the item about the prompt and embeds the prompt once", () => {
     const { out, calls } = runScenario(
-      `out.text = await buildRetrievalSection("which package manager?", "/tmp/project", "s1");`
+      `out.text = await buildRetrievalSection("which package manager?", "/tmp/project", "s1", false);`
     );
     expect(out.text).toContain("Use bun as the package manager");
     // Half of two slots goes to relevance, the other keeps the top preference.
@@ -134,13 +134,15 @@ describe("profile block follows the prompt", () => {
   });
 
   it("passes keywordBoost to the shard search", () => {
-    const { calls } = runScenario(`await buildRetrievalSection("anything", "/tmp/project", "s1");`);
+    const { calls } = runScenario(
+      `await buildRetrievalSection("anything", "/tmp/project", "s1", false);`
+    );
     expect(calls.keywordBoost).toBe(0.15);
   });
 
   it("passes keywordMode rrf to the shard search", () => {
     const { calls } = runScenario(
-      `await buildRetrievalSection("anything", "/tmp/project", "s1");`,
+      `await buildRetrievalSection("anything", "/tmp/project", "s1", false);`,
       false,
       `keywordMode: "rrf",`
     );
@@ -149,7 +151,7 @@ describe("profile block follows the prompt", () => {
 
   it("uses the boost, not rrf, while the reranker is on", () => {
     const { calls } = runScenario(
-      `await buildRetrievalSection("anything", "/tmp/project", "s1");`,
+      `await buildRetrievalSection("anything", "/tmp/project", "s1", false);`,
       false,
       `keywordMode: "rrf", rerankerEnabled: true, rerankerApiUrl: "http://127.0.0.1:1", rerankerModel: "m", rerankerTimeoutMs: 500,`
     );
@@ -161,7 +163,7 @@ describe("profile block follows the prompt", () => {
 
   it("keeps today's block when the search fails", () => {
     const { out, calls } = runScenario(
-      `out.section = await buildRetrievalSection("which package manager?", "/tmp/project", "s1");
+      `out.section = await buildRetrievalSection("which package manager?", "/tmp/project", "s1", false);
        out.text = await formatContextForPrompt("user@example.com", { results: [{ id: "m1", memory: "A project memory", similarity: 0.9 }] });`,
       true
     );
@@ -184,7 +186,7 @@ describe("profile block follows the prompt", () => {
 
   it("logs counts, not the prompt", () => {
     const { calls } = runScenario(
-      `await buildRetrievalSection("secret-prompt-words about packages", "/tmp/project", "s1");`
+      `await buildRetrievalSection("secret-prompt-words about packages", "/tmp/project", "s1", false);`
     );
     const injectLog = calls.logs.find(([message]: [string]) => message === "profile inject");
     expect(injectLog[1].relevanceSlots.prefs).toBe(1);
@@ -194,7 +196,7 @@ describe("profile block follows the prompt", () => {
 
   it("logs no profile item text", () => {
     const { calls } = runScenario(
-      `await buildRetrievalSection("which package manager?", "/tmp/project", "s1");`
+      `await buildRetrievalSection("which package manager?", "/tmp/project", "s1", false);`
     );
     const injectLog = calls.logs.find(([message]: [string]) => message === "profile inject");
     expect(injectLog).toBeDefined();

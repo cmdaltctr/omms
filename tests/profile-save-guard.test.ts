@@ -100,7 +100,10 @@ describe("profile save guard", () => {
     ];
     const save = spyOn(userProfileManager, "updateProfile").mockResolvedValue(false);
     try {
-      const result = await handleRefreshProfile("test@example.invalid");
+      const result = await handleRefreshProfile(
+        await import("../src/config.js"),
+        "test@example.invalid"
+      );
       expect(result.success).toBe(true);
       expect(result.data.decayApplied).toBe(false);
       expect(save.mock.calls[0]![4]).toBe(40);
@@ -117,7 +120,7 @@ describe("profile save guard", () => {
     const reader = spyOn(userProfileManager, "getActiveProfile").mockResolvedValue(read as any);
     const save = spyOn(userProfileManager, "updateProfile").mockResolvedValue(false);
     try {
-      const result = await handleUpdateProfileItem({
+      const result = await handleUpdateProfileItem(await import("../src/config.js"), {
         type: "preferences",
         index: 0,
         action: "delete",

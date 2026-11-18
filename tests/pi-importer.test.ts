@@ -725,12 +725,12 @@ const report = await importPiHistory(
 const { executeMemoryOperation } = await import(${JSON.stringify(memoryOpsUrl)});
 const opencodeSearch = await executeMemoryOperation(
   { mode: "search", query: "usearch vector index" },
-  { directory: projectA, host: "opencode" }
+  { directory: projectA, host: "opencode", config: await import(${JSON.stringify(configUrl)}) }
 );
 
 // Pi side: before_agent_start retrieval over the same store.
 const { buildRetrievalSection } = await import(${JSON.stringify(retrievalUrl)});
-const piSection = await buildRetrievalSection("usearch vector index", projectA, "pi-live-session");
+const piSection = await buildRetrievalSection("usearch vector index", projectA, "pi-live-session", CONFIG.chatMessage.excludeCurrentSession);
 
 scenario = {
   imported: report.unitsImported,

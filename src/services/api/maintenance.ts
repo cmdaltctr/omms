@@ -1,6 +1,6 @@
 import { log } from "../logger.js";
 import { runTagMigrationBatch } from "../tag-migration.js";
-import { apiConfig, type ApiResponse } from "./shared.js";
+import type { ApiConfig, ApiResponse } from "./shared.js";
 
 export async function handleRunCleanup(): Promise<
   ApiResponse<{ deletedCount: number; userCount: number; projectCount: number }>
@@ -69,6 +69,6 @@ export async function handleRunMigration(strategy: "fresh-start" | "re-embed"): 
 export { handleDetectTagMigration, handleGetTagMigrationProgress } from "../tag-migration.js";
 
 /** Tags untagged memories with the memory model. The work lives in tag-migration.ts. */
-export async function handleRunTagMigrationBatch(batchSize: number = 5) {
-  return runTagMigrationBatch(apiConfig(), batchSize);
+export async function handleRunTagMigrationBatch(config: ApiConfig, batchSize: number = 5) {
+  return runTagMigrationBatch(config.CONFIG, batchSize);
 }

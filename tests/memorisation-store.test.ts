@@ -54,6 +54,7 @@ function toolTags(tag: string) {
 async function memorise(args: Record<string, unknown>, tag: string, hostSessionId?: string) {
   const { executeMemoryOperation } = await import("../src/core/memory-operations.js");
   return executeMemoryOperation({ mode: "memorise", ...args } as any, {
+    config: await import("../src/config.js"),
     directory: process.cwd(),
     host: "pi",
     hostSessionId,
@@ -63,7 +64,11 @@ async function memorise(args: Record<string, unknown>, tag: string, hostSessionI
 
 async function operation(args: Record<string, unknown>, tag: string) {
   const { executeMemoryOperation } = await import("../src/core/memory-operations.js");
-  return executeMemoryOperation(args as any, { directory: process.cwd(), tags: toolTags(tag) });
+  return executeMemoryOperation(args as any, {
+    config: await import("../src/config.js"),
+    directory: process.cwd(),
+    tags: toolTags(tag),
+  });
 }
 
 async function writeLinkedMemorisation(id: string, text: string, tag: string) {

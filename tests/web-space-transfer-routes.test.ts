@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import * as configModule from "../src/config.js";
 import { CONFIG, initConfig } from "../src/config.js";
 import { getOrCreateAuthToken } from "../src/services/auth-token.js";
 import {
@@ -128,7 +129,14 @@ const request = (path: string, body: unknown) =>
 
 type Result = SpaceTransferRouteResult | undefined;
 const call = async (path: string, body: unknown, deps?: SpaceTransferRouteDeps) =>
-  (await routeSpaceTransfers(path, "POST", request(path, body), project, deps)) as Result;
+  (await routeSpaceTransfers(
+    path,
+    "POST",
+    request(path, body),
+    project,
+    configModule,
+    deps
+  )) as Result;
 const data = (result: Result) => (result!.body as any).data;
 
 /** Drawn ids of the spaces the suite creates, kept by display name. */
@@ -528,6 +536,22 @@ describe("import routes", () => {
     expect(registryCount()).toBe(before);
   });
 
+  it("check reads the embedding model from the config module it is given, on every call", async () => {
+    const withModel = (embeddingModel: string) => ({ CONFIG: { ...CONFIG, embeddingModel } });
+    const run = async (module: { CONFIG: typeof CONFIG }) =>
+      data(
+        (await routeSpaceTransfers(
+          "/api/spaces/import/check",
+          "POST",
+          request("/api/spaces/import/check", { document: exportDocument() }),
+          project,
+          module
+        ))!
+      ).embedding.currentModel;
+    expect(await run(withModel("first-model"))).toBe("first-model");
+    expect(await run(withModel("second-model"))).toBe("second-model");
+  });
+
   it("check refuses an invalid document", async () => {
     const result = await call("/api/spaces/import/check", { document: { format: "wrong" } });
     expect(result!.status).toBe(400);
@@ -606,7 +630,7 @@ describe("links routes", () => {
     ]);
 
     const listed = await (
-      await routeSpaces("/api/spaces", "GET", async () => ({}), project)
+      await routeSpaces("/api/spaces", "GET", async () => ({}), project, configModule)
     )?.body.data.spaces;
     expect(listed.find((s: any) => s.id === spaceIds["Links One"]).links).toEqual([
       { id: spaceIds["Links Two"], name: "Links Two", available: true },
@@ -639,7 +663,7 @@ describe("links routes", () => {
   it("marks an archived linked space unavailable, then unlinks it", async () => {
     await archiveStoredSpace(files, spaceIds["Links Two"]!);
     const listed = await (
-      await routeSpaces("/api/spaces", "GET", async () => ({}), project)
+      await routeSpaces("/api/spaces", "GET", async () => ({}), project, configModule)
     )?.body.data.spaces;
     expect(listed.find((s: any) => s.id === spaceIds["Links One"]).links).toEqual([
       { id: spaceIds["Links Two"], name: "Links Two", available: false },

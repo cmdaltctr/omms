@@ -3,14 +3,17 @@ import type { UserProfileData } from "../user-profile/types.js";
 import { saveProfile } from "../user-profile/merge-and-save.js";
 import { sortProfileItems, stripProfileVectors } from "../../utils/profile.js";
 import { resolveWebProfileUserId } from "../profile-identity.js";
-import { apiConfig, safeToISOString, type ApiResponse } from "./shared.js";
+import { safeToISOString, type ApiConfig, type ApiResponse } from "./shared.js";
 
-export async function handleGetUserProfile(userId?: string): Promise<ApiResponse<any>> {
+export async function handleGetUserProfile(
+  config: ApiConfig,
+  userId?: string
+): Promise<ApiResponse<any>> {
   try {
     const { userProfileManager } = await import("../user-profile/user-profile-manager.js");
     let targetUserId = userId;
     if (!targetUserId) {
-      targetUserId = (await resolveWebProfileUserId(apiConfig())) || "unknown";
+      targetUserId = (await resolveWebProfileUserId(config.CONFIG)) || "unknown";
     }
     const profile = await userProfileManager.getActiveProfile(targetUserId);
     if (!profile)
@@ -92,13 +95,16 @@ export async function handleGetProfileSnapshot(changelogId: string): Promise<Api
   }
 }
 
-export async function handleRefreshProfile(userId?: string): Promise<ApiResponse<any>> {
+export async function handleRefreshProfile(
+  config: ApiConfig,
+  userId?: string
+): Promise<ApiResponse<any>> {
   try {
     const { userProfileManager } = await import("../user-profile/user-profile-manager.js");
     const { userPromptManager } = await import("../user-prompt/user-prompt-manager.js");
     let targetUserId = userId;
     if (!targetUserId) {
-      targetUserId = (await resolveWebProfileUserId(apiConfig())) || "unknown";
+      targetUserId = (await resolveWebProfileUserId(config.CONFIG)) || "unknown";
     }
     const profile = await userProfileManager.getActiveProfile(targetUserId);
     let decayApplied = false;
@@ -126,11 +132,14 @@ export async function handleRefreshProfile(userId?: string): Promise<ApiResponse
   }
 }
 
-export async function handleUpdateProfileItem(body?: any): Promise<ApiResponse<any>> {
+export async function handleUpdateProfileItem(
+  config: ApiConfig,
+  body?: any
+): Promise<ApiResponse<any>> {
   try {
     const { userProfileManager } = await import("../user-profile/user-profile-manager.js");
 
-    const userId = (await resolveWebProfileUserId(apiConfig())) || "unknown";
+    const userId = (await resolveWebProfileUserId(config.CONFIG)) || "unknown";
     if (!userId) return { success: false, error: "Unable to resolve user identity" };
 
     const profile = await userProfileManager.getActiveProfile(userId);

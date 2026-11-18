@@ -64,8 +64,8 @@ export class WebServer extends WebControl {
       serveStaticFile: (filename, contentType) => this.serveStaticFile(filename, contentType),
       backfillControls: () => this.backfillControls(),
       importJobs: this.importJobs,
-      webControl: (req, path, method, remoteAddress) =>
-        this.webControlRoute(req, path, method, remoteAddress),
+      webControl: async (req, path, method, remoteAddress) =>
+        this.webControlRoute(req, path, method, remoteAddress, await loadConfig()),
     };
   }
 

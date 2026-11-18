@@ -1,5 +1,6 @@
 import { Type } from "typebox";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import * as configModule from "../../config.js";
 import {
   CONFIG,
   initConfigWithLegacyMigration,
@@ -445,6 +446,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     }),
     async execute(_toolCallId, args, _signal, _onUpdate, ctx) {
       const result = await executeMemoryOperation(args as any, {
+        config: configModule,
         directory: ctx.cwd,
         host: "pi",
         hostSessionId: ctx.sessionManager.getSessionId(),

@@ -4,7 +4,7 @@ import {
   tursoConnectionManager,
   type TursoConnectionManager,
 } from "../turso/connection-manager.js";
-import { CONFIG } from "../../config.js";
+import { getProfileSettings, getStoragePath } from "../active-space-access.js";
 import type { EmbeddingService } from "../embedding.js";
 import { log } from "../logger.js";
 import type { UserProfile, UserProfileChangelog, UserProfileData } from "./types.js";
@@ -50,8 +50,8 @@ export class UserProfileManager {
     this.db = null;
     this.initPromise = null;
     this.dedupCheckedCache.clear();
-    this.dbPath = join(this.root ?? (CONFIG.storagePath || ""), USER_PROFILES_DB_NAME);
-    this.coldBufferPath = join(this.root ?? (CONFIG.storagePath || ""), "cold-buffer.json");
+    this.dbPath = join(this.root ?? (getStoragePath() || ""), USER_PROFILES_DB_NAME);
+    this.coldBufferPath = join(this.root ?? (getStoragePath() || ""), "cold-buffer.json");
     this.coldBuffers = loadColdBuffers(this.coldBufferPath);
   }
 
@@ -59,8 +59,8 @@ export class UserProfileManager {
     if (this.initPromise) return this.initPromise;
     this.initPromise = (async () => {
       try {
-        this.dbPath = join(this.root ?? (CONFIG.storagePath || ""), USER_PROFILES_DB_NAME);
-        this.coldBufferPath = join(this.root ?? (CONFIG.storagePath || ""), "cold-buffer.json");
+        this.dbPath = join(this.root ?? (getStoragePath() || ""), USER_PROFILES_DB_NAME);
+        this.coldBufferPath = join(this.root ?? (getStoragePath() || ""), "cold-buffer.json");
         this.db = await this.connections.getConnection(this.dbPath);
         await store.createProfileTables(this.db);
       } catch (error) {
@@ -97,7 +97,7 @@ export class UserProfileManager {
   /** The callbacks the merge, dedupe and evolve modules use. */
   private host(): ProfileHost {
     return {
-      config: CONFIG,
+      config: getProfileSettings(),
       dedupCheckedCache: this.dedupCheckedCache,
       getColdBuffer: (profileId) => this.getColdBuffer(profileId),
       saveColdBuffers: () => this.saveColdBuffers(),
@@ -152,7 +152,7 @@ export class UserProfileManager {
       additionalPromptsAnalyzed,
       changeSummary,
       expectedVersion,
-      CONFIG
+      getProfileSettings()
     );
   }
 
@@ -168,7 +168,7 @@ export class UserProfileManager {
   }
 
   decayInMemory(data: UserProfileData): { data: UserProfileData; hasChanges: boolean } {
-    return decayInMemory(data, CONFIG);
+    return decayInMemory(data, getProfileSettings());
   }
 
   async deleteProfile(profileId: string): Promise<void> {
@@ -201,7 +201,7 @@ export class UserProfileManager {
   }
 
   syncConfidence(item: any): void {
-    syncConfidence(item, CONFIG);
+    syncConfidence(item, getProfileSettings());
   }
 
   private async detectConflicts(items: any[], itemType: string, _profileId: string): Promise<void> {
@@ -209,11 +209,11 @@ export class UserProfileManager {
   }
 
   private async checkSemanticDuplicate(descA: string, descB: string): Promise<boolean> {
-    return checkSemanticDuplicate(descA, descB, CONFIG);
+    return checkSemanticDuplicate(descA, descB, getProfileSettings());
   }
 
   private async checkConflict(descA: string, descB: string): Promise<boolean> {
-    return checkConflict(descA, descB, CONFIG);
+    return checkConflict(descA, descB, getProfileSettings());
   }
 
   private async evolveDescription(
@@ -221,7 +221,7 @@ export class UserProfileManager {
     itemType: "preference" | "pattern" | "workflow",
     profileId?: string
   ): Promise<string | null> {
-    return evolveDescription(CONFIG, item, itemType, profileId);
+    return evolveDescription(getProfileSettings(), item, itemType, profileId);
   }
 
   async evolveAndUpdate(item: any, itemType: string, profileId?: string): Promise<void> {

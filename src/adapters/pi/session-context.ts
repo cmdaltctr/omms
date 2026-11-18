@@ -119,11 +119,18 @@ export function createPiSessionContext(rows: PiRecallRows): PiSessionContext {
             openingQuery,
             directory: ctx.cwd,
             sessionId,
+            excludeCurrentSession: CONFIG.chatMessage.excludeCurrentSession,
             budget,
             openingReserveBytes: SECTION_SEPARATOR_BYTES,
           }));
         } else {
-          const section = await buildRetrievalSection(prompt, ctx.cwd, sessionId, budget);
+          const section = await buildRetrievalSection(
+            prompt,
+            ctx.cwd,
+            sessionId,
+            CONFIG.chatMessage.excludeCurrentSession,
+            budget
+          );
           promptSection = section ? wrapRetrievalSection(section) : null;
         }
       }

@@ -2,7 +2,8 @@ import { describe, it, expect } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getProjectName } from "../src/services/tags.js";
+import { CONFIG } from "../src/config.js";
+import { getProjectName, getProjectTagInfo, getUserTagInfo } from "../src/services/tags.js";
 
 describe("tags", () => {
   describe("getProjectName", () => {
@@ -31,6 +32,41 @@ describe("tags", () => {
     it("should handle deeply nested path", () => {
       expect(getProjectName("/a/b/c/d/e/f/project")).toBe("project");
     });
+  });
+});
+
+describe("tag settings", () => {
+  // tags.ts reads its settings on each call (design D5a "S"); a reload must reach the next tag.
+  it("reads the prefix and the user overrides from the live config", () => {
+    const dir = mkdtempSync(join(tmpdir(), "omms-tag-settings-"));
+    const saved = {
+      prefix: CONFIG.containerTagPrefix,
+      email: CONFIG.userEmailOverride,
+      name: CONFIG.userNameOverride,
+    };
+    try {
+      CONFIG.containerTagPrefix = "first";
+      CONFIG.userEmailOverride = "a@example.com";
+      CONFIG.userNameOverride = "Name A";
+      const projectA = getProjectTagInfo(dir).tag;
+      const userA = getUserTagInfo(dir);
+      expect(projectA.startsWith("first_project_")).toBe(true);
+      expect(userA.userEmail).toBe("a@example.com");
+
+      CONFIG.containerTagPrefix = "second";
+      CONFIG.userEmailOverride = "b@example.com";
+      CONFIG.userNameOverride = "Name B";
+      const userB = getUserTagInfo(dir);
+      expect(getProjectTagInfo(dir).tag).toBe(projectA.replace("first_", "second_"));
+      expect(userB.tag.startsWith("second_user_")).toBe(true);
+      expect(userB.tag).not.toBe(userA.tag.replace("first_", "second_"));
+      expect([userB.userEmail, userB.userName]).toEqual(["b@example.com", "Name B"]);
+    } finally {
+      CONFIG.containerTagPrefix = saved.prefix;
+      CONFIG.userEmailOverride = saved.email;
+      CONFIG.userNameOverride = saved.name;
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

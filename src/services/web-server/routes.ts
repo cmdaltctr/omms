@@ -124,7 +124,7 @@ export async function routeRequest(
 
     if (path === "/api/user-profile/item" && method === "PATCH") {
       const body = (await req.json().catch(() => ({}))) as any;
-      const result = await handleUpdateProfileItem(body);
+      const result = await handleUpdateProfileItem(await web.loadConfig(), body);
       return jsonResponse(result);
     }
 

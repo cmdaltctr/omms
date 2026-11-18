@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import type { CONFIG } from "../config.js";
 import { HostAppearanceError, createHostAppearance } from "./host-appearance.js";
 
 type Appearance = ReturnType<typeof createHostAppearance>;
@@ -35,11 +36,17 @@ export async function routeMemoryHosts(
   method: string,
   url: URL,
   readBody: () => Promise<any>,
-  config: { storagePath: string; skillStoragePath?: string }
+  config: Pick<
+    typeof CONFIG,
+    "storagePath" | "skillStoragePath" | "embeddingApiKey" | "memoryApiKey"
+  >
 ): Promise<{ status: number; body: unknown } | undefined> {
   if (path === "/api/memory/write-health" && method === "GET") {
     const { checkWriteHealth } = await import("./write-health-checks.js");
-    return { status: 200, body: await checkWriteHealth(url.searchParams.get("fresh") === "1") };
+    return {
+      status: 200,
+      body: await checkWriteHealth(url.searchParams.get("fresh") === "1", config),
+    };
   }
 
   if (path === "/api/host-appearance" && method === "GET") {

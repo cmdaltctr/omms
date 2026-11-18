@@ -42,19 +42,19 @@ export async function routeProfileCleanup(
   if (path === "/api/user-profile/category-cleanup") {
     if (method === "POST") {
       const body = await readBody();
-      return categoryCleanup.handleCategoryCleanupStart(body.userId || undefined);
+      return categoryCleanup.handleCategoryCleanupStart(config, body.userId || undefined);
     }
-    if (method === "GET") return categoryCleanup.handleCategoryCleanupStatus(queryUser);
+    if (method === "GET") return categoryCleanup.handleCategoryCleanupStatus(config, queryUser);
   }
 
   if (path === "/api/user-profile/category-cleanup/apply" && method === "POST") {
     const body = await readBody();
-    return categoryCleanup.handleCategoryCleanupApply(body.userId || undefined, body);
+    return categoryCleanup.handleCategoryCleanupApply(config, body.userId || undefined, body);
   }
 
   if (path === "/api/user-profile/category-cleanup/undo" && method === "POST") {
     const body = await readBody();
-    return categoryCleanup.handleCategoryCleanupUndo(body.userId || undefined);
+    return categoryCleanup.handleCategoryCleanupUndo(config, body.userId || undefined);
   }
 
   return undefined;

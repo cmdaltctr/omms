@@ -172,7 +172,7 @@ export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promis
       `${options.host} automatic import: ${current.pending} exchanges with ${model}. Set autoBackfill to false to stop it.`
     );
     state = "running";
-    await updateBackfillStatus(options.host, { state, model, counts: current });
+    await updateBackfillStatus(options.host, { state, model, counts: current }, CONFIG);
     if (controller.signal.aborted) {
       state = "stopped";
       return;
@@ -223,7 +223,11 @@ export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promis
           current = { ...current, pending: Math.max(0, dry.unitsWouldImport - processed) };
           pendingWrite = pendingWrite
             .then(() =>
-              updateBackfillStatus(options.host, { state: "running", model, counts: current })
+              updateBackfillStatus(
+                options.host,
+                { state: "running", model, counts: current },
+                CONFIG
+              )
             )
             .catch((error: unknown) => {
               log(
@@ -253,7 +257,11 @@ export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promis
     state = controller.signal.aborted ? "stopped" : "failed";
   } finally {
     try {
-      await updateBackfillStatus(options.host, { state, model, counts: current, error: lastError });
+      await updateBackfillStatus(
+        options.host,
+        { state, model, counts: current, error: lastError },
+        CONFIG
+      );
     } finally {
       options.signal?.removeEventListener("abort", onAbort);
       await release();

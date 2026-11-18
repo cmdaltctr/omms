@@ -7,7 +7,7 @@ import type {
   AIMessage,
 } from "./session-types.js";
 import { resettable, tursoConnectionManager } from "../../turso/connection-manager.js";
-import { CONFIG } from "../../../config.js";
+import { getAiSessionRetentionDays, getStoragePath } from "../../active-space-access.js";
 import type { InValue } from "@libsql/client";
 import type { TursoDb } from "../../turso/turso-db.js";
 
@@ -16,18 +16,16 @@ const AI_SESSIONS_DB_NAME = "ai-sessions.db";
 export class AISessionManager {
   private db: TursoDb | null = null;
   private dbPath: string;
-  private readonly sessionRetentionMs: number;
   private initPromise: Promise<void> | null = null;
 
   constructor() {
-    this.dbPath = join(CONFIG.storagePath, AI_SESSIONS_DB_NAME);
-    this.sessionRetentionMs = CONFIG.aiSessionRetentionDays * 24 * 60 * 60 * 1000;
+    this.dbPath = join(getStoragePath(), AI_SESSIONS_DB_NAME);
   }
 
   reset(): void {
     this.db = null;
     this.initPromise = null;
-    this.dbPath = join(CONFIG.storagePath, AI_SESSIONS_DB_NAME);
+    this.dbPath = join(getStoragePath(), AI_SESSIONS_DB_NAME);
   }
 
   private async initialize(): Promise<void> {
@@ -35,7 +33,7 @@ export class AISessionManager {
       return this.initPromise;
     }
 
-    this.dbPath = join(CONFIG.storagePath, AI_SESSIONS_DB_NAME);
+    this.dbPath = join(getStoragePath(), AI_SESSIONS_DB_NAME);
 
     this.initPromise = (async () => {
       try {
@@ -137,7 +135,7 @@ export class AISessionManager {
     const db = await this.ready();
     const id = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     const now = Date.now();
-    const expiresAt = now + this.sessionRetentionMs;
+    const expiresAt = now + getAiSessionRetentionDays() * 24 * 60 * 60 * 1000;
 
     await db.run(
       `

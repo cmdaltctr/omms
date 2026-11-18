@@ -1,4 +1,5 @@
 import type { Context } from "@opencode/plugin/promise/plugin";
+import * as configModule from "../config.js";
 import { SKILLS_TOOL_DESCRIPTION, SKILLS_TOOL_INPUT_SCHEMA } from "../core/skills-tool.js";
 import { memoryToolDescription } from "../core/memory-tool-text.js";
 import type { MemoryOperationContext } from "../core/memory-operations.js";
@@ -80,7 +81,8 @@ export function createOpencodeTools(
   return {
     memory: {
       description: memoryToolDescription(languageName),
-      execute: (args, call) => runOpencodeMemoryTool(args, base, call.sessionID),
+      execute: (args, call) =>
+        runOpencodeMemoryTool(args, { ...base, config: configModule }, call.sessionID),
     },
     skills: {
       description: SKILLS_TOOL_DESCRIPTION,

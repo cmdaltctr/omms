@@ -453,7 +453,7 @@ candidates = [
       `
 ${CANDIDATES}
 const { buildRetrievalSection } = await import(${JSON.stringify(retrievalUrl)});
-captured = await buildRetrievalSection("queue?", "/repo", "ses-1");
+captured = await buildRetrievalSection("queue?", "/repo", "ses-1", true);
 `,
       { configExtra: RERANKER_ON }
     );
@@ -469,7 +469,7 @@ captured = await buildRetrievalSection("queue?", "/repo", "ses-1");
       `
 ${CANDIDATES}
 const { executeMemoryOperation } = await import(${JSON.stringify(memoryOperationsUrl)});
-captured = await executeMemoryOperation({ mode: "search", query: "queue?" }, { directory: "/repo" });
+captured = await executeMemoryOperation({ mode: "search", query: "queue?" }, { directory: "/repo", config: await import(${JSON.stringify(configUrl)}) });
 `,
       { configExtra: RERANKER_ON }
     );

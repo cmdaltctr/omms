@@ -70,7 +70,7 @@ describe("settings API", () => {
       await getBackfillCutoff("pi", 123);
       await updateBackfillStatus("pi", { state: "failed", model: "zai/model",
         counts: { imported: 1, skipped: 2, failed: 3, pending: 4, unresolved: 5 },
-        error: new Error("api_key=private-test-value") });
+        error: new Error("api_key=private-test-value") }, CONFIG);
       const backfill = await send("/api/settings/backfill");
       const login = await send("/api/settings/web-autostart");
       return { empty, untouched, status: backfill.status, rows: await backfill.json(),
@@ -119,7 +119,7 @@ describe("settings API", () => {
       const state = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/backfill-state.ts")).href)});
       await state.getBackfillCutoff("pi", 1);
       await state.updateBackfillStatus("pi", { state: "done", model: null,
-        counts: { imported: 0, skipped: 0, failed: 0, pending: 0, unresolved: 10 } });
+        counts: { imported: 0, skipped: 0, failed: 0, pending: 0, unresolved: 10 } }, CONFIG);
       await state.recordUnresolvedDirectories("pi", [
         { directory: "/x/scratch", sessions: 6 },
         { directory: "/x/kept", sessions: 2 },

@@ -9,8 +9,6 @@ import type { SkillRouteContext } from "./skill-routes.js";
 import { routeSpaceTransfers } from "./space-transfer-routes.js";
 import { routeSpaces } from "./space-routes.js";
 
-export { spaceStatus } from "./space-routes.js";
-
 /** A route result; `response` overrides the JSON envelope (the export download). */
 export type RouteModuleResult = RouteResult & { response?: Response };
 
@@ -59,10 +57,10 @@ export async function routeModules(
     return routeSkills(path, method, url, readBody, ctx);
   }
 
-  const transfers = await routeSpaceTransfers(path, method, req, ctx.cwd);
+  const transfers = await routeSpaceTransfers(path, method, req, ctx.cwd, configModule);
   if (transfers !== undefined) return transfers;
 
-  const spaces = await routeSpaces(path, method, readBody, ctx.cwd, {
+  const spaces = await routeSpaces(path, method, readBody, ctx.cwd, configModule, {
     remoteAddress: ctx.remoteAddress,
   });
   if (spaces !== undefined) return spaces;

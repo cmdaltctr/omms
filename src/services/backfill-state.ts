@@ -1,12 +1,13 @@
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { CONFIG } from "../config.js";
+import type { CONFIG } from "../config.js";
+import { getStoragePath } from "./active-space-access.js";
 import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { safeHealthError } from "./safe-health-error.js";
 import type { MemoryHost } from "../shared/hosts.js";
 
 type BackfillHost = MemoryHost;
-const importLedgerDbPath = () => join(CONFIG.storagePath, "import-ledger.db");
+const importLedgerDbPath = () => join(getStoragePath(), "import-ledger.db");
 
 export type BackfillStatus = {
   host: BackfillHost;
@@ -203,7 +204,8 @@ export async function readUnresolvedDirectories(
 /** Save only numeric counts and a redacted error, never report units or prompts. */
 export async function updateBackfillStatus(
   host: BackfillHost,
-  update: Pick<BackfillStatus, "state" | "model" | "counts"> & { error?: unknown }
+  update: Pick<BackfillStatus, "state" | "model" | "counts"> & { error?: unknown },
+  config: Pick<typeof CONFIG, "memoryApiKey">
 ): Promise<void> {
   const counts = Object.fromEntries(
     (Object.keys(emptyCounts()) as Array<keyof BackfillStatus["counts"]>).map((key) => [
@@ -220,7 +222,7 @@ export async function updateBackfillStatus(
       JSON.stringify(counts),
       update.error == null
         ? null
-        : safeHealthError(update.error, [CONFIG.memoryApiKey]).slice(0, 500),
+        : safeHealthError(update.error, [config.memoryApiKey]).slice(0, 500),
       Date.now(),
       host,
     ]

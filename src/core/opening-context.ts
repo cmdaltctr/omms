@@ -35,6 +35,8 @@ export interface FirstPromptSectionsInput {
   openingQuery: string | null;
   directory: string;
   sessionId: string;
+  /** `CONFIG.chatMessage.excludeCurrentSession`, read by the host before the call. */
+  excludeCurrentSession: boolean | undefined;
   /**
    * The request budget, as `buildRetrievalSection` takes it. `wrapperBytes` is
    * what the host adds around each section, the retrieval tag included; it
@@ -64,9 +66,19 @@ export async function buildFirstPromptSections(
 
   const tags = getTags(input.directory);
   const [promptSearch, openingSearch] = await Promise.all([
-    searchSectionMemories(promptQuery, tags.project.tag, input.sessionId),
+    searchSectionMemories(
+      promptQuery,
+      tags.project.tag,
+      input.sessionId,
+      input.excludeCurrentSession
+    ),
     input.openingQuery
-      ? searchSectionMemories(input.openingQuery, tags.project.tag, input.sessionId)
+      ? searchSectionMemories(
+          input.openingQuery,
+          tags.project.tag,
+          input.sessionId,
+          input.excludeCurrentSession
+        )
       : null,
   ]);
 

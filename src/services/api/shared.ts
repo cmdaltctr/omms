@@ -1,5 +1,4 @@
 import { extractScopeFromContainerTag } from "../memory-scope.js";
-import { CONFIG } from "../../config.js";
 import {
   ensureTursoReady,
   tursoConnectionManager,
@@ -8,10 +7,8 @@ import {
   type ShardInfo,
 } from "./shards.js";
 
-/** The one place the API handlers read CONFIG. Groups pass it on as an argument. */
-export function apiConfig(): typeof CONFIG {
-  return CONFIG;
-}
+/** The live config module. The route host passes it in; handlers read `.CONFIG` at call time. */
+export type ApiConfig = Pick<typeof import("../../config.js"), "CONFIG">;
 
 export async function getAllMemoryShards(): Promise<ShardInfo[]> {
   await ensureTursoReady();

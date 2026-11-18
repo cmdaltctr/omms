@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CONFIG } from "../config.js";
+import { getEmbeddingDimensions, getEmbeddingModel } from "./active-space-access.js";
 import {
   MemoryExportDocumentSchema,
   PORTABILITY_SCHEMA_VERSION,
@@ -152,8 +152,8 @@ export class MemoryPortabilityService {
         gitRepoUrl: project.gitRepoUrl,
       },
       embedding: {
-        model: CONFIG.embeddingModel,
-        dimensions: CONFIG.embeddingDimensions,
+        model: getEmbeddingModel(),
+        dimensions: getEmbeddingDimensions(),
       },
       memories,
     };

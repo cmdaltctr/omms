@@ -210,7 +210,7 @@ const profile = await userProfileManager.getActiveProfile(getTags(project).user.
 const rerun = await importPiHistory(deps, filters);
 console.log("RESULT:" + JSON.stringify({ preview: preview.profile,
   storeAfterPreview, imported: imported.profile, hasProfile: Boolean(profile),
-  rerun: rerun.profile, uncaptured: await userPromptManager.countUncapturedPrompts() }));
+  rerun: rerun.profile, uncaptured: await userPromptManager.countUncapturedPrompts(3) }));
 `;
     const scriptPath = join(base, "scenario.mjs");
     writeFileSync(scriptPath, script + rest);

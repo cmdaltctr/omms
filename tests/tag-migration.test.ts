@@ -67,8 +67,8 @@ it("tags only untagged memories, keeps tagged vectors, and moves past a failure"
   })) as unknown as typeof originalCreate;
   try {
     expect((await handleDetectTagMigration()).data).toEqual({ needsMigration: true, count: 3 });
-    const first = await handleRunTagMigrationBatch(1);
-    const second = await handleRunTagMigrationBatch(2);
+    const first = await handleRunTagMigrationBatch(await import("../src/config.js"), 1);
+    const second = await handleRunTagMigrationBatch(await import("../src/config.js"), 2);
     // Each batch reports how many memories gained tags and how many failed, with the first error.
     expect(first.data).toEqual({
       processed: 1,
@@ -102,7 +102,7 @@ it("tags only untagged memories, keeps tagged vectors, and moves past a failure"
     expect(embedded.some((text) => text.includes("untagged-ok"))).toBe(true);
 
     // A later run starts over with only what is still untagged.
-    const retry = await handleRunTagMigrationBatch(5);
+    const retry = await handleRunTagMigrationBatch(await import("../src/config.js"), 5);
     expect(retry.data).toMatchObject({ processed: 2, total: 2, hasMore: false, failed: 2 });
   } finally {
     embeddingService.embedWithTimeout = originalEmbed;
@@ -158,7 +158,7 @@ it("stops at the first no-credit error, says why, and starts over on the next ru
     },
   })) as unknown as typeof originalCreate;
   try {
-    const run = await handleRunTagMigrationBatch(5);
+    const run = await handleRunTagMigrationBatch(await import("../src/config.js"), 5);
     // One call is enough: every other memory would fail the same way.
     expect(calls).toBe(1);
     expect(run.data).toMatchObject({
@@ -173,7 +173,7 @@ it("stops at the first no-credit error, says why, and starts over on the next ru
     expect(run.data?.error).not.toContain("sk-secret-key-123");
 
     // The next run (after a top-up) covers all three memories again.
-    const again = await handleRunTagMigrationBatch(5);
+    const again = await handleRunTagMigrationBatch(await import("../src/config.js"), 5);
     expect(again.data).toMatchObject({ total: 3, errorKind: "no_credit" });
   } finally {
     AIProviderFactory.createProvider = originalCreate;

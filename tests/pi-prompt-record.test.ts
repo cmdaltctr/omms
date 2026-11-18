@@ -91,7 +91,7 @@ describe("recordPiPrompt", () => {
       { messageId: "u-1", content: "use bun not npm [REDACTED]", captured: 1, learned: 0 },
     ]);
     // Captured: no host's capture takes it. Waiting: the next learning pass reads it.
-    expect(await userPromptManager.getLastUncapturedPrompt("pi-s1")).toBeNull();
+    expect(await userPromptManager.getLastUncapturedPrompt("pi-s1", 3)).toBeNull();
     const waiting = await userPromptManager.getPromptsForUserLearning(10);
     expect(waiting.map((prompt) => prompt.content)).toContain("use bun not npm [REDACTED]");
     expect(JSON.stringify(waiting)).not.toContain("token");

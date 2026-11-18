@@ -578,7 +578,7 @@ describe("one shared allowance across sections", () => {
 describe("budget option propagation", () => {
   it("forwards a budget through buildRetrievalSection", () => {
     const output = runScenario(
-      `out.section = await buildRetrievalSection("query?", "/repo", "ses-1", { maxBytes: 1200 });`,
+      `out.section = await buildRetrievalSection("query?", "/repo", "ses-1", true, { maxBytes: 1200 });`,
       {
         searchResults: Array.from({ length: 8 }, () => ({
           similarity: 0.9,

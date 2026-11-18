@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { CONFIG } from "../../config.js";
+import { getStoragePath } from "../active-space-access.js";
 import { tursoConnectionManager } from "../turso/connection-manager.js";
 import type { TursoDb } from "../turso/turso-db.js";
 import { USER_PROFILES_DB_NAME } from "./user-profile-manager.js";
@@ -11,7 +11,7 @@ import type { CategoryRename } from "./category-groups.js";
  */
 async function connection(): Promise<TursoDb> {
   const db = await tursoConnectionManager.getConnection(
-    join(CONFIG.storagePath || "", USER_PROFILES_DB_NAME)
+    join(getStoragePath() || "", USER_PROFILES_DB_NAME)
   );
   await db.execute(`CREATE TABLE IF NOT EXISTS profile_category_cleanups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

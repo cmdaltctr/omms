@@ -7,7 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
-import { CONFIG } from "../config.js";
+import { getContainerTagPrefix, getStoragePath } from "./active-space-access.js";
 import { extractScopeFromContainerTag } from "./memory-scope.js";
 import { getProjectTagInfo } from "./tags.js";
 import { ensureTursoReady } from "./turso/ready.js";
@@ -81,7 +81,7 @@ interface PathMigrateSwapState {
 }
 
 function swapStatePath(): string {
-  return join(CONFIG.storagePath, ".path-migrate-swap.json");
+  return join(getStoragePath(), ".path-migrate-swap.json");
 }
 
 function writeSwapState(path: string, state: PathMigrateSwapState): void {
@@ -89,7 +89,7 @@ function writeSwapState(path: string, state: PathMigrateSwapState): void {
 }
 
 function assertRecoveryPathInsideStorage(path: string): void {
-  const rel = relative(resolve(CONFIG.storagePath), resolve(path));
+  const rel = relative(resolve(getStoragePath()), resolve(path));
   if (rel === "" || rel.startsWith("..") || rel.includes("\0")) {
     throw new Error(`Path-migrate recovery path escapes storage: ${path}`);
   }
@@ -199,7 +199,7 @@ export class ShardPathMigrationService {
     }
 
     const oldContainerTag =
-      source.group.containerTag ?? `${CONFIG.containerTagPrefix}_project_${oldHash}`;
+      source.group.containerTag ?? `${getContainerTagPrefix()}_project_${oldHash}`;
     const nonce = `${process.pid}-${Date.now()}`;
     const moves: ShardMove[] = sourceShards.map((shard) => {
       const newPath = tursoShardManager.getShardPath("project", newHash, shard.shardIndex);

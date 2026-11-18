@@ -177,7 +177,7 @@ export async function routeMemoryApi(
   if (path === "/api/migration/tags/run-batch" && method === "POST") {
     const body = (await req.json()) as any;
     const batchSize = body?.batchSize || 5;
-    const result = await handleRunTagMigrationBatch(batchSize);
+    const result = await handleRunTagMigrationBatch(await web.loadConfig(), batchSize);
     return jsonResponse(result);
   }
 
@@ -216,7 +216,7 @@ export async function routeMemoryApi(
 
   if (path === "/api/user-profile" && method === "GET") {
     const userId = url.searchParams.get("userId") || undefined;
-    const result = await handleGetUserProfile(userId);
+    const result = await handleGetUserProfile(await web.loadConfig(), userId);
     return jsonResponse(result);
   }
 
@@ -242,7 +242,7 @@ export async function routeMemoryApi(
   if (path === "/api/user-profile/refresh" && method === "POST") {
     const body = (await req.json().catch(() => ({}))) as any;
     const userId = body.userId || undefined;
-    const result = await handleRefreshProfile(userId);
+    const result = await handleRefreshProfile(await web.loadConfig(), userId);
     return jsonResponse(result);
   }
   return null;

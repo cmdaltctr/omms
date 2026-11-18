@@ -461,7 +461,7 @@ scenario = (await ask()).additionalContext;
     const scenario = await createHarness({ ...EXTERNAL_API, openingContextQuery: "project setup" })
       .run(`${OPENING_SETUP}
 const { buildRetrievalSection, retrievalWrapperBytes, wrapRetrievalSection } = await import(${JSON.stringify(moduleUrl("src/core/retrieval.js"))});
-const section = await buildRetrievalSection(PROMPT, projectDir, "ses-1", {
+const section = await buildRetrievalSection(PROMPT, projectDir, "ses-1", config.CONFIG.chatMessage.excludeCurrentSession, {
   maxBytes: config.CONFIG.retrievalMaxTokens * 4, wrapperBytes: retrievalWrapperBytes(),
 });
 scenario = { answer: (await ask()).additionalContext, expected: wrapRetrievalSection(section), searched: searched.filter((q) => q === "project setup").length };

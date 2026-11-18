@@ -59,6 +59,7 @@ async function operation(
 ): Promise<any> {
   const { executeMemoryOperation } = await import("../src/core/memory-operations.js");
   return executeMemoryOperation(args as any, {
+    config: await import("../src/config.js"),
     directory: project.directory,
     host: "pi",
     hostSessionId,

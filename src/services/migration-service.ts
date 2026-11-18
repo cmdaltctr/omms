@@ -4,7 +4,7 @@ import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { tursoVectorSearch } from "./turso/vector-search.js";
 import { ensureTursoReady } from "./turso/ready.js";
 import { embeddingService } from "./embedding.js";
-import { CONFIG } from "../config.js";
+import { getEmbeddingDimensions, getEmbeddingModel } from "./active-space-access.js";
 import { log } from "./logger.js";
 import { formatTagsForEmbedding } from "./turso/vector-utils.js";
 import type { MemoryRecord, ShardInfo } from "./turso/types.js";
@@ -68,8 +68,8 @@ export class MigrationService {
 
         // An old shard with no known model is flagged only on size, so an upgrade does not force a re-embed.
         const knownModel = !["", "unknown", "legacy-unknown"].includes(storedModel);
-        const modelChanged = knownModel && storedModel !== CONFIG.embeddingModel;
-        if (storedDimensions !== CONFIG.embeddingDimensions || modelChanged) {
+        const modelChanged = knownModel && storedModel !== getEmbeddingModel();
+        if (storedDimensions !== getEmbeddingDimensions() || modelChanged) {
           const vectorCount = await tursoVectorSearch.countAllVectors(db);
           mismatches.push({
             shardId: shard.id,
@@ -93,8 +93,8 @@ export class MigrationService {
 
     return {
       needsMigration: mismatches.length > 0,
-      configDimensions: CONFIG.embeddingDimensions,
-      configModel: CONFIG.embeddingModel,
+      configDimensions: getEmbeddingDimensions(),
+      configModel: getEmbeddingModel(),
       shardMismatches: mismatches,
     };
   }
@@ -398,8 +398,8 @@ export class MigrationService {
   getStatus() {
     return {
       isRunning: this.isRunning,
-      configModel: CONFIG.embeddingModel,
-      configDimensions: CONFIG.embeddingDimensions,
+      configModel: getEmbeddingModel(),
+      configDimensions: getEmbeddingDimensions(),
     };
   }
 }

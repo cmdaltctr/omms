@@ -132,7 +132,7 @@ describe("memorisation maintenance", () => {
       const { handleDetectTagMigration, handleRunTagMigrationBatch } =
         await import("../src/services/api-handlers.js");
       expect((await handleDetectTagMigration()).data).toEqual({ needsMigration: true, count: 1 });
-      expect((await handleRunTagMigrationBatch(5)).data).toEqual({
+      expect((await handleRunTagMigrationBatch(await import("../src/config.js"), 5)).data).toEqual({
         processed: 1,
         total: 1,
         hasMore: false,

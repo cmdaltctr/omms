@@ -71,10 +71,13 @@ it("tags every memory when batch requests overlap", async () => {
   });
   try {
     const { handleRunTagMigrationBatch } = await import("../src/services/api-handlers.js");
-    await handleRunTagMigrationBatch(1);
+    await handleRunTagMigrationBatch(await import("../src/config.js"), 1);
     // Two callers (two open tabs) ask for the next batch at the same time.
-    await Promise.all([handleRunTagMigrationBatch(1), handleRunTagMigrationBatch(1)]);
-    const last = await handleRunTagMigrationBatch(1);
+    await Promise.all([
+      handleRunTagMigrationBatch(await import("../src/config.js"), 1),
+      handleRunTagMigrationBatch(await import("../src/config.js"), 1),
+    ]);
+    const last = await handleRunTagMigrationBatch(await import("../src/config.js"), 1);
     expect(last.data).toMatchObject({ processed: 4, total: 4, hasMore: false, tagged: 4 });
     const rows = await db.all("SELECT id FROM memories WHERE tags IS NULL OR tags = ''");
     expect(rows).toEqual([]);
@@ -95,7 +98,7 @@ it("reports the no-credit error that stopped the run, after an earlier failure",
   );
   try {
     const { handleRunTagMigrationBatch } = await import("../src/services/api-handlers.js");
-    const run = await handleRunTagMigrationBatch(5);
+    const run = await handleRunTagMigrationBatch(await import("../src/config.js"), 5);
     expect(run.data).toMatchObject({
       processed: 2,
       hasMore: false,
@@ -115,7 +118,7 @@ it("never returns a short API key in the error", async () => {
   }));
   try {
     const { handleRunTagMigrationBatch } = await import("../src/services/api-handlers.js");
-    const run = await handleRunTagMigrationBatch(5);
+    const run = await handleRunTagMigrationBatch(await import("../src/config.js"), 5);
     expect(run.data?.errorKind).toBe("auth");
     expect(run.data?.error).not.toContain("k3y");
   } finally {
@@ -128,7 +131,9 @@ it("forgets a half-done run when the memory space changes", async () => {
   try {
     const { handleRunTagMigrationBatch, handleGetTagMigrationProgress } =
       await import("../src/services/api-handlers.js");
-    expect((await handleRunTagMigrationBatch(1)).data).toMatchObject({ processed: 1, total: 3 });
+    expect(
+      (await handleRunTagMigrationBatch(await import("../src/config.js"), 1)).data
+    ).toMatchObject({ processed: 1, total: 3 });
     const { resetStoreHandles } = await import("../src/services/spaces/store-handles.js");
     await resetStoreHandles();
     expect((await handleGetTagMigrationProgress()).data).toMatchObject({

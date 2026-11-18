@@ -49,7 +49,8 @@ export async function performAutoCapture(
   isCaptureRunning = true;
 
   try {
-    const prompts = await userPromptManager.getUncapturedPromptsForSession(sessionID);
+    const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
+    const prompts = await userPromptManager.getUncapturedPromptsForSession(sessionID, maxRetries);
     if (prompts.length === 0) return;
     const recorder = skillTurnRecorder(directory);
     // Skill learning records turns even when memory capture is off (ADR-036).
@@ -62,7 +63,6 @@ export async function performAutoCapture(
       return;
     }
 
-    const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
     for (const prompt of prompts) {
       await capturePrompt(host, sessionID, directory, prompt, maxRetries, recorder);
     }

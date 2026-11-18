@@ -4,7 +4,7 @@ import { packageVersion } from "../package-version.js";
 import { isOlderVersion } from "../version-compare.js";
 import { isLoopbackAddress } from "../web-api-auth.js";
 import type { UpdateStatus, WebUpdate } from "../web-update.js";
-import { spaceStatus } from "../web-route-modules.js";
+import { spaceStatus, type SpaceConfig } from "../space-routes.js";
 import { PortOwnership } from "./port-ownership.js";
 import { jsonResponse } from "./static-files.js";
 
@@ -164,7 +164,8 @@ export abstract class WebControl extends PortOwnership {
     req: Request,
     path: string,
     method: string,
-    remoteAddress: string | undefined
+    remoteAddress: string | undefined,
+    configModule: SpaceConfig
   ): Promise<Response | null> {
     // The page shows the power button only when this says the caller may control the web app.
     if (path === "/api/web/status" && method === "GET") {
@@ -175,7 +176,7 @@ export abstract class WebControl extends PortOwnership {
         isLocal: isLoopbackAddress(remoteAddress),
         instance: PROCESS_INSTANCE,
         update: this.webUpdate?.status() ?? NO_UPDATE,
-        activeSpace: spaceStatus(this.config.directory ?? process.cwd()),
+        activeSpace: spaceStatus(configModule, this.config.directory ?? process.cwd()),
       });
     }
 

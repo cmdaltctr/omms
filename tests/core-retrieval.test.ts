@@ -62,6 +62,7 @@ mock.module(${JSON.stringify(contextServiceUrl)}, () => ({
 }));
 
 const { buildRetrievalSection } = await import(${JSON.stringify(retrievalUrl)});
+const EXCLUDE = ${excludeCurrentSession};
 let captured;
 ${code}
 console.log(JSON.stringify({ captured, searchQueries, formatted }));
@@ -78,14 +79,16 @@ console.log(JSON.stringify({ captured, searchQueries, formatted }));
 
 describe("shared retrieval", () => {
   it("skips the search for an empty prompt", () => {
-    const output = runScenario(`captured = await buildRetrievalSection("   ", "/repo", "ses-1");`);
+    const output = runScenario(
+      `captured = await buildRetrievalSection("   ", "/repo", "ses-1", EXCLUDE);`
+    );
     expect(output.captured).toBeNull();
     expect(output.searchQueries).toEqual([]);
   });
 
   it("returns null when nothing relevant is found", () => {
     const output = runScenario(
-      `captured = await buildRetrievalSection("queue?", "/repo", "ses-1");`
+      `captured = await buildRetrievalSection("queue?", "/repo", "ses-1", EXCLUDE);`
     );
     expect(output.captured).toBeNull();
     expect(output.searchQueries).toEqual([["queue?", "omms_project_test"]]);
@@ -98,7 +101,7 @@ results = [
   { id: "own", memory: "from this session", similarity: 0.9, metadata: { sessionID: "ses-1" } },
   { id: "other", memory: "from another session", similarity: 0.8, metadata: { sessionID: "ses-2" } },
 ];
-captured = await buildRetrievalSection("queue?", "/repo", "ses-1");
+captured = await buildRetrievalSection("queue?", "/repo", "ses-1", EXCLUDE);
 `);
     expect(output.captured).toBe("<memory_context>from another session</memory_context>");
     expect(output.formatted).toEqual([["user@example.com", ["other"]]]);
@@ -110,7 +113,7 @@ captured = await buildRetrievalSection("queue?", "/repo", "ses-1");
 results = [
   { id: "own", memory: "from this session", similarity: 0.9, metadata: { sessionID: "ses-1" } },
 ];
-captured = await buildRetrievalSection("queue?", "/repo", "ses-1");
+captured = await buildRetrievalSection("queue?", "/repo", "ses-1", EXCLUDE);
 `,
       false
     );

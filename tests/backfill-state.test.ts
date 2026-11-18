@@ -34,12 +34,16 @@ it("stores each host's cutoff once and persists only bounded status metadata", a
   expect(await getBackfillCutoff("pi", 100)).toBe(100);
   expect(await getBackfillCutoff("pi", 200)).toBe(100);
   expect(await getBackfillCutoff("opencode", 300)).toBe(300);
-  await updateBackfillStatus("pi", {
-    state: "failed",
-    model: "zai/glm-5-turbo",
-    counts: { imported: 2, skipped: 1, failed: 1, pending: 3, unresolved: 4 },
-    error: new Error("api_key=secret-token"),
-  });
+  await updateBackfillStatus(
+    "pi",
+    {
+      state: "failed",
+      model: "zai/glm-5-turbo",
+      counts: { imported: 2, skipped: 1, failed: 1, pending: 3, unresolved: 4 },
+      error: new Error("api_key=secret-token"),
+    },
+    CONFIG
+  );
   const status = await readBackfillStatus("pi");
   expect(status).toMatchObject({
     host: "pi",
@@ -54,6 +58,31 @@ it("stores each host's cutoff once and persists only bounded status metadata", a
   );
   expect(row?.counts).not.toContain("prompt");
   expect(row?.error).not.toContain("secret-token");
+});
+
+it("redacts the memory API key it is given, and the new key after the config changes", async () => {
+  directory = mkdtempSync(join(tmpdir(), "omms-backfill-state-"));
+  CONFIG.storagePath = directory;
+  const previousKey = CONFIG.memoryApiKey;
+  try {
+    const counts = { imported: 0, skipped: 0, failed: 1, pending: 0, unresolved: 0 };
+    await getBackfillCutoff("pi", 1);
+    for (const key of ["plain-key-first", "plain-key-second"]) {
+      CONFIG.memoryApiKey = key;
+      await updateBackfillStatus(
+        "pi",
+        { state: "failed", model: null, counts, error: new Error(`refused ${key}`) },
+        CONFIG
+      );
+      const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
+      const row = await db.get<{ error: string }>(
+        "SELECT error FROM backfill_state WHERE host = 'pi'"
+      );
+      expect(row?.error).toBe("refused [redacted]");
+    }
+  } finally {
+    CONFIG.memoryApiKey = previousKey;
+  }
 });
 
 it("stores unresolved directories with session counts, capped at 200, paths only", async () => {

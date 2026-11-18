@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { CONFIG } from "../config.js";
+import {
+  getContainerTagPrefix,
+  getUserEmailOverride,
+  getUserNameOverride,
+} from "./active-space-access.js";
 import {
   normalize,
   resolve,
@@ -262,12 +266,12 @@ export function getProjectName(directory: string): string {
 }
 
 export function getUserTagInfo(directory: string = process.cwd()): TagInfo {
-  const email = CONFIG.userEmailOverride || getGitEmail(directory);
-  const name = CONFIG.userNameOverride || getGitName(directory);
+  const email = getUserEmailOverride() || getGitEmail(directory);
+  const name = getUserNameOverride() || getGitName(directory);
 
   if (email) {
     return {
-      tag: `${CONFIG.containerTagPrefix}_user_${sha256(email)}`,
+      tag: `${getContainerTagPrefix()}_user_${sha256(email)}`,
       displayName: name || email,
       userName: name || undefined,
       userEmail: email,
@@ -276,7 +280,7 @@ export function getUserTagInfo(directory: string = process.cwd()): TagInfo {
 
   const fallback = name || process.env.USER || process.env.USERNAME || "anonymous";
   return {
-    tag: `${CONFIG.containerTagPrefix}_user_${sha256(fallback)}`,
+    tag: `${getContainerTagPrefix()}_user_${sha256(fallback)}`,
     displayName: fallback,
     userName: fallback,
     userEmail: undefined,
@@ -296,7 +300,7 @@ export function getProjectTagInfo(directory: string): TagInfo {
   const projectIdentity = markerRoot ? `path:${markerRoot}` : getGitProjectIdentity(projectRoot);
 
   return {
-    tag: `${CONFIG.containerTagPrefix}_project_${sha256(projectIdentity)}`,
+    tag: `${getContainerTagPrefix()}_project_${sha256(projectIdentity)}`,
     displayName: projectRoot,
     projectPath: projectRoot,
     projectName,
