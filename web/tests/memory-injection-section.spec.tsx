@@ -79,7 +79,7 @@ it("shows the defaults: opening off, the default query, subagent on, restore on 
   ]) {
     expect(html).toContain(`>${name}</label>`);
     expect(html).toContain(
-      `<code dir="ltr" class="block text-start text-xs text-muted-foreground">${key}</code>`
+      `<span class="block text-start text-xs text-muted-foreground"><code dir="ltr">${key}</code></span>`
     );
   }
   expect(html).toContain(DEFAULT_QUERY);
