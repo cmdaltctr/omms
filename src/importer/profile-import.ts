@@ -135,7 +135,7 @@ export async function importProfileFromHistory(
       );
       await prompts.markAsCaptured(promptId);
       // A forced unit may find its prompt still stored and already learned.
-      if (reanalyse) await prompts.markForUserLearning(promptId);
+      if (reanalyse) await prompts.markForUserLearning([promptId]);
       await ledger.complete(reanalyse ? rebuildKey : profileKey, promptId);
       report.promptsRecorded++;
     }

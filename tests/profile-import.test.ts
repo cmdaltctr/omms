@@ -45,8 +45,8 @@ function setup() {
     markMultipleAsUserLearningCaptured: async (ids: string[]) => {
       for (const row of rows) if (ids.includes(row.id)) row.analysed = true;
     },
-    markForUserLearning: async (id: string) => {
-      rows.find((row) => row.id === id)!.analysed = false;
+    markForUserLearning: async (ids: string[]) => {
+      for (const row of rows) if (ids.includes(row.id)) row.analysed = false;
     },
   };
   let profile: { id: string; profileData: string } | null = null;

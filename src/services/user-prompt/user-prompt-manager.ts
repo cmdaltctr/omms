@@ -6,6 +6,8 @@ import type { TursoDb } from "../turso/turso-db.js";
 import { isTrivialPrompt } from "../../core/trivial-prompt.js";
 
 const RECENT_LEARNING_WINDOW_MS = 7 * 86_400_000;
+/** A learning claim older than this counts as released, for example after a crash. */
+export const USER_LEARNING_CLAIM_MS = 10 * 60_000;
 
 const USER_PROMPTS_DB_NAME = "user-prompts.db";
 
@@ -113,6 +115,7 @@ export class UserPromptManager {
       "capture_attempts INTEGER DEFAULT 0",
       "provider_id TEXT",
       "model_id TEXT",
+      "user_learning_claimed_at INTEGER",
     ]) {
       try {
         await db.run(`ALTER TABLE user_prompts ADD COLUMN ${column}`);
@@ -273,36 +276,54 @@ export class UserPromptManager {
   /**
    * Waiting prompts, oldest first. With `recentFirst`, a live pass takes the
    * prompts of the last 7 days newest first, so an imported backlog cannot
-   * starve it; with none waiting it falls back to the oldest.
+   * starve it; with none waiting it falls back to the oldest. Prompts that
+   * another run claimed in the last 10 minutes are left out. With `claim`,
+   * the returned prompts are claimed in the same statement; mark them learned
+   * or release them with `markForUserLearning`.
    */
   async getPromptsForUserLearning(
     limit: number,
-    options: { recentFirst?: boolean; now?: number } = {}
+    options: { recentFirst?: boolean; now?: number; claim?: boolean } = {}
+  ): Promise<UserPrompt[]> {
+    const now = options.now ?? Date.now();
+    if (options.recentFirst) {
+      const since = now - RECENT_LEARNING_WINDOW_MS;
+      const recent = await this.takeForLearning("AND created_at >= ?", [since], "DESC", limit, {
+        now,
+        claim: options.claim,
+      });
+      if (recent.length > 0) return recent;
+    }
+    return this.takeForLearning("", [], "ASC", limit, { now, claim: options.claim });
+  }
+
+  private async takeForLearning(
+    filter: string,
+    filterArgs: InValue[],
+    order: "ASC" | "DESC",
+    limit: number,
+    { now, claim }: { now: number; claim?: boolean }
   ): Promise<UserPrompt[]> {
     const db = await this.ready();
-    if (options.recentFirst) {
-      const since = (options.now ?? Date.now()) - RECENT_LEARNING_WINDOW_MS;
-      const recent = await db.all(
-        `
-        SELECT * FROM user_prompts
-        WHERE user_learning_captured = 0 AND created_at >= ?
-        ORDER BY created_at DESC
-        LIMIT ?
-      `,
-        [since, limit]
-      );
-      if (recent.length > 0) return recent.map((row) => this.rowToPrompt(row));
-    }
-    const rows = await db.all(
-      `
-      SELECT * FROM user_prompts
-      WHERE user_learning_captured = 0
-      ORDER BY created_at ASC
-      LIMIT ?
-    `,
-      [limit]
-    );
-    return rows.map((row) => this.rowToPrompt(row));
+    const where = `user_learning_captured = 0
+      AND (user_learning_claimed_at IS NULL OR user_learning_claimed_at < ?) ${filter}`;
+    const args = [now - USER_LEARNING_CLAIM_MS, ...filterArgs, limit];
+    const rows = claim
+      ? await db.all(
+          `UPDATE user_prompts SET user_learning_claimed_at = ?
+          WHERE id IN (SELECT id FROM user_prompts WHERE ${where} ORDER BY created_at ${order} LIMIT ?)
+          RETURNING *`,
+          [now, ...args]
+        )
+      : await db.all(
+          `SELECT * FROM user_prompts WHERE ${where} ORDER BY created_at ${order} LIMIT ?`,
+          args
+        );
+    // RETURNING gives no row order, so sort here for both forms.
+    const sign = order === "ASC" ? 1 : -1;
+    return rows
+      .map((row) => this.rowToPrompt(row))
+      .sort((a, b) => sign * (a.createdAt - b.createdAt));
   }
 
   /** Mark waiting trivial prompts learned without a model call; returns how many. */
@@ -332,10 +353,16 @@ export class UserPromptManager {
     await db.run(`UPDATE user_prompts SET user_learning_captured = 1 WHERE id = ?`, [promptId]);
   }
 
-  /** Put a learned prompt back in the profile learning queue. */
-  async markForUserLearning(promptId: string): Promise<void> {
+  /** Put prompts back in the profile learning queue and release their claim. */
+  async markForUserLearning(promptIds: string[]): Promise<void> {
+    if (promptIds.length === 0) return;
     const db = await this.ready();
-    await db.run(`UPDATE user_prompts SET user_learning_captured = 0 WHERE id = ?`, [promptId]);
+    const placeholders = promptIds.map(() => "?").join(",");
+    await db.run(
+      `UPDATE user_prompts SET user_learning_captured = 0, user_learning_claimed_at = NULL
+      WHERE id IN (${placeholders})`,
+      promptIds
+    );
   }
 
   async markMultipleAsUserLearningCaptured(promptIds: string[]): Promise<void> {
@@ -343,7 +370,8 @@ export class UserPromptManager {
     const db = await this.ready();
     const placeholders = promptIds.map(() => "?").join(",");
     await db.run(
-      `UPDATE user_prompts SET user_learning_captured = 1 WHERE id IN (${placeholders})`,
+      `UPDATE user_prompts SET user_learning_captured = 1, user_learning_claimed_at = NULL
+      WHERE id IN (${placeholders})`,
       promptIds
     );
   }
