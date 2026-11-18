@@ -8,6 +8,7 @@ import { KeywordModeSection } from "./KeywordModeSection";
 import { MemorySection } from "./MemorySection";
 import { MemorySwitcher } from "./MemorySwitcher";
 import { ProfileCatchUpSection } from "./ProfileCatchUpSection";
+import { ProfileLearningSettingsSection } from "./ProfileLearningSettingsSection";
 import { RerankerSection } from "./RerankerSection";
 import { statusText } from "./host-status";
 import { sharedSummaries, type SharedSettings } from "./shared-summary";
@@ -114,7 +115,10 @@ export function SharedView({
       </header>
       <div className="space-y-3">
         <SharedRow id="shared-profile" title={s("Profile learning")} summary={line("profile")}>
-          <ProfileCatchUpSection onReanalyse={onReanalyse} />
+          <div className="space-y-4">
+            <ProfileLearningSettingsSection />
+            <ProfileCatchUpSection onReanalyse={onReanalyse} />
+          </div>
         </SharedRow>
         <SharedRow id="shared-limits" title={s("Memory limits")} summary={line("limits")}>
           <MemorySection />

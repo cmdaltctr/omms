@@ -6,31 +6,31 @@ Slices A, B and G own separate files and can run as parallel subagents after gro
 
 ## 1. Start and characterise what stays
 
-- [ ] 1.1 Run `git rev-parse --show-toplevel`, `git branch --show-current` and `git worktree list`. Confirm the worktree and branch. Run `bun install --frozen-lockfile` and `(cd web && bun install --frozen-lockfile)`. Verify: both installs exit 0.
-- [ ] 1.2 Measure again: line counts of `config.ts`, `claude-hook-api.ts`, `src/adapters/opencode/profile-learning.ts`, and the ratchet counts of `user-prompt-manager.ts`. Update the Context section of `design.md` if a number moved. Verify: the table matches the measured numbers.
-- [ ] 1.3 Add characterisation tests for behaviour that stays, against today's code, in `tests/profile-learning-characterisation.test.ts`: the reply schema check (Pi, Claude Code), the UTF-8 byte cut and marker (OpenCode), three save attempts with no second model call (all hosts), newest-first batch, trivial prompts skipped, cleanup started when the interval is crossed, the category list in the system prompt, and the 10-minute wait after a failure. Verify: each test passes, and fails after a one-line mutation of the code it covers. Record each mutation in the test file comment.
+- [x] 1.1 Run `git rev-parse --show-toplevel`, `git branch --show-current` and `git worktree list`. Confirm the worktree and branch. Run `bun install --frozen-lockfile` and `(cd web && bun install --frozen-lockfile)`. Verify: both installs exit 0.
+- [x] 1.2 Measure again: line counts of `config.ts`, `claude-hook-api.ts`, `src/adapters/opencode/profile-learning.ts`, and the ratchet counts of `user-prompt-manager.ts`. Update the Context section of `design.md` if a number moved. Verify: the table matches the measured numbers.
+- [x] 1.3 Add characterisation tests for behaviour that stays, against today's code, in `tests/profile-learning-characterisation.test.ts`: the reply schema check (Pi, Claude Code), the UTF-8 byte cut and marker (OpenCode), three save attempts with no second model call (all hosts), newest-first batch, trivial prompts skipped, cleanup started when the interval is crossed, the category list in the system prompt, and the 10-minute wait after a failure. Verify: each test passes, and fails after a one-line mutation of the code it covers. Record each mutation in the test file comment.
 
 ## 2. Failing tests for behaviour that changes
 
-- [ ] 2.1 Add `tests/profile-learning-pass.test.ts` with one test per changed default, parameterised over `pi`, `opencode` and `claude-code` where the spec names all hosts: no email learns into `unknown`; no decay by default; full model input by default; validation task when the setting is on (Pi, Claude Code); history text "<Host> analysis of N prompts"; notice "Analysed N prompts and updated your profile"; OpenCode fallback notice; malformed external reply on OpenCode fails with `invalid-reply`; Pi waits 10 minutes after three save conflicts; Claude Code learns during a catch-up run. Verify: every test fails on today's code for the stated reason (missing module or old behaviour), not for a typo.
-- [ ] 2.2 Add `tests/profile-learning-claims.test.ts`: a claimed prompt is not taken by a second pass; a failed pass releases its claim; a claim older than 10 minutes is free; `drainProfileBacklog` and a live pass never take the same prompt. Verify: the tests fail on today's code.
-- [ ] 2.3 Add `tests/profile-learning-settings.test.ts`: defaults, invalid values reported with key and accepted values, project values ignored with a log line, and the writer accepts `null` for the six keys. Verify: the tests fail on today's code.
+- [x] 2.1 Add `tests/profile-learning-pass.test.ts` with one test per changed default, parameterised over `pi`, `opencode` and `claude-code` where the spec names all hosts: no email learns into `unknown`; no decay by default; full model input by default; validation task when the setting is on (Pi, Claude Code); history text "<Host> analysis of N prompts"; notice "Analysed N prompts and updated your profile"; OpenCode fallback notice; malformed external reply on OpenCode fails with `invalid-reply`; Pi waits 10 minutes after three save conflicts; Claude Code learns during a catch-up run. Verify: every test fails on today's code for the stated reason (missing module or old behaviour), not for a typo.
+- [x] 2.2 Add `tests/profile-learning-claims.test.ts`: a claimed prompt is not taken by a second pass; a failed pass releases its claim; a claim older than 10 minutes is free; `drainProfileBacklog` and a live pass never take the same prompt. Verify: the tests fail on today's code.
+- [x] 2.3 Add `tests/profile-learning-settings.test.ts`: defaults, invalid values reported with key and accepted values, project values ignored with a log line, and the writer accepts `null` for the six keys. Verify: the tests fail on today's code.
 
 ## 3. Slice A: settings and config wiring
 
 Files: `src/core/profile-learning/settings.ts`, `src/config.ts`, `src/config-template.ts`, `src/services/settings-editable-keys.ts`, `src/services/settings-snapshot.ts`, `src/services/global-config-writer.ts`, `tests/profile-learning-settings.test.ts`, `docs/configuration.md`.
 
-- [ ] 3.1 Create `src/core/profile-learning/settings.ts` with the keys, defaults, parser, project-override removal and edit checks (design D6). No `CONFIG` import. Verify: `tests/profile-learning-settings.test.ts` parser cases pass.
-- [ ] 3.2 Wire it into `config.ts` and `config-template.ts`. Make `userProfileValidationEnabled` and `showUserProfileToasts` global only. Verify: `tests/file-size-ceiling.test.ts` passes (`config.ts` at or below 927 lines) and the project-override test passes.
-- [ ] 3.3 Add the six keys to `PAGE_KEYS`, the snapshot `globalOnly` list, `isValidEdit` and `RESETTABLE_KEYS`. Verify: the writer tests in 2.3 pass, and `tests/settings-catalogue-defaults.test.ts` passes once slice G adds the catalogue rows.
-- [ ] 3.4 Document the four new keys and the two global-only keys in `docs/configuration.md`. Verify: `grep -n userProfileWithoutEmail docs/configuration.md` finds the entry, and Prettier passes on the file.
+- [x] 3.1 Create `src/core/profile-learning/settings.ts` with the keys, defaults, parser, project-override removal and edit checks (design D6). No `CONFIG` import. Verify: `tests/profile-learning-settings.test.ts` parser cases pass.
+- [x] 3.2 Wire it into `config.ts` and `config-template.ts`. Make `userProfileValidationEnabled` and `showUserProfileToasts` global only. Verify: `tests/file-size-ceiling.test.ts` passes (`config.ts` at or below 927 lines) and the project-override test passes.
+- [x] 3.3 Add the six keys to `PAGE_KEYS`, the snapshot `globalOnly` list, `isValidEdit` and `RESETTABLE_KEYS`. Verify: the writer tests in 2.3 pass, and `tests/settings-catalogue-defaults.test.ts` passes once slice G adds the catalogue rows.
+- [x] 3.4 Document the four new keys and the two global-only keys in `docs/configuration.md`. Verify: `grep -n userProfileWithoutEmail docs/configuration.md` finds the entry, and Prettier passes on the file.
 
 ## 4. Slice B: batch claims
 
 Files: `src/services/user-prompt/user-prompt-manager.ts`, `src/importer/profile-backlog.ts`, `src/importer/profile-import.ts`, `tests/profile-learning-claims.test.ts`, the existing `user-prompt-manager` tests.
 
-- [ ] 4.1 Add the `user_learning_claimed_at` column through the existing column list. Change `getPromptsForUserLearning` to claim with `UPDATE … RETURNING`, clear the claim in `markMultipleAsUserLearningCaptured`, and change `markForUserLearning` to take a list and clear the claim (design D5). Verify: `tests/modularity-ratchets.test.ts` passes with no raised baseline, and the store-level cases of 2.2 pass.
-- [ ] 4.2 Make `drainProfileBacklog` claim its batch and release it on failure. Update the `profile-import.ts` caller of `markForUserLearning`. Verify: 2.2 passes in full, and the catch-up and import tests pass unchanged.
+- [x] 4.1 Add the `user_learning_claimed_at` column through the existing column list. Change `getPromptsForUserLearning` to claim with `UPDATE … RETURNING`, clear the claim in `markMultipleAsUserLearningCaptured`, and change `markForUserLearning` to take a list and clear the claim (design D5). Verify: `tests/modularity-ratchets.test.ts` passes with no raised baseline, and the store-level cases of 2.2 pass.
+- [x] 4.2 Make `drainProfileBacklog` claim its batch and release it on failure. Update the `profile-import.ts` caller of `markForUserLearning`. Verify: 2.2 passes in full, and the catch-up and import tests pass unchanged.
 
 ## 5. Slice C: the shared pass
 
@@ -77,10 +77,10 @@ Files: `src/importer/claude-profile-learning.ts`, `src/importer/claude-hook-noti
 
 Files: `web/src/lib/profile-learning-controls.ts`, `web/src/lib/components/memory/ProfileLearningSettingsSection.tsx`, `web/src/lib/components/memory/SharedView.tsx`, `web/src/lib/components/memory/shared-summary.ts`, `web/src/lib/settings-catalogue-memory.ts`, `web/src/lib/i18n/settings-catalogue-memory-rows.ts`, `web/src/lib/i18n/settings.ts`, `web/tests/profile-learning-controls.spec.ts`, `web/tests/profile-learning-section.spec.tsx`, `web/tests/shared-view.spec.tsx`, `docs/web-ui-memory.md`.
 
-- [ ] 9.1 Load the `omms-design` skill. Write the pure option lists and save edits in `profile-learning-controls.ts`, with tests first. Verify: `web/tests/profile-learning-controls.spec.ts` checks every option list against the spec and fails when an option is added.
-- [ ] 9.2 Add the six catalogue rows (anchor `shared-profile`) and the Chinese and Arabic pairs. Verify: `web/tests/settings-catalogue.spec.ts` passes.
-- [ ] 9.3 Build `ProfileLearningSettingsSection` after the `KeywordModeSection` pattern: six `SettingRow` dropdowns, four fixed rows, Save, Cancel, **Reset to default** with `SettingsConfirmDialog`, status line, read-only rule. Mount it in the `shared-profile` row. Update the profile summary line. Verify: `web/tests/profile-learning-section.spec.tsx` covers save, cancel, reset, reset off with no saved key, conflict reload and read-only; `web/tests/shared-view.spec.tsx` passes.
-- [ ] 9.4 Update `docs/web-ui-memory.md` (Profile learning section). Verify: Prettier passes and `bun --cwd web run check` passes.
+- [x] 9.1 Load the `omms-design` skill. Write the pure option lists and save edits in `profile-learning-controls.ts`, with tests first. Verify: `web/tests/profile-learning-controls.spec.ts` checks every option list against the spec and fails when an option is added.
+- [x] 9.2 Add the six catalogue rows (anchor `shared-profile`) and the Chinese and Arabic pairs. Verify: `web/tests/settings-catalogue.spec.ts` passes.
+- [x] 9.3 Build `ProfileLearningSettingsSection` after the `KeywordModeSection` pattern: six `SettingRow` dropdowns, four fixed rows, Save, Cancel, **Reset to default** with `SettingsConfirmDialog`, status line, read-only rule. Mount it in the `shared-profile` row. Update the profile summary line. Verify: `web/tests/profile-learning-section.spec.tsx` covers save, cancel, reset, reset off with no saved key, conflict reload and read-only; `web/tests/shared-view.spec.tsx` passes.
+- [x] 9.4 Update `docs/web-ui-memory.md` (Profile learning section). Verify: Prettier passes and `bun --cwd web run check` passes.
 
 ## 10. Integration and close
 

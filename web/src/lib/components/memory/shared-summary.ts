@@ -1,6 +1,7 @@
+import { hasSavedLearningKey } from "$lib/profile-learning-controls";
 import type { StatusText } from "./host-status";
 
-type Setting = { value?: unknown; globalValue?: unknown };
+type Setting = { value?: unknown; globalValue?: unknown; source?: string; hasGlobal?: boolean };
 export type SharedSettings = Record<string, Setting | undefined>;
 
 const text = (setting: Setting | undefined): string | null => {
@@ -18,7 +19,9 @@ export function sharedSummaries(
   const mode = text(settings?.keywordMode);
   const model = text(settings?.rerankerModel);
   return {
-    profile: { text: "Prompts waiting for profile learning, and re-analysis of old chats" },
+    profile: settings
+      ? { text: hasSavedLearningKey(settings) ? "Custom settings" : "Default settings" }
+      : { text: "Prompts waiting for profile learning, and re-analysis of old chats" },
     limits:
       results && similarity
         ? { text: "Results {results} · Similarity {similarity}", params: { results, similarity } }

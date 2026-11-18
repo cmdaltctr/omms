@@ -48,6 +48,60 @@ export const MEMORY_CATALOGUE: readonly CatalogueEntry[] = [
     AFFECTS.profile
   ),
   row(
+    "userProfileWithoutEmail",
+    "memory",
+    "shared-profile",
+    "No user email",
+    "What learning does when no user email is known: save to a profile called unknown, or skip the prompts.",
+    "Learn anyway",
+    AFFECTS.profile
+  ),
+  row(
+    "userProfileDecayBeforeMerge",
+    "memory",
+    "shared-profile",
+    "Fade old items",
+    "Lowers the weight of old profile items before each merge, so newer habits count more.",
+    DEFAULT.off,
+    AFFECTS.profile
+  ),
+  row(
+    "userProfilePromptDetail",
+    "memory",
+    "shared-profile",
+    "Model input",
+    "What the model reads each time it learns: your prompts with a profile summary and guidance, or the prompts alone.",
+    "Prompts with profile summary and guidance",
+    AFFECTS.profile
+  ),
+  row(
+    "userProfileValidationEnabled",
+    "memory",
+    "shared-profile",
+    "Check older items",
+    "Asks the model to check older profile items against new prompts after each learning pass.",
+    DEFAULT.off,
+    AFFECTS.profile
+  ),
+  row(
+    "showUserProfileToasts",
+    "memory",
+    "shared-profile",
+    "Notice when done",
+    "Shows a short notice when a learning pass ends. Claude Code shows it on your next prompt.",
+    DEFAULT.on,
+    AFFECTS.profile
+  ),
+  row(
+    "userProfileDuringCatchUp",
+    "memory",
+    "shared-profile",
+    "During a catch-up run",
+    "Keeps live learning running, or pauses it, while a profile catch-up run is active.",
+    "Keep learning",
+    AFFECTS.profile
+  ),
+  row(
     "maxMemories",
     "memory",
     "shared-limits",

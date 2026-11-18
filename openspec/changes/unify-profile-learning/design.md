@@ -63,7 +63,7 @@ interface ProfileLearningPassInput {
     message: string;
     variant: "success" | "warning" | "error";
   }) => void | Promise<void>;
-  startCleanup?: (userId: string) => void; // adapter passes its cleanup model
+  cleanupModel?: ProfileCleanupModel; // the pass starts cleanup itself, with this model
 }
 ```
 
