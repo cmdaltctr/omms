@@ -9,16 +9,18 @@ Each group is one or more pull requests. Each pull request is built in its own s
 
 ## 1. Split the three largest files (part 4)
 
-- [ ] 1.1 Add characterisation tests for the `api-handlers.ts` route groups that lack them. Confirm that each test fails when the handler is broken.
-- [ ] 1.2 Split `src/services/api-handlers.ts` into `src/services/api/<group>.ts`. Keep the old path as a re-export. Remove its ceiling entry.
-- [ ] 1.3 Add characterisation tests for `web-server.ts` port ownership, step-aside and static serving where they are missing.
-- [ ] 1.4 Split `src/services/web-server.ts` by responsibility (D3). Remove its ceiling entry.
-- [ ] 1.5 Add characterisation tests for `user-profile-manager.ts` merge, dedupe, cleanup and version history.
-- [ ] 1.6 Split `src/services/user-profile/user-profile-manager.ts` behind a facade. Remove its ceiling entry.
+Slices (one per file, each under 15 files): A `api-handlers.ts` (1.1, 1.2), B `web-server.ts` (1.3, 1.4), C `user-profile-manager.ts` (1.5, 1.6). The slices own separate files and run in parallel. Each slice moves the ratchet counts of the code it moves to the new file names and never raises a total.
+
+- [x] 1.1 Add characterisation tests for the `api-handlers.ts` route groups that lack them. Confirm that each test fails when the handler is broken.
+- [x] 1.2 Split `src/services/api-handlers.ts` into `src/services/api/<group>.ts`. Keep the old path as a re-export. Remove its ceiling entry.
+- [x] 1.3 Add characterisation tests for `web-server.ts` port ownership, step-aside and static serving where they are missing.
+- [x] 1.4 Split `src/services/web-server.ts` by responsibility (D3). Remove its ceiling entry.
+- [x] 1.5 Add characterisation tests for `user-profile-manager.ts` merge, dedupe, cleanup and version history.
+- [x] 1.6 Split `src/services/user-profile/user-profile-manager.ts` behind a facade. Remove its ceiling entry.
 
 ## 2. OpenCode profile learning on the shared path (part 3)
 
-- [ ] 2.1 List what `src/adapters/opencode/profile-learning.ts` does that `src/core/profile-analysis.ts` does not.
+- [x] 2.1 List what `src/adapters/opencode/profile-learning.ts` does that `src/core/profile-analysis.ts` does not.
 - [ ] 2.2 Move each missing piece into `src/core/` with a test, and keep Pi and Claude Code behaviour unchanged.
 - [ ] 2.3 Make the OpenCode adapter call the shared path. Keep only the model port, the trigger and the notice (D4). Every existing OpenCode profile test must pass unchanged through the V2 adapter.
 - [ ] 2.4 Lower the ceiling entry for `profile-learning.ts`, or remove it.

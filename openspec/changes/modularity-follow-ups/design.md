@@ -2,7 +2,7 @@
 
 ## Context
 
-The measured debt on 2026-11-17, after PR #288 and PR #290 merged:
+The measured debt on 2026-11-17, after PR #288 and PR #290 merged. Measured again on 2026-11-18 at `39c8beb5` before part 4: no number changed.
 
 | Debt                                             | Files | Sites       | Guarded by                                                     |
 | ------------------------------------------------ | ----- | ----------- | -------------------------------------------------------------- |
@@ -53,6 +53,31 @@ The adapter keeps only these pieces:
 - the TUI notice
 
 The batching, the prompt build, the merge and the backoff move to the shared path, or reuse what Pi and Claude Code already call. Each existing OpenCode profile test must pass unchanged through the V2 adapter (`setup` with a fake V2 context).
+
+#### Task 2.1 inventory (2026-11-18)
+
+What `src/adapters/opencode/profile-learning.ts` does that `src/core/profile-analysis.ts` does not. "Differs" means the shared path has the step but behaves differently, so a plain move changes OpenCode behaviour.
+
+| Step                                                                                       | Shared path                                                     | Goes to          |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------- | ---------------- |
+| Re-entry flag, backoff check, config refresh, byte limit                                   | Claude has the flag; backoff shared                             | adapter          |
+| Skip with a warning when the provider is not ready                                         | missing                                                         | adapter          |
+| Drop trivial prompts, newest batch of `userProfileAnalysisInterval`                        | same in Claude                                                  | core             |
+| User id `"unknown"` when no email                                                          | differs: Pi and Claude skip                                     | adapter for now  |
+| Validation step (`userProfileValidationEnabled`, default off), verdicts, `evolveAndUpdate` | missing                                                         | core             |
+| Decay and `pendingValidation` promotion before every analysis                              | missing: Pi and Claude merge without decay                      | core, opt-in     |
+| Rich prompt: profile summary, guidelines, examples, byte cut                               | differs: shared sends numbered prompts only                     | core, opt-in     |
+| Host-model call: own system prompt, structured output, 120 s limit                         | differs: `analyzeProfile` uses text `complete()`, schema check  | port + core opts |
+| Host-model failure falls back to the external API (issue #265), no notice                  | Pi has the rule and shows a notice                              | adapter          |
+| External call with `createUserProfileToolSchema`, no reply check                           | differs: `model-selection.ts` uses `z.toJSONSchema` and a check | adapter port     |
+| Backoff success recorded before the save                                                   | differs: Pi and Claude record after                             | core             |
+| Save loop: 3 attempts, re-read via `getActiveProfile`, decay and merge per attempt         | differs: `saveMergedProfile` re-reads via `getProfileById`      | core with hooks  |
+| Version-history summary "+N preferences…", "validated: …"                                  | differs: "Pi analysis of N prompts"                             | core             |
+| Cleanup start without a model                                                              | Pi and Claude pass `resolveModel`                               | adapter          |
+| Notice "User Profile Updated", rethrow on failure                                          | differs per host                                                | adapter          |
+| `buildLearningPaths` and the "no result" branch                                            | dead code                                                       | delete           |
+
+Test facts: no OpenCode learning test goes through V2 `setup`. They call `performUserProfileLearning(directory)` in a `Bun.spawn` subprocess with `mock.module` stubs. `tests/profile-workflow-prompt.test.ts` reads the adapter source, so it changes when the prompt moves.
 
 ### D5. Part 2: pass values, not `CONFIG`
 
