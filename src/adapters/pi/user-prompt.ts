@@ -1,6 +1,5 @@
 import type { PiSessionEntry } from "../../importer/pi-conversation.js";
 import { isFullyPrivate, stripPrivateContent } from "../../services/privacy.js";
-import { userPromptManager } from "../../services/user-prompt/user-prompt-manager.js";
 
 /** The user prompt of a settled Pi turn: its session entry id and its text. */
 export interface SettledPiPrompt {
@@ -45,6 +44,8 @@ export async function recordPiPrompt(
   if (isFullyPrivate(text)) return false;
   const prompt = stripPrivateContent(text).trim();
   if (!prompt) return false;
+  // Loaded on first use, so loading the extension builds no store handle.
+  const { userPromptManager } = await import("../../services/user-prompt/user-prompt-manager.js");
   const id = await userPromptManager.savePrompt(sessionId, userEntryId, directory, prompt);
   await userPromptManager.markAsCaptured(id);
   return true;

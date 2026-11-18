@@ -54,6 +54,13 @@ const WORDS: Record<string, string> = {
   "Xenova/nomic-embed-text-v1": "Built-in nomic-embed-text",
 };
 
+/** Words for a value whose label depends on the key, such as `learn`. */
+const KEY_WORDS: Record<string, Record<string, string>> = {
+  userProfileWithoutEmail: { learn: "Learn anyway" },
+  userProfilePromptDetail: { full: "Prompts with profile summary and guidance" },
+  userProfileDuringCatchUp: { learn: "Keep learning" },
+};
+
 /** Keys whose unset value means a rule, not "Not set". */
 const UNSET_MEANS: Record<string, string> = {
   opencodeProvider: "External API, else the session model",
@@ -77,7 +84,7 @@ function expected(row: Row): string | RegExp {
     if (key.endsWith("Ms")) return new RegExp(`^${value / 1000} seconds?\\b`);
     return new RegExp(`^${value.toLocaleString("en-US").replace(".", "\\.")}\\b`);
   }
-  if (typeof value === "string") return WORDS[value] ?? value;
+  if (typeof value === "string") return KEY_WORDS[key]?.[value] ?? WORDS[value] ?? value;
   throw new Error(`No rule for ${key}`);
 }
 
