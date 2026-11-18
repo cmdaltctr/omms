@@ -21,9 +21,8 @@ Slices (one per file, each under 15 files): A `api-handlers.ts` (1.1, 1.2), B `w
 ## 2. OpenCode profile learning on the shared path (part 3)
 
 - [x] 2.1 List what `src/adapters/opencode/profile-learning.ts` does that `src/core/profile-analysis.ts` does not.
-- [ ] 2.2 Move each missing piece into `src/core/` with a test, and keep Pi and Claude Code behaviour unchanged.
-- [ ] 2.3 Make the OpenCode adapter call the shared path. Keep only the model port, the trigger and the notice (D4). Every existing OpenCode profile test must pass unchanged through the V2 adapter.
-- [ ] 2.4 Lower the ceiling entry for `profile-learning.ts`, or remove it.
+
+Tasks 2.2 to 2.4 moved to the `unify-profile-learning` change (2026-11-18). The user chose one shared learning loop for all three hosts, with new defaults and a settings table. That changes behaviour, so it cannot be part of this refactor. The `profile-learning.ts` ceiling entry is removed there.
 
 ## 3. Pass config in (part 2)
 
