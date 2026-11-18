@@ -1,0 +1,44 @@
+# Tasks: modularity follow-ups
+
+Each group is one or more pull requests. Each pull request is built in its own sibling worktree from `origin/main`, passes `bun run ci:local`, and lowers its ratchet or ceiling baseline in the same commit. Use `refactor:` commits.
+
+## 0. Before each part
+
+- [ ] 0.1 Measure the current counts again (ratchet baselines, ceiling lines) and update the table in `design.md`.
+- [ ] 0.2 Split the part into slices of 15 files or fewer, and list them under the part below.
+
+## 1. Split the three largest files (part 4)
+
+- [ ] 1.1 Add characterisation tests for the `api-handlers.ts` route groups that lack them. Confirm that each test fails when the handler is broken.
+- [ ] 1.2 Split `src/services/api-handlers.ts` into `src/services/api/<group>.ts`. Keep the old path as a re-export. Remove its ceiling entry.
+- [ ] 1.3 Add characterisation tests for `web-server.ts` port ownership, step-aside and static serving where they are missing.
+- [ ] 1.4 Split `src/services/web-server.ts` by responsibility (D3). Remove its ceiling entry.
+- [ ] 1.5 Add characterisation tests for `user-profile-manager.ts` merge, dedupe, cleanup and version history.
+- [ ] 1.6 Split `src/services/user-profile/user-profile-manager.ts` behind a facade. Remove its ceiling entry.
+
+## 2. OpenCode profile learning on the shared path (part 3)
+
+- [ ] 2.1 List what `src/adapters/opencode/profile-learning.ts` does that `src/core/profile-analysis.ts` does not.
+- [ ] 2.2 Move each missing piece into `src/core/` with a test, and keep Pi and Claude Code behaviour unchanged.
+- [ ] 2.3 Make the OpenCode adapter call the shared path. Keep only the model port, the trigger and the notice (D4). Every existing OpenCode profile test must pass unchanged through the V2 adapter.
+- [ ] 2.4 Lower the ceiling entry for `profile-learning.ts`, or remove it.
+
+## 3. Pass config in (part 2)
+
+- [ ] 3.1 Slice the 52 `CONFIG` importers in `src/core/` and `src/services/`, leaf modules first.
+- [ ] 3.2 For each slice, change functions to take a `Pick<typeof CONFIG, ...>` argument and pass `CONFIG` at the edge (D5). Lower the `CONFIG import` baseline.
+- [ ] 3.3 Remove each `mock.module("../src/config.js")` stub whose test no longer needs it. Do not weaken any assertion.
+- [ ] 3.4 When the baseline reaches 0 for `src/core/` and `src/services/`, record it in `docs/shared-core.md`.
+
+## 4. Storage port (part 1)
+
+- [ ] 4.1 Create `src/services/storage/` and change `STORAGE_FOLDER` in `tests/modularity-ratchets.test.ts`.
+- [ ] 4.2 For each store (memory, prompt, profile, import ledger, skills, chat, capture attempts), add characterisation tests for reads, writes, space switch and `resettable()`.
+- [ ] 4.3 Move the store's SQL and libSQL imports behind typed functions, one store per pull request. Lower the `storage import` and `raw SQL` baselines each time.
+- [ ] 4.4 Run a live check against a scratch HOME with a real-shaped store copy after each store moves. Confirm that the row counts and a search result match those from before the move.
+- [ ] 4.5 Update `docs/shared-core.md` and the architecture table in `CLAUDE.md`.
+
+## 5. Close
+
+- [ ] 5.1 All ratchet baselines that this change owns are at 0, or justified in `design.md`.
+- [ ] 5.2 Run `openspec validate modularity-follow-ups --strict`, then archive.
