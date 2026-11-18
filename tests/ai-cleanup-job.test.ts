@@ -74,6 +74,7 @@ it("returns at once, counts progress, and keeps the result for Apply", async () 
   const job = startAiCleanupJob(
     name,
     { profileData, includeIds: ["pref_0", "pref_1", "pref_2", "pref_3"] },
+    {},
     { callBatch: model.callBatch, batchSize: 2 }
   );
   expect(job.status).toEqual({ state: "running", done: 0, total: 2, failed: 0 });
@@ -92,8 +93,8 @@ it("returns at once, counts progress, and keeps the result for Apply", async () 
 it("returns the running job to a second start and sends no extra request", async () => {
   const name = user("second-start");
   const model = gate();
-  const first = startAiCleanupJob(name, { profileData, includeIds: ["pref_0"] }, model);
-  const second = startAiCleanupJob(name, { profileData, includeIds: ["pref_1"] }, model);
+  const first = startAiCleanupJob(name, { profileData, includeIds: ["pref_0"] }, {}, model);
+  const second = startAiCleanupJob(name, { profileData, includeIds: ["pref_1"] }, {}, model);
   expect(second.id).toBe(first.id);
   await model.release();
   await settle(name);
@@ -106,6 +107,7 @@ it("counts failed batches while running", async () => {
   startAiCleanupJob(
     name,
     { profileData, includeIds: ["pref_0", "pref_1", "pref_2"] },
+    {},
     {
       batchSize: 1,
       callBatch: (batch: Batch) =>
@@ -125,6 +127,7 @@ it("stops: clears the job at once and sends no later batch", async () => {
   startAiCleanupJob(
     name,
     { profileData, includeIds: ["pref_0", "pref_1"] },
+    {},
     {
       ...model,
       batchSize: 1,
@@ -143,9 +146,9 @@ it("stops: clears the job at once and sends no later batch", async () => {
 it("a new start after Stop runs a fresh job", async () => {
   const name = user("restart");
   const model = gate();
-  const first = startAiCleanupJob(name, { profileData, includeIds: ["pref_0"] }, model);
+  const first = startAiCleanupJob(name, { profileData, includeIds: ["pref_0"] }, {}, model);
   stopAiCleanupJob(name);
-  const second = startAiCleanupJob(name, { profileData, includeIds: ["pref_1"] }, model);
+  const second = startAiCleanupJob(name, { profileData, includeIds: ["pref_1"] }, {}, model);
   expect(second.id).not.toBe(first.id);
   await model.release();
   await model.release();
@@ -159,6 +162,7 @@ it("forgets a finished job 30 minutes after it finished", async () => {
   startAiCleanupJob(
     name,
     { profileData, includeIds: ["pref_0"] },
+    {},
     {
       callBatch: noChanges,
       now: () => now,
@@ -174,7 +178,12 @@ it("forgets a finished job 30 minutes after it finished", async () => {
 
 it("turns an empty selection into every item of the profile", async () => {
   const name = user("empty-selection");
-  const job = startAiCleanupJob(name, { profileData, includeIds: [] }, { callBatch: noChanges });
+  const job = startAiCleanupJob(
+    name,
+    { profileData, includeIds: [] },
+    {},
+    { callBatch: noChanges }
+  );
   expect(job.selection).toEqual(["pref_0", "pref_1", "pref_2", "pref_3", "pref_4"]);
   await settle(name);
 });
@@ -187,6 +196,7 @@ it("fails with a plain sentence when every batch times out", async () => {
   startAiCleanupJob(
     name,
     { profileData, includeIds: ["pref_0"] },
+    {},
     {
       callBatch: () => Promise.reject(timeout),
     }
@@ -201,6 +211,7 @@ it("fails with the error text for other failures", async () => {
   startAiCleanupJob(
     name,
     { profileData, includeIds: ["pref_0"] },
+    {},
     {
       callBatch: () => Promise.reject(new Error("No AI provider configured for profile cleanup")),
     }
@@ -215,7 +226,7 @@ it("fails with the error text for other failures", async () => {
 it("keeps jobs apart for each user", async () => {
   const a = user("user-a");
   const b = user("user-b");
-  startAiCleanupJob(a, { profileData, includeIds: ["pref_0"] }, { callBatch: noChanges });
+  startAiCleanupJob(a, { profileData, includeIds: ["pref_0"] }, {}, { callBatch: noChanges });
   expect(getAiCleanupJob(b)).toBeNull();
   await settle(a);
 });

@@ -317,7 +317,7 @@ const { loadClaudeSession } = await import(${url("../src/importer/claude-reader.
 const { recordClaudeSkillTurns } = await import(${url("../src/importer/claude-turn-units.js")});
 const { skillTurnRecorder } = await import(${url("../src/services/skill-learning/settings-for.js")});
 const session = loadClaudeSession(claudeRoot + "/-tmp-claude-fixture-project/11111111-1111-4111-8111-111111111111.jsonl");
-await recordClaudeSkillTurns(session.windows, session.sessionId, main, skillTurnRecorder(main));
+await recordClaudeSkillTurns(session.windows, session.sessionId, main, skillTurnRecorder(main, await import(${url("../src/config.js")})));
 const afterLive = await turns();
 const report = await run("claude-code", claudeArgs(["--skip-profile"]), { capture: provider });
 scenario = {

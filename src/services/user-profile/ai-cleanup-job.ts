@@ -3,12 +3,14 @@ import { AI_CLEANUP_BATCH_SIZE } from "../request-timeouts.js";
 import type { CleanupDiff } from "./ai-cleanup.js";
 import type { CleanupJobResult } from "./ai-cleanup-apply.js";
 import {
+  cleanupBatch,
   failureReason,
   runInBatches,
   selectForCleanup,
   splitIntoBatches,
   type RunInBatchesOptions,
 } from "./ai-cleanup-batches.js";
+import type { MemoryModelSettings } from "./memory-model-settings.js";
 import type { UserProfileData } from "./types.js";
 
 /**
@@ -66,6 +68,7 @@ let nextId = 1;
 export function startAiCleanupJob(
   userId: string,
   input: AiCleanupJobInput,
+  settings: MemoryModelSettings,
   deps: AiCleanupJobDeps = {}
 ): AiCleanupJobView {
   const current = jobs.get(userId);
@@ -90,7 +93,7 @@ export function startAiCleanupJob(
   void (async () => {
     try {
       const result = await runInBatches(batches, {
-        callBatch: deps.callBatch,
+        callBatch: deps.callBatch ?? ((batch) => cleanupBatch(batch, settings)),
         isStopped: () => job.stopped,
         onProgress: (done, total, failed) => {
           job.status = { state: "running", done, total, failed };

@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 const logged: Array<{ message: string; data: unknown }> = [];
 const config = { captureTrace: false } as Record<string, unknown>;
+const budgetArgs: Array<number | undefined> = [];
 let addMemoryResult: { success: boolean; id?: string; error?: string } = {
   success: true,
   id: "m1",
@@ -25,7 +26,10 @@ mock.module("../src/services/client.js", () => ({
 }));
 mock.module("../src/core/capture-context.js", () => ({
   buildMarkdownContext: () => "context",
-  getAutoCaptureMarkdownBudget: () => 1000,
+  getAutoCaptureMarkdownBudget: (configuredBytes: number | undefined) => {
+    budgetArgs.push(configuredBytes);
+    return 1000;
+  },
 }));
 
 const { captureConversation } = await import("../src/core/capture.js");
@@ -51,6 +55,8 @@ let previousLogFile: string | undefined;
 
 beforeEach(() => {
   logged.length = 0;
+  budgetArgs.length = 0;
+  delete config.autoCaptureMaxContextBytes;
   config.captureTrace = false;
   addMemoryResult = { success: true, id: "m1" };
   resetTraceStateForTests();
@@ -66,6 +72,15 @@ afterEach(() => {
 });
 
 describe("capture pipeline diagnostics", () => {
+  it("passes the current autoCaptureMaxContextBytes to the budget on every attempt", async () => {
+    const summarize = async () => ({ summary: "", type: "skip", tags: [] });
+    config.autoCaptureMaxContextBytes = 65536;
+    await captureConversation(workUnit, { summarize });
+    config.autoCaptureMaxContextBytes = 32768;
+    await captureConversation(workUnit, { summarize });
+    expect(budgetArgs).toEqual([65536, 32768]);
+  });
+
   it("emits one saved record", async () => {
     const result = await captureConversation(workUnit, {
       summarize: async (request) => {

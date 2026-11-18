@@ -95,4 +95,11 @@ describe("buildMarkdownContext budgeting (#232)", () => {
     expect(utf8ByteLength(userPrompt)).toBeLessThan(totalBudget);
     expect(userPrompt).toContain("truncated to autoCaptureMaxContextBytes");
   });
+
+  it("uses the built-in 131072 byte default when no value is passed", () => {
+    expect(getAutoCaptureMarkdownBudget(undefined)).toBe(getAutoCaptureMarkdownBudget(131_072));
+    expect(getAutoCaptureMarkdownBudget(65_536)).toBeLessThan(
+      getAutoCaptureMarkdownBudget(131_072)
+    );
+  });
 });

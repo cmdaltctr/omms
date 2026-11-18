@@ -1,4 +1,4 @@
-import { formatContextForPrompt } from "../services/context.js";
+import { formatContextForPrompt, type ContextConfig } from "../services/context.js";
 import { memoryClient } from "../services/client.js";
 import { getTags } from "../services/tags.js";
 import { isFullyPrivate, stripPrivateContent } from "../services/privacy.js";
@@ -63,7 +63,9 @@ export async function buildRetrievalSection(
   directory: string,
   sessionId: string,
   excludeCurrentSession: boolean | undefined,
-  budget?: ContextBudgetOptions
+  budget?: ContextBudgetOptions,
+  /** `CONFIG`, passed by the host for the profile block. */
+  config?: ContextConfig
 ): Promise<string | null> {
   const query = searchablePrompt(prompt);
   if (!query) return null;
@@ -81,7 +83,8 @@ export async function buildRetrievalSection(
     tags.user.userEmail || null,
     { results: search.results },
     budget,
-    search.queryVector
+    search.queryVector,
+    config
   );
 
   return memoryContext || null;

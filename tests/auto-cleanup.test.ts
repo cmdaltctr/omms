@@ -93,6 +93,7 @@ describe("startAutoProfileCleanup", () => {
     const sizes: number[] = [];
     const ids: string[] = [];
     const result = await run.startAutoProfileCleanup(userId, {
+      settings: {},
       callBatch: async (batch: Batch) => {
         sizes.push(batch.preferences.length);
         ids.push(...batch.preferences.map((p) => p.id));
@@ -107,7 +108,10 @@ describe("startAutoProfileCleanup", () => {
 
   it("applies every proposed merge and removal and leaves one restore record", async () => {
     const { run, store, manager, profileId } = await setup(["Target", "Source", "Stale"], 20);
-    const result = await run.startAutoProfileCleanup(userId, { callBatch: mergeAndRemove });
+    const result = await run.startAutoProfileCleanup(userId, {
+      settings: {},
+      callBatch: mergeAndRemove,
+    });
 
     expect(result).toMatchObject({ status: "applied", applied: 2, skipped: 0 });
     const after = await descriptionsOf(manager);
@@ -129,6 +133,7 @@ describe("startAutoProfileCleanup", () => {
     const { run, manager } = await setup([], 30);
     let calls = 0;
     const result = await run.startAutoProfileCleanup(userId, {
+      settings: {},
       batchSize: 5,
       callBatch: async (batch: Batch) => {
         calls++;
@@ -148,6 +153,7 @@ describe("startAutoProfileCleanup", () => {
     const { run, store, manager, profileId } = await setup(["Target", "Source"], 5);
     const before = await descriptionsOf(manager);
     const result = await run.startAutoProfileCleanup(userId, {
+      settings: {},
       callBatch: async () => {
         throw new Error("boom");
       },
@@ -164,7 +170,7 @@ describe("startAutoProfileCleanup", () => {
     CONFIG.memoryModel = undefined;
     CONFIG.memoryApiUrl = undefined;
     try {
-      const result = await run.startAutoProfileCleanup(userId, { store: manager });
+      const result = await run.startAutoProfileCleanup(userId, { settings: {}, store: manager });
       expect(result.status).toBe("failed");
     } finally {
       [CONFIG.memoryModel, CONFIG.memoryApiUrl] = saved;
@@ -177,6 +183,7 @@ describe("startAutoProfileCleanup", () => {
     const { run } = await setup(["Only one"]);
     let called = false;
     const result = await run.startAutoProfileCleanup(userId, {
+      settings: {},
       callBatch: async () => {
         called = true;
         return nothing();
@@ -189,6 +196,7 @@ describe("startAutoProfileCleanup", () => {
   it("reports no profile", async () => {
     const { run, manager } = await setup(["One", "Two"]);
     const result = await run.startAutoProfileCleanup("someone-else@example.invalid", {
+      settings: {},
       callBatch: nothing,
       store: manager,
     });
@@ -205,20 +213,21 @@ describe("startAutoProfileCleanup", () => {
       await gate;
       return nothing();
     };
-    const first = run.startAutoProfileCleanup(userId, { callBatch });
-    const second = await run.startAutoProfileCleanup(userId, { callBatch });
+    const first = run.startAutoProfileCleanup(userId, { settings: {}, callBatch });
+    const second = await run.startAutoProfileCleanup(userId, { settings: {}, callBatch });
     expect(second.status).toBe("already-running");
     release();
     expect((await first).status).toBe("nothing-to-change");
     expect(calls).toBe(1);
-    const third = await run.startAutoProfileCleanup(userId, { callBatch: nothing });
+    const third = await run.startAutoProfileCleanup(userId, { settings: {}, callBatch: nothing });
     expect(third.status).toBe("nothing-to-change");
   });
 
   it("logs codes and counts and no item text", async () => {
     const { run } = await setup(["Target", "Source", "Stale"], 20);
-    await run.startAutoProfileCleanup(userId, { callBatch: mergeAndRemove });
+    await run.startAutoProfileCleanup(userId, { settings: {}, callBatch: mergeAndRemove });
     await run.startAutoProfileCleanup(userId, {
+      settings: {},
       callBatch: async () => {
         throw new Error("SECRET reply text");
       },
@@ -235,6 +244,7 @@ describe("startAutoProfileCleanup saves", () => {
   it("keeps an item that learning added during the run", async () => {
     const { run, manager } = await setup(["Target", "Source", "Stale"], 20);
     const result = await run.startAutoProfileCleanup(userId, {
+      settings: {},
       callBatch: async (batch: Batch) => {
         const profile = (await manager.getActiveProfile(userId))!;
         const data = JSON.parse(profile.profileData);
@@ -283,7 +293,7 @@ describe("startAutoProfileCleanup saves", () => {
       },
     })) as never);
 
-    const result = await run.startAutoProfileCleanup(userId, {});
+    const result = await run.startAutoProfileCleanup(userId, { settings: {}, settings: {} });
 
     expect(result).toMatchObject({ status: "applied", applied: 1 });
     const after = await descriptionsOf(manager);
@@ -307,6 +317,7 @@ describe("startAutoProfileCleanup saves", () => {
       },
     };
     const result = await run.startAutoProfileCleanup(userId, {
+      settings: {},
       resolveModel: () => model as never,
     });
     expect(prompts).toHaveLength(1);
@@ -316,6 +327,7 @@ describe("startAutoProfileCleanup saves", () => {
   it("skips a merge whose item learning changed, with no duplicate and no record for it", async () => {
     const { run, store, manager, profileId } = await setup(["Target", "Source"], 20);
     const result = await run.startAutoProfileCleanup(userId, {
+      settings: {},
       callBatch: async (batch: Batch) => {
         const profile = (await manager.getActiveProfile(userId))!;
         const data = JSON.parse(profile.profileData);
@@ -344,6 +356,7 @@ describe("startAutoProfileCleanup saves", () => {
       },
     };
     const result = await run.startAutoProfileCleanup(userId, {
+      settings: {},
       callBatch: mergeAndRemove,
       store: refusing as never,
     });
@@ -355,7 +368,7 @@ describe("startAutoProfileCleanup saves", () => {
 
   it("leaves no record when the model proposes no change", async () => {
     const { run, store, profileId } = await setup(["Target", "Source"], 5);
-    const result = await run.startAutoProfileCleanup(userId, { callBatch: nothing });
+    const result = await run.startAutoProfileCleanup(userId, { settings: {}, callBatch: nothing });
     expect(result.status).toBe("nothing-to-change");
     expect(await store.latestOpenAutoCleanup(profileId)).toBeNull();
   });
@@ -374,7 +387,10 @@ describe("startAutoProfileCleanup size limit", () => {
   it("applies nothing when the model proposes to remove more than 25% of the items", async () => {
     const { run, store, manager, profileId } = await setup([], 8);
     const before = await descriptionsOf(manager);
-    const result = await run.startAutoProfileCleanup(userId, { callBatch: remove(3) });
+    const result = await run.startAutoProfileCleanup(userId, {
+      settings: {},
+      callBatch: remove(3),
+    });
     expect(result.status).toBe("too-many-changes");
     expect(await descriptionsOf(manager)).toEqual(before);
     expect(await store.latestOpenAutoCleanup(profileId)).toBeNull();
@@ -383,7 +399,10 @@ describe("startAutoProfileCleanup size limit", () => {
 
   it("applies exactly 25%", async () => {
     const { run, manager } = await setup([], 8);
-    const result = await run.startAutoProfileCleanup(userId, { callBatch: remove(2) });
+    const result = await run.startAutoProfileCleanup(userId, {
+      settings: {},
+      callBatch: remove(2),
+    });
     expect(result).toMatchObject({ status: "applied", applied: 2 });
     expect(await descriptionsOf(manager)).toHaveLength(6);
   });
@@ -399,13 +418,13 @@ describe("startAutoProfileCleanup size limit", () => {
       mergedItems: { [batch.preferences[0]!.id]: item("merged") },
     });
     // A group of 4 merges 3 items away, which is 37.5% of 8 items.
-    expect((await run.startAutoProfileCleanup(userId, { callBatch: merge(4) })).status).toBe(
-      "too-many-changes"
-    );
+    expect(
+      (await run.startAutoProfileCleanup(userId, { settings: {}, callBatch: merge(4) })).status
+    ).toBe("too-many-changes");
     // A group of 3 merges 2 items away, which is 25%.
-    expect((await run.startAutoProfileCleanup(userId, { callBatch: merge(3) })).status).toBe(
-      "applied"
-    );
+    expect(
+      (await run.startAutoProfileCleanup(userId, { settings: {}, callBatch: merge(3) })).status
+    ).toBe("applied");
     expect(await descriptionsOf(manager)).toHaveLength(6);
   });
 });

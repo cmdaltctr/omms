@@ -1,6 +1,7 @@
 import { realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
+import * as configModule from "../config.js";
 import { CONFIG, refreshConfigIfChanged } from "../config.js";
 import type { CaptureResult, CaptureWorkUnit } from "../core/capture.js";
 import { classifyCaptureFailure, quickRetryDelayMs } from "../core/capture-retry-policy.js";
@@ -401,7 +402,7 @@ async function captureTurn(request: CaptureRequest, deps: ClaudeHookDeps): Promi
     return;
   }
   const directory = sessionDirectory(entries, request.cwd);
-  const recorder = skillTurnRecorder(directory);
+  const recorder = skillTurnRecorder(directory, configModule);
   const recordOnly = (only: typeof windows) =>
     recordClaudeSkillTurns(only, request.sessionId, directory, recorder);
   if (!memories) return recordOnly(windows);

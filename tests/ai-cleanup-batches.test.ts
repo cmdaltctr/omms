@@ -150,7 +150,7 @@ describe("cleanupBatch", () => {
       async () => ({ complete: async () => JSON.stringify(reply) }) as never
     );
     try {
-      const result = await cleanupBatch(batchOf(["pref_0", "pref_1", "pref_2"]));
+      const result = await cleanupBatch(batchOf(["pref_0", "pref_1", "pref_2"]), {});
       expect(result.diff.merged.map((m) => m.ids)).toEqual([["pref_0", "pref_1"]]);
       expect(result.diff.removed).toEqual([]);
       expect(result.diff.kept).not.toContain("pref_9");
@@ -186,7 +186,7 @@ describe("cleanupBatch with a given model", () => {
       },
     };
     try {
-      await cleanupBatch(batchOf(["pref_0"]), given as never);
+      await cleanupBatch(batchOf(["pref_0"]), {}, given as never);
       expect(calls).toEqual(["given"]);
     } finally {
       registerHostProfileModel(null);

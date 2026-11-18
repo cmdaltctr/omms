@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import * as configModule from "../src/config.js";
 import { CONFIG, initConfig } from "../src/config.js";
 import type { CaptureWorkUnit } from "../src/core/capture.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
@@ -64,9 +65,9 @@ describe("skills.db location", () => {
     initConfig(project);
     // Memories still follow the project value.
     expect(CONFIG.storagePath).toBe(projectStore);
-    expect(skillTurnSettingsFor(project).storagePath).toBe(globalStore);
+    expect(skillTurnSettingsFor(project, configModule).storagePath).toBe(globalStore);
 
-    const record = skillTurnRecorder(project);
+    const record = skillTurnRecorder(project, configModule);
     expect(record).toBeDefined();
     expect(await record!(unit(project))).toBe("new");
     expect(existsSync(join(globalStore, "skills.db"))).toBe(true);
@@ -83,6 +84,24 @@ describe("watched folders in the turn settings", () => {
     symlinkSync(real, link, "dir");
     writeGlobal({ skillLearning: true, skillFolders: [real, link] });
     initConfig(root);
-    expect(skillTurnSettingsFor(root).folders).toEqual([real]);
+    expect(skillTurnSettingsFor(root, configModule).folders).toEqual([real]);
+  });
+});
+
+describe("settings read the live config", () => {
+  it("applies a config change made between two calls", () => {
+    const root = tempDir("skills-live-");
+    writeGlobal({ skillLearning: true, skillLearningRedact: true, skillFolders: [] });
+    initConfig(root);
+    expect(skillTurnSettingsFor(root, configModule)).toMatchObject({
+      enabled: true,
+      redact: true,
+    });
+    writeGlobal({ skillLearning: false, skillLearningRedact: false, skillFolders: [] });
+    expect(skillTurnSettingsFor(root, configModule)).toMatchObject({
+      enabled: false,
+      redact: false,
+    });
+    expect(skillTurnRecorder(root, configModule)).toBeUndefined();
   });
 });

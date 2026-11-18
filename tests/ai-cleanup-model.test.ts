@@ -33,7 +33,7 @@ describe("callAICleanup with a given model", () => {
       },
     };
 
-    const result = await callAICleanup("prompt", given as never);
+    const result = await callAICleanup("prompt", {}, given as never);
 
     expect(calls).toEqual(["given"]);
     expect(result.mapping.kept).toEqual(["pref_0"]);
@@ -51,8 +51,51 @@ describe("callAICleanup with a given model", () => {
         }) as never
     );
 
-    await callAICleanup("prompt");
+    await callAICleanup("prompt", {});
 
     expect(calls).toEqual(["host"]);
+  });
+});
+
+describe("callAICleanup external API settings", () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it("uses the settings given on each call, not an earlier call's", async () => {
+    const seen: Array<{ url: string; auth: string; model: unknown }> = [];
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      seen.push({
+        url,
+        auth: String((init.headers as Record<string, string>).Authorization),
+        model: JSON.parse(String(init.body)).model,
+      });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ choices: [{ message: { content: reply } }] }),
+      };
+    }) as never;
+
+    await callAICleanup("prompt", {
+      memoryModel: "m1",
+      memoryApiUrl: "http://one.test",
+      memoryApiKey: "k1",
+    });
+    await callAICleanup("prompt", {
+      memoryModel: "m2",
+      memoryApiUrl: "http://two.test",
+      memoryApiKey: "k2",
+    });
+
+    expect(seen).toEqual([
+      { url: "http://one.test/chat/completions", auth: "Bearer k1", model: "m1" },
+      { url: "http://two.test/chat/completions", auth: "Bearer k2", model: "m2" },
+    ]);
+  });
+
+  it("throws when the settings name no external model", async () => {
+    await expect(callAICleanup("prompt", {})).rejects.toThrow("No AI provider configured");
   });
 });

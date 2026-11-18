@@ -466,6 +466,6 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     },
   });
 
-  registerPiSkillsTool(pi);
+  registerPiSkillsTool(pi, configModule);
   registerPiHistoryImportCommand(pi, () => latestCtx);
 }

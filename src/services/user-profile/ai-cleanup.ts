@@ -1,8 +1,8 @@
 import type { UserProfileData } from "./types.js";
-import { CONFIG } from "../../config.js";
 import { log } from "../logger.js";
 import type { ModelPort } from "../../core/profile-analysis.js";
 import { resolveHostProfileModel } from "./profile-model.js";
+import type { MemoryModelSettings } from "./memory-model-settings.js";
 import { EXTERNAL_PROFILE_CLEANUP_TIMEOUT_MS } from "../request-timeouts.js";
 import { applySafeExtraParams } from "../ai/providers/base-provider.js";
 
@@ -113,6 +113,7 @@ function formatForAI(item: IndexedProfileItem): Record<string, unknown> {
 
 export async function callAICleanup(
   prompt: string,
+  settings: MemoryModelSettings,
   model?: ModelPort | null
 ): Promise<{ profile: IndexedProfile; mapping: AIMapping }> {
   // A caller that has its own model (Pi) passes it. Otherwise use the host model when the
@@ -124,27 +125,28 @@ export async function callAICleanup(
     return callViaHostModel(hostModel, prompt);
   }
 
-  if (CONFIG.memoryModel && CONFIG.memoryApiUrl) {
-    return callViaExternalAPI(prompt);
+  if (settings.memoryModel && settings.memoryApiUrl) {
+    return callViaExternalAPI(prompt, settings);
   }
 
   throw new Error("No AI provider configured for profile cleanup");
 }
 
 async function callViaExternalAPI(
-  prompt: string
+  prompt: string,
+  settings: MemoryModelSettings
 ): Promise<{ profile: IndexedProfile; mapping: AIMapping }> {
   const t0 = Date.now();
   const systemPrompt =
     "You are a user profile cleanup assistant. Merge duplicate entries and return only JSON.";
 
   const requestBody: Record<string, unknown> = {};
-  if (CONFIG.memoryExtraParams) {
-    applySafeExtraParams(requestBody, CONFIG.memoryExtraParams);
+  if (settings.memoryExtraParams) {
+    applySafeExtraParams(requestBody, settings.memoryExtraParams);
   }
 
   Object.assign(requestBody, {
-    model: CONFIG.memoryModel,
+    model: settings.memoryModel,
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: prompt },
@@ -153,11 +155,11 @@ async function callViaExternalAPI(
     response_format: { type: "json_object" },
   });
 
-  const response = await fetch(`${CONFIG.memoryApiUrl}/chat/completions`, {
+  const response = await fetch(`${settings.memoryApiUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${CONFIG.memoryApiKey}`,
+      Authorization: `Bearer ${settings.memoryApiKey}`,
     },
     body: JSON.stringify(requestBody),
     signal: AbortSignal.timeout(EXTERNAL_PROFILE_CLEANUP_TIMEOUT_MS),

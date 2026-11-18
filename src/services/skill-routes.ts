@@ -23,7 +23,7 @@ import {
 import { listProposalSummaries } from "./skill-learning/proposal-summaries.js";
 import { intParam } from "./skill-learning/query-params.js";
 import { SKILL_ORDERS, rankSkills, type SkillOrder } from "./skill-learning/ranking.js";
-import { skillTurnSettingsFor } from "./skill-learning/settings-for.js";
+import { skillTurnSettingsFor, type SkillConfigModule } from "./skill-learning/settings-for.js";
 import { skillModel } from "./skill-learning/skill-model.js";
 import { getSkillIndex, type SkillIndex } from "./skill-learning/skill-index.js";
 import { SkillStore, SkillStoreError, skillsDbPath } from "./skill-learning/store.js";
@@ -42,7 +42,7 @@ import {
 export interface SkillRouteContext {
   cwd: string;
   /** The live config module, so a reload reaches the model of a failure explanation. */
-  configModule: Pick<typeof import("../config.js"), "CONFIG">;
+  configModule: SkillConfigModule;
   startRecordPast: (cwd: string) => Promise<{ id: string }>;
 }
 
@@ -157,7 +157,7 @@ async function dispatch(
   readBody: () => Promise<Body>,
   ctx: SkillRouteContext
 ): Promise<RouteResult | undefined> {
-  const settings = skillTurnSettingsFor(ctx.cwd);
+  const settings = skillTurnSettingsFor(ctx.cwd, ctx.configModule);
   const store = new SkillStore(skillsDbPath(settings.storagePath));
   const now = Date.now();
   const index = () => getSkillIndex(settings.folders, now);
@@ -226,7 +226,9 @@ async function dispatch(
 
   if (method !== "POST") return undefined;
   const operation = (mode: string, args: SkillOperationArgs) =>
-    runSkillOperation(mode, args, skillOperationsDeps(ctx.cwd, "person")).then(fromOperation);
+    runSkillOperation(mode, args, skillOperationsDeps(ctx.cwd, "person", ctx.configModule)).then(
+      fromOperation
+    );
 
   switch (path) {
     case "/api/skills/draft": {

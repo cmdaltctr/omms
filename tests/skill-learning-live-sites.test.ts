@@ -260,7 +260,8 @@ const history = await openOpencodeHistory(historyPath, {});
 const [window] = history.loadUnits("session-1");
 await history.close();
 const { skillTurnRecorder } = await import(${url("services/skill-learning/settings-for.js")});
-const status = await skillTurnRecorder("/workspace")({
+const configModule = await import(${url("config.js")});
+const status = await skillTurnRecorder("/workspace", configModule)({
   host: "opencode", hostSessionId: "session-1", sourceType: "history-import", projectDirectory: "/workspace",
   userPrompt: window.userPrompt, promptId: window.userEntryId, textResponses: window.textResponses, toolCalls: window.toolCalls,
 });

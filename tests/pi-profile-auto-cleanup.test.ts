@@ -46,11 +46,19 @@ mock.module("../src/services/user-prompt/user-prompt-manager.js", () => ({
   },
 }));
 
-const started: Array<{ userId: string; options: { resolveModel?: () => unknown } }> = [];
+const modelsAtStart: Array<string | undefined> = [];
+const started: Array<{
+  userId: string;
+  options: { resolveModel?: () => unknown; settings?: { memoryModel?: string } };
+}> = [];
 let cleanup: "pending" | "rejects" = "pending";
 mock.module("../src/services/user-profile/auto-cleanup.js", () => ({
-  startAutoProfileCleanup: (userId: string, options: { resolveModel?: () => unknown }) => {
+  startAutoProfileCleanup: (
+    userId: string,
+    options: { resolveModel?: () => unknown; settings?: { memoryModel?: string } }
+  ) => {
     started.push({ userId, options });
+    modelsAtStart.push(options.settings?.memoryModel);
     if (cleanup === "rejects") return Promise.reject(new Error("boom"));
     return new Promise(() => {});
   },
@@ -81,6 +89,7 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 beforeEach(() => {
   started.length = 0;
+  modelsAtStart.length = 0;
   saves.length = 0;
   previous = 95;
   cleanup = "pending";
@@ -98,6 +107,16 @@ describe("Pi automatic cleanup after learning", () => {
     expect(started).toHaveLength(1);
     expect(started[0]!.userId).toBe("me@example.invalid");
     expect(started[0]!.options.resolveModel?.()).toBe(model);
+  });
+
+  it("gives each run the external model settings that are live at that pass", async () => {
+    CONFIG.memoryModel = "model-a";
+    await learnPiProfile({ directory: "/tmp", model: () => model as never });
+    await settle();
+    CONFIG.memoryModel = "model-b";
+    await learnPiProfile({ directory: "/tmp", model: () => model as never });
+    await settle();
+    expect(modelsAtStart).toEqual(["model-a", "model-b"]);
   });
 
   it("hands over the Pi model handle as a profile model", async () => {

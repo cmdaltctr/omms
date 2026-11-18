@@ -86,7 +86,7 @@ export function createOpencodeTools(
     },
     skills: {
       description: SKILLS_TOOL_DESCRIPTION,
-      execute: (args) => runOpencodeSkillsTool(args, base.directory),
+      execute: (args) => runOpencodeSkillsTool(args, base.directory, configModule),
     },
   };
 }

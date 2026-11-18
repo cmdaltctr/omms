@@ -88,7 +88,8 @@ export function createV2MemoryBridge(directory: string): V2MemoryBridge {
         {
           maxBytes: budgetBytes,
           wrapperBytes: retrievalWrapperBytes(),
-        }
+        },
+        CONFIG
       );
       return section ? wrapRetrievalSection(section) : null;
     },
@@ -105,6 +106,7 @@ export function createV2MemoryBridge(directory: string): V2MemoryBridge {
         excludeCurrentSession: CONFIG.chatMessage.excludeCurrentSession,
         budget: { maxBytes: budgetBytes, wrapperBytes: retrievalWrapperBytes() },
         openingReserveBytes: 0,
+        config: CONFIG,
       });
       return { ...sections, openingQuery };
     },

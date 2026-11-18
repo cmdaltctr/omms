@@ -5,6 +5,7 @@ import { log } from "../../services/logger.js";
 import { getTags } from "../../services/tags.js";
 import { shouldStartAutoCleanup } from "../../services/user-profile/auto-cleanup-trigger.js";
 import type { AutoCleanupOptions } from "../../services/user-profile/auto-cleanup.js";
+import type { MemoryModelSettings } from "../../services/user-profile/memory-model-settings.js";
 import type { UserProfile, UserProfileData } from "../../services/user-profile/types.js";
 import { HOST_INFO, type MemoryHost } from "../../shared/hosts.js";
 import { buildProfileLearningInput } from "./model-input.js";
@@ -15,7 +16,7 @@ import { applyValidations, buildValidationTask, type ValidationTask } from "./va
 // Adapters keep the trigger, the model and the notice display. Everything else is here.
 
 /** The config a pass reads. The adapter passes `CONFIG`; this module never imports it. */
-export interface ProfileLearningConfig extends ProfileLearningSettings {
+export interface ProfileLearningConfig extends ProfileLearningSettings, MemoryModelSettings {
   userProfileAnalysisInterval?: number;
   userProfileMaxContextBytes?: number;
   userProfileAutoCleanupEnabled?: boolean;
@@ -247,7 +248,10 @@ function startCleanupWhenDue(
   if (!shouldStartAutoCleanup(previous, added, settings)) return;
   void import("../../services/user-profile/auto-cleanup.js")
     .then(({ startAutoProfileCleanup }) =>
-      startAutoProfileCleanup(userId, { resolveModel: input.cleanupModel })
+      startAutoProfileCleanup(userId, {
+        settings: input.config,
+        resolveModel: input.cleanupModel,
+      })
     )
     .catch(() => {});
 }

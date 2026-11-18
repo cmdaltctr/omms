@@ -101,7 +101,6 @@ function rawSql(file: string): number {
 // Non-type import sites of src/config.ts per file, recorded after modular-boundaries.
 // Guards the config-injection follow-up: new core and services code takes config as an argument.
 const configBaseline: Record<string, number> = {
-  "src/core/capture-context.ts": 1,
   "src/core/capture.ts": 1,
   "src/services/active-space-access.ts": 1,
   "src/services/auto-capture.ts": 1,
@@ -110,10 +109,6 @@ const configBaseline: Record<string, number> = {
   "src/services/context.ts": 1,
   "src/services/deduplication-service.ts": 1,
   "src/services/global-config-writer.ts": 1,
-  "src/services/skill-learning/operations-deps.ts": 1,
-  "src/services/skill-learning/settings-for.ts": 1,
-  "src/services/user-profile/ai-cleanup.ts": 1,
-  "src/services/user-profile/category-cleanup.ts": 1,
   "src/services/web-server.ts": 1,
 };
 
@@ -279,7 +274,8 @@ function ratchet(
   });
 }
 
-ratchet("CONFIG import", configImports, configBaseline, 10);
+// Part 2 of modularity-follow-ups ends at two files by design (D5a): web-server.ts and active-space-access.ts.
+ratchet("CONFIG import", configImports, configBaseline, 2);
 ratchet("storage import", storageImports, storageBaseline, 10);
 ratchet("raw SQL", rawSql, sqlBaseline, 10);
 

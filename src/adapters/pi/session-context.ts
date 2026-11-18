@@ -122,6 +122,7 @@ export function createPiSessionContext(rows: PiRecallRows): PiSessionContext {
             excludeCurrentSession: CONFIG.chatMessage.excludeCurrentSession,
             budget,
             openingReserveBytes: SECTION_SEPARATOR_BYTES,
+            config: CONFIG,
           }));
         } else {
           const section = await buildRetrievalSection(
@@ -129,7 +130,8 @@ export function createPiSessionContext(rows: PiRecallRows): PiSessionContext {
             ctx.cwd,
             sessionId,
             CONFIG.chatMessage.excludeCurrentSession,
-            budget
+            budget,
+            CONFIG
           );
           promptSection = section ? wrapRetrievalSection(section) : null;
         }

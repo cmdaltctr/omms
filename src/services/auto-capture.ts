@@ -52,7 +52,13 @@ export async function performAutoCapture(
     const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
     const prompts = await userPromptManager.getUncapturedPromptsForSession(sessionID, maxRetries);
     if (prompts.length === 0) return;
-    const recorder = skillTurnRecorder(directory);
+    // The getter keeps `CONFIG` live after the refresh. The auto-capture slice replaces this with the module.
+    const recorder = skillTurnRecorder(directory, {
+      get CONFIG() {
+        return CONFIG;
+      },
+      refreshConfigIfChanged,
+    });
     // Skill learning records turns even when memory capture is off (ADR-036).
     if (CONFIG.autoCaptureEnabled === false || !host.isCaptureReady()) {
       for (const prompt of prompts) {

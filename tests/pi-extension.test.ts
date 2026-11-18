@@ -232,7 +232,7 @@ mock.module(${JSON.stringify(skillOperationsUrl)}, () => ({
   },
 }));
 mock.module(${JSON.stringify(skillDepsUrl)}, () => ({
-  skillOperationsDeps: (directory, appliedBy) => ({ directory, appliedBy }),
+  skillOperationsDeps: (directory, appliedBy, config) => ({ directory, appliedBy, hasConfig: typeof config?.refreshConfigIfChanged === "function" }),
 }));
 
 // The automatic daily run. "manual" (the Cleanup button's delete) must never appear.
@@ -679,7 +679,7 @@ captured = {
     expect(output.captured.call).toEqual({
       mode: "draft",
       args: { idea: { name: "deploy", description: "Deploy steps" }, folder: "/skills" },
-      deps: { directory: "/workspace", appliedBy: "agent" },
+      deps: { directory: "/workspace", appliedBy: "agent", hasConfig: true },
     });
   });
 

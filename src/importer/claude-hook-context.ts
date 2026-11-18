@@ -210,7 +210,8 @@ export async function promptContext(
       input.cwd,
       input.sessionId,
       CONFIG.chatMessage.excludeCurrentSession,
-      budget
+      budget,
+      CONFIG
     );
     return section ? wrapSection(section, limits) : "";
   }
@@ -223,6 +224,7 @@ export async function promptContext(
     sessionId: input.sessionId,
     excludeCurrentSession: CONFIG.chatMessage.excludeCurrentSession,
     budget,
+    config: CONFIG,
     // The rows-off marker is already in `wrapperBytes`; the opening marker and the
     // line between the two sections are extra.
     openingReserveBytes: (limits.rowsOff ? 0 : utf8ByteLength(marker)) + SECTION_SEPARATOR.length,
@@ -348,7 +350,8 @@ export async function subagentContext(
     input.cwd,
     input.sessionId,
     CONFIG.chatMessage.excludeCurrentSession,
-    sectionBudget(limits)
+    sectionBudget(limits),
+    CONFIG
   );
   return section ? wrapSection(section, limits) : "";
 }

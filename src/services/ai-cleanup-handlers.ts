@@ -95,6 +95,7 @@ export async function handleAiCleanupStart(
     const job = startAiCleanupJob(
       user,
       { profileData: sortedProfile(profile.profileData), includeIds },
+      config.CONFIG,
       deps
     );
     return { success: true, data: await clientView(job, config) };

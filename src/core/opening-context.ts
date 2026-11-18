@@ -1,4 +1,4 @@
-import { formatContextForPrompt } from "../services/context.js";
+import { formatContextForPrompt, type ContextConfig } from "../services/context.js";
 import { getTags } from "../services/tags.js";
 import { utf8ByteLength } from "../utils/context-limit.js";
 import { resolveCeiling, type ContextBudgetOptions } from "./context-budget.js";
@@ -45,6 +45,8 @@ export interface FirstPromptSectionsInput {
   budget: ContextBudgetOptions;
   /** Bytes the host adds to the opening section only, such as Claude Code's opening marker. */
   openingReserveBytes: number;
+  /** `CONFIG`, passed by the host for the profile block of the prompt section. */
+  config?: ContextConfig;
 }
 
 /**
@@ -90,7 +92,8 @@ export async function buildFirstPromptSections(
           tags.user.userEmail || null,
           { results: promptResults },
           { ...input.budget, wrapperBytes },
-          promptSearch?.queryVector
+          promptSearch?.queryVector,
+          input.config
         )
       : "";
 
@@ -105,7 +108,9 @@ export async function buildFirstPromptSections(
       ? await formatContextForPrompt(
           null,
           { results: openingResults },
-          { maxBytes: remaining, wrapperBytes }
+          { maxBytes: remaining, wrapperBytes },
+          undefined,
+          input.config
         )
       : "";
 

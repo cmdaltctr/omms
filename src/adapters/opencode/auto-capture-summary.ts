@@ -113,7 +113,8 @@ export async function generateOpenCodeAutoCaptureSummary(
       const aiPrompt = buildBoundedSummaryPrompt(
         request.context,
         systemPrompt,
-        z.toJSONSchema(schema)
+        z.toJSONSchema(schema),
+        CONFIG.autoCaptureMaxContextBytes
       );
       diagnostics.systemPrompt = systemPrompt;
       diagnostics.userPrompt = aiPrompt;
@@ -215,7 +216,12 @@ export async function generateOpenCodeAutoCaptureSummary(
     },
   };
 
-  const aiPrompt = buildBoundedSummaryPrompt(request.context, systemPrompt, toolSchema);
+  const aiPrompt = buildBoundedSummaryPrompt(
+    request.context,
+    systemPrompt,
+    toolSchema,
+    CONFIG.autoCaptureMaxContextBytes
+  );
   const captureSessionID = `auto-capture-${request.prompt?.id ?? request.sessionId}-${randomUUID()}`;
 
   // Replace whatever the failed host-model attempt recorded.

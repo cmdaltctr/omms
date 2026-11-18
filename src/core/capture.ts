@@ -70,7 +70,7 @@ export async function captureConversation(
   // Snapshot the markdown budget after the refresh and before the first
   // await: a config edit during the memory read must not change this
   // capture's input limit. The budget keeps its built-in request reserve.
-  const markdownBudget = getAutoCaptureMarkdownBudget();
+  const markdownBudget = getAutoCaptureMarkdownBudget(CONFIG.autoCaptureMaxContextBytes);
   const diagnostics: CaptureAttemptDiagnostics = {};
   const startedAt = Date.now();
   let outcome: CaptureAttemptOutcome = "failed";

@@ -3,6 +3,7 @@
  * The operations, their store and the model load with `import()` on the first
  * call, so the plugin bundles stay light. A call records `agent` on apply.
  */
+import type { SkillConfigModule } from "../services/skill-learning/settings-for.js";
 
 /** Same list as `SKILL_OPERATION_MODES`; a test keeps the two equal. */
 export const SKILLS_TOOL_MODES = [
@@ -71,12 +72,20 @@ export interface SkillsToolArgs {
 }
 
 /** Run one `skills` tool call for the project in `directory`; returns the result as JSON. */
-export async function runSkillsTool(args: SkillsToolArgs, directory: string): Promise<string> {
+export async function runSkillsTool(
+  args: SkillsToolArgs,
+  directory: string,
+  config: SkillConfigModule
+): Promise<string> {
   const [{ runSkillOperation }, { skillOperationsDeps }] = await Promise.all([
     import("./skill-operations.js"),
     import("../services/skill-learning/operations-deps.js"),
   ]);
   const { mode, ...rest } = args;
-  const result = await runSkillOperation(mode, rest, skillOperationsDeps(directory, "agent"));
+  const result = await runSkillOperation(
+    mode,
+    rest,
+    skillOperationsDeps(directory, "agent", config)
+  );
   return JSON.stringify(result);
 }

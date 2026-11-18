@@ -126,7 +126,8 @@ const profile = {
 let errorMessage = null;
 let result = null;
 try {
-  result = await cleanupBatch(addIdsToProfile(profile));
+  const { CONFIG } = await import(${JSON.stringify(configUrl)});
+  result = await cleanupBatch(addIdsToProfile(profile), CONFIG);
 } catch (e) {
   errorMessage = String(e?.message || e);
 }

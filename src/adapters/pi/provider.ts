@@ -126,10 +126,15 @@ export function createPiCaptureProvider(resolveModel: () => PiModelHandle | null
       const systemPrompt = buildCaptureSystemPrompt(getLanguageName(targetLang));
       const replyInstruction = buildCaptureReplyInstruction();
       // The instruction is counted as schema bytes so the context budget leaves room for it.
-      const userPrompt = `${buildBoundedSummaryPrompt(request.context, systemPrompt, {
-        schema: captureSummaryToolSchema,
-        replyInstruction,
-      })}\n\n${replyInstruction}`;
+      const userPrompt = `${buildBoundedSummaryPrompt(
+        request.context,
+        systemPrompt,
+        {
+          schema: captureSummaryToolSchema,
+          replyInstruction,
+        },
+        CONFIG.autoCaptureMaxContextBytes
+      )}\n\n${replyInstruction}`;
 
       const diagnostics = request.diagnostics;
       if (diagnostics) {

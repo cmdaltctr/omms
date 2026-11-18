@@ -179,9 +179,9 @@ async function runOperation(
   const secrets: string[] = [];
   let result: SkillOperationResult;
   try {
-    const { CONFIG, initConfig } = await import("../config.js");
-    initConfig(directory);
-    for (const secret of [CONFIG.memoryApiKey, CONFIG.embeddingApiKey]) {
+    const configModule = await import("../config.js");
+    configModule.initConfig(directory);
+    for (const secret of [configModule.CONFIG.memoryApiKey, configModule.CONFIG.embeddingApiKey]) {
       if (secret) secrets.push(secret);
     }
     const { runSkillOperation } = await import("../core/skill-operations.js");
@@ -189,7 +189,7 @@ async function runOperation(
     result = await runSkillOperation(
       mode,
       parsed.args,
-      skillOperationsDeps(directory, parsed.appliedBy)
+      skillOperationsDeps(directory, parsed.appliedBy, configModule)
     );
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error);

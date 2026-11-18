@@ -28,7 +28,7 @@ export async function handleCategoryCleanupStart(
     const { startCategoryCleanupJob } = await import("../user-profile/category-cleanup-job.js");
     return {
       success: true,
-      data: startCategoryCleanupJob(await categoryCleanupUser(config, userId), deps),
+      data: startCategoryCleanupJob(await categoryCleanupUser(config, userId), config.CONFIG, deps),
     };
   } catch (error) {
     return categoryCleanupError("start", error);

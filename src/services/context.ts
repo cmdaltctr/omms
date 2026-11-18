@@ -1,11 +1,21 @@
 import * as configModule from "../config.js";
 import { activeSpaceLine } from "./spaces/context-line.js";
-import { getUserProfileContext } from "./user-profile/profile-context.js";
+import {
+  getUserProfileContext,
+  type ProfileContextConfig,
+} from "./user-profile/profile-context.js";
 import {
   packContextSection,
   type BudgetedBlock,
   type ContextBudgetOptions,
 } from "../core/context-budget.js";
+
+/**
+ * The config values `formatContextForPrompt` reads. Callers pass `CONFIG`; an omitted
+ * argument falls back to this module's own `CONFIG` until the fallback is removed.
+ */
+export type ContextConfig = Pick<typeof configModule.CONFIG, "injectProfile"> &
+  ProfileContextConfig;
 
 interface MemoryResultMinimal {
   id?: string;
@@ -54,12 +64,13 @@ export async function formatContextForPrompt(
   projectMemories: MemoriesResponseMinimal,
   budget?: ContextBudgetOptions,
   /** The embedded prompt, when there is one. Lets the profile block follow the prompt. */
-  queryVector?: ArrayLike<number>
+  queryVector?: ArrayLike<number>,
+  config: ContextConfig = configModule.CONFIG
 ): Promise<string> {
   const blocks: BudgetedBlock[] = [];
 
-  if (configModule.CONFIG.injectProfile && userId) {
-    const profileContext = await getUserProfileContext(configModule.CONFIG, userId, queryVector);
+  if (config.injectProfile && userId) {
+    const profileContext = await getUserProfileContext(config, userId, queryVector);
     if (profileContext) {
       blocks.push({
         prefix: "<user_profile>\n",

@@ -93,7 +93,7 @@ export function selectImportModel(flags: ImportModelFlags): SelectedImportModel 
       };
       const result = await provider.executeToolCall(
         system,
-        buildBoundedSummaryPrompt(request.context, system, tool),
+        buildBoundedSummaryPrompt(request.context, system, tool, CONFIG.autoCaptureMaxContextBytes),
         tool,
         `history-capture-${randomUUID()}`
       );
