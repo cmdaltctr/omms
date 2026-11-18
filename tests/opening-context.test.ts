@@ -93,6 +93,9 @@ console.log(JSON.stringify({ captured, searchQueries, formatted, configs, overla
   return JSON.parse(stdout.split("\n").pop()!);
 }
 
+/** What the scenario passes as `config` (PASSED); each search receives it unchanged. */
+const PASSED_CONFIG = { injectProfile: true };
+
 const call = (extra = "") =>
   `captured = await buildFirstPromptSections({ prompt: "fix the queue", openingQuery: "project setup",
      directory: "/repo", sessionId: "ses-1", excludeCurrentSession: EXCLUDE, budget: { maxBytes: 4000, wrapperBytes: wrapper },
@@ -146,8 +149,18 @@ results = { "fix the queue": [memory("a")], "project setup": [memory("b")] };
 ${call()}
 `);
     expect(output.searchQueries).toEqual([
-      ["fix the queue", "omms_project_test", "project", { includeLinked: true }],
-      ["project setup", "omms_project_test", "project", { includeLinked: true }],
+      [
+        "fix the queue",
+        "omms_project_test",
+        "project",
+        { includeLinked: true, config: PASSED_CONFIG },
+      ],
+      [
+        "project setup",
+        "omms_project_test",
+        "project",
+        { includeLinked: true, config: PASSED_CONFIG },
+      ],
     ]);
     // Each search saw the other one start before it finished.
     expect(output.overlap).toEqual([2, 2]);
@@ -155,7 +168,12 @@ ${call()}
       `await buildRetrievalSection("fix the queue", "/repo", "ses-1", EXCLUDE, undefined, PASSED);`
     );
     expect(single.searchQueries).toEqual([
-      ["fix the queue", "omms_project_test", "project", { includeLinked: true }],
+      [
+        "fix the queue",
+        "omms_project_test",
+        "project",
+        { includeLinked: true, config: PASSED_CONFIG },
+      ],
     ]);
   });
 
@@ -303,7 +321,12 @@ captured = await buildFirstPromptSections({ prompt: "fix the queue", openingQuer
   openingReserveBytes: 0, config: PASSED });
 `);
     expect(output.searchQueries).toEqual([
-      ["fix the queue", "omms_project_test", "project", { includeLinked: true }],
+      [
+        "fix the queue",
+        "omms_project_test",
+        "project",
+        { includeLinked: true, config: PASSED_CONFIG },
+      ],
     ]);
     expect(output.captured.openingSection).toBeNull();
     expect(output.captured.promptSection).toContain("a");

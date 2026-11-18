@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import type { MemorySearchConfig } from "../client-read-settings.js";
 import { log } from "../logger.js";
 import type { ChatServiceDeps } from "./chat-service.js";
 import { ChatStore } from "./chat-store.js";
@@ -106,8 +107,11 @@ export async function existingMemoryIds(ids: string[]): Promise<Set<string>> {
   return found;
 }
 
+/** The settings a chat answer reads: chat's own and the memory search's. */
+export type ChatAnswerConfig = ChatRuntimeConfig & MemorySearchConfig;
+
 /** Real dependencies for `askQuestion`, built from the settings passed in. */
-export async function chatServiceDeps(config: ChatRuntimeConfig): Promise<ChatServiceDeps> {
+export async function chatServiceDeps(config: ChatAnswerConfig): Promise<ChatServiceDeps> {
   const store = await chatStore(config);
   const skills = await chatSkillsDep(config);
   return {
@@ -122,7 +126,7 @@ export async function chatServiceDeps(config: ChatRuntimeConfig): Promise<ChatSe
           query,
           scopeTag ?? "",
           scopeTag ? "project" : "all-projects",
-          { includeLinked: true }
+          { includeLinked: true, config }
         );
         return result.success ? (result.results as MemoryHit[]) : [];
       },

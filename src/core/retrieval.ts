@@ -1,5 +1,6 @@
 import { formatContextForPrompt, type ContextConfig } from "../services/context.js";
 import { memoryClient } from "../services/client.js";
+import type { MemorySearchConfig } from "../services/client-read-settings.js";
 import { getTags } from "../services/tags.js";
 import { isFullyPrivate, stripPrivateContent } from "../services/privacy.js";
 import { utf8ByteLength } from "../utils/context-limit.js";
@@ -20,11 +21,14 @@ export async function searchSectionMemories(
   query: string,
   projectTag: string,
   sessionId: string,
-  excludeCurrentSession: boolean | undefined
+  excludeCurrentSession: boolean | undefined,
+  /** `CONFIG`, passed by the host at call time. */
+  config: MemorySearchConfig
 ): Promise<{ results: any[]; queryVector?: ArrayLike<number> } | null> {
   // Recall reads linked spaces too (D6); capture and profile steps keep the default.
   const search = await memoryClient.searchMemories(query, projectTag, "project", {
     includeLinked: true,
+    config,
   });
   if (!search.success) return null;
 
@@ -64,8 +68,8 @@ export async function buildRetrievalSection(
   sessionId: string,
   excludeCurrentSession: boolean | undefined,
   budget: ContextBudgetOptions | undefined,
-  /** `CONFIG`, passed by the host for the profile block. */
-  config: ContextConfig
+  /** `CONFIG`, passed by the host for the search and the profile block. */
+  config: ContextConfig & MemorySearchConfig
 ): Promise<string | null> {
   const query = searchablePrompt(prompt);
   if (!query) return null;
@@ -75,7 +79,8 @@ export async function buildRetrievalSection(
     query,
     tags.project.tag,
     sessionId,
-    excludeCurrentSession
+    excludeCurrentSession,
+    config
   );
   if (!search || search.results.length === 0) return null;
 

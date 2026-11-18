@@ -117,11 +117,13 @@ export async function listMemorisationsByTags(
   containerTag: string,
   tags: string[][],
   scope: MemoryScope,
-  limit: number
+  limit: number,
+  linked: LinkedSearchSettings
 ): Promise<{ success: true; memories: ListedMemory[] } | { success: false; error: string }> {
   const result = await memoryClient.listMemories(containerTag, READ_CEILING, scope, {
     includeLinked: true,
     kind: "memorisation",
+    linked,
   });
   if (!result.success) return { success: false, error: result.error };
   const memories = result.memories
@@ -133,12 +135,15 @@ export async function listMemorisationsByTags(
 }
 
 /** Every label in use across the active space and its linked spaces, with its record count. */
-export async function listMemorisationLabels(): Promise<
+export async function listMemorisationLabels(
+  linked: LinkedSearchSettings
+): Promise<
   { success: true; labels: { label: string; count: number }[] } | { success: false; error: string }
 > {
   const result = await memoryClient.listMemories("", READ_CEILING, "all-projects", {
     includeLinked: true,
     kind: "memorisation",
+    linked,
   });
   if (!result.success) return { success: false, error: result.error };
   return { success: true, labels: countLabels(result.memories.map((memory) => memory.tags)) };

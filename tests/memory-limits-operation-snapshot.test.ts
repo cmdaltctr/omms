@@ -169,7 +169,7 @@ for (let i = 0; i < 6; i++) {
 // Hold the query embedding so the limit can change mid-operation.
 let gateResolve;
 releaseEmbedding = new Promise((resolve) => { gateResolve = resolve; });
-const searchPromise = memoryClient.searchMemories("stored decision", tag);
+const searchPromise = memoryClient.searchMemories("stored decision", tag, "project", { config: config.CONFIG });
 await sleep(20);
 const entryCount = config.CONFIG.maxMemories;
 config.CONFIG.maxMemories = 2;
@@ -177,7 +177,7 @@ gateResolve();
 const first = await searchPromise;
 releaseEmbedding = null;
 
-const next = await memoryClient.searchMemories("stored decision", tag);
+const next = await memoryClient.searchMemories("stored decision", tag, "project", { config: config.CONFIG });
 const listed = await memoryClient.listMemories(tag, 50);
 scenario = {
   entryCount,

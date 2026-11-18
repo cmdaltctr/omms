@@ -5,18 +5,21 @@ import { tursoConnectionManager } from "./turso/connection-manager.js";
 import { ensureTursoReady } from "./turso/ready.js";
 import { formatTagsForEmbedding } from "./turso/vector-utils.js";
 import { extractScopeFromContainerTag, resolveMemoryScope } from "./memory-scope.js";
-import { rerankSettingsFor } from "./reranker.js";
 import { rerankedSearch } from "./retrieval-rerank.js";
 import {
   findLinkedMemoryOwner,
   linkedRefusal,
-  linkedSettingsFrom,
   listLinkedSpaces,
   mapListedMemory,
   searchLinkedSpaces,
-  type MemoryReadOptions,
+  type LinkedSearchSettings,
 } from "./linked-search.js";
-import { CONFIG } from "../config.js";
+import {
+  linkedSearchSettings,
+  searchEntrySettings,
+  type MemoryListOptions,
+  type MemorySearchOptions,
+} from "./client-read-settings.js";
 import { activeOwner } from "./active-space-access.js";
 import { log } from "./logger.js";
 import type { MemoryType } from "../types/index.js";
@@ -93,26 +96,13 @@ export class LocalMemoryClient {
     query: string,
     containerTag: string,
     scope: MemoryScope = "project",
-    options: MemoryReadOptions = {}
+    options: MemorySearchOptions
   ) {
-    // Capture the result count and the reranker settings at entry: initialize,
-    // embedding, and shard reads all await, and a config edit during them must
-    // not change this search's limit or reranker target.
-    const maxMemories = options.limit ?? CONFIG.maxMemories;
-    const keywordBoost = CONFIG.keywordBoost;
-    const reranker = rerankSettingsFor(CONFIG, options.reranker);
-    // The reranker path below always uses the boost: it needs a full pool on the similarity scale.
-    const keywordMode = CONFIG.keywordMode;
-    // On but incomplete, through the general switch or a search's own override:
-    // search must keep working, so treat the reranker as off and say so once.
-    if (
-      !reranker &&
-      (options.reranker === true || (CONFIG.rerankerEnabled && options.reranker !== false))
-    ) {
-      log("Reranker asked for without a URL or model; searching without it", {
-        code: "reranker_not_configured",
-      });
-    }
+    const { config } = options;
+    const { maxMemories, keywordBoost, keywordMode, reranker } = searchEntrySettings(
+      config,
+      options
+    );
     try {
       await this.initialize();
 
@@ -139,7 +129,7 @@ export class LocalMemoryClient {
             containerTag: scope === "all-projects" ? "" : containerTag,
             queryText: query,
             maxMemories,
-            similarityThreshold: CONFIG.similarityThreshold,
+            similarityThreshold: config.similarityThreshold,
             kind: options.kind ?? "normal",
             thresholdAfterRerank: options.thresholdAfterRerank,
           },
@@ -167,7 +157,7 @@ export class LocalMemoryClient {
           queryVector,
           scope === "all-projects" ? "" : containerTag,
           maxMemories,
-          CONFIG.similarityThreshold,
+          config.similarityThreshold,
           query,
           keywordBoost,
           keywordMode,
@@ -185,10 +175,7 @@ export class LocalMemoryClient {
           containerTag,
           ownCount: results.length,
           owner: activeOwner(),
-          settings:
-            options.limit === undefined
-              ? linkedSettingsFrom(CONFIG)
-              : { ...linkedSettingsFrom(CONFIG), maxMemories: options.limit },
+          settings: linkedSearchSettings(config, options.limit),
           kind: options.kind ?? "normal",
         });
         results = [...results, ...linked.results];
@@ -309,7 +296,7 @@ export class LocalMemoryClient {
     }
   }
 
-  async deleteMemory(memoryId: string) {
+  async deleteMemory(memoryId: string, linked: LinkedSearchSettings) {
     try {
       await this.initialize();
 
@@ -329,11 +316,7 @@ export class LocalMemoryClient {
       }
 
       // A linked space is read-only: refuse with its name instead of "not found".
-      const owner = await findLinkedMemoryOwner(
-        memoryId,
-        activeOwner(),
-        linkedSettingsFrom(CONFIG)
-      );
+      const owner = await findLinkedMemoryOwner(memoryId, activeOwner(), linked);
       if (owner) return linkedRefusal(owner.name);
 
       return { success: false, error: "Memory not found" };
@@ -348,7 +331,7 @@ export class LocalMemoryClient {
     containerTag: string,
     limit = 20,
     scope: MemoryScope = "project",
-    options: MemoryReadOptions = {}
+    options: MemoryListOptions = {}
   ) {
     try {
       await this.initialize();
@@ -391,7 +374,7 @@ export class LocalMemoryClient {
           limit,
           ownCount: memories.length,
           owner: activeOwner(),
-          settings: linkedSettingsFrom(CONFIG),
+          settings: options.linked,
           kind: options.kind ?? "normal",
         });
         memories = [...memories, ...linked.memories];

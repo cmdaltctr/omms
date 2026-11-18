@@ -299,6 +299,8 @@ globalThis.fetch = async (url, init) => {
 };
 
 const { memoryClient } = await import(${JSON.stringify(clientUrl)});
+// The stubbed CONFIG; each search takes it as its config argument.
+const { CONFIG: STUB_CONFIG } = await import(${JSON.stringify(configUrl)});
 let captured;
 ${code}
 globalThis.fetch = originalFetch;
@@ -501,7 +503,9 @@ candidates = [
   { id: "mem_high", memory: "kept", similarity: 0.75 },
   { id: "mem_low", memory: "cut", similarity: 0.42 },
 ];
-captured = await memoryClient.searchMemories("query", "omms_project_0123456789abcdef");
+captured = await memoryClient.searchMemories("query", "omms_project_0123456789abcdef", "project", {
+  config: STUB_CONFIG,
+});
 `);
     expect(output.searchCalls).toEqual([
       { limit: 10, threshold: 0.5, query: "query", containerTag: "omms_project_0123456789abcdef" },
@@ -517,7 +521,9 @@ candidates = [
   { id: "mem_high", memory: "high memory", similarity: 0.75 },
   { id: "mem_low", memory: "low memory", similarity: 0.42 },
 ];
-captured = await memoryClient.searchMemories("query", "omms_project_0123456789abcdef");
+captured = await memoryClient.searchMemories("query", "omms_project_0123456789abcdef", "project", {
+  config: STUB_CONFIG,
+});
 `,
       {
         configExtra: {
@@ -553,7 +559,9 @@ candidates = [
   { id: "mem_high", memory: "kept", similarity: 0.75 },
   { id: "mem_low", memory: "cut", similarity: 0.42 },
 ];
-captured = await memoryClient.searchMemories("query", "omms_project_0123456789abcdef");
+captured = await memoryClient.searchMemories("query", "omms_project_0123456789abcdef", "project", {
+  config: STUB_CONFIG,
+});
 `,
       { configExtra: { rerankerEnabled: true } }
     );
@@ -572,7 +580,9 @@ captured = await memoryClient.searchMemories("query", "omms_project_0123456789ab
       `
 candidates = [{ id: "mem_a", memory: "m", similarity: 0.9 }];
 const { CONFIG } = await import(${JSON.stringify(configUrl)});
-const search = memoryClient.searchMemories("query", "omms_project_0123456789abcdef");
+const search = memoryClient.searchMemories("query", "omms_project_0123456789abcdef", "project", {
+  config: STUB_CONFIG,
+});
 // Flip the switch after entry, while awaits are still in flight.
 CONFIG.rerankerEnabled = false;
 captured = await search;

@@ -1,5 +1,6 @@
 import { formatContextForPrompt, type ContextConfig } from "../services/context.js";
 import { getTags } from "../services/tags.js";
+import type { MemorySearchConfig } from "../services/client-read-settings.js";
 import { utf8ByteLength } from "../utils/context-limit.js";
 import { resolveCeiling, type ContextBudgetOptions } from "./context-budget.js";
 import {
@@ -45,8 +46,8 @@ export interface FirstPromptSectionsInput {
   budget: ContextBudgetOptions;
   /** Bytes the host adds to the opening section only, such as Claude Code's opening marker. */
   openingReserveBytes: number;
-  /** `CONFIG`, passed by the host for the profile block of the prompt section. */
-  config: ContextConfig;
+  /** `CONFIG`, passed by the host for both searches and the profile block of the prompt section. */
+  config: ContextConfig & MemorySearchConfig;
 }
 
 /**
@@ -72,14 +73,16 @@ export async function buildFirstPromptSections(
       promptQuery,
       tags.project.tag,
       input.sessionId,
-      input.excludeCurrentSession
+      input.excludeCurrentSession,
+      input.config
     ),
     input.openingQuery
       ? searchSectionMemories(
           input.openingQuery,
           tags.project.tag,
           input.sessionId,
-          input.excludeCurrentSession
+          input.excludeCurrentSession,
+          input.config
         )
       : null,
   ]);

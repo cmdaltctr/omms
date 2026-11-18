@@ -1,5 +1,6 @@
 import { memoryClient } from "../services/client.js";
 import type { LinkedSearchSettings } from "../services/linked-search.js";
+import type { MemorySearchConfig } from "../services/client-read-settings.js";
 import {
   findSnapshotByHostSession,
   getMemorisationById,
@@ -167,7 +168,9 @@ const LABEL_SEARCH_POOL = 200;
 export async function runRecall(
   args: RecallArgs,
   linked: LinkedSearchSettings,
-  rerank = false
+  rerank = false,
+  /** `CONFIG`, passed at call time for the text search. */
+  search: MemorySearchConfig
 ): Promise<Record<string, unknown>> {
   const input = (args.query ?? args.memoryId ?? args.content)?.trim();
   const wanted = parseTagGroups(args.tags);
@@ -175,7 +178,7 @@ export async function runRecall(
     return { success: false, error: "query or tags required: a memorisation ID, text or labels" };
   }
 
-  if (!input) return recallByLabels(wanted, args.limit);
+  if (!input) return recallByLabels(wanted, args.limit, linked);
 
   if (isMemorisationId(input)) {
     const found = await getMemorisationById(input, null, linked);
@@ -190,6 +193,7 @@ export async function runRecall(
     // A reranked recall still answers "no memorisation matched" when nothing clears the threshold.
     thresholdAfterRerank: true,
     ...(wanted.length > 0 ? { limit: LABEL_SEARCH_POOL } : {}),
+    config: search,
   });
   if (!result.success) return { success: false, error: result.error };
 
@@ -219,13 +223,15 @@ export async function runRecall(
 /** The newest memorisations that match every label group. They are not ranked, so they have no confidence. */
 async function recallByLabels(
   wanted: string[][],
-  limit: number | undefined
+  limit: number | undefined,
+  linked: LinkedSearchSettings
 ): Promise<Record<string, unknown>> {
   const listed = await listMemorisationsByTags(
     "",
     wanted,
     "all-projects",
-    Math.max(1, limit ?? LABEL_RECALL_LIMIT)
+    Math.max(1, limit ?? LABEL_RECALL_LIMIT),
+    linked
   );
   if (!listed.success) return listed;
   const matches = listed.memories.map((memory) => ({

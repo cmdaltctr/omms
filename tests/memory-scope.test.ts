@@ -131,6 +131,7 @@ mock.module(${JSON.stringify(vectorSearchUrl)}, () => ({
 }));
 
 const { memoryClient } = await import(${JSON.stringify(clientUrl)});
+const { CONFIG } = await import(${JSON.stringify(new URL("../src/config.js", import.meta.url).href)});
 ${scriptBody}
 `;
   writeFileSync(scriptPath, script, "utf-8");
@@ -175,7 +176,7 @@ console.log(JSON.stringify(res));
 
   it("uses config defaultScope when provided", () => {
     const result = runScenario(`
-const res = await memoryClient.searchMemories("hello", "current", "all-projects");
+const res = await memoryClient.searchMemories("hello", "current", "all-projects", { config: CONFIG });
 console.log(JSON.stringify(res));
 `);
 
@@ -197,7 +198,7 @@ console.log(JSON.stringify(res));
 
   it("queries across shards for all-projects", () => {
     const result = runScenario(`
-const res = await memoryClient.searchMemories("hello", "current", "all-projects");
+const res = await memoryClient.searchMemories("hello", "current", "all-projects", { config: CONFIG });
 console.log(JSON.stringify({ ids: res.results.map((r) => r.id) }));
 `);
 

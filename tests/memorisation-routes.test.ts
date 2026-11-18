@@ -71,7 +71,11 @@ async function operation(
 async function routeConfig() {
   const { CONFIG } = await import("../src/config.js");
   const { linkedSettingsFrom } = await import("../src/services/linked-search.js");
-  return { linked: linkedSettingsFrom(CONFIG), rerank: CONFIG.memorisationRerank === true };
+  return {
+    linked: linkedSettingsFrom(CONFIG),
+    rerank: CONFIG.memorisationRerank === true,
+    search: CONFIG,
+  };
 }
 
 async function get(_project: Awaited<ReturnType<typeof freshProject>>, path: string) {

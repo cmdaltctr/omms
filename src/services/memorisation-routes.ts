@@ -1,5 +1,6 @@
 import { isMemorisationId, parseTagGroups, visibleTags } from "../core/memorisation.js";
 import type { RouteResult } from "./chat/chat-routes.js";
+import type { MemorySearchConfig } from "./client-read-settings.js";
 import type { LinkedSearchSettings } from "./linked-search.js";
 
 /** Enough for any project: a memorisation is capped in size, and the user saves each on purpose. */
@@ -18,6 +19,8 @@ export interface MemorisationRouteConfig {
   linked: LinkedSearchSettings;
   /** The global `memorisationRerank` setting, so text recall may use the reranker. */
   rerank: boolean;
+  /** `CONFIG`, read by the registration for this request, for the text search. */
+  search: MemorySearchConfig;
 }
 
 /**
@@ -36,8 +39,10 @@ export async function routeMemorisations(
   readBody?: () => Promise<any>
 ): Promise<RouteResult | undefined> {
   const wanted = parseTagGroups(url.searchParams.get("tags") ?? undefined);
-  if (method === "GET" && path === "/api/memorisations") return listMemorisations(wanted);
-  if (method === "GET" && path === "/api/memorisations/labels") return listLabels();
+  if (method === "GET" && path === "/api/memorisations") {
+    return listMemorisations(wanted, config.linked);
+  }
+  if (method === "GET" && path === "/api/memorisations/labels") return listLabels(config.linked);
   if (method === "GET" && path === "/api/memorisations/recall") {
     return recall(url.searchParams, wanted, config);
   }
@@ -47,9 +52,12 @@ export async function routeMemorisations(
   return undefined;
 }
 
-async function listMemorisations(wanted: string[][]): Promise<RouteResult> {
+async function listMemorisations(
+  wanted: string[][],
+  linked: LinkedSearchSettings
+): Promise<RouteResult> {
   const { listMemorisationsByTags } = await import("./memorisation-store.js");
-  const result = await listMemorisationsByTags("", wanted, "all-projects", LIST_LIMIT);
+  const result = await listMemorisationsByTags("", wanted, "all-projects", LIST_LIMIT, linked);
   if (!result.success) return fail(500, result.error);
   const memorisations = result.memories.map((memory) => ({
     id: memory.id,
@@ -64,9 +72,9 @@ async function listMemorisations(wanted: string[][]): Promise<RouteResult> {
   return ok({ memorisations });
 }
 
-async function listLabels(): Promise<RouteResult> {
+async function listLabels(linked: LinkedSearchSettings): Promise<RouteResult> {
   const { listMemorisationLabels } = await import("./memorisation-store.js");
-  const result = await listMemorisationLabels();
+  const result = await listMemorisationLabels(linked);
   return result.success ? ok({ labels: result.labels }) : fail(500, result.error);
 }
 
@@ -86,7 +94,8 @@ async function recall(
       ...(Number.isInteger(limit) && limit > 0 ? { limit } : {}),
     },
     config.linked,
-    config.rerank
+    config.rerank,
+    config.search
   );
   if (result.success !== true) {
     // An unknown ID is a missing record. Any other refusal is a server problem.

@@ -69,7 +69,11 @@ export async function routeModules(
     path,
     method,
     url,
-    { linked: linkedSettingsFrom(config), rerank: config.memorisationRerank === true },
+    {
+      linked: linkedSettingsFrom(config),
+      rerank: config.memorisationRerank === true,
+      search: config,
+    },
     readBody
   );
   if (memorisations !== undefined) return memorisations;

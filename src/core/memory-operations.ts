@@ -272,7 +272,8 @@ export async function executeMemoryOperation(
         return await runRecall(
           args,
           linkedSettingsFrom(context.config.CONFIG),
-          context.config.CONFIG.memorisationRerank
+          context.config.CONFIG.memorisationRerank,
+          context.config.CONFIG
         );
 
       case "search": {
@@ -281,7 +282,7 @@ export async function executeMemoryOperation(
           args.query,
           tags.project.tag,
           args.scope ?? context.config.CONFIG.memory.defaultScope,
-          { includeLinked: true }
+          { includeLinked: true, config: context.config.CONFIG }
         );
         if (!result.success) return { success: false, error: result.error };
         return formatSearchResults(args.query, result, args.limit);
@@ -385,7 +386,7 @@ export async function executeMemoryOperation(
           tags.project.tag,
           args.limit || 20,
           args.scope ?? context.config.CONFIG.memory.defaultScope,
-          { includeLinked: true }
+          { includeLinked: true, linked: linkedSettingsFrom(context.config.CONFIG) }
         );
         if (!result.success) return { success: false, error: result.error };
         return {
@@ -402,7 +403,10 @@ export async function executeMemoryOperation(
 
       case "forget": {
         if (!args.memoryId) return { success: false, error: "memoryId required" };
-        const result = await memoryClient.deleteMemory(args.memoryId);
+        const result = await memoryClient.deleteMemory(
+          args.memoryId,
+          linkedSettingsFrom(context.config.CONFIG)
+        );
         return { success: result.success, message: "Memory removed" };
       }
 

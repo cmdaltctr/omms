@@ -158,7 +158,8 @@ console.log(JSON.stringify({
   it("records a linked read when one is asked for, so a zero above is meaningful", () => {
     const result = runScenario(`
 const { memoryClient } = await import(${JSON.stringify(clientUrl)});
-await memoryClient.searchMemories("dev server port", ${JSON.stringify(TAG)}, "project", { includeLinked: true });
+const { CONFIG } = await import(${JSON.stringify(configUrl)});
+await memoryClient.searchMemories("dev server port", ${JSON.stringify(TAG)}, "project", { includeLinked: true, config: CONFIG });
 console.log(JSON.stringify({ linkedReads: readStoreCalls.length }));
 `);
 

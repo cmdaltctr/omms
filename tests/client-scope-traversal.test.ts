@@ -125,7 +125,9 @@ console.log(JSON.stringify({ calls: getAllShardsCalls.slice(n) }));
   it("searchMemories with all-projects walks both user and project shards", () => {
     const result = runScenario(`
 let n = getAllShardsCalls.length;
-await memoryClient.searchMemories("query", ${JSON.stringify(PROJECT_TAG)}, "all-projects");
+await memoryClient.searchMemories("query", ${JSON.stringify(PROJECT_TAG)}, "all-projects", {
+  config: { maxMemories: 20, similarityThreshold: 0.5 },
+});
 console.log(JSON.stringify({ calls: getAllShardsCalls.slice(n) }));
 `);
 
