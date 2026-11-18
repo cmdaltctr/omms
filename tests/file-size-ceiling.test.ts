@@ -12,7 +12,6 @@ const exemptPrefixes = ["web/src/lib/i18n/"];
 // A file here may shrink but not grow. Delete its entry when it reaches the
 // ceiling or is removed; the stale-entry check below fails until you do.
 const overCeilingBaseline: Record<string, number> = {
-  "src/services/user-profile/user-profile-manager.ts": 1947,
   "src/config.ts": 927,
   "src/adapters/opencode/profile-learning.ts": 832,
   "src/services/turso/legacy-migrator.ts": 657,
