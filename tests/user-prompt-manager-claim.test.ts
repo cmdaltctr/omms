@@ -126,6 +126,10 @@ describe("UserPromptManager.claimPrompt / releaseClaim", () => {
   });
 
   it("applies the retry limit it is given, not a fixed one", async () => {
+    // Earlier tests in this file leave other uncaptured prompts, so the store-wide queries are
+    // checked as a change from a baseline taken before this prompt exists.
+    const before2 = await mgr.countUncapturedPrompts(2);
+    const before3 = await mgr.countUncapturedPrompts(3);
     const id = await newPrompt("session-limit", "limited");
     await mgr.recordFailedAttempt(id);
     await mgr.recordFailedAttempt(id);
@@ -133,10 +137,10 @@ describe("UserPromptManager.claimPrompt / releaseClaim", () => {
     expect(await mgr.getLastUncapturedPrompt("session-limit", 3)).not.toBeNull();
     expect(await mgr.getLastUncapturedPrompt("session-limit", 2)).toBeNull();
     expect(await mgr.getUncapturedPromptsForSession("session-limit", 2)).toEqual([]);
-    expect(await mgr.countUncapturedPrompts(2)).toBe(0);
-    expect(await mgr.countUncapturedPrompts(3)).toBe(1);
-    expect(await mgr.getUncapturedPrompts(10, 2)).toEqual([]);
-    expect((await mgr.getUncapturedPrompts(10, 3)).map((prompt) => prompt.id)).toEqual([id]);
+    expect(await mgr.countUncapturedPrompts(2)).toBe(before2);
+    expect(await mgr.countUncapturedPrompts(3)).toBe(before3 + 1);
+    expect((await mgr.getUncapturedPrompts(100, 2)).map((prompt) => prompt.id)).not.toContain(id);
+    expect((await mgr.getUncapturedPrompts(100, 3)).map((prompt) => prompt.id)).toContain(id);
   });
 
   it("returns all uncaptured prompts for a session oldest first", async () => {
