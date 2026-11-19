@@ -6,7 +6,9 @@
  *
  * Plugin RPC events are live only, and the OpenCode background service sends notices before any
  * TUI listens. So the server keeps each notice until a TUI claims it with `claim`, and the
- * `notice` event only tells a listening TUI to claim again. Each notice is claimed once, in order.
+ * `notice` event only tells a listening TUI to claim again. A claim does not remove a notice: the
+ * TUI confirms it with `ack` after it shows the notice, so a notice the TUI could not show stays
+ * for the next claim. Notices come in order and each shows once.
  */
 export const noticeRpc = {
   id: "omms-notice",
@@ -18,6 +20,14 @@ export const noticeRpc = {
         properties: { notices: { type: "array", items: { type: "object" } } },
         required: ["notices"],
       },
+    },
+    ack: {
+      input: {
+        type: "object",
+        properties: { ids: { type: "array", items: { type: "number" } } },
+        required: ["ids"],
+      },
+      output: { type: "object", properties: {} },
     },
   },
   events: {
