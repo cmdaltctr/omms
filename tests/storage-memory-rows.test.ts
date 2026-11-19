@@ -151,8 +151,25 @@ describe("memory rows surface: by-ID reads and writes", () => {
     ]);
     expect(surface).toHaveLength(1);
     expect({ ...surface[0], id: "" }).toEqual({ ...engine[0], id: "" });
-    // Today's plain insert does not write the pin (only the transaction insert does).
-    expect(surface[0]).toMatchObject({ content: "content of x", is_pinned: 0, tags: "a,b" });
+    // The plain insert writes the pin the record carries, as the transaction insert does.
+    expect(surface[0]).toMatchObject({ content: "content of x", is_pinned: 1, tags: "a,b" });
+  });
+
+  it("(w) a plain insert saves the pin flag, with and without a tags vector", async () => {
+    const shard = await freshShard();
+    const withTags = (rec: MemoryRecord): MemoryRecord => ({ ...rec, tagsVector: vector(7) });
+    await rows.insertMemoryRow(shard, record("p_on", { isPinned: true }));
+    await rows.insertMemoryRow(shard, withTags(record("p_on_tags", { isPinned: true })));
+    await rows.insertMemoryRow(shard, record("p_off", { isPinned: false }));
+    await rows.insertMemoryRow(shard, record("p_unset"));
+    await rows.insertMemoryRow(shard, withTags(record("p_unset_tags")));
+    expect(await rawRows(shard, "SELECT id, is_pinned FROM memories ORDER BY id")).toEqual([
+      { id: "p_off", is_pinned: 0 },
+      { id: "p_on", is_pinned: 1 },
+      { id: "p_on_tags", is_pinned: 1 },
+      { id: "p_unset", is_pinned: 0 },
+      { id: "p_unset_tags", is_pinned: 0 },
+    ]);
   });
 
   it("(w) deleteMemoryRow removes only that row", async () => {
