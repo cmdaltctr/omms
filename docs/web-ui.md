@@ -373,7 +373,7 @@ Open `http://127.0.0.1:4747/settings`, select **Settings**, or select the sideba
 - **Capture diagnostics.** Inspect outcomes, retries and debug traces.
 - **Health.** Check OMMS components.
 - **Claude Code folder.** Configure the host's data folder.
-- **Profiles.** Choose or merge profile identities. The card appears with more than one active profile.
+- **Profiles.** Choose or merge profile identities. The card, its chip and its sidebar entry appear with more than one active profile.
 - **Skill learning.** Record agent turns, remove private text and secrets, and delete recorded turns.
 - **Web app.** Control the login item and check versions.
 - **Log.** Read metadata logs.

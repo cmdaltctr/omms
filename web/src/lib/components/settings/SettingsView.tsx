@@ -4,8 +4,10 @@ import "./settings.css";
 import {
   SETTINGS_SECTIONS,
   selectedSettingsSection,
+  visibleSettingsSections,
   type SettingsSectionId,
 } from "$lib/settings-sections";
+import { useProfileCount } from "$lib/profile-count";
 import { Button } from "$lib/components/ui/button";
 import { useSettingsText } from "$lib/i18n/settings";
 import { navigate, usePath } from "$lib/router";
@@ -56,13 +58,14 @@ export function SettingsView() {
     revealSettingsAnchor(window.location.hash, document);
   }, []);
   const s = useSettingsText();
-  const selected = selectedSettingsSection(usePath());
+  const visible = visibleSettingsSections(useProfileCount());
+  const selected = selectedSettingsSection(usePath(), visible);
   const { snapshot } = useSettingsSnapshot<{ problems?: SnapshotProblem[]; readOnly?: boolean }>();
   return (
     <div className="settings-view space-y-6">
       <SettingsSearch />
       <div role="group" aria-label={s("Sections")} className="flex flex-wrap gap-2">
-        {SETTINGS_SECTIONS.map(({ id, title }) => (
+        {visible.map(({ id, title }) => (
           <Button
             key={id}
             variant="chip"

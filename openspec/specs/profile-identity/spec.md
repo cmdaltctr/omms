@@ -39,6 +39,7 @@ When more than one active profile exists, the Settings page SHALL show a **Profi
 
 - **WHEN** only one active profile exists
 - **THEN** the Profiles card SHALL NOT be shown
+- **AND** the Profiles chip, its sidebar entry and every link to the card SHALL NOT be shown
 
 ### Requirement: The user can choose or merge profiles
 

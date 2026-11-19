@@ -1263,6 +1263,23 @@ The Settings page SHALL show a row of chip buttons below the search box, one chi
 - **WHEN** the page is 390 pixels wide
 - **THEN** every chip SHALL be visible, wrapped onto more rows, with no horizontal scrolling
 
+### Requirement: The Profiles chip shows only with more than one profile
+
+The **Profiles** chip and its sidebar entry SHALL show only when more than one active profile exists, because the card has nothing to show below that. An address that names a hidden section SHALL show the first visible section.
+
+#### Scenario: One profile hides the Profiles chip
+
+- **WHEN** only one active profile exists
+- **THEN** the chip row and the sidebar Settings tree SHALL NOT list **Profiles**
+- **AND** a link to `/settings#settings-section-profiles` SHALL show the **Memory basics** section with its chip pressed
+- **AND** the **Profile identity in Settings** link in the import Customise panel SHALL NOT be shown
+
+#### Scenario: Two profiles show the Profiles chip
+
+- **WHEN** more than one active profile exists
+- **THEN** the chip row and the sidebar Settings tree SHALL list **Profiles**
+- **AND** `/settings#settings-section-profiles` SHALL show the Profiles section with its chip pressed
+
 ### Requirement: The address names the selected Settings section
 
 The address SHALL name the selected section with its existing anchor, for example `/settings#settings-section-log`. `/settings` without a section anchor SHALL show the first section, **Memory basics**. Selecting a chip SHALL add a history entry, so the browser Back button returns to the section shown before.

@@ -26,8 +26,23 @@ export const SETTINGS_SECTIONS = [
 
 export type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]["id"];
 
-/** The section the page address names: the first one for no hash or an unknown id. */
-export function selectedSettingsSection(path: string): SettingsSectionId {
+/** The sections that have something to show. The Profiles card needs two or more profiles. */
+export function visibleSettingsSections(profileCount: number | undefined) {
+  return SETTINGS_SECTIONS.filter(
+    (section) =>
+      section.id !== "settings-section-profiles" ||
+      (profileCount !== undefined && profileCount >= 2)
+  );
+}
+
+/**
+ * The section the page address names: the first visible one for no hash, an unknown id or a
+ * hidden section.
+ */
+export function selectedSettingsSection(
+  path: string,
+  sections: readonly { id: SettingsSectionId }[] = SETTINGS_SECTIONS
+): SettingsSectionId {
   const hash = path.includes("#") ? path.slice(path.indexOf("#") + 1) : "";
-  return SETTINGS_SECTIONS.find((section) => section.id === hash)?.id ?? SETTINGS_SECTIONS[0].id;
+  return sections.find((section) => section.id === hash)?.id ?? sections[0]!.id;
 }

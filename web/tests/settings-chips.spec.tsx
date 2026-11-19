@@ -25,6 +25,7 @@ mock.module("../src/hooks/useSettingsSnapshot.ts", () => ({
   useSettingsSnapshot: () => ({ snapshot: undefined }),
 }));
 const { SettingsView } = await import("../src/lib/components/settings/SettingsView.tsx");
+const { setProfileCount } = await import("../src/lib/profile-count.ts");
 
 type Node = ReactElement<{ children?: ReactNode; [key: string]: unknown }>;
 function find(node: ReactNode, predicate: (node: Node) => boolean): Node[] {
@@ -46,9 +47,14 @@ const shownIds = (tree: ReactNode) =>
     .filter((wrapper) => !wrapper.props.hidden)
     .map((wrapper) => wrapper.props.id);
 
+const PROFILES = "settings-section-profiles";
+const chipTitles = (tree: ReactNode) => chips(tree).map((chip) => chip.props.children);
+
 beforeEach(() => {
   path = "/settings";
   navigated.length = 0;
+  // Two profiles show the Profiles chip, so the older specs see all 15 chips.
+  setProfileCount(2);
 });
 
 it("picks the section named by the address and falls back to Memory basics", () => {
@@ -102,4 +108,32 @@ it("a chip pushes its anchor without the reveal", () => {
 it("translates the Sections label into Chinese and Arabic", () => {
   expect(translateSettings("Sections", "zh")).not.toBe("Sections");
   expect(translateSettings("Sections", "ar")).not.toBe("Sections");
+});
+
+it("hides the Profiles chip with one profile and shows it with two", () => {
+  setProfileCount(1);
+  expect(chipTitles(page())).toEqual(
+    SETTINGS_SECTIONS.filter((section) => section.id !== PROFILES).map((section) => section.title)
+  );
+  setProfileCount(2);
+  expect(chipTitles(page())).toContain("Profiles");
+});
+
+it("hides the Profiles chip until the profile count is known", () => {
+  setProfileCount(undefined);
+  expect(chipTitles(page())).not.toContain("Profiles");
+});
+
+it("falls back to Memory basics when #settings-section-profiles is opened with one profile", () => {
+  setProfileCount(1);
+  path = `/settings#${PROFILES}`;
+  const tree = page();
+  expect(shownIds(tree)).toEqual(["settings-section-memory-basics"]);
+  expect(chips(tree).filter((chip) => chip.props["aria-pressed"] === true)).toHaveLength(1);
+  expect(chips(tree)[0]!.props["aria-pressed"]).toBe(true);
+});
+
+it("shows the Profiles card for #settings-section-profiles with two profiles", () => {
+  path = `/settings#${PROFILES}`;
+  expect(shownIds(page())).toEqual([PROFILES]);
 });
