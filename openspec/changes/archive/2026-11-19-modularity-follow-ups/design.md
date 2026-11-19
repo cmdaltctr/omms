@@ -34,6 +34,8 @@ The archived proposal `openspec/changes/archive/2026-11-17-modular-boundaries/pr
 
 Each part is split into slices of 15 files or fewer. A slice lowers its ratchet baselines in the same commit. The ratchet tests then act as the progress tracker. A slice that would raise any count does not merge.
 
+Changed on 2026-11-18 at the user's request: all parts ship in one pull request, together with `unify-profile-learning`, `settings-chips` and `runtime-version`. Each slice is still its own commit, and each wave of slices passed `bun run ci:local` before the next wave started.
+
 ### D2. Characterisation tests before each move
 
 Before code moves, pin its current behaviour with tests. Write each test against the old code and confirm it passes there. Mutate the old code and confirm the test fails, then move the code. No existing assertion changes.
@@ -109,6 +111,33 @@ Keep `src/services/turso/` as the storage engine. `src/services/storage/` is the
 - SQL moves byte for byte. Each slice adds characterisation tests first: read, write, space switch, `resettable()`, and old-schema upgrade where the store alters its schema.
 - Before part 1, the real store was backed up read-only to `DATA/omms/backups/2026-11-18-pre-storage-port/` with a SHA-256 manifest. Live checks run on scratch copies only.
 - Expected end state: no storage import outside the port; SQL only in `importer/opencode-reader.ts` and `importer/opencode-v2-units.ts`, which read OpenCode's own database and are host readers, not OMMS stores.
+
+## Close-out (2026-11-19)
+
+Measured at `c1acf67e`, after part 1.
+
+| Debt                                             | Start                 | End                  |
+| ------------------------------------------------ | --------------------- | -------------------- |
+| libSQL imports outside the port and the engine   | 52 files, 136 sites   | 0                    |
+| Raw SQL outside the port and the engine          | 50 files, 311 sites   | 2 files, 9 sites     |
+| `CONFIG` imports in `src/core/`, `src/services/` | 52 files, 62 sites    | 2 files              |
+| `user-profile-manager.ts`                        | 1,947 lines (ceiling) | 261, off the ceiling |
+| `web-server.ts`                                  | 1,790 lines (ceiling) | 199, off the ceiling |
+| `api-handlers.ts`                                | 1,183 lines (ceiling) | 36, off the ceiling  |
+| OpenCode `profile-learning.ts`                   | 824 lines (ceiling)   | 36, off the ceiling  |
+
+What stays, and why (task 5.1):
+
+- **Raw SQL in `src/importer/opencode-reader.ts` (8) and `src/importer/opencode-v2-units.ts` (1).** They read OpenCode's own database. That database is not an OMMS store, so it has no port.
+- **`CONFIG` in `src/services/web-server.ts` and `src/services/storage/active-space-access.ts`.** These are the web edge and the store settings reader (D5a).
+- **Three one-line re-exports at mocked paths:** `user-prompt/user-prompt-manager.ts`, `user-prompt/profile-catch-up-lease.ts` and `capture-attempt-store.ts`. Tests mock these paths with `mock.module`. `docs/shared-core.md` lists them.
+- **`storage/maintenance/` imports more than the engine and the store reader.** The shard and tag migrations moved whole. They also import embedding, AI and logger code. Splitting them is a separate change.
+
+The storage ratchet keeps running with an empty baseline, with positive controls, so a new storage import outside the port fails the test.
+
+Live check (task 4.4): a build from `b91bb2a0` and a build from `c1acf67e` ran on separate scratch copies of the 2026-11-18 backup. Row counts in all 103 databases, 15 read API bodies, search ids and order for 3 queries, and a write plus space-switch sequence matched. Every scratch database passed libSQL `PRAGMA integrity_check`. The backup checksums were unchanged afterwards.
+
+Bugs found during part 1 and fixed in their own `fix:` commits: space backup copies failed libSQL's integrity check (TDR-088), and space copy and move dropped six display fields.
 
 ## Risks
 

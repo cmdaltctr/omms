@@ -4,8 +4,8 @@ Each group is one or more pull requests. Each pull request is built in its own s
 
 ## 0. Before each part
 
-- [ ] 0.1 Measure the current counts again (ratchet baselines, ceiling lines) and update the table in `design.md`.
-- [ ] 0.2 Split the part into slices of 15 files or fewer, and list them under the part below.
+- [x] 0.1 Measure the current counts again (ratchet baselines, ceiling lines) and update the table in `design.md`.
+- [x] 0.2 Split the part into slices of 15 files or fewer, and list them under the part below.
 
 ## 1. Split the three largest files (part 4)
 
@@ -49,12 +49,12 @@ Target: `web-server.ts` and `active-space-access.ts` keep their import (D5a). Th
 Decision D6a. Slices, one store each, in waves: 1 S0 foundation; 2 S1 capture attempts, S2 Claude cursor, S4 AI sessions, S6 ledger I; 3 S3 retry queue, S5 chat, S7 ledger II, S8 skills I; 4 S9 skills II, S10 prompts, S11 profiles; 5 M0 memory surface; 6 M1 web API, M2 client, M3 memory readers, M4 memory maintenance; 7 M5a shard migrations, M5b tag migrations; 8 SP1 space store, then SP2 transfer, import and export; 9 F close.
 
 - [x] 4.1 Create `src/services/storage/` and change `STORAGE_FOLDER` in `tests/modularity-ratchets.test.ts`.
-- [ ] 4.2 For each store (memory, prompt, profile, import ledger, skills, chat, capture attempts), add characterisation tests for reads, writes, space switch and `resettable()`.
-- [ ] 4.3 Move the store's SQL and libSQL imports behind typed functions, one store per pull request. Lower the `storage import` and `raw SQL` baselines each time.
-- [ ] 4.4 Run a live check against a scratch HOME with a real-shaped store copy after each store moves. Confirm that the row counts and a search result match those from before the move.
-- [ ] 4.5 Update `docs/shared-core.md` and the architecture table in `CLAUDE.md`.
+- [x] 4.2 For each store (memory, prompt, profile, import ledger, skills, chat, capture attempts), add characterisation tests for reads, writes, space switch and `resettable()`.
+- [x] 4.3 Move the store's SQL and libSQL imports behind typed functions, one store per pull request. Lower the `storage import` and `raw SQL` baselines each time.
+- [x] 4.4 Run a live check against a scratch HOME with a real-shaped store copy after each store moves. Confirm that the row counts and a search result match those from before the move.
+- [x] 4.5 Update `docs/shared-core.md` and the architecture table in `CLAUDE.md`.
 
 ## 5. Close
 
-- [ ] 5.1 All ratchet baselines that this change owns are at 0, or justified in `design.md`.
-- [ ] 5.2 Run `openspec validate modularity-follow-ups --strict`, then archive.
+- [x] 5.1 All ratchet baselines that this change owns are at 0, or justified in `design.md`.
+- [x] 5.2 Run `openspec validate modularity-follow-ups --strict`, then archive.
