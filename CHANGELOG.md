@@ -2,6 +2,58 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [7.1.0](https://github.com/cmdaltctr/omms/compare/v7.0.1...v7.1.0) (2026-11-19)
+
+
+### Features
+
+* add one profile learning pass for every host ([e245bc7](https://github.com/cmdaltctr/omms/commit/e245bc7417b02750fd50c17e050aa3974a9552b2))
+* add profile learning settings ([9ba6055](https://github.com/cmdaltctr/omms/commit/9ba6055e49b7df3278a3cf0153c96459638f7571))
+* add the profile learning table to the shared memory page ([4fb4bf0](https://github.com/cmdaltctr/omms/commit/4fb4bf0bf7b8b884a5a118fc573079c4bb12ff8a))
+* claim profile learning batches so two runs never take the same prompts ([32d8654](https://github.com/cmdaltctr/omms/commit/32d86542c676af4f5561ffd60fb6a799fb9cf36c))
+* give memory cards one fixed folded height ([75aa6a5](https://github.com/cmdaltctr/omms/commit/75aa6a58e1b60e641f73ed2274783fb207f10f4b))
+* record Pi prompts and run Pi profile learning through the shared pass ([b7597d3](https://github.com/cmdaltctr/omms/commit/b7597d317f479c48f3bf4d92829f6821e811b5fd))
+* run Claude Code profile learning through the shared pass and show its notice ([82632d9](https://github.com/cmdaltctr/omms/commit/82632d9d95a36e4577deceebc020ed81e4f7d711))
+* run OpenCode profile learning through the shared pass ([6f4dbb8](https://github.com/cmdaltctr/omms/commit/6f4dbb8f3e523bc267123d8cde022fb4bd056f15))
+* show Settings one section at a time with OMRS-style chips ([864138a](https://github.com/cmdaltctr/omms/commit/864138a05db9df7f22f76531f80f3ab6053b5c27))
+
+
+### Bug Fixes
+
+* answer a failed memory add with an error ([40f5033](https://github.com/cmdaltctr/omms/commit/40f5033e4db57e1177c6d51933a1159dd290af14))
+* build a valid request URL for an IPv6 web host under Node ([68b2144](https://github.com/cmdaltctr/omms/commit/68b21448ed37ee5beede74bf12df9d62fa6ff5a9))
+* catch shutdown errors in the web step-aside timer ([be53a76](https://github.com/cmdaltctr/omms/commit/be53a76add5e295bb85dc1fc927d9da921ec6435))
+* clear the takeover failure count when the owner answers ([3c1e690](https://github.com/cmdaltctr/omms/commit/3c1e690c5cc4240cc57cfe017fc599dabdeadf60))
+* give each profile model attempt its own time limit so a slow host model falls back ([584aecc](https://github.com/cmdaltctr/omms/commit/584aeccbe581b2310829da0ec5d967abaf4315b3))
+* give up OpenCode's provider list re-read after 10 seconds ([c628b01](https://github.com/cmdaltctr/omms/commit/c628b013edb3003a8bb3cf93c0ff987264b84325))
+* hide the Profiles settings chip when there is only one profile ([e64f069](https://github.com/cmdaltctr/omms/commit/e64f069ee5f656249f06ab80811f7e1723626e19))
+* keep a saved profile pass saved when its notice throws ([aab859c](https://github.com/cmdaltctr/omms/commit/aab859c80aed3f096af48d69ef3fc608668597b8))
+* keep display fields when memories move or copy between spaces ([3f2501e](https://github.com/cmdaltctr/omms/commit/3f2501e0d74355b5930fccd271ae932c74693e7a))
+* keep live-capture rows that have no source type ([02a403c](https://github.com/cmdaltctr/omms/commit/02a403c74267d2e10e6675784969098a90c2ed17))
+* keep OpenCode notices sent before the TUI listens ([79da022](https://github.com/cmdaltctr/omms/commit/79da0223161ced3df4fceca4b3672225847a4228))
+* keep OpenCode prompts that capture skips for profile learning ([62d5b0c](https://github.com/cmdaltctr/omms/commit/62d5b0c6a4b8c3a9bf819638827ae4b2798ab9cc))
+* keep settings keys under the row name in right-to-left pages ([0c240ee](https://github.com/cmdaltctr/omms/commit/0c240ee5eb33c31a87651e7ce31f67c156ce7554))
+* keep space backup copies passing libSQL's integrity check ([0cd521c](https://github.com/cmdaltctr/omms/commit/0cd521c484f9d7a27891d0abdb805a95f709b41d))
+* keep the local token out of the page for network callers without a browser password ([de8e8a9](https://github.com/cmdaltctr/omms/commit/de8e8a9a54785f72933619e8398980ca74f33912))
+* let a newer copy replace a web app updated in place ([42fb290](https://github.com/cmdaltctr/omms/commit/42fb2900ee139e17a478b84cf95a0b7fefc5c75e))
+* let profile learning dropdowns show their whole label ([625e2b7](https://github.com/cmdaltctr/omms/commit/625e2b71378f4fdfe0841cb8ddd3edce3e94d70b))
+* load the Pi prompt store only when Pi first records a prompt ([2669016](https://github.com/cmdaltctr/omms/commit/2669016743d8a4bab9e90496b9db1503d8befbdb))
+* match history import ids exactly in the duplicate check ([4dc6fe3](https://github.com/cmdaltctr/omms/commit/4dc6fe3cd08df879c505c957d1129e257ed271cc))
+* never write model reasons from the check of older items to the log ([603811d](https://github.com/cmdaltctr/omms/commit/603811d3b60b6337df05eeec4429cd078c789935))
+* notice a memory space switch that lands while config loads ([c4bf245](https://github.com/cmdaltctr/omms/commit/c4bf245098d291eec23feb3b842e12783bbaf250))
+* re-read OpenCode's provider list before falling back ([72c49d9](https://github.com/cmdaltctr/omms/commit/72c49d903b010ebde0a6202423d8d426fa628009))
+* re-read OpenCode's provider list for backfill and Run now ([516a5c8](https://github.com/cmdaltctr/omms/commit/516a5c80b007f6e9908b177d7e308ba105af4460))
+* re-read OpenCode's provider list in history imports ([41ae1d2](https://github.com/cmdaltctr/omms/commit/41ae1d2033b5fd80c37ee21ee397e222bb4ff6bd))
+* refuse profile item edits made from an older profile version ([59eaaf6](https://github.com/cmdaltctr/omms/commit/59eaaf6271e55a3009f4e4518226f9f2ad86338f))
+* route memory and prompt items by exactly one id segment ([30d51f3](https://github.com/cmdaltctr/omms/commit/30d51f3430ac59865d93013642d83fd6987fa67d))
+* save the pin flag on a plain memory insert ([f99721f](https://github.com/cmdaltctr/omms/commit/f99721f2f4dae03a15018f8f3c9251b70ce4be80))
+* shorten the model input label so the dropdown shows it in full ([6cb5ee5](https://github.com/cmdaltctr/omms/commit/6cb5ee5b2277ed9bcb49d27c2601fc0f6a430ce8))
+* show OpenCode capture, startup and import notices on screen ([2effd97](https://github.com/cmdaltctr/omms/commit/2effd97afc8f9c84ef4e8288d08cc702350e0c11))
+* show the OpenCode profile learning notice on screen ([c3c0055](https://github.com/cmdaltctr/omms/commit/c3c00559873ea60e22cf11b6cc46248536691aa4))
+* show the server's reason when learning settings fail to save ([34f4719](https://github.com/cmdaltctr/omms/commit/34f4719063ae7314b21c913d4a0cc2b49102a2b0))
+* stop Pi notices throwing after the session is replaced or reloaded ([675bf7b](https://github.com/cmdaltctr/omms/commit/675bf7b405f9f91dce501694ec7c706d28a55ad6))
+* wait for a running install before the fallback web restart ([ac9fdae](https://github.com/cmdaltctr/omms/commit/ac9fdae8c5fa9dca2c3a851ed402c305c214864d))
+
 ## [7.0.1](https://github.com/cmdaltctr/omms/compare/v7.0.0...v7.0.1) (2026-11-17)
 
 
