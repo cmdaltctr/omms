@@ -4,6 +4,7 @@ import {
   type CategoryCleanupPreview,
   type CleanupDeps,
 } from "./category-cleanup.js";
+import type { MemoryModelSettings } from "./memory-model-settings.js";
 
 /**
  * A preview on a large profile can take many minutes (one profile model call per
@@ -31,7 +32,11 @@ function running(job: CleanupJob | undefined): job is CleanupJob {
 }
 
 /** Starts a preview job for the user, or returns the one already running. */
-export function startCategoryCleanupJob(userId: string, deps: CleanupDeps = {}): CleanupJob {
+export function startCategoryCleanupJob(
+  userId: string,
+  settings: MemoryModelSettings,
+  deps: CleanupDeps = {}
+): CleanupJob {
   const current = jobs.get(userId);
   if (running(current)) return current;
   const job: CleanupJob = {
@@ -42,7 +47,7 @@ export function startCategoryCleanupJob(userId: string, deps: CleanupDeps = {}):
   jobs.set(userId, job);
   void (async () => {
     try {
-      const preview = await previewCategoryCleanup(userId, {
+      const preview = await previewCategoryCleanup(userId, settings, {
         ...deps,
         onProgress: (done, total) => {
           job.status = { state: "checking", done, total };

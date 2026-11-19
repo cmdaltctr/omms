@@ -169,7 +169,7 @@ for (let i = 0; i < 6; i++) {
 // Hold the query embedding so the limit can change mid-operation.
 let gateResolve;
 releaseEmbedding = new Promise((resolve) => { gateResolve = resolve; });
-const searchPromise = memoryClient.searchMemories("stored decision", tag);
+const searchPromise = memoryClient.searchMemories("stored decision", tag, "project", { config: config.CONFIG });
 await sleep(20);
 const entryCount = config.CONFIG.maxMemories;
 config.CONFIG.maxMemories = 2;
@@ -177,7 +177,7 @@ gateResolve();
 const first = await searchPromise;
 releaseEmbedding = null;
 
-const next = await memoryClient.searchMemories("stored decision", tag);
+const next = await memoryClient.searchMemories("stored decision", tag, "project", { config: config.CONFIG });
 const listed = await memoryClient.listMemories(tag, 50);
 scenario = {
   entryCount,
@@ -232,14 +232,14 @@ const { buildRetrievalSection } = await import(${JSON.stringify(moduleUrl("src/c
 let gateResolve;
 releaseSearch = new Promise((resolve) => { gateResolve = resolve; });
 const entryFlag = config.CONFIG.chatMessage.excludeCurrentSession;
-const firstPromise = buildRetrievalSection("what was decided", projectDir, "ses-1");
+const firstPromise = buildRetrievalSection("what was decided", projectDir, "ses-1", config.CONFIG.chatMessage.excludeCurrentSession, undefined, config.CONFIG);
 await sleep(20);
 config.CONFIG.chatMessage.excludeCurrentSession = false;
 gateResolve();
 const first = (await firstPromise) || "";
 releaseSearch = null;
 
-const next = (await buildRetrievalSection("what was decided", projectDir, "ses-1")) || "";
+const next = (await buildRetrievalSection("what was decided", projectDir, "ses-1", config.CONFIG.chatMessage.excludeCurrentSession, undefined, config.CONFIG)) || "";
 scenario = {
   entryFlag,
   firstKeepsOwnOut: !first.includes("OWN SESSION NOTE"),
@@ -257,6 +257,52 @@ scenario = {
     // The next retrieval uses the new flag: both memories appear.
     expect(output.nextIncludesOwn).toBe(true);
     expect(output.nextHasOther).toBe(true);
+  });
+
+  it("the OpenCode bridge reads excludeCurrentSession from the live config on each retrieval", async () => {
+    const output = await createMockHarness(
+      {
+        client: `
+mock.module(${JSON.stringify(moduleUrl("src/services/client.js"))}, () => ({
+  memoryClient: {
+    searchMemories: async () => ({
+      success: true,
+      results: [
+        { id: "own", memory: "OWN SESSION NOTE", similarity: 0.9, metadata: { sessionID: "ses-1" } },
+        { id: "other", memory: "OTHER SESSION NOTE", similarity: 0.8, metadata: { sessionID: "ses-2" } },
+      ],
+    }),
+  },
+}));`,
+        tags: `
+mock.module(${JSON.stringify(moduleUrl("src/services/tags.js"))}, () => ({
+  getTags: () => ({
+    project: { tag: "project-tag" },
+    user: { userEmail: "dev@example.com" },
+  }),
+}));`,
+      },
+      `
+config.initConfig(projectDir, { strict: false });
+config.CONFIG.injectProfile = false;
+const { createV2MemoryBridge } = await import(${JSON.stringify(moduleUrl("src/v2/memory-bridge.js"))});
+const bridge = createV2MemoryBridge(projectDir);
+
+config.CONFIG.chatMessage.excludeCurrentSession = true;
+const excluded = (await bridge.retrieve("what was decided", "ses-1", 4000)) || "";
+config.CONFIG.chatMessage.excludeCurrentSession = false;
+const included = (await bridge.retrieve("what was decided", "ses-1", 4000)) || "";
+scenario = {
+  excludedHasOwn: excluded.includes("OWN SESSION NOTE"),
+  excludedHasOther: excluded.includes("OTHER SESSION NOTE"),
+  includedHasOwn: included.includes("OWN SESSION NOTE"),
+};
+`
+    );
+
+    expect(output.excludedHasOwn).toBe(false);
+    expect(output.excludedHasOther).toBe(true);
+    expect(output.includedHasOwn).toBe(true);
   });
 
   it("captureConversation keeps the context budget captured before its first await", async () => {
@@ -297,7 +343,7 @@ const provider = { summarize: async (request) => { contexts.push(byteLength(requ
 
 let gateResolve;
 releaseList = new Promise((resolve) => { gateResolve = resolve; });
-const firstPromise = captureConversation(unit(), provider);
+const firstPromise = captureConversation(unit(), provider, config);
 await sleep(20);
 const entryTotal = config.CONFIG.autoCaptureMaxContextBytes;
 config.CONFIG.autoCaptureMaxContextBytes = 65536;
@@ -305,7 +351,7 @@ gateResolve();
 const first = await firstPromise;
 releaseList = null;
 
-const second = await captureConversation(unit(), provider);
+const second = await captureConversation(unit(), provider, config);
 scenario = {
   entryTotal,
   firstStatus: first.status,
@@ -437,7 +483,7 @@ const { executeMemoryOperation } = await import(${JSON.stringify(
 
 const first = await executeMemoryOperation(
   { mode: "search", query: "manual search seed" },
-  { directory: projectDir }
+  { directory: projectDir, config }
 );
 
 // A valid hand edit lands while the tool is idle.
@@ -452,7 +498,7 @@ writeFileSync(${JSON.stringify(join(h.home, ".config", "omms", "omms.jsonc"))}, 
 
 const next = await executeMemoryOperation(
   { mode: "search", query: "manual search seed" },
-  { directory: projectDir }
+  { directory: projectDir, config }
 );
 const listed = await memoryClient.listMemories(tag, 50);
 scenario = {

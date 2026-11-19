@@ -174,3 +174,25 @@ export function createFakeV2Context(options: FakeV2ContextOptions = {}) {
     isSubscribed: () => subscriptions > closed,
   };
 }
+
+/**
+ * Check event data against a plugin RPC event schema as OpenCode does: a present key needs a
+ * value of its declared type (`undefined` fails, as in OpenCode's `SchemaError`), and every
+ * required key must be present. Throws the way OpenCode rejects the emit.
+ */
+export function checkRpcEventData(
+  definition: { events: Record<string, { schema: any }> },
+  name: string,
+  data: Record<string, unknown>
+): void {
+  const schema = definition.events[name]?.schema;
+  if (!schema) throw new Error(`Unknown RPC event ${name}`);
+  for (const [key, value] of Object.entries(data)) {
+    const type = schema.properties?.[key]?.type;
+    if (!type) throw new Error(`SchemaError(Unexpected key at ["${key}"])`);
+    if (typeof value !== type) throw new Error(`SchemaError(Expected ${type} at ["${key}"])`);
+  }
+  for (const key of schema.required ?? []) {
+    if (!(key in data)) throw new Error(`SchemaError(Missing key at ["${key}"])`);
+  }
+}

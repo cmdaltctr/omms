@@ -1,4 +1,3 @@
-import { createClient } from "@libsql/client";
 import {
   copyFileSync,
   existsSync,
@@ -16,6 +15,7 @@ import {
   walkTree,
   type BackupManifestEntry,
 } from "../legacy-migration.js";
+import { snapshotDatabase } from "../storage/snapshot.js";
 
 /**
  * Space backups (design D6). A backup is a folder `space-<id>-<timestamp>` under the backups
@@ -53,17 +53,7 @@ export interface BackupDeps {
   copyFile(source: string, destination: string): void;
 }
 
-async function vacuumInto(source: string, destination: string): Promise<void> {
-  const client = createClient({ url: `file:${source}` });
-  try {
-    await client.execute("PRAGMA busy_timeout = 5000");
-    await client.execute({ sql: "VACUUM INTO ?", args: [destination] });
-  } finally {
-    client.close();
-  }
-}
-
-const defaultDeps: BackupDeps = { vacuumInto, copyFile: copyFileSync };
+const defaultDeps: BackupDeps = { vacuumInto: snapshotDatabase, copyFile: copyFileSync };
 
 /** Writes `manifest.json` in a backup folder. */
 export function writeBackupManifest(backupRoot: string, manifest: object): void {

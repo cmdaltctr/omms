@@ -104,11 +104,21 @@ preferences and habits. It covers all your projects.
 
 How profile learning behaves:
 
+- OpenCode, Pi and Claude Code run the same learning pass. Only the model and the moment the pass starts differ by host. The same prompts and settings give the same profile on every host.
+- Pi records each settled prompt in the prompt store, as OpenCode and Claude Code do. Text inside `<private>` is removed first.
+- A pass claims its batch of prompts before the model call. A second pass, or a catch-up run, does not take a claimed prompt. A failed pass releases its claim. A claim older than 10 minutes counts as released.
 - A live pass reads the waiting prompts of the last 7 days, newest first. When none are recent, it reads the oldest. A large backlog from a history import therefore does not delay your recent prompts.
 - Trivial prompts are marked as learned with no model call. A prompt is trivial when its trimmed text is under 20 characters and has fewer than three words, for example `yes go`. `use bun not npm` has four words, so OMMS keeps it. Trivial prompts do not count toward `userProfileAnalysisInterval`.
 - A profile call to the external API has its own time limit of 120 seconds. Captures keep `autoCaptureIterationTimeout` (default 30 seconds).
 - A failed pass writes one log record with the host and a reason code. The record holds no prompt, reply, or key.
 - After a failure, that process starts no profile pass for 10 minutes. Capture continues. A success clears the wait. A restart also clears it.
+- When no user email is known (no `userEmailOverride` and no git `user.email`), the pass learns into a profile with the id `unknown`. A later email starts a second profile. Merge the two in [Profiles in Settings](web-ui-settings.md#profiles).
+- Every reply is checked against the profile schema before the merge. A reply that fails the check fails the pass with the reason `invalid-reply`. The profile does not change and the prompts stay waiting.
+- When the OpenCode or Pi host model fails and the external API is fully configured, the pass repeats the call through the external API. The host shows the warning **Using fallback provider**.
+- With the external API behind it, the host model call has a time limit of 120 seconds. A host model that does not reply in that time also falls back. The external API call then gets its own 120 seconds.
+- When a save meets a newer profile version, the pass merges its result into the newer profile and saves again, with no second model call. After three failed saves the prompts stay waiting and the 10-minute wait starts.
+- A saved version has the history text "<Host> analysis of N prompts", for example `Pi analysis of 10 prompts`.
+- When notices are on, OpenCode and Pi show **User profile updated** with "Analysed N prompts and updated your profile" when the pass ends. Claude Code shows the same line on a later prompt.
 
 | Reason code      | Meaning                                                      |
 | ---------------- | ------------------------------------------------------------ |
@@ -119,11 +129,26 @@ How profile learning behaves:
 | `not-configured` | The model settings are not complete.                         |
 | `error`          | Another error.                                               |
 
-The log messages are `Claude Code profile learning failed`, `pi profile learning: aborted`, and `user-profile-learning: aborted` (OpenCode). To find them:
+The log message names the host: `OpenCode profile learning failed`, `Pi profile learning failed` or `Claude Code profile learning failed`. To find them:
 
 ```bash
-grep -E 'profile learning failed|profile learning: aborted|user-profile-learning: aborted' ~/.omms/omms.log | tail
+grep 'profile learning failed' ~/.omms/omms.log | tail
 ```
+
+### Profile learning settings
+
+Six settings change how the pass behaves. They are global: a project config cannot set them. Change them in the **Profile learning** row on the Memory page, where **Reset to default** restores all six. See [Memory: Profile learning](web-ui-memory.md#profile-learning) and [Configuration: Profile learning](configuration.md#profile-learning).
+
+| Setting                        | Default | What it does                                                                                                      |
+| ------------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------- |
+| `userProfileWithoutEmail`      | `learn` | With no user email, `learn` learns into the profile `unknown`. `skip` makes no model call and leaves the prompts. |
+| `userProfileDecayBeforeMerge`  | `false` | `true` fades old profile items before the analysis and before each save retry.                                    |
+| `userProfilePromptDetail`      | `full`  | `full` sends the prompts, a profile summary, guidelines and examples. `prompts-only` sends the numbered prompts.  |
+| `userProfileValidationEnabled` | `false` | `true` asks the model to check the top profile items. It needs 5 preferences or more.                             |
+| `showUserProfileToasts`        | `true`  | `false` turns off the notice when a pass ends.                                                                    |
+| `userProfileDuringCatchUp`     | `learn` | `learn` keeps live passes running during a catch-up run. `pause` stops them until the run ends.                   |
+
+Both input modes are cut to `userProfileMaxContextBytes` (default 32768 bytes). A cut input keeps its start and end, with a truncation marker between them.
 
 ### Catch up the profile
 

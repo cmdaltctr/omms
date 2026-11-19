@@ -2,6 +2,7 @@ import { CONFIG } from "../../config.js";
 import { resolvePiLiveModel, isExternalModelReady } from "../../services/ai/live-model-choice.js";
 import type { AutoCaptureNotification, CaptureSummaryProvider } from "../../core/host.js";
 import type { ModelPort } from "../../core/profile-analysis.js";
+import { withExternalFallback } from "../../core/profile-learning/fallback.js";
 import { log } from "../../services/logger.js";
 import { adaptPiProfileModel } from "./profile.js";
 import {
@@ -95,6 +96,8 @@ export function createPiLiveModels(ctx: PiModelContext, notify?: Notify): PiLive
     },
   };
 
+  // The profile port takes the shared fallback (change unify-profile-learning, design D3), so
+  // OpenCode and Pi show the same notice. A missing Pi model fails like a failing one.
   const profile = (): ModelPort | null => {
     let primary: PiModelHandle | null | "external";
     try {
@@ -103,26 +106,26 @@ export function createPiLiveModels(ctx: PiModelContext, notify?: Notify): PiLive
       log("Pi profile learning: no live model", { error: String(error) });
       return null;
     }
-    if (primary === "external") {
-      return {
-        provider: "external",
-        modelId: "",
-        complete: async (system, prompt) =>
-          (await externalModels()).profile.complete(system, prompt),
-      };
-    }
-    if (!primary && !isExternalModelReady(CONFIG)) return null;
-    return {
-      provider: primary?.provider ?? "external",
-      modelId: primary?.modelId ?? "",
-      complete: (system, prompt) =>
-        withFallback(
-          primary,
-          (model) => adaptPiProfileModel(model).complete(system, prompt),
-          async () => (await externalModels()).profile.complete(system, prompt),
-          notify
-        ),
+    const external: ModelPort = {
+      provider: "external",
+      modelId: "",
+      complete: async (system, prompt) => (await externalModels()).profile.complete(system, prompt),
     };
+    if (primary === "external") return external;
+    const externalReady = isExternalModelReady(CONFIG);
+    if (!primary && !externalReady) return null;
+    const host: ModelPort = primary
+      ? adaptPiProfileModel(primary)
+      : {
+          provider: "external",
+          modelId: "",
+          complete: async () => {
+            throw new Error(`omms: ${describeMissing()}`);
+          },
+        };
+    return withExternalFallback("pi", host, externalReady ? external : null, (notice) =>
+      notify?.({ ...notice, duration: 5000 })
+    );
   };
 
   return { capture, profile };

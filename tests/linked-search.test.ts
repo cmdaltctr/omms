@@ -109,7 +109,7 @@ interface WrittenMemory {
 /** Writes one memory straight into a space folder through a write store. */
 async function writeMemory(folder: string, memory: WrittenMemory): Promise<void> {
   const { embeddingService } = await import("../src/services/embedding.js");
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
   const hash = memory.tag.split("_").pop()!;
   const store = openSpaceStore(folder, "write");
@@ -135,7 +135,7 @@ async function writeMemory(folder: string, memory: WrittenMemory): Promise<void>
 
 /** Reads one memory id from a space folder, read-only. */
 async function readMemoryId(folder: string, id: string): Promise<boolean> {
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const store = openSpaceStore(folder, "read");
   try {
     for (const shard of await store.listShards("project", "")) {
@@ -163,9 +163,17 @@ async function withConfig<T>(patch: Record<string, unknown>, run: () => Promise<
 
 async function searchLinked(query: string, tag: string, maxMemories = 10) {
   const { memoryClient } = await import("../src/services/client.js");
+  const { CONFIG } = await import("../src/config.js");
   return withConfig({ maxMemories, similarityThreshold: 0.25 }, () =>
-    memoryClient.searchMemories(query, tag, "project", { includeLinked: true })
+    memoryClient.searchMemories(query, tag, "project", { includeLinked: true, config: CONFIG })
   );
+}
+
+/** The linked settings a list or forget takes, read from CONFIG at call time. */
+async function linkedNow() {
+  const { CONFIG } = await import("../src/config.js");
+  const { linkedSettingsFrom } = await import("../src/services/linked-search.js");
+  return linkedSettingsFrom(CONFIG);
 }
 
 /** Records every searchAcrossShards call, so a test can inspect the linked one. */
@@ -284,6 +292,7 @@ describe("linked search", () => {
         thresholdUsed = CONFIG.similarityThreshold;
         return memoryClient.searchMemories("retry queue drain", tag, "project", {
           includeLinked: true,
+          config: CONFIG,
         });
       });
     } finally {
@@ -325,8 +334,11 @@ describe("linked search", () => {
       createdAt: now - 1000,
     });
 
-    const limited = await withConfig({}, () =>
-      memoryClient.listMemories(tag, 3, "project", { includeLinked: true })
+    const limited = await withConfig({}, async () =>
+      memoryClient.listMemories(tag, 3, "project", {
+        includeLinked: true,
+        linked: await linkedNow(),
+      })
     );
     expect(limited.success).toBe(true);
     expect(limited.memories).toHaveLength(3);
@@ -335,8 +347,11 @@ describe("linked search", () => {
     expect(limited.memories.slice(0, 2).every((m: any) => m.spaceName === undefined)).toBe(true);
     expect(limited.memories[2]).toMatchObject({ id: "beta_list_new", spaceName: "Beta" });
 
-    const full = await withConfig({}, () =>
-      memoryClient.listMemories(tag, 10, "project", { includeLinked: true })
+    const full = await withConfig({}, async () =>
+      memoryClient.listMemories(tag, 10, "project", {
+        includeLinked: true,
+        linked: await linkedNow(),
+      })
     );
     expect(full.memories).toHaveLength(5);
     expect(full.memories.slice(2).map((m: any) => m.id)).toEqual([
@@ -473,8 +488,12 @@ describe("linked search", () => {
     });
 
     const { memoryClient } = await import("../src/services/client.js");
+    const { CONFIG } = await import("../src/config.js");
     const result = await withConfig({ maxMemories: 10, similarityThreshold: 0.25 }, () =>
-      memoryClient.searchMemories("quotas", tag, "all-projects", { includeLinked: true })
+      memoryClient.searchMemories("quotas", tag, "all-projects", {
+        includeLinked: true,
+        config: CONFIG,
+      })
     );
     expect(result.success).toBe(true);
     expect(result.results.some((r: any) => r.spaceName === "Beta")).toBe(true);
@@ -489,8 +508,11 @@ describe("linked search", () => {
 
     await searchLinked("backups folder", tag);
     const { memoryClient } = await import("../src/services/client.js");
-    await withConfig({}, () =>
-      memoryClient.listMemories(tag, 5, "project", { includeLinked: true })
+    await withConfig({}, async () =>
+      memoryClient.listMemories(tag, 5, "project", {
+        includeLinked: true,
+        linked: await linkedNow(),
+      })
     );
 
     expect(hashFolder(BETA)).toEqual(before);
@@ -505,7 +527,9 @@ describe("forget refuses a linked memory", () => {
     const before = hashFolder(BETA);
 
     const { memoryClient } = await import("../src/services/client.js");
-    const result = await withConfig({}, () => memoryClient.deleteMemory("beta_keep_me"));
+    const result = await withConfig({}, async () =>
+      memoryClient.deleteMemory("beta_keep_me", await linkedNow())
+    );
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Beta");
@@ -580,7 +604,7 @@ function ETA_FOLDER() {
 
 /** Rewrites one shard_metadata key in every shard of a space folder. */
 async function rewriteShardMetadata(folder: string, key: string, value: string): Promise<void> {
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const store = openSpaceStore(folder, "write");
   try {
     for (const shard of await store.shards.getAllShards("project", "")) {
@@ -594,7 +618,7 @@ async function rewriteShardMetadata(folder: string, key: string, value: string):
 
 /** Removes one shard_metadata key in every shard of a space folder. */
 async function deleteShardMetadataKey(folder: string, key: string): Promise<void> {
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const store = openSpaceStore(folder, "write");
   try {
     for (const shard of await store.shards.getAllShards("project", "")) {

@@ -1,26 +1,41 @@
 import { embeddingService } from "./embedding.js";
-import { tursoShardManager } from "./turso/shard-manager.js";
-import { tursoVectorSearch } from "./turso/vector-search.js";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { ensureTursoReady } from "./turso/ready.js";
-import { formatTagsForEmbedding } from "./turso/vector-utils.js";
+import {
+  decrementShardCount,
+  ensureMemoryStoreReady,
+  getWriteMemoryShard,
+  incrementShardCount,
+  listEveryMemoryShard,
+  listMemoryShards,
+  withMemoryScopeWriteLock,
+} from "./storage/memory/shards.js";
+import {
+  deleteMemoryRow,
+  formatTagsForEmbedding,
+  getMemoryRow,
+  insertMemoryRow,
+  listMemoryRows,
+} from "./storage/memory/rows.js";
+import { searchMemoryShards } from "./storage/memory/search.js";
 import { extractScopeFromContainerTag, resolveMemoryScope } from "./memory-scope.js";
-import { rerankSettingsFor } from "./reranker.js";
 import { rerankedSearch } from "./retrieval-rerank.js";
 import {
   findLinkedMemoryOwner,
   linkedRefusal,
-  linkedSettingsFrom,
   listLinkedSpaces,
   mapListedMemory,
   searchLinkedSpaces,
-  type MemoryReadOptions,
+  type LinkedSearchSettings,
 } from "./linked-search.js";
-import { CONFIG } from "../config.js";
-import { activeOwner } from "./active-space-access.js";
+import {
+  linkedSearchSettings,
+  searchEntrySettings,
+  type MemoryListOptions,
+  type MemorySearchOptions,
+} from "./client-read-settings.js";
+import { activeOwner } from "./storage/active-space-access.js";
 import { log } from "./logger.js";
 import type { MemoryType } from "../types/index.js";
-import type { MemoryRecord, SearchResult } from "./turso/types.js";
+import type { MemoryRecord, SearchResult } from "./storage/memory/types.js";
 import type { MemoryKind } from "./memory-kind.js";
 import { replaceMemoryRow } from "./memory-replace.js";
 import { searchMemoriesBySessionID as readSessionMemories } from "./client-session-read.js";
@@ -39,7 +54,7 @@ export class LocalMemoryClient {
 
     this.initPromise = (async () => {
       try {
-        await ensureTursoReady();
+        await ensureMemoryStoreReady();
         this.isInitialized = true;
       } catch (error) {
         this.initPromise = null;
@@ -84,8 +99,8 @@ export class LocalMemoryClient {
   }
 
   async close(): Promise<void> {
-    const { closeTursoAndInvalidateCaches } = await import("./turso/lifecycle.js");
-    await closeTursoAndInvalidateCaches();
+    const { closeStoresAndInvalidateCaches } = await import("./storage/lifecycle.js");
+    await closeStoresAndInvalidateCaches();
     this.reset();
   }
 
@@ -93,35 +108,20 @@ export class LocalMemoryClient {
     query: string,
     containerTag: string,
     scope: MemoryScope = "project",
-    options: MemoryReadOptions = {}
+    options: MemorySearchOptions
   ) {
-    // Capture the result count and the reranker settings at entry: initialize,
-    // embedding, and shard reads all await, and a config edit during them must
-    // not change this search's limit or reranker target.
-    const maxMemories = options.limit ?? CONFIG.maxMemories;
-    const keywordBoost = CONFIG.keywordBoost;
-    const reranker = rerankSettingsFor(CONFIG, options.reranker);
-    // The reranker path below always uses the boost: it needs a full pool on the similarity scale.
-    const keywordMode = CONFIG.keywordMode;
-    // On but incomplete, through the general switch or a search's own override:
-    // search must keep working, so treat the reranker as off and say so once.
-    if (
-      !reranker &&
-      (options.reranker === true || (CONFIG.rerankerEnabled && options.reranker !== false))
-    ) {
-      log("Reranker asked for without a URL or model; searching without it", {
-        code: "reranker_not_configured",
-      });
-    }
+    const { config } = options;
+    const { maxMemories, keywordBoost, keywordMode, reranker } = searchEntrySettings(
+      config,
+      options
+    );
     try {
       await this.initialize();
 
       const queryVector = await embeddingService.embedWithTimeout(query, { task: "query" });
       const resolved = resolveMemoryScope(scope, containerTag);
       const shards = (
-        await Promise.all(
-          resolved.map((ref) => tursoShardManager.getAllShards(ref.scope, ref.hash))
-        )
+        await Promise.all(resolved.map((ref) => listMemoryShards(ref.scope, ref.hash)))
       ).flat();
 
       let results: SearchResult[], warnings: string[];
@@ -139,14 +139,14 @@ export class LocalMemoryClient {
             containerTag: scope === "all-projects" ? "" : containerTag,
             queryText: query,
             maxMemories,
-            similarityThreshold: CONFIG.similarityThreshold,
+            similarityThreshold: config.similarityThreshold,
             kind: options.kind ?? "normal",
             thresholdAfterRerank: options.thresholdAfterRerank,
           },
           reranker,
           {
             search: (shardList, vector, tag, limit, threshold, queryText, kind) =>
-              tursoVectorSearch.searchAcrossShards(
+              searchMemoryShards(
                 shardList,
                 vector,
                 tag,
@@ -162,12 +162,12 @@ export class LocalMemoryClient {
           }
         ));
       } else {
-        ({ results, warnings } = await tursoVectorSearch.searchAcrossShards(
+        ({ results, warnings } = await searchMemoryShards(
           shards,
           queryVector,
           scope === "all-projects" ? "" : containerTag,
           maxMemories,
-          CONFIG.similarityThreshold,
+          config.similarityThreshold,
           query,
           keywordBoost,
           keywordMode,
@@ -185,10 +185,7 @@ export class LocalMemoryClient {
           containerTag,
           ownCount: results.length,
           owner: activeOwner(),
-          settings:
-            options.limit === undefined
-              ? linkedSettingsFrom(CONFIG)
-              : { ...linkedSettingsFrom(CONFIG), maxMemories: options.limit },
+          settings: linkedSearchSettings(config, options.limit),
           kind: options.kind ?? "normal",
         });
         results = [...results, ...linked.results];
@@ -250,8 +247,8 @@ export class LocalMemoryClient {
 
       const { scope, hash } = extractScopeFromContainerTag(containerTag);
 
-      return await tursoShardManager.withScopeWriteLock(scope, hash, async () => {
-        const shard = await tursoShardManager.getWriteShard(scope, hash);
+      return await withMemoryScopeWriteLock(scope, hash, async () => {
+        const shard = await getWriteMemoryShard(scope, hash);
 
         const now = Date.now();
 
@@ -293,9 +290,8 @@ export class LocalMemoryClient {
         if (replaceExisting && customId && (await replaceMemoryRow(record))) {
           return { success: true as const, id };
         }
-        const db = await tursoConnectionManager.getConnection(shard.dbPath);
-        await tursoVectorSearch.insertVector(db, record);
-        await tursoShardManager.incrementVectorCount(shard.id);
+        await insertMemoryRow(shard, record);
+        await incrementShardCount(shard.id);
 
         return {
           success: true as const,
@@ -309,31 +305,21 @@ export class LocalMemoryClient {
     }
   }
 
-  async deleteMemory(memoryId: string) {
+  async deleteMemory(memoryId: string, linked: LinkedSearchSettings) {
     try {
       await this.initialize();
 
-      const userShards = await tursoShardManager.getAllShards("user", "");
-      const projectShards = await tursoShardManager.getAllShards("project", "");
-      const allShards = [...userShards, ...projectShards];
-
-      for (const shard of allShards) {
-        const db = await tursoConnectionManager.getConnection(shard.dbPath);
-        const memory = await tursoVectorSearch.getMemoryById(db, memoryId);
-
-        if (memory) {
-          await tursoVectorSearch.deleteVector(db, memoryId);
-          await tursoShardManager.decrementVectorCount(shard.id);
+      // User shards first, then project shards: the first shard that holds the ID wins.
+      for (const shard of await listEveryMemoryShard("user")) {
+        if (await getMemoryRow(shard, memoryId)) {
+          await deleteMemoryRow(shard, memoryId);
+          await decrementShardCount(shard.id);
           return { success: true };
         }
       }
 
       // A linked space is read-only: refuse with its name instead of "not found".
-      const owner = await findLinkedMemoryOwner(
-        memoryId,
-        activeOwner(),
-        linkedSettingsFrom(CONFIG)
-      );
+      const owner = await findLinkedMemoryOwner(memoryId, activeOwner(), linked);
       if (owner) return linkedRefusal(owner.name);
 
       return { success: false, error: "Memory not found" };
@@ -348,16 +334,14 @@ export class LocalMemoryClient {
     containerTag: string,
     limit = 20,
     scope: MemoryScope = "project",
-    options: MemoryReadOptions = {}
+    options: MemoryListOptions = {}
   ) {
     try {
       await this.initialize();
 
       const resolved = resolveMemoryScope(scope, containerTag);
       const shards = (
-        await Promise.all(
-          resolved.map((ref) => tursoShardManager.getAllShards(ref.scope, ref.hash))
-        )
+        await Promise.all(resolved.map((ref) => listMemoryShards(ref.scope, ref.hash)))
       ).flat();
 
       let memories: any[];
@@ -369,9 +353,8 @@ export class LocalMemoryClient {
         const allMemories: any[] = [];
 
         for (const shard of shards) {
-          const db = await tursoConnectionManager.getConnection(shard.dbPath);
-          const rows = await tursoVectorSearch.listMemories(
-            db,
+          const rows = await listMemoryRows(
+            shard,
             scope === "all-projects" ? "" : containerTag,
             limit,
             options.kind ?? "normal"
@@ -391,7 +374,7 @@ export class LocalMemoryClient {
           limit,
           ownCount: memories.length,
           owner: activeOwner(),
-          settings: linkedSettingsFrom(CONFIG),
+          settings: options.linked,
           kind: options.kind ?? "normal",
         });
         memories = [...memories, ...linked.memories];
@@ -421,7 +404,8 @@ export class LocalMemoryClient {
   async listShards(currentDirectory: string) {
     try {
       await this.initialize();
-      const { shardInventoryService } = await import("./shard-inventory-service.js");
+      const { shardInventoryService } =
+        await import("./storage/maintenance/shard-inventory-service.js");
       return await shardInventoryService.listShards(currentDirectory);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -439,7 +423,8 @@ export class LocalMemoryClient {
   }) {
     try {
       await this.initialize();
-      const { shardPathMigrationService } = await import("./shard-path-migration-service.js");
+      const { shardPathMigrationService } =
+        await import("./storage/maintenance/shard-path-migration-service.js");
       return await shardPathMigrationService.migrate(options);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

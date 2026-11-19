@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG } from "../src/config.js";
-import { ImportLedger, PiImportLedger } from "../src/importer/ledger.js";
+import { ImportLedger, PiImportLedger } from "../src/services/storage/import-ledger.js";
 import { tursoConnectionManager } from "../src/services/turso/connection-manager.js";
 
 const storage = mkdtempSync(join(tmpdir(), "omms-import-ledger-"));

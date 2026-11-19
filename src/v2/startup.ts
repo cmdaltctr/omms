@@ -3,14 +3,20 @@ import { memoryClient } from "../services/client.js";
 import { getTags } from "../services/tags.js";
 import { createOpenCodeAutoCaptureHost } from "../adapters/opencode/auto-capture-host.js";
 import { pruneTraces } from "../services/capture-diagnostics.js";
-import { ensureTursoReady } from "../services/turso/ready.js";
-import { tursoConnectionManager } from "../services/turso/connection-manager.js";
+import {
+  closeAllStoreConnectionsSync,
+  ensureMemoryStoreReady,
+} from "../services/storage/memory/shards.js";
 import { isConfigured, CONFIG, initConfigWithLegacyMigration } from "../config.js";
 import { log } from "../services/logger.js";
 import { loadOpencodeProvider } from "../adapters/opencode/opencode-provider-loader.js";
 import { registerOpencodeProfileModel } from "../adapters/opencode/profile-model.js";
 import { unclaimedOpencodeFirstRunNotice } from "../adapters/opencode/first-run.js";
-import { showOpencodeNotice } from "../adapters/opencode/toast.js";
+import {
+  registerTuiNotices,
+  showOpencodeNotice,
+  type OpencodeNotice,
+} from "../adapters/opencode/toast.js";
 import { webStartNotice } from "../services/web-start-notice.js";
 import { currentConfigProblems } from "../services/config-problems.js";
 
@@ -38,10 +44,11 @@ async function connectedProviders(ctx: Pick<Context, "model">): Promise<string[]
 }
 
 /** Check providers, then register backfill models and start the automatic backfill. */
-async function startProviderWork(ctx: Context, directory: string): Promise<void> {
-  let connected: string[] = [];
+type Notify = (notice: OpencodeNotice) => void;
+
+async function startProviderWork(ctx: Context, directory: string, notify: Notify): Promise<void> {
   try {
-    connected = await connectedProviders(ctx);
+    const connected = await connectedProviders(ctx);
     if (connected.length > 0) {
       const { setConnectedProviders } = await loadOpencodeProvider();
       setConnectedProviders(connected);
@@ -59,18 +66,16 @@ async function startProviderWork(ctx: Context, directory: string): Promise<void>
   // Run now on a Settings page served by this process can use OpenCode's signed-in models.
   void import("../adapters/opencode/backfill-startup.js")
     .then(({ registerOpencodeBackfillModels }) =>
-      registerOpencodeBackfillModels({ connected, directory, configModel })
+      registerOpencodeBackfillModels({ directory, configModel })
     )
     .catch(() => {});
   if (CONFIG.autoBackfill && process.env.OMMS_DISABLE_AUTO_BACKFILL !== "1" && isConfigured()) {
     void import("../adapters/opencode/backfill-startup.js")
       .then(({ startOpencodeBackfill }) =>
         startOpencodeBackfill({
-          connected,
           directory,
           configModel,
-          notify: (message) =>
-            showOpencodeNotice({ title: "Automatic import", message, variant: "info" }),
+          notify: (message) => notify({ title: "Automatic import", message, variant: "info" }),
         })
       )
       .catch((error: unknown) =>
@@ -84,15 +89,15 @@ async function startProviderWork(ctx: Context, directory: string): Promise<void>
 }
 
 /** Start the shared web app unless one already runs. */
-async function startWebApp(): Promise<void> {
+async function startWebApp(notify: Notify): Promise<void> {
   let tursoReadyForWeb = !isConfigured();
   if (CONFIG.webServerEnabled && isConfigured()) {
     try {
-      await ensureTursoReady();
+      await ensureMemoryStoreReady();
       tursoReadyForWeb = true;
     } catch (error) {
       log("Turso ready gate failed before web server start", { error: String(error) }, "error");
-      showOpencodeNotice({
+      notify({
         title: "Memory Explorer",
         message: "Database migration failed; web UI not started",
         variant: "error",
@@ -108,7 +113,7 @@ async function startWebApp(): Promise<void> {
     return;
   }
   const notice = (message: string, variant: "info" | "error") =>
-    showOpencodeNotice({ title: "Memory Explorer", message, variant });
+    notify({ title: "Memory Explorer", message, variant });
   // The shared web app serves the page. This plugin starts it only when none runs.
   void Promise.all([
     import("../services/web-ensure.js"),
@@ -143,12 +148,15 @@ async function startWebApp(): Promise<void> {
 export async function startOpencodeRuntime(ctx: Context, onCleanup: () => void = () => {}) {
   const directory = ctx.location.directory;
   initConfigWithLegacyMigration(directory);
-  // `opencode serve` and OpenChamber users find the notice in the log; the terminal interface shows it.
+  // Registered before the first notice, so every notice below reaches the TUI entry.
+  const notify = await registerTuiNotices(ctx);
+  // The TUI entry claims and shows the first-run notice itself, so the channel would show it
+  // twice. Without a terminal interface (`opencode serve`, OpenChamber) only the console has it.
   const firstRun = unclaimedOpencodeFirstRunNotice(CONFIG);
   if (firstRun) showOpencodeNotice({ message: firstRun, variant: "info" });
   // A broken file or a rejected value uses the defaults; tell the user once, at start.
   for (const problem of currentConfigProblems()) {
-    showOpencodeNotice({ title: "OMMS settings", message: problem.message, variant: "warning" });
+    notify({ title: "OMMS settings", message: problem.message, variant: "warning" });
   }
 
   // Runs even with tracing off, so turning it off does not leave old traces behind.
@@ -176,7 +184,7 @@ export async function startOpencodeRuntime(ctx: Context, onCleanup: () => void =
   }
   logAutoCaptureProviderStatus();
   const tags = getTags(directory);
-  const autoCaptureHost = createOpenCodeAutoCaptureHost(ctx);
+  const autoCaptureHost = createOpenCodeAutoCaptureHost(ctx, notify);
 
   if (!(globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] && isConfigured()) {
     // Fire-and-forget: DB ready + embedding model must not block plugin init.
@@ -201,8 +209,8 @@ export async function startOpencodeRuntime(ctx: Context, onCleanup: () => void =
     })
     .catch(() => {});
 
-  void startProviderWork(ctx, directory);
-  await startWebApp();
+  void startProviderWork(ctx, directory, notify);
+  await startWebApp(notify);
 
   let cleanedUp = false;
   const cleanup = async () => {
@@ -226,7 +234,7 @@ export async function startOpencodeRuntime(ctx: Context, onCleanup: () => void =
     // Best-effort sync close when the host exits without SIGINT/SIGTERM.
     if (cleanedUp) return;
     try {
-      tursoConnectionManager.closeAllSync();
+      closeAllStoreConnectionsSync();
     } catch {
       // ignore: the module may already be torn down
     }
@@ -241,6 +249,8 @@ export async function startOpencodeRuntime(ctx: Context, onCleanup: () => void =
     directory,
     tags,
     autoCaptureHost,
+    /** Sends a notice to the TUI entry (`registerTuiNotices`). */
+    notify,
     async dispose(): Promise<void> {
       process.off("SIGINT", shutdownHandler);
       process.off("SIGTERM", shutdownHandler);

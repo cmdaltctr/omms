@@ -2,7 +2,6 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename } from "node:path";
 import { promisify } from "node:util";
-import * as config from "../config.js";
 import type { RouteResult } from "./chat/chat-routes.js";
 import { HostAppearanceError, createAppearance } from "./host-appearance.js";
 import { log } from "./logger.js";
@@ -45,6 +44,12 @@ import { isLoopbackAddress } from "./web-api-auth.js";
 
 type Body = Record<string, unknown>;
 
+/** The live config module. The route host passes it in; each call reads it fresh. */
+export type SpaceConfig = Pick<
+  typeof import("../config.js"),
+  "CONFIG" | "refreshConfigIfChanged" | "getActiveSpace"
+>;
+
 const ok = (data: unknown): RouteResult => ({ status: 200, body: { success: true, data } });
 const fail = (status: number, code: string, error: string): RouteResult => ({
   status,
@@ -77,7 +82,7 @@ export interface SpaceRouteOptions {
 }
 
 /** What the status call reports: the space this process uses now. */
-export function spaceStatus(directory: string) {
+export function spaceStatus(config: SpaceConfig, directory: string) {
   config.refreshConfigIfChanged(directory);
   const { id, name, customStoragePath, problem } = config.getActiveSpace();
   return { id, name, customStoragePath, ...(problem ? { problem } : {}) };
@@ -140,7 +145,7 @@ function describeBackup(path: string, summary: ReturnType<typeof listBackups>[nu
   };
 }
 
-async function snapshot(files: SpaceFiles, cwd: string) {
+async function snapshot(config: SpaceConfig, files: SpaceFiles, cwd: string) {
   config.refreshConfigIfChanged(cwd);
   const { registry, problem } = readRegistryFile(files.registryPath);
   const { storagePath, skillStoragePath } = config.CONFIG;
@@ -149,7 +154,7 @@ async function snapshot(files: SpaceFiles, cwd: string) {
   const looks = await appearanceOf(files).read(listSpaces(registry).map((space) => space.id));
   return {
     activeSpaceId: registry.activeSpaceId,
-    current: spaceStatus(cwd),
+    current: spaceStatus(config, cwd),
     spaces: describeSpaces(files, registry, globalFolder, looks),
     backups: listBackups(files.backupsRoot).map((summary) => describeBackup(summary.path, summary)),
     ...(problem ? { problem } : {}),
@@ -165,12 +170,13 @@ export async function routeSpaces(
   method: string,
   readBody: () => Promise<Body>,
   cwd: string,
+  config: SpaceConfig,
   options: SpaceRouteOptions = {}
 ): Promise<RouteResult | undefined> {
   if (path !== "/api/spaces" && !path.startsWith("/api/spaces/")) return undefined;
   const files = spaceFiles(ommsHomeDir());
   try {
-    return await dispatch(path, method, readBody, cwd, files, options);
+    return await dispatch(path, method, readBody, cwd, config, files, options);
   } catch (error) {
     if (error instanceof SpaceError) {
       return fail(STATUS_BY_CODE[error.code] ?? 400, error.code, error.message);
@@ -190,10 +196,11 @@ async function dispatch(
   method: string,
   readBody: () => Promise<Body>,
   cwd: string,
+  config: SpaceConfig,
   files: SpaceFiles,
   options: SpaceRouteOptions
 ): Promise<RouteResult | undefined> {
-  if (path === "/api/spaces" && method === "GET") return ok(await snapshot(files, cwd));
+  if (path === "/api/spaces" && method === "GET") return ok(await snapshot(config, files, cwd));
   if (path === "/api/spaces" && method === "POST") {
     const space = await createStoredSpace(files, nameOf(await readBody()));
     return ok({ space: { id: space.id, name: space.name } });
@@ -237,10 +244,10 @@ async function dispatch(
     else if (action === "unarchive") await unarchiveStoredSpace(files, id);
     else if (action === "rename")
       await renameStoredSpace(files, id, nameOf(await readBody()), {
-        defaultFolder: globalFolder(),
+        defaultFolder: globalFolder(config),
       });
-    else if (action === "open-folder") return await openFolder(files, id, options);
-    else return ok(await backUp(files, id));
+    else if (action === "open-folder") return await openFolder(config, files, id, options);
+    else return ok(await backUp(config, files, id));
     config.refreshConfigIfChanged(cwd);
     return ok({ activeSpaceId: readRegistryFile(files.registryPath).registry.activeSpaceId });
   }
@@ -249,7 +256,7 @@ async function dispatch(
   return undefined;
 }
 
-function globalFolder(): string {
+function globalFolder(config: SpaceConfig): string {
   return config.CONFIG.skillStoragePath ?? config.CONFIG.storagePath;
 }
 
@@ -271,6 +278,7 @@ async function startFileManager(command: string, args: string[]): Promise<void> 
  * machine, and the folder always comes from the registry, never from the request.
  */
 async function openFolder(
+  config: SpaceConfig,
   files: SpaceFiles,
   id: string,
   options: SpaceRouteOptions
@@ -284,7 +292,7 @@ async function openFolder(
   }
   const space = requireSpace(files, id);
   const folder = resolveSpaceFolder(space.id, {
-    globalStoragePath: globalFolder(),
+    globalStoragePath: globalFolder(config),
     spacesRoot: files.spacesRoot,
   });
   if (!existsSync(folder)) {
@@ -308,12 +316,12 @@ async function openFolder(
   return ok({ folder });
 }
 
-async function backUp(files: SpaceFiles, id: string) {
+async function backUp(config: SpaceConfig, files: SpaceFiles, id: string) {
   const space = requireSpace(files, id);
   const { backupPath, manifest } = await backupSpace({
     space,
     spaceFolder: resolveSpaceFolder(space.id, {
-      globalStoragePath: globalFolder(),
+      globalStoragePath: globalFolder(config),
       spacesRoot: files.spacesRoot,
     }),
     backupsRoot: files.backupsRoot,

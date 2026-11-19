@@ -66,11 +66,11 @@ describe("settings API", () => {
       const path = join(CONFIG.storagePath, "import-ledger.db");
       const empty = await (await send("/api/settings/backfill")).json();
       const untouched = !existsSync(path);
-      const { getBackfillCutoff, updateBackfillStatus } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/backfill-state.ts")).href)});
+      const { getBackfillCutoff, updateBackfillStatus } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/storage/backfill-state.ts")).href)});
       await getBackfillCutoff("pi", 123);
       await updateBackfillStatus("pi", { state: "failed", model: "zai/model",
         counts: { imported: 1, skipped: 2, failed: 3, pending: 4, unresolved: 5 },
-        error: new Error("api_key=private-test-value") });
+        error: new Error("api_key=private-test-value") }, CONFIG);
       const backfill = await send("/api/settings/backfill");
       const login = await send("/api/settings/web-autostart");
       return { empty, untouched, status: backfill.status, rows: await backfill.json(),
@@ -116,10 +116,10 @@ describe("settings API", () => {
       CONFIG.importIgnoredDirectories = ["/x/scratch"];
       // A saved map also takes its directory off the list, so off the count too.
       CONFIG.importPathMaps = [{ from: "/x/mapped", to: "/x/kept" }];
-      const state = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/backfill-state.ts")).href)});
+      const state = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/storage/backfill-state.ts")).href)});
       await state.getBackfillCutoff("pi", 1);
       await state.updateBackfillStatus("pi", { state: "done", model: null,
-        counts: { imported: 0, skipped: 0, failed: 0, pending: 0, unresolved: 10 } });
+        counts: { imported: 0, skipped: 0, failed: 0, pending: 0, unresolved: 10 } }, CONFIG);
       await state.recordUnresolvedDirectories("pi", [
         { directory: "/x/scratch", sessions: 6 },
         { directory: "/x/kept", sessions: 2 },
@@ -488,7 +488,7 @@ describe("settings API", () => {
 
   it("reports queued turns per host and retries them now", async () => {
     const queueUrl = pathToFileURL(
-      join(import.meta.dir, "../src/services/capture-retry-queue.ts")
+      join(import.meta.dir, "../src/services/storage/capture-retry-queue.ts")
     ).href;
     const drainUrl = pathToFileURL(
       join(import.meta.dir, "../src/services/capture-retry-drain.ts")
@@ -517,7 +517,7 @@ describe("settings API", () => {
 
       let release;
       const gate = new Promise((resolve) => (release = resolve));
-      const pass = drain.drainCaptureRetries({ host: "pi", config: CONFIG,
+      const pass = drain.drainCaptureRetries({ host: "pi", config: CONFIG, configModule: await import(${JSON.stringify(configUrl)}),
         provider: { async summarize() { await gate; throw new Error("down"); } } });
       await new Promise((resolve) => setTimeout(resolve, 50));
       const running = await (await send("/api/settings/capture-retry/pi/run", "POST", {}, json)).json();

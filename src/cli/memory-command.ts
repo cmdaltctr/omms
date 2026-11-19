@@ -221,7 +221,8 @@ export async function runMemoryCommand(argv: string[], io: MemoryCommandIO = {})
   let result: Record<string, unknown>;
   const secrets: string[] = [];
   try {
-    const { CONFIG, initConfigWithLegacyMigration } = await import("../config.js");
+    const configModule = await import("../config.js");
+    const { CONFIG, initConfigWithLegacyMigration } = configModule;
     initConfigWithLegacyMigration(directory);
     for (const secret of [CONFIG.memoryApiKey, CONFIG.embeddingApiKey]) {
       if (secret) secrets.push(secret);
@@ -230,6 +231,7 @@ export async function runMemoryCommand(argv: string[], io: MemoryCommandIO = {})
     const { memoryClient } = await import("../services/client.js");
     try {
       result = await executeMemoryOperation(parsed.args, {
+        config: configModule,
         directory,
         host: "claude-code",
         hostSessionId: parsed.hostSessionId,

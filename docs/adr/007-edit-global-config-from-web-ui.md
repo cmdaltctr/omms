@@ -43,5 +43,5 @@ If OMMS reads only the legacy `opencode-mem.jsonc`, the first page save copies t
 ## References
 
 - [Settings page](../web-ui.md#settings-page)
-- [Config writer](../../src/services/global-config-writer.ts)
+- [Config writer](../../src/config-writer.ts)
 - [OpenSpec design](../../openspec/changes/archive/2026-09-27-web-settings/design.md)

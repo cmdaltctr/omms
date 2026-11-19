@@ -187,7 +187,7 @@ it("reconciles a stored memory after a crash before the ledger update", async ()
   const { memoryClient } = await import("../src/services/client.js");
   const { getTags } = await import("../src/services/tags.js");
   const tag = getTags(data.project).project.tag;
-  const { ImportLedger } = await import("../src/importer/ledger.js");
+  const { ImportLedger } = await import("../src/services/storage/import-ledger.js");
   await new ImportLedger().begin({
     key: "opencode:s:u1:a1",
     sessionId: "s",
@@ -376,7 +376,7 @@ it("still matches a Pi unit by its exact key, so a different last entry id is ne
   const { CONFIG } = await import("../src/config.js");
   CONFIG.storagePath = join(data.root, "store");
   CONFIG.embeddingDimensions = 4;
-  const { ImportLedger } = await import("../src/importer/ledger.js");
+  const { ImportLedger } = await import("../src/services/storage/import-ledger.js");
   const { importHistorySource } = await import("../src/importer/importer.js");
   const { getTags } = await import("../src/services/tags.js");
   const { extractScopeFromContainerTag } = await import("../src/services/memory-scope.js");

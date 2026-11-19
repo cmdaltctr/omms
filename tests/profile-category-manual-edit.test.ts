@@ -47,7 +47,7 @@ it("saves manual category edits through the real category save path", async () =
   const { handleUpdateProfileItem } = await import("../src/services/api-handlers.js");
   expect(
     (
-      await handleUpdateProfileItem({
+      await handleUpdateProfileItem(await import("../src/config.js"), {
         type: "preferences",
         index: 0,
         action: "edit",
@@ -60,7 +60,7 @@ it("saves manual category edits through the real category save path", async () =
   expect(data.preferences[0].category).toBe("Git workflow");
   expect(
     (
-      await handleUpdateProfileItem({
+      await handleUpdateProfileItem(await import("../src/config.js"), {
         type: "preferences",
         index: 0,
         action: "edit",

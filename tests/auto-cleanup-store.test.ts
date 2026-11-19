@@ -33,7 +33,7 @@ const entries = [
 ] as const;
 
 async function store() {
-  return import("../src/services/user-profile/auto-cleanup-store.js");
+  return import("../src/services/storage/profiles/auto-cleanups.js");
 }
 
 describe("auto cleanup restore records", () => {

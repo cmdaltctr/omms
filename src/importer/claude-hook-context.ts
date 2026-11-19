@@ -205,7 +205,14 @@ export async function promptContext(
     openingQuery !== null &&
     (await isFirstPrompt(input.sessionId, input.transcriptPath, input.prompt));
   if (!first) {
-    const section = await buildRetrievalSection(prompt, input.cwd, input.sessionId, budget);
+    const section = await buildRetrievalSection(
+      prompt,
+      input.cwd,
+      input.sessionId,
+      CONFIG.chatMessage.excludeCurrentSession,
+      budget,
+      CONFIG
+    );
     return section ? wrapSection(section, limits) : "";
   }
 
@@ -215,7 +222,9 @@ export async function promptContext(
     openingQuery,
     directory: input.cwd,
     sessionId: input.sessionId,
+    excludeCurrentSession: CONFIG.chatMessage.excludeCurrentSession,
     budget,
+    config: CONFIG,
     // The rows-off marker is already in `wrapperBytes`; the opening marker and the
     // line between the two sections are extra.
     openingReserveBytes: (limits.rowsOff ? 0 : utf8ByteLength(marker)) + SECTION_SEPARATOR.length,
@@ -340,7 +349,9 @@ export async function subagentContext(
     prompt,
     input.cwd,
     input.sessionId,
-    sectionBudget(limits)
+    CONFIG.chatMessage.excludeCurrentSession,
+    sectionBudget(limits),
+    CONFIG
   );
   return section ? wrapSection(section, limits) : "";
 }

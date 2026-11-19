@@ -9,8 +9,6 @@ import type { SkillRouteContext } from "./skill-routes.js";
 import { routeSpaceTransfers } from "./space-transfer-routes.js";
 import { routeSpaces } from "./space-routes.js";
 
-export { spaceStatus } from "./space-routes.js";
-
 /** A route result; `response` overrides the JSON envelope (the export download). */
 export type RouteModuleResult = RouteResult & { response?: Response };
 
@@ -25,11 +23,13 @@ export async function routeModules(
   url: URL,
   req: Request,
   ctx: SkillRouteContext & {
+    /** The live config module from the route host; this file never imports it. */
+    configModule: typeof import("../config.js");
     remoteAddress?: string;
     settings?: Omit<SettingsRouteContext, "cwd" | "configModule">;
   }
 ): Promise<RouteModuleResult | undefined> {
-  const configModule = await import("../config.js");
+  const { configModule } = ctx;
   const config = configModule.CONFIG;
   let body: Promise<any> | undefined;
   const readBody = () => (body ??= req.json().catch(() => ({})));
@@ -43,7 +43,7 @@ export async function routeModules(
     if (settings !== undefined) return settings;
   }
 
-  const cleanup = await routeProfileCleanup(path, method, url, readBody);
+  const cleanup = await routeProfileCleanup(path, method, url, readBody, configModule);
   if (cleanup !== undefined) return { status: 200, body: cleanup };
 
   const hosts = await routeMemoryHosts(path, method, url, readBody, config);
@@ -57,10 +57,10 @@ export async function routeModules(
     return routeSkills(path, method, url, readBody, ctx);
   }
 
-  const transfers = await routeSpaceTransfers(path, method, req, ctx.cwd);
+  const transfers = await routeSpaceTransfers(path, method, req, ctx.cwd, configModule);
   if (transfers !== undefined) return transfers;
 
-  const spaces = await routeSpaces(path, method, readBody, ctx.cwd, {
+  const spaces = await routeSpaces(path, method, readBody, ctx.cwd, configModule, {
     remoteAddress: ctx.remoteAddress,
   });
   if (spaces !== undefined) return spaces;
@@ -69,7 +69,11 @@ export async function routeModules(
     path,
     method,
     url,
-    { linked: linkedSettingsFrom(config), rerank: config.memorisationRerank === true },
+    {
+      linked: linkedSettingsFrom(config),
+      rerank: config.memorisationRerank === true,
+      search: config,
+    },
     readBody
   );
   if (memorisations !== undefined) return memorisations;

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG } from "../src/config.js";
 import { scheduleAutoBackfill } from "../src/importer/auto-backfill.js";
-import { readBackfillStatus } from "../src/services/backfill-state.js";
+import { readBackfillStatus } from "../src/services/storage/backfill-state.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
 const previousStorage = CONFIG.storagePath;

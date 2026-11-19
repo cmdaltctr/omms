@@ -67,7 +67,8 @@ describe("turso legacy migrator dimension preflight", () => {
     const count = await migratedDb.get(`SELECT COUNT(*) AS count FROM memories`);
     expect(Number(count?.count)).toBe(1);
 
-    const { migrationService } = await import("../src/services/migration-service.js");
+    const { migrationService } =
+      await import("../src/services/storage/maintenance/migration-service.js");
     const mismatch = await migrationService.detectDimensionMismatch();
     expect(mismatch.needsMigration).toBe(true);
     expect(mismatch.shardMismatches).toHaveLength(1);

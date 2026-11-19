@@ -17,15 +17,13 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe("who may start the automatic cleanup", () => {
-  it("is called only from the three live learning paths", () => {
+  // The shared pass starts the cleanup (change unify-profile-learning, design D9). The three
+  // host loops stay listed until slices D, E and F move each host onto the pass.
+  it("is called only from the live learning paths", () => {
     const callers = sourceFiles(root)
       .filter((file) => /user-profile\/auto-cleanup\.js["']/.test(readFileSync(file, "utf8")))
       .map((file) => relative(root, file).split("\\").join("/"))
       .sort();
-    expect(callers).toEqual([
-      "adapters/opencode/profile-learning.ts",
-      "adapters/pi/profile.ts",
-      "importer/claude-profile-learning.ts",
-    ]);
+    expect(callers).toEqual(["core/profile-learning/pass.ts"]);
   });
 });

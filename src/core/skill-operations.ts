@@ -13,7 +13,7 @@ import {
   updateProposalState,
   type SkillProposal,
   type SkillProposalState,
-} from "../services/skill-learning/proposal-store.js";
+} from "../services/storage/skills/proposals.js";
 import {
   listProposalSummaries,
   type SkillProposalRow,
@@ -25,7 +25,7 @@ import {
   type SkillRanking,
 } from "../services/skill-learning/ranking.js";
 import { getSkillIndex } from "../services/skill-learning/skill-index.js";
-import type { SkillStore } from "../services/skill-learning/store.js";
+import type { SkillStore } from "../services/storage/skills/store.js";
 import { evidence, propose, undo } from "./skill-agent-modes.js";
 import { reply, resolveSkillPath, watchedTarget } from "./skill-operation-reply.js";
 

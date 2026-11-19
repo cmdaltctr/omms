@@ -22,8 +22,10 @@ import { tursoVectorSearch } from "../src/services/turso/vector-search.js";
 import type { MemoryRecord, ShardInfo } from "../src/services/turso/types.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
-const tagPrefixMigrationUrl = new URL("../src/services/tag-prefix-migration.js", import.meta.url)
-  .href;
+const tagPrefixMigrationUrl = new URL(
+  "../src/services/storage/maintenance/tag-prefix-migration.js",
+  import.meta.url
+).href;
 const HASH_A = "0123456789abcdef";
 const HASH_B = "fedcba9876543210";
 

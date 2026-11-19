@@ -75,7 +75,7 @@ export async function runHistoryImport(
   if (!run.track || args.dryRun) return runUntracked(host, args, run);
   let release: (() => Promise<void>) | null = null;
   if (!run.track.lockHeld) {
-    const { tryAcquireBackfillLock } = await import("./backfill-lock.js");
+    const { tryAcquireBackfillLock } = await import("../services/storage/backfill-locks.js");
     release = await tryAcquireBackfillLock(host);
     if (!release) throw new ImportAlreadyRunningError(host);
   }
@@ -161,7 +161,7 @@ async function recordUnresolved(
 ): Promise<void> {
   try {
     const { recordUnresolvedDirectories, unresolvedDirectoriesOf } =
-      await import("../services/backfill-state.js");
+      await import("../services/storage/backfill-state.js");
     // A run limited by date misses unresolved sessions outside it, so it must not replace a whole-history list.
     await recordUnresolvedDirectories(
       host,

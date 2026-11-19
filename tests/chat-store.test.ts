@@ -9,7 +9,7 @@ let baseDir: string;
 async function openStore(dir = baseDir) {
   const { CONFIG } = await import("../src/config.js");
   CONFIG.storagePath = baseDir;
-  const { ChatStore } = await import("../src/services/chat/chat-store.js");
+  const { ChatStore } = await import("../src/services/storage/chat-store.js");
   const store = new ChatStore(join(dir, "chats.db"));
   await store.init();
   return store;

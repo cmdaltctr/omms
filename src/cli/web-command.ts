@@ -82,8 +82,7 @@ export async function runWebCommand(
     });
   }
   if (action === "install" || action === "uninstall") {
-    const { readGlobalConfigRevision, writeGlobalConfigKeys } =
-      await import("../services/global-config-writer.js");
+    const { readGlobalConfigRevision, writeGlobalConfigKeys } = await import("../config-writer.js");
     await writeGlobalConfigKeys(
       { webServerAutoStart: action === "install" },
       readGlobalConfigRevision()

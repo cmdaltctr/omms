@@ -16,7 +16,7 @@ CONFIG.storagePath = storage;
 
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
 const { CleanupService } = await import("../src/services/cleanup-service.js");
-const records = await import("../src/services/user-profile/auto-cleanup-store.js");
+const records = await import("../src/services/storage/profiles/auto-cleanups.js");
 
 afterAll(async () => {
   await tursoConnectionManager.closeAll();
@@ -44,7 +44,7 @@ describe("cleanup run and the automatic cleanup restore records", () => {
     await records.insertAutoCleanupRecord("p2", input, now - 40 * DAY);
     expect(await count()).toBe(3);
 
-    await new CleanupService().runCleanup();
+    await new CleanupService().runCleanup(CONFIG);
 
     expect(await count()).toBe(1);
   });

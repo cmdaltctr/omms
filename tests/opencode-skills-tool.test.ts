@@ -42,7 +42,8 @@ mock.module(${JSON.stringify(url("../src/core/skill-operations.js"))}, () => ({
     return { success: false, mode, code: "recording-off", text: "Skill learning is off" };
   } }));
 mock.module(${JSON.stringify(url("../src/services/skill-learning/operations-deps.js"))}, () => ({
-  skillOperationsDeps: (directory, appliedBy) => ({ directory, appliedBy }) }));
+  skillOperationsDeps: (directory, appliedBy, config) => ({ directory, appliedBy,
+    hasConfig: typeof config?.refreshConfigIfChanged === "function" }) }));
 const { createFakeV2Context } = await import(${JSON.stringify(url("./fake-v2-context.ts"))});
 const plugin = (await import(${JSON.stringify(url("../src/v2/plugin.js"))})).default;
 const fake = createFakeV2Context({ directory: ${JSON.stringify(dir)} });
@@ -115,6 +116,10 @@ it("registers the skills tool beside memory and runs the shared operations as th
     text: "Skill learning is off",
   });
   expect(out.calls).toEqual([
-    { mode: "apply", args: { id: "p-1" }, deps: { directory: out.dir, appliedBy: "agent" } },
+    {
+      mode: "apply",
+      args: { id: "p-1" },
+      deps: { directory: out.dir, appliedBy: "agent", hasConfig: true },
+    },
   ]);
 });

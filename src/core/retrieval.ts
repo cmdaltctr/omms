@@ -1,6 +1,6 @@
-import { CONFIG } from "../config.js";
-import { formatContextForPrompt } from "../services/context.js";
+import { formatContextForPrompt, type ContextConfig } from "../services/context.js";
 import { memoryClient } from "../services/client.js";
+import type { MemorySearchConfig } from "../services/client-read-settings.js";
 import { getTags } from "../services/tags.js";
 import { isFullyPrivate, stripPrivateContent } from "../services/privacy.js";
 import { utf8ByteLength } from "../utils/context-limit.js";
@@ -12,21 +12,23 @@ export const RETRIEVAL_SECTION_TAG = "omms-retrieval";
  * The search step of every query-driven section (`buildRetrievalSection` and
  * the opening search in `opening-context.ts`), so they share one rule set: the
  * store applies the result limit and the relevance threshold, then memories
- * from the current session are dropped when `chatMessage.excludeCurrentSession`
- * is on. Returns null when the search failed.
+ * from the current session are dropped when `excludeCurrentSession` is on.
+ * Hosts pass `CONFIG.chatMessage.excludeCurrentSession`, read once before the
+ * async search so a config edit during it cannot change this operation's
+ * filtering. Returns null when the search failed.
  */
 export async function searchSectionMemories(
   query: string,
   projectTag: string,
-  sessionId: string
+  sessionId: string,
+  excludeCurrentSession: boolean | undefined,
+  /** `CONFIG`, passed by the host at call time. */
+  config: MemorySearchConfig
 ): Promise<{ results: any[]; queryVector?: ArrayLike<number> } | null> {
-  // Snapshot before the async search: an excludeCurrentSession edit during
-  // the search must not change this operation's filtering.
-  const excludeCurrentSession = CONFIG.chatMessage.excludeCurrentSession;
-
   // Recall reads linked spaces too (D6); capture and profile steps keep the default.
   const search = await memoryClient.searchMemories(query, projectTag, "project", {
     includeLinked: true,
+    config,
   });
   if (!search.success) return null;
 
@@ -57,26 +59,37 @@ export function searchablePrompt(prompt: string): string | null {
  * Prompt-aware semantic retrieval shared by every host (Pi `before_agent_start`,
  * OpenCode v2 `prompt`/`context` hooks): search the shared project memory with
  * the incoming prompt and format a bounded context section (memory + user
- * profile). Returns null when nothing relevant is found.
+ * profile). `excludeCurrentSession` is `CONFIG.chatMessage.excludeCurrentSession`.
+ * Returns null when nothing relevant is found.
  */
 export async function buildRetrievalSection(
   prompt: string,
   directory: string,
   sessionId: string,
-  budget?: ContextBudgetOptions
+  excludeCurrentSession: boolean | undefined,
+  budget: ContextBudgetOptions | undefined,
+  /** `CONFIG`, passed by the host for the search and the profile block. */
+  config: ContextConfig & MemorySearchConfig
 ): Promise<string | null> {
   const query = searchablePrompt(prompt);
   if (!query) return null;
 
   const tags = getTags(directory);
-  const search = await searchSectionMemories(query, tags.project.tag, sessionId);
+  const search = await searchSectionMemories(
+    query,
+    tags.project.tag,
+    sessionId,
+    excludeCurrentSession,
+    config
+  );
   if (!search || search.results.length === 0) return null;
 
   const memoryContext = await formatContextForPrompt(
     tags.user.userEmail || null,
     { results: search.results },
     budget,
-    search.queryVector
+    search.queryVector,
+    config
   );
 
   return memoryContext || null;

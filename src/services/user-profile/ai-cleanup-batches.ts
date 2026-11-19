@@ -1,5 +1,6 @@
 import { log } from "../logger.js";
 import type { ModelPort } from "../../core/profile-analysis.js";
+import type { MemoryModelSettings } from "./memory-model-settings.js";
 import type { UserProfileData } from "./types.js";
 import {
   addIdsToProfile,
@@ -33,7 +34,7 @@ export interface BatchRunResult extends BatchCleanupResult {
 }
 
 export interface RunInBatchesOptions {
-  callBatch?: (batch: IndexedProfile) => Promise<BatchCleanupResult>;
+  callBatch: (batch: IndexedProfile) => Promise<BatchCleanupResult>;
   onProgress?: (done: number, total: number, failed: number) => void;
   isStopped?: () => boolean;
 }
@@ -100,13 +101,14 @@ function groupByCategory(items: IndexedProfileItem[]): IndexedProfileItem[][] {
 /** One model request for one batch. A caller with its own model passes it. */
 export async function cleanupBatch(
   indexed: IndexedProfile,
+  settings: MemoryModelSettings,
   model?: ModelPort | null
 ): Promise<BatchCleanupResult> {
   const t0 = Date.now();
   const prompt = buildAICleanupPrompt(indexed);
   log("AI cleanup: batch prompt built", { items: countItems(indexed), promptLen: prompt.length });
 
-  const result = await callAICleanup(prompt, model);
+  const result = await callAICleanup(prompt, settings, model);
   log("AI cleanup: batch reply received", { callMs: Date.now() - t0 });
 
   const cleanedById = buildItemIndex(result.profile);
@@ -164,7 +166,7 @@ function buildMergedItems(
  */
 export async function runInBatches(
   batches: IndexedProfile[],
-  { callBatch = cleanupBatch, onProgress, isStopped = () => false }: RunInBatchesOptions = {}
+  { callBatch, onProgress, isStopped = () => false }: RunInBatchesOptions
 ): Promise<BatchRunResult | null> {
   const t0 = Date.now();
   const joined: BatchRunResult = {

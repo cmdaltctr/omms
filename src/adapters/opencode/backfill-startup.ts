@@ -1,3 +1,4 @@
+import * as configModule from "../../config.js";
 import { CONFIG } from "../../config.js";
 import type { AutoCaptureHost } from "../../core/host.js";
 import { scheduleAutoBackfill } from "../../importer/auto-backfill.js";
@@ -11,19 +12,19 @@ import { registerCaptureRetryDrain } from "../../services/capture-retry-drain.js
 import { resolveOpencodeBackfillModels } from "./backfill-models.js";
 import { createOpencodeImportModels } from "./opencode-import-models.js";
 import { listOpencodeModels } from "./opencode-host.js";
-import { getOpencodeHost, isProviderConnected } from "./opencode-provider.js";
+import { confirmProviderConnected, getOpencodeHost } from "./opencode-provider.js";
 
 /** Start after connected providers load, without delaying plugin initialisation. */
 export function startOpencodeBackfill(input: {
   directory: string;
-  connected: string[];
   configModel: () => Promise<string | null>;
   notify: (message: string) => void;
 }): Promise<void> {
   return scheduleAutoBackfill({
     host: "opencode",
     cwd: input.directory,
-    resolveModels: () => resolveOpencodeBackfillModels(CONFIG, input),
+    resolveModels: () =>
+      resolveOpencodeBackfillModels(CONFIG, { ...input, confirmProviderConnected }),
     notify: input.notify,
   });
 }
@@ -31,16 +32,17 @@ export function startOpencodeBackfill(input: {
 /** Let Run now on a Settings page served by this process use OpenCode's models. */
 export function registerOpencodeBackfillModels(input: {
   directory: string;
-  connected: string[];
   configModel: () => Promise<string | null>;
 }): void {
-  registerHostBackfillModels("opencode", () => resolveOpencodeBackfillModels(CONFIG, input));
+  registerHostBackfillModels("opencode", () =>
+    resolveOpencodeBackfillModels(CONFIG, { ...input, confirmProviderConnected })
+  );
 }
 
 /** Let web imports, Health, and Settings in this process use OpenCode's signed-in models. */
 export function registerOpencodeImportModels(): void {
   registerOpencodeHostModels({
-    isProviderConnected: (providerID) => isProviderConnected(providerID),
+    confirmProviderConnected: (providerID) => confirmProviderConnected(providerID),
     createImportModels: (ref) => createOpencodeImportModels(ref),
     async listSettingsModels() {
       const host = getOpencodeHost();
@@ -51,5 +53,7 @@ export function registerOpencodeImportModels(): void {
 
 /** Let triggers and Retry now in this process retry OpenCode's queued turns. */
 export function registerOpencodeCaptureRetryDrain(host: AutoCaptureHost, directory: string): void {
-  registerCaptureRetryDrain("opencode", () => drainOpencodeCaptureRetries(host, directory));
+  registerCaptureRetryDrain("opencode", () =>
+    drainOpencodeCaptureRetries(host, directory, configModule)
+  );
 }

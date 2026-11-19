@@ -50,7 +50,7 @@ async function scenario(body: string, setup: Setup = {}) {
     const { WebServer } = await import(${src("services/web-server.ts")});
     const { getOrCreateAuthToken } = await import(${src("services/auth-token.ts")});
     const { CONFIG } = await import(${src("config.ts")});
-    const { SkillStore, skillsDbPath } = await import(${src("services/skill-learning/store.ts")});
+    const { SkillStore, skillsDbPath } = await import(${src("services/storage/skills/store.ts")});
     const token = getOrCreateAuthToken();
     (await import(${src("services/api-tokens.ts")})).importConfigApiToken("network-test-token");
     const home = ${JSON.stringify(home)};
@@ -167,7 +167,7 @@ describe("skills routes with recording on", () => {
       `
       const store = new SkillStore(dbPath);
       await store.init();
-      const { createProposal, updateProposalState } = await import(${src("services/skill-learning/proposal-store.ts")});
+      const { createProposal, updateProposalState } = await import(${src("services/storage/skills/proposals.ts")});
       const draft = (name, skillPath) => ({ kind: "improve", skillName: name, skillPath, baseHash: "h",
         content: "c", diff: "", summary: "", evidenceTurnIds: [] });
       const made = await createProposal(store, draft("alpha", alphaPath), 1000);
@@ -252,7 +252,7 @@ describe("skills routes with recording on", () => {
   it("lists, shows, applies, undoes and rejects proposals as a person", async () => {
     const { result } = await scenario(
       `
-      const { createProposal } = await import(${src("services/skill-learning/proposal-store.ts")});
+      const { createProposal } = await import(${src("services/storage/skills/proposals.ts")});
       const { hashSkillContent } = await import(${src("services/skill-learning/apply.ts")});
       const store = new SkillStore(dbPath);
       await store.init();
@@ -338,7 +338,7 @@ describe("skills routes with recording on", () => {
   it("rolls the file back and answers state-write-failed when the proposal state cannot be saved", async () => {
     const { result } = await scenario(
       `
-      const { createProposal } = await import(${src("services/skill-learning/proposal-store.ts")});
+      const { createProposal } = await import(${src("services/storage/skills/proposals.ts")});
       const { hashSkillContent } = await import(${src("services/skill-learning/apply.ts")});
       const store = new SkillStore(dbPath);
       await store.init();
@@ -994,7 +994,7 @@ describe("skills list routes: paging, activity and history", () => {
   it("returns history, pages it, clamps params and pages proposals with a total", async () => {
     const { result } = await scenario(
       `
-      const { createProposal } = await import(${src("services/skill-learning/proposal-store.ts")});
+      const { createProposal } = await import(${src("services/storage/skills/proposals.ts")});
       const { hashSkillContent } = await import(${src("services/skill-learning/apply.ts")});
       const store = new SkillStore(dbPath);
       await store.init();
@@ -1061,7 +1061,7 @@ describe("skills list routes: paging, activity and history", () => {
   it("lists summaries without content or diff, and the detail route keeps both", async () => {
     const { result } = await scenario(
       `
-      const { createProposal } = await import(${src("services/skill-learning/proposal-store.ts")});
+      const { createProposal } = await import(${src("services/storage/skills/proposals.ts")});
       const { lineDiff } = await import(${src("services/skill-learning/line-diff.ts")});
       const store = new SkillStore(dbPath);
       await store.init();
@@ -1119,7 +1119,7 @@ describe("skills list routes: paging, activity and history", () => {
   it("keeps the proposal list under its size budget as proposals grow (TDR-059)", async () => {
     const { result } = await scenario(
       `
-      const { createProposal } = await import(${src("services/skill-learning/proposal-store.ts")});
+      const { createProposal } = await import(${src("services/storage/skills/proposals.ts")});
       const store = new SkillStore(dbPath);
       await store.init();
       // 500 proposals, each with 20 KB of content, a 2 KB diff, a 300-character

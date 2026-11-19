@@ -84,13 +84,16 @@ export function exitAfterInstall(
 ): (code: number) => void {
   return (code) => {
     if (!running) return exit(code);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const limit = new Promise<void>((resolve) => (timer = setTimeout(resolve, limitMs)));
-    void Promise.race([running, limit]).then(() => {
-      clearTimeout(timer);
-      exit(code);
-    });
+    void installEnded(limitMs).then(() => exit(code));
   };
+}
+
+/** Settles when the install this process runs has ended, at most after `limitMs`; at once when none runs. */
+export function installEnded(limitMs = INSTALL_LOCK_STALE_MS): Promise<void> {
+  if (!running) return Promise.resolve();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const limit = new Promise<void>((resolve) => (timer = setTimeout(resolve, limitMs)));
+  return Promise.race([running, limit]).then(() => clearTimeout(timer));
 }
 
 /**

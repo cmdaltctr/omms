@@ -10,7 +10,7 @@ export type BacklogPromptStore = Pick<
   | "getPromptsForUserLearning"
   | "markMultipleAsUserLearningCaptured"
 > &
-  Partial<Pick<typeof userPromptManager, "skipTrivialPromptsForLearning">>;
+  Partial<Pick<typeof userPromptManager, "skipTrivialPromptsForLearning" | "markForUserLearning">>;
 export type BacklogProfileStore = Pick<
   typeof userProfileManager,
   "getActiveProfile" | "getProfileById" | "createProfile" | "mergeProfileData" | "updateProfile"
@@ -81,7 +81,8 @@ export async function drainProfileBacklog(
 
   /** One batch with one retry; "failed" stops the run with its reason code. */
   async function sendBatch(): Promise<"sent" | "failed" | "empty"> {
-    const batch = await prompts.getPromptsForUserLearning(batchSize);
+    // The claim keeps a live pass off this batch; a failed batch releases it.
+    const batch = await prompts.getPromptsForUserLearning(batchSize, { claim: true });
     if (batch.length === 0) return "empty";
     let succeeded = false;
     for (let attempt = 0; attempt < 2 && !succeeded; attempt++) {
@@ -114,6 +115,7 @@ export async function drainProfileBacklog(
         if (attempt === 1) {
           report.error = error instanceof Error ? error.message : String(error);
           report.reason = profileFailureCode(error);
+          await prompts.markForUserLearning?.(batch.map((item) => item.id));
           report.remaining = await prompts.countUnanalyzedForUserLearning();
           return "failed";
         }

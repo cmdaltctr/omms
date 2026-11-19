@@ -9,16 +9,45 @@ const makeModels = async (ref: { providerID: string; modelID: string }) => ({
 it("resolves a connected named OpenCode model", async () => {
   const result = await resolveOpencodeBackfillModels(
     { opencodeBackfillModel: "zai/glm-5-turbo" },
-    { connected: ["zai"], directory: "/project", configModel: async () => null, makeModels }
+    {
+      confirmProviderConnected: async () => true,
+      directory: "/project",
+      configModel: async () => null,
+      makeModels,
+    }
   );
   expect(result.model).toBe("zai/glm-5-turbo");
+});
+
+it("resolves a provider that only a re-read of OpenCode's model list shows", async () => {
+  // The start-up list was empty; OpenCode lists the provider when asked again.
+  const checked: string[] = [];
+  const result = await resolveOpencodeBackfillModels(
+    { opencodeBackfillModel: "zai/glm-5-turbo" },
+    {
+      confirmProviderConnected: async (providerID: string) => {
+        checked.push(providerID);
+        return providerID === "zai";
+      },
+      directory: "/project",
+      configModel: async () => null,
+      makeModels,
+    }
+  );
+  expect(result.model).toBe("zai/glm-5-turbo");
+  expect(checked).toEqual(["zai"]);
 });
 
 it("rejects a provider that is not signed in", async () => {
   await expect(
     resolveOpencodeBackfillModels(
       { opencodeBackfillModel: "zai/glm-5-turbo" },
-      { connected: [], directory: "/project", configModel: async () => null, makeModels }
+      {
+        confirmProviderConnected: async () => false,
+        directory: "/project",
+        configModel: async () => null,
+        makeModels,
+      }
     )
   ).rejects.toThrow("not connected");
 });
@@ -27,7 +56,7 @@ it("uses the configured OpenCode default in session mode", async () => {
   const result = await resolveOpencodeBackfillModels(
     { opencodeBackfillModel: "inherit" },
     {
-      connected: ["zai"],
+      confirmProviderConnected: async (providerID: string) => providerID === "zai",
       directory: "/project",
       configModel: async () => "zai/default-model",
       makeModels,
@@ -45,7 +74,7 @@ it("inherits the external live model when it is configured", async () => {
       memoryApiKey: "test-key",
     },
     {
-      connected: [],
+      confirmProviderConnected: async () => false,
       directory: "/project",
       configModel: async () => null,
       makeModels,
@@ -62,7 +91,7 @@ it("inherits the external live model when it is configured", async () => {
 
 it("sends an external OpenCode backfill to the external API, or names what is missing", async () => {
   const context = {
-    connected: [],
+    confirmProviderConnected: async () => false,
     directory: "/project",
     configModel: async () => null,
     makeModels,

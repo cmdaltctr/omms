@@ -192,7 +192,7 @@ export async function handledKeys(
 ): Promise<Set<string>> {
   const ids = rows.flatMap((row) => (row.sessionId ? [row.sessionId] : []));
   if (ids.length === 0) return new Set();
-  const { ImportLedger } = await import("./ledger.js");
+  const { ImportLedger } = await import("../services/storage/import-ledger.js");
   const handled = await new ImportLedger().handledSessionIds(ids, outputs);
   return new Set(
     rows.filter((row) => row.sessionId && handled.has(row.sessionId)).map((r) => r.key)
@@ -311,7 +311,7 @@ export async function listImportSessions(
   const matched = await matchImportSessions(identity, options, request.refresh ? "fresh" : "any");
   // Feed the Directory maps list; a failure here must not break the listing.
   const { recordUnresolvedDirectories, summarizeUnresolvedDirectories } =
-    await import("../services/backfill-state.js");
+    await import("../services/storage/backfill-state.js");
   await recordUnresolvedDirectories(
     options.host,
     summarizeUnresolvedDirectories(
@@ -446,7 +446,7 @@ export async function resolveImportSelection(
   }
   if (keys.length === 0 && !options.allowEmpty) throw new Error("Choose sessions to import");
   const { CONFIG } = await import("../config.js");
-  const { visibleUnresolvedCount } = await import("../services/backfill-state.js");
+  const { visibleUnresolvedCount } = await import("../services/storage/backfill-state.js");
   return {
     identity,
     keys,

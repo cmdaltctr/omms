@@ -4,8 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
-const tagPrefixMigrationUrl = new URL("../src/services/tag-prefix-migration.js", import.meta.url)
-  .href;
+const tagPrefixMigrationUrl = new URL(
+  "../src/services/storage/maintenance/tag-prefix-migration.js",
+  import.meta.url
+).href;
 const configUrl = new URL("../src/config.js", import.meta.url).href;
 const embeddingUrl = new URL("../src/services/embedding.js", import.meta.url).href;
 const readyUrl = new URL("../src/services/turso/ready.js", import.meta.url).href;

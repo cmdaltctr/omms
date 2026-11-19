@@ -5,7 +5,7 @@ import { isFullyPrivate } from "../privacy.js";
 import { getTags } from "../tags.js";
 import { detectSkillUses } from "./skill-detect.js";
 import { getSkillIndex } from "./skill-index.js";
-import { SkillStore, skillsDbPath, type SkillTurnRecord } from "./store.js";
+import { SkillStore, skillsDbPath, type SkillTurnRecord } from "../storage/skills/store.js";
 
 /**
  * The resolved settings for one turn. The caller reads them from `CONFIG` for

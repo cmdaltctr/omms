@@ -89,7 +89,7 @@ describe("preview", () => {
   it("leaves the profile unchanged and returns groups and counts", async () => {
     const { manager, id, deps } = await setup();
     const before = await stored(manager, id);
-    const preview = (await previewCategoryCleanup(USER, deps))!;
+    const preview = (await previewCategoryCleanup(USER, {}, deps))!;
     const after = await stored(manager, id);
     expect(after.profile.version).toBe(before.profile.version);
     expect(after.data).toEqual(before.data);
@@ -143,11 +143,15 @@ describe("preview with saved model answers", () => {
   it("asks the model only about the groups that learning added", async () => {
     const { manager, id } = await setup(wideProfile(FAMILIES));
     const first: string[][] = [];
-    const firstPreview = (await previewCategoryCleanup(USER, {
-      manager,
-      embed: wideEmbed,
-      model: countingModel(first),
-    }))!;
+    const firstPreview = (await previewCategoryCleanup(
+      USER,
+      {},
+      {
+        manager,
+        embed: wideEmbed,
+        model: countingModel(first),
+      }
+    ))!;
     expect(firstPreview.groups).toHaveLength(FAMILIES);
     expect(first.map((batch) => batch.length)).toEqual([20, 20, 5]);
 
@@ -159,11 +163,15 @@ describe("preview with saved model answers", () => {
       (await stored(manager, id)).profile.version
     );
     const second: string[][] = [];
-    const secondPreview = (await previewCategoryCleanup(USER, {
-      manager,
-      embed: wideEmbed,
-      model: countingModel(second),
-    }))!;
+    const secondPreview = (await previewCategoryCleanup(
+      USER,
+      {},
+      {
+        manager,
+        embed: wideEmbed,
+        model: countingModel(second),
+      }
+    ))!;
     expect(second).toHaveLength(1);
     expect(second[0]).toHaveLength(1);
     expect(secondPreview.groups).toHaveLength(FAMILIES + 1);
@@ -173,36 +181,48 @@ describe("preview with saved model answers", () => {
   it("retries only the groups of the batch that failed", async () => {
     const { manager } = await setup(wideProfile(FAMILIES));
     const first: string[][] = [];
-    const failed = (await previewCategoryCleanup(USER, {
-      manager,
-      embed: wideEmbed,
-      model: countingModel(first, 2),
-    }))!;
+    const failed = (await previewCategoryCleanup(
+      USER,
+      {},
+      {
+        manager,
+        embed: wideEmbed,
+        model: countingModel(first, 2),
+      }
+    ))!;
     expect(failed.groups.filter((group) => !group.checked)).toHaveLength(20);
 
     const second: string[][] = [];
-    const retried = (await previewCategoryCleanup(USER, {
-      manager,
-      embed: wideEmbed,
-      model: countingModel(second),
-    }))!;
+    const retried = (await previewCategoryCleanup(
+      USER,
+      {},
+      {
+        manager,
+        embed: wideEmbed,
+        model: countingModel(second),
+      }
+    ))!;
     expect(second).toEqual([first[1]!]);
     expect(retried.groups.every((group) => group.checked)).toBe(true);
   });
 
   it("asks again about answers older than 30 days and deletes the old ones", async () => {
     const { manager } = await setup(wideProfile(5));
-    await previewCategoryCleanup(USER, { manager, embed: wideEmbed, model: countingModel([]) });
+    await previewCategoryCleanup(USER, {}, { manager, embed: wideEmbed, model: countingModel([]) });
     const db = await tursoConnectionManager.getConnection(join(directory, "user-profiles.db"));
     const old = Date.now() - 31 * 24 * 60 * 60 * 1000;
     await db.execute("UPDATE profile_category_verdicts SET created_at = ?", [old]);
 
     const asked: string[][] = [];
-    await previewCategoryCleanup(USER, {
-      manager,
-      embed: wideEmbed,
-      model: countingModel(asked),
-    });
+    await previewCategoryCleanup(
+      USER,
+      {},
+      {
+        manager,
+        embed: wideEmbed,
+        model: countingModel(asked),
+      }
+    );
     expect(asked).toHaveLength(1);
     expect(asked[0]).toHaveLength(5);
     const rows = await db.all("SELECT created_at FROM profile_category_verdicts");
@@ -213,9 +233,9 @@ describe("preview with saved model answers", () => {
   it("logs reuse counts and phase times, never label text", async () => {
     const { manager } = await setup(wideProfile(5));
     const deps = { manager, embed: wideEmbed, model: countingModel([]) };
-    await previewCategoryCleanup(USER, deps);
+    await previewCategoryCleanup(USER, {}, deps);
     logged.length = 0;
-    await previewCategoryCleanup(USER, deps);
+    await previewCategoryCleanup(USER, {}, deps);
     const built = logged.find((entry) => entry[0] === "category cleanup: preview built")!;
     expect(built[1]).toMatchObject({ labels: 10, groups: 5, reusedGroups: 5, sentGroups: 0 });
     for (const key of ["embedMs", "groupMs", "checkMs"]) {
@@ -228,7 +248,7 @@ describe("preview with saved model answers", () => {
 describe("apply", () => {
   it("renames only accepted groups and keeps every other field", async () => {
     const { manager, id, deps } = await setup();
-    const preview = (await previewCategoryCleanup(USER, deps))!;
+    const preview = (await previewCategoryCleanup(USER, {}, deps))!;
     const before = await stored(manager, id);
     const result = await applyCategoryCleanup(
       USER,
@@ -264,7 +284,7 @@ describe("apply", () => {
 
   it("applies after learning saved a new version since the preview", async () => {
     const { manager, id, deps } = await setup();
-    await previewCategoryCleanup(USER, deps);
+    await previewCategoryCleanup(USER, {}, deps);
     const versionAtPreview = (await stored(manager, id)).profile.version;
     await manager.updateProfile(id, profileData(), 0, "Learning", versionAtPreview);
     const result = await applyCategoryCleanup(
@@ -278,7 +298,7 @@ describe("apply", () => {
 
   it("renames an item that learning added after the preview and keeps its content", async () => {
     const { manager, id, deps } = await setup();
-    await previewCategoryCleanup(USER, deps);
+    await previewCategoryCleanup(USER, {}, deps);
     const learned = profileData();
     learned.preferences.push(item("Direct execution", 30));
     learned.preferences.push(item("New topic", 31));
@@ -305,7 +325,7 @@ describe("apply", () => {
 
   it("renames nothing and writes no changelog entry when the labels are gone", async () => {
     const { manager, id, deps } = await setup();
-    await previewCategoryCleanup(USER, deps);
+    await previewCategoryCleanup(USER, {}, deps);
     const learned = profileData();
     learned.preferences = learned.preferences.filter((entry) => entry.category === "Testing");
     learned.patterns = [];

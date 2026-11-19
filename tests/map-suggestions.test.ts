@@ -21,7 +21,7 @@ import {
   suggestMapTarget,
   suggestMapTargets,
 } from "../src/importer/map-suggestions.js";
-import { recordUnresolvedDirectories } from "../src/services/backfill-state.js";
+import { recordUnresolvedDirectories } from "../src/services/storage/backfill-state.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
 const dirs: string[] = [];

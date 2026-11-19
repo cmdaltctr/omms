@@ -25,7 +25,8 @@ async function setupLedger() {
   const { CONFIG } = await import("../src/config.js");
   CONFIG.storagePath = storage;
   CONFIG.embeddingDimensions = 4;
-  const { PiImportLedger, importLedgerDbPath } = await import("../src/importer/ledger.js");
+  const { PiImportLedger, importLedgerDbPath } =
+    await import("../src/services/storage/import-ledger.js");
   const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
   const ledger = new PiImportLedger();
   return { ledger, importLedgerDbPath, storage, tursoConnectionManager, CONFIG };

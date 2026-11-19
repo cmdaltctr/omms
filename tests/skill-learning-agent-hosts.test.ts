@@ -33,7 +33,7 @@ beforeEach(async () => {
     memoryApiKey: undefined,
     memoryModel: undefined,
   });
-  const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+  const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
   const store = new SkillStore(skillsDbPath(baseDir));
   await store.init();
   await store.insertTurn({
@@ -90,7 +90,10 @@ it("every host's skills tool takes the idea's reason and evidence turns", async 
   expect(Object.keys(SKILLS_TOOL_INPUT_SCHEMA.properties.idea.properties).sort()).toEqual(want);
   const { registerPiSkillsTool } = await import("../src/adapters/pi/skills-tool.js");
   const tools: any[] = [];
-  registerPiSkillsTool({ registerTool: (def: any) => tools.push(def) } as any);
+  registerPiSkillsTool(
+    { registerTool: (def: any) => tools.push(def) } as any,
+    await import("../src/config.js")
+  );
   expect(Object.keys(tools[0].parameters.properties.idea.properties).sort()).toEqual(want);
   // OpenCode V2 registers the shared JSON schema as the skills tool input.
   const { registerOpencodeTools, createOpencodeTools } = await import("../src/v2/tools.js");
@@ -112,7 +115,10 @@ describe("the agent fixes a skill through the host tool", () => {
   it("Pi", async () => {
     const { registerPiSkillsTool } = await import("../src/adapters/pi/skills-tool.js");
     const tools: any[] = [];
-    registerPiSkillsTool({ registerTool: (def: any) => tools.push(def) } as any);
+    registerPiSkillsTool(
+      { registerTool: (def: any) => tools.push(def) } as any,
+      await import("../src/config.js")
+    );
     const skills = tools[0];
     expect(Object.keys(skills.parameters.properties)).toEqual(
       expect.arrayContaining(["content", "summary", "evidence", "limit"])

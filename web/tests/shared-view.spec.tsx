@@ -26,6 +26,33 @@ it("shows the five shared rows in order, each collapsed, under a note that they 
   }
 });
 
+it("puts the learning settings table above the catch-up controls in the Profile learning row", () => {
+  const html = renderToStaticMarkup(
+    <SharedView statuses={fakeStatuses(allSetUp)} onReanalyse={() => {}} />
+  );
+  const table = html.indexOf('aria-label="Learning settings"');
+  const catchUp = html.indexOf('aria-label="Profile learning"');
+  expect(table).toBeGreaterThan(html.indexOf('id="shared-profile"'));
+  expect(catchUp).toBeGreaterThan(table);
+  expect(catchUp).toBeLessThan(html.indexOf('id="shared-limits"'));
+});
+
+it("says whether the profile learning settings are the defaults or custom", () => {
+  expect(
+    sharedSummaries({ showUserProfileToasts: { source: "default" } }, undefined).profile
+  ).toEqual({ text: "Default settings" });
+  expect(
+    sharedSummaries({ showUserProfileToasts: { source: "global" } }, undefined).profile
+  ).toEqual({ text: "Custom settings" });
+  expect(
+    sharedSummaries({ userProfileDuringCatchUp: { hasGlobal: true } }, undefined).profile
+  ).toEqual({ text: "Custom settings" });
+  // Before the settings load, the row keeps its old line.
+  expect(sharedSummaries(undefined, undefined).profile.text).toBe(
+    "Prompts waiting for profile learning, and re-analysis of old chats"
+  );
+});
+
 it("keeps the shared sections out of the way of the host views", () => {
   const html = renderToStaticMarkup(
     <SharedView statuses={fakeStatuses(allSetUp)} onReanalyse={() => {}} />

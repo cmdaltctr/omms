@@ -36,6 +36,12 @@ export interface TransferRow {
   isPinned: boolean;
   /** The `project_name` column; drives the preview's project groups. */
   projectName?: string;
+  /** The display columns a copy keeps: they only label the row on screen. */
+  displayName?: string;
+  userName?: string;
+  userEmail?: string;
+  projectPath?: string;
+  gitRepoUrl?: string;
   /** The stored content vector, when the source shard can supply it. */
   vector?: Float32Array;
   /** The stored tags vector, when the row has one. */
@@ -90,6 +96,12 @@ export interface TransferWriteRow {
   updatedAt: number;
   metadata?: string;
   isPinned: boolean;
+  projectName?: string;
+  displayName?: string;
+  userName?: string;
+  userEmail?: string;
+  projectPath?: string;
+  gitRepoUrl?: string;
   vector: Float32Array;
   tagsVector?: Float32Array;
 }

@@ -4,7 +4,7 @@
  * select, skip exact duplicates, preview, write per shard, check, remove.
  */
 import { tryExtractScopeFromContainerTag } from "../memory-scope.js";
-import { formatTagsForEmbedding } from "../turso/vector-utils.js";
+import { formatTagsForEmbedding } from "../storage/memory/rows.js";
 import type {
   EmbeddingInfo,
   SourceReader,
@@ -144,6 +144,12 @@ async function prepareWriteRow(
       updatedAt: row.updatedAt,
       metadata: row.metadata,
       isPinned: row.isPinned,
+      projectName: row.projectName,
+      displayName: row.displayName,
+      userName: row.userName,
+      userEmail: row.userEmail,
+      projectPath: row.projectPath,
+      gitRepoUrl: row.gitRepoUrl,
       vector,
       tagsVector,
     },

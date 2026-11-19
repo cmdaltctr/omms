@@ -1,4 +1,11 @@
-import type { TursoDb } from "../turso/turso-db.js";
+import {
+  newestTurnRows,
+  skillTurnRows,
+  skillUseCount,
+  turnRowsByIds,
+  turnToolCallRows,
+  type SkillsDb,
+} from "../storage/skills/turn-queries.js";
 import type { SkillIndex } from "./skill-index.js";
 
 /** Design §6: the budgets for turn text sent to the external API model. */
@@ -36,21 +43,9 @@ export function skillRef(index: SkillIndex, path: string): SkillRef | null {
   return { name: entry.name, path, byName: sameName === 1 };
 }
 
-/** The `skill_uses` rows (alias `su`) that count for a skill; bind `useArgs(ref)`. */
-export const USES_WHERE =
-  "(su.skill_path = ? OR (su.skill_path IS NULL AND su.skill_name = ? AND ? = 1))";
-
-export function useArgs(ref: SkillRef): Array<string | number> {
-  return [ref.path, ref.name, ref.byName ? 1 : 0];
-}
-
 /** Recorded turns that used the skill, all time. A turn counts once. */
-export async function countSkillUses(db: TursoDb, ref: SkillRef): Promise<number> {
-  const row = await db.get(
-    `SELECT COUNT(DISTINCT su.turn_id) AS n FROM skill_uses su WHERE ${USES_WHERE}`,
-    useArgs(ref)
-  );
-  return Number(row?.n ?? 0);
+export function countSkillUses(db: SkillsDb, ref: SkillRef): Promise<number> {
+  return skillUseCount(db, ref);
 }
 
 function parseReplies(value: unknown): string[] {
@@ -62,16 +57,7 @@ function parseReplies(value: unknown): string[] {
   }
 }
 
-async function loadTurns(
-  db: TursoDb,
-  where: string,
-  args: Array<string | number>
-): Promise<DraftTurn[]> {
-  const rows = await db.all(
-    `SELECT t.id, t.created_at, t.prompt, t.replies_json FROM turns t
-     WHERE ${where} ORDER BY t.created_at DESC, t.id DESC LIMIT ?`,
-    args
-  );
+async function loadTurns(db: SkillsDb, rows: Record<string, unknown>[]): Promise<DraftTurn[]> {
   if (rows.length === 0) return [];
   const turns = rows.map((row): DraftTurn => ({
     id: Number(row.id),
@@ -81,11 +67,7 @@ async function loadTurns(
     tools: [],
   }));
   const byId = new Map(turns.map((turn) => [turn.id, turn]));
-  const calls = await db.all(
-    `SELECT turn_id, name, outcome, error FROM tool_calls
-     WHERE turn_id IN (SELECT value FROM json_each(?)) ORDER BY turn_id, position`,
-    [JSON.stringify([...byId.keys()])]
-  );
+  const calls = await turnToolCallRows(db, JSON.stringify([...byId.keys()]));
   for (const call of calls) {
     byId.get(Number(call.turn_id))?.tools.push({
       name: String(call.name),
@@ -97,28 +79,22 @@ async function loadTurns(
 }
 
 /** The newest turns that used the skill, newest first. */
-export function recentSkillTurns(
-  db: TursoDb,
+export async function recentSkillTurns(
+  db: SkillsDb,
   ref: SkillRef,
   limit = MAX_DRAFT_TURNS
 ): Promise<DraftTurn[]> {
-  return loadTurns(db, `t.id IN (SELECT su.turn_id FROM skill_uses su WHERE ${USES_WHERE})`, [
-    ...useArgs(ref),
-    limit,
-  ]);
+  return loadTurns(db, await skillTurnRows(db, ref, limit));
 }
 
 /** The newest recorded turns of any kind, newest first. */
-export function recentTurns(db: TursoDb, limit = MAX_IDEA_TURNS): Promise<DraftTurn[]> {
-  return loadTurns(db, "1 = 1", [limit]);
+export async function recentTurns(db: SkillsDb, limit = MAX_IDEA_TURNS): Promise<DraftTurn[]> {
+  return loadTurns(db, await newestTurnRows(db, limit));
 }
 
 /** The given turns that still exist, newest first. */
-export function turnsById(db: TursoDb, ids: readonly number[]): Promise<DraftTurn[]> {
-  return loadTurns(db, "t.id IN (SELECT value FROM json_each(?))", [
-    JSON.stringify(ids),
-    MAX_DRAFT_TURNS,
-  ]);
+export async function turnsById(db: SkillsDb, ids: readonly number[]): Promise<DraftTurn[]> {
+  return loadTurns(db, await turnRowsByIds(db, JSON.stringify(ids), MAX_DRAFT_TURNS));
 }
 
 /** The label the model sees and returns as evidence. */

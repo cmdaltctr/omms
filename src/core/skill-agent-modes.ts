@@ -8,7 +8,7 @@ import {
   type ProposeResult,
 } from "../services/skill-learning/agent-proposals.js";
 import { undoProposal } from "../services/skill-learning/apply.js";
-import { getProposal } from "../services/skill-learning/proposal-store.js";
+import { getProposal } from "../services/storage/skills/proposals.js";
 import { rankSkills } from "../services/skill-learning/ranking.js";
 import { getSkillIndex } from "../services/skill-learning/skill-index.js";
 import { reply, resolveSkillPath, watchedTarget } from "./skill-operation-reply.js";

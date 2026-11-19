@@ -159,7 +159,7 @@ mock.module(${JSON.stringify(languageUrl)}, () => ({
 }));
 mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
   loadOpencodeProvider: async () => ({
-    isProviderConnected: () => true,
+    confirmProviderConnected: async () => true,
     getOpencodeHost: () => ({}),
     generateStructuredOutput: async ({ userPrompt }) => {
       summaryPrompts.push(userPrompt);
@@ -202,7 +202,7 @@ await performAutoCapture(
     notify: async () => {},
   },
   "session-1",
-  "/workspace"
+  "/workspace", await import(${JSON.stringify(configUrl)})
 );
 
 console.log(
@@ -304,7 +304,7 @@ mock.module(${JSON.stringify(languageUrl)}, () => ({
 }));
 mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
   loadOpencodeProvider: async () => ({
-    isProviderConnected: () => true,
+    confirmProviderConnected: async () => true,
     getOpencodeHost: () => ({}),
     generateStructuredOutput: async () => {
       throw new Error(
@@ -334,7 +334,7 @@ await performAutoCapture(
     },
   },
   "session-error",
-  "/workspace"
+  "/workspace", await import(${JSON.stringify(configUrl)})
 );
 
 console.log(JSON.stringify({ toasts, failedAttempts, released }));
@@ -434,7 +434,7 @@ await performAutoCapture(
     },
   },
   "session-1",
-  "/workspace"
+  "/workspace", await import(${JSON.stringify(configUrl)})
 );
 
 const unit = (promptId) => ({ host: "opencode", promptId });
@@ -442,7 +442,7 @@ await settleOpencodeRetriedPrompt(unit("prompt-retried"), { status: "captured", 
 await settleOpencodeRetriedPrompt(unit("prompt-retry-skip"), { status: "skipped" });
 
 refreshed.length = 0;
-await drainOpencodeCaptureRetries({ isCaptureReady: () => true }, "/workspace");
+await drainOpencodeCaptureRetries({ isCaptureReady: () => true }, "/workspace", await import(${JSON.stringify(configUrl)}));
 
 console.log(JSON.stringify({ queuedRetries, drainStarts, prompts, drained }));
 `;
@@ -501,7 +501,7 @@ describe("auto-capture idle processing", () => {
     expect(result.parsed?.drainStarts).toEqual(["opencode"]);
   });
 
-  it("marks a retried prompt captured and linked, and deletes a skipped one", () => {
+  it("marks a retried prompt captured and linked, and keeps a skipped one captured", () => {
     const result = runRetryQueueScenario();
 
     expect(result.exitCode, result.stderr).toBe(0);
@@ -509,7 +509,11 @@ describe("auto-capture idle processing", () => {
       captured: true,
       linkedMemoryId: "mem-retry",
     });
-    expect(result.parsed?.prompts["prompt-retry-skip"].deleted).toBe(true);
+    expect(result.parsed?.prompts["prompt-retry-skip"]).toMatchObject({
+      captured: true,
+      deleted: false,
+      linkedMemoryId: null,
+    });
   });
 
   it("reloads a changed config file before a retry pass", () => {

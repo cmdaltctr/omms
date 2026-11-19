@@ -1,5 +1,6 @@
 import type { Context } from "@opencode/plugin/promise/plugin";
 import { resolve } from "node:path";
+import * as configModule from "../config.js";
 import { CONFIG, isConfigured } from "../config.js";
 import type { AutoCaptureHost } from "../core/host.js";
 import { isInternalCaptureSessionTitle } from "../adapters/opencode/internal-capture-sessions.js";
@@ -121,11 +122,11 @@ export function createOpencodeSessionEvents(deps: SessionEventDeps) {
         // Skill learning records turns even when memory capture is off (ADR-036).
         if (CONFIG.autoCaptureEnabled || CONFIG.skillLearning) {
           const { performAutoCapture } = await import("../services/auto-capture.js");
-          await performAutoCapture(deps.autoCaptureHost, sessionID, deps.directory);
+          await performAutoCapture(deps.autoCaptureHost, sessionID, deps.directory, configModule);
         }
         // Housekeeping always; deletion by age only when the user turned it on (ADR-051).
         const { cleanupService } = await import("../services/cleanup-service.js");
-        await cleanupService.runDailyMaintenance(CONFIG.autoDeleteOldMemories === true);
+        await cleanupService.runDailyMaintenance(CONFIG.autoDeleteOldMemories === true, CONFIG);
         if (!CONFIG.autoCaptureEnabled) return; // Skill turns only; the memory work stays off.
         await deps.learnProfile();
       } catch (error) {

@@ -5,9 +5,10 @@ import {
   SKILLS_TOOL_MODES,
   runSkillsTool,
 } from "../../core/skills-tool.js";
+import type { SkillConfigModule } from "../../services/skill-learning/settings-for.js";
 
 /** The Pi `skills` tool, registered beside `memory`. */
-export function registerPiSkillsTool(pi: ExtensionAPI): void {
+export function registerPiSkillsTool(pi: ExtensionAPI, config: SkillConfigModule): void {
   pi.registerTool({
     name: "skills",
     label: "Skills",
@@ -34,7 +35,7 @@ export function registerPiSkillsTool(pi: ExtensionAPI): void {
     }),
     async execute(_toolCallId, args, _signal, _onUpdate, ctx) {
       return {
-        content: [{ type: "text" as const, text: await runSkillsTool(args, ctx.cwd) }],
+        content: [{ type: "text" as const, text: await runSkillsTool(args, ctx.cwd, config) }],
         details: {},
       };
     },

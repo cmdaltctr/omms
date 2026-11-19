@@ -427,6 +427,7 @@ export function ProfileView({
         index={itemIndex}
         action={itemAction}
         item={itemData}
+        version={profile?.version}
         onSaved={onRefresh}
       />
 

@@ -5,10 +5,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { CONFIG } from "../src/config.js";
-import { getBackfillCutoff } from "../src/services/backfill-state.js";
+import { getBackfillCutoff } from "../src/services/storage/backfill-state.js";
 import { tursoConnectionManager } from "../src/services/turso/connection-manager.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
-import { tryAcquireBackfillLock } from "../src/importer/backfill-lock.js";
+import { tryAcquireBackfillLock } from "../src/services/storage/backfill-locks.js";
 
 const previousStorage = CONFIG.storagePath;
 const directories: string[] = [];
@@ -25,7 +25,9 @@ it("refuses a second process while the holder is alive, then releases", async ()
   expect(release).not.toBeNull();
   expect(await getBackfillCutoff("pi", 100)).toBe(100);
   const script = join(home, "child.mjs");
-  const moduleUrl = pathToFileURL(join(import.meta.dir, "../src/importer/backfill-lock.ts")).href;
+  const moduleUrl = pathToFileURL(
+    join(import.meta.dir, "../src/services/storage/backfill-locks.ts")
+  ).href;
   writeFileSync(
     script,
     `const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
@@ -147,7 +149,7 @@ for (const cleanupDelayMs of [0, 1500]) {
       await db.run("INSERT INTO backfill_locks VALUES ('pi', 2147483647, 'stale')");
       const script = join(home, "contender.mjs");
       const moduleUrl = pathToFileURL(
-        join(import.meta.dir, "../src/importer/backfill-lock.ts")
+        join(import.meta.dir, "../src/services/storage/backfill-locks.ts")
       ).href;
       writeFileSync(
         script,
@@ -239,7 +241,9 @@ it("reclaims a claim left by a terminated process", async () => {
   CONFIG.storagePath = home;
   const marker = join(home, "owned");
   const script = join(home, "owner.mjs");
-  const moduleUrl = pathToFileURL(join(import.meta.dir, "../src/importer/backfill-lock.ts")).href;
+  const moduleUrl = pathToFileURL(
+    join(import.meta.dir, "../src/services/storage/backfill-locks.ts")
+  ).href;
   writeFileSync(
     script,
     `const { writeFileSync } = await import("node:fs");

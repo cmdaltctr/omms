@@ -25,7 +25,9 @@ const readyUrl = pathToFileURL(join(import.meta.dir, "../src/services/turso/read
 const loggerUrl = pathToFileURL(join(import.meta.dir, "../src/services/logger.js")).href;
 const importerUrl = pathToFileURL(join(import.meta.dir, "../src/importer/importer.js")).href;
 const loaderUrl = pathToFileURL(join(import.meta.dir, "../src/importer/session-loader.js")).href;
-const ledgerUrl = pathToFileURL(join(import.meta.dir, "../src/importer/ledger.js")).href;
+const ledgerUrl = pathToFileURL(
+  join(import.meta.dir, "../src/services/storage/import-ledger.js")
+).href;
 const fixturesUrl = pathToFileURL(join(import.meta.dir, "./pi-import-fixtures.js")).href;
 const jobsUrl = pathToFileURL(join(import.meta.dir, "../src/importer/web-import-jobs.js")).href;
 const sourcesUrl = pathToFileURL(join(import.meta.dir, "../src/importer/import-sources.js")).href;
@@ -725,12 +727,12 @@ const report = await importPiHistory(
 const { executeMemoryOperation } = await import(${JSON.stringify(memoryOpsUrl)});
 const opencodeSearch = await executeMemoryOperation(
   { mode: "search", query: "usearch vector index" },
-  { directory: projectA, host: "opencode" }
+  { directory: projectA, host: "opencode", config: await import(${JSON.stringify(configUrl)}) }
 );
 
 // Pi side: before_agent_start retrieval over the same store.
 const { buildRetrievalSection } = await import(${JSON.stringify(retrievalUrl)});
-const piSection = await buildRetrievalSection("usearch vector index", projectA, "pi-live-session");
+const piSection = await buildRetrievalSection("usearch vector index", projectA, "pi-live-session", CONFIG.chatMessage.excludeCurrentSession, undefined, CONFIG);
 
 scenario = {
   imported: report.unitsImported,
@@ -851,7 +853,7 @@ writeV3Session({
 const { validateImportSource } = await import(${JSON.stringify(sourcesUrl)});
 const { listImportSessions } = await import(${JSON.stringify(sessionsUrl)});
 const { readUnresolvedDirectories } = await import(${JSON.stringify(
-      pathToFileURL(join(import.meta.dir, "../src/services/backfill-state.js")).href
+      pathToFileURL(join(import.meta.dir, "../src/services/storage/backfill-state.js")).href
     )});
 const source = validateImportSource("pi", sessionRoot);
 await listImportSessions(

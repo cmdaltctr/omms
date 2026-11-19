@@ -28,6 +28,7 @@ interface ScenarioResult {
   deleteCalls: string[];
   profileWrites: any[];
   activeProfileReads: string[];
+  searchScopes: string[];
 }
 
 function runScenario(body: string, overrides: { configured?: boolean } = {}): ScenarioResult {
@@ -43,6 +44,7 @@ const deleteCalls = [];
 const profileWrites = [];
 const activeProfileReads = [];
 const mergeCalls = [];
+const searchScopes = [];
 
 mock.module(${JSON.stringify(configUrl)}, () => ({
   CONFIG: {
@@ -62,7 +64,7 @@ mock.module(${JSON.stringify(clientUrl)}, () => ({
       addCalls.push({ content, containerTag, metadata });
       return { success: true, id: \`mem-\${addCalls.length}\` };
     },
-    searchMemories: async (query, containerTag, scope) => ({
+    searchMemories: async (query, containerTag, scope) => (searchScopes.push(scope), {
       success: true,
       results: [
         { id: "mem-1", memory: "result text", similarity: 0.87 },
@@ -151,7 +153,7 @@ let output;
 
 ${body}
 
-console.log("RESULT:" + JSON.stringify({ addCalls, deleteCalls, profileWrites, activeProfileReads, mergeCalls, output }));
+console.log("RESULT:" + JSON.stringify({ addCalls, deleteCalls, profileWrites, activeProfileReads, mergeCalls, searchScopes, output }));
 `;
 
   writeFileSync(scriptPath, script);
@@ -168,11 +170,12 @@ console.log("RESULT:" + JSON.stringify({ addCalls, deleteCalls, profileWrites, a
     deleteCalls: parsed.deleteCalls,
     profileWrites: parsed.profileWrites,
     activeProfileReads: parsed.activeProfileReads,
+    searchScopes: parsed.searchScopes,
   };
 }
 
 function run(args: any, context: any) {
-  return `output = await executeMemoryOperation(${JSON.stringify(args)}, ${JSON.stringify(context)});`;
+  return `output = await executeMemoryOperation(${JSON.stringify(args)}, { ...${JSON.stringify(context)}, config: await import(${JSON.stringify(configUrl)}) });`;
 }
 
 describe("memory operations (shared tool path) characterisation", () => {
@@ -252,6 +255,20 @@ describe("memory operations (shared tool path) characterisation", () => {
     }
   });
 
+  it("search reads memory.defaultScope from the config module on each call", () => {
+    const search = `{ mode: "search", query: "env management" }`;
+    const result = runScenario(`
+const configModule = await import(${JSON.stringify(configUrl)});
+const first = await executeMemoryOperation(${search}, { config: configModule, directory: "/workspace" });
+configModule.CONFIG.memory.defaultScope = "user";
+const second = await executeMemoryOperation(${search}, { config: configModule, directory: "/workspace" });
+output = [first.success, second.success];
+`);
+
+    expect(result.output).toEqual([true, true]);
+    expect(result.searchScopes).toEqual(["project", "user"]);
+  });
+
   it("list returns recent memories with count", () => {
     const result = runScenario(run({ mode: "list", limit: 10 }, context));
 
@@ -324,7 +341,7 @@ describe("memory operations (shared tool path) characterisation", () => {
 
   it("profile write without a resolvable user email is rejected", () => {
     const result = runScenario(
-      `output = await executeMemoryOperation(${JSON.stringify({ mode: "profile", content: "prefers tabs" })}, ${JSON.stringify({ directory: "/workspace", host: "opencode", tags: { project: { tag: "opencode_project_test" }, user: { userEmail: undefined, userName: "Anon" } } })});`
+      `output = await executeMemoryOperation(${JSON.stringify({ mode: "profile", content: "prefers tabs" })}, { ...${JSON.stringify({ directory: "/workspace", host: "opencode", tags: { project: { tag: "opencode_project_test" }, user: { userEmail: undefined, userName: "Anon" } } })}, config: await import(${JSON.stringify(configUrl)}) });`
     );
 
     expect(result.output.success).toBe(false);

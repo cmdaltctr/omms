@@ -80,10 +80,17 @@ export function createV2MemoryBridge(directory: string): V2MemoryBridge {
     },
     async retrieve(prompt, sessionID, budgetBytes) {
       // The wrapper counts against the request budget, so the packed section reserves it.
-      const section = await buildRetrievalSection(prompt, directory, sessionID, {
-        maxBytes: budgetBytes,
-        wrapperBytes: retrievalWrapperBytes(),
-      });
+      const section = await buildRetrievalSection(
+        prompt,
+        directory,
+        sessionID,
+        CONFIG.chatMessage.excludeCurrentSession,
+        {
+          maxBytes: budgetBytes,
+          wrapperBytes: retrievalWrapperBytes(),
+        },
+        CONFIG
+      );
       return section ? wrapRetrievalSection(section) : null;
     },
     async retrieveFirstPrompt(prompt, sessionID, budgetBytes) {
@@ -96,8 +103,10 @@ export function createV2MemoryBridge(directory: string): V2MemoryBridge {
         openingQuery,
         directory,
         sessionId: sessionID,
+        excludeCurrentSession: CONFIG.chatMessage.excludeCurrentSession,
         budget: { maxBytes: budgetBytes, wrapperBytes: retrievalWrapperBytes() },
         openingReserveBytes: 0,
+        config: CONFIG,
       });
       return { ...sections, openingQuery };
     },

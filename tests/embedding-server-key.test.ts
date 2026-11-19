@@ -90,3 +90,38 @@ it("resets when the task prefix setting changes", async () => {
     embeddingSettingsSignature({ ...base, embeddingUseTaskPrefixes: false })
   );
 });
+
+// With no settings argument the service reads the live config on each call (design D5a "S").
+it("follows config changes when built with its default settings", async () => {
+  const { CONFIG } = await import("../src/config.js");
+  const { applyEmbeddingTaskPrefix } = await import("../src/services/embedding.js");
+  const saved = {
+    url: CONFIG.embeddingApiUrl,
+    key: CONFIG.embeddingApiKey,
+    model: CONFIG.embeddingModel,
+    prefixes: CONFIG.embeddingUseTaskPrefixes,
+  };
+  seen.length = 0;
+  try {
+    CONFIG.embeddingApiUrl = `http://127.0.0.1:${small.port}/v1`;
+    CONFIG.embeddingApiKey = "key-one";
+    CONFIG.embeddingModel = "model-one";
+    const service = new EmbeddingService();
+    expect((await service.embed("live text")).length).toBe(3);
+    CONFIG.embeddingApiUrl = `http://127.0.0.1:${large.port}/v1`;
+    CONFIG.embeddingApiKey = "key-two";
+    CONFIG.embeddingModel = "model-two";
+    expect((await service.embed("live text")).length).toBe(5);
+    expect(seen.at(-1)).toEqual({ port: large.port, auth: "Bearer key-two", model: "model-two" });
+
+    CONFIG.embeddingUseTaskPrefixes = false;
+    expect(applyEmbeddingTaskPrefix("x", { task: "query" })).toBe("x");
+    CONFIG.embeddingUseTaskPrefixes = true;
+    expect(applyEmbeddingTaskPrefix("x", { task: "query" })).not.toBe("x");
+  } finally {
+    CONFIG.embeddingApiUrl = saved.url;
+    CONFIG.embeddingApiKey = saved.key;
+    CONFIG.embeddingModel = saved.model;
+    CONFIG.embeddingUseTaskPrefixes = saved.prefixes;
+  }
+});

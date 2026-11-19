@@ -40,8 +40,10 @@ mock.module("../src/core/capture-context.js", () => ({
 }));
 
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
-const queue = await import("../src/services/capture-retry-queue.js");
+const { resetStoreHandles } = await import("../src/services/spaces/store-handles.js");
+const queue = await import("../src/services/storage/capture-retry-queue.js");
 const drain = await import("../src/services/capture-retry-drain.js");
+const liveConfig = await import("../src/config.js");
 const { CaptureAttemptError } = await import("../src/core/capture.js");
 const { httpStatusError } = await import("../src/core/capture-retry-policy.js");
 type CaptureWorkUnit = import("../src/core/capture.js").CaptureWorkUnit;
@@ -52,8 +54,10 @@ const T0 = Date.UTC(2026, 8, 28, 12);
 const network = { reason: "call-error" as const };
 
 afterAll(async () => {
+  // A retried capture opens stores outside the connection manager; Windows cannot remove open files.
+  await resetStoreHandles();
   await tursoConnectionManager.closeAll();
-  rmSync(storage, { recursive: true, force: true });
+  rmSync(storage, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 beforeEach(async () => {
@@ -113,6 +117,7 @@ describe("drainCaptureRetries", () => {
   it("saves due turns with their original provenance and deletes them", async () => {
     await queued("a", "b");
     const result = await drain.drainCaptureRetries({
+      configModule: liveConfig,
       host: "pi",
       provider: provider(() => memory),
       config,
@@ -131,10 +136,28 @@ describe("drainCaptureRetries", () => {
     expect(await rows()).toHaveLength(0);
   });
 
+  it("refreshes the host's config module for each retried turn", async () => {
+    await queued("a", "b");
+    const refreshed: string[] = [];
+    const configModule = {
+      CONFIG: config,
+      refreshConfigIfChanged: (dir: string) => refreshed.push(dir),
+    };
+    await drain.drainCaptureRetries({
+      host: "pi",
+      provider: provider(() => memory),
+      config,
+      configModule: configModule as unknown as import("../src/core/capture.js").CaptureConfigModule,
+      now: later,
+    });
+    expect(refreshed).toEqual(["/work/project", "/work/project"]);
+  });
+
   it("deletes a turn the extractor skips", async () => {
     await queued("a");
     const settled: string[] = [];
     const result = await drain.drainCaptureRetries({
+      configModule: liveConfig,
       host: "pi",
       provider: provider(() => ({ summary: "", type: "skip", tags: [] })),
       config,
@@ -152,6 +175,7 @@ describe("drainCaptureRetries", () => {
     await queued("a", "b", "c", "d", "e");
     const fake = provider(() => new Error("ECONNREFUSED"));
     const result = await drain.drainCaptureRetries({
+      configModule: liveConfig,
       host: "pi",
       provider: fake,
       config,
@@ -170,6 +194,7 @@ describe("drainCaptureRetries", () => {
     await queued("a", "b");
     const fake = provider((call) => (call === 1 ? httpStatusError("401", 401) : memory));
     const result = await drain.drainCaptureRetries({
+      configModule: liveConfig,
       host: "pi",
       provider: fake,
       config,
@@ -183,9 +208,21 @@ describe("drainCaptureRetries", () => {
     await queued("a");
     await queue.enqueueCaptureRetry(unit("o", "opencode"), network, config, T0);
     const fake = provider(() => memory);
-    await drain.drainCaptureRetries({ host: "pi", provider: fake, config, now: () => T0 + 1000 });
+    await drain.drainCaptureRetries({
+      configModule: liveConfig,
+      host: "pi",
+      provider: fake,
+      config,
+      now: () => T0 + 1000,
+    });
     expect(fake.calls).toBe(0);
-    await drain.drainCaptureRetries({ host: "pi", provider: fake, config, now: later });
+    await drain.drainCaptureRetries({
+      configModule: liveConfig,
+      host: "pi",
+      provider: fake,
+      config,
+      now: later,
+    });
     expect(fake.calls).toBe(1);
     expect((await rows()).map((row) => row.turn_id)).toEqual(["o"]);
   });
@@ -194,6 +231,7 @@ describe("drainCaptureRetries", () => {
     await queued("a");
     const fake = provider(() => memory);
     await drain.drainCaptureRetries({
+      configModule: liveConfig,
       host: "pi",
       provider: fake,
       config,
@@ -206,6 +244,7 @@ describe("drainCaptureRetries", () => {
   it("writes one capture attempt record per retry", async () => {
     await queued("a");
     await drain.drainCaptureRetries({
+      configModule: liveConfig,
       host: "pi",
       provider: provider(() => memory),
       config,
@@ -224,8 +263,15 @@ describe("drainCaptureRetries", () => {
         return memory;
       },
     };
-    const first = drain.drainCaptureRetries({ host: "pi", provider: slow, config, now: later });
+    const first = drain.drainCaptureRetries({
+      configModule: liveConfig,
+      host: "pi",
+      provider: slow,
+      config,
+      now: later,
+    });
     const second = await drain.drainCaptureRetries({
+      configModule: liveConfig,
       host: "pi",
       provider: slow,
       config,
@@ -241,6 +287,7 @@ describe("drainCaptureRetries", () => {
     config.captureRetryRetentionHours = 0;
     const fake = provider(() => memory);
     const result = await drain.drainCaptureRetries({
+      configModule: liveConfig,
       host: "pi",
       provider: fake,
       config,
@@ -254,6 +301,7 @@ describe("drainCaptureRetries", () => {
   it("logs a code when the queue fails and does not throw", async () => {
     const broken = { ...config, storagePath: join(tmpdir(), "outside-storage") };
     const result = await drain.drainCaptureRetries({
+      configModule: liveConfig,
       host: "pi",
       provider: provider(() => memory),
       config: broken,
@@ -319,6 +367,7 @@ describe("requestCaptureRetryNow", () => {
       stopped: false,
     }));
     const pass = drain.drainCaptureRetries({
+      configModule: liveConfig,
       host: "pi",
       provider: {
         async summarize() {

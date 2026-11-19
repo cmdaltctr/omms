@@ -156,45 +156,67 @@ OpenCode, a Claude Code registration would replace OpenCode's model.
 pipeline accepts. It holds visible conversation content and provenance.
 Hidden reasoning and host SDK objects never go into it.
 
+## Profile learning (`src/core/profile-learning/`)
+
+Every host runs live profile learning through one pass ([ADR-052](adr/052-one-profile-learning-pass-for-every-host.md)). The folder holds:
+
+| File             | Holds                                                                                                 |
+| ---------------- | ----------------------------------------------------------------------------------------------------- |
+| `settings.ts`    | The six global-only settings, their defaults, the parser and the edit checks                          |
+| `model-input.ts` | The full input, the prompts-only input and the UTF-8 byte cut                                         |
+| `validation.ts`  | The check of older items: the task text and `applyValidations`                                        |
+| `fallback.ts`    | `withExternalFallback(host, primary, external, notify)`: a host model with the external API behind it |
+| `pass.ts`        | `runProfileLearningPass(input)`: the steps of a pass, the history text and the notice text            |
+
+The pass takes its ports in one input object:
+
+- `host` and `directory`. The host only picks the label from `HOST_INFO` and the host field of the failure log record.
+- `config`: the adapter passes `CONFIG` after `refreshConfigIfChanged(directory)`. The pass never imports `src/config.ts`.
+- `model`: a function that returns a `ModelPort`, or null to skip the pass. `analyzeProfile` calls `completeStructured` when the port has it, and `complete` otherwise. It checks every reply against the shared schema.
+- `notify` (optional): shows a notice. Claude Code keeps the line for a later hook.
+- `cleanupModel` (optional): the model of the automatic cleanup that the pass starts. Without it the cleanup uses the external API.
+
+The pass returns `{ outcome: "saved" | "skipped" | "failed", reason? }` and never throws. It reads prompts from `userPromptManager` and the profile from `userProfileManager`. It saves through `saveMergedProfile`, which applies the decay and validation hooks on every attempt. One pass runs at a time in a process, and a failure starts the 10-minute wait in `profileBackoff`.
+
 ## What each layer owns
 
-| Layer                              | Owns                                                                                                                                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/core`                         | Ports, capture pipeline, context budgeting, shared extraction schema and parsing, retrieval, `memory` tool operations                                                                 |
-| `src/services`                     | Storage (Turso/libSQL), embeddings, vector search, privacy, deduplication, project identity, profiles, portability, cleanup, web backend, live-model rule (`ai/live-model-choice.ts`) |
-| `src/importer`                     | History import and automatic backfill, import ledger, import runs and progress, backfill controls, path maps, the web import API                                                      |
-| `src/adapters/opencode` + `src/v2` | OpenCode lifecycle, session reading, provider bridge, OpenCode model code and profile learning, OpenCode backfill model resolver, the V2 plugin (startup, tools, events, hooks)       |
-| `src/adapters/pi`                  | Pi lifecycle (`session_start`, `before_agent_start`, `agent_settled`, `session_shutdown`), retrieval injection, model bridge, Pi backfill model resolver, `memory` tool registration  |
-| `src/adapters/claude-code`         | The `claude-hook <event>` command: hook input, finding or starting the web app, one request, added context output, one log line. No store and no model                                |
+| Layer                              | Owns                                                                                                                                                                                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/core`                         | Ports, capture pipeline, context budgeting, shared extraction schema and parsing, retrieval, `memory` tool operations                                                                                                                |
+| `src/services`                     | Storage (the port in `storage/`, the Turso/libSQL engine in `turso/`), embeddings, vector search, privacy, deduplication, project identity, profiles, portability, cleanup, web backend, live-model rule (`ai/live-model-choice.ts`) |
+| `src/importer`                     | History import and automatic backfill, import ledger, import runs and progress, backfill controls, path maps, the web import API                                                                                                     |
+| `src/adapters/opencode` + `src/v2` | OpenCode lifecycle, session reading, provider bridge, OpenCode model code and profile learning, OpenCode backfill model resolver, the V2 plugin (startup, tools, events, hooks)                                                      |
+| `src/adapters/pi`                  | Pi lifecycle (`session_start`, `before_agent_start`, `agent_settled`, `session_shutdown`), retrieval injection, model bridge, Pi backfill model resolver, `memory` tool registration                                                 |
+| `src/adapters/claude-code`         | The `claude-hook <event>` command: hook input, finding or starting the web app, one request, added context output, one log line. No store and no model                                                                               |
 
 ### Shared modules added for import and settings
 
-| Module                                                 | Purpose                                                                                                                       |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `src/importer/import-runs.ts`                          | Progress for each host's import run, and one run at a time for each host across every surface (`auto`, `web`, `cli`, `slash`) |
-| `src/importer/backfill-controls.ts`                    | Run, Pause, and Resume. Each host registers its backfill model resolver with `registerHostBackfillModels`                     |
-| `src/importer/external-backfill-models.ts`             | Backfill models from the external API settings (`memoryModel`, `memoryApiUrl`, `memoryApiKey`)                                |
-| `src/importer/external-api-test.ts`                    | A short test call to the external API                                                                                         |
-| `src/utils/import-path-config.ts`                      | Checks and normalises `importPathMaps` and `importIgnoredDirectories` from the global config                                  |
-| `src/importer/import-path-maps.ts`                     | Merges the saved path maps with a run's own maps                                                                              |
-| `src/importer/map-suggestions.ts`                      | Suggests path maps by looking for project markers such as `.git` and `package.json`                                           |
-| `src/importer/settings-health.ts`                      | Settings health checks for the web UI                                                                                         |
-| `src/importer/web-import-api.ts`, `web-import-jobs.ts` | The importer functions and jobs that the web server calls                                                                     |
-| `src/services/private-path.ts`                         | Limits a file or folder to the current user. Capture traces and `memory-key-source.ts` use it                                 |
-| `src/services/memory-key-source.ts`                    | How the web UI External API card supplies `memoryApiKey` (`env`, `file`, or a pasted value)                                   |
-| `src/services/global-version.ts`                       | The version of the global `om-memory-system` command, if installed                                                            |
-| `src/services/package-version.ts`                      | This package's version, read from its `package.json`                                                                          |
+| Module                                                 | Purpose                                                                                                                                                                                   |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/importer/import-runs.ts`                          | Progress for each host's import run, and one run at a time for each host across every surface (`auto`, `web`, `cli`, `slash`). The run rows live in `src/services/storage/import-runs.ts` |
+| `src/importer/backfill-controls.ts`                    | Run, Pause, and Resume. Each host registers its backfill model resolver with `registerHostBackfillModels`                                                                                 |
+| `src/importer/external-backfill-models.ts`             | Backfill models from the external API settings (`memoryModel`, `memoryApiUrl`, `memoryApiKey`)                                                                                            |
+| `src/importer/external-api-test.ts`                    | A short test call to the external API                                                                                                                                                     |
+| `src/utils/import-path-config.ts`                      | Checks and normalises `importPathMaps` and `importIgnoredDirectories` from the global config                                                                                              |
+| `src/importer/import-path-maps.ts`                     | Merges the saved path maps with a run's own maps                                                                                                                                          |
+| `src/importer/map-suggestions.ts`                      | Suggests path maps by looking for project markers such as `.git` and `package.json`                                                                                                       |
+| `src/importer/settings-health.ts`                      | Settings health checks for the web UI                                                                                                                                                     |
+| `src/importer/web-import-api.ts`, `web-import-jobs.ts` | The importer functions and jobs that the web server calls                                                                                                                                 |
+| `src/services/private-path.ts`                         | Limits a file or folder to the current user. Capture traces and `memory-key-source.ts` use it                                                                                             |
+| `src/services/memory-key-source.ts`                    | How the web UI External API card supplies `memoryApiKey` (`env`, `file`, or a pasted value)                                                                                               |
+| `src/services/global-version.ts`                       | The version of the global `om-memory-system` command, if installed                                                                                                                        |
+| `src/services/package-version.ts`                      | This package's version, read from its `package.json`                                                                                                                                      |
 
 ### Shared modules added for Claude Code
 
-| Module                                  | Purpose                                                                                                      |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `src/importer/claude-conversation.ts`   | Pure transcript parsing and window building, for live capture and history import                             |
-| `src/importer/claude-reader.ts`         | Transcript discovery under `~/.claude/projects` or `--root`, as a `LazyImportSource`                         |
-| `src/importer/claude-import.ts`         | `importClaudeHistory`: the shared importer, ledger, and profile steps with host `claude-code`                |
-| `src/importer/claude-hook-api.ts`       | Web app handlers for `POST /api/claude/retrieve` and `POST /api/claude/capture`, capture worker, retry drain |
-| `src/services/claude-capture-cursor.ts` | The last captured user entry for each Claude Code session, in `user-prompts.db`                              |
-| `src/cli/memory-command.ts`             | `om-memory-system memory <mode>`: the shared `memory` operations from a terminal, with host `claude-code`    |
+| Module                                           | Purpose                                                                                                      |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `src/importer/claude-conversation.ts`            | Pure transcript parsing and window building, for live capture and history import                             |
+| `src/importer/claude-reader.ts`                  | Transcript discovery under `~/.claude/projects` or `--root`, as a `LazyImportSource`                         |
+| `src/importer/claude-import.ts`                  | `importClaudeHistory`: the shared importer, ledger, and profile steps with host `claude-code`                |
+| `src/importer/claude-hook-api.ts`                | Web app handlers for `POST /api/claude/retrieve` and `POST /api/claude/capture`, capture worker, retry drain |
+| `src/services/storage/claude-capture-cursors.ts` | The last captured user entry for each Claude Code session, in `user-prompts.db`                              |
+| `src/cli/memory-command.ts`                      | `om-memory-system memory <mode>`: the shared `memory` operations from a terminal, with host `claude-code`    |
 
 `resolveClaudeCodeLiveModel` in `src/services/ai/live-model-choice.ts` is the
 Claude Code model rule: the external API only. See
@@ -253,22 +275,74 @@ Phase 1 kept these, and later phases must keep them:
 baseline of files with a count per file, like
 `tests/file-size-ceiling.test.ts`.
 
-| Ratchet          | Scope                                   | Counts                                                        | Follow-up it guards |
-| ---------------- | --------------------------------------- | ------------------------------------------------------------- | ------------------- |
-| `CONFIG` imports | `src/core/`, `src/services/`            | Non-type import sites of `src/config.ts`                      | Config injection    |
-| Storage imports  | All `src/` except `src/services/turso/` | Import sites of `@libsql/client` or `src/services/turso/*`    | Storage port        |
-| Raw SQL          | All `src/` except `src/services/turso/` | String literals that start with an SQL statement (upper case) | Storage port        |
+| Ratchet          | Scope                                 | Counts                                                        | Follow-up it guards |
+| ---------------- | ------------------------------------- | ------------------------------------------------------------- | ------------------- |
+| `CONFIG` imports | `src/core/`, `src/services/`          | Non-type import sites of `src/config.ts` (floor of 2 files)   | Config injection    |
+| Storage imports  | All `src/` except the port and engine | Import sites of `@libsql/client` or `src/services/turso/*`    | Storage port        |
+| Raw SQL          | All `src/` except the port and engine | String literals that start with an SQL statement (upper case) | Storage port        |
 
 - A file not in a baseline must have a count of 0.
 - A listed file may not go above its count.
 - When a listed file goes below its count, write the new count. The test fails and tells you the number.
 - When a listed file reaches 0, delete its entry. The test fails until you do.
-- Each ratchet has a minimum file count, so an empty scan cannot pass.
+- The `CONFIG` ratchet has a floor of 2 files, so an empty scan cannot pass. The storage and SQL ratchets end with an empty baseline, so they have no file floor. A positive control checks their counters instead: with the folder exemption off, the SQL counter finds at least 20 sites in `src/services/turso/`, and the import counter finds `@libsql/client` there.
+- The port is `src/services/storage/` and the engine is `src/services/turso/`. Both are exempt from the storage and SQL ratchets. Importing the port is not debt. The port must not re-export `tursoConnectionManager`, `tursoShardManager` or `tursoVectorSearch`.
+- A file in `src/services/storage/` that keeps a database handle in a module variable or class field must call `resettable(`. `tests/store-handle-coverage.test.ts` checks this.
 - Only `src/config.ts` may export `CONFIG`. A re-export in another file fails the test, so it cannot hide an import from the `CONFIG` ratchet.
 
 To pass a ratchet, take config as an argument (pattern:
 `src/services/ai/live-model-choice.ts`), or put the storage code in
-`src/services/turso/`. Do not raise a count.
+`src/services/storage/` (the port). Do not raise a count.
+
+### Storage port
+
+- The engine is `src/services/turso/`: the connection manager, shard manager, vector search and the low-level SQLite helpers.
+- The port is `src/services/storage/`. It has one module per store, for example `user-prompts.ts`, `chat-store.ts`, `skills/`, `profiles/` and `memory/`. Each module owns its SQL and exposes typed functions.
+- Only these two folders may import `@libsql/client` or `src/services/turso/*`. Only these two folders may hold SQL.
+- Other code imports the port. File-lock retries for code outside the port come from `src/services/storage/file-locks.ts`.
+- One exception holds SQL outside the port: `src/importer/opencode-reader.ts` and `src/importer/opencode-v2-units.ts`. They read OpenCode's own database, which is not an OMMS store. The raw SQL baseline lists them.
+- The storage import baseline is empty. The ratchet still runs, so a new storage import outside the port fails the test.
+
+Some old module paths stay as one-line re-exports of the port. Tests mock these paths with `mock.module`, and a mock only replaces the path that the code imports. Do not re-point a caller away from a mocked path.
+
+| Old path                                             | Port module                                      | Why it stays  |
+| ---------------------------------------------------- | ------------------------------------------------ | ------------- |
+| `src/services/user-prompt/user-prompt-manager.ts`    | `src/services/storage/user-prompts.ts`           | Tests mock it |
+| `src/services/user-prompt/profile-catch-up-lease.ts` | `src/services/storage/profile-catch-up-lease.ts` | Tests mock it |
+| `src/services/capture-attempt-store.ts`              | `src/services/storage/capture-attempts.ts`       | Tests mock it |
+
+### Config injection
+
+The `CONFIG` import count in `src/core/` and `src/services/` went from 52 files
+to 2. The rule: do not import `CONFIG` in `src/core/` or `src/services/`.
+Pass the values, the live config module, or a getter function. Never keep a
+copy of `CONFIG` in a field or a module constant. `config.ts` replaces the
+`CONFIG` object on every reload and every memory space switch. A copy goes
+stale and can write to the wrong space. Never spread it (`{ ...CONFIG }`).
+
+Use one of five approaches:
+
+| Approach        | Use it when                                                                      | Example                                                          |
+| --------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| A (value)       | A function reads settings once per call. It takes `Pick<typeof CONFIG, ...>`.    | `src/services/deduplication-service.ts`                          |
+| B (live module) | A function refreshes the config, then reads it. It takes a `Pick` of the module. | `src/core/capture.ts` (`CaptureConfigModule`)                    |
+| G (getter)      | A timer or ticker runs for a long time. It takes `() => Pick<...>` and calls it. | `src/services/cleanup-service.ts` (`startDailyMaintenanceTimer`) |
+| W (web)         | A web route needs config. The route host passes the live module.                 | `src/services/web-server/route-host.ts` (`loadConfig`)           |
+| S (store)       | A store singleton is created at module load, before any edge runs.               | `src/services/storage/active-space-access.ts`                    |
+
+The caller at the edge passes `CONFIG` at call time. Edges are host adapters,
+CLI entry points and the web server start.
+
+Two files keep the `CONFIG` import by design:
+
+- `src/services/web-server.ts` is the web edge. It loads the config module for the route host (approach W).
+- `src/services/storage/active-space-access.ts` is the store reader (approach S). It reads `getActiveSpace` and the store settings live, on every call, through a fixed list of functions. `tests/store-settings-reader.test.ts` pins the list. `config.ts` must never import this file.
+
+The `CONFIG` ratchet in `tests/modularity-ratchets.test.ts` guards this end
+state. Its baseline lists these two files with a count of 1 each, and its
+floor is 2 files. A third file with a non-type `CONFIG` import fails the test.
+A re-export of `CONFIG` fails the re-export test. Do not raise a count and do
+not lower the floor below 2.
 
 ## Add a new host adapter
 

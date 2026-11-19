@@ -1,4 +1,3 @@
-import { CONFIG, isConfigured, refreshConfigIfChanged } from "../config.js";
 import { memoryClient, type MemoryScope } from "../services/client.js";
 import { runMemorise, runRecall } from "./memorisation-operations.js";
 import { memorisationSettingsFrom } from "./memorisation-settings.js";
@@ -6,6 +5,7 @@ import { linkedSettingsFrom } from "../services/linked-search.js";
 import { getLanguageName } from "../services/language-detector.js";
 import { stripPrivateContent, isFullyPrivate } from "../services/privacy.js";
 import { getTags } from "../services/tags.js";
+import type { SpaceConfigModule } from "./space-tool.js";
 import type { MemoryHost, MemoryType } from "../types/index.js";
 
 export type MemoryOperationMode =
@@ -60,7 +60,16 @@ export interface MemoryOperationArgs {
   spaceIn?: string;
 }
 
+/**
+ * The live config module (approach B): `CONFIG` is replaced on every refresh and space switch,
+ * so each operation reads `config.CONFIG` after its refresh and never keeps it. Callers pass
+ * `import * as configModule from "../config.js"`.
+ */
+export type MemoryConfigModule = SpaceConfigModule &
+  Pick<typeof import("../config.js"), "isConfigured">;
+
 export interface MemoryOperationContext {
+  config: MemoryConfigModule;
   directory: string;
   tags?: ReturnType<typeof getTags>;
   host?: MemoryHost;
@@ -90,8 +99,8 @@ export async function executeMemoryOperation(
 ): Promise<Record<string, unknown>> {
   // The next operation sees a changed config file: manual tool and CLI calls
   // happen outside the hosts' injection and capture boundaries.
-  refreshConfigIfChanged(context.directory);
-  if (!isConfigured()) {
+  context.config.refreshConfigIfChanged(context.directory);
+  if (!context.config.isConfigured()) {
     return {
       success: false,
       error: "Memory system not configured properly.",
@@ -107,7 +116,7 @@ export async function executeMemoryOperation(
   const mode = args.mode || "help";
   if (mode === "space") {
     const { runSpaceMode } = await import("./space-tool.js");
-    return runSpaceMode(args, context.directory);
+    return runSpaceMode(context.config, args, context.directory);
   }
   const needsEmbedding = !["help", "list-shards", "migrate", "export"].includes(mode);
 
@@ -133,7 +142,7 @@ export async function executeMemoryOperation(
   }
 
   const tags = context.tags ?? getTags(context.directory);
-  const langName = getLanguageName(CONFIG.autoCaptureLanguage || "en");
+  const langName = getLanguageName(context.config.CONFIG.autoCaptureLanguage || "en");
 
   try {
     switch (mode) {
@@ -255,20 +264,25 @@ export async function executeMemoryOperation(
           args,
           context,
           tags,
-          memorisationSettingsFrom(CONFIG),
-          linkedSettingsFrom(CONFIG)
+          memorisationSettingsFrom(context.config.CONFIG),
+          linkedSettingsFrom(context.config.CONFIG)
         );
 
       case "recall":
-        return await runRecall(args, linkedSettingsFrom(CONFIG), CONFIG.memorisationRerank);
+        return await runRecall(
+          args,
+          linkedSettingsFrom(context.config.CONFIG),
+          context.config.CONFIG.memorisationRerank,
+          context.config.CONFIG
+        );
 
       case "search": {
         if (!args.query) return { success: false, error: "query required" };
         const result = await memoryClient.searchMemories(
           args.query,
           tags.project.tag,
-          args.scope ?? CONFIG.memory.defaultScope,
-          { includeLinked: true }
+          args.scope ?? context.config.CONFIG.memory.defaultScope,
+          { includeLinked: true, config: context.config.CONFIG }
         );
         if (!result.success) return { success: false, error: result.error };
         return formatSearchResults(args.query, result, args.limit);
@@ -371,8 +385,8 @@ export async function executeMemoryOperation(
         const result = await memoryClient.listMemories(
           tags.project.tag,
           args.limit || 20,
-          args.scope ?? CONFIG.memory.defaultScope,
-          { includeLinked: true }
+          args.scope ?? context.config.CONFIG.memory.defaultScope,
+          { includeLinked: true, linked: linkedSettingsFrom(context.config.CONFIG) }
         );
         if (!result.success) return { success: false, error: result.error };
         return {
@@ -389,7 +403,10 @@ export async function executeMemoryOperation(
 
       case "forget": {
         if (!args.memoryId) return { success: false, error: "memoryId required" };
-        const result = await memoryClient.deleteMemory(args.memoryId);
+        const result = await memoryClient.deleteMemory(
+          args.memoryId,
+          linkedSettingsFrom(context.config.CONFIG)
+        );
         return { success: result.success, message: "Memory removed" };
       }
 

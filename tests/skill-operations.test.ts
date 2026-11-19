@@ -61,8 +61,8 @@ function stubModel(reply: unknown) {
 async function setup(options: { enabled?: boolean; reply?: unknown } = {}) {
   const { CONFIG } = await import("../src/config.js");
   CONFIG.storagePath = baseDir;
-  const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
-  const proposals = await import("../src/services/skill-learning/proposal-store.js");
+  const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
+  const proposals = await import("../src/services/storage/skills/proposals.js");
   const { clearSkillIndexCache } = await import("../src/services/skill-learning/skill-index.js");
   const { skillDraftBackoff } = await import("../src/core/profile-backoff.js");
   const ops = await import("../src/core/skill-operations.js");

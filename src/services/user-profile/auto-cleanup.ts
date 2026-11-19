@@ -11,7 +11,8 @@ import {
   splitIntoBatches,
   type RunInBatchesOptions,
 } from "./ai-cleanup-batches.js";
-import { deleteAutoCleanup, insertAutoCleanupRecord } from "./auto-cleanup-store.js";
+import type { MemoryModelSettings } from "./memory-model-settings.js";
+import { deleteAutoCleanup, insertAutoCleanupRecord } from "../storage/profiles/auto-cleanups.js";
 import { applyToNewestProfile, type ProfileEditStore } from "./profile-edit-save.js";
 import type { UserProfileData } from "./types.js";
 
@@ -33,6 +34,8 @@ export type AutoCleanupOutcome =
     };
 
 export interface AutoCleanupOptions {
+  /** The external model settings, read when the run starts. Pass `CONFIG` at call time. */
+  settings: MemoryModelSettings;
   /** A host that has its own model for profile work (Pi) gives it here. */
   resolveModel?: () => ModelPort | null;
   /** Replaces the model call. Tests use this. */
@@ -54,7 +57,7 @@ let running = false;
  */
 export async function startAutoProfileCleanup(
   userId: string,
-  options: AutoCleanupOptions = {}
+  options: AutoCleanupOptions
 ): Promise<AutoCleanupOutcome> {
   if (running) return { status: "already-running" };
   running = true;
@@ -81,7 +84,8 @@ async function run(userId: string, options: AutoCleanupOptions): Promise<AutoCle
   const batches = splitIntoBatches(indexed, options.batchSize ?? AI_CLEANUP_BATCH_SIZE);
   log("auto cleanup: started", { items: sent, batches: batches.length });
   const callBatch =
-    options.callBatch ?? ((batch) => cleanupBatch(batch, options.resolveModel?.() ?? null));
+    options.callBatch ??
+    ((batch) => cleanupBatch(batch, options.settings, options.resolveModel?.() ?? null));
   // Throws when every batch fails; the batches that fail one by one are logged by the runner.
   const result = await runInBatches(batches, { callBatch });
   if (!result) return { status: "failed" };

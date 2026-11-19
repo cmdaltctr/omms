@@ -1,15 +1,19 @@
-import type { TursoDb } from "../turso/turso-db.js";
+import {
+  bucketUseRows,
+  dailyUseRows,
+  skillUseRows,
+  usedMonthRows,
+  type SkillsDb,
+} from "../storage/skills/turn-queries.js";
 import {
   ACTIVITY_DEFAULT_TOP,
-  BUCKET_SQL,
   activityWindow,
   utcYear,
   type ActivityBucket,
   type ActivityQuery,
 } from "./activity-range.js";
-import { USES_CTES } from "./ranking.js";
 import type { SkillIndex } from "./skill-index.js";
-import type { SkillStore } from "./store.js";
+import type { SkillStore } from "../storage/skills/store.js";
 
 /** The per-skill chart always shows this many days. */
 export const SKILL_DAILY_DAYS = 30;
@@ -73,26 +77,13 @@ export async function skillDaily(
   const window = activityWindow({ bucket: "day", days: SKILL_DAILY_DAYS }, now, null);
   const db = await store.existingDb();
   if (!db) return asDays(fillKeys(window.keys, []));
-  const rows = await db.all(
-    `WITH ${USES_CTES}
-     SELECT ${BUCKET_SQL.day} AS key, COUNT(*) AS uses, SUM(u.failed) AS failed
-     FROM uses u
-     WHERE u.name = ? AND ${skill.path ? "u.path = ?" : "u.path IS NULL"}
-     GROUP BY key`,
-    [entriesJson(index), window.start, skill.name, ...(skill.path ? [skill.path] : [])]
-  );
+  const rows = await dailyUseRows(db, entriesJson(index), window.start, skill);
   return asDays(fillKeys(window.keys, rows));
 }
 
 /** Every month with a use, newest first, and those years plus the year of `now`. */
-async function availablePeriods(db: TursoDb | null, json: string, now: number) {
-  const rows = db
-    ? await db.all(
-        `WITH ${USES_CTES}
-         SELECT DISTINCT ${BUCKET_SQL.month} AS month FROM uses u ORDER BY month DESC`,
-        [json, 0]
-      )
-    : [];
+async function availablePeriods(db: SkillsDb | null, json: string, now: number) {
+  const rows = db ? await usedMonthRows(db, json) : [];
   const months = rows.map((r) => String(r.month));
   const years = [...new Set([utcYear(now), ...months.map((m) => Number(m.slice(0, 4)))])];
   return { months, years: years.sort((a, b) => b - a) };
@@ -118,25 +109,8 @@ export async function skillActivity(
   const available = await availablePeriods(db, json, now);
   const oldest = available.months.at(-1);
   const window = activityWindow(query, now, oldest ? Number(oldest.slice(0, 4)) : null);
-  // The CTEs take the index and the window start; the end bounds the window.
-  const args = [json, window.start, window.end];
-  const keyRows = db
-    ? await db.all(
-        `WITH ${USES_CTES}
-         SELECT ${BUCKET_SQL[query.bucket]} AS key, COUNT(*) AS uses, SUM(u.failed) AS failed
-         FROM uses u WHERE u.created_at < ? GROUP BY key`,
-        args
-      )
-    : [];
-  const skillRows = db
-    ? await db.all(
-        `WITH ${USES_CTES}
-         SELECT u.name, u.path, COUNT(*) AS uses, SUM(u.failed) AS failed
-         FROM uses u WHERE u.created_at < ? GROUP BY u.name, u.path
-         ORDER BY uses DESC, u.name ASC, u.path ASC`,
-        args
-      )
-    : [];
+  const keyRows = db ? await bucketUseRows(db, query.bucket, json, window.start, window.end) : [];
+  const skillRows = db ? await skillUseRows(db, json, window.start, window.end) : [];
   const series = fillKeys(window.keys, keyRows);
   const skills = skillRows.map((r) => ({
     name: String(r.name),

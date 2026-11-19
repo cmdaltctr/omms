@@ -24,8 +24,8 @@ afterEach(async () => {
 async function setup() {
   const { CONFIG } = await import("../src/config.js");
   CONFIG.storagePath = baseDir;
-  const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
-  const { createProposal } = await import("../src/services/skill-learning/proposal-store.js");
+  const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
+  const { createProposal } = await import("../src/services/storage/skills/proposals.js");
   const { proposalLineCounts } =
     await import("../src/services/skill-learning/proposal-summaries.js");
   const { lineDiff } = await import("../src/services/skill-learning/line-diff.js");

@@ -21,7 +21,7 @@ const { tursoConnectionManager } = await import("../src/services/turso/connectio
 const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
 const { userPromptManager } = await import("../src/services/user-prompt/user-prompt-manager.js");
 const attempts = await import("../src/services/capture-attempt-store.js");
-const retries = await import("../src/services/capture-retry-queue.js");
+const retries = await import("../src/services/storage/capture-retry-queue.js");
 
 const DAY = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
@@ -144,7 +144,7 @@ describe("daily maintenance with deletion off", () => {
     const { db, prompts } = await seedStore();
     expect(await recordCounts(prompts)).toEqual({ attempts: 2, retries: 2 });
 
-    await new CleanupService().runDailyMaintenance(false);
+    await new CleanupService().runDailyMaintenance(false, CONFIG);
 
     expect(await memoryIds(db)).toEqual(ALL_MEMORIES);
     expect(await promptCount(prompts)).toBe(2);
@@ -159,7 +159,7 @@ describe("daily maintenance with deletion on", () => {
     const counted = await service.countCleanupCandidates(30);
     expect(counted).toBe(4);
 
-    await service.runDailyMaintenance(true);
+    await service.runDailyMaintenance(true, CONFIG);
 
     const left = await memoryIds(db);
     expect(ALL_MEMORIES.length - left.length).toBe(counted);
@@ -175,11 +175,11 @@ describe("the once-a-day guard", () => {
   it("does nothing on a second call the same day", async () => {
     const { db, prompts } = await seedStore();
     const service = new CleanupService();
-    await service.runDailyMaintenance(false);
+    await service.runDailyMaintenance(false, CONFIG);
     await seedRecords(Date.now());
     expect(await recordCounts(prompts)).toEqual({ attempts: 3, retries: 3 });
 
-    await service.runDailyMaintenance(true);
+    await service.runDailyMaintenance(true, CONFIG);
 
     expect(await memoryIds(db)).toEqual(ALL_MEMORIES);
     expect(await promptCount(prompts)).toBe(2);
@@ -193,13 +193,13 @@ describe("the web app daily timer", () => {
     // The config file still says "autoCleanupEnabled": true and has no autoDeleteOldMemories.
     expect(readFileSync(configFile, "utf8")).toBe(OLD_FILE);
 
-    const stop = startDailyMaintenanceTimer();
+    const stop = startDailyMaintenanceTimer(() => CONFIG);
     try {
       const deadline = Date.now() + 10_000;
       while ((await recordCounts(prompts)).attempts !== 1 && Date.now() < deadline) {
         await Bun.sleep(20);
       }
-      while (cleanupService.getStatus().isRunning && Date.now() < deadline) {
+      while (cleanupService.getStatus(CONFIG).isRunning && Date.now() < deadline) {
         await Bun.sleep(20);
       }
     } finally {
@@ -213,11 +213,55 @@ describe("the web app daily timer", () => {
   });
 });
 
+describe("the daily timer reads the config on each tick", () => {
+  it("passes the current deletion switch and CONFIG to every run", async () => {
+    const runs: Array<{ deleteOld: boolean; config: unknown }> = [];
+    const originalRun = cleanupService.runDailyMaintenance;
+    const originalSetInterval = globalThis.setInterval;
+    let tick: (() => void) | undefined;
+    cleanupService.runDailyMaintenance = async (deleteOld, config) => {
+      runs.push({ deleteOld, config });
+    };
+    globalThis.setInterval = ((fn: () => void) => {
+      tick = fn;
+      return originalSetInterval(() => {}, 1_000_000);
+    }) as typeof setInterval;
+    // A reload or space switch replaces the CONFIG object, so the getter returns a new one.
+    let current = { ...CONFIG, autoDeleteOldMemories: false };
+    let stop: (() => void) | undefined;
+    try {
+      stop = startDailyMaintenanceTimer(() => current);
+      const first = current;
+      current = { ...CONFIG, autoDeleteOldMemories: true };
+      tick?.();
+      expect(runs).toEqual([
+        { deleteOld: false, config: first },
+        { deleteOld: true, config: current },
+      ]);
+    } finally {
+      stop?.();
+      cleanupService.runDailyMaintenance = originalRun;
+      globalThis.setInterval = originalSetInterval;
+    }
+  });
+});
+
 describe("the manual Cleanup button", () => {
+  it("reads the retention days at each call", async () => {
+    const { db } = await seedStore();
+    const service = new CleanupService();
+
+    CONFIG.autoCleanupRetentionDays = 60;
+    expect((await service.runCleanup(CONFIG)).deletedCount).toBe(0);
+    CONFIG.autoCleanupRetentionDays = 30;
+    expect((await service.runCleanup(CONFIG)).deletedCount).toBe(4);
+    expect(await memoryIds(db)).toEqual(["fresh", "pinned-old"]);
+  });
+
   it("keeps deleting old unpinned memories and prompts whatever the switches say", async () => {
     const { db, prompts } = await seedStore();
 
-    const result = await new CleanupService().runCleanup();
+    const result = await new CleanupService().runCleanup(CONFIG);
 
     expect(result.deletedCount).toBe(4);
     expect(result.pinnedMemoriesSkipped).toBe(1);

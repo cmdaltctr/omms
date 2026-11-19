@@ -1,7 +1,6 @@
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { tursoShardManager } from "./turso/shard-manager.js";
-import { tursoVectorSearch } from "./turso/vector-search.js";
-import type { MemoryRecord } from "./turso/types.js";
+import { listEveryMemoryShard } from "./storage/memory/shards.js";
+import { getMemoryRow, replaceMemoryRowInShard } from "./storage/memory/rows.js";
+import type { MemoryRecord } from "./storage/memory/types.js";
 
 /**
  * Swaps the stored row that has `record.id` for `record`, in the shard that
@@ -10,20 +9,13 @@ import type { MemoryRecord } from "./turso/types.js";
  * first, so an embedding failure never reaches this point.
  */
 export async function replaceMemoryRow(record: MemoryRecord): Promise<boolean> {
-  const shards = [
-    ...(await tursoShardManager.getAllShards("user", "")),
-    ...(await tursoShardManager.getAllShards("project", "")),
-  ];
-  for (const shard of shards) {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    const existing = await tursoVectorSearch.getMemoryById(db, record.id);
+  // User shards first, then project shards: the first shard that holds the ID wins.
+  for (const shard of await listEveryMemoryShard("user")) {
+    const existing = await getMemoryRow(shard, record.id);
     if (!existing) continue;
     // The caller builds a fresh record, so the replaced row's pin is carried over here.
     const kept = { ...record, isPinned: Number(existing.is_pinned) === 1 };
-    await db.transaction("write", async (tx) => {
-      await tx.execute({ sql: `DELETE FROM memories WHERE id = ?`, args: [record.id] });
-      await tursoVectorSearch.insertVectorInTransaction(tx, kept);
-    });
+    await replaceMemoryRowInShard(shard, kept);
     return true;
   }
   return false;

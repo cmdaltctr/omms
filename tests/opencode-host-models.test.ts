@@ -13,7 +13,7 @@ const models = [{ provider: "zai", model: "glm/4.6", name: "GLM" }];
 function fakeHost(overrides: Partial<OpencodeHostModels> = {}) {
   const created: Array<{ ref: unknown; directory: string }> = [];
   const host: OpencodeHostModels = {
-    isProviderConnected: (providerID) => providerID === "zai",
+    confirmProviderConnected: async (providerID) => providerID === "zai",
     createImportModels: async (ref, directory) => {
       created.push({ ref, directory });
       throw new Error("registered factory reached");

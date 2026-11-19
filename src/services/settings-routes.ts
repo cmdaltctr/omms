@@ -90,14 +90,14 @@ async function saveKey(body: Record<string, unknown> | null, ctx: SettingsRouteC
     if (request.source === "paste" && ctx.networkWithoutAuth) return fail(403, PASTE_REFUSED);
     if (typeof body?.revision !== "string") return fail(400, "Revision required");
     const stored = await storeMemoryKeySource(request);
-    const { writeGlobalConfigKeys } = await import("./global-config-writer.js");
+    const { writeGlobalConfigKeys } = await import("../config-writer.js");
     const result = await writeGlobalConfigKeys({ [setting]: stored.reference }, body.revision);
     ctx.configModule.refreshConfigIfChanged(ctx.cwd);
     const { keyResolves, memoryKeyStatus } = await import("./settings-snapshot.js");
     const key =
       setting === "rerankerApiKey"
         ? memoryKeyStatus(stored.reference, keyResolves(stored.reference) ? "set" : undefined)
-        : memoryKeyStatus(stored.reference);
+        : memoryKeyStatus(stored.reference, ctx.configModule.CONFIG.memoryApiKey);
     return { status: 200, body: { ...result, key } };
   } catch (error) {
     const status =
@@ -128,7 +128,7 @@ async function testExternal(body: Record<string, unknown> | null, ctx: SettingsR
   }
   const { CONFIG } = ctx.configModule;
   const [{ MEMORY_PROVIDERS }, { resolveSecretValue }] = await Promise.all([
-    import("./global-config-writer.js"),
+    import("../config-writer.js"),
     import("./secret-resolver.js"),
   ]);
   const given: ExternalTestConfig = {

@@ -8,7 +8,7 @@ import {
   isTransportError,
   redactApiKey,
 } from "./base-provider.js";
-import type { AISessionManager } from "../session/ai-session-manager.js";
+import type { AISessionManager } from "../../storage/ai-sessions.js";
 import type { AIMessage, AIProviderType } from "../session/session-types.js";
 import type { ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";

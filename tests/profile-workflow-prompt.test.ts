@@ -2,6 +2,7 @@ import { expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { analyzeProfile } from "../src/core/profile-analysis.js";
 import { MIN_WORKFLOW_STEPS, WORKFLOW_PROMPT_RULES } from "../src/core/extraction.js";
+import { buildFullProfileInput } from "../src/core/profile-learning/model-input.js";
 
 it("tells the model what a workflow is and the minimum step count", async () => {
   let system = "";
@@ -23,10 +24,17 @@ it("tells the model what a workflow is and the minimum step count", async () => 
   expect(WORKFLOW_PROMPT_RULES.toLowerCase()).toContain("personality");
 });
 
-it("puts the same workflow rules in both OpenCode profile prompts", () => {
-  // The OpenCode prompts are built inside functions that need a live client, so this
-  // checks the source. Each prompt must interpolate the shared rules.
-  const source = readFileSync("src/adapters/opencode/profile-learning.ts", "utf8");
-  const uses = source.split("${WORKFLOW_PROMPT_RULES}").length - 1;
-  expect(uses).toBe(2);
+it("sends every host's pass through the one system prompt and the shared model input", () => {
+  // Since change unify-profile-learning, the shared pass builds its input in model-input.ts
+  // and calls analyzeProfile, whose system prompt holds the rules (test above). No profile
+  // learning module writes a second system prompt.
+  const pass = readFileSync("src/core/profile-learning/pass.ts", "utf8");
+  expect(pass).toContain("analyzeProfile(");
+  expect(pass).toContain("buildProfileLearningInput(");
+  for (const file of ["pass.ts", "model-input.ts", "validation.ts", "fallback.ts"]) {
+    const source = readFileSync(`src/core/profile-learning/${file}`, "utf8");
+    expect(source).not.toContain("user behavior analyst");
+  }
+  const input = buildFullProfileInput([{ content: "Release the package" }], null);
+  expect(input).toContain("Distinct, named step sequences");
 });

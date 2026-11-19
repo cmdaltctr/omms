@@ -8,7 +8,7 @@ const baseDir = mkdtempSync(join(tmpdir(), "chat-routes-"));
 const { CONFIG } = await import("../src/config.js");
 CONFIG.storagePath = baseDir;
 
-const { ChatStore } = await import("../src/services/chat/chat-store.js");
+const { ChatStore } = await import("../src/services/storage/chat-store.js");
 const store = new ChatStore(join(baseDir, "chats.db"));
 const asked: Array<{ id: string; question: string }> = [];
 // What the mocked ranking lists; null stands for a ranking that cannot be read.

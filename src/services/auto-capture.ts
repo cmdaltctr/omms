@@ -1,5 +1,4 @@
-import { CONFIG, refreshConfigIfChanged } from "../config.js";
-import type { CaptureResult, CaptureWorkUnit } from "../core/capture.js";
+import type { CaptureConfigModule, CaptureResult, CaptureWorkUnit } from "../core/capture.js";
 import { quickRetryDelayMs } from "../core/capture-retry-policy.js";
 import type { AutoCaptureHost, CaptureConversation } from "../core/host.js";
 import { handleFinishedTurn } from "../core/turn-outputs.js";
@@ -43,17 +42,20 @@ async function notifySafely(
 export async function performAutoCapture(
   host: AutoCaptureHost,
   sessionID: string,
-  directory: string
+  directory: string,
+  // The host's config module: a refresh replaces its CONFIG, so read it on each use.
+  config: CaptureConfigModule
 ): Promise<void> {
   if (isCaptureRunning) return;
   isCaptureRunning = true;
 
   try {
-    const prompts = await userPromptManager.getUncapturedPromptsForSession(sessionID);
+    const maxRetries = config.CONFIG.autoCaptureMaxRetries ?? 3;
+    const prompts = await userPromptManager.getUncapturedPromptsForSession(sessionID, maxRetries);
     if (prompts.length === 0) return;
-    const recorder = skillTurnRecorder(directory);
+    const recorder = skillTurnRecorder(directory, config);
     // Skill learning records turns even when memory capture is off (ADR-036).
-    if (CONFIG.autoCaptureEnabled === false || !host.isCaptureReady()) {
+    if (config.CONFIG.autoCaptureEnabled === false || !host.isCaptureReady()) {
       for (const prompt of prompts) {
         if (prompt.createdAt <= (skillRecordedUpTo.get(sessionID) ?? -Infinity)) continue;
         if (await recordSkillTurnOnly(host, sessionID, directory, prompt, recorder))
@@ -62,9 +64,8 @@ export async function performAutoCapture(
       return;
     }
 
-    const maxRetries = CONFIG.autoCaptureMaxRetries ?? 3;
     for (const prompt of prompts) {
-      await capturePrompt(host, sessionID, directory, prompt, maxRetries, recorder);
+      await capturePrompt(host, sessionID, directory, prompt, maxRetries, recorder, config);
     }
   } finally {
     isCaptureRunning = false;
@@ -138,7 +139,8 @@ async function capturePrompt(
   directory: string,
   prompt: UserPrompt,
   maxRetries: number,
-  recorder: SkillTurnRecorder | undefined
+  recorder: SkillTurnRecorder | undefined,
+  config: CaptureConfigModule
 ): Promise<void> {
   let claimedPromptId: string | null = null;
   let attempt = prompt.capture_attempts || 0;
@@ -160,7 +162,7 @@ async function capturePrompt(
         const captureResult = await handleFinishedTurn(
           workUnit,
           { memories: true, skills: record !== undefined },
-          { provider: host, recordSkillTurn: record }
+          { provider: host, recordSkillTurn: record, configModule: config }
         );
 
         if (captureResult.status === "skipped") {
@@ -169,7 +171,8 @@ async function capturePrompt(
             sessionID,
             type: captureResult.type,
           });
-          await userPromptManager.deletePrompt(prompt.id);
+          // Kept for profile learning, as on Pi. Captured, so capture never takes it again.
+          await userPromptManager.markAsCaptured(prompt.id);
           claimedPromptId = null;
           return;
         }
@@ -186,7 +189,7 @@ async function capturePrompt(
         // The capture model answers again, so earlier failed turns may go through now.
         startCaptureRetryDrain("opencode");
 
-        if (CONFIG.showAutoCaptureToasts) {
+        if (config.CONFIG.showAutoCaptureToasts) {
           await notifySafely(host, {
             title: "Memory Captured",
             message: "Project memory saved from conversation",
@@ -211,9 +214,9 @@ async function capturePrompt(
     const errMsg = error instanceof Error ? error.message : String(error);
     log(`Auto-capture final error after ${attempt} attempts`, { error: errMsg }, "error");
     // Only after the quick retries fail; the queue decides whether a retry can help.
-    if (workUnit) await queueFailedCapture(workUnit, error, CONFIG);
+    if (workUnit) await queueFailedCapture(workUnit, error, config.CONFIG);
 
-    if (CONFIG.showErrorToasts) {
+    if (config.CONFIG.showErrorToasts) {
       const shortReason = errMsg.length > 100 ? errMsg.substring(0, 100) + "..." : errMsg;
       await notifySafely(host, {
         title: "Auto Capture Failed",
@@ -245,25 +248,26 @@ export async function settleOpencodeRetriedPrompt(
   result: CaptureResult
 ): Promise<void> {
   if (!unit.promptId) return;
-  if (result.status === "skipped") {
-    await userPromptManager.deletePrompt(unit.promptId);
-    return;
+  // A skipped turn keeps its prompt for profile learning, as a live skip does.
+  if (result.status === "captured") {
+    await userPromptManager.linkMemoryToPrompt(unit.promptId, result.memoryId);
   }
-  await userPromptManager.linkMemoryToPrompt(unit.promptId, result.memoryId);
   await userPromptManager.markAsCaptured(unit.promptId);
 }
 
 /** Retry OpenCode's queued turns with its current capture model choice. */
 export function drainOpencodeCaptureRetries(
   host: AutoCaptureHost,
-  directory: string
+  directory: string,
+  config: CaptureConfigModule
 ): Promise<CaptureRetryDrainResult> {
   // A retention change in the config file applies from this pass on.
-  refreshConfigIfChanged(directory);
+  config.refreshConfigIfChanged(directory);
   return drainCaptureRetries({
     host: "opencode",
     provider: host,
-    config: CONFIG,
+    config: config.CONFIG,
+    configModule: config,
     isReady: () => host.isCaptureReady(),
     onSettled: settleOpencodeRetriedPrompt,
   });

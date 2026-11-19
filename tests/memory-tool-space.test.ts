@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import * as configModule from "../src/config.js";
 import { CONFIG, getActiveSpace, initConfig } from "../src/config.js";
 import { executeMemoryOperation } from "../src/core/memory-operations.js";
 import type { MemoryOperationArgs } from "../src/core/memory-operations.js";
@@ -13,10 +14,13 @@ let project: string;
 let sourceId: string;
 let targetId: string;
 const space = (spaceAction?: string, spaceName?: string) =>
-  executeMemoryOperation({ mode: "space", spaceAction, spaceName }, { directory: project });
+  executeMemoryOperation(
+    { mode: "space", spaceAction, spaceName },
+    { config: configModule, directory: project }
+  );
 /** A `space` mode call with the transfer arguments of design D8. */
 const spaceCall = (args: Partial<MemoryOperationArgs>) =>
-  executeMemoryOperation({ mode: "space", ...args }, { directory: project });
+  executeMemoryOperation({ mode: "space", ...args }, { config: configModule, directory: project });
 
 beforeAll(() => {
   project = mkdtempSync(join(tmpdir(), "omms-tool-space-"));
@@ -73,7 +77,10 @@ describe("memory tool space mode", () => {
   });
 
   it("lists the space mode in the help guide", async () => {
-    const help = (await executeMemoryOperation({ mode: "help" }, { directory: project })) as {
+    const help = (await executeMemoryOperation(
+      { mode: "help" },
+      { config: configModule, directory: project }
+    )) as {
       commands: { command: string }[];
     };
     expect(help.commands.map((c) => c.command)).toContain("space");
@@ -82,7 +89,7 @@ describe("memory tool space mode", () => {
 
 /** Writes one project memory straight into a space folder, so no embedder runs. */
 async function seedMemory(folder: string, id: string, text: string, createdAt: number) {
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
   const store = openSpaceStore(folder, "write");
   try {

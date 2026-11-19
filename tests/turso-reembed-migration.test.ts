@@ -79,7 +79,8 @@ describe("turso re-embed migration safety", () => {
     const { CONFIG } = await import("../src/config.js");
     CONFIG.embeddingDimensions = 4;
 
-    const { migrationService } = await import("../src/services/migration-service.js");
+    const { migrationService } =
+      await import("../src/services/storage/maintenance/migration-service.js");
     const result = await migrationService.migrateToNewModel("re-embed");
 
     expect(result.success).toBe(true);
@@ -110,7 +111,8 @@ describe("turso re-embed migration safety", () => {
     const { CONFIG } = await import("../src/config.js");
     const previousModel = CONFIG.embeddingModel;
     try {
-      const { migrationService } = await import("../src/services/migration-service.js");
+      const { migrationService } =
+        await import("../src/services/storage/maintenance/migration-service.js");
       expect((await migrationService.detectDimensionMismatch()).needsMigration).toBe(false);
       CONFIG.embeddingModel = "another-model-same-size";
       const changed = await migrationService.detectDimensionMismatch();
@@ -135,7 +137,8 @@ describe("turso re-embed migration safety", () => {
     const { CONFIG } = await import("../src/config.js");
     CONFIG.embeddingDimensions = 4;
 
-    const { migrationService } = await import("../src/services/migration-service.js");
+    const { migrationService } =
+      await import("../src/services/storage/maintenance/migration-service.js");
     const result = await migrationService.migrateToNewModel("re-embed");
 
     expect(result.success).toBe(false);
@@ -159,7 +162,8 @@ describe("turso re-embed migration safety", () => {
     const { CONFIG } = await import("../src/config.js");
     CONFIG.embeddingDimensions = 4;
 
-    const { migrationService } = await import("../src/services/migration-service.js");
+    const { migrationService } =
+      await import("../src/services/storage/maintenance/migration-service.js");
     const result = await migrationService.migrateToNewModel("fresh-start");
 
     expect(result.success).toBe(true);

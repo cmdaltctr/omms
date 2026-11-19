@@ -5,6 +5,7 @@ import {
   chatStore,
   existingMemoryIds,
   listedSkillNames,
+  type ChatAnswerConfig,
   type ChatRuntimeConfig,
 } from "./chat-runtime.js";
 import { askQuestion } from "./chat-service.js";
@@ -68,7 +69,7 @@ export async function routeChat(
   path: string,
   method: string,
   readBody: () => Promise<Body>,
-  config: ChatRuntimeConfig
+  config: ChatAnswerConfig
 ): Promise<RouteResult | undefined> {
   if (!path.startsWith("/api/chat/")) return undefined;
   try {
@@ -86,7 +87,7 @@ async function dispatch(
   path: string,
   method: string,
   readBody: () => Promise<Body>,
-  config: ChatRuntimeConfig
+  config: ChatAnswerConfig
 ): Promise<RouteResult | undefined> {
   if (path === "/api/chat/status" && method === "GET") return ok(chatStatus(config));
 

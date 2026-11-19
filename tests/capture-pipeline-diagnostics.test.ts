@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 const logged: Array<{ message: string; data: unknown }> = [];
 const config = { captureTrace: false } as Record<string, unknown>;
+const budgetArgs: Array<number | undefined> = [];
 let addMemoryResult: { success: boolean; id?: string; error?: string } = {
   success: true,
   id: "m1",
@@ -25,10 +26,15 @@ mock.module("../src/services/client.js", () => ({
 }));
 mock.module("../src/core/capture-context.js", () => ({
   buildMarkdownContext: () => "context",
-  getAutoCaptureMarkdownBudget: () => 1000,
+  getAutoCaptureMarkdownBudget: (configuredBytes: number | undefined) => {
+    budgetArgs.push(configuredBytes);
+    return 1000;
+  },
 }));
 
 const { captureConversation } = await import("../src/core/capture.js");
+const { handleFinishedTurn } = await import("../src/core/turn-outputs.js");
+const liveConfig = await import("../src/config.js");
 const { getTraceDirectory, resetTraceStateForTests } =
   await import("../src/services/capture-diagnostics.js");
 
@@ -51,6 +57,8 @@ let previousLogFile: string | undefined;
 
 beforeEach(() => {
   logged.length = 0;
+  budgetArgs.length = 0;
+  delete config.autoCaptureMaxContextBytes;
   config.captureTrace = false;
   addMemoryResult = { success: true, id: "m1" };
   resetTraceStateForTests();
@@ -66,13 +74,26 @@ afterEach(() => {
 });
 
 describe("capture pipeline diagnostics", () => {
+  it("passes the current autoCaptureMaxContextBytes to the budget on every attempt", async () => {
+    const summarize = async () => ({ summary: "", type: "skip", tags: [] });
+    config.autoCaptureMaxContextBytes = 65536;
+    await captureConversation(workUnit, { summarize }, liveConfig);
+    config.autoCaptureMaxContextBytes = 32768;
+    await captureConversation(workUnit, { summarize }, liveConfig);
+    expect(budgetArgs).toEqual([65536, 32768]);
+  });
+
   it("emits one saved record", async () => {
-    const result = await captureConversation(workUnit, {
-      summarize: async (request) => {
-        Object.assign(request.diagnostics ?? {}, { provider: "zai", model: "glm-5.3" });
-        return { summary: "Fixed it", type: "bug-fix", tags: [] };
+    const result = await captureConversation(
+      workUnit,
+      {
+        summarize: async (request) => {
+          Object.assign(request.diagnostics ?? {}, { provider: "zai", model: "glm-5.3" });
+          return { summary: "Fixed it", type: "bug-fix", tags: [] };
+        },
       },
-    });
+      liveConfig
+    );
     expect(result.status).toBe("captured");
     expect(attempts()).toEqual([
       expect.objectContaining({ outcome: "saved", provider: "zai", reason: null, host: "pi" }),
@@ -80,20 +101,28 @@ describe("capture pipeline diagnostics", () => {
   });
 
   it("emits one skipped record", async () => {
-    await captureConversation(workUnit, {
-      summarize: async () => ({ summary: "", type: "skip", tags: [] }),
-    });
+    await captureConversation(
+      workUnit,
+      {
+        summarize: async () => ({ summary: "", type: "skip", tags: [] }),
+      },
+      liveConfig
+    );
     expect(attempts()).toEqual([expect.objectContaining({ outcome: "skipped", reason: null })]);
   });
 
   it("emits one failed record with the provider's reason", async () => {
     await expect(
-      captureConversation(workUnit, {
-        summarize: async (request) => {
-          if (request.diagnostics) request.diagnostics.failureReason = "empty-text";
-          throw new Error("omms: Pi extraction returned an invalid summary payload");
+      captureConversation(
+        workUnit,
+        {
+          summarize: async (request) => {
+            if (request.diagnostics) request.diagnostics.failureReason = "empty-text";
+            throw new Error("omms: Pi extraction returned an invalid summary payload");
+          },
         },
-      })
+        liveConfig
+      )
     ).rejects.toThrow("Summary generation failed");
     expect(attempts()).toEqual([
       expect.objectContaining({ outcome: "failed", reason: "empty-text" }),
@@ -102,11 +131,15 @@ describe("capture pipeline diagnostics", () => {
 
   it("reports a thrown call without a reason as call-error", async () => {
     await expect(
-      captureConversation(workUnit, {
-        summarize: async () => {
-          throw new Error("network down");
+      captureConversation(
+        workUnit,
+        {
+          summarize: async () => {
+            throw new Error("network down");
+          },
         },
-      })
+        liveConfig
+      )
     ).rejects.toThrow();
     expect(attempts()).toEqual([expect.objectContaining({ reason: "call-error" })]);
   });
@@ -114,9 +147,13 @@ describe("capture pipeline diagnostics", () => {
   it("reports a storage failure as persist-error", async () => {
     addMemoryResult = { success: false, error: "disk full" };
     await expect(
-      captureConversation(workUnit, {
-        summarize: async () => ({ summary: "Fixed it", type: "bug-fix", tags: [] }),
-      })
+      captureConversation(
+        workUnit,
+        {
+          summarize: async () => ({ summary: "Fixed it", type: "bug-fix", tags: [] }),
+        },
+        liveConfig
+      )
     ).rejects.toThrow("Memory persistence failed");
     expect(attempts()).toEqual([expect.objectContaining({ reason: "persist-error" })]);
   });
@@ -131,23 +168,73 @@ describe("capture pipeline diagnostics", () => {
       },
     };
     // The live-capture and import retry loops call captureConversation once per attempt.
-    await expect(captureConversation(workUnit, provider)).rejects.toThrow();
-    await captureConversation(workUnit, provider);
+    await expect(captureConversation(workUnit, provider, liveConfig)).rejects.toThrow();
+    await captureConversation(workUnit, provider, liveConfig);
     expect(attempts()).toEqual([
       expect.objectContaining({ outcome: "failed", reason: "call-error" }),
       expect.objectContaining({ outcome: "saved", reason: null }),
     ]);
   });
 
+  it("refreshes the caller's config module and reads its CONFIG after the refresh", async () => {
+    // The refresh replaces the module's CONFIG object, as a reload or space switch does.
+    const configModule = {
+      CONFIG: { autoCaptureMaxContextBytes: 1, captureTrace: false } as Record<string, unknown>,
+      refreshed: [] as string[],
+      refreshConfigIfChanged(directory: string) {
+        configModule.refreshed.push(directory);
+        configModule.CONFIG = { autoCaptureMaxContextBytes: 4096, captureTrace: true };
+      },
+    };
+    const provider = {
+      summarize: async () => ({ summary: "Fixed it", type: "bug-fix", tags: [] }),
+    };
+    await captureConversation(
+      workUnit,
+      provider,
+      configModule as unknown as Parameters<typeof captureConversation>[2]
+    );
+    expect(configModule.refreshed).toEqual(["/tmp/project"]);
+    expect(budgetArgs).toEqual([4096]);
+    expect(existsSync(getTraceDirectory())).toBe(true);
+  });
+
+  it("passes the caller's config module from handleFinishedTurn to the capture", async () => {
+    const configModule = {
+      CONFIG: { autoCaptureMaxContextBytes: 2048 },
+      refreshConfigIfChanged: () => {},
+    };
+    await handleFinishedTurn(
+      workUnit,
+      { memories: true, skills: false },
+      {
+        provider: { summarize: async () => ({ summary: "", type: "skip", tags: [] }) },
+        configModule: configModule as unknown as Parameters<typeof captureConversation>[2],
+      }
+    );
+    expect(budgetArgs).toEqual([2048]);
+  });
+
+  it("refuses a memory capture from handleFinishedTurn without a config module", async () => {
+    await expect(
+      handleFinishedTurn(
+        workUnit,
+        { memories: true, skills: false },
+        { provider: { summarize: async () => ({ summary: "", type: "skip", tags: [] }) } }
+      )
+    ).rejects.toThrow("needs a config module");
+    expect(attempts()).toEqual([]);
+  });
+
   it("writes a trace only when tracing is on", async () => {
     const provider = {
       summarize: async () => ({ summary: "Fixed it", type: "bug-fix", tags: [] }),
     };
-    await captureConversation(workUnit, provider);
+    await captureConversation(workUnit, provider, liveConfig);
     expect(existsSync(getTraceDirectory())).toBe(false);
 
     config.captureTrace = true;
-    await captureConversation(workUnit, provider);
+    await captureConversation(workUnit, provider, liveConfig);
     expect(existsSync(getTraceDirectory())).toBe(true);
   });
 });

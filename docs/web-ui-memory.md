@@ -308,6 +308,42 @@ Only one import runs per host across automatic, web, terminal and in-session sur
 
 ## Profile learning
 
+On **Shared**, the **Profile learning** row opens with the **Learning settings** table. The table is above the catch-up controls. It shows how learning behaves. One learning pass runs the same steps on OpenCode, Pi and Claude Code, so the settings apply to every host. The settings are global only. A project config cannot change them.
+
+The summary line of the row reads **Default settings** or **Custom settings**. It reads **Custom settings** when at least one of the six keys is in the global file.
+
+### Learning settings
+
+Each row shows a plain name, a one-line description, the default, and the config key as small text. On a narrow screen, each row stacks its name above its control. In Arabic the table reads right to left. The config keys stay left to right.
+
+| Row                       | Config key                     | Options (first is the default)                                                    |
+| ------------------------- | ------------------------------ | --------------------------------------------------------------------------------- |
+| **No user email**         | `userProfileWithoutEmail`      | **Learn anyway** (`learn`), **Skip** (`skip`)                                     |
+| **Fade old items**        | `userProfileDecayBeforeMerge`  | **Off** (`false`), **On** (`true`)                                                |
+| **Model input**           | `userProfilePromptDetail`      | **Prompts with profile and guidance** (`full`), **Prompts only** (`prompts-only`) |
+| **Check older items**     | `userProfileValidationEnabled` | **Off** (`false`), **On** (`true`)                                                |
+| **Notice when done**      | `showUserProfileToasts`        | **On** (`true`), **Off** (`false`)                                                |
+| **During a catch-up run** | `userProfileDuringCatchUp`     | **Keep learning** (`learn`), **Pause** (`pause`)                                  |
+
+Four more rows show a fixed value as text. They have no dropdown and no config key:
+
+| Row                           | Fixed value                            |
+| ----------------------------- | -------------------------------------- |
+| **History entry**             | `<Host> analysis of N prompts`         |
+| **When the host model fails** | Use the external API and show a notice |
+| **Reply check**               | On                                     |
+| **Save clash**                | 3 tries, then wait 10 minutes          |
+
+To change a setting:
+
+1. Choose a value in one or more dropdowns. Nothing saves yet.
+2. Select **Save**. The page writes only the keys that changed to the global config file. The next learning pass uses them.
+3. Select **Cancel** to show the saved values again.
+
+**Save** is off while nothing changed, and while the settings view is read-only because the config file has an error. If another process changed the file before the save, OMMS writes nothing. The section reloads the values and asks you to save again. Your choices stay in the dropdowns.
+
+**Reset to default** removes the six keys from the global file after you confirm. Every row then shows its default. **Reset to default** is off while none of the six keys is in the file, and while the settings view is read-only. Save and Reset use the [safe global save](web-ui-settings.md#how-saving-works) of the other settings. They keep comments and other keys in your config file, and they never write a project config. See [Configuration](configuration.md) for the keys and [Using memory](using-memory.md) for what each behaviour does.
+
 ### Analyse waiting prompts
 
 This action reads prompts already waiting inside OMMS. Completed history stays handled. The card shows waiting prompts and estimated profile analysis calls, excluding trivial prompts. The saved external API analyses eligible prompts oldest first, in batches of 50.
@@ -318,7 +354,7 @@ This action reads prompts already waiting inside OMMS. Completed history stays h
 
 **Pause** stops after the current batch. **Resume** continues. A failed batch stops with its reason code, such as `timeout` or `http-429`. Finished batches stay learned; another run continues from waiting prompts.
 
-One catch-up run works across processes and cannot overlap a live pass. A second start in the same web app gets `409`. A new terminal run takes over from a page run after its current batch; the page shows **A newer catch-up run took over.** A stale run record expires after ten minutes. An explicit catch-up ignores the live-pass failure wait. Claude Code's live profile pass pauses during catch-up.
+One catch-up run works across processes. A claim on each batch stops a live pass and a catch-up run from taking the same prompt. A second start in the same web app gets `409`. A new terminal run takes over from a page run after its current batch; the page shows **A newer catch-up run took over.** A stale run record expires after ten minutes. An explicit catch-up ignores the live-pass failure wait. A live pass keeps learning beside a catch-up run, or pauses, as **During a catch-up run** says.
 
 Open the page on the computer running OMMS to start, pause or resume catch-up. The endpoints are `GET /api/settings/profile/catch-up` and `POST /api/settings/profile/catch-up/start`, `/pause`, `/resume`. POST requires a local caller and the token file `~/.omms/.auth-token`; other callers get `403`. For another model, use [CLI: Profile catch-up](cli.md#profile-catch-up).
 

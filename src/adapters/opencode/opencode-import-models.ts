@@ -40,7 +40,8 @@ export async function createOpencodeImportModels(
         userPrompt: buildBoundedSummaryPrompt(
           request.context,
           systemPrompt,
-          z.toJSONSchema(captureSchema)
+          z.toJSONSchema(captureSchema),
+          CONFIG.autoCaptureMaxContextBytes
         ),
         schema: captureSchema,
       });

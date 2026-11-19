@@ -54,7 +54,7 @@ describe("chat skill facts runtime", () => {
 
   it("fails with newer_schema for a newer skills.db and leaves its bytes alone", async () => {
     const { SkillStore, skillsDbPath, SKILL_SCHEMA_VERSION } =
-      await import("../src/services/skill-learning/store.js");
+      await import("../src/services/storage/skills/store.js");
     const path = skillsDbPath(baseDir);
     const store = new SkillStore(path);
     await store.init();
@@ -74,8 +74,8 @@ describe("chat skill facts runtime", () => {
   });
 
   it("leaves skills.db byte for byte unchanged after reading ranking and history", async () => {
-    const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
-    const { createProposal } = await import("../src/services/skill-learning/proposal-store.js");
+    const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
+    const { createProposal } = await import("../src/services/storage/skills/proposals.js");
     const path = skillsDbPath(baseDir);
     const store = new SkillStore(path);
     await store.init();

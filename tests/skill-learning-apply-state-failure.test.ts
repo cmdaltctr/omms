@@ -15,8 +15,8 @@ let skillsDir: string;
 async function setup() {
   const { CONFIG } = await import("../src/config.js");
   CONFIG.storagePath = baseDir;
-  const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
-  const proposals = await import("../src/services/skill-learning/proposal-store.js");
+  const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
+  const proposals = await import("../src/services/storage/skills/proposals.js");
   const apply = await import("../src/services/skill-learning/apply.js");
   const { buildSkillIndex } = await import("../src/services/skill-learning/skill-index.js");
   const { rankSkills } = await import("../src/services/skill-learning/ranking.js");

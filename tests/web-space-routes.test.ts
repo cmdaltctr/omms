@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import * as configModule from "../src/config.js";
 import { CONFIG, initConfig } from "../src/config.js";
 import { routeSpaces, type SpaceRouteOptions } from "../src/services/space-routes.js";
 
@@ -28,13 +29,13 @@ let iconSpaceId: string;
 
 type Result = { status: number; body: any } | undefined;
 const call = async (method: string, path: string, body: Record<string, unknown> = {}) =>
-  (await routeSpaces(path, method, async () => body, project)) as Result;
+  (await routeSpaces(path, method, async () => body, project, configModule)) as Result;
 const callFrom = async (
   method: string,
   path: string,
   options: SpaceRouteOptions,
   body: Record<string, unknown> = {}
-) => (await routeSpaces(path, method, async () => body, project, options)) as Result;
+) => (await routeSpaces(path, method, async () => body, project, configModule, options)) as Result;
 const data = (result: Result) => result!.body.data;
 
 beforeAll(() => {
@@ -69,6 +70,20 @@ describe("space routes", () => {
     });
     expect(listed.spaces[0].disabled.rename).toBeUndefined();
     expect(typeof listed.spaces[0].sizeBytes).toBe("number");
+  });
+
+  it("reads the Default folder from the config module it is given, on every call", async () => {
+    const withFolder = (skillStoragePath: string) =>
+      ({
+        ...configModule,
+        CONFIG: { ...CONFIG, skillStoragePath },
+      }) as typeof configModule;
+    const defaultFolder = async (module: typeof configModule) =>
+      data(await routeSpaces("/api/spaces", "GET", async () => ({}), project, module)).spaces.find(
+        (space: { id: string }) => space.id === "default"
+      ).folder;
+    expect(await defaultFolder(withFolder("/first/folder"))).toBe("/first/folder");
+    expect(await defaultFolder(withFolder("/second/folder"))).toBe("/second/folder");
   });
 
   it("creates a space and refuses a duplicate name", async () => {

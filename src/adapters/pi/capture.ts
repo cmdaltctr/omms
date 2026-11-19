@@ -1,4 +1,4 @@
-import { CONFIG } from "../../config.js";
+import * as configModule from "../../config.js";
 import type { CaptureWorkUnit } from "../../core/capture.js";
 import { quickRetryDelayMs } from "../../core/capture-retry-policy.js";
 import type { CaptureSummaryProvider } from "../../core/host.js";
@@ -55,14 +55,14 @@ async function captureWithQuickRetries(
   provider: CaptureSummaryProvider,
   recorder: SkillTurnRecorder | undefined
 ) {
-  const maxRetries = Math.max(1, CONFIG.autoCaptureMaxRetries ?? 3);
+  const maxRetries = Math.max(1, configModule.CONFIG.autoCaptureMaxRetries ?? 3);
   for (let attempt = 1; ; attempt++) {
     try {
       // A repeated attempt records the same turn key, which the store drops.
       return await handleFinishedTurn(
         unit,
         { memories: true, skills: recorder !== undefined },
-        { provider, recordSkillTurn: recorder }
+        { provider, recordSkillTurn: recorder, configModule }
       );
     } catch (error) {
       if (attempt >= maxRetries) throw error;
@@ -103,7 +103,7 @@ async function recordSkillTurnOnly(
   input: PiSettledCaptureInput,
   window: PiConversationWindow | null = extractPiConversation(input.entries)
 ): Promise<void> {
-  const recorder = skillTurnRecorder(input.directory);
+  const recorder = skillTurnRecorder(input.directory, configModule);
   if (!recorder || !window) return;
   await handleFinishedTurn(
     piWorkUnit(input, window),
@@ -121,7 +121,7 @@ async function recordSkillTurnOnly(
 export async function capturePiSettledWorkUnit(
   input: PiSettledCaptureInput
 ): Promise<PiSettledCaptureResult> {
-  if (!CONFIG.autoCaptureEnabled) {
+  if (!configModule.CONFIG.autoCaptureEnabled) {
     // Skill learning records turns even when memory capture is off (ADR-036).
     await recordSkillTurnOnly(input);
     return { status: "skipped", reason: "disabled" };
@@ -148,7 +148,7 @@ export async function capturePiSettledWorkUnit(
     const captureResult = await captureWithQuickRetries(
       workUnit,
       input.provider,
-      skillTurnRecorder(input.directory)
+      skillTurnRecorder(input.directory, configModule)
     );
 
     input.state.handledUserEntries.add(window.userEntryId);
@@ -171,7 +171,7 @@ export async function capturePiSettledWorkUnit(
     // The capture model answers again, so earlier failed turns may go through now.
     startCaptureRetryDrain("pi");
 
-    if (CONFIG.showAutoCaptureToasts && input.notify) {
+    if (configModule.CONFIG.showAutoCaptureToasts && input.notify) {
       await Promise.resolve(
         input.notify({
           title: "Memory Captured",
@@ -186,9 +186,9 @@ export async function capturePiSettledWorkUnit(
     const message = error instanceof Error ? error.message : String(error);
     log(`Pi auto-capture error: ${message}`, { sessionID: input.sessionId }, "error");
     // The next prompt moves capture on to a newer turn, so keep this one for a later retry.
-    if (workUnit) await queueFailedCapture(workUnit, error, CONFIG);
+    if (workUnit) await queueFailedCapture(workUnit, error, configModule.CONFIG);
 
-    if (CONFIG.showErrorToasts && input.notify) {
+    if (configModule.CONFIG.showErrorToasts && input.notify) {
       const shortReason = message.length > 100 ? message.substring(0, 100) + "..." : message;
       await Promise.resolve(
         input.notify({

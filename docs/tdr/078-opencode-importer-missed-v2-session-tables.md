@@ -88,5 +88,5 @@ Bug score for the ledger match: likelihood 7 (every rerun or backfill over this 
 
 - [ADR-048](../adr/048-omms-supports-opencode-v2-only.md)
 - [OpenCode history import](../opencode-history-import.md)
-- `src/importer/opencode-reader.ts`, `src/importer/opencode-v2-units.ts`, `src/importer/handled-lookup.ts`, `src/importer/ledger.ts`
+- `src/importer/opencode-reader.ts`, `src/importer/opencode-v2-units.ts`, `src/importer/handled-lookup.ts`, `src/services/storage/import-ledger.ts`
 - [`drop-opencode-v1`](../../openspec/changes/drop-opencode-v1/design.md)

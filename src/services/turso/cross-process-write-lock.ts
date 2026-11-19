@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, linkSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CONFIG } from "../../config.js";
+import { getStoragePath } from "../storage/active-space-access.js";
 
 /**
  * Cross-process advisory write lock, one per (scope, scopeHash).
@@ -85,7 +85,7 @@ export async function withCrossProcessWriteLock<T>(
   scope: "user" | "project",
   hash: string,
   fn: () => Promise<T>,
-  root: string = CONFIG.storagePath
+  root: string = getStoragePath()
 ): Promise<T> {
   const dir = join(root, WRITE_LOCK_DIR);
   if (!existsSync(dir)) {

@@ -1,6 +1,6 @@
 import { OpenAIChatCompletionProvider } from "./openai-chat-completion.js";
 import type { ProviderConfig } from "./base-provider.js";
-import type { AISessionManager } from "../session/ai-session-manager.js";
+import type { AISessionManager } from "../../storage/ai-sessions.js";
 import type { AIProviderType } from "../session/session-types.js";
 
 /** OrcaRouter OpenAI-compatible endpoint used when `memoryApiUrl` is omitted. */

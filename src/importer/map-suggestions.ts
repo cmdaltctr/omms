@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, parse, resolve, sep } from "node:path";
-import type { UnresolvedDirectory } from "../services/backfill-state.js";
+import type { UnresolvedDirectory } from "../services/storage/backfill-state.js";
 import { HOSTS, type MemoryHost } from "../shared/hosts.js";
 
 const PROJECT_MARKERS = [".git", "package.json", "pyproject.toml", "Cargo.toml", "go.mod"];
@@ -405,7 +405,8 @@ export async function readStoreProjects(currentDirectory: string): Promise<Known
   try {
     const { CONFIG } = await import("../config.js");
     if (!existsSync(join(CONFIG.storagePath, "metadata.db"))) return [];
-    const { shardInventoryService } = await import("../services/shard-inventory-service.js");
+    const { shardInventoryService } =
+      await import("../services/storage/maintenance/shard-inventory-service.js");
     const inventory = await shardInventoryService.listShards(currentDirectory);
     return inventory.shards.flatMap((group) => {
       const candidates = group.projectPathCandidates.map((candidate) => resolve(candidate.path));
@@ -426,7 +427,7 @@ export async function directoryMapsView(
   options: { opencodeDbPath?: string; knownProjects?: readonly KnownProject[] } = {}
 ) {
   const { CONFIG } = await import("../config.js");
-  const { readUnresolvedDirectories } = await import("../services/backfill-state.js");
+  const { readUnresolvedDirectories } = await import("../services/storage/backfill-state.js");
   const { DEFAULT_OPENCODE_DB } = await import("./opencode-reader.js");
   const { resolveClaudeFolder } = await import("../services/claude-folder.js");
   const claudeFolder = resolveClaudeFolder(CONFIG.claudeConfigDir).folder;

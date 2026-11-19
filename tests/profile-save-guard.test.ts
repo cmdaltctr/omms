@@ -100,7 +100,10 @@ describe("profile save guard", () => {
     ];
     const save = spyOn(userProfileManager, "updateProfile").mockResolvedValue(false);
     try {
-      const result = await handleRefreshProfile("test@example.invalid");
+      const result = await handleRefreshProfile(
+        await import("../src/config.js"),
+        "test@example.invalid"
+      );
       expect(result.success).toBe(true);
       expect(result.data.decayApplied).toBe(false);
       expect(save.mock.calls[0]![4]).toBe(40);
@@ -117,7 +120,7 @@ describe("profile save guard", () => {
     const reader = spyOn(userProfileManager, "getActiveProfile").mockResolvedValue(read as any);
     const save = spyOn(userProfileManager, "updateProfile").mockResolvedValue(false);
     try {
-      const result = await handleUpdateProfileItem({
+      const result = await handleUpdateProfileItem(await import("../src/config.js"), {
         type: "preferences",
         index: 0,
         action: "delete",
@@ -127,6 +130,42 @@ describe("profile save guard", () => {
       expect(save.mock.calls[0]![4]).toBe(40);
     } finally {
       reader.mockRestore();
+      save.mockRestore();
+    }
+  });
+
+  it("refuses an edit made from an older version than the one stored", async () => {
+    const { userProfileManager } =
+      await import("../src/services/user-profile/user-profile-manager.js");
+    const { handleUpdateProfileItem } = await import("../src/services/api-handlers.js");
+    // The page showed version 40; a learning pass saved 41 and moved the items since.
+    const read = { id: "profile-1", version: 41, profileData: JSON.stringify(profile("B", "A")) };
+    const reader = spyOn(userProfileManager, "getActiveProfile").mockResolvedValue(read as any);
+    // CI runners have no git email, so the user id lookup would read the store.
+    const owners = spyOn(userProfileManager, "getAllActiveProfiles").mockResolvedValue([]);
+    const save = spyOn(userProfileManager, "updateProfile").mockResolvedValue(true);
+    try {
+      const stale = await handleUpdateProfileItem(await import("../src/config.js"), {
+        type: "preferences",
+        index: 0,
+        action: "delete",
+        version: 40,
+      });
+      expect(stale.success).toBe(false);
+      expect(stale.error).toContain("modified by another session");
+      expect(save).not.toHaveBeenCalled();
+
+      const current = await handleUpdateProfileItem(await import("../src/config.js"), {
+        type: "preferences",
+        index: 0,
+        action: "delete",
+        version: 41,
+      });
+      expect(current.success).toBe(true);
+      expect(save).toHaveBeenCalledTimes(1);
+    } finally {
+      reader.mockRestore();
+      owners.mockRestore();
       save.mockRestore();
     }
   });

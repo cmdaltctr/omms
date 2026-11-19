@@ -99,12 +99,12 @@ describe("the cleanup count and the deletion agree", () => {
 
     // Run deletion until it removes nothing more, each run as a new process would.
     const afterFirst = await (async () => {
-      await new CleanupService().runDailyMaintenance(true);
+      await new CleanupService().runDailyMaintenance(true, CONFIG);
       return memoryIds(dbs);
     })();
     let left = afterFirst;
     for (let run = 0; run < 3; run++) {
-      await new CleanupService().runDailyMaintenance(true);
+      await new CleanupService().runDailyMaintenance(true, CONFIG);
       left = await memoryIds(dbs);
     }
 
@@ -126,7 +126,7 @@ describe("the cleanup count and the deletion agree", () => {
     const { dbs } = await seed();
     const counted = await new CleanupService().countCleanupCandidates(30);
 
-    const result = await new CleanupService().runCleanup();
+    const result = await new CleanupService().runCleanup(CONFIG);
 
     expect(result.deletedCount).toBe(counted);
     expect(result.linkedMemoriesDeleted).toBe(2);

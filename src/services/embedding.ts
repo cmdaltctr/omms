@@ -1,6 +1,11 @@
-import { CONFIG } from "../config.js";
+import {
+  getEmbeddingApiKey,
+  getEmbeddingApiUrl,
+  getEmbeddingCacheDir,
+  getEmbeddingModel,
+  getEmbeddingUseTaskPrefixes,
+} from "./storage/active-space-access.js";
 import { log } from "./logger.js";
-import { join } from "node:path";
 import {
   formatOnnxruntimeInitError,
   prepareOnnxruntimeForTransformers,
@@ -31,7 +36,7 @@ const TASK_PREFIXES: Record<EmbeddingTask, string> = {
 export function applyEmbeddingTaskPrefix(
   text: string,
   options?: EmbedOptions,
-  useTaskPrefixes: boolean = CONFIG.embeddingUseTaskPrefixes
+  useTaskPrefixes: boolean = getEmbeddingUseTaskPrefixes()
 ): string {
   if (!useTaskPrefixes || !options?.task) return text;
   const prefix = TASK_PREFIXES[options.task];
@@ -82,7 +87,7 @@ async function ensureTransformersLoaded(): Promise<NonNullable<typeof _transform
   mod.env.allowLocalModels = true;
   mod.env.allowRemoteModels = true;
   // The model cache is shared by every memory space, so it stays in the global path (ADR-041).
-  mod.env.cacheDir = join(CONFIG.skillStoragePath ?? CONFIG.storagePath, ".cache");
+  mod.env.cacheDir = getEmbeddingCacheDir();
   // Keep ONNX WASM single-threaded for Bun/Node runtimes without SharedArrayBuffer.
   try {
     (mod.env as any).backends.onnx.wasm.numThreads = 1;
@@ -142,6 +147,16 @@ export function embeddingSettingsSignature(settings: EmbedderSettings): string {
   ]);
 }
 
+/** The live embedder settings from the store settings reader, built fresh on each call. */
+function liveEmbedderSettings(): EmbedderSettings {
+  return {
+    embeddingApiUrl: getEmbeddingApiUrl(),
+    embeddingApiKey: getEmbeddingApiKey(),
+    embeddingModel: getEmbeddingModel(),
+    embeddingUseTaskPrefixes: getEmbeddingUseTaskPrefixes(),
+  };
+}
+
 export class EmbeddingService {
   private pipe: any = null;
   private initPromise: Promise<void> | null = null;
@@ -152,7 +167,7 @@ export class EmbeddingService {
   private signature: string | null = null;
 
   /** `settings` is read on every call, so a config reload reaches the next embed. */
-  constructor(private readonly settings: () => EmbedderSettings = () => CONFIG) {}
+  constructor(private readonly settings: () => EmbedderSettings = liveEmbedderSettings) {}
 
   /** Drop the loaded model, warm state, and cache when the embedder settings change. */
   private resetIfSettingsChanged(): void {

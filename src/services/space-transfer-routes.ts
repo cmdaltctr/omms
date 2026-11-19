@@ -1,7 +1,6 @@
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
-import * as config from "../config.js";
 import type { RouteResult } from "./chat/chat-routes.js";
 import { log } from "./logger.js";
 import { packageVersion } from "./package-version.js";
@@ -87,19 +86,26 @@ const IMPORT_BODY_CAP = IMPORT_MAX_FILE_BYTES + IMPORT_ENVELOPE_BYTES;
 /** One transfer apply at a time per process (design D4); previews run freely. */
 let applyInFlight = false;
 
-function embeddingSettings() {
+/** The live config module. The route host passes it in; each call reads it fresh. */
+export type SpaceTransferConfig = Pick<typeof import("../config.js"), "CONFIG">;
+
+function embeddingSettings(config: SpaceTransferConfig) {
   return {
     model: config.CONFIG.embeddingModel,
     dimensions: config.CONFIG.embeddingDimensions,
   };
 }
 
-function transferContext(files: SpaceFiles, deps?: SpaceTransferRouteDeps): SpaceTransferContext {
+function transferContext(
+  config: SpaceTransferConfig,
+  files: SpaceFiles,
+  deps?: SpaceTransferRouteDeps
+): SpaceTransferContext {
   const { storagePath, skillStoragePath, maxVectorsPerShard } = config.CONFIG;
   return {
     files,
     paths: { globalStoragePath: skillStoragePath ?? storagePath, spacesRoot: files.spacesRoot },
-    embedding: embeddingSettings(),
+    embedding: embeddingSettings(config),
     maxVectorsPerShard,
     ...(deps?.embed ? { embed: deps.embed } : {}),
   };
@@ -203,7 +209,11 @@ function exportFileName(spaceId: string): string {
   return `omms-space-export-${spaceId}-${stamp}.json`;
 }
 
-async function handleExport(id: string, req: Request): Promise<SpaceTransferRouteResult> {
+async function handleExport(
+  config: SpaceTransferConfig,
+  id: string,
+  req: Request
+): Promise<SpaceTransferRouteResult> {
   const files = spaceFiles(ommsHomeDir());
   const read = readRegistryFile(files.registryPath);
   const space = findSpace(read.registry, id);
@@ -255,14 +265,18 @@ async function handleExport(id: string, req: Request): Promise<SpaceTransferRout
   }
 }
 
-async function handleImportCheck(req: Request, cwd: string): Promise<SpaceTransferRouteResult> {
+async function handleImportCheck(
+  config: SpaceTransferConfig,
+  req: Request,
+  cwd: string
+): Promise<SpaceTransferRouteResult> {
   const body = await readCappedJson(req);
   if (body.document === undefined) {
     return fail(400, "invalid-file", "No export document was given.");
   }
   const validated = validateSpaceImportDocument(
     body.document,
-    embeddingSettings(),
+    embeddingSettings(config),
     importingUser(cwd).userTag
   );
   if (!validated.ok) return fail(400, "invalid-file", validated.reason);
@@ -288,6 +302,7 @@ async function handleImportCheck(req: Request, cwd: string): Promise<SpaceTransf
 }
 
 async function handleImport(
+  config: SpaceTransferConfig,
   req: Request,
   cwd: string,
   deps?: SpaceTransferRouteDeps
@@ -303,7 +318,7 @@ async function handleImport(
   // Precise refusals first, so no space is ever created for a bad request.
   const validated = validateSpaceImportDocument(
     body.document,
-    embeddingSettings(),
+    embeddingSettings(config),
     importingUser(cwd).userTag
   );
   if (!validated.ok) return fail(400, "invalid-file", validated.reason);
@@ -327,7 +342,7 @@ async function handleImport(
     spaceName: name,
     files,
     ...(retagToProject !== undefined ? { retagToProject } : {}),
-    embedding: embeddingSettings(),
+    embedding: embeddingSettings(config),
     embed: deps?.embed ?? defaultEmbed,
     user: importingUser(cwd),
   });
@@ -353,6 +368,7 @@ async function dispatch(
   path: string,
   req: Request,
   cwd: string,
+  config: SpaceTransferConfig,
   deps?: SpaceTransferRouteDeps
 ): Promise<SpaceTransferRouteResult | undefined> {
   if (path === "/api/spaces/transfer/preview") {
@@ -360,7 +376,7 @@ async function dispatch(
     const { from, to } = endpoints(body);
     const outcome = await previewSpaceTransfer(
       { from, to, filter: filterFrom(body) },
-      transferContext(spaceFiles(ommsHomeDir()), deps)
+      transferContext(config, spaceFiles(ommsHomeDir()), deps)
     );
     if (!outcome.ok) return transferRefusal(outcome.code, outcome.error);
     return ok({ preview: outcome.preview });
@@ -394,7 +410,7 @@ async function dispatch(
             ? { previewMatched: body.previewMatched }
             : {}),
         },
-        transferContext(spaceFiles(ommsHomeDir()), deps)
+        transferContext(config, spaceFiles(ommsHomeDir()), deps)
       );
       if (!outcome.ok) return transferRefusal(outcome.code, outcome.error);
       return ok({ result: outcome.result });
@@ -404,10 +420,10 @@ async function dispatch(
   }
 
   const exported = /^\/api\/spaces\/([^/]+)\/export$/.exec(path);
-  if (exported) return handleExport(decodeURIComponent(exported[1]!), req);
+  if (exported) return handleExport(config, decodeURIComponent(exported[1]!), req);
 
-  if (path === "/api/spaces/import/check") return handleImportCheck(req, cwd);
-  if (path === "/api/spaces/import") return handleImport(req, cwd, deps);
+  if (path === "/api/spaces/import/check") return handleImportCheck(config, req, cwd);
+  if (path === "/api/spaces/import") return handleImport(config, req, cwd, deps);
 
   const links = /^\/api\/spaces\/([^/]+)\/links$/.exec(path);
   if (links) return handleLinks(decodeURIComponent(links[1]!), req);
@@ -420,11 +436,12 @@ export async function routeSpaceTransfers(
   method: string,
   req: Request,
   cwd: string,
+  config: SpaceTransferConfig,
   deps?: SpaceTransferRouteDeps
 ): Promise<SpaceTransferRouteResult | undefined> {
   if (method !== "POST" || !path.startsWith("/api/spaces/")) return undefined;
   try {
-    return await dispatch(path, req, cwd, deps);
+    return await dispatch(path, req, cwd, config, deps);
   } catch (error) {
     if (error instanceof RouteError) return fail(error.status, error.code, error.message);
     if (error instanceof SpaceError) {

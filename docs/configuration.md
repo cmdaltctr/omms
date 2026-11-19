@@ -191,6 +191,24 @@ The Memory injection section of the Memory page edits all five global keys. **Re
 
 See [Using memory: How long profile items stay](using-memory.md#how-long-profile-items-stay).
 
+## Profile learning
+
+These six settings control how OpenCode, Pi and Claude Code learn the user profile. They are [global only](#global-only-settings). A project config cannot set them. OMMS ignores the value and writes one log line with the key name.
+
+| Setting                        | Default | Accepted values          | Meaning                                                                                                                       |
+| ------------------------------ | ------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `userProfileWithoutEmail`      | `learn` | `learn` or `skip`        | No user email is known. `learn` learns into the profile `unknown`. `skip` makes no model call and leaves the prompts waiting. |
+| `userProfileDecayBeforeMerge`  | `false` | `true` or `false`        | Fade old profile items before each merge.                                                                                     |
+| `userProfilePromptDetail`      | `full`  | `full` or `prompts-only` | `full` sends the prompts, a summary of the profile, the guidelines and the examples. `prompts-only` sends the prompts only.   |
+| `userProfileValidationEnabled` | `false` | `true` or `false`        | Check older profile items against recent prompts. Experimental.                                                               |
+| `showUserProfileToasts`        | `true`  | `true` or `false`        | Show a notice when a learning pass ends.                                                                                      |
+| `userProfileDuringCatchUp`     | `learn` | `learn` or `pause`       | `learn` keeps live learning running during a profile catch-up run. `pause` stops it until the run ends.                       |
+
+- Every setting applies to all three hosts.
+- A value that is not accepted is a config problem. The problem names the key and the accepted values, and OMMS uses the default for that key.
+- On the Memory page, **Reset to default** removes the six keys from the global file. A `null` value sent to the settings API removes one key in the same way.
+- `userProfileValidationEnabled` and `showUserProfileToasts` were project-overridable before. A project value is now ignored.
+
 ## Memory limits
 
 Edit `~/.config/omms/omms.jsonc` directly, or use the **Memory limits** card on the Memory page (**Shared**, `/memory/shared`). File configuration needs no web server.
@@ -462,7 +480,7 @@ On OpenCode and Pi the setting does not change what OMMS recalls or injects. On 
 
 Some settings are read only from the global file.
 
-- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoDeleteOldMemories`, `autoCleanupRetentionDays`, the three `memorisation*` settings, and the five `reranker*` settings. This stops one project from, for example, turning off the shared web server for another, or sending a user's memories to its own reranker server.
+- OMMS ignores these in a project's `.opencode/omms.jsonc`: `autoBackfill`, `piBackfillModel`, `opencodeBackfillModel`, `importPathMaps`, `importIgnoredDirectories`, `claudeConfigDir`, `webServerAutoStart`, `webServerEnabled`, `captureTraceRetentionDays`, `captureRetryRetentionHours`, `autoDeleteOldMemories`, `autoCleanupRetentionDays`, the three `memorisation*` settings, the five `reranker*` settings, and the six [profile learning](#profile-learning) settings (`userProfileWithoutEmail`, `userProfileDecayBeforeMerge`, `userProfilePromptDetail`, `userProfileValidationEnabled`, `showUserProfileToasts` and `userProfileDuringCatchUp`). This stops one project from, for example, turning off the shared web server for another, or sending a user's memories to its own reranker server.
 - A project config cannot turn `captureTrace` on. See [Capture traces](#capture-traces-opt-in).
 - A project config cannot turn `skillLearning` on, and it cannot set `skillLearningRedact` or `skillFolders`. See [Skill learning](#skill-learning).
 - A project config cannot turn `visibleRecall` on. It can turn it off. See [Visible recall](#visible-recall).

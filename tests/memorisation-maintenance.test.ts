@@ -56,7 +56,7 @@ describe("memorisation maintenance", () => {
     }
 
     const { deduplicationService } = await import("../src/services/deduplication-service.js");
-    const result = await deduplicationService.detectAndRemoveDuplicates();
+    const result = await deduplicationService.detectAndRemoveDuplicates(CONFIG);
     const rows = await db.all("SELECT id FROM memories ORDER BY id");
 
     expect(result.exactDuplicatesDeleted).toBe(1);
@@ -84,7 +84,7 @@ describe("memorisation maintenance", () => {
     }
 
     const { CleanupService } = await import("../src/services/cleanup-service.js");
-    const result = await new CleanupService().runCleanup();
+    const result = await new CleanupService().runCleanup(CONFIG);
     const rows = await db.all("SELECT id FROM memories");
 
     expect(result.deletedCount).toBe(1);
@@ -132,7 +132,7 @@ describe("memorisation maintenance", () => {
       const { handleDetectTagMigration, handleRunTagMigrationBatch } =
         await import("../src/services/api-handlers.js");
       expect((await handleDetectTagMigration()).data).toEqual({ needsMigration: true, count: 1 });
-      expect((await handleRunTagMigrationBatch(5)).data).toEqual({
+      expect((await handleRunTagMigrationBatch(await import("../src/config.js"), 5)).data).toEqual({
         processed: 1,
         total: 1,
         hasMore: false,
@@ -162,10 +162,6 @@ describe("memorisation maintenance", () => {
 import { expect, it, mock } from "bun:test";
 const listCalls = [];
 let captureContext = "";
-mock.module(${JSON.stringify(url("../src/config.js"))}, () => ({
-  CONFIG: {},
-  refreshConfigIfChanged: () => {},
-}));
 mock.module(${JSON.stringify(url("../src/services/capture-diagnostics.js"))}, () => ({
   buildCaptureAttemptRecord: () => ({}),
   emitCaptureAttempt: () => {},
@@ -204,7 +200,8 @@ await captureConversation(
       captureContext = context;
       return { summary: "", type: "skip", tags: [] };
     },
-  }
+  },
+  await import(${JSON.stringify(url("../src/config.js"))})
 );
 console.log(JSON.stringify({ listCalls, captureContext }));
 expect(captureContext).toContain("older normal memory");

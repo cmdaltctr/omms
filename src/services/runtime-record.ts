@@ -159,7 +159,10 @@ export function registerCopy(options: {
   try {
     const current = recordedCopy(dir, log);
     const newer = !current || (compareVersions(own, current.version) ?? 0) > 0;
-    if (!newer) {
+    // `npm i -g` updates the recorded copy in place, so only the stored version is stale.
+    const staleLabel =
+      current?.root === root && readRuntimeRecord(dir, log)?.version !== current.version;
+    if (!newer && !staleLabel) {
       // The recorded copy owns the launcher, so it repairs a missing or damaged one.
       if (current?.root === root) placeLauncher(dir, root, log);
       return "kept";

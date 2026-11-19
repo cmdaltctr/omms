@@ -10,7 +10,7 @@ mock.module("../src/services/logger.js", () => ({
 
 const { CONFIG } = await import("../src/config.js");
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
-const queue = await import("../src/services/capture-retry-queue.js");
+const queue = await import("../src/services/storage/capture-retry-queue.js");
 type CaptureWorkUnit = import("../src/core/capture.js").CaptureWorkUnit;
 
 const storage = mkdtempSync(join(tmpdir(), "omms-retry-queue-"));

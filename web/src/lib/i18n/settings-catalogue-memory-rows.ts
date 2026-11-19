@@ -25,6 +25,47 @@ export const settingsCatalogueMemoryRowText = {
     "两次画像整理之间间隔多少条已分析的提示。",
     "كم مطالبة محلَّلة تمرّ بين كل ترتيب للملف الشخصي.",
   ],
+  "No user email": ["没有用户邮箱时", "عند عدم وجود بريد المستخدم"],
+  "What learning does when no user email is known: save to a profile called unknown, or skip the prompts.":
+    [
+      "不知道用户邮箱时学习怎么做：保存到名为 unknown 的画像，或跳过这些提示。",
+      "ما يفعله التعلّم عند عدم معرفة بريد المستخدم: الحفظ في ملف شخصي باسم unknown أو تخطي المطالبات.",
+    ],
+  "Learn anyway": ["仍然学习", "التعلّم على أي حال"],
+  Skip: ["跳过", "تخطّي"],
+  "Fade old items": ["淡化旧条目", "إضعاف العناصر القديمة"],
+  "Lowers the weight of old profile items before each merge, so newer habits count more.": [
+    "每次合并前降低旧画像条目的权重，让较新的习惯更重要。",
+    "يخفض وزن عناصر الملف الشخصي القديمة قبل كل دمج، فتحظى العادات الأحدث بأهمية أكبر.",
+  ],
+  "Model input": ["模型输入", "مدخلات النموذج"],
+  "What the model reads each time it learns: your prompts with a profile summary and guidance, or the prompts alone.":
+    [
+      "模型每次学习时读取的内容：你的提示加上画像摘要和指引，或只有提示。",
+      "ما يقرؤه النموذج في كل مرة يتعلم فيها: مطالباتك مع ملخص الملف الشخصي وإرشادات، أو المطالبات وحدها.",
+    ],
+  "Prompts with profile and guidance": [
+    "提示加画像摘要和指引",
+    "المطالبات مع ملخص الملف الشخصي وإرشادات",
+  ],
+  "Prompts only": ["仅提示", "المطالبات فقط"],
+  "Check older items": ["检查旧条目", "فحص العناصر القديمة"],
+  "Asks the model to check older profile items against new prompts after each learning pass.": [
+    "每次学习后，请模型对照新的提示检查较旧的画像条目。",
+    "يطلب من النموذج فحص عناصر الملف الشخصي القديمة مقابل المطالبات الجديدة بعد كل جولة تعلّم.",
+  ],
+  "Notice when done": ["完成时提示", "إشعار عند الانتهاء"],
+  "Shows a short notice when a learning pass ends. Claude Code shows it on your next prompt.": [
+    "学习结束时显示一条简短提示。Claude Code 会在你的下一条提示时显示。",
+    "يعرض إشعاراً قصيراً عند انتهاء جولة التعلّم. يعرضه Claude Code عند مطالبتك التالية.",
+  ],
+  "During a catch-up run": ["补齐运行期间", "أثناء تشغيل اللحاق"],
+  "Keeps live learning running, or pauses it, while a profile catch-up run is active.": [
+    "画像补齐运行期间，让实时学习继续，或暂停它。",
+    "يُبقي التعلّم المباشر يعمل أو يوقفه مؤقتاً أثناء تشغيل اللحاق بالملف الشخصي.",
+  ],
+  "Keep learning": ["继续学习", "متابعة التعلّم"],
+  Pause: ["暂停", "إيقاف مؤقت"],
   "Memories per search": ["每次搜索的记忆数", "عدد الذكريات في كل بحث"],
   "The most memories one search returns.": [
     "一次搜索最多返回的记忆数。",

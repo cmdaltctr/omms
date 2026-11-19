@@ -1,4 +1,3 @@
-import { CONFIG } from "../config.js";
 import type { CaptureToolCall } from "./host.js";
 import { truncateToMaxBytes, utf8ByteLength } from "../utils/context-limit.js";
 
@@ -46,10 +45,9 @@ function joinSections(sections: string[]): string {
   return sections.join("\n");
 }
 
-export function getAutoCaptureMarkdownBudget(
-  totalRequestBytes: number = CONFIG.autoCaptureMaxContextBytes ??
-    DEFAULT_AUTO_CAPTURE_MAX_CONTEXT_BYTES
-): number {
+/** `configuredBytes` is `CONFIG.autoCaptureMaxContextBytes`; unset means the built-in default. */
+export function getAutoCaptureMarkdownBudget(configuredBytes: number | undefined): number {
+  const totalRequestBytes = configuredBytes ?? DEFAULT_AUTO_CAPTURE_MAX_CONTEXT_BYTES;
   const requestReserve = Math.min(24576, Math.floor(totalRequestBytes * 0.25));
   return Math.max(4096, totalRequestBytes - requestReserve);
 }
@@ -58,9 +56,9 @@ export function buildBoundedSummaryPrompt(
   context: string,
   systemPrompt: string,
   schema: unknown,
-  totalRequestBytes: number = CONFIG.autoCaptureMaxContextBytes ??
-    DEFAULT_AUTO_CAPTURE_MAX_CONTEXT_BYTES
+  configuredBytes: number | undefined
 ): string {
+  const totalRequestBytes = configuredBytes ?? DEFAULT_AUTO_CAPTURE_MAX_CONTEXT_BYTES;
   const schemaBytes = utf8ByteLength(JSON.stringify(schema));
   const outputReserve = Math.min(
     SUMMARY_OUTPUT_RESERVE_BYTES,
@@ -86,9 +84,9 @@ export function buildMarkdownContext(
   textResponses: string[],
   toolCalls: CaptureToolCall[],
   latestMemory: string | null,
-  maxContextBytes: number = CONFIG.autoCaptureMaxContextBytes ??
-    DEFAULT_AUTO_CAPTURE_MAX_CONTEXT_BYTES
+  configuredBytes: number | undefined
 ): string {
+  const maxContextBytes = configuredBytes ?? DEFAULT_AUTO_CAPTURE_MAX_CONTEXT_BYTES;
   const memorySections: string[] = [];
   if (latestMemory) {
     memorySections.push("## Previous Memory Context");

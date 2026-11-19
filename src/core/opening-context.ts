@@ -1,5 +1,6 @@
-import { formatContextForPrompt } from "../services/context.js";
+import { formatContextForPrompt, type ContextConfig } from "../services/context.js";
 import { getTags } from "../services/tags.js";
+import type { MemorySearchConfig } from "../services/client-read-settings.js";
 import { utf8ByteLength } from "../utils/context-limit.js";
 import { resolveCeiling, type ContextBudgetOptions } from "./context-budget.js";
 import {
@@ -35,6 +36,8 @@ export interface FirstPromptSectionsInput {
   openingQuery: string | null;
   directory: string;
   sessionId: string;
+  /** `CONFIG.chatMessage.excludeCurrentSession`, read by the host before the call. */
+  excludeCurrentSession: boolean | undefined;
   /**
    * The request budget, as `buildRetrievalSection` takes it. `wrapperBytes` is
    * what the host adds around each section, the retrieval tag included; it
@@ -43,6 +46,8 @@ export interface FirstPromptSectionsInput {
   budget: ContextBudgetOptions;
   /** Bytes the host adds to the opening section only, such as Claude Code's opening marker. */
   openingReserveBytes: number;
+  /** `CONFIG`, passed by the host for both searches and the profile block of the prompt section. */
+  config: ContextConfig & MemorySearchConfig;
 }
 
 /**
@@ -64,9 +69,21 @@ export async function buildFirstPromptSections(
 
   const tags = getTags(input.directory);
   const [promptSearch, openingSearch] = await Promise.all([
-    searchSectionMemories(promptQuery, tags.project.tag, input.sessionId),
+    searchSectionMemories(
+      promptQuery,
+      tags.project.tag,
+      input.sessionId,
+      input.excludeCurrentSession,
+      input.config
+    ),
     input.openingQuery
-      ? searchSectionMemories(input.openingQuery, tags.project.tag, input.sessionId)
+      ? searchSectionMemories(
+          input.openingQuery,
+          tags.project.tag,
+          input.sessionId,
+          input.excludeCurrentSession,
+          input.config
+        )
       : null,
   ]);
 
@@ -78,7 +95,8 @@ export async function buildFirstPromptSections(
           tags.user.userEmail || null,
           { results: promptResults },
           { ...input.budget, wrapperBytes },
-          promptSearch?.queryVector
+          promptSearch?.queryVector,
+          input.config
         )
       : "";
 
@@ -93,7 +111,9 @@ export async function buildFirstPromptSections(
       ? await formatContextForPrompt(
           null,
           { results: openingResults },
-          { maxBytes: remaining, wrapperBytes }
+          { maxBytes: remaining, wrapperBytes },
+          undefined,
+          input.config
         )
       : "";
 

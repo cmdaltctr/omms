@@ -1,5 +1,4 @@
 import { existsSync } from "node:fs";
-import { CONFIG } from "../config.js";
 import {
   RECORDING_OFF_TEXT,
   runSkillOperation,
@@ -20,14 +19,14 @@ import {
   setSkillMode,
   type ProposalFilter,
   type SkillProposalState,
-} from "./skill-learning/proposal-store.js";
+} from "./storage/skills/proposals.js";
 import { listProposalSummaries } from "./skill-learning/proposal-summaries.js";
 import { intParam } from "./skill-learning/query-params.js";
 import { SKILL_ORDERS, rankSkills, type SkillOrder } from "./skill-learning/ranking.js";
-import { skillTurnSettingsFor } from "./skill-learning/settings-for.js";
+import { skillTurnSettingsFor, type SkillConfigModule } from "./skill-learning/settings-for.js";
 import { skillModel } from "./skill-learning/skill-model.js";
 import { getSkillIndex, type SkillIndex } from "./skill-learning/skill-index.js";
-import { SkillStore, SkillStoreError, skillsDbPath } from "./skill-learning/store.js";
+import { SkillStore, SkillStoreError, skillsDbPath } from "./storage/skills/store.js";
 import {
   RECENT_TURN_LIMIT,
   countSkillTurns,
@@ -42,6 +41,8 @@ import {
  */
 export interface SkillRouteContext {
   cwd: string;
+  /** The live config module, so a reload reaches the model of a failure explanation. */
+  configModule: SkillConfigModule;
   startRecordPast: (cwd: string) => Promise<{ id: string }>;
 }
 
@@ -156,7 +157,7 @@ async function dispatch(
   readBody: () => Promise<Body>,
   ctx: SkillRouteContext
 ): Promise<RouteResult | undefined> {
-  const settings = skillTurnSettingsFor(ctx.cwd);
+  const settings = skillTurnSettingsFor(ctx.cwd, ctx.configModule);
   const store = new SkillStore(skillsDbPath(settings.storagePath));
   const now = Date.now();
   const index = () => getSkillIndex(settings.folders, now);
@@ -225,7 +226,9 @@ async function dispatch(
 
   if (method !== "POST") return undefined;
   const operation = (mode: string, args: SkillOperationArgs) =>
-    runSkillOperation(mode, args, skillOperationsDeps(ctx.cwd, "person")).then(fromOperation);
+    runSkillOperation(mode, args, skillOperationsDeps(ctx.cwd, "person", ctx.configModule)).then(
+      fromOperation
+    );
 
   switch (path) {
     case "/api/skills/draft": {
@@ -251,7 +254,7 @@ async function dispatch(
     case "/api/skills/explain-failures":
       // Stored text goes to the external model, so recording must be on.
       if (!settings.enabled) return fail("recording-off", RECORDING_OFF_TEXT);
-      return explainFailureGroups(await readBody(), store, index(), now);
+      return explainFailureGroups(await readBody(), store, index(), now, ctx.configModule.CONFIG);
     case "/api/skills/record-past":
       return recordPast(settings.enabled, ctx);
   }
@@ -300,7 +303,13 @@ async function showFailureGroups(url: URL, store: SkillStore, index: SkillIndex,
 }
 
 /** Explains one skill's failure groups through the drafting model path. The reply is shown, never saved. */
-async function explainFailureGroups(body: Body, store: SkillStore, index: SkillIndex, now: number) {
+async function explainFailureGroups(
+  body: Body,
+  store: SkillStore,
+  index: SkillIndex,
+  now: number,
+  config: Parameters<typeof skillModel>[0]
+) {
   const path = text(body.path);
   const name = text(body.name);
   if (!path && !name) return fail("invalid-args", "Give path or name");
@@ -308,7 +317,7 @@ async function explainFailureGroups(body: Body, store: SkillStore, index: SkillI
     path ? s.path === path : s.path === null && s.name === name
   );
   if (!skill) return fail("not-found", "No such skill");
-  const result = await explainFailures(skill, { store, index, model: skillModel(CONFIG) });
+  const result = await explainFailures(skill, { store, index, model: skillModel(config) });
   if (!result.ok) return fail(result.code, result.message);
   return ok("explained", { explanation: result.explanation });
 }

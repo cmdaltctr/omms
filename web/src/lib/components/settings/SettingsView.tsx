@@ -1,8 +1,17 @@
 import { useEffect } from "react";
 import type { ComponentType } from "react";
 import "./settings.css";
-import { SETTINGS_SECTIONS, type SettingsSectionId } from "$lib/settings-sections";
-import { PageToc } from "$lib/components/PageToc";
+import {
+  SETTINGS_SECTIONS,
+  selectedSettingsSection,
+  visibleSettingsSections,
+  type SettingsSectionId,
+} from "$lib/settings-sections";
+import { useProfileCount } from "$lib/profile-count";
+import { Button } from "$lib/components/ui/button";
+import { useSettingsText } from "$lib/i18n/settings";
+import { navigate, usePath } from "$lib/router";
+import { ROUTES } from "$lib/routes";
 import { revealSettingsAnchor } from "$lib/settings-navigation";
 import { useSettingsSnapshot } from "@/hooks/useSettingsSnapshot";
 import { problemViews, type SnapshotProblem } from "$lib/config-problem-view";
@@ -48,20 +57,37 @@ export function SettingsView() {
   useEffect(() => {
     revealSettingsAnchor(window.location.hash, document);
   }, []);
+  const s = useSettingsText();
+  const visible = visibleSettingsSections(useProfileCount());
+  const selected = selectedSettingsSection(usePath(), visible);
   const { snapshot } = useSettingsSnapshot<{ problems?: SnapshotProblem[]; readOnly?: boolean }>();
   return (
     <div className="settings-view space-y-6">
-      <PageToc storageKey="omms-settings-toc-open" sections={SETTINGS_SECTIONS} />
       <SettingsSearch />
+      <div role="group" aria-label={s("Sections")} className="flex flex-wrap gap-2">
+        {visible.map(({ id, title }) => (
+          <Button
+            key={id}
+            variant="chip"
+            size="sm"
+            aria-pressed={selected === id}
+            // A chip switches the section in place: no scroll and no outline.
+            onClick={() => navigate(`${ROUTES.settings}#${id}`, false, { reveal: false })}
+          >
+            {s(title)}
+          </Button>
+        ))}
+      </div>
       <ConfigProblemBanner
         problems={problemViews(snapshot?.problems)}
         readOnly={snapshot?.readOnly === true}
       />
       {SETTINGS_SECTIONS.map(({ id }) => {
         const Card = CARDS[id];
-        // The sidebar's Settings tree scrolls to these anchors.
+        // The sidebar's Settings tree scrolls to these anchors. Every card stays mounted so a
+        // draft survives a chip switch; the cards not selected are only hidden.
         return (
-          <div key={id} id={id} className="scroll-mt-20 md:scroll-mt-4">
+          <div key={id} id={id} hidden={id !== selected} className="scroll-mt-20 md:scroll-mt-4">
             <Card />
           </div>
         );

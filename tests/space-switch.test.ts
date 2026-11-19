@@ -30,11 +30,16 @@ const config = await import("../src/config.js");
 const { initConfig, refreshConfigIfChanged } = config;
 const { memoryClient } = await import("../src/services/client.js");
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
+const { tursoShardManager } = await import("../src/services/turso/shard-manager.js");
 const { userProfileManager } = await import("../src/services/user-profile/user-profile-manager.js");
 const { userPromptManager } = await import("../src/services/user-prompt/user-prompt-manager.js");
-const { aiSessionManager } = await import("../src/services/ai/session/ai-session-manager.js");
+const { aiSessionManager } = await import("../src/services/storage/ai-sessions.js");
 const { chatStore } = await import("../src/services/chat/chat-runtime.js");
-const { ImportLedger } = await import("../src/importer/ledger.js");
+const { ImportLedger } = await import("../src/services/storage/import-ledger.js");
+const { hasCaptureAttempts, saveCaptureAttempt } =
+  await import("../src/services/capture-attempt-store.js");
+const { shardInventoryService } =
+  await import("../src/services/storage/maintenance/shard-inventory-service.js");
 const { createStoredSpace, spaceFiles, switchStoredSpace } =
   await import("../src/services/spaces/registry-store.js");
 
@@ -84,7 +89,7 @@ async function writeAll(label: string) {
 
 async function readAll() {
   const memories = await memoryClient.listMemories(TAG, 100);
-  const prompts = await userPromptManager.getUncapturedPromptsForSession("session");
+  const prompts = await userPromptManager.getUncapturedPromptsForSession("session", 3);
   const chats = await (await chatStore(config.CONFIG)).listConversations();
   const ledger = new ImportLedger();
   const imports = await ledger.countByStatus();
@@ -141,6 +146,23 @@ describe("switching the active space in a running process", () => {
     const defaultHashAfterSwitch = folderHash(defaultFolder);
 
     await writeAll("B");
+    // A path-only store with no reset hook: it must read the new folder on each call.
+    await saveCaptureAttempt({
+      host: "pi",
+      sourceType: "live-capture",
+      sessionId: "s-B",
+      path: null,
+      provider: null,
+      model: null,
+      stopReason: null,
+      blockTypes: null,
+      promptChars: null,
+      replyChars: null,
+      durationMs: 1,
+      outcome: "saved",
+      reason: null,
+    });
+    expect(await hasCaptureAttempts("pi")).toBe(true);
     const inB = await readAll();
     expect(inB.memories.join()).toContain("memory B");
     expect(inB.memories.join()).not.toContain("memory A");
@@ -150,9 +172,32 @@ describe("switching the active space in a running process", () => {
     expect(inB.aiSessions).toEqual(["ai-B"]);
     // Nothing written in B reached the Default folder.
     expect(folderHash(defaultFolder)).toBe(defaultHashAfterSwitch);
+    // The shard and connection singletons read the new folder live (design D5a "S").
+    const spaceFolder = join(files.spacesRoot, space.id);
+    const shard = await tursoShardManager.getWriteShard("project", TAG.split("_").pop()!);
+    expect(shard.dbPath.startsWith(spaceFolder)).toBe(true);
+    expect((tursoShardManager as unknown as { metadataPath: string }).metadataPath).toBe(
+      join(spaceFolder, "metadata.db")
+    );
+    const openInB = [
+      ...(
+        tursoConnectionManager as unknown as { connections: Map<string, unknown> }
+      ).connections.keys(),
+    ];
+    expect(openInB.some((path) => path.startsWith(spaceFolder))).toBe(true);
+    // The profile, AI session and shard inventory stores follow the switch too.
+    await userProfileManager.getActiveProfile("nobody");
+    expect((userProfileManager as unknown as { dbPath: string }).dbPath).toBe(
+      join(spaceFolder, "user-profiles.db")
+    );
+    expect((aiSessionManager as unknown as { dbPath: string }).dbPath).toBe(
+      join(spaceFolder, "ai-sessions.db")
+    );
+    expect((await shardInventoryService.listShards(project)).storagePath).toBe(spaceFolder);
 
     await switchStoredSpace(files, "default");
     refreshConfigIfChanged(project);
+    expect(await hasCaptureAttempts("pi")).toBe(false);
     const backInA = await readAll();
     expect(backInA.memories.join()).toContain("memory A");
     expect(backInA.memories.join()).not.toContain("memory B");

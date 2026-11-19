@@ -96,6 +96,7 @@ mock.module(${JSON.stringify(tagsUrl)}, () => ({
 }));
 
 const { formatContextForPrompt } = await import(${JSON.stringify(contextServiceUrl)});
+const { CONFIG } = await import(${JSON.stringify(configUrl)});
 const {
   buildRetrievalSection,
   formatMemoriesForCompaction,
@@ -375,7 +376,7 @@ describe("formatContextForPrompt budget", () => {
     const output = runScenario(
       `out.text = await formatContextForPrompt(null, {
         results: [{ id: "mem_port", similarity: 0.8, memory: "Fixed the port clash by binding 4748." }],
-      });`,
+      }, undefined, undefined, CONFIG);`,
       { injectProfile: false }
     );
     expect(output.text).toBe(
@@ -389,7 +390,7 @@ describe("formatContextForPrompt budget", () => {
     const output = runScenario(
       `out.text = await formatContextForPrompt(null, {
         results: Array.from({ length: 40 }, () => ({ similarity: 0.9, memory: "x".repeat(400) })),
-      });`,
+      }, undefined, undefined, CONFIG);`,
       { injectProfile: false }
     );
     expect(utf8ByteLength(output.text)).toBeLessThanOrEqual(8000);
@@ -403,7 +404,7 @@ describe("formatContextForPrompt budget", () => {
           { similarity: 1.0, memory: "a".repeat(500) },
           { similarity: 0.9, memory: "tail-small" },
         ],
-      }, { maxBytes: ${CONTEXT_FIXED_BYTES} + 37 + 35 + 80 });`,
+      }, { maxBytes: ${CONTEXT_FIXED_BYTES} + 37 + 35 + 80 }, undefined, CONFIG);`,
       { injectProfile: false }
     );
     expect(output.text).toContain("[... truncated ...]");
@@ -417,7 +418,7 @@ describe("formatContextForPrompt budget", () => {
     const output = runScenario(
       `out.text = await formatContextForPrompt("user@example.com", {
         results: [{ similarity: 0.9, memory: "keeps the rest" }],
-      }, { maxBytes: 8000 });`,
+      }, { maxBytes: 8000 }, undefined, CONFIG);`,
       { injectProfile: true, profileText: "p".repeat(3000) }
     );
     const payload = 8000 - CONTEXT_FIXED_BYTES;
@@ -434,7 +435,7 @@ describe("formatContextForPrompt budget", () => {
     const output = runScenario(
       `out.text = await formatContextForPrompt("user@example.com", {
         results: [{ similarity: 0.9, memory: "solo" }],
-      }, { maxBytes: 8000 });`,
+      }, { maxBytes: 8000 }, undefined, CONFIG);`,
       { injectProfile: true, profileText: null }
     );
     expect(output.text).not.toContain("<user_profile>");
@@ -445,21 +446,21 @@ describe("formatContextForPrompt budget", () => {
     const small = runScenario(
       `out.text = await formatContextForPrompt(null, {
         results: [{ similarity: 0.9, memory: "solo" }],
-      }, { maxBytes: 8000, wrapperBytes: retrievalWrapperBytes() });`,
+      }, { maxBytes: 8000, wrapperBytes: retrievalWrapperBytes() }, undefined, CONFIG);`,
       { injectProfile: false }
     );
     const fullBytes = utf8ByteLength(small.text);
     const exact = runScenario(
       `out.text = await formatContextForPrompt(null, {
         results: [{ similarity: 0.9, memory: "solo" }],
-      }, { maxBytes: ${fullBytes} + retrievalWrapperBytes() });`,
+      }, { maxBytes: ${fullBytes} + retrievalWrapperBytes() }, undefined, CONFIG);`,
       { injectProfile: false }
     );
     expect(exact.text).toBe(small.text);
     const shrunk = runScenario(
       `out.text = await formatContextForPrompt(null, {
         results: [{ similarity: 0.9, memory: "solo" }],
-      }, { maxBytes: ${fullBytes} + 10, wrapperBytes: retrievalWrapperBytes() });`,
+      }, { maxBytes: ${fullBytes} + 10, wrapperBytes: retrievalWrapperBytes() }, undefined, CONFIG);`,
       { injectProfile: false }
     );
     expect(utf8ByteLength(shrunk.text) + 35).toBeLessThanOrEqual(fullBytes + 10);
@@ -469,7 +470,7 @@ describe("formatContextForPrompt budget", () => {
     const output = runScenario(
       `out.text = await formatContextForPrompt(null, {
         results: Array.from({ length: 30 }, () => ({ similarity: 0.9, memory: "z".repeat(300) })),
-      }, { maxTokens: 100000, maxBytes: 900 });`,
+      }, { maxTokens: 100000, maxBytes: 900 }, undefined, CONFIG);`,
       { injectProfile: false }
     );
     expect(utf8ByteLength(output.text)).toBeLessThanOrEqual(900);
@@ -553,7 +554,7 @@ describe("one shared allowance across sections", () => {
           { similarity: 0.9, memory: "c".repeat(2500) },
           { similarity: 0.8, memory: "d".repeat(2500) },
         ],
-      }, { maxBytes: total, wrapperBytes: wrapper });
+      }, { maxBytes: total, wrapperBytes: wrapper }, undefined, CONFIG);
       out.used1 = utf8ByteLength(out.s1);
       const s2 = formatMemoriesForCompaction(
         [{ memory: "e".repeat(2500) }],
@@ -578,7 +579,7 @@ describe("one shared allowance across sections", () => {
 describe("budget option propagation", () => {
   it("forwards a budget through buildRetrievalSection", () => {
     const output = runScenario(
-      `out.section = await buildRetrievalSection("query?", "/repo", "ses-1", { maxBytes: 1200 });`,
+      `out.section = await buildRetrievalSection("query?", "/repo", "ses-1", true, { maxBytes: 1200 }, CONFIG);`,
       {
         searchResults: Array.from({ length: 8 }, () => ({
           similarity: 0.9,

@@ -36,9 +36,9 @@ type Props = {
   onKeywordClick?: (keyword: string) => void;
 };
 
-// Collapsed heights in px. Longer content gets a "See more" button.
-const MEMORY_MAX_HEIGHT = 320;
-const PROMPT_MAX_HEIGHT = 240;
+// Folded height of a whole card: one column on phones and tablets, two from 1024 px. Every
+// card keeps this height, so a row lines up; a longer card gets one "See more" button.
+const CARD_HEIGHT = "h-[24rem] md:h-[20rem] lg:h-[22rem]";
 
 function displayInfo(m: MemoryItem): string {
   if (m.projectPath) {
@@ -86,121 +86,123 @@ export function MemoryCard({
     const sim = similarityLabel(memory, true);
     return (
       <div
-        className={`min-w-0 rounded-xl border border-border bg-card p-3 space-y-3 ${
+        className={`min-w-0 rounded-xl border border-border bg-card p-3 ${
           selected ? "ring-1 ring-input" : ""
         } ${pinned ? "border-primary/40" : ""}`}
         data-id={memory.id}
       >
-        <div className="space-y-3 rounded-lg border border-border bg-muted p-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {t("badge-prompt")}
-            </span>
-            <span className="text-xs text-muted-foreground">{formatDate(prompt.createdAt)}</span>
-          </div>
-          <CollapsibleContent maxHeight={PROMPT_MAX_HEIGHT} fade="var(--muted)">
-            <PromptContent content={prompt.content} />
-          </CollapsibleContent>
-        </div>
-
-        <div className="flex justify-center text-muted-foreground">
-          <ArrowDown className="size-4" />
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-              <Checkbox
-                checked={selected}
-                onCheckedChange={(v) => onSelect?.(memory.id, v === true)}
-              />
-              <Badge>{t("badge-memory")}</Badge>
-              {memory.memoryType ? <MemoryTypeBadge type={memory.memoryType} /> : null}
-              {sim ? <span className="text-xs text-primary">{sim}</span> : null}
-              {pinned ? <Badge variant="secondary">{t("badge-pinned")}</Badge> : null}
-              <span
-                dir="auto"
-                className="text-xs text-muted-foreground font-mono min-w-0 break-all"
-              >
-                {memory.displayName || memory.id}
-              </span>
+        <CollapsibleContent collapsedClassName={CARD_HEIGHT}>
+          <div className="space-y-3">
+            <div className="space-y-3 rounded-lg border border-border bg-muted p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t("badge-prompt")}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {formatDate(prompt.createdAt)}
+                </span>
+              </div>
+              <PromptContent content={prompt.content} />
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-              {pinned ? (
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  title="Unpin"
-                  onClick={() => onUnpin?.(memory.id)}
-                >
-                  <Pin className="size-3.5 fill-current" />
-                </Button>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  title="Pin"
-                  onClick={() => onPin?.(memory.id)}
-                >
-                  <Pin className="size-3.5" />
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label={t("btn-edit")}
-                onClick={() => onEdit?.(memory.id)}
-              >
-                <PenLine className="size-3.5" />
-              </Button>
-              <Tooltip content={t("tooltip-delete-pair")}>
-                <Button
-                  variant="destructive"
-                  size="icon-xs"
-                  aria-label={t("btn-delete-pair")}
-                  onClick={() => onDeleteMemory?.(memory.id, true)}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </Tooltip>
+
+            <div className="flex justify-center text-muted-foreground">
+              <ArrowDown className="size-4" />
             </div>
-          </div>
-          {memory.tags?.length ? (
-            <div className="flex flex-wrap gap-1">
-              {memory.tags.map((tag) => (
-                <Tooltip key={tag} content={t("tooltip-tags")} className="min-w-0 max-w-full">
-                  <KeywordBadge
-                    keyword={tag}
-                    active={activeKeyword?.toLowerCase() === tag.toLowerCase()}
-                    aria-label={`${t("tooltip-filter-keyword")}: ${tag}`}
-                    onClick={onKeywordClick}
+
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                  <Checkbox
+                    checked={selected}
+                    onCheckedChange={(v) => onSelect?.(memory.id, v === true)}
                   />
-                </Tooltip>
-              ))}
+                  <Badge>{t("badge-memory")}</Badge>
+                  {memory.memoryType ? <MemoryTypeBadge type={memory.memoryType} /> : null}
+                  {sim ? <span className="text-xs text-primary">{sim}</span> : null}
+                  {pinned ? <Badge variant="secondary">{t("badge-pinned")}</Badge> : null}
+                  <span
+                    dir="auto"
+                    className="text-xs text-muted-foreground font-mono min-w-0 break-all"
+                  >
+                    {memory.displayName || memory.id}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {pinned ? (
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      title="Unpin"
+                      onClick={() => onUnpin?.(memory.id)}
+                    >
+                      <Pin className="size-3.5 fill-current" />
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      title="Pin"
+                      onClick={() => onPin?.(memory.id)}
+                    >
+                      <Pin className="size-3.5" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={t("btn-edit")}
+                    onClick={() => onEdit?.(memory.id)}
+                  >
+                    <PenLine className="size-3.5" />
+                  </Button>
+                  <Tooltip content={t("tooltip-delete-pair")}>
+                    <Button
+                      variant="destructive"
+                      size="icon-xs"
+                      aria-label={t("btn-delete-pair")}
+                      onClick={() => onDeleteMemory?.(memory.id, true)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </Tooltip>
+                </div>
+              </div>
+              {memory.tags?.length ? (
+                <div className="flex flex-wrap gap-1">
+                  {memory.tags.map((tag) => (
+                    <Tooltip key={tag} content={t("tooltip-tags")} className="min-w-0 max-w-full">
+                      <KeywordBadge
+                        keyword={tag}
+                        active={activeKeyword?.toLowerCase() === tag.toLowerCase()}
+                        aria-label={`${t("tooltip-filter-keyword")}: ${tag}`}
+                        onClick={onKeywordClick}
+                      />
+                    </Tooltip>
+                  ))}
+                </div>
+              ) : null}
+              <div className="rounded-lg border border-border bg-muted p-3">
+                <div
+                  className="markdown-content text-sm prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(memory.content) }}
+                />
+              </div>
+              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <span>
+                  {t("date-created")} {dates.createdDate}
+                </span>
+                {dates.updatedDate ? (
+                  <span>
+                    {t("date-updated")} {dates.updatedDate}
+                  </span>
+                ) : null}
+                <span dir="ltr" className="font-mono break-all">
+                  ID: {memory.id}
+                </span>
+              </div>
             </div>
-          ) : null}
-          <div className="rounded-lg border border-border bg-muted p-3">
-            <CollapsibleContent maxHeight={MEMORY_MAX_HEIGHT} fade="var(--muted)">
-              <div
-                className="markdown-content text-sm prose-invert max-w-none"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(memory.content) }}
-              />
-            </CollapsibleContent>
           </div>
-          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-            <span>
-              {t("date-created")} {dates.createdDate}
-            </span>
-            {dates.updatedDate ? (
-              <span>
-                {t("date-updated")} {dates.updatedDate}
-              </span>
-            ) : null}
-            <span dir="ltr" className="font-mono break-all">
-              ID: {memory.id}
-            </span>
-          </div>
-        </div>
+        </CollapsibleContent>
       </div>
     );
   }
@@ -209,60 +211,65 @@ export function MemoryCard({
     const isLinked = !!item.linkedMemoryId;
     return (
       <div
-        className={`min-w-0 rounded-xl border border-border bg-card p-3 space-y-2 ${
+        className={`min-w-0 rounded-xl border border-border bg-card p-3 ${
           selected ? "ring-1 ring-input" : ""
         }`}
         data-id={item.id}
       >
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Checkbox checked={selected} onCheckedChange={(v) => onSelect?.(item.id, v === true)} />
-            <MessageCircle className="size-3.5 text-muted-foreground" />
-            <Badge variant="secondary">{t("badge-prompt")}</Badge>
+        <CollapsibleContent collapsedClassName={CARD_HEIGHT}>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Checkbox
+                  checked={selected}
+                  onCheckedChange={(v) => onSelect?.(item.id, v === true)}
+                />
+                <MessageCircle className="size-3.5 text-muted-foreground" />
+                <Badge variant="secondary">{t("badge-prompt")}</Badge>
+                {isLinked ? (
+                  <Badge
+                    variant="outline"
+                    className="border-status-success text-status-success bg-transparent"
+                  >
+                    <LinkIcon className="size-3" />
+                    {t("badge-linked")}
+                  </Badge>
+                ) : null}
+                <span className="text-xs text-muted-foreground">{formatDate(item.createdAt)}</span>
+              </div>
+              {isLinked ? (
+                <Tooltip content={t("tooltip-delete-prompt-pair")}>
+                  <Button
+                    variant="destructive"
+                    size="icon-xs"
+                    aria-label={isLinked ? t("btn-delete-pair") : t("btn-delete")}
+                    onClick={() => onDeletePrompt?.(item.id, isLinked)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </Tooltip>
+              ) : (
+                <Button
+                  variant="destructive"
+                  size="icon-xs"
+                  aria-label={isLinked ? t("btn-delete-pair") : t("btn-delete")}
+                  title={t("btn-delete")}
+                  onClick={() => onDeletePrompt?.(item.id, isLinked)}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              )}
+            </div>
+            <PromptContent content={item.content} />
             {isLinked ? (
-              <Badge
-                variant="outline"
-                className="border-status-success text-status-success bg-transparent"
-              >
-                <LinkIcon className="size-3" />
-                {t("badge-linked")}
-              </Badge>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <ArrowDown className="size-3" />
+                {t("text-generated-above")}
+                <ArrowUp className="size-3" />
+              </div>
             ) : null}
-            <span className="text-xs text-muted-foreground">{formatDate(item.createdAt)}</span>
           </div>
-          {isLinked ? (
-            <Tooltip content={t("tooltip-delete-prompt-pair")}>
-              <Button
-                variant="destructive"
-                size="icon-xs"
-                aria-label={isLinked ? t("btn-delete-pair") : t("btn-delete")}
-                onClick={() => onDeletePrompt?.(item.id, isLinked)}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            </Tooltip>
-          ) : (
-            <Button
-              variant="destructive"
-              size="icon-xs"
-              aria-label={isLinked ? t("btn-delete-pair") : t("btn-delete")}
-              title={t("btn-delete")}
-              onClick={() => onDeletePrompt?.(item.id, isLinked)}
-            >
-              <Trash2 className="size-3.5" />
-            </Button>
-          )}
-        </div>
-        <CollapsibleContent maxHeight={PROMPT_MAX_HEIGHT}>
-          <PromptContent content={item.content} />
         </CollapsibleContent>
-        {isLinked ? (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <ArrowDown className="size-3" />
-            {t("text-generated-above")}
-            <ArrowUp className="size-3" />
-          </div>
-        ) : null}
       </div>
     );
   }
@@ -274,127 +281,140 @@ export function MemoryCard({
     const sim = similarityLabel(item, false);
     return (
       <div
-        className={`min-w-0 rounded-xl border border-border bg-card p-3 space-y-2 ${
+        className={`min-w-0 rounded-xl border border-border bg-card p-3 ${
           selected ? "ring-1 ring-input" : ""
         } ${pinned ? "border-primary/40" : ""}`}
         data-id={item.id}
       >
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-            <Checkbox checked={selected} onCheckedChange={(v) => onSelect?.(item.id, v === true)} />
-            {item.memoryType ? <MemoryTypeBadge type={item.memoryType} /> : null}
-            {isLinked ? (
-              <Badge
-                variant="outline"
-                className="border-status-success text-status-success bg-transparent"
-              >
-                <LinkIcon className="size-3" />
-                {t("badge-linked")}
-              </Badge>
-            ) : null}
-            {sim ? <span className="text-xs text-primary">{sim}</span> : null}
-            {pinned ? <Badge variant="secondary">{t("badge-pinned")}</Badge> : null}
-            <span dir="auto" className="text-xs text-muted-foreground font-mono min-w-0 break-all">
-              {displayInfo(item)}
-            </span>
-            {item.projectPath ? (
-              <span
-                dir="ltr"
-                className="text-code text-muted-foreground font-mono break-all w-full"
-              >
-                {item.projectPath}
-              </span>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {pinned ? (
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                title="Unpin"
-                onClick={() => onUnpin?.(item.id)}
-              >
-                <Pin className="size-3.5 fill-current" />
-              </Button>
-            ) : (
-              <Button variant="ghost" size="icon-xs" title="Pin" onClick={() => onPin?.(item.id)}>
-                <Pin className="size-3.5" />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label={t("btn-edit")}
-              onClick={() => onEdit?.(item.id)}
-            >
-              <PenLine className="size-3.5" />
-            </Button>
-            {isLinked ? (
-              <Tooltip content={t("tooltip-delete-pair")}>
-                <Button
-                  variant="destructive"
-                  size="icon-xs"
-                  aria-label={isLinked ? t("btn-delete-pair") : t("btn-delete")}
-                  onClick={() => onDeleteMemory?.(item.id, isLinked)}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </Tooltip>
-            ) : (
-              <Button
-                variant="destructive"
-                size="icon-xs"
-                aria-label={isLinked ? t("btn-delete-pair") : t("btn-delete")}
-                title={t("btn-delete")}
-                onClick={() => onDeleteMemory?.(item.id, isLinked)}
-              >
-                <Trash2 className="size-3.5" />
-              </Button>
-            )}
-          </div>
-        </div>
-        {item.tags?.length ? (
-          <div className="flex flex-wrap gap-1">
-            {item.tags.map((tag) => (
-              <Tooltip key={tag} content={t("tooltip-tags")} className="min-w-0 max-w-full">
-                <KeywordBadge
-                  keyword={tag}
-                  active={activeKeyword?.toLowerCase() === tag.toLowerCase()}
-                  aria-label={`${t("tooltip-filter-keyword")}: ${tag}`}
-                  onClick={onKeywordClick}
+        <CollapsibleContent collapsedClassName={CARD_HEIGHT}>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                <Checkbox
+                  checked={selected}
+                  onCheckedChange={(v) => onSelect?.(item.id, v === true)}
                 />
-              </Tooltip>
-            ))}
+                {item.memoryType ? <MemoryTypeBadge type={item.memoryType} /> : null}
+                {isLinked ? (
+                  <Badge
+                    variant="outline"
+                    className="border-status-success text-status-success bg-transparent"
+                  >
+                    <LinkIcon className="size-3" />
+                    {t("badge-linked")}
+                  </Badge>
+                ) : null}
+                {sim ? <span className="text-xs text-primary">{sim}</span> : null}
+                {pinned ? <Badge variant="secondary">{t("badge-pinned")}</Badge> : null}
+                <span
+                  dir="auto"
+                  className="text-xs text-muted-foreground font-mono min-w-0 break-all"
+                >
+                  {displayInfo(item)}
+                </span>
+                {item.projectPath ? (
+                  <span
+                    dir="ltr"
+                    className="text-code text-muted-foreground font-mono break-all w-full"
+                  >
+                    {item.projectPath}
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {pinned ? (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    title="Unpin"
+                    onClick={() => onUnpin?.(item.id)}
+                  >
+                    <Pin className="size-3.5 fill-current" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    title="Pin"
+                    onClick={() => onPin?.(item.id)}
+                  >
+                    <Pin className="size-3.5" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={t("btn-edit")}
+                  onClick={() => onEdit?.(item.id)}
+                >
+                  <PenLine className="size-3.5" />
+                </Button>
+                {isLinked ? (
+                  <Tooltip content={t("tooltip-delete-pair")}>
+                    <Button
+                      variant="destructive"
+                      size="icon-xs"
+                      aria-label={isLinked ? t("btn-delete-pair") : t("btn-delete")}
+                      onClick={() => onDeleteMemory?.(item.id, isLinked)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </Tooltip>
+                ) : (
+                  <Button
+                    variant="destructive"
+                    size="icon-xs"
+                    aria-label={isLinked ? t("btn-delete-pair") : t("btn-delete")}
+                    title={t("btn-delete")}
+                    onClick={() => onDeleteMemory?.(item.id, isLinked)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            {item.tags?.length ? (
+              <div className="flex flex-wrap gap-1">
+                {item.tags.map((tag) => (
+                  <Tooltip key={tag} content={t("tooltip-tags")} className="min-w-0 max-w-full">
+                    <KeywordBadge
+                      keyword={tag}
+                      active={activeKeyword?.toLowerCase() === tag.toLowerCase()}
+                      aria-label={`${t("tooltip-filter-keyword")}: ${tag}`}
+                      onClick={onKeywordClick}
+                    />
+                  </Tooltip>
+                ))}
+              </div>
+            ) : null}
+            <div className="rounded-lg border border-border bg-muted p-3">
+              <div
+                className="markdown-content text-sm prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content) }}
+              />
+            </div>
+            {isLinked ? (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <ArrowUp className="size-3" />
+                {t("text-from-below")}
+                <ArrowDown className="size-3" />
+              </div>
+            ) : null}
+            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+              <span>
+                {t("date-created")} {dates.createdDate}
+              </span>
+              {dates.updatedDate ? (
+                <span>
+                  {t("date-updated")} {dates.updatedDate}
+                </span>
+              ) : null}
+              <span dir="ltr" className="font-mono break-all">
+                ID: {item.id}
+              </span>
+            </div>
           </div>
-        ) : null}
-        <div className="rounded-lg border border-border bg-muted p-3">
-          <CollapsibleContent maxHeight={MEMORY_MAX_HEIGHT} fade="var(--muted)">
-            <div
-              className="markdown-content text-sm prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(item.content) }}
-            />
-          </CollapsibleContent>
-        </div>
-        {isLinked ? (
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <ArrowUp className="size-3" />
-            {t("text-from-below")}
-            <ArrowDown className="size-3" />
-          </div>
-        ) : null}
-        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-          <span>
-            {t("date-created")} {dates.createdDate}
-          </span>
-          {dates.updatedDate ? (
-            <span>
-              {t("date-updated")} {dates.updatedDate}
-            </span>
-          ) : null}
-          <span dir="ltr" className="font-mono break-all">
-            ID: {item.id}
-          </span>
-        </div>
+        </CollapsibleContent>
       </div>
     );
   }

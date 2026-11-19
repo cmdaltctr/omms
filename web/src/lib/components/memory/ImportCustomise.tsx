@@ -4,6 +4,7 @@ import { Label } from "$lib/components/ui/label";
 import { hostLabel, type WebHost } from "$lib/host-label";
 import { useSettingsText } from "$lib/i18n/settings";
 import { navigate, ROUTES } from "$lib/router";
+import { useProfileCount } from "$lib/profile-count";
 import { HostImportBadges } from "../settings/HostImportBadges";
 import { HostSessionSelection } from "./HostSessionSelection";
 import { ImportOptions } from "./ImportOptions";
@@ -12,7 +13,11 @@ import { IMPORT_HOSTS, type HostDraft, type ImportDraft, type Readiness } from "
 const LINKS = [
   ["Project memories", ROUTES.project],
   ["User profile", ROUTES.profile],
-  ["Profile identity in Settings", `${ROUTES.settings}#settings-section-profiles`],
+] as const;
+/** Choosing or merging profiles needs two of them; with one profile the Settings card is hidden. */
+const IDENTITY_LINK = [
+  "Profile identity in Settings",
+  `${ROUTES.settings}#settings-section-profiles`,
 ] as const;
 
 /**
@@ -66,6 +71,8 @@ export function ImportCustomise({
   onStart: () => void;
 }) {
   const s = useSettingsText();
+  const profileCount = useProfileCount();
+  const links = profileCount !== undefined && profileCount >= 2 ? [...LINKS, IDENTITY_LINK] : LINKS;
   const shownHosts = onlyHost ? [onlyHost] : IMPORT_HOSTS;
   const ticked = IMPORT_HOSTS.filter((host) => draft.hosts[host].enabled).length;
   return (
@@ -89,7 +96,7 @@ export function ImportCustomise({
               )}
             </p>
             <p className="flex flex-wrap gap-3 text-sm">
-              {LINKS.map(([label, href]) => (
+              {links.map(([label, href]) => (
                 <a
                   key={href}
                   className="underline"

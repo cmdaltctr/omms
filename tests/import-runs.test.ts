@@ -5,14 +5,14 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { CONFIG } from "../src/config.js";
 import { scheduleAutoBackfill } from "../src/importer/auto-backfill.js";
-import { tryAcquireBackfillLock } from "../src/importer/backfill-lock.js";
+import { tryAcquireBackfillLock } from "../src/services/storage/backfill-locks.js";
 import { readImportRun, setBackfillPaused, startImportRun } from "../src/importer/import-runs.js";
 import { runHistoryImport } from "../src/importer/run-import.js";
 import { HOSTS } from "../src/shared/hosts.js";
 import {
   readUnresolvedDirectories,
   recordUnresolvedDirectories,
-} from "../src/services/backfill-state.js";
+} from "../src/services/storage/backfill-state.js";
 import { tursoConnectionManager } from "../src/services/turso/connection-manager.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
@@ -117,7 +117,7 @@ describe("import run records", () => {
       script,
       `const { CONFIG } = await import(${JSON.stringify(url("../src/config.ts"))});
       CONFIG.storagePath = ${JSON.stringify(home)};
-      const { tryAcquireBackfillLock } = await import(${JSON.stringify(url("../src/importer/backfill-lock.ts"))});
+      const { tryAcquireBackfillLock } = await import(${JSON.stringify(url("../src/services/storage/backfill-locks.ts"))});
       const release = await tryAcquireBackfillLock("pi", ${JSON.stringify(home)});
       console.log(release ? "held" : "refused");
       await new Promise((resolve) => process.stdin.once("data", resolve));
@@ -159,7 +159,7 @@ describe("unresolved directory list", () => {
     const root = join(directory, "claude-projects");
     mkdirSync(root);
     const { readUnresolvedDirectories, recordUnresolvedDirectories } =
-      await import("../src/services/backfill-state.js");
+      await import("../src/services/storage/backfill-state.js");
     const earlier = [{ directory: "/gone/app-feat-x", sessions: 4 }];
     await recordUnresolvedDirectories("claude-code", earlier);
     const run = { cwd: directory, models: {}, track: { surface: "cli" as const } };

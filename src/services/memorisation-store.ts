@@ -1,12 +1,15 @@
 import { countLabels, matchesTagGroups, visibleTags } from "../core/memorisation.js";
-import { activeOwner } from "./active-space-access.js";
+import { activeOwner } from "./storage/active-space-access.js";
 import { readLinkedMemory, type LinkedSearchSettings, type ListedMemory } from "./linked-search.js";
 import type { MemoryScope } from "./client.js";
 import { extractScopeFromContainerTag } from "./memory-scope.js";
 import { memoryClient } from "./client.js";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { tursoShardManager } from "./turso/shard-manager.js";
-import { tursoVectorSearch } from "./turso/vector-search.js";
+import {
+  decrementShardCount,
+  listEveryMemoryShard,
+  listMemoryShards,
+} from "./storage/memory/shards.js";
+import { deleteMemoryRow, getMemoryRow, newestSnapshotRow } from "./storage/memory/rows.js";
 
 export interface StoredMemorisation {
   id: string;
@@ -32,13 +35,8 @@ function toStored(row: Record<string, unknown>, space?: string): StoredMemorisat
 /** The active-space row with this ID, in any project, or null. */
 async function findActiveRow(id: string): Promise<Record<string, unknown> | null> {
   await memoryClient.ensureStorageReady();
-  const shards = [
-    ...(await tursoShardManager.getAllShards("user", "")),
-    ...(await tursoShardManager.getAllShards("project", "")),
-  ];
-  for (const shard of shards) {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    const row = await tursoVectorSearch.getMemoryById(db, id);
+  for (const shard of await listEveryMemoryShard("user")) {
+    const row = await getMemoryRow(shard, id);
     if (row) return row;
   }
   return null;
@@ -87,17 +85,8 @@ export async function findSnapshotByHostSession(
   await memoryClient.ensureStorageReady();
   const { scope, hash } = extractScopeFromContainerTag(containerTag);
   let newest: { id: string; createdAt: number } | null = null;
-  for (const shard of await tursoShardManager.getAllShards(scope, hash)) {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    const row = await db.get(
-      `SELECT id, created_at FROM memories
-       WHERE type = 'memorisation'
-         AND container_tag = ?
-         AND json_extract(metadata, '$.memorisation') = 'snapshot'
-         AND json_extract(metadata, '$.hostSessionId') = ?
-       ORDER BY created_at DESC LIMIT 1`,
-      [containerTag, hostSessionId]
-    );
+  for (const shard of await listMemoryShards(scope, hash)) {
+    const row = await newestSnapshotRow(shard, containerTag, hostSessionId);
     if (row && (!newest || Number(row.created_at) > newest.createdAt)) {
       newest = { id: String(row.id), createdAt: Number(row.created_at) };
     }
@@ -117,11 +106,13 @@ export async function listMemorisationsByTags(
   containerTag: string,
   tags: string[][],
   scope: MemoryScope,
-  limit: number
+  limit: number,
+  linked: LinkedSearchSettings
 ): Promise<{ success: true; memories: ListedMemory[] } | { success: false; error: string }> {
   const result = await memoryClient.listMemories(containerTag, READ_CEILING, scope, {
     includeLinked: true,
     kind: "memorisation",
+    linked,
   });
   if (!result.success) return { success: false, error: result.error };
   const memories = result.memories
@@ -133,12 +124,15 @@ export async function listMemorisationsByTags(
 }
 
 /** Every label in use across the active space and its linked spaces, with its record count. */
-export async function listMemorisationLabels(): Promise<
+export async function listMemorisationLabels(
+  linked: LinkedSearchSettings
+): Promise<
   { success: true; labels: { label: string; count: number }[] } | { success: false; error: string }
 > {
   const result = await memoryClient.listMemories("", READ_CEILING, "all-projects", {
     includeLinked: true,
     kind: "memorisation",
+    linked,
   });
   if (!result.success) return { success: false, error: result.error };
   return { success: true, labels: countLabels(result.memories.map((memory) => memory.tags)) };
@@ -158,17 +152,12 @@ export async function deleteMemorisation(
   linked: LinkedSearchSettings
 ): Promise<MemorisationDeleteOutcome> {
   await memoryClient.ensureStorageReady();
-  const shards = [
-    ...(await tursoShardManager.getAllShards("user", "")),
-    ...(await tursoShardManager.getAllShards("project", "")),
-  ];
-  for (const shard of shards) {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    const row = await tursoVectorSearch.getMemoryById(db, id);
+  for (const shard of await listEveryMemoryShard("user")) {
+    const row = await getMemoryRow(shard, id);
     if (!row || (containerTag !== null && row.container_tag !== containerTag)) continue;
     if (row.type !== "memorisation") return "not-memorisation";
-    await tursoVectorSearch.deleteVector(db, id);
-    await tursoShardManager.decrementVectorCount(shard.id);
+    await deleteMemoryRow(shard, id);
+    await decrementShardCount(shard.id);
     return "deleted";
   }
   const found = await readLinkedMemory(id, activeOwner(), linked, containerTag);

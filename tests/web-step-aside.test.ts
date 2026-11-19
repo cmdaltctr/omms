@@ -276,6 +276,35 @@ jest.useRealTimers();
   });
 });
 
+describe("stepping aside when shutdown fails", () => {
+  it("keeps the hold-off and takeover path, with no unhandled rejection", async () => {
+    const { result, log } = await runScenario(`
+const rejections = [];
+process.on("unhandledRejection", (reason) => rejections.push(String(reason)));
+const server = new WebServer({
+  enabled: true, host: "127.0.0.1", port: 4747, stepAsideHoldOffMs: 60000,
+});
+// The listener is closed; the cleanup after it fails, as a failed importer load would.
+server.stop = async () => {
+  throw new Error("cleanup failed");
+};
+result.status = (await stepAside(server, "127.0.0.1", "99.0.0")).status;
+const deadline = performance.now() + 3000;
+while (server.holdOffTimer === null && performance.now() < deadline) {
+  await new Promise((resolve) => realSetTimeout(resolve, 10));
+}
+await new Promise((resolve) => realSetTimeout(resolve, 50));
+result.holdOff = server.holdOffTimer !== null;
+result.rejections = rejections;
+clearTimeout(server.holdOffTimer);
+`);
+    expect(result.status).toBe(202);
+    expect(result.rejections).toEqual([]);
+    expect(result.holdOff).toBe(true);
+    expect(log).toContain("Step-aside shutdown error");
+  });
+});
+
 describe("step-aside log record", () => {
   it("logs each outcome with versions and never the token", async () => {
     const { token, log } = await runScenario(`

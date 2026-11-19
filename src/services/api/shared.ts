@@ -1,0 +1,71 @@
+import { extractScopeFromContainerTag } from "../memory-scope.js";
+import { distinctMemoryTags } from "../storage/memory/rows.js";
+import { ensureMemoryStoreReady, listEveryMemoryShard } from "../storage/memory/shards.js";
+import type { ShardInfo } from "../storage/memory/types.js";
+
+/** The live config module. The route host passes it in; handlers read `.CONFIG` at call time. */
+export type ApiConfig = Pick<typeof import("../../config.js"), "CONFIG">;
+
+export async function getAllMemoryShards(): Promise<ShardInfo[]> {
+  await ensureMemoryStoreReady();
+  return listEveryMemoryShard("project");
+}
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+export function safeToISOString(timestamp: any): string {
+  try {
+    if (timestamp === null || timestamp === undefined) {
+      return new Date().toISOString();
+    }
+    const numValue = typeof timestamp === "bigint" ? Number(timestamp) : Number(timestamp);
+    if (isNaN(numValue) || numValue < 0) {
+      return new Date().toISOString();
+    }
+    return new Date(numValue).toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
+export function safeJSONParse(jsonString: any): any {
+  if (!jsonString || typeof jsonString !== "string") {
+    return undefined;
+  }
+  try {
+    return JSON.parse(jsonString);
+  } catch {
+    return undefined;
+  }
+}
+
+export function extractScopeFromTag(tag: string): { scope: "user" | "project"; hash: string } {
+  return extractScopeFromContainerTag(tag);
+}
+
+export function getProjectPathFromTag(tag: string): Promise<string | undefined> {
+  return (async () => {
+    const shards = await getAllMemoryShards();
+    for (const shard of shards) {
+      const tags = await distinctMemoryTags(shard);
+      for (const t of tags) {
+        if (t.container_tag === tag && t.project_path) {
+          return String(t.project_path);
+        }
+      }
+    }
+    return undefined;
+  })();
+}

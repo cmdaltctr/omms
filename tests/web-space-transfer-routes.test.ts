@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
+import * as configModule from "../src/config.js";
 import { CONFIG, initConfig } from "../src/config.js";
 import { getOrCreateAuthToken } from "../src/services/auth-token.js";
 import {
@@ -17,7 +18,7 @@ import {
   spaceFiles,
 } from "../src/services/spaces/registry-store.js";
 import { readRegistryFile } from "../src/services/spaces/registry.js";
-import { openSpaceStore } from "../src/services/spaces/space-store.js";
+import { openSpaceStore } from "../src/services/storage/space-store.js";
 import { tursoVectorSearch } from "../src/services/turso/vector-search.js";
 import { exportSpace } from "../src/services/spaces/export-space.js";
 import { IMPORT_MAX_FILE_BYTES } from "../src/services/spaces/import-space.js";
@@ -31,7 +32,9 @@ const EMBED_MODEL = "route-test-embed";
 
 const omms = join(homedir(), ".omms");
 const files = spaceFiles(omms);
-const port = 49300 + (process.pid % 400);
+// Ask the system for a free port. A port picked from the process id can already be
+// taken by another server in a full ci:local run, which then answers with 404s.
+let port: number;
 let project: string;
 let server: WebServer;
 
@@ -128,7 +131,14 @@ const request = (path: string, body: unknown) =>
 
 type Result = SpaceTransferRouteResult | undefined;
 const call = async (path: string, body: unknown, deps?: SpaceTransferRouteDeps) =>
-  (await routeSpaceTransfers(path, "POST", request(path, body), project, deps)) as Result;
+  (await routeSpaceTransfers(
+    path,
+    "POST",
+    request(path, body),
+    project,
+    configModule,
+    deps
+  )) as Result;
 const data = (result: Result) => (result!.body as any).data;
 
 /** Drawn ids of the spaces the suite creates, kept by display name. */
@@ -170,6 +180,9 @@ function exportDocument(model = EMBED_MODEL) {
 }
 
 beforeAll(async () => {
+  const spare = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response("") });
+  port = spare.port!;
+  spare.stop(true);
   project = mkdtempSync(join(tmpdir(), "omms-space-transfer-routes-"));
   initConfig(project);
   // Shards record these at creation, so every seeded vector is reusable as-is.
@@ -528,6 +541,22 @@ describe("import routes", () => {
     expect(registryCount()).toBe(before);
   });
 
+  it("check reads the embedding model from the config module it is given, on every call", async () => {
+    const withModel = (embeddingModel: string) => ({ CONFIG: { ...CONFIG, embeddingModel } });
+    const run = async (module: { CONFIG: typeof CONFIG }) =>
+      data(
+        (await routeSpaceTransfers(
+          "/api/spaces/import/check",
+          "POST",
+          request("/api/spaces/import/check", { document: exportDocument() }),
+          project,
+          module
+        ))!
+      ).embedding.currentModel;
+    expect(await run(withModel("first-model"))).toBe("first-model");
+    expect(await run(withModel("second-model"))).toBe("second-model");
+  });
+
   it("check refuses an invalid document", async () => {
     const result = await call("/api/spaces/import/check", { document: { format: "wrong" } });
     expect(result!.status).toBe(400);
@@ -606,7 +635,7 @@ describe("links routes", () => {
     ]);
 
     const listed = await (
-      await routeSpaces("/api/spaces", "GET", async () => ({}), project)
+      await routeSpaces("/api/spaces", "GET", async () => ({}), project, configModule)
     )?.body.data.spaces;
     expect(listed.find((s: any) => s.id === spaceIds["Links One"]).links).toEqual([
       { id: spaceIds["Links Two"], name: "Links Two", available: true },
@@ -639,7 +668,7 @@ describe("links routes", () => {
   it("marks an archived linked space unavailable, then unlinks it", async () => {
     await archiveStoredSpace(files, spaceIds["Links Two"]!);
     const listed = await (
-      await routeSpaces("/api/spaces", "GET", async () => ({}), project)
+      await routeSpaces("/api/spaces", "GET", async () => ({}), project, configModule)
     )?.body.data.spaces;
     expect(listed.find((s: any) => s.id === spaceIds["Links One"]).links).toEqual([
       { id: spaceIds["Links Two"], name: "Links Two", available: false },

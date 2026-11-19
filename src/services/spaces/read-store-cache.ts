@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { resettable } from "./store-handles.js";
-import { openSpaceStore } from "./space-store.js";
-import type { SpaceReadStore } from "./space-store.js";
+import { openSpaceStore } from "../storage/space-store.js";
+import type { SpaceReadStore } from "../storage/space-store.js";
 
 const cache = new Map<string, SpaceReadStore>();
 

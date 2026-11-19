@@ -5,6 +5,7 @@ import { Button } from "$lib/components/ui/button";
 import { Label } from "$lib/components/ui/label";
 import { Select } from "$lib/components/ui/select";
 import { reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
+import { setProfileCount } from "$lib/profile-count";
 import { useSettingsText } from "$lib/i18n/settings";
 import { useCardText } from "$lib/i18n/settings-cards";
 import { formatDate } from "$lib/format";
@@ -38,6 +39,8 @@ export function ProfilesSection() {
   async function load() {
     const value = await settingsRequest<{ profiles: ProfileSummary[] }>("/api/settings/profiles");
     setProfiles(value.profiles);
+    // The chip, the sidebar entry and the import link hide below two profiles.
+    setProfileCount(value.profiles.length);
   }
 
   useEffect(() => {

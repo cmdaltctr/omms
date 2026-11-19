@@ -1,6 +1,6 @@
 import { log } from "./logger.js";
 import type { UserProfileManager } from "./user-profile/user-profile-manager.js";
-import type { AutoCleanupSummary } from "./user-profile/auto-cleanup-store.js";
+import type { AutoCleanupSummary } from "./storage/profiles/auto-cleanups.js";
 
 interface ApiResponse<T = any> {
   success: boolean;
@@ -12,11 +12,13 @@ export interface AutoCleanupHandlerDeps {
   manager?: Pick<UserProfileManager, "getActiveProfile" | "updateProfile">;
 }
 
-async function cleanupUser(userId?: string): Promise<string> {
+/** The live config module of the web server, read at call time so a reload reaches the handler. */
+type ConfigModule = Pick<typeof import("../config.js"), "CONFIG">;
+
+async function cleanupUser(config: ConfigModule, userId?: string): Promise<string> {
   if (userId) return userId;
-  const { CONFIG } = await import("../config.js");
   const { resolveWebProfileUserId } = await import("./profile-identity.js");
-  return (await resolveWebProfileUserId(CONFIG)) || "unknown";
+  return (await resolveWebProfileUserId(config.CONFIG)) || "unknown";
 }
 
 async function managerOf(deps: AutoCleanupHandlerDeps) {
@@ -39,12 +41,15 @@ function handlerError(step: string, error: unknown): ApiResponse<never> {
 
 /** The newest automatic cleanup that can still be undone, without its items. */
 export async function handleAutoCleanupStatus(
-  userId?: string,
+  userId: string | undefined,
+  config: ConfigModule,
   deps: AutoCleanupHandlerDeps = {}
 ): Promise<ApiResponse<AutoCleanupSummary | null>> {
   try {
-    const { latestOpenAutoCleanupSummary } = await import("./user-profile/auto-cleanup-store.js");
-    const profile = await (await managerOf(deps)).getActiveProfile(await cleanupUser(userId));
+    const { latestOpenAutoCleanupSummary } = await import("./storage/profiles/auto-cleanups.js");
+    const profile = await (
+      await managerOf(deps)
+    ).getActiveProfile(await cleanupUser(config, userId));
     if (!profile) return { success: true, data: null };
     return { success: true, data: await latestOpenAutoCleanupSummary(profile.id) };
   } catch (error) {
@@ -58,15 +63,16 @@ export async function handleAutoCleanupStatus(
  * and the record stay as they were.
  */
 export async function handleAutoCleanupUndo(
-  userId?: string,
+  userId: string | undefined,
+  config: ConfigModule,
   deps: AutoCleanupHandlerDeps = {}
 ): Promise<ApiResponse<{ restored: number; notFound: number }>> {
   try {
     const { latestOpenAutoCleanup, markAutoCleanupUndone } =
-      await import("./user-profile/auto-cleanup-store.js");
+      await import("./storage/profiles/auto-cleanups.js");
     const { undoCleanupEdits } = await import("./user-profile/ai-cleanup-undo.js");
     const { applyToNewestProfile } = await import("./user-profile/profile-edit-save.js");
-    const user = await cleanupUser(userId);
+    const user = await cleanupUser(config, userId);
     const manager = await managerOf(deps);
     const profile = await manager.getActiveProfile(user);
     const record = profile ? await latestOpenAutoCleanup(profile.id) : null;

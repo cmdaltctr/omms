@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CONFIG } from "../config.js";
+import { getEmbeddingDimensions, getEmbeddingModel } from "./storage/active-space-access.js";
 import {
   MemoryExportDocumentSchema,
   PORTABILITY_SCHEMA_VERSION,
@@ -19,13 +19,24 @@ import {
 import { extractScopeFromContainerTag } from "./memory-scope.js";
 import { getProjectTagInfo } from "./tags.js";
 import { embeddingService } from "./embedding.js";
-import { ensureTursoReady } from "./turso/ready.js";
-import { acquireTursoOperationLock } from "./turso/operation-lock.js";
-import { tursoShardManager } from "./turso/shard-manager.js";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { tursoVectorSearch } from "./turso/vector-search.js";
-import { formatTagsForEmbedding } from "./turso/vector-utils.js";
-import type { MemoryRecord } from "./turso/types.js";
+import {
+  acquireMemoryOperationLock,
+  createMemoryShard,
+  ensureMemoryStoreReady,
+  getActiveMemoryShard,
+  listMemoryShards,
+  setShardCount,
+  withMemoryScopeWriteLock,
+} from "./storage/memory/shards.js";
+import {
+  allMemoryRows,
+  countMemoryRows,
+  deleteMemoryRow,
+  formatTagsForEmbedding,
+  getMemoryRow,
+  insertMemoryRowsInOneTransaction,
+} from "./storage/memory/rows.js";
+import type { MemoryRecord } from "./storage/memory/types.js";
 import { stripPrivateContent, isFullyPrivate } from "./privacy.js";
 import { log } from "./logger.js";
 
@@ -115,19 +126,18 @@ function rowToExportedMemory(row: Record<string, unknown>): ExportedMemory | nul
 
 export class MemoryPortabilityService {
   async exportMemories(options: ExportMemoriesOptions): Promise<ExportMemoriesResult> {
-    await ensureTursoReady();
+    await ensureMemoryStoreReady();
 
     const outputPath = resolve(options.outputPath);
     const project = getProjectTagInfo(options.currentDirectory);
     const { hash: scopeHash } = extractScopeFromContainerTag(project.tag);
-    const shards = await tursoShardManager.getAllShards("project", scopeHash);
+    const shards = await listMemoryShards("project", scopeHash);
 
     const memories: ExportedMemory[] = [];
     for (const shard of shards) {
       if (!existsSync(shard.dbPath)) continue;
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
       // An export keeps every kind, memorisations included.
-      const rows = await tursoVectorSearch.getAllMemories(db, "all");
+      const rows = await allMemoryRows(shard, "all");
       for (const row of rows) {
         const exported = rowToExportedMemory(row);
         if (exported) memories.push(exported);
@@ -152,8 +162,8 @@ export class MemoryPortabilityService {
         gitRepoUrl: project.gitRepoUrl,
       },
       embedding: {
-        model: CONFIG.embeddingModel,
-        dimensions: CONFIG.embeddingDimensions,
+        model: getEmbeddingModel(),
+        dimensions: getEmbeddingDimensions(),
       },
       memories,
     };
@@ -187,7 +197,7 @@ export class MemoryPortabilityService {
   }
 
   async importMemories(options: ImportMemoriesOptions): Promise<ImportMemoriesResult> {
-    await ensureTursoReady();
+    await ensureMemoryStoreReady();
     await embeddingService.warmup();
 
     const inputPath = resolve(options.inputPath);
@@ -246,15 +256,14 @@ export class MemoryPortabilityService {
     const { scope, hash } = extractScopeFromContainerTag(target.tag);
 
     // Pre-scan for ID conflicts across all project shards of the target.
-    const targetShards = await tursoShardManager.getAllShards(scope, hash);
+    const targetShards = await listMemoryShards(scope, hash);
     const rejected: Array<{ id: string; reason: string }> = [];
     const skipped: Array<{ id: string; reason: string }> = [];
 
     for (const memory of document.memories) {
       for (const shard of targetShards) {
         if (!existsSync(shard.dbPath)) continue;
-        const db = await tursoConnectionManager.getConnection(shard.dbPath);
-        const existing = await tursoVectorSearch.getMemoryById(db, memory.id);
+        const existing = await getMemoryRow(shard, memory.id);
         if (existing) {
           rejected.push({
             id: memory.id,
@@ -287,7 +296,7 @@ export class MemoryPortabilityService {
       };
     }
 
-    const releaseLock = acquireTursoOperationLock("memory-import");
+    const releaseLock = acquireMemoryOperationLock("memory-import");
     const insertedIds: string[] = [];
 
     try {
@@ -339,30 +348,15 @@ export class MemoryPortabilityService {
 
       // Phase B: single transactional write. Avoid getWriteShard() here because it
       // refuses writes while our own operation lock is held.
-      await tursoShardManager.withScopeWriteLock(scope, hash, async () => {
-        let shard = await tursoShardManager.getActiveShard(scope, hash);
+      await withMemoryScopeWriteLock(scope, hash, async () => {
+        let shard = await getActiveMemoryShard(scope, hash);
         if (!shard) {
-          shard = await tursoShardManager.createShard(scope, hash, 0);
+          shard = await createMemoryShard(scope, hash, 0);
         }
-        const db = await tursoConnectionManager.getConnection(shard.dbPath);
 
-        await db.transaction("write", async (tx) => {
-          for (const item of prepared) {
-            await tursoVectorSearch.insertVectorInTransaction(tx, item.record);
-            if (item.isPinned) {
-              await tx.execute({
-                sql: `UPDATE memories SET is_pinned = 1 WHERE id = ?`,
-                args: [item.record.id],
-              });
-            }
-            insertedIds.push(item.record.id);
-          }
-        });
+        await insertMemoryRowsInOneTransaction(shard, prepared, (id) => insertedIds.push(id));
 
-        await tursoShardManager.setVectorCount(
-          shard.id,
-          await tursoVectorSearch.countAllVectors(db)
-        );
+        await setShardCount(shard.id, await countMemoryRows(shard));
       });
 
       log("Memory import completed", {
@@ -382,19 +376,15 @@ export class MemoryPortabilityService {
       // Best-effort cleanup if a partial insert somehow escaped the transaction.
       if (insertedIds.length > 0) {
         try {
-          const shards = await tursoShardManager.getAllShards(scope, hash);
+          const shards = await listMemoryShards(scope, hash);
           for (const shard of shards) {
-            const db = await tursoConnectionManager.getConnection(shard.dbPath);
             for (const id of insertedIds) {
-              const existing = await tursoVectorSearch.getMemoryById(db, id);
+              const existing = await getMemoryRow(shard, id);
               if (existing) {
-                await tursoVectorSearch.deleteVector(db, id);
+                await deleteMemoryRow(shard, id);
               }
             }
-            await tursoShardManager.setVectorCount(
-              shard.id,
-              await tursoVectorSearch.countAllVectors(db)
-            );
+            await setShardCount(shard.id, await countMemoryRows(shard));
           }
         } catch (cleanupError) {
           log("Memory import cleanup failed", { error: String(cleanupError) }, "error");

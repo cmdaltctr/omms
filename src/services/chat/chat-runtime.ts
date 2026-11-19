@@ -1,7 +1,8 @@
 import { join } from "node:path";
+import type { MemorySearchConfig } from "../client-read-settings.js";
 import { log } from "../logger.js";
 import type { ChatServiceDeps } from "./chat-service.js";
-import { ChatStore } from "./chat-store.js";
+import { ChatStore } from "../storage/chat-store.js";
 import type { MemoryHit, ProfileCandidate } from "./chat-retrieve.js";
 import { chatSkillsDep, type ChatSkillsConfig } from "./chat-skills-runtime.js";
 
@@ -47,7 +48,7 @@ export async function callTool(
 ) {
   const { AIProviderFactory } = await import("../ai/ai-provider-factory.js");
   const { buildMemoryProviderConfig } = await import("../ai/provider-config.js");
-  const { aiSessionManager } = await import("../ai/session/ai-session-manager.js");
+  const { aiSessionManager } = await import("../storage/ai-sessions.js");
   const provider = AIProviderFactory.createProvider(
     config.memoryProvider as Parameters<typeof AIProviderFactory.createProvider>[0],
     buildMemoryProviderConfig(config, {
@@ -91,23 +92,19 @@ async function activeProfileItems(config: ChatRuntimeConfig): Promise<ProfileCan
 export async function existingMemoryIds(ids: string[]): Promise<Set<string>> {
   const found = new Set<string>();
   if (ids.length === 0) return found;
-  const { tursoShardManager } = await import("../turso/shard-manager.js");
-  const { tursoConnectionManager } = await import("../turso/connection-manager.js");
-  const shards = [
-    ...(await tursoShardManager.getAllShards("user", "")),
-    ...(await tursoShardManager.getAllShards("project", "")),
-  ];
-  const marks = ids.map(() => "?").join(",");
-  for (const shard of shards) {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    const rows = await db.all(`SELECT id FROM memories WHERE id IN (${marks})`, ids);
-    for (const row of rows) found.add(String(row.id));
+  const { listEveryMemoryShard } = await import("../storage/memory/shards.js");
+  const { existingMemoryIdsInShard } = await import("../storage/memory/rows.js");
+  for (const shard of await listEveryMemoryShard("user")) {
+    for (const id of await existingMemoryIdsInShard(shard, ids)) found.add(id);
   }
   return found;
 }
 
+/** The settings a chat answer reads: chat's own and the memory search's. */
+export type ChatAnswerConfig = ChatRuntimeConfig & MemorySearchConfig;
+
 /** Real dependencies for `askQuestion`, built from the settings passed in. */
-export async function chatServiceDeps(config: ChatRuntimeConfig): Promise<ChatServiceDeps> {
+export async function chatServiceDeps(config: ChatAnswerConfig): Promise<ChatServiceDeps> {
   const store = await chatStore(config);
   const skills = await chatSkillsDep(config);
   return {
@@ -122,7 +119,7 @@ export async function chatServiceDeps(config: ChatRuntimeConfig): Promise<ChatSe
           query,
           scopeTag ?? "",
           scopeTag ? "project" : "all-projects",
-          { includeLinked: true }
+          { includeLinked: true, config }
         );
         return result.success ? (result.results as MemoryHit[]) : [];
       },

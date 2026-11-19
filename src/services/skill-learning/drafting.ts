@@ -26,9 +26,9 @@ import {
   turnsById,
 } from "./draft-turns.js";
 import { lineDiff } from "./line-diff.js";
-import { createProposal, setSkillReview, type SkillProposal } from "./proposal-store.js";
+import { createProposal, setSkillReview, type SkillProposal } from "../storage/skills/proposals.js";
 import { readFrontMatter, type SkillIndex } from "./skill-index.js";
-import type { SkillStore } from "./store.js";
+import type { SkillStore } from "../storage/skills/store.js";
 
 export {
   MAX_DRAFT_TURNS,

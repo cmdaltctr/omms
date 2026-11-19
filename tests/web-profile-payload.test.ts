@@ -48,7 +48,7 @@ const { handleGetUserProfile, handleUpdateProfileItem } =
 
 describe("profile API payload", () => {
   it("sends no embedding vectors to the browser", async () => {
-    const result = await handleGetUserProfile();
+    const result = await handleGetUserProfile(await import("../src/config.js"));
     expect(result.success).toBe(true);
     const body = JSON.stringify(result.data);
     expect(body).not.toContain("centroid");
@@ -61,7 +61,7 @@ describe("profile API payload", () => {
   });
 
   it("keeps the stored vectors of other items after a delete from the page", async () => {
-    const result = await handleUpdateProfileItem({
+    const result = await handleUpdateProfileItem(await import("../src/config.js"), {
       type: "preferences",
       index: 1,
       action: "delete",

@@ -24,7 +24,7 @@ Read [visual foundations](foundations.md) before applying target styles. The pat
 
 ## Buttons
 
-Use `$lib/components/ui/button`. Current variants are `default`, `outline`, `secondary`, `ghost`, `destructive`, and `link`. Sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, and `icon-lg`. OMMS currently has no `chip` variant.
+Use `$lib/components/ui/button`. Current variants are `default`, `outline`, `secondary`, `ghost`, `destructive`, `link`, and `chip`. Sizes are `default`, `xs`, `sm`, `lg`, `icon`, `icon-xs`, `icon-sm`, and `icon-lg`. The `chip` variant is a bordered, transparent toggle for a row of section choices: it sets `aria-pressed` on the selected chip and shows it with `bg-selection`. Put chips in a `role="group"` with a translated label and `flex flex-wrap gap-2`. The Settings page uses it.
 
 Keep the current variant API in the first pass. Apply the tinted primary treatment and target dimensions in the shared `buttonVariants`. Avoid local wrappers or repeated height overrides. The current default is `h-8`; the proposed default is `h-9`. Check toolbars and dialogs when this changes.
 
@@ -148,7 +148,7 @@ const stateClass = active
 
 ## Settings rows
 
-OMMS currently renders section components within `SettingsView` and has no `SettingsFieldRow`, `SettingsPageLayout`, or OpenChamber save-status API. Keep existing section IDs and `SETTINGS_SECTIONS` order. They connect the sidebar tree to scroll anchors.
+OMMS currently renders section components within `SettingsView` and has no `SettingsFieldRow`, `SettingsPageLayout`, or OpenChamber save-status API. Keep existing section IDs and `SETTINGS_SECTIONS` order. They connect the sidebar tree and the chip row to the sections. Settings does not mount `PageToc`. It shows a chip row below the search box (`Button variant="chip"` with `aria-pressed`, inside a `role="group"` with a translated label) and shows one section at a time. All section cards stay mounted and the cards that are not selected get the `hidden` attribute, so unsaved drafts survive a chip switch. The address names the selected section (`/settings#settings-section-log`) and `/settings` alone shows Memory basics. A chip adds a history entry and skips the scroll and outline. Links from elsewhere select the chip, then scroll and outline.
 
 Use a flat label/control arrangement where the existing content supports it. For example, this presentational row uses a real settings message and accepts the current owner's state:
 
@@ -219,12 +219,12 @@ Rules:
 
 ## Long pages: sticky table of contents
 
-A view or page with several titled sections offers a table of contents so no section needs a long scroll to reach: the skill view (with the way back), the Skills list page and the Settings page. All three mount one shared component, `web/src/lib/components/PageToc.tsx`, which carries the whole pattern; a new long page mounts it rather than copying it.
+A view or page with several titled sections offers a table of contents so no section needs a long scroll to reach: the skill view (with the way back) and the Skills list page. Both mount one shared component, `web/src/lib/components/PageToc.tsx`, which carries the whole pattern; a new long page mounts it rather than copying it.
 
 - The sections of one skill's view come from `web/src/lib/skill-detail-sections.ts`, in page order: Uses, Mode, Proposals, History, Recent turns, Failures. Failures reads last, after Recent turns. A skill with no file in a watched folder has no Mode section, so its contents leave the Mode entry out. The table of contents, the order test and the docs read that one module; do not hard-code the order anywhere else.
 - The ToC floats at the top end of the screen (`fixed top-16 end-3 z-20`, `md:top-3`; `top-16` clears the mobile header bar), out of the page flow, so the top of the view keeps all its space. The view's back link stays in the flow on its own first line. Logical end alignment, so Arabic flips the side.
-- The list starts with the way back (**All skills**), which navigates rather than scrolls, set apart from the section links under it with a rule. Only a view inside a page carries the back entry; a top-level page (Skills list, Settings) omits it. Every long-view ToC carries the way back as well as the sections.
-- Each page passes its own sections module list (`skill-detail-sections.ts`, `skills-sections.ts`, `settings-sections.ts`) and its own `storageKey`, so the expanded choice persists per page. A long list (Settings) caps the nav height (`max-h-[70vh] overflow-y-auto`) instead of running past the screen.
+- The list starts with the way back (**All skills**), which navigates rather than scrolls, set apart from the section links under it with a rule. Only a view inside a page carries the back entry; a top-level page (Skills list) omits it. Every long-view ToC carries the way back as well as the sections.
+- Each page passes its own sections module list (`skill-detail-sections.ts`, `skills-sections.ts`) and its own `storageKey`, so the expanded choice persists per page. A long list caps the nav height (`max-h-[70vh] overflow-y-auto`) instead of running past the screen.
 - One icon button (shared `Button`, `List` icon) expands the list and minimises it again. It carries `aria-expanded`, `aria-controls` on the nav, and a translated accessible name ("Show contents" / "Hide contents"). The choice persists in `localStorage` in a `try`/`catch`.
 - Each link scrolls at once with `scrollIntoView(JUMP)` and outlines its target for a moment with `flashAnchor`, both from `web/src/lib/settings-navigation.ts`. The target section carries the section's `id` and `scroll-mt-4`.
 - Section ids use the `skill-section-*` prefix, which `revealPageAnchor` ignores; page-level anchors stay `skills-section-*`.

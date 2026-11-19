@@ -232,7 +232,7 @@ mock.module(${JSON.stringify(skillOperationsUrl)}, () => ({
   },
 }));
 mock.module(${JSON.stringify(skillDepsUrl)}, () => ({
-  skillOperationsDeps: (directory, appliedBy) => ({ directory, appliedBy }),
+  skillOperationsDeps: (directory, appliedBy, config) => ({ directory, appliedBy, hasConfig: typeof config?.refreshConfigIfChanged === "function" }),
 }));
 
 // The automatic daily run. "manual" (the Cleanup button's delete) must never appear.
@@ -679,7 +679,7 @@ captured = {
     expect(output.captured.call).toEqual({
       mode: "draft",
       args: { idea: { name: "deploy", description: "Deploy steps" }, folder: "/skills" },
-      deps: { directory: "/workspace", appliedBy: "agent" },
+      deps: { directory: "/workspace", appliedBy: "agent", hasConfig: true },
     });
   });
 
@@ -1013,6 +1013,45 @@ captured = profileCreates.length;
     expect(output.profileCreates[0].userId).toBe("test@example.com");
     expect(output.profileCreates[0].count).toBe(1);
     expect(output.profileCreates[0].data.preferences[0].description).toBe("prefers Bun");
+  });
+
+  // Change unify-profile-learning, task 7.2: Pi records its prompts in the store, so a restart
+  // keeps them. Before the change Pi held them in memory and lost the first 6.
+  it("learns all 10 prompts when Pi restarts after 6 of them", async () => {
+    const promptManagerUrl = new URL(
+      "../src/services/user-prompt/user-prompt-manager.js",
+      import.meta.url
+    ).href;
+    const output = runScenario(`
+stubConfig.userProfileAnalysisInterval = 10;
+const reply = JSON.stringify({ preferences: [], patterns: [], workflows: [] });
+const branch = [];
+const ctx = makeCtx({
+  model: { provider: "test", id: "model-x" },
+  modelRegistry: {
+    find: () => null,
+    complete: async () => ({ content: [{ type: "text", text: reply }], stopReason: "stop" }),
+  },
+  sessionManager: { getSessionId: () => "pi-session-1", getBranch: () => branch },
+});
+const settle = async (index) => {
+  branch.push({ type: "message", id: "u-" + index, parentId: null, timestamp: "2026-01-01T10:00:00.000Z", message: { role: "user", content: "Please refactor module number " + index + " of the settings page" } });
+  await handlers["agent_settled"]({}, ctx);
+};
+for (let i = 0; i < 6; i++) await settle(i);
+const beforeRestart = profileCreates.length;
+await handlers["session_shutdown"]({}, ctx);
+// A new Pi process: a new store handle and a new extension instance.
+const { userPromptManager } = await import(${JSON.stringify(promptManagerUrl)});
+userPromptManager.reset();
+ommsPiExtension(pi);
+for (let i = 6; i < 10; i++) await settle(i);
+captured = { beforeRestart, waiting: await userPromptManager.countUnanalyzedForUserLearning() };
+`);
+
+    expect(output.captured).toEqual({ beforeRestart: 0, waiting: 0 });
+    expect(output.profileCreates).toHaveLength(1);
+    expect(output.profileCreates[0].count).toBe(10);
   });
 
   it("skips settled capture when auto-capture is disabled", async () => {

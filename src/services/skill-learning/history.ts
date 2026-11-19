@@ -1,10 +1,11 @@
 import { checkUndo, type ApplyDeps } from "./apply.js";
 import { countDiffLines } from "./line-diff.js";
+import { proposalLineCounts } from "./proposal-summaries.js";
 import {
+  latestVersionFacts,
   listProposalRows,
-  proposalLineCounts,
   type SkillProposalRow,
-} from "./proposal-summaries.js";
+} from "../storage/skills/proposals.js";
 
 export type SkillHistoryKind = "created" | "applied" | "rejected" | "undone" | "stale";
 
@@ -78,7 +79,7 @@ export async function skillHistory(
     ? await listProposalRows(deps.store, { skillPath: skill.path })
     : (await listProposalRows(deps.store, { skillName: skill.name })).filter((p) => !p.skillPath);
   const versions = await latestVersionFacts(
-    deps,
+    deps.store,
     proposals.filter((p) => p.state === "applied").map((p) => p.id)
   );
   const all = proposals.flatMap((p) => entriesOf(p, versions));
@@ -113,40 +114,6 @@ export async function skillHistory(
   return { total: all.length, entries };
 }
 
-interface VersionFacts {
-  id: number;
-  path: string;
-  writtenHash: string;
-}
-
-/**
- * The id, path and hash of the newest saved version for each proposal id, in
- * one query. It names its columns, so the saved previous content is not read.
- */
-async function latestVersionFacts(
-  deps: ApplyDeps,
-  ids: readonly string[]
-): Promise<Map<string, VersionFacts>> {
-  const db = await deps.store.existingDb();
-  const found = new Map<string, VersionFacts>();
-  if (!db || ids.length === 0) return found;
-  const rows = await db.all(
-    `SELECT v.id, v.proposal_id, v.path, v.written_hash FROM skill_versions v
-     JOIN (SELECT MAX(id) AS id FROM skill_versions
-           WHERE proposal_id IN (SELECT value FROM json_each(?)) GROUP BY proposal_id) m
-       ON v.id = m.id`,
-    [JSON.stringify(ids)]
-  );
-  for (const row of rows) {
-    found.set(String(row.proposal_id), {
-      id: Number(row.id),
-      path: String(row.path),
-      writtenHash: String(row.written_hash),
-    });
-  }
-  return found;
-}
-
 /**
  * Each proposal with `canUndo`: true only for an applied proposal that undo
  * would accept now, so false once a later change rewrote the file. Reads the
@@ -158,7 +125,7 @@ export async function withCanUndo<T extends { id: string; state: string }>(
   proposals: readonly T[]
 ): Promise<(T & { canUndo: boolean })[]> {
   const versions = await latestVersionFacts(
-    deps,
+    deps.store,
     proposals.filter((p) => p.state === "applied").map((p) => p.id)
   );
   const readOnly = deps.store.isReadOnly();

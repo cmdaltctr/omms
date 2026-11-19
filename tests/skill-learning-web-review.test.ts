@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 import { CONFIG } from "../src/config.js";
-import { SkillStore, skillsDbPath } from "../src/services/skill-learning/store.js";
+import { SkillStore, skillsDbPath } from "../src/services/storage/skills/store.js";
 import {
   webReviewDeps,
   type WebSkillReviewConfig,

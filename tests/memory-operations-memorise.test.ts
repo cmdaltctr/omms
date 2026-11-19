@@ -160,7 +160,7 @@ console.log("RESULT:" + JSON.stringify({ addCalls, deleteCalls, searchCalls, lab
 }
 
 function run(args: unknown, context: unknown = { directory: "/workspace", host: "opencode" }) {
-  return `output = await executeMemoryOperation(${JSON.stringify(args)}, ${JSON.stringify(context)});`;
+  return `output = await executeMemoryOperation(${JSON.stringify(args)}, { ...${JSON.stringify(context)}, config: await import(${JSON.stringify(configUrl)}) });`;
 }
 
 describe("memory tool: memorise", () => {

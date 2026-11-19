@@ -1,11 +1,29 @@
-import { tursoShardManager } from "./turso/shard-manager.js";
-import { tursoVectorSearch } from "./turso/vector-search.js";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { ensureTursoReady } from "./turso/ready.js";
-import { CONFIG } from "../config.js";
+import {
+  decrementShardCount,
+  ensureMemoryStoreReady,
+  listEveryMemoryShard,
+} from "./storage/memory/shards.js";
+import {
+  deleteMemoryRow,
+  memoryRowsUpdatedBefore,
+  pinnedMemoryIds as readPinnedMemoryIds,
+} from "./storage/memory/rows.js";
+import type { MemoryRow, ShardInfo } from "./storage/memory/types.js";
 import { log } from "./logger.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
-import { memoryKindPredicate } from "./memory-kind.js";
+import type { CaptureRetryConfig } from "./storage/capture-retry-queue.js";
+
+type Config = (typeof import("../config.js"))["CONFIG"];
+
+/** The settings a cleanup run reads. Callers pass `CONFIG` at call time. */
+export type CleanupConfig = Pick<
+  Config,
+  "autoCleanupRetentionDays" | "captureAttemptRetentionDays"
+> &
+  CaptureRetryConfig;
+
+/** The daily run also reads the deletion switch on each tick. */
+export type DailyMaintenanceConfig = CleanupConfig & Pick<Config, "autoDeleteOldMemories">;
 
 interface CleanupResult {
   deletedCount: number;
@@ -16,12 +34,9 @@ interface CleanupResult {
   pinnedMemoriesSkipped: number;
 }
 
-// Derived from the connection manager, so this file adds no storage import (modularity ratchet).
-type ShardDb = Awaited<ReturnType<typeof tursoConnectionManager.getConnection>>;
-
 /** The memories a deletion would remove, per shard of the active space. */
 interface OldMemories {
-  shards: { shardId: number; db: ShardDb; memories: Record<string, unknown>[] }[];
+  shards: { shard: ShardInfo; memories: MemoryRow[] }[];
   pinnedSkipped: number;
 }
 
@@ -53,44 +68,49 @@ export class CleanupService {
    * are deleted by age only when `deleteOld` is true; callers pass `autoDeleteOldMemories`
    * (ADR-051). Does nothing when the once-a-day guard says a run is not due.
    */
-  async runDailyMaintenance(deleteOld: boolean): Promise<void> {
+  async runDailyMaintenance(deleteOld: boolean, config: CleanupConfig): Promise<void> {
     if (!(await this.shouldRunCleanup())) return;
-    await this.run(deleteOld === true, "daily");
+    await this.run(deleteOld === true, "daily", config);
   }
 
   /** The manual Cleanup button: deletes by age and runs housekeeping, after the page's confirm. */
-  async runCleanup(): Promise<CleanupResult> {
+  async runCleanup(config: CleanupConfig): Promise<CleanupResult> {
     if (this.isRunning) {
       throw new Error("Cleanup already running");
     }
-    return this.run(true, "manual");
+    return this.run(true, "manual", config);
   }
 
   /** How many memories a deletion with `retentionDays` would remove now. Deletes nothing. */
   async countCleanupCandidates(retentionDays: number): Promise<number> {
-    await ensureTursoReady();
+    await ensureMemoryStoreReady();
     const cutoffTime = Date.now() - retentionDays * DAY_MS;
     const found = await this.findOldMemories(cutoffTime);
     return found.shards.reduce((total, shard) => total + shard.memories.length, 0);
   }
 
-  private async run(deleteOld: boolean, trigger: "daily" | "manual"): Promise<CleanupResult> {
+  private async run(
+    deleteOld: boolean,
+    trigger: "daily" | "manual",
+    config: CleanupConfig
+  ): Promise<CleanupResult> {
     this.isRunning = true;
     this.lastCleanupTime = Date.now();
 
     try {
-      await ensureTursoReady();
-      const result = deleteOld ? await this.deleteOldMemories() : NOTHING_DELETED;
+      await ensureMemoryStoreReady();
+      const retentionDays = config.autoCleanupRetentionDays;
+      const result = deleteOld ? await this.deleteOldMemories(retentionDays) : NOTHING_DELETED;
       // Counts and days only: never memory text, ids or project names (CLAUDE.md Security).
       if (result.deletedCount > 0 || result.promptsDeleted > 0) {
         log("Cleanup: old memories deleted", {
           memories: result.deletedCount,
           prompts: result.promptsDeleted,
-          retentionDays: CONFIG.autoCleanupRetentionDays,
+          retentionDays,
           trigger,
         });
       }
-      await this.runHousekeeping();
+      await this.runHousekeeping(config);
       return result;
     } finally {
       this.isRunning = false;
@@ -103,27 +123,16 @@ export class CleanupService {
    * old prompt goes in the same run as its prompt (ADR-051).
    */
   private async findOldMemories(cutoffTime: number): Promise<OldMemories> {
-    const userShards = await tursoShardManager.getAllShards("user", "");
-    const projectShards = await tursoShardManager.getAllShards("project", "");
-    const allShards = [...userShards, ...projectShards];
+    const allShards = await listEveryMemoryShard("user");
 
     const pinnedMemoryIds = new Set<string>();
     for (const shard of allShards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const pinned = await db.all(`SELECT id FROM memories WHERE is_pinned = 1`);
-      pinned.forEach((row) => pinnedMemoryIds.add(String(row.id)));
+      for (const id of await readPinnedMemoryIds(shard)) pinnedMemoryIds.add(id);
     }
 
     const found: OldMemories = { shards: [], pinnedSkipped: 0 };
     for (const shard of allShards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const oldMemories = await db.all(
-        `
-          SELECT id, container_tag, is_pinned FROM memories
-          WHERE updated_at < ? AND ${memoryKindPredicate()}
-        `,
-        [cutoffTime]
-      );
+      const oldMemories = await memoryRowsUpdatedBefore(shard, cutoffTime);
       const memories = oldMemories.filter((memory) => {
         if (Number(memory.is_pinned) === 1) {
           found.pinnedSkipped++;
@@ -131,13 +140,13 @@ export class CleanupService {
         }
         return !pinnedMemoryIds.has(String(memory.id));
       });
-      found.shards.push({ shardId: shard.id, db, memories });
+      found.shards.push({ shard, memories });
     }
     return found;
   }
 
-  private async deleteOldMemories(): Promise<CleanupResult> {
-    const cutoffTime = Date.now() - CONFIG.autoCleanupRetentionDays * DAY_MS;
+  private async deleteOldMemories(retentionDays: number): Promise<CleanupResult> {
+    const cutoffTime = Date.now() - retentionDays * DAY_MS;
     const promptCleanupResult = await userPromptManager.deleteOldPrompts(cutoffTime);
     const linkedMemoryIds = new Set(promptCleanupResult.linkedMemoryIds);
     const found = await this.findOldMemories(cutoffTime);
@@ -147,11 +156,11 @@ export class CleanupService {
     let projectDeleted = 0;
     let linkedDeleted = 0;
 
-    for (const { shardId, db, memories } of found.shards) {
+    for (const { shard, memories } of found.shards) {
       for (const memory of memories) {
         try {
-          await tursoVectorSearch.deleteVector(db, String(memory.id));
-          await tursoShardManager.decrementVectorCount(shardId);
+          await deleteMemoryRow(shard, String(memory.id));
+          await decrementShardCount(shard.id);
           totalDeleted++;
           if (linkedMemoryIds.has(String(memory.id))) linkedDeleted++;
 
@@ -177,10 +186,10 @@ export class CleanupService {
   }
 
   /** Record-keeping tables and VACUUM. Reads neither deletion key and deletes no memory. */
-  private async runHousekeeping(): Promise<void> {
+  private async runHousekeeping(config: CleanupConfig): Promise<void> {
     try {
       const { pruneCaptureAttempts } = await import("./capture-attempt-store.js");
-      await pruneCaptureAttempts(CONFIG.captureAttemptRetentionDays);
+      await pruneCaptureAttempts(config.captureAttemptRetentionDays);
     } catch (error) {
       log(
         "Capture attempt cleanup failed",
@@ -192,8 +201,8 @@ export class CleanupService {
     }
 
     try {
-      const { pruneCaptureRetries } = await import("./capture-retry-queue.js");
-      await pruneCaptureRetries(CONFIG);
+      const { pruneCaptureRetries } = await import("./storage/capture-retry-queue.js");
+      await pruneCaptureRetries(config);
     } catch (error) {
       log(
         "Capture retry cleanup failed",
@@ -205,7 +214,7 @@ export class CleanupService {
     }
 
     try {
-      const { pruneAutoCleanupRecords } = await import("./user-profile/auto-cleanup-store.js");
+      const { pruneAutoCleanupRecords } = await import("./storage/profiles/auto-cleanups.js");
       await pruneAutoCleanupRecords();
     } catch (error) {
       log(
@@ -225,10 +234,10 @@ export class CleanupService {
     }
   }
 
-  getStatus() {
+  getStatus(config: Pick<Config, "autoDeleteOldMemories" | "autoCleanupRetentionDays">) {
     return {
-      enabled: CONFIG.autoDeleteOldMemories === true,
-      retentionDays: CONFIG.autoCleanupRetentionDays,
+      enabled: config.autoDeleteOldMemories === true,
+      retentionDays: config.autoCleanupRetentionDays,
       lastCleanupTime: this.lastCleanupTime,
       isRunning: this.isRunning,
     };
@@ -240,12 +249,14 @@ export const cleanupService = new CleanupService();
 /**
  * The web app's daily run, which also covers Claude Code. Runs once now, then checks every
  * hour; the once-a-day guard skips a run that is not due. Deletion follows
- * `autoDeleteOldMemories` only. Returns a function that stops the timer.
+ * `autoDeleteOldMemories` only. Returns a function that stops the timer. `getConfig` returns
+ * the current `CONFIG`; each tick calls it, so a reload or space switch applies from the next tick.
  */
-export function startDailyMaintenanceTimer(): () => void {
+export function startDailyMaintenanceTimer(getConfig: () => DailyMaintenanceConfig): () => void {
   const tick = () => {
+    const config = getConfig();
     cleanupService
-      .runDailyMaintenance(CONFIG.autoDeleteOldMemories === true)
+      .runDailyMaintenance(config.autoDeleteOldMemories === true, config)
       .catch((error: unknown) => {
         log(
           "Daily maintenance failed",

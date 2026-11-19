@@ -85,7 +85,7 @@ describe("UserPromptManager.claimPrompt / releaseClaim", () => {
     expect(await mgr.releaseClaim(id)).toBe(true);
     expect(await getRawCaptured(id)).toBe(0);
 
-    const next = await mgr.getLastUncapturedPrompt("session-release");
+    const next = await mgr.getLastUncapturedPrompt("session-release", 3);
     expect(next).not.toBeNull();
     expect(next!.id).toBe(id);
   });
@@ -121,8 +121,26 @@ describe("UserPromptManager.claimPrompt / releaseClaim", () => {
       await mgr.recordFailedAttempt(id);
     }
 
-    const prompt = await mgr.getLastUncapturedPrompt("session-retries");
+    const prompt = await mgr.getLastUncapturedPrompt("session-retries", 3);
     expect(prompt).toBeNull();
+  });
+
+  it("applies the retry limit it is given, not a fixed one", async () => {
+    // Earlier tests in this file leave other uncaptured prompts, so the store-wide queries are
+    // checked as a change from a baseline taken before this prompt exists.
+    const before2 = await mgr.countUncapturedPrompts(2);
+    const before3 = await mgr.countUncapturedPrompts(3);
+    const id = await newPrompt("session-limit", "limited");
+    await mgr.recordFailedAttempt(id);
+    await mgr.recordFailedAttempt(id);
+
+    expect(await mgr.getLastUncapturedPrompt("session-limit", 3)).not.toBeNull();
+    expect(await mgr.getLastUncapturedPrompt("session-limit", 2)).toBeNull();
+    expect(await mgr.getUncapturedPromptsForSession("session-limit", 2)).toEqual([]);
+    expect(await mgr.countUncapturedPrompts(2)).toBe(before2);
+    expect(await mgr.countUncapturedPrompts(3)).toBe(before3 + 1);
+    expect((await mgr.getUncapturedPrompts(100, 2)).map((prompt) => prompt.id)).not.toContain(id);
+    expect((await mgr.getUncapturedPrompts(100, 3)).map((prompt) => prompt.id)).toContain(id);
   });
 
   it("returns all uncaptured prompts for a session oldest first", async () => {
@@ -142,7 +160,7 @@ describe("UserPromptManager.claimPrompt / releaseClaim", () => {
       await mgr.recordFailedAttempt(retriedOut);
     }
 
-    const prompts = await mgr.getUncapturedPromptsForSession("session-batch");
+    const prompts = await mgr.getUncapturedPromptsForSession("session-batch", 3);
 
     expect(prompts.map((prompt) => prompt.id)).toEqual([older, later]);
   });

@@ -22,9 +22,9 @@ import {
   type SkillAppliedBy,
   type SkillProposal,
   type SkillVersion,
-} from "./proposal-store.js";
+} from "../storage/skills/proposals.js";
 import { clearSkillIndexCache } from "./skill-index.js";
-import type { SkillStore } from "./store.js";
+import type { SkillStore } from "../storage/skills/store.js";
 
 /** The only file name OMMS writes in a skill folder. */
 export const SKILL_FILE_NAME = "SKILL.md";

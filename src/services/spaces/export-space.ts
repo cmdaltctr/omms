@@ -9,8 +9,11 @@ import {
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isFullyPrivate } from "../privacy.js";
+import { readExportRows } from "../storage/memory/transfer-rows.js";
+import { USER_PROFILES_DB_NAME } from "../storage/profiles/connection.js";
+import { readNewestActiveProfileData } from "../storage/profiles/profiles.js";
+import { openSpaceStore, type SpaceReadStore } from "../storage/space-store.js";
 import { scrubIdentifiers } from "./identifier-scrub.js";
-import { openSpaceStore, type SpaceReadStore } from "./space-store.js";
 import {
   SPACE_EXPORT_FORMAT,
   SPACE_EXPORT_SCHEMA_VERSION,
@@ -22,13 +25,6 @@ import {
   type SpaceExportProfileItem,
 } from "../../shared/api/space-export-schemas.js";
 
-/**
- * The profile database of a space folder. Kept as a literal because importing
- * the profile manager for its constant would run the manager's constructor at
- * import time; see `USER_PROFILES_DB_NAME` in user-profile-manager.ts.
- */
-const PROFILE_DB_NAME = "user-profiles.db";
-
 /** Identity columns of a memory row: dropped whole, never exported. */
 const IDENTITY_COLUMNS = [
   "display_name",
@@ -38,11 +34,6 @@ const IDENTITY_COLUMNS = [
   "project_name",
   "git_repo_url",
 ] as const;
-
-/** Every column the export reads. The vector columns are absent by design. */
-const MEMORY_COLUMNS =
-  "id, content, container_tag, tags, type, created_at, updated_at, metadata, " +
-  "display_name, user_name, user_email, project_path, project_name, git_repo_url, is_pinned";
 
 /** What the caller passes in; nothing is read from CONFIG here (pattern of live-model-choice.ts). */
 export interface ExportSpaceOptions {
@@ -210,7 +201,7 @@ async function readScopeMemories(
   for (const shard of await store.listShards(scope, "")) {
     if (!existsSync(shard.dbPath)) continue;
     const db = await store.openShard(shard.dbPath);
-    const rows = await db.all(`SELECT ${MEMORY_COLUMNS} FROM memories`);
+    const rows = await readExportRows(db);
     for (const row of rows) {
       const content = String(row.content ?? "");
       if (isFullyPrivate(content)) {
@@ -313,17 +304,9 @@ async function readProfile(
   store: SpaceReadStore,
   counts: ExportSpaceCounts
 ): Promise<SpaceExportProfile | undefined> {
-  const dbPath = join(store.folder, PROFILE_DB_NAME);
+  const dbPath = join(store.folder, USER_PROFILES_DB_NAME);
   if (!existsSync(dbPath)) return undefined;
-  const db = await store.openShard(dbPath);
-  const table = await db.get(
-    `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'user_profiles'`
-  );
-  if (!table) return undefined;
-  const row = await db.get(
-    `SELECT profile_data, version, last_analyzed_at, total_prompts_analyzed
-       FROM user_profiles WHERE is_active = 1 ORDER BY last_analyzed_at DESC LIMIT 1`
-  );
+  const row = await readNewestActiveProfileData(await store.openShard(dbPath));
   if (!row) return undefined;
 
   let data: unknown;

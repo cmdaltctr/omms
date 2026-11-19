@@ -4,19 +4,19 @@ const realHandlers = await import("../src/services/api-handlers.js");
 const calls: Array<{ handler: string; userId: unknown; body?: unknown }> = [];
 mock.module("../src/services/api-handlers.js", () => ({
   ...realHandlers,
-  handleCategoryCleanupStart: async (userId: unknown) => {
+  handleCategoryCleanupStart: async (_config: unknown, userId: unknown) => {
     calls.push({ handler: "start", userId });
     return { success: true, data: { started: true } };
   },
-  handleCategoryCleanupStatus: async (userId: unknown) => {
+  handleCategoryCleanupStatus: async (_config: unknown, userId: unknown) => {
     calls.push({ handler: "status", userId });
     return { success: true, data: { state: "idle" } };
   },
-  handleCategoryCleanupApply: async (userId: unknown, body: unknown) => {
+  handleCategoryCleanupApply: async (_config: unknown, userId: unknown, body: unknown) => {
     calls.push({ handler: "apply", userId, body });
     return { success: true, data: { applied: 2 } };
   },
-  handleCategoryCleanupUndo: async (userId: unknown) => {
+  handleCategoryCleanupUndo: async (_config: unknown, userId: unknown) => {
     calls.push({ handler: "undo", userId });
     return { success: true, data: { restored: 2 } };
   },

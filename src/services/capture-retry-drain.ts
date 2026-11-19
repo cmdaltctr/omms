@@ -1,6 +1,7 @@
 import {
   CaptureAttemptError,
   captureConversation,
+  type CaptureConfigModule,
   type CaptureResult,
   type CaptureWorkUnit,
 } from "../core/capture.js";
@@ -22,13 +23,15 @@ import {
   pruneCaptureRetries,
   rescheduleCaptureRetry,
   type CaptureRetryConfig,
-} from "./capture-retry-queue.js";
+} from "./storage/capture-retry-queue.js";
 import { log } from "./logger.js";
 
 export interface CaptureRetryDrainOptions {
   host: MemoryHost;
   provider: CaptureSummaryProvider;
   config: CaptureRetryConfig;
+  /** The config module each retry's capture refreshes and reads. The host passes its own. */
+  configModule: CaptureConfigModule;
   now?: () => number;
   /** False skips the pass, e.g. while the embedding model is not ready. */
   isReady?: () => boolean;
@@ -125,7 +128,7 @@ export async function drainCaptureRetries(
       if (!(await claimCaptureRetry(row.id, config, now()))) continue;
       let outcome: CaptureResult;
       try {
-        outcome = await captureConversation(row.workUnit, options.provider);
+        outcome = await captureConversation(row.workUnit, options.provider, options.configModule);
       } catch (error) {
         const failure = captureFailureOf(error);
         if (classifyCaptureFailure(failure) === "retryable") {

@@ -17,7 +17,7 @@ const dayOf = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 async function setup() {
   const { CONFIG } = await import("../src/config.js");
   CONFIG.storagePath = baseDir;
-  const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+  const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
   const { buildSkillIndex } = await import("../src/services/skill-learning/skill-index.js");
   const activity = await import("../src/services/skill-learning/activity.js");
   const summaries = await import("../src/services/skill-learning/turn-summaries.js");
@@ -97,7 +97,7 @@ describe("turn paging for one skill", () => {
 
   it("counts zero when skills.db does not exist", async () => {
     const s = await setup();
-    const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+    const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
     const missing = new SkillStore(skillsDbPath(join(baseDir, "nowhere")));
     expect(await s.countSkillTurns(missing, { name: "x", path: null }, s.index)).toBe(0);
   });
@@ -131,7 +131,7 @@ describe("daily uses for one skill", () => {
 
   it("zero-fills when skills.db does not exist", async () => {
     const s = await setup();
-    const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+    const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
     const missing = new SkillStore(skillsDbPath(join(baseDir, "nowhere")));
     const daily = await s.skillDaily(missing, s.index, { name: "x", path: null }, NOW);
     expect(daily).toHaveLength(30);
@@ -343,7 +343,7 @@ describe("activity by day, month and year", () => {
     const empty = await s.skillActivity(s.store, s.index, TODAY, { bucket: "year" });
     expect(empty.series).toEqual([{ key: "2026", uses: 0, failed: 0 }]);
     expect(empty.available).toEqual({ months: [], years: [2026] });
-    const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+    const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
     const missing = new SkillStore(skillsDbPath(join(baseDir, "nowhere")));
     const none = await s.skillActivity(missing, s.index, TODAY, { bucket: "month", year: 2026 });
     expect(none.series).toHaveLength(12);

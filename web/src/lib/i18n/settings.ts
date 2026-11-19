@@ -15,6 +15,7 @@ const text = {
   ...importStatusText,
   ...importFlowText,
   ...importResultText,
+  Sections: ["分区", "الأقسام"],
   "Import chat history": ["导入聊天记录", "استيراد سجل المحادثات"],
   "Memory limits": ["记忆限制", "حدود الذاكرة"],
   "Resolve missing project folders": ["解析缺失的项目文件夹", "حل مجلدات المشاريع المفقودة"],
@@ -1512,6 +1513,66 @@ const text = {
     "无法加载最新设置。请先重新加载页面，再保存。",
     "تعذّر تحميل أحدث الإعدادات. أعد تحميل الصفحة قبل الحفظ مرة أخرى.",
   ],
+  "Learning settings": ["学习设置", "إعدادات التعلّم"],
+  "These settings apply to every host. They are saved in the global config file.": [
+    "这些设置适用于所有宿主，保存在全局配置文件中。",
+    "تنطبق هذه الإعدادات على كل المضيفين وتُحفظ في ملف الإعدادات العام.",
+  ],
+  "Fixed. This is not a setting.": ["固定值，不是设置项。", "قيمة ثابتة وليست إعداداً."],
+  "History entry": ["历史条目", "مدخل السجل"],
+  "The text of each profile version that learning saves, with the host's display name.": [
+    "学习保存的每个画像版本所带的文字，其中含宿主的显示名称。",
+    "نص كل إصدار من الملف الشخصي يحفظه التعلّم، مع اسم المضيف المعروض.",
+  ],
+  "<Host> analysis of N prompts": ["<Host> 分析了 N 条提示", "تحليل <Host> لعدد N من المطالبات"],
+  "When the host model fails": ["宿主模型失败时", "عند فشل نموذج المضيف"],
+  "Learning tries the saved external API and shows a short notice.": [
+    "学习会改用已保存的外部 API，并显示一条简短提示。",
+    "يجرّب التعلّم واجهة API الخارجية المحفوظة ويعرض إشعاراً قصيراً.",
+  ],
+  "Use the external API and show a notice": [
+    "使用外部 API 并显示提示",
+    "استخدام واجهة API الخارجية وعرض إشعار",
+  ],
+  "Reply check": ["回复检查", "فحص الردود"],
+  "Every model reply is checked against the profile format before it is merged.": [
+    "每条模型回复在合并前都会按画像格式检查。",
+    "يُفحص كل ردّ من النموذج وفق صيغة الملف الشخصي قبل دمجه.",
+  ],
+  "Save clash": ["保存冲突", "تعارض الحفظ"],
+  "When the profile changes during a save, OMMS merges again without asking the model.": [
+    "保存时画像发生变化，OMMS 会重新合并，不再询问模型。",
+    "عندما يتغير الملف الشخصي أثناء الحفظ يعيد OMMS الدمج دون سؤال النموذج.",
+  ],
+  "3 tries, then wait 10 minutes": ["尝试 3 次，然后等待 10 分钟", "3 محاولات ثم انتظار 10 دقائق"],
+  "Reset the learning settings?": ["重置学习设置？", "إعادة ضبط إعدادات التعلّم؟"],
+  "This removes the six learning settings from the global config file. Every row goes back to its default.":
+    [
+      "这会从全局配置文件中移除这六项学习设置，每一行都会恢复默认值。",
+      "يزيل هذا إعدادات التعلّم الستة من ملف الإعدادات العام، فيعود كل صف إلى قيمته الافتراضية.",
+    ],
+  "Saved. The next learning pass uses these settings.": [
+    "已保存。下一次学习将使用这些设置。",
+    "تم الحفظ. تستخدم جولة التعلّم التالية هذه الإعدادات.",
+  ],
+  "Reset. Every row shows its default.": [
+    "已重置。每一行都显示默认值。",
+    "تمت إعادة الضبط. يعرض كل صف قيمته الافتراضية.",
+  ],
+  "The learning settings could not be saved. Reload the page to try again.": [
+    "无法保存学习设置。请重新加载页面后再试。",
+    "تعذّر حفظ إعدادات التعلّم. أعد تحميل الصفحة وحاول مرة أخرى.",
+  ],
+  "The learning settings could not be reset. Reload the page to try again.": [
+    "无法重置学习设置。请重新加载页面后再试。",
+    "تعذّرت إعادة ضبط إعدادات التعلّم. أعد تحميل الصفحة وحاول مرة أخرى.",
+  ],
+  "The learning settings could not be loaded. Reload the page to try again.": [
+    "无法加载学习设置。请重新加载页面后再试。",
+    "تعذّر تحميل إعدادات التعلّم. أعد تحميل الصفحة وحاول مرة أخرى.",
+  ],
+  "Default settings": ["默认设置", "الإعدادات الافتراضية"],
+  "Custom settings": ["自定义设置", "إعدادات مخصصة"],
 } as const;
 
 export function translateSettings(message: string, language: "en" | "zh" | "ar"): string {

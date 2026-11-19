@@ -49,9 +49,12 @@ const t = () => Date.now();
 const autoCapture = await import(${JSON.stringify(url("../src/services/auto-capture.js"))});
 mock.module(${JSON.stringify(url("../src/services/auto-capture.js"))}, () => ({
   ...autoCapture,
-  performAutoCapture: async (_host, sessionID, directory) => {
+  performAutoCapture: async (_host, sessionID, directory, config) => {
     recorded.order.push({ name: "capture", at: t() });
-    recorded.capture.push({ sessionID, directory });
+    // The live config module: a refresh replaces its CONFIG.
+    const configModule =
+      typeof config?.refreshConfigIfChanged === "function" && typeof config?.CONFIG === "object";
+    recorded.capture.push({ sessionID, directory, configModule });
   },
 }));
 const profile = await import(${JSON.stringify(url("../src/adapters/opencode/profile-learning.js"))});
@@ -217,6 +220,7 @@ describe("OpenCode V2 session events start capture", () => {
     expect(result.recorded.maintenance).toEqual([false]);
     expect(result.recorded.capture).toHaveLength(1);
     expect(result.recorded.capture[0].sessionID).toBe("ses-user");
+    expect(result.recorded.capture[0].configModule).toBe(true);
   });
 
   it("records only the turn and runs daily maintenance when capture is off and skillLearning is on", async () => {

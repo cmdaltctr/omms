@@ -115,6 +115,7 @@ const { ImportOptions } = await import("../src/lib/components/memory/ImportOptio
 const { Button } = await import("../src/lib/components/ui/button.tsx");
 const { setLanguage } = await import("../src/lib/i18n/index.ts");
 const { usePath } = await import("../src/lib/router.ts");
+const { setProfileCount } = await import("../src/lib/profile-count.ts");
 
 const own = [
   ImportSection,
@@ -675,4 +676,19 @@ it("ends the Re-analyse preset once the page leaves the overview", async () => {
   navigate("/memory");
   tree = await settle(element, views);
   expect(tree.find((node) => node.type === MemoryOverview)!.props.profilePreset).toBe(0);
+});
+
+it("shows the profile identity link in Customise only when there are two profiles", async () => {
+  const hrefs = async (count: number) => {
+    resetRender();
+    setProfileCount(count);
+    const { element, tree } = await open();
+    tree.find((node) => node.type === "details")!.props.onToggle({ currentTarget: { open: true } });
+    const opened = await settle(element, own);
+    return opened.filter((node) => node.type === "a").map((node) => node.props.href);
+  };
+  const identity = "/settings#settings-section-profiles";
+  expect(await hrefs(1)).not.toContain(identity);
+  expect(await hrefs(1)).toContain("/project-memories");
+  expect(await hrefs(2)).toContain(identity);
 });

@@ -58,11 +58,20 @@ describe("turso dedup vector_extract", () => {
     expect(typeof extracted[0]?.vector_json).toBe("string");
     expect(String(extracted[0]?.vector_json).length).toBeGreaterThan(2);
 
-    const result = await deduplicationService.detectAndRemoveDuplicates();
+    const result = await deduplicationService.detectAndRemoveDuplicates(CONFIG);
     expect(
       result.nearDuplicateGroups.length + result.exactDuplicatesDeleted
     ).toBeGreaterThanOrEqual(0);
     // Near-dup group should be detected when vectors are highly similar
     expect(result.nearDuplicateGroups.length).toBeGreaterThanOrEqual(1);
+
+    // Each run reads the threshold and the switch it is given at call time.
+    CONFIG.deduplicationSimilarityThreshold = 0.9999;
+    const stricter = await deduplicationService.detectAndRemoveDuplicates(CONFIG);
+    expect(stricter.nearDuplicateGroups).toEqual([]);
+    CONFIG.deduplicationEnabled = false;
+    await expect(deduplicationService.detectAndRemoveDuplicates(CONFIG)).rejects.toThrow(
+      "Deduplication is disabled in config"
+    );
   });
 });

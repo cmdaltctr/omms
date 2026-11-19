@@ -55,3 +55,4 @@ Local decision records for OMMS maintainers.
 | [049](./049-memorisations-belong-to-the-space.md)                           | Memorisations belong to the space                                               | 2026-11-12 | Accepted           |
 | [050](./050-one-host-registry-and-modularity-ratchets.md)                   | One host registry, and ratchets on modularity debt                              | 2026-11-17 | Proposed           |
 | [051](./051-memory-deletion-is-opt-in.md)                                   | Automatic memory deletion is opt-in                                             | 2026-11-16 | Proposed           |
+| [052](./052-one-profile-learning-pass-for-every-host.md)                    | One profile learning pass for every host                                        | 2026-11-18 | Proposed           |

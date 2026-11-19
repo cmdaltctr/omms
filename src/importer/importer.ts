@@ -1,4 +1,5 @@
 import { existsSync, realpathSync } from "node:fs";
+import * as configModule from "../config.js";
 import { handleFinishedTurn } from "../core/turn-outputs.js";
 import type { CaptureConversation, CaptureSummaryProvider } from "../core/host.js";
 import type { ModelPort } from "../core/profile-analysis.js";
@@ -7,8 +8,8 @@ import { memoryClient } from "../services/client.js";
 import { findLiveCapturedEntryIds } from "../services/live-captured-entries.js";
 import { extractScopeFromContainerTag } from "../services/memory-scope.js";
 import { getTags } from "../services/tags.js";
-import { tursoConnectionManager } from "../services/turso/connection-manager.js";
-import { tursoShardManager } from "../services/turso/shard-manager.js";
+import { listMemoryShards } from "../services/storage/memory/shards.js";
+import { memoryIdByImportId } from "../services/storage/memory/rows.js";
 import {
   extractPiConversationWindows,
   type PiConversationWindow,
@@ -24,7 +25,7 @@ import {
   skillTurnsOnly,
   type ImportSkillTurnCounts,
 } from "./import-turn-outputs.js";
-import { PiImportLedger, importLedgerDbPath, type ImportLedgerRow } from "./ledger.js";
+import { PiImportLedger, importLedgerDbPath } from "../services/storage/import-ledger.js";
 import type { LoadedPiSession } from "./session-loader.js";
 import type { MemoryHost } from "../types/index.js";
 
@@ -164,14 +165,9 @@ export async function findMemoryIdByImportId(
   projectHash: string,
   importId: string
 ): Promise<string | null> {
-  const shards = await tursoShardManager.getAllShards("project", projectHash);
-  const escaped = importId.replace(/[\\%_]/g, (char) => `\\${char}`);
-  for (const shard of shards) {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    const row = await db.get(`SELECT id FROM memories WHERE metadata LIKE ? ESCAPE '\\'`, [
-      `%"importId":"${escaped}"%`,
-    ]);
-    if (row) return String(row.id);
+  for (const shard of await listMemoryShards("project", projectHash)) {
+    const id = await memoryIdByImportId(shard, importId);
+    if (id !== null) return id;
   }
   return null;
 }
@@ -351,7 +347,7 @@ export async function importHistorySource(
     // A skills-only unit leaves the memory ledger untouched.
     if (!memories) continue;
 
-    const existing: ImportLedgerRow | null = !ledgerAccessible
+    const existing = !ledgerAccessible
       ? null
       : await lookupHandled(ledger, { key, sessionId, window, readOnly: dryRun });
 
@@ -408,7 +404,7 @@ export async function importHistorySource(
       const result = await handleFinishedTurn(
         workUnit,
         { memories: true, skills: false },
-        { provider: deps.provider }
+        { provider: deps.provider, configModule }
       );
 
       if (result.status === "skipped") {

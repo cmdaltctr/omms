@@ -68,12 +68,12 @@ it("returns before the model answers, reuses a running job, and ends with the pr
     await gate;
     return { groups: [] };
   };
-  const first = startCategoryCleanupJob(user, { manager, embed, model });
+  const first = startCategoryCleanupJob(user, {}, { manager, embed, model });
   expect(["grouping", "checking"]).toContain(first.status.state);
   for (let i = 0; i < 100 && calls === 0; i++)
     await new Promise((resolve) => setTimeout(resolve, 5));
   expect(getCategoryCleanupJob(user)!.status).toEqual({ state: "checking", done: 0, total: 1 });
-  const second = startCategoryCleanupJob(user, { manager, embed, model });
+  const second = startCategoryCleanupJob(user, {}, { manager, embed, model });
   expect(second.id).toBe(first.id);
   release();
   const job = await settle(user);
@@ -88,9 +88,9 @@ it("returns before the model answers, reuses a running job, and ends with the pr
 it("starts a fresh job after the last one finished", async () => {
   const user = "job-two@example.invalid";
   const manager = await setup(user);
-  const first = startCategoryCleanupJob(user, { manager, embed, model: null });
+  const first = startCategoryCleanupJob(user, {}, { manager, embed, model: null });
   await settle(user);
-  const second = startCategoryCleanupJob(user, { manager, embed, model: null });
+  const second = startCategoryCleanupJob(user, {}, { manager, embed, model: null });
   expect(second.id).not.toBe(first.id);
   await settle(user);
 });
@@ -98,24 +98,32 @@ it("starts a fresh job after the last one finished", async () => {
 it("ends in the failed state with a message when the preview throws", async () => {
   const user = "job-three@example.invalid";
   const manager = await setup(user);
-  startCategoryCleanupJob(user, {
-    manager,
-    embed: async () => {
-      throw new Error("embedding server unreachable");
-    },
-    model: null,
-  });
+  startCategoryCleanupJob(
+    user,
+    {},
+    {
+      manager,
+      embed: async () => {
+        throw new Error("embedding server unreachable");
+      },
+      model: null,
+    }
+  );
   const job = await settle(user);
   expect(job.status).toEqual({ state: "failed", error: "embedding server unreachable" });
 });
 
 it("fails with a clear message when there is no profile", async () => {
   CONFIG.storagePath = directory;
-  startCategoryCleanupJob("nobody@example.invalid", {
-    manager: new UserProfileManager(),
-    embed,
-    model: null,
-  });
+  startCategoryCleanupJob(
+    "nobody@example.invalid",
+    {},
+    {
+      manager: new UserProfileManager(),
+      embed,
+      model: null,
+    }
+  );
   const job = await settle("nobody@example.invalid");
   expect(job.status).toEqual({ state: "failed", error: "No profile found to clean up" });
 });

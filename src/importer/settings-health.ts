@@ -154,16 +154,14 @@ export async function runSettingsHealth(input: HealthInput): Promise<{ checks: H
   let snapshot: ClaudeSnapshot = {};
   await check("Config files", async () => {
     const { getSettingsSnapshot } = await import("../services/settings-snapshot.js");
-    snapshot = (getSettingsSnapshot(input.directory) ?? {}) as ClaudeSnapshot;
+    snapshot = (getSettingsSnapshot(input.directory, await import("../config.js")) ??
+      {}) as ClaudeSnapshot;
     return "Global and project config parsed";
   });
   await check("Memory store", async () => {
-    const { tursoConnectionManager } = await import("../services/turso/connection-manager.js");
+    const { pingStore } = await import("../services/storage/health.js");
     const { join } = await import("node:path");
-    const db = await tursoConnectionManager.getConnection(
-      join(CONFIG.storagePath, "user-prompts.db")
-    );
-    await db.all("SELECT 1");
+    await pingStore(join(CONFIG.storagePath, "user-prompts.db"));
     return "Store opened and queried";
   });
   await check("Embedding", async () => {

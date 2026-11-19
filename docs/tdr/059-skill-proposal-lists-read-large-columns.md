@@ -118,4 +118,4 @@ The revisit trigger is not met. The list route (116 ms) and `skillHistory` (10.8
 - Issue #192
 - `scripts/measure-proposals-list.ts`
 - `openspec/changes/skill-proposal-summaries/`
-- `src/services/skill-learning/proposal-store.ts` (`listProposals`), `history.ts` (`skillHistory`, `withCanUndo`), `apply.ts` (`planUndo`)
+- `src/services/storage/skills/proposals.ts` (`listProposals`), `history.ts` (`skillHistory`, `withCanUndo`), `apply.ts` (`planUndo`)

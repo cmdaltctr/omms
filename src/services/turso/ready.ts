@@ -1,5 +1,5 @@
 import { runLegacyTursoMigration } from "./legacy-migrator.js";
-import { runStartupTagPrefixGate } from "../tag-prefix-migration.js";
+import { runStartupTagPrefixGate } from "../storage/maintenance/tag-prefix-migration.js";
 import { tursoShardManager } from "./shard-manager.js";
 import { resettable } from "./connection-manager.js";
 import { log } from "../logger.js";
@@ -19,7 +19,8 @@ export async function ensureTursoReady(): Promise<void> {
       // (no silent dual-prefix fallback). Skipped under
       // OMMS_SKIP_TAG_PREFIX_MIGRATION=1 (tests).
       await runStartupTagPrefixGate();
-      const { shardPathMigrationService } = await import("../shard-path-migration-service.js");
+      const { shardPathMigrationService } =
+        await import("../storage/maintenance/shard-path-migration-service.js");
       await shardPathMigrationService.recoverInterruptedSwap();
       await tursoShardManager.getAllShards("user", "");
       isReady = true;

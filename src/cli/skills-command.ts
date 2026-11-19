@@ -179,9 +179,9 @@ async function runOperation(
   const secrets: string[] = [];
   let result: SkillOperationResult;
   try {
-    const { CONFIG, initConfig } = await import("../config.js");
-    initConfig(directory);
-    for (const secret of [CONFIG.memoryApiKey, CONFIG.embeddingApiKey]) {
+    const configModule = await import("../config.js");
+    configModule.initConfig(directory);
+    for (const secret of [configModule.CONFIG.memoryApiKey, configModule.CONFIG.embeddingApiKey]) {
       if (secret) secrets.push(secret);
     }
     const { runSkillOperation } = await import("../core/skill-operations.js");
@@ -189,7 +189,7 @@ async function runOperation(
     result = await runSkillOperation(
       mode,
       parsed.args,
-      skillOperationsDeps(directory, parsed.appliedBy)
+      skillOperationsDeps(directory, parsed.appliedBy, configModule)
     );
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error);
@@ -220,7 +220,7 @@ async function runDeleteTurns(argv: string[], print: Print): Promise<number> {
     const { existsSync } = await import("node:fs");
     const { CONFIG, initConfig } = await import("../config.js");
     initConfig(process.cwd());
-    const { SkillStore, skillsDbPath } = await import("../services/skill-learning/store.js");
+    const { SkillStore, skillsDbPath } = await import("../services/storage/skills/store.js");
     const { skillStoragePath } = await import("../services/skill-learning/skill-folders.js");
     const path = skillsDbPath(skillStoragePath(CONFIG));
     const store = new SkillStore(path);

@@ -4,7 +4,6 @@ import type { ClaudeTranscriptEntry } from "../src/importer/claude-conversation.
 
 // Memory capture must send the same request whether or not the readers set
 // tool outcomes. Only `skills.db` uses `outcome` and `error`.
-mock.module("../src/config.js", () => ({ CONFIG: {}, refreshConfigIfChanged: () => {} }));
 mock.module("../src/services/logger.js", () => ({ log: () => {} }));
 mock.module("../src/services/capture-diagnostics.js", () => ({
   buildCaptureAttemptRecord: () => ({}),
@@ -21,6 +20,7 @@ mock.module("../src/services/client.js", () => ({
 }));
 
 const { captureConversation } = await import("../src/core/capture.js");
+const configModule = await import("../src/config.js");
 const { extractClaudeConversationWindows } = await import("../src/importer/claude-conversation.js");
 
 const baseUnit = {
@@ -41,7 +41,8 @@ async function captureRequest(toolCalls: CaptureToolCall[]) {
         request = rest;
         return { summary: "", type: "skip", tags: [] };
       },
-    }
+    },
+    configModule
   );
   return request;
 }

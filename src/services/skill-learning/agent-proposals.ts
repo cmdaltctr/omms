@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { turnFactRows } from "../storage/skills/turn-queries.js";
 import { hashSkillContent, SKILL_FILE_NAME } from "./apply.js";
 import {
   countSkillUses,
@@ -8,8 +9,6 @@ import {
   recentSkillTurns,
   skillRef,
   turnsById,
-  USES_WHERE,
-  useArgs,
   type DraftTurn,
   type SkillRef,
 } from "./draft-turns.js";
@@ -21,9 +20,9 @@ import {
   withFinalNewline,
 } from "./drafting.js";
 import { lineDiff } from "./line-diff.js";
-import { createProposal, setSkillReview, type SkillProposal } from "./proposal-store.js";
+import { createProposal, setSkillReview, type SkillProposal } from "../storage/skills/proposals.js";
 import { readFrontMatter, type SkillIndex } from "./skill-index.js";
-import type { SkillStore } from "./store.js";
+import type { SkillStore } from "../storage/skills/store.js";
 
 /**
  * The agent path (design §8): the coding agent reads a skill's evidence and
@@ -79,15 +78,7 @@ function readSkill(path: string, index: SkillIndex) {
 /** Turn ids and hosts, with whether a call failed after the skill loaded (ranking's rule). */
 async function turnFacts(store: SkillStore, ref: SkillRef, ids: number[]) {
   const db = await store.db();
-  const rows = await db.all(
-    `SELECT t.id, t.host, EXISTS (
-       SELECT 1 FROM tool_calls tc WHERE tc.turn_id = t.id AND tc.outcome = 'error'
-         AND tc.position > (SELECT MIN(COALESCE(su.position, -1)) FROM skill_uses su
-                            WHERE su.turn_id = t.id AND ${USES_WHERE})
-     ) AS failed
-     FROM turns t WHERE t.id IN (SELECT value FROM json_each(?))`,
-    [...useArgs(ref), JSON.stringify(ids)]
-  );
+  const rows = await turnFactRows(db, ref, JSON.stringify(ids));
   return new Map(
     rows.map((row) => [
       Number(row.id),

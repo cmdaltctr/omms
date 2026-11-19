@@ -26,9 +26,9 @@ export interface ChatSkillsConfig {
  */
 export async function chatSkillsDep(config: ChatSkillsConfig): Promise<ChatSkillsDep | undefined> {
   if (config.skillLearning !== true) return undefined;
-  const [{ SkillStore, skillsDbPath, SKILL_SCHEMA_VERSION }, folders, indexModule, ranking, hist] =
+  const [{ SkillStore, skillsDbPath, hasNewerSkillSchema }, folders, indexModule, ranking, hist] =
     await Promise.all([
-      import("../skill-learning/store.js"),
+      import("../storage/skills/store.js"),
       import("../skill-learning/skill-folders.js"),
       import("../skill-learning/skill-index.js"),
       import("../skill-learning/ranking.js"),
@@ -39,13 +39,7 @@ export async function chatSkillsDep(config: ChatSkillsConfig): Promise<ChatSkill
   return {
     scrub: makeScrubContext(config),
     rank: async () => {
-      const db = await store.existingDb();
-      if (db) {
-        const row = await db.get("SELECT value FROM skill_meta WHERE key = 'schema_version'");
-        if (row && Number(row.value) > SKILL_SCHEMA_VERSION) {
-          throw new SkillFactsError("newer_schema");
-        }
-      }
+      if (await hasNewerSkillSchema(store)) throw new SkillFactsError("newer_schema");
       const now = Date.now();
       return ranking.rankSkills(store, indexModule.getSkillIndex(watched, now), now, "uses");
     },

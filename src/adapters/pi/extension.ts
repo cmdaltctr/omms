@@ -1,5 +1,6 @@
 import { Type } from "typebox";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import * as configModule from "../../config.js";
 import {
   CONFIG,
   initConfigWithLegacyMigration,
@@ -19,7 +20,9 @@ import type { PiSessionEntry } from "../../importer/pi-conversation.js";
 import { createPiLiveModels } from "./live-model.js";
 import { registerPiHistoryImportCommand } from "./import-command.js";
 import { registerPiSkillsTool } from "./skills-tool.js";
-import { performPiProfileLearning } from "./profile.js";
+import { piNotifier } from "./notice.js";
+import { learnPiProfile } from "./profile.js";
+import { lastSettledPiPrompt, recordPiPrompt } from "./user-prompt.js";
 import { createPiRecallRows } from "./recall-rows.js";
 import { createPiSessionContext } from "./session-context.js";
 import { createPiSelfUpdate } from "./self-update.js";
@@ -55,25 +58,6 @@ function toSessionEntries(branch: unknown): PiSessionEntry[] {
   return Array.isArray(branch) ? (branch as PiSessionEntry[]) : [];
 }
 
-function lastSettledUserPrompt(entries: PiSessionEntry[]): string | null {
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const entry = entries[i]!;
-    if (entry.type !== "message" || entry.message?.role !== "user") continue;
-    const content = entry.message.content;
-    if (typeof content === "string" && content.trim()) return content;
-    if (Array.isArray(content)) {
-      const text = content
-        .filter((block) => block.type === "text" && typeof block.text === "string")
-        .map((block) => block.text)
-        .join("\n")
-        .trim();
-      if (text) return text;
-    }
-    return null;
-  }
-  return null;
-}
-
 /**
  * Pi extension entry point for the shared omms engine.
  *
@@ -94,7 +78,6 @@ function lastSettledUserPrompt(entries: PiSessionEntry[]): string | null {
  */
 export default function ommsPiExtension(pi: ExtensionAPI): void {
   let captureState = createPiCaptureState();
-  let promptsSinceProfileAnalysis: string[] = [];
   // Latest session context, refreshed on session_start and consumed by the
   // import command (command contexts do not expose the model registry).
   let latestCtx: ExtensionContext | null = null;
@@ -133,19 +116,6 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     shownStatus = null;
     if (ctx.hasUI) ctx.ui.setStatus(OMMS_STATUS_KEY, undefined);
   };
-
-  const notify =
-    (ctx: ExtensionContext) =>
-    (notification: {
-      title: string;
-      message: string;
-      variant: "success" | "warning" | "error" | "info";
-    }) => {
-      if (!ctx.hasUI) return;
-      const level: "error" | "warning" | "info" =
-        notification.variant === "success" ? "info" : notification.variant;
-      ctx.ui.notify(`${notification.title}: ${notification.message}`, level);
-    };
 
   pi.on("session_start", async (event, ctx) => {
     const status = startStatus(ctx, "warming");
@@ -233,8 +203,9 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
             refreshConfigIfChanged(ctx.cwd);
             return drainCaptureRetries({
               host: "pi",
-              provider: createPiLiveModels(ctx, notify(ctx)).capture,
+              provider: createPiLiveModels(ctx, piNotifier(ctx)).capture,
               config: CONFIG,
+              configModule,
               isReady: () => isConfigured() && !memoryClient.getEmbeddingInitError?.(),
             });
           });
@@ -355,7 +326,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     const status = startStatus(ctx, "capturing");
     try {
       const entries = toSessionEntries(ctx.sessionManager.getBranch());
-      const liveModels = createPiLiveModels(ctx, notify(ctx));
+      const liveModels = createPiLiveModels(ctx, piNotifier(ctx));
       const provider = liveModels.capture;
 
       const captureResult = await capturePiSettledWorkUnit({
@@ -368,35 +339,38 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
           providerId: (ctx.model as any)?.provider ?? null,
           modelId: (ctx.model as any)?.id ?? null,
         },
-        notify: notify(ctx),
+        notify: piNotifier(ctx),
       });
       // Housekeeping always; deletion by age only when the user turned it on (ADR-051).
       // Not awaited: a slow or failed run never holds up or breaks the session.
       void import("../../services/cleanup-service.js")
         .then(({ cleanupService }) =>
-          cleanupService.runDailyMaintenance(CONFIG.autoDeleteOldMemories === true)
+          cleanupService.runDailyMaintenance(CONFIG.autoDeleteOldMemories === true, CONFIG)
         )
         .catch((error: unknown) =>
           log("Pi daily maintenance failed", { code: errorCode(error) }, "error")
         );
 
-      const settledPrompt = lastSettledUserPrompt(entries);
-      // Pi batches this session's prompts in memory, so they are recent by design.
-      if (
-        settledPrompt &&
-        !isTrivialPrompt(settledPrompt) &&
-        CONFIG.userProfileAnalysisInterval > 0 &&
-        !memoryClient.getEmbeddingInitError?.()
-      ) {
-        promptsSinceProfileAnalysis.push(settledPrompt);
-        if (promptsSinceProfileAnalysis.length >= CONFIG.userProfileAnalysisInterval) {
-          const batch = promptsSinceProfileAnalysis;
-          promptsSinceProfileAnalysis = [];
-          await performPiProfileLearning({
+      // Pi records each settled prompt in the shared store; the shared pass learns from it.
+      const settled = lastSettledPiPrompt(entries);
+      if (settled) {
+        await recordPiPrompt(
+          ctx.sessionManager.getSessionId(),
+          settled.entryId,
+          ctx.cwd,
+          settled.text
+        ).catch((error: unknown) =>
+          log("Pi prompt record failed", { code: errorCode(error) }, "error")
+        );
+        if (
+          !isTrivialPrompt(settled.text) &&
+          CONFIG.userProfileAnalysisInterval > 0 &&
+          !memoryClient.getEmbeddingInitError?.()
+        ) {
+          await learnPiProfile({
             directory: ctx.cwd,
-            prompts: batch,
-            resolveProfileModel: liveModels.profile,
-            notify: notify(ctx),
+            model: liveModels.profile,
+            notify: piNotifier(ctx),
           });
         }
       }
@@ -415,7 +389,6 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     sessionContext.reset();
     latestCtx = null;
     captureState = createPiCaptureState();
-    promptsSinceProfileAnalysis = [];
     (globalThis as any)[GLOBAL_PLUGIN_WARMUP_KEY] = false;
     const task = (globalThis as any)[GLOBAL_PI_BACKFILL_KEY] as PiBackfillTask | undefined;
     task?.controller.abort();
@@ -462,6 +435,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     }),
     async execute(_toolCallId, args, _signal, _onUpdate, ctx) {
       const result = await executeMemoryOperation(args as any, {
+        config: configModule,
         directory: ctx.cwd,
         host: "pi",
         hostSessionId: ctx.sessionManager.getSessionId(),
@@ -481,6 +455,6 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     },
   });
 
-  registerPiSkillsTool(pi);
+  registerPiSkillsTool(pi, configModule);
   registerPiHistoryImportCommand(pi, () => latestCtx);
 }

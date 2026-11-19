@@ -7,7 +7,7 @@ import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
 const { CONFIG } = await import("../src/config.js");
 const { saveVerdicts, loadVerdicts, pruneVerdicts, VERDICT_MAX_AGE_MS } =
-  await import("../src/services/user-profile/category-cleanup-store.js");
+  await import("../src/services/storage/profiles/category-cleanups.js");
 
 let directory: string;
 const DAY = 24 * 60 * 60 * 1000;

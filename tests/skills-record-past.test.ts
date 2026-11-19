@@ -214,8 +214,8 @@ function useConfig(extra) {
   writeFileSync(home + "/.config/omms/omms.jsonc", JSON.stringify({ skillFolders: [home + "/skills"], ...extra }));
 }
 async function seedProposal() {
-  const { SkillStore, skillsDbPath } = await import(${url("../src/services/skill-learning/store.js")});
-  const { createProposal } = await import(${url("../src/services/skill-learning/proposal-store.js")});
+  const { SkillStore, skillsDbPath } = await import(${url("../src/services/storage/skills/store.js")});
+  const { createProposal } = await import(${url("../src/services/storage/skills/proposals.js")});
   const { hashSkillContent } = await import(${url("../src/services/skill-learning/apply.js")});
   const store = new SkillStore(skillsDbPath(home + "/.omms/data"));
   await store.init();

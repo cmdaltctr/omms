@@ -540,7 +540,7 @@ See [Memory: Pause and Resume](web-ui-memory.md#pause-and-resume).
 
 ## Profiles
 
-Profile identity controls remain in Settings at `/settings#settings-section-profiles`. OMMS keeps one user profile for each git email. A repository with its own `user.email` can start a second profile. The **Profiles** card appears only when more than one active profile exists.
+Profile identity controls remain in Settings at `/settings#settings-section-profiles`. OMMS keeps one user profile for each git email. A repository with its own `user.email` can start a second profile. The **Profiles** card, its chip and its sidebar entry appear only when more than one active profile exists. With one profile, a link to `/settings#settings-section-profiles` opens **Memory basics**, and the import **Customise** panel does not offer the **Profile identity in Settings** link.
 
 Choosing **All hosts** on Memory preserves those identity rules and does not merge different emails. [Profile learning](web-ui-memory.md#profile-learning) operates on prompts; choosing and merging identities stays here.
 

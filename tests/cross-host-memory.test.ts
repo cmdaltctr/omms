@@ -83,6 +83,7 @@ const { executeMemoryOperation } = await import(${JSON.stringify(memoryOperation
 const { capturePiSettledWorkUnit, createPiCaptureState } = await import(${JSON.stringify(piCaptureModule)});
 const { buildRetrievalSection } = await import(${JSON.stringify(piRetrievalModule)});
 const { captureConversation } = await import(${JSON.stringify(coreCaptureModule)});
+const liveConfig = await import(${JSON.stringify(configModule)});
 const { getTags } = await import(${JSON.stringify(tagsModule)});
 
 const projectDir = ${JSON.stringify(projectDir)};
@@ -159,7 +160,7 @@ const capture = await capturePiSettledWorkUnit({
 
 const search = await executeMemoryOperation(
   { mode: "search", query: "webhook retry policy" },
-  { directory: projectDir, host: "opencode" }
+  { directory: projectDir, host: "opencode", config: await import(${JSON.stringify(configModule)}) }
 );
 
 const list = await memoryClient.listMemories(tags.project.tag, 10);
@@ -192,10 +193,11 @@ const capture = await captureConversation(
     textResponses: ["Per-scope write locks chosen for the shared store."],
     toolCalls: [],
   },
-  opencodeProvider
+  opencodeProvider,
+  liveConfig
 );
 
-const section = await buildRetrievalSection("how is the store locked?", projectDir, "pi-session-2");
+const section = await buildRetrievalSection("how is the store locked?", projectDir, "pi-session-2", CONFIG.chatMessage.excludeCurrentSession, undefined, CONFIG);
 
 scenario = { capture, section };
 `);
@@ -225,7 +227,8 @@ const ocCapture = await captureConversation(
     textResponses: ["Per-scope write locks chosen."],
     toolCalls: [],
   },
-  opencodeProvider
+  opencodeProvider,
+  liveConfig
 );
 
 const list = await memoryClient.listMemories(tags.project.tag, 10);
@@ -266,8 +269,8 @@ const capture = await capturePiSettledWorkUnit({
   state: createPiCaptureState(),
 });
 
-const ownSessionSection = await buildRetrievalSection("webhook retry", projectDir, "pi-session-5");
-const otherSessionSection = await buildRetrievalSection("webhook retry", projectDir, "pi-session-6");
+const ownSessionSection = await buildRetrievalSection("webhook retry", projectDir, "pi-session-5", CONFIG.chatMessage.excludeCurrentSession, undefined, CONFIG);
+const otherSessionSection = await buildRetrievalSection("webhook retry", projectDir, "pi-session-6", CONFIG.chatMessage.excludeCurrentSession, undefined, CONFIG);
 
 scenario = { ownSessionSection, otherSessionSection };
 `);

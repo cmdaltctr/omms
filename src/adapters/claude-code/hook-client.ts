@@ -167,6 +167,11 @@ const RETRIEVE_FIELD = {
   "subagent-start": "agent_type",
 } as const;
 
+/** The hooks that show user lines. A subagent hook stays silent. */
+function showsUserLines(event: ClaudeHookEvent): boolean {
+  return event === "session-start" || event === "user-prompt-submit";
+}
+
 function requestFor(event: ClaudeHookEvent, input: HookInput): { path: string; body: object } {
   const optional = (key: string) => (input[key] === undefined ? {} : { [key]: input[key] });
   if (event === "stop")
@@ -189,7 +194,7 @@ function requestFor(event: ClaudeHookEvent, input: HookInput): { path: string; b
       ...optional("transcript_path"),
       ...optional(RETRIEVE_FIELD[event]),
       // This hook can show user lines; a request without the flag gets none.
-      ...(event === "session-start" ? { notices: true } : {}),
+      ...(showsUserLines(event) ? { notices: true } : {}),
     },
   };
 }
@@ -334,9 +339,9 @@ async function runSteps(
     noticeKeys?: unknown;
   } | null;
   if (typeof reply?.additionalContext !== "string") return "bad-response";
-  // The user line goes beside the model context, never into it. Only SessionStart asks for one.
+  // The user line goes beside the model context, never into it.
   const userLine =
-    event === "session-start" && typeof reply.systemMessage === "string" ? reply.systemMessage : "";
+    showsUserLines(event) && typeof reply.systemMessage === "string" ? reply.systemMessage : "";
   if (!reply.additionalContext && !userLine) return "ok";
   writeLine(
     {
@@ -376,7 +381,7 @@ async function confirmShown(
       signal: AbortSignal.timeout(CONFIRM_TIMEOUT_MS),
     });
   } catch {
-    // The lines show again at the next session start.
+    // The lines show again at the next hook that shows user lines.
   }
 }
 

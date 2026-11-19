@@ -9,9 +9,15 @@ import {
   spaceLinks,
 } from "./spaces/registry.js";
 import { ommsHomeDir } from "./spaces/storage-resolution.js";
-import type { SpaceReadStore } from "./spaces/space-store.js";
-import { tursoVectorSearch } from "./turso/vector-search.js";
-import type { SearchResult, ShardInfo } from "./turso/types.js";
+import type { SpaceReadStore } from "./storage/space-store.js";
+import { searchMemoryShards } from "./storage/memory/search.js";
+import {
+  getMemoryRowInProject,
+  hasMemoryRow,
+  listMemoryRows,
+  shardEmbeddingRows,
+} from "./storage/memory/rows.js";
+import type { SearchResult, ShardInfo } from "./storage/memory/types.js";
 import type { KeywordMode } from "../utils/keyword-boost.js";
 import type { MemoryKind } from "./memory-kind.js";
 
@@ -220,10 +226,7 @@ async function embeddingMismatchReason(
   settings: LinkedSearchSettings
 ): Promise<string | null> {
   for (const shard of shards) {
-    const db = await store.openShard(shard.dbPath);
-    const rows = await db.all(
-      `SELECT key, value FROM shard_metadata WHERE key IN ('embedding_dimensions', 'embedding_model')`
-    );
+    const rows = await shardEmbeddingRows(shard, (dbPath) => store.openShard(dbPath));
     const metadata = new Map(
       rows.map((row: Record<string, unknown>) => [String(row.key), row.value])
     );
@@ -270,7 +273,7 @@ export async function searchLinkedSpaces(input: {
     }
 
     try {
-      const { results } = await tursoVectorSearch.searchAcrossShards(
+      const { results } = await searchMemoryShards(
         shards,
         input.queryVector,
         input.scope === "all-projects" ? "" : input.containerTag,
@@ -323,12 +326,12 @@ export async function listLinkedSpaces(input: {
 
     try {
       for (const shard of shards) {
-        const db = await target.store.openShard(shard.dbPath);
-        const rows = await tursoVectorSearch.listMemories(
-          db,
+        const rows = await listMemoryRows(
+          shard,
           input.scope === "all-projects" ? "" : input.containerTag,
           room,
-          input.kind ?? "normal"
+          input.kind ?? "normal",
+          (dbPath) => target.store.openShard(dbPath)
         );
         linked.push(...rows.map((row) => ({ ...mapListedMemory(row), spaceName: target.name })));
       }
@@ -369,9 +372,9 @@ export async function findLinkedMemoryOwner(
       ...(await target.store.listShards("project", "")),
     ];
     for (const shard of shards) {
-      const db = await target.store.openShard(shard.dbPath);
-      const row = await db.get(`SELECT id FROM memories WHERE id = ?`, [memoryId]);
-      if (row) return { name: target.name };
+      if (await hasMemoryRow(shard, memoryId, (dbPath) => target.store.openShard(dbPath))) {
+        return { name: target.name };
+      }
     }
   }
   return null;
@@ -394,10 +397,8 @@ export async function readLinkedMemory(
       ...(await target.store.listShards("project", "")),
     ];
     for (const shard of shards) {
-      const db = await target.store.openShard(shard.dbPath);
-      const row = await db.get(
-        `SELECT * FROM memories WHERE id = ? AND (? IS NULL OR container_tag = ?)`,
-        [memoryId, containerTag, containerTag]
+      const row = await getMemoryRowInProject(shard, memoryId, containerTag, (dbPath) =>
+        target.store.openShard(dbPath)
       );
       if (row) return { name: target.name, row };
     }

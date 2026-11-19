@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
-import { PASSWORD_KEYS, writeGlobalConfigKeys } from "./global-config-writer.js";
+import { PASSWORD_KEYS, writeGlobalConfigKeys } from "../config-writer.js";
 import { secretsDirectory, storeMemoryKeySource } from "./memory-key-source.js";
 
 /** The page writes the browser password here and nowhere else. */

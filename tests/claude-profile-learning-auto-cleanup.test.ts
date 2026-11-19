@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 // After a Claude Code learning pass saves, the shared automatic cleanup starts when the count
 // of analysed prompts passes a multiple of the interval. It uses the same external model as
-// learning. Learning does not wait for the run and does not fail when it fails.
+// learning. Learning does not wait for the run and does not fail when it fails. Since change
+// unify-profile-learning the shared pass starts the run; Claude Code passes its model in.
 
 mock.module("../src/services/logger.js", () => ({ log: () => {} }));
 mock.module("../src/services/tags.js", () => ({
@@ -26,6 +27,8 @@ mock.module("../src/services/user-prompt/user-prompt-manager.js", () => ({
     markMultipleAsUserLearningCaptured: async (ids: string[]) => {
       marked.push(...ids);
     },
+    // The shared pass releases its claim on the batch when the save fails.
+    markForUserLearning: async () => {},
   },
 }));
 

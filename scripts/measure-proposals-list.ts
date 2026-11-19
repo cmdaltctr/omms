@@ -49,8 +49,8 @@ if (homedir() !== process.env[HOME_ENV]) {
 
 // Load OMMS modules only in the child, after the home check.
 const { CONFIG } = await import("../src/config.js");
-const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
-const proposalStore = await import("../src/services/skill-learning/proposal-store.js");
+const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
+const proposalStore = await import("../src/services/storage/skills/proposals.js");
 const { skillHistory, withCanUndo } = await import("../src/services/skill-learning/history.js");
 const { routeSkills } = await import("../src/services/skill-routes.js");
 const { createProposal, updateProposalState, saveSkillVersion } = proposalStore;

@@ -1,4 +1,4 @@
-import { CONFIG } from "../config.js";
+import * as configModule from "../config.js";
 import type { CaptureWorkUnit } from "../core/capture.js";
 import { handleFinishedTurn } from "../core/turn-outputs.js";
 import { skillTurnSettingsFor } from "../services/skill-learning/settings-for.js";
@@ -31,7 +31,7 @@ export interface ImportSkillTurnCounts {
 
 /** True when an import with these options records skill turns: `skillLearning` on and no `--skip-skills`. */
 export function importSkillTurnsOn(options: { skipSkills?: boolean }): boolean {
-  return options.skipSkills !== true && CONFIG.skillLearning === true;
+  return options.skipSkills !== true && configModule.CONFIG.skillLearning === true;
 }
 
 /**
@@ -105,7 +105,7 @@ export function importSkillTurnOutput(
   const settingsFor = (directory: string) => {
     let found = settings.get(directory);
     if (!found) {
-      found = skillTurnSettingsFor(directory);
+      found = skillTurnSettingsFor(directory, configModule);
       settings.set(directory, found);
     }
     return found;

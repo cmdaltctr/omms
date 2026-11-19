@@ -4,7 +4,7 @@ import { ANSWER_TOOL, buildAnswerPrompt, finaliseAnswer, numberSources } from ".
 import { buildPlanPrompt, planTool, validatePlan, type PlanInput } from "./chat-plan.js";
 import { retrieveSources, type RetrieveDeps } from "./chat-retrieve.js";
 import { readSkillRows, skillSourcesFor, failureCode, type ChatSkillsDep } from "./chat-skills.js";
-import type { ChatStore } from "./chat-store.js";
+import type { ChatStore } from "../storage/chat-store.js";
 import type { ChatMessage, ChatPlanRecord, ChatSource } from "./chat-types.js";
 
 export const MAX_QUESTION_CHARS = 4000;

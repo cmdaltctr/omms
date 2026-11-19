@@ -126,7 +126,9 @@ describe("memory kind filtering in shard readers", () => {
     });
     try {
       await setupShard();
-      const normal = await memoryClient.searchMemories("shared-kind-token", CONTAINER);
+      const normal = await memoryClient.searchMemories("shared-kind-token", CONTAINER, "project", {
+        config: CONFIG,
+      });
       expect(normal.success).toBe(true);
       expect(ids(normal.results)).toEqual(["legacy-row", "normal-row"]);
       const memorised = await memoryClient.searchMemories(
@@ -135,6 +137,7 @@ describe("memory kind filtering in shard readers", () => {
         "project",
         {
           kind: "memorisation",
+          config: CONFIG,
         }
       );
       expect(ids(memorised.results)).toEqual(["memorisation-row"]);
@@ -178,6 +181,7 @@ describe("memory kind filtering in shard readers", () => {
         "project",
         {
           kind: "memorisation",
+          config: CONFIG,
         }
       );
       expect(reranked.success).toBe(true);
@@ -228,7 +232,7 @@ writeFileSync(join(home, ".config", "omms", "omms.jsonc"), JSON.stringify({ embe
 initConfig(root);
 CONFIG.embeddingDimensions = 8;
 Object.assign(CONFIG, { similarityThreshold: 0, keywordBoost: 0.2, rerankerEnabled: false });
-const { openSpaceStore } = await import(${JSON.stringify(new URL("../src/services/spaces/space-store.js", import.meta.url).href)});
+const { openSpaceStore } = await import(${JSON.stringify(new URL("../src/services/storage/space-store.js", import.meta.url).href)});
 const { tursoVectorSearch } = await import(${JSON.stringify(new URL("../src/services/turso/vector-search.js", import.meta.url).href)});
 const store = openSpaceStore(beta, "write");
 const shard = await store.shards.getWriteShard("project", ${JSON.stringify(HASH)});
@@ -249,10 +253,11 @@ for (const [index, id] of ${JSON.stringify(IDS)}.entries()) {
 }
 await store.close();
 const { memoryClient } = await import(${JSON.stringify(new URL("../src/services/client.js", import.meta.url).href)});
-const normal = await memoryClient.searchMemories("shared-kind-token", ${JSON.stringify(CONTAINER)}, "project", { includeLinked: true });
-const memorised = await memoryClient.searchMemories("shared-kind-token", ${JSON.stringify(CONTAINER)}, "project", { includeLinked: true, kind: "memorisation" });
-const normalList = await memoryClient.listMemories(${JSON.stringify(CONTAINER)}, 10, "project", { includeLinked: true });
-const memorisedList = await memoryClient.listMemories(${JSON.stringify(CONTAINER)}, 10, "project", { includeLinked: true, kind: "memorisation" });
+const { linkedSettingsFrom } = await import(${JSON.stringify(new URL("../src/services/linked-search.js", import.meta.url).href)});
+const normal = await memoryClient.searchMemories("shared-kind-token", ${JSON.stringify(CONTAINER)}, "project", { includeLinked: true, config: CONFIG });
+const memorised = await memoryClient.searchMemories("shared-kind-token", ${JSON.stringify(CONTAINER)}, "project", { includeLinked: true, kind: "memorisation", config: CONFIG });
+const normalList = await memoryClient.listMemories(${JSON.stringify(CONTAINER)}, 10, "project", { includeLinked: true, linked: linkedSettingsFrom(CONFIG) });
+const memorisedList = await memoryClient.listMemories(${JSON.stringify(CONTAINER)}, 10, "project", { includeLinked: true, kind: "memorisation", linked: linkedSettingsFrom(CONFIG) });
 const { closeAllCachedSpaceReadStores } = await import(${JSON.stringify(new URL("../src/services/spaces/read-store-cache.js", import.meta.url).href)});
 await closeAllCachedSpaceReadStores();
 console.log(JSON.stringify({

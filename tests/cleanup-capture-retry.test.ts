@@ -16,7 +16,7 @@ CONFIG.storagePath = storage;
 
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
 const { CleanupService } = await import("../src/services/cleanup-service.js");
-const queue = await import("../src/services/capture-retry-queue.js");
+const queue = await import("../src/services/storage/capture-retry-queue.js");
 
 afterAll(async () => {
   await tursoConnectionManager.closeAll();
@@ -55,14 +55,14 @@ describe("cleanup run and the capture retry queue", () => {
     await queue.enqueueCaptureRetry(unit("old"), failure, CONFIG, now - 73 * HOUR);
     await queue.enqueueCaptureRetry(unit("new"), failure, CONFIG, now - HOUR);
 
-    await new CleanupService().runCleanup();
+    await new CleanupService().runCleanup(CONFIG);
 
     expect(await turnIds()).toEqual(["new"]);
   });
 
   it("deletes every queued turn while retention is 0", async () => {
     CONFIG.captureRetryRetentionHours = 0;
-    await new CleanupService().runCleanup();
+    await new CleanupService().runCleanup(CONFIG);
     expect(await turnIds()).toEqual([]);
     CONFIG.captureRetryRetentionHours = 72;
   });

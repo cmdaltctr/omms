@@ -127,7 +127,8 @@ const captured = await captureConversation(
     textResponses: ["Use 4748 for the dev server."],
     toolCalls: [],
   },
-  { summarize: async () => ({ summary: "Use port 4748 for the dev server.", type: "decision", tags: ["ports"] }) }
+  { summarize: async () => ({ summary: "Use port 4748 for the dev server.", type: "decision", tags: ["ports"] }) },
+  await import(${JSON.stringify(configUrl)})
 );
 
 const profileReads = await memoryClient.searchMemoriesBySessionID("sess-linked-capture", projectTag);
@@ -157,7 +158,8 @@ console.log(JSON.stringify({
   it("records a linked read when one is asked for, so a zero above is meaningful", () => {
     const result = runScenario(`
 const { memoryClient } = await import(${JSON.stringify(clientUrl)});
-await memoryClient.searchMemories("dev server port", ${JSON.stringify(TAG)}, "project", { includeLinked: true });
+const { CONFIG } = await import(${JSON.stringify(configUrl)});
+await memoryClient.searchMemories("dev server port", ${JSON.stringify(TAG)}, "project", { includeLinked: true, config: CONFIG });
 console.log(JSON.stringify({ linkedReads: readStoreCalls.length }));
 `);
 

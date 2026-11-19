@@ -93,7 +93,9 @@ const OmmsPluginV2: Plugin = {
       session: ctx.session,
       directory,
       autoCaptureHost: runtime.autoCaptureHost,
-      learnProfile: () => performUserProfileLearning(directory),
+      learnProfile: async () => {
+        await performUserProfileLearning(directory, runtime.notify);
+      },
     });
     holder.events = events;
 

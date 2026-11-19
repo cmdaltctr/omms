@@ -292,7 +292,7 @@ export class SettingsImportJobs {
             const [providerID = "", ...id] = input.modelChoice!.split("/");
             const { getOpencodeHostModels } = await import("./backfill-controls.js");
             const opencode = getOpencodeHostModels();
-            if (!opencode?.isProviderConnected(providerID))
+            if (!opencode || !(await opencode.confirmProviderConnected(providerID)))
               throw new Error("OpenCode provider is not connected");
             models = await opencode.createImportModels(
               { providerID, modelID: id.join("/") },

@@ -87,7 +87,7 @@ const otherProjectDir = ${JSON.stringify(otherProjectDir)};
 config.initConfig(projectDir);
 const { memoryClient } = await import(${JSON.stringify(moduleUrl("src/services/client.js"))});
 const { getTags } = await import(${JSON.stringify(moduleUrl("src/services/tags.js"))});
-const { countCaptureRetries } = await import(${JSON.stringify(moduleUrl("src/services/capture-retry-queue.js"))});
+const { countCaptureRetries } = await import(${JSON.stringify(moduleUrl("src/services/storage/capture-retry-queue.js"))});
 const api = await import(${JSON.stringify(moduleUrl("src/importer/claude-hook-api.js"))});
 
 const calls = [];
@@ -461,9 +461,9 @@ scenario = (await ask()).additionalContext;
     const scenario = await createHarness({ ...EXTERNAL_API, openingContextQuery: "project setup" })
       .run(`${OPENING_SETUP}
 const { buildRetrievalSection, retrievalWrapperBytes, wrapRetrievalSection } = await import(${JSON.stringify(moduleUrl("src/core/retrieval.js"))});
-const section = await buildRetrievalSection(PROMPT, projectDir, "ses-1", {
+const section = await buildRetrievalSection(PROMPT, projectDir, "ses-1", config.CONFIG.chatMessage.excludeCurrentSession, {
   maxBytes: config.CONFIG.retrievalMaxTokens * 4, wrapperBytes: retrievalWrapperBytes(),
-});
+}, config.CONFIG);
 scenario = { answer: (await ask()).additionalContext, expected: wrapRetrievalSection(section), searched: searched.filter((q) => q === "project setup").length };
 `);
     expect(scenario.answer).toBe(scenario.expected);
@@ -1086,7 +1086,8 @@ scenario = {
   modelCalls: profileCalls.length,
   categories: JSON.parse(finalProfile.profileData).preferences.map((item) => item.category),
   failures: logs.filter((l) => l.message === "Claude Code profile learning failed"),
-  finished: logs.filter((l) => l.message === "Claude Code profile learning finished").length,
+  // The shared pass logs one finish record with the host (change unify-profile-learning).
+  finished: logs.filter((l) => l.message === "profile learning finished" && l.data?.host === "claude-code").length,
 };
 `);
     expect(scenario.failures).toEqual([]);
@@ -1254,7 +1255,7 @@ scenario = { calls: calls.length, skills: await skillTurns() };
   it("records the last turn without moving the cursor when capture is off", async () => {
     const scenario = await createHarness({ ...SKILLS_ON, autoCaptureEnabled: false })
       .run(`${SKILL_HELPERS}
-const { readClaudeCaptureCursor } = await import(${JSON.stringify(moduleUrl("src/services/claude-capture-cursor.js"))});
+const { readClaudeCaptureCursor } = await import(${JSON.stringify(moduleUrl("src/services/storage/claude-capture-cursors.js"))});
 turn("1", "First question", "First answer");
 turn("2", "Second question", "Second answer");
 await capture();

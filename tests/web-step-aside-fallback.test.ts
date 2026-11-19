@@ -97,6 +97,38 @@ it("waits for an install in progress before it exits, as for a step-aside or a r
   rmSync(home, { recursive: true, force: true });
 });
 
+it("waits for an install in progress before it restarts the service when no new owner comes", async () => {
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  const home = mkdtempSync(join(tmpdir(), "omms-aside-restart-"));
+  const install = guardedInstall(
+    {
+      lock: fileInstallLock({
+        lockPath: installLockPath(home),
+        lockFs: nodeLockFs,
+        pid: process.pid,
+        now: Date.now,
+        pidAlive: () => true,
+      }),
+      globalVersion: () => "4.8.0",
+      installProblem: () => null,
+      install: async () => (await gate, { code: "npm-failed", exitCode: 1 }),
+    },
+    "4.9.0"
+  );
+  const f = fake({});
+  const leaving = leaveAfterStepAside(f.deps);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  // A service restart now would stop npm mid-write.
+  expect(f.calls).toEqual(["log no-new-owner"]);
+  release();
+  await install;
+  await leaving;
+  // The update failed and nobody serves: the fallback restart runs after the install.
+  expect(f.calls).toEqual(["log no-new-owner", "restart"]);
+  rmSync(home, { recursive: true, force: true });
+});
+
 // An update restarts the login item with `kickstart -k`, which launchd can hold for its
 // 30-second throttle; the update then gives the new copy FRESH_WAIT_MS to answer. An old
 // web app that gave up sooner restarted the login item again and killed the new copy.

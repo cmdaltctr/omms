@@ -1,0 +1,77 @@
+import { log } from "../logger.js";
+import { runTagMigrationBatch } from "../storage/maintenance/tag-migration.js";
+import type { ApiConfig, ApiResponse } from "./shared.js";
+
+export async function handleRunCleanup(
+  config: ApiConfig
+): Promise<ApiResponse<{ deletedCount: number; userCount: number; projectCount: number }>> {
+  try {
+    const { cleanupService } = await import("../cleanup-service.js");
+    const result = await cleanupService.runCleanup(config.CONFIG);
+    return { success: true, data: result };
+  } catch (error) {
+    log("handleRunCleanup: error", { error: String(error) }, "error");
+    return { success: false, error: String(error) };
+  }
+}
+
+export async function handleRunDeduplication(
+  config: ApiConfig
+): Promise<ApiResponse<{ exactDuplicatesDeleted: number; nearDuplicateGroups: any[] }>> {
+  try {
+    const { deduplicationService } = await import("../deduplication-service.js");
+    const result = await deduplicationService.detectAndRemoveDuplicates(config.CONFIG);
+    return { success: true, data: result };
+  } catch (error) {
+    log("handleRunDeduplication: error", { error: String(error) }, "error");
+    return { success: false, error: String(error) };
+  }
+}
+
+export async function handleDetectMigration(): Promise<
+  ApiResponse<{
+    needsMigration: boolean;
+    configDimensions: number;
+    configModel: string;
+    shardMismatches: any[];
+  }>
+> {
+  try {
+    const { migrationService } = await import("../storage/maintenance/migration-service.js");
+    const result = await migrationService.detectDimensionMismatch();
+    return { success: true, data: result };
+  } catch (error) {
+    log("handleDetectMigration: error", { error: String(error) }, "error");
+    return { success: false, error: String(error) };
+  }
+}
+
+export async function handleRunMigration(strategy: "fresh-start" | "re-embed"): Promise<
+  ApiResponse<{
+    success: boolean;
+    strategy: string;
+    deletedShards: number;
+    reEmbeddedMemories: number;
+    duration: number;
+    error?: string;
+  }>
+> {
+  try {
+    const { migrationService } = await import("../storage/maintenance/migration-service.js");
+    const result = await migrationService.migrateToNewModel(strategy);
+    return { success: result.success, data: result };
+  } catch (error) {
+    log("handleRunMigration: error", { error: String(error) }, "error");
+    return { success: false, error: String(error) };
+  }
+}
+
+export {
+  handleDetectTagMigration,
+  handleGetTagMigrationProgress,
+} from "../storage/maintenance/tag-migration.js";
+
+/** Tags untagged memories with the memory model. The work lives in tag-migration.ts. */
+export async function handleRunTagMigrationBatch(config: ApiConfig, batchSize: number = 5) {
+  return runTagMigrationBatch(config.CONFIG, batchSize);
+}

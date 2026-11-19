@@ -1,11 +1,18 @@
-import * as configModule from "../config.js";
+import type { CONFIG } from "../config.js";
+import { getActiveSpaceLabel } from "./storage/active-space-access.js";
 import { activeSpaceLine } from "./spaces/context-line.js";
-import { getUserProfileContext } from "./user-profile/profile-context.js";
+import {
+  getUserProfileContext,
+  type ProfileContextConfig,
+} from "./user-profile/profile-context.js";
 import {
   packContextSection,
   type BudgetedBlock,
   type ContextBudgetOptions,
 } from "../core/context-budget.js";
+
+/** The config values `formatContextForPrompt` reads. Callers pass `CONFIG`. */
+export type ContextConfig = Pick<typeof CONFIG, "injectProfile"> & ProfileContextConfig;
 
 interface MemoryResultMinimal {
   id?: string;
@@ -20,10 +27,8 @@ interface MemoriesResponseMinimal {
   results?: MemoryResultMinimal[];
 }
 
-/** Tests that stub `config.js` may leave out `getActiveSpace`, so a missing one means Default. */
 function spaceLine(): string {
-  const space = configModule.getActiveSpace?.() ?? { name: "Default", customStoragePath: false };
-  return activeSpaceLine(space);
+  return activeSpaceLine(getActiveSpaceLabel());
 }
 
 /** A space label must never break out of the attribute or the element. */
@@ -52,14 +57,15 @@ const HEADER_TEXT =
 export async function formatContextForPrompt(
   userId: string | null,
   projectMemories: MemoriesResponseMinimal,
-  budget?: ContextBudgetOptions,
+  budget: ContextBudgetOptions | undefined,
   /** The embedded prompt, when there is one. Lets the profile block follow the prompt. */
-  queryVector?: ArrayLike<number>
+  queryVector: ArrayLike<number> | undefined,
+  config: ContextConfig
 ): Promise<string> {
   const blocks: BudgetedBlock[] = [];
 
-  if (configModule.CONFIG.injectProfile && userId) {
-    const profileContext = await getUserProfileContext(userId, queryVector);
+  if (config.injectProfile && userId) {
+    const profileContext = await getUserProfileContext(config, userId, queryVector);
     if (profileContext) {
       blocks.push({
         prefix: "<user_profile>\n",

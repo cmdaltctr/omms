@@ -1,7 +1,12 @@
-import type { SkillMode } from "./proposal-store.js";
+import {
+  appliedProposalRows,
+  rankingRows,
+  skillModeRows,
+  type SkillsDb,
+} from "../storage/skills/turn-queries.js";
+import type { SkillMode } from "../storage/skills/proposals.js";
 import type { SkillIndex } from "./skill-index.js";
-import type { SkillStore } from "./store.js";
-import type { TursoDb } from "../turso/turso-db.js";
+import type { SkillStore } from "../storage/skills/store.js";
 
 export const RANKING_WINDOW_MS = 30 * 86_400_000;
 /** A skill needs this many uses in the window before it can be Suggested. */
@@ -34,90 +39,12 @@ export interface SkillRanking {
   lastAppliedAt: number | null;
 }
 
-// A recorded path counts only while the index still lists it. A use with no
-// path takes the index path when exactly one watched skill has that name.
-// Each turn counts once per skill, even when it used the skill twice.
-// A failed tool call counts only when it came after the skill was used: its
-// order is above the earliest use position in that turn. A NULL position (a
-// row from before the column) and -1 (a slash command) count every failure.
-// A review (a draft with no change, or an automatic review) counts as a proposal.
-// The activity charts reuse these CTEs (idx, resolved, first_use, uses) so they
-// count a use and a failed turn the same way. Parameters: the index JSON, then
-// the earliest turn time.
-export const USES_CTES = `
-idx AS (
-  SELECT json_extract(value, '$.name') AS name, json_extract(value, '$.path') AS path
-  FROM json_each(?)
-),
-resolved AS (
-  SELECT
-    su.turn_id,
-    su.skill_name AS name,
-    CASE
-      WHEN su.skill_path IS NOT NULL AND EXISTS (SELECT 1 FROM idx WHERE idx.path = su.skill_path)
-        THEN su.skill_path
-      WHEN su.skill_path IS NULL AND (SELECT COUNT(*) FROM idx WHERE idx.name = su.skill_name) = 1
-        THEN (SELECT idx.path FROM idx WHERE idx.name = su.skill_name)
-      ELSE NULL
-    END AS path,
-    t.created_at,
-    COALESCE(su.position, -1) AS position
-  FROM skill_uses su
-  JOIN turns t ON t.id = su.turn_id
-  WHERE t.created_at >= ?
-),
-first_use AS (
-  SELECT turn_id, name, path, created_at, MIN(position) AS position
-  FROM resolved
-  GROUP BY turn_id, name, path
-),
-uses AS (
-  SELECT
-    f.turn_id,
-    f.name,
-    f.path,
-    f.created_at,
-    EXISTS (
-      SELECT 1 FROM tool_calls tc
-      WHERE tc.turn_id = f.turn_id AND tc.outcome = 'error' AND tc.position > f.position
-    ) AS failed
-  FROM first_use f
-)`;
-
-const RANKING_SQL = `
-WITH ${USES_CTES},
-last_proposal AS (
-  SELECT path, MAX(at) AS at FROM (
-    SELECT skill_path AS path, created_at AS at FROM skill_proposals WHERE skill_path IS NOT NULL
-    UNION ALL
-    SELECT skill_path, last_review_at FROM skill_settings WHERE last_review_at IS NOT NULL
-  )
-  GROUP BY path
-)
-SELECT
-  u.name,
-  u.path,
-  COUNT(DISTINCT u.turn_id) AS uses,
-  COUNT(DISTINCT CASE WHEN u.failed THEN u.turn_id END) AS failed_turns,
-  COUNT(DISTINCT CASE WHEN u.failed AND (lp.at IS NULL OR u.created_at > lp.at) THEN u.turn_id END)
-    AS failed_since_proposal,
-  MAX(u.created_at) AS last_used_at,
-  s.mode
-FROM uses u
-LEFT JOIN last_proposal lp ON lp.path = u.path
-LEFT JOIN skill_settings s ON s.skill_path = u.path
-GROUP BY u.name, u.path
-`;
-
 /**
  * The applied proposals as one query: the newest apply time per path, and per
  * name for proposals with no path (the rule `skillHistory` uses).
  */
-async function appliedTimes(db: TursoDb) {
-  const rows = await db.all(
-    `SELECT skill_path, skill_name, MAX(updated_at) AS at FROM skill_proposals
-     WHERE state = 'applied' GROUP BY skill_path, skill_name`
-  );
+async function appliedTimes(db: SkillsDb) {
+  const rows = await appliedProposalRows(db);
   const byPath = new Map<string, number>();
   const byName = new Map<string, number>();
   for (const row of rows) {
@@ -163,7 +90,7 @@ export async function rankSkills(
   const seen = new Set<string>();
   const appliedAt = db ? await appliedTimes(db) : () => null;
   if (db) {
-    const rows = await db.all(RANKING_SQL, [JSON.stringify(entries), now - RANKING_WINDOW_MS]);
+    const rows = await rankingRows(db, JSON.stringify(entries), now - RANKING_WINDOW_MS);
     for (const row of rows) {
       const path = row.path == null ? null : String(row.path);
       const uses = Number(row.uses);
@@ -191,10 +118,7 @@ export async function rankSkills(
   const unused = index.entries.filter((e) => !seen.has(e.path));
   const modes = new Map<string, SkillMode>();
   if (db && unused.length > 0) {
-    const rows = await db.all(
-      "SELECT s.skill_path, s.mode FROM skill_settings s WHERE s.skill_path IN (SELECT value FROM json_each(?))",
-      [JSON.stringify(unused.map((e) => e.path))]
-    );
+    const rows = await skillModeRows(db, JSON.stringify(unused.map((e) => e.path)));
     for (const row of rows) modes.set(String(row.skill_path), modeOf(row.mode));
   }
   for (const entry of unused) {

@@ -14,11 +14,13 @@ export interface AiCleanupHandlerDeps extends AiCleanupJobDeps {
   manager?: UserProfileManager;
 }
 
-async function cleanupUser(userId?: string): Promise<string> {
+/** The live config module of the web server, read at call time so a reload reaches the handler. */
+type ConfigModule = Pick<typeof import("../config.js"), "CONFIG">;
+
+async function cleanupUser(config: ConfigModule, userId?: string): Promise<string> {
   if (userId) return userId;
-  const { CONFIG } = await import("../config.js");
   const { resolveWebProfileUserId } = await import("./profile-identity.js");
-  return (await resolveWebProfileUserId(CONFIG)) || "unknown";
+  return (await resolveWebProfileUserId(config.CONFIG)) || "unknown";
 }
 
 async function managerOf(deps: AiCleanupHandlerDeps): Promise<UserProfileManager> {
@@ -47,15 +49,20 @@ function sortedProfile(profileData: string): UserProfileData {
 }
 
 /** The job as the dialog sees it: no vectors, and no API key in an error. */
-async function clientView(job: AiCleanupJobView | null): Promise<AiCleanupJobView | null> {
+async function clientView(
+  job: AiCleanupJobView | null,
+  config: ConfigModule
+): Promise<AiCleanupJobView | null> {
   if (job?.status.state === "done") {
     const result = { ...job.status.result, old: stripProfileVectors(job.status.result.old) };
     return { ...job, status: { ...job.status, result } };
   }
   if (job?.status.state === "failed") {
-    const { CONFIG } = await import("../config.js");
     const { redactTraceText } = await import("./capture-diagnostics.js");
-    return { ...job, status: { ...job.status, error: redactTraceText(job.status.error, CONFIG) } };
+    return {
+      ...job,
+      status: { ...job.status, error: redactTraceText(job.status.error, config.CONFIG) },
+    };
   }
   return job;
 }
@@ -66,13 +73,14 @@ async function clientView(job: AiCleanupJobView | null): Promise<AiCleanupJobVie
  * the profile it read.
  */
 export async function handleAiCleanupStart(
-  userId?: string,
-  body?: any,
+  userId: string | undefined,
+  body: any,
+  config: ConfigModule,
   deps: AiCleanupHandlerDeps = {}
 ): Promise<ApiResponse<AiCleanupJobView | null>> {
   try {
     const { getAiCleanupJob, startAiCleanupJob } = await import("./user-profile/ai-cleanup-job.js");
-    const user = await cleanupUser(userId);
+    const user = await cleanupUser(config, userId);
     const current = getAiCleanupJob(user);
     if (current?.status.state === "running") return { success: true, data: current };
 
@@ -87,9 +95,10 @@ export async function handleAiCleanupStart(
     const job = startAiCleanupJob(
       user,
       { profileData: sortedProfile(profile.profileData), includeIds },
+      config.CONFIG,
       deps
     );
-    return { success: true, data: await clientView(job) };
+    return { success: true, data: await clientView(job, config) };
   } catch (error) {
     return handlerError("start", error);
   }
@@ -97,21 +106,26 @@ export async function handleAiCleanupStart(
 
 /** The state of the user's job, or null when there is none. */
 export async function handleAiCleanupStatus(
-  userId?: string
+  userId: string | undefined,
+  config: ConfigModule
 ): Promise<ApiResponse<AiCleanupJobView | null>> {
   try {
     const { getAiCleanupJob } = await import("./user-profile/ai-cleanup-job.js");
-    return { success: true, data: await clientView(getAiCleanupJob(await cleanupUser(userId))) };
+    const job = getAiCleanupJob(await cleanupUser(config, userId));
+    return { success: true, data: await clientView(job, config) };
   } catch (error) {
     return handlerError("status", error);
   }
 }
 
 /** Stops a running job, or discards a finished one. */
-export async function handleAiCleanupStop(userId?: string): Promise<ApiResponse<null>> {
+export async function handleAiCleanupStop(
+  userId: string | undefined,
+  config: ConfigModule
+): Promise<ApiResponse<null>> {
   try {
     const { stopAiCleanupJob } = await import("./user-profile/ai-cleanup-job.js");
-    stopAiCleanupJob(await cleanupUser(userId));
+    stopAiCleanupJob(await cleanupUser(config, userId));
     return { success: true, data: null };
   } catch (error) {
     return handlerError("stop", error);
@@ -125,8 +139,9 @@ export async function handleAiCleanupStop(userId?: string): Promise<ApiResponse<
  * ignored; the job holds the result.
  */
 export async function handleAiCleanupApply(
-  userId?: string,
-  body?: any,
+  userId: string | undefined,
+  body: any,
+  config: ConfigModule,
   deps: AiCleanupHandlerDeps = {}
 ): Promise<ApiResponse<{ applied: number; skipped: number }>> {
   try {
@@ -134,7 +149,7 @@ export async function handleAiCleanupApply(
       await import("./user-profile/ai-cleanup-job.js");
     const { applyCleanupEdits } = await import("./user-profile/ai-cleanup-apply.js");
     const { applyToNewestProfile } = await import("./user-profile/profile-edit-save.js");
-    const user = await cleanupUser(userId);
+    const user = await cleanupUser(config, userId);
     const job = getAiCleanupResult(user);
     if (!job) return { success: false, error: "No finished cleanup found. Run AI cleanup again." };
 

@@ -59,6 +59,7 @@ async function operation(
 ): Promise<any> {
   const { executeMemoryOperation } = await import("../src/core/memory-operations.js");
   return executeMemoryOperation(args as any, {
+    config: await import("../src/config.js"),
     directory: project.directory,
     host: "pi",
     hostSessionId,
@@ -70,7 +71,11 @@ async function operation(
 async function routeConfig() {
   const { CONFIG } = await import("../src/config.js");
   const { linkedSettingsFrom } = await import("../src/services/linked-search.js");
-  return { linked: linkedSettingsFrom(CONFIG), rerank: CONFIG.memorisationRerank === true };
+  return {
+    linked: linkedSettingsFrom(CONFIG),
+    rerank: CONFIG.memorisationRerank === true,
+    search: CONFIG,
+  };
 }
 
 async function get(_project: Awaited<ReturnType<typeof freshProject>>, path: string) {
@@ -131,7 +136,7 @@ async function seedRows(
 
 async function writeLinkedMemorisation(id: string, text: string, tag: string) {
   const { embeddingService } = await import("../src/services/embedding.js");
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
   const store = openSpaceStore(BETA, "write");
   try {
@@ -267,6 +272,7 @@ describe("GET /api/memorisations", () => {
     const url = new URL("http://localhost/api/memorisations");
     const routed = await routeModules(url.pathname, "GET", url, new Request(url), {
       cwd: project.directory,
+      configModule: await import("../src/config.js"),
       startRecordPast: async () => ({}) as never,
     });
     expect(routed!.status).toBe(200);

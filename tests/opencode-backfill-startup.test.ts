@@ -37,7 +37,7 @@ mock.module(${JSON.stringify(url("../src/services/user-prompt/user-prompt-manage
 mock.module(${JSON.stringify(url("../src/adapters/opencode/backfill-models.js"))}, () => ({
   // configModel reads OpenCode's default model through ctx.model.default().
   resolveOpencodeBackfillModels: async (_config, ctx) => ({ model: await ctx.configModel(),
-    models: {}, connected: ctx.connected }) }));
+    models: {}, zaiConnected: await ctx.confirmProviderConnected("zai") }) }));
 const { createFakeV2Context } = await import(${JSON.stringify(url("./fake-v2-context.ts"))});
 const { default: plugin } = await import(${JSON.stringify(url("../src/v2/plugin.js"))});
 const models = [{ providerID: "zai", id: "default-model", name: "Default model" }];
@@ -57,7 +57,7 @@ loadProviders({ location: { directory: ${JSON.stringify(dir)} }, data: models })
 await new Promise((resolve) => setTimeout(resolve, 20));
 const selected = await calls[0]?.resolveModels();
 console.log("RESULT:" + JSON.stringify({ before, count: calls.length,
-  model: selected?.model, connected: selected?.connected,
+  model: selected?.model, zaiConnected: selected?.zaiConnected,
   autostart: autostartCalls.length, logged: logs.some((message) => message.includes("login item")) }));
 await stop();
 `
@@ -81,7 +81,7 @@ await stop();
       count: 1,
       // OpenCode V2 gives the legacy client no config.get, so the configured model is null.
       model: "zai/default-model",
-      connected: ["zai"],
+      zaiConnected: true,
       autostart: 1,
       logged: true,
     });
