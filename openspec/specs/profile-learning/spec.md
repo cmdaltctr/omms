@@ -517,6 +517,17 @@ When the OpenCode or Pi host model fails during a learning pass and the external
 - **THEN** the pass SHALL use the external API
 - **AND** OpenCode SHALL show the warning "Using fallback provider"
 
+#### Scenario: The host model replies with bad JSON
+
+- **WHEN** the Pi or OpenCode host model replies with text that is not JSON, or JSON that does not match the profile schema, and the external API is fully configured
+- **THEN** the reply SHALL count as a failed call and the pass SHALL use the external API
+- **AND** the host SHALL show the warning "Using fallback provider"
+
+#### Scenario: The warning notice never returns
+
+- **WHEN** the host model fails and the warning notice never returns
+- **THEN** the pass SHALL still call the external API
+
 #### Scenario: No external API
 
 - **WHEN** the Pi host model fails and the external API is not configured

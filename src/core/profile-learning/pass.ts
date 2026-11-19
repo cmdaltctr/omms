@@ -172,8 +172,11 @@ async function learn(
         batch.length
       );
     }
-    await userPromptManager.markMultipleAsUserLearningCaptured(claimed);
+    // The profile is saved, so the claim is not released if the mark fails: a release would
+    // make the next pass learn this batch a second time.
+    const marked = claimed;
     claimed = [];
+    await markLearned(userPromptManager, marked, host);
     profileBackoff.recordSuccess();
     log("profile learning finished", { host, prompts: batch.length, hadExisting: !!existing });
 
@@ -198,6 +201,29 @@ async function learn(
     const reason = recordProfileFailure(host, `${label} profile learning failed`, error);
     return { outcome: "failed", reason };
   }
+}
+
+const MARK_ATTEMPTS = 3;
+const MARK_RETRY_MS = 100;
+
+/**
+ * Marks the saved batch as learned. A storage error is tried again; when every try fails,
+ * the claim runs out by itself and the pass stays saved. The log holds a count only.
+ */
+async function markLearned(
+  store: Stores["userPromptManager"],
+  ids: string[],
+  host: MemoryHost
+): Promise<void> {
+  for (let attempt = 1; attempt <= MARK_ATTEMPTS; attempt++) {
+    try {
+      await store.markMultipleAsUserLearningCaptured(ids);
+      return;
+    } catch {
+      if (attempt < MARK_ATTEMPTS) await new Promise((r) => setTimeout(r, MARK_RETRY_MS * attempt));
+    }
+  }
+  log("profile learning: prompts not marked as learned", { host, prompts: ids.length }, "error");
 }
 
 /** A catch-up run in this process, or one that holds the run record in any process. */
