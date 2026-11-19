@@ -179,13 +179,16 @@ async function learn(
 
     startCleanupWhenDue(input, userId, read?.totalPromptsAnalyzed ?? 0, batch.length);
     if (config.showUserProfileToasts) {
-      await Promise.resolve(
-        input.notify?.({
+      // A notice can throw at once (a replaced Pi session); the save already happened.
+      try {
+        await input.notify?.({
           title: "User profile updated",
           message: `Analysed ${batch.length} prompts and updated your profile`,
           variant: "success",
-        })
-      ).catch(() => {});
+        });
+      } catch {
+        // A failed notice does not fail a saved pass.
+      }
     }
     return { outcome: "saved" };
   } catch (error) {

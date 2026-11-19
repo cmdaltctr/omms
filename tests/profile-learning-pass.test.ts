@@ -215,7 +215,12 @@ async function loadPass() {
 
 async function run(
   host: HostName,
-  options: { config?: Record<string, unknown>; model?: unknown; structured?: boolean } = {}
+  options: {
+    config?: Record<string, unknown>;
+    model?: unknown;
+    structured?: boolean;
+    notify?: (notice: Notice) => void;
+  } = {}
 ) {
   const { runProfileLearningPass } = await loadPass();
   const model = options.model === undefined ? makePort(options.structured) : options.model;
@@ -224,9 +229,11 @@ async function run(
     directory: "/workspace",
     config: { ...baseConfig, ...options.config },
     model: () => model,
-    notify: (notice: Notice) => {
-      world.notices.push(notice);
-    },
+    notify:
+      options.notify ??
+      ((notice: Notice) => {
+        world.notices.push(notice);
+      }),
   });
 }
 
@@ -427,6 +434,19 @@ describe("the notice", () => {
     await run(host);
     expect(world.notices.some((notice) => notice.variant === "success")).toBe(false);
   });
+
+  // Pi's notice throws at once when its session was replaced or reloaded during the pass.
+  it.each(hosts)("%s: a notice that throws at once keeps a saved pass saved", async (host) => {
+    const result = await run(host, {
+      notify: () => {
+        throw new Error("This extension ctx is stale");
+      },
+    });
+    expect(result).toEqual({ outcome: "saved" });
+    expect(world.saves).toHaveLength(1);
+    expect(world.released).toEqual([]);
+    expect(profileBackoff.canRun()).toBe(true);
+  });
 });
 
 describe("a failed host model falls back with a notice", () => {
@@ -479,6 +499,16 @@ describe("a failed host model falls back with a notice", () => {
     expect(world.notices[0]!.message).toBe(
       "Pi model failed (model overloaded); using configured fallback."
     );
+  });
+
+  it("Pi: a fallback notice that throws at once still reaches the external API", async () => {
+    const { withExternalFallback } = await loadFallback();
+    const model = withExternalFallback("pi", failing("model overloaded"), makePort(), () => {
+      throw new Error("This extension ctx is stale");
+    });
+    const result = await run("pi", { model });
+    expect(result.outcome).toBe("saved");
+    expect(world.modelCalls).toBe(1);
   });
 
   it("Pi: no external API fails the pass with the host error and starts the wait", async () => {

@@ -60,7 +60,12 @@ export function withExternalFallback(
   const ms = options.attemptTimeoutMs ?? PROFILE_ATTEMPT_TIMEOUT_MS;
   const fallBack = async (error: unknown): Promise<ModelPort> => {
     log("profile learning: host model failed, using the external API", { host }, "warn");
-    await Promise.resolve(notify?.(fallbackNotice(host, error))).catch(() => {});
+    // A notice can throw at once (a replaced Pi session); the external attempt still runs.
+    try {
+      await notify?.(fallbackNotice(host, error));
+    } catch {
+      // A failed notice does not stop the fallback.
+    }
     return external;
   };
   const port: ModelPort = {
