@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { Readable } from "node:stream";
 import { log } from "../logger.js";
 import { NODE_HTTP_IDLE_TIMEOUT_MS } from "../request-timeouts.js";
+import { webServerUrl } from "../web-api-auth.js";
 
 /**
  * Runtime-portable HTTP server handle.
@@ -84,7 +85,8 @@ export function serveFetch(opts: {
     attachNodeDisconnectHandlers(req, res, cleanup);
 
     try {
-      const url = `http://${opts.hostname}:${opts.port}${req.url ?? "/"}`;
+      // An IPv6 host such as ::1 needs brackets in the URL; the socket bind keeps the raw host.
+      const url = `${webServerUrl(opts.hostname, opts.port)}${req.url ?? "/"}`;
       const method = req.method ?? "GET";
       const hasBody = method !== "GET" && method !== "HEAD";
       const webReq = new Request(url, {
