@@ -20,6 +20,7 @@ import type { PiSessionEntry } from "../../importer/pi-conversation.js";
 import { createPiLiveModels } from "./live-model.js";
 import { registerPiHistoryImportCommand } from "./import-command.js";
 import { registerPiSkillsTool } from "./skills-tool.js";
+import { piNotifier } from "./notice.js";
 import { learnPiProfile } from "./profile.js";
 import { lastSettledPiPrompt, recordPiPrompt } from "./user-prompt.js";
 import { createPiRecallRows } from "./recall-rows.js";
@@ -116,19 +117,6 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     if (ctx.hasUI) ctx.ui.setStatus(OMMS_STATUS_KEY, undefined);
   };
 
-  const notify =
-    (ctx: ExtensionContext) =>
-    (notification: {
-      title: string;
-      message: string;
-      variant: "success" | "warning" | "error" | "info";
-    }) => {
-      if (!ctx.hasUI) return;
-      const level: "error" | "warning" | "info" =
-        notification.variant === "success" ? "info" : notification.variant;
-      ctx.ui.notify(`${notification.title}: ${notification.message}`, level);
-    };
-
   pi.on("session_start", async (event, ctx) => {
     const status = startStatus(ctx, "warming");
     // The update check does not delay the session and cannot stop memory work.
@@ -215,7 +203,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
             refreshConfigIfChanged(ctx.cwd);
             return drainCaptureRetries({
               host: "pi",
-              provider: createPiLiveModels(ctx, notify(ctx)).capture,
+              provider: createPiLiveModels(ctx, piNotifier(ctx)).capture,
               config: CONFIG,
               configModule,
               isReady: () => isConfigured() && !memoryClient.getEmbeddingInitError?.(),
@@ -338,7 +326,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
     const status = startStatus(ctx, "capturing");
     try {
       const entries = toSessionEntries(ctx.sessionManager.getBranch());
-      const liveModels = createPiLiveModels(ctx, notify(ctx));
+      const liveModels = createPiLiveModels(ctx, piNotifier(ctx));
       const provider = liveModels.capture;
 
       const captureResult = await capturePiSettledWorkUnit({
@@ -351,7 +339,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
           providerId: (ctx.model as any)?.provider ?? null,
           modelId: (ctx.model as any)?.id ?? null,
         },
-        notify: notify(ctx),
+        notify: piNotifier(ctx),
       });
       // Housekeeping always; deletion by age only when the user turned it on (ADR-051).
       // Not awaited: a slow or failed run never holds up or breaks the session.
@@ -382,7 +370,7 @@ export default function ommsPiExtension(pi: ExtensionAPI): void {
           await learnPiProfile({
             directory: ctx.cwd,
             model: liveModels.profile,
-            notify: notify(ctx),
+            notify: piNotifier(ctx),
           });
         }
       }
