@@ -297,3 +297,22 @@ export async function pruneCaptureRetries(
   if (hours === 0) return db.run("DELETE FROM capture_retry_queue");
   return db.run("DELETE FROM capture_retry_queue WHERE created_at < ?", [now - hours * HOUR_MS]);
 }
+
+/** The newest row's id, or 0. Rows queued later get a larger id. */
+export async function lastCaptureRetryId(config: CaptureRetryConfig): Promise<number> {
+  const db = await database(config);
+  const row = await db.get<{ id: number | null }>("SELECT MAX(id) AS id FROM capture_retry_queue");
+  return Number(row?.id ?? 0);
+}
+
+/**
+ * Delete the rows up to `lastId`. Turning the queue off uses it, so a turn
+ * queued after the queue was turned on again stays.
+ */
+export async function clearCaptureRetriesUpTo(
+  config: CaptureRetryConfig,
+  lastId: number
+): Promise<number> {
+  const db = await database(config);
+  return db.run("DELETE FROM capture_retry_queue WHERE id <= ?", [lastId]);
+}

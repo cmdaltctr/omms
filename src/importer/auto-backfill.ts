@@ -5,8 +5,7 @@ import type { BackfillHost } from "../utils/backfill-model.js";
 import { tryAcquireBackfillLock } from "../services/storage/backfill-locks.js";
 import {
   getBackfillCutoff,
-  recordUnresolvedDirectories,
-  unresolvedDirectoriesOf,
+  recordUnresolvedReport,
   unresolvedSessionCount,
   updateBackfillStatus,
   type BackfillStatus,
@@ -110,12 +109,7 @@ export async function scheduleAutoBackfill(options: AutoBackfillOptions): Promis
     });
     current = counts(dry);
     // The dry run stops at the cutoff, so its list covers only history before it.
-    await recordUnresolvedDirectories(
-      options.host,
-      unresolvedDirectoriesOf(dry),
-      clock(),
-      "partial"
-    ).catch((error: unknown) =>
+    await recordUnresolvedReport(options.host, dry, clock(), "partial").catch((error: unknown) =>
       log(
         "Backfill unresolved directories write failed",
         {

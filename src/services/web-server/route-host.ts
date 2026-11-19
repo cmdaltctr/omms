@@ -29,6 +29,8 @@ export interface RouteHost {
   /** The memory store's projects for Directory maps suggestions, read at most once a minute. */
   storeProjects?: {
     readAt: number;
+    /** The store the projects came from. */
+    storagePath: string;
     projects: ReturnType<ImporterApi["readStoreProjects"]>;
   };
 }

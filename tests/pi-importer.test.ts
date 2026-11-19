@@ -871,6 +871,45 @@ scenario = { afterAll, afterProject: await readUnresolvedDirectories("pi"), base
     expect(out.afterProject).toEqual(out.afterAll);
   });
 
+  it("stores the whole unresolved total beside the cut list, from a listing and a run", () => {
+    const out = runScenario(`
+const { mkdirSync } = await import("node:fs");
+mkdirSync(sessionRoot, { recursive: true });
+// One more deleted directory than the list keeps.
+for (let i = 0; i < 201; i++) {
+  writeV3Session({
+    file: sessionRoot + "/gone-" + i + ".jsonl", sessionId: "sess-gone-" + i, cwd: base + "/deleted-" + i,
+    windows: [{ userText: "Work " + i, assistantText: "ok" }],
+  });
+}
+const { validateImportSource } = await import(${JSON.stringify(sourcesUrl)});
+const { listImportSessions } = await import(${JSON.stringify(sessionsUrl)});
+const { runHistoryImport } = await import(${JSON.stringify(runImportUrl)});
+const state = await import(${JSON.stringify(
+      pathToFileURL(join(import.meta.dir, "../src/services/storage/backfill-state.js")).href
+    )});
+const source = validateImportSource("pi", sessionRoot);
+await listImportSessions(
+  { sourceToken: source.sourceToken, refresh: true },
+  { host: "pi", scope: "all-projects", pathMaps: [], cwd: projectA }
+);
+const listed = await state.readUnresolvedReport("pi");
+await state.recordUnresolvedDirectories("pi", [{ directory: "/other", sessions: 1 }]);
+await runHistoryImport(
+  "pi",
+  { help: false, dryRun: false, force: false, skipMemories: true, skipProfile: true, scope: "all-projects", pathMaps: [], source: sessionRoot, errors: [] },
+  { cwd: projectA, models: {}, track: { surface: "cli" } }
+);
+const ran = await state.readUnresolvedReport("pi");
+scenario = {
+  listed: { length: listed.directories.length, total: listed.total },
+  ran: { length: ran.directories.length, total: ran.total },
+};
+`);
+    expect(out.listed).toEqual({ length: 200, total: 201 });
+    expect(out.ran).toEqual({ length: 200, total: 201 });
+  });
+
   it("imports exactly one file when the root is a .jsonl file", () => {
     const out = runScenario(`
 const { mkdirSync } = await import("node:fs");

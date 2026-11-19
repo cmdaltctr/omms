@@ -44,7 +44,7 @@ export async function routeSettingsApi(
   }
 
   if (path === "/api/settings/backfill" && method === "GET") {
-    const [{ CONFIG }, { readBackfillStatus, readUnresolvedDirectories, visibleUnresolvedCount }] =
+    const [{ CONFIG }, { readBackfillStatus, readUnresolvedReport, visibleUnresolvedCount }] =
       await Promise.all([web.loadConfig(), import("../storage/backfill-state.js")]);
     // Read at request time from the Directory maps list, so the badge and the
     // list agree and an Ignore click changes every badge at once. The list
@@ -57,9 +57,11 @@ export async function routeSettingsApi(
       const current = await readBackfillStatus(host);
       if (!current) return current;
       // A damaged list must not hide the host's status: keep the run's count.
-      const directories = await readUnresolvedDirectories(host).catch(() => null);
-      if (!directories) return current;
-      const unresolved = visibleUnresolvedCount(current.counts.unresolved, directories, hidden);
+      const saved = await readUnresolvedReport(host).catch(() => null);
+      if (!saved) return current;
+      // The list and its total come from one report; an older row has no total yet.
+      const total = saved.total ?? current.counts.unresolved;
+      const unresolved = visibleUnresolvedCount(total, saved.directories, hidden);
       return { ...current, counts: { ...current.counts, unresolved } };
     };
     const statuses = await Promise.all(HOSTS.map((host) => status(host)));
@@ -129,6 +131,9 @@ export async function routeSettingsApi(
       return jsonResponse({ error: "Tracing requires Basic Auth on network hosts" }, 403);
     }
     const { writeGlobalConfigKeys, ConfigConflictError } = await import("../../config-writer.js");
+    // Turning the queue off clears the turns queued until now, read before the write.
+    const clearUpTo =
+      body.edits.captureRetryRetentionHours === 0 ? await lastQueuedRetry(web) : undefined;
     let result;
     try {
       result = await writeGlobalConfigKeys(body.edits, body.revision);
@@ -151,14 +156,14 @@ export async function routeSettingsApi(
         "error"
       );
     }
-    if (body.edits.captureRetryRetentionHours === 0) {
+    if (clearUpTo !== undefined) {
       // Turning the queue off removes waiting turns now, not at the next cleanup.
       try {
-        const [{ CONFIG }, { pruneCaptureRetries }] = await Promise.all([
+        const [{ CONFIG }, { clearCaptureRetriesUpTo }] = await Promise.all([
           web.loadConfig(),
           import("../storage/capture-retry-queue.js"),
         ]);
-        await pruneCaptureRetries({ ...CONFIG, captureRetryRetentionHours: 0 });
+        await clearCaptureRetriesUpTo(CONFIG, clearUpTo);
       } catch (error) {
         log(
           "Settings saved, but clearing the capture retry queue failed",
@@ -199,11 +204,20 @@ export async function routeSettingsApi(
   }
 
   if (path === "/api/settings/import-maps" && method === "GET") {
-    const { directoryMapsView, readStoreProjects } = await web.importer.api();
+    const [{ directoryMapsView, readStoreProjects }, { CONFIG }] = await Promise.all([
+      web.importer.api(),
+      web.loadConfig(),
+    ]);
     // Every save on the page reloads this list; the store's projects rarely change.
-    if (!web.storeProjects || Date.now() - web.storeProjects.readAt > 60_000) {
+    // A memory space switch moves the store, so the cache holds one store path.
+    if (
+      !web.storeProjects ||
+      web.storeProjects.storagePath !== CONFIG.storagePath ||
+      Date.now() - web.storeProjects.readAt > 60_000
+    ) {
       web.storeProjects = {
         readAt: Date.now(),
+        storagePath: CONFIG.storagePath,
         projects: readStoreProjects(web.config.directory ?? process.cwd()),
       };
     }
@@ -367,4 +381,17 @@ export async function routeSettingsApi(
     return jsonResponse(await readSettingsLog(Object.fromEntries(url.searchParams)));
   }
   return null;
+}
+
+/** The capture retry queue's newest row id. A failed read clears every row, as before. */
+async function lastQueuedRetry(web: RouteHost): Promise<number> {
+  try {
+    const [{ CONFIG }, { lastCaptureRetryId }] = await Promise.all([
+      web.loadConfig(),
+      import("../storage/capture-retry-queue.js"),
+    ]);
+    return await lastCaptureRetryId(CONFIG);
+  } catch {
+    return Number.MAX_SAFE_INTEGER;
+  }
 }
