@@ -40,6 +40,7 @@ mock.module("../src/core/capture-context.js", () => ({
 }));
 
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
+const { resetStoreHandles } = await import("../src/services/spaces/store-handles.js");
 const queue = await import("../src/services/storage/capture-retry-queue.js");
 const drain = await import("../src/services/capture-retry-drain.js");
 const liveConfig = await import("../src/config.js");
@@ -53,8 +54,10 @@ const T0 = Date.UTC(2026, 8, 28, 12);
 const network = { reason: "call-error" as const };
 
 afterAll(async () => {
+  // A retried capture opens stores outside the connection manager; Windows cannot remove open files.
+  await resetStoreHandles();
   await tursoConnectionManager.closeAll();
-  rmSync(storage, { recursive: true, force: true });
+  rmSync(storage, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 beforeEach(async () => {
