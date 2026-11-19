@@ -32,7 +32,9 @@ const EMBED_MODEL = "route-test-embed";
 
 const omms = join(homedir(), ".omms");
 const files = spaceFiles(omms);
-const port = 49300 + (process.pid % 400);
+// Ask the system for a free port. A port picked from the process id can already be
+// taken by another server in a full ci:local run, which then answers with 404s.
+let port: number;
 let project: string;
 let server: WebServer;
 
@@ -178,6 +180,9 @@ function exportDocument(model = EMBED_MODEL) {
 }
 
 beforeAll(async () => {
+  const spare = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response("") });
+  port = spare.port!;
+  spare.stop(true);
   project = mkdtempSync(join(tmpdir(), "omms-space-transfer-routes-"));
   initConfig(project);
   // Shards record these at creation, so every seeded vector is reusable as-is.
