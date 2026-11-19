@@ -29,7 +29,7 @@ const ALLOWED: AllowedReader[] = [
   },
   {
     file: "src/services/storage/memory/transfer-rows.ts",
-    sql: "SELECT id, content, container_tag, tags, type, created_at, updated_at, metadata, project_name, is_pinned, vector_extract(vector) AS vector_json, CASE WHEN tags_vector IS NULL THEN NULL ELSE vector_extract(tags_vector) END AS tags_vector_json FROM memories WHERE created_at >= ? AND created_at <= ?${\u2026}",
+    sql: "SELECT id, content, container_tag, tags, type, created_at, updated_at, metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url, is_pinned, vector_extract(vector) AS vector_json, CASE WHEN tags_vector IS NULL THEN NULL ELSE vector_extract(tags_vector) END AS tags_vector_json FROM memories WHERE created_at >= ? AND created_at <= ?${\u2026}",
     why: "Space transfer copies whole rows of every kind, so a memorisation keeps its type.",
   },
   {

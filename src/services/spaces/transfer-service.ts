@@ -114,6 +114,11 @@ function rowToTransferRow(raw: MemoryRow, shard: ShardInfo): TransferRow {
     metadata: optionalString(raw.metadata),
     isPinned: Number(raw.is_pinned) === 1,
     projectName: optionalString(raw.project_name),
+    displayName: optionalString(raw.display_name),
+    userName: optionalString(raw.user_name),
+    userEmail: optionalString(raw.user_email),
+    projectPath: optionalString(raw.project_path),
+    gitRepoUrl: optionalString(raw.git_repo_url),
     vector: parseExtractedVector(raw.vector_json) ?? undefined,
     tagsVector: parseExtractedVector(raw.tags_vector_json) ?? undefined,
     shardKey: String(shard.id),
@@ -248,6 +253,12 @@ function toMemoryRecord(row: TransferWriteRow): MemoryRecord {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     metadata: row.metadata,
+    displayName: row.displayName,
+    userName: row.userName,
+    userEmail: row.userEmail,
+    projectPath: row.projectPath,
+    projectName: row.projectName,
+    gitRepoUrl: row.gitRepoUrl,
   };
 }
 

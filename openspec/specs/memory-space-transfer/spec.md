@@ -66,13 +66,18 @@ OMMS SHALL skip a memory when the target already holds a memory with the same id
 
 ### Requirement: A copy keeps the source unchanged
 
-A copy SHALL add the selected memories to the target with their text, tags, type, creation and update times, pin state, metadata and project tag unchanged. A copy SHALL NOT change the source. The copy SHALL reuse the stored vectors when both spaces use the same embedding model and dimensions, and SHALL embed again otherwise.
+A copy SHALL add the selected memories to the target with their text, tags, type, creation and update times, pin state, metadata, project tag and display fields (display name, user name, user email, project path, project name and git repository URL) unchanged. A copy SHALL NOT change the source. The copy SHALL reuse the stored vectors when both spaces use the same embedding model and dimensions, and SHALL embed again otherwise.
 
 #### Scenario: Copy keeps the fields
 
 - **WHEN** the user copies a pinned memory created on 2026-10-05
 - **THEN** the target SHALL hold that memory, pinned, with the creation time 2026-10-05
 - **AND** the source SHALL still hold it
+
+#### Scenario: Copy keeps the display fields
+
+- **WHEN** the user copies or moves a memory that has a project name, project path and git repository URL
+- **THEN** the target memory SHALL hold the same display name, user name, user email, project path, project name and git repository URL
 
 #### Scenario: Copy fails part-way
 

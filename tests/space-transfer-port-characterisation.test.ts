@@ -263,7 +263,7 @@ describe("space transfer, import and export characterisation", () => {
       tags: "alpha,first",
       type: "note",
       metadata: '{"origin":"alpha"}',
-      project_name: null,
+      project_name: "Alpha Project",
       is_pinned: 1,
       v: "[1,0,0,0]",
       tv: "[0,1,0,0]",

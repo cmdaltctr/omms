@@ -39,7 +39,8 @@ export function readTransferRows(
   return db.all<MemoryRow>(
     `
         SELECT id, content, container_tag, tags, type, created_at, updated_at, metadata,
-               project_name, is_pinned,
+               display_name, user_name, user_email, project_path, project_name, git_repo_url,
+               is_pinned,
                vector_extract(vector) AS vector_json,
                CASE WHEN tags_vector IS NULL THEN NULL ELSE vector_extract(tags_vector) END
                  AS tags_vector_json
