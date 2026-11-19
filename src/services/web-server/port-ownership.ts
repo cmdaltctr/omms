@@ -62,6 +62,8 @@ export abstract class PortOwnership {
   private readonly startedAt = Date.now();
   private portsExhaustedNotified = false;
   private takeoverFailures: number = 0;
+  /** Counts stops of the health loop, so a takeover can see a stop() during its wait. */
+  private loopStops = 0;
   private lastHealthFailure: string | null = null;
   private readonly maxFallbackPort: number;
 
@@ -97,29 +99,33 @@ export abstract class PortOwnership {
   /** One check of a web app that waits for the port. */
   private async waiterTick(): Promise<void> {
     const isAvailable = await this.checkServerAvailable();
-
-    if (!isAvailable) {
+    // The owner answers, so earlier failed takeovers were not a dead socket.
+    if (isAvailable) this.takeoverFailures = 0;
+    const reason = await this.retireReason(isAvailable);
+    if (!reason) {
+      if (isAvailable) return;
       this.stopHealthCheckLoop();
       await this.attemptTakeover();
       return;
     }
-    // The owner answers, so earlier failed takeovers were not a dead socket.
-    this.takeoverFailures = 0;
-    if (!this.onStepAsideCallback) return;
-    // A standalone web app behind a newer one would serve old code after a restart.
-    const reason = (await this.retiredByUpdate())
-      ? "update"
-      : (await this.ownerIsNewer())
-        ? "newer-owner"
-        : null;
-    if (!reason) return;
     this.stopHealthCheckLoop();
     log("Web server waiter retired", { ownVersion: packageVersion(), reason });
     try {
-      await this.onStepAsideCallback();
+      await this.onStepAsideCallback?.();
     } catch (error) {
       log("Step-aside callback error", { error: String(error) }, "error");
     }
+  }
+
+  /**
+   * Why a standalone waiter should exit, or null. A standalone web app behind a
+   * newer one would serve old code after a restart. A retire request also
+   * stands when the owner is gone, so it is checked before a takeover.
+   */
+  private async retireReason(ownerAnswers: boolean): Promise<string | null> {
+    if (!this.onStepAsideCallback) return null;
+    if (await this.retiredByUpdate()) return "update";
+    return ownerAnswers && (await this.ownerIsNewer()) ? "newer-owner" : null;
   }
 
   /** True when `web update` asked web apps started before this one to retire. */
@@ -136,8 +142,13 @@ export abstract class PortOwnership {
 
   private async ownerIsNewer(): Promise<boolean> {
     try {
+      // Basic Auth guards the status route. The owner reads the same config, so send ours.
+      const basic = this.config.auth?.authorizationHeader();
       const response = await fetch(`${this.getUrl()}/api/web/status`, {
-        headers: { [AUTH_HEADER]: getOrCreateAuthToken() },
+        headers: {
+          [AUTH_HEADER]: getOrCreateAuthToken(),
+          ...(basic ? { Authorization: basic } : {}),
+        },
         signal: AbortSignal.timeout(2_000),
       });
       if (!response.ok) return false;
@@ -149,6 +160,8 @@ export abstract class PortOwnership {
   }
 
   protected stopHealthCheckLoop(): void {
+    // stop() runs this too, so a takeover in flight sees the change and gives up.
+    this.loopStops += 1;
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
       this.healthCheckInterval = null;
@@ -158,9 +171,12 @@ export abstract class PortOwnership {
   private async attemptTakeover(): Promise<void> {
     // prevent thundering herd: multiple non-owners racing to bind port
     const jitterMs = 500 + Math.random() * 1000;
+    const stops = this.loopStops;
     await new Promise((resolve) => setTimeout(resolve, jitterMs));
+    const available = await this.checkServerAvailable();
+    if (stops !== this.loopStops) return;
 
-    if (await this.checkServerAvailable()) {
+    if (available) {
       // The original owner recovered. Reset the failure counter so a stale
       // count can't advance the port on the next, unrelated failure.
       this.takeoverFailures = 0;
@@ -191,15 +207,6 @@ export abstract class PortOwnership {
         "warn"
       );
       this.config.port = nextPort;
-    } else if (
-      this.config.port >= this.maxFallbackPort &&
-      this.takeoverFailures >= MIN_FAILED_TAKEOVERS
-    ) {
-      // Every candidate port is held by a non-responsive process. Stop the
-      // health loop instead of retrying every five seconds forever.
-      this.stopHealthCheckLoop();
-      this.notifyPortsExhausted();
-      return;
     }
 
     try {
@@ -208,19 +215,29 @@ export abstract class PortOwnership {
       await this._start();
     } catch {
       this.startHealthCheckLoop();
+    }
+    if (!this.isOwner) {
+      if (
+        this.config.port >= this.maxFallbackPort &&
+        this.takeoverFailures >= MIN_FAILED_TAKEOVERS
+      ) {
+        // Every candidate port is held by a non-responsive process, and the
+        // last one just failed to bind. Stop the health loop instead of
+        // retrying every five seconds forever.
+        this.stopHealthCheckLoop();
+        this.notifyPortsExhausted();
+      }
       return;
     }
 
-    if (this.isOwner) {
-      this.takeoverFailures = 0;
-      log("Web server takeover successful", { port: this.config.port });
+    this.takeoverFailures = 0;
+    log("Web server takeover successful", { port: this.config.port });
 
-      if (this.onTakeoverCallback) {
-        try {
-          await this.onTakeoverCallback();
-        } catch (error) {
-          log("Takeover callback error", { error: String(error) }, "error");
-        }
+    if (this.onTakeoverCallback) {
+      try {
+        await this.onTakeoverCallback();
+      } catch (error) {
+        log("Takeover callback error", { error: String(error) }, "error");
       }
     }
   }
