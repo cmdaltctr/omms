@@ -23,6 +23,8 @@ type Props = {
   index?: number;
   action?: "edit" | "delete";
   item?: ProfileItem | null;
+  /** The version of the profile the page shows; the server refuses the change after a newer one. */
+  version?: number;
   onOpenChange?: (open: boolean) => void;
   onSaved?: () => void;
 };
@@ -33,6 +35,7 @@ export function ProfileItemDialog({
   index = 0,
   action = "edit",
   item = null,
+  version,
   onOpenChange,
   onSaved,
 }: Props) {
@@ -93,7 +96,7 @@ export function ProfileItemDialog({
       const result = await fetchAPI("/api/user-profile/item", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, index, action: "delete" }),
+        body: JSON.stringify({ type, index, action: "delete", version }),
       });
       setSaving(false);
       if (result.success) {
@@ -113,6 +116,7 @@ export function ProfileItemDialog({
       action: "edit",
       category: isWorkflow ? undefined : category,
       description,
+      version,
     };
     if (type === "workflows") {
       body.steps = steps.map((s) => s.trim()).filter(Boolean);

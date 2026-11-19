@@ -133,4 +133,37 @@ describe("profile save guard", () => {
       save.mockRestore();
     }
   });
+
+  it("refuses an edit made from an older version than the one stored", async () => {
+    const { userProfileManager } =
+      await import("../src/services/user-profile/user-profile-manager.js");
+    const { handleUpdateProfileItem } = await import("../src/services/api-handlers.js");
+    // The page showed version 40; a learning pass saved 41 and moved the items since.
+    const read = { id: "profile-1", version: 41, profileData: JSON.stringify(profile("B", "A")) };
+    const reader = spyOn(userProfileManager, "getActiveProfile").mockResolvedValue(read as any);
+    const save = spyOn(userProfileManager, "updateProfile").mockResolvedValue(true);
+    try {
+      const stale = await handleUpdateProfileItem(await import("../src/config.js"), {
+        type: "preferences",
+        index: 0,
+        action: "delete",
+        version: 40,
+      });
+      expect(stale.success).toBe(false);
+      expect(stale.error).toContain("modified by another session");
+      expect(save).not.toHaveBeenCalled();
+
+      const current = await handleUpdateProfileItem(await import("../src/config.js"), {
+        type: "preferences",
+        index: 0,
+        action: "delete",
+        version: 41,
+      });
+      expect(current.success).toBe(true);
+      expect(save).toHaveBeenCalledTimes(1);
+    } finally {
+      reader.mockRestore();
+      save.mockRestore();
+    }
+  });
 });

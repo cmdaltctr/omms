@@ -155,6 +155,10 @@ export async function handleUpdateProfileItem(
     if (!["edit", "delete"].includes(action)) {
       return { success: false, error: "action must be edit or delete" };
     }
+    // The index points into the version the page showed; a newer version can hold other items there.
+    if (body.version !== undefined && Number(body.version) !== Number(profile.version)) {
+      return { success: false, error: "Profile was modified by another session. Please retry." };
+    }
 
     const profileData: UserProfileData = JSON.parse(profile.profileData);
     const items: any[] = (profileData as any)[type] || [];
