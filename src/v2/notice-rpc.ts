@@ -15,6 +15,7 @@ export const noticeRpc = {
           title: { type: "string" },
           message: { type: "string" },
           variant: { type: "string" },
+          duration: { type: "number" },
         },
         required: ["message"],
       },

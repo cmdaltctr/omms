@@ -89,7 +89,7 @@ mock.module("../src/adapters/opencode/profile-llm-client.js", () => ({
 // The store warm-up is not under test.
 (globalThis as Record<symbol, unknown>)[Symbol.for("omms.plugin.warmedup")] = true;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const { createFakeV2Context } = await import("./fake-v2-context.js");
+const { createFakeV2Context, checkRpcEventData } = await import("./fake-v2-context.js");
 const plugin = (await import("../src/v2/plugin.js")).default;
 const { learnPiProfile } = await import("../src/adapters/pi/profile.js");
 
@@ -103,10 +103,11 @@ function createRpcBridge() {
   return {
     emitted,
     server: {
-      register: async (definition: { id: string }) => ({
+      register: async (definition: { id: string; events: Record<string, { schema: any }> }) => ({
         dispose: async () => {},
         events: {
-          emit: async (name: string, data: unknown) => {
+          emit: async (name: string, data: any) => {
+            checkRpcEventData(definition, name, data);
             emitted.push({ id: definition.id, name, data });
             for (const handler of handlers.get(`${definition.id}/${name}`) ?? []) {
               handler({ type: `rpc.${definition.id}.${name}`, data });

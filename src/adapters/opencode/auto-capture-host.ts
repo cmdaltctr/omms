@@ -3,13 +3,15 @@ import type { AutoCaptureHost, AutoCaptureNotification } from "../../core/host.j
 import { extractOpenCodeConversation } from "./conversation.js";
 import { generateOpenCodeAutoCaptureSummary } from "./auto-capture-summary.js";
 import type { OpencodeHost } from "./opencode-host.js";
-import { showOpencodeNotice } from "./toast.js";
+import { showOpencodeNotice, type OpencodeNotice } from "./toast.js";
 
+/** `show` sends capture notices; the V2 plugin passes the TUI channel (`registerTuiNotices`). */
 export function createOpenCodeAutoCaptureHost(
-  host: Pick<OpencodeHost, "session">
+  host: Pick<OpencodeHost, "session">,
+  show: (notice: OpencodeNotice) => void = showOpencodeNotice
 ): AutoCaptureHost {
   const notify = async (notification: AutoCaptureNotification): Promise<void> => {
-    showOpencodeNotice(notification);
+    show(notification);
   };
 
   return {

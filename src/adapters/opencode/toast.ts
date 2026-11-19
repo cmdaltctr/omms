@@ -34,9 +34,13 @@ export async function registerTuiNotices(
     const failed = (error: unknown) =>
       log("tui notice: push failed", { error: String(error) }, "error");
     return (notice) => {
-      const { title, message, variant } = notice;
+      const { title, message, variant, duration } = notice;
+      // OpenCode checks the data against the schema, and a key set to undefined fails it.
+      const data = Object.fromEntries(
+        Object.entries({ title, message, variant, duration }).filter(([, v]) => v !== undefined)
+      ) as { message: string };
       try {
-        registration.events.emit("notice", { title, message, variant }).catch(failed);
+        registration.events.emit("notice", data).catch(failed);
       } catch (error) {
         failed(error);
       }

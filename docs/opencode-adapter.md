@@ -126,7 +126,7 @@ The plugin chooses the capture model with the same rule as Pi (see
 
 - The provider name must appear in `opencode providers list`.
 - The model must return JSON that matches the schema in the prompt.
-- If the OpenCode model fails and the external API is configured, the plugin uses the external API. It writes a "Using fallback provider" notice to the OpenCode log.
+- If the OpenCode model fails and the external API is configured, the plugin uses the external API. The terminal interface shows a "Using fallback provider" toast.
 
 Each model call is one text generation through the OpenCode plugin context (`ctx.generate.text`):
 
@@ -140,7 +140,7 @@ write a full trace. See [Configuration: Capture diagnostics](configuration.md#ca
 The OpenCode plugin does not run a web server inside the session. At start it
 checks for the shared web app (`http://127.0.0.1:4747`). If one answers, the
 plugin uses it. If none answers, it starts one `om-memory-system web` in the
-background and writes one notice with the address to the OpenCode log. If another
+background and shows one toast with the address in the terminal interface. If another
 program holds the port, the notice says so. Set `webServerEnabled` to `false` to keep the web app
 off. See [Web UI](web-ui.md#starting-the-web-app).
 
@@ -176,24 +176,23 @@ After the idle capture, OMMS runs daily maintenance at most once a day in each O
 
 ### Config problems
 
-When OMMS cannot read the config file, or cannot use a value in it, it uses the default, or turns a risky feature off, and keeps running. At plugin start it writes one warning per problem to the OpenCode log, for example `[omms] OMMS settings: OMMS cannot read ~/.config/omms/omms.jsonc: on line 4, column 3, a comma is missing.` The warning names the file and line, or the key and the values it accepts. Fix the file. For a key that a Settings card can change, the notice also points to the Settings page.
+When OMMS cannot read the config file, or cannot use a value in it, it uses the default, or turns a risky feature off, and keeps running. At plugin start the terminal interface shows one **OMMS settings** toast per problem, for example "OMMS cannot read ~/.config/omms/omms.jsonc: on line 4, column 3, a comma is missing." The warning names the file and line, or the key and the values it accepts. Fix the file. For a key that a Settings card can change, the notice also points to the Settings page.
 
 ### Notices
 
-The OpenCode V2 server plugin has no toast API. It sends profile learning notices to the terminal interface over plugin RPC, and the terminal interface shows each one as a toast. Without a terminal interface (`opencode serve`, OpenChamber), nothing shows them.
+The OpenCode V2 server plugin has no toast API. It sends its notices to the terminal interface over plugin RPC, and the terminal interface shows each one as a toast. Without a terminal interface (`opencode serve`, OpenChamber), nothing shows them. The notices are:
 
-With `showAutoCaptureToasts` and `showErrorToasts`, the plugin writes other notices to the OpenCode log:
-
-- captured memories
-- changes to the fallback provider during capture
-- errors
+- captured memories (`showAutoCaptureToasts`)
+- changes to the fallback provider, and errors (`showErrorToasts`)
+- profile updates (`showUserProfileToasts`)
+- config problems, the web app address or start failure, and automatic import progress
 
 When the web app cannot start, the plugin writes a notice that names the cause and the fix. Pi and Claude Code use the same wording.
 
 - `port-busy`: the notice names the port and says to stop the other program, or to set `webServerPort` in the global config to a free port.
 - `no-runtime`: the notice says to install Node 22.14 or later, then start a new session.
 
-The terminal interface shows the first-run notice once per computer. It says what OMMS does on its own and how to turn each part off. See [Configuration: First-run notice](configuration.md#first-run-notice). Without a terminal interface (`opencode serve`, OpenChamber), the plugin writes the notice to the OpenCode log at each start until a terminal interface has shown it.
+The terminal interface shows the first-run notice once per computer. It says what OMMS does on its own and how to turn each part off. See [Configuration: First-run notice](configuration.md#first-run-notice). The server plugin also writes it to its console at each start until a terminal interface has shown it. It does not send it over plugin RPC, because the terminal interface would then show it twice.
 
 The footer status below shows the state of OMMS in the terminal. Pi reports the same events through its footer status and notifications.
 

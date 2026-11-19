@@ -21,10 +21,10 @@ export interface TuiNoticesDeps {
  */
 export function startTuiNotices(deps: TuiNoticesDeps): () => void {
   const off = deps.client.rpc(noticeRpc).events.on("notice", (event) => {
-    const { title, message, variant } = event?.data ?? {};
+    const { title, message, variant, duration } = event?.data ?? {};
     if (typeof message !== "string" || !message) return;
     try {
-      deps.toast({ title, message, variant, duration: 10_000 });
+      deps.toast({ title, message, variant, duration: duration ?? 10_000 });
     } catch {
       // A failed toast must not break the TUI.
     }
