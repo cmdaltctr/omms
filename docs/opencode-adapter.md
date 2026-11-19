@@ -180,7 +180,11 @@ When OMMS cannot read the config file, or cannot use a value in it, it uses the 
 
 ### Notices
 
-The OpenCode V2 server plugin has no toast API. It sends its notices to the terminal interface over plugin RPC, and the terminal interface shows each one as a toast. Without a terminal interface (`opencode serve`, OpenChamber), nothing shows them. The notices are:
+The OpenCode V2 server plugin has no toast API. It sends its notices to the terminal interface over plugin RPC, and the terminal interface shows each one as a toast. Without a terminal interface (`opencode serve`, OpenChamber), nothing shows them.
+
+Plugin RPC events reach only a terminal interface that listens at that moment. The OpenCode background service often starts the server plugin before the terminal interface, so the server keeps each notice until a terminal interface claims it (`claim` in `src/v2/notice-rpc.ts`). The terminal interface claims the waiting notices when it loads, and again at each `notice` event. Each notice shows once, in the order the server sent it. The server keeps at most 20 notices for a terminal interface that has not claimed them. Only one terminal interface gets each notice.
+
+The notices are:
 
 - captured memories (`showAutoCaptureToasts`)
 - changes to the fallback provider, and errors (`showErrorToasts`)

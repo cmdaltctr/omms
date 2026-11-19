@@ -21,16 +21,23 @@ export function showOpencodeNotice(notice: OpencodeNotice): void {
   console[method](`[omms] ${text}`);
 }
 
+/** Notices kept for a TUI that has not claimed them. Without a TUI the oldest go first. */
+const MAX_WAITING_NOTICES = 20;
+
 /**
  * Register the notice channel to the TUI entrypoint (`opencode/tui.tsx`), which shows each
- * notice as a toast. Returns the function that sends one. Without plugin RPC the notice goes
- * to the console, as before. Logs carry the error only, never the notice text.
+ * notice as a toast. Returns the function that sends one. Each notice waits until a TUI claims
+ * it, because a TUI that starts later never gets an earlier event (`noticeRpc`). Without plugin
+ * RPC the notice goes to the console, as before. Logs carry the error only, never the notice text.
  */
 export async function registerTuiNotices(
   ctx: Pick<Context, "rpc">
 ): Promise<(notice: OpencodeNotice) => void> {
+  const waiting: Array<{ message: string }> = [];
   try {
-    const registration = await ctx.rpc.register(noticeRpc, {});
+    const registration = await ctx.rpc.register(noticeRpc, {
+      claim: async () => ({ notices: waiting.splice(0) }),
+    });
     const failed = (error: unknown) =>
       log("tui notice: push failed", { error: String(error) }, "error");
     return (notice) => {
@@ -39,6 +46,8 @@ export async function registerTuiNotices(
       const data = Object.fromEntries(
         Object.entries({ title, message, variant, duration }).filter(([, v]) => v !== undefined)
       ) as { message: string };
+      waiting.push(data);
+      if (waiting.length > MAX_WAITING_NOTICES) waiting.shift();
       try {
         registration.events.emit("notice", data).catch(failed);
       } catch (error) {

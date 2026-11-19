@@ -95,29 +95,47 @@ const { learnPiProfile } = await import("../src/adapters/pi/profile.js");
 
 /**
  * Plugin RPC as OpenCode wires it: the server registers a contract and emits its events; a TUI
- * client of a contract with the same id receives them.
+ * client of a contract with the same id receives them, and its method calls run the server's
+ * handlers (they fail while the server has not registered).
  */
 function createRpcBridge() {
   const handlers = new Map<string, Array<(event: unknown) => void>>();
   const emitted: Array<{ id: string; name: string; data: any }> = [];
+  const methods = new Map<string, Record<string, (input: unknown) => Promise<unknown>>>();
   return {
     emitted,
     server: {
-      register: async (definition: { id: string; events: Record<string, { schema: any }> }) => ({
-        dispose: async () => {},
-        events: {
-          emit: async (name: string, data: any) => {
-            checkRpcEventData(definition, name, data);
-            emitted.push({ id: definition.id, name, data });
-            for (const handler of handlers.get(`${definition.id}/${name}`) ?? []) {
-              handler({ type: `rpc.${definition.id}.${name}`, data });
-            }
+      register: async (
+        definition: { id: string; events: Record<string, { schema: any }> },
+        serverMethods: Record<string, (input: unknown) => Promise<unknown>>
+      ) => {
+        methods.set(definition.id, serverMethods);
+        return {
+          dispose: async () => {},
+          events: {
+            emit: async (name: string, data: any) => {
+              checkRpcEventData(definition, name, data);
+              emitted.push({ id: definition.id, name, data });
+              for (const handler of handlers.get(`${definition.id}/${name}`) ?? []) {
+                handler({ type: `rpc.${definition.id}.${name}`, data });
+              }
+            },
           },
-        },
-      }),
+        };
+      },
     },
     client: {
-      rpc: (definition: { id: string }) => ({
+      rpc: (definition: { id: string; methods: Record<string, unknown> }) => ({
+        ...Object.fromEntries(
+          Object.keys(definition.methods).map((name) => [
+            name,
+            async (input: unknown) => {
+              const method = methods.get(definition.id)?.[name];
+              if (!method) throw new Error("rpc.unavailable");
+              return method(input);
+            },
+          ])
+        ),
         events: {
           on: (name: string, handler: (event: unknown) => void) => {
             const key = `${definition.id}/${name}`;
