@@ -137,7 +137,7 @@ export async function newestSnapshotRow(
   );
 }
 
-/** Metadata of the normal rows live capture saved in one host session. From `live-captured-entries.ts`. */
+/** Metadata of the normal rows in one host session that are not history imports (a row with no sourceType counts). From `live-captured-entries.ts`. */
 export async function liveCaptureMetadataRows(
   shard: ShardInfo,
   host: string,
@@ -148,7 +148,7 @@ export async function liveCaptureMetadataRows(
     `SELECT metadata FROM memories WHERE json_valid(metadata) AND ${memoryKindPredicate()}
        AND json_extract(metadata, '$.host') = ?
        AND json_extract(metadata, '$.hostSessionId') = ?
-       AND json_extract(metadata, '$.sourceType') != 'history-import'`,
+       AND json_extract(metadata, '$.sourceType') IS NOT 'history-import'`,
     [host, sessionId]
   );
 }

@@ -333,8 +333,6 @@ describe("memory rows surface: caller queries give the caller's answer", () => {
 
   it("(r) liveCaptureMetadataRows yields the IDs findLiveCapturedEntryIds yields", async () => {
     const shard = await freshShard();
-    // A row with no sourceType never matches today's `!= 'history-import'` test (NULL), so
-    // live rows carry one, as live capture writes them.
     const meta = (extra: Record<string, unknown>) =>
       JSON.stringify({ host: "pi", hostSessionId: "hs-9", sourceType: "live-capture", ...extra });
     await engineInsert(shard, record("l1", { metadata: meta({ promptId: "p1" }) }));
@@ -348,6 +346,15 @@ describe("memory rows surface: caller queries give the caller's answer", () => {
       record("l4", { type: "memorisation", metadata: meta({ promptId: "p4" }) })
     );
     await engineInsert(shard, record("l5", { metadata: meta({ promptId: "p5", host: "claude" }) }));
+    // Every row except a history import counts, so a row with no sourceType (absent or null)
+    // is a live row too.
+    const { sourceType: _absent, ...noSourceType } = JSON.parse(meta({ promptId: "p6" }));
+    await engineInsert(shard, record("l6", { metadata: JSON.stringify(noSourceType) }));
+    await engineInsert(
+      shard,
+      record("l7", { metadata: meta({ promptId: "p7", sourceType: null }) })
+    );
+    await engineInsert(shard, record("l8", { metadata: "not json" }));
     const found = await rows.liveCaptureMetadataRows(shard, "pi", "hs-9");
     const ids = new Set<string>();
     for (const row of found) {
@@ -355,7 +362,7 @@ describe("memory rows surface: caller queries give the caller's answer", () => {
       if (m.promptId) ids.add(m.promptId);
       for (const id of m.sourceEntryIds ?? []) ids.add(id);
     }
-    expect([...ids].sort()).toEqual(["e1", "e2", "p1"]);
+    expect([...ids].sort()).toEqual(["e1", "e2", "p1", "p6", "p7"]);
     const { findLiveCapturedEntryIds } = await import("../src/services/live-captured-entries.js");
     expect([...(await findLiveCapturedEntryIds(HASH, "pi", "hs-9"))].sort()).toEqual(
       [...ids].sort()
