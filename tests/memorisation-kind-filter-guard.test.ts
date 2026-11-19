@@ -166,7 +166,7 @@ const ALLOWED: AllowedReader[] = [
   },
   {
     file: "src/services/storage/memory/rows.ts",
-    sql: "SELECT id FROM memories WHERE metadata LIKE ? ESCAPE '\\\\'",
+    sql: "SELECT id FROM memories WHERE json_valid(metadata) AND json_extract(metadata, '$.importId') = ?",
     why: "Moved from the importer.ts dedup by import ID. An import never writes a memorisation.",
   },
   {

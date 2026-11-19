@@ -176,11 +176,11 @@ export async function memoryIdByImportId(
   shard: ShardInfo,
   importId: string
 ): Promise<string | null> {
-  const escaped = importId.replace(/[\\%_]/g, (char) => `\\${char}`);
   const db = await openShard(shard);
-  const row = await db.get(`SELECT id FROM memories WHERE metadata LIKE ? ESCAPE '\\'`, [
-    `%"importId":"${escaped}"%`,
-  ]);
+  const row = await db.get(
+    `SELECT id FROM memories WHERE json_valid(metadata) AND json_extract(metadata, '$.importId') = ?`,
+    [importId]
+  );
   return row ? String(row.id) : null;
 }
 

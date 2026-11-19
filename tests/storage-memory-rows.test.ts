@@ -389,7 +389,7 @@ describe("memory rows surface: caller queries give the caller's answer", () => {
     expect([...(await existingMemoryIds(ids))].sort()).toEqual(found);
   });
 
-  it("(r) memoryIdByImportId matches findMemoryIdByImportId, LIKE characters escaped", async () => {
+  it("(r) memoryIdByImportId matches findMemoryIdByImportId, with LIKE characters as plain text", async () => {
     const shard = await freshShard();
     await engineInsert(shard, record("i1", { metadata: JSON.stringify({ importId: "imp_1%" }) }));
     await engineInsert(shard, record("i2", { metadata: JSON.stringify({ importId: "impX1Y" }) }));
@@ -402,6 +402,27 @@ describe("memory rows surface: caller queries give the caller's answer", () => {
     ] as const) {
       expect(await rows.memoryIdByImportId(shard, importId)).toBe(expected);
       expect(await findMemoryIdByImportId(HASH, importId)).toBe(expected);
+    }
+  });
+
+  it("(r) memoryIdByImportId matches an ID with a backslash or a quote, and skips rows that are not JSON", async () => {
+    const shard = await freshShard();
+    const ids = ["a\\b", 'say "hi"', 'c:\\dir\\"x"', "50%_off", "a%b", "a_b"];
+    for (const [index, importId] of ids.entries()) {
+      await engineInsert(
+        shard,
+        record(`b${index}`, { metadata: JSON.stringify({ importId, host: "pi" }) })
+      );
+    }
+    // A row whose metadata is not JSON, and one with no metadata, must not break the query.
+    await engineInsert(shard, record("bad_json", { metadata: "not json" }));
+    await engineInsert(shard, record("no_meta"));
+    for (const [index, importId] of ids.entries()) {
+      expect(await rows.memoryIdByImportId(shard, importId), importId).toBe(`b${index}`);
+    }
+    // The stored text is not an ID, and `%` and `_` are not wildcards.
+    for (const importId of ['say \\"hi\\"', "a\\\\b", "%", "_", "a%", "50__off", "a?b", "bad"]) {
+      expect(await rows.memoryIdByImportId(shard, importId), importId).toBeNull();
     }
   });
 

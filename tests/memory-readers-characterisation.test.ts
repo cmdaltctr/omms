@@ -258,7 +258,7 @@ describe("chat existing-ID check", () => {
 });
 
 describe("history import duplicate check", () => {
-  it("(r) findMemoryIdByImportId reads every project shard and escapes LIKE characters", async () => {
+  it("(r) findMemoryIdByImportId reads every project shard and treats LIKE characters, backslashes and quotes as plain text", async () => {
     await freshStore();
     const p0 = await tursoShardManager.createShard("project", HASH, 0);
     const p1 = await tursoShardManager.createShard("project", HASH, 1);
@@ -268,6 +268,8 @@ describe("history import duplicate check", () => {
     await put(p1, record("i2", 3000, withImport("impX1Y")));
     await put(p1, record("i3", 4000, withImport("a\\b")));
     await put(p1, record("i4", 5000, withImport("plain")));
+    await put(p1, record("i5", 6000, withImport('say "hi"')));
+    await put(p1, record("i6", 7000, { metadata: "not json" }));
     const { findMemoryIdByImportId } = await import("../src/importer/importer.js");
     const cases: Array<[string, string | null]> = [
       ["first", "i0"],
@@ -276,10 +278,12 @@ describe("history import duplicate check", () => {
       ["imp_1_", null],
       ["imp%", null],
       ["imp_1Y", null],
-      // The stored metadata is JSON, so a backslash is stored doubled. Today's lookup matches
-      // the stored text, not the import ID: pinned as is, a refactor must not change it.
-      ["a\\b", null],
-      ["a\\\\b", "i3"],
+      // The lookup reads the import ID out of the JSON, so a backslash or a quote in the ID
+      // matches the raw ID, not its stored (escaped) text.
+      ["a\\b", "i3"],
+      ["a\\\\b", null],
+      ['say "hi"', "i5"],
+      ['say \\"hi\\"', null],
       ["plain", "i4"],
       ["missing", null],
     ];
