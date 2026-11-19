@@ -260,6 +260,29 @@ it("reloads the values and asks for a second save when the file changed meanwhil
   expect(page).toContain("check the values and save again");
 });
 
+it("shows the server's reason when the save is refused", async () => {
+  stubFetch(() => ({ ok: false, body: { error: "Settings are locked by the administrator." } }));
+  await submitForm(tree({ draft: { userProfileWithoutEmail: "skip" } }));
+  const page = html({ draft: states[1] as never, status: states[3] as never });
+  expect(page).toContain("Settings are locked by the administrator");
+  expect(page).toContain("check the values and save again");
+  expect(page).not.toContain("could not be saved");
+});
+
+it("shows the server's reason in the dialog when the reset is refused", async () => {
+  stubFetch(() => ({ ok: false, body: { error: "Settings are locked by the administrator." } }));
+  const saved = snapshotFixture({ userProfileWithoutEmail: "skip" });
+  const dialog = tree({ snapshot: saved, resetting: true }).find(
+    (node) => node.type === SettingsConfirmDialog
+  )!;
+  const result = await (
+    dialog.props.onConfirm as () => Promise<{ success: boolean; error?: string }>
+  )();
+  expect(result.success).toBe(false);
+  expect(result.error).toContain("Settings are locked by the administrator");
+  expect(result.error).not.toContain("could not be reset");
+});
+
 it("turns Reset off while none of the six keys is in the file", () => {
   expect(button("Reset to default", tree()).props.disabled).toBe(true);
   const saved = snapshotFixture({ userProfileWithoutEmail: "skip" });

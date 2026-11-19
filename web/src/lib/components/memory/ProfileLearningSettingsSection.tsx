@@ -31,9 +31,9 @@ type Setting = { source?: string; globalValue?: unknown; hasGlobal?: boolean };
 type Snapshot = { readOnly?: boolean; revision: string; settings: Record<string, Setting> };
 type Status =
   | { kind: "load-failed" }
-  | { kind: "save"; ok: boolean; reloaded: boolean; stale?: boolean }
+  | { kind: "save"; ok: boolean; reloaded: boolean; stale?: boolean; reason?: string }
   | { kind: "reset-done" };
-type Outcome = { ok: boolean; stale?: boolean; reloaded: boolean };
+type Outcome = { ok: boolean; stale?: boolean; reloaded: boolean; reason?: string };
 
 /** A row with no dropdown: the same layout as a setting row, with the fixed value as text. */
 function FixedRow({ name, description, value }: (typeof PROFILE_LEARNING_FIXED_ROWS)[number]) {
@@ -96,7 +96,7 @@ export function ProfileLearningSettingsSection() {
   const canReset = hasSavedLearningKey(snapshot?.settings) && !busy && !readOnly;
 
   /** One PATCH with the revision this section last saw, then a reload so every card agrees. */
-  async function send(body: Record<string, unknown>): Promise<Outcome & { reason?: string }> {
+  async function send(body: Record<string, unknown>): Promise<Outcome> {
     let ok = false;
     let stale = false;
     let reason: string | undefined;
@@ -118,26 +118,28 @@ export function ProfileLearningSettingsSection() {
     if (!snapshot || saving.current || !changed) return;
     saving.current = true;
     setBusy(true);
-    const { ok, stale, reloaded } = await send(edits);
+    const { ok, stale, reloaded, reason } = await send(edits);
     if (ok) setDraft({});
     setBusy(false);
     saving.current = false;
-    setStatus(stale ? { kind: "save", ok, reloaded, stale } : { kind: "save", ok, reloaded });
+    setStatus(
+      stale ? { kind: "save", ok, reloaded, stale } : { kind: "save", ok, reloaded, reason }
+    );
   }
 
   async function reset(): Promise<ConfirmResult> {
     if (!snapshot || saving.current) return { success: false };
     saving.current = true;
     setBusy(true);
-    const { ok, stale, reloaded } = await send(learningResetEdits());
+    const outcome = await send(learningResetEdits());
     setBusy(false);
     saving.current = false;
-    if (ok) {
+    if (outcome.ok) {
       setDraft({});
       setStatus({ kind: "reset-done" });
       return { success: true };
     }
-    return { success: false, error: failureText({ ok, stale, reloaded }, "reset") };
+    return { success: false, error: failureText(outcome, "reset") };
   }
 
   function failureText(outcome: Outcome, action: "save" | "reset"): string {
@@ -145,11 +147,13 @@ export function ProfileLearningSettingsSection() {
       ? s("Current settings were reloaded; check the values and save again.")
       : s("The current settings could not be reloaded. Reload the page.");
     if (outcome.stale) return withNote(s("Config changed. Reload settings and save again."), note);
+    // A refused request carries its own reason; show it in place of the general sentence.
     return withNote(
       s(
-        action === "save"
-          ? "The learning settings could not be saved. Reload the page to try again."
-          : "The learning settings could not be reset. Reload the page to try again."
+        outcome.reason ||
+          (action === "save"
+            ? "The learning settings could not be saved. Reload the page to try again."
+            : "The learning settings could not be reset. Reload the page to try again.")
       ),
       note
     );
