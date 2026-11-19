@@ -40,22 +40,37 @@ export function isProviderConnected(providerName: string): boolean {
   return _connectedProviders.has(providerName);
 }
 
+/** The limit on the model list read in `confirmProviderConnected`. */
+export const PROVIDER_LIST_TIMEOUT_MS = 10_000;
+
 /**
  * Like `isProviderConnected`, but reads OpenCode's model list again when the provider is missing.
  * OpenCode fills the list after start-up, so the read at start can miss a connected provider.
+ * A read that takes longer than `timeoutMs` counts as not connected, so an import or a profile
+ * call waiting on this check is never held.
  */
-export async function confirmProviderConnected(providerName: string): Promise<boolean> {
+export async function confirmProviderConnected(
+  providerName: string,
+  timeoutMs = PROVIDER_LIST_TIMEOUT_MS
+): Promise<boolean> {
   if (_connectedProviders.has(providerName)) return true;
   const host = getOpencodeHost();
   if (!host) return false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("omms: model list timed out")), timeoutMs);
+    timer?.unref?.();
+  });
   try {
     // Keep only provider ids: each model record holds the provider's API key.
-    const models = await host.model.list();
+    const models = await Promise.race([host.model.list(), expired]);
     for (const model of models.data) {
       if (model.providerID) _connectedProviders.add(model.providerID);
     }
   } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
   return _connectedProviders.has(providerName);
 }

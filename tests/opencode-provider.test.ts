@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import {
+  confirmProviderConnected,
   generateStructuredOutput,
   getOpencodeHost,
   isProviderConnected,
@@ -60,6 +61,30 @@ describe("connected providers state", () => {
     setConnectedProviders(["openai"]);
     expect(isProviderConnected("anthropic")).toBe(false);
     expect(isProviderConnected("openai")).toBe(true);
+  });
+});
+
+describe("confirmProviderConnected", () => {
+  afterEach(() => {
+    setConnectedProviders([]);
+    setOpencodeHost(undefined);
+  });
+
+  // An import or a profile call waits on this check. A list read that never answers must not
+  // hold them until OpenCode restarts.
+  it("gives false when OpenCode's model list never answers", async () => {
+    setOpencodeHost({ model: { list: () => new Promise(() => {}) } } as never);
+    const started = Date.now();
+    expect(await confirmProviderConnected("zai", 50)).toBe(false);
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+
+  it("still finds a provider that only the re-read lists", async () => {
+    setOpencodeHost({
+      model: { list: async () => ({ data: [{ providerID: "zai", id: "glm" }] }) },
+    } as never);
+    expect(await confirmProviderConnected("zai", 50)).toBe(true);
+    expect(isProviderConnected("zai")).toBe(true);
   });
 });
 
