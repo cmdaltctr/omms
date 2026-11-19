@@ -66,7 +66,8 @@ export async function handleAddMemory(data: {
 
     const { scope, hash } = extractScopeFromTag(data.containerTag);
 
-    return withMemoryScopeWriteLock(scope, hash, async () => {
+    // Await, so a failed insert reaches the catch below and returns a failed response.
+    return await withMemoryScopeWriteLock(scope, hash, async () => {
       const shard = await getWriteMemoryShard(scope, hash);
 
       const id = `mem_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
