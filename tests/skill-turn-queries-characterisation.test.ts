@@ -181,7 +181,9 @@ afterAll(async () => {
 const nonZero = (series: { key: string; uses: number; failed: number }[]) =>
   series.filter((p) => p.uses > 0 || p.failed > 0);
 
-const rel = (path: string | null) => (path === null ? null : path.slice(skillsDir.length));
+// Compare with forward slashes so the expected paths hold on Windows too.
+const rel = (path: string | null) =>
+  path === null ? null : path.slice(skillsDir.length).replaceAll("\\", "/");
 
 describe("ranking reads", () => {
   it("ranks every skill with its counts, modes and apply times", async () => {
