@@ -9,7 +9,7 @@ import {
   spaceLinks,
 } from "./spaces/registry.js";
 import { ommsHomeDir } from "./spaces/storage-resolution.js";
-import type { SpaceReadStore } from "./spaces/space-store.js";
+import type { SpaceReadStore } from "./storage/space-store.js";
 import { searchMemoryShards } from "./storage/memory/search.js";
 import {
   getMemoryRowInProject,
