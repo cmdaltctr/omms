@@ -1,6 +1,7 @@
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "./logger.js";
+import { packageVersion } from "./package-version.js";
 import { assertWebServerNetworkAuth } from "./web-api-auth.js";
 import type { WebServerConfig } from "./web-server/port-ownership.js";
 import type { RouteHost } from "./web-server/route-host.js";
@@ -193,6 +194,8 @@ export class WebServer extends WebControl {
 }
 
 export async function startWebServer(config: WebServerConfig): Promise<WebServer> {
+  // Fix the version now. A later `npm i -g` must not change what this process reports.
+  packageVersion();
   const server = new WebServer(config);
   await server.start();
   return server;
