@@ -382,7 +382,7 @@ describe("OpenCode capture route (performAutoCapture)", () => {
       createdAt: 1,
     });
 
-  it("does not capture a turn with a saved memorisation and clears the prompt", async () => {
+  it("does not capture a turn with a saved memorisation and keeps the prompt for profile learning", async () => {
     prompt();
     await performAutoCapture(
       opencodeHost([{ name: "memory", input: "", memorise: "saved" }]),
@@ -392,7 +392,7 @@ describe("OpenCode capture route (performAutoCapture)", () => {
     );
     expect(summarizeCalls).toBe(0);
     expect(addCalls).toBe(0);
-    expect(promptCalls).toEqual(["delete:p1"]);
+    expect(promptCalls).toEqual(["captured:p1"]);
   });
 
   it("captures a turn whose memorise call failed", async () => {

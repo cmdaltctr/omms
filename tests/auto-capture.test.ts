@@ -501,7 +501,7 @@ describe("auto-capture idle processing", () => {
     expect(result.parsed?.drainStarts).toEqual(["opencode"]);
   });
 
-  it("marks a retried prompt captured and linked, and deletes a skipped one", () => {
+  it("marks a retried prompt captured and linked, and keeps a skipped one captured", () => {
     const result = runRetryQueueScenario();
 
     expect(result.exitCode, result.stderr).toBe(0);
@@ -509,7 +509,11 @@ describe("auto-capture idle processing", () => {
       captured: true,
       linkedMemoryId: "mem-retry",
     });
-    expect(result.parsed?.prompts["prompt-retry-skip"].deleted).toBe(true);
+    expect(result.parsed?.prompts["prompt-retry-skip"]).toMatchObject({
+      captured: true,
+      deleted: false,
+      linkedMemoryId: null,
+    });
   });
 
   it("reloads a changed config file before a retry pass", () => {

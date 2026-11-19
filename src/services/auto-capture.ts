@@ -171,7 +171,8 @@ async function capturePrompt(
             sessionID,
             type: captureResult.type,
           });
-          await userPromptManager.deletePrompt(prompt.id);
+          // Kept for profile learning, as on Pi. Captured, so capture never takes it again.
+          await userPromptManager.markAsCaptured(prompt.id);
           claimedPromptId = null;
           return;
         }
@@ -247,11 +248,10 @@ export async function settleOpencodeRetriedPrompt(
   result: CaptureResult
 ): Promise<void> {
   if (!unit.promptId) return;
-  if (result.status === "skipped") {
-    await userPromptManager.deletePrompt(unit.promptId);
-    return;
+  // A skipped turn keeps its prompt for profile learning, as a live skip does.
+  if (result.status === "captured") {
+    await userPromptManager.linkMemoryToPrompt(unit.promptId, result.memoryId);
   }
-  await userPromptManager.linkMemoryToPrompt(unit.promptId, result.memoryId);
   await userPromptManager.markAsCaptured(unit.promptId);
 }
 
