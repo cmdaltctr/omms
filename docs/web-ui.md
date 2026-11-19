@@ -395,6 +395,8 @@ A web app on a non-loopback host, such as `0.0.0.0`, starts only when one of the
 
 Otherwise it refuses to start. The error tells you to create an API token on the Settings page, set a browser password, or bind to `127.0.0.1`.
 
+To use the page from another computer, set a browser password. The page reads the local token from the app shell. OMMS puts that token in the page only for a browser on this computer, or after the browser password check. With API tokens only, the page opens on another computer, but its API calls get `401`. Scripts with an API token still work.
+
 ### API tokens
 
 Create API tokens on the Settings page, in the **Keys and access** card. See [Settings page: API tokens](web-ui-settings.md#api-tokens).

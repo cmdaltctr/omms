@@ -1,7 +1,7 @@
 import { extname } from "node:path";
 import { log } from "../logger.js";
 import { corsPreflightResponse, disallowedCorsResponse, isAllowedBrowserOrigin } from "../cors.js";
-import { authorizeApiRequest, isLoopbackHost } from "../web-api-auth.js";
+import { authorizeApiRequest, isLoopbackAddress, isLoopbackHost } from "../web-api-auth.js";
 import { healthBody } from "../health-body.js";
 import { packageVersion } from "../package-version.js";
 import { isAuthorizedApiRequest } from "../auth-token.js";
@@ -28,6 +28,10 @@ export async function routeRequest(
   const origin = req.headers.get("Origin");
   const auth = web.config.auth;
   const corsOptions = { httpAuthEnabled: auth?.isEnabled() ?? false };
+  const embedToken =
+    isLoopbackHost(web.config.host) ||
+    isLoopbackAddress(remoteAddress) ||
+    (auth?.isEnabled() ?? false);
 
   if (!isAllowedBrowserOrigin(origin, corsOptions)) {
     return disallowedCorsResponse();
@@ -86,7 +90,7 @@ export async function routeRequest(
     }
 
     if (path === "/" || path === "/index.html" || path === "/settings" || path === "/memory") {
-      return web.serveStaticFile("index.html", "text/html");
+      return web.serveStaticFile("index.html", "text/html", embedToken);
     }
 
     if (path === "/favicon.ico") {
@@ -97,7 +101,7 @@ export async function routeRequest(
     if (method === "GET" && !path.startsWith("/api/")) {
       const relative = path.replace(/^\/+/, "");
       if (relative && !relative.includes("..")) {
-        const staticResponse = web.serveStaticFile(relative, contentTypeFor(relative));
+        const staticResponse = web.serveStaticFile(relative, contentTypeFor(relative), embedToken);
         if (staticResponse.status !== 404) {
           return staticResponse;
         }
@@ -130,7 +134,7 @@ export async function routeRequest(
 
     // SPA fallback for client routes (e.g. /profile) — serve the app shell.
     if (method === "GET" && !path.startsWith("/api/") && !extname(path)) {
-      return web.serveStaticFile("index.html", "text/html");
+      return web.serveStaticFile("index.html", "text/html", embedToken);
     }
 
     return new Response("Not Found", { status: 404 });

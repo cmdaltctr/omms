@@ -42,6 +42,26 @@ describe("static web UI serving", () => {
     }
   });
 
+  it("keeps the token out of the app shell for a network caller without a browser password", async () => {
+    const network = new WebServer({ enabled: true, host: "0.0.0.0", port: 4747 }) as unknown as {
+      handleRequest(request: Request, address: string): Promise<Response>;
+    };
+    const tag = `window.__OMMS_TOKEN__=${JSON.stringify(getOrCreateAuthToken())}`;
+    for (const path of ["/", "/index.html", "/profile"]) {
+      const lan = await network.handleRequest(
+        new Request(`http://192.0.2.10:4747${path}`),
+        "192.0.2.10"
+      );
+      expect(lan.status).toBe(200);
+      expect(await lan.text()).not.toContain(tag);
+      const local = await network.handleRequest(
+        new Request(`http://127.0.0.1:4747${path}`),
+        "127.0.0.1"
+      );
+      expect(await local.text()).toContain(tag);
+    }
+  });
+
   it("caches hashed assets for a year and images for a day", async () => {
     const asset = await get(`/assets/${script}`);
     expect(asset.status).toBe(200);

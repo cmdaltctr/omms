@@ -16,7 +16,7 @@ export interface RouteHost {
   readonly importer: ImporterModules;
   loadConfig(): Promise<typeof import("../../config.js")>;
   /** Calls the server's own method, so a test can replace it on the instance. */
-  serveStaticFile(filename: string, contentType: string): Response;
+  serveStaticFile(filename: string, contentType: string, embedToken?: boolean): Response;
   backfillControls(): Promise<InstanceType<ImporterApi["BackfillControls"]>>;
   importJobs(): Promise<InstanceType<ImporterJobs["SettingsImportJobs"]>>;
   /** The /api/web/* routes, or null for any other path. */

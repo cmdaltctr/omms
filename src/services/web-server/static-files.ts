@@ -43,7 +43,8 @@ export function contentTypeFor(filename: string): string {
 export function serveStaticFile(
   moduleDir: string,
   filename: string,
-  contentType: string
+  contentType: string,
+  embedToken = true
 ): Response {
   try {
     const webDir = [join(moduleDir, "..", "web"), join(moduleDir, "..", "..", "dist", "web")].find(
@@ -85,7 +86,8 @@ export function serveStaticFile(
 
     let content = readFileSync(filePath, "utf-8");
 
-    if (filename === "index.html" || filename.endsWith("/index.html")) {
+    // The token unlocks the whole API, so a network caller gets it only behind the browser password.
+    if (embedToken && (filename === "index.html" || filename.endsWith("/index.html"))) {
       const token = getOrCreateAuthToken();
       content = content.replace(
         "</head>",

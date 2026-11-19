@@ -62,7 +62,8 @@ export class WebServer extends WebControl {
       config,
       importer,
       loadConfig,
-      serveStaticFile: (filename, contentType) => this.serveStaticFile(filename, contentType),
+      serveStaticFile: (filename, contentType, embedToken) =>
+        this.serveStaticFile(filename, contentType, embedToken),
       backfillControls: () => this.backfillControls(),
       importJobs: this.importJobs,
       webControl: async (req, path, method, remoteAddress) =>
@@ -188,8 +189,8 @@ export class WebServer extends WebControl {
     return routeRequest(this.routeHost, req, remoteAddress);
   }
 
-  private serveStaticFile(filename: string, contentType: string): Response {
-    return serveStaticFile(__dirname, filename, contentType);
+  private serveStaticFile(filename: string, contentType: string, embedToken?: boolean): Response {
+    return serveStaticFile(__dirname, filename, contentType, embedToken);
   }
 }
 
