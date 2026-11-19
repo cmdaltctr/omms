@@ -85,24 +85,20 @@ export async function routeMemoryApi(
     return jsonResponse(result);
   }
 
-  if (path.startsWith("/api/memories/") && method === "DELETE") {
-    const parts = path.split("/");
-    const id = parts[3];
-    if (!id || id === "bulk-delete") {
+  // Exactly one ID segment: a longer path, such as DELETE on the pin route, must not act on an ID.
+  const memoryId = /^\/api\/memories\/([^/]+)$/.exec(path)?.[1];
+  if (memoryId && method === "DELETE") {
+    if (memoryId === "bulk-delete") {
       return jsonResponse({ success: false, error: "Invalid ID" });
     }
     const cascade = url.searchParams.get("cascade") === "true";
-    const result = await handleDeleteMemory(id, cascade);
+    const result = await handleDeleteMemory(memoryId, cascade);
     return jsonResponse(result);
   }
 
-  if (path.startsWith("/api/memories/") && method === "PUT") {
-    const id = path.split("/").pop();
-    if (!id) {
-      return jsonResponse({ success: false, error: "Invalid ID" });
-    }
+  if (memoryId && method === "PUT") {
     const body = (await req.json()) as any;
-    const result = await handleUpdateMemory(id, body);
+    const result = await handleUpdateMemory(memoryId, body);
     return jsonResponse(result);
   }
 
@@ -196,14 +192,13 @@ export async function routeMemoryApi(
     return jsonResponse(result);
   }
 
-  if (path.startsWith("/api/prompts/") && method === "DELETE") {
-    const parts = path.split("/");
-    const id = parts[3];
-    if (!id || id === "bulk-delete") {
+  const promptId = /^\/api\/prompts\/([^/]+)$/.exec(path)?.[1];
+  if (promptId && method === "DELETE") {
+    if (promptId === "bulk-delete") {
       return jsonResponse({ success: false, error: "Invalid ID" });
     }
     const cascade = url.searchParams.get("cascade") === "true";
-    const result = await handleDeletePrompt(id, cascade);
+    const result = await handleDeletePrompt(promptId, cascade);
     return jsonResponse(result);
   }
 
