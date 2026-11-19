@@ -42,6 +42,31 @@ describe("port ownership", () => {
   });
 });
 
+describe("takeover failure count", () => {
+  it("clears the count when the owner answers the first health check", async () => {
+    const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+    cleanups.push(() => server.stop());
+    const internals = server as unknown as Internals & {
+      takeoverFailures: number;
+      attemptTakeover(): Promise<void>;
+      _start(): Promise<void>;
+    };
+    // Two takeovers failed while the owner was slow, then the owner answered again.
+    internals.takeoverFailures = 2;
+    server.checkServerAvailable = async () => true;
+    await internals.waiterTick.call(server);
+
+    // A later, unrelated failed takeover must count from zero, not move to the next port.
+    server.checkServerAvailable = async () => false;
+    internals._start = async () => {
+      throw new Error("EADDRINUSE");
+    };
+    await internals.attemptTakeover.call(server);
+    expect(server.getUrl()).toBe("http://127.0.0.1:4747");
+    expect(internals.takeoverFailures).toBe(1);
+  });
+});
+
 describe("waiter retirement", () => {
   function waiter(ownerVersion: string) {
     const asked: string[] = [];

@@ -103,6 +103,8 @@ export abstract class PortOwnership {
       await this.attemptTakeover();
       return;
     }
+    // The owner answers, so earlier failed takeovers were not a dead socket.
+    this.takeoverFailures = 0;
     if (!this.onStepAsideCallback) return;
     // A standalone web app behind a newer one would serve old code after a restart.
     const reason = (await this.retiredByUpdate())
