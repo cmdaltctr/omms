@@ -78,11 +78,6 @@ async function checkOf(path: string, pragma: "integrity_check" | "quick_check"):
   }
 }
 
-// Known libSQL behaviour, present before the move: `VACUUM INTO` copies the vector index
-// metadata row twice, so a full integrity_check of a shard copy reports this one line.
-// Reads, vector search, writes and quick_check work on the copy.
-const VECTOR_META_DUPLICATE = "row not in PRIMARY KEY order for libsql_vector_meta_shadow";
-
 async function useFourDimensions(): Promise<void> {
   const { CONFIG } = await import("../src/config.js");
   CONFIG.embeddingDimensions = 4;
@@ -213,9 +208,8 @@ describe("space backup snapshot", () => {
       for (const file of databases) {
         const copy = join(backupPath, file.path);
         expect(await checkOf(copy, "quick_check")).toEqual(["ok"]);
-        const full = await checkOf(copy, "integrity_check");
-        if (file.path === "metadata.db") expect(full).toEqual(["ok"]);
-        else expect(full).toEqual([VECTOR_META_DUPLICATE]);
+        // Shard copies passed only quick_check before TDR-088.
+        expect(await checkOf(copy, "integrity_check")).toEqual(["ok"]);
       }
 
       const copy = openSpaceStore(backupPath, "read");
