@@ -39,11 +39,13 @@ async function setup() {
   const embedStarted = new Promise<void>((resolve) => {
     embedded = resolve;
   });
+  const embedCalls = { count: 0 };
   const originalWarmup = embeddingService.warmup;
   const originalEmbed = embeddingService.embedWithTimeout;
   embeddingService.warmup = (async () => undefined) as typeof originalWarmup;
   // The edit embeds after it reads the row, so this call marks the end of the read.
   embeddingService.embedWithTimeout = (async () => {
+    embedCalls.count++;
     embedded();
     return vector;
   }) as typeof originalEmbed;
@@ -71,7 +73,7 @@ async function setup() {
   });
   // Another writer holds the scope lock until the test releases it.
   const holder = tursoShardManager.withScopeWriteLock("project", scopeHash, () => gate);
-  return { db, embedStarted, release, holder };
+  return { db, embedStarted, embedCalls, release, holder };
 }
 
 const storedContent = async (db: { get: (sql: string) => Promise<{ content?: unknown } | null> }) =>
@@ -108,5 +110,25 @@ describe("web memory edit and the scope write lock", () => {
     expect(await edit).toEqual({ success: false, error: "Memory not found" });
     const rows = await db.all("SELECT id FROM memories");
     expect(rows).toHaveLength(0);
+  });
+
+  it("keeps both edits when a content edit and a tags edit wait for the lock", async () => {
+    const { db, embedCalls, release, holder } = await setup();
+    const { handleUpdateMemory } = await import("../src/services/api-handlers.js");
+
+    // Both edits read the row and embed before either takes the lock.
+    const contentEdit = handleUpdateMemory("mem_lock01", { content: "edited content" });
+    const tagsEdit = handleUpdateMemory("mem_lock01", { tags: ["beta"] });
+    for (let wait = 0; embedCalls.count < 4 && wait < 100; wait++) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(embedCalls.count).toBe(4);
+
+    release();
+    await holder;
+    expect(await contentEdit).toEqual({ success: true });
+    expect(await tagsEdit).toEqual({ success: true });
+    const row = await db.get("SELECT content, tags FROM memories WHERE id = 'mem_lock01'");
+    expect([row?.content, row?.tags]).toEqual(["edited content", "beta"]);
   });
 });

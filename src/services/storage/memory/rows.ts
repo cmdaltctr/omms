@@ -28,9 +28,13 @@ export async function insertMemoryRow(shard: ShardInfo, record: MemoryRecord): P
   await tursoVectorSearch.insertVector(await openShard(shard), record);
 }
 
-/** Deletes the row with this ID from the shard. The caller updates the shard count. */
-export async function deleteMemoryRow(shard: ShardInfo, memoryId: string): Promise<void> {
-  await tursoVectorSearch.deleteVector(await openShard(shard), memoryId);
+/**
+ * Deletes the row with this ID from the shard. Returns true when a row was removed, so the
+ * caller updates the shard count only then: two deletes of one row at once remove it once.
+ */
+export async function deleteMemoryRow(shard: ShardInfo, memoryId: string): Promise<boolean> {
+  const db = await openShard(shard);
+  return (await db.run(`DELETE FROM memories WHERE id = ?`, [memoryId])) > 0;
 }
 
 export async function pinMemoryRow(shard: ShardInfo, memoryId: string): Promise<void> {
