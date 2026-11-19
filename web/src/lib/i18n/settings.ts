@@ -1514,6 +1514,20 @@ const text = {
     "تعذّر تحميل أحدث الإعدادات. أعد تحميل الصفحة قبل الحفظ مرة أخرى.",
   ],
   "Learning settings": ["学习设置", "إعدادات التعلّم"],
+  "Wait until the current save finishes.": ["请等当前保存完成。", "انتظر حتى ينتهي الحفظ الحالي."],
+  "The settings have not loaded yet.": ["设置尚未加载。", "لم يتم تحميل الإعدادات بعد."],
+  "Change a setting to turn on Save.": [
+    "更改某项设置后才能保存。",
+    "غيّر أحد الإعدادات لتفعيل الحفظ.",
+  ],
+  "There are no unsaved changes to cancel.": [
+    "没有可取消的未保存更改。",
+    "لا توجد تغييرات غير محفوظة لإلغائها.",
+  ],
+  "No learning setting is saved in the global config file, so every row shows its default.": [
+    "全局配置文件中没有保存任何学习设置，所以每一行都显示默认值。",
+    "لا يوجد إعداد تعلّم محفوظ في ملف الإعدادات العام، لذلك يعرض كل صف قيمته الافتراضية.",
+  ],
   "These settings apply to every host. They are saved in the global config file.": [
     "这些设置适用于所有宿主，保存在全局配置文件中。",
     "تنطبق هذه الإعدادات على كل المضيفين وتُحفظ في ملف الإعدادات العام.",

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Loader } from "lucide-react";
 import {
   beginSettingsRead,
@@ -14,6 +14,7 @@ import {
   type ConfirmResult,
 } from "$lib/components/settings/SettingsConfirmDialog";
 import { Select } from "$lib/components/ui/select";
+import { Tooltip } from "$lib/components/ui/tooltip";
 import { useSettingsText } from "$lib/i18n/settings";
 import {
   PROFILE_LEARNING_CONTROLS,
@@ -34,6 +35,52 @@ type Status =
   | { kind: "save"; ok: boolean; reloaded: boolean; stale?: boolean; reason?: string }
   | { kind: "reset-done" };
 type Outcome = { ok: boolean; stale?: boolean; reloaded: boolean; reason?: string };
+
+/**
+ * The snapshot as the server confirmed it after a save or reset: a value is now in the global
+ * file, and null means the key was removed. Used when the reload that follows fails, so the
+ * dropdowns keep showing what the server accepted.
+ */
+function withConfirmed(snapshot: Snapshot, edits: Record<string, unknown>): Snapshot {
+  const settings = { ...snapshot.settings };
+  for (const [key, value] of Object.entries(edits)) {
+    settings[key] =
+      value === null
+        ? { ...settings[key], source: "default", hasGlobal: false, globalValue: undefined }
+        : { ...settings[key], source: "global", hasGlobal: true, globalValue: value };
+  }
+  return { ...snapshot, settings };
+}
+
+/**
+ * A turned-off button keeps its place and says why. A disabled button gets no hover or focus, so
+ * it sits in a focusable span that shows the reason as a tooltip; an sr-only line carries the
+ * same reason for the button's aria-describedby (the pattern of SpaceActionButton).
+ */
+function WithReason({
+  reason,
+  id,
+  children,
+}: {
+  reason?: string;
+  id: string;
+  children: ReactNode;
+}) {
+  if (!reason) return <>{children}</>;
+  return (
+    <Tooltip content={reason}>
+      <span
+        tabIndex={0}
+        className="inline-flex rounded-[9px] focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        {children}
+        <span id={id} className="sr-only">
+          {reason}
+        </span>
+      </span>
+    </Tooltip>
+  );
+}
 
 /** A row with no dropdown: the same layout as a setting row, with the fixed value as text. */
 function FixedRow({ name, description, value }: (typeof PROFILE_LEARNING_FIXED_ROWS)[number]) {
@@ -93,7 +140,34 @@ export function ProfileLearningSettingsSection() {
   const edits = learningSaveEdits(draft, saved);
   const changed = Object.keys(edits).length > 0;
   const readOnly = snapshot?.readOnly === true;
-  const canReset = hasSavedLearningKey(snapshot?.settings) && !busy && !readOnly;
+  const hasSaved = hasSavedLearningKey(snapshot?.settings);
+  const canReset = hasSaved && !busy && !readOnly;
+  // The first cause that turns a button off, in words. Undefined while the button works.
+  const waitReason = s("Wait until the current save finishes.");
+  const readOnlyReason = s("Saving is turned off until the file is fixed.");
+  const saveReason = busy
+    ? waitReason
+    : !snapshot
+      ? s("The settings have not loaded yet.")
+      : readOnly
+        ? readOnlyReason
+        : !changed
+          ? s("Change a setting to turn on Save.")
+          : undefined;
+  const cancelReason = busy
+    ? waitReason
+    : !changed
+      ? s("There are no unsaved changes to cancel.")
+      : undefined;
+  const resetReason = busy
+    ? waitReason
+    : readOnly
+      ? readOnlyReason
+      : !hasSaved
+        ? s(
+            "No learning setting is saved in the global config file, so every row shows its default."
+          )
+        : undefined;
 
   /** One PATCH with the revision this section last saw, then a reload so every card agrees. */
   async function send(body: Record<string, unknown>): Promise<Outcome> {
@@ -119,7 +193,10 @@ export function ProfileLearningSettingsSection() {
     saving.current = true;
     setBusy(true);
     const { ok, stale, reloaded, reason } = await send(edits);
-    if (ok) setDraft({});
+    if (ok) {
+      setDraft({});
+      if (!reloaded) setSnapshot((current) => current && withConfirmed(current, edits));
+    }
     setBusy(false);
     saving.current = false;
     setStatus(
@@ -136,6 +213,9 @@ export function ProfileLearningSettingsSection() {
     saving.current = false;
     if (outcome.ok) {
       setDraft({});
+      if (!outcome.reloaded) {
+        setSnapshot((current) => current && withConfirmed(current, learningResetEdits()));
+      }
       setStatus({ kind: "reset-done" });
       return { success: true };
     }
@@ -215,25 +295,37 @@ export function ProfileLearningSettingsSection() {
           <FixedRow key={row.name} {...row} />
         ))}
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" disabled={busy || !snapshot || readOnly || !changed}>
-            {s("Save")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || !changed}
-            onClick={() => setDraft({})}
-          >
-            {s("Cancel")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={!canReset}
-            onClick={() => setResetting(true)}
-          >
-            {s("Reset to default")}
-          </Button>
+          <WithReason reason={saveReason} id="profile-learning-save-reason">
+            <Button
+              type="submit"
+              disabled={busy || !snapshot || readOnly || !changed}
+              aria-describedby={saveReason ? "profile-learning-save-reason" : undefined}
+            >
+              {s("Save")}
+            </Button>
+          </WithReason>
+          <WithReason reason={cancelReason} id="profile-learning-cancel-reason">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || !changed}
+              aria-describedby={cancelReason ? "profile-learning-cancel-reason" : undefined}
+              onClick={() => setDraft({})}
+            >
+              {s("Cancel")}
+            </Button>
+          </WithReason>
+          <WithReason reason={resetReason} id="profile-learning-reset-reason">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!canReset}
+              aria-describedby={resetReason ? "profile-learning-reset-reason" : undefined}
+              onClick={() => setResetting(true)}
+            >
+              {s("Reset to default")}
+            </Button>
+          </WithReason>
           <ReadOnlyNote show={readOnly} />
         </div>
       </form>
