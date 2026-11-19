@@ -1,5 +1,5 @@
 import type { CONFIG } from "../config.js";
-import { getActiveSpaceLabel } from "./active-space-access.js";
+import { getActiveSpaceLabel } from "./storage/active-space-access.js";
 import { activeSpaceLine } from "./spaces/context-line.js";
 import {
   getUserProfileContext,

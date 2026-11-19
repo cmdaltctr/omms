@@ -3,7 +3,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG } from "../src/config.js";
-import { importLedgerDbPath } from "../src/importer/ledger.js";
+import { importLedgerDbPath } from "../src/services/storage/import-ledger.js";
 import {
   getBackfillCutoff,
   readBackfillStatus,
@@ -16,7 +16,7 @@ import {
   unresolvedSessionCount,
   updateBackfillStatus,
   visibleUnresolvedCount,
-} from "../src/services/backfill-state.js";
+} from "../src/services/storage/backfill-state.js";
 import { tursoConnectionManager } from "../src/services/turso/connection-manager.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 

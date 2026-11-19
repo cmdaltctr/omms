@@ -88,7 +88,7 @@ export class WebServer extends WebControl {
       .then(({ sweepOrphanSnapshots }) => sweepOrphanSnapshots())
       .catch(() => {});
     // Restore records of the automatic cleanup expire after 30 days, even if nothing reads them.
-    void import("./user-profile/auto-cleanup-store.js")
+    void import("./storage/profiles/auto-cleanups.js")
       .then(({ pruneAutoCleanupRecords }) => pruneAutoCleanupRecords())
       .catch(() => {});
 

@@ -2,7 +2,7 @@ import { CONFIG, refreshConfigIfChanged } from "../config.js";
 import type { CaptureSummaryProvider } from "../core/host.js";
 import { log } from "../services/logger.js";
 import type { BackfillHost } from "../utils/backfill-model.js";
-import { tryAcquireBackfillLock } from "./backfill-lock.js";
+import { tryAcquireBackfillLock } from "../services/storage/backfill-locks.js";
 import {
   getBackfillCutoff,
   recordUnresolvedDirectories,
@@ -10,7 +10,7 @@ import {
   unresolvedSessionCount,
   updateBackfillStatus,
   type BackfillStatus,
-} from "../services/backfill-state.js";
+} from "../services/storage/backfill-state.js";
 import {
   runHistoryImport,
   type HistoryImportModels,

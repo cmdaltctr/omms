@@ -159,7 +159,8 @@ describe("shard path migration", () => {
       20
     );
     // list on first shard alone may be partial; check via inventory instead
-    const { shardInventoryService } = await import("../src/services/shard-inventory-service.js");
+    const { shardInventoryService } =
+      await import("../src/services/storage/maintenance/shard-inventory-service.js");
     const inventory = await shardInventoryService.listShards(newProjectDir);
     const current = inventory.shards.find((shard) => shard.scopeHash === newHash);
     expect(current?.memoryCount).toBe(2);
@@ -365,7 +366,8 @@ describe("shard path migration", () => {
     ]);
     rmSync(oldProjectDir, { recursive: true, force: true });
 
-    const { shardInventoryService } = await import("../src/services/shard-inventory-service.js");
+    const { shardInventoryService } =
+      await import("../src/services/storage/maintenance/shard-inventory-service.js");
     const inventory = await shardInventoryService.listShards(newProjectDir);
     expect(
       inventory.shards

@@ -45,7 +45,7 @@ export async function routeSettingsApi(
 
   if (path === "/api/settings/backfill" && method === "GET") {
     const [{ CONFIG }, { readBackfillStatus, readUnresolvedDirectories, visibleUnresolvedCount }] =
-      await Promise.all([web.loadConfig(), import("../backfill-state.js")]);
+      await Promise.all([web.loadConfig(), import("../storage/backfill-state.js")]);
     // Read at request time from the Directory maps list, so the badge and the
     // list agree and an Ignore click changes every badge at once. The list
     // hides ignored directories and directories with a saved map.
@@ -156,7 +156,7 @@ export async function routeSettingsApi(
       try {
         const [{ CONFIG }, { pruneCaptureRetries }] = await Promise.all([
           web.loadConfig(),
-          import("../capture-retry-queue.js"),
+          import("../storage/capture-retry-queue.js"),
         ]);
         await pruneCaptureRetries({ ...CONFIG, captureRetryRetentionHours: 0 });
       } catch (error) {
@@ -230,7 +230,7 @@ export async function routeSettingsApi(
     const [{ queryCaptureAttempts }, { CONFIG }, { countCaptureRetries }] = await Promise.all([
       import("../capture-attempt-store.js"),
       web.loadConfig(),
-      import("../capture-retry-queue.js"),
+      import("../storage/capture-retry-queue.js"),
     ]);
     const days = Math.max(1, Math.min(90, Number(url.searchParams.get("days")) || 7));
     const host = url.searchParams.get("host") || undefined;

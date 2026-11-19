@@ -16,7 +16,7 @@ CONFIG.storagePath = storage;
 
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
 const { CleanupService } = await import("../src/services/cleanup-service.js");
-const records = await import("../src/services/user-profile/auto-cleanup-store.js");
+const records = await import("../src/services/storage/profiles/auto-cleanups.js");
 
 afterAll(async () => {
   await tursoConnectionManager.closeAll();

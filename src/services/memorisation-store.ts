@@ -1,5 +1,5 @@
 import { countLabels, matchesTagGroups, visibleTags } from "../core/memorisation.js";
-import { activeOwner } from "./active-space-access.js";
+import { activeOwner } from "./storage/active-space-access.js";
 import { readLinkedMemory, type LinkedSearchSettings, type ListedMemory } from "./linked-search.js";
 import type { MemoryScope } from "./client.js";
 import { extractScopeFromContainerTag } from "./memory-scope.js";

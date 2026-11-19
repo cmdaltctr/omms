@@ -32,7 +32,7 @@ import {
   type MemoryListOptions,
   type MemorySearchOptions,
 } from "./client-read-settings.js";
-import { activeOwner } from "./active-space-access.js";
+import { activeOwner } from "./storage/active-space-access.js";
 import { log } from "./logger.js";
 import type { MemoryType } from "../types/index.js";
 import type { MemoryRecord, SearchResult } from "./storage/memory/types.js";

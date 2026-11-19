@@ -48,7 +48,7 @@ export async function callTool(
 ) {
   const { AIProviderFactory } = await import("../ai/ai-provider-factory.js");
   const { buildMemoryProviderConfig } = await import("../ai/provider-config.js");
-  const { aiSessionManager } = await import("../ai/session/ai-session-manager.js");
+  const { aiSessionManager } = await import("../storage/ai-sessions.js");
   const provider = AIProviderFactory.createProvider(
     config.memoryProvider as Parameters<typeof AIProviderFactory.createProvider>[0],
     buildMemoryProviderConfig(config, {

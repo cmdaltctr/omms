@@ -19,14 +19,14 @@ import {
   setSkillMode,
   type ProposalFilter,
   type SkillProposalState,
-} from "./skill-learning/proposal-store.js";
+} from "./storage/skills/proposals.js";
 import { listProposalSummaries } from "./skill-learning/proposal-summaries.js";
 import { intParam } from "./skill-learning/query-params.js";
 import { SKILL_ORDERS, rankSkills, type SkillOrder } from "./skill-learning/ranking.js";
 import { skillTurnSettingsFor, type SkillConfigModule } from "./skill-learning/settings-for.js";
 import { skillModel } from "./skill-learning/skill-model.js";
 import { getSkillIndex, type SkillIndex } from "./skill-learning/skill-index.js";
-import { SkillStore, SkillStoreError, skillsDbPath } from "./skill-learning/store.js";
+import { SkillStore, SkillStoreError, skillsDbPath } from "./storage/skills/store.js";
 import {
   RECENT_TURN_LIMIT,
   countSkillTurns,

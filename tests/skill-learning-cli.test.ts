@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { initConfig } from "../src/config.js";
 import { parseOperationArgs, runSkillsCommand } from "../src/cli/skills-command.js";
 import { hashSkillContent } from "../src/services/skill-learning/apply.js";
-import { createProposal, getProposal } from "../src/services/skill-learning/proposal-store.js";
-import { SkillStore, skillsDbPath } from "../src/services/skill-learning/store.js";
+import { createProposal, getProposal } from "../src/services/storage/skills/proposals.js";
+import { SkillStore, skillsDbPath } from "../src/services/storage/skills/store.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
 /**

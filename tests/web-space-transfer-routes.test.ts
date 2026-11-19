@@ -18,7 +18,7 @@ import {
   spaceFiles,
 } from "../src/services/spaces/registry-store.js";
 import { readRegistryFile } from "../src/services/spaces/registry.js";
-import { openSpaceStore } from "../src/services/spaces/space-store.js";
+import { openSpaceStore } from "../src/services/storage/space-store.js";
 import { tursoVectorSearch } from "../src/services/turso/vector-search.js";
 import { exportSpace } from "../src/services/spaces/export-space.js";
 import { IMPORT_MAX_FILE_BYTES } from "../src/services/spaces/import-space.js";

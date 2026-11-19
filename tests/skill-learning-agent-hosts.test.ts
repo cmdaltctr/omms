@@ -33,7 +33,7 @@ beforeEach(async () => {
     memoryApiKey: undefined,
     memoryModel: undefined,
   });
-  const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+  const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
   const store = new SkillStore(skillsDbPath(baseDir));
   await store.init();
   await store.insertTurn({

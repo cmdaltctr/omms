@@ -4,7 +4,7 @@ import {
   turnSummaryRowsByIds,
 } from "../storage/skills/turn-queries.js";
 import type { SkillIndex } from "./skill-index.js";
-import type { SkillStore } from "./store.js";
+import type { SkillStore } from "../storage/skills/store.js";
 
 export { PROMPT_PREVIEW_CHARS } from "../storage/skills/turn-queries.js";
 export const RECENT_TURN_LIMIT = 20;

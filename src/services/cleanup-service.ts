@@ -11,7 +11,7 @@ import {
 import type { MemoryRow, ShardInfo } from "./storage/memory/types.js";
 import { log } from "./logger.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
-import type { CaptureRetryConfig } from "./capture-retry-queue.js";
+import type { CaptureRetryConfig } from "./storage/capture-retry-queue.js";
 
 type Config = (typeof import("../config.js"))["CONFIG"];
 
@@ -201,7 +201,7 @@ export class CleanupService {
     }
 
     try {
-      const { pruneCaptureRetries } = await import("./capture-retry-queue.js");
+      const { pruneCaptureRetries } = await import("./storage/capture-retry-queue.js");
       await pruneCaptureRetries(config);
     } catch (error) {
       log(
@@ -214,7 +214,7 @@ export class CleanupService {
     }
 
     try {
-      const { pruneAutoCleanupRecords } = await import("./user-profile/auto-cleanup-store.js");
+      const { pruneAutoCleanupRecords } = await import("./storage/profiles/auto-cleanups.js");
       await pruneAutoCleanupRecords();
     } catch (error) {
       log(

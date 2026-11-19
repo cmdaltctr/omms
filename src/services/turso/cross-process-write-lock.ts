@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, linkSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getStoragePath } from "../active-space-access.js";
+import { getStoragePath } from "../storage/active-space-access.js";
 
 /**
  * Cross-process advisory write lock, one per (scope, scopeHash).

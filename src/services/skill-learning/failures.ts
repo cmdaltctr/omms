@@ -5,7 +5,7 @@ import {
   turnFailureRows,
 } from "../storage/skills/turn-queries.js";
 import type { SkillIndex } from "./skill-index.js";
-import type { SkillStore } from "./store.js";
+import type { SkillStore } from "../storage/skills/store.js";
 
 export {
   FAILURE_GROUP_LIMIT,

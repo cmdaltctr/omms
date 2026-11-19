@@ -4,9 +4,9 @@ import {
   skillModeRows,
   type SkillsDb,
 } from "../storage/skills/turn-queries.js";
-import type { SkillMode } from "./proposal-store.js";
+import type { SkillMode } from "../storage/skills/proposals.js";
 import type { SkillIndex } from "./skill-index.js";
-import type { SkillStore } from "./store.js";
+import type { SkillStore } from "../storage/skills/store.js";
 
 export const RANKING_WINDOW_MS = 30 * 86_400_000;
 /** A skill needs this many uses in the window before it can be Suggested. */

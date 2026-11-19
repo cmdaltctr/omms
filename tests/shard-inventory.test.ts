@@ -56,7 +56,8 @@ describe("shard inventory and source resolution", () => {
     const { rmSync } = await import("node:fs");
     rmSync(oldProjectDir, { recursive: true, force: true });
 
-    const { shardInventoryService } = await import("../src/services/shard-inventory-service.js");
+    const { shardInventoryService } =
+      await import("../src/services/storage/maintenance/shard-inventory-service.js");
     const result = await shardInventoryService.listShards(newProjectDir);
 
     expect(result.success).toBe(true);
@@ -69,7 +70,8 @@ describe("shard inventory and source resolution", () => {
 
   it("resolves migration source by stored project path and by fromHash", async () => {
     const { oldHash } = await setup();
-    const { shardInventoryService } = await import("../src/services/shard-inventory-service.js");
+    const { shardInventoryService } =
+      await import("../src/services/storage/maintenance/shard-inventory-service.js");
 
     const byPath = await shardInventoryService.resolveMigrationSource(newProjectDir, {
       fromPath: oldProjectDir,
@@ -105,7 +107,8 @@ describe("shard inventory and source resolution", () => {
 
   it("rejects ambiguous and invalid fromHash values", async () => {
     await setup();
-    const { shardInventoryService } = await import("../src/services/shard-inventory-service.js");
+    const { shardInventoryService } =
+      await import("../src/services/storage/maintenance/shard-inventory-service.js");
 
     const invalid = await shardInventoryService.resolveMigrationSource(newProjectDir, {
       fromHash: "not-a-hash",

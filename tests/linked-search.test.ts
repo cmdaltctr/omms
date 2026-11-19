@@ -109,7 +109,7 @@ interface WrittenMemory {
 /** Writes one memory straight into a space folder through a write store. */
 async function writeMemory(folder: string, memory: WrittenMemory): Promise<void> {
   const { embeddingService } = await import("../src/services/embedding.js");
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
   const hash = memory.tag.split("_").pop()!;
   const store = openSpaceStore(folder, "write");
@@ -135,7 +135,7 @@ async function writeMemory(folder: string, memory: WrittenMemory): Promise<void>
 
 /** Reads one memory id from a space folder, read-only. */
 async function readMemoryId(folder: string, id: string): Promise<boolean> {
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const store = openSpaceStore(folder, "read");
   try {
     for (const shard of await store.listShards("project", "")) {
@@ -604,7 +604,7 @@ function ETA_FOLDER() {
 
 /** Rewrites one shard_metadata key in every shard of a space folder. */
 async function rewriteShardMetadata(folder: string, key: string, value: string): Promise<void> {
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const store = openSpaceStore(folder, "write");
   try {
     for (const shard of await store.shards.getAllShards("project", "")) {
@@ -618,7 +618,7 @@ async function rewriteShardMetadata(folder: string, key: string, value: string):
 
 /** Removes one shard_metadata key in every shard of a space folder. */
 async function deleteShardMetadataKey(folder: string, key: string): Promise<void> {
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const store = openSpaceStore(folder, "write");
   try {
     for (const shard of await store.shards.getAllShards("project", "")) {

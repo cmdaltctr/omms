@@ -286,12 +286,8 @@ describe("linked space read store", () => {
   });
 });
 
-describe("space store port paths", () => {
-  it("serves the same store and snapshot through the old path and the port", async () => {
-    const port = await import("../src/services/storage/space-store.js");
-    const old = await import("../src/services/spaces/space-store.js");
-    expect(old.openSpaceStore).toBe(port.openSpaceStore);
-
+describe("space store port snapshot", () => {
+  it("serves the snapshot through the port", async () => {
     const folder = tempFolder("omms-sp1-snapshot-");
     await makeTable(join(folder, "a.db"), 4);
     const { snapshotDatabase } = await import("../src/services/storage/snapshot.js");

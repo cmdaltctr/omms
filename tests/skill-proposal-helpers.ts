@@ -1,8 +1,5 @@
-import type {
-  ProposalFilter,
-  SkillProposal,
-} from "../src/services/skill-learning/proposal-store.js";
-import type { SkillStore } from "../src/services/skill-learning/store.js";
+import type { ProposalFilter, SkillProposal } from "../src/services/storage/skills/proposals.js";
+import type { SkillStore } from "../src/services/storage/skills/store.js";
 
 /**
  * The full proposals of a store, newest first, for tests that check content and diff.
@@ -13,7 +10,7 @@ export async function allProposals(
   store: SkillStore,
   filter: ProposalFilter = {}
 ): Promise<SkillProposal[]> {
-  const { getProposal } = await import("../src/services/skill-learning/proposal-store.js");
+  const { getProposal } = await import("../src/services/storage/skills/proposals.js");
   const { listProposalRows } = await import("../src/services/skill-learning/proposal-summaries.js");
   const rows = await listProposalRows(store, filter);
   const full = await Promise.all(rows.map((row) => getProposal(store, row.id)));

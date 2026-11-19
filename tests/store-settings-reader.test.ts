@@ -86,13 +86,6 @@ describe("store settings reader", () => {
     );
   });
 
-  it("keeps the old path as a shim that re-exports the same readers", async () => {
-    // Slice F of the storage port removes the shim and this check.
-    const shim = await import("../src/services/active-space-access.js");
-    expect(Object.keys(shim).sort()).toEqual(Object.keys(reader).sort());
-    expect(shim.getStoragePath).toBe(reader.getStoragePath);
-  });
-
   it("reads each field again after CONFIG changes in place", () => {
     const live = config.CONFIG as unknown as MutableConfig;
     for (const round of [1, 2]) {

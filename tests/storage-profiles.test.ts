@@ -109,16 +109,6 @@ describe("user profile store (characterisation)", () => {
     await cleanupTursoTestDirectory(rootDir);
   });
 
-  // The old path stays as a re-export, so its callers and tests get the same store.
-  it("keeps the old auto-cleanup-store path as a re-export of the same store", async () => {
-    const moved = await loadAutoCleanups();
-    const shim = await import("../src/services/user-profile/auto-cleanup-store.js");
-    expect(shim.insertAutoCleanupRecord).toBe(moved.insertAutoCleanupRecord);
-    expect(shim.latestOpenAutoCleanupSummary).toBe(moved.latestOpenAutoCleanupSummary);
-    expect(shim.pruneAutoCleanupRecords).toBe(moved.pruneAutoCleanupRecords);
-    expect(shim.AUTO_CLEANUP_RECORD_MAX_AGE_MS).toBe(moved.AUTO_CLEANUP_RECORD_MAX_AGE_MS);
-  });
-
   // (r) read through the public API
   it("reads a created, updated, turned off and deleted profile through the facade", async () => {
     const { UserProfileManager } = await loadManager();

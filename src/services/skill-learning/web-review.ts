@@ -3,7 +3,7 @@ import { skillReviewLease, startAutoReviewLoop, type AutoReviewDeps } from "./au
 import { skillStoragePath, watchedSkillFolders } from "./skill-folders.js";
 import { getSkillIndex } from "./skill-index.js";
 import { skillModel } from "./skill-model.js";
-import { SkillStore, skillsDbPath } from "./store.js";
+import { SkillStore, skillsDbPath } from "../storage/skills/store.js";
 
 /** The settings the web app's review loop reads. The caller passes a getter for `CONFIG`. */
 export interface WebSkillReviewConfig extends ChatRuntimeConfig {

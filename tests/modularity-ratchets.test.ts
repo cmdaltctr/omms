@@ -121,12 +121,12 @@ const configBaseline: Record<string, number> = {
 
 // Import sites of @libsql/client or the engine folder per file, type-only included.
 // Guards the storage-port follow-up: new code reaches storage through the port, not the engine.
-const storageBaseline: Record<string, number> = {
-  "src/importer/opencode-snapshot.ts": 1,
-};
+// Empty: no file outside the port and the engine imports storage. The ratchet still runs.
+const storageBaseline: Record<string, number> = {};
 
 // SQL statement literals per file, by the SQL_STATEMENT method above.
 // Guards the storage-port follow-up: new SQL goes into the port or the engine folder.
+// These two stay by design (D6a): they read OpenCode's own database, not an OMMS store.
 const sqlBaseline: Record<string, number> = {
   "src/importer/opencode-reader.ts": 8,
   "src/importer/opencode-v2-units.ts": 1,

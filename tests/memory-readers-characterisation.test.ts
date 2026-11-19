@@ -351,7 +351,7 @@ describe("linked-space readers", () => {
   it("(r) search, list and by-ID reads use the read-only opener, same IDs and order", async () => {
     await freshStore();
     writeRegistry();
-    const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+    const { openSpaceStore } = await import("../src/services/storage/space-store.js");
     const write = openSpaceStore(BETA, "write");
     try {
       const s0 = await write.shards.createShard("project", HASH, 0);

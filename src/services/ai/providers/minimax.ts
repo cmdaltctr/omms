@@ -1,5 +1,5 @@
 import { type ProviderConfig } from "./base-provider.js";
-import { AISessionManager } from "../session/ai-session-manager.js";
+import { AISessionManager } from "../../storage/ai-sessions.js";
 import { AnthropicMessagesProvider } from "./anthropic-messages.js";
 import type { AIProviderType } from "../session/session-types.js";
 

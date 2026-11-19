@@ -67,7 +67,7 @@ function failingTurn(name: string, path: string, tool: string, error: string, in
 async function setup(reply: unknown, ready = true) {
   const { CONFIG } = await import("../src/config.js");
   CONFIG.storagePath = baseDir;
-  const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+  const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
   const { buildSkillIndex } = await import("../src/services/skill-learning/skill-index.js");
   const explain = await import("../src/services/skill-learning/failure-explain.js");
   const store = new SkillStore(skillsDbPath(baseDir));

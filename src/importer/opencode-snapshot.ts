@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { log } from "../services/logger.js";
-import { withSqliteFileLockRetry } from "../services/turso/sqlite-handle-release.js";
+import { withSqliteFileLockRetry } from "../services/storage/file-locks.js";
 
 /**
  * Private copies of a live OpenCode database. A normal SQLite open writes to

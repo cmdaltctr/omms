@@ -20,9 +20,9 @@ import {
   withFinalNewline,
 } from "./drafting.js";
 import { lineDiff } from "./line-diff.js";
-import { createProposal, setSkillReview, type SkillProposal } from "./proposal-store.js";
+import { createProposal, setSkillReview, type SkillProposal } from "../storage/skills/proposals.js";
 import { readFrontMatter, type SkillIndex } from "./skill-index.js";
-import type { SkillStore } from "./store.js";
+import type { SkillStore } from "../storage/skills/store.js";
 
 /**
  * The agent path (design §8): the coding agent reads a skill's evidence and

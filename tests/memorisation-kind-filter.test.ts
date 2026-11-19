@@ -232,7 +232,7 @@ writeFileSync(join(home, ".config", "omms", "omms.jsonc"), JSON.stringify({ embe
 initConfig(root);
 CONFIG.embeddingDimensions = 8;
 Object.assign(CONFIG, { similarityThreshold: 0, keywordBoost: 0.2, rerankerEnabled: false });
-const { openSpaceStore } = await import(${JSON.stringify(new URL("../src/services/spaces/space-store.js", import.meta.url).href)});
+const { openSpaceStore } = await import(${JSON.stringify(new URL("../src/services/storage/space-store.js", import.meta.url).href)});
 const { tursoVectorSearch } = await import(${JSON.stringify(new URL("../src/services/turso/vector-search.js", import.meta.url).href)});
 const store = openSpaceStore(beta, "write");
 const shard = await store.shards.getWriteShard("project", ${JSON.stringify(HASH)});

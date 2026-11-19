@@ -358,7 +358,7 @@ const base = ${JSON.stringify(base)};
 CONFIG.storagePath = base + "/data";
 CONFIG.embeddingDimensions = 4;
 const { memoryClient } = await import(${JSON.stringify(url("../src/services/client.js"))});
-const { importLedgerDbPath } = await import(${JSON.stringify(url("../src/importer/ledger.js"))});
+const { importLedgerDbPath } = await import(${JSON.stringify(url("../src/services/storage/import-ledger.js"))});
 const { importClaudeHistory } = await import(${JSON.stringify(url("../src/importer/claude-import.js"))});
 mkdirSync(base + "/main");
 mkdirSync(base + "/other");

@@ -220,7 +220,7 @@ async function runDeleteTurns(argv: string[], print: Print): Promise<number> {
     const { existsSync } = await import("node:fs");
     const { CONFIG, initConfig } = await import("../config.js");
     initConfig(process.cwd());
-    const { SkillStore, skillsDbPath } = await import("../services/skill-learning/store.js");
+    const { SkillStore, skillsDbPath } = await import("../services/storage/skills/store.js");
     const { skillStoragePath } = await import("../services/skill-learning/skill-folders.js");
     const path = skillsDbPath(skillStoragePath(CONFIG));
     const store = new SkillStore(path);

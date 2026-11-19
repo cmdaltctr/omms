@@ -10,7 +10,7 @@ import type { ToolCallResult } from "../ai/providers/base-provider.js";
 import { tool, type SkillModel } from "./drafting.js";
 import { skillFailureGroups, type FailureGroup } from "./failures.js";
 import type { SkillIndex } from "./skill-index.js";
-import type { SkillStore } from "./store.js";
+import type { SkillStore } from "../storage/skills/store.js";
 
 /** At most this many groups go to the model, most calls first. */
 export const MAX_EXPLAIN_GROUPS = 10;

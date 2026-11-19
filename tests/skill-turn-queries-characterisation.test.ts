@@ -61,7 +61,7 @@ const err = (error: string | null, name = "Bash", input = "y"): Call => ({
 });
 
 async function modules() {
-  const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+  const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
   const { buildSkillIndex } = await import("../src/services/skill-learning/skill-index.js");
   return {
     SkillStore,
@@ -73,7 +73,7 @@ async function modules() {
     summaries: await import("../src/services/skill-learning/turn-summaries.js"),
     failures: await import("../src/services/skill-learning/failures.js"),
     agent: await import("../src/services/skill-learning/agent-proposals.js"),
-    proposals: await import("../src/services/skill-learning/proposal-store.js"),
+    proposals: await import("../src/services/storage/skills/proposals.js"),
   };
 }
 

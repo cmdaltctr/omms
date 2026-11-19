@@ -16,8 +16,8 @@ let clock = 10_000;
 async function setup() {
   const { CONFIG } = await import("../src/config.js");
   CONFIG.storagePath = baseDir;
-  const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
-  const proposals = await import("../src/services/skill-learning/proposal-store.js");
+  const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
+  const proposals = await import("../src/services/storage/skills/proposals.js");
   const apply = await import("../src/services/skill-learning/apply.js");
   const history = await import("../src/services/skill-learning/history.js");
   const { lineDiff } = await import("../src/services/skill-learning/line-diff.js");
@@ -70,7 +70,7 @@ describe("skill history", () => {
       total: 0,
       entries: [],
     });
-    const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+    const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
     const missing = new SkillStore(skillsDbPath(join(baseDir, "nowhere")));
     expect(await s.skillHistory({ ...s.deps, store: missing }, { name: "alpha" }, 20, 0)).toEqual({
       total: 0,

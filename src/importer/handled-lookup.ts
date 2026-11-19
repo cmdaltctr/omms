@@ -1,6 +1,6 @@
 import type { MemoryHost } from "../types/index.js";
 import type { ImportWindow } from "./importer.js";
-import type { ImportLedgerRow, PiImportLedger } from "./ledger.js";
+import type { ImportLedgerRow, PiImportLedger } from "../services/storage/import-ledger.js";
 
 /**
  * How a host finds a ledger row that already handled a unit. The default is

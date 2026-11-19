@@ -13,7 +13,7 @@ async function useStorage(): Promise<void> {
 
 async function openStore() {
   await useStorage();
-  const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+  const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
   const store = new SkillStore(skillsDbPath(baseDir));
   await store.init();
   return store;
@@ -117,7 +117,7 @@ describe("skill store", () => {
 
   it("adds the position column to a skills.db made before it existed", async () => {
     await useStorage();
-    const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+    const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
     const db = await raw();
     await db.execute("CREATE TABLE skill_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)");
     await db.execute(
@@ -159,7 +159,7 @@ describe("skill store", () => {
 
   it("does not create skills.db for a lookup or a count when the file is missing", async () => {
     await useStorage();
-    const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+    const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
     const store = new SkillStore(skillsDbPath(baseDir));
     expect(await store.hasTurn("pi:s1:u1")).toBe(false);
     expect(await store.countTurns()).toBe(0);

@@ -5,7 +5,7 @@ import { AnthropicMessagesProvider } from "./providers/anthropic-messages.js";
 import { MiniMaxProvider } from "./providers/minimax.js";
 import { GoogleGeminiProvider } from "./providers/google-gemini.js";
 import { OrcaRouterProvider } from "./providers/orcarouter.js";
-import { aiSessionManager } from "./session/ai-session-manager.js";
+import { aiSessionManager } from "../storage/ai-sessions.js";
 import type { AIProviderType } from "./session/session-types.js";
 
 export class AIProviderFactory {

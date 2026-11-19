@@ -51,7 +51,7 @@ async function setup(descriptions: string[]) {
     handleAutoCleanupUndo: (user: string | undefined, deps?: any) =>
       raw.handleAutoCleanupUndo(user, config, deps),
   };
-  const store = await import("../src/services/user-profile/auto-cleanup-store.js");
+  const store = await import("../src/services/storage/profiles/auto-cleanups.js");
   return { api, raw, store, manager: userProfileManager, profileId: profile.id };
 }
 

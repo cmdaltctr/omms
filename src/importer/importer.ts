@@ -25,7 +25,7 @@ import {
   skillTurnsOnly,
   type ImportSkillTurnCounts,
 } from "./import-turn-outputs.js";
-import { PiImportLedger, importLedgerDbPath, type ImportLedgerRow } from "./ledger.js";
+import { PiImportLedger, importLedgerDbPath } from "../services/storage/import-ledger.js";
 import type { LoadedPiSession } from "./session-loader.js";
 import type { MemoryHost } from "../types/index.js";
 
@@ -347,7 +347,7 @@ export async function importHistorySource(
     // A skills-only unit leaves the memory ledger untouched.
     if (!memories) continue;
 
-    const existing: ImportLedgerRow | null = !ledgerAccessible
+    const existing = !ledgerAccessible
       ? null
       : await lookupHandled(ledger, { key, sessionId, window, readOnly: dryRun });
 

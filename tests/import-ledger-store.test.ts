@@ -130,11 +130,3 @@ it("(s) the ledger default path follows a space switch and leaves the other spac
     "kb",
   ]);
 });
-
-it("the old importer paths still re-export the stores", async () => {
-  const oldLedger = await import("../src/importer/ledger.js");
-  const oldLock = await import("../src/importer/backfill-lock.js");
-  expect(oldLedger.ImportLedger).toBe(ImportLedger);
-  expect(oldLedger.importLedgerDbPath).toBe(importLedgerDbPath);
-  expect(oldLock.tryAcquireBackfillLock).toBe(tryAcquireBackfillLock);
-});

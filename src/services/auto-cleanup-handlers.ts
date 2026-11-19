@@ -1,6 +1,6 @@
 import { log } from "./logger.js";
 import type { UserProfileManager } from "./user-profile/user-profile-manager.js";
-import type { AutoCleanupSummary } from "./user-profile/auto-cleanup-store.js";
+import type { AutoCleanupSummary } from "./storage/profiles/auto-cleanups.js";
 
 interface ApiResponse<T = any> {
   success: boolean;
@@ -46,7 +46,7 @@ export async function handleAutoCleanupStatus(
   deps: AutoCleanupHandlerDeps = {}
 ): Promise<ApiResponse<AutoCleanupSummary | null>> {
   try {
-    const { latestOpenAutoCleanupSummary } = await import("./user-profile/auto-cleanup-store.js");
+    const { latestOpenAutoCleanupSummary } = await import("./storage/profiles/auto-cleanups.js");
     const profile = await (
       await managerOf(deps)
     ).getActiveProfile(await cleanupUser(config, userId));
@@ -69,7 +69,7 @@ export async function handleAutoCleanupUndo(
 ): Promise<ApiResponse<{ restored: number; notFound: number }>> {
   try {
     const { latestOpenAutoCleanup, markAutoCleanupUndone } =
-      await import("./user-profile/auto-cleanup-store.js");
+      await import("./storage/profiles/auto-cleanups.js");
     const { undoCleanupEdits } = await import("./user-profile/ai-cleanup-undo.js");
     const { applyToNewestProfile } = await import("./user-profile/profile-edit-save.js");
     const user = await cleanupUser(config, userId);

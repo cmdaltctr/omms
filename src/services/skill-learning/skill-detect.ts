@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { basename, dirname, resolve, sep } from "node:path";
 import { realPathOrSelf } from "./skill-folders.js";
 import type { SkillIndex, SkillIndexEntry } from "./skill-index.js";
-import type { SkillUseRow } from "./store.js";
+import type { SkillUseRow } from "../storage/skills/store.js";
 
 /** The parts of a work unit that skill detection reads. */
 export interface SkillDetectInput {

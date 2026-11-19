@@ -89,7 +89,7 @@ describe("memory tool space mode", () => {
 
 /** Writes one project memory straight into a space folder, so no embedder runs. */
 async function seedMemory(folder: string, id: string, text: string, createdAt: number) {
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
   const store = openSpaceStore(folder, "write");
   try {

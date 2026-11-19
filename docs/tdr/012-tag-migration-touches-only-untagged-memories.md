@@ -55,7 +55,7 @@ A run whose every model call failed with `402 Insufficient Balance` still showed
 
 ## References
 
-- `src/services/tag-migration.ts` (`handleDetectTagMigration`, `runTagMigrationBatch`)
+- `src/services/storage/maintenance/tag-migration.ts` (`handleDetectTagMigration`, `runTagMigrationBatch`)
 - `src/services/ai/provider-error-kind.ts`
 - `web/src/lib/tag-migration-result.ts`, `web/src/lib/components/explorer/TagMigrationDialog.tsx`
 - `tests/tag-migration.test.ts`

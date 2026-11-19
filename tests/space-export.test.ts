@@ -72,7 +72,7 @@ async function prepare(label: string): Promise<string> {
 
 async function seedSpace(folder: string, memories: SeedMemory[]): Promise<void> {
   const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const store = openSpaceStore(folder, "write");
   try {
     for (const memory of memories) {

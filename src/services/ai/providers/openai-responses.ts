@@ -5,7 +5,7 @@ import {
   isTransportError,
   redactApiKey,
 } from "./base-provider.js";
-import { AISessionManager } from "../session/ai-session-manager.js";
+import { AISessionManager } from "../../storage/ai-sessions.js";
 import { ToolSchemaConverter, type ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";
 import { parseRetryAfter } from "../../../core/capture-retry-policy.js";

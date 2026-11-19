@@ -1,6 +1,6 @@
 import { join, basename, resolve, relative } from "node:path";
 import { existsSync, renameSync, unlinkSync } from "node:fs";
-import * as live from "../active-space-access.js";
+import * as live from "../storage/active-space-access.js";
 import { assertSafeScopeHash } from "../memory-scope.js";
 import { resettable, tursoConnectionManager } from "./connection-manager.js";
 import type { TursoConnectionManager } from "./connection-manager.js";

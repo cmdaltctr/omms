@@ -28,7 +28,7 @@ function hashFolder(folder: string): Map<string, string> {
 
 async function writeOneMemory(folder: string, id: string): Promise<void> {
   const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const store = openSpaceStore(folder, "write");
   try {
     const shard = await store.shards.getWriteShard("project", HASH);
@@ -65,7 +65,7 @@ describe("space store", () => {
     const before = hashFolder(folder);
     expect(before.size).toBeGreaterThan(0);
 
-    const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+    const { openSpaceStore } = await import("../src/services/storage/space-store.js");
     const read = openSpaceStore(folder, "read");
     expect(read.hasMetadata).toBe(true);
 
@@ -85,7 +85,7 @@ describe("space store", () => {
 
   it("a read of a missing folder returns an empty space and creates nothing", async () => {
     const missing = join(tmpdir(), `space-store-absent-${process.pid}-${Date.now()}`);
-    const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+    const { openSpaceStore } = await import("../src/services/storage/space-store.js");
     const read = openSpaceStore(missing, "read");
     expect(read.hasMetadata).toBe(false);
     await expect(read.listShards("project", HASH)).resolves.toEqual([]);
@@ -99,7 +99,7 @@ describe("space store", () => {
     const { CONFIG } = await import("../src/config.js");
     CONFIG.storagePath = folder;
     const { tursoShardManager } = await import("../src/services/turso/shard-manager.js");
-    const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+    const { openSpaceStore } = await import("../src/services/storage/space-store.js");
     const store = openSpaceStore(folder, "write");
 
     let active = 0;
@@ -129,7 +129,7 @@ describe("space store", () => {
     const { CONFIG } = await import("../src/config.js");
     CONFIG.storagePath = folder;
     CONFIG.embeddingDimensions = 4;
-    const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+    const { openSpaceStore } = await import("../src/services/storage/space-store.js");
     const store = openSpaceStore(folder, "write");
     const shard = await store.shards.getWriteShard("user", USER_HASH);
     await store.connections.getConnection(shard.dbPath);

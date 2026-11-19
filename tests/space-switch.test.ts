@@ -33,12 +33,13 @@ const { tursoConnectionManager } = await import("../src/services/turso/connectio
 const { tursoShardManager } = await import("../src/services/turso/shard-manager.js");
 const { userProfileManager } = await import("../src/services/user-profile/user-profile-manager.js");
 const { userPromptManager } = await import("../src/services/user-prompt/user-prompt-manager.js");
-const { aiSessionManager } = await import("../src/services/ai/session/ai-session-manager.js");
+const { aiSessionManager } = await import("../src/services/storage/ai-sessions.js");
 const { chatStore } = await import("../src/services/chat/chat-runtime.js");
-const { ImportLedger } = await import("../src/importer/ledger.js");
+const { ImportLedger } = await import("../src/services/storage/import-ledger.js");
 const { hasCaptureAttempts, saveCaptureAttempt } =
   await import("../src/services/capture-attempt-store.js");
-const { shardInventoryService } = await import("../src/services/shard-inventory-service.js");
+const { shardInventoryService } =
+  await import("../src/services/storage/maintenance/shard-inventory-service.js");
 const { createStoredSpace, spaceFiles, switchStoredSpace } =
   await import("../src/services/spaces/registry-store.js");
 

@@ -370,7 +370,7 @@ it("supports valid zero-session grouped sources and honours abort before resolvi
 
 it("honours an existing host claim and keeps its owner unchanged when the queued child is refused", async () => {
   const data = fixture();
-  const { tryAcquireBackfillLock } = await import("../src/importer/backfill-lock.js");
+  const { tryAcquireBackfillLock } = await import("../src/services/storage/backfill-locks.js");
   const { runHistoryImport } = await import("../src/importer/run-import.js");
   const release = await tryAcquireBackfillLock("opencode");
   expect(release).not.toBeNull();

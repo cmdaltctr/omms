@@ -1,7 +1,7 @@
 import type { SkillOperationsDeps } from "../../core/skill-operations.js";
 import { skillTurnSettingsFor, type SkillConfigModule } from "./settings-for.js";
 import { skillModel } from "./skill-model.js";
-import { SkillStore, skillsDbPath } from "./store.js";
+import { SkillStore, skillsDbPath } from "../storage/skills/store.js";
 
 /**
  * The wiring point between the live config module and the `skills` operations. The terminal

@@ -180,32 +180,32 @@ The pass returns `{ outcome: "saved" | "skipped" | "failed", reason? }` and neve
 
 ## What each layer owns
 
-| Layer                              | Owns                                                                                                                                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/core`                         | Ports, capture pipeline, context budgeting, shared extraction schema and parsing, retrieval, `memory` tool operations                                                                 |
-| `src/services`                     | Storage (Turso/libSQL), embeddings, vector search, privacy, deduplication, project identity, profiles, portability, cleanup, web backend, live-model rule (`ai/live-model-choice.ts`) |
-| `src/importer`                     | History import and automatic backfill, import ledger, import runs and progress, backfill controls, path maps, the web import API                                                      |
-| `src/adapters/opencode` + `src/v2` | OpenCode lifecycle, session reading, provider bridge, OpenCode model code and profile learning, OpenCode backfill model resolver, the V2 plugin (startup, tools, events, hooks)       |
-| `src/adapters/pi`                  | Pi lifecycle (`session_start`, `before_agent_start`, `agent_settled`, `session_shutdown`), retrieval injection, model bridge, Pi backfill model resolver, `memory` tool registration  |
-| `src/adapters/claude-code`         | The `claude-hook <event>` command: hook input, finding or starting the web app, one request, added context output, one log line. No store and no model                                |
+| Layer                              | Owns                                                                                                                                                                                                                                 |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/core`                         | Ports, capture pipeline, context budgeting, shared extraction schema and parsing, retrieval, `memory` tool operations                                                                                                                |
+| `src/services`                     | Storage (the port in `storage/`, the Turso/libSQL engine in `turso/`), embeddings, vector search, privacy, deduplication, project identity, profiles, portability, cleanup, web backend, live-model rule (`ai/live-model-choice.ts`) |
+| `src/importer`                     | History import and automatic backfill, import ledger, import runs and progress, backfill controls, path maps, the web import API                                                                                                     |
+| `src/adapters/opencode` + `src/v2` | OpenCode lifecycle, session reading, provider bridge, OpenCode model code and profile learning, OpenCode backfill model resolver, the V2 plugin (startup, tools, events, hooks)                                                      |
+| `src/adapters/pi`                  | Pi lifecycle (`session_start`, `before_agent_start`, `agent_settled`, `session_shutdown`), retrieval injection, model bridge, Pi backfill model resolver, `memory` tool registration                                                 |
+| `src/adapters/claude-code`         | The `claude-hook <event>` command: hook input, finding or starting the web app, one request, added context output, one log line. No store and no model                                                                               |
 
 ### Shared modules added for import and settings
 
-| Module                                                 | Purpose                                                                                                                       |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `src/importer/import-runs.ts`                          | Progress for each host's import run, and one run at a time for each host across every surface (`auto`, `web`, `cli`, `slash`) |
-| `src/importer/backfill-controls.ts`                    | Run, Pause, and Resume. Each host registers its backfill model resolver with `registerHostBackfillModels`                     |
-| `src/importer/external-backfill-models.ts`             | Backfill models from the external API settings (`memoryModel`, `memoryApiUrl`, `memoryApiKey`)                                |
-| `src/importer/external-api-test.ts`                    | A short test call to the external API                                                                                         |
-| `src/utils/import-path-config.ts`                      | Checks and normalises `importPathMaps` and `importIgnoredDirectories` from the global config                                  |
-| `src/importer/import-path-maps.ts`                     | Merges the saved path maps with a run's own maps                                                                              |
-| `src/importer/map-suggestions.ts`                      | Suggests path maps by looking for project markers such as `.git` and `package.json`                                           |
-| `src/importer/settings-health.ts`                      | Settings health checks for the web UI                                                                                         |
-| `src/importer/web-import-api.ts`, `web-import-jobs.ts` | The importer functions and jobs that the web server calls                                                                     |
-| `src/services/private-path.ts`                         | Limits a file or folder to the current user. Capture traces and `memory-key-source.ts` use it                                 |
-| `src/services/memory-key-source.ts`                    | How the web UI External API card supplies `memoryApiKey` (`env`, `file`, or a pasted value)                                   |
-| `src/services/global-version.ts`                       | The version of the global `om-memory-system` command, if installed                                                            |
-| `src/services/package-version.ts`                      | This package's version, read from its `package.json`                                                                          |
+| Module                                                 | Purpose                                                                                                                                                                                   |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/importer/import-runs.ts`                          | Progress for each host's import run, and one run at a time for each host across every surface (`auto`, `web`, `cli`, `slash`). The run rows live in `src/services/storage/import-runs.ts` |
+| `src/importer/backfill-controls.ts`                    | Run, Pause, and Resume. Each host registers its backfill model resolver with `registerHostBackfillModels`                                                                                 |
+| `src/importer/external-backfill-models.ts`             | Backfill models from the external API settings (`memoryModel`, `memoryApiUrl`, `memoryApiKey`)                                                                                            |
+| `src/importer/external-api-test.ts`                    | A short test call to the external API                                                                                                                                                     |
+| `src/utils/import-path-config.ts`                      | Checks and normalises `importPathMaps` and `importIgnoredDirectories` from the global config                                                                                              |
+| `src/importer/import-path-maps.ts`                     | Merges the saved path maps with a run's own maps                                                                                                                                          |
+| `src/importer/map-suggestions.ts`                      | Suggests path maps by looking for project markers such as `.git` and `package.json`                                                                                                       |
+| `src/importer/settings-health.ts`                      | Settings health checks for the web UI                                                                                                                                                     |
+| `src/importer/web-import-api.ts`, `web-import-jobs.ts` | The importer functions and jobs that the web server calls                                                                                                                                 |
+| `src/services/private-path.ts`                         | Limits a file or folder to the current user. Capture traces and `memory-key-source.ts` use it                                                                                             |
+| `src/services/memory-key-source.ts`                    | How the web UI External API card supplies `memoryApiKey` (`env`, `file`, or a pasted value)                                                                                               |
+| `src/services/global-version.ts`                       | The version of the global `om-memory-system` command, if installed                                                                                                                        |
+| `src/services/package-version.ts`                      | This package's version, read from its `package.json`                                                                                                                                      |
 
 ### Shared modules added for Claude Code
 
@@ -293,6 +293,23 @@ baseline of files with a count per file, like
 To pass a ratchet, take config as an argument (pattern:
 `src/services/ai/live-model-choice.ts`), or put the storage code in
 `src/services/storage/` (the port). Do not raise a count.
+
+### Storage port
+
+- The engine is `src/services/turso/`: the connection manager, shard manager, vector search and the low-level SQLite helpers.
+- The port is `src/services/storage/`. It has one module per store, for example `user-prompts.ts`, `chat-store.ts`, `skills/`, `profiles/` and `memory/`. Each module owns its SQL and exposes typed functions.
+- Only these two folders may import `@libsql/client` or `src/services/turso/*`. Only these two folders may hold SQL.
+- Other code imports the port. File-lock retries for code outside the port come from `src/services/storage/file-locks.ts`.
+- One exception holds SQL outside the port: `src/importer/opencode-reader.ts` and `src/importer/opencode-v2-units.ts`. They read OpenCode's own database, which is not an OMMS store. The raw SQL baseline lists them.
+- The storage import baseline is empty. The ratchet still runs, so a new storage import outside the port fails the test.
+
+Some old module paths stay as one-line re-exports of the port. Tests mock these paths with `mock.module`, and a mock only replaces the path that the code imports. Do not re-point a caller away from a mocked path.
+
+| Old path                                             | Port module                                      | Why it stays  |
+| ---------------------------------------------------- | ------------------------------------------------ | ------------- |
+| `src/services/user-prompt/user-prompt-manager.ts`    | `src/services/storage/user-prompts.ts`           | Tests mock it |
+| `src/services/user-prompt/profile-catch-up-lease.ts` | `src/services/storage/profile-catch-up-lease.ts` | Tests mock it |
+| `src/services/capture-attempt-store.ts`              | `src/services/storage/capture-attempts.ts`       | Tests mock it |
 
 ### Config injection
 

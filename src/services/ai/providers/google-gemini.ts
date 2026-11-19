@@ -5,7 +5,7 @@ import {
   type ToolCallResult,
   redactApiKey,
 } from "./base-provider.js";
-import { AISessionManager } from "../session/ai-session-manager.js";
+import { AISessionManager } from "../../storage/ai-sessions.js";
 import type { ChatCompletionTool } from "../tools/tool-schema.js";
 import { log } from "../../logger.js";
 import { UserProfileValidator } from "../validators/user-profile-validator.js";

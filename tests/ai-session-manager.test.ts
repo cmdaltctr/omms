@@ -19,7 +19,7 @@ describe("AI session manager", () => {
   it("leaves no text of a deleted session in the file bytes", async () => {
     const { CONFIG } = await import("../src/config.js");
     CONFIG.storagePath = baseDir;
-    const { AISessionManager } = await import("../src/services/ai/session/ai-session-manager.js");
+    const { AISessionManager } = await import("../src/services/storage/ai-sessions.js");
     const sessions = new AISessionManager();
     const marker = "DRAFTMARK4c2e81";
     const session = await sessions.createSession({ provider: "openai-chat", sessionId: "chat_1" });
@@ -51,7 +51,7 @@ describe("AI session manager", () => {
     CONFIG.storagePath = baseDir;
     const saved = CONFIG.aiSessionRetentionDays;
     const day = 24 * 60 * 60 * 1000;
-    const { AISessionManager } = await import("../src/services/ai/session/ai-session-manager.js");
+    const { AISessionManager } = await import("../src/services/storage/ai-sessions.js");
     const sessions = new AISessionManager();
     try {
       CONFIG.aiSessionRetentionDays = 2;
@@ -82,7 +82,7 @@ describe("AI session manager", () => {
     const fileHasMarker = () => readFileSync(path).toString("latin1").includes(marker);
     expect(fileHasMarker()).toBe(true);
 
-    const { AISessionManager } = await import("../src/services/ai/session/ai-session-manager.js");
+    const { AISessionManager } = await import("../src/services/storage/ai-sessions.js");
     await new AISessionManager().getMessages("none");
 
     expect(fileHasMarker()).toBe(false);
@@ -113,7 +113,7 @@ describe("AI session manager", () => {
       return execute(sql, args);
     });
 
-    const { AISessionManager } = await import("../src/services/ai/session/ai-session-manager.js");
+    const { AISessionManager } = await import("../src/services/storage/ai-sessions.js");
     expect(await new AISessionManager().getMessages("none")).toEqual([]);
     expect(vacuums).toEqual(["VACUUM"]);
   });

@@ -23,7 +23,7 @@ import {
   pruneCaptureRetries,
   rescheduleCaptureRetry,
   type CaptureRetryConfig,
-} from "./capture-retry-queue.js";
+} from "./storage/capture-retry-queue.js";
 import { log } from "./logger.js";
 
 export interface CaptureRetryDrainOptions {

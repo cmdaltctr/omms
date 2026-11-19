@@ -87,7 +87,7 @@ const otherProjectDir = ${JSON.stringify(otherProjectDir)};
 config.initConfig(projectDir);
 const { memoryClient } = await import(${JSON.stringify(moduleUrl("src/services/client.js"))});
 const { getTags } = await import(${JSON.stringify(moduleUrl("src/services/tags.js"))});
-const { countCaptureRetries } = await import(${JSON.stringify(moduleUrl("src/services/capture-retry-queue.js"))});
+const { countCaptureRetries } = await import(${JSON.stringify(moduleUrl("src/services/storage/capture-retry-queue.js"))});
 const api = await import(${JSON.stringify(moduleUrl("src/importer/claude-hook-api.js"))});
 
 const calls = [];

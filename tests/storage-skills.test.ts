@@ -84,17 +84,6 @@ describe("skills store (characterisation)", () => {
     await cleanupTursoTestDirectory(baseDir);
   });
 
-  // The old paths stay as re-exports, so the many callers and tests that import them get the same store.
-  it("keeps the old module paths as re-exports of the same store", async () => {
-    const m = await load();
-    const oldStore = await import("../src/services/skill-learning/store.js");
-    const oldProposals = await import("../src/services/skill-learning/proposal-store.js");
-    expect(oldStore.SkillStore).toBe(m.SkillStore);
-    expect(oldStore.skillsDbPath).toBe(m.skillsDbPath);
-    expect(oldProposals.createProposal).toBe(m.createProposal);
-    expect(oldProposals.getSkillSettings).toBe(m.getSkillSettings);
-  });
-
   // (r) read through the public API
   it("reads turns, proposals, versions and settings back through the public API", async () => {
     const m = await load();

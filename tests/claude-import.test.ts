@@ -57,7 +57,7 @@ CONFIG.autoCaptureEnabled = true;
 CONFIG.injectProfile = false;
 
 const { memoryClient } = await import(${JSON.stringify(url("../src/services/client.js"))});
-const { importLedgerDbPath } = await import(${JSON.stringify(url("../src/importer/ledger.js"))});
+const { importLedgerDbPath } = await import(${JSON.stringify(url("../src/services/storage/import-ledger.js"))});
 const { parseHistoryImportArgs } = await import(${JSON.stringify(url("../src/importer/import-args.js"))});
 const { runHistoryImport } = await import(${JSON.stringify(url("../src/importer/run-import.js"))});
 const { loadClaudeSession } = await import(${JSON.stringify(url("../src/importer/claude-reader.js"))});

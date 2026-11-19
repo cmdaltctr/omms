@@ -8,7 +8,7 @@ import { userPromptManager } from "../services/user-prompt/user-prompt-manager.j
 import type { MemoryHost } from "../types/index.js";
 import { buildImportKey, type ImportSourceSession } from "./importer.js";
 import { existsSync } from "node:fs";
-import { ImportLedger, importLedgerDbPath } from "./ledger.js";
+import { ImportLedger, importLedgerDbPath } from "../services/storage/import-ledger.js";
 import { drainProfileBacklog } from "./profile-backlog.js";
 import { isTrivialPrompt } from "../core/trivial-prompt.js";
 import { profilePromptIdentity } from "./web-import-profile-estimate.js";

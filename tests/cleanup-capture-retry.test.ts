@@ -16,7 +16,7 @@ CONFIG.storagePath = storage;
 
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
 const { CleanupService } = await import("../src/services/cleanup-service.js");
-const queue = await import("../src/services/capture-retry-queue.js");
+const queue = await import("../src/services/storage/capture-retry-queue.js");
 
 afterAll(async () => {
   await tursoConnectionManager.closeAll();

@@ -16,7 +16,7 @@ import {
   readUnresolvedDirectories,
   recordUnresolvedDirectories,
   updateBackfillStatus,
-} from "../src/services/backfill-state.js";
+} from "../src/services/storage/backfill-state.js";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
 // Characterisation of the import-runs and backfill-state stores (storage port S7).
@@ -305,11 +305,7 @@ it("(u) an unresolved_directories table from before the coverage column upgrades
   ).toEqual([{ host: "pi", coverage: "full", updated_at: 1 }]);
 });
 
-it("the old paths still reach the moved stores", async () => {
-  const oldState = await import("../src/services/backfill-state.js");
-  const port = await import("../src/services/storage/backfill-state.js");
-  expect(oldState.updateBackfillStatus).toBe(port.updateBackfillStatus);
-  expect(oldState.readUnresolvedDirectories).toBe(port.readUnresolvedDirectories);
+it("the history importer's run module still reaches the moved store", async () => {
   const runs = await import("../src/services/storage/import-runs.js");
   expect(setBackfillPaused).toBe(runs.setBackfillPaused);
 });

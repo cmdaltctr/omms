@@ -125,7 +125,7 @@ async function runImport(files: SpaceFiles, call: ImportCall) {
 
 /** Every memory row of a space folder, read through the space read store. */
 async function readRows(folder: string): Promise<Array<Record<string, unknown>>> {
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const store = openSpaceStore(folder, "read");
   try {
     const rows: Array<Record<string, unknown>> = [];
@@ -233,7 +233,7 @@ async function seedProfile(folder: string): Promise<void> {
 
 /** Writes one project memory into a space folder through a write store. */
 async function seedOneMemory(folder: string, id: string, hash: string = HASH_A): Promise<void> {
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
   const store = openSpaceStore(folder, "write");
   try {
@@ -431,7 +431,7 @@ describe("space import into a new space (7.1)", () => {
     expect(String(userRow.container_tag)).toBe(USER_TAG_IMPORT);
 
     // Every retagged memory sits in the one shard of that folder's scope hash.
-    const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+    const { openSpaceStore } = await import("../src/services/storage/space-store.js");
     const store = openSpaceStore(folder, "read");
     try {
       const shards = await store.listShards("project", hash);
@@ -578,7 +578,7 @@ describe("space export and import round trip (7.3)", () => {
     extraDirs.push(outDir);
 
     // Seed space A: two projects, one user-scope memory with private-ish text, one profile.
-    const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+    const { openSpaceStore } = await import("../src/services/storage/space-store.js");
     const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
     const seed = await openSpaceStore(spaceA, "write");
     try {
@@ -734,7 +734,7 @@ describe("space export and import round trip (7.3)", () => {
     const retagFolder = mkdtempSync(join(tmpdir(), "space-import-retag2-"));
     extraDirs.push(retagFolder);
 
-    const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+    const { openSpaceStore } = await import("../src/services/storage/space-store.js");
     const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
     const seed = await openSpaceStore(spaceA, "write");
     try {

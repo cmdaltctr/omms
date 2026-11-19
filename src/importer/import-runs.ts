@@ -9,7 +9,7 @@ import {
   type ImportSurface,
 } from "../services/storage/import-runs.js";
 import type { BackfillHost } from "../utils/backfill-model.js";
-import { isProcessAlive } from "./backfill-lock.js";
+import { isProcessAlive } from "../services/storage/backfill-locks.js";
 import {
   addProgressSample,
   estimateProgress,

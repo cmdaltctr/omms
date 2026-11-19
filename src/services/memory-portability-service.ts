@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getEmbeddingDimensions, getEmbeddingModel } from "./active-space-access.js";
+import { getEmbeddingDimensions, getEmbeddingModel } from "./storage/active-space-access.js";
 import {
   MemoryExportDocumentSchema,
   PORTABILITY_SCHEMA_VERSION,

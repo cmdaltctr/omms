@@ -41,10 +41,10 @@ function turn(at: number) {
 async function setup(onCall: () => void = () => {}) {
   const { CONFIG } = await import("../src/config.js");
   CONFIG.storagePath = baseDir;
-  const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
+  const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
   const { buildSkillIndex } = await import("../src/services/skill-learning/skill-index.js");
   const review = await import("../src/services/skill-learning/auto-review.js");
-  const proposals = await import("../src/services/skill-learning/proposal-store.js");
+  const proposals = await import("../src/services/storage/skills/proposals.js");
   const { skillDraftBackoff } = await import("../src/core/profile-backoff.js");
   const store = new SkillStore(skillsDbPath(baseDir));
   await store.init();

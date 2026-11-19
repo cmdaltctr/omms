@@ -60,14 +60,6 @@ describe("AI session store (characterisation)", () => {
     await cleanupTursoTestDirectory(otherDir);
   });
 
-  // The old path stays as a re-export, so the providers and tests that import it get the same store.
-  it("keeps the old module path as a re-export of the same store", async () => {
-    const moved = await loadStore();
-    const shim = await import("../src/services/ai/session/ai-session-manager.js");
-    expect(shim.aiSessionManager).toBe(moved.aiSessionManager);
-    expect(shim.AISessionManager).toBe(moved.AISessionManager);
-  });
-
   // (r) read through the public API
   it("reads a created session and its messages back through the public API", async () => {
     const { aiSessionManager } = await loadStore();

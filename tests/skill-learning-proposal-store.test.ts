@@ -10,8 +10,8 @@ let baseDir: string;
 async function setup(init = true) {
   const { CONFIG } = await import("../src/config.js");
   CONFIG.storagePath = baseDir;
-  const { SkillStore, skillsDbPath } = await import("../src/services/skill-learning/store.js");
-  const proposals = await import("../src/services/skill-learning/proposal-store.js");
+  const { SkillStore, skillsDbPath } = await import("../src/services/storage/skills/store.js");
+  const proposals = await import("../src/services/storage/skills/proposals.js");
   const store = new SkillStore(skillsDbPath(baseDir));
   if (init) await store.init();
   return { store, ...proposals };

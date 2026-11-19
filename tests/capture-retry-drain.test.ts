@@ -40,7 +40,7 @@ mock.module("../src/core/capture-context.js", () => ({
 }));
 
 const { tursoConnectionManager } = await import("../src/services/turso/connection-manager.js");
-const queue = await import("../src/services/capture-retry-queue.js");
+const queue = await import("../src/services/storage/capture-retry-queue.js");
 const drain = await import("../src/services/capture-retry-drain.js");
 const liveConfig = await import("../src/config.js");
 const { CaptureAttemptError } = await import("../src/core/capture.js");

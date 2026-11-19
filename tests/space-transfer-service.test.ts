@@ -67,7 +67,7 @@ interface SeedRow {
 
 async function seed(folder: string, rows: SeedRow[]): Promise<void> {
   const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const store = openSpaceStore(folder, "write");
   try {
     for (const row of rows) {
@@ -160,7 +160,7 @@ interface ReadRow {
 }
 
 async function readAllRows(folder: string): Promise<ReadRow[]> {
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const store = openSpaceStore(folder, "read");
   try {
     const rows: ReadRow[] = [];
@@ -194,7 +194,7 @@ async function readAllRows(folder: string): Promise<ReadRow[]> {
 
 /** The registered `scope:hash` to `vector_count` pairs of a space's metadata.db. */
 async function shardCounts(folder: string): Promise<Map<string, number>> {
-  const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+  const { openSpaceStore } = await import("../src/services/storage/space-store.js");
   const store = openSpaceStore(folder, "read");
   try {
     const counts = new Map<string, number>();
@@ -531,7 +531,7 @@ describe("space transfer service", () => {
   it("embeds again when the source shard records no embedding model", async () => {
     await seed(alphaFolder, alphaRows());
     await seed(betaFolder, betaRows());
-    const { openSpaceStore } = await import("../src/services/spaces/space-store.js");
+    const { openSpaceStore } = await import("../src/services/storage/space-store.js");
     const store = openSpaceStore(alphaFolder, "write");
     try {
       for (const scope of ["user", "project"] as const) {

@@ -66,7 +66,7 @@ describe("settings API", () => {
       const path = join(CONFIG.storagePath, "import-ledger.db");
       const empty = await (await send("/api/settings/backfill")).json();
       const untouched = !existsSync(path);
-      const { getBackfillCutoff, updateBackfillStatus } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/backfill-state.ts")).href)});
+      const { getBackfillCutoff, updateBackfillStatus } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/storage/backfill-state.ts")).href)});
       await getBackfillCutoff("pi", 123);
       await updateBackfillStatus("pi", { state: "failed", model: "zai/model",
         counts: { imported: 1, skipped: 2, failed: 3, pending: 4, unresolved: 5 },
@@ -116,7 +116,7 @@ describe("settings API", () => {
       CONFIG.importIgnoredDirectories = ["/x/scratch"];
       // A saved map also takes its directory off the list, so off the count too.
       CONFIG.importPathMaps = [{ from: "/x/mapped", to: "/x/kept" }];
-      const state = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/backfill-state.ts")).href)});
+      const state = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/storage/backfill-state.ts")).href)});
       await state.getBackfillCutoff("pi", 1);
       await state.updateBackfillStatus("pi", { state: "done", model: null,
         counts: { imported: 0, skipped: 0, failed: 0, pending: 0, unresolved: 10 } }, CONFIG);
@@ -488,7 +488,7 @@ describe("settings API", () => {
 
   it("reports queued turns per host and retries them now", async () => {
     const queueUrl = pathToFileURL(
-      join(import.meta.dir, "../src/services/capture-retry-queue.ts")
+      join(import.meta.dir, "../src/services/storage/capture-retry-queue.ts")
     ).href;
     const drainUrl = pathToFileURL(
       join(import.meta.dir, "../src/services/capture-retry-drain.ts")

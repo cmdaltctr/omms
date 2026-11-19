@@ -1,7 +1,7 @@
 import { createClient, type Client } from "@libsql/client";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, resolve, relative, isAbsolute, sep } from "node:path";
-import { getSkillStoragePath, getStoragePath } from "../active-space-access.js";
+import { getSkillStoragePath, getStoragePath } from "../storage/active-space-access.js";
 import { log } from "../logger.js";
 import { collectReleasedSqliteHandles } from "./sqlite-handle-release.js";
 import { TursoDb } from "./turso-db.js";

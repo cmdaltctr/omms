@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CONFIG } from "../src/config.js";
-import { ImportLedger } from "../src/importer/ledger.js";
+import { ImportLedger } from "../src/services/storage/import-ledger.js";
 import {
   handledKeys,
   listImportSessions,

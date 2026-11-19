@@ -76,7 +76,8 @@ describe("api handlers: maintenance routes", () => {
   });
 
   it("detects a model migration and returns the mismatch report", async () => {
-    const { migrationService } = await import("../src/services/migration-service.js");
+    const { migrationService } =
+      await import("../src/services/storage/maintenance/migration-service.js");
     const result = {
       needsMigration: true,
       configDimensions: 768,
@@ -90,7 +91,8 @@ describe("api handlers: maintenance routes", () => {
   });
 
   it("reports a detection failure as an error response", async () => {
-    const { migrationService } = await import("../src/services/migration-service.js");
+    const { migrationService } =
+      await import("../src/services/storage/maintenance/migration-service.js");
     stub(migrationService, "detectDimensionMismatch", async () => {
       throw new Error("detect boom");
     });
@@ -102,7 +104,8 @@ describe("api handlers: maintenance routes", () => {
   });
 
   it("passes the strategy to the migration and mirrors its success flag", async () => {
-    const { migrationService } = await import("../src/services/migration-service.js");
+    const { migrationService } =
+      await import("../src/services/storage/maintenance/migration-service.js");
     const strategies: string[] = [];
     const outcome = (success: boolean, strategy: string) => ({
       success,
@@ -129,7 +132,8 @@ describe("api handlers: maintenance routes", () => {
   });
 
   it("reports a migration failure as an error response", async () => {
-    const { migrationService } = await import("../src/services/migration-service.js");
+    const { migrationService } =
+      await import("../src/services/storage/maintenance/migration-service.js");
     stub(migrationService, "migrateToNewModel", async () => {
       throw new Error("migrate boom");
     });

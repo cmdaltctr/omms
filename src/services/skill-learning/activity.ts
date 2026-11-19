@@ -13,7 +13,7 @@ import {
   type ActivityQuery,
 } from "./activity-range.js";
 import type { SkillIndex } from "./skill-index.js";
-import type { SkillStore } from "./store.js";
+import type { SkillStore } from "../storage/skills/store.js";
 
 /** The per-skill chart always shows this many days. */
 export const SKILL_DAILY_DAYS = 30;

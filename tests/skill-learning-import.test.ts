@@ -63,7 +63,7 @@ const { memoryClient } = await import(${url("../src/services/client.js")});
 const { tursoConnectionManager } = await import(${url("../src/services/turso/connection-manager.js")});
 const { importPiHistory } = await import(${url("../src/importer/importer.js")});
 const { loadPiSessionForImport } = await import(${url("../src/importer/session-loader.js")});
-const { importLedgerDbPath } = await import(${url("../src/importer/ledger.js")});
+const { importLedgerDbPath } = await import(${url("../src/services/storage/import-ledger.js")});
 const { parseHistoryImportArgs } = await import(${url("../src/importer/import-args.js")});
 const { runHistoryImport, formatHistoryImportReport } = await import(${url("../src/importer/run-import.js")});
 const { readImportRun } = await import(${url("../src/importer/import-runs.js")});
@@ -260,7 +260,7 @@ scenario = {
 writePiSession();
 const gone = base + "/gone-project";
 writeV3Session({ file: sessionRoot + "/proj-a/gone.jsonl", sessionId: "sess-gone", cwd: gone, windows: PI_WINDOWS.slice(0, 1) });
-const { readUnresolvedDirectories } = await import(${url("../src/services/backfill-state.js")});
+const { readUnresolvedDirectories } = await import(${url("../src/services/storage/backfill-state.js")});
 const listed = async () => (await readUnresolvedDirectories("pi")).map((item) => item.directory === gone);
 const memory = await run("pi", piArgs(["--skip-profile", "--skip-skills"]), { capture: provider }, { track: { surface: "cli" } });
 const afterMemory = await listed();

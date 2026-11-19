@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { getStoragePath } from "../active-space-access.js";
+import { getStoragePath } from "../storage/active-space-access.js";
 
 const OPERATION_LOCK = ".turso-operation.lock";
 const LEGACY_MIGRATION_LOCK = ".turso-migrate.lock";

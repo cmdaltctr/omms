@@ -4,7 +4,7 @@ import {
   getContainerTagPrefix,
   getUserEmailOverride,
   getUserNameOverride,
-} from "./active-space-access.js";
+} from "./storage/active-space-access.js";
 import {
   normalize,
   resolve,

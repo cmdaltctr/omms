@@ -12,7 +12,7 @@ import {
   type RunInBatchesOptions,
 } from "./ai-cleanup-batches.js";
 import type { MemoryModelSettings } from "./memory-model-settings.js";
-import { deleteAutoCleanup, insertAutoCleanupRecord } from "./auto-cleanup-store.js";
+import { deleteAutoCleanup, insertAutoCleanupRecord } from "../storage/profiles/auto-cleanups.js";
 import { applyToNewestProfile, type ProfileEditStore } from "./profile-edit-save.js";
 import type { UserProfileData } from "./types.js";
 

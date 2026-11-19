@@ -21,7 +21,7 @@ const { tursoConnectionManager } = await import("../src/services/turso/connectio
 const { tursoVectorSearch } = await import("../src/services/turso/vector-search.js");
 const { userPromptManager } = await import("../src/services/user-prompt/user-prompt-manager.js");
 const attempts = await import("../src/services/capture-attempt-store.js");
-const retries = await import("../src/services/capture-retry-queue.js");
+const retries = await import("../src/services/storage/capture-retry-queue.js");
 
 const DAY = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;

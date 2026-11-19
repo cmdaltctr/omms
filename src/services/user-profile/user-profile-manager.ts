@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { hasEnoughWorkflowSteps } from "../../core/extraction.js";
 import { resettable } from "../spaces/store-handles.js";
-import { getProfileSettings, getStoragePath } from "../active-space-access.js";
+import { getProfileSettings, getStoragePath } from "../storage/active-space-access.js";
 import type { EmbeddingService } from "../embedding.js";
 import { log } from "../logger.js";
 import {

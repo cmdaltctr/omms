@@ -51,7 +51,7 @@ async function setup(named: string[], fillers = 0) {
   );
   const profile = (await userProfileManager.getActiveProfile(userId))!;
   const run = await import("../src/services/user-profile/auto-cleanup.js");
-  const store = await import("../src/services/user-profile/auto-cleanup-store.js");
+  const store = await import("../src/services/storage/profiles/auto-cleanups.js");
   return { run, store, manager: userProfileManager, profileId: profile.id };
 }
 

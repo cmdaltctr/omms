@@ -125,7 +125,7 @@ it("applies only a tested embedder, from this machine, one run at a time", async
     fake.failOn = null;
     const retry = await send("/api/settings/embedding/run", "POST", {});
     const done = await waitForRun();
-    const { migrationService } = await import(${src("services/migration-service.ts")});
+    const { migrationService } = await import(${src("services/storage/maintenance/migration-service.ts")});
     const after = await migrationService.detectDimensionMismatch();
     return { untested: untested.status, remote: remote.status, applied: applied.status,
       second: second.status, failed, retry: retry.status, done, config: JSON.parse(config),

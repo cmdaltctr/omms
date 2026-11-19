@@ -4,7 +4,7 @@ import {
   getEmbeddingCacheDir,
   getEmbeddingModel,
   getEmbeddingUseTaskPrefixes,
-} from "./active-space-access.js";
+} from "./storage/active-space-access.js";
 import { log } from "./logger.js";
 import {
   formatOnnxruntimeInitError,
