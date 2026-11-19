@@ -1,7 +1,10 @@
 /**
  * The Settings page cards in page order. The sidebar tree and the page read
  * this one list, so a new card needs one entry here. Titles are the cards'
- * own headings, translated by the Settings text table.
+ * own headings, translated by the Settings text table. The Settings page
+ * shows one of these at a time, chosen by the `#settings-section-<id>` hash.
+ * Only these ids select a section; an anchor inside a card would select the
+ * first one.
  */
 export const SETTINGS_SECTIONS = [
   { id: "settings-section-memory-basics", title: "Memory basics" },
@@ -22,3 +25,9 @@ export const SETTINGS_SECTIONS = [
 ] as const;
 
 export type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]["id"];
+
+/** The section the page address names: the first one for no hash or an unknown id. */
+export function selectedSettingsSection(path: string): SettingsSectionId {
+  const hash = path.includes("#") ? path.slice(path.indexOf("#") + 1) : "";
+  return SETTINGS_SECTIONS.find((section) => section.id === hash)?.id ?? SETTINGS_SECTIONS[0].id;
+}

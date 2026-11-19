@@ -18,6 +18,7 @@ const buttonVariants = cva(
           "text-foreground hover:bg-interactive-hover active:bg-interactive-active aria-expanded:bg-selection",
         destructive:
           "bg-destructive/10 border-destructive/25 text-destructive-label hover:bg-destructive/16 active:bg-destructive/22 dark:bg-destructive/16 dark:hover:bg-destructive/22 dark:active:bg-destructive/30",
+        chip: "border-border bg-transparent text-foreground hover:bg-interactive-hover active:bg-interactive-active aria-pressed:bg-selection",
         link: "text-primary-label underline-offset-4 hover:underline",
       },
       size: {

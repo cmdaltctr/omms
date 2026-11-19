@@ -48,7 +48,7 @@ it("draws the USER PROMPT label as plain text so it lines up with the prompt tex
 
 it("puts the memory output in its own bordered mini card on paired and standalone cards", () => {
   const miniCard =
-    /<div class="rounded-lg border border-border bg-muted p-3"><div class="space-y-2">/;
+    /<div class="rounded-lg border border-border bg-muted p-3"><div class="markdown-content/;
   expect(pair("hello")).toMatch(miniCard);
   expect(renderToStaticMarkup(<MemoryCard variant="memory" item={base} />)).toMatch(miniCard);
 });

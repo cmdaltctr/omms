@@ -45,7 +45,11 @@ function getServerSnapshot() {
   return ROUTES.project;
 }
 
-export function navigate(to: string, replace = false) {
+/**
+ * Go to `to`. `reveal: false` changes the address without scrolling to or
+ * outlining its anchor (a Settings chip switches sections in place).
+ */
+export function navigate(to: string, replace = false, { reveal = true } = {}) {
   const [path, hash = ""] = to.split(/(?=#)/);
   const next = destination(path, hash);
   const legacy = legacyMemoryDestination(normalizePath(path), hash);
@@ -55,7 +59,7 @@ export function navigate(to: string, replace = false) {
   }
   setPath(next);
   const anchor = next.indexOf("#");
-  if (anchor >= 0) revealPageAnchor(next.slice(anchor));
+  if (reveal && anchor >= 0) revealPageAnchor(next.slice(anchor));
 }
 
 export function navigateView(view: AppView, replace = false) {
