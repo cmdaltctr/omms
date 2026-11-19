@@ -12,7 +12,7 @@ import { registerCaptureRetryDrain } from "../../services/capture-retry-drain.js
 import { resolveOpencodeBackfillModels } from "./backfill-models.js";
 import { createOpencodeImportModels } from "./opencode-import-models.js";
 import { listOpencodeModels } from "./opencode-host.js";
-import { getOpencodeHost, isProviderConnected } from "./opencode-provider.js";
+import { confirmProviderConnected, getOpencodeHost } from "./opencode-provider.js";
 
 /** Start after connected providers load, without delaying plugin initialisation. */
 export function startOpencodeBackfill(input: {
@@ -41,7 +41,7 @@ export function registerOpencodeBackfillModels(input: {
 /** Let web imports, Health, and Settings in this process use OpenCode's signed-in models. */
 export function registerOpencodeImportModels(): void {
   registerOpencodeHostModels({
-    isProviderConnected: (providerID) => isProviderConnected(providerID),
+    confirmProviderConnected: (providerID) => confirmProviderConnected(providerID),
     createImportModels: (ref) => createOpencodeImportModels(ref),
     async listSettingsModels() {
       const host = getOpencodeHost();

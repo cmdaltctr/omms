@@ -108,6 +108,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [087](./087-a-test-web-app-half-wrote-the-real-global-install.md)              | A test web app half-wrote the real global install                       | Proposed              | 2026-11-17 |
 | [088](./088-vacuum-into-doubled-the-vector-index-metadata.md)                  | VACUUM INTO doubled the vector index metadata                           | Proposed              | 2026-11-19 |
 | [089](./089-a-running-web-app-reported-the-version-on-disk.md)                 | A running web app reported the version on disk                          | Proposed              | 2026-11-18 |
+| [090](./090-opencode-start-up-provider-list-was-incomplete.md)                 | OpenCode's start-up provider list was incomplete                        | Proposed              | 2026-11-19 |
 
 ## Status values
 

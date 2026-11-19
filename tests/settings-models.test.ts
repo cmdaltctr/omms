@@ -128,7 +128,7 @@ describe("OpenCode model list without a session", () => {
   it("does not start OpenCode when an OpenCode host is registered", async () => {
     const { read, calls } = standalone({ outcome: "listed", models: zai });
     registerOpencodeHostModels({
-      isProviderConnected: () => true,
+      confirmProviderConnected: async () => true,
       createImportModels: async () => {
         throw new Error("unused");
       },

@@ -23,7 +23,8 @@ export interface SettingsModel {
 
 /** OpenCode's model access for web imports, Health, and Settings, when OpenCode runs this process. */
 export interface OpencodeHostModels {
-  isProviderConnected(providerID: string): boolean;
+  /** True when OpenCode lists the provider; reads the list again when the provider is missing. */
+  confirmProviderConnected(providerID: string): Promise<boolean>;
   createImportModels(
     ref: { providerID: string; modelID: string },
     directory: string

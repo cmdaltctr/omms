@@ -41,7 +41,7 @@ const structuredCalls: Array<{ providerID: string; modelID: string }> = [];
 const connected = new Set(["zai", "other"]);
 mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
   loadOpencodeProvider: async () => ({
-    isProviderConnected: (provider: string) => connected.has(provider),
+    confirmProviderConnected: async (provider: string) => connected.has(provider),
     getOpencodeHost: () => ({}),
     generateStructuredOutput: async (opts: { providerID: string; modelID: string }) => {
       structuredCalls.push({ providerID: opts.providerID, modelID: opts.modelID });

@@ -159,7 +159,7 @@ mock.module(${JSON.stringify(languageUrl)}, () => ({
 }));
 mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
   loadOpencodeProvider: async () => ({
-    isProviderConnected: () => true,
+    confirmProviderConnected: async () => true,
     getOpencodeHost: () => ({}),
     generateStructuredOutput: async ({ userPrompt }) => {
       summaryPrompts.push(userPrompt);
@@ -304,7 +304,7 @@ mock.module(${JSON.stringify(languageUrl)}, () => ({
 }));
 mock.module(${JSON.stringify(opencodeProviderLoaderUrl)}, () => ({
   loadOpencodeProvider: async () => ({
-    isProviderConnected: () => true,
+    confirmProviderConnected: async () => true,
     getOpencodeHost: () => ({}),
     generateStructuredOutput: async () => {
       throw new Error(

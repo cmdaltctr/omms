@@ -71,8 +71,8 @@ export async function runOpencodeImportCommand(input: OpencodeImportCommandInput
     if (parsed.model || importNeedsModel(parsed)) {
       ref = parsed.model ? splitModel(parsed.model) : await input.sessionModel();
       if (!ref) return `${name}: this session has no model yet; pass --model provider/id`;
-      const { isProviderConnected } = await loadOpencodeProvider();
-      if (!isProviderConnected(ref.providerID)) {
+      const { confirmProviderConnected } = await loadOpencodeProvider();
+      if (!(await confirmProviderConnected(ref.providerID))) {
         return `${name}: OpenCode provider "${ref.providerID}" is not connected`;
       }
     }

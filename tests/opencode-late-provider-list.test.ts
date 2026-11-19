@@ -71,6 +71,9 @@ const { generateOpenCodeAutoCaptureSummary } =
   await import("../src/adapters/opencode/auto-capture-summary.js");
 const { createOpencodeLearningModel } = await import("../src/adapters/opencode/profile-model.js");
 const { setConnectedProviders } = await import("../src/adapters/opencode/opencode-provider.js");
+const { getOpencodeHostModels, registerOpencodeHostModels } =
+  await import("../src/importer/backfill-controls.js");
+const { SettingsImportJobs } = await import("../src/importer/web-import-jobs.js");
 
 const SESSION_MODEL = { providerID: "zai-coding-plan", id: "glm-4.6", name: "GLM 4.6" };
 type Notice = { title: string; message: string };
@@ -178,5 +181,102 @@ describe("OpenCode provider list that fills after start-up", () => {
       "Using fallback provider",
     ]);
     for (const notice of notices) expect(notice.message).toContain("absent-provider");
+  });
+});
+
+/** Run the in-session import command with `--model <providerID>/glm-4.6`; returns its report. */
+async function importCommand(fake: ReturnType<typeof createFakeV2Context>, providerID: string) {
+  await fake.commands.get("memory-import-opencode-history").execute({
+    sessionID: "ses-user",
+    prompt: { text: `--model ${providerID}/${SESSION_MODEL.id} --dry-run` },
+  });
+  return JSON.stringify(fake.calls.synthetic);
+}
+
+/**
+ * Start one web import with `<providerID>/glm-4.6`, as a single host or a group, and return
+ * the job. Model construction is replaced, so the job stops right after the provider check.
+ */
+async function webImport(providerID: string, group: boolean) {
+  const registered = getOpencodeHostModels()!;
+  registerOpencodeHostModels({
+    ...registered,
+    createImportModels: async () => {
+      throw new Error("import models reached");
+    },
+  });
+  const modelChoice = `${providerID}/${SESSION_MODEL.id}`;
+  const selection = { mode: "all", excludedKeys: [], revision: "r1", listedAt: 1000 };
+  const jobs = new SettingsImportJobs({
+    readiness: async () => ({
+      external: { state: "ready", provider: "openai-chat", model: "external-model" },
+      opencode: {
+        available: true,
+        models: [{ provider: providerID, model: SESSION_MODEL.id, name: "GLM" }],
+      },
+      piReader: { available: true },
+    }),
+    resolveSelection: async () => ({
+      identity: { host: "pi", kind: "pi-folder", realPath: "/tmp/s", dev: 1, ino: 2 },
+      keys: ["a.jsonl"],
+      cutoff: 1000,
+    }),
+    runner: async () => {
+      throw new Error("runner must not start");
+    },
+  } as never);
+  const child = { host: "pi", source: "pi", selection, modelChoice };
+  await jobs.start(
+    group ? { hosts: [child], options: { scope: "current-project" } } : { ...child, options: {} },
+    "/tmp/project"
+  );
+  const end = Date.now() + 5_000;
+  while (jobs.current()?.state === "running" && Date.now() < end) await sleep(10);
+  return JSON.stringify(jobs.current());
+}
+
+describe("OpenCode imports with a provider list that fills after start-up", () => {
+  it("the in-session import command accepts the provider when only a re-read lists it", async () => {
+    const { fake, stop } = await startPlugin();
+    try {
+      expect(await importCommand(fake, SESSION_MODEL.providerID)).not.toContain("not connected");
+    } finally {
+      await stop();
+    }
+  });
+
+  it("a single web import accepts the provider when only a re-read lists it", async () => {
+    const { stop } = await startPlugin();
+    try {
+      expect(await webImport(SESSION_MODEL.providerID, false)).toContain("import models reached");
+    } finally {
+      await stop();
+    }
+  });
+
+  it("a grouped web import accepts the provider when only a re-read lists it", async () => {
+    const { stop } = await startPlugin();
+    try {
+      expect(await webImport(SESSION_MODEL.providerID, true)).toContain("import models reached");
+    } finally {
+      await stop();
+    }
+  });
+
+  it("every import path still refuses a provider that OpenCode never lists", async () => {
+    const { fake, stop } = await startPlugin();
+    try {
+      expect(await importCommand(fake, "absent-provider")).toContain(
+        'OpenCode provider \\"absent-provider\\" is not connected'
+      );
+      expect(await webImport("absent-provider", false)).toContain(
+        "OpenCode provider is not connected"
+      );
+      expect(await webImport("absent-provider", true)).toContain(
+        "OpenCode provider is not connected"
+      );
+    } finally {
+      await stop();
+    }
   });
 });
