@@ -141,6 +141,8 @@ describe("profile save guard", () => {
     // The page showed version 40; a learning pass saved 41 and moved the items since.
     const read = { id: "profile-1", version: 41, profileData: JSON.stringify(profile("B", "A")) };
     const reader = spyOn(userProfileManager, "getActiveProfile").mockResolvedValue(read as any);
+    // CI runners have no git email, so the user id lookup would read the store.
+    const owners = spyOn(userProfileManager, "getAllActiveProfiles").mockResolvedValue([]);
     const save = spyOn(userProfileManager, "updateProfile").mockResolvedValue(true);
     try {
       const stale = await handleUpdateProfileItem(await import("../src/config.js"), {
@@ -163,6 +165,7 @@ describe("profile save guard", () => {
       expect(save).toHaveBeenCalledTimes(1);
     } finally {
       reader.mockRestore();
+      owners.mockRestore();
       save.mockRestore();
     }
   });
