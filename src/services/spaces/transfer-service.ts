@@ -7,11 +7,14 @@
  */
 import { existsSync } from "node:fs";
 import { log } from "../logger.js";
-import { tursoVectorSearch } from "../turso/vector-search.js";
-import type { MemoryRecord, ShardInfo } from "../turso/types.js";
-import type { TursoDb } from "../turso/turso-db.js";
-import { parseExtractedVector } from "../turso/vector-utils.js";
-import { openSpaceStore, type SpaceReadStore, type SpaceWriteStore } from "./space-store.js";
+import { parseExtractedVector } from "../storage/memory/rows.js";
+import * as transferRows from "../storage/memory/transfer-rows.js";
+import type { MemoryRecord, MemoryRow, ShardInfo, StoreDb } from "../storage/memory/types.js";
+import {
+  openSpaceStore,
+  type SpaceReadStore,
+  type SpaceWriteStore,
+} from "../storage/space-store.js";
 import { findSpace, readRegistryFile, resolveSpaceFolder, type SpacePaths } from "./registry.js";
 import type { SpaceFiles } from "./registry-store.js";
 import { applyTransfer, previewTransfer } from "./transfer.js";
@@ -29,10 +32,6 @@ import type {
   TransferWriteRow,
 } from "./transfer-types.js";
 import { tagTextKey } from "./transfer-types.js";
-
-const ID_CHUNK = 500;
-/** The insert writes is_pinned 0, so a pinned row sets its flag with this. */
-const PINNED_SQL = `UPDATE memories SET is_pinned = 1 WHERE id = ?`;
 
 export type TransferRefusalCode =
   "unknown-space" | "same-space" | "archived-space" | "registry-problem";
@@ -71,7 +70,7 @@ export interface SpaceTransferContext {
 
 interface ShardReadAccess {
   listShards(scope: TransferScope): Promise<ShardInfo[]>;
-  open(dbPath: string): Promise<TursoDb>;
+  open(dbPath: string): Promise<StoreDb>;
 }
 
 function readAccessOf(store: SpaceReadStore | SpaceWriteStore): ShardReadAccess {
@@ -90,7 +89,7 @@ async function existingShards(access: ShardReadAccess, scope: TransferScope) {
 
 async function eachShard(
   access: ShardReadAccess,
-  use: (db: TursoDb, shard: ShardInfo) => Promise<void>
+  use: (db: StoreDb, shard: ShardInfo) => Promise<void>
 ): Promise<void> {
   for (const scope of ["user", "project"] as const) {
     for (const shard of await existingShards(access, scope)) {
@@ -103,7 +102,7 @@ function optionalString(value: unknown): string | undefined {
   return value === null || value === undefined ? undefined : String(value);
 }
 
-function rowToTransferRow(raw: Record<string, unknown>, shard: ShardInfo): TransferRow {
+function rowToTransferRow(raw: MemoryRow, shard: ShardInfo): TransferRow {
   return {
     id: String(raw.id),
     text: String(raw.content),
@@ -125,22 +124,13 @@ async function readRowsAcrossShards(
   access: ShardReadAccess,
   filter: TransferFilter
 ): Promise<TransferRow[]> {
-  const tagClause = filter.projectTag === undefined ? "" : " AND container_tag = ?";
-  const args: (string | number)[] = [filter.since, filter.until];
-  if (filter.projectTag !== undefined) args.push(filter.projectTag);
   const rows: TransferRow[] = [];
   await eachShard(access, async (db, shard) => {
-    const raw = await db.all<Record<string, unknown>>(
-      `
-        SELECT id, content, container_tag, tags, type, created_at, updated_at, metadata,
-               project_name, is_pinned,
-               vector_extract(vector) AS vector_json,
-               CASE WHEN tags_vector IS NULL THEN NULL ELSE vector_extract(tags_vector) END
-                 AS tags_vector_json
-        FROM memories
-        WHERE created_at >= ? AND created_at <= ?${tagClause}
-      `,
-      args
+    const raw = await transferRows.readTransferRows(
+      db,
+      filter.since,
+      filter.until,
+      filter.projectTag
     );
     for (const item of raw) rows.push(rowToTransferRow(item, shard));
   });
@@ -156,9 +146,7 @@ async function readEmbeddingInfo(access: ShardReadAccess): Promise<EmbeddingInfo
   for (const scope of ["user", "project"] as const) {
     for (const shard of await existingShards(access, scope)) {
       const db = await access.open(shard.dbPath);
-      const meta = await db.all(
-        `SELECT key, value FROM shard_metadata WHERE key IN ('embedding_model', 'embedding_dimensions')`
-      );
+      const meta = await transferRows.readShardEmbeddingMetadata(db);
       const model = meta.find((row) => String(row.key) === "embedding_model")?.value;
       const dimensions = meta.find((row) => String(row.key) === "embedding_dimensions")?.value;
       if (typeof model !== "string" || dimensions === undefined) return undefined;
@@ -175,7 +163,7 @@ async function readEmbeddingInfo(access: ShardReadAccess): Promise<EmbeddingInfo
 async function readAllIds(access: ShardReadAccess): Promise<Set<string>> {
   const ids = new Set<string>();
   await eachShard(access, async (db) => {
-    for (const row of await db.all(`SELECT id FROM memories`)) ids.add(String(row.id));
+    for (const id of await transferRows.readAllMemoryIds(db)) ids.add(id);
   });
   return ids;
 }
@@ -183,10 +171,7 @@ async function readAllIds(access: ShardReadAccess): Promise<Set<string>> {
 async function findIdsIn(access: ShardReadAccess, ids: string[]): Promise<Set<string>> {
   const found = new Set<string>();
   await eachShard(access, async (db) => {
-    for (const chunk of chunkIds(ids)) {
-      const sql = `SELECT id FROM memories WHERE id IN (${chunk.map(() => "?").join(", ")})`;
-      for (const row of await db.all(sql, chunk)) found.add(String(row.id));
-    }
+    for (const id of await transferRows.findMemoryIds(db, ids)) found.add(id);
   });
   return found;
 }
@@ -194,17 +179,11 @@ async function findIdsIn(access: ShardReadAccess, ids: string[]): Promise<Set<st
 async function readAllTagTexts(access: ShardReadAccess): Promise<Set<string>> {
   const keys = new Set<string>();
   await eachShard(access, async (db) => {
-    for (const row of await db.all(`SELECT container_tag, content FROM memories`)) {
+    for (const row of await transferRows.readMemoryTagTexts(db)) {
       keys.add(tagTextKey(String(row.container_tag), String(row.content)));
     }
   });
   return keys;
-}
-
-function chunkIds(ids: string[]): string[][] {
-  return Array.from({ length: Math.ceil(ids.length / ID_CHUNK) }, (_, index) =>
-    ids.slice(index * ID_CHUNK, (index + 1) * ID_CHUNK)
-  );
 }
 
 /** The source side of the engine: a read store, plus a write store for a move. */
@@ -237,16 +216,9 @@ class SpaceSourceReader implements SourceReader {
     if (!shard) throw new Error(`Source shard ${shardKey} is not registered.`);
     await write.shards.withScopeWriteLock(shard.scope, shard.scopeHash, async () => {
       const db = await write.connections.getConnection(shard.dbPath);
-      await db.transaction("write", async (tx) => {
-        for (const chunk of chunkIds(ids)) {
-          await tx.execute({
-            sql: `DELETE FROM memories WHERE id IN (${chunk.map(() => "?").join(", ")})`,
-            args: chunk,
-          });
-        }
-      });
+      await transferRows.deleteMemoryRowsByIds(db, ids);
       // A recount, not a delta, keeps the count right if another writer raced.
-      await write.shards.setVectorCount(shard.id, await tursoVectorSearch.countAllVectors(db));
+      await write.shards.setVectorCount(shard.id, await transferRows.countShardRows(db));
     });
   }
 
@@ -255,7 +227,7 @@ class SpaceSourceReader implements SourceReader {
     const shard = await write.shards.getShardById(Number(shardKey));
     if (!shard) return;
     const db = await write.connections.getConnection(shard.dbPath);
-    await write.shards.setVectorCount(shard.id, await tursoVectorSearch.countAllVectors(db));
+    await write.shards.setVectorCount(shard.id, await transferRows.countShardRows(db));
   }
 
   private requireWrite(): SpaceWriteStore {
@@ -307,22 +279,19 @@ class SpaceTargetWriter implements TargetWriter {
     const info = this.offeredShard(shard.key);
     await this.store.shards.withScopeWriteLock(info.scope, info.scopeHash, async () => {
       const db = await this.store.connections.getConnection(info.dbPath);
-      await db.transaction("write", async (tx) => {
-        for (const row of rows) {
-          await tursoVectorSearch.insertVectorInTransaction(tx, toMemoryRecord(row));
-          // The insert writes is_pinned 0, so a pinned row sets its flag after.
-          if (row.isPinned) await tx.execute({ sql: PINNED_SQL, args: [row.id] });
-        }
-      });
+      await transferRows.insertTransferRows(
+        db,
+        rows.map((row) => ({ record: toMemoryRecord(row), isPinned: row.isPinned }))
+      );
       // A recount, not a delta, keeps the count right if another writer raced.
-      await this.store.shards.setVectorCount(info.id, await tursoVectorSearch.countAllVectors(db));
+      await this.store.shards.setVectorCount(info.id, await transferRows.countShardRows(db));
     });
   }
 
   async setShardCount(shardKey: string, _count: number): Promise<void> {
     const info = this.offeredShard(shardKey);
     const db = await this.store.connections.getConnection(info.dbPath);
-    await this.store.shards.setVectorCount(info.id, await tursoVectorSearch.countAllVectors(db));
+    await this.store.shards.setVectorCount(info.id, await transferRows.countShardRows(db));
   }
 
   findExistingIds(ids: string[]) {

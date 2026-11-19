@@ -4,7 +4,7 @@
  * select, skip exact duplicates, preview, write per shard, check, remove.
  */
 import { tryExtractScopeFromContainerTag } from "../memory-scope.js";
-import { formatTagsForEmbedding } from "../turso/vector-utils.js";
+import { formatTagsForEmbedding } from "../storage/memory/rows.js";
 import type {
   EmbeddingInfo,
   SourceReader,

@@ -2,8 +2,8 @@ import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { extractScopeFromContainerTag } from "../memory-scope.js";
 import { getProjectTagInfo } from "../tags.js";
-import { tursoVectorSearch } from "../turso/vector-search.js";
-import { formatTagsForEmbedding } from "../turso/vector-utils.js";
+import { formatTagsForEmbedding } from "../storage/memory/rows.js";
+import { insertImportedRow } from "../storage/memory/transfer-rows.js";
 import { UserProfileManager } from "../user-profile/user-profile-manager.js";
 import type {
   UserProfileData,
@@ -17,7 +17,7 @@ import {
   type SpaceExportProfileItem,
 } from "../../shared/api/space-export-schemas.js";
 import { createStoredSpace, removeStoredSpace, type SpaceFiles } from "./registry-store.js";
-import { openSpaceStore, type SpaceWriteStore } from "./space-store.js";
+import { openSpaceStore, type SpaceWriteStore } from "../storage/space-store.js";
 
 /** The import size cap of the spec: a file larger than this is refused. */
 export const IMPORT_MAX_FILE_BYTES = 100 * 1024 * 1024;
@@ -306,7 +306,7 @@ async function writeImportedMemories(
       const db = await store.connections.getConnection(shard.dbPath);
       for (const item of group) {
         const embedded = vectors.get(item.memory.id)!;
-        await tursoVectorSearch.insertVector(db, {
+        const record = {
           id: item.memory.id,
           content: item.memory.content,
           vector: embedded.vector,
@@ -321,10 +321,8 @@ async function writeImportedMemories(
           ...(item.memory.metadata && Object.keys(item.memory.metadata).length > 0
             ? { metadata: JSON.stringify(item.memory.metadata) }
             : {}),
-        });
-        if (item.memory.isPinned) {
-          await db.run(`UPDATE memories SET is_pinned = 1 WHERE id = ?`, [item.memory.id]);
-        }
+        };
+        await insertImportedRow(db, record, item.memory.isPinned);
         await store.shards.incrementVectorCount(shard.id);
       }
     });

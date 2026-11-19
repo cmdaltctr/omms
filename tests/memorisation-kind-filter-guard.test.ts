@@ -23,32 +23,32 @@ interface AllowedReader {
  */
 const ALLOWED: AllowedReader[] = [
   {
-    file: "src/services/spaces/export-space.ts",
+    file: "src/services/storage/memory/transfer-rows.ts",
     sql: "SELECT ${\u2026} FROM memories",
     why: "Space export and backup copy every row of every kind.",
   },
   {
-    file: "src/services/spaces/transfer-service.ts",
+    file: "src/services/storage/memory/transfer-rows.ts",
     sql: "SELECT id, content, container_tag, tags, type, created_at, updated_at, metadata, project_name, is_pinned, vector_extract(vector) AS vector_json, CASE WHEN tags_vector IS NULL THEN NULL ELSE vector_extract(tags_vector) END AS tags_vector_json FROM memories WHERE created_at >= ? AND created_at <= ?${\u2026}",
     why: "Space transfer copies whole rows of every kind, so a memorisation keeps its type.",
   },
   {
-    file: "src/services/spaces/transfer-service.ts",
+    file: "src/services/storage/memory/transfer-rows.ts",
     sql: "SELECT id FROM memories",
     why: "Dedup by ID in the target space, across every kind.",
   },
   {
-    file: "src/services/spaces/transfer-service.ts",
+    file: "src/services/storage/memory/transfer-rows.ts",
     sql: "SELECT id FROM memories WHERE id IN (${\u2026})",
     why: "Dedup by ID in the target space, across every kind.",
   },
   {
-    file: "src/services/spaces/transfer-service.ts",
+    file: "src/services/storage/memory/transfer-rows.ts",
     sql: "SELECT container_tag, content FROM memories",
     why: "Dedup by tag and content in the target space, across every kind.",
   },
   {
-    file: "src/services/spaces/transfer-service.ts",
+    file: "src/services/storage/memory/transfer-rows.ts",
     sql: "DELETE FROM memories WHERE id IN (${\u2026})",
     why: "A space move removes the source rows it copied, by ID.",
   },

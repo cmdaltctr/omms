@@ -123,9 +123,6 @@ const configBaseline: Record<string, number> = {
 // Guards the storage-port follow-up: new code reaches storage through the port, not the engine.
 const storageBaseline: Record<string, number> = {
   "src/importer/opencode-snapshot.ts": 1,
-  "src/services/spaces/import-space.ts": 2,
-  "src/services/spaces/transfer-service.ts": 4,
-  "src/services/spaces/transfer.ts": 1,
 };
 
 // SQL statement literals per file, by the SQL_STATEMENT method above.
@@ -133,9 +130,6 @@ const storageBaseline: Record<string, number> = {
 const sqlBaseline: Record<string, number> = {
   "src/importer/opencode-reader.ts": 8,
   "src/importer/opencode-v2-units.ts": 1,
-  "src/services/spaces/export-space.ts": 3,
-  "src/services/spaces/import-space.ts": 1,
-  "src/services/spaces/transfer-service.ts": 7,
 };
 
 const files = tsFiles(".");

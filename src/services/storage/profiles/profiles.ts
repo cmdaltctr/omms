@@ -173,6 +173,24 @@ export async function getAllActiveProfiles(db: ProfileDb): Promise<UserProfile[]
   return rows.map((row) => rowToProfile(row));
 }
 
+/**
+ * The data columns of the newest active profile, or null when the file has no profile table or
+ * no active profile. Reads no identity column and creates no table, so it suits a read-only
+ * connection. From `spaces/export-space.ts`.
+ */
+export async function readNewestActiveProfileData(
+  db: ProfileDb
+): Promise<Record<string, unknown> | null> {
+  const table = await db.get(
+    `SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'user_profiles'`
+  );
+  if (!table) return null;
+  return db.get(
+    `SELECT profile_data, version, last_analyzed_at, total_prompts_analyzed
+       FROM user_profiles WHERE is_active = 1 ORDER BY last_analyzed_at DESC LIMIT 1`
+  );
+}
+
 function rowToProfile(row: any): UserProfile {
   return {
     id: row.id,
