@@ -17,7 +17,8 @@ interface BackfillConfig {
 }
 
 export interface OpenCodeBackfillContext {
-  connected: string[];
+  /** True when OpenCode lists the provider; reads the list again when the provider is missing. */
+  confirmProviderConnected: (providerID: string) => Promise<boolean>;
   directory: string;
   configModel: () => Promise<string | null>;
   makeModels?: typeof createOpencodeImportModels;
@@ -56,7 +57,7 @@ export async function resolveOpencodeBackfillModels(
   } else {
     ref = { providerID: choice.provider, modelID: choice.model };
   }
-  if (!context.connected.includes(ref.providerID)) {
+  if (!(await context.confirmProviderConnected(ref.providerID))) {
     throw new Error(`OpenCode backfill provider ${ref.providerID} is not connected`);
   }
   const models = await (context.makeModels ?? createOpencodeImportModels)(ref);

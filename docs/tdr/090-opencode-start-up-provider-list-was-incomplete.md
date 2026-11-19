@@ -23,6 +23,7 @@ With `opencodeModel: "inherit"`, OpenCode capture and profile learning logged `o
    - Profile learning and the other profile calls: `src/adapters/opencode/profile-llm-client.ts`.
    - The in-session import command `/memory-import-opencode-history`: `src/adapters/opencode/import-command.ts`.
    - Single and grouped web imports: `src/importer/web-import-jobs.ts` and `src/importer/web-import-group.ts`, through the registry method `confirmProviderConnected` (`OpencodeHostModels` in `src/importer/backfill-controls.ts`, registered in `src/adapters/opencode/backfill-startup.ts`). The method is now async.
+   - The automatic backfill and **Run now** on the Settings page: `resolveOpencodeBackfillModels` in `src/adapters/opencode/backfill-models.ts`. Its context takes `confirmProviderConnected` in place of the start-up `connected` list. `backfill-startup.ts` passes it in, and `src/v2/startup.ts` no longer passes the list.
 3. `src/services/ai/live-model-choice.ts` and the model choice order do not change.
 4. `tests/opencode-late-provider-list.test.ts` runs the real V2 `setup` with a fake context whose first list read is empty. It covers each call site, and a provider that OpenCode never lists.
 
@@ -30,7 +31,7 @@ With `opencodeModel: "inherit"`, OpenCode capture and profile learning logged `o
 
 ### Positive
 
-- Capture, profile learning and imports use the session's provider as soon as OpenCode lists it.
+- Capture, profile learning, imports and the backfill use the session's provider as soon as OpenCode lists it.
 - A provider that OpenCode does not list still falls back or fails with the same message as before.
 
 ### Negative
@@ -41,7 +42,8 @@ With `opencodeModel: "inherit"`, OpenCode capture and profile learning logged `o
 ### Neutral
 
 - Pi has no such list. It looks up `ctx.modelRegistry` and `ctx.model` at each call.
-- The automatic backfill and **Run now** on the Settings page still check the `connected` list from the start-up read (`resolveOpencodeBackfillModels` in `src/adapters/opencode/backfill-models.ts`).
+- The start-up read stays. It fills the set and writes the `opencode providers connected` log line.
+- `connectedProviderModels` in `src/importer/settings-models.ts` also reads a `connected` list. That list comes from a fresh `/provider` reply of a standalone OpenCode server at each call, so it is not the start-up list.
 
 ## Alternatives Considered
 
@@ -60,7 +62,7 @@ With `opencodeModel: "inherit"`, OpenCode capture and profile learning logged `o
 ## Revisit Triggers
 
 - OpenCode gives plugins a complete provider list at start, or an event when the list changes.
-- The backfill `connected` list causes the same failure.
+- A new check reads the start-up provider list without `confirmProviderConnected`.
 
 ## References
 

@@ -47,9 +47,8 @@ async function connectedProviders(ctx: Pick<Context, "model">): Promise<string[]
 type Notify = (notice: OpencodeNotice) => void;
 
 async function startProviderWork(ctx: Context, directory: string, notify: Notify): Promise<void> {
-  let connected: string[] = [];
   try {
-    connected = await connectedProviders(ctx);
+    const connected = await connectedProviders(ctx);
     if (connected.length > 0) {
       const { setConnectedProviders } = await loadOpencodeProvider();
       setConnectedProviders(connected);
@@ -67,14 +66,13 @@ async function startProviderWork(ctx: Context, directory: string, notify: Notify
   // Run now on a Settings page served by this process can use OpenCode's signed-in models.
   void import("../adapters/opencode/backfill-startup.js")
     .then(({ registerOpencodeBackfillModels }) =>
-      registerOpencodeBackfillModels({ connected, directory, configModel })
+      registerOpencodeBackfillModels({ directory, configModel })
     )
     .catch(() => {});
   if (CONFIG.autoBackfill && process.env.OMMS_DISABLE_AUTO_BACKFILL !== "1" && isConfigured()) {
     void import("../adapters/opencode/backfill-startup.js")
       .then(({ startOpencodeBackfill }) =>
         startOpencodeBackfill({
-          connected,
           directory,
           configModel,
           notify: (message) => notify({ title: "Automatic import", message, variant: "info" }),

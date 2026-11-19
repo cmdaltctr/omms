@@ -63,6 +63,17 @@ mock.module("../src/importer/model-selection.js", () => ({
   }),
 }));
 
+// Keep the backfill model resolver the plugin registers, so a test can call it like Run now.
+const backfillResolvers = new Map<string, () => Promise<{ model: string }>>();
+const controls = await import("../src/importer/backfill-controls.js");
+mock.module("../src/importer/backfill-controls.js", () => ({
+  ...controls,
+  registerHostBackfillModels: (host: string, resolve: () => Promise<{ model: string }>) => {
+    backfillResolvers.set(host, resolve);
+    controls.registerHostBackfillModels(host as never, resolve as never);
+  },
+}));
+
 // The store warm-up is not under test.
 (globalThis as Record<symbol, unknown>)[Symbol.for("omms.plugin.warmedup")] = true;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -82,12 +93,15 @@ type Notice = { title: string; message: string };
 async function startPlugin() {
   // Each test starts as a new OpenCode process: no provider list read yet.
   setConnectedProviders([]);
+  backfillResolvers.clear();
   external.capture = 0;
   external.profile = 0;
   const directory = mkdtempSync(join(tmpdir(), "omms-late-provider-list-"));
   const fake = createFakeV2Context({
     directory,
     generateText: '{"summary":"host","type":"feature","tags":[],"ok":true}',
+    // OpenCode's default model: the backfill's "inherit" choice follows it.
+    defaultModel: SESSION_MODEL,
   });
   let reads = 0;
   fake.ctx.model.list = async () => {
@@ -274,6 +288,42 @@ describe("OpenCode imports with a provider list that fills after start-up", () =
       );
       expect(await webImport("absent-provider", true)).toContain(
         "OpenCode provider is not connected"
+      );
+    } finally {
+      await stop();
+    }
+  });
+});
+
+/** The backfill models the plugin registered for Run now; returns the model or the error. */
+async function backfillModel(): Promise<string> {
+  const end = Date.now() + 5_000;
+  while (!backfillResolvers.has("opencode") && Date.now() < end) await sleep(10);
+  try {
+    return (await backfillResolvers.get("opencode")!()).model;
+  } catch (error) {
+    return String(error);
+  }
+}
+
+describe("OpenCode backfill with a provider list that fills after start-up", () => {
+  it("the backfill model resolves to the default model's provider when only a re-read lists it", async () => {
+    const { stop } = await startPlugin();
+    try {
+      expect(await backfillModel()).toBe(`${SESSION_MODEL.providerID}/${SESSION_MODEL.id}`);
+    } finally {
+      await stop();
+    }
+  });
+
+  it("the backfill still refuses a default model whose provider OpenCode never lists", async () => {
+    const { fake, stop } = await startPlugin();
+    fake.ctx.model.default = async () => ({
+      data: { providerID: "absent-provider", id: SESSION_MODEL.id },
+    });
+    try {
+      expect(await backfillModel()).toContain(
+        "OpenCode backfill provider absent-provider is not connected"
       );
     } finally {
       await stop();
