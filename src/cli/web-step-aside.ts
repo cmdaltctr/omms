@@ -1,4 +1,4 @@
-import { exitAfterInstall } from "../services/global-install.js";
+import { exitAfterInstall, installEnded } from "../services/global-install.js";
 import type { LogLevel } from "../services/logger.js";
 
 // What a standalone web app does after it stops serving for a newer caller. The
@@ -40,6 +40,12 @@ export async function leaveAfterStepAside(deps: StepAsideDeps): Promise<void> {
     await deps.sleep(POLL_MS);
   }
   deps.log("Web app step-aside", { code: "no-new-owner" }, "warn");
+  // A service restart stops npm too. An install this process runs restarts onto its copy itself.
+  await installEnded();
+  if (await deps.ownerAnswers()) {
+    exit(0);
+    return;
+  }
   // A successful restart exits this process.
   const code = await deps.restartNewest();
   if (code === undefined) return;
