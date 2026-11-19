@@ -121,7 +121,13 @@ export abstract class WebControl extends PortOwnership {
       }
       // Inside a host session: stop serving, keep the session alive, and let the
       // newer web app bind the port before the takeover loop can run again.
-      await this.stop();
+      try {
+        await this.stop();
+      } catch (error) {
+        // A cleanup after the listener closed can fail; a rejection here would escape the timer.
+        log("Step-aside shutdown error", { error: String(error) }, "error");
+        if (this.isOwner) return;
+      }
       this.startPromise = null;
       this.holdOffTimer = setTimeout(() => {
         this.holdOffTimer = null;
