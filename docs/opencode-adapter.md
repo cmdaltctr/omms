@@ -180,10 +180,12 @@ When OMMS cannot read the config file, or cannot use a value in it, it uses the 
 
 ### Notices
 
-The OpenCode V2 server plugin has no toast API. With `showAutoCaptureToasts`, `showUserProfileToasts` and `showErrorToasts`, the plugin writes a notice to the OpenCode log for:
+The OpenCode V2 server plugin has no toast API. It sends profile learning notices to the terminal interface over plugin RPC, and the terminal interface shows each one as a toast. Without a terminal interface (`opencode serve`, OpenChamber), nothing shows them.
 
-- captured memories and profile updates
-- changes to the fallback provider
+With `showAutoCaptureToasts` and `showErrorToasts`, the plugin writes other notices to the OpenCode log:
+
+- captured memories
+- changes to the fallback provider during capture
 - errors
 
 When the web app cannot start, the plugin writes a notice that names the cause and the fix. Pi and Claude Code use the same wording.
@@ -286,9 +288,9 @@ OpenCode runs the same learning pass as Pi and Claude Code. See [Using memory: U
 - The pass starts after the idle capture, when capture is on.
 - It uses the model that the capture rule above chooses. An OpenCode model or the session's model answers through OpenCode structured output, with a time limit of 120 seconds for each call.
 - When the rule chooses the external API, the pass uses the external API.
-- When the OpenCode model fails and the external API is fully configured, the pass uses the external API. The OpenCode log gets the warning `[omms] Using fallback provider: OpenCode model failed (<reason>); using configured fallback.`
+- When the OpenCode model fails and the external API is fully configured, the pass uses the external API. The terminal interface shows the toast **Using fallback provider** with "OpenCode model failed (<reason>); using configured fallback."
 - When the OpenCode model fails and the external API is not configured, the pass fails with the OpenCode error. The 10-minute wait starts.
-- With `showUserProfileToasts` on, a saved pass writes `[omms] User profile updated: Analysed N prompts and updated your profile` to the OpenCode log.
+- With `showUserProfileToasts` on, a saved pass shows the toast **User profile updated** with "Analysed N prompts and updated your profile" in the terminal interface. Pi shows the same words.
 - The saved profile version has the history text `OpenCode analysis of N prompts`.
 
 ### Automatic profile cleanup

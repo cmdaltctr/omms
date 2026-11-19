@@ -4,6 +4,7 @@ import { setOpencodeHost } from "../adapters/opencode/opencode-host.js";
 import { CONFIG } from "../config.js";
 import { recordOpencodePromptModel } from "../adapters/opencode/prompt-model.js";
 import { performUserProfileLearning } from "../adapters/opencode/profile-learning.js";
+import { registerTuiNotices } from "../adapters/opencode/toast.js";
 import { getLanguageName } from "../services/language-detector.js";
 import { registerV2Adapter } from "./adapter.js";
 import { createV2MemoryBridge } from "./memory-bridge.js";
@@ -89,12 +90,13 @@ const OmmsPluginV2: Plugin = {
     // The runtime's shutdown drops pending idle work, so it needs the handler created after it.
     const holder: { events?: ReturnType<typeof createOpencodeSessionEvents> } = {};
     const runtime = await startOpencodeRuntime(ctx, () => holder.events?.dispose());
+    const notify = await registerTuiNotices(ctx);
     const events = createOpencodeSessionEvents({
       session: ctx.session,
       directory,
       autoCaptureHost: runtime.autoCaptureHost,
       learnProfile: async () => {
-        await performUserProfileLearning(directory);
+        await performUserProfileLearning(directory, notify);
       },
     });
     holder.events = events;

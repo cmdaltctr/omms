@@ -33,6 +33,7 @@ describe("OpenCode TUI entry", () => {
     const output = await built.outputs[0]!.text();
     const imports = new Bun.Transpiler({ loader: "js" }).scanImports(output).map((i) => i.path);
     expect(imports.sort()).toEqual([
+      "../dist/adapters/opencode/tui-notices.js",
       "../dist/adapters/opencode/tui-recall.js",
       "../dist/adapters/opencode/tui-status.js",
       "opentui:runtime-module:%40opentui%2Fsolid%2Fjsx-runtime",

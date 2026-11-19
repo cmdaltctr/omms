@@ -5,14 +5,18 @@ import {
 } from "../../core/profile-learning/pass.js";
 import { log } from "../../services/logger.js";
 import { createOpencodeLearningModel } from "./profile-model.js";
-import { showOpencodeNotice } from "./toast.js";
+import { showOpencodeNotice, type OpencodeNotice } from "./toast.js";
 
 // OpenCode's profile learning trigger. The steps live in the shared pass
 // (change unify-profile-learning, design D1); OpenCode keeps the model and the notice.
 
-/** Run one learning pass for `directory` after an idle capture. Never throws. */
+/**
+ * Run one learning pass for `directory` after an idle capture. Never throws. `notify` shows the
+ * pass's notices; the V2 plugin passes the TUI channel (`registerTuiNotices`).
+ */
 export async function performUserProfileLearning(
-  directory: string
+  directory: string,
+  notify: (notice: OpencodeNotice) => void = showOpencodeNotice
 ): Promise<ProfileLearningPassResult> {
   refreshConfigIfChanged(directory);
   if (!CONFIG.autoCaptureProviderStatus?.ready) {
@@ -30,7 +34,7 @@ export async function performUserProfileLearning(
     host: "opencode",
     directory,
     config,
-    model: () => createOpencodeLearningModel(showOpencodeNotice),
-    notify: showOpencodeNotice,
+    model: () => createOpencodeLearningModel(notify),
+    notify,
   });
 }
