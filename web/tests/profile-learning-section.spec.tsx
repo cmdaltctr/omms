@@ -346,3 +346,20 @@ it("reads in Arabic with the config keys kept left to right", () => {
   setLanguage("zh");
   expect(html()).toContain("仍然学习");
 });
+
+it.each(["en", "zh", "ar"] as const)(
+  "lets the selected label wrap instead of cutting it off in %s",
+  (language) => {
+    setLanguage(language);
+    // The default of "Model input" is the longest label, so the default state is the worst case.
+    const triggers = [...html().matchAll(/<button[^>]*role="combobox"[^>]*>(<span[^>]*>)/g)];
+    expect(triggers).toHaveLength(6);
+    for (const [trigger, label] of triggers) {
+      expect(label).not.toContain("truncate");
+      expect(label).toContain("break-words");
+      // A fixed h-9 would clip a label that wraps to a second line.
+      expect(trigger).not.toMatch(/class="([^"]* )?h-9[ "]/);
+      expect(trigger).toMatch(/class="[^"]*min-h-9/);
+    }
+  }
+);

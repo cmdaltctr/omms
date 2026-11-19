@@ -185,6 +185,7 @@ export function ProfileLearningSettingsSection() {
             <Select
               id={control.controlId}
               className="w-full"
+              wrapLabel
               value={String(shown[control.key])}
               disabled={busy}
               onChange={(event) => {

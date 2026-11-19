@@ -17,6 +17,8 @@ type SelectProps = {
   required?: boolean;
   disabled?: boolean;
   "aria-label"?: string;
+  /** Let a long selected label wrap onto more lines, so the box grows and nothing ends in "…". */
+  wrapLabel?: boolean;
   children: React.ReactNode;
 };
 
@@ -55,6 +57,7 @@ export function Select({
   required,
   disabled,
   "aria-label": ariaLabel,
+  wrapLabel,
   children,
 }: SelectProps) {
   const options = collectOptions(children);
@@ -184,10 +187,13 @@ export function Select({
         className={cn(
           "flex h-9 max-w-full items-center justify-between gap-2 rounded-[10px] border border-input bg-card px-2.5 text-ui text-foreground text-start transition-colors duration-150 hover:bg-interactive-hover focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
           className,
-          "flex h-9 rounded-[10px] border-input bg-card text-ui"
+          "flex h-9 rounded-[10px] border-input bg-card text-ui",
+          wrapLabel && "h-auto min-h-9 py-1.5"
         )}
       >
-        <span className="min-w-0 truncate">{selected?.label ?? ""}</span>
+        <span className={cn("min-w-0", wrapLabel ? "break-words" : "truncate")}>
+          {selected?.label ?? ""}
+        </span>
         <ChevronDown
           className={cn(
             "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
