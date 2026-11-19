@@ -5,9 +5,9 @@
 
 import { existsSync, readdirSync } from "node:fs";
 import { basename, join } from "node:path";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { tursoShardManager } from "./turso/shard-manager.js";
-import type { TursoDb } from "./turso/turso-db.js";
+import { tursoConnectionManager } from "../../turso/connection-manager.js";
+import { tursoShardManager } from "../../turso/shard-manager.js";
+import type { TursoDb } from "../../turso/turso-db.js";
 
 export const FROM_PREFIX_WITH_SEP = "opencode_";
 

@@ -12,7 +12,7 @@ await import("../src/services/user-prompt/user-prompt-manager.js");
 await import("../src/services/user-profile/user-profile-manager.js");
 await import("../src/services/storage/ai-sessions.js");
 await import("../src/services/spaces/read-store-cache.js");
-await import("../src/services/tag-migration.js");
+await import("../src/services/storage/maintenance/tag-migration.js");
 
 const srcRoot = join(import.meta.dir, "../src");
 

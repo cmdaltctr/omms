@@ -1,24 +1,24 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative } from "node:path";
-import { getExplicitContainerTagPrefix, getStoragePath } from "./active-space-access.js";
-import { log } from "./logger.js";
-import { writeBackupManifest } from "./spaces/backup.js";
+import { getExplicitContainerTagPrefix, getStoragePath } from "../active-space-access.js";
+import { log } from "../../logger.js";
+import { writeBackupManifest } from "../../spaces/backup.js";
 import {
   copyFilesWithVerification,
   timestampSlug,
   walkTree,
   type BackupManifestEntry,
-} from "./legacy-migration.js";
+} from "../../legacy-migration.js";
 import {
   countOpencodePrefixedRows,
   enumerateShardTargets,
   FROM_PREFIX_WITH_SEP,
   type ShardTarget,
 } from "./tag-prefix-scan.js";
-import { withCrossProcessWriteLock } from "./turso/cross-process-write-lock.js";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { tursoShardManager } from "./turso/shard-manager.js";
-import type { TursoDb } from "./turso/turso-db.js";
+import { withCrossProcessWriteLock } from "../../turso/cross-process-write-lock.js";
+import { tursoConnectionManager } from "../../turso/connection-manager.js";
+import { tursoShardManager } from "../../turso/shard-manager.js";
+import type { TursoDb } from "../../turso/turso-db.js";
 import type { InArgs, ResultSet, Transaction } from "@libsql/client";
 
 /**

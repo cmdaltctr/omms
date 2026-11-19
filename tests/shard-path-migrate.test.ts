@@ -120,7 +120,7 @@ describe("shard path migration", () => {
     expect(newHash).not.toBe(oldHash);
 
     const { shardPathMigrationService } =
-      await import("../src/services/shard-path-migration-service.js");
+      await import("../src/services/storage/maintenance/shard-path-migration-service.js");
     const result = await shardPathMigrationService.migrate({
       currentDirectory: newProjectDir,
       fromPath: oldProjectDir,
@@ -176,7 +176,7 @@ describe("shard path migration", () => {
     await seedShard(newProjectDir, [{ id: "mem_new", content: "new memory" }]);
 
     const { shardPathMigrationService } =
-      await import("../src/services/shard-path-migration-service.js");
+      await import("../src/services/storage/maintenance/shard-path-migration-service.js");
     const result = await shardPathMigrationService.migrate({
       currentDirectory: newProjectDir,
       fromPath: oldProjectDir,
@@ -216,7 +216,7 @@ describe("shard path migration", () => {
     await tursoShardManager.createShard("project", newHash, 0);
 
     const { shardPathMigrationService } =
-      await import("../src/services/shard-path-migration-service.js");
+      await import("../src/services/storage/maintenance/shard-path-migration-service.js");
     const result = await shardPathMigrationService.migrate({
       currentDirectory: newProjectDir,
       fromPath: oldProjectDir,
@@ -243,7 +243,7 @@ describe("shard path migration", () => {
     ]);
 
     const { shardPathMigrationService } =
-      await import("../src/services/shard-path-migration-service.js");
+      await import("../src/services/storage/maintenance/shard-path-migration-service.js");
     const result = await shardPathMigrationService.migrate({
       currentDirectory: newProjectDir,
       fromPath: oldProjectDir,
@@ -268,7 +268,7 @@ describe("shard path migration", () => {
     ]);
 
     const { shardPathMigrationService } =
-      await import("../src/services/shard-path-migration-service.js");
+      await import("../src/services/storage/maintenance/shard-path-migration-service.js");
     const refused = await shardPathMigrationService.migrate({
       currentDirectory: newProjectDir,
       fromHash: oldHash,
@@ -312,7 +312,7 @@ describe("shard path migration", () => {
 
       try {
         const { shardPathMigrationService } =
-          await import("../src/services/shard-path-migration-service.js");
+          await import("../src/services/storage/maintenance/shard-path-migration-service.js");
         const result = await shardPathMigrationService.migrate({
           currentDirectory: newProjectDir,
           fromHash: oldHash,
@@ -374,7 +374,7 @@ describe("shard path migration", () => {
     ).toBe(true);
 
     const { shardPathMigrationService } =
-      await import("../src/services/shard-path-migration-service.js");
+      await import("../src/services/storage/maintenance/shard-path-migration-service.js");
     const result = await shardPathMigrationService.migrate({
       currentDirectory: newProjectDir,
       fromHash: oldHash,

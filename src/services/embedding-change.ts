@@ -157,7 +157,7 @@ export async function currentEmbedding(config: EmbeddingChangeConfig) {
 
 /** Start one re-embed of every out-of-date shard; a second start while one runs is refused. */
 export async function startReembed(): Promise<void> {
-  const { migrationService } = await import("./migration-service.js");
+  const { migrationService } = await import("./storage/maintenance/migration-service.js");
   if (run.state === "running" || migrationService.getStatus().isRunning) {
     throw new EmbeddingChangeError("A re-embed is already running", 409);
   }

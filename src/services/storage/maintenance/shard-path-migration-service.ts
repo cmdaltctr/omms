@@ -7,22 +7,22 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
-import { getContainerTagPrefix, getStoragePath } from "./active-space-access.js";
-import { extractScopeFromContainerTag } from "./memory-scope.js";
-import { getProjectTagInfo } from "./tags.js";
-import { ensureTursoReady } from "./turso/ready.js";
-import { acquireTursoOperationLock } from "./turso/operation-lock.js";
-import { tursoShardManager } from "./turso/shard-manager.js";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { tursoVectorSearch } from "./turso/vector-search.js";
-import { withSqliteFileLockRetry } from "./turso/sqlite-handle-release.js";
-import { log } from "./logger.js";
+import { getContainerTagPrefix, getStoragePath } from "../active-space-access.js";
+import { extractScopeFromContainerTag } from "../../memory-scope.js";
+import { getProjectTagInfo } from "../../tags.js";
+import { ensureTursoReady } from "../../turso/ready.js";
+import { acquireTursoOperationLock } from "../../turso/operation-lock.js";
+import { tursoShardManager } from "../../turso/shard-manager.js";
+import { tursoConnectionManager } from "../../turso/connection-manager.js";
+import { tursoVectorSearch } from "../../turso/vector-search.js";
+import { withSqliteFileLockRetry } from "../../turso/sqlite-handle-release.js";
+import { log } from "../../logger.js";
 import {
   shardInventoryService,
   type ResolveMigrationSourceOptions,
   type ResolvedMigrationSource,
 } from "./shard-inventory-service.js";
-import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
+import { userPromptManager } from "../../user-prompt/user-prompt-manager.js";
 
 export interface PathMigrationOptions extends ResolveMigrationSourceOptions {
   currentDirectory: string;

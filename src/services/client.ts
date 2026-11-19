@@ -404,7 +404,8 @@ export class LocalMemoryClient {
   async listShards(currentDirectory: string) {
     try {
       await this.initialize();
-      const { shardInventoryService } = await import("./shard-inventory-service.js");
+      const { shardInventoryService } =
+        await import("./storage/maintenance/shard-inventory-service.js");
       return await shardInventoryService.listShards(currentDirectory);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -422,7 +423,8 @@ export class LocalMemoryClient {
   }) {
     try {
       await this.initialize();
-      const { shardPathMigrationService } = await import("./shard-path-migration-service.js");
+      const { shardPathMigrationService } =
+        await import("./storage/maintenance/shard-path-migration-service.js");
       return await shardPathMigrationService.migrate(options);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

@@ -18,10 +18,10 @@ const overCeilingBaseline: Record<string, number> = {
   "src/importer/importer.ts": 609,
   "src/importer/claude-hook-api.ts": 525,
   "web/src/lib/components/explorer/AppSidebar.tsx": 571,
-  "src/services/tag-prefix-migration.ts": 559,
+  "src/services/storage/maintenance/tag-prefix-migration.ts": 559,
   "web/src/lib/components/explorer/AiCleanupDialog.tsx": 523,
   "src/services/ai/providers/openai-chat-completion.ts": 548,
-  "src/services/shard-path-migration-service.ts": 508,
+  "src/services/storage/maintenance/shard-path-migration-service.ts": 508,
   "web/src/hooks/useMemoriesExplorer.ts": 504,
 };
 

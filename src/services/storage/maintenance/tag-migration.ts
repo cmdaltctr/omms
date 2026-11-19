@@ -3,18 +3,18 @@
  * which sits at its file-size ceiling. The caller passes the config, so this
  * module never imports CONFIG.
  */
-import { embeddingService } from "./embedding.js";
-import { tursoShardManager } from "./turso/shard-manager.js";
-import { tursoVectorSearch } from "./turso/vector-search.js";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { ensureTursoReady } from "./turso/ready.js";
-import { formatTagsForEmbedding } from "./turso/vector-utils.js";
-import { UNTAGGED_NORMAL_PREDICATE } from "./memory-kind.js";
-import { log } from "./logger.js";
-import { resettable } from "./spaces/store-handles.js";
-import { providerErrorKind, type ProviderErrorKind } from "./ai/provider-error-kind.js";
-import type { buildMemoryProviderConfig } from "./ai/provider-config.js";
-import type { AIProviderType } from "./ai/session/session-types.js";
+import { embeddingService } from "../../embedding.js";
+import { tursoShardManager } from "../../turso/shard-manager.js";
+import { tursoVectorSearch } from "../../turso/vector-search.js";
+import { tursoConnectionManager } from "../../turso/connection-manager.js";
+import { ensureTursoReady } from "../../turso/ready.js";
+import { formatTagsForEmbedding } from "../../turso/vector-utils.js";
+import { UNTAGGED_NORMAL_PREDICATE } from "../../memory-kind.js";
+import { log } from "../../logger.js";
+import { resettable } from "../../spaces/store-handles.js";
+import { providerErrorKind, type ProviderErrorKind } from "../../ai/provider-error-kind.js";
+import type { buildMemoryProviderConfig } from "../../ai/provider-config.js";
+import type { AIProviderType } from "../../ai/session/session-types.js";
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -132,8 +132,8 @@ async function runOneBatch(
   const generation = spaceGeneration;
   try {
     await ensureTursoReady();
-    const { AIProviderFactory } = await import("./ai/ai-provider-factory.js");
-    const { buildMemoryProviderConfig } = await import("./ai/provider-config.js");
+    const { AIProviderFactory } = await import("../../ai/ai-provider-factory.js");
+    const { buildMemoryProviderConfig } = await import("../../ai/provider-config.js");
     const providerConfig = buildMemoryProviderConfig(config, {
       maxIterations: 1,
       iterationTimeout: 30000,

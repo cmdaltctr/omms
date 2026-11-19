@@ -1,5 +1,5 @@
 import { log } from "../logger.js";
-import { runTagMigrationBatch } from "../tag-migration.js";
+import { runTagMigrationBatch } from "../storage/maintenance/tag-migration.js";
 import type { ApiConfig, ApiResponse } from "./shared.js";
 
 export async function handleRunCleanup(
@@ -37,7 +37,7 @@ export async function handleDetectMigration(): Promise<
   }>
 > {
   try {
-    const { migrationService } = await import("../migration-service.js");
+    const { migrationService } = await import("../storage/maintenance/migration-service.js");
     const result = await migrationService.detectDimensionMismatch();
     return { success: true, data: result };
   } catch (error) {
@@ -57,7 +57,7 @@ export async function handleRunMigration(strategy: "fresh-start" | "re-embed"): 
   }>
 > {
   try {
-    const { migrationService } = await import("../migration-service.js");
+    const { migrationService } = await import("../storage/maintenance/migration-service.js");
     const result = await migrationService.migrateToNewModel(strategy);
     return { success: result.success, data: result };
   } catch (error) {
@@ -66,7 +66,10 @@ export async function handleRunMigration(strategy: "fresh-start" | "re-embed"): 
   }
 }
 
-export { handleDetectTagMigration, handleGetTagMigrationProgress } from "../tag-migration.js";
+export {
+  handleDetectTagMigration,
+  handleGetTagMigrationProgress,
+} from "../storage/maintenance/tag-migration.js";
 
 /** Tags untagged memories with the memory model. The work lives in tag-migration.ts. */
 export async function handleRunTagMigrationBatch(config: ApiConfig, batchSize: number = 5) {

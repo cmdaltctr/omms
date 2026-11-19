@@ -405,7 +405,8 @@ export async function readStoreProjects(currentDirectory: string): Promise<Known
   try {
     const { CONFIG } = await import("../config.js");
     if (!existsSync(join(CONFIG.storagePath, "metadata.db"))) return [];
-    const { shardInventoryService } = await import("../services/shard-inventory-service.js");
+    const { shardInventoryService } =
+      await import("../services/storage/maintenance/shard-inventory-service.js");
     const inventory = await shardInventoryService.listShards(currentDirectory);
     return inventory.shards.flatMap((group) => {
       const candidates = group.projectPathCandidates.map((candidate) => resolve(candidate.path));
