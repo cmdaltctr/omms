@@ -1,10 +1,16 @@
-import { tursoShardManager } from "./turso/shard-manager.js";
-import { tursoVectorSearch } from "./turso/vector-search.js";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { ensureTursoReady } from "./turso/ready.js";
+import {
+  decrementShardCount,
+  ensureMemoryStoreReady,
+  listEveryMemoryShard,
+} from "./storage/memory/shards.js";
+import {
+  deleteMemoryRow,
+  memoryRowsUpdatedBefore,
+  pinnedMemoryIds as readPinnedMemoryIds,
+} from "./storage/memory/rows.js";
+import type { MemoryRow, ShardInfo } from "./storage/memory/types.js";
 import { log } from "./logger.js";
 import { userPromptManager } from "./user-prompt/user-prompt-manager.js";
-import { memoryKindPredicate } from "./memory-kind.js";
 import type { CaptureRetryConfig } from "./capture-retry-queue.js";
 
 type Config = (typeof import("../config.js"))["CONFIG"];
@@ -28,12 +34,9 @@ interface CleanupResult {
   pinnedMemoriesSkipped: number;
 }
 
-// Derived from the connection manager, so this file adds no storage import (modularity ratchet).
-type ShardDb = Awaited<ReturnType<typeof tursoConnectionManager.getConnection>>;
-
 /** The memories a deletion would remove, per shard of the active space. */
 interface OldMemories {
-  shards: { shardId: number; db: ShardDb; memories: Record<string, unknown>[] }[];
+  shards: { shard: ShardInfo; memories: MemoryRow[] }[];
   pinnedSkipped: number;
 }
 
@@ -80,7 +83,7 @@ export class CleanupService {
 
   /** How many memories a deletion with `retentionDays` would remove now. Deletes nothing. */
   async countCleanupCandidates(retentionDays: number): Promise<number> {
-    await ensureTursoReady();
+    await ensureMemoryStoreReady();
     const cutoffTime = Date.now() - retentionDays * DAY_MS;
     const found = await this.findOldMemories(cutoffTime);
     return found.shards.reduce((total, shard) => total + shard.memories.length, 0);
@@ -95,7 +98,7 @@ export class CleanupService {
     this.lastCleanupTime = Date.now();
 
     try {
-      await ensureTursoReady();
+      await ensureMemoryStoreReady();
       const retentionDays = config.autoCleanupRetentionDays;
       const result = deleteOld ? await this.deleteOldMemories(retentionDays) : NOTHING_DELETED;
       // Counts and days only: never memory text, ids or project names (CLAUDE.md Security).
@@ -120,27 +123,16 @@ export class CleanupService {
    * old prompt goes in the same run as its prompt (ADR-051).
    */
   private async findOldMemories(cutoffTime: number): Promise<OldMemories> {
-    const userShards = await tursoShardManager.getAllShards("user", "");
-    const projectShards = await tursoShardManager.getAllShards("project", "");
-    const allShards = [...userShards, ...projectShards];
+    const allShards = await listEveryMemoryShard("user");
 
     const pinnedMemoryIds = new Set<string>();
     for (const shard of allShards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const pinned = await db.all(`SELECT id FROM memories WHERE is_pinned = 1`);
-      pinned.forEach((row) => pinnedMemoryIds.add(String(row.id)));
+      for (const id of await readPinnedMemoryIds(shard)) pinnedMemoryIds.add(id);
     }
 
     const found: OldMemories = { shards: [], pinnedSkipped: 0 };
     for (const shard of allShards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const oldMemories = await db.all(
-        `
-          SELECT id, container_tag, is_pinned FROM memories
-          WHERE updated_at < ? AND ${memoryKindPredicate()}
-        `,
-        [cutoffTime]
-      );
+      const oldMemories = await memoryRowsUpdatedBefore(shard, cutoffTime);
       const memories = oldMemories.filter((memory) => {
         if (Number(memory.is_pinned) === 1) {
           found.pinnedSkipped++;
@@ -148,7 +140,7 @@ export class CleanupService {
         }
         return !pinnedMemoryIds.has(String(memory.id));
       });
-      found.shards.push({ shardId: shard.id, db, memories });
+      found.shards.push({ shard, memories });
     }
     return found;
   }
@@ -164,11 +156,11 @@ export class CleanupService {
     let projectDeleted = 0;
     let linkedDeleted = 0;
 
-    for (const { shardId, db, memories } of found.shards) {
+    for (const { shard, memories } of found.shards) {
       for (const memory of memories) {
         try {
-          await tursoVectorSearch.deleteVector(db, String(memory.id));
-          await tursoShardManager.decrementVectorCount(shardId);
+          await deleteMemoryRow(shard, String(memory.id));
+          await decrementShardCount(shard.id);
           totalDeleted++;
           if (linkedMemoryIds.has(String(memory.id))) linkedDeleted++;
 

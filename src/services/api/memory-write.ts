@@ -11,13 +11,21 @@ import {
   webUpdateRefusal,
 } from "../web-memory-rows.js";
 import {
-  ensureTursoReady,
+  deleteMemoryRow,
   formatTagsForEmbedding,
-  tursoConnectionManager,
-  tursoShardManager,
-  tursoVectorSearch,
-  type MemoryRecord,
-} from "./shards.js";
+  getMemoryRow,
+  insertMemoryRow,
+  pinMemoryRow,
+  unpinMemoryRow,
+} from "../storage/memory/rows.js";
+import {
+  decrementShardCount,
+  ensureMemoryStoreReady,
+  getWriteMemoryShard,
+  incrementShardCount,
+  withMemoryScopeWriteLock,
+} from "../storage/memory/shards.js";
+import type { MemoryRecord } from "../storage/memory/types.js";
 import {
   extractScopeFromTag,
   getAllMemoryShards,
@@ -42,7 +50,7 @@ export async function handleAddMemory(data: {
       return { success: false, error: "content and containerTag are required" };
     }
     if (data.type === "memorisation") return { success: false, error: MEMORISATION_TYPE_REFUSAL };
-    await ensureTursoReady();
+    await ensureMemoryStoreReady();
     await embeddingService.warmup();
     const tags = (data.tags || []).map((t) => t.trim().toLowerCase());
     const embeddingInput =
@@ -58,8 +66,8 @@ export async function handleAddMemory(data: {
 
     const { scope, hash } = extractScopeFromTag(data.containerTag);
 
-    return tursoShardManager.withScopeWriteLock(scope, hash, async () => {
-      const shard = await tursoShardManager.getWriteShard(scope, hash);
+    return withMemoryScopeWriteLock(scope, hash, async () => {
+      const shard = await getWriteMemoryShard(scope, hash);
 
       const id = `mem_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
       const now = Date.now();
@@ -82,9 +90,8 @@ export async function handleAddMemory(data: {
         gitRepoUrl: data.gitRepoUrl,
         metadata: JSON.stringify({ source: "api" }),
       };
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      await tursoVectorSearch.insertVector(db, record);
-      await tursoShardManager.incrementVectorCount(shard.id);
+      await insertMemoryRow(shard, record);
+      await incrementShardCount(shard.id);
       return { success: true as const, data: { id } };
     });
   } catch (error) {
@@ -101,16 +108,15 @@ export async function handleDeleteMemory(
     if (!id) return { success: false, error: "id is required" };
     const shards = await getAllMemoryShards();
     for (const shard of shards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const memory = await tursoVectorSearch.getMemoryById(db, id);
+      const memory = await getMemoryRow(shard, id);
       if (memory) {
         if (cascade) {
           const metadata = safeJSONParse(memory.metadata);
           const linkedPromptId = metadata?.promptId;
           if (linkedPromptId) await userPromptManager.deletePrompt(linkedPromptId);
         }
-        await tursoVectorSearch.deleteVector(db, id);
-        await tursoShardManager.decrementVectorCount(shard.id);
+        await deleteMemoryRow(shard, id);
+        await decrementShardCount(shard.id);
         return {
           success: true,
           data: { deletedPrompt: cascade && !!safeJSONParse(memory.metadata)?.promptId },
@@ -159,8 +165,7 @@ export async function handleUpdateMemory(
     const shards = await getAllMemoryShards();
     let existingMemory = null;
     for (const shard of shards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      existingMemory = await tursoVectorSearch.getMemoryById(db, id);
+      existingMemory = await getMemoryRow(shard, id);
       if (existingMemory) break;
     }
     if (!existingMemory) return { success: false, error: "Memory not found" };
@@ -200,9 +205,7 @@ export async function handleUpdateMemory(
 
     // STEP 2: Swap the row under the scope write lock, as every other memory write does.
     const { scope, hash } = extractScopeFromContainerTag(record.containerTag);
-    const replaced = await tursoShardManager.withScopeWriteLock(scope, hash, () =>
-      replaceMemoryRow(record)
-    );
+    const replaced = await withMemoryScopeWriteLock(scope, hash, () => replaceMemoryRow(record));
     return replaced ? { success: true } : { success: false, error: "Memory not found" };
   } catch (error) {
     log("handleUpdateMemory: error", { error: String(error) }, "error");
@@ -215,10 +218,9 @@ export async function handlePinMemory(id: string): Promise<ApiResponse<void>> {
     if (!id) return { success: false, error: "id is required" };
     const shards = await getAllMemoryShards();
     for (const shard of shards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const memory = await tursoVectorSearch.getMemoryById(db, id);
+      const memory = await getMemoryRow(shard, id);
       if (memory) {
-        await tursoVectorSearch.pinMemory(db, id);
+        await pinMemoryRow(shard, id);
         return { success: true };
       }
     }
@@ -234,10 +236,9 @@ export async function handleUnpinMemory(id: string): Promise<ApiResponse<void>> 
     if (!id) return { success: false, error: "id is required" };
     const shards = await getAllMemoryShards();
     for (const shard of shards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const memory = await tursoVectorSearch.getMemoryById(db, id);
+      const memory = await getMemoryRow(shard, id);
       if (memory) {
-        await tursoVectorSearch.unpinMemory(db, id);
+        await unpinMemoryRow(shard, id);
         return { success: true };
       }
     }

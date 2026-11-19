@@ -1,12 +1,8 @@
 import { log } from "../logger.js";
 import { countKeywords, type KeywordCount } from "../keyword-counts.js";
 import { loadMemoryRows } from "../web-memory-rows.js";
-import {
-  ensureTursoReady,
-  tursoConnectionManager,
-  tursoShardManager,
-  tursoVectorSearch,
-} from "./shards.js";
+import { allMemoryRows, distinctMemoryTags } from "../storage/memory/rows.js";
+import { ensureMemoryStoreReady, listMemoryShards } from "../storage/memory/shards.js";
 import { getAllMemoryShards, type ApiResponse } from "./shared.js";
 
 interface TagInfo {
@@ -22,16 +18,15 @@ interface TagInfo {
 
 export async function handleListTags(): Promise<ApiResponse<{ project: TagInfo[] }>> {
   try {
-    await ensureTursoReady();
+    await ensureMemoryStoreReady();
     // Tags are stored as SQLite metadata; embedding model is not needed.
     // Calling warmup() here would block on local transformer init in the worker
     // thread and hang every read API. Only handlers that compute similarity
     // (e.g. handleSearch) should warm up the embedding service.
-    const projectShards = await tursoShardManager.getAllShards("project", "");
+    const projectShards = await listMemoryShards("project", "");
     const tagsMap = new Map<string, TagInfo>();
     for (const shard of projectShards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const tags = await tursoVectorSearch.getDistinctTags(db);
+      const tags = await distinctMemoryTags(shard);
       for (const t of tags) {
         if (t.container_tag && !tagsMap.has(String(t.container_tag))) {
           tagsMap.set(String(t.container_tag), {
@@ -64,7 +59,7 @@ export async function handleListKeywords(
   tag?: string
 ): Promise<ApiResponse<{ keywords: KeywordCount[] }>> {
   try {
-    await ensureTursoReady();
+    await ensureMemoryStoreReady();
     const rows = await loadMemoryRows(tag);
     return { success: true, data: { keywords: countKeywords(rows.map((r) => r.tags)) } };
   } catch (error) {
@@ -88,8 +83,7 @@ export async function handleStats(): Promise<
       projectCount = 0;
     const typeCount: Record<string, number> = {};
     for (const shard of shards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const memories = await tursoVectorSearch.getAllMemories(db);
+      const memories = await allMemoryRows(shard);
       for (const r of memories) {
         const containerTag = String(r.container_tag ?? "");
         const type = r.type ? String(r.type) : "";

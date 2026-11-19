@@ -2,12 +2,9 @@ import { embeddingService } from "../embedding.js";
 import { tryExtractScopeFromContainerTag } from "../memory-scope.js";
 import { log } from "../logger.js";
 import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
-import {
-  ensureTursoReady,
-  tursoConnectionManager,
-  tursoShardManager,
-  tursoVectorSearch,
-} from "./shards.js";
+import { distinctMemoryTags, getMemoryRow } from "../storage/memory/rows.js";
+import { searchMemoryShard } from "../storage/memory/search.js";
+import { ensureMemoryStoreReady, listMemoryShards } from "../storage/memory/shards.js";
 import {
   extractScopeFromTag,
   getAllMemoryShards,
@@ -61,22 +58,17 @@ export async function handleSearch(
 ): Promise<ApiResponse<PaginatedResponse<SearchResultItem>>> {
   try {
     if (!query) return { success: false, error: "query is required" };
-    await ensureTursoReady();
+    await ensureMemoryStoreReady();
     await embeddingService.warmup();
     const queryVector = await embeddingService.embedWithTimeout(query, { task: "query" });
     const memoryResults: any[] = [];
     let promptResults: any[] = [];
     if (tag) {
       const { scope, hash } = extractScopeFromTag(tag);
-      const shards = await tursoShardManager.getAllShards(scope, hash);
+      const shards = await listMemoryShards(scope, hash);
       for (const shard of shards) {
         try {
-          const results = await tursoVectorSearch.searchInShard(
-            shard,
-            queryVector,
-            tag,
-            pageSize * 2
-          );
+          const results = await searchMemoryShard(shard, queryVector, tag, pageSize * 2);
           memoryResults.push(...results);
         } catch (error) {
           log("Shard search error", { shardId: shard.id, error: String(error) }, "error");
@@ -88,8 +80,7 @@ export async function handleSearch(
       const allShards = await getAllMemoryShards();
       const uniqueTags = new Set<string>();
       for (const shard of allShards) {
-        const db = await tursoConnectionManager.getConnection(shard.dbPath);
-        const tags = await tursoVectorSearch.getDistinctTags(db);
+        const tags = await distinctMemoryTags(shard);
         for (const t of tags) {
           if (t.container_tag) uniqueTags.add(String(t.container_tag));
         }
@@ -101,15 +92,10 @@ export async function handleSearch(
           continue;
         }
         const { scope, hash } = parsed;
-        const shards = await tursoShardManager.getAllShards(scope, hash);
+        const shards = await listMemoryShards(scope, hash);
         for (const shard of shards) {
           try {
-            const results = await tursoVectorSearch.searchInShard(
-              shard,
-              queryVector,
-              containerTag,
-              pageSize
-            );
+            const results = await searchMemoryShard(shard, queryVector, containerTag, pageSize);
             memoryResults.push(...results);
           } catch (error) {
             log("Shard search error", { shardId: shard.id, error: String(error) }, "error");
@@ -192,9 +178,8 @@ export async function handleSearch(
     if (missingMemoryIds.size > 0) {
       const shards = await getAllMemoryShards();
       for (const shard of shards) {
-        const db = await tursoConnectionManager.getConnection(shard.dbPath);
         for (const mid of missingMemoryIds) {
-          const m = await tursoVectorSearch.getMemoryById(db, mid);
+          const m = await getMemoryRow(shard, mid);
           if (m && !paginatedResults.some((existing) => existing.id === m.id)) {
             paginatedResults.push({
               type: "memory",

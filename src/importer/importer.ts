@@ -8,8 +8,8 @@ import { memoryClient } from "../services/client.js";
 import { findLiveCapturedEntryIds } from "../services/live-captured-entries.js";
 import { extractScopeFromContainerTag } from "../services/memory-scope.js";
 import { getTags } from "../services/tags.js";
-import { tursoConnectionManager } from "../services/turso/connection-manager.js";
-import { tursoShardManager } from "../services/turso/shard-manager.js";
+import { listMemoryShards } from "../services/storage/memory/shards.js";
+import { memoryIdByImportId } from "../services/storage/memory/rows.js";
 import {
   extractPiConversationWindows,
   type PiConversationWindow,
@@ -165,14 +165,9 @@ export async function findMemoryIdByImportId(
   projectHash: string,
   importId: string
 ): Promise<string | null> {
-  const shards = await tursoShardManager.getAllShards("project", projectHash);
-  const escaped = importId.replace(/[\\%_]/g, (char) => `\\${char}`);
-  for (const shard of shards) {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    const row = await db.get(`SELECT id FROM memories WHERE metadata LIKE ? ESCAPE '\\'`, [
-      `%"importId":"${escaped}"%`,
-    ]);
-    if (row) return String(row.id);
+  for (const shard of await listMemoryShards("project", projectHash)) {
+    const id = await memoryIdByImportId(shard, importId);
+    if (id !== null) return id;
   }
   return null;
 }

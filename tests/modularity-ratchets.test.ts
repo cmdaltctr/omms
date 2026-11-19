@@ -122,22 +122,8 @@ const configBaseline: Record<string, number> = {
 // Import sites of @libsql/client or the engine folder per file, type-only included.
 // Guards the storage-port follow-up: new code reaches storage through the port, not the engine.
 const storageBaseline: Record<string, number> = {
-  "src/importer/importer.ts": 2,
   "src/importer/opencode-snapshot.ts": 1,
-  "src/services/api/shards.ts": 6,
-  "src/services/chat/chat-runtime.ts": 2,
-  "src/services/cleanup-service.ts": 4,
-  "src/services/client-session-read.ts": 3,
-  "src/services/client.ts": 7,
-  "src/services/deduplication-service.ts": 5,
-  "src/services/embedding-change.ts": 1,
-  "src/services/linked-search.ts": 2,
-  "src/services/live-captured-entries.ts": 2,
-  "src/services/memorisation-store.ts": 3,
-  "src/services/memory-portability-service.ts": 7,
-  "src/services/memory-replace.ts": 4,
   "src/services/migration-service.ts": 8,
-  "src/services/retrieval-rerank.ts": 1,
   "src/services/shard-inventory-service.ts": 5,
   "src/services/shard-path-migration-service.ts": 6,
   "src/services/spaces/backup.ts": 1,
@@ -148,24 +134,13 @@ const storageBaseline: Record<string, number> = {
   "src/services/tag-migration.ts": 5,
   "src/services/tag-prefix-migration.ts": 5,
   "src/services/tag-prefix-scan.ts": 3,
-  "src/services/web-memory-rows.ts": 4,
-  "src/v2/startup.ts": 2,
 };
 
 // SQL statement literals per file, by the SQL_STATEMENT method above.
 // Guards the storage-port follow-up: new SQL goes into the port or the engine folder.
 const sqlBaseline: Record<string, number> = {
-  "src/importer/importer.ts": 1,
   "src/importer/opencode-reader.ts": 8,
   "src/importer/opencode-v2-units.ts": 1,
-  "src/services/chat/chat-runtime.ts": 1,
-  "src/services/cleanup-service.ts": 2,
-  "src/services/deduplication-service.ts": 1,
-  "src/services/linked-search.ts": 3,
-  "src/services/live-captured-entries.ts": 1,
-  "src/services/memorisation-store.ts": 1,
-  "src/services/memory-portability-service.ts": 1,
-  "src/services/memory-replace.ts": 1,
   "src/services/migration-service.ts": 4,
   "src/services/shard-path-migration-service.ts": 1,
   "src/services/spaces/backup.ts": 2,
@@ -176,7 +151,6 @@ const sqlBaseline: Record<string, number> = {
   "src/services/tag-migration.ts": 3,
   "src/services/tag-prefix-migration.ts": 9,
   "src/services/tag-prefix-scan.ts": 1,
-  "src/services/web-memory-rows.ts": 1,
 };
 
 const files = tsFiles(".");

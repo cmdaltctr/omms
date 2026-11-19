@@ -59,6 +59,8 @@ mock.module(${JSON.stringify(connectionManagerUrl)}, () => ({
 
 mock.module(${JSON.stringify(vectorUtilsUrl)}, () => ({
   formatTagsForEmbedding: (tags) => tags.join(" "),
+  // The storage port's rows module re-exports this; a missing export fails the link.
+  parseExtractedVector: () => null,
 }));
 
 mock.module(${JSON.stringify(readyUrl)}, () => ({

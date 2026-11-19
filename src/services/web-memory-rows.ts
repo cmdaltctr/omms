@@ -1,7 +1,9 @@
-import { tursoShardManager } from "./turso/shard-manager.js";
-import { tursoVectorSearch } from "./turso/vector-search.js";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { ensureTursoReady } from "./turso/ready.js";
+import {
+  ensureMemoryStoreReady,
+  listEveryMemoryShard,
+  listMemoryShards,
+} from "./storage/memory/shards.js";
+import { allMemoryRows, listMemoryRows, memorisationIdsInShard } from "./storage/memory/rows.js";
 import { extractScopeFromContainerTag } from "./memory-scope.js";
 
 /** Why the Memories page cannot edit a memorisation. */
@@ -17,21 +19,17 @@ export async function loadMemoryRows(tag?: string): Promise<any[]> {
   const allMemories: any[] = [];
   if (tag) {
     const { scope: tagScope, hash } = extractScopeFromContainerTag(tag);
-    const shards = await tursoShardManager.getAllShards(tagScope, hash);
+    const shards = await listMemoryShards(tagScope, hash);
     for (const shard of shards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const memories = await tursoVectorSearch.listMemories(db, tag, 10000);
+      const memories = await listMemoryRows(shard, tag, 10000);
       allMemories.push(...memories);
     }
   } else {
     // Walk both project and user shards, so user-scope memories are listed too.
     // The container_tag check stays as defence in depth. Memorisations are not
-    // listed here: getAllMemories returns normal memories unless told otherwise.
-    const projectShards = await tursoShardManager.getAllShards("project", "");
-    const userShards = await tursoShardManager.getAllShards("user", "");
-    for (const shard of [...projectShards, ...userShards]) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const memories = await tursoVectorSearch.getAllMemories(db);
+    // listed here: allMemoryRows returns normal memories unless told otherwise.
+    for (const shard of await listEveryMemoryShard("project")) {
+      const memories = await allMemoryRows(shard);
       allMemories.push(
         ...memories.filter(
           (m: any) => m.container_tag?.includes("_project_") || m.container_tag?.includes("_user_")
@@ -45,19 +43,10 @@ export async function loadMemoryRows(tag?: string): Promise<any[]> {
 /** The IDs among `ids` whose stored row is a memorisation, across every project and user shard. */
 export async function memorisationIdsAmong(ids: string[]): Promise<string[]> {
   if (ids.length === 0) return [];
-  await ensureTursoReady();
-  const shards = [
-    ...(await tursoShardManager.getAllShards("project", "")),
-    ...(await tursoShardManager.getAllShards("user", "")),
-  ];
+  await ensureMemoryStoreReady();
   const found: string[] = [];
-  for (const shard of shards) {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    const rows = await db.all(
-      `SELECT id FROM memories WHERE type = 'memorisation' AND id IN (${ids.map(() => "?").join(",")})`,
-      ids
-    );
-    found.push(...rows.map((row) => String(row.id)));
+  for (const shard of await listEveryMemoryShard("project")) {
+    found.push(...(await memorisationIdsInShard(shard, ids)));
   }
   return found;
 }

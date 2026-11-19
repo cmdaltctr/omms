@@ -10,8 +10,8 @@ export { formatTagsForEmbedding, parseExtractedVector } from "../../turso/vector
 /**
  * Rows of the `memories` table, keyed by shard. Each call opens the shard through the
  * engine's live connection pool (or through `open`, for a read-only linked space), so no
- * handle outlives the call. The SQL in this file is copied byte for byte from the callers
- * that still hold their own copy; keep both the same until those callers move here.
+ * handle outlives the call. The SQL in this file moved here byte for byte from the callers
+ * named on each function ("From ..."), which now call these functions instead.
  */
 
 function openShard(shard: ShardInfo, open?: ShardOpener): Promise<StoreDb> {

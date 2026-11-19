@@ -1,11 +1,15 @@
-import { tursoShardManager } from "./turso/shard-manager.js";
-import { tursoVectorSearch } from "./turso/vector-search.js";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { ensureTursoReady } from "./turso/ready.js";
+import {
+  decrementShardCount,
+  ensureMemoryStoreReady,
+  listEveryMemoryShard,
+} from "./storage/memory/shards.js";
+import {
+  dedupCandidateRows,
+  deleteMemoryRow,
+  parseExtractedVector,
+} from "./storage/memory/rows.js";
 import { log } from "./logger.js";
 import { cosineSimilarity } from "../utils/math.js";
-import { parseExtractedVector } from "./turso/vector-utils.js";
-import { memoryKindPredicate } from "./memory-kind.js";
 
 /** The settings a deduplication run reads. Callers pass `CONFIG` at call time. */
 export type DeduplicationConfig = Pick<
@@ -47,27 +51,14 @@ export class DeduplicationService {
     this.isRunning = true;
 
     try {
-      await ensureTursoReady();
-      const userShards = await tursoShardManager.getAllShards("user", "");
-      const projectShards = await tursoShardManager.getAllShards("project", "");
-      const allShards = [...userShards, ...projectShards];
+      await ensureMemoryStoreReady();
+      const allShards = await listEveryMemoryShard("user");
 
       let exactDeleted = 0;
       const nearDuplicateGroups: DuplicateGroup[] = [];
 
       for (const shard of allShards) {
-        const db = await tursoConnectionManager.getConnection(shard.dbPath);
-        const memories = await db.all(`
-          SELECT
-            id,
-            content,
-            container_tag,
-            created_at,
-            vector_extract(vector) AS vector_json
-          FROM memories
-          WHERE ${memoryKindPredicate()}
-          ORDER BY created_at DESC
-        `);
+        const memories = await dedupCandidateRows(shard);
 
         const contentMap = new Map<string, (typeof memories)[number][]>();
 
@@ -86,8 +77,8 @@ export class DeduplicationService {
 
             for (const dup of toDelete) {
               try {
-                await tursoVectorSearch.deleteVector(db, String(dup.id));
-                await tursoShardManager.decrementVectorCount(shard.id);
+                await deleteMemoryRow(shard, String(dup.id));
+                await decrementShardCount(shard.id);
                 exactDeleted++;
               } catch (error) {
                 log(

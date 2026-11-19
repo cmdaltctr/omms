@@ -1,7 +1,7 @@
 import { log } from "../logger.js";
 import { userPromptManager } from "../user-prompt/user-prompt-manager.js";
 import { loadMemoryRows } from "../web-memory-rows.js";
-import { ensureTursoReady } from "./shards.js";
+import { ensureMemoryStoreReady } from "../storage/memory/shards.js";
 import {
   getProjectPathFromTag,
   safeJSONParse,
@@ -35,7 +35,7 @@ export async function handleListMemories(
   keyword?: string
 ): Promise<ApiResponse<PaginatedResponse<Memory | any>>> {
   try {
-    await ensureTursoReady();
+    await ensureMemoryStoreReady();
     // Listing only reads SQLite rows; no vector ops happen here.
     // See handleListTags comment - keep embedding init out of read paths.
     const allMemories = await loadMemoryRows(tag);

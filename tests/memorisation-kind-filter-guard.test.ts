@@ -23,16 +23,6 @@ interface AllowedReader {
  */
 const ALLOWED: AllowedReader[] = [
   {
-    file: "src/importer/importer.ts",
-    sql: "SELECT id FROM memories WHERE metadata LIKE ? ESCAPE '\\\\'",
-    why: "Dedup by import ID. An import never writes a memorisation, so none carries an importId.",
-  },
-  {
-    file: "src/services/chat/chat-runtime.ts",
-    sql: "SELECT id FROM memories WHERE id IN (${\u2026})",
-    why: "By-ID existence check for memory IDs the chat cited. By-ID reads are kind-neutral.",
-  },
-  {
     file: "src/services/spaces/export-space.ts",
     sql: "SELECT ${\u2026} FROM memories",
     why: "Space export and backup copy every row of every kind.",
@@ -123,11 +113,6 @@ const ALLOWED: AllowedReader[] = [
     why: "Legacy store migration reads every row.",
   },
   {
-    file: "src/services/cleanup-service.ts",
-    sql: "SELECT id FROM memories WHERE is_pinned = 1",
-    why: "Collects pinned IDs to protect them from cleanup. It only protects, so kind-neutral is safe.",
-  },
-  {
     file: "src/services/tag-prefix-scan.ts",
     sql: "SELECT COUNT(*) as count FROM memories WHERE container_tag LIKE ? ESCAPE '\\\\'",
     why: "Tag prefix migration scan counts every row.",
@@ -158,11 +143,6 @@ const ALLOWED: AllowedReader[] = [
     why: "By-ID read for the tag backfill. The queue holds only IDs from the filtered untagged query.",
   },
   {
-    file: "src/services/memory-replace.ts",
-    sql: "DELETE FROM memories WHERE id = ?",
-    why: "Delete by ID inside the replace transaction. Replace is how a memorisation changes.",
-  },
-  {
     file: "src/services/migration-service.ts",
     sql: "SELECT id, content, container_tag, tags, type, created_at, updated_at, metadata, display_name, user_name, user_email, project_path, project_name, git_repo_url, is_pinned FROM memories ORDER BY created_at DESC",
     why: "Store migration reads every row.",
@@ -172,47 +152,37 @@ const ALLOWED: AllowedReader[] = [
     sql: "SELECT COUNT(*) AS count FROM memories",
     why: "Store migration verification count.",
   },
-  {
-    file: "src/services/linked-search.ts",
-    sql: "SELECT id FROM memories WHERE id = ?",
-    why: "By-ID read for the memorisation lookup in linked spaces.",
-  },
-  {
-    file: "src/services/linked-search.ts",
-    sql: "SELECT * FROM memories WHERE id = ? AND (? IS NULL OR container_tag = ?)",
-    why: "By-ID read for the memorisation lookup in linked spaces.",
-  },
   // The memory storage port (slice M0) holds a copy of each caller query above until the
   // caller moves onto it; then the caller's entry goes.
   {
     file: "src/services/storage/memory/rows.ts",
     sql: "DELETE FROM memories WHERE id = ?",
-    why: "Port copy of the memory-replace.ts swap: delete by ID inside the replace transaction.",
+    why: "Moved from the memory-replace.ts swap: delete by ID inside the replace transaction.",
   },
   {
     file: "src/services/storage/memory/rows.ts",
     sql: "SELECT id FROM memories WHERE id IN (${…})",
-    why: "Port copy of the chat-runtime.ts by-ID existence check. By-ID reads are kind-neutral.",
+    why: "Moved from the chat-runtime.ts by-ID existence check. By-ID reads are kind-neutral.",
   },
   {
     file: "src/services/storage/memory/rows.ts",
     sql: "SELECT id FROM memories WHERE metadata LIKE ? ESCAPE '\\\\'",
-    why: "Port copy of the importer.ts dedup by import ID. An import never writes a memorisation.",
+    why: "Moved from the importer.ts dedup by import ID. An import never writes a memorisation.",
   },
   {
     file: "src/services/storage/memory/rows.ts",
     sql: "SELECT id FROM memories WHERE is_pinned = 1",
-    why: "Port copy of the cleanup-service.ts pinned-ID read. It only protects rows from cleanup.",
+    why: "Moved from the cleanup-service.ts pinned-ID read. It only protects rows from cleanup.",
   },
   {
     file: "src/services/storage/memory/rows.ts",
     sql: "SELECT id FROM memories WHERE id = ?",
-    why: "Port copy of the linked-search.ts by-ID read for the memorisation lookup.",
+    why: "Moved from the linked-search.ts by-ID read for the memorisation lookup.",
   },
   {
     file: "src/services/storage/memory/rows.ts",
     sql: "SELECT * FROM memories WHERE id = ? AND (? IS NULL OR container_tag = ?)",
-    why: "Port copy of the linked-search.ts by-ID read for the memorisation lookup.",
+    why: "Moved from the linked-search.ts by-ID read for the memorisation lookup.",
   },
 ];
 

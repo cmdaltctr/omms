@@ -15,7 +15,7 @@ const overCeilingBaseline: Record<string, number> = {
   "src/config.ts": 927,
   "src/services/turso/legacy-migrator.ts": 657,
   "src/services/turso/shard-manager.ts": 624,
-  "src/importer/importer.ts": 616,
+  "src/importer/importer.ts": 609,
   "src/importer/claude-hook-api.ts": 525,
   "web/src/lib/components/explorer/AppSidebar.tsx": 571,
   "src/services/tag-prefix-migration.ts": 559,

@@ -3,8 +3,10 @@ import { memoryClient } from "../services/client.js";
 import { getTags } from "../services/tags.js";
 import { createOpenCodeAutoCaptureHost } from "../adapters/opencode/auto-capture-host.js";
 import { pruneTraces } from "../services/capture-diagnostics.js";
-import { ensureTursoReady } from "../services/turso/ready.js";
-import { tursoConnectionManager } from "../services/turso/connection-manager.js";
+import {
+  closeAllStoreConnectionsSync,
+  ensureMemoryStoreReady,
+} from "../services/storage/memory/shards.js";
 import { isConfigured, CONFIG, initConfigWithLegacyMigration } from "../config.js";
 import { log } from "../services/logger.js";
 import { loadOpencodeProvider } from "../adapters/opencode/opencode-provider-loader.js";
@@ -88,7 +90,7 @@ async function startWebApp(): Promise<void> {
   let tursoReadyForWeb = !isConfigured();
   if (CONFIG.webServerEnabled && isConfigured()) {
     try {
-      await ensureTursoReady();
+      await ensureMemoryStoreReady();
       tursoReadyForWeb = true;
     } catch (error) {
       log("Turso ready gate failed before web server start", { error: String(error) }, "error");
@@ -226,7 +228,7 @@ export async function startOpencodeRuntime(ctx: Context, onCleanup: () => void =
     // Best-effort sync close when the host exits without SIGINT/SIGTERM.
     if (cleanedUp) return;
     try {
-      tursoConnectionManager.closeAllSync();
+      closeAllStoreConnectionsSync();
     } catch {
       // ignore: the module may already be torn down
     }

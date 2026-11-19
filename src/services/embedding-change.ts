@@ -143,11 +143,8 @@ export function embeddingRunState(): EmbeddingRunState {
 
 /** The embedder in use and the number of stored memories a change would re-embed. */
 export async function currentEmbedding(config: EmbeddingChangeConfig) {
-  const { tursoShardManager } = await import("./turso/shard-manager.js");
-  const shards = [
-    ...(await tursoShardManager.getAllShards("user", "")),
-    ...(await tursoShardManager.getAllShards("project", "")),
-  ];
+  const { listEveryMemoryShard } = await import("./storage/memory/shards.js");
+  const shards = await listEveryMemoryShard("user");
   return {
     kind: config.embeddingApiUrl ? "server" : "builtin",
     url: config.embeddingApiUrl ?? null,

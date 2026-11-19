@@ -8,12 +8,12 @@
  * search/fetch/log implementations are passed in, never imported from
  * CONFIG, so tests run without a store or a server.
  */
-import type { SearchResult, ShardInfo } from "./turso/types.js";
+import type { SearchResult, ShardInfo } from "./storage/memory/types.js";
 import { RERANKER_POOL_SIZE } from "./request-timeouts.js";
 import { rerankDocuments, type RerankerSettings } from "./reranker.js";
 import type { MemoryKind } from "./memory-kind.js";
 
-/** The shape of tursoVectorSearch.searchAcrossShards, injectable for tests. */
+/** The shape of searchMemoryShards (the storage port), injectable for tests. */
 export type SearchAcrossShards = (
   shards: ShardInfo[],
   queryVector: Float32Array,

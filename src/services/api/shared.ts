@@ -1,20 +1,14 @@
 import { extractScopeFromContainerTag } from "../memory-scope.js";
-import {
-  ensureTursoReady,
-  tursoConnectionManager,
-  tursoShardManager,
-  tursoVectorSearch,
-  type ShardInfo,
-} from "./shards.js";
+import { distinctMemoryTags } from "../storage/memory/rows.js";
+import { ensureMemoryStoreReady, listEveryMemoryShard } from "../storage/memory/shards.js";
+import type { ShardInfo } from "../storage/memory/types.js";
 
 /** The live config module. The route host passes it in; handlers read `.CONFIG` at call time. */
 export type ApiConfig = Pick<typeof import("../../config.js"), "CONFIG">;
 
 export async function getAllMemoryShards(): Promise<ShardInfo[]> {
-  await ensureTursoReady();
-  const projectShards = await tursoShardManager.getAllShards("project", "");
-  const userShards = await tursoShardManager.getAllShards("user", "");
-  return [...projectShards, ...userShards];
+  await ensureMemoryStoreReady();
+  return listEveryMemoryShard("project");
 }
 
 export interface ApiResponse<T = any> {
@@ -65,8 +59,7 @@ export function getProjectPathFromTag(tag: string): Promise<string | undefined> 
   return (async () => {
     const shards = await getAllMemoryShards();
     for (const shard of shards) {
-      const db = await tursoConnectionManager.getConnection(shard.dbPath);
-      const tags = await tursoVectorSearch.getDistinctTags(db);
+      const tags = await distinctMemoryTags(shard);
       for (const t of tags) {
         if (t.container_tag === tag && t.project_path) {
           return String(t.project_path);

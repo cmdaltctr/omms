@@ -92,17 +92,10 @@ async function activeProfileItems(config: ChatRuntimeConfig): Promise<ProfileCan
 export async function existingMemoryIds(ids: string[]): Promise<Set<string>> {
   const found = new Set<string>();
   if (ids.length === 0) return found;
-  const { tursoShardManager } = await import("../turso/shard-manager.js");
-  const { tursoConnectionManager } = await import("../turso/connection-manager.js");
-  const shards = [
-    ...(await tursoShardManager.getAllShards("user", "")),
-    ...(await tursoShardManager.getAllShards("project", "")),
-  ];
-  const marks = ids.map(() => "?").join(",");
-  for (const shard of shards) {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    const rows = await db.all(`SELECT id FROM memories WHERE id IN (${marks})`, ids);
-    for (const row of rows) found.add(String(row.id));
+  const { listEveryMemoryShard } = await import("../storage/memory/shards.js");
+  const { existingMemoryIdsInShard } = await import("../storage/memory/rows.js");
+  for (const shard of await listEveryMemoryShard("user")) {
+    for (const id of await existingMemoryIdsInShard(shard, ids)) found.add(id);
   }
   return found;
 }

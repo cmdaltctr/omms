@@ -4,9 +4,12 @@ import { readLinkedMemory, type LinkedSearchSettings, type ListedMemory } from "
 import type { MemoryScope } from "./client.js";
 import { extractScopeFromContainerTag } from "./memory-scope.js";
 import { memoryClient } from "./client.js";
-import { tursoConnectionManager } from "./turso/connection-manager.js";
-import { tursoShardManager } from "./turso/shard-manager.js";
-import { tursoVectorSearch } from "./turso/vector-search.js";
+import {
+  decrementShardCount,
+  listEveryMemoryShard,
+  listMemoryShards,
+} from "./storage/memory/shards.js";
+import { deleteMemoryRow, getMemoryRow, newestSnapshotRow } from "./storage/memory/rows.js";
 
 export interface StoredMemorisation {
   id: string;
@@ -32,13 +35,8 @@ function toStored(row: Record<string, unknown>, space?: string): StoredMemorisat
 /** The active-space row with this ID, in any project, or null. */
 async function findActiveRow(id: string): Promise<Record<string, unknown> | null> {
   await memoryClient.ensureStorageReady();
-  const shards = [
-    ...(await tursoShardManager.getAllShards("user", "")),
-    ...(await tursoShardManager.getAllShards("project", "")),
-  ];
-  for (const shard of shards) {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    const row = await tursoVectorSearch.getMemoryById(db, id);
+  for (const shard of await listEveryMemoryShard("user")) {
+    const row = await getMemoryRow(shard, id);
     if (row) return row;
   }
   return null;
@@ -87,17 +85,8 @@ export async function findSnapshotByHostSession(
   await memoryClient.ensureStorageReady();
   const { scope, hash } = extractScopeFromContainerTag(containerTag);
   let newest: { id: string; createdAt: number } | null = null;
-  for (const shard of await tursoShardManager.getAllShards(scope, hash)) {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    const row = await db.get(
-      `SELECT id, created_at FROM memories
-       WHERE type = 'memorisation'
-         AND container_tag = ?
-         AND json_extract(metadata, '$.memorisation') = 'snapshot'
-         AND json_extract(metadata, '$.hostSessionId') = ?
-       ORDER BY created_at DESC LIMIT 1`,
-      [containerTag, hostSessionId]
-    );
+  for (const shard of await listMemoryShards(scope, hash)) {
+    const row = await newestSnapshotRow(shard, containerTag, hostSessionId);
     if (row && (!newest || Number(row.created_at) > newest.createdAt)) {
       newest = { id: String(row.id), createdAt: Number(row.created_at) };
     }
@@ -163,17 +152,12 @@ export async function deleteMemorisation(
   linked: LinkedSearchSettings
 ): Promise<MemorisationDeleteOutcome> {
   await memoryClient.ensureStorageReady();
-  const shards = [
-    ...(await tursoShardManager.getAllShards("user", "")),
-    ...(await tursoShardManager.getAllShards("project", "")),
-  ];
-  for (const shard of shards) {
-    const db = await tursoConnectionManager.getConnection(shard.dbPath);
-    const row = await tursoVectorSearch.getMemoryById(db, id);
+  for (const shard of await listEveryMemoryShard("user")) {
+    const row = await getMemoryRow(shard, id);
     if (!row || (containerTag !== null && row.container_tag !== containerTag)) continue;
     if (row.type !== "memorisation") return "not-memorisation";
-    await tursoVectorSearch.deleteVector(db, id);
-    await tursoShardManager.decrementVectorCount(shard.id);
+    await deleteMemoryRow(shard, id);
+    await decrementShardCount(shard.id);
     return "deleted";
   }
   const found = await readLinkedMemory(id, activeOwner(), linked, containerTag);
