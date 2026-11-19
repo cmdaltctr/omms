@@ -8,7 +8,7 @@ mock.module("../src/config.js", () => ({ CONFIG: config }));
 mock.module("../src/services/logger.js", () => ({ log: () => {} }));
 mock.module("../src/adapters/opencode/opencode-provider-loader.js", () => ({
   loadOpencodeProvider: async () => ({
-    isProviderConnected: () => true,
+    confirmProviderConnected: async () => true,
     getOpencodeHost: () => ({}),
     resolveOpencodeModelRef: (ref: { providerID: string; modelID: string }) => ref,
     generateStructuredOutput: async (opts: any) => {

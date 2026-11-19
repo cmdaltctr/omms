@@ -68,7 +68,7 @@ export async function generateOpenCodeAutoCaptureSummary(
       }
 
       const {
-        isProviderConnected,
+        confirmProviderConnected,
         getOpencodeHost,
         generateStructuredOutput,
         resolveOpencodeModelRef,
@@ -83,7 +83,7 @@ export async function generateOpenCodeAutoCaptureSummary(
       diagnostics.provider = providerID;
       diagnostics.model = modelID;
 
-      if (!isProviderConnected(providerID)) {
+      if (!(await confirmProviderConnected(providerID))) {
         throw new Error(
           `opencode provider '${providerID}' is not connected. Check your opencode provider configuration.`
         );

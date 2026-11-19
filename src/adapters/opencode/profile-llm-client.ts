@@ -10,11 +10,11 @@ export async function getOpencodeProfileHost(): Promise<OpencodeHost> {
     throw new Error("omms: live calls use the external API; no OpenCode model is configured");
   }
 
-  const { isProviderConnected, getOpencodeHost, resolveOpencodeModelRef } =
+  const { confirmProviderConnected, getOpencodeHost, resolveOpencodeModelRef } =
     await loadOpencodeProvider();
   // "inherit" checks the provider of the model it resolves to.
   const { providerID: provider } = resolveOpencodeModelRef(hostModel);
-  if (!isProviderConnected(provider)) {
+  if (!(await confirmProviderConnected(provider))) {
     throw new Error(
       `opencode provider '${provider}' is not connected. Check your opencode provider configuration.`
     );
