@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS learned_prompts (
 - `createProfile` writes the profile row and the inserts in one batch.
 - Before the model call, the live pass and the catch-up run look up the batch in the table. A recorded prompt is marked learned and dropped from the batch.
 - A successful mark deletes the rows of its prompts. A row lives only from the save until the mark.
+- A forced history re-analysis deletes the rows of each prompt it puts back in the queue, for every profile, before the reset. The rows are keyed by profile, but the reset runs before the import knows which profile the drain will use. A row only stops a model call, and a forced run asks for that call.
 - The in-memory list of PR #297 is removed. The table does the same job and also survives a restart.
 
 The code is in `src/services/storage/profiles/learned-prompts.ts` and `src/core/profile-learning/learned-record.ts`.
@@ -48,7 +49,7 @@ The code is in `src/services/storage/profiles/learned-prompts.ts` and `src/core/
 ### Negative
 
 - Every learning save now runs as a transaction.
-- If the mark succeeds and the row delete fails, a row stays. It names a prompt that is already learned. A forced history re-analysis then marks that one prompt learned without a model call.
+- If the mark succeeds and the row delete fails, a row stays. It names a prompt that is already learned, so it does no harm. A forced history re-analysis deletes it before the reset, so that prompt still goes to the model.
 
 ### Neutral
 

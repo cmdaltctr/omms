@@ -46,3 +46,13 @@ export async function clearLearnedPromptIds(
     [profileId, ...promptIds]
   );
 }
+
+/**
+ * Removes every profile's record of these prompts. A forced re-analysis calls this before it
+ * puts the prompts back in the learning queue, so no pass skips them as already saved.
+ */
+export async function forgetLearnedPromptIds(db: ProfileDb, promptIds: string[]): Promise<void> {
+  if (promptIds.length === 0) return;
+  const placeholders = promptIds.map(() => "?").join(",");
+  await db.run(`DELETE FROM learned_prompts WHERE prompt_id IN (${placeholders})`, promptIds);
+}

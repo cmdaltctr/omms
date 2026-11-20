@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "bun:test"
 import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { createClient } from "@libsql/client";
 import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
@@ -19,6 +20,7 @@ const { userProfileManager, UserProfileManager } =
 const { getTags } = await import("../src/services/tags.js");
 const { profileBackoff } = await import("../src/core/profile-backoff.js");
 const pass = await import("../src/core/profile-learning/pass.js");
+const { importProfileFromHistory } = await import("../src/importer/profile-import.js");
 
 type HostName = "pi" | "opencode" | "claude-code";
 const hosts: HostName[] = ["pi", "opencode", "claude-code"];
@@ -211,6 +213,67 @@ describe("an older profile database", () => {
     expect(tables).toHaveLength(1);
     expect(await manager.updateProfile("old", empty, 1, "learn", 3, ["x"])).toBe(true);
     expect(await manager.getLearnedPromptIds("old", ["x", "y"])).toEqual(["x"]);
+  });
+});
+
+describe("a forced history re-analysis", () => {
+  it("sends a prompt to the model again when a record of it was left behind", async () => {
+    const project = join(sandbox, `project-${folders++}`);
+    mkdirSync(project, { recursive: true });
+    for (const args of [
+      ["init", "-q"],
+      ["config", "user.email", "ledger@example.invalid"],
+      ["config", "user.name", "Ledger Test"],
+    ]) {
+      const result = spawnSync("git", args, { cwd: project });
+      if (result.status !== 0) throw new Error(result.stderr.toString());
+    }
+    const source = [
+      {
+        sessionId: "s",
+        directory: project,
+        sourceFile: "history.db",
+        units: [
+          {
+            userEntryId: "u",
+            userPrompt: "Please refactor the storage module before the release",
+            sourceEntryIds: ["a"],
+            textResponses: ["Done"],
+            toolCalls: [],
+          },
+        ],
+      },
+    ];
+    const entries = new Map<string, { status: string }>();
+    const ledger = {
+      get: async (key: string) => entries.get(key) ?? null,
+      begin: async ({ key }: { key: string }) => void entries.set(key, { status: "pending" }),
+      complete: async (key: string) => void entries.set(key, { status: "imported" }),
+    };
+    const model = { calls: 0 };
+    const run = (force: boolean) =>
+      importProfileFromHistory(source, {
+        host: "opencode",
+        force,
+        ledger: ledger as never,
+        model: countingModel(model) as never,
+      });
+
+    expect((await run(false)).error).toBeUndefined();
+    expect(model.calls).toBe(1);
+    const [prompt] = await rawRows(dir, "user-prompts.db", "SELECT id FROM user_prompts");
+    const profile = await userProfileManager.getActiveProfile("ledger@example.invalid");
+    // The mark landed but the record delete failed, so a record of a learned prompt stays.
+    await rawRun(
+      dir,
+      "user-profiles.db",
+      `INSERT INTO learned_prompts VALUES ('${profile!.id}', '${String(prompt!.id)}', 1)`
+    );
+
+    expect((await run(true)).error).toBeUndefined();
+    expect(model.calls).toBe(2);
+    expect(await userPromptManager.countUnanalyzedForUserLearning()).toBe(0);
+    expect(await ledgerRows(dir)).toEqual([]);
   });
 });
 
