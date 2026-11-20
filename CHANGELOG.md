@@ -2,6 +2,19 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [7.3.0](https://github.com/cmdaltctr/omms/compare/v7.2.0...v7.3.0) (2026-11-20)
+
+
+### Features
+
+* AI Cleanup remembers checked memories and opens with nothing ticked ([3e4a4f3](https://github.com/cmdaltctr/omms/commit/3e4a4f3a7e521a9c0ea42de3f04ded7baf2099e0))
+* AI Cleanup remembers checked memories and opens with nothing ticked ([2dbfba0](https://github.com/cmdaltctr/omms/commit/2dbfba0fbeba4fe91f256fd8c8190f03228f2687))
+
+
+### Bug Fixes
+
+* address review findings on AI Cleanup checked marks ([8d35a56](https://github.com/cmdaltctr/omms/commit/8d35a5644daf0f035acf0f145942806e265b18fd))
+
 ## [7.2.0](https://github.com/cmdaltctr/omms/compare/v7.1.2...v7.2.0) (2026-11-20)
 
 
