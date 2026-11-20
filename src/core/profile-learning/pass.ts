@@ -124,11 +124,11 @@ async function learn(
     if (taken.length === 0) return { outcome: "skipped" };
 
     const read = await userProfileManager.getActiveProfile(userId);
-    // An earlier save took some of these in and then failed to mark them: mark them, never
-    // learn them again. A release on failure must not touch them.
-    const batch = read
-      ? await withoutSavedPrompts(userPromptManager, userProfileManager, read.id, taken, { host })
-      : taken;
+    // An earlier save, into any profile, took some of these in and then failed to mark them:
+    // mark them, never learn them again. A release on failure must not touch them.
+    const batch = await withoutSavedPrompts(userPromptManager, userProfileManager, taken, {
+      host,
+    });
     claimed = batch.map((prompt) => prompt.id);
     if (batch.length === 0) return { outcome: "skipped" };
     const startedAt = Date.now();
@@ -153,7 +153,6 @@ async function learn(
     );
 
     const summary = `${label} analysis of ${batch.length} prompts`;
-    let savedTo = existing?.id ?? "";
     if (existing) {
       const { saveMergedProfile } = await import("../../services/user-profile/merge-and-save.js");
       const saved = await saveMergedProfile(
@@ -173,7 +172,7 @@ async function learn(
       );
       if (!saved) throw new Error("Profile update conflict");
     } else {
-      savedTo = await userProfileManager.createProfile(
+      await userProfileManager.createProfile(
         userId,
         user.displayName || userId,
         user.userName || userId,
@@ -188,7 +187,7 @@ async function learn(
     // later pass marks it without a model call.
     const marked = claimed;
     claimed = [];
-    await markSavedPromptsLearned(userPromptManager, userProfileManager, savedTo, marked, {
+    await markSavedPromptsLearned(userPromptManager, userProfileManager, marked, {
       host,
     });
     profileBackoff.recordSuccess();

@@ -11,22 +11,21 @@ export interface MarkPromptStore {
 
 /** The profile store calls of the learned-prompt record. */
 export interface LearnedRecordStore {
-  getLearnedPromptIds(profileId: string, ids: string[]): Promise<string[]>;
-  clearLearnedPromptIds(profileId: string, ids: string[]): Promise<void>;
+  getLearnedPromptIds(ids: string[]): Promise<string[]>;
+  forgetLearnedPromptIds(ids: string[]): Promise<void>;
 }
 
 const MARK_ATTEMPTS = 3;
 const MARK_RETRY_MS = 100;
 
 /**
- * Marks saved prompts learned, then drops their record. A storage error is tried again. When
- * every try fails, the record stays and the next run that takes these prompts marks them
- * without a model call. Never throws. The log holds a count only.
+ * Marks saved prompts learned, then drops their record in every profile. A storage error is
+ * tried again. When every try fails, the record stays and the next run that takes these
+ * prompts marks them without a model call. Never throws. The log holds a count only.
  */
 export async function markSavedPromptsLearned(
   prompts: MarkPromptStore,
   profiles: LearnedRecordStore,
-  profileId: string,
   ids: string[],
   logData: Record<string, unknown>
 ): Promise<void> {
@@ -38,7 +37,7 @@ export async function markSavedPromptsLearned(
       continue;
     }
     try {
-      await profiles.clearLearnedPromptIds(profileId, ids);
+      await profiles.forgetLearnedPromptIds(ids);
     } catch {
       // A record left behind names prompts that are already learned, so it does no harm.
     }
@@ -52,23 +51,20 @@ export async function markSavedPromptsLearned(
 }
 
 /**
- * Removes from `batch` the prompts that an earlier save of this profile already took in, and
- * marks them learned. They never reach the model a second time.
+ * Removes from `batch` the prompts that an earlier save, into any profile, already took in,
+ * and marks them learned. They never reach the model a second time. The prompt queue is shared
+ * by every profile of the memory space, so the lookup is by prompt id alone.
  */
 export async function withoutSavedPrompts<T extends { id: string }>(
   prompts: MarkPromptStore,
   profiles: LearnedRecordStore,
-  profileId: string,
   batch: T[],
   logData: Record<string, unknown>
 ): Promise<T[]> {
-  const saved = await profiles.getLearnedPromptIds(
-    profileId,
-    batch.map((prompt) => prompt.id)
-  );
+  const saved = await profiles.getLearnedPromptIds(batch.map((prompt) => prompt.id));
   if (saved.length === 0) return batch;
   log("profile learning: prompts already saved", { ...logData, prompts: saved.length }, "warn");
-  await markSavedPromptsLearned(prompts, profiles, profileId, saved, logData);
+  await markSavedPromptsLearned(prompts, profiles, saved, logData);
   const skip = new Set(saved);
   return batch.filter((prompt) => !skip.has(prompt.id));
 }

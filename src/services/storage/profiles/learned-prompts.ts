@@ -17,39 +17,26 @@ export function learnedPromptInserts(
   }));
 }
 
-/** The ids in `promptIds` that a save already recorded for this profile. */
-export async function getLearnedPromptIds(
-  db: ProfileDb,
-  profileId: string,
-  promptIds: string[]
-): Promise<string[]> {
+/**
+ * The ids in `promptIds` that a save already recorded, for any profile. The prompt queue is
+ * shared by every profile of the memory space, so a prompt saved into one profile must not
+ * reach the model again through another.
+ */
+export async function getLearnedPromptIds(db: ProfileDb, promptIds: string[]): Promise<string[]> {
   if (promptIds.length === 0) return [];
   const placeholders = promptIds.map(() => "?").join(",");
   const rows = await db.all(
-    `SELECT prompt_id FROM learned_prompts WHERE profile_id = ? AND prompt_id IN (${placeholders})`,
-    [profileId, ...promptIds]
+    `SELECT prompt_id FROM learned_prompts WHERE prompt_id IN (${placeholders})`,
+    promptIds
   );
   const recorded = new Set(rows.map((row) => String(row.prompt_id)));
   return promptIds.filter((id) => recorded.has(id));
 }
 
-/** Removes the records of prompts that user-prompts.db now marks learned. */
-export async function clearLearnedPromptIds(
-  db: ProfileDb,
-  profileId: string,
-  promptIds: string[]
-): Promise<void> {
-  if (promptIds.length === 0) return;
-  const placeholders = promptIds.map(() => "?").join(",");
-  await db.run(
-    `DELETE FROM learned_prompts WHERE profile_id = ? AND prompt_id IN (${placeholders})`,
-    [profileId, ...promptIds]
-  );
-}
-
 /**
- * Removes every profile's record of these prompts. A forced re-analysis calls this before it
- * puts the prompts back in the learning queue, so no pass skips them as already saved.
+ * Removes every profile's record of these prompts. A successful mark calls it, and so does a
+ * forced re-analysis before it puts the prompts back in the learning queue, so no pass skips
+ * them as already saved.
  */
 export async function forgetLearnedPromptIds(db: ProfileDb, promptIds: string[]): Promise<void> {
   if (promptIds.length === 0) return;

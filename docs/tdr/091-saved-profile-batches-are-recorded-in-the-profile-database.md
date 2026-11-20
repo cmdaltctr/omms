@@ -31,8 +31,9 @@ CREATE TABLE IF NOT EXISTS learned_prompts (
 
 - `updateProfile` runs the versioned `UPDATE` and the inserts in one transaction. A version conflict or an error writes no row.
 - `createProfile` writes the profile row and the inserts in one batch.
-- Before the model call, the live pass and the catch-up run look up the batch in the table. A recorded prompt is marked learned and dropped from the batch.
-- A successful mark deletes the rows of its prompts. A row lives only from the save until the mark.
+- Before the model call, the live pass and the catch-up run look up the batch in the table by prompt id, across all profiles. A recorded prompt is marked learned and dropped from the batch. The lookup runs even when the pass has no profile yet.
+- A successful mark deletes the rows of its prompts for every profile. A row lives only from the save until the mark.
+- The check is not limited to the current profile because the prompt queue in `user-prompts.db` is shared by every profile of the memory space. A batch saved to profile A whose mark failed can reach a later pass that resolves to profile B, for example a project with a different git email. B would save the same observations again. A prompt saved into any profile is never sent to the model by any profile.
 - A forced history re-analysis deletes the rows of each prompt it puts back in the queue, for every profile, before the reset. The rows are keyed by profile, but the reset runs before the import knows which profile the drain will use. A row only stops a model call, and a forced run asks for that call.
 - The in-memory list of PR #297 is removed. The table does the same job and also survives a restart.
 

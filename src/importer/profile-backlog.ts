@@ -23,7 +23,7 @@ export type BacklogProfileStore = Pick<
   | "mergeProfileData"
   | "updateProfile"
   | "getLearnedPromptIds"
-  | "clearLearnedPromptIds"
+  | "forgetLearnedPromptIds"
 >;
 
 export interface DrainProfileBacklogOptions {
@@ -99,9 +99,9 @@ export async function drainProfileBacklog(
     for (let attempt = 0; attempt < 2 && !succeeded; attempt++) {
       try {
         const existing = await profiles.getActiveProfile(user.userEmail);
-        // An earlier save took some of these in and then failed to mark them: never again.
-        if (existing)
-          batch = await withoutSavedPrompts(prompts, profiles, existing.id, batch, { label });
+        // An earlier save, into any profile, took some of these in and then failed to mark
+        // them: never again.
+        batch = await withoutSavedPrompts(prompts, profiles, batch, { label });
         if (batch.length === 0) return "sent";
         const ids = batch.map((item) => item.id);
         const context = batch.map((item, index) => `${index + 1}. ${item.content}`).join("\n");
@@ -110,7 +110,6 @@ export async function drainProfileBacklog(
           context,
           existing ? { id: existing.id, profileData: existing.profileData } : null
         );
-        let savedTo = existing?.id ?? "";
         if (existing) {
           const summary = `${label} of ${batch.length} prompts`;
           if (
@@ -118,7 +117,7 @@ export async function drainProfileBacklog(
           )
             throw new Error("Profile update conflict");
         } else {
-          savedTo = await profiles.createProfile(
+          await profiles.createProfile(
             user.userEmail,
             user.displayName || user.userEmail,
             user.userName || user.userEmail,
@@ -129,7 +128,7 @@ export async function drainProfileBacklog(
           );
         }
         // Never throws: a failed mark keeps the claim, and the record stops a second save.
-        await markSavedPromptsLearned(prompts, profiles, savedTo, ids, { label });
+        await markSavedPromptsLearned(prompts, profiles, ids, { label });
         report.batchesBuilt++;
         succeeded = true;
       } catch (error) {

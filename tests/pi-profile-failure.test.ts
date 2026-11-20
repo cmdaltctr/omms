@@ -8,7 +8,12 @@ mock.module("../src/services/tags.js", () => ({
   getTags: () => ({ user: { userEmail: "me@example.invalid", displayName: "Me", userName: "me" } }),
 }));
 mock.module("../src/services/user-profile/user-profile-manager.js", () => ({
-  userProfileManager: { getActiveProfile: async () => null, createProfile: async () => "p1" },
+  userProfileManager: {
+    getActiveProfile: async () => null,
+    getLearnedPromptIds: async () => [],
+    forgetLearnedPromptIds: async () => {},
+    createProfile: async () => "p1",
+  },
 }));
 // Pi reads its recorded prompts from the shared prompt store (change unify-profile-learning).
 const waiting = [{ id: "p0", content: "Private prompt about the project", createdAt: 1 }];

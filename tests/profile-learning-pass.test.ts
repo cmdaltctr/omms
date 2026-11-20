@@ -171,9 +171,8 @@ mock.module("../src/services/user-profile/user-profile-manager.js", () => ({
       if (accepted) for (const id of learned) world.ledger.add(id);
       return accepted;
     },
-    getLearnedPromptIds: async (_profileId: string, ids: string[]) =>
-      ids.filter((id) => world.ledger.has(id)),
-    clearLearnedPromptIds: async (_profileId: string, ids: string[]) => {
+    getLearnedPromptIds: async (ids: string[]) => ids.filter((id) => world.ledger.has(id)),
+    forgetLearnedPromptIds: async (ids: string[]) => {
       for (const id of ids) world.ledger.delete(id);
     },
     decayInMemory: (data: unknown) => {

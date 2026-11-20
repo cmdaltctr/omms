@@ -42,7 +42,7 @@ function stores(count: number) {
     async getLearnedPromptIds() {
       return [];
     },
-    async clearLearnedPromptIds() {},
+    async forgetLearnedPromptIds() {},
   };
   return { waiting, batches, promptStore, profileStore };
 }
@@ -193,10 +193,10 @@ function ledgerStores(count: number) {
       for (const id of (args[5] as string[] | undefined) ?? []) ledger.add(id);
       return true;
     },
-    async getLearnedPromptIds(_profileId: string, ids: string[]) {
+    async getLearnedPromptIds(ids: string[]) {
       return ids.filter((id) => ledger.has(id));
     },
-    async clearLearnedPromptIds(_profileId: string, ids: string[]) {
+    async forgetLearnedPromptIds(ids: string[]) {
       for (const id of ids) ledger.delete(id);
     },
   };

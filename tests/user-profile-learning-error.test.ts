@@ -37,6 +37,8 @@ mock.module("../src/services/user-prompt/user-prompt-manager.js", () => ({
 mock.module("../src/services/user-profile/user-profile-manager.js", () => ({
   userProfileManager: {
     getActiveProfile: async () => null,
+    getLearnedPromptIds: async () => [],
+    forgetLearnedPromptIds: async () => {},
     getProfileById: async () => null,
     createProfile: async () => "p1",
     mergeProfileData: async () => ({ preferences: [], patterns: [], workflows: [] }),

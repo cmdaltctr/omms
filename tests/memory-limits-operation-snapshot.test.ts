@@ -423,6 +423,8 @@ mock.module(${JSON.stringify(moduleUrl("src/services/user-prompt/user-prompt-man
 mock.module(${JSON.stringify(moduleUrl("src/services/user-profile/user-profile-manager.js"))}, () => ({
   userProfileManager: {
     getActiveProfile: async () => null,
+    getLearnedPromptIds: async () => [],
+    forgetLearnedPromptIds: async () => {},
     createProfile: async () => ({}),
     mergeProfileData: async () => ({}),
     updateProfile: async () => true,

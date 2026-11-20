@@ -50,6 +50,8 @@ const reply = JSON.stringify({ preferences: [], patterns: [], workflows: [] });
 const user = { userEmail: "me@example.invalid" };
 const profileStore = {
   getActiveProfile: async () => null,
+  getLearnedPromptIds: async () => [],
+  forgetLearnedPromptIds: async () => {},
   createProfile: async () => "profile",
 } as never;
 

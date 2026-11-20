@@ -39,7 +39,6 @@ type ProfileStore = Pick<
   | "mergeProfileData"
   | "updateProfile"
   | "getLearnedPromptIds"
-  | "clearLearnedPromptIds"
   | "forgetLearnedPromptIds"
 >;
 type Ledger = Pick<ImportLedger, "get" | "begin" | "complete"> &

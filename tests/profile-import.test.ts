@@ -71,7 +71,6 @@ function setup() {
       return true;
     },
     getLearnedPromptIds: async () => [],
-    clearLearnedPromptIds: async () => {},
     forgetLearnedPromptIds: async () => {},
   };
   let modelCalls = 0;

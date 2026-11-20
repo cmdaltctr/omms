@@ -142,12 +142,58 @@ describe("a saved batch is never learned twice", () => {
     }
   );
 
+  it.each(hosts)(
+    "%s: a batch saved to another profile is not sent to the model by this one",
+    async (host) => {
+      const userId = getTags(dir).user.userEmail || "unknown";
+      for (let i = 0; i < 5; i++) {
+        await userPromptManager.savePrompt("s", `m${i}`, dir, `Please refactor module ${i} now`);
+      }
+      const ids = (await rawRows(dir, "user-prompts.db", "SELECT id FROM user_prompts")).map(
+        (row) => String(row.id)
+      );
+      // Profile A saved the batch and its mark failed. The pass below resolves to profile B.
+      await userProfileManager.createProfile(
+        "a@example.invalid",
+        "A",
+        "a",
+        "a@example.invalid",
+        empty,
+        5,
+        ids
+      );
+      await userProfileManager.createProfile(userId, "B", "b", userId, empty, 0);
+      const model = { calls: 0 };
+
+      expect((await runPass(host, countingModel(model))).outcome).toBe("skipped");
+      expect(model.calls).toBe(0);
+      expect(await userPromptManager.countUnanalyzedForUserLearning()).toBe(0);
+      // The mark landed, so no profile keeps a row for these prompts.
+      expect(await ledgerRows(dir)).toEqual([]);
+      expect((await userProfileManager.getActiveProfile(userId))?.totalPromptsAnalyzed).toBe(0);
+    }
+  );
+
+  it("does not create a profile from a batch that another profile already took in", async () => {
+    const userId = getTags(dir).user.userEmail || "unknown";
+    for (let i = 0; i < 5; i++) {
+      await userPromptManager.savePrompt("s", `m${i}`, dir, `Please refactor module ${i} now`);
+    }
+    const ids = (await rawRows(dir, "user-prompts.db", "SELECT id FROM user_prompts")).map((row) =>
+      String(row.id)
+    );
+    await userProfileManager.createProfile("a@x.invalid", "A", "a", "a@x.invalid", empty, 5, ids);
+    const model = { calls: 0 };
+
+    expect((await runPass("opencode", countingModel(model))).outcome).toBe("skipped");
+    expect(model.calls).toBe(0);
+    expect(await userProfileManager.getActiveProfile(userId)).toBeNull();
+    expect(await ledgerRows(dir)).toEqual([]);
+  });
+
   it("records a first profile's batch with its creation", async () => {
-    const id = await userProfileManager.createProfile("u1", "Me", "me", "u1@x.invalid", empty, 2, [
-      "a",
-      "b",
-    ]);
-    expect(await userProfileManager.getLearnedPromptIds(id, ["a", "b", "c"])).toEqual(["a", "b"]);
+    await userProfileManager.createProfile("u1", "Me", "me", "u1@x.invalid", empty, 2, ["a", "b"]);
+    expect(await userProfileManager.getLearnedPromptIds(["a", "b", "c"])).toEqual(["a", "b"]);
   });
 });
 
@@ -212,7 +258,7 @@ describe("an older profile database", () => {
     );
     expect(tables).toHaveLength(1);
     expect(await manager.updateProfile("old", empty, 1, "learn", 3, ["x"])).toBe(true);
-    expect(await manager.getLearnedPromptIds("old", ["x", "y"])).toEqual(["x"]);
+    expect(await manager.getLearnedPromptIds(["x", "y"])).toEqual(["x"]);
   });
 });
 
@@ -280,15 +326,15 @@ describe("a forced history re-analysis", () => {
 describe("a memory space switch", () => {
   it("keeps the record in the active space's profile database", async () => {
     const spaceA = dir;
-    const inA = await userProfileManager.createProfile("u1", "Me", "me", "u1@x", empty, 1, ["a1"]);
+    await userProfileManager.createProfile("u1", "Me", "me", "u1@x", empty, 1, ["a1"]);
     expect(await ledgerRows(spaceA)).toHaveLength(1);
 
     const spaceB = await useFolder();
-    expect(await userProfileManager.getLearnedPromptIds(inA, ["a1"])).toEqual([]);
+    expect(await userProfileManager.getLearnedPromptIds(["a1"])).toEqual([]);
     expect(await ledgerRows(spaceB)).toEqual([]);
 
     CONFIG.storagePath = spaceA;
     await resetStoreHandles();
-    expect(await userProfileManager.getLearnedPromptIds(inA, ["a1"])).toEqual(["a1"]);
+    expect(await userProfileManager.getLearnedPromptIds(["a1"])).toEqual(["a1"]);
   });
 });

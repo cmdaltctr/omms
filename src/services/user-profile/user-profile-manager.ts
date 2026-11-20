@@ -12,7 +12,6 @@ import {
 } from "../storage/profiles/connection.js";
 import { getChangelogById, getProfileChangelogs } from "../storage/profiles/history.js";
 import {
-  clearLearnedPromptIds,
   forgetLearnedPromptIds,
   getLearnedPromptIds,
 } from "../storage/profiles/learned-prompts.js";
@@ -196,17 +195,12 @@ export class UserProfileManager {
     );
   }
 
-  /** The ids in `promptIds` that a save of this profile already took in. */
-  async getLearnedPromptIds(profileId: string, promptIds: string[]): Promise<string[]> {
-    return getLearnedPromptIds(await this.ready(), profileId, promptIds);
+  /** The ids in `promptIds` that a save of any profile already took in. */
+  async getLearnedPromptIds(promptIds: string[]): Promise<string[]> {
+    return getLearnedPromptIds(await this.ready(), promptIds);
   }
 
-  /** Drops the records of prompts that user-prompts.db now marks learned. */
-  async clearLearnedPromptIds(profileId: string, promptIds: string[]): Promise<void> {
-    await clearLearnedPromptIds(await this.ready(), profileId, promptIds);
-  }
-
-  /** Drops every profile's record of prompts that a forced re-analysis will learn again. */
+  /** Drops every profile's record of prompts that are marked learned or will be learned again. */
   async forgetLearnedPromptIds(promptIds: string[]): Promise<void> {
     await forgetLearnedPromptIds(await this.ready(), promptIds);
   }
