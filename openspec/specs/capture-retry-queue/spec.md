@@ -121,6 +121,12 @@ When `captureRetryRetentionHours` is 0, the system SHALL NOT queue any turn, SHA
 - **THEN** no turn SHALL be queued
 - **AND** the diagnostics record SHALL show the failure as today
 
+#### Scenario: The save cannot read the newest waiting turn
+
+- **WHEN** the user saves 0 on the Settings page and the newest waiting turn cannot be read
+- **THEN** the save SHALL NOT delete any turn
+- **AND** the next retry pass or cleanup run SHALL delete the waiting turns
+
 #### Scenario: The user turns the queue off
 
 - **WHEN** three turns wait in the queue and the user saves 0 on the Settings page

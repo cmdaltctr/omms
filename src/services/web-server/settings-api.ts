@@ -132,8 +132,8 @@ export async function routeSettingsApi(
     }
     const { writeGlobalConfigKeys, ConfigConflictError } = await import("../../config-writer.js");
     // Turning the queue off clears the turns queued until now, read before the write.
-    const clearUpTo =
-      body.edits.captureRetryRetentionHours === 0 ? await lastQueuedRetry(web) : undefined;
+    const turnOff = body.edits.captureRetryRetentionHours === 0;
+    const clearUpTo = turnOff ? await lastQueuedRetry(web) : undefined;
     let result;
     try {
       result = await writeGlobalConfigKeys(body.edits, body.revision);
@@ -156,7 +156,11 @@ export async function routeSettingsApi(
         "error"
       );
     }
-    if (clearUpTo !== undefined) {
+    if (turnOff && clearUpTo === null) {
+      // Without the newest id the clear could remove a turn queued later. The next retry
+      // pass or cleanup run removes the waiting turns while the queue stays off.
+      log("Settings saved, but the capture retry queue was not cleared", {}, "warn");
+    } else if (clearUpTo != null) {
       // Turning the queue off removes waiting turns now, not at the next cleanup.
       try {
         const [{ CONFIG }, { clearCaptureRetriesUpTo }] = await Promise.all([
@@ -383,8 +387,8 @@ export async function routeSettingsApi(
   return null;
 }
 
-/** The capture retry queue's newest row id. A failed read clears every row, as before. */
-async function lastQueuedRetry(web: RouteHost): Promise<number> {
+/** The capture retry queue's newest row id, or null when it cannot be read. */
+async function lastQueuedRetry(web: RouteHost): Promise<number | null> {
   try {
     const [{ CONFIG }, { lastCaptureRetryId }] = await Promise.all([
       web.loadConfig(),
@@ -392,6 +396,6 @@ async function lastQueuedRetry(web: RouteHost): Promise<number> {
     ]);
     return await lastCaptureRetryId(CONFIG);
   } catch {
-    return Number.MAX_SAFE_INTEGER;
+    return null;
   }
 }

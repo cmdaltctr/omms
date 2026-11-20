@@ -566,6 +566,50 @@ describe("settings API", () => {
     expect(result.left).toEqual(["after"]);
   });
 
+  it("turning the retry queue off deletes nothing when the newest queued id cannot be read", async () => {
+    const queueUrl = pathToFileURL(
+      join(import.meta.dir, "../src/services/storage/capture-retry-queue.ts")
+    ).href;
+    const configUrl = pathToFileURL(join(import.meta.dir, "../src/config.ts")).href;
+    const result = await scenario(`
+      const { existsSync, readFileSync } = await import("node:fs");
+      const { CONFIG } = await import(${JSON.stringify(configUrl)});
+      const queue = await import(${JSON.stringify(queueUrl)});
+      const on = { ...CONFIG, captureRetryRetentionHours: 72 };
+      const unit = (promptId) => ({ host: "pi", hostSessionId: "s", sourceType: "live-capture",
+        projectDirectory: "/p", userPrompt: "prompt", promptId, textResponses: ["reply"], toolCalls: [] });
+      await queue.enqueueCaptureRetry(unit("before"), { reason: "call-error" }, on);
+      const before = await (await send("/api/settings")).json();
+      const host = server.routeHost;
+      const load = host.loadConfig;
+      let calls = 0;
+      let queued = false;
+      host.loadConfig = async () => {
+        // The read of the newest queued id before the write fails.
+        if (calls++ === 0) throw new Error("store unavailable");
+        // The queue is turned on again and a turn is queued after the off write.
+        if (!queued && readFileSync(configPath, "utf8").includes("captureRetryRetentionHours")) {
+          queued = true;
+          await queue.enqueueCaptureRetry(unit("after"), { reason: "call-error" }, on);
+        }
+        return load();
+      };
+      const off = await send("/api/settings", "PATCH",
+        { edits: { captureRetryRetentionHours: 0 }, revision: before.revision },
+        { "content-type": "application/json" });
+      const left = (await queue.listDueCaptureRetries("pi", on, Date.now() + 10 * 60 * 60 * 1000))
+        .map((row) => row.turnId).sort();
+      const logFile = process.env.OMMS_LOG_FILE;
+      const log = existsSync(logFile) ? readFileSync(logFile, "utf8") : "";
+      return { off: off.status, queued, left,
+        logged: log.includes("capture retry queue was not cleared") };
+    `);
+    expect(result.off).toBe(200);
+    expect(result.queued).toBe(true);
+    expect(result.left).toEqual(["after", "before"]);
+    expect(result.logged).toBe(true);
+  });
+
   it("reports queued turns per host and retries them now", async () => {
     const queueUrl = pathToFileURL(
       join(import.meta.dir, "../src/services/storage/capture-retry-queue.ts")
