@@ -3,6 +3,7 @@ import { importResultText } from "./import-result";
 import { importStatusText } from "./import-status";
 import { useI18n } from "./index";
 import { openrouterSettingText } from "./openrouter";
+import { reasoningLevelText } from "./reasoning-level";
 import { settingsCatalogueText } from "./settings-catalogue";
 import { skillText } from "./skills";
 import { spaceSettingText } from "./spaces";
@@ -10,6 +11,7 @@ import { spaceSettingText } from "./spaces";
 const text = {
   ...skillText,
   ...openrouterSettingText,
+  ...reasoningLevelText,
   ...spaceSettingText,
   ...settingsCatalogueText,
   ...importStatusText,

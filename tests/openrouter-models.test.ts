@@ -16,6 +16,76 @@ function stubFetch(respond: () => Response | Promise<Response>) {
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
 describe("createOpenRouterModels", () => {
+  it("carries the reasoning facts of a model and no other field", async () => {
+    const { fetchStub } = stubFetch(() =>
+      json({
+        data: [
+          {
+            id: "deepseek/deepseek-v4.1-flash-1017",
+            name: "DeepSeek V4.1 Flash",
+            pricing: { prompt: "0.1" },
+            reasoning: {
+              mandatory: false,
+              default_enabled: true,
+              supported_efforts: ["max", "high", "low", "none"],
+              default_effort: "high",
+            },
+          },
+        ],
+      })
+    );
+    const result = await createOpenRouterModels({ fetch: fetchStub, now: () => 0 }).list();
+    expect(result).toEqual({
+      ok: true,
+      models: [
+        {
+          id: "deepseek/deepseek-v4.1-flash-1017",
+          name: "DeepSeek V4.1 Flash",
+          supported_efforts: ["max", "high", "low", "none"],
+          default_effort: "high",
+          mandatory: false,
+        },
+      ],
+    });
+  });
+
+  it("keeps a reasoning object without efforts and omits facts that are absent or malformed", async () => {
+    const { fetchStub } = stubFetch(() =>
+      json({
+        data: [
+          {
+            id: "a/toggle",
+            name: "Toggle",
+            reasoning: { mandatory: false, default_enabled: true },
+          },
+          { id: "b/none", name: "None" },
+          { id: "c/bad", name: "Bad", reasoning: "yes" },
+          {
+            id: "d/junk",
+            name: "Junk",
+            reasoning: { supported_efforts: "high", default_effort: 5, mandatory: "yes" },
+          },
+          {
+            id: "e/mixed",
+            name: "Mixed",
+            reasoning: { supported_efforts: ["low", 3, ""], mandatory: true },
+          },
+        ],
+      })
+    );
+    const result = await createOpenRouterModels({ fetch: fetchStub, now: () => 0 }).list();
+    expect(result).toEqual({
+      ok: true,
+      models: [
+        { id: "a/toggle", name: "Toggle", mandatory: false },
+        { id: "b/none", name: "None" },
+        { id: "c/bad", name: "Bad" },
+        { id: "d/junk", name: "Junk", mandatory: false },
+        { id: "e/mixed", name: "Mixed", supported_efforts: ["low"], mandatory: true },
+      ],
+    });
+  });
+
   it("returns id and name only, with extra fields dropped", async () => {
     const { fetchStub, calls } = stubFetch(() =>
       json({

@@ -36,6 +36,7 @@ const {
   isOpenRouterUrl,
   policyLabelKey,
   providerFromRouting,
+  ticksFirst,
   routingFromProvider,
 } = routing;
 
@@ -45,7 +46,13 @@ const rows: Row[] = [
   { slug: "novita", name: "Novita", policy: "safety" },
   { slug: "together", name: "Together", policy: "unknown" },
 ];
-const off = { dataCollection: false, zdr: false, only: false, ticked: [] as string[] };
+const off = {
+  dataCollection: false,
+  zdr: false,
+  only: false,
+  openRouterChooses: false,
+  ticked: [] as string[],
+};
 
 // ---- pure helpers ----
 
@@ -64,7 +71,7 @@ it("saves tried providers as order, and as order + only + no fallback when Use o
   });
   expect(
     providerFromRouting(
-      { dataCollection: true, zdr: true, only: true, ticked: ["deepinfra"] },
+      { ...off, dataCollection: true, zdr: true, only: true, ticked: ["deepinfra"] },
       rows
     )
   ).toEqual({
@@ -105,7 +112,13 @@ it("reads the card state back from a saved provider object", () => {
     allow_fallbacks: false,
   };
   const state = routingFromProvider(saved);
-  expect(state).toEqual({ dataCollection: true, zdr: true, only: true, ticked: ["deepinfra"] });
+  expect(state).toEqual({
+    ...off,
+    dataCollection: true,
+    zdr: true,
+    only: true,
+    ticked: ["deepinfra"],
+  });
   expect(providerFromRouting(state, rows)).toEqual(saved);
   expect(routingFromProvider(null)).toEqual(off);
   expect(routingFromProvider({ only: ["novita"] })).toEqual({
@@ -913,8 +926,11 @@ const NO_FALLBACK = "OpenRouter never falls back to other providers.";
 
 it("disables Use only these providers with a reason while no usable provider is ticked", async () => {
   requests = installFetch(() => ({ body: { ok: true, providers: rows } }));
-  // Saved as "only" with nothing ticked: the box must not claim a restriction.
+  // Saved as "only" with nothing ticked: the box must not claim a restriction. A saved provider
+  // object without a list loads with Let OpenRouter choose on, so the switch goes off first.
   let tree = await settle(block({ saved: { allow_fallbacks: false } }), own);
+  flip(tree, "openrouter-chooses", false);
+  tree = await settle(block({ saved: { allow_fallbacks: false } }), own);
   let only = box(tree, "openrouter-only");
   expect(only.props.disabled).toBe(true);
   expect(only.props.checked).toBe(false);
@@ -933,6 +949,7 @@ it("disables Use only these providers with a reason while no usable provider is 
   // Ticking a usable provider enables it, and the note comes back when it is on.
   resetRender();
   tree = await settle(block({ saved: { allow_fallbacks: false } }), own);
+  flip(tree, "openrouter-chooses", false);
   tick(tree, "deepinfra");
   tree = await settle(block({ saved: { allow_fallbacks: false } }), own);
   only = box(tree, "openrouter-only");
@@ -984,4 +1001,137 @@ it("lets a row wrap: the name takes the width and the badge drops to its own lin
     (node) => text(node.props.children) === "Abuse checks only"
   )!;
   expect(String(badge.props.className)).toContain("ms-auto");
+});
+
+// ---- Let OpenRouter choose the provider, and ticked-first order ----
+
+const chooses = { ...off, openRouterChooses: true };
+const slugsOf = (tree: Node[]) =>
+  byType(tree, Checkbox)
+    .map((node) => String(node.props.id))
+    .filter((id) => id.startsWith("openrouter-provider-"))
+    .map((id) => id.replace("openrouter-provider-", ""));
+const flip = (tree: Node[], id: string, value: boolean) =>
+  (box(tree, id).props.onCheckedChange as (v: boolean) => void)(value);
+
+it("reads the switch from the saved provider object", () => {
+  expect(routingFromProvider({ data_collection: "deny", zdr: true })).toEqual({
+    ...off,
+    dataCollection: true,
+    zdr: true,
+    openRouterChooses: true,
+  });
+  expect(routingFromProvider(null).openRouterChooses).toBe(false);
+  expect(routingFromProvider(undefined).openRouterChooses).toBe(false);
+  expect(routingFromProvider({ order: ["a"] }).openRouterChooses).toBe(false);
+  expect(routingFromProvider({ only: ["a"] }).openRouterChooses).toBe(false);
+  expect(routingFromProvider({ sort: "price" }).openRouterChooses).toBe(true);
+});
+
+it("drops order, only and allow_fallbacks when OpenRouter chooses and keeps the privacy fields", () => {
+  const state = { ...chooses, dataCollection: true, zdr: true, only: true, ticked: ["deepinfra"] };
+  expect(providerFromRouting(state, rows)).toEqual({ data_collection: "deny", zdr: true });
+  expect(providerFromRouting({ ...state, openRouterChooses: false }, rows)).toEqual({
+    data_collection: "deny",
+    zdr: true,
+    order: ["deepinfra"],
+    only: ["deepinfra"],
+    allow_fallbacks: false,
+  });
+});
+
+it("lists ticked providers first in try order, then the others in their own order", () => {
+  const list = [{ slug: "A" }, { slug: "B" }, { slug: "C" }];
+  expect(ticksFirst(list, ["C", "A"]).map((row) => row.slug)).toEqual(["C", "A", "B"]);
+  expect(ticksFirst(list, []).map((row) => row.slug)).toEqual(["A", "B", "C"]);
+  expect(ticksFirst(list, ["Z", "B"]).map((row) => row.slug)).toEqual(["B", "A", "C"]);
+});
+
+it("shows the switch off by default and on for a saved routing without a provider list", async () => {
+  requests = installFetch(() => ({ body: { ok: true, providers: rows } }));
+  expect(box(await settle(block(), own), "openrouter-chooses").props.checked).toBe(false);
+  resetRender();
+  const saved = { data_collection: "deny", zdr: true };
+  expect(box(await settle(block({ saved }), own), "openrouter-chooses").props.checked).toBe(true);
+});
+
+it("saves no order, only or allow_fallbacks with the switch on, and keeps the privacy fields", async () => {
+  requests = installFetch((request) =>
+    request.path.startsWith(LIST)
+      ? { body: { ok: true, providers: rows } }
+      : { body: { revision: "rev-10", settings: {} } }
+  );
+  let tree = await settle(block(), own);
+  flip(tree, "openrouter-data-collection", true);
+  tick(tree, "deepinfra");
+  tree = await settle(block(), own);
+  flip(tree, "openrouter-only", true);
+  tree = await settle(block(), own);
+  flip(tree, "openrouter-chooses", true);
+  tree = await settle(block(), own);
+  (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  await settle(block(), own);
+  expect(requests.find((request) => request.path === SAVE)!.body).toEqual({
+    revision: "rev-9",
+    routing: { data_collection: "deny" },
+  });
+});
+
+it("disables the ticks, the Use only box and Add provider with the reason while the switch is on", async () => {
+  requests = installFetch(() => ({ body: { ok: true, providers: rows } }));
+  let tree = await settle(block(), own);
+  flip(tree, "openrouter-chooses", true);
+  tree = await settle(block(), own);
+  for (const slug of ["deepinfra", "novita", "together"]) {
+    expect(box(tree, `openrouter-provider-${slug}`).props.disabled).toBe(true);
+  }
+  expect(box(tree, "openrouter-only").props.disabled).toBe(true);
+  expect(buttonNamed(tree, "Add provider").props.disabled).toBe(true);
+  expect(allText(tree)).toContain("OpenRouter chooses the provider, so the list is not used.");
+});
+
+it("shows the ticks again in the same order when the switch goes off in the same visit", async () => {
+  requests = installFetch(() => ({ body: { ok: true, providers: rows } }));
+  let tree = await settle(block(), own);
+  tick(tree, "novita");
+  tick(tree, "deepinfra");
+  tree = await settle(block(), own);
+  flip(tree, "openrouter-chooses", true);
+  tree = await settle(block(), own);
+  flip(tree, "openrouter-chooses", false);
+  tree = await settle(block(), own);
+  const positions = tree
+    .filter((node) => node.props["data-position"] !== undefined)
+    .map((node) => [node.props["data-position"], node.props["data-slug"]])
+    .sort((a, b) => a[0] - b[0]);
+  expect(positions).toEqual([
+    [1, "novita"],
+    [2, "deepinfra"],
+  ]);
+  expect(box(tree, "openrouter-provider-novita").props.disabled).toBeFalsy();
+});
+
+it("loads the rows with the ticked providers first, in try order", async () => {
+  requests = installFetch(() => ({ body: { ok: true, providers: rows } }));
+  const tree = await settle(block({ saved: { order: ["together", "deepinfra"] } }), own);
+  expect(slugsOf(tree)).toEqual(["together", "deepinfra", "novita"]);
+});
+
+it("does not move a row on a tick, and reorders after a save", async () => {
+  requests = installFetch((request) =>
+    request.path.startsWith(LIST)
+      ? { body: { ok: true, providers: rows } }
+      : { body: { revision: "rev-10", settings: {} } }
+  );
+  let tree = await settle(block(), own);
+  expect(slugsOf(tree)).toEqual(["deepinfra", "novita", "together"]);
+  tick(tree, "together");
+  tree = await settle(block(), own);
+  expect(slugsOf(tree)).toEqual(["deepinfra", "novita", "together"]);
+  const position = tree.find((node) => node.props["data-slug"] === "together")!;
+  expect(position.props["data-position"]).toBe(1);
+
+  (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block(), own);
+  expect(slugsOf(tree)).toEqual(["together", "deepinfra", "novita"]);
 });

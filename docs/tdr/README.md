@@ -110,6 +110,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [089](./089-a-running-web-app-reported-the-version-on-disk.md)                 | A running web app reported the version on disk                          | Proposed              | 2026-11-18 |
 | [090](./090-opencode-start-up-provider-list-was-incomplete.md)                 | OpenCode's start-up provider list was incomplete                        | Proposed              | 2026-11-19 |
 | [091](./091-saved-profile-batches-are-recorded-in-the-profile-database.md)     | Saved profile batches are recorded in the profile database              | Proposed              | 2026-11-20 |
+| [092](./092-openrouter-ignores-deepseek-thinking.md)                           | OpenRouter ignores DeepSeek's thinking field                            | Proposed              | 2026-11-20 |
 
 ## Status values
 

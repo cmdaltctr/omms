@@ -2,6 +2,7 @@ import { routeChat, type RouteResult } from "./chat/chat-routes.js";
 import { linkedSettingsFrom } from "./linked-search.js";
 import { routeMemorisations } from "./memorisation-routes.js";
 import { routeMemoryHosts } from "./memory-host-routes.js";
+import { routeModelReasoning } from "./model-reasoning-routes.js";
 import { routeOpenRouter } from "./openrouter-routes.js";
 import { routeProfileCleanup } from "./profile-cleanup-routes.js";
 import { routeSettings, type SettingsRouteContext } from "./settings-routes.js";
@@ -51,6 +52,9 @@ export async function routeModules(
 
   const openRouter = await routeOpenRouter(path, method, url, readBody, ctx);
   if (openRouter !== undefined) return openRouter;
+
+  const reasoning = await routeModelReasoning(path, method, readBody, ctx);
+  if (reasoning !== undefined) return reasoning;
 
   if (path === "/api/skills" || path.startsWith("/api/skills/")) {
     const { routeSkills } = await import("./skill-routes.js");

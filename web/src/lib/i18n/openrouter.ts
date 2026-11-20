@@ -91,4 +91,14 @@ export const openrouterSettingText = {
     "لم يردّ OpenRouter خلال 10 ثوانٍ.",
   ],
   "OpenRouter could not be reached.": ["无法连接到 OpenRouter。", "تعذّر الوصول إلى OpenRouter."],
+  "Let OpenRouter choose the provider": ["让 OpenRouter 选择提供商", "دع OpenRouter يختار المزوّد"],
+  "OpenRouter picks the provider, which can cost less. Your ticks stay on this page until you reload. They are not saved.":
+    [
+      "由 OpenRouter 选择提供商，费用可能更低。你的勾选会保留在此页面，直到重新加载。它们不会被保存。",
+      "يختار OpenRouter المزوّد، وقد تكون التكلفة أقل. تبقى علاماتك في هذه الصفحة حتى تعيد التحميل. ولا تُحفَظ.",
+    ],
+  "OpenRouter chooses the provider, so the list is not used.": [
+    "由 OpenRouter 选择提供商，因此不使用此列表。",
+    "يختار OpenRouter المزوّد، لذلك لا تُستخدم القائمة.",
+  ],
 } as const;

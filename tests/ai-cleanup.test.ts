@@ -63,6 +63,7 @@ mock.module(${JSON.stringify(configUrl)}, () => ({
     memoryApiKey: "test-key",
     memoryExtraParams: {
       enable_thinking: false,
+      reasoning: { effort: "low" },
       top_p: 0.7,
       stream: true,
       model: "must-not-override",
@@ -206,6 +207,7 @@ describe("AI cleanup opencode provider path (#177)", () => {
       temperature: 0.3,
       response_format: { type: "json_object" },
       enable_thinking: false,
+      reasoning: { effort: "low" },
       top_p: 0.7,
     });
     expect(result.parsed?.externalRequestBody?.stream).toBeUndefined();

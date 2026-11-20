@@ -1,11 +1,17 @@
 /**
- * The OpenRouter model list, reduced to ID and name for the Model field
- * suggestions. It reads one public OpenRouter list without an API key. `fetch`
+ * The OpenRouter model list, reduced to ID, name and reasoning facts for the
+ * Model field suggestions and the Reasoning level choices. It reads one public OpenRouter list without an API key. `fetch`
  * and the clock come in as arguments, so the module needs no config and tests
  * need no network.
  */
 
-export type ModelRow = { id: string; name: string };
+export type ModelRow = {
+  id: string;
+  name: string;
+  supported_efforts?: string[];
+  default_effort?: string;
+  mandatory?: boolean;
+};
 export type ModelsResult = { ok: true; models: ModelRow[] } | { ok: false; error: string };
 
 const URL_MODELS = "https://openrouter.ai/api/v1/models";
@@ -14,6 +20,25 @@ const FETCH_TIMEOUT_MS = 10_000;
 
 const text = (value: unknown): string | undefined =>
   typeof value === "string" && value.trim() ? value : undefined;
+
+/**
+ * The reasoning facts of one list row. A reasoning object always gives `mandatory`
+ * (false when the list does not say), so the page can tell "reasons, no effort list"
+ * from "no facts". A malformed member is left out.
+ */
+function reasoningFacts(value: unknown): Partial<ModelRow> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  const reasoning = value as Record<string, unknown>;
+  const efforts = Array.isArray(reasoning.supported_efforts)
+    ? reasoning.supported_efforts.filter((e): e is string => typeof e === "string" && e !== "")
+    : [];
+  const defaultEffort = text(reasoning.default_effort);
+  return {
+    ...(efforts.length > 0 ? { supported_efforts: efforts } : {}),
+    ...(defaultEffort ? { default_effort: defaultEffort } : {}),
+    mandatory: reasoning.mandatory === true,
+  };
+}
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -57,7 +82,7 @@ export function createOpenRouterModels(deps: {
     const models: ModelRow[] = [];
     for (const row of rows as Record<string, unknown>[]) {
       const id = text(row?.id);
-      if (id) models.push({ id, name: text(row.name) ?? id });
+      if (id) models.push({ id, name: text(row.name) ?? id, ...reasoningFacts(row.reasoning) });
     }
     models.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     // Only a good answer is cached, so a failed fetch is tried again on the next request.

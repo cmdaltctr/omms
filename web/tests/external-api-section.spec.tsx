@@ -19,6 +19,7 @@ const { ExternalApiSection } =
 const { OpenRouterRouting, ProviderRows } =
   await import("../src/lib/components/settings/OpenRouterRouting.tsx");
 const { SettingRow } = await import("../src/lib/components/settings/SettingRow.tsx");
+const { ReasoningLevel } = await import("../src/lib/components/settings/ReasoningLevel.tsx");
 const { KeySourceField } = await import("../src/lib/components/settings/KeySourceField.tsx");
 const { SettingsConfirmDialog } =
   await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
@@ -362,4 +363,19 @@ it("turns Save off and says why while the config file cannot be read", async () 
   tree = await settle(<ExternalApiSection />, own);
   expect(buttonOf(tree, "Save settings").props.disabled).toBe(true);
   expect(allText(tree)).toContain("Saving is turned off until the file is fixed.");
+});
+
+it("gives the Reasoning level the saved endpoint and marks an unsaved edit", async () => {
+  let tree = await settle(<ExternalApiSection />, own);
+  const card = () => byType(tree, ReasoningLevel)[0]!;
+  expect(card().props).toMatchObject({
+    savedUrl: "https://api.example.com/v1",
+    savedProvider: "openai-chat",
+    savedModel: "glm-5-turbo",
+    unsaved: false,
+  });
+  type(inputByHolder(tree, "glm-5-turbo"), "glm-6");
+  tree = await settle(<ExternalApiSection />, own);
+  // The level follows the saved model until the edit is saved, and Save turns off meanwhile.
+  expect(card().props).toMatchObject({ savedModel: "glm-5-turbo", unsaved: true });
 });

@@ -10,11 +10,16 @@ export type ProviderRow = {
   price?: ProviderPrice;
 };
 
-/** What the card shows: two switches, Use only these, and the ticked slugs in try order. */
+/**
+ * What the card shows: two privacy switches, Use only these, the Let OpenRouter choose switch,
+ * and the ticked slugs in try order. With `openRouterChooses` on, the ticks stay on the page and
+ * are not saved.
+ */
 export type RoutingState = {
   dataCollection: boolean;
   zdr: boolean;
   only: boolean;
+  openRouterChooses: boolean;
   ticked: string[];
 };
 
@@ -52,6 +57,8 @@ export function routingFromProvider(provider: Record<string, unknown> | null | u
     dataCollection: saved.data_collection === "deny",
     zdr: saved.zdr === true,
     only: saved.allow_fallbacks === false || only.length > 0,
+    // A saved provider object with no list means OpenRouter chooses. No object means today's default.
+    openRouterChooses: provider != null && order.length === 0 && only.length === 0,
     ticked,
   } satisfies RoutingState;
 }
@@ -75,12 +82,23 @@ export function providerFromRouting(state: RoutingState, rows: ProviderRow[]) {
   } = {};
   if (state.dataCollection) routing.data_collection = "deny";
   if (state.zdr) routing.zdr = true;
+  if (state.openRouterChooses) return routing;
   if (ticked.length) routing.order = ticked;
   if (ticked.length && state.only) {
     routing.only = ticked;
     routing.allow_fallbacks = false;
   }
   return routing;
+}
+
+/**
+ * The rows with the ticked providers first, in try order, then the others in their own order.
+ * `ticks` is a snapshot: the card takes it when the list loads and after a save, so a tick does
+ * not move a row under the pointer.
+ */
+export function ticksFirst<T extends { slug: string }>(rows: T[], ticks: string[]): T[] {
+  const first = ticks.flatMap((slug) => rows.filter((row) => row.slug === slug));
+  return [...first, ...rows.filter((row) => !ticks.includes(row.slug))];
 }
 
 /** The English label of a policy. The card passes it through its text function. */
