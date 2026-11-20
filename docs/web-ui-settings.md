@@ -191,7 +191,7 @@ To set a level:
 2. Choose a level.
 3. Select **Save reasoning level**. The card shows `Reasoning level saved.`
 
-A hand-written value that the card cannot show as a level, for example `{ "max_tokens": 2000 }`, shows as **Set in the config file**. OMMS keeps it until you save another level.
+A hand-written value that the card cannot show as a level, for example `{ "max_tokens": 2000 }`, shows as **Set in the config file**. OMMS keeps it until you save another level. Saving a level over it asks you to confirm first, because the save replaces the hand-written value.
 
 If OpenRouter is saved and `thinking` is also saved, the card warns that OpenRouter ignores `thinking`. The warning for DeepSeek names `reasoning`. Saving a level replaces the field.
 

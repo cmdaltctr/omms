@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Loader } from "lucide-react";
+import { useSettingsConfirm } from "@/hooks/useSettingsConfirm";
 import { Callout } from "$lib/components/skills/Callout";
 import { Button } from "$lib/components/ui/button";
 import { Label } from "$lib/components/ui/label";
@@ -52,6 +53,7 @@ export function ReasoningLevel({
   // A pick belongs to the saved endpoint it was made for. `at` is that endpoint.
   const [picked, setPicked] = useState<{ at: string; level: string }>();
   const [save, setSave] = useState<SaveState>({ kind: "idle" });
+  const { ask, dialog } = useSettingsConfirm();
 
   const family = reasoningFamily(savedUrl, savedProvider);
   if (family === "none") {
@@ -97,8 +99,8 @@ export function ReasoningLevel({
     ? s("Save the endpoint first. The level applies to the saved URL, provider and model.")
     : undefined;
 
-  async function saveLevel() {
-    setSave({ kind: "saving" });
+  /** Posts the shown level and reloads the settings. Returns the failure message, if any. */
+  async function submit(): Promise<string | undefined> {
     try {
       await settingsRequest(SAVE_PATH, {
         method: "POST",
@@ -106,11 +108,41 @@ export function ReasoningLevel({
       });
       // The pick stays on screen until a fresh snapshot holds the saved level.
       if (await reloadSettingsSnapshot()) setPicked(undefined);
-      setSave({ kind: "saved" });
+      return undefined;
     } catch (error) {
-      setSave({ kind: "error", message: (error as Error).message });
       await reloadSettingsSnapshot();
+      return (error as Error).message;
     }
+  }
+
+  async function saveLevel() {
+    setSave({ kind: "saving" });
+    const failure = await submit();
+    setSave(failure === undefined ? { kind: "saved" } : { kind: "error", message: failure });
+  }
+
+  // A hand-written value is replaced by the save, so the user confirms first. The dialog shows
+  // the progress and the server's error, and closes on success.
+  function askToReplace() {
+    ask({
+      title: s("Replace the value in the config file?"),
+      body: (
+        <p>
+          {s(
+            "The config file holds a reasoning value that this control cannot show. Saving a level replaces it."
+          )}
+        </p>
+      ),
+      confirmLabel: s("Replace"),
+      busyLabel: s("Saving reasoning level…"),
+      destructive: true,
+      run: async () => {
+        const failure = await submit();
+        if (failure !== undefined) return { success: false, error: failure };
+        setSave({ kind: "saved" });
+        return { success: true };
+      },
+    });
   }
 
   const button = (
@@ -119,7 +151,7 @@ export function ReasoningLevel({
         save.kind === "saving" || readOnly || shown === "custom" || blockReason !== undefined
       }
       aria-describedby={blockReason === undefined ? undefined : "reasoning-save-reason"}
-      onClick={() => void saveLevel()}
+      onClick={() => (initial === "custom" ? askToReplace() : void saveLevel())}
     >
       {s("Save reasoning level")}
     </Button>
@@ -169,6 +201,7 @@ export function ReasoningLevel({
       )}
       {blockReason === undefined ? button : <Blocked reason={blockReason}>{button}</Blocked>}
       <ReadOnlyNote show={readOnly} />
+      {dialog}
       {blockReason !== undefined && (
         <p id="reasoning-save-reason" className="text-xs text-muted-foreground">
           {blockReason}

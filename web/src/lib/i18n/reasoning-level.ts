@@ -37,6 +37,15 @@ export const reasoningLevelText = {
     "يتجاهل DeepSeek حقل reasoning المحفوظ.",
   ],
   "Saving a level replaces it.": ["保存级别会替换它。", "حفظ مستوى سيستبدله."],
+  "Replace the value in the config file?": [
+    "要替换配置文件中的值吗？",
+    "هل تريد استبدال القيمة في ملف الإعدادات؟",
+  ],
+  "The config file holds a reasoning value that this control cannot show. Saving a level replaces it.":
+    [
+      "配置文件中有一个此控件无法显示的推理值。保存级别会替换它。",
+      "يحتوي ملف الإعدادات على قيمة استدلال لا يستطيع هذا العنصر عرضها. حفظ مستوى سيستبدلها.",
+    ],
   "Save the endpoint first. The level applies to the saved URL, provider and model.": [
     "请先保存端点。该级别适用于已保存的 URL、提供商和模型。",
     "احفظ العنوان أولاً. يُطبَّق المستوى على العنوان والمزوّد والنموذج المحفوظة.",

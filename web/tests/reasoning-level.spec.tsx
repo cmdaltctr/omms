@@ -19,6 +19,8 @@ mock.module("sonner", () => ({ toast: { warning: () => {}, success: () => {}, er
 const { ReasoningLevel } = await import("../src/lib/components/settings/ReasoningLevel.tsx");
 const { Button } = await import("../src/lib/components/ui/button.tsx");
 const { Select } = await import("../src/lib/components/ui/select.tsx");
+const { SettingsConfirmDialog } =
+  await import("../src/lib/components/settings/SettingsConfirmDialog.tsx");
 const { setLanguage } = await import("../src/lib/i18n/index.ts");
 const { translateSettings } = await import("../src/lib/i18n/settings.ts");
 
@@ -253,4 +255,88 @@ it("turns the Select off while a save runs, so a later pick cannot be lost", asy
   release({ body: { revision: "rev-10" } });
   tree = await settle(card(), own);
   expect(select(tree).props.disabled).toBeFalsy();
+});
+
+const HAND_WRITTEN = { reasoning: { max_tokens: 2000 } };
+const dialogOf = (tree: Node[]) => byType(tree, SettingsConfirmDialog)[0];
+const posts = () => requests.filter((request) => request.path === SAVE);
+
+it("asks before it replaces a hand-written value, and sends nothing until confirmed", async () => {
+  const props = { saved: HAND_WRITTEN };
+  let tree = await settle(card(props), own);
+  pick(tree, "low");
+  tree = await settle(card(props), own);
+  (saveButton(tree).props.onClick as () => void)();
+  tree = await settle(card(props), own);
+
+  const dialog = dialogOf(tree)!;
+  expect(dialog.props.confirmLabel).toBe("Replace");
+  expect(text(dialog.props.title)).toBe("Replace the value in the config file?");
+  expect(posts()).toHaveLength(0);
+
+  const result = await dialog.props.onConfirm();
+  expect(result).toEqual({ success: true });
+  expect(posts()).toHaveLength(1);
+  expect(posts()[0]!.body).toEqual({ revision: "rev-9", level: "low" });
+  tree = await settle(card(props), own);
+  expect(allText(tree)).toContain("Reasoning level saved.");
+});
+
+it("sends nothing when the hand-written value dialog is cancelled", async () => {
+  const props = { saved: HAND_WRITTEN };
+  let tree = await settle(card(props), own);
+  pick(tree, "low");
+  tree = await settle(card(props), own);
+  (saveButton(tree).props.onClick as () => void)();
+  tree = await settle(card(props), own);
+  dialogOf(tree)!.props.onClose();
+  tree = await settle(card(props), own);
+  expect(dialogOf(tree)).toBeUndefined();
+  expect(posts()).toHaveLength(0);
+});
+
+it("shows a server error inside the dialog and leaves the card without a saved notice", async () => {
+  requests = installFetch((request) =>
+    request.path === SAVE
+      ? { status: 409, body: { error: "The settings changed. Reload and try again." } }
+      : { body: { revision: "rev-10", settings: {} } }
+  );
+  const props = { saved: HAND_WRITTEN };
+  let tree = await settle(card(props), own);
+  pick(tree, "low");
+  tree = await settle(card(props), own);
+  (saveButton(tree).props.onClick as () => void)();
+  tree = await settle(card(props), own);
+  const result = await dialogOf(tree)!.props.onConfirm();
+  expect(result.success).toBe(false);
+  expect(result.error).toContain("The settings changed.");
+  tree = await settle(card(props), own);
+  expect(allText(tree)).not.toContain("Reasoning level saved.");
+});
+
+it("saves straight away, with no dialog, when no hand-written value is saved", async () => {
+  for (const saved of [{}, { reasoning: { effort: "high" } }]) {
+    resetRender();
+    requests = installFetch(() => ({ body: { revision: "rev-10", settings: {} } }));
+    let tree = await settle(card({ saved }), own);
+    pick(tree, "low");
+    tree = await settle(card({ saved }), own);
+    (saveButton(tree).props.onClick as () => void)();
+    tree = await settle(card({ saved }), own);
+    expect(dialogOf(tree)).toBeUndefined();
+    expect(posts()).toHaveLength(1);
+  }
+});
+
+it("shows the replace dialog in Arabic", async () => {
+  setLanguage("ar");
+  const props = { saved: HAND_WRITTEN };
+  let tree = await settle(card(props), own);
+  pick(tree, "low");
+  tree = await settle(card(props), own);
+  (byType(tree, Button)[0]!.props.onClick as () => void)();
+  tree = await settle(card(props), own);
+  const title = text(dialogOf(tree)!.props.title);
+  expect(title).toBe(translateSettings("Replace the value in the config file?", "ar"));
+  expect(title).not.toBe("Replace the value in the config file?");
 });

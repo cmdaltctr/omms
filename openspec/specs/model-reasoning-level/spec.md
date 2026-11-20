@@ -141,7 +141,7 @@ The web app SHALL choose the field from the saved `memoryApiUrl` and `memoryProv
 
 ### Requirement: The card shows the saved level
 
-The card SHALL show the level that the saved field of the endpoint holds. When that field holds a value the card cannot show as a level, the card SHALL show **Set in the config file** and SHALL keep the value until the user saves another level.
+The card SHALL show the level that the saved field of the endpoint holds. When that field holds a value the card cannot show as a level, the card SHALL show **Set in the config file** and SHALL keep the value until the user saves another level. Saving a level over such a value SHALL ask the user to confirm first.
 
 #### Scenario: Saved effort on OpenRouter
 
@@ -152,6 +152,13 @@ The card SHALL show the level that the saved field of the endpoint holds. When t
 
 - **WHEN** the saved API URL is OpenRouter and `memoryExtraParams.reasoning` is `{ "max_tokens": 2000 }`
 - **THEN** the card SHALL show Set in the config file
+
+#### Scenario: Saving over a hand-written value
+
+- **WHEN** the card shows Set in the config file and the user selects Save reasoning level
+- **THEN** the card SHALL open a confirmation that says the config file value will be replaced
+- **AND** nothing SHALL be sent until the user confirms
+- **AND** a server error SHALL show inside the confirmation, which closes on success
 
 ### Requirement: The card warns about a reasoning field the endpoint ignores
 
