@@ -295,7 +295,7 @@ The web app SHALL store each mark in the profile database of the active memory s
 
 ### Requirement: The dialog uses marks only for the profile it shows
 
-The dialog SHALL read the checked memories from the web app when it opens and when Back returns to the selection. The reply SHALL name the profile version it was built for. When that version differs from the version the dialog shows, the dialog SHALL treat no memory as checked. A failed read SHALL do the same and SHALL NOT block the cleanup.
+The dialog SHALL read the checked memories from the web app when it opens and when Back returns to the selection. The reply SHALL name the profile version it was built for. When that version differs from the version the dialog read when it opened, the dialog SHALL treat no memory as checked. A failed read SHALL do the same and SHALL NOT block the cleanup. Until the read answers, Clean All, Low Freq and Same Category SHALL be disabled with a tooltip that says why.
 
 #### Scenario: The profile changed
 
@@ -307,6 +307,17 @@ The dialog SHALL read the checked memories from the web app when it opens and wh
 
 - **WHEN** the read of the checked memories fails
 - **THEN** the user SHALL still be able to select memories and run the cleanup
+
+#### Scenario: The read has not answered
+
+- **WHEN** the dialog opens and the read of the checked memories has not answered
+- **THEN** Clean All, Low Freq and Same Category SHALL be disabled, and their tooltip SHALL say why
+- **AND** Select All and Deselect All SHALL still work
+
+#### Scenario: The profile reloads while the dialog is open
+
+- **WHEN** a space switch reloads the profile while the dialog is open
+- **THEN** the rows, the checked memories and Analyze SHALL all use the profile the dialog read when it opened
 
 ### Requirement: The dialog opens with nothing ticked
 

@@ -35,13 +35,18 @@ type Props = {
   onMinimise?: () => void;
 };
 
+const NO_ITEMS: CleanupItem[] = [];
+
 export function AiCleanupDialog(props: Props) {
   const { open = false, profile = null, onOpenChange, onApplied, onMinimise } = props;
   const { t } = useI18n();
   const cleanup = useAiCleanupJob(open);
-  const checked = useAiCheckedIds(open, profile?.version);
   const [starting, setStarting] = useState(false);
-  const [allItems, setAllItems] = useState<CleanupItem[]>([]);
+  // The profile as it was when the dialog opened. The rows, the checked ids and Analyze all
+  // use it, so a profile that reloads while the dialog is open cannot mix two profiles.
+  const [snapshot, setSnapshot] = useState<{ version?: number; items: CleanupItem[] } | null>(null);
+  const allItems = snapshot?.items ?? NO_ITEMS;
+  const checked = useAiCheckedIds(snapshot);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   // The order follows a shortcut's picks, not each tick, so rows do not jump while ticking.
   const [orderIds, setOrderIds] = useState<Set<string>>(new Set());
@@ -98,8 +103,7 @@ export function AiCleanupDialog(props: Props) {
       _id: `wf_${i}`,
       _type: "wf" as const,
     }));
-    const items = [...prefs, ...pats, ...wfs];
-    setAllItems(items);
+    setSnapshot({ version: profile?.version, items: [...prefs, ...pats, ...wfs] });
     // The dialog opens with nothing ticked; the user chooses a shortcut.
     pick({ ids: new Set(), skipped: 0 });
     setKeptOpen(false);
@@ -145,6 +149,7 @@ export function AiCleanupDialog(props: Props) {
     onSelectAll: () => pick(allIds(allItems)),
     onSelectNone: () => pick({ ids: new Set(), skipped: 0 }),
     skipped,
+    checkedReady: checked.ready,
   };
 
   async function analyze(ids: string[]) {
@@ -153,7 +158,7 @@ export function AiCleanupDialog(props: Props) {
       return;
     }
     setStarting(true);
-    await cleanup.start(ids, profile?.version, t("toast-ai-cleanup-failed"));
+    await cleanup.start(ids, snapshot?.version, t("toast-ai-cleanup-failed"));
     setStarting(false);
   }
 

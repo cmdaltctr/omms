@@ -334,7 +334,7 @@ An **i** button sits beside **AI Cleanup** and beside **Clean up categories**. S
    - **Select All** selects every memory, also the checked ones. Use it to check the whole profile again.
    - **Deselect All** removes every tick.
 
-   **Clean All**, **Low Freq** and **Same Category** select only memories that are not checked (see below). They show a note under the buttons. When they leave out checked memories, the note says how many, for example "Already checked and skipped: 1,250". **Select All** and **Deselect All** clear the note.
+   **Clean All**, **Low Freq** and **Same Category** select only memories that are not checked (see below). They show a note under the buttons. When they leave out checked memories, the note says how many, for example "Already checked and skipped: 1,250". **Select All** and **Deselect All** clear the note. When the window opens, these three buttons wait until OMMS has read the checked memories. Point at a waiting button to read why. **Select All** and **Deselect All** work at once.
 
 2. The green box under the list shows how many memories are selected. A memory that AI Cleanup already checked shows a **Checked** label. Point at the label to read what it means.
 3. **Analyze Selected** starts the cleanup. OMMS sends the selection to the model in batches of up to 100 memories, one batch at a time. A batch holds one kind of memory. Memories with the same category go in the same batch, if the category has 100 selected memories or fewer. OMMS splits a larger category across batches. The window shows the progress, such as "Batch 3 of 14", and a **Stop** button.

@@ -5,6 +5,8 @@ import type { AiCleanupJob } from "../src/lib/components/explorer/ai-cleanup-job
 
 // Hooks run outside a renderer: effects run at once and every set call is recorded.
 let sets: unknown[] = [];
+// The dialog's one state that starts as null is its snapshot of the profile; a test can set it.
+let snapshotState: unknown = null;
 mock.module("react", () => ({
   ...react,
   useContext: () => null,
@@ -14,7 +16,7 @@ mock.module("react", () => ({
   useId: () => "tip-0",
   useRef: (current: unknown) => ({ current }),
   useState: (initial: unknown) => [
-    initial,
+    initial === null ? snapshotState : initial,
     (next: unknown) => {
       if (typeof next !== "function") sets.push(next);
     },
@@ -31,18 +33,26 @@ mock.module("sonner", () => ({
 }));
 let currentJob: AiCleanupJob | null = null;
 const started: unknown[] = [];
+const startedVersions: unknown[] = [];
+const checkedArgs: unknown[] = [];
 let discarded = 0;
 mock.module("../src/hooks/useAiCleanupJob.ts", () => ({
   useAiCleanupJob: () => ({
     job: currentJob,
     checked: true,
-    start: async (ids: unknown) => started.push(ids),
+    start: async (ids: unknown, version: unknown) => {
+      started.push(ids);
+      startedVersions.push(version);
+    },
     discard: async () => discarded++,
     clear: () => {},
   }),
 }));
 mock.module("../src/hooks/useAiCheckedIds.ts", () => ({
-  useAiCheckedIds: () => ({ ids: new Set<string>(), reload: () => {} }),
+  useAiCheckedIds: (snapshot: unknown) => {
+    checkedArgs.push(snapshot);
+    return { ids: new Set<string>(), ready: true, reload: () => {} };
+  },
 }));
 const { AiCleanupDialog } = await import("../src/lib/components/explorer/AiCleanupDialog.tsx");
 const { AiCleanupSelect } = await import("../src/lib/components/explorer/AiCleanupSelect.tsx");
@@ -81,6 +91,9 @@ beforeEach(() => {
   sets = [];
   warnings.length = 0;
   started.length = 0;
+  startedVersions.length = 0;
+  checkedArgs.length = 0;
+  snapshotState = null;
   discarded = 0;
   currentJob = null;
   setLanguage("en");
@@ -147,6 +160,7 @@ it("shows a Checked label with its tooltip on checked rows only", async () => {
         onSelectAll: () => {},
         onSelectNone: () => {},
         skipped: 0,
+        checkedReady: true,
       },
       onAnalyze: () => {},
     }) as ReactNode
@@ -159,4 +173,68 @@ it("shows a Checked label with its tooltip on checked rows only", async () => {
   const tip = label.find((n) => n.type === Tooltip)!;
   expect(tip.props.content).toBe(t("label-ai-cleanup-checked-tip"));
   expect(text(label)).toContain(t("label-ai-cleanup-checked"));
+});
+
+it("takes one snapshot of the profile when it opens, for the rows and the checked read", () => {
+  render();
+  const snapshot = sets.find(
+    (value): value is { version: number; items: Array<{ _id: string }> } =>
+      !!value && typeof value === "object" && "items" in value
+  )!;
+  expect(snapshot.version).toBe(4);
+  expect(snapshot.items.map((it) => it._id)).toEqual(["pref_0", "pref_1", "pref_2", "pat_0"]);
+});
+
+it("keeps the rows, the checked read and Analyze on the snapshot when the profile reloads", () => {
+  const snapshot = {
+    version: 4,
+    items: [{ ...mem("one", 1), _id: "pref_0", _type: "pref" as const }],
+  };
+  snapshotState = snapshot;
+  // A space switch reloads the profile while the dialog stays open.
+  const newer = { version: 9, profileData: { preferences: [], patterns: [], workflows: [] } };
+  currentJob = { id: "1", selection: ["pref_0"], status: { state: "failed", error: "x" } };
+  const tree = nodes(AiCleanupDialog({ open: true, profile: newer as never }) as ReactNode);
+  expect(checkedArgs.at(-1)).toBe(snapshot);
+  const retry = tree.find(
+    (n) => typeof n.props.onClick === "function" && text(n) === t("btn-ai-cleanup-retry")
+  )!;
+  (retry.props.onClick as () => void)();
+  expect(startedVersions).toEqual([4]);
+});
+
+it("names the row count and the memory type in the chosen language", () => {
+  setLanguage("zh");
+  const row = (id: string, type: "pref" | "pat" | "wf") => ({
+    ...mem(id, 1),
+    _id: id,
+    _type: type,
+  });
+  const tree = nodes(
+    AiCleanupSelect({
+      groups: [
+        { key: "git", items: [row("pref_0", "pref"), row("pat_0", "pat"), row("wf_0", "wf")] },
+      ],
+      selectedIds: new Set(),
+      checkedIds: new Set(),
+      listRef: { current: null },
+      onToggle: () => {},
+      shortcuts: {
+        onSelectClean: () => {},
+        onSelectLow: () => {},
+        onSelectSameCat: () => {},
+        onSelectAll: () => {},
+        onSelectNone: () => {},
+        skipped: 0,
+        checkedReady: true,
+      },
+      onAnalyze: () => {},
+    }) as ReactNode
+  );
+  const shown = text(tree);
+  expect(shown).toContain(t("label-ai-cleanup-group-count", { count: 3 }));
+  expect(shown).not.toContain("items");
+  for (const key of ["profile-type-pref", "profile-type-pat", "profile-type-wf"] as const) {
+    expect(shown).toContain(t(key));
+  }
 });

@@ -2,7 +2,7 @@ import { describe, expect, it, mock } from "bun:test";
 
 mock.module("../src/services/logger.js", () => ({ log: () => {} }));
 
-const { aiCheckedKey, keptIdsOfBatch, aiCheckedKeysForIds } =
+const { aiCheckedKey, keptIdsOfBatch, aiCheckedKeysForIds, marksAfterApply } =
   await import("../src/services/user-profile/ai-cleanup-checked.js");
 
 const base = {
@@ -95,5 +95,21 @@ describe("aiCheckedKeysForIds", () => {
       aiCheckedKey("preferences", profile.preferences[1]),
       aiCheckedKey("patterns", profile.patterns[0]),
     ]);
+  });
+});
+
+describe("marksAfterApply", () => {
+  it("unmarks the saved item of a ticked merge when it takes another member's text", () => {
+    const keeper = { ...base, description: "Keeper" };
+    const other = { ...base, description: "Other" };
+    const job = {
+      old: { preferences: [keeper, other], patterns: [], workflows: [] } as any,
+      changes: { kept: [], merged: [{ ids: ["pref_0", "pref_1"], result: "Other" }], removed: [] },
+      // The model's cleaned text for the group is the second member's text.
+      mergedItems: { pref_0: { ...other, frequency: 3 } },
+    };
+    const { unmark } = marksAfterApply(job, { merged: [["pref_0", "pref_1"]] });
+    expect(unmark).toContain(aiCheckedKey("preferences", keeper));
+    expect(unmark).toContain(aiCheckedKey("preferences", other));
   });
 });

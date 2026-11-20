@@ -241,6 +241,36 @@ describe("callAICleanup reports whether the reply held a mapping", () => {
     expect(empty.mappingValid).toBe(false);
   });
 
+  it("is not valid when a list holds entries of the wrong type", async () => {
+    const { callAICleanup } = await import(aiCleanupUrl);
+    for (const mapping of [
+      { removed: [42] },
+      { kept: [], merged: [], removed: [{ id: "pref_4", reason: "vague" }] },
+      { merged: ["pref_0", "pref_1"] },
+      { merged: [["pref_0", 1]] },
+      { kept: "pref_0" },
+    ]) {
+      expect({
+        mapping,
+        valid: (await callAICleanup("p", {}, given(reply(mapping)))).mappingValid,
+      }).toEqual({ mapping, valid: false });
+    }
+  });
+
+  it("stays valid for empty lists and for a list left out or null", async () => {
+    const { callAICleanup } = await import(aiCleanupUrl);
+    for (const mapping of [
+      { kept: [], merged: [], removed: [] },
+      { removed: ["pref_4"] },
+      { kept: ["pref_0"], merged: null, removed: [] },
+    ]) {
+      expect({
+        mapping,
+        valid: (await callAICleanup("p", {}, given(reply(mapping)))).mappingValid,
+      }).toEqual({ mapping, valid: true });
+    }
+  });
+
   it("reports the same through the external API", async () => {
     const { callAICleanup } = await import(aiCleanupUrl);
     const realFetch = globalThis.fetch;

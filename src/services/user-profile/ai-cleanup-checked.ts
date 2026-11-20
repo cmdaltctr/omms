@@ -53,11 +53,11 @@ export function aiCheckedKeysForIds(profile: UserProfileData, ids: Iterable<stri
 /**
  * What Apply changes in the marks. The items of every proposed change that the user did not
  * tick are marked: the model looked at them and the user kept them. Ticked changes mark
- * nothing, also when Apply skips them. A ticked merge can write the keeper back with the
- * same text, so the keeper's mark is deleted.
+ * nothing, also when Apply skips them. A ticked merge can write back the text of the keeper
+ * or of another member, so the marks of the keeper and of the saved item are deleted.
  */
 export function marksAfterApply(
-  job: { old: UserProfileData; changes: CleanupDiff },
+  job: { old: UserProfileData; changes: CleanupDiff; mergedItems?: Record<string, unknown> },
   accepted: { merged?: unknown[]; removed?: unknown[] }
 ): { mark: string[]; unmark: string[] } {
   const tickedMerges = new Set(
@@ -66,16 +66,24 @@ export function marksAfterApply(
   const tickedRemovals = new Set(accepted.removed ?? []);
   const unticked: string[] = [];
   const keepers: string[] = [];
+  const saved: string[] = [];
   for (const merge of job.changes.merged) {
-    if (tickedMerges.has(merge.ids.join(","))) keepers.push(merge.ids[0] ?? "");
-    else unticked.push(...merge.ids);
+    const keeper = merge.ids[0] ?? "";
+    if (!tickedMerges.has(merge.ids.join(","))) {
+      unticked.push(...merge.ids);
+      continue;
+    }
+    keepers.push(keeper);
+    const section = SECTION_BY_PREFIX[keeper.split("_")[0] ?? ""];
+    const item = job.mergedItems?.[keeper];
+    if (section && item) saved.push(aiCheckedKey(section, item));
   }
   for (const removal of job.changes.removed) {
     if (!tickedRemovals.has(removal.id)) unticked.push(removal.id);
   }
   return {
     mark: aiCheckedKeysForIds(job.old, unticked),
-    unmark: aiCheckedKeysForIds(job.old, keepers),
+    unmark: [...aiCheckedKeysForIds(job.old, keepers), ...saved],
   };
 }
 

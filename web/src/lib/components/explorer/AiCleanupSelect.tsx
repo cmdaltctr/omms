@@ -9,6 +9,13 @@ import { CleanupSelectShortcuts } from "./CleanupSelectShortcuts";
 
 export type CleanupItem = ProfileItem & { _id: string; _type: "pref" | "pat" | "wf" };
 
+/** The short type names that the review screen also uses. */
+const TYPE_LABEL = {
+  pref: "profile-type-pref",
+  pat: "profile-type-pat",
+  wf: "profile-type-wf",
+} as const;
+
 type Props = {
   groups: Array<{ key: string; items: CleanupItem[] }>;
   selectedIds: Set<string>;
@@ -48,7 +55,9 @@ export function AiCleanupSelect({
           <div key={cat} className="space-y-1.5">
             <div className="flex items-center gap-2">
               <bdi className="text-xs rounded-full bg-muted px-2 py-0.5">{cat}</bdi>
-              <span className="text-xs text-muted-foreground">{items.length} items</span>
+              <span className="text-xs text-muted-foreground">
+                {t("label-ai-cleanup-group-count", { count: items.length })}
+              </span>
             </div>
             {items.map((it) => {
               const checked = selectedIds.has(it._id);
@@ -70,8 +79,8 @@ export function AiCleanupSelect({
                   <span className="pointer-events-none inline-flex">
                     <Checkbox checked={checked} tabIndex={-1} />
                   </span>
-                  <span className="text-[10px] font-medium text-muted-foreground w-4">
-                    {it._type === "pref" ? "P" : it._type === "pat" ? "T" : "W"}
+                  <span className="w-8 shrink-0 truncate text-[10px] font-medium text-muted-foreground">
+                    {t(TYPE_LABEL[it._type])}
                   </span>
                   <span className="flex-1 min-w-0 truncate">
                     {(it.description || "").substring(0, 80)}

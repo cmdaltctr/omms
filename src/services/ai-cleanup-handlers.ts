@@ -191,13 +191,13 @@ export async function handleAiCleanupApply(
 }
 
 /**
- * Marks the items of the changes the user did not tick, unmarks each ticked merge keeper,
- * and deletes the marks that match no memory of the saved profile. A failure is logged as
+ * Marks the items of the changes the user did not tick, unmarks each ticked merge keeper and
+ * the item the merge saved, and deletes the marks that match no memory of the saved profile. A failure is logged as
  * a code and does not fail Apply.
  */
 async function saveApplyMarks(
   user: string,
-  job: { old: UserProfileData; changes: import("./user-profile/ai-cleanup.js").CleanupDiff },
+  job: import("./user-profile/ai-cleanup-apply.js").CleanupJobResult,
   accepted: { merged?: unknown[]; removed?: unknown[] },
   manager: UserProfileManager
 ): Promise<void> {

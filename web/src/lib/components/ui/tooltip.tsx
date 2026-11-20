@@ -60,7 +60,6 @@ export function Tooltip({
   const id = React.useId();
   const tip = React.useRef<HTMLSpanElement>(null);
   const [shift, setShift] = React.useState(0);
-  const [maxWidth, setMaxWidth] = React.useState<number | undefined>();
   const child = React.isValidElement<{ "aria-describedby"?: string }>(children)
     ? React.cloneElement(children, { "aria-describedby": id })
     : children;
@@ -75,10 +74,12 @@ export function Tooltip({
     const column = pageColumn(node);
     const left = column ? column.left : 0;
     const right = column ? column.right : document.documentElement.clientWidth;
-    // A column narrower than the bubble wraps its text instead of cutting it off.
+    // A column narrower than the bubble wraps its text instead of cutting it off. The inline
+    // value replaces the class's cap, so it repeats that cap. It is set on the node before the
+    // width is read, so the shift uses the final width. React leaves it alone on render.
     const cap = tooltipMaxWidth({ left, right, gap: EDGE_GAP });
-    setMaxWidth(cap);
-    const half = Math.min(node.offsetWidth, cap) / 2;
+    node.style.maxWidth = `min(24rem, calc(100vw - 1rem), ${cap}px)`;
+    const half = node.offsetWidth / 2;
     setShift(tooltipShift({ centre, half, left, right, gap: EDGE_GAP }));
   };
 
@@ -93,7 +94,7 @@ export function Tooltip({
         ref={tip}
         id={id}
         role="tooltip"
-        style={{ transform: `translateX(calc(-50% + ${shift}px))`, maxWidth }}
+        style={{ transform: `translateX(calc(-50% + ${shift}px))` }}
         className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max max-w-[min(24rem,calc(100vw-1rem))] rounded-md border border-border bg-card px-2 py-1 text-xs whitespace-normal text-card-foreground opacity-0 shadow-sm transition-opacity duration-150 ease-in group-focus-within/tooltip:opacity-100 group-hover/tooltip:opacity-100"
       >
         {content}

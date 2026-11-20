@@ -40,10 +40,23 @@ export interface AICleanupReply {
   mappingValid: boolean;
 }
 
-/** True when the reply's mapping is an object with at least one list in it. */
+const isIdList = (field: unknown): boolean =>
+  Array.isArray(field) && field.every((id) => typeof id === "string");
+
+/**
+ * True when the reply's mapping is an object with at least one list in it, and every list
+ * holds the right type: ids for kept and removed, lists of ids for merged. A list of the
+ * wrong type would lose its entries in normalizeAIMapping, and the batch would look kept.
+ */
 function isValidMapping(raw: any): boolean {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
-  return [raw.kept, raw.merged, raw.removed].some((field) => Array.isArray(field));
+  const lists: Array<[unknown, (field: unknown) => boolean]> = [
+    [raw.kept, isIdList],
+    [raw.merged, (field) => Array.isArray(field) && field.every(isIdList)],
+    [raw.removed, isIdList],
+  ];
+  const given = lists.filter(([field]) => field != null);
+  return given.length > 0 && given.every(([field, valid]) => valid(field));
 }
 
 // The model controls this JSON; it may omit fields or return wrong types. Coerce to a

@@ -394,6 +394,9 @@ export const translations = {
     "label-ai-cleanup-checked": "Checked",
     "label-ai-cleanup-checked-tip":
       "The AI already checked this memory and kept it. It is skipped unless its text or category changes.",
+    "label-ai-cleanup-checked-waiting":
+      "Reading which memories AI Cleanup already checked. Select All works now.",
+    "label-ai-cleanup-group-count": "{count} items",
     "label-more-info": "What does this do?",
     "help-ai-cleanup":
       "Asks the AI to find memories that say the same thing and merge them. It can also remove memories that are too vague to help. You choose which memories it checks, then review every change. Your memories do not change until you press Apply Changes. Memories the AI checked and kept are skipped next time, unless you choose Select All.",
@@ -784,6 +787,8 @@ export const translations = {
     "label-ai-cleanup-checked": "已检查",
     "label-ai-cleanup-checked-tip":
       "AI 已检查过这条记忆并保留了它。除非它的文字或分类有变化，否则会被跳过。",
+    "label-ai-cleanup-checked-waiting": "正在读取 AI 清理已检查过的记忆。现在可以使用“全选”。",
+    "label-ai-cleanup-group-count": "{count} 项",
     "label-more-info": "这是做什么的？",
     "help-ai-cleanup":
       "让 AI 找出意思相同的记忆并合并。它也可以删除过于模糊、没有帮助的记忆。你先选择要检查的记忆，再逐项查看每个变更。点击“应用变更”之前，你的记忆不会改变。AI 检查过并保留的记忆下次会被跳过，除非你选择“全选”。",
@@ -1225,6 +1230,9 @@ export const translations = {
     "label-ai-cleanup-checked": "مفحوصة",
     "label-ai-cleanup-checked-tip":
       "فحص الذكاء الاصطناعي هذه الذكرى وأبقاها. تُتخطى ما لم يتغير نصها أو فئتها.",
+    "label-ai-cleanup-checked-waiting":
+      "جارٍ قراءة الذكريات التي فحصها تنظيف الذكاء الاصطناعي. يمكنك استخدام «تحديد الكل» الآن.",
+    "label-ai-cleanup-group-count": "{count} عنصر",
     "label-more-info": "ما وظيفة هذا؟",
     "help-ai-cleanup":
       "يطلب من الذكاء الاصطناعي إيجاد الذكريات التي تقول الشيء نفسه ودمجها. ويمكنه أيضًا حذف الذكريات الغامضة جدًا بحيث لا تفيد. أنت تختار الذكريات التي يفحصها، ثم تراجع كل تغيير. لا تتغير ذكرياتك حتى تضغط «تطبيق التغييرات». الذكريات التي فحصها الذكاء الاصطناعي وأبقاها تُتخطى في المرة القادمة، إلا إذا اخترت «تحديد الكل».",
