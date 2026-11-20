@@ -2,6 +2,30 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [7.1.1](https://github.com/cmdaltctr/omms/compare/v7.1.0...v7.1.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* compare the caller's full version on step-aside ([e902c8c](https://github.com/cmdaltctr/omms/commit/e902c8cc560c81bc9f69c5f5e0502580d2209936)), closes [#295](https://github.com/cmdaltctr/omms/issues/295)
+* confirming an older Claude Code profile notice no longer clears a newer one ([58918ab](https://github.com/cmdaltctr/omms/commit/58918abc37a1fa1a3ead07065a6441e14ab4af50)), closes [#294](https://github.com/cmdaltctr/omms/issues/294)
+* keep a committed password clear when its log line fails ([c6112f0](https://github.com/cmdaltctr/omms/commit/c6112f0392dbe39b1e425bb4d208c36da21f1020))
+* keep a newer learning settings snapshot after a failed reload ([1cf89aa](https://github.com/cmdaltctr/omms/commit/1cf89aa23c2eaa7f16722c3de541e9efc9a17652))
+* keep a prompt when deleting its linked memory fails ([356ef4c](https://github.com/cmdaltctr/omms/commit/356ef4cbef851fff1ceaaabd0d8aa87cdd65b09e)), closes [#295](https://github.com/cmdaltctr/omms/issues/295)
+* keep confirmed learning settings on a failed reload and explain disabled buttons ([452aa2a](https://github.com/cmdaltctr/omms/commit/452aa2a4cca3a6e22552c0bf046273facd024c42)), closes [#295](https://github.com/cmdaltctr/omms/issues/295)
+* keep Directory maps and retry-queue settings accurate ([845ae8d](https://github.com/cmdaltctr/omms/commit/845ae8dcdfe36bbc64ae8b3123bca909ef03705c)), closes [#295](https://github.com/cmdaltctr/omms/issues/295)
+* keep OpenCode notice order when a toast fails ([d2c43d3](https://github.com/cmdaltctr/omms/commit/d2c43d3a7b6564b58554f731b05a745cda96e4c9))
+* keep OpenCode notices until the TUI shows them, and retry failed claims ([b5e9651](https://github.com/cmdaltctr/omms/commit/b5e965186f31734192bb7ce668a987907fc35ee9)), closes [#293](https://github.com/cmdaltctr/omms/issues/293)
+* low-score findings from the [#292](https://github.com/cmdaltctr/omms/issues/292) review ([5ff7e35](https://github.com/cmdaltctr/omms/commit/5ff7e350bbcafc132dc4627b3a216ea691f88963))
+* make profile learning fallback, marking and validation robust ([ef76e6b](https://github.com/cmdaltctr/omms/commit/ef76e6b9d47cdcfdfa1d72a0223500a7bccfeabb)), closes [#294](https://github.com/cmdaltctr/omms/issues/294)
+* merge memory edits under the write lock and count only real deletes ([326e040](https://github.com/cmdaltctr/omms/commit/326e04010bdd3eb373d12851634c0c4e540a52c0)), closes [#295](https://github.com/cmdaltctr/omms/issues/295)
+* never embed while holding the memory write lock ([98325e6](https://github.com/cmdaltctr/omms/commit/98325e635893dac6ca71eb567118762b92bc999e))
+* refuse a profile item index that is not a whole number ([dd84663](https://github.com/cmdaltctr/omms/commit/dd8466312c8ef818c09a0db91a921c78c550ec88)), closes [#295](https://github.com/cmdaltctr/omms/issues/295)
+* report a committed password clear when the key file cannot be removed ([3049bc8](https://github.com/cmdaltctr/omms/commit/3049bc8fd0a3da1f987a2145fa6c6d5c5982a33e)), closes [#295](https://github.com/cmdaltctr/omms/issues/295)
+* retry a failed post-save mark before learning a new batch ([a13df4f](https://github.com/cmdaltctr/omms/commit/a13df4f667149104cf2db2912b6562ed42d98c35))
+* skip the retry-queue clear when its cutoff cannot be read ([fa32efa](https://github.com/cmdaltctr/omms/commit/fa32efa35783e43060a7c337440317027cb26e0f))
+* tighten web app port takeover ([dfa1834](https://github.com/cmdaltctr/omms/commit/dfa18344dbf4d7025fa00815b32cf8e87ff2bfff)), closes [#295](https://github.com/cmdaltctr/omms/issues/295)
+
 ## [7.1.0](https://github.com/cmdaltctr/omms/compare/v7.0.1...v7.1.0) (2026-11-19)
 
 
