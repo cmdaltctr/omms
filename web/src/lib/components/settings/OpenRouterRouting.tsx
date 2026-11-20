@@ -94,7 +94,7 @@ export function OpenRouterRouting({
       .then((reply) => {
         if (!current()) return;
         if (reply.ok) {
-          setOrderTicks(stateRef.current.ticked);
+          setOrderTicks(usableTicked(stateRef.current, reply.providers));
           setScrollKey((key) => key + 1);
         }
         setList(
@@ -159,10 +159,15 @@ export function OpenRouterRouting({
     try {
       await settingsRequest(SAVE_PATH, {
         method: "POST",
-        body: JSON.stringify({ revision, routing: providerFromRouting(state, loaded) }),
+        // `chooses` lets the server keep an empty provider object, so the switch stays on after a reload.
+        body: JSON.stringify({
+          revision,
+          routing: providerFromRouting(state, loaded),
+          ...(state.openRouterChooses ? { chooses: true } : {}),
+        }),
       });
       setSave({ kind: edits.current === sent ? "saved" : "idle" });
-      setOrderTicks(state.ticked);
+      setOrderTicks(usableTicked(state, loaded));
       setScrollKey((key) => key + 1);
     } catch (error) {
       setSave({ kind: "error", message: (error as Error).message });
@@ -193,6 +198,16 @@ export function OpenRouterRouting({
           "Save the endpoint first. The providers shown are for the model above, which is not saved yet."
         )
       : undefined;
+  const addButton = (
+    <Button
+      variant="outline"
+      disabled={chooses}
+      aria-describedby={chooses ? "openrouter-chooses-reason" : undefined}
+      onClick={addManual}
+    >
+      {s("Add provider")}
+    </Button>
+  );
   const saveButton = (
     <Button
       disabled={save.kind === "saving" || readOnly || blockReason !== undefined}
@@ -306,9 +321,7 @@ export function OpenRouterRouting({
           onChange={(event) => setManual(event.target.value)}
           onKeyDown={(event) => event.key === "Enter" && addManual()}
         />
-        <Button variant="outline" disabled={chooses} onClick={addManual}>
-          {s("Add provider")}
-        </Button>
+        {chooses ? <Blocked reason={choosesReason}>{addButton}</Blocked> : addButton}
       </div>
       {manualError && (
         <p role="alert" className="text-xs text-destructive-label">

@@ -49,7 +49,8 @@ export function ReasoningLevel({
   readOnly?: boolean;
 }) {
   const s = useSettingsText();
-  const [picked, setPicked] = useState<string>();
+  // A pick belongs to the saved endpoint it was made for. `at` is that endpoint.
+  const [picked, setPicked] = useState<{ at: string; level: string }>();
   const [save, setSave] = useState<SaveState>({ kind: "idle" });
 
   const family = reasoningFamily(savedUrl, savedProvider);
@@ -66,7 +67,10 @@ export function ReasoningLevel({
   const choices = reasoningChoices(family, facts);
   const current = savedLevel(family, saved);
   const initial = current !== "custom" && choices.levels.includes(current) ? current : "custom";
-  const shown = picked ?? initial;
+  const at = [savedUrl, savedProvider, savedModel].join("\n");
+  // A pick from another endpoint, or one the model's facts no longer offer, is dropped.
+  const shown =
+    picked?.at === at && choices.levels.includes(picked.level as Level) ? picked.level : initial;
   const toggle = family === "openrouter" && choices.levels.includes("on");
   const ignored = ignoredReasoningField(family, saved);
 
@@ -100,12 +104,13 @@ export function ReasoningLevel({
         method: "POST",
         body: JSON.stringify({ revision, level: shown, ...(toggle ? { toggle: true } : {}) }),
       });
-      setPicked(undefined);
+      // The pick stays on screen until a fresh snapshot holds the saved level.
+      if (await reloadSettingsSnapshot()) setPicked(undefined);
       setSave({ kind: "saved" });
     } catch (error) {
       setSave({ kind: "error", message: (error as Error).message });
+      await reloadSettingsSnapshot();
     }
-    await reloadSettingsSnapshot();
   }
 
   const button = (
@@ -129,8 +134,9 @@ export function ReasoningLevel({
         <Select
           id="external-api-reasoning"
           value={shown}
+          disabled={save.kind === "saving"}
           onChange={(event) => {
-            setPicked(event.target.value);
+            setPicked({ at, level: event.target.value });
             setSave({ kind: "idle" });
           }}
         >

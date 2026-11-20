@@ -195,6 +195,12 @@ The routing block SHALL offer a **Let OpenRouter choose the provider** switch, o
 - **WHEN** Block providers that may train on or store data is on, `deepinfra` is ticked with Use only these providers on, and the user turns the switch on and saves
 - **THEN** `memoryExtraParams.provider` SHALL be `{ "data_collection": "deny" }`
 
+#### Scenario: Switch on with no privacy switch
+
+- **WHEN** both privacy switches are off and the user turns the switch on and saves
+- **THEN** `memoryExtraParams.provider` SHALL be `{}`, an empty object that the save keeps
+- **AND** the switch SHALL be on after the card loads again
+
 #### Scenario: Switch off keeps today's behaviour
 
 - **WHEN** the switch is off and the user ticks `deepinfra` then `novita` and saves
@@ -218,6 +224,11 @@ When the card loads, the switch SHALL be on when a saved `provider` object exist
 - **WHEN** the saved `provider` is `{ "data_collection": "deny", "zdr": true }`
 - **THEN** the switch SHALL be on after the card loads
 
+#### Scenario: Saved empty provider object
+
+- **WHEN** the saved `provider` is `{}`
+- **THEN** the switch SHALL be on after the card loads
+
 #### Scenario: No saved routing
 
 - **WHEN** `memoryExtraParams` has no `provider`
@@ -225,7 +236,7 @@ When the card loads, the switch SHALL be on when a saved `provider` object exist
 
 ### Requirement: Ticked providers are listed first
 
-The provider list SHALL show the ticked providers first, in try order, then the other providers in OpenRouter's list order. The list SHALL take this order when the provider list loads and after a routing save, and SHALL then scroll to its top. A single tick or untick SHALL NOT move any row.
+The provider list SHALL show the ticked providers first, in try order, then the other providers in OpenRouter's list order. A provider that shows unticked, such as a saved tick that Zero data retention only blocks, SHALL count as not ticked. The list SHALL take this order when the provider list loads and after a routing save, and SHALL then scroll to its top. A single tick or untick SHALL NOT move any row.
 
 #### Scenario: Load with saved ticks
 

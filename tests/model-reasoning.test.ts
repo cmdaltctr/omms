@@ -65,6 +65,18 @@ describe("reasoningChoices", () => {
     expect(reasoningChoices("openrouter", { mandatory: true }).levels).toEqual(["default", "on"]);
   });
 
+  it("treats a listed efforts array as an explicit list, even when it only holds none", () => {
+    expect(
+      reasoningChoices("openrouter", { supported_efforts: ["none"], mandatory: false }).levels
+    ).toEqual(["default", "off"]);
+    expect(
+      reasoningChoices("openrouter", { supported_efforts: ["none"], mandatory: true }).levels
+    ).toEqual(["default"]);
+    expect(reasoningChoices("openrouter", { supported_efforts: ["unknown-level"] }).levels).toEqual(
+      ["default"]
+    );
+  });
+
   it("gives the general choices and the nearest-level note when there are no facts", () => {
     for (const facts of [undefined, {}]) {
       const choices = reasoningChoices("openrouter", facts);

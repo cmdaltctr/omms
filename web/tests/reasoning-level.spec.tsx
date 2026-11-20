@@ -1,4 +1,4 @@
-import { beforeEach, expect, it } from "bun:test";
+import { beforeEach, expect, it, mock } from "bun:test";
 import {
   allText,
   byType,
@@ -12,6 +12,9 @@ import {
 } from "./space-kit.tsx";
 
 installReact();
+
+// A failed settings reload shows a toast; the real one needs a page.
+mock.module("sonner", () => ({ toast: { warning: () => {}, success: () => {}, error: () => {} } }));
 
 const { ReasoningLevel } = await import("../src/lib/components/settings/ReasoningLevel.tsx");
 const { Button } = await import("../src/lib/components/ui/button.tsx");
@@ -184,4 +187,70 @@ it("shows the level names, notes and warning in Arabic", async () => {
     translateSettings("OpenRouter ignores the saved thinking field.", "ar")
   );
   expect(allText(tree)).not.toContain("OpenRouter ignores the saved thinking field.");
+});
+
+it("drops a pending pick that the new saved endpoint does not offer", async () => {
+  const deepseek = { savedUrl: "https://api.deepseek.com" };
+  let tree = await settle(card(deepseek), own);
+  pick(tree, "off");
+  tree = await settle(card(deepseek), own);
+  expect(select(tree).props.value).toBe("off");
+
+  const other = { savedUrl: "https://api.example.com/v1" };
+  tree = await settle(card(other), own);
+  expect(options(tree)).not.toContain("off");
+  expect(select(tree).props.value).toBe("default");
+  (saveButton(tree).props.onClick as () => void)();
+  await settle(card(other), own);
+  expect(requests.find((request) => request.path === SAVE)!.body).toEqual({
+    revision: "rev-9",
+    level: "default",
+  });
+});
+
+it("resets a pending pick when the saved endpoint changes, even to one that offers it", async () => {
+  const first = { savedUrl: "https://api.example.com/v1" };
+  let tree = await settle(card(first), own);
+  pick(tree, "low");
+  tree = await settle(card(first), own);
+  expect(select(tree).props.value).toBe("low");
+
+  tree = await settle(card({ savedUrl: "https://api.example.org/v1" }), own);
+  expect(select(tree).props.value).toBe("default");
+});
+
+it("keeps the submitted level on screen when the settings reload fails after a save", async () => {
+  requests = installFetch((request) =>
+    request.path === "/api/settings"
+      ? { status: 500, body: { error: "down" } }
+      : { body: { revision: "rev-10" } }
+  );
+  let tree = await settle(card(), own);
+  pick(tree, "low");
+  tree = await settle(card(), own);
+  (saveButton(tree).props.onClick as () => void)();
+  tree = await settle(card(), own);
+  expect(requests.some((request) => request.path === "/api/settings")).toBe(true);
+  expect(allText(tree)).toContain("Reasoning level saved.");
+  expect(select(tree).props.value).toBe("low");
+});
+
+it("turns the Select off while a save runs, so a later pick cannot be lost", async () => {
+  let release!: (reply: { body: unknown }) => void;
+  const pending = new Promise<{ body: unknown }>((done) => (release = done));
+  requests = installFetch((request) =>
+    request.path === SAVE ? pending : { body: { revision: "rev-10", settings: {} } }
+  );
+  let tree = await settle(card(), own);
+  expect(select(tree).props.disabled).toBeFalsy();
+  pick(tree, "low");
+  tree = await settle(card(), own);
+  (saveButton(tree).props.onClick as () => void)();
+  tree = await settle(card(), own);
+  expect(allText(tree)).toContain("Saving reasoning level");
+  expect(select(tree).props.disabled).toBe(true);
+
+  release({ body: { revision: "rev-10" } });
+  tree = await settle(card(), own);
+  expect(select(tree).props.disabled).toBeFalsy();
 });

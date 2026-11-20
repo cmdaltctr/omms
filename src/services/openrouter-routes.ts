@@ -62,6 +62,11 @@ export async function routeOpenRouter(
     const removeAll = body.routing === null;
     const parsed = removeAll ? { ok: true as const, routing: {} } : parseRouting(body.routing);
     if (!parsed.ok) return fail(400, parsed.error);
+    // `chooses: true` means the user let OpenRouter choose, which keeps an empty provider object.
+    if (body.chooses !== undefined && typeof body.chooses !== "boolean") {
+      return fail(400, "chooses must be true or false");
+    }
+    const chooses = body.chooses === true && !removeAll;
 
     const { writeGlobalConfigKeys, ConfigConflictError } = await import("../config-writer.js");
     let provider: Record<string, unknown> | undefined;
@@ -71,11 +76,14 @@ export async function routeOpenRouter(
         only: new Set(["memoryExtraParams", "memoryExtraParams.provider"]),
         derive: (current) => {
           // A clearing save is always allowed, so a stale provider can go after a switch of endpoint.
-          if (Object.keys(parsed.routing).length > 0 && !isOpenRouterUrl(current.memoryApiUrl)) {
+          if (
+            (Object.keys(parsed.routing).length > 0 || chooses) &&
+            !isOpenRouterUrl(current.memoryApiUrl)
+          ) {
             throw new Error(NOT_OPENROUTER);
           }
           if (removeAll) return removeProviderEdits(current.memoryExtraParams);
-          const result = routingEdits(current.memoryExtraParams, parsed.routing);
+          const result = routingEdits(current.memoryExtraParams, parsed.routing, chooses);
           provider = result.provider;
           return result.edits;
         },

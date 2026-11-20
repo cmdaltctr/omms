@@ -16,6 +16,7 @@ installReact();
 const routing = await import("../src/lib/openrouter-routing.ts");
 const { OpenRouterRouting, ProviderRows } =
   await import("../src/lib/components/settings/OpenRouterRouting.tsx");
+const { Blocked } = await import("../src/lib/components/settings/OpenRouterProviderRows.tsx");
 const { ExternalApiSection } =
   await import("../src/lib/components/settings/ExternalApiSection.tsx");
 const { Checkbox } = await import("../src/lib/components/ui/checkbox.tsx");
@@ -1074,6 +1075,54 @@ it("saves no order, only or allow_fallbacks with the switch on, and keeps the pr
   expect(requests.find((request) => request.path === SAVE)!.body).toEqual({
     revision: "rev-9",
     routing: { data_collection: "deny" },
+    chooses: true,
+  });
+});
+
+it("keeps the choice across a save and a reload when both privacy switches are off", async () => {
+  requests = installFetch((request) =>
+    request.path.startsWith(LIST)
+      ? { body: { ok: true, providers: rows } }
+      : { body: { revision: "rev-10", provider: {} } }
+  );
+  let tree = await settle(block(), own);
+  flip(tree, "openrouter-chooses", true);
+  tree = await settle(block(), own);
+  (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  await settle(block(), own);
+  const post = requests.find((request) => request.path === SAVE)!.body as Record<string, unknown>;
+  // The routing is empty, so the page must also say that OpenRouter chooses.
+  expect(post).toEqual({ revision: "rev-9", routing: {}, chooses: true });
+  expect(providerFromRouting({ ...off, openRouterChooses: true }, rows)).toEqual({});
+
+  // The server keeps the empty object. After the reload the card reads it as the switch on,
+  // and no saved object (the default) still reads as off.
+  expect(routingFromProvider({}).openRouterChooses).toBe(true);
+  expect(routingFromProvider(null).openRouterChooses).toBe(false);
+  resetRender();
+  expect(box(await settle(block({ saved: {} }), own), "openrouter-chooses").props.checked).toBe(
+    true
+  );
+  resetRender();
+  expect(box(await settle(block({ saved: null }), own), "openrouter-chooses").props.checked).toBe(
+    false
+  );
+});
+
+it("sends no chooses field while the switch is off", async () => {
+  requests = installFetch((request) =>
+    request.path.startsWith(LIST)
+      ? { body: { ok: true, providers: rows } }
+      : { body: { revision: "rev-10", settings: {} } }
+  );
+  let tree = await settle(block(), own);
+  tick(tree, "deepinfra");
+  tree = await settle(block(), own);
+  (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  await settle(block(), own);
+  expect(requests.find((request) => request.path === SAVE)!.body).toEqual({
+    revision: "rev-9",
+    routing: { order: ["deepinfra"] },
   });
 });
 
@@ -1117,6 +1166,21 @@ it("loads the rows with the ticked providers first, in try order", async () => {
   expect(slugsOf(tree)).toEqual(["together", "deepinfra", "novita"]);
 });
 
+it("orders rows by the ticks that show, so a blocked saved tick does not lead", async () => {
+  requests = installFetch(() => ({ body: { ok: true, providers: rows } }));
+  // With ZDR on, `together` (may keep data) shows unticked, so it must not sit before `deepinfra`.
+  const saved = { zdr: true, order: ["together", "deepinfra"] };
+  let tree = await settle(block({ saved }), own);
+  expect(slugsOf(tree)).toEqual(["deepinfra", "novita", "together"]);
+  expect(box(tree, "openrouter-provider-together").props.checked).toBe(false);
+  expect(box(tree, "openrouter-provider-deepinfra").props.checked).toBe(true);
+
+  // Saving drops the blocked tick from the order too, so the rows stay put.
+  (buttonNamed(tree, "Save routing").props.onClick as () => void)();
+  tree = await settle(block({ saved }), own);
+  expect(slugsOf(tree)).toEqual(["deepinfra", "novita", "together"]);
+});
+
 it("does not move a row on a tick, and reorders after a save", async () => {
   requests = installFetch((request) =>
     request.path.startsWith(LIST)
@@ -1134,4 +1198,32 @@ it("does not move a row on a tick, and reorders after a save", async () => {
   (buttonNamed(tree, "Save routing").props.onClick as () => void)();
   tree = await settle(block(), own);
   expect(slugsOf(tree)).toEqual(["together", "deepinfra", "novita"]);
+});
+
+it("wraps the disabled Add provider and Remove provider buttons in Blocked with the reason", async () => {
+  requests = installFetch(() => ({ body: { ok: true, providers: rows } }));
+  const saved = { order: ["my-host"] };
+  let tree = await settle(block({ saved }), own);
+  const wrapped = (view: Node[], name: string) =>
+    byType(view, Blocked).filter((node) => {
+      const child = node.props.children as Node;
+      return (
+        child.type === Button &&
+        String(child.props["aria-label"] ?? text(child.props.children)).startsWith(name)
+      );
+    });
+  expect(wrapped(tree, "Add provider")).toEqual([]);
+  expect(wrapped(tree, "Remove provider")).toEqual([]);
+
+  flip(tree, "openrouter-chooses", true);
+  tree = await settle(block({ saved }), own);
+  const reason = "OpenRouter chooses the provider, so the list is not used.";
+  for (const name of ["Add provider", "Remove provider my-host"]) {
+    const [blocked] = wrapped(tree, name);
+    expect([name, blocked?.props.reason]).toEqual([name, reason]);
+    const button = blocked!.props.children as Node;
+    expect(button.props.disabled).toBe(true);
+    expect(button.props["aria-describedby"]).toBe("openrouter-chooses-reason");
+  }
+  expect(tree.some((node) => node.props.id === "openrouter-chooses-reason")).toBe(true);
 });

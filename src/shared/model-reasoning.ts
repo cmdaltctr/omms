@@ -86,7 +86,8 @@ export function reasoningChoices(
   const efforts = EFFORTS.filter((effort) => listed.includes(effort));
   const canOff = facts.mandatory !== true;
   const defaultEffort = facts.default_effort;
-  if (efforts.length === 0) {
+  // An explicit list, even one that holds only `none`, never offers On.
+  if (listed.length === 0) {
     return {
       levels: ["default", ...(canOff ? (["off"] as const) : []), "on"],
       ...(defaultEffort ? { defaultEffort } : {}),

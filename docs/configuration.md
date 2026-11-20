@@ -622,7 +622,7 @@ The providers `anthropic`, `minimax`, `google-gemini` and `orcarouter` have no c
 - A project config that sets `memoryExtraParams` keeps the global reasoning field, as it keeps `provider`. When the project config sets `reasoning`, `reasoning_effort` or `thinking` itself, the project's field replaces the global one.
 - A call that uses an OpenCode or Pi session model goes through the host. It does not send the field.
 
-When OpenRouter chooses the provider (the **Let OpenRouter choose the provider** switch), the saved `provider` has no `order`, `only` or `allow_fallbacks`. The privacy fields `data_collection` and `zdr` stay. OpenRouter then picks the provider.
+When OpenRouter chooses the provider (the **Let OpenRouter choose the provider** switch), the saved `provider` has no `order`, `only` or `allow_fallbacks`. The privacy fields `data_collection` and `zdr` stay. With both off, the card saves `provider` as an empty object (`{}`). OpenRouter then picks the provider.
 
 ## Embeddings
 

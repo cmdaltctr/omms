@@ -217,7 +217,7 @@ Turn on **Let OpenRouter choose the provider** to let OpenRouter pick a provider
 - With the switch on, **Save routing** sends no `order`, `only` or `allow_fallbacks`. The privacy switches still apply.
 - The ticks, **Add provider** and **Use only these providers** are off, with the reason `OpenRouter chooses the provider, so the list is not used.`
 - Your ticks stay on the page while the switch is on, and come back in the same order when you turn it off. They are not saved. A reload shows the switch on and no ticks.
-- When the card loads, the switch is on if a `provider` object is saved with no `order` and no `only`.
+- When the card loads, the switch is on if a `provider` object is saved with no `order` and no `only`. With both privacy switches off, **Save routing** saves an empty `provider` object (`{}`), so the switch stays on after a reload.
 
 #### Provider list
 

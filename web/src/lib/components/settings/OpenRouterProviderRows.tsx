@@ -99,6 +99,18 @@ export function ProviderRows({
         const blocked = zdr && policy === "unknown";
         const off = blocked || locked;
         const reason = s("Not available while Zero data retention only is on.");
+        const remove = (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            disabled={locked}
+            aria-describedby={locked ? "openrouter-chooses-reason" : undefined}
+            aria-label={`${s("Remove provider")} ${slug}`}
+            onClick={() => onRemove(slug)}
+          >
+            <X aria-hidden="true" />
+          </Button>
+        );
         const box = (
           <Checkbox
             id={id}
@@ -150,17 +162,7 @@ export function ProviderRows({
                 {reason}
               </span>
             )}
-            {!policy && (
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                disabled={locked}
-                aria-label={`${s("Remove provider")} ${slug}`}
-                onClick={() => onRemove(slug)}
-              >
-                <X aria-hidden="true" />
-              </Button>
-            )}
+            {!policy && (locked ? <Blocked reason={lockedReason}>{remove}</Blocked> : remove)}
           </li>
         );
       })}

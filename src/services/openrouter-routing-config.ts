@@ -76,16 +76,18 @@ export function isOpenRouterUrl(value: unknown): boolean {
 
 /**
  * The provider object after the save: the saved object without the five managed
- * fields, plus the posted ones. `undefined` means no provider is left.
+ * fields, plus the posted ones. `undefined` means no provider is left. With `chooses`
+ * (the user let OpenRouter choose) an empty object stays, so the choice survives a reload.
  */
 export function mergeProvider(
   saved: unknown,
-  routing: Record<string, unknown>
+  routing: Record<string, unknown>,
+  chooses = false
 ): Record<string, unknown> | undefined {
   const merged = isPlainObject(saved) ? { ...saved } : {};
   for (const key of MANAGED_PROVIDER_KEYS) delete merged[key];
   Object.assign(merged, routing);
-  return Object.keys(merged).length > 0 ? merged : undefined;
+  return chooses || Object.keys(merged).length > 0 ? merged : undefined;
 }
 
 /**
@@ -108,10 +110,11 @@ export function removeProviderEdits(savedExtraParams: unknown): Record<string, u
  */
 export function routingEdits(
   savedExtraParams: unknown,
-  routing: Record<string, unknown>
+  routing: Record<string, unknown>,
+  chooses = false
 ): { edits: Record<string, unknown>; provider: Record<string, unknown> | undefined } {
   const extra = isPlainObject(savedExtraParams) ? savedExtraParams : undefined;
-  const provider = mergeProvider(extra?.provider, routing);
+  const provider = mergeProvider(extra?.provider, routing, chooses);
   if (provider) {
     // A saved value that is not an object cannot hold a nested key, so it is replaced.
     return {
