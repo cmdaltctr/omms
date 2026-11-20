@@ -2,6 +2,17 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [7.1.2](https://github.com/cmdaltctr/omms/compare/v7.1.1...v7.1.2) (2026-11-20)
+
+
+### Bug Fixes
+
+* a forced profile re-analysis clears leftover learned records ([e3976a3](https://github.com/cmdaltctr/omms/commit/e3976a3fd6637428f1b969309f8c8c7212794740))
+* check saved profile batches across every profile ([3050ba1](https://github.com/cmdaltctr/omms/commit/3050ba14d495bb8526706a78844658ccd89b0ab4))
+* never learn a profile batch twice; show AI Cleanup selections first ([f8c052e](https://github.com/cmdaltctr/omms/commit/f8c052e1620ad80a8486585f4e8f65d8cab294d7))
+* never learn a saved profile batch twice, even after a restart ([7f6fb35](https://github.com/cmdaltctr/omms/commit/7f6fb3575fadc3e2dc68b69d5bd9a1dddf98c753))
+* show AI Cleanup's selected items first ([11b026b](https://github.com/cmdaltctr/omms/commit/11b026b0f0b1538286cf5263dd2fdaa6cca60a0f))
+
 ## [7.1.1](https://github.com/cmdaltctr/omms/compare/v7.1.0...v7.1.1) (2026-11-20)
 
 
