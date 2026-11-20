@@ -2,6 +2,20 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [7.2.0](https://github.com/cmdaltctr/omms/compare/v7.1.2...v7.2.0) (2026-11-20)
+
+
+### Features
+
+* set the external API model's reasoning level, and let OpenRouter choose the provider ([094e3a4](https://github.com/cmdaltctr/omms/commit/094e3a4be114a5e685c7fa096e29d759ceda2b2a))
+* set the external API model's reasoning level, and let OpenRouter choose the provider ([33e44d0](https://github.com/cmdaltctr/omms/commit/33e44d0792401255f60e130bc18c079111a28eb2))
+
+
+### Bug Fixes
+
+* address review findings on the reasoning level and OpenRouter routing ([ff5d9d6](https://github.com/cmdaltctr/omms/commit/ff5d9d64567c71186f4d5ee39affa1c7f6d594e4))
+* confirm before a reasoning level replaces a hand-written config value ([ddb65dc](https://github.com/cmdaltctr/omms/commit/ddb65dc52ebe21de87953adb1675094bdb633eb6))
+
 ## [7.1.2](https://github.com/cmdaltctr/omms/compare/v7.1.1...v7.1.2) (2026-11-20)
 
 
