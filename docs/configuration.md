@@ -602,6 +602,28 @@ The **OpenRouter routing** block on the **External API** card of the Settings pa
 
 You can set other OpenRouter `provider` fields by hand, for example `sort`. The card keeps them when it saves. It also keeps every other `memoryExtraParams` member. A project config cannot change `provider`: when the global file has one, OMMS keeps it for every project, even when the project file sets `memoryExtraParams`.
 
+### Reasoning level
+
+Each endpoint reads its own reasoning field. OMMS copies it from `memoryExtraParams` into every memory-model request. The **Reasoning level** control on the **External API** card writes the field that matches the saved endpoint. See [Reasoning level](web-ui-settings.md#reasoning-level).
+
+| Saved endpoint                         | Field in `memoryExtraParams`                         | Levels                  |
+| -------------------------------------- | ---------------------------------------------------- | ----------------------- |
+| OpenRouter (`openrouter.ai`)           | `"reasoning": { "effort": "low" }`, `"none"` for Off | The levels of the model |
+| OpenRouter, model with on and off only | `"reasoning": { "enabled": true }` or `false`        | On, Off                 |
+| DeepSeek (`api.deepseek.com`)          | `"thinking": { "type": "enabled" }` or `"disabled"`  | On, Off                 |
+| Provider `openai-responses`            | `"reasoning": { "effort": "medium" }`                | Low, Medium, High       |
+| Other `openai-chat` endpoint           | `"reasoning_effort": "high"`                         | Low, Medium, High       |
+
+The providers `anthropic`, `minimax`, `google-gemini` and `orcarouter` have no control. Write their field by hand.
+
+- OpenRouter ignores `thinking`, and DeepSeek ignores `reasoning`. The card warns when the saved field does not fit the saved endpoint. Saving a level replaces it.
+- A level save removes `reasoning`, `reasoning_effort` and `thinking`, then writes the new field. It keeps every other member, such as `provider`, and the comments of the file.
+- Default sends no reasoning field, so the model uses its own default.
+- A project config that sets `memoryExtraParams` keeps the global reasoning field, as it keeps `provider`. When the project config sets `reasoning`, `reasoning_effort` or `thinking` itself, the project's field replaces the global one.
+- A call that uses an OpenCode or Pi session model goes through the host. It does not send the field.
+
+When OpenRouter chooses the provider (the **Let OpenRouter choose the provider** switch), the saved `provider` has no `order`, `only` or `allow_fallbacks`. The privacy fields `data_collection` and `zdr` stay. With both off, the card saves `provider` as an empty object (`{}`). OpenRouter then picks the provider.
+
 ## Embeddings
 
 Embeddings power similarity search for memories and the user profile. Set them in the same global file.

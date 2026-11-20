@@ -1,26 +1,24 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Loader, X } from "lucide-react";
-import { Badge } from "$lib/components/ui/badge";
+import { useEffect, useRef, useState } from "react";
+import { Loader } from "lucide-react";
 import { Button } from "$lib/components/ui/button";
 import { Checkbox } from "$lib/components/ui/checkbox";
 import { Input } from "$lib/components/ui/input";
 import { Label } from "$lib/components/ui/label";
-import { Tooltip } from "$lib/components/ui/tooltip";
 import { useSettingsText } from "$lib/i18n/settings";
 import {
-  formatPrice,
   hasUnmanagedFields,
-  policyLabelKey,
   providerFromRouting,
   routingFromProvider,
+  ticksFirst,
   usableTicked,
-  type ProviderPolicy,
-  type ProviderPrice,
   type ProviderRow,
   type RoutingState,
 } from "$lib/openrouter-routing";
 import { createLatestGate, reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
+import { Blocked, ProviderRows, type Shown } from "./OpenRouterProviderRows";
 import { ReadOnlyNote } from "./ReadOnlyNote";
+
+export { ProviderRows };
 
 const LIST_PATH = "/api/settings/external-api/openrouter-providers";
 const SAVE_PATH = "/api/settings/external-api/openrouter-routing";
@@ -37,146 +35,6 @@ type ListState =
   | { kind: "ready"; rows: ProviderRow[] }
   | { kind: "failed"; unknownModel: boolean; reason?: "timeout" | "unreachable"; error: string };
 type SaveState = { kind: "idle" | "saving" | "saved" } | { kind: "error"; message: string };
-type Shown = { slug: string; name: string; policy?: ProviderPolicy; price?: ProviderPrice };
-
-const policyVariant = { zdr: "default", safety: "info", unknown: "warning" } as const;
-const VISIBLE_ROWS = 6;
-
-/**
- * A blocked control stays visible. A disabled control gets no hover or focus, so it sits in a
- * focusable span that shows the reason as a tooltip. The caller adds an sr-only line or a
- * visible line with the reason and points the control at it with aria-describedby.
- */
-function Blocked({ reason, children }: { reason: string; children: ReactNode }) {
-  return (
-    <Tooltip content={reason}>
-      <span tabIndex={0} className="inline-flex">
-        {children}
-      </span>
-    </Tooltip>
-  );
-}
-
-/** Height that ends at the bottom of the sixth row. Rows wrap, so it is measured, not fixed. */
-function useSixRowHeight(
-  listRef: { current: HTMLUListElement | null },
-  active: boolean,
-  rows: readonly unknown[]
-) {
-  const [height, setHeight] = useState<number>();
-  useLayoutEffect(() => {
-    const list = listRef.current;
-    if (!active || !list) return;
-    const measure = () => {
-      const row = list.children[VISIBLE_ROWS - 1] as HTMLElement | undefined;
-      if (row) setHeight(row.offsetTop + row.offsetHeight);
-    };
-    measure();
-    // A width or language change rewraps the rows. The capped list keeps its size, so watch
-    // the six rows as well.
-    const observer = new ResizeObserver(measure);
-    observer.observe(list);
-    for (const row of Array.from(list.children).slice(0, VISIBLE_ROWS)) observer.observe(row);
-    return () => observer.disconnect();
-  }, [listRef, active, rows]);
-  return height;
-}
-
-export function ProviderRows({
-  shown,
-  ticked,
-  zdr,
-  onToggle,
-  onRemove,
-}: {
-  shown: Shown[];
-  ticked: string[];
-  zdr: boolean;
-  onToggle: (slug: string, checked: boolean) => void;
-  onRemove: (slug: string) => void;
-}) {
-  const s = useSettingsText();
-  // Show six rows; the rest scroll inside the list.
-  const scroll = shown.length > VISIBLE_ROWS;
-  const listRef = useRef<HTMLUListElement>(null);
-  const maxHeight = useSixRowHeight(listRef, scroll, shown);
-  return (
-    <ul
-      ref={listRef}
-      data-scroll={scroll || undefined}
-      style={scroll && maxHeight ? { maxHeight } : undefined}
-      className={`relative space-y-2 ${scroll ? "overflow-y-auto pe-1" : ""}`}
-    >
-      {shown.map(({ slug, name, policy, price }) => {
-        const id = `openrouter-provider-${slug}`;
-        const position = ticked.indexOf(slug) + 1;
-        const blocked = zdr && policy === "unknown";
-        const reason = s("Not available while Zero data retention only is on.");
-        const box = (
-          <Checkbox
-            id={id}
-            checked={position > 0}
-            disabled={blocked}
-            aria-describedby={blocked ? `${id}-reason` : undefined}
-            onCheckedChange={(checked) => onToggle(slug, checked === true)}
-          />
-        );
-        return (
-          <li
-            key={slug}
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-card px-3 py-2"
-          >
-            {blocked ? <Blocked reason={reason}>{box}</Blocked> : box}
-            <span className="w-6 shrink-0">
-              {position > 0 && (
-                <Badge variant="outline" data-position={position} data-slug={slug}>
-                  <span className="sr-only">{s("Try position")} </span>
-                  {position}
-                </Badge>
-              )}
-            </span>
-            <Label
-              htmlFor={id}
-              className="min-w-0 flex-1 basis-[min(100%,12rem)] flex-wrap gap-x-2 gap-y-0 break-words"
-            >
-              {policy && <bdi className="font-medium">{name}</bdi>}
-              <span dir="ltr" className="font-mono text-xs text-muted-foreground">
-                {slug}
-              </span>
-              {price && (
-                <span className="w-full text-xs font-normal text-muted-foreground">
-                  <span dir="ltr" data-price={slug}>
-                    {formatPrice(price, s)}
-                  </span>
-                </span>
-              )}
-            </Label>
-            {policy && (
-              <Badge variant={policyVariant[policy]} className="ms-auto">
-                {s(policyLabelKey(policy))}
-              </Badge>
-            )}
-            {blocked && (
-              <span id={`${id}-reason`} className="sr-only">
-                {reason}
-              </span>
-            )}
-            {!policy && (
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label={`${s("Remove provider")} ${slug}`}
-                onClick={() => onRemove(slug)}
-              >
-                <X aria-hidden="true" />
-              </Button>
-            )}
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
 
 /**
  * Routing choices for an OpenRouter endpoint. `model` is the model ID typed or saved on the
@@ -211,6 +69,12 @@ export function OpenRouterRouting({
   const [manualError, setManualError] = useState("");
   const [save, setSave] = useState<SaveState>({ kind: "idle" });
   const gate = useRef(createLatestGate());
+  // Row order is a snapshot of the ticks, taken when the list loads and after a save. A tick
+  // changes the position badge but not the order, so no row moves under the pointer.
+  const [orderTicks, setOrderTicks] = useState<string[]>(() => state.ticked);
+  const [scrollKey, setScrollKey] = useState(0);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(model.trim()), debounceMs);
@@ -229,6 +93,10 @@ export function OpenRouterRouting({
     settingsRequest<ListReply>(`${LIST_PATH}?model=${encodeURIComponent(debounced)}`)
       .then((reply) => {
         if (!current()) return;
+        if (reply.ok) {
+          setOrderTicks(usableTicked(stateRef.current, reply.providers));
+          setScrollKey((key) => key + 1);
+        }
         setList(
           reply.ok
             ? { kind: "ready", rows: reply.providers }
@@ -248,10 +116,13 @@ export function OpenRouterRouting({
   const loaded = list.kind === "ready" ? list.rows : [];
   const known = new Set(loaded.map((row) => row.slug));
   // Saved or typed slugs that the loaded list does not hold stay visible as manual rows.
-  const shown: Shown[] = [
-    ...loaded,
-    ...state.ticked.filter((slug) => !known.has(slug)).map((slug) => ({ slug, name: slug })),
-  ];
+  const shown: Shown[] = ticksFirst(
+    [
+      ...loaded,
+      ...state.ticked.filter((slug) => !known.has(slug)).map((slug) => ({ slug, name: slug })),
+    ],
+    orderTicks
+  );
 
   // A routing edit makes "Routing saved." untrue, so it goes with the first change.
   // The count lets a pending save see that the controls changed after it was sent.
@@ -288,9 +159,16 @@ export function OpenRouterRouting({
     try {
       await settingsRequest(SAVE_PATH, {
         method: "POST",
-        body: JSON.stringify({ revision, routing: providerFromRouting(state, loaded) }),
+        // `chooses` lets the server keep an empty provider object, so the switch stays on after a reload.
+        body: JSON.stringify({
+          revision,
+          routing: providerFromRouting(state, loaded),
+          ...(state.openRouterChooses ? { chooses: true } : {}),
+        }),
       });
       setSave({ kind: edits.current === sent ? "saved" : "idle" });
+      setOrderTicks(usableTicked(state, loaded));
+      setScrollKey((key) => key + 1);
     } catch (error) {
       setSave({ kind: "error", message: (error as Error).message });
     }
@@ -298,12 +176,16 @@ export function OpenRouterRouting({
   }
 
   const canOnly = usableTicked(state, loaded).length > 0;
+  const chooses = state.openRouterChooses;
+  const choosesReason = s("OpenRouter chooses the provider, so the list is not used.");
+  const onlyReason = chooses ? choosesReason : s("Tick at least one provider first.");
+  const onlyOff = chooses || !canOnly;
   const onlyBox = (
     <Checkbox
       id="openrouter-only"
-      checked={state.only && canOnly}
-      disabled={!canOnly}
-      aria-describedby={canOnly ? undefined : "openrouter-only-reason"}
+      checked={state.only && canOnly && !chooses}
+      disabled={onlyOff}
+      aria-describedby={onlyOff ? "openrouter-only-reason" : undefined}
       onCheckedChange={(checked) => edit((previous) => ({ ...previous, only: checked === true }))}
     />
   );
@@ -316,6 +198,16 @@ export function OpenRouterRouting({
           "Save the endpoint first. The providers shown are for the model above, which is not saved yet."
         )
       : undefined;
+  const addButton = (
+    <Button
+      variant="outline"
+      disabled={chooses}
+      aria-describedby={chooses ? "openrouter-chooses-reason" : undefined}
+      onClick={addManual}
+    >
+      {s("Add provider")}
+    </Button>
+  );
   const saveButton = (
     <Button
       disabled={save.kind === "saving" || readOnly || blockReason !== undefined}
@@ -357,6 +249,27 @@ export function OpenRouterRouting({
         )
       )}
 
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="openrouter-chooses"
+          checked={chooses}
+          onCheckedChange={(checked) =>
+            edit((previous) => ({ ...previous, openRouterChooses: checked === true }))
+          }
+        />
+        <Label htmlFor="openrouter-chooses">{s("Let OpenRouter choose the provider")}</Label>
+      </div>
+      {note(
+        s(
+          "OpenRouter picks the provider, which can cost less. Your ticks stay on this page until you reload. They are not saved."
+        )
+      )}
+      {chooses && (
+        <p id="openrouter-chooses-reason" className="text-xs text-muted-foreground">
+          {choosesReason}
+        </p>
+      )}
+
       <h4 className="font-medium">{s("Providers for this model")}</h4>
       {note(s("Tick providers in the order OpenRouter should try them."))}
       {list.kind === "idle" && note(s("Enter a model ID to see its providers."))}
@@ -393,6 +306,8 @@ export function OpenRouterRouting({
         zdr={state.zdr}
         onToggle={toggle}
         onRemove={(slug) => toggle(slug, false)}
+        lockedReason={chooses ? choosesReason : undefined}
+        scrollTopKey={scrollKey}
       />
 
       <div className="flex gap-2 sm:w-1/2">
@@ -406,9 +321,7 @@ export function OpenRouterRouting({
           onChange={(event) => setManual(event.target.value)}
           onKeyDown={(event) => event.key === "Enter" && addManual()}
         />
-        <Button variant="outline" onClick={addManual}>
-          {s("Add provider")}
-        </Button>
+        {chooses ? <Blocked reason={choosesReason}>{addButton}</Blocked> : addButton}
       </div>
       {manualError && (
         <p role="alert" className="text-xs text-destructive-label">
@@ -417,19 +330,18 @@ export function OpenRouterRouting({
       )}
 
       <div className="flex items-center gap-2">
-        {canOnly ? (
-          onlyBox
-        ) : (
-          <Blocked reason={s("Tick at least one provider first.")}>{onlyBox}</Blocked>
-        )}
+        {onlyOff ? <Blocked reason={onlyReason}>{onlyBox}</Blocked> : onlyBox}
         <Label htmlFor="openrouter-only">{s("Use only these providers")}</Label>
-        {!canOnly && (
+        {onlyOff && (
           <span id="openrouter-only-reason" className="sr-only">
-            {s("Tick at least one provider first.")}
+            {onlyReason}
           </span>
         )}
       </div>
-      {state.only && canOnly && note(s("OpenRouter never falls back to other providers."))}
+      {state.only &&
+        canOnly &&
+        !chooses &&
+        note(s("OpenRouter never falls back to other providers."))}
       {hasUnmanagedFields(saved) &&
         note(s("Other routing fields are set in the config file and are kept."))}
 

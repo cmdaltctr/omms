@@ -9,6 +9,7 @@ import {
   type ConfigProblem,
 } from "./config-problems.js";
 import { readGlobalConfigRevision } from "../config-writer.js";
+import { REASONING_KEYS } from "../shared/model-reasoning.js";
 import { resolveSecretValue } from "./secret-resolver.js";
 import { injectionOptionsFromFile } from "./injection-options-config.js";
 import { getMemoryLimitRule, MEMORY_LIMIT_SETTINGS } from "../utils/memory-limits.js";
@@ -315,6 +316,13 @@ export function getSettingsSnapshot(directory: string, config: SnapshotConfigMod
     externalKey: memoryKeyStatus(global.memoryApiKey, CONFIG.memoryApiKey),
     // The OpenRouter routing card reads the saved `provider` object of memoryExtraParams.
     openrouterProvider: plainObject(plainObject(global.memoryExtraParams)?.provider),
+    // The Reasoning level control reads only the reasoning members of memoryExtraParams.
+    memoryReasoning: Object.fromEntries(
+      REASONING_KEYS.flatMap((key) => {
+        const value = plainObject(global.memoryExtraParams)?.[key];
+        return value === undefined ? [] : [[key, value]];
+      })
+    ),
     // Claude Code capture uses the external API only; its `issues` name each missing setting.
     effective: liveModelStatuses(CONFIG),
     // The folder Claude Code capture and import read; the check never reads transcripts.

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { settingsRequest } from "$lib/settings-api";
+import type { ReasoningFacts } from "$shared/model-reasoning";
 
-export type OpenRouterModel = { id: string; name: string };
+/** A model with the reasoning facts that OpenRouter lists for it, when it lists any. */
+export type OpenRouterModel = { id: string; name: string } & ReasoningFacts;
 
 type ModelsReply = { ok: boolean; models?: OpenRouterModel[]; error?: string };
 

@@ -278,6 +278,47 @@ describe("OpenRouter routing route", () => {
     expect(file.memoryExtraParams.provider).toEqual({ sort: "price" });
   });
 
+  it("keeps an empty provider object when OpenRouter chooses with no privacy field", async () => {
+    const choose = `
+      const send2 = (payload) => send("/api/settings/external-api/openrouter-routing", "POST", payload);
+      const first = await send2({ revision: (await settings()).revision, routing: {}, chooses: true });
+      const reloaded = (await settings()).openrouterProvider;
+      const second = await send2({ revision: (await settings()).revision, routing: {} });
+      return { first, reloaded, cleared: (await settings()).openrouterProvider, second: second.status };
+    `;
+    const { result } = await scenario(choose, withOpenRouter());
+    expect(result.first.status).toBe(200);
+    expect(result.first.body.provider).toEqual({});
+    // The snapshot a page reload reads still holds the object, so the switch stays on.
+    expect(result.reloaded).toEqual({});
+    // Saving the same empty routing without `chooses` still removes the object.
+    expect(result.second).toBe(200);
+    expect(result.cleared).toBeNull();
+
+    const kept = await scenario(
+      `return await send("/api/settings/external-api/openrouter-routing", "POST", { revision: (await settings()).revision, routing: {}, chooses: true });`,
+      `{ "memoryApiUrl": "https://openrouter.ai/api/v1", "memoryExtraParams": { "thinking": { "type": "adaptive" }, "provider": { "zdr": true, "order": ["a"] } } }`
+    );
+    expect(kept.result.status).toBe(200);
+    expect(kept.file.memoryExtraParams).toEqual({ thinking: { type: "adaptive" }, provider: {} });
+  });
+
+  it("refuses chooses on a saved endpoint that is not OpenRouter, and a chooses that is not true or false", async () => {
+    const away = await scenario(
+      `return await send("/api/settings/external-api/openrouter-routing", "POST", { revision: (await settings()).revision, routing: {}, chooses: true });`,
+      `{ "memoryApiUrl": "https://api.openai.com/v1" }`
+    );
+    expect(away.result.status).toBe(400);
+    expect(away.file).not.toHaveProperty("memoryExtraParams");
+
+    const bad = await scenario(
+      `return await send("/api/settings/external-api/openrouter-routing", "POST", { revision: (await settings()).revision, routing: {}, chooses: "yes" });`,
+      withOpenRouter()
+    );
+    expect(bad.result.status).toBe(400);
+    expect(bad.file).not.toHaveProperty("memoryExtraParams");
+  });
+
   it("refuses a missing revision and invalid routing with 400 and writes nothing", async () => {
     const { result, raw } = await scenario(`
       const send2 = (payload) => send("/api/settings/external-api/openrouter-routing", "POST", payload);

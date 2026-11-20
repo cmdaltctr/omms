@@ -75,11 +75,20 @@ const RESETTABLE_KEYS = [
 const QUERY_RULE = `openingContextQuery must be text of ${OPENING_CONTEXT_QUERY_MAX_LENGTH} characters or fewer`;
 
 function isValidEdit(key: string, value: unknown): boolean {
-  // Written only by the OpenRouter routing route; `undefined` removes the key.
+  // Written only by the OpenRouter routing and Reasoning level routes; `undefined` removes the key.
   if (key === "memoryExtraParams" || key === "memoryExtraParams.provider") {
     return (
       value === undefined || (typeof value === "object" && value !== null && !Array.isArray(value))
     );
+  }
+  // The Reasoning level route: an object (`reasoning`, `thinking`) or text (`reasoning_effort`).
+  if (key === "memoryExtraParams.reasoning" || key === "memoryExtraParams.thinking") {
+    return (
+      value === undefined || (typeof value === "object" && value !== null && !Array.isArray(value))
+    );
+  }
+  if (key === "memoryExtraParams.reasoning_effort") {
+    return value === undefined || typeof value === "string";
   }
   // `undefined` removes the key from the file. `null` is the wire form of
   // "reset to default", accepted for the memory limits and the optional reranker keys.

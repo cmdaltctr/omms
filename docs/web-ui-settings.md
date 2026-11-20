@@ -163,6 +163,38 @@ Select **Test** to send one short request with the values in the form, saved or 
 
 The card never shows the provider's reply. A pasted key is used for that one request and is not saved or logged.
 
+### Reasoning level
+
+The **Reasoning level** control sits under the **Model** field of the **External API** card. It sets how much the model reasons for capture, profile learning, AI Cleanup, tagging, chat and **Test**. A lower level answers faster.
+
+The control writes the field that the saved endpoint reads. See [Reasoning level](configuration.md#reasoning-level) for the fields.
+
+| Choice             | Meaning                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| **Default**        | Sends no reasoning field. For OpenRouter models, it names the model's default effort. |
+| **Off**            | Turns reasoning off. Not offered when the model's reasoning is mandatory.             |
+| **On**             | For DeepSeek, and for OpenRouter models that only switch reasoning on and off.        |
+| **Low** to **Max** | The effort levels. For OpenRouter, the card offers the levels the model lists.        |
+
+Each endpoint offers these choices:
+
+- **OpenRouter model with listed efforts:** Default, Off when listed, and each listed effort.
+- **OpenRouter model not in the list, or listed without reasoning facts:** Default, Off, Low, Medium and High. The card says that OpenRouter uses the nearest level the model supports.
+- **DeepSeek:** Default, Off and On.
+- **`openai-responses`:** Default, Low, Medium and High.
+- **Other `openai-chat` endpoint:** Default, Low, Medium and High. The endpoint may ignore or refuse the field.
+- **`anthropic`, `minimax`, `google-gemini`, `orcarouter`:** no control. The card says to set reasoning in `memoryExtraParams` in the config file.
+
+To set a level:
+
+1. Save the endpoint first. The level applies to the saved URL, provider and model. **Save reasoning level** stays off while the card shows an unsaved edit.
+2. Choose a level.
+3. Select **Save reasoning level**. The card shows `Reasoning level saved.`
+
+A hand-written value that the card cannot show as a level, for example `{ "max_tokens": 2000 }`, shows as **Set in the config file**. OMMS keeps it until you save another level. Saving a level over it asks you to confirm first, because the save replaces the hand-written value.
+
+If OpenRouter is saved and `thinking` is also saved, the card warns that OpenRouter ignores `thinking`. The warning for DeepSeek names `reasoning`. Saving a level replaces the field.
+
 ### OpenRouter routing
 
 OpenRouter sends each request to one of several providers. Some providers keep prompts, and some train on them. The **OpenRouter routing** block lets you choose which providers may see your memory text. The block shows when the API URL is on `openrouter.ai`. See [Preset](#preset).
@@ -178,6 +210,15 @@ OpenRouter enforces both switches on every request, including requests that fall
 
 **Zero data retention only** follows your OpenRouter account. When your account allows Safety Retention, OpenRouter can still use endpoints that keep prompts for abuse checks. The card labels them **Abuse checks only**. Self-serve accounts allow Safety Retention unless you change it. For strict no retention, set **ZDR only** in your OpenRouter privacy settings or in a guardrail. The card shows this note under the switches.
 
+#### Let OpenRouter choose the provider
+
+Turn on **Let OpenRouter choose the provider** to let OpenRouter pick a provider, which can cost less. The switch is off by default.
+
+- With the switch on, **Save routing** sends no `order`, `only` or `allow_fallbacks`. The privacy switches still apply.
+- The ticks, **Add provider** and **Use only these providers** are off, with the reason `OpenRouter chooses the provider, so the list is not used.`
+- Your ticks stay on the page while the switch is on, and come back in the same order when you turn it off. They are not saved. A reload shows the switch on and no ticks.
+- When the card loads, the switch is on if a `provider` object is saved with no `order` and no `only`. With both privacy switches off, **Save routing** saves an empty `provider` object (`{}`), so the switch stays on after a reload.
+
 #### Provider list
 
 Type the model ID on the card in the form `author/model`, for example `deepseek/deepseek-chat`. The card then lists each provider that serves the model, once, with one label:
@@ -189,6 +230,8 @@ Type the model ID on the card in the form `author/model`, for example `deepseek/
 | **May keep or train on data** | The provider is not on the zero data retention list.                   |
 
 A provider can serve a model through several endpoints. The card shows the label of its least private endpoint.
+
+The list shows the ticked providers first, in try order, then the others. The order is set when the list loads and after you save the routing, and the list then scrolls to its top. A single tick does not move any row.
 
 Each provider also shows its OpenRouter price for the model, for example `$0.26 in · $0.71 out / 1M tokens`. "In" is the price of the prompt and "out" is the price of the reply, in US dollars per million tokens. For a provider with several endpoints, the card shows the lowest prices. A free provider shows **Free**. A provider with no listed price shows no price.
 

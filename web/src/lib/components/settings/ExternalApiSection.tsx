@@ -23,6 +23,7 @@ import { reloadSettingsSnapshot, settingsRequest } from "$lib/settings-api";
 import { saveSettingEdits } from "$lib/settings-save";
 import { KeySourceField, type KeyChoice, type SavedKey } from "./KeySourceField";
 import { OpenRouterRouting } from "./OpenRouterRouting";
+import { ReasoningLevel } from "./ReasoningLevel";
 import { SettingRow } from "./SettingRow";
 
 type Snapshot = {
@@ -31,6 +32,7 @@ type Snapshot = {
   settings: Record<string, { globalValue?: unknown } | undefined>;
   externalKey?: NonNullable<SavedKey> & { warning: string | null };
   openrouterProvider?: Record<string, unknown> | null;
+  memoryReasoning?: Record<string, unknown>;
 };
 
 const PROVIDERS = [
@@ -59,7 +61,9 @@ export function ExternalApiSection() {
   const saved = (key: string) => String(snapshot?.settings[key]?.globalValue ?? "");
   const value = (key: string) => fields[key] ?? saved(key);
   const onOpenRouter = isOpenRouterUrl(value("memoryApiUrl"));
-  const modelSuggestions = useOpenRouterModels(onOpenRouter);
+  const modelSuggestions = useOpenRouterModels(
+    onOpenRouter || isOpenRouterUrl(saved("memoryApiUrl"))
+  );
   const readOnly = snapshot?.readOnly === true;
 
   const url = value("memoryApiUrl").trim();
@@ -352,6 +356,18 @@ export function ExternalApiSection() {
           {t("Empty turns the external API off, except for OrcaRouter, which picks its own model.")}
         </p>
       </SettingRow>
+      {snapshot && (
+        <ReasoningLevel
+          revision={snapshot.revision}
+          saved={snapshot.memoryReasoning}
+          savedUrl={saved("memoryApiUrl")}
+          savedProvider={saved("memoryProvider") || "openai-chat"}
+          savedModel={saved("memoryModel")}
+          unsaved={Object.keys(edits).length > 0}
+          models={modelSuggestions}
+          readOnly={readOnly}
+        />
+      )}
       {snapshot && isOpenRouterUrl(value("memoryApiUrl")) && (
         <OpenRouterRouting
           model={value("memoryModel")}
