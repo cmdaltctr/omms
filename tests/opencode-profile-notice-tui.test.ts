@@ -70,6 +70,8 @@ mock.module("../src/services/user-profile/user-profile-manager.js", () => ({
   userProfileManager: {
     reset: () => {},
     getActiveProfile: async () => null,
+    getLearnedPromptIds: async () => [],
+    forgetLearnedPromptIds: async () => {},
     createProfile: async () => "profile-1",
   },
 }));

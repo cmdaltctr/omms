@@ -70,6 +70,8 @@ function setup() {
       profile = { id: "profile-1", profileData: JSON.stringify(data) };
       return true;
     },
+    getLearnedPromptIds: async () => [],
+    forgetLearnedPromptIds: async () => {},
   };
   let modelCalls = 0;
   let fail = false;

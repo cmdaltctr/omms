@@ -8,6 +8,7 @@ import type { AutoCleanupOptions } from "../../services/user-profile/auto-cleanu
 import type { MemoryModelSettings } from "../../services/user-profile/memory-model-settings.js";
 import type { UserProfile, UserProfileData } from "../../services/user-profile/types.js";
 import { HOST_INFO, type MemoryHost } from "../../shared/hosts.js";
+import { markSavedPromptsLearned, withoutSavedPrompts } from "./learned-record.js";
 import { buildProfileLearningInput } from "./model-input.js";
 import type { ProfileLearningSettings } from "./settings.js";
 import { applyValidations, buildValidationTask, type ValidationTask } from "./validation.js";
@@ -99,8 +100,6 @@ async function learn(
     }
     stores = await loadStores();
     const { userPromptManager, userProfileManager } = stores;
-    // A saved batch whose mark failed: mark it first, or its prompts are learned twice.
-    if (!(await retryPendingMarks(userPromptManager, host))) return { outcome: "skipped" };
     await userPromptManager.skipTrivialPromptsForLearning();
     if ((await userPromptManager.countUnanalyzedForUserLearning()) < interval) {
       return { outcome: "skipped" };
@@ -116,15 +115,22 @@ async function learn(
       log("profile learning skipped", { host, code: "no-model" }, "warn");
       return { outcome: "skipped" };
     }
-    const batch = await userPromptManager.getPromptsForUserLearning(interval, {
+    const taken = await userPromptManager.getPromptsForUserLearning(interval, {
       recentFirst: true,
       claim: true,
     });
-    claimed = batch.map((prompt) => prompt.id);
+    claimed = taken.map((prompt) => prompt.id);
     // Another run holds the waiting prompts.
-    if (batch.length === 0) return { outcome: "skipped" };
+    if (taken.length === 0) return { outcome: "skipped" };
 
     const read = await userProfileManager.getActiveProfile(userId);
+    // An earlier save, into any profile, took some of these in and then failed to mark them:
+    // mark them, never learn them again. A release on failure must not touch them.
+    const batch = await withoutSavedPrompts(userPromptManager, userProfileManager, taken, {
+      host,
+    });
+    claimed = batch.map((prompt) => prompt.id);
+    if (batch.length === 0) return { outcome: "skipped" };
     const startedAt = Date.now();
     const fade = (data: UserProfileData) =>
       config.userProfileDecayBeforeMerge ? fadeProfile(userProfileManager, data, startedAt) : data;
@@ -161,7 +167,8 @@ async function learn(
             ? (merged, profileId) =>
                 verdicts(userProfileManager, merged, analysis.raw, profileId, validation)
             : undefined,
-        }
+        },
+        claimed
       );
       if (!saved) throw new Error("Profile update conflict");
     } else {
@@ -171,14 +178,18 @@ async function learn(
         user.userName || userId,
         user.userEmail || userId,
         analysis.raw,
-        batch.length
+        batch.length,
+        claimed
       );
     }
     // The profile is saved, so the claim is not released if the mark fails: a release would
-    // make the next pass learn this batch a second time.
+    // make the next pass learn this batch a second time. The save recorded the batch, so a
+    // later pass marks it without a model call.
     const marked = claimed;
     claimed = [];
-    await markLearned(userPromptManager, marked, host);
+    await markSavedPromptsLearned(userPromptManager, userProfileManager, marked, {
+      host,
+    });
     profileBackoff.recordSuccess();
     log("profile learning finished", { host, prompts: batch.length, hadExisting: !!existing });
 
@@ -203,60 +214,6 @@ async function learn(
     const reason = recordProfileFailure(host, `${label} profile learning failed`, error);
     return { outcome: "failed", reason };
   }
-}
-
-const MARK_ATTEMPTS = 3;
-const MARK_RETRY_MS = 100;
-
-// Saved prompts whose mark failed. The next pass in this process marks them before it takes
-// new prompts, so a run-out claim does not make it learn them again.
-let pendingMarks: string[] = [];
-
-/** Clears the saved prompts that wait for a mark. For tests. */
-export function resetPendingMarksForTests(): void {
-  pendingMarks = [];
-}
-
-/** Marks the waiting saved prompts. False when the mark fails again, so the pass waits. */
-async function retryPendingMarks(
-  store: Stores["userPromptManager"],
-  host: MemoryHost
-): Promise<boolean> {
-  if (pendingMarks.length === 0) return true;
-  try {
-    await store.markMultipleAsUserLearningCaptured(pendingMarks);
-    pendingMarks = [];
-    return true;
-  } catch {
-    log(
-      "profile learning: waiting for an earlier mark",
-      { host, prompts: pendingMarks.length },
-      "warn"
-    );
-    return false;
-  }
-}
-
-/**
- * Marks the saved batch as learned. A storage error is tried again; when every try fails,
- * the prompts wait in `pendingMarks` for the next pass and the pass stays saved. The log
- * holds a count only.
- */
-async function markLearned(
-  store: Stores["userPromptManager"],
-  ids: string[],
-  host: MemoryHost
-): Promise<void> {
-  for (let attempt = 1; attempt <= MARK_ATTEMPTS; attempt++) {
-    try {
-      await store.markMultipleAsUserLearningCaptured(ids);
-      return;
-    } catch {
-      if (attempt < MARK_ATTEMPTS) await new Promise((r) => setTimeout(r, MARK_RETRY_MS * attempt));
-    }
-  }
-  pendingMarks = [...pendingMarks, ...ids];
-  log("profile learning: prompts not marked as learned", { host, prompts: ids.length }, "error");
 }
 
 /** A catch-up run in this process, or one that holds the run record in any process. */

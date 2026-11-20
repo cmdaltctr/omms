@@ -192,6 +192,8 @@ mock.module(${JSON.stringify(backfillUrl)}, () => ({
 mock.module(${JSON.stringify(profileManagerUrl)}, () => ({
   userProfileManager: {
     getActiveProfile: async () => null,
+    getLearnedPromptIds: async () => [],
+    forgetLearnedPromptIds: async () => {},
     createProfile: async (userId, displayName, userName, userEmail, data, count) => {
       profileCreates.push({ userId, displayName, data, count });
       return "profile_new";

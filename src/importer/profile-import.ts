@@ -33,7 +33,13 @@ type PromptStore = Pick<
 >;
 type ProfileStore = Pick<
   typeof userProfileManager,
-  "getActiveProfile" | "getProfileById" | "createProfile" | "mergeProfileData" | "updateProfile"
+  | "getActiveProfile"
+  | "getProfileById"
+  | "createProfile"
+  | "mergeProfileData"
+  | "updateProfile"
+  | "getLearnedPromptIds"
+  | "forgetLearnedPromptIds"
 >;
 type Ledger = Pick<ImportLedger, "get" | "begin" | "complete"> &
   Partial<Pick<ImportLedger, "peek">>;
@@ -134,8 +140,12 @@ export async function importProfileFromHistory(
         prompt
       );
       await prompts.markAsCaptured(promptId);
-      // A forced unit may find its prompt still stored and already learned.
-      if (reanalyse) await prompts.markForUserLearning([promptId]);
+      // A forced unit may find its prompt still stored and already learned. Its record of an
+      // earlier save goes first, so no pass skips it as saved once it is back in the queue.
+      if (reanalyse) {
+        await profiles.forgetLearnedPromptIds([promptId]);
+        await prompts.markForUserLearning([promptId]);
+      }
       await ledger.complete(reanalyse ? rebuildKey : profileKey, promptId);
       report.promptsRecorded++;
     }

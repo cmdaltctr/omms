@@ -2,6 +2,7 @@ import type { UserProfile, UserProfileData } from "../../user-profile/types.js";
 import type { ProfileDb } from "./connection.js";
 import type { HistoryConfig } from "./history.js";
 import { addChangelog, cleanupOldChangelogs } from "./history.js";
+import { learnedPromptInserts } from "./learned-prompts.js";
 
 // The callers clean the profile data (labels, workflow steps) before they pass it here.
 
@@ -34,6 +35,17 @@ export async function createProfileTables(db: ProfileDb): Promise<void> {
           change_summary TEXT NOT NULL,
           profile_data_snapshot TEXT NOT NULL,
           created_at INTEGER NOT NULL,
+          FOREIGN KEY (profile_id) REFERENCES user_profiles(id) ON DELETE CASCADE
+        )
+      `,
+    },
+    {
+      sql: `
+        CREATE TABLE IF NOT EXISTS learned_prompts (
+          profile_id TEXT NOT NULL,
+          prompt_id TEXT NOT NULL,
+          learned_at INTEGER NOT NULL,
+          PRIMARY KEY (profile_id, prompt_id),
           FOREIGN KEY (profile_id) REFERENCES user_profiles(id) ON DELETE CASCADE
         )
       `,
@@ -71,13 +83,16 @@ export async function createProfile(
   userName: string,
   userEmail: string,
   cleanedData: UserProfileData,
-  promptsAnalyzed: number
+  promptsAnalyzed: number,
+  /** Prompt ids this save took in, recorded in the same write (see learned-prompts.ts). */
+  learnedPromptIds: string[] = []
 ): Promise<string> {
   const id = `profile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
   const now = Date.now();
 
-  await db.run(
-    `
+  await db.batch([
+    {
+      sql: `
     INSERT INTO user_profiles (
       id, user_id, display_name, user_name, user_email,
       profile_data, version, created_at, last_analyzed_at,
@@ -85,18 +100,20 @@ export async function createProfile(
     )
     VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 1)
   `,
-    [
-      id,
-      userId,
-      displayName,
-      userName,
-      userEmail,
-      JSON.stringify(cleanedData),
-      now,
-      now,
-      promptsAnalyzed,
-    ]
-  );
+      args: [
+        id,
+        userId,
+        displayName,
+        userName,
+        userEmail,
+        JSON.stringify(cleanedData),
+        now,
+        now,
+        promptsAnalyzed,
+      ],
+    },
+    ...learnedPromptInserts(id, learnedPromptIds, now),
+  ]);
 
   await addChangelog(db, id, 1, "create", "Initial profile creation", cleanedData);
 
@@ -111,7 +128,9 @@ export async function updateProfile(
   changeSummary: string,
   /** The version the caller read. The save is refused when the stored version differs. */
   expectedVersion: number,
-  config: HistoryConfig
+  config: HistoryConfig,
+  /** Prompt ids this save took in, recorded only when the save lands (see learned-prompts.ts). */
+  learnedPromptIds: string[] = []
 ): Promise<boolean> {
   const now = Date.now();
 
@@ -120,8 +139,9 @@ export async function updateProfile(
   if (currentVersion !== expectedVersion) return false;
   const newVersion = currentVersion + 1;
 
-  const changes = await db.run(
-    `
+  const saved = await db.transaction("write", async (tx) => {
+    const result = await tx.execute({
+      sql: `
     UPDATE user_profiles
     SET profile_data = ?,
         version = ?,
@@ -129,17 +149,23 @@ export async function updateProfile(
         total_prompts_analyzed = total_prompts_analyzed + ?
     WHERE id = ? AND version = ?
   `,
-    [
-      JSON.stringify(cleanedData),
-      newVersion,
-      now,
-      additionalPromptsAnalyzed,
-      profileId,
-      currentVersion,
-    ]
-  );
+      args: [
+        JSON.stringify(cleanedData),
+        newVersion,
+        now,
+        additionalPromptsAnalyzed,
+        profileId,
+        currentVersion,
+      ],
+    });
+    if (Number(result.rowsAffected ?? 0) === 0) return false;
+    for (const insert of learnedPromptInserts(profileId, learnedPromptIds, now)) {
+      await tx.execute(insert);
+    }
+    return true;
+  });
 
-  if (changes === 0) {
+  if (!saved) {
     return false;
   }
 

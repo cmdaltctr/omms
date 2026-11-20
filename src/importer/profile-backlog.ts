@@ -1,5 +1,9 @@
 import { analyzeProfile, type ModelPort } from "../core/profile-analysis.js";
 import { profileFailureCode, type ProfileFailureCode } from "../core/profile-failure.js";
+import {
+  markSavedPromptsLearned,
+  withoutSavedPrompts,
+} from "../core/profile-learning/learned-record.js";
 import { saveMergedProfile } from "../services/user-profile/merge-and-save.js";
 import { userProfileManager } from "../services/user-profile/user-profile-manager.js";
 import { userPromptManager } from "../services/user-prompt/user-prompt-manager.js";
@@ -13,7 +17,13 @@ export type BacklogPromptStore = Pick<
   Partial<Pick<typeof userPromptManager, "skipTrivialPromptsForLearning" | "markForUserLearning">>;
 export type BacklogProfileStore = Pick<
   typeof userProfileManager,
-  "getActiveProfile" | "getProfileById" | "createProfile" | "mergeProfileData" | "updateProfile"
+  | "getActiveProfile"
+  | "getProfileById"
+  | "createProfile"
+  | "mergeProfileData"
+  | "updateProfile"
+  | "getLearnedPromptIds"
+  | "forgetLearnedPromptIds"
 >;
 
 export interface DrainProfileBacklogOptions {
@@ -82,12 +92,18 @@ export async function drainProfileBacklog(
   /** One batch with one retry; "failed" stops the run with its reason code. */
   async function sendBatch(): Promise<"sent" | "failed" | "empty"> {
     // The claim keeps a live pass off this batch; a failed batch releases it.
-    const batch = await prompts.getPromptsForUserLearning(batchSize, { claim: true });
-    if (batch.length === 0) return "empty";
+    const taken = await prompts.getPromptsForUserLearning(batchSize, { claim: true });
+    if (taken.length === 0) return "empty";
+    let batch = taken;
     let succeeded = false;
     for (let attempt = 0; attempt < 2 && !succeeded; attempt++) {
       try {
         const existing = await profiles.getActiveProfile(user.userEmail);
+        // An earlier save, into any profile, took some of these in and then failed to mark
+        // them: never again.
+        batch = await withoutSavedPrompts(prompts, profiles, batch, { label });
+        if (batch.length === 0) return "sent";
+        const ids = batch.map((item) => item.id);
         const context = batch.map((item, index) => `${index + 1}. ${item.content}`).join("\n");
         const analysis = await analyzeProfile(
           model,
@@ -96,7 +112,9 @@ export async function drainProfileBacklog(
         );
         if (existing) {
           const summary = `${label} of ${batch.length} prompts`;
-          if (!(await saveMergedProfile(profiles, existing, analysis, batch.length, summary)))
+          if (
+            !(await saveMergedProfile(profiles, existing, analysis, batch.length, summary, {}, ids))
+          )
             throw new Error("Profile update conflict");
         } else {
           await profiles.createProfile(
@@ -105,10 +123,12 @@ export async function drainProfileBacklog(
             user.userName || user.userEmail,
             user.userEmail,
             analysis.raw,
-            batch.length
+            batch.length,
+            ids
           );
         }
-        await prompts.markMultipleAsUserLearningCaptured(batch.map((item) => item.id));
+        // Never throws: a failed mark keeps the claim, and the record stops a second save.
+        await markSavedPromptsLearned(prompts, profiles, ids, { label });
         report.batchesBuilt++;
         succeeded = true;
       } catch (error) {

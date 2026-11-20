@@ -79,6 +79,8 @@ const world = {
   reply: (): unknown => empty,
   modelError: null as Error | null,
   markFailures: 0,
+  // Prompt ids the fake profile save recorded with the profile (the learned-prompt record).
+  ledger: new Set<string>(),
   notices: [] as Notice[],
   logs: [] as Array<{ message: string; data: Record<string, unknown> | null; level?: string }>,
 };
@@ -148,6 +150,7 @@ mock.module("../src/services/user-profile/user-profile-manager.js", () => ({
     getProfileById: async () => freshProfile(),
     createProfile: async (...args: unknown[]) => {
       world.created.push(args);
+      for (const id of (args[6] as string[] | undefined) ?? []) world.ledger.add(id);
       return "p1";
     },
     // An identity merge: the saved data then shows exactly what the pass did to the stored data.
@@ -160,10 +163,17 @@ mock.module("../src/services/user-profile/user-profile-manager.js", () => ({
       data: unknown,
       count: number,
       summary: string,
-      version: number
+      version: number,
+      learned: string[] = []
     ) => {
       world.saves.push({ data, count, summary, version });
-      return world.acceptSave(world.saves.length);
+      const accepted = world.acceptSave(world.saves.length);
+      if (accepted) for (const id of learned) world.ledger.add(id);
+      return accepted;
+    },
+    getLearnedPromptIds: async (ids: string[]) => ids.filter((id) => world.ledger.has(id)),
+    forgetLearnedPromptIds: async (ids: string[]) => {
+      for (const id of ids) world.ledger.delete(id);
     },
     decayInMemory: (data: unknown) => {
       world.decays++;
@@ -215,7 +225,6 @@ const baseConfig = {
 async function loadPass() {
   return (await import("../src/core/profile-learning/pass.js")) as {
     runProfileLearningPass: (input: unknown) => Promise<{ outcome: string; reason?: string }>;
-    resetPendingMarksForTests: () => void;
   };
 }
 
@@ -244,7 +253,6 @@ async function run(
 }
 
 beforeEach(async () => {
-  (await loadPass()).resetPendingMarksForTests();
   world.email = "me@example.invalid";
   world.waiting = Array.from({ length: 5 }, (_, i) => ({
     id: `p${i}`,
@@ -267,6 +275,7 @@ beforeEach(async () => {
   world.reply = () => empty;
   world.modelError = null;
   world.markFailures = 0;
+  world.ledger = new Set();
   world.notices = [];
   world.logs = [];
   reads = 0;
@@ -767,8 +776,25 @@ describe("the mark after a save", () => {
     }
   );
 
+  it.each(hosts)(
+    "%s: after a restart, a saved batch is marked without a model call or a second save",
+    async (host) => {
+      world.markFailures = 99;
+      expect(await run(host)).toEqual({ outcome: "saved" });
+      // The pass keeps nothing in memory, so this is what a restart sees. The fake store
+      // ignores claims, as a store does once the 10-minute claim runs out.
+      world.markFailures = 0;
+      expect((await run(host)).outcome).toBe("skipped");
+      expect(world.modelCalls).toBe(1);
+      expect(world.saves).toHaveLength(1);
+      expect([...world.learned].sort()).toEqual(["p0", "p1", "p2", "p3", "p4"]);
+      expect(world.ledger.size).toBe(0);
+    }
+  );
+
   it.each(hosts)("%s: a pass waits while the earlier mark still fails", async (host) => {
-    world.markFailures = 4;
+    // Three tries fail in the first pass and three more in the second.
+    world.markFailures = 6;
     await run(host);
     const second = await run(host);
     expect(second.outcome).toBe("skipped");

@@ -18,7 +18,8 @@ export interface ProfileSaveStore {
     profileData: UserProfileData,
     additionalPromptsAnalyzed: number,
     changeSummary: string,
-    expectedVersion: number
+    expectedVersion: number,
+    learnedPromptIds?: string[]
   ): Promise<boolean>;
 }
 
@@ -72,14 +73,25 @@ export async function saveMergedProfile(
   analysis: { raw: Partial<UserProfileData>; merged: UserProfileData | null },
   promptsAnalyzed: number,
   summary: string,
-  hooks: MergeSaveHooks = {}
+  hooks: MergeSaveHooks = {},
+  /** Prompt ids the analysis took in; the landing save records them (see learned-prompts.ts). */
+  learnedPromptIds: string[] = []
 ): Promise<boolean> {
   let merged = analysis.merged;
   let version = profile.version;
   for (let attempt = 1; merged && attempt <= MAX_PROFILE_SAVE_ATTEMPTS; attempt++) {
     const extra = hooks.beforeSave ? await hooks.beforeSave(merged, profile.id) : null;
     const text = extra ? `${summary}; ${extra}` : summary;
-    if (await store.updateProfile(profile.id, merged, promptsAnalyzed, text, version)) {
+    if (
+      await store.updateProfile(
+        profile.id,
+        merged,
+        promptsAnalyzed,
+        text,
+        version,
+        learnedPromptIds
+      )
+    ) {
       return true;
     }
     log("profile save conflict", { attempt, of: MAX_PROFILE_SAVE_ATTEMPTS });

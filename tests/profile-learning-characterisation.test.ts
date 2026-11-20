@@ -147,6 +147,9 @@ const freshProfile = () => {
 };
 mock.module("../src/services/user-profile/user-profile-manager.js", () => ({
   userProfileManager: {
+    // The learned-prompt record (TDR-091): nothing recorded.
+    getLearnedPromptIds: async () => [],
+    forgetLearnedPromptIds: async () => {},
     getActiveProfile: async () => freshProfile(),
     getProfileById: async () => freshProfile(),
     createProfile: async (...args: unknown[]) => {

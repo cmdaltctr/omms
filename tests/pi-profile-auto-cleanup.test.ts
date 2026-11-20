@@ -14,6 +14,9 @@ const saves: number[] = [];
 const empty = JSON.stringify({ preferences: [], patterns: [], workflows: [] });
 mock.module("../src/services/user-profile/user-profile-manager.js", () => ({
   userProfileManager: {
+    // The learned-prompt record (TDR-091): nothing recorded.
+    getLearnedPromptIds: async () => [],
+    forgetLearnedPromptIds: async () => {},
     getActiveProfile: async () => ({
       id: "p1",
       version: 3,

@@ -22,3 +22,17 @@ export function withToggled<T>(set: Set<T>, value: T, checked: boolean): Set<T> 
   else next.delete(value);
   return next;
 }
+
+/**
+ * Groups and their items with the selected ones first, so a shortcut's picks are
+ * on screen without scrolling. Both sorts are stable, so the rest keeps its order.
+ */
+export function selectedFirst<T extends { _id: string }, G extends { items: T[] }>(
+  groups: G[],
+  selected: Set<string>
+): G[] {
+  const picked = (it: T) => (selected.has(it._id) ? 0 : 1);
+  return groups
+    .map((g) => ({ ...g, items: [...g.items].sort((a, b) => picked(a) - picked(b)) }))
+    .sort((a, b) => Math.min(1, ...a.items.map(picked)) - Math.min(1, ...b.items.map(picked)));
+}

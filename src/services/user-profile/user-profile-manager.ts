@@ -11,6 +11,10 @@ import {
   type StoreConnections,
 } from "../storage/profiles/connection.js";
 import { getChangelogById, getProfileChangelogs } from "../storage/profiles/history.js";
+import {
+  forgetLearnedPromptIds,
+  getLearnedPromptIds,
+} from "../storage/profiles/learned-prompts.js";
 import * as store from "../storage/profiles/profiles.js";
 import type {
   UserProfile,
@@ -151,7 +155,9 @@ export class UserProfileManager {
     userName: string,
     userEmail: string,
     profileData: UserProfileData,
-    promptsAnalyzed: number
+    promptsAnalyzed: number,
+    /** Prompt ids this save took in. They are recorded in the same write as the profile. */
+    learnedPromptIds: string[] = []
   ): Promise<string> {
     const db = await this.ready();
     return store.createProfile(
@@ -161,7 +167,8 @@ export class UserProfileManager {
       userName,
       userEmail,
       cleanNewProfileData(profileData),
-      promptsAnalyzed
+      promptsAnalyzed,
+      learnedPromptIds
     );
   }
 
@@ -171,7 +178,9 @@ export class UserProfileManager {
     additionalPromptsAnalyzed: number,
     changeSummary: string,
     /** The version the caller read. The save is refused when the stored version differs. */
-    expectedVersion: number
+    expectedVersion: number,
+    /** Prompt ids this save took in. They are recorded only when the save lands. */
+    learnedPromptIds: string[] = []
   ): Promise<boolean> {
     const db = await this.ready();
     return store.updateProfile(
@@ -181,8 +190,19 @@ export class UserProfileManager {
       additionalPromptsAnalyzed,
       changeSummary,
       expectedVersion,
-      getProfileSettings()
+      getProfileSettings(),
+      learnedPromptIds
     );
+  }
+
+  /** The ids in `promptIds` that a save of any profile already took in. */
+  async getLearnedPromptIds(promptIds: string[]): Promise<string[]> {
+    return getLearnedPromptIds(await this.ready(), promptIds);
+  }
+
+  /** Drops every profile's record of prompts that are marked learned or will be learned again. */
+  async forgetLearnedPromptIds(promptIds: string[]): Promise<void> {
+    await forgetLearnedPromptIds(await this.ready(), promptIds);
   }
 
   async getProfileChangelogs(
