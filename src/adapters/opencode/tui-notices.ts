@@ -92,7 +92,11 @@ export function startTuiNotices(deps: TuiNoticesDeps): () => void {
               shown.add(id);
               done.push(id);
             }
-          } else ok = false;
+          } else {
+            // Stop at the first failed toast, so the retry shows the rest in server order.
+            ok = false;
+            break;
+          }
         }
         if (done.length > 0) {
           try {

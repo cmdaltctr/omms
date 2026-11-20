@@ -116,6 +116,29 @@ describe("OpenCode notice route failures", () => {
     expect(calls.ack).toBe(1);
   });
 
+  it("keeps server order when the first toast fails: shows A then B", async () => {
+    const { notify, client } = await wire({});
+    notify({ message: "A" });
+    notify({ message: "B" });
+    const toasts: string[] = [];
+    let failA = true;
+    const stop = startTuiNotices({
+      client,
+      toast: (options) => {
+        if (options.message === "A" && failA) {
+          failA = false;
+          throw new Error("toast failed");
+        }
+        toasts.push(options.message);
+      },
+      retryDelayMs: 20,
+    });
+    await waitFor(() => toasts.length >= 2);
+    await sleep(100);
+    stop();
+    expect(toasts).toEqual(["A", "B"]);
+  });
+
   it("claims again on a timer after a failed claim, without a new notice", async () => {
     const { notify, client, calls } = await wire({ claimFailures: 2 });
     notify({ message: "late" });
