@@ -26,6 +26,19 @@ export function tooltipShift({
   return Math.min(Math.max(centre, minCentre), maxCentre) - centre;
 }
 
+/** The widest a bubble may be inside a column from `left` to `right`, so its text wraps. */
+export function tooltipMaxWidth({
+  left,
+  right,
+  gap,
+}: {
+  left: number;
+  right: number;
+  gap: number;
+}): number {
+  return Math.max(0, right - left - 2 * gap);
+}
+
 /**
  * A small styled tooltip shown on hover or keyboard focus of its child. It sits centred
  * on one line above the child, and slides sideways when it would leave the viewport.
@@ -56,12 +69,17 @@ export function Tooltip({
     const node = tip.current;
     if (!node) return;
     const anchor = node.parentElement!.getBoundingClientRect();
-    const half = node.offsetWidth / 2;
     const centre = anchor.left + anchor.width / 2;
     // Stay inside the page column when there is one: the sidebar paints over the rest.
     const column = pageColumn(node);
     const left = column ? column.left : 0;
     const right = column ? column.right : document.documentElement.clientWidth;
+    // A column narrower than the bubble wraps its text instead of cutting it off. The inline
+    // value replaces the class's cap, so it repeats that cap. It is set on the node before the
+    // width is read, so the shift uses the final width. React leaves it alone on render.
+    const cap = tooltipMaxWidth({ left, right, gap: EDGE_GAP });
+    node.style.maxWidth = `min(24rem, calc(100vw - 1rem), ${cap}px)`;
+    const half = node.offsetWidth / 2;
     setShift(tooltipShift({ centre, half, left, right, gap: EDGE_GAP }));
   };
 

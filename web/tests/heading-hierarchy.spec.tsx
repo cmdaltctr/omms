@@ -171,7 +171,14 @@ it("renders Profile identity and sections at H2 and workflows as pattern-style c
 });
 
 it("keeps cleanup diff titles directly below the dialog H2 at H3", () => {
-  const cleanup = source("lib/components/explorer/AiCleanupDialog.tsx");
+  // The dialog renders its select and review views from two files of their own.
+  const cleanup = [
+    "lib/components/explorer/AiCleanupDialog.tsx",
+    "lib/components/explorer/AiCleanupSelect.tsx",
+    "lib/components/explorer/AiCleanupReview.tsx",
+  ]
+    .map(source)
+    .join("\n");
   expect(cleanup).not.toMatch(/<h4\b/);
   const groups = [...cleanup.matchAll(/<h3 className="([^"]+)">\s*<(?:GitMerge|Trash2)\b/g)];
   expect(groups).toHaveLength(2);

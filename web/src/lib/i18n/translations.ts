@@ -371,6 +371,7 @@ export const translations = {
     "btn-ai-cleanup-back": "Back",
     "toast-ai-cleanup-skipped":
       "{applied} changes applied. {skipped} skipped because learning changed their items.",
+    "toast-ai-cleanup-none-selected": "No memory is selected. Tick one, or choose a shortcut.",
     "toast-cleanup-apply-failed": "Apply cleanup failed",
     "label-ai-cleanup-select": "Select items for cleanup analysis",
     "label-ai-cleanup-select-low": "Low Freq (≤3)",
@@ -378,12 +379,27 @@ export const translations = {
     "label-ai-cleanup-analyze": "Analyze Selected",
     "label-ai-cleanup-selected": "{count} selected",
     "label-ai-cleanup-hint-low":
-      "Picks memories seen 3 times or fewer. These are the most likely to be one-off notes or copies of another memory. Memories you repeat often stay out.",
+      "Picks memories seen 3 times or fewer that AI Cleanup has not checked yet. These are the most likely to be one-off notes or copies of another memory. Memories you repeat often stay out.",
     "label-ai-cleanup-hint-same-cat":
-      "Picks every memory whose category holds 3 or more memories. Memories under one category name are the most likely to be copies of each other. Names must match exactly, so run Clean up categories first to catch more. Memories with no category are left out.",
+      "Picks the memories that AI Cleanup has not checked yet in every category that holds 3 or more memories. Memories under one category name are the most likely to be copies of each other. Names must match exactly, so run Clean up categories first to catch more. Memories with no category are left out.",
+    "label-ai-cleanup-select-clean": "Clean All",
+    "label-ai-cleanup-hint-clean":
+      "Picks Low Freq and Same Category together, from the memories that AI Cleanup has not checked yet. Use Select All to check every memory again.",
+    "label-ai-cleanup-skipped": "Already checked and skipped: {count}",
+    "label-ai-cleanup-tip-clean": "Low Freq plus Same Category, unchecked memories only",
+    "label-ai-cleanup-tip-low": "Memories seen 3 times or fewer, unchecked memories only",
+    "label-ai-cleanup-tip-same-cat": "Memories in categories of 3 or more, unchecked memories only",
+    "label-ai-cleanup-tip-all": "Every memory, including ones already checked, for a full recheck",
+    "label-ai-cleanup-tip-none": "Untick everything",
+    "label-ai-cleanup-checked": "Checked",
+    "label-ai-cleanup-checked-tip":
+      "The AI already checked this memory and kept it. It is skipped unless its text or category changes.",
+    "label-ai-cleanup-checked-waiting":
+      "Reading which memories AI Cleanup already checked. Select All works now.",
+    "label-ai-cleanup-group-count": "{count} items",
     "label-more-info": "What does this do?",
     "help-ai-cleanup":
-      "Asks the AI to find memories that say the same thing and merge them. It can also remove memories that are too vague to help. You choose which memories it checks, then review every change. Nothing is saved until you press Apply Changes.",
+      "Asks the AI to find memories that say the same thing and merge them. It can also remove memories that are too vague to help. You choose which memories it checks, then review every change. Your memories do not change until you press Apply Changes. Memories the AI checked and kept are skipped next time, unless you choose Select All.",
     "help-category-cleanup":
       'Finds category names that mean the same thing, such as "Execution" and "Direct execution", and gives each group one name. It only renames categories. No memory is merged or removed. You review the groups first, and you can undo the last cleanup.',
     "migration-found-tags": "Found {count} memories needing technical tags.",
@@ -748,6 +764,7 @@ export const translations = {
     "btn-ai-cleanup-retry": "重试",
     "btn-ai-cleanup-back": "返回",
     "toast-ai-cleanup-skipped": "已应用 {applied} 项更改，{skipped} 项因学习改动了相关条目而跳过。",
+    "toast-ai-cleanup-none-selected": "未选择任何记忆。请勾选一条，或选择一个快捷方式。",
     "toast-cleanup-apply-failed": "应用清理失败",
     "label-ai-cleanup-select": "选择需要清理分析的条目",
     "label-ai-cleanup-select-low": "低频 (≤3)",
@@ -755,12 +772,26 @@ export const translations = {
     "label-ai-cleanup-analyze": "分析选中项",
     "label-ai-cleanup-selected": "已选 {count} 项",
     "label-ai-cleanup-hint-low":
-      "选出出现 3 次或更少的记忆。它们最可能是一次性的记录，或是其他记忆的重复。经常出现的记忆不会被选中。",
+      "选出出现 3 次或更少、且 AI 清理尚未检查过的记忆。它们最可能是一次性的记录，或是其他记忆的重复。经常出现的记忆不会被选中。",
     "label-ai-cleanup-hint-same-cat":
-      "选出所在分类包含 3 条或更多记忆的所有记忆。同一分类名下的记忆最可能互相重复。分类名必须完全一致，所以先运行“整理分类”可以选中更多。没有分类的记忆不会被选中。",
+      "在包含 3 条或更多记忆的每个分类中，选出 AI 清理尚未检查过的记忆。同一分类名下的记忆最可能互相重复。分类名必须完全一致，所以先运行“整理分类”可以选中更多。没有分类的记忆不会被选中。",
+    "label-ai-cleanup-select-clean": "全部清理",
+    "label-ai-cleanup-hint-clean":
+      "同时选出“低频”和“同分类”的记忆，只从 AI 清理尚未检查过的记忆中选。要重新检查所有记忆，请用“全选”。",
+    "label-ai-cleanup-skipped": "已检查而跳过：{count}",
+    "label-ai-cleanup-tip-clean": "低频加同分类，仅限未检查的记忆",
+    "label-ai-cleanup-tip-low": "出现 3 次或更少的记忆，仅限未检查的记忆",
+    "label-ai-cleanup-tip-same-cat": "所在分类有 3 条或更多记忆，仅限未检查的记忆",
+    "label-ai-cleanup-tip-all": "所有记忆，包括已检查过的，用于全面重新检查",
+    "label-ai-cleanup-tip-none": "取消全部勾选",
+    "label-ai-cleanup-checked": "已检查",
+    "label-ai-cleanup-checked-tip":
+      "AI 已检查过这条记忆并保留了它。除非它的文字或分类有变化，否则会被跳过。",
+    "label-ai-cleanup-checked-waiting": "正在读取 AI 清理已检查过的记忆。现在可以使用“全选”。",
+    "label-ai-cleanup-group-count": "{count} 项",
     "label-more-info": "这是做什么的？",
     "help-ai-cleanup":
-      "让 AI 找出意思相同的记忆并合并。它也可以删除过于模糊、没有帮助的记忆。你先选择要检查的记忆，再逐项查看每个变更。点击“应用变更”之前不会保存任何内容。",
+      "让 AI 找出意思相同的记忆并合并。它也可以删除过于模糊、没有帮助的记忆。你先选择要检查的记忆，再逐项查看每个变更。点击“应用变更”之前，你的记忆不会改变。AI 检查过并保留的记忆下次会被跳过，除非你选择“全选”。",
     "help-category-cleanup":
       "找出意思相同的分类名称，例如“Execution”和“Direct execution”，并为每组选定一个名称。它只重命名分类，不合并或删除任何记忆。你可以先查看各组，并可撤销上次整理。",
     "profile-actions": "操作",
@@ -1175,6 +1206,7 @@ export const translations = {
     "btn-ai-cleanup-back": "رجوع",
     "toast-ai-cleanup-skipped":
       "تم تطبيق {applied} تغيير، وتم تخطي {skipped} لأن التعلّم غيّر عناصرها.",
+    "toast-ai-cleanup-none-selected": "لم تُحدَّد أي ذكرى. حدّد واحدة، أو اختر اختصارًا.",
     "toast-cleanup-apply-failed": "فشل تطبيق التنظيف",
     "label-ai-cleanup-select": "حدد العناصر للتحليل",
     "label-ai-cleanup-select-low": "تردد منخفض (≤3)",
@@ -1182,12 +1214,28 @@ export const translations = {
     "label-ai-cleanup-analyze": "تحليل المحدد",
     "label-ai-cleanup-selected": "{count} محدد",
     "label-ai-cleanup-hint-low":
-      "يحدد الذكريات التي ظهرت 3 مرات أو أقل. هذه الذكريات هي الأكثر احتمالًا أن تكون ملاحظات لمرة واحدة أو نسخًا من ذكريات أخرى. الذكريات التي تتكرر كثيرًا تبقى خارج التحديد.",
+      "يحدد الذكريات التي ظهرت 3 مرات أو أقل ولم يفحصها تنظيف الذكاء الاصطناعي بعد. هذه الذكريات هي الأكثر احتمالًا أن تكون ملاحظات لمرة واحدة أو نسخًا من ذكريات أخرى. الذكريات التي تتكرر كثيرًا تبقى خارج التحديد.",
     "label-ai-cleanup-hint-same-cat":
-      "يحدد كل ذكرى تنتمي إلى فئة فيها 3 ذكريات أو أكثر. الذكريات تحت اسم فئة واحد هي الأكثر احتمالًا أن تكون نسخًا من بعضها. يجب أن تتطابق الأسماء تمامًا، لذلك شغّل «تنظيف الفئات» أولًا لتحديد المزيد. الذكريات التي بلا فئة تُستبعد.",
+      "يحدد الذكريات التي لم يفحصها تنظيف الذكاء الاصطناعي بعد في كل فئة فيها 3 ذكريات أو أكثر. الذكريات تحت اسم فئة واحد هي الأكثر احتمالًا أن تكون نسخًا من بعضها. يجب أن تتطابق الأسماء تمامًا، لذلك شغّل «تنظيف الفئات» أولًا لتحديد المزيد. الذكريات التي بلا فئة تُستبعد.",
+    "label-ai-cleanup-select-clean": "تنظيف الكل",
+    "label-ai-cleanup-hint-clean":
+      "يحدد ذكريات «تردد منخفض» و«نفس الفئة» معًا، من الذكريات التي لم يفحصها تنظيف الذكاء الاصطناعي بعد. استخدم «تحديد الكل» لفحص كل الذكريات من جديد.",
+    "label-ai-cleanup-skipped": "مفحوصة سابقًا وتم تخطيها: {count}",
+    "label-ai-cleanup-tip-clean": "تردد منخفض مع نفس الفئة، الذكريات غير المفحوصة فقط",
+    "label-ai-cleanup-tip-low": "ذكريات ظهرت 3 مرات أو أقل، الذكريات غير المفحوصة فقط",
+    "label-ai-cleanup-tip-same-cat":
+      "ذكريات في فئات فيها 3 ذكريات أو أكثر، الذكريات غير المفحوصة فقط",
+    "label-ai-cleanup-tip-all": "كل الذكريات، ومنها المفحوصة سابقًا، لإعادة فحص كاملة",
+    "label-ai-cleanup-tip-none": "إلغاء تحديد الكل",
+    "label-ai-cleanup-checked": "مفحوصة",
+    "label-ai-cleanup-checked-tip":
+      "فحص الذكاء الاصطناعي هذه الذكرى وأبقاها. تُتخطى ما لم يتغير نصها أو فئتها.",
+    "label-ai-cleanup-checked-waiting":
+      "جارٍ قراءة الذكريات التي فحصها تنظيف الذكاء الاصطناعي. يمكنك استخدام «تحديد الكل» الآن.",
+    "label-ai-cleanup-group-count": "{count} عنصر",
     "label-more-info": "ما وظيفة هذا؟",
     "help-ai-cleanup":
-      "يطلب من الذكاء الاصطناعي إيجاد الذكريات التي تقول الشيء نفسه ودمجها. ويمكنه أيضًا حذف الذكريات الغامضة جدًا بحيث لا تفيد. أنت تختار الذكريات التي يفحصها، ثم تراجع كل تغيير. لا يُحفظ شيء حتى تضغط «تطبيق التغييرات».",
+      "يطلب من الذكاء الاصطناعي إيجاد الذكريات التي تقول الشيء نفسه ودمجها. ويمكنه أيضًا حذف الذكريات الغامضة جدًا بحيث لا تفيد. أنت تختار الذكريات التي يفحصها، ثم تراجع كل تغيير. لا تتغير ذكرياتك حتى تضغط «تطبيق التغييرات». الذكريات التي فحصها الذكاء الاصطناعي وأبقاها تُتخطى في المرة القادمة، إلا إذا اخترت «تحديد الكل».",
     "help-category-cleanup":
       "يجد أسماء الفئات التي لها المعنى نفسه، مثل «Execution» و«Direct execution»، ويعطي كل مجموعة اسمًا واحدًا. يعيد تسمية الفئات فقط، ولا يدمج أو يحذف أي ذكرى. تراجع المجموعات أولًا، ويمكنك التراجع عن آخر تنظيف.",
 

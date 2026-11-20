@@ -48,6 +48,8 @@ export const aiCleanupApi = {
     }),
   status: () => fetchAPI<AiCleanupJob | null>(AI_CLEANUP),
   stop: () => fetchAPI<null>(AI_CLEANUP, { method: "DELETE" }),
+  /** The position ids of the memories AI Cleanup already checked, for one profile version. */
+  checked: () => fetchAPI<{ profileVersion: number; ids: string[] }>(`${AI_CLEANUP}/checked`),
   apply: (acceptedMerged: string[][], acceptedRemoved: string[]) =>
     fetchAPI<{ applied: number; skipped: number }>(`${AI_CLEANUP}/apply`, {
       method: "POST",

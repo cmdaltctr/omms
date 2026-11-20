@@ -123,7 +123,8 @@ it("names the 3+ shortcut and translates every new help text", () => {
 });
 
 it("shows the selected count in a green box and puts an info popover beside each cleanup button", () => {
-  const dialog = source("lib/components/explorer/AiCleanupDialog.tsx");
+  // The count box moved with the selection view into its own file.
+  const dialog = source("lib/components/explorer/AiCleanupSelect.tsx");
   expect(dialog).toMatch(
     /bg-status-success\/10[^>]*text-status-success[^>]*>\s*\{t\("label-ai-cleanup-selected"/
   );

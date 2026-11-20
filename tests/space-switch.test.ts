@@ -235,4 +235,64 @@ describe("switching the active space in a running process", () => {
     refreshConfigIfChanged(project);
     expect([...profiles.coldBuffers.keys()]).toEqual(["profile-a"]);
   });
+
+  it("keeps the AI Cleanup checked marks of each space apart", async () => {
+    const { markAiChecked, readAiCheckedKeys } =
+      await import("../src/services/storage/profiles/ai-checked.js");
+    expect(config.CONFIG.storagePath).toBe(defaultFolder);
+    await markAiChecked("profile-a", ["key-in-default"]);
+
+    await switchStoredSpace(files, experimentsId);
+    refreshConfigIfChanged(project);
+    expect([...(await readAiCheckedKeys("profile-a"))]).toEqual([]);
+    await markAiChecked("profile-a", ["key-in-experiments"]);
+
+    await switchStoredSpace(files, "default");
+    refreshConfigIfChanged(project);
+    expect([...(await readAiCheckedKeys("profile-a"))]).toEqual(["key-in-default"]);
+  });
+
+  it("drops an AI Cleanup job that runs during a switch, so no space gets its marks", async () => {
+    const { startAiCleanupJob, getAiCleanupJob, getAiCleanupResult } =
+      await import("../src/services/user-profile/ai-cleanup-job.js");
+    const { readAiCheckedKeys } = await import("../src/services/storage/profiles/ai-checked.js");
+    const profileData = {
+      preferences: [
+        { category: "c", description: "switch item", confidence: 0.5, frequency: 1, lastSeen: 1 },
+      ],
+      patterns: [],
+      workflows: [],
+    } as never;
+    let finishBatch: (() => void) | undefined;
+    expect(config.CONFIG.storagePath).toBe(defaultFolder);
+    startAiCleanupJob(
+      "switch-user",
+      { profileData, profileId: "profile-switch", loadProfile: async () => profileData },
+      {} as never,
+      {
+        callBatch: () =>
+          new Promise((resolve) => {
+            finishBatch = () =>
+              resolve({
+                diff: { kept: ["pref_0"], merged: [], removed: [] },
+                mergedItems: {},
+                checkedIds: ["pref_0"],
+              });
+          }),
+      }
+    );
+    while (!finishBatch) await new Promise((resolve) => setTimeout(resolve, 1));
+
+    await switchStoredSpace(files, experimentsId);
+    refreshConfigIfChanged(project);
+    finishBatch();
+    for (let i = 0; i < 50; i++) await new Promise((resolve) => setTimeout(resolve, 1));
+
+    expect(getAiCleanupJob("switch-user")).toBeNull();
+    expect(getAiCleanupResult("switch-user")).toBeNull();
+    expect([...(await readAiCheckedKeys("profile-switch"))]).toEqual([]);
+    await switchStoredSpace(files, "default");
+    refreshConfigIfChanged(project);
+    expect([...(await readAiCheckedKeys("profile-switch"))]).toEqual([]);
+  });
 });

@@ -18,6 +18,9 @@ let checked = true;
 mock.module("../src/hooks/useAiCleanupJob.ts", () => ({
   useAiCleanupJob: () => ({ job: currentJob, checked, start: () => {}, discard: () => {} }),
 }));
+mock.module("../src/hooks/useAiCheckedIds.ts", () => ({
+  useAiCheckedIds: () => ({ ids: new Set<string>(), reload: () => {} }),
+}));
 const { AiCleanupPill } = await import("../src/lib/components/explorer/AiCleanupPill.tsx");
 const { AiCleanupDialog } = await import("../src/lib/components/explorer/AiCleanupDialog.tsx");
 const { DialogContent } = await import("../src/lib/components/ui/dialog.tsx");

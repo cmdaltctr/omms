@@ -214,3 +214,76 @@ describe("AI cleanup opencode provider path (#177)", () => {
     expect(result.parsed?.externalRequestBody?.messages).toHaveLength(2);
   });
 });
+
+describe("callAICleanup reports whether the reply held a mapping", () => {
+  const reply = (mapping: unknown) =>
+    JSON.stringify({ preferences: [], patterns: [], workflows: [], mapping });
+  const given = (text: string) => ({ complete: async () => text });
+
+  it("is valid when the reply holds a mapping object", async () => {
+    const { callAICleanup } = await import(aiCleanupUrl);
+    const result = await callAICleanup(
+      "p",
+      {},
+      given(reply({ kept: ["pref_0"], merged: [], removed: [] }))
+    );
+    expect(result.mappingValid).toBe(true);
+  });
+
+  it("is not valid when the mapping is missing or not an object", async () => {
+    const { callAICleanup } = await import(aiCleanupUrl);
+    const missing = await callAICleanup("p", {}, given(JSON.stringify({ preferences: [] })));
+    expect(missing.mappingValid).toBe(false);
+    expect(missing.mapping).toEqual({ kept: [], merged: [], removed: [] });
+    const text = await callAICleanup("p", {}, given(reply("keep everything")));
+    expect(text.mappingValid).toBe(false);
+    const empty = await callAICleanup("p", {}, given(reply({})));
+    expect(empty.mappingValid).toBe(false);
+  });
+
+  it("is not valid when a list holds entries of the wrong type", async () => {
+    const { callAICleanup } = await import(aiCleanupUrl);
+    for (const mapping of [
+      { removed: [42] },
+      { kept: [], merged: [], removed: [{ id: "pref_4", reason: "vague" }] },
+      { merged: ["pref_0", "pref_1"] },
+      { merged: [["pref_0", 1]] },
+      { kept: "pref_0" },
+    ]) {
+      expect({
+        mapping,
+        valid: (await callAICleanup("p", {}, given(reply(mapping)))).mappingValid,
+      }).toEqual({ mapping, valid: false });
+    }
+  });
+
+  it("stays valid for empty lists and for a list left out or null", async () => {
+    const { callAICleanup } = await import(aiCleanupUrl);
+    for (const mapping of [
+      { kept: [], merged: [], removed: [] },
+      { removed: ["pref_4"] },
+      { kept: ["pref_0"], merged: null, removed: [] },
+    ]) {
+      expect({
+        mapping,
+        valid: (await callAICleanup("p", {}, given(reply(mapping)))).mappingValid,
+      }).toEqual({ mapping, valid: true });
+    }
+  });
+
+  it("reports the same through the external API", async () => {
+    const { callAICleanup } = await import(aiCleanupUrl);
+    const realFetch = globalThis.fetch;
+    let content = reply(null);
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ choices: [{ message: { content } }] }))) as never;
+    try {
+      const settings = { memoryModel: "m", memoryApiUrl: "http://127.0.0.1:9", memoryApiKey: "k" };
+      expect((await callAICleanup("p", settings, null)).mappingValid).toBe(false);
+      content = reply({ kept: [], merged: [], removed: ["pref_1"] });
+      expect((await callAICleanup("p", settings, null)).mappingValid).toBe(true);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+});

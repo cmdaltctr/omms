@@ -18,3 +18,10 @@ it("slides a bubble left when it would pass the right edge", () => {
 it("centres in a column narrower than the bubble instead of throwing it off", () => {
   expect(tooltipShift({ centre: 300, half: 100, left: 256, right: 400, gap: 8 })).toBe(328 - 300);
 });
+
+it("caps the bubble width to its column, so a narrow column wraps the text", async () => {
+  const { tooltipMaxWidth } = await import("../src/lib/components/ui/tooltip.tsx");
+  // A 390px phone: a 310px column gives 294px after the 8px gap on each side.
+  expect(tooltipMaxWidth({ left: 40, right: 350, gap: 8 })).toBe(294);
+  expect(tooltipMaxWidth({ left: 0, right: 10, gap: 8 })).toBe(0);
+});

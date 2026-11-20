@@ -11,13 +11,17 @@ import {
   type RunInBatchesOptions,
 } from "./ai-cleanup-batches.js";
 import type { MemoryModelSettings } from "./memory-model-settings.js";
+import { markAiChecked, pruneAiCheckedTo } from "../storage/profiles/ai-checked.js";
+import { resettable } from "../spaces/store-handles.js";
+import { aiCheckedKeysForIds, aiCheckedKeysOf } from "./ai-cleanup-checked.js";
 import type { UserProfileData } from "./types.js";
 
 /**
  * A large AI cleanup takes many minutes, longer than a web request may stay open. The web
  * app therefore runs it as a background job per user, and the dialog polls its state.
  * The job also holds the finished result until Apply. Jobs live in this process only; a
- * restart drops them, and nothing is saved before Apply.
+ * restart drops them. The profile is not changed before Apply. When a job finishes, it
+ * saves which memories the model looked at and kept (the checked marks).
  */
 export type AiCleanupJobStatus =
   | { state: "running"; done: number; total: number; failed: number }
@@ -50,6 +54,10 @@ export interface AiCleanupJobInput {
   profileData: UserProfileData;
   /** An empty or missing selection means every item. */
   includeIds?: string[];
+  /** The profile the checked marks belong to. Without it, the job saves no marks. */
+  profileId?: string;
+  /** Reads the newest profile, so marks that match no memory now can be deleted. */
+  loadProfile?: () => Promise<UserProfileData | null>;
 }
 
 export interface AiCleanupJobDeps {
@@ -61,7 +69,15 @@ export interface AiCleanupJobDeps {
 /** A finished job is forgotten this long after it finished, as the old pending result was. */
 const FINISHED_JOB_TTL_MS = 30 * 60 * 1000;
 
-const jobs = new Map<string, AiCleanupJob>();
+/**
+ * A job belongs to the memory space it started in. A space switch stops and drops every
+ * job, as a restart does, so a run writes no marks into the new space and Apply cannot
+ * edit the new space's profile.
+ */
+const jobs = resettable("ai-cleanup-jobs", new Map<string, AiCleanupJob>(), (map) => {
+  for (const job of map.values()) job.stopped = true;
+  map.clear();
+});
 let nextId = 1;
 
 /** Starts a cleanup job for the user, or returns the one already running. */
@@ -100,6 +116,11 @@ export function startAiCleanupJob(
         },
       });
       if (!result) return;
+      // Saved before the status reads done, so a reader never sees a done job without them.
+      if (input.profileId) {
+        await saveCheckedMarks(input.profileId, input, result.checkedIds);
+      }
+      if (job.stopped) return;
       job.mergedItems = result.mergedItems;
       job.status = {
         state: "done",
@@ -128,6 +149,31 @@ export function startAiCleanupJob(
     }
   })();
   return view(job);
+}
+
+/**
+ * Marks the kept items of successful batches as checked, then deletes the marks of the
+ * profile that match no memory of the newest profile. A failure is logged as a code and
+ * does not fail the job.
+ */
+async function saveCheckedMarks(
+  profileId: string,
+  input: AiCleanupJobInput,
+  checkedIds: string[]
+): Promise<void> {
+  try {
+    const keys = aiCheckedKeysForIds(input.profileData, checkedIds);
+    await markAiChecked(profileId, keys);
+    const current = await input.loadProfile?.();
+    const pruned = current ? await pruneAiCheckedTo(profileId, aiCheckedKeysOf(current)) : 0;
+    log("AI cleanup job: checked marks saved", { marked: keys.length, pruned });
+  } catch (error) {
+    log(
+      "AI cleanup job: checked marks not saved",
+      { code: error instanceof Error ? error.name : "unknown" },
+      "error"
+    );
+  }
 }
 
 /** The user's job, or null when none was started or a finished one expired. */

@@ -327,19 +327,37 @@ An **i** button sits beside **AI Cleanup** and beside **Clean up categories**. S
 
 **AI Cleanup** asks the profile model to merge memories that say the same thing and to remove memories that are too vague to help. It can change preferences, patterns and workflows.
 
-1. Choose the memories to check. A shortcut changes the selection and shows a note under the buttons:
-   - **Low Freq (≤3)** selects memories that OMMS has seen 3 times or fewer. This is the default.
-   - **Same Category (3+)** selects every memory in a category that holds 3 or more memories. The category names must match exactly, so run **Clean up categories** first to select more. Memories with no category are left out.
-   - **Select All** and **Deselect All** clear the note.
-2. The green box under the list shows how many memories are selected.
+1. Choose the memories to check. The window opens with no memory ticked. A shortcut replaces the selection. Each shortcut shows a tooltip when you point at it or move the keyboard focus to it:
+   - **Clean All** selects the memories that **Low Freq** and **Same Category** select, together.
+   - **Low Freq (≤3)** selects memories that OMMS has seen 3 times or fewer.
+   - **Same Category (3+)** selects the memories of each category that holds 3 or more memories. Checked memories count toward the 3. The category names must match exactly, so run **Clean up categories** first to select more. Memories with no category are left out.
+   - **Select All** selects every memory, also the checked ones. Use it to check the whole profile again.
+   - **Deselect All** removes every tick.
+
+   **Clean All**, **Low Freq** and **Same Category** select only memories that are not checked (see below). They show a note under the buttons. When they leave out checked memories, the note says how many, for example "Already checked and skipped: 1,250". **Select All** and **Deselect All** clear the note. When the window opens, these three buttons wait until OMMS has read the checked memories. Point at a waiting button to read why. **Select All** and **Deselect All** work at once.
+
+2. The green box under the list shows how many memories are selected. A memory that AI Cleanup already checked shows a **Checked** label. Point at the label to read what it means.
 3. **Analyze Selected** starts the cleanup. OMMS sends the selection to the model in batches of up to 100 memories, one batch at a time. A batch holds one kind of memory. Memories with the same category go in the same batch, if the category has 100 selected memories or fewer. OMMS splits a larger category across batches. The window shows the progress, such as "Batch 3 of 14", and a **Stop** button.
    - You can close the window. The cleanup keeps running. Open **AI Cleanup** again to see the progress, or the review when the cleanup is done.
    - **Minimise** (the **−** button next to **×**) hides the window and shows a small status button at the top right. It shows the batch progress, then **ready to review** or **failed** when the cleanup ends. Select it to open the window again. **×** closes the window without the status button.
-   - **Stop** ends the cleanup and shows your selection again. Nothing is saved.
+   - **Stop** ends the cleanup and shows your selection again. OMMS saves nothing, and marks no memory as checked.
 4. Review each merge and each removal. When a batch failed, a note says how many batches failed. Their memories stay unchanged.
 5. **Apply Changes** saves only the changes you ticked. Every other memory stays exactly as stored, including a memory that the model reworded but did not merge. There is no undo, and the profile keeps only its last 5 versions. Copy `~/.omms/data/user-profiles.db` first.
 
-A finished review stays for 30 minutes, or until the web app restarts. **Back** discards it and shows the selection again.
+A finished review stays for 30 minutes, or until the web app restarts or you switch the memory space. A space switch also stops a running cleanup. **Back** discards it and shows the selection again. Your memories do not change before **Apply Changes**.
+
+### Checked memories
+
+When a cleanup finishes, OMMS remembers each memory that the model looked at and did not merge or remove. These memories are "checked". **Clean All**, **Low Freq** and **Same Category** skip them, so the next run sends only new and changed memories to the model.
+
+- A memory is marked when its batch succeeds. A batch that fails, times out or returns no valid answer marks nothing.
+- **Stop** marks nothing. A switch of the memory space during a cleanup also marks nothing, in either space.
+- **Back** keeps the marks. The memories of the proposed merges and removals stay unchecked.
+- **Apply Changes** also marks the memories of the changes that you did not tick. The model looked at them, and you chose to keep them.
+- A mark ends when the description, the steps or the category of the memory changes, or when a merge you applied rewrites it. A new observation that only raises the frequency keeps the mark.
+- To check every memory again, use **Select All**.
+
+OMMS stores each mark as a hash in `user-profiles.db` of the active memory space. A mark holds no memory text, and it does not change the profile version or the history. Each memory space keeps its own marks.
 
 When every batch fails, the window shows the error with **Retry** and **Back**. **Retry** runs the same selection again. If the error says "Profile changed", the profile was saved after you opened the page. Reload the page, then try again.
 
