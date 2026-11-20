@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "$lib/components/ui/dialog";
-import { sameCategoryIds, withToggled } from "$lib/cleanup-selection";
+import { sameCategoryIds, selectedFirst, withToggled } from "$lib/cleanup-selection";
 import { useI18n } from "$lib/i18n";
 import { findDescById, findStepsById } from "$lib/profile-utils";
 import type { ProfileItem, UserProfile } from "$lib/types";
@@ -49,6 +49,9 @@ export function AiCleanupDialog(props: Props) {
   const [starting, setStarting] = useState(false);
   const [allItems, setAllItems] = useState<CleanupItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // The order follows a shortcut's picks, not each tick, so rows do not jump while ticking.
+  const [orderIds, setOrderIds] = useState<Set<string>>(new Set());
+  const listRef = useRef<HTMLDivElement>(null);
   const [acceptedMerged, setAcceptedMerged] = useState<Set<number>>(new Set());
   const [acceptedRemoved, setAcceptedRemoved] = useState<Set<number>>(new Set());
   const [keptOpen, setKeptOpen] = useState(false);
@@ -62,17 +65,18 @@ export function AiCleanupDialog(props: Props) {
   const view = waiting ? { phase: "running" as const, done: 0, total: 0 } : jobView;
   const review = view.phase === "review" ? view.result : null;
 
-  const cats = useMemo(() => {
-    const map: Record<string, { pref: CleanupItem[]; pat: CleanupItem[]; wf: CleanupItem[] }> = {};
-    for (const it of allItems) {
-      const cat = it.category || "(none)";
-      if (!map[cat]) map[cat] = { pref: [], pat: [], wf: [] };
-      map[cat][it._type].push(it);
+  // Categories in name order; inside one, preferences, then patterns, then workflows.
+  const groups = useMemo(() => {
+    const map = new Map<string, CleanupItem[]>();
+    for (const type of ["pref", "pat", "wf"] as const) {
+      for (const it of allItems.filter((x) => x._type === type)) {
+        const cat = it.category || "(none)";
+        map.set(cat, [...(map.get(cat) ?? []), it]);
+      }
     }
-    return map;
-  }, [allItems]);
-
-  const sortedCatKeys = useMemo(() => Object.keys(cats).sort(), [cats]);
+    const all = [...map.keys()].sort().map((key) => ({ key, items: map.get(key)! }));
+    return selectedFirst(all, orderIds);
+  }, [allItems, orderIds]);
   const selectedCount = selectedIds.size;
   const diffSelectedCount = acceptedMerged.size + acceptedRemoved.size;
   const diffTotalCount =
@@ -103,7 +107,7 @@ export function AiCleanupDialog(props: Props) {
     }));
     const items = [...prefs, ...pats, ...wfs];
     setAllItems(items);
-    setSelectedIds(new Set(items.filter((it) => (it.frequency || 0) <= 3).map((it) => it._id)));
+    pick(new Set(items.filter((it) => (it.frequency || 0) <= 3).map((it) => it._id)));
     setKeptOpen(false);
   }
 
@@ -135,21 +139,18 @@ export function AiCleanupDialog(props: Props) {
     setSelectedIds((prev) => withToggled(prev, id, checked));
   }
 
-  function selectAll() {
-    setSelectedIds(new Set(allItems.map((it) => it._id)));
+  /** A shortcut's selection: tick it, move it to the top and show the top. */
+  function pick(ids: Set<string>) {
+    setSelectedIds(ids);
+    setOrderIds(ids);
+    listRef.current?.scrollTo({ top: 0 });
   }
 
-  function selectNone() {
-    setSelectedIds(new Set());
-  }
-
-  function selectLow() {
-    setSelectedIds(new Set(allItems.filter((it) => (it.frequency || 0) <= 3).map((it) => it._id)));
-  }
-
-  function selectSameCat() {
-    setSelectedIds(sameCategoryIds(allItems));
-  }
+  const selectAll = () => pick(new Set(allItems.map((it) => it._id)));
+  const selectNone = () => pick(new Set());
+  const selectLow = () =>
+    pick(new Set(allItems.filter((it) => (it.frequency || 0) <= 3).map((it) => it._id)));
+  const selectSameCat = () => pick(sameCategoryIds(allItems));
 
   async function analyze(ids: string[]) {
     if (ids.length === 0) {
@@ -163,7 +164,7 @@ export function AiCleanupDialog(props: Props) {
 
   /** Stop, or Back from a result or a failure: back to the selection the job ran with. */
   function backToSelection() {
-    setSelectedIds(selectionAfterStop(job, selectedIds));
+    pick(selectionAfterStop(job, selectedIds));
     void cleanup.discard();
   }
 
@@ -263,52 +264,49 @@ export function AiCleanupDialog(props: Props) {
                 onSelectSameCat={selectSameCat}
               />
             </div>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-              {sortedCatKeys.map((cat) => {
-                const items = [...cats[cat].pref, ...cats[cat].pat, ...cats[cat].wf];
-                return (
-                  <div key={cat} className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs rounded-full bg-muted px-2 py-0.5">{cat}</span>
-                      <span className="text-xs text-muted-foreground">{items.length} items</span>
-                    </div>
-                    {items.map((it) => {
-                      const checked = selectedIds.has(it._id);
-                      return (
-                        <div
-                          key={it._id}
-                          className="flex items-center gap-2 rounded-lg border border-border/60 px-2 py-1.5 text-sm cursor-pointer hover:bg-muted/40"
-                          role="checkbox"
-                          aria-checked={checked}
-                          tabIndex={0}
-                          onClick={() => toggleId(it._id, !checked)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              toggleId(it._id, !checked);
-                            }
-                          }}
-                        >
-                          <span className="pointer-events-none inline-flex">
-                            <Checkbox checked={checked} tabIndex={-1} />
-                          </span>
-                          <span className="text-[10px] font-medium text-muted-foreground w-4">
-                            {it._type === "pref" ? "P" : it._type === "pat" ? "T" : "W"}
-                          </span>
-                          <span className="flex-1 truncate">
-                            {(it.description || "").substring(0, 80)}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                            <Target className="size-3" />
-                            {it.frequency || 0}
-                            {it.confidence != null ? ` | ${Math.round(it.confidence * 100)}%` : ""}
-                          </span>
-                        </div>
-                      );
-                    })}
+            <div ref={listRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+              {groups.map(({ key: cat, items }) => (
+                <div key={cat} className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs rounded-full bg-muted px-2 py-0.5">{cat}</span>
+                    <span className="text-xs text-muted-foreground">{items.length} items</span>
                   </div>
-                );
-              })}
+                  {items.map((it) => {
+                    const checked = selectedIds.has(it._id);
+                    return (
+                      <div
+                        key={it._id}
+                        className="flex items-center gap-2 rounded-lg border border-border/60 px-2 py-1.5 text-sm cursor-pointer hover:bg-muted/40"
+                        role="checkbox"
+                        aria-checked={checked}
+                        tabIndex={0}
+                        onClick={() => toggleId(it._id, !checked)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggleId(it._id, !checked);
+                          }
+                        }}
+                      >
+                        <span className="pointer-events-none inline-flex">
+                          <Checkbox checked={checked} tabIndex={-1} />
+                        </span>
+                        <span className="text-[10px] font-medium text-muted-foreground w-4">
+                          {it._type === "pref" ? "P" : it._type === "pat" ? "T" : "W"}
+                        </span>
+                        <span className="flex-1 truncate">
+                          {(it.description || "").substring(0, 80)}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                          <Target className="size-3" />
+                          {it.frequency || 0}
+                          {it.confidence != null ? ` | ${Math.round(it.confidence * 100)}%` : ""}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
             <div className="flex items-center justify-between gap-2 pt-1">
               <span className="rounded-md border border-status-success/30 bg-status-success/10 px-2 py-0.5 text-xs font-medium text-status-success">
