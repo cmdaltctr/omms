@@ -63,3 +63,19 @@ it("ignores the marker inside a host session, which sets no step-aside callback"
   expect(reads()).toBe(0);
   expect(server.isServerOwner()).toBe(false);
 });
+
+it("retires instead of taking the port when the owner is gone and the marker is newer", async () => {
+  const { server, tick } = waiter(() => Date.now() + 60_000);
+  server.checkServerAvailable = async () => false;
+  let takeovers = 0;
+  (server as unknown as { attemptTakeover(): Promise<void> }).attemptTakeover = async () => {
+    takeovers += 1;
+  };
+  let retired = 0;
+  server.setOnStepAside(() => {
+    retired += 1;
+  });
+  await tick();
+  expect(takeovers).toBe(0);
+  expect(retired).toBe(1);
+});

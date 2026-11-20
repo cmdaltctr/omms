@@ -11,6 +11,7 @@ import { runHistoryImport } from "../src/importer/run-import.js";
 import { HOSTS } from "../src/shared/hosts.js";
 import {
   readUnresolvedDirectories,
+  readUnresolvedReport,
   recordUnresolvedDirectories,
 } from "../src/services/storage/backfill-state.js";
 import { tursoConnectionManager } from "../src/services/turso/connection-manager.js";
@@ -308,6 +309,33 @@ describe("pausing a backfill", () => {
         }) as never,
     } as never);
     expect((await readImportRun("pi"))!.updatedAt).toBe(before.updatedAt!);
+  });
+
+  it("stores the backfill's whole unresolved total beside its cut list", async () => {
+    const directory = store();
+    await scheduleAutoBackfill({
+      host: "opencode",
+      cwd: directory,
+      wait: async () => {},
+      enabled: () => true,
+      notify: () => {},
+      resolveModels: async () => ({ model: "external/m", models: {} }),
+      run: async () =>
+        ({
+          unitsWouldImport: 0,
+          unitsImported: 0,
+          unitsSkipped: 0,
+          unitsFailed: 0,
+          unresolvableSessions: [],
+          unresolvedProjects: Array.from({ length: 250 }, (_, i) => ({
+            directory: `/gone/p${i}`,
+            sessions: 1,
+          })),
+        }) as never,
+    } as never);
+    const saved = await readUnresolvedReport("opencode");
+    expect(saved.directories).toHaveLength(200);
+    expect(saved.total).toBe(250);
   });
 
   it("keeps a session listing's unresolved directories when a later backfill finds none", async () => {

@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import { extractJsonObject } from "../extraction.js";
 import type { ModelPort } from "../profile-analysis.js";
 import { log } from "../../services/logger.js";
@@ -58,11 +59,12 @@ export function withExternalFallback(
   if (!primary) return external;
   if (!external) return primary;
   const ms = options.attemptTimeoutMs ?? PROFILE_ATTEMPT_TIMEOUT_MS;
-  const fallBack = async (error: unknown): Promise<ModelPort> => {
+  const fallBack = (error: unknown): ModelPort => {
     log("profile learning: host model failed, using the external API", { host }, "warn");
-    // A notice can throw at once (a replaced Pi session); the external attempt still runs.
+    // The notice is not awaited: one that never settles must not hold the external attempt.
+    // A notice can also throw at once (a replaced Pi session); the external attempt still runs.
     try {
-      await notify?.(fallbackNotice(host, error));
+      Promise.resolve(notify?.(fallbackNotice(host, error))).catch(() => {});
     } catch {
       // A failed notice does not stop the fallback.
     }
@@ -76,26 +78,32 @@ export function withExternalFallback(
       try {
         return await limit(primary.complete(systemPrompt, userPrompt), ms);
       } catch (error) {
-        return limit((await fallBack(error)).complete(systemPrompt, userPrompt), ms);
+        return limit(fallBack(error).complete(systemPrompt, userPrompt), ms);
       }
     },
   };
+  // Always structured, so bad JSON from a text-only host model (Pi) counts as a failed call and
+  // falls back, as OpenCode's structured call does when it throws.
   const structured = primary.completeStructured?.bind(primary);
-  if (structured) {
-    port.completeStructured = async (systemPrompt, userPrompt, schema) => {
-      try {
-        return await limit(structured(systemPrompt, userPrompt, schema), ms);
-      } catch (error) {
-        const model = await fallBack(error);
-        if (model.completeStructured) {
-          return limit(model.completeStructured(systemPrompt, userPrompt, schema), ms);
-        }
-        // `analyzeProfile` checks every reply against the schema, so the parsed JSON is enough.
-        return extractJsonObject(
-          await limit(model.complete(systemPrompt, userPrompt), ms)
-        ) as never;
+  const hostReply = <T>(systemPrompt: string, userPrompt: string, schema: z.ZodType<T>) =>
+    structured
+      ? structured(systemPrompt, userPrompt, schema)
+      : primary.complete(systemPrompt, userPrompt).then((text) => {
+          const checked = schema.safeParse(extractJsonObject(text));
+          if (!checked.success) throw new Error("host model reply is not valid profile JSON");
+          return checked.data;
+        });
+  port.completeStructured = async (systemPrompt, userPrompt, schema) => {
+    try {
+      return await limit(hostReply(systemPrompt, userPrompt, schema), ms);
+    } catch (error) {
+      const model = fallBack(error);
+      if (model.completeStructured) {
+        return limit(model.completeStructured(systemPrompt, userPrompt, schema), ms);
       }
-    };
-  }
+      // `analyzeProfile` checks every reply against the schema, so the parsed JSON is enough.
+      return extractJsonObject(await limit(model.complete(systemPrompt, userPrompt), ms)) as never;
+    }
+  };
   return port;
 }

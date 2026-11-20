@@ -15,6 +15,8 @@ export async function handleDeletePrompt(
     if (cascade && prompt.linkedMemoryId) {
       const result = await handleDeleteMemory(prompt.linkedMemoryId, false);
       if (result.success) deletedMemory = true;
+      // Keep the prompt when its memory is still there, so a retry can delete both.
+      else if (result.error !== "Memory not found") return { success: false, error: result.error };
     }
     await userPromptManager.deletePrompt(id);
     return { success: true, data: { deletedMemory } };

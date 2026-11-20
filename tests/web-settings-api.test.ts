@@ -108,6 +108,49 @@ describe("settings API", () => {
     expect(result.reads).toBe(2);
   });
 
+  it("reads the store's projects again after a memory space switch", async () => {
+    const result = await scenario(`
+      const { join } = await import("node:path");
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "space-a");
+      const apiUrl = ${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/importer/web-import-api.ts")).href)};
+      const real = await import(apiUrl);
+      const readFrom = [];
+      mock.module(apiUrl, () => ({ ...real, readStoreProjects: async () => {
+        readFrom.push(CONFIG.storagePath);
+        return [{ path: "/p" }];
+      } }));
+      await send("/api/settings/import-maps");
+      // A space switch moves the store; the old space's projects must not stay cached.
+      CONFIG.storagePath = join(process.env.HOME, "space-b");
+      await send("/api/settings/import-maps");
+      await send("/api/settings/import-maps");
+      return { readFrom: readFrom.map((path) => path.slice(process.env.HOME.length + 1)) };
+    `);
+    expect(result.readFrom).toEqual(["space-a", "space-b"]);
+  });
+
+  it("counts the unresolved badge from the directory list's own report", async () => {
+    const result = await scenario(`
+      const { join } = await import("node:path");
+      const { CONFIG } = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/config.ts")).href)});
+      CONFIG.storagePath = join(process.env.HOME, "isolated-store");
+      CONFIG.importIgnoredDirectories = ["/x/scratch"];
+      CONFIG.importPathMaps = [];
+      const state = await import(${JSON.stringify(pathToFileURL(join(import.meta.dir, "../src/services/storage/backfill-state.ts")).href)});
+      // The backfill run counted 10; a later listing found 500 in 250 directories.
+      await state.getBackfillCutoff("pi", 1);
+      await state.updateBackfillStatus("pi", { state: "done", model: null,
+        counts: { imported: 0, skipped: 0, failed: 0, pending: 0, unresolved: 10 } }, CONFIG);
+      const listing = [{ directory: "/x/scratch", sessions: 6 },
+        ...Array.from({ length: 249 }, (_, i) => ({ directory: "/x/d" + i, sessions: 2 }))];
+      await state.recordUnresolvedDirectories("pi", listing.slice(0, 200), Date.now(), "full", 504);
+      const backfill = await (await send("/api/settings/backfill")).json();
+      return { unresolved: backfill.pi.counts.unresolved };
+    `);
+    expect(result.unresolved).toBe(498);
+  });
+
   it("leaves ignored directories out of the backfill count and the Directory maps list alike", async () => {
     const result = await scenario(`
       const { join } = await import("node:path");
@@ -484,6 +527,87 @@ describe("settings API", () => {
     expect(result.status).toBe(200);
     expect(result.stale).toBe(409);
     expect(result.text).toContain('"piModel": "new"');
+  });
+
+  it("turning the retry queue off keeps turns queued after it was turned on again", async () => {
+    const queueUrl = pathToFileURL(
+      join(import.meta.dir, "../src/services/storage/capture-retry-queue.ts")
+    ).href;
+    const configUrl = pathToFileURL(join(import.meta.dir, "../src/config.ts")).href;
+    const result = await scenario(`
+      const { CONFIG } = await import(${JSON.stringify(configUrl)});
+      const queue = await import(${JSON.stringify(queueUrl)});
+      const on = { ...CONFIG, captureRetryRetentionHours: 72 };
+      const unit = (promptId) => ({ host: "pi", hostSessionId: "s", sourceType: "live-capture",
+        projectDirectory: "/p", userPrompt: "prompt", promptId, textResponses: ["reply"], toolCalls: [] });
+      await queue.enqueueCaptureRetry(unit("before"), { reason: "call-error" }, on);
+      const before = await (await send("/api/settings")).json();
+      // The queue is turned on again and a turn is queued after the off write, before the purge.
+      const host = server.routeHost;
+      const load = host.loadConfig;
+      let queued = false;
+      host.loadConfig = async () => {
+        const { readFileSync } = await import("node:fs");
+        if (!queued && readFileSync(configPath, "utf8").includes("captureRetryRetentionHours")) {
+          queued = true;
+          await queue.enqueueCaptureRetry(unit("after"), { reason: "call-error" }, on);
+        }
+        return load();
+      };
+      const off = await send("/api/settings", "PATCH",
+        { edits: { captureRetryRetentionHours: 0 }, revision: before.revision },
+        { "content-type": "application/json" });
+      const left = (await queue.listDueCaptureRetries("pi", on, Date.now() + 10 * 60 * 60 * 1000))
+        .map((row) => row.turnId);
+      return { off: off.status, queued, left };
+    `);
+    expect(result.off).toBe(200);
+    expect(result.queued).toBe(true);
+    expect(result.left).toEqual(["after"]);
+  });
+
+  it("turning the retry queue off deletes nothing when the newest queued id cannot be read", async () => {
+    const queueUrl = pathToFileURL(
+      join(import.meta.dir, "../src/services/storage/capture-retry-queue.ts")
+    ).href;
+    const configUrl = pathToFileURL(join(import.meta.dir, "../src/config.ts")).href;
+    const result = await scenario(`
+      const { existsSync, readFileSync } = await import("node:fs");
+      const { CONFIG } = await import(${JSON.stringify(configUrl)});
+      const queue = await import(${JSON.stringify(queueUrl)});
+      const on = { ...CONFIG, captureRetryRetentionHours: 72 };
+      const unit = (promptId) => ({ host: "pi", hostSessionId: "s", sourceType: "live-capture",
+        projectDirectory: "/p", userPrompt: "prompt", promptId, textResponses: ["reply"], toolCalls: [] });
+      await queue.enqueueCaptureRetry(unit("before"), { reason: "call-error" }, on);
+      const before = await (await send("/api/settings")).json();
+      const host = server.routeHost;
+      const load = host.loadConfig;
+      let calls = 0;
+      let queued = false;
+      host.loadConfig = async () => {
+        // The read of the newest queued id before the write fails.
+        if (calls++ === 0) throw new Error("store unavailable");
+        // The queue is turned on again and a turn is queued after the off write.
+        if (!queued && readFileSync(configPath, "utf8").includes("captureRetryRetentionHours")) {
+          queued = true;
+          await queue.enqueueCaptureRetry(unit("after"), { reason: "call-error" }, on);
+        }
+        return load();
+      };
+      const off = await send("/api/settings", "PATCH",
+        { edits: { captureRetryRetentionHours: 0 }, revision: before.revision },
+        { "content-type": "application/json" });
+      const left = (await queue.listDueCaptureRetries("pi", on, Date.now() + 10 * 60 * 60 * 1000))
+        .map((row) => row.turnId).sort();
+      const logFile = process.env.OMMS_LOG_FILE;
+      const log = existsSync(logFile) ? readFileSync(logFile, "utf8") : "";
+      return { off: off.status, queued, left,
+        logged: log.includes("capture retry queue was not cleared") };
+    `);
+    expect(result.off).toBe(200);
+    expect(result.queued).toBe(true);
+    expect(result.left).toEqual(["after", "before"]);
+    expect(result.logged).toBe(true);
   });
 
   it("reports queued turns per host and retries them now", async () => {

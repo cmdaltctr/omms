@@ -48,6 +48,17 @@ export class WebAuth {
     return { enabled: this.enabled, username: this.username };
   }
 
+  /**
+   * The `Authorization` header for these credentials, or undefined when auth is
+   * off. A waiting web app sends it to the owner on this machine, which reads
+   * the same config. Never log it.
+   */
+  authorizationHeader(): string | undefined {
+    if (!this.enabled) return undefined;
+    const pair = Buffer.concat([this.expectedUsername, Buffer.from(":"), this.expectedPassword]);
+    return `Basic ${pair.toString("base64")}`;
+  }
+
   isEnabled(): boolean {
     return this.enabled;
   }

@@ -14,12 +14,17 @@ export interface ValidationStore {
 export interface ValidationTask {
   /** The task text added to the model input. */
   task: string;
-  /** One key per listed item, in task order, to find the item a verdict names. */
+  /** One key per listed item, in task order: the category and the whole description. */
   keys: string[];
 }
 
 /** The check needs this many preferences; with fewer, the pass skips it. */
 export const MIN_VALIDATION_PREFERENCES = 5;
+
+/** The whole description, not a prefix: two items with the same start must not share a key. */
+function validationKey(item: { category?: string; description?: string }): string {
+  return `${item.category || "_"}||${item.description || ""}`;
+}
 
 /**
  * The validation task for the top 5 preferences and top 3 patterns. Returns null, and logs
@@ -40,9 +45,7 @@ export function buildValidationTask(decayed: UserProfileData): ValidationTask | 
     return null;
   }
   const allValidated = [...topPrefs, ...topPats];
-  const keys = allValidated.map(
-    (p: any) => `${p.category || "_"}||${(p.description || "").substring(0, 30)}`
-  );
+  const keys = allValidated.map(validationKey);
   const task = `## Task 3: Validate Existing Profile Entries
 
 CRITICAL: Complete Tasks 1-2 (new observations) FIRST. This task is separate — only check whether the entries below still match recent behavior. Do NOT let these descriptions influence your new observations.
@@ -92,11 +95,9 @@ export async function applyValidations(
   for (const v of validations) {
     const key = prefKeys[v.index];
     if (!key) continue;
-    const item = allItems.find(
-      (i) => `${i.category || "_"}||${(i.description || "").substring(0, 30)}` === key
-    );
+    const item = allItems.find((i) => validationKey(i) === key);
     if (!item) {
-      // Index only: the key holds the start of the item's description.
+      // Index only: the key holds the item's description.
       log("user-profile-learning: validation match failed", { index: v.index }, "warn");
       continue;
     }

@@ -139,10 +139,12 @@ export abstract class WebControl extends PortOwnership {
   }
 
   private handleStepAside(remoteAddress: string | undefined, body: unknown): Response {
-    const callerVersion =
+    const fullVersion =
       body && typeof (body as { version?: unknown }).version === "string"
-        ? (body as { version: string }).version.slice(0, 40)
+        ? (body as { version: string }).version
         : "";
+    // The log keeps a short copy; the compare uses the whole version.
+    const callerVersion = fullVersion.slice(0, 40);
     // `web update` replaces a web app of any version; other callers must be newer.
     const replace = Boolean(body && (body as { replace?: unknown }).replace === true);
     const record = (outcome: string) =>
@@ -156,7 +158,7 @@ export abstract class WebControl extends PortOwnership {
       record("refused_auth");
       return jsonResponse({ success: false, error: "Loopback caller required" }, 403);
     }
-    if (!callerVersion || (!replace && !isOlderVersion(packageVersion(), callerVersion))) {
+    if (!fullVersion || (!replace && !isOlderVersion(packageVersion(), fullVersion))) {
       record("refused_not_newer");
       return jsonResponse({ success: false, error: "Caller is not newer" }, 409);
     }

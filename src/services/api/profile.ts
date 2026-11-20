@@ -166,8 +166,9 @@ export async function handleUpdateProfileItem(
     const metric = type === "preferences" ? "confidence" : "frequency";
     const sorted = sortProfileItems(items as any[], metric);
 
-    if (index < 0 || index >= sorted.length) {
-      return { success: false, error: "index out of range" };
+    // `splice` reads null as 0 and drops a fraction, so either would remove another item.
+    if (!Number.isInteger(index) || index < 0 || index >= sorted.length) {
+      return { success: false, error: "index must be a whole number in range" };
     }
 
     if (action === "delete") {

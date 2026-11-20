@@ -102,3 +102,81 @@ describe("waiter retirement", () => {
     expect(retired()).toBe(0);
   });
 });
+
+describe("waiter retirement behind Basic Auth", () => {
+  it("reads a newer owner's version with its own Basic Auth credentials", async () => {
+    const { WebAuth } = await import("../src/services/web-auth.js");
+    const ownerAuth = new WebAuth({ password: "shared-pass", username: "me" });
+    // The owner answers the status route only when Basic Auth passes, as the router does.
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const req = new Request(String(input), init);
+      const path = new URL(req.url).pathname;
+      const check = ownerAuth.check(req, path);
+      if (!check.ok) return check.response!;
+      return Response.json({ version: "999.0.0" });
+    }) as unknown as typeof fetch;
+    const server = new WebServer({
+      enabled: true,
+      host: "127.0.0.1",
+      port: 4747,
+      auth: new WebAuth({ password: "shared-pass", username: "me" }),
+      readRetireMarker: () => null,
+    });
+    server.checkServerAvailable = async () => true;
+    let retired = 0;
+    server.setOnStepAside(() => {
+      retired += 1;
+    });
+    await (server as unknown as Internals).waiterTick.call(server);
+    expect(retired).toBe(1);
+  });
+});
+
+describe("takeover after stop", () => {
+  it("does not bind the port when stop() runs during the jitter wait", async () => {
+    const port = await freePort();
+    const server = new WebServer({ enabled: true, host: "127.0.0.1", port });
+    cleanups.push(() => server.stop());
+    server.checkServerAvailable = async () => false;
+    const takeover = (
+      server as unknown as { attemptTakeover(): Promise<void> }
+    ).attemptTakeover.call(server);
+    await server.stop();
+    await takeover;
+    expect(server.isServerOwner()).toBe(false);
+    expect(server.isRunning()).toBe(false);
+  });
+});
+
+describe("last fallback port", () => {
+  it("tries a third bind on the last port before it gives up", async () => {
+    const port = await freePort();
+    const holder = Bun.serve({ port, hostname: "127.0.0.1", fetch: () => new Response("busy") });
+    const originalRandom = Math.random;
+    Math.random = () => 0;
+    cleanups.push(() => {
+      Math.random = originalRandom;
+      holder.stop(true);
+    });
+    const server = new WebServer({ enabled: true, host: "127.0.0.1", port });
+    cleanups.push(() => server.stop());
+    let exhausted = 0;
+    server.setOnPortsExhaustedCallback(() => {
+      exhausted += 1;
+    });
+    server.checkServerAvailable = async () => false;
+    // Collapse the candidate range so this port is the last one.
+    (server as unknown as { maxFallbackPort: number }).maxFallbackPort = port;
+    const attempt = (
+      server as unknown as { attemptTakeover(): Promise<void> }
+    ).attemptTakeover.bind(server);
+    await attempt();
+    await attempt();
+    expect(server.isServerOwner()).toBe(false);
+    // The dead socket clears before the third attempt, so its bind succeeds.
+    holder.stop(true);
+    await attempt();
+    expect(exhausted).toBe(0);
+    expect(server.isServerOwner()).toBe(true);
+  });
+});

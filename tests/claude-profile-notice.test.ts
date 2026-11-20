@@ -55,6 +55,7 @@ const { handleClaudeRetrieve, handleClaudeNoticesShown } =
   await import("../src/importer/claude-hook-api.js");
 
 const PROFILE_KEY = "claude-code-profile-updated";
+const profileKey = (keys?: string[]) => keys?.find((key) => key.startsWith(PROFILE_KEY));
 const line = (count: number) =>
   `OMMS: User profile updated. Analysed ${count} prompts and updated your profile`;
 
@@ -83,8 +84,9 @@ const ask = (event: string, notices = true) =>
     ...(notices ? { notices: true } : {}),
   });
 
-beforeEach(() => {
-  handleClaudeNoticesShown({ keys: [PROFILE_KEY] });
+beforeEach(async () => {
+  // Clear a line left by an earlier test: confirm the key the next hook would carry.
+  handleClaudeNoticesShown({ keys: (await ask("user-prompt-submit")).noticeKeys });
   profileBackoff.recordSuccess();
   Object.assign(CONFIG, {
     showUserProfileToasts: true,
@@ -102,7 +104,8 @@ describe("the Claude Code profile notice", () => {
     await learn(10);
     const reply = await ask("user-prompt-submit");
     expect(reply.systemMessage).toBe(line(10));
-    expect(reply.noticeKeys).toEqual([PROFILE_KEY]);
+    expect(reply.noticeKeys).toHaveLength(1);
+    expect(profileKey(reply.noticeKeys)).toBeDefined();
     expect(reply.additionalContext).not.toContain("User profile updated");
   });
 
@@ -110,7 +113,7 @@ describe("the Claude Code profile notice", () => {
     await learn(5);
     const reply = await ask("session-start");
     expect(reply.systemMessage?.split("\n")).toContain(line(5));
-    expect(reply.noticeKeys).toContain(PROFILE_KEY);
+    expect(profileKey(reply.noticeKeys)).toBeDefined();
   });
 
   it("shows one line, for the newer pass, when two passes save before the next prompt", async () => {
@@ -148,6 +151,18 @@ describe("the Claude Code profile notice", () => {
     handleClaudeNoticesShown({ keys: again.noticeKeys });
     const after = await ask("user-prompt-submit");
     expect(after.systemMessage).toBeUndefined();
+  });
+
+  it("a confirmation for an older line does not clear a newer one", async () => {
+    await learn(5);
+    const older = await ask("user-prompt-submit");
+    await learn(7);
+    // The hook that showed the older line confirms after the newer pass has saved.
+    handleClaudeNoticesShown({ keys: older.noticeKeys });
+    const next = await ask("user-prompt-submit");
+    expect(next.systemMessage).toBe(line(7));
+    handleClaudeNoticesShown({ keys: next.noticeKeys });
+    expect((await ask("user-prompt-submit")).systemMessage).toBeUndefined();
   });
 
   it("ignores a confirmation without the profile key", async () => {

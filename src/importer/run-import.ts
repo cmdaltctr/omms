@@ -160,15 +160,9 @@ async function recordUnresolved(
   dateLimited: boolean
 ): Promise<void> {
   try {
-    const { recordUnresolvedDirectories, unresolvedDirectoriesOf } =
-      await import("../services/storage/backfill-state.js");
+    const { recordUnresolvedReport } = await import("../services/storage/backfill-state.js");
     // A run limited by date misses unresolved sessions outside it, so it must not replace a whole-history list.
-    await recordUnresolvedDirectories(
-      host,
-      unresolvedDirectoriesOf(report),
-      Date.now(),
-      dateLimited ? "partial" : "full"
-    );
+    await recordUnresolvedReport(host, report, Date.now(), dateLimited ? "partial" : "full");
   } catch {
     // The list is a convenience for the Settings page; the import itself succeeded.
   }

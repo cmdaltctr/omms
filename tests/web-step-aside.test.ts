@@ -130,6 +130,23 @@ jest.useRealTimers();
     expect(result.steppedAfterReply).toBe(1);
   });
 
+  it("compares the caller's full version, not the part kept for the log", async () => {
+    const { result } = await runScenario(`
+jest.useFakeTimers();
+const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+server.setOnStepAside(() => {});
+// A newer version whose 40-character prefix ends at "-", which alone is no version.
+const major = Number(own.split(".")[0]) + 1;
+const core = major + ".0." + "0".repeat(39 - String(major).length - 3);
+result.length = (core + "-x").length;
+result.status = (await stepAside(server, "127.0.0.1", core + "-x")).status;
+jest.advanceTimersByTime(200);
+jest.useRealTimers();
+`);
+    expect(result.length).toBe(41);
+    expect(result.status).toBe(202);
+  });
+
   it("accepts a replace request of any version only with the token on loopback", async () => {
     const { result, log } = await runScenario(`
 jest.useFakeTimers();

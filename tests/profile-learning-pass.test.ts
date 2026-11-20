@@ -78,6 +78,7 @@ const world = {
   inputs: [] as string[],
   reply: (): unknown => empty,
   modelError: null as Error | null,
+  markFailures: 0,
   notices: [] as Notice[],
   logs: [] as Array<{ message: string; data: Record<string, unknown> | null; level?: string }>,
 };
@@ -118,6 +119,10 @@ mock.module("../src/services/user-prompt/user-prompt-manager.js", () => ({
       return options.recentFirst ? sorted.slice(-limit) : sorted.slice(0, limit);
     },
     markMultipleAsUserLearningCaptured: async (ids: string[]) => {
+      if (world.markFailures > 0) {
+        world.markFailures--;
+        throw new Error("database is locked");
+      }
       for (const id of ids) world.learned.add(id);
     },
     markForUserLearning: async (ids: string[]) => {
@@ -210,6 +215,7 @@ const baseConfig = {
 async function loadPass() {
   return (await import("../src/core/profile-learning/pass.js")) as {
     runProfileLearningPass: (input: unknown) => Promise<{ outcome: string; reason?: string }>;
+    resetPendingMarksForTests: () => void;
   };
 }
 
@@ -237,7 +243,8 @@ async function run(
   });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  (await loadPass()).resetPendingMarksForTests();
   world.email = "me@example.invalid";
   world.waiting = Array.from({ length: 5 }, (_, i) => ({
     id: `p${i}`,
@@ -259,6 +266,7 @@ beforeEach(() => {
   world.inputs = [];
   world.reply = () => empty;
   world.modelError = null;
+  world.markFailures = 0;
   world.notices = [];
   world.logs = [];
   reads = 0;
@@ -529,6 +537,112 @@ describe("a failed host model falls back with a notice", () => {
   });
 });
 
+describe("bad host replies and stuck notices still reach the external API", () => {
+  async function loadFallback() {
+    return (await import("../src/core/profile-learning/fallback.js")) as {
+      withExternalFallback: (
+        host: HostName,
+        primary: unknown,
+        external: unknown,
+        notify: (notice: Notice) => unknown
+      ) => unknown;
+    };
+  }
+  const textHost = (reply: string) => ({
+    provider: "host",
+    modelId: "host-model",
+    async complete(): Promise<string> {
+      return reply;
+    },
+  });
+  const warnings = () => world.notices.filter((notice) => notice.variant === "warning");
+
+  it.each(["pi", "opencode"] as const)(
+    "%s: a host reply that is not JSON falls back to the external API",
+    async (host) => {
+      const { withExternalFallback } = await loadFallback();
+      const model = withExternalFallback(
+        host,
+        textHost("Sorry, I cannot do that."),
+        makePort(),
+        (notice) => {
+          world.notices.push(notice);
+        }
+      );
+      const result = await run(host, { model });
+      expect(result.outcome).toBe("saved");
+      expect(world.modelCalls).toBe(1);
+      expect(warnings()).toHaveLength(1);
+    }
+  );
+
+  it("a host reply that fails the profile schema falls back too", async () => {
+    const { withExternalFallback } = await loadFallback();
+    const model = withExternalFallback(
+      "pi",
+      textHost('{"preferences":"nope"}'),
+      makePort(),
+      (notice) => {
+        world.notices.push(notice);
+      }
+    );
+    const result = await run("pi", { model });
+    expect(result.outcome).toBe("saved");
+    expect(world.modelCalls).toBe(1);
+  });
+
+  it("a bad external reply after the fallback still fails with invalid-reply", async () => {
+    const { withExternalFallback } = await loadFallback();
+    world.reply = () => ({ preferences: "nope" });
+    const model = withExternalFallback("pi", textHost("not json"), makePort(), () => {});
+    expect(await run("pi", { model })).toEqual({ outcome: "failed", reason: "invalid-reply" });
+    expect(world.saves).toEqual([]);
+  });
+
+  it("a good host reply makes no external call and shows no warning", async () => {
+    const { withExternalFallback } = await loadFallback();
+    const model = withExternalFallback(
+      "pi",
+      textHost(JSON.stringify(empty)),
+      makePort(),
+      (notice) => {
+        world.notices.push(notice);
+      }
+    );
+    expect((await run("pi", { model })).outcome).toBe("saved");
+    expect(world.modelCalls).toBe(0);
+    expect(warnings()).toEqual([]);
+  });
+
+  it.each(["pi", "opencode"] as const)(
+    "%s: a notice that never returns does not hold the external API",
+    async (host) => {
+      const { withExternalFallback } = await loadFallback();
+      let shown = 0;
+      const model = withExternalFallback(
+        host,
+        {
+          provider: "host",
+          modelId: "host-model",
+          async complete(): Promise<string> {
+            throw new Error("model overloaded");
+          },
+        },
+        makePort(),
+        () => {
+          shown++;
+          return new Promise(() => {});
+        }
+      );
+      const result = await run(host, { model, notify: () => {} });
+      expect(result.outcome).toBe("saved");
+      expect(world.modelCalls).toBe(1);
+      expect(shown).toBe(1);
+    },
+    3000
+  );
+});
+
 describe("every reply is checked before the merge", () => {
   it.each(hosts)("%s: a malformed reply fails with invalid-reply", async (host) => {
     world.reply = () => ({ preferences: "nope" });
@@ -615,6 +729,55 @@ describe("the batch claim", () => {
     const result = await run(host);
     expect(result.outcome).toBe("failed");
     expect(world.released).toEqual([["p0", "p1", "p2", "p3", "p4"]]);
+  });
+});
+
+// A storage error between the profile save and the mark must not make the next pass learn
+// the same batch again (issue 294).
+describe("the mark after a save", () => {
+  it.each(hosts)("%s: a failed mark is retried and the pass stays saved", async (host) => {
+    world.markFailures = 1;
+    const result = await run(host);
+    expect(result).toEqual({ outcome: "saved" });
+    expect(world.released).toEqual([]);
+    expect([...world.learned].sort()).toEqual(["p0", "p1", "p2", "p3", "p4"]);
+    expect(world.saves).toHaveLength(1);
+  });
+
+  it.each(hosts)("%s: a mark that keeps failing never releases a saved batch", async (host) => {
+    world.markFailures = 99;
+    const result = await run(host);
+    expect(result).toEqual({ outcome: "saved" });
+    expect(world.released).toEqual([]);
+    expect(world.saves).toHaveLength(1);
+    expect(profileBackoff.canRun()).toBe(true);
+  });
+
+  it.each(hosts)(
+    "%s: after the claim runs out, the next pass retries the mark and saves nothing again",
+    async (host) => {
+      world.markFailures = 3;
+      expect(await run(host)).toEqual({ outcome: "saved" });
+      expect(world.learned.size).toBe(0);
+      // The fake store ignores claims, as a store does once the 10-minute claim runs out.
+      const second = await run(host);
+      expect(second.outcome).toBe("skipped");
+      expect(world.saves).toHaveLength(1);
+      expect([...world.learned].sort()).toEqual(["p0", "p1", "p2", "p3", "p4"]);
+    }
+  );
+
+  it.each(hosts)("%s: a pass waits while the earlier mark still fails", async (host) => {
+    world.markFailures = 4;
+    await run(host);
+    const second = await run(host);
+    expect(second.outcome).toBe("skipped");
+    expect(world.saves).toHaveLength(1);
+    expect(world.learned.size).toBe(0);
+    // The store works again: the mark is retried, nothing is saved twice.
+    await run(host);
+    expect(world.saves).toHaveLength(1);
+    expect(world.learned.size).toBe(5);
   });
 });
 
@@ -765,5 +928,52 @@ describe("the check of older items logs no model or profile text", () => {
     const record = world.logs.find((entry) => entry.message.includes("match failed"));
     expect(record?.data).toEqual({ index: 0 });
     expect(logText()).not.toContain("zq8");
+  });
+});
+
+// Two items can share a category and the first 30 characters of a description. The verdict
+// for one must not land on the other (issue 294).
+describe("the validation key names one item", () => {
+  const item = (description: string) => ({
+    category: "Code style",
+    description,
+    confidence: 0.9,
+    frequency: 2,
+    evidence: [],
+    lastSeen: 1,
+    alpha: 4,
+    beta: 1,
+  });
+  const SHARED = "Prefers small focused functions";
+  const first = item(`${SHARED} in the handlers.`);
+  const second = item(`${SHARED} in the tests.`);
+
+  it("the two keys differ although the first 30 characters match", async () => {
+    const { buildValidationTask } = await import("../src/core/profile-learning/validation.js");
+    const others = Array.from({ length: 3 }, (_, i) => item(`Another preference number ${i}`));
+    const task = buildValidationTask({
+      ...empty,
+      preferences: [first, second, ...others],
+    } as never);
+    expect(task).not.toBeNull();
+    expect(new Set(task!.keys).size).toBe(task!.keys.length);
+  });
+
+  it("a verdict changes the item it names and leaves the look-alike alone", async () => {
+    const { buildValidationTask, applyValidations } =
+      await import("../src/core/profile-learning/validation.js");
+    const others = Array.from({ length: 3 }, (_, i) => item(`Another preference number ${i}`));
+    const data = { ...empty, preferences: [first, second, ...others] };
+    const task = buildValidationTask(data as never)!;
+    const target = data.preferences.find((p) => p.description === second.description)!;
+    const index = task.keys.findIndex((key) => key.includes("in the tests"));
+    const live = JSON.parse(JSON.stringify(data));
+    const store = { syncConfidence: () => {}, evolveAndUpdate: async () => {} };
+    const reply = { ...empty, validations: [{ index, verdict: "confirmed", reason: "seen" }] };
+    await applyValidations(store, live, reply as never, "p1", task.keys);
+    const byText = (text: string) =>
+      live.preferences.find((p: { description: string }) => p.description.includes(text));
+    expect(byText("in the tests").alpha).toBe((target.alpha ?? 1) + 0.5);
+    expect(byText("in the handlers").alpha).toBe(4);
   });
 });

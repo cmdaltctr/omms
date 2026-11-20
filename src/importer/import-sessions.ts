@@ -316,7 +316,11 @@ export async function listImportSessions(
     options.host,
     summarizeUnresolvedDirectories(
       matched.missing.map((row) => ({ directory: row.recordedDirectory }))
-    )
+    ),
+    Date.now(),
+    "full",
+    // The list keeps at most 200 directories; the badge needs every missing session.
+    matched.missing.length
   ).catch(() => {});
   const handled = await handledKeys(matched.matching, options.outputs ?? ALL_OUTPUTS);
   const listed = [

@@ -156,49 +156,89 @@ export type UnresolvedCoverage = "full" | "partial";
 /**
  * Save the unresolved directories of a host's latest run or listing. They
  * live in their own table, so recording them never sets a backfill cutoff.
+ * `total` is the report's whole unresolved session count, which the list
+ * loses once it is cut at {@link MAX_UNRESOLVED_DIRECTORIES}. It defaults to
+ * the list's own sum.
  */
 export async function recordUnresolvedDirectories(
   host: BackfillHost,
   directories: UnresolvedDirectory[],
   now = Date.now(),
-  coverage: UnresolvedCoverage = "full"
+  coverage: UnresolvedCoverage = "full",
+  total = directories.reduce((sum, item) => sum + item.sessions, 0)
 ): Promise<void> {
   const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
   await db.run(`CREATE TABLE IF NOT EXISTS unresolved_directories (
     host TEXT PRIMARY KEY, directories TEXT NOT NULL, updated_at INTEGER NOT NULL
   )`);
-  try {
-    await db.run(
-      "ALTER TABLE unresolved_directories ADD COLUMN coverage TEXT NOT NULL DEFAULT 'full'"
-    );
-  } catch (error) {
-    if (!String((error as Error)?.message ?? error).includes("duplicate column")) throw error;
+  // Columns added later; an older file gains them and keeps its rows.
+  for (const column of ["coverage TEXT NOT NULL DEFAULT 'full'", "total INTEGER"]) {
+    try {
+      await db.run(`ALTER TABLE unresolved_directories ADD COLUMN ${column}`);
+    } catch (error) {
+      if (!String((error as Error)?.message ?? error).includes("duplicate column")) throw error;
+    }
   }
   // One statement keeps two processes writing at once correct.
   await db.run(
-    `INSERT INTO unresolved_directories (host, directories, updated_at, coverage) VALUES (?, ?, ?, ?)
+    `INSERT INTO unresolved_directories (host, directories, updated_at, coverage, total)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(host) DO UPDATE SET directories = excluded.directories,
-       updated_at = excluded.updated_at, coverage = excluded.coverage
+       updated_at = excluded.updated_at, coverage = excluded.coverage, total = excluded.total
      WHERE unresolved_directories.coverage = 'partial' OR excluded.coverage = 'full'`,
-    [host, JSON.stringify(directories.slice(0, MAX_UNRESOLVED_DIRECTORIES)), now, coverage]
+    [host, JSON.stringify(directories.slice(0, MAX_UNRESOLVED_DIRECTORIES)), now, coverage, total]
   );
+}
+
+/** Save an import report's unresolved directories with its whole unresolved total. */
+export async function recordUnresolvedReport(
+  host: BackfillHost,
+  report: Parameters<typeof unresolvedDirectoriesOf>[0],
+  now: number,
+  coverage: UnresolvedCoverage
+): Promise<void> {
+  await recordUnresolvedDirectories(
+    host,
+    unresolvedDirectoriesOf(report),
+    now,
+    coverage,
+    unresolvedSessionCount(report)
+  );
+}
+
+/**
+ * A host's latest unresolved directories and the whole unresolved session
+ * count of the same report, without creating a store or table. `total` is
+ * null for a row saved before the count was stored.
+ */
+export async function readUnresolvedReport(
+  host: BackfillHost
+): Promise<{ directories: UnresolvedDirectory[]; total: number | null }> {
+  const none = { directories: [], total: null };
+  if (!existsSync(importLedgerDbPath())) return none;
+  const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
+  const exists = await db.get(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'unresolved_directories'"
+  );
+  if (!exists) return none;
+  // `*` also reads an older table that has no `total` column yet.
+  const row = await db.get<{ directories: string; total?: unknown }>(
+    "SELECT * FROM unresolved_directories WHERE host = ?",
+    [host]
+  );
+  if (!row) return none;
+  const total = row.total;
+  return {
+    directories: JSON.parse(String(row.directories)) as UnresolvedDirectory[],
+    total: total === null || total === undefined ? null : Number(total),
+  };
 }
 
 /** A host's latest unresolved directories, without creating a store or table. */
 export async function readUnresolvedDirectories(
   host: BackfillHost
 ): Promise<UnresolvedDirectory[]> {
-  if (!existsSync(importLedgerDbPath())) return [];
-  const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
-  const exists = await db.get(
-    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'unresolved_directories'"
-  );
-  if (!exists) return [];
-  const row = await db.get<{ directories: string }>(
-    "SELECT directories FROM unresolved_directories WHERE host = ?",
-    [host]
-  );
-  return row ? (JSON.parse(String(row.directories)) as UnresolvedDirectory[]) : [];
+  return (await readUnresolvedReport(host)).directories;
 }
 
 /** Save only numeric counts and a redacted error, never report units or prompts. */

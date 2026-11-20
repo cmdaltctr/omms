@@ -25,7 +25,7 @@ import {
   incrementShardCount,
   withMemoryScopeWriteLock,
 } from "../storage/memory/shards.js";
-import type { MemoryRecord } from "../storage/memory/types.js";
+import type { MemoryRecord, MemoryRow } from "../storage/memory/types.js";
 import {
   extractScopeFromTag,
   getAllMemoryShards,
@@ -116,8 +116,7 @@ export async function handleDeleteMemory(
           const linkedPromptId = metadata?.promptId;
           if (linkedPromptId) await userPromptManager.deletePrompt(linkedPromptId);
         }
-        await deleteMemoryRow(shard, id);
-        await decrementShardCount(shard.id);
+        if (await deleteMemoryRow(shard, id)) await decrementShardCount(shard.id);
         return {
           success: true,
           data: { deletedPrompt: cascade && !!safeJSONParse(memory.metadata)?.promptId },
@@ -152,9 +151,53 @@ export async function handleBulkDelete(
   }
 }
 
+type MemoryUpdate = { content?: string; type?: MemoryType; tags?: string[] };
+
+/** A web edit embeds again at most this many times when other writers keep changing the row. */
+const UPDATE_ATTEMPTS = 3;
+const STALE = Symbol("stale");
+
+async function findMemoryRow(id: string): Promise<MemoryRow | null> {
+  for (const shard of await getAllMemoryShards()) {
+    const row = await getMemoryRow(shard, id);
+    if (row) return row;
+  }
+  return null;
+}
+
+/** The request's fields over the stored row, with embeddings for the resulting text. */
+async function updatedRecord(
+  row: MemoryRow,
+  data: MemoryUpdate,
+  embed: (input: string) => Promise<Float32Array>
+): Promise<MemoryRecord> {
+  const content = data.content || String(row.content);
+  const storedTags = row.tags ? String(row.tags) : "";
+  const tags = data.tags || (storedTags ? storedTags.split(",").map((t: string) => t.trim()) : []);
+  const text = (value: unknown) => (value ? String(value) : undefined);
+  return {
+    id: String(row.id),
+    content,
+    vector: await embed(content),
+    tagsVector: tags.length > 0 ? await embed(formatTagsForEmbedding(tags)) : undefined,
+    containerTag: String(row.container_tag),
+    tags: tags.length > 0 ? tags.join(",") : undefined,
+    type: data.type || text(row.type),
+    createdAt: Number(row.created_at),
+    updatedAt: Date.now(),
+    metadata: text(row.metadata),
+    displayName: text(row.display_name),
+    userName: text(row.user_name),
+    userEmail: text(row.user_email),
+    projectPath: text(row.project_path),
+    projectName: text(row.project_name),
+    gitRepoUrl: text(row.git_repo_url),
+  };
+}
+
 export async function handleUpdateMemory(
   id: string,
-  data: { content?: string; type?: MemoryType; tags?: string[] }
+  data: MemoryUpdate
 ): Promise<ApiResponse<void>> {
   try {
     if (!id) return { success: false, error: "id is required" };
@@ -162,52 +205,39 @@ export async function handleUpdateMemory(
     if (refusal) return { success: false, error: refusal };
     await embeddingService.warmup();
 
-    // Find the existing memory first (read-only — no data modified yet)
-    const shards = await getAllMemoryShards();
-    let existingMemory = null;
-    for (const shard of shards) {
-      existingMemory = await getMemoryRow(shard, id);
-      if (existingMemory) break;
-    }
-    if (!existingMemory) return { success: false, error: "Memory not found" };
-
-    // STEP 1: Generate new embeddings FIRST (safe — no data deleted yet)
-    const newContent = data.content || String(existingMemory.content);
-    const existingTags = existingMemory.tags ? String(existingMemory.tags) : "";
-    const tags =
-      data.tags || (existingTags ? existingTags.split(",").map((t: string) => t.trim()) : []);
-    const vector = await embeddingService.embedWithTimeout(newContent, { task: "document" });
-    let tagsVector: Float32Array | undefined = undefined;
-    if (tags.length > 0) {
-      tagsVector = await embeddingService.embedWithTimeout(formatTagsForEmbedding(tags), {
-        task: "document",
-      });
-    }
-
-    const text = (value: unknown) => (value ? String(value) : undefined);
-    const record: MemoryRecord = {
-      id,
-      content: newContent,
-      vector,
-      tagsVector,
-      containerTag: String(existingMemory.container_tag),
-      tags: tags.length > 0 ? tags.join(",") : undefined,
-      type: data.type || text(existingMemory.type),
-      createdAt: Number(existingMemory.created_at),
-      updatedAt: Date.now(),
-      metadata: text(existingMemory.metadata),
-      displayName: text(existingMemory.display_name),
-      userName: text(existingMemory.user_name),
-      userEmail: text(existingMemory.user_email),
-      projectPath: text(existingMemory.project_path),
-      projectName: text(existingMemory.project_name),
-      gitRepoUrl: text(existingMemory.git_repo_url),
+    // STEP 1: Embed before the lock, so a slow model call never holds it (TDR 081).
+    const embedded = new Map<string, Promise<Float32Array>>();
+    const embed = (input: string) => {
+      if (!embedded.has(input)) {
+        embedded.set(input, embeddingService.embedWithTimeout(input, { task: "document" }));
+      }
+      return embedded.get(input)!;
     };
+    // Under the lock only text embedded in step 1 is used; other text is a stale read.
+    const embeddedOnly = (input: string) => embedded.get(input) ?? Promise.reject(STALE);
 
-    // STEP 2: Swap the row under the scope write lock, as every other memory write does.
-    const { scope, hash } = extractScopeFromContainerTag(record.containerTag);
-    const replaced = await withMemoryScopeWriteLock(scope, hash, () => replaceMemoryRow(record));
-    return replaced ? { success: true } : { success: false, error: "Memory not found" };
+    let row = await findMemoryRow(id);
+    for (let attempt = 1; row && attempt <= UPDATE_ATTEMPTS; attempt++) {
+      const { containerTag } = await updatedRecord(row, data, embed);
+      // STEP 2: Under the scope write lock, read the row again and merge onto it, so a field
+      // this edit did not send keeps a value another edit wrote meanwhile. When that edit
+      // changed text this one must embed, release the lock and embed it in step 1 again.
+      const { scope, hash } = extractScopeFromContainerTag(containerTag);
+      const outcome = await withMemoryScopeWriteLock(scope, hash, async () => {
+        const current = await findMemoryRow(id);
+        if (!current) return null;
+        const record = await updatedRecord(current, data, embeddedOnly).catch((error) => {
+          if (error === STALE) return null;
+          throw error;
+        });
+        if (!record) return current;
+        return (await replaceMemoryRow(record)) ? "saved" : null;
+      });
+      if (outcome === "saved") return { success: true };
+      row = outcome;
+    }
+    if (row) return { success: false, error: "Memory changed during the edit; try again" };
+    return { success: false, error: "Memory not found" };
   } catch (error) {
     log("handleUpdateMemory: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };

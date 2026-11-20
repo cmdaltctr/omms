@@ -8,7 +8,9 @@ import {
   getBackfillCutoff,
   readBackfillStatus,
   readUnresolvedDirectories,
+  readUnresolvedReport,
   recordUnresolvedDirectories,
+  recordUnresolvedReport,
   MAX_UNRESOLVED_DIRECTORIES,
   NO_DIRECTORY,
   summarizeUnresolvedDirectories,
@@ -216,4 +218,42 @@ it("treats a call without a coverage argument as whole-history", async () => {
   await recordUnresolvedDirectories("pi", [{ directory: "/a", sessions: 1 }], 1_000);
   await recordUnresolvedDirectories("pi", [], 2_000, "partial");
   expect(await readUnresolvedDirectories("pi")).toEqual([{ directory: "/a", sessions: 1 }]);
+});
+
+it("stores a report's whole unresolved total beside its cut directory list", async () => {
+  directory = mkdtempSync(join(tmpdir(), "omms-backfill-state-"));
+  CONFIG.storagePath = directory;
+  const report = {
+    unresolvedProjects: Array.from({ length: 250 }, (_, i) => ({
+      directory: `/gone/p${i}`,
+      sessions: 2,
+    })),
+    unresolvableSessions: [{ cwd: null }],
+  };
+  await recordUnresolvedReport("pi", report, 100, "full");
+  const saved = await readUnresolvedReport("pi");
+  expect(saved.directories).toHaveLength(MAX_UNRESOLVED_DIRECTORIES);
+  expect(saved.total).toBe(501);
+  // A list without a separate total stores its own sum.
+  await recordUnresolvedDirectories("opencode", [{ directory: "/gone/a", sessions: 3 }]);
+  expect((await readUnresolvedReport("opencode")).total).toBe(3);
+});
+
+it("upgrades an older unresolved list table and keeps its rows", async () => {
+  directory = mkdtempSync(join(tmpdir(), "omms-backfill-state-"));
+  CONFIG.storagePath = directory;
+  const db = await tursoConnectionManager.getConnection(importLedgerDbPath());
+  await db.run(`CREATE TABLE unresolved_directories (
+    host TEXT PRIMARY KEY, directories TEXT NOT NULL, updated_at INTEGER NOT NULL
+  )`);
+  const old = [{ directory: "/gone/old", sessions: 4 }];
+  await db.run("INSERT INTO unresolved_directories VALUES ('pi', ?, 1)", [JSON.stringify(old)]);
+  // An old table reads before any write upgrades it, and has no total yet.
+  expect(await readUnresolvedReport("pi")).toEqual({ directories: old, total: null });
+  await recordUnresolvedDirectories("opencode", [{ directory: "/gone/new", sessions: 2 }]);
+  expect(await readUnresolvedReport("pi")).toEqual({ directories: old, total: null });
+  expect(await readUnresolvedReport("opencode")).toEqual({
+    directories: [{ directory: "/gone/new", sessions: 2 }],
+    total: 2,
+  });
 });

@@ -20,16 +20,24 @@ import { missingSettingsText } from "../shared/setting-words.js";
 export const CAPTURE_SETUP_KEY = "claude-code-capture-setup";
 /** The first-run record key of the Claude Code first-run notice. */
 const FIRST_RUN_KEY = "claude-code";
-/** The key of the pending profile line. It lives in memory only, so a restart drops it. */
+/**
+ * The key prefix of the pending profile line. It lives in memory only, so a restart drops it.
+ * Each line carries its own number after the prefix, so the confirmation of an older line
+ * cannot clear a newer one.
+ */
 export const PROFILE_NOTICE_KEY = "claude-code-profile-updated";
 
 // The learning pass runs after a Stop hook, when no hook waits for an answer, so its
 // notice waits here for the next hook that can show it (change unify-profile-learning, D8).
 let pendingProfileLine: string | null = null;
+let profileLineNumber = 0;
+
+const profileNoticeKey = (): string => `${PROFILE_NOTICE_KEY}#${profileLineNumber}`;
 
 /** Keeps the notice of a learning pass for the next hook. A newer pass replaces it. */
 export function setPendingProfileNotice(notice: { title: string; message: string }): void {
   pendingProfileLine = `OMMS: ${notice.title}. ${notice.message}`;
+  profileLineNumber++;
 }
 
 /**
@@ -43,7 +51,7 @@ export function hookNotices(event: string, config: ClaudeNoticeConfig): ClaudeNo
   if (pendingProfileLine === null) return start;
   return {
     systemMessage: [start.systemMessage, pendingProfileLine].filter(Boolean).join("\n"),
-    noticeKeys: [...(start.noticeKeys ?? []), PROFILE_NOTICE_KEY],
+    noticeKeys: [...(start.noticeKeys ?? []), profileNoticeKey()],
   };
 }
 
@@ -117,6 +125,6 @@ export function confirmShownNotices(
   for (const key of [FIRST_RUN_KEY, CAPTURE_SETUP_KEY]) {
     if (Array.isArray(keys) && keys.includes(key)) claimNotice(key, folder, fs);
   }
-  if (Array.isArray(keys) && keys.includes(PROFILE_NOTICE_KEY)) pendingProfileLine = null;
+  if (Array.isArray(keys) && keys.includes(profileNoticeKey())) pendingProfileLine = null;
   return { ok: true };
 }

@@ -113,9 +113,10 @@ afterEach(() => {
   globalThis.fetch = realFetch;
 });
 /** Answer every request; `patch` decides the PATCH reply, a GET always returns revision 2. */
-function stubFetch(patch: () => { ok: boolean; body: unknown }) {
+function stubFetch(patch: () => { ok: boolean; body: unknown }, reloadFails = false) {
   globalThis.fetch = (async (url: string, init?: RequestInit) => {
     calls.push({ url: String(url), init });
+    if (reloadFails && init?.method !== "PATCH") throw new Error("offline");
     if (init?.method === "PATCH") {
       const reply = patch();
       return { ok: reply.ok, status: reply.ok ? 200 : 409, json: async () => reply.body };
@@ -244,6 +245,64 @@ it("saves only the changed keys, clears the draft and says so", async () => {
   expect(html({ status: states[3] as never })).toContain(
     "Saved. The next learning pass uses these settings."
   );
+});
+
+it("keeps the values the server confirmed when the reload after a save fails", async () => {
+  stubFetch(() => ({ ok: true, body: { success: true } }), true);
+  await submitForm(tree({ draft: { userProfileDecayBeforeMerge: true } }));
+  expect(states[1]).toEqual({});
+  cursor = 0;
+  const values = find(ProfileLearningSettingsSection(), (node) => node.type === Select).map(
+    (node) => node.props.value
+  );
+  expect(values).toEqual(["learn", "true", "full", "false", "true", "learn"]);
+});
+
+it("keeps the defaults the server confirmed when the reload after a reset fails", async () => {
+  stubFetch(() => ({ ok: true, body: { success: true } }), true);
+  const saved = snapshotFixture({ userProfileWithoutEmail: "skip" });
+  const dialog = tree({ snapshot: saved, resetting: true }).find(
+    (node) => node.type === SettingsConfirmDialog
+  )!;
+  await (dialog.props.onConfirm as () => Promise<{ success: boolean }>)();
+  cursor = 0;
+  const values = find(ProfileLearningSettingsSection(), (node) => node.type === Select).map(
+    (node) => node.props.value
+  );
+  expect(values[0]).toBe("learn");
+  expect(button("Reset to default", tree({ snapshot: states[0] as never })).props.disabled).toBe(
+    true
+  );
+});
+
+// Another card's reload publishes a newer snapshot while this request runs.
+const newer = (): Snapshot => ({
+  ...snapshotFixture({ userProfileDecayBeforeMerge: false, userProfileWithoutEmail: "learn" }),
+  revision: "rev-3",
+});
+
+it("keeps a newer published snapshot when the reload after a save fails", async () => {
+  const published = newer();
+  stubFetch(() => {
+    states[0] = published;
+    return { ok: true, body: { success: true } };
+  }, true);
+  await submitForm(tree({ draft: { userProfileDecayBeforeMerge: true } }));
+  expect(states[0]).toBe(published);
+});
+
+it("keeps a newer published snapshot when the reload after a reset fails", async () => {
+  const published = newer();
+  stubFetch(() => {
+    states[0] = published;
+    return { ok: true, body: { success: true } };
+  }, true);
+  const saved = snapshotFixture({ userProfileWithoutEmail: "skip" });
+  const dialog = tree({ snapshot: saved, resetting: true }).find(
+    (node) => node.type === SettingsConfirmDialog
+  )!;
+  await (dialog.props.onConfirm as () => Promise<{ success: boolean }>)();
+  expect(states[0]).toBe(published);
 });
 
 it("reloads the values and asks for a second save when the file changed meanwhile", async () => {
@@ -384,5 +443,51 @@ it.each(["en", "zh", "ar"] as const)(
       expect(trigger).not.toMatch(/class="([^"]* )?h-9[ "]/);
       expect(trigger).toMatch(/class="[^"]*min-h-9/);
     }
+  }
+);
+
+const reasonOf = (label: string, nodes: Node[]) => {
+  const target = button(label, nodes);
+  const id = target.props["aria-describedby"] as string | undefined;
+  // The section's own wrapper holds the button and the reason; the page renders it as a Tooltip.
+  const wrapper = nodes.find(
+    (node) => node.props.children === target && typeof node.props.reason !== "undefined"
+  );
+  return { id, reason: wrapper?.props.reason as string | undefined };
+};
+
+it("gives each turned-off button a reason in a tooltip, and none while it works", () => {
+  const idle = tree();
+  expect(reasonOf("Save", idle).reason).toBe("Change a setting to turn on Save.");
+  expect(reasonOf("Cancel", idle).reason).toBe("There are no unsaved changes to cancel.");
+  expect(reasonOf("Reset to default", idle).reason).toContain("every row shows its default");
+  expect(reasonOf("Save", idle).id).toBe("profile-learning-save-reason");
+  const saved = snapshotFixture({ userProfileWithoutEmail: "skip" });
+  const ready = tree({ snapshot: saved, draft: { userProfileDecayBeforeMerge: true } });
+  for (const label of ["Save", "Cancel", "Reset to default"]) {
+    expect(reasonOf(label, ready)).toEqual({ id: undefined, reason: undefined });
+  }
+  const busy = tree({ snapshot: saved, draft: { userProfileDecayBeforeMerge: true }, busy: true });
+  for (const label of ["Save", "Cancel", "Reset to default"]) {
+    expect(reasonOf(label, busy).reason).toBe("Wait until the current save finishes.");
+  }
+  const readOnly = tree({ snapshot: snapshotFixture({ userProfileWithoutEmail: "skip" }, true) });
+  expect(reasonOf("Reset to default", readOnly).reason).toBe(
+    "Saving is turned off until the file is fixed."
+  );
+});
+
+it.each(["en", "zh", "ar"] as const)(
+  "renders the reason as a focusable tooltip with a screen reader line in %s",
+  (language) => {
+    setLanguage(language);
+    const page = html();
+    expect(page.match(/role="tooltip"/g)).toHaveLength(3);
+    expect(page.match(/tabindex="0"/g)).toHaveLength(3);
+    for (const id of ["save", "cancel", "reset"]) {
+      expect(page).toContain(`id="profile-learning-${id}-reason" class="sr-only"`);
+      expect(page).toContain(`aria-describedby="profile-learning-${id}-reason"`);
+    }
+    if (language === "ar") expect(page).toContain("لتفعيل الحفظ");
   }
 );

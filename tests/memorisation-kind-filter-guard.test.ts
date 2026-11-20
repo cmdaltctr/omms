@@ -161,6 +161,11 @@ const ALLOWED: AllowedReader[] = [
   },
   {
     file: "src/services/storage/memory/rows.ts",
+    sql: "DELETE FROM memories WHERE id = ?",
+    why: "deleteMemoryRow: delete by ID, returning whether a row went, for the shard count.",
+  },
+  {
+    file: "src/services/storage/memory/rows.ts",
     sql: "SELECT id FROM memories WHERE id IN (${…})",
     why: "Moved from the chat-runtime.ts by-ID existence check. By-ID reads are kind-neutral.",
   },
