@@ -275,6 +275,36 @@ it("keeps the defaults the server confirmed when the reload after a reset fails"
   );
 });
 
+// Another card's reload publishes a newer snapshot while this request runs.
+const newer = (): Snapshot => ({
+  ...snapshotFixture({ userProfileDecayBeforeMerge: false, userProfileWithoutEmail: "learn" }),
+  revision: "rev-3",
+});
+
+it("keeps a newer published snapshot when the reload after a save fails", async () => {
+  const published = newer();
+  stubFetch(() => {
+    states[0] = published;
+    return { ok: true, body: { success: true } };
+  }, true);
+  await submitForm(tree({ draft: { userProfileDecayBeforeMerge: true } }));
+  expect(states[0]).toBe(published);
+});
+
+it("keeps a newer published snapshot when the reload after a reset fails", async () => {
+  const published = newer();
+  stubFetch(() => {
+    states[0] = published;
+    return { ok: true, body: { success: true } };
+  }, true);
+  const saved = snapshotFixture({ userProfileWithoutEmail: "skip" });
+  const dialog = tree({ snapshot: saved, resetting: true }).find(
+    (node) => node.type === SettingsConfirmDialog
+  )!;
+  await (dialog.props.onConfirm as () => Promise<{ success: boolean }>)();
+  expect(states[0]).toBe(published);
+});
+
 it("reloads the values and asks for a second save when the file changed meanwhile", async () => {
   stubFetch(() => ({
     ok: false,

@@ -52,6 +52,15 @@ function withConfirmed(snapshot: Snapshot, edits: Record<string, unknown>): Snap
   return { ...snapshot, settings };
 }
 
+/** The confirmed edits over `current` only while no newer snapshot replaced `start`. */
+function confirmedOver(
+  current: Snapshot | undefined,
+  start: Snapshot | undefined,
+  edits: Record<string, unknown>
+): Snapshot | undefined {
+  return current && current === start ? withConfirmed(current, edits) : current;
+}
+
 /**
  * A turned-off button keeps its place and says why. A disabled button gets no hover or focus, so
  * it sits in a focusable span that shows the reason as a tooltip; an sr-only line carries the
@@ -192,10 +201,11 @@ export function ProfileLearningSettingsSection() {
     if (!snapshot || saving.current || !changed) return;
     saving.current = true;
     setBusy(true);
+    const start = snapshot;
     const { ok, stale, reloaded, reason } = await send(edits);
     if (ok) {
       setDraft({});
-      if (!reloaded) setSnapshot((current) => current && withConfirmed(current, edits));
+      if (!reloaded) setSnapshot((current) => confirmedOver(current, start, edits));
     }
     setBusy(false);
     saving.current = false;
@@ -208,13 +218,14 @@ export function ProfileLearningSettingsSection() {
     if (!snapshot || saving.current) return { success: false };
     saving.current = true;
     setBusy(true);
+    const start = snapshot;
     const outcome = await send(learningResetEdits());
     setBusy(false);
     saving.current = false;
     if (outcome.ok) {
       setDraft({});
       if (!outcome.reloaded) {
-        setSnapshot((current) => current && withConfirmed(current, learningResetEdits()));
+        setSnapshot((current) => confirmedOver(current, start, learningResetEdits()));
       }
       setStatus({ kind: "reset-done" });
       return { success: true };
