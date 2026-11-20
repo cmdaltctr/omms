@@ -261,6 +261,7 @@ describe("user profile store (characterisation)", () => {
       "idx_user_profile_changelogs_version",
       "idx_user_profiles_is_active",
       "idx_user_profiles_user_id",
+      "learned_prompts",
       "profile_auto_cleanups",
       "profile_category_cleanups",
       "profile_category_verdicts",
@@ -270,7 +271,7 @@ describe("user profile store (characterisation)", () => {
     const schemaHash = createHash("sha256")
       .update(schema.map((row) => `${row.type}|${row.name}|${row.sql}`).join("\n"))
       .digest("hex");
-    expect(schemaHash).toBe("4c20d67f0c59bf00370ee64f1fafda558e28ce7cd625c0163bc2e2454c20ddbf");
+    expect(schemaHash).toBe("6b0d7902e8aba86fd5ba444ad0b49bd61e8e44c12701c1dd1815c18c761679ac");
     expect(dbFiles(baseDir)).toEqual([DB]);
   });
 

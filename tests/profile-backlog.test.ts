@@ -39,6 +39,10 @@ function stores(count: number) {
     async updateProfile() {
       return true;
     },
+    async getLearnedPromptIds() {
+      return [];
+    },
+    async clearLearnedPromptIds() {},
   };
   return { waiting, batches, promptStore, profileStore };
 }
@@ -129,4 +133,114 @@ it("asks before each batch and stops when a newer run took over", async () => {
   expect(events).toEqual(["begin", "call", "end", "begin"]);
   expect(report).toMatchObject({ batchesBuilt: 1, remaining: 70, superseded: true });
   expect(waiting).toHaveLength(70);
+});
+
+/**
+ * Stores that keep claims, and a profile store that records the saved prompt ids with each
+ * save, as the real profile database does. `markFailures` makes that many marks fail.
+ */
+function ledgerStores(count: number) {
+  const waiting = new Set(Array.from({ length: count }, (_, index) => `p${index}`));
+  const claimed = new Set<string>();
+  const ledger = new Set<string>();
+  const state = { markFailures: 0, saves: 0 };
+  const promptStore = {
+    async countUnanalyzedForUserLearning() {
+      return waiting.size;
+    },
+    async getPromptsForUserLearning(limit: number) {
+      const free = [...waiting].filter((id) => !claimed.has(id)).slice(0, limit);
+      for (const id of free) claimed.add(id);
+      return free.map((id, index) => ({
+        id,
+        content: `Prompt ${id} about work`,
+        createdAt: index,
+      }));
+    },
+    async markMultipleAsUserLearningCaptured(ids: string[]) {
+      if (ids.length > 0 && state.markFailures > 0) {
+        state.markFailures--;
+        throw new Error("database is locked");
+      }
+      for (const id of ids) {
+        waiting.delete(id);
+        claimed.delete(id);
+      }
+    },
+    async markForUserLearning(ids: string[]) {
+      for (const id of ids) claimed.delete(id);
+    },
+  };
+  let profile: { id: string; version: number; profileData: string } | null = null;
+  const profileStore = {
+    async getActiveProfile() {
+      return profile;
+    },
+    async getProfileById() {
+      return profile;
+    },
+    async mergeProfileData(existing: unknown) {
+      return existing;
+    },
+    async createProfile(...args: unknown[]) {
+      state.saves++;
+      profile = { id: "p", version: 1, profileData: JSON.stringify(args[4]) };
+      for (const id of (args[6] as string[] | undefined) ?? []) ledger.add(id);
+      return "p";
+    },
+    async updateProfile(...args: unknown[]) {
+      state.saves++;
+      for (const id of (args[5] as string[] | undefined) ?? []) ledger.add(id);
+      return true;
+    },
+    async getLearnedPromptIds(_profileId: string, ids: string[]) {
+      return ids.filter((id) => ledger.has(id));
+    },
+    async clearLearnedPromptIds(_profileId: string, ids: string[]) {
+      for (const id of ids) ledger.delete(id);
+    },
+  };
+  /** The 10-minute claim runs out, or the process restarts. */
+  const expireClaims = () => claimed.clear();
+  return { waiting, ledger, state, promptStore, profileStore, expireClaims };
+}
+
+function countingModel() {
+  const model = {
+    calls: 0,
+    provider: "stub",
+    modelId: "stub",
+    async complete() {
+      model.calls++;
+      return reply;
+    },
+  };
+  return model;
+}
+
+it("saves a batch once when its mark fails once", async () => {
+  const { waiting, state, promptStore, profileStore } = ledgerStores(5);
+  state.markFailures = 1;
+  const model = countingModel();
+  await drainProfileBacklog({ user, model, promptStore, profileStore } as any);
+  expect(model.calls).toBe(1);
+  expect(state.saves).toBe(1);
+  expect(waiting.size).toBe(0);
+});
+
+it("marks a saved batch on the next run without a model call", async () => {
+  const { waiting, ledger, state, promptStore, profileStore, expireClaims } = ledgerStores(5);
+  state.markFailures = 99;
+  const model = countingModel();
+  await drainProfileBacklog({ user, model, promptStore, profileStore } as any);
+  expect(state.saves).toBe(1);
+  expect(waiting.size).toBe(5);
+
+  expireClaims();
+  state.markFailures = 0;
+  await drainProfileBacklog({ user, model, promptStore, profileStore } as any);
+  expect(model.calls).toBe(1);
+  expect(state.saves).toBe(1);
+  expect(waiting.size).toBe(0);
+  expect(ledger.size).toBe(0);
 });

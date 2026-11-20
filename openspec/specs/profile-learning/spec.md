@@ -571,6 +571,17 @@ A live pass and a catch-up run SHALL claim the prompts of a batch before the mod
 - **WHEN** a process claimed 10 prompts and stopped 11 minutes ago
 - **THEN** the next pass SHALL be able to take those 10 prompts
 
+### Requirement: A saved batch is never learned twice
+
+A profile save SHALL record the ids of the prompts it took in, in the same write as the profile. A live pass or catch-up run SHALL NOT send a recorded prompt to the model again: it SHALL mark the prompt as learned instead. This SHALL hold after a restart and in another process, for every host. A successful mark SHALL remove the record.
+
+#### Scenario: The mark fails and the process restarts
+
+- **WHEN** a pass saves the profile, every mark of its prompts fails, and the process restarts
+- **THEN** the next pass that takes those prompts SHALL make no model call for them
+- **AND** the profile SHALL be saved once for that batch
+- **AND** the prompts SHALL be marked as learned once the prompt store works
+
 ### Requirement: Profile learning settings are global only
 
 `userProfileWithoutEmail`, `userProfileDecayBeforeMerge`, `userProfilePromptDetail`, `userProfileDuringCatchUp`, `userProfileValidationEnabled` and `showUserProfileToasts` SHALL be read from the global config only. A project config value for any of them SHALL be ignored and SHALL be logged once with the key name. An invalid value SHALL be reported as a config problem that names the key and the accepted values.

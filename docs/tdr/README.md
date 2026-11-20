@@ -109,6 +109,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [088](./088-vacuum-into-doubled-the-vector-index-metadata.md)                  | VACUUM INTO doubled the vector index metadata                           | Proposed              | 2026-11-19 |
 | [089](./089-a-running-web-app-reported-the-version-on-disk.md)                 | A running web app reported the version on disk                          | Proposed              | 2026-11-18 |
 | [090](./090-opencode-start-up-provider-list-was-incomplete.md)                 | OpenCode's start-up provider list was incomplete                        | Proposed              | 2026-11-19 |
+| [091](./091-saved-profile-batches-are-recorded-in-the-profile-database.md)     | Saved profile batches are recorded in the profile database              | Proposed              | 2026-11-20 |
 
 ## Status values
 
