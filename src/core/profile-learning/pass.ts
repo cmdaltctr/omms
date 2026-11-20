@@ -99,6 +99,8 @@ async function learn(
     }
     stores = await loadStores();
     const { userPromptManager, userProfileManager } = stores;
+    // A saved batch whose mark failed: mark it first, or its prompts are learned twice.
+    if (!(await retryPendingMarks(userPromptManager, host))) return { outcome: "skipped" };
     await userPromptManager.skipTrivialPromptsForLearning();
     if ((await userPromptManager.countUnanalyzedForUserLearning()) < interval) {
       return { outcome: "skipped" };
@@ -206,9 +208,39 @@ async function learn(
 const MARK_ATTEMPTS = 3;
 const MARK_RETRY_MS = 100;
 
+// Saved prompts whose mark failed. The next pass in this process marks them before it takes
+// new prompts, so a run-out claim does not make it learn them again.
+let pendingMarks: string[] = [];
+
+/** Clears the saved prompts that wait for a mark. For tests. */
+export function resetPendingMarksForTests(): void {
+  pendingMarks = [];
+}
+
+/** Marks the waiting saved prompts. False when the mark fails again, so the pass waits. */
+async function retryPendingMarks(
+  store: Stores["userPromptManager"],
+  host: MemoryHost
+): Promise<boolean> {
+  if (pendingMarks.length === 0) return true;
+  try {
+    await store.markMultipleAsUserLearningCaptured(pendingMarks);
+    pendingMarks = [];
+    return true;
+  } catch {
+    log(
+      "profile learning: waiting for an earlier mark",
+      { host, prompts: pendingMarks.length },
+      "warn"
+    );
+    return false;
+  }
+}
+
 /**
  * Marks the saved batch as learned. A storage error is tried again; when every try fails,
- * the claim runs out by itself and the pass stays saved. The log holds a count only.
+ * the prompts wait in `pendingMarks` for the next pass and the pass stays saved. The log
+ * holds a count only.
  */
 async function markLearned(
   store: Stores["userPromptManager"],
@@ -223,6 +255,7 @@ async function markLearned(
       if (attempt < MARK_ATTEMPTS) await new Promise((r) => setTimeout(r, MARK_RETRY_MS * attempt));
     }
   }
+  pendingMarks = [...pendingMarks, ...ids];
   log("profile learning: prompts not marked as learned", { host, prompts: ids.length }, "error");
 }
 

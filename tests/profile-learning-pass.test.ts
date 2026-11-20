@@ -215,6 +215,7 @@ const baseConfig = {
 async function loadPass() {
   return (await import("../src/core/profile-learning/pass.js")) as {
     runProfileLearningPass: (input: unknown) => Promise<{ outcome: string; reason?: string }>;
+    resetPendingMarksForTests: () => void;
   };
 }
 
@@ -242,7 +243,8 @@ async function run(
   });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  (await loadPass()).resetPendingMarksForTests();
   world.email = "me@example.invalid";
   world.waiting = Array.from({ length: 5 }, (_, i) => ({
     id: `p${i}`,
@@ -749,6 +751,33 @@ describe("the mark after a save", () => {
     expect(world.released).toEqual([]);
     expect(world.saves).toHaveLength(1);
     expect(profileBackoff.canRun()).toBe(true);
+  });
+
+  it.each(hosts)(
+    "%s: after the claim runs out, the next pass retries the mark and saves nothing again",
+    async (host) => {
+      world.markFailures = 3;
+      expect(await run(host)).toEqual({ outcome: "saved" });
+      expect(world.learned.size).toBe(0);
+      // The fake store ignores claims, as a store does once the 10-minute claim runs out.
+      const second = await run(host);
+      expect(second.outcome).toBe("skipped");
+      expect(world.saves).toHaveLength(1);
+      expect([...world.learned].sort()).toEqual(["p0", "p1", "p2", "p3", "p4"]);
+    }
+  );
+
+  it.each(hosts)("%s: a pass waits while the earlier mark still fails", async (host) => {
+    world.markFailures = 4;
+    await run(host);
+    const second = await run(host);
+    expect(second.outcome).toBe("skipped");
+    expect(world.saves).toHaveLength(1);
+    expect(world.learned.size).toBe(0);
+    // The store works again: the mark is retried, nothing is saved twice.
+    await run(host);
+    expect(world.saves).toHaveLength(1);
+    expect(world.learned.size).toBe(5);
   });
 });
 
