@@ -153,6 +153,10 @@ export async function handleBulkDelete(
 
 type MemoryUpdate = { content?: string; type?: MemoryType; tags?: string[] };
 
+/** A web edit embeds again at most this many times when other writers keep changing the row. */
+const UPDATE_ATTEMPTS = 3;
+const STALE = Symbol("stale");
+
 async function findMemoryRow(id: string): Promise<MemoryRow | null> {
   for (const shard of await getAllMemoryShards()) {
     const row = await getMemoryRow(shard, id);
@@ -201,9 +205,6 @@ export async function handleUpdateMemory(
     if (refusal) return { success: false, error: refusal };
     await embeddingService.warmup();
 
-    const existingMemory = await findMemoryRow(id);
-    if (!existingMemory) return { success: false, error: "Memory not found" };
-
     // STEP 1: Embed before the lock, so a slow model call never holds it (TDR 081).
     const embedded = new Map<string, Promise<Float32Array>>();
     const embed = (input: string) => {
@@ -212,17 +213,31 @@ export async function handleUpdateMemory(
       }
       return embedded.get(input)!;
     };
-    const record = await updatedRecord(existingMemory, data, embed);
+    // Under the lock only text embedded in step 1 is used; other text is a stale read.
+    const embeddedOnly = (input: string) => embedded.get(input) ?? Promise.reject(STALE);
 
-    // STEP 2: Under the scope write lock, read the row again and merge onto it, so a field
-    // this edit did not send keeps a value another edit wrote meanwhile. The embeddings
-    // above are reused; only text that another edit changed is embedded again.
-    const { scope, hash } = extractScopeFromContainerTag(record.containerTag);
-    const replaced = await withMemoryScopeWriteLock(scope, hash, async () => {
-      const current = await findMemoryRow(id);
-      return current ? replaceMemoryRow(await updatedRecord(current, data, embed)) : false;
-    });
-    return replaced ? { success: true } : { success: false, error: "Memory not found" };
+    let row = await findMemoryRow(id);
+    for (let attempt = 1; row && attempt <= UPDATE_ATTEMPTS; attempt++) {
+      const { containerTag } = await updatedRecord(row, data, embed);
+      // STEP 2: Under the scope write lock, read the row again and merge onto it, so a field
+      // this edit did not send keeps a value another edit wrote meanwhile. When that edit
+      // changed text this one must embed, release the lock and embed it in step 1 again.
+      const { scope, hash } = extractScopeFromContainerTag(containerTag);
+      const outcome = await withMemoryScopeWriteLock(scope, hash, async () => {
+        const current = await findMemoryRow(id);
+        if (!current) return null;
+        const record = await updatedRecord(current, data, embeddedOnly).catch((error) => {
+          if (error === STALE) return null;
+          throw error;
+        });
+        if (!record) return current;
+        return (await replaceMemoryRow(record)) ? "saved" : null;
+      });
+      if (outcome === "saved") return { success: true };
+      row = outcome;
+    }
+    if (row) return { success: false, error: "Memory changed during the edit; try again" };
+    return { success: false, error: "Memory not found" };
   } catch (error) {
     log("handleUpdateMemory: error", { error: String(error) }, "error");
     return { success: false, error: String(error) };
