@@ -2,6 +2,7 @@ import { log } from "../logger.js";
 import type { ModelPort } from "../../core/profile-analysis.js";
 import type { MemoryModelSettings } from "./memory-model-settings.js";
 import type { UserProfileData } from "./types.js";
+import { keptIdsOfBatch } from "./ai-cleanup-checked.js";
 import {
   addIdsToProfile,
   buildAICleanupPrompt,
@@ -22,13 +23,18 @@ import {
 
 const SECTIONS = ["preferences", "patterns", "workflows"] as const;
 
-/** What one batch adds to the review: its changes, and the merged item of each merge. */
+/**
+ * What one batch adds to the review: its changes, and the merged item of each merge.
+ * `checkedIds` are the ids the model looked at and kept; a missing list means none.
+ */
 export interface BatchCleanupResult {
   diff: CleanupDiff;
   mergedItems: Record<string, unknown>;
+  checkedIds?: string[];
 }
 
 export interface BatchRunResult extends BatchCleanupResult {
+  checkedIds: string[];
   failedBatches: number;
   failedItems: number;
 }
@@ -117,6 +123,7 @@ export async function cleanupBatch(
   return {
     diff: generateDiff(indexed, mapping, cleanedById),
     mergedItems: buildMergedItems(mapping, cleanedById, originalById),
+    checkedIds: keptIdsOfBatch(indexed, mapping, result.mappingValid),
   };
 }
 
@@ -172,6 +179,7 @@ export async function runInBatches(
   const joined: BatchRunResult = {
     diff: { kept: [], merged: [], removed: [] },
     mergedItems: {},
+    checkedIds: [],
     failedBatches: 0,
     failedItems: 0,
   };
@@ -185,6 +193,7 @@ export async function runInBatches(
       joined.diff.merged.push(...result.diff.merged);
       joined.diff.removed.push(...result.diff.removed);
       Object.assign(joined.mergedItems, result.mergedItems);
+      joined.checkedIds.push(...(result.checkedIds ?? []));
     } catch (error) {
       if (isStopped()) return null;
       if (joined.failedBatches === 0) firstError = error;

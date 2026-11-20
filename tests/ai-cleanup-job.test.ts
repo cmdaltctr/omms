@@ -1,9 +1,37 @@
-import { afterEach, expect, it, mock } from "bun:test";
+import { afterEach, describe, expect, it, mock } from "bun:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { cleanupTursoTestDirectory } from "./turso-test-utils.js";
 
-mock.module("../src/services/logger.js", () => ({ log: () => {} }));
+const logged: unknown[][] = [];
+mock.module("../src/services/logger.js", () => ({
+  log: (...args: unknown[]) => logged.push(args),
+}));
+
+// An in-memory store, so a test can see what the job wrote, when, and make a write fail.
+const store = {
+  marked: [] as Array<{ profileId: string; keys: string[]; state: string | undefined }>,
+  pruned: [] as Array<{ profileId: string; live: string[] }>,
+  fail: false,
+  stateNow: () => undefined as string | undefined,
+};
+mock.module("../src/services/storage/profiles/ai-checked.js", () => ({
+  markAiChecked: async (profileId: string, keys: string[]) => {
+    if (store.fail) throw new Error("disk full");
+    store.marked.push({ profileId, keys, state: store.stateNow() });
+  },
+  pruneAiCheckedTo: async (profileId: string, live: Iterable<string>) => {
+    store.pruned.push({ profileId, live: [...live] });
+    return 0;
+  },
+  readAiCheckedKeys: async () => new Set<string>(),
+  deleteAiCheckedKeys: async () => {},
+}));
 
 const { startAiCleanupJob, getAiCleanupJob, getAiCleanupResult, stopAiCleanupJob } =
   await import("../src/services/user-profile/ai-cleanup-job.js");
+const { aiCheckedKey } = await import("../src/services/user-profile/ai-cleanup-checked.js");
 
 type Batch = { preferences: Array<{ id: string }>; patterns: unknown[]; workflows: unknown[] };
 
@@ -28,12 +56,18 @@ function user(name: string) {
 
 afterEach(() => {
   for (const name of users.splice(0)) stopAiCleanupJob(name);
+  store.marked = [];
+  store.pruned = [];
+  store.fail = false;
+  store.stateNow = () => undefined;
+  logged.length = 0;
 });
 
 function noChanges(batch: Batch) {
   return Promise.resolve({
     diff: { kept: batch.preferences.map((p) => p.id), merged: [], removed: [] },
     mergedItems: {},
+    checkedIds: batch.preferences.map((p) => p.id),
   });
 }
 
@@ -229,4 +263,141 @@ it("keeps jobs apart for each user", async () => {
   startAiCleanupJob(a, { profileData, includeIds: ["pref_0"] }, {}, { callBatch: noChanges });
   expect(getAiCleanupJob(b)).toBeNull();
   await settle(a);
+});
+
+describe("checked marks", () => {
+  const keyOf = (i: number) => aiCheckedKey("preferences", profileData.preferences[i]);
+  const fresh = { ...profileData, preferences: profileData.preferences.slice(0, 3) };
+  const marking = { profileId: "profile-1", loadProfile: async () => fresh };
+
+  it("writes the keys of kept items, built from the profile the model saw, then prunes", async () => {
+    const name = user("marks-done");
+    startAiCleanupJob(
+      name,
+      { profileData, includeIds: ["pref_0", "pref_1", "pref_2"], ...marking },
+      {},
+      {
+        batchSize: 2,
+        callBatch: async (batch: Batch) => ({
+          ...(await noChanges(batch)),
+          checkedIds: batch.preferences.map((p) => p.id).filter((id) => id !== "pref_1"),
+        }),
+      }
+    );
+    await settle(name);
+    expect(store.marked).toHaveLength(1);
+    expect(store.marked[0]!.profileId).toBe("profile-1");
+    expect(store.marked[0]!.keys.sort()).toEqual([keyOf(0), keyOf(2)].sort());
+    expect(store.pruned).toEqual([
+      { profileId: "profile-1", live: [keyOf(0), keyOf(1), keyOf(2)] },
+    ]);
+  });
+
+  it("writes nothing when every batch fails", async () => {
+    const name = user("marks-all-fail");
+    startAiCleanupJob(
+      name,
+      { profileData, includeIds: ["pref_0", "pref_1"], ...marking },
+      {},
+      { batchSize: 1, callBatch: () => Promise.reject(new Error("API request failed: 500 x")) }
+    );
+    expect((await settle(name)).status.state).toBe("failed");
+    expect(store.marked).toEqual([]);
+    expect(store.pruned).toEqual([]);
+  });
+
+  it("writes nothing on Stop, also for batches that finished before it", async () => {
+    const name = user("marks-stop");
+    const model = gate();
+    startAiCleanupJob(
+      name,
+      { profileData, includeIds: ["pref_0", "pref_1"], ...marking },
+      {},
+      { ...model, batchSize: 1 }
+    );
+    await model.release();
+    stopAiCleanupJob(name);
+    await model.release();
+    for (let i = 0; i < 20; i++) await tick();
+    expect(store.marked).toEqual([]);
+  });
+
+  it("writes the marks before the status reads done", async () => {
+    const name = user("marks-order");
+    store.stateNow = () => getAiCleanupJob(name)?.status.state;
+    startAiCleanupJob(
+      name,
+      { profileData, includeIds: ["pref_0"], ...marking },
+      {},
+      { callBatch: noChanges }
+    );
+    await settle(name);
+    expect(store.marked.map((m) => m.state)).toEqual(["running"]);
+  });
+
+  it("finishes the job when the store write fails, and logs a code only", async () => {
+    const name = user("marks-fail");
+    store.fail = true;
+    startAiCleanupJob(
+      name,
+      { profileData, includeIds: ["pref_0"], ...marking },
+      {},
+      { callBatch: noChanges }
+    );
+    expect((await settle(name)).status.state).toBe("done");
+    const text = JSON.stringify(logged);
+    expect(text).toContain("AI cleanup job: checked marks not saved");
+    expect(text).not.toContain("item 0");
+    expect(text).not.toContain("disk full");
+  });
+
+  it("leaves the profile version and the changelog as they are", async () => {
+    const { CONFIG } = await import("../src/config.js");
+    const { userProfileManager } =
+      await import("../src/services/user-profile/user-profile-manager.js");
+    const directory = mkdtempSync(join(tmpdir(), "omms-ai-cleanup-job-"));
+    const owner = "ai-cleanup-job@example.invalid";
+    CONFIG.storagePath = directory;
+    userProfileManager.reset();
+    try {
+      await userProfileManager.createProfile(owner, "Test", "test", owner, profileData, 0);
+      const before = (await userProfileManager.getActiveProfile(owner))!;
+      const entries = (await userProfileManager.getProfileChangelogs(before.id, 100)).length;
+      const name = user("marks-no-profile-change");
+      startAiCleanupJob(
+        name,
+        {
+          profileData,
+          profileId: before.id,
+          loadProfile: async () =>
+            JSON.parse((await userProfileManager.getActiveProfile(owner))!.profileData),
+        },
+        {},
+        { callBatch: noChanges }
+      );
+      expect((await settle(name)).status.state).toBe("done");
+      expect(store.marked.flatMap((m) => m.keys)).toHaveLength(5);
+      const after = (await userProfileManager.getActiveProfile(owner))!;
+      expect(after.version).toBe(before.version);
+      expect(await userProfileManager.getProfileChangelogs(before.id, 100)).toHaveLength(entries);
+    } finally {
+      userProfileManager.reset();
+      await cleanupTursoTestDirectory(directory);
+    }
+  });
+
+  it("logs counts and no memory text when it saves marks", async () => {
+    const name = user("marks-log");
+    startAiCleanupJob(
+      name,
+      { profileData, includeIds: ["pref_0"], ...marking },
+      {},
+      { callBatch: noChanges }
+    );
+    await settle(name);
+    const text = JSON.stringify(logged);
+    expect(text).toContain("AI cleanup job: checked marks saved");
+    expect(text).not.toContain("item 0");
+    expect(text).not.toContain(keyOf(0));
+  });
 });

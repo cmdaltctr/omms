@@ -1,21 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  GitMerge,
-  Loader,
-  Target,
-  Trash2,
-} from "lucide-react";
+import { Loader } from "lucide-react";
 import { toast } from "sonner";
 import { aiCleanupApi } from "$lib/api";
 import { useAiCleanupJob } from "@/hooks/useAiCleanupJob";
+import { useAiCheckedIds } from "@/hooks/useAiCheckedIds";
 import { dialogView, retrySelection, selectionAfterStop } from "./ai-cleanup-job-state";
-import { CleanupSelectShortcuts } from "./CleanupSelectShortcuts";
-import { CleanupSteps } from "./CleanupSteps";
+import { AiCleanupReview } from "./AiCleanupReview";
+import { AiCleanupSelect, type CleanupItem } from "./AiCleanupSelect";
 import { Button } from "$lib/components/ui/button";
-import { Checkbox } from "$lib/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -23,12 +15,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "$lib/components/ui/dialog";
-import { sameCategoryIds, selectedFirst, withToggled } from "$lib/cleanup-selection";
+import {
+  allIds,
+  cleanAllIds,
+  lowFrequencyIds,
+  sameCategoryIds,
+  selectedFirst,
+  withToggled,
+  type Pick,
+} from "$lib/cleanup-selection";
 import { useI18n } from "$lib/i18n";
-import { findDescById, findStepsById } from "$lib/profile-utils";
-import type { ProfileItem, UserProfile } from "$lib/types";
-
-type CleanupItem = ProfileItem & { _id: string; _type: "pref" | "pat" | "wf" };
+import type { UserProfile } from "$lib/types";
 
 type Props = {
   open?: boolean;
@@ -38,19 +35,18 @@ type Props = {
   onMinimise?: () => void;
 };
 
-function truncate(text: string, max: number) {
-  return text.length > max ? text.substring(0, max) + "..." : text;
-}
-
 export function AiCleanupDialog(props: Props) {
   const { open = false, profile = null, onOpenChange, onApplied, onMinimise } = props;
   const { t } = useI18n();
   const cleanup = useAiCleanupJob(open);
+  const checked = useAiCheckedIds(open, profile?.version);
   const [starting, setStarting] = useState(false);
   const [allItems, setAllItems] = useState<CleanupItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   // The order follows a shortcut's picks, not each tick, so rows do not jump while ticking.
   const [orderIds, setOrderIds] = useState<Set<string>>(new Set());
+  // How many checked memories the last shortcut left out.
+  const [skipped, setSkipped] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const [acceptedMerged, setAcceptedMerged] = useState<Set<number>>(new Set());
   const [acceptedRemoved, setAcceptedRemoved] = useState<Set<number>>(new Set());
@@ -77,10 +73,7 @@ export function AiCleanupDialog(props: Props) {
     const all = [...map.keys()].sort().map((key) => ({ key, items: map.get(key)! }));
     return selectedFirst(all, orderIds);
   }, [allItems, orderIds]);
-  const selectedCount = selectedIds.size;
   const diffSelectedCount = acceptedMerged.size + acceptedRemoved.size;
-  const diffTotalCount =
-    (review?.changes.merged?.length || 0) + (review?.changes.removed?.length || 0);
 
   function initSelect() {
     const pd = profile?.profileData;
@@ -107,7 +100,8 @@ export function AiCleanupDialog(props: Props) {
     }));
     const items = [...prefs, ...pats, ...wfs];
     setAllItems(items);
-    pick(new Set(items.filter((it) => (it.frequency || 0) <= 3).map((it) => it._id)));
+    // The dialog opens with nothing ticked; the user chooses a shortcut.
+    pick({ ids: new Set(), skipped: 0 });
     setKeptOpen(false);
   }
 
@@ -135,26 +129,27 @@ export function AiCleanupDialog(props: Props) {
     onOpenChange?.(next);
   }
 
-  function toggleId(id: string, checked: boolean) {
-    setSelectedIds((prev) => withToggled(prev, id, checked));
-  }
-
   /** A shortcut's selection: tick it, move it to the top and show the top. */
-  function pick(ids: Set<string>) {
+  function pick({ ids, skipped: left }: Pick) {
     setSelectedIds(ids);
     setOrderIds(ids);
+    setSkipped(left);
     listRef.current?.scrollTo({ top: 0 });
   }
 
-  const selectAll = () => pick(new Set(allItems.map((it) => it._id)));
-  const selectNone = () => pick(new Set());
-  const selectLow = () =>
-    pick(new Set(allItems.filter((it) => (it.frequency || 0) <= 3).map((it) => it._id)));
-  const selectSameCat = () => pick(sameCategoryIds(allItems));
+  const checkedIds = checked.ids as Set<string>;
+  const shortcuts = {
+    onSelectClean: () => pick(cleanAllIds(allItems, checkedIds)),
+    onSelectLow: () => pick(lowFrequencyIds(allItems, checkedIds)),
+    onSelectSameCat: () => pick(sameCategoryIds(allItems, checkedIds)),
+    onSelectAll: () => pick(allIds(allItems)),
+    onSelectNone: () => pick({ ids: new Set(), skipped: 0 }),
+    skipped,
+  };
 
   async function analyze(ids: string[]) {
     if (ids.length === 0) {
-      toast.warning("No items selected");
+      toast.warning(t("toast-ai-cleanup-none-selected"));
       return;
     }
     setStarting(true);
@@ -164,35 +159,10 @@ export function AiCleanupDialog(props: Props) {
 
   /** Stop, or Back from a result or a failure: back to the selection the job ran with. */
   function backToSelection() {
-    pick(selectionAfterStop(job, selectedIds));
+    pick({ ids: selectionAfterStop(job, selectedIds), skipped: 0 });
     void cleanup.discard();
-  }
-
-  function typeLabel(id: string) {
-    if (!id.includes("_")) return "?";
-    const prefix = id.split("_")[0];
-    if (prefix === "pref") return t("profile-type-pref") || "Pref";
-    if (prefix === "pat") return t("profile-type-pat") || "Pat";
-    if (prefix === "wf") return t("profile-type-wf") || "Wf";
-    return "?";
-  }
-
-  function toggleMerged(i: number, checked: boolean) {
-    setAcceptedMerged((prev) => withToggled(prev, i, checked));
-  }
-
-  function toggleRemoved(i: number, checked: boolean) {
-    setAcceptedRemoved((prev) => withToggled(prev, i, checked));
-  }
-
-  function selectAllDiff() {
-    setAcceptedMerged(new Set((review?.changes.merged || []).map((_, i) => i)));
-    setAcceptedRemoved(new Set((review?.changes.removed || []).map((_, i) => i)));
-  }
-
-  function deselectAllDiff() {
-    setAcceptedMerged(new Set());
-    setAcceptedRemoved(new Set());
+    // The job may have marked memories when it finished.
+    checked.reload();
   }
 
   async function apply() {
@@ -209,10 +179,10 @@ export function AiCleanupDialog(props: Props) {
     setApplying(false);
 
     if (result.success) {
-      const { applied = 0, skipped = 0 } = result.data ?? {};
+      const { applied = 0, skipped: notApplied = 0 } = result.data ?? {};
       toast.success(
-        skipped > 0
-          ? t("toast-ai-cleanup-skipped", { applied, skipped })
+        notApplied > 0
+          ? t("toast-ai-cleanup-skipped", { applied, skipped: notApplied })
           : t("toast-ai-cleanup-success")
       );
       cleanup.clear();
@@ -228,6 +198,11 @@ export function AiCleanupDialog(props: Props) {
       <DialogContent
         className="grid! sm:max-w-2xl max-h-[90vh] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden gap-4"
         onMinimise={view.phase === "running" && !waiting ? onMinimise : undefined}
+        // Focus the dialog, not the first shortcut, so no tooltip opens with the dialog.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          (event.currentTarget as HTMLElement | null)?.focus();
+        }}
       >
         <DialogHeader className="pe-20">
           <DialogTitle>{t("label-ai-cleanup-title")}</DialogTitle>
@@ -252,232 +227,34 @@ export function AiCleanupDialog(props: Props) {
             <span className="text-sm text-muted-foreground break-words">{view.error}</span>
           </div>
         ) : view.phase === "select" ? (
-          <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-subsection-title font-semibold">
-                {t("label-ai-cleanup-select")}
-              </h3>
-              <CleanupSelectShortcuts
-                onSelectAll={selectAll}
-                onSelectNone={selectNone}
-                onSelectLow={selectLow}
-                onSelectSameCat={selectSameCat}
-              />
-            </div>
-            <div ref={listRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-              {groups.map(({ key: cat, items }) => (
-                <div key={cat} className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs rounded-full bg-muted px-2 py-0.5">{cat}</span>
-                    <span className="text-xs text-muted-foreground">{items.length} items</span>
-                  </div>
-                  {items.map((it) => {
-                    const checked = selectedIds.has(it._id);
-                    return (
-                      <div
-                        key={it._id}
-                        className="flex items-center gap-2 rounded-lg border border-border/60 px-2 py-1.5 text-sm cursor-pointer hover:bg-muted/40"
-                        role="checkbox"
-                        aria-checked={checked}
-                        tabIndex={0}
-                        onClick={() => toggleId(it._id, !checked)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            toggleId(it._id, !checked);
-                          }
-                        }}
-                      >
-                        <span className="pointer-events-none inline-flex">
-                          <Checkbox checked={checked} tabIndex={-1} />
-                        </span>
-                        <span className="text-[10px] font-medium text-muted-foreground w-4">
-                          {it._type === "pref" ? "P" : it._type === "pat" ? "T" : "W"}
-                        </span>
-                        <span className="flex-1 truncate">
-                          {(it.description || "").substring(0, 80)}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                          <Target className="size-3" />
-                          {it.frequency || 0}
-                          {it.confidence != null ? ` | ${Math.round(it.confidence * 100)}%` : ""}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <span className="rounded-md border border-status-success/30 bg-status-success/10 px-2 py-0.5 text-xs font-medium text-status-success">
-                {t("label-ai-cleanup-selected", { count: selectedCount })}
-              </span>
-              <Button onClick={() => analyze([...selectedIds])}>
-                {t("label-ai-cleanup-analyze")}
-              </Button>
-            </div>
-          </div>
+          <AiCleanupSelect
+            groups={groups}
+            selectedIds={selectedIds}
+            checkedIds={checkedIds}
+            listRef={listRef}
+            onToggle={(id, on) => setSelectedIds((prev) => withToggled(prev, id, on))}
+            shortcuts={shortcuts}
+            onAnalyze={() => analyze([...selectedIds])}
+          />
         ) : view.phase === "review" && review ? (
-          <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-            {view.notice ? (
-              <div className="rounded-lg border border-status-warning/30 bg-status-warning/10 px-3 py-2 text-xs text-status-warning">
-                {t("label-ai-cleanup-failed-batches", view.notice)}
-              </div>
-            ) : null}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs text-muted-foreground">
-                {t("label-ai-cleanup-changes-selected", {
-                  selected: diffSelectedCount,
-                  total: diffTotalCount,
-                })}
-              </span>
-              <div className="flex gap-2">
-                <Button variant="link" size="xs" onClick={selectAllDiff}>
-                  {t("label-ai-cleanup-select-all")}
-                </Button>
-                <Button variant="link" size="xs" onClick={deselectAllDiff}>
-                  {t("label-ai-cleanup-deselect-all")}
-                </Button>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-              {(review.changes.merged || []).length > 0 ? (
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-1.5 text-subsection-title font-semibold">
-                    <GitMerge className="size-3.5" />
-                    {t("label-ai-cleanup-merged-header", {
-                      count: review.changes.merged?.length || 0,
-                    })}
-                  </h3>
-                  {(review.changes.merged || []).map((m, mi) => {
-                    const mergedFrom = m.ids.slice(1);
-                    const mainDesc = m.result || "";
-                    const mergeChecked = acceptedMerged.has(mi);
-                    return (
-                      <div key={mi} className="rounded-xl border border-border p-3 space-y-2">
-                        <div
-                          className="flex items-center gap-2 text-sm cursor-pointer"
-                          role="checkbox"
-                          aria-checked={mergeChecked}
-                          tabIndex={0}
-                          onClick={() => toggleMerged(mi, !mergeChecked)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              toggleMerged(mi, !mergeChecked);
-                            }
-                          }}
-                        >
-                          <span className="pointer-events-none inline-flex">
-                            <Checkbox checked={mergeChecked} tabIndex={-1} />
-                          </span>
-                          <span>{t("label-ai-cleanup-merge-check")}</span>
-                        </div>
-                        <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr] items-start text-sm">
-                          <div className="space-y-1.5">
-                            {mergedFrom.map((id) => {
-                              const desc = findDescById(id, review.old);
-                              if (!desc) return null;
-                              return (
-                                <div key={id} className="rounded-lg bg-muted/50 p-2 space-y-1">
-                                  <div>
-                                    <span className="text-[10px] rounded bg-muted px-1.5 py-0.5">
-                                      {typeLabel(id)}
-                                    </span>{" "}
-                                    {truncate(desc, 80)}
-                                  </div>
-                                  <CleanupSteps steps={findStepsById(id, review.old)} />
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div className="text-muted-foreground self-center grid place-items-center">
-                            <ChevronRight className="size-4" />
-                          </div>
-                          <div className="rounded-lg bg-primary/10 p-2 space-y-1">
-                            <div>{truncate(mainDesc, 120)}</div>
-                            <CleanupSteps steps={findStepsById(m.ids[0], review.old)} />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              {(review.changes.removed || []).length > 0 ? (
-                <div className="space-y-2">
-                  <h3 className="flex items-center gap-1.5 text-subsection-title font-semibold">
-                    <Trash2 className="size-3.5" />
-                    {t("label-ai-cleanup-removed-header", {
-                      count: review.changes.removed?.length || 0,
-                    })}
-                  </h3>
-                  {(review.changes.removed || []).map((r, ri) => {
-                    const desc = findDescById(r.id, review.old);
-                    const removeChecked = acceptedRemoved.has(ri);
-                    return (
-                      <div key={ri} className="rounded-xl border border-border p-3 space-y-2">
-                        <div
-                          className="flex items-center gap-2 text-sm cursor-pointer"
-                          role="checkbox"
-                          aria-checked={removeChecked}
-                          tabIndex={0}
-                          onClick={() => toggleRemoved(ri, !removeChecked)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              toggleRemoved(ri, !removeChecked);
-                            }
-                          }}
-                        >
-                          <span className="pointer-events-none inline-flex">
-                            <Checkbox checked={removeChecked} tabIndex={-1} />
-                          </span>
-                          <span>{t("label-ai-cleanup-remove-check")}</span>
-                        </div>
-                        <div className="text-sm">{desc || r.id}</div>
-                        <CleanupSteps steps={findStepsById(r.id, review.old)} />
-                        <div className="text-xs text-muted-foreground">{r.reason}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              {(review.changes.kept || []).length > 0 ? (
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    className="flex items-center gap-1.5 text-sm font-medium"
-                    onClick={() => setKeptOpen((v) => !v)}
-                  >
-                    {t("label-ai-cleanup-kept")}
-                    <span className="text-muted-foreground">
-                      ({review.changes.kept?.length || 0})
-                    </span>
-                    {keptOpen ? (
-                      <ChevronUp className="size-3.5" />
-                    ) : (
-                      <ChevronDown className="size-3.5" />
-                    )}
-                  </button>
-                  {keptOpen ? (
-                    <div className="space-y-1">
-                      {(review.changes.kept || []).map((k, ki) => (
-                        <div
-                          key={ki}
-                          className="text-xs text-muted-foreground rounded bg-muted/40 px-2 py-1"
-                        >
-                          {k}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </div>
+          <AiCleanupReview
+            review={review}
+            notice={view.notice}
+            acceptedMerged={acceptedMerged}
+            acceptedRemoved={acceptedRemoved}
+            onToggleMerged={(i, on) => setAcceptedMerged((prev) => withToggled(prev, i, on))}
+            onToggleRemoved={(i, on) => setAcceptedRemoved((prev) => withToggled(prev, i, on))}
+            onSelectAll={() => {
+              setAcceptedMerged(new Set((review.changes.merged || []).map((_, i) => i)));
+              setAcceptedRemoved(new Set((review.changes.removed || []).map((_, i) => i)));
+            }}
+            onDeselectAll={() => {
+              setAcceptedMerged(new Set());
+              setAcceptedRemoved(new Set());
+            }}
+            keptOpen={keptOpen}
+            onKeptOpenChange={setKeptOpen}
+          />
         ) : null}
 
         <DialogFooter>

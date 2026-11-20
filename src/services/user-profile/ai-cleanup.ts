@@ -33,6 +33,19 @@ export interface AIMapping {
   removed: string[];
 }
 
+/** A model reply. `mappingValid` is false when the reply held no usable mapping. */
+export interface AICleanupReply {
+  profile: IndexedProfile;
+  mapping: AIMapping;
+  mappingValid: boolean;
+}
+
+/** True when the reply's mapping is an object with at least one list in it. */
+function isValidMapping(raw: any): boolean {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+  return [raw.kept, raw.merged, raw.removed].some((field) => Array.isArray(field));
+}
+
 // The model controls this JSON; it may omit fields or return wrong types. Coerce to a
 // well-formed AIMapping so rebuildProfileUsing/generateDiff never call .map/.filter/.includes
 // on undefined. A missing or malformed mapping degrades to a no-op cleanup (all originals are
@@ -115,7 +128,7 @@ export async function callAICleanup(
   prompt: string,
   settings: MemoryModelSettings,
   model?: ModelPort | null
-): Promise<{ profile: IndexedProfile; mapping: AIMapping }> {
+): Promise<AICleanupReply> {
   // A caller that has its own model (Pi) passes it. Otherwise use the host model when the
   // host registered one (same pattern as auto-capture). When it is available, surface its
   // errors instead of masking them as "No AI provider configured" via a silent fallback (#177).
@@ -135,7 +148,7 @@ export async function callAICleanup(
 async function callViaExternalAPI(
   prompt: string,
   settings: MemoryModelSettings
-): Promise<{ profile: IndexedProfile; mapping: AIMapping }> {
+): Promise<AICleanupReply> {
   const t0 = Date.now();
   const systemPrompt =
     "You are a user profile cleanup assistant. Merge duplicate entries and return only JSON.";
@@ -184,13 +197,11 @@ async function callViaExternalAPI(
   return {
     profile: parsed as IndexedProfile,
     mapping: normalizeAIMapping(parsed.mapping),
+    mappingValid: isValidMapping(parsed.mapping),
   };
 }
 
-async function callViaHostModel(
-  model: ModelPort,
-  prompt: string
-): Promise<{ profile: IndexedProfile; mapping: AIMapping }> {
+async function callViaHostModel(model: ModelPort, prompt: string): Promise<AICleanupReply> {
   const systemPrompt =
     "You are a user profile cleanup assistant. Merge duplicate entries and return only JSON without markdown wrapping.";
   const rawText = await model.complete(systemPrompt, prompt);
@@ -202,6 +213,7 @@ async function callViaHostModel(
   return {
     profile: parsed as IndexedProfile,
     mapping: normalizeAIMapping(parsed.mapping),
+    mappingValid: isValidMapping(parsed.mapping),
   };
 }
 

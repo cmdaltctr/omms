@@ -3,7 +3,7 @@ import * as autoCleanup from "./auto-cleanup-handlers.js";
 import * as categoryCleanup from "./api-handlers.js";
 
 /**
- * The profile cleanup routes: AI Cleanup (start, status, stop, apply), the undo of the
+ * The profile cleanup routes: AI Cleanup (start, status, stop, apply, checked), the undo of the
  * last automatic cleanup, and category cleanup (start, status, apply, undo). Returns the JSON body, or undefined when the path and method are
  * not a cleanup route. The body is read only for the routes that need it.
  */
@@ -23,6 +23,10 @@ export async function routeProfileCleanup(
     }
     if (method === "GET") return aiCleanup.handleAiCleanupStatus(queryUser, config);
     if (method === "DELETE") return aiCleanup.handleAiCleanupStop(queryUser, config);
+  }
+
+  if (path === "/api/user-profile/ai-cleanup/checked" && method === "GET") {
+    return aiCleanup.handleAiCleanupChecked(queryUser, config);
   }
 
   if (path === "/api/user-profile/ai-cleanup/apply" && method === "POST") {

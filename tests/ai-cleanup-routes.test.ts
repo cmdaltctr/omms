@@ -18,6 +18,10 @@ mock.module("../src/services/ai-cleanup-handlers.js", () => ({
     calls.push({ handler: "apply", userId, body });
     return { success: true, data: "applied" };
   },
+  handleAiCleanupChecked: async (userId: unknown) => {
+    calls.push({ handler: "checked", userId });
+    return { success: true, data: { profileVersion: 3, ids: ["pref_1"] } };
+  },
 }));
 
 const { getOrCreateAuthToken } = await import("../src/services/auth-token.js");
@@ -59,5 +63,21 @@ it("routes start, status, stop and apply to the AI cleanup handlers", async () =
     { handler: "status", userId: "u1" },
     { handler: "stop", userId: undefined },
     { handler: "apply", userId: undefined, body: { acceptedRemoved: ["pref_2"] } },
+  ]);
+});
+
+it("routes the checked read to its handler", async () => {
+  calls.length = 0;
+  expect(await call("GET", "/api/user-profile/ai-cleanup/checked?userId=u1")).toEqual({
+    success: true,
+    data: { profileVersion: 3, ids: ["pref_1"] },
+  });
+  expect(await call("GET", "/api/user-profile/ai-cleanup/checked")).toEqual({
+    success: true,
+    data: { profileVersion: 3, ids: ["pref_1"] },
+  });
+  expect(calls).toEqual([
+    { handler: "checked", userId: "u1" },
+    { handler: "checked", userId: undefined },
   ]);
 });

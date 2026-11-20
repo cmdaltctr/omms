@@ -161,6 +161,32 @@ describe("cleanupBatch", () => {
   });
 });
 
+describe("cleanupBatch checked ids", () => {
+  const replyWith = (mapping: unknown) => ({
+    complete: async () =>
+      JSON.stringify({
+        preferences: [{ id: "pref_0", category: "c", description: "merged" }],
+        patterns: [],
+        workflows: [],
+        mapping,
+      }),
+  });
+
+  it("returns the ids of a successful batch that the reply neither merges nor removes", async () => {
+    const result = await cleanupBatch(
+      batchOf(["pref_0", "pref_1", "pref_2", "pref_3", "pref_4"]),
+      {},
+      replyWith({ kept: ["pref_4"], merged: [["pref_0", "pref_1"]], removed: ["pref_2"] }) as never
+    );
+    expect(result.checkedIds).toEqual(["pref_3", "pref_4"]);
+  });
+
+  it("returns none when the reply has no valid mapping", async () => {
+    const result = await cleanupBatch(batchOf(["pref_0", "pref_1"]), {}, replyWith(null) as never);
+    expect(result.checkedIds).toEqual([]);
+  });
+});
+
 describe("cleanupBatch with a given model", () => {
   it("sends the batch to the given model and not the registered host model", async () => {
     const calls: string[] = [];
@@ -236,6 +262,24 @@ describe("runInBatches", () => {
     ];
     expect(allIds.some((id) => ["pref_2", "pref_3", "pref_4"].includes(id))).toBe(false);
     expect(failures).toEqual([0, 1]);
+  });
+
+  it("joins the checked ids of successful batches only", async () => {
+    const batches = [batchOf(["pref_0", "pref_1"]), batchOf(["pref_2", "pref_3"])];
+    const result = await runInBatches(batches, {
+      callBatch: async (batch: Indexed) => {
+        if (idsOf(batch)[0] === "pref_2") throw new Error("API request failed: 500 boom");
+        return { ...resultFor(batch), checkedIds: idsOf(batch) };
+      },
+    });
+    expect(result!.checkedIds).toEqual(["pref_0", "pref_1"]);
+  });
+
+  it("joins no checked ids from a batch whose result names none", async () => {
+    const result = await runInBatches([batchOf(["pref_0"])], {
+      callBatch: async (batch: Indexed) => resultFor(batch),
+    });
+    expect(result!.checkedIds).toEqual([]);
   });
 
   it("throws the first error when every batch fails", async () => {

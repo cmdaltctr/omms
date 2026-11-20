@@ -92,9 +92,18 @@ export async function handleAiCleanupStart(
     const includeIds = Array.isArray(body?.includeIds)
       ? body.includeIds.filter((id: unknown): id is string => typeof id === "string")
       : undefined;
+    const manager = await managerOf(deps);
     const job = startAiCleanupJob(
       user,
-      { profileData: sortedProfile(profile.profileData), includeIds },
+      {
+        profileData: sortedProfile(profile.profileData),
+        includeIds,
+        profileId: profile.id,
+        loadProfile: async () => {
+          const current = await manager.getActiveProfile(user);
+          return current ? (JSON.parse(current.profileData) as UserProfileData) : null;
+        },
+      },
       config.CONFIG,
       deps
     );
@@ -173,9 +182,73 @@ export async function handleAiCleanupApply(
     if (outcome.status === "conflict") {
       return { success: false, error: "Profile saved at the same moment. Try Apply again." };
     }
+    await saveApplyMarks(user, job, accepted, await managerOf(deps));
     stopAiCleanupJob(user);
     return { success: true, data: outcome.result };
   } catch (error) {
     return handlerError("apply", error);
+  }
+}
+
+/**
+ * Marks the items of the changes the user did not tick, unmarks each ticked merge keeper,
+ * and deletes the marks that match no memory of the saved profile. A failure is logged as
+ * a code and does not fail Apply.
+ */
+async function saveApplyMarks(
+  user: string,
+  job: { old: UserProfileData; changes: import("./user-profile/ai-cleanup.js").CleanupDiff },
+  accepted: { merged?: unknown[]; removed?: unknown[] },
+  manager: UserProfileManager
+): Promise<void> {
+  try {
+    const { marksAfterApply, aiCheckedKeysOf } =
+      await import("./user-profile/ai-cleanup-checked.js");
+    const store = await import("./storage/profiles/ai-checked.js");
+    const profile = await manager.getActiveProfile(user);
+    if (!profile) return;
+    const { mark, unmark } = marksAfterApply(job, accepted);
+    await store.markAiChecked(profile.id, mark);
+    await store.deleteAiCheckedKeys(profile.id, unmark);
+    const pruned = await store.pruneAiCheckedTo(
+      profile.id,
+      aiCheckedKeysOf(JSON.parse(profile.profileData) as UserProfileData)
+    );
+    log("AI cleanup apply: checked marks saved", {
+      marked: mark.length,
+      unmarked: unmark.length,
+      pruned,
+    });
+  } catch (error) {
+    log(
+      "AI cleanup apply: checked marks not saved",
+      { code: error instanceof Error ? error.name : "unknown" },
+      "error"
+    );
+  }
+}
+
+/**
+ * The position ids of the checked items in the profile as the dialog lists it, with the
+ * profile version they belong to. The dialog ignores ids of another version.
+ */
+export async function handleAiCleanupChecked(
+  userId: string | undefined,
+  config: ConfigModule,
+  deps: AiCleanupHandlerDeps = {}
+): Promise<ApiResponse<{ profileVersion: number; ids: string[] }>> {
+  try {
+    const { aiCheckedIdsOf } = await import("./user-profile/ai-cleanup-checked.js");
+    const { readAiCheckedKeys } = await import("./storage/profiles/ai-checked.js");
+    const user = await cleanupUser(config, userId);
+    const profile = await (await managerOf(deps)).getActiveProfile(user);
+    if (!profile) return { success: false, error: "No profile found" };
+    const ids = aiCheckedIdsOf(
+      sortedProfile(profile.profileData),
+      await readAiCheckedKeys(profile.id)
+    );
+    return { success: true, data: { profileVersion: profile.version, ids } };
+  } catch (error) {
+    return handlerError("checked", error);
   }
 }
