@@ -175,3 +175,30 @@ it("reports a committed password clear when the key file cannot be removed", asy
   expect(result.cleared).toBe(200);
   expect(typeof result.body.revision).toBe("string");
 });
+
+it("reports a committed password clear when the cleanup and its log line both fail", async () => {
+  const { result } = await scenario(`
+    const { mkdirSync, readFileSync, rmSync, writeFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const configPath = join(process.env.HOME, ".config", "omms", "omms.jsonc");
+    const server = new WebServer({ enabled: true, host: "127.0.0.1", port: 4747 });
+    const local_ = { "x-omms-token": token };
+    const revision = async () => (await (await call(server, "/api/settings", { headers: local_ })).json()).revision;
+    await call(server, "/api/settings/web-password", { method: "POST", headers: local_,
+      body: { password: "browser-secret-value", revision: await revision() } });
+    const file = JSON.parse(readFileSync(configPath, "utf8")).webServerAuthPassword.replace("file://", "");
+    rmSync(file);
+    mkdirSync(file);
+    writeFileSync(join(file, "keep"), "x");
+    const before = await revision();
+    // The log file path now names a folder, so writing a log line throws.
+    process.env.OMMS_LOG_FILE = join(process.env.HOME, ".config");
+    const cleared = await call(server, "/api/settings/web-password", { method: "POST", headers: local_,
+      body: { clear: true, revision: before } });
+    const after = JSON.parse(readFileSync(configPath, "utf8"));
+    return { cleared: cleared.status, body: await cleared.json(), after };
+  `);
+  expect(result.after.webServerAuthPassword).toBeUndefined();
+  expect(result.cleared).toBe(200);
+  expect(typeof result.body.revision).toBe("string");
+});

@@ -45,7 +45,11 @@ export async function clearWebPassword(revision: string): Promise<{ revision: st
   } catch (error) {
     // The config no longer names the file, so the clear stands. Report it as done.
     const code = (error as { code?: unknown }).code;
-    log("Web password key file not removed", { code: String(code ?? "unknown") }, "warn");
+    try {
+      log("Web password key file not removed", { code: String(code ?? "unknown") }, "warn");
+    } catch {
+      // A log line that cannot be written must not turn the committed clear into an error.
+    }
   }
   return result;
 }
