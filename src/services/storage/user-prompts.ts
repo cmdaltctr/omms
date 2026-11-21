@@ -204,6 +204,12 @@ export class UserPromptManager {
     await db.run(`DELETE FROM user_prompts WHERE id = ?`, [promptId]);
   }
 
+  /** Deletes the prompts whose linked_memory_id is `memoryId`; returns how many went. */
+  async deletePromptsLinkedToMemory(memoryId: string): Promise<number> {
+    const db = await this.ready();
+    return db.run(`DELETE FROM user_prompts WHERE linked_memory_id = ?`, [memoryId]);
+  }
+
   async markAsCaptured(promptId: string): Promise<void> {
     const db = await this.ready();
     await db.run(`UPDATE user_prompts SET captured = 1 WHERE id = ?`, [promptId]);
