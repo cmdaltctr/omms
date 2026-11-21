@@ -2,6 +2,14 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [7.3.1](https://github.com/cmdaltctr/omms/compare/v7.3.0...v7.3.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* show the newest turns first on the Memories page ([1c4851f](https://github.com/cmdaltctr/omms/commit/1c4851f50ff872c75ca98984c97b7b7ebb6a29f1))
+* show the newest turns first on the Memories page ([6c75e9d](https://github.com/cmdaltctr/omms/commit/6c75e9ded592ffc27721af9835aab98bd1c1fca3))
+
 ## [7.3.0](https://github.com/cmdaltctr/omms/compare/v7.2.0...v7.3.0) (2026-11-20)
 
 
