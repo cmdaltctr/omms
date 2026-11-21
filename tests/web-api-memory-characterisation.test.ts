@@ -46,6 +46,7 @@ const originals = {
   getPromptsByIds: userPromptManager.getPromptsByIds,
   getCapturedPrompts: userPromptManager.getCapturedPrompts,
   deletePrompt: userPromptManager.deletePrompt,
+  deletePromptsLinkedToMemory: userPromptManager.deletePromptsLinkedToMemory,
 };
 
 function record(name: string, args: unknown[]): void {
@@ -74,6 +75,10 @@ beforeEach(() => {
   userPromptManager.deletePrompt = (async (...args: unknown[]) => {
     record("deletePrompt", args);
   }) as typeof userPromptManager.deletePrompt;
+  userPromptManager.deletePromptsLinkedToMemory = (async (...args: unknown[]) => {
+    record("deletePromptsLinkedToMemory", args);
+    return 0;
+  }) as typeof userPromptManager.deletePromptsLinkedToMemory;
 });
 
 afterEach(async () => {
@@ -86,6 +91,7 @@ afterEach(async () => {
     getPromptsByIds: originals.getPromptsByIds,
     getCapturedPrompts: originals.getCapturedPrompts,
     deletePrompt: originals.deletePrompt,
+    deletePromptsLinkedToMemory: originals.deletePromptsLinkedToMemory,
   });
   await closeTursoAndInvalidateCaches();
   for (const folder of folders.splice(0)) await cleanupTursoTestDirectory(folder);

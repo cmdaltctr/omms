@@ -89,44 +89,37 @@ export async function handleListMemories(
       timeline = [...keptMemories, ...promptsWithType];
     }
 
-    const linkedPairs = new Map<string, { memory: any; prompt: any }>();
-    const standalone: any[] = [];
-    for (const item of timeline) {
-      if (item.type === "memory" && item.linkedPromptId) {
-        if (!linkedPairs.has(item.linkedPromptId)) {
-          linkedPairs.set(item.linkedPromptId, { memory: item, prompt: null });
-        } else {
-          linkedPairs.get(item.linkedPromptId)!.memory = item;
-        }
-      } else if (item.type === "prompt" && item.linkedMemoryId) {
-        if (!linkedPairs.has(item.id)) {
-          linkedPairs.set(item.id, { memory: null, prompt: item });
-        } else {
-          linkedPairs.get(item.id)!.prompt = item;
-        }
-      } else {
-        standalone.push(item);
-      }
-    }
+    // Pair by the prompt row's linked_memory_id. Capture writes it for every
+    // host. A memory's metadata.promptId holds the host message ID for newer
+    // captures, so it matches a prompt row ID only on older rows.
+    const memoriesById = new Map<string, any>();
+    for (const item of timeline) if (item.type === "memory") memoriesById.set(item.id, item);
+    const promptsById = new Map<string, any>();
+    for (const item of timeline) if (item.type === "prompt") promptsById.set(item.id, item);
 
-    const sortedTimeline: any[] = [];
-    const pairValues = Array.from(linkedPairs.values());
-    const pairs = pairValues
-      .filter((p) => p.memory && p.prompt)
-      .sort((a, b) => b.memory.createdAt - a.memory.createdAt);
+    const paired = new Set<any>();
+    const units: Array<{ createdAt: number; items: any[] }> = [];
+    const addPair = (memory: any, prompt: any) => {
+      paired.add(memory);
+      paired.add(prompt);
+      memory.linkedPromptId = prompt.id;
+      units.push({ createdAt: memory.createdAt, items: [memory, prompt] });
+    };
+    for (const prompt of promptsById.values()) {
+      const memory = prompt.linkedMemoryId && memoriesById.get(prompt.linkedMemoryId);
+      if (memory && !paired.has(memory)) addPair(memory, prompt);
+    }
+    for (const memory of memoriesById.values()) {
+      const prompt = memory.linkedPromptId && promptsById.get(memory.linkedPromptId);
+      if (!paired.has(memory) && prompt && !paired.has(prompt)) addPair(memory, prompt);
+    }
     // A memory or prompt whose counterpart is missing (linked prompt deleted,
     // or prompt capture off) must still show up in the timeline, unlinked.
-    for (const pair of pairValues) {
-      if (pair.memory && !pair.prompt) standalone.push(pair.memory);
-      else if (pair.prompt && !pair.memory) standalone.push(pair.prompt);
+    for (const item of timeline) {
+      if (!paired.has(item)) units.push({ createdAt: item.createdAt, items: [item] });
     }
-    for (const pair of pairs) {
-      sortedTimeline.push(pair.memory);
-      sortedTimeline.push(pair.prompt);
-    }
-    standalone.sort((a, b) => b.createdAt - a.createdAt);
-    sortedTimeline.push(...standalone);
-    timeline = sortedTimeline;
+    units.sort((a, b) => b.createdAt - a.createdAt);
+    timeline = units.flatMap((unit) => unit.items);
 
     const total = timeline.length;
     const totalPages = Math.ceil(total / pageSize);

@@ -111,16 +111,17 @@ export async function handleDeleteMemory(
     for (const shard of shards) {
       const memory = await getMemoryRow(shard, id);
       if (memory) {
+        let deletedPrompt = false;
         if (cascade) {
-          const metadata = safeJSONParse(memory.metadata);
-          const linkedPromptId = metadata?.promptId;
+          // Older memories store the prompt row ID in metadata.promptId. Newer
+          // ones store the host message ID, so also follow the prompt's link.
+          const linkedPromptId = safeJSONParse(memory.metadata)?.promptId;
           if (linkedPromptId) await userPromptManager.deletePrompt(linkedPromptId);
+          const linkedCount = await userPromptManager.deletePromptsLinkedToMemory(id);
+          deletedPrompt = !!linkedPromptId || linkedCount > 0;
         }
         if (await deleteMemoryRow(shard, id)) await decrementShardCount(shard.id);
-        return {
-          success: true,
-          data: { deletedPrompt: cascade && !!safeJSONParse(memory.metadata)?.promptId },
-        };
+        return { success: true, data: { deletedPrompt } };
       }
     }
     return { success: false, error: "Memory not found" };
