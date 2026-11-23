@@ -99,7 +99,16 @@ async function acquireLock(lockPath: string): Promise<void> {
       writeFileSync(lockPath, JSON.stringify({ pid: process.pid, at: Date.now() }), { flag: "wx" });
       return;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      const code = (error as NodeJS.ErrnoException).code;
+      // Windows keeps a deleted lock "delete pending" while another process
+      // still has it open. Creating it then fails with one of these: wait for it.
+      const busy = code === "EPERM" || code === "EACCES" || code === "EBUSY";
+      if (code !== "EEXIST" && !busy) throw error;
+      if (busy) {
+        if (Date.now() > deadline) throw lockTimeout();
+        await sleep(LOCK_POLL_MS);
+        continue;
+      }
     }
     if (lockIsStale(lockPath)) {
       try {
@@ -109,14 +118,16 @@ async function acquireLock(lockPath: string): Promise<void> {
       }
       continue;
     }
-    if (Date.now() > deadline) {
-      throw new SpaceError(
-        "lock-timeout",
-        "Another OMMS process is changing the space list. Try again in a moment."
-      );
-    }
+    if (Date.now() > deadline) throw lockTimeout();
     await sleep(LOCK_POLL_MS);
   }
+}
+
+function lockTimeout(): SpaceError {
+  return new SpaceError(
+    "lock-timeout",
+    "Another OMMS process is changing the space list. Try again in a moment."
+  );
 }
 
 /**

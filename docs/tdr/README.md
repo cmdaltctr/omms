@@ -112,6 +112,7 @@ TDRs capture **implementation-level technical decisions** such as platform-speci
 | [091](./091-saved-profile-batches-are-recorded-in-the-profile-database.md)     | Saved profile batches are recorded in the profile database              | Proposed              | 2026-11-20 |
 | [092](./092-openrouter-ignores-deepseek-thinking.md)                           | OpenRouter ignores DeepSeek's thinking field                            | Proposed              | 2026-11-20 |
 | [093](./093-memories-page-paired-on-the-wrong-prompt-id.md)                    | The Memories page paired on the wrong prompt ID                         | Accepted              | 2026-11-21 |
+| [094](./094-file-locks-misread-a-lock-in-transit.md)                           | File locks misread a lock in transit                                    | Accepted              | 2026-11-23 |
 
 ## Status values
 

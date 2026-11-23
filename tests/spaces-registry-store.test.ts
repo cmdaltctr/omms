@@ -126,8 +126,14 @@ describe("registry store", () => {
     const children = names.map((name) =>
       Bun.spawn([process.execPath, "-e", script, dir, name], { stdout: "pipe", stderr: "pipe" })
     );
-    const exits = await Promise.all(children.map((child) => child.exited));
-    expect(exits).toEqual(names.map(() => 0));
+    // Show a crashed child's error: a bare exit code hid the Windows EPERM (issue #307).
+    const outcomes = await Promise.all(
+      children.map(async (child) => {
+        const [err, code] = await Promise.all([new Response(child.stderr).text(), child.exited]);
+        return code === 0 ? "ok" : `exit ${code}: ${err.trim().slice(0, 400)}`;
+      })
+    );
+    expect(outcomes).toEqual(names.map(() => "ok"));
     const read = readRegistryFile(files.registryPath);
     expect(read.problem).toBeUndefined();
     expect(
