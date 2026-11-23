@@ -209,6 +209,8 @@ describe("ensureWebApp start lock", () => {
   it("takes over a lock that cannot be read", async () => {
     const w = world({ upAfterPolls: 1 });
     w.files.set(LOCK, "not json");
+    // A corrupt lock left by a crash is old; a fresh one may still be being written.
+    if (w.deps.lockFs) w.deps.lockFs.ageMs = (path) => (w.files.has(path) ? 60_000 : null);
     const result = await ensureWebApp({ settings: SETTINGS, budgetMs: 5_000, deps: w.deps });
     expect(result).toBe("started");
     expect(w.spawns).toHaveLength(1);
@@ -350,6 +352,23 @@ describe("takeStartLock", () => {
     expect(takeStartLock(callerDeps(disk.fs, 100, clock))).toBe(false);
     expect(disk.names.has(tombFor(stale))).toBe(true);
     expect(disk.names.get(LOCK)?.text).toBe(stale);
+  });
+
+  it("leaves a fresh lock that another caller has created but not yet written", () => {
+    // writeFileSync with flag "wx" creates the file before it writes the text.
+    const clock = { t: 100_000 };
+    const disk = linkedFs(clock);
+    disk.names.set(LOCK, { text: "", ctime: clock.t - 5 });
+    expect(takeStartLock(callerDeps(disk.fs, 100, clock))).toBe(false);
+    expect(disk.names.get(LOCK)?.text).toBe("");
+  });
+
+  it("replaces an unreadable lock once it is older than the stale limit", () => {
+    const clock = { t: 100_000 };
+    const disk = linkedFs(clock);
+    disk.names.set(LOCK, { text: "", ctime: clock.t - 20_001 });
+    expect(takeStartLock(callerDeps(disk.fs, 100, clock))).toBe(true);
+    expect(JSON.parse(disk.names.get(LOCK)?.text ?? "null")).toMatchObject({ pid: 100 });
   });
 
   it("clears a tombstone left by a crashed takeover, then the next caller takes the lock", () => {

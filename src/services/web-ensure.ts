@@ -321,18 +321,22 @@ export type LockDeps = Pick<EnsureDeps, "lockPath" | "lockFs" | "pid" | "now" | 
 
 function lockIsStale(text: string | null, deps: LockDeps): boolean {
   if (text === null) return true;
+  const staleMs = deps.staleMs ?? START_LOCK_STALE_MS;
+  // createExclusive makes the file before it writes the text, so an unreadable
+  // lock can be one that another caller is still writing. It is stale only when old.
+  const oldUnreadable = () => (deps.lockFs.ageMs(deps.lockPath) ?? Infinity) > staleMs;
   try {
     const { pid, at, npmPid } = JSON.parse(text) as {
       pid?: unknown;
       at?: unknown;
       npmPid?: unknown;
     };
-    if (typeof pid !== "number" || typeof at !== "number") return true;
+    if (typeof pid !== "number" || typeof at !== "number") return oldUnreadable();
     // The install lock also names npm, which can outlive a holder that exited mid-install.
     const live = deps.pidAlive(pid) || (typeof npmPid === "number" && deps.pidAlive(npmPid));
-    return !live || deps.now() - at > (deps.staleMs ?? START_LOCK_STALE_MS);
+    return !live || deps.now() - at > staleMs;
   } catch {
-    return true;
+    return oldUnreadable();
   }
 }
 
