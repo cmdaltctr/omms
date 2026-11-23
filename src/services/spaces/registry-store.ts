@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import {
   existsSync,
+  linkSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -75,16 +77,56 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
-/** True when the lock file exists but its owner is gone, so the next writer may remove it. */
-function lockIsStale(lockPath: string): boolean {
+/** True when the lock text names an owner that is gone, so the next writer may replace it. */
+function lockIsStale(lockPath: string, text: string): boolean {
   try {
-    const state = JSON.parse(readFileSync(lockPath, "utf-8")) as { pid?: unknown };
+    const state = JSON.parse(text) as { pid?: unknown };
     return typeof state.pid === "number" && state.pid > 0 && !isProcessAlive(state.pid);
   } catch {
     try {
       return Date.now() - statSync(lockPath).mtimeMs > UNREADABLE_LOCK_GRACE_MS;
     } catch {
       return false;
+    }
+  }
+}
+
+/**
+ * Removes the lock only while it still holds the stale text this writer read.
+ * Check-then-unlink let a writer delete a fresh lock that another writer had
+ * just made. The writer that hard-links the lock to a tombstone named after the
+ * stale text is the only one that may remove it, as with the start lock (TDR-094).
+ */
+function reclaimStaleLock(lockPath: string): void {
+  let seen: string;
+  try {
+    seen = readFileSync(lockPath, "utf-8");
+  } catch {
+    return; // Gone already: try to take it again.
+  }
+  if (!lockIsStale(lockPath, seen)) return;
+  const tomb = `${lockPath}.${createHash("sha256").update(seen).digest("hex").slice(0, 16)}.stale`;
+  try {
+    linkSync(lockPath, tomb);
+  } catch {
+    // Another writer holds the tombstone, or a crashed one left it behind.
+    try {
+      if (Date.now() - statSync(tomb).mtimeMs > UNREADABLE_LOCK_GRACE_MS) unlinkSync(tomb);
+    } catch {
+      // No tombstone, or it went meanwhile.
+    }
+    return;
+  }
+  try {
+    // The lock was replaced after this writer read it: that lock is live.
+    if (readFileSync(tomb, "utf-8") === seen) unlinkSync(lockPath);
+  } catch {
+    // Another writer removed it first.
+  } finally {
+    try {
+      unlinkSync(tomb);
+    } catch {
+      // Already gone.
     }
   }
 }
@@ -110,14 +152,8 @@ async function acquireLock(lockPath: string): Promise<void> {
         continue;
       }
     }
-    if (lockIsStale(lockPath)) {
-      try {
-        unlinkSync(lockPath);
-      } catch {
-        // Another writer removed it first. Try to take it again.
-      }
-      continue;
-    }
+    reclaimStaleLock(lockPath);
+    if (!existsSync(lockPath)) continue;
     if (Date.now() > deadline) throw lockTimeout();
     await sleep(LOCK_POLL_MS);
   }

@@ -9,6 +9,7 @@ mock.module("node:fs", () => ({
   ...fs,
   default: fs,
   writeFileSync: (...args: Parameters<typeof fs.writeFileSync>) => fs.writeFileSync(...args),
+  readFileSync: (...args: Parameters<typeof fs.readFileSync>) => fs.readFileSync(...args),
 }));
 const { createStoredSpace, spaceFiles } = await import("../src/services/spaces/registry-store.js");
 const { listSpaces, readRegistryFile } = await import("../src/services/spaces/registry.js");
@@ -43,6 +44,31 @@ it.each(["EPERM", "EACCES", "EBUSY"])(
     expect(names).toContain("Lab");
   }
 );
+
+it("leaves a fresh lock that replaced the stale one it read", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "registry-lock-"));
+  dirs.push(dir);
+  const files = spaceFiles(dir);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(files.lockPath, JSON.stringify({ pid: 999_999, at: Date.now() - 60_000 }));
+  const fresh = JSON.stringify({ pid: process.pid, at: Date.now() });
+  const real = fs.readFileSync;
+  let raced = false;
+  // Another writer reclaims the stale lock and makes its own just after this
+  // writer reads the stale one.
+  spyOn(fs, "readFileSync").mockImplementation(((...args: Parameters<typeof real>) => {
+    const text = real(...args);
+    if (args[0] === files.lockPath && !raced) {
+      raced = true;
+      fs.unlinkSync(files.lockPath);
+      fs.writeFileSync(files.lockPath, fresh);
+    }
+    return text;
+  }) as typeof real);
+  await expect(createStoredSpace(files, "Lab")).rejects.toThrow("changing the space list");
+  expect(raced).toBe(true);
+  expect(real(files.lockPath, "utf-8")).toBe(fresh);
+}, 15_000);
 
 it("still fails at once on an error that is not a busy file", async () => {
   const dir = mkdtempSync(join(tmpdir(), "registry-lock-"));

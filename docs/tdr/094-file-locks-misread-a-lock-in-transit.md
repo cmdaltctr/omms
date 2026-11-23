@@ -23,6 +23,7 @@ Two file locks failed in CI in the same week. Both locks use a create-exclusive 
 1. `lockIsStale` in `web-ensure.ts` calls an unreadable lock stale only when the file is older than the lock's age limit: 20 seconds for the start lock, 6 minutes for the install lock.
 2. `acquireLock` treats `EPERM`, `EACCES` and `EBUSY` as a busy lock. It waits and retries until its 5 second deadline, then throws `lock-timeout`. Other errors still throw at once.
 3. The multi-process registry test prints a crashed child's error, so a future failure names its cause.
+4. `acquireLock` no longer checks a lock as stale and then deletes it. Between those two steps, another writer could reclaim the stale lock and make a fresh one, which this writer then deleted (found by CodeRabbit on PR #309). The registry lock now takes over a stale lock the way the start lock does: the writer that hard-links it to a tombstone named after the stale text removes it, and only while the tombstone still holds that text.
 
 ## Consequences
 
