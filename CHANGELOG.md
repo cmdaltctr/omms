@@ -2,6 +2,16 @@
 
 Release notes are written by [release-please](https://github.com/googleapis/release-please) from conventional commits. Each release is also on the [GitHub Releases](https://github.com/cmdaltctr/omms/releases) page.
 
+## [7.3.2](https://github.com/cmdaltctr/omms/compare/v7.3.1...v7.3.2) (2026-11-23)
+
+
+### Bug Fixes
+
+* close two file-lock races and record TDR-093/094 ([b941ab3](https://github.com/cmdaltctr/omms/commit/b941ab31b24e6b837e50f79d680e8d42baf4ded4))
+* never delete a registry lock that replaced the stale one ([f801d4f](https://github.com/cmdaltctr/omms/commit/f801d4fb6f8785403ef2074e669c9687d5359ac2))
+* never take over a start lock that another caller is still writing ([d27f84a](https://github.com/cmdaltctr/omms/commit/d27f84a410a1403cd5d8988cc4572276dace11b7))
+* retry the spaces registry lock on Windows busy errors ([26d7355](https://github.com/cmdaltctr/omms/commit/26d73554e5e50d425e00575da598a4bd80f88aea)), closes [#307](https://github.com/cmdaltctr/omms/issues/307)
+
 ## [7.3.1](https://github.com/cmdaltctr/omms/compare/v7.3.0...v7.3.1) (2026-11-21)
 
 
